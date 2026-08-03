@@ -2,20 +2,16 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "Alchemy Live Desk | Market Intelligence",
-  description: "Persistent market questions, earnings intelligence, chart requests and research history for Alchemy Markets.",
+  title: "Alchemy Live Desk | Market Intelligence Workspace",
+  description: "An interactive market research workspace for stories, earnings intelligence, signals, charts and persistent research history.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#10142b",
+  themeColor: "#11152f",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
+  return <html lang="en"><body>{children}</body></html>;
 }
