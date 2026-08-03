@@ -439,7 +439,6 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
             <p>Connect evidence, test hypotheses and track what can change the market.</p>
           </div>
           <div className="workspace-actions">
-            <a className="pulse-switch" href="https://alchemy-pulse-terminal.vercel.app/" target="_blank" rel="noreferrer"><span>◉</span> Pulse Terminal ↗</a>
             <button className="new-research" onClick={() => setShowActions(true)}><span>✣</span> New research <b>＋</b></button>
           </div>
         </header>
