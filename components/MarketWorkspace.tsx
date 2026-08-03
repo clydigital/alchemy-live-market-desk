@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { AlchemyArticle } from "@/lib/alchemy";
 import type { ChartRequest, EarningsCall, Story, Update } from "@/lib/data";
 
 type Props = {
@@ -8,9 +9,11 @@ type Props = {
   calls: EarningsCall[];
   updates: Update[];
   charts: ChartRequest[];
+  articles: AlchemyArticle[];
 };
 
-type Tab = "Overview" | "Stories" | "Signals" | "Earnings" | "Charts" | "Ledger";
+type Tab = "Overview" | "Stories" | "Articles" | "Signals" | "Earnings" | "Charts" | "Ledger";
+type ArticleFilter = "All" | "Revisit now" | "Material evolution" | "Incremental" | "Little changed";
 type Range = "7D" | "30D" | "90D" | "1Y";
 
 type DisplayStory = {
@@ -26,6 +29,45 @@ type DisplayStory = {
   status: string;
   assets: string[];
 };
+
+type ArticleMemory = AlchemyArticle & {
+  story: DisplayStory | null;
+  alignment: number;
+  changeScore: number;
+  changeLabel: Exclude<ArticleFilter, "All">;
+  changeKey: "stable" | "incremental" | "material" | "revisit";
+  latestChange: string;
+  changeDetail: string;
+  materialUpdates: Update[];
+};
+
+const stopWords = new Set(["the", "and", "for", "with", "that", "this", "from", "into", "after", "before", "over", "under", "what", "will", "can", "could", "should", "market", "markets", "alchemy", "today", "week", "latest", "strong", "higher", "lower"]);
+
+function tokens(value: string) {
+  return [...new Set(value.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2 && !stopWords.has(word)))];
+}
+
+function articleDate(value: string | null) {
+  if (!value) return "Date unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+
+function articleLevel(score: number): Pick<ArticleMemory, "changeLabel" | "changeKey"> {
+  if (score >= 70) return { changeLabel: "Revisit now", changeKey: "revisit" };
+  if (score >= 45) return { changeLabel: "Material evolution", changeKey: "material" };
+  if (score >= 20) return { changeLabel: "Incremental", changeKey: "incremental" };
+  return { changeLabel: "Little changed", changeKey: "stable" };
+}
+
+function updateWeight(update: Update) {
+  const text = `${update.update_type} ${update.headline} ${update.detail || ""}`.toLowerCase();
+  if (/invalid|reversal|contradiction|break|shock|intervention/.test(text)) return 30;
+  if (/earnings|guidance|policy|confirmed|confirmation|evidence/.test(text)) return 21;
+  if (/catalyst|data|price|technical|monitor/.test(text)) return 14;
+  return 10;
+}
 
 const fallbackStories: DisplayStory[] = [
   {
@@ -119,6 +161,7 @@ function Icon({ name }: { name: string }) {
   const icons: Record<string, string> = {
     Overview: "▦",
     Stories: "⌘",
+    Articles: "▤",
     Signals: "⌁",
     Earnings: "◫",
     Charts: "⌁",
@@ -127,12 +170,14 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
   const [showActions, setShowActions] = useState(false);
   const [signalWindow, setSignalWindow] = useState<"This week" | "This month">("This week");
+  const [articleFilter, setArticleFilter] = useState<ArticleFilter>("All");
+  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
 
   const storyViews = useMemo<DisplayStory[]>(() => {
     if (!stories.length) return fallbackStories;
@@ -150,6 +195,46 @@ export default function MarketWorkspace({ stories, calls, updates, charts }: Pro
       assets: story.assets || [],
     }));
   }, [stories]);
+
+  const articleMemory = useMemo<ArticleMemory[]>(() => {
+    return articles.map((article) => {
+      const articleWords = tokens(`${article.title} ${article.summary} ${article.category}`);
+      const articleText = `${article.title} ${article.summary}`.toLowerCase();
+      const ranked = storyViews.map((story) => {
+        const storyWords = tokens(`${story.title} ${story.thesis} ${story.marketQuestion} ${story.assets.join(" ")}`);
+        const shared = articleWords.filter((word) => storyWords.includes(word));
+        const assetHit = story.assets.some((asset) => articleText.includes(asset.toLowerCase()));
+        const score = Math.min(100, shared.length * 15 + (assetHit ? 25 : 0));
+        return { story, score };
+      }).sort((a, b) => b.score - a.score);
+      const match = ranked[0]?.score >= 15 ? ranked[0] : null;
+      const published = article.publishedAt ? new Date(article.publishedAt).getTime() : 0;
+      const materialUpdates = match ? updates
+        .filter((update) => update.story_id === match.story.id && (!published || new Date(update.created_at).getTime() > published))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) : [];
+      const updateScore = materialUpdates.reduce((sum, update) => sum + updateWeight(update), 0);
+      const latestAge = materialUpdates[0] ? (Date.now() - new Date(materialUpdates[0].created_at).getTime()) / 86400000 : 999;
+      const recencyBoost = materialUpdates.length ? (latestAge <= 2 ? 16 : latestAge <= 7 ? 10 : 4) : 0;
+      const confidenceBoost = materialUpdates.length && match && match.story.confidence >= 65 ? 6 : 0;
+      const changeScore = Math.min(100, materialUpdates.length ? updateScore + recencyBoost + confidenceBoost : match ? 8 : 0);
+      const level = articleLevel(changeScore);
+      const latest = materialUpdates[0];
+      return {
+        ...article,
+        story: match?.story || null,
+        alignment: match?.score || 0,
+        changeScore,
+        ...level,
+        latestChange: latest?.headline || "No material change recorded since publication.",
+        changeDetail: latest?.detail || (match ? `The published view still maps to ${match.story.title}, but the research ledger has not recorded enough new evidence to justify a full recovery yet.` : "No active desk story currently has a strong enough overlap with this article."),
+        materialUpdates,
+      };
+    }).sort((a, b) => b.changeScore - a.changeScore || new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+  }, [articles, storyViews, updates]);
+
+  const filteredArticles = articleMemory.filter((article) => articleFilter === "All" || article.changeLabel === articleFilter);
+  const selectedArticle = articleMemory.find((article) => article.id === selectedArticleId) || filteredArticles[0] || articleMemory[0];
+  const revisitArticles = articleMemory.filter((article) => article.changeKey === "revisit" || article.changeKey === "material");
 
   const chartViews = charts.length
     ? charts.slice(0, 6).map((chart) => ({
@@ -189,7 +274,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts }: Pro
         </header>
 
         <nav className="workspace-tabs" aria-label="Workspace sections">
-          {(["Overview", "Stories", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
+          {(["Overview", "Stories", "Articles", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
             <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
               <Icon name={tab} /> {tab}
             </button>
@@ -270,6 +355,12 @@ export default function MarketWorkspace({ stories, calls, updates, charts }: Pro
               </svg>
               <div className="trend-axis"><span>Start</span><span>25%</span><span>50%</span><span>75%</span><span>Now</span></div>
             </article>
+
+            <article className="panel coverage-preview">
+              <div className="panel-title-row"><PanelTitle icon="▤" title="Alchemy article memory" /><button className="ghost-button" onClick={() => setActiveTab("Articles")}>Open coverage map</button></div>
+              <div className="coverage-summary"><div><b>{articleMemory.length}</b><span>recent pieces scanned</span></div><div><b>{revisitArticles.length}</b><span>materially evolved</span></div><p>Prior coverage is not a reason to ignore a story. The colour shows how much the evidence has changed since publication.</p></div>
+              <div className="coverage-preview-list">{articleMemory.slice(0, 3).map((article) => <button key={article.id} className={`change-${article.changeKey}`} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span><small>{article.author} · {articleDate(article.publishedAt)}</small><b>{article.title}</b><em>{article.story ? `Aligns with ${article.story.title}` : "No strong current match"}</em></span><strong>{article.changeScore}<small>change</small></strong></button>)}</div>
+            </article>
           </div>
         )}
 
@@ -297,7 +388,19 @@ export default function MarketWorkspace({ stories, calls, updates, charts }: Pro
                 <Evidence title="Next deciding test" text={activeStory.next} tone="next" />
               </div>
               <footer>{activeStory.assets.map((asset) => <span key={asset}>{asset}</span>)}</footer>
+              <div className="related-coverage"><div><small>PRIOR ALCHEMY COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent Alchemy piece has a strong match with this story.</p>}</div>
             </article>
+          </div>
+        )}
+
+        {activeTab === "Articles" && (
+          <div className="articles-page tab-page">
+            <header className="article-memory-header"><div><span>ALCHEMY ARTICLE MEMORY</span><h2>What have we already said, and what changed?</h2><p>Every piece keeps its published view. Live stories and material updates decide whether it is stable, evolving or ready to revisit.</p></div><div className="change-legend"><span className="change-stable">Little changed</span><span className="change-incremental">Incremental</span><span className="change-material">Material evolution</span><span className="change-revisit">Revisit now</span></div></header>
+            <div className="article-filters">{(["All", "Revisit now", "Material evolution", "Incremental", "Little changed"] as ArticleFilter[]).map((filter) => <button key={filter} className={articleFilter === filter ? "active" : ""} onClick={() => setArticleFilter(filter)}>{filter}<b>{filter === "All" ? articleMemory.length : articleMemory.filter((article) => article.changeLabel === filter).length}</b></button>)}</div>
+            <div className="article-memory-layout">
+              <section className="article-feed">{filteredArticles.map((article) => <article key={article.id} className={`article-card change-${article.changeKey} ${selectedArticle?.id === article.id ? "selected" : ""}`} tabIndex={0} role="button" onClick={() => setSelectedArticleId(article.id)} onKeyDown={(event) => { if (event.key === "Enter") setSelectedArticleId(article.id); }}><div className="article-image" style={article.image ? { backgroundImage: `linear-gradient(180deg, rgba(15,17,43,.05), rgba(15,17,43,.88)), url(${article.image})` } : undefined}><span>{article.category}</span><strong>{article.changeScore}<small>change</small></strong></div><div className="article-copy"><small>{article.author} · {articleDate(article.publishedAt)}</small><h3>{article.title}</h3><p>{article.summary}</p><div><span>{article.story ? `↳ ${article.story.title}` : "No current match"}</span><a href={article.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>Open piece ↗</a></div></div></article>)}</section>
+              {selectedArticle && <aside className={`panel article-detail-panel change-${selectedArticle.changeKey}`}><div className="article-detail-image" style={selectedArticle.image ? { backgroundImage: `linear-gradient(180deg, rgba(14,16,42,.1), #15183a), url(${selectedArticle.image})` } : undefined}><span>{selectedArticle.category}</span><b>{selectedArticle.changeLabel}</b></div><small>{selectedArticle.author} · {articleDate(selectedArticle.publishedAt)}</small><h2>{selectedArticle.title}</h2><div className="change-meter"><span style={{ width: `${selectedArticle.changeScore}%` }} /><b>{selectedArticle.changeScore}/100 change intensity</b></div><section><small>PUBLISHED VIEW</small><p>{selectedArticle.summary}</p></section><section><small>CURRENT STORY ALIGNMENT</small><p>{selectedArticle.story ? `${selectedArticle.alignment}% match with “${selectedArticle.story.title}”. ${selectedArticle.story.thesis}` : "No active story currently clears the alignment threshold."}</p></section><section><small>WHAT CHANGED</small><h3>{selectedArticle.latestChange}</h3><p>{selectedArticle.changeDetail}</p></section><div className="article-detail-actions"><a href={selectedArticle.url} target="_blank" rel="noreferrer">Read original article ↗</a>{selectedArticle.story && <button onClick={() => { const index = storyViews.findIndex((story) => story.id === selectedArticle.story?.id); if (index >= 0) setSelectedIndex(index); setActiveTab("Stories"); }}>Open aligned story →</button>}</div></aside>}
+            </div>
           </div>
         )}
 
@@ -370,8 +473,9 @@ export default function MarketWorkspace({ stories, calls, updates, charts }: Pro
           <div className="action-modal" onClick={(event) => event.stopPropagation()}>
             <header><div><span>NEW RESEARCH</span><h2>Where should the desk go next?</h2></div><button onClick={() => setShowActions(false)}>×</button></header>
             <button onClick={() => openAction("Stories")}><i>01</i><span><b>Open Story Lab</b><small>Compare support, contradiction and the next test.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Charts")}><i>02</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Earnings")}><i>03</i><span><b>Review earnings intelligence</b><small>Inspect guidance, capex, demand and wording shifts.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Articles")}><i>02</i><span><b>Review prior Alchemy coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Charts")}><i>03</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Earnings")}><i>04</i><span><b>Review earnings intelligence</b><small>Inspect guidance, capex, demand and wording shifts.</small></span><em>→</em></button>
           </div>
         </div>
       )}

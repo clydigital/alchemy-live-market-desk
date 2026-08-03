@@ -1,0 +1,188 @@
+export type AlchemyArticle = {
+  id: string;
+  title: string;
+  url: string;
+  category: string;
+  publishedAt: string | null;
+  author: string;
+  image: string | null;
+  summary: string;
+};
+
+const ROOT = "https://alchemymarkets.com";
+const CATEGORY_PAGES = [
+  `${ROOT}/education/market-insights/`,
+  `${ROOT}/education/market-insights/chart-of-the-day/`,
+  `${ROOT}/education/market-insights/opening-bell/`,
+  `${ROOT}/education/market-insights/weekly-outlook/`,
+  `${ROOT}/education/market-insights/quarterly-forecast/`,
+];
+
+const fallbackArticles: AlchemyArticle[] = [
+  {
+    id: "1986-usdjpy-july-2026",
+    title: "Will 1986’s Highs Mark the End of a Strong USDJPY?",
+    url: `${ROOT}/education/market-insights/chart-of-the-day/1986-usdjpy-july-2026/`,
+    category: "Chart of the Day",
+    publishedAt: "2026-07-27T00:00:00.000Z",
+    author: "Lee Yang",
+    image: null,
+    summary: "USDJPY was stretched near four-decade highs, but intervention risk, bearish divergence and the rate gap made follow-through the deciding test.",
+  },
+  {
+    id: "the-market-that-isnt-moving",
+    title: "The Market That Isn’t Moving",
+    url: `${ROOT}/education/market-insights/weekly-outlook/the-market-that-isnt-moving/`,
+    category: "Weekly Outlook",
+    publishedAt: "2026-07-17T00:00:00.000Z",
+    author: "Zorrays Junaid",
+    image: null,
+    summary: "Low index volatility concealed violent single-stock moves as falling correlation turned the market into a market of stocks.",
+  },
+  {
+    id: "ai-markets-bounce-july-2026",
+    title: "AI Markets Bounced Despite War Risk. Can It Hold?",
+    url: `${ROOT}/education/market-insights/opening-bell/ai-markets-bounce-july-2026/`,
+    category: "Opening Bell",
+    publishedAt: "2026-07-09T00:00:00.000Z",
+    author: "Lee Yang",
+    image: null,
+    summary: "AI shares recovered despite war and yield pressure, making relative strength against front-end yields the next confirmation test.",
+  },
+  {
+    id: "spx-coils-above-a-rising-anchored-vwap",
+    title: "SPX Coils Above a Rising Anchored VWAP",
+    url: `${ROOT}/education/market-insights/chart-of-the-day/spx-coils-above-a-rising-anchored-vwap/`,
+    category: "Chart of the Day",
+    publishedAt: "2026-07-09T00:00:00.000Z",
+    author: "Zorrays Junaid",
+    image: null,
+    summary: "The S&P 500 was consolidating above a rising anchored VWAP, with the range structure deciding whether the prior impulse remained intact.",
+  },
+  {
+    id: "wti-crude-the-premium-leaves-as-fast-as-it-arrived",
+    title: "WTI Crude — The Premium Leaves as Fast as It Arrived",
+    url: `${ROOT}/education/market-insights/chart-of-the-day/wti-crude-the-premium-leaves-as-fast-as-it-arrived/`,
+    category: "Chart of the Day",
+    publishedAt: "2026-06-16T00:00:00.000Z",
+    author: "Zorrays Junaid",
+    image: null,
+    summary: "WTI was testing the lower boundary of a corrective structure as geopolitical premium faded faster than the physical picture changed.",
+  },
+  {
+    id: "can-wall-street-outrun-dollar-june-2026",
+    title: "Can Wall Street Outrun a Stronger Dollar This Week?",
+    url: `${ROOT}/education/market-insights/opening-bell/can-wall-street-outrun-dollar-june-2026/`,
+    category: "Opening Bell",
+    publishedAt: "2026-06-22T00:00:00.000Z",
+    author: "Lee Yang",
+    image: null,
+    summary: "A stronger dollar and higher short-term yields challenged equities, while semiconductors and the unresolved Hormuz story kept the cross-asset picture mixed.",
+  },
+];
+
+function clean(value: string | undefined | null) {
+  return (value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&ndash;|&#8211;/gi, "–")
+    .replace(/&mdash;|&#8212;/gi, "—")
+    .replace(/&rsquo;|&#8217;/gi, "’")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function meta(html: string, key: string) {
+  const escaped = escapeRegExp(key);
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["'][^>]*>`, "i"),
+    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`, "i"),
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return clean(match[1]);
+  }
+  return "";
+}
+
+function categoryFromUrl(url: string) {
+  if (url.includes("/chart-of-the-day/")) return "Chart of the Day";
+  if (url.includes("/opening-bell/")) return "Opening Bell";
+  if (url.includes("/weekly-outlook/")) return "Weekly Outlook";
+  if (url.includes("/quarterly-forecast/")) return "Quarterly Forecast";
+  return "Market Insight";
+}
+
+function slugFromUrl(url: string) {
+  return url.split("?")[0].replace(/\/$/, "").split("/").pop() || url;
+}
+
+function extractArticleUrls(html: string) {
+  const matches = html.matchAll(/href=["']([^"']+)["']/gi);
+  const urls: string[] = [];
+  for (const match of matches) {
+    try {
+      const absolute = new URL(match[1], ROOT).toString().split("#")[0];
+      const parsed = new URL(absolute);
+      if (parsed.hostname !== "alchemymarkets.com") continue;
+      if (!/\/education\/market-insights\/(chart-of-the-day|opening-bell|weekly-outlook|quarterly-forecast)\/[^/?#]+\/?$/i.test(parsed.pathname)) continue;
+      urls.push(absolute.endsWith("/") ? absolute : `${absolute}/`);
+    } catch {
+      continue;
+    }
+  }
+  return [...new Set(urls)];
+}
+
+async function fetchText(url: string) {
+  const response = await fetch(url, {
+    headers: { "user-agent": "Alchemy Live Desk article memory" },
+    next: { revalidate: 3600 },
+  });
+  if (!response.ok) throw new Error(`Alchemy fetch failed: ${response.status}`);
+  return response.text();
+}
+
+function parseArticle(url: string, html: string): AlchemyArticle {
+  const title = meta(html, "og:title") || clean(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]) || slugFromUrl(url);
+  const summary = meta(html, "description") || meta(html, "og:description") || clean(html.match(/<h1[^>]*>[\s\S]*?<\/h1>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i)?.[1]);
+  const image = meta(html, "og:image") || null;
+  const publishedAt = meta(html, "article:published_time") || clean(html.match(/"datePublished"\s*:\s*"([^"]+)"/i)?.[1]) || null;
+  const author = meta(html, "author") || clean(html.match(/"author"\s*:\s*\{[\s\S]{0,280}?"name"\s*:\s*"([^"]+)"/i)?.[1]) || clean(html.match(/Written by:\s*<[^>]+>\s*([^<]+)/i)?.[1]) || "Alchemy Markets";
+  return {
+    id: slugFromUrl(url),
+    title: title.replace(/\s*[|–-]\s*Alchemy Markets\s*$/i, ""),
+    url,
+    category: categoryFromUrl(url),
+    publishedAt,
+    author: author.replace(/\s+Market Analyst$/i, ""),
+    image,
+    summary: summary || "Open the original Alchemy Markets article to review its published thesis and chart context.",
+  };
+}
+
+export async function getAlchemyArticles(limit = 18): Promise<AlchemyArticle[]> {
+  try {
+    const pages = await Promise.allSettled(CATEGORY_PAGES.map(fetchText));
+    const urls = pages.flatMap((page) => page.status === "fulfilled" ? extractArticleUrls(page.value) : []);
+    const unique = [...new Set(urls)].slice(0, 30);
+    if (!unique.length) return fallbackArticles;
+
+    const results = await Promise.allSettled(unique.map(async (url) => parseArticle(url, await fetchText(url))));
+    const articles = results
+      .flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+      .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+      .slice(0, limit);
+
+    return articles.length >= 4 ? articles : [...articles, ...fallbackArticles.filter((fallback) => !articles.some((article) => article.url === fallback.url))].slice(0, limit);
+  } catch {
+    return fallbackArticles;
+  }
+}
