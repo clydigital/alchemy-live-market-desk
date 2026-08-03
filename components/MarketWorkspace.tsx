@@ -662,7 +662,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         {activeTab === "Ledger" && (
           <div className="ledger-page tab-page">
             <article className="panel ledger-panel"><div className="section-heading"><span>RESEARCH LEDGER</span><h2>Only material changes enter the record</h2></div><div className="timeline">{updates.length ? updates.slice(0, 12).map((update, index) => <div key={update.id}><i>{String(index + 1).padStart(2, "0")}</i><span><small>{update.update_type}</small><b>{update.headline}</b><p>{update.detail || "Material update recorded."}</p></span></div>) : <div className="empty-state"><b>The ledger is quiet.</b><p>Repeated background information is excluded until the evidence changes.</p></div>}</div></article>
-            <aside className="panel monitor-panel"><PanelTitle icon="◉" title="Persistent monitors" /><div><span>01</span><b>Can earnings keep the market alive?</b><small>Probability history, breadth, guidance and yields.</small></div><div><span>02</span><b>AI revenue versus capex</b><small>Backlog, usage, depreciation and cash conversion.</small></div><div><span>03</span><b>Oil physical disruption</b><small>Cracks, freight, tanker traffic and inventories.</small></div></aside>
+            <aside className="panel monitor-panel"><PanelTitle icon="◉" title="Persistent monitors" /><div className="monitor-list">{storyViews.map((story, index) => <button key={story.id} onClick={() => { setSelectedIndex(index); setActiveTab("Stories"); }}><span>{String(index + 1).padStart(2, "0")}</span><b>{story.title}</b><small>{story.marketQuestion}</small><em>{story.confidence}%</em></button>)}</div></aside>
           </div>
         )}
 
