@@ -351,3 +351,13 @@ button { font: inherit; }
   .related-coverage > div:first-child { display: block; }
   .related-coverage > div:first-child b { display: block; margin-top: 7px; }
 }
+
+/* Working breadth controls and source status */
+.breadth-hero-control { display: grid; gap: 12px; justify-items: end; }
+.breadth-window { justify-content: flex-end; }
+.breadth-window button { min-width: 112px; }
+@media (max-width: 760px) {
+  .breadth-hero-control { justify-items: stretch; margin-top: 20px; }
+  .breadth-window { justify-content: stretch; }
+  .breadth-window button { flex: 1; min-width: 0; }
+}
