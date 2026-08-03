@@ -98,9 +98,37 @@ export type GuidanceItem = {
   assets: string[];
 };
 
+export type MacroRelease = {
+  id: string;
+  series_key: string;
+  release_name: string;
+  agency: string;
+  category: string;
+  release_date: string;
+  release_time_label: string;
+  reference_period: string | null;
+  frequency: string;
+  status: string;
+  actual: string | null;
+  consensus: string | null;
+  previous: string | null;
+  revised_previous: string | null;
+  unit: string | null;
+  surprise_direction: string | null;
+  market_interpretation: string | null;
+  watch_question: string;
+  confirmation_trigger: string | null;
+  invalidation_trigger: string | null;
+  source_url: string;
+  source_classification: string;
+  affected_assets: string[];
+  published_at: string | null;
+};
+
 export type PublicStatement = {
   id: string;
   speaker: string;
+  statement_group?: string | null;
   channel: string;
   statement_date: string;
   quote_excerpt: string;
@@ -127,14 +155,15 @@ export type NewsThread = {
 };
 
 export async function getDeskData() {
-  const [stories, calls, updates, charts, guidance, statements, newsThreads] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=20"),
     query<ChartRequest>("chart_requests", "select=*&order=created_at.desc&limit=20"),
     query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=40"),
+    query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=40"),
     query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
   ]);
-  return { stories, calls, updates, charts, guidance, statements, newsThreads };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads };
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
-import type { ChartRequest, EarningsCall, GuidanceItem, NewsThread, PublicStatement, Story, Update } from "@/lib/data";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, NewsThread, PublicStatement, Story, Update } from "@/lib/data";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
 
 type Props = {
@@ -12,14 +12,17 @@ type Props = {
   charts: ChartRequest[];
   articles: AlchemyArticle[];
   guidance: GuidanceItem[];
+  macroReleases: MacroRelease[];
   statements: PublicStatement[];
   newsThreads: NewsThread[];
   market: MarketData;
 };
 
-type Tab = "Overview" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
+type Tab = "Overview" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
 type ArticleFilter = "All" | "Revisit now" | "Material evolution" | "Incremental" | "Little changed";
 type Range = "7D" | "30D" | "90D" | "1Y";
+type MacroFilter = "All" | "Inflation" | "Activity" | "Labour";
+type StatementFilter = "All" | "Donald Trump" | "Elon Musk" | "Hormuz" | "IRGC";
 
 type DisplayStory = {
   id: string;
@@ -300,6 +303,7 @@ function Icon({ name }: { name: string }) {
     "AI News": "AI",
     "Oil System": "◉",
     Breadth: "▥",
+    "Macro Data": "▦",
     Guidance: "◎",
     Statements: "✦",
     Ledger: "▣",
@@ -307,7 +311,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, statements, newsThreads, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, market }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -316,7 +320,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("All");
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState("^GSPC");
-  const [statementSpeaker, setStatementSpeaker] = useState<"All" | "Donald Trump" | "Elon Musk">("All");
+  const [macroFilter, setMacroFilter] = useState<MacroFilter>("All");
+  const [statementFilter, setStatementFilter] = useState<StatementFilter>("All");
 
   const storyViews = useMemo<DisplayStory[]>(() => {
     const live = stories.map((story) => ({
@@ -401,11 +406,18 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const spxPoints = spxSeries ? rangePoints(spxSeries.points, range) : [];
   const equalWeightPoints = equalWeightSeries ? rangePoints(equalWeightSeries.points, range) : [];
   const liveGuidance = guidance.length ? guidance : fallbackGuidance;
+  const liveMacroReleases = macroReleases;
   const liveStatements = statements.length ? statements : fallbackStatements;
   const liveThreads = newsThreads.length ? newsThreads : fallbackNewsThreads;
   const aiThreads = liveThreads.filter((thread) => thread.domain === "ai");
   const oilThreads = liveThreads.filter((thread) => thread.domain === "oil");
-  const filteredStatements = liveStatements.filter((statement) => statementSpeaker === "All" || statement.speaker === statementSpeaker);
+  const filteredMacroReleases = liveMacroReleases.filter((item) => macroFilter === "All" || item.category === macroFilter);
+  const filteredStatements = liveStatements.filter((statement) => {
+    if (statementFilter === "All") return true;
+    if (statementFilter === "Donald Trump" || statementFilter === "Elon Musk") return statement.speaker === statementFilter;
+    return statement.statement_group === statementFilter;
+  });
+  const nextMacroRelease = [...liveMacroReleases].filter((item) => new Date(item.release_date).getTime() >= Date.now()).sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())[0];
   const selectedArticleSeries = selectedArticle ? storySeries(selectedArticle.story, market.series) : undefined;
   const pulsePoints = spxSeries ? spxSeries.points.slice(signalWindow === "This week" ? -7 : -30) : [];
   const pulseMove = signalWindow === "This week" ? spxSeries?.change5d : spxSeries?.change21d;
@@ -430,7 +442,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         </header>
 
         <nav className="workspace-tabs" aria-label="Workspace sections">
-          {(["Overview", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
+          {(["Overview", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
             <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
               <Icon name={tab} /> {tab}
             </button>
@@ -593,6 +605,14 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
           </div>
         )}
 
+        {activeTab === "Macro Data" && (
+          <div className="macro-page tab-page">
+            <header className="domain-hero macro-domain"><div><span>MACRO RELEASE MONITOR</span><h2>CPI, PPI, ISM and JOLTS in one decision surface.</h2><p>Track the latest reading, prior result, release timing and the exact market question each data point must answer. Empty consensus fields remain visibly unfilled rather than estimated.</p></div><div className="macro-hero-control"><div className="domain-stat"><b>{liveMacroReleases.length}</b><span>active release monitors</span><small>{nextMacroRelease ? `Next: ${nextMacroRelease.release_name} · ${articleDate(nextMacroRelease.release_date)}` : "No scheduled release loaded"}</small></div><div className="statement-filters">{(["All","Inflation","Activity","Labour"] as MacroFilter[]).map((filter) => <button key={filter} className={macroFilter === filter ? "active" : ""} onClick={() => setMacroFilter(filter)}>{filter}</button>)}</div></div></header>
+            <section className="macro-grid">{filteredMacroReleases.map((item) => <MacroReleaseCard key={item.id} item={item} />)}</section>
+            {!filteredMacroReleases.length && <article className="panel empty-state"><span>NO RECORDS</span><h3>No releases are loaded for this filter.</h3><p>Add verified official release records to Supabase rather than filling the panel with estimates.</p></article>}
+          </div>
+        )}
+
         {activeTab === "Guidance" && (
           <div className="guidance-page tab-page">
             <header className="domain-hero guidance-domain"><div><span>GUIDANCE INTELLIGENCE</span><h2>Track what management and the Fed expect next.</h2><p>Guidance is separated from reported results. Wording changes, assumptions and the market’s interpretation remain visible beside the original source.</p></div><div className="domain-stat"><b>{liveGuidance.length}</b><span>guidance items</span><small>{liveGuidance.filter((item) => item.category === "fed").length} central-bank items</small></div></header>
@@ -603,8 +623,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
         {activeTab === "Statements" && (
           <div className="statements-page tab-page">
-            <header className="domain-hero statement-domain"><div><span>PUBLIC STATEMENT MONITOR</span><h2>Trump and Elon, separated from normal reporting.</h2><p>Each item carries a channel, verification label, affected assets and the follow-up needed before treating it as a durable market signal.</p></div><div className="statement-filters">{(["All","Donald Trump","Elon Musk"] as const).map((speaker) => <button key={speaker} className={statementSpeaker === speaker ? "active" : ""} onClick={() => setStatementSpeaker(speaker)}>{speaker}</button>)}</div></header>
-            <section className="statement-grid">{filteredStatements.map((statement) => <article className={`panel statement-card ${statement.speaker === "Donald Trump" ? "trump" : "elon"}`} key={statement.id}><header><div><span>{statement.speaker}</span><small>{statement.channel} · {articleDate(statement.statement_date)}</small></div><b>{statement.verification_status}</b></header><blockquote>{statement.quote_excerpt}</blockquote><div className="statement-topic"><small>{statement.topic}</small><p>{statement.market_interpretation || "Interpretation pending."}</p></div><div className="statement-follow"><small>REQUIRED FOLLOW-UP</small><p>{statement.follow_up || "Wait for official implementation or market confirmation."}</p></div><footer><div>{statement.affected_assets.map((asset) => <span key={asset}>{asset}</span>)}</div><a href={statement.source_url} target="_blank" rel="noreferrer">Verify source ↗</a></footer></article>)}</section>
+            <header className="domain-hero statement-domain"><div><span>PUBLIC STATEMENT MONITOR</span><h2>Public figures, Hormuz and IRGC statements, kept separate.</h2><p>Each item carries a channel, verification label, affected assets and the follow-up needed before treating it as a durable market signal. Reported but unconfirmed claims remain clearly labelled.</p></div><div className="statement-filters">{(["All","Donald Trump","Elon Musk","Hormuz","IRGC"] as StatementFilter[]).map((filter) => <button key={filter} className={statementFilter === filter ? "active" : ""} onClick={() => setStatementFilter(filter)}>{filter}</button>)}</div></header>
+            <section className="statement-grid">{filteredStatements.map((statement) => <article className={`panel statement-card ${statement.speaker === "Donald Trump" ? "trump" : statement.speaker === "Elon Musk" ? "elon" : statement.statement_group === "IRGC" ? "irgc" : "hormuz"}`} key={statement.id}><header><div><span>{statement.speaker}</span><small>{statement.channel} · {articleDate(statement.statement_date)}</small></div><b>{statement.verification_status}</b></header><blockquote>{statement.quote_excerpt}</blockquote><div className="statement-topic"><small>{statement.topic}</small><p>{statement.market_interpretation || "Interpretation pending."}</p></div><div className="statement-follow"><small>REQUIRED FOLLOW-UP</small><p>{statement.follow_up || "Wait for official implementation or market confirmation."}</p></div><footer><div>{statement.affected_assets.map((asset) => <span key={asset}>{asset}</span>)}</div><a href={statement.source_url} target="_blank" rel="noreferrer">Verify source ↗</a></footer></article>)}</section>
           </div>
         )}
 
@@ -703,6 +723,10 @@ function BreadthCard({ snapshot, window }: { snapshot: BreadthSnapshot; window: 
     ["Above 200-day", snapshot.current.above200, snapshot.current.above200 - prior.above200],
   ] as const;
   return <article className="panel breadth-card"><header><div><span>{snapshot.label}</span><small>{snapshot.sampleSize}/{snapshot.targetSize} eligible histories · {snapshot.sourceName}</small></div><b>{snapshot.current.above50}%</b></header><div className="breadth-bars">{metrics.map(([label,value,delta]) => <div key={label}><div><span>{label}</span><b>{value}% <small className={delta >= 0 ? "positive" : "negative"}>{delta >= 0 ? "+" : ""}{delta} pts</small></b></div><i><span style={{ width: `${value}%` }} /></i></div>)}</div><footer><span>20-day highs <b>{snapshot.current.newHighs20}</b></span><span>20-day lows <b>{snapshot.current.newLows20}</b></span></footer></article>;
+}
+
+function MacroReleaseCard({ item }: { item: MacroRelease }) {
+  return <article className={`panel macro-card ${item.category.toLowerCase()}`}><header><div><span>{item.release_name}</span><small>{item.agency} · {articleDate(item.release_date)} · {item.release_time_label}</small></div><b>{item.status}</b></header><h3>{item.reference_period || "Current release"}</h3><div className="macro-values"><div><small>ACTUAL</small><strong>{item.actual || "Awaiting"}</strong></div><div><small>CONSENSUS</small><strong>{item.consensus || "Not loaded"}</strong></div><div><small>PREVIOUS</small><strong>{item.revised_previous || item.previous || "Not loaded"}</strong></div></div><div className="macro-question"><small>DECIDING QUESTION</small><p>{item.watch_question}</p></div>{item.market_interpretation && <div className="macro-interpretation"><small>MARKET INTERPRETATION</small><p>{item.market_interpretation}</p></div>}<div className="macro-conditions"><div><small>CONFIRMATION</small><p>{item.confirmation_trigger || "Set after the release."}</p></div><div><small>INVALIDATION</small><p>{item.invalidation_trigger || "Set after the release."}</p></div></div><footer><div>{item.affected_assets.map((asset) => <span key={asset}>{asset}</span>)}</div><a href={item.source_url} target="_blank" rel="noreferrer">Official source ↗</a></footer></article>;
 }
 
 function GuidanceCard({ item }: { item: GuidanceItem }) {

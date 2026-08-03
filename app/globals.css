@@ -126,7 +126,7 @@ button { font: inherit; }
 .linked-market-chart.large svg { height: 240px; }
 .linked-market-chart footer { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
 .linked-market-chart footer a { color: #ad82ff; text-decoration: none; font-weight: 800; }
-.domain-page, .breadth-page, .guidance-page, .statements-page { display: grid; gap: 24px; }
+.domain-page, .breadth-page, .macro-page, .guidance-page, .statements-page { display: grid; gap: 24px; }
 .domain-hero { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(240px,.55fr); gap: 28px; align-items: end; padding: 10px 3px 7px; }
 .domain-hero > div:first-child > span { color: #9860ff; font-size: 13px; font-weight: 900; letter-spacing: .13em; }
 .domain-hero h2 { max-width: 980px; margin: 12px 0 14px; font-size: clamp(45px,5.4vw,78px); line-height: .93; letter-spacing: -.055em; }
@@ -205,6 +205,27 @@ button { font: inherit; }
 .guidance-card > div p { margin: 6px 0 0; color: #bdbbcc; line-height: 1.45; }
 .guidance-card .guidance-interpretation { padding: 14px; border: 1px solid rgba(77,134,255,.22); border-radius: 12px; background: rgba(43,80,153,.12); }
 .fed-market-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 15px; }
+.macro-hero-control { display: grid; gap: 12px; }
+.macro-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 17px; }
+.macro-card { padding: 24px; }
+.macro-card.inflation { border-color: rgba(255,187,66,.3); }
+.macro-card.activity { border-color: rgba(77,139,255,.3); }
+.macro-card.labour { border-color: rgba(79,209,133,.3); }
+.macro-card header { display: flex; justify-content: space-between; gap: 15px; }
+.macro-card header span, .macro-card header small { display: block; }
+.macro-card header span { color: #ac7aff; font-size: 20px; font-weight: 900; }
+.macro-card header small { margin-top: 5px; color: var(--muted); }
+.macro-card header > b { align-self: start; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: #d7c3ff; font-size: 9px; text-transform: uppercase; }
+.macro-card h3 { margin: 22px 0 14px; font-size: 24px; }
+.macro-values { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.macro-values > div { padding: 14px; border: 1px solid rgba(180,170,235,.14); border-radius: 12px; background: rgba(10,12,34,.3); }
+.macro-values small, .macro-question small, .macro-interpretation small, .macro-conditions small { color: #9e76ee; font-size: 9px; font-weight: 900; letter-spacing: .07em; }
+.macro-values strong { display: block; margin-top: 7px; color: white; font-size: 18px; }
+.macro-question, .macro-interpretation { margin-top: 12px; padding: 15px; border: 1px solid rgba(180,170,235,.14); border-radius: 13px; background: rgba(10,12,34,.3); }
+.macro-interpretation { border-color: rgba(77,134,255,.22); background: rgba(43,80,153,.12); }
+.macro-question p, .macro-interpretation p, .macro-conditions p { margin: 7px 0 0; color: #c7c5d4; line-height: 1.48; }
+.macro-conditions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.macro-conditions > div { padding: 14px; border: 1px solid rgba(180,170,235,.14); border-radius: 12px; }
 .statement-filters { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .statement-filters button { padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.03); color: #c7c4d7; cursor: pointer; }
 .statement-filters button.active { border-color: #9a61ff; background: rgba(110,57,211,.2); color: white; }
@@ -212,6 +233,8 @@ button { font: inherit; }
 .statement-card { padding: 24px; }
 .statement-card.trump { border-color: rgba(255,182,57,.26); }
 .statement-card.elon { border-color: rgba(77,139,255,.28); }
+.statement-card.hormuz { border-color: rgba(79,209,133,.3); }
+.statement-card.irgc { border-color: rgba(255,84,117,.34); }
 .statement-card header { display: flex; justify-content: space-between; gap: 15px; }
 .statement-card header span, .statement-card header small { display: block; }
 .statement-card header span { color: #a97cff; font-size: 20px; font-weight: 900; }
@@ -361,3 +384,5 @@ button { font: inherit; }
   .breadth-window { justify-content: stretch; }
   .breadth-window button { flex: 1; min-width: 0; }
 }
+
+@media (max-width: 720px) { .macro-values, .macro-conditions { grid-template-columns: 1fr; } }
