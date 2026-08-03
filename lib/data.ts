@@ -79,12 +79,62 @@ export type ChartRequest = {
   status: string;
 };
 
+
+export type GuidanceItem = {
+  id: string;
+  entity: string;
+  ticker: string | null;
+  category: string;
+  period: string | null;
+  guidance_type: string;
+  metric: string;
+  current_view: string;
+  prior_view: string | null;
+  wording_change: string | null;
+  market_interpretation: string | null;
+  source_url: string;
+  source_classification: string;
+  published_at: string | null;
+  assets: string[];
+};
+
+export type PublicStatement = {
+  id: string;
+  speaker: string;
+  channel: string;
+  statement_date: string;
+  quote_excerpt: string;
+  topic: string;
+  market_interpretation: string | null;
+  affected_assets: string[];
+  source_url: string;
+  verification_status: string;
+  follow_up: string | null;
+};
+
+export type NewsThread = {
+  id: string;
+  domain: string;
+  category: string;
+  headline: string;
+  summary: string;
+  current_view: string | null;
+  source_url: string;
+  source_type: string;
+  published_at: string | null;
+  importance: number;
+  affected_assets: string[];
+};
+
 export async function getDeskData() {
-  const [stories, calls, updates, charts] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, statements, newsThreads] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=20"),
     query<ChartRequest>("chart_requests", "select=*&order=created_at.desc&limit=20"),
+    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=40"),
+    query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
+    query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
   ]);
-  return { stories, calls, updates, charts };
+  return { stories, calls, updates, charts, guidance, statements, newsThreads };
 }
