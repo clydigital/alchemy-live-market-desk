@@ -140,6 +140,32 @@ export type PublicStatement = {
   follow_up: string | null;
 };
 
+
+export type ResearchSource = {
+  id: string;
+  story_id: string | null;
+  publisher: string;
+  source_type: string;
+  title: string;
+  url: string;
+  publication_date: string | null;
+  observation_date: string | null;
+  reporting_period: string | null;
+  reliability_score: number;
+  notes: string | null;
+};
+
+export type StoryEvidence = {
+  id: string;
+  story_id: string;
+  source_id: string | null;
+  evidence_type: string;
+  claim: string;
+  detail: string | null;
+  strength: number;
+  created_at: string;
+};
+
 export type NewsThread = {
   id: string;
   domain: string;
@@ -155,15 +181,17 @@ export type NewsThread = {
 };
 
 export async function getDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
-    query<Update>("story_updates", "select=*&order=created_at.desc&limit=20"),
-    query<ChartRequest>("chart_requests", "select=*&order=created_at.desc&limit=20"),
+    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
+    query<ChartRequest>("chart_requests", "select=*&order=created_at.desc&limit=40"),
     query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=40"),
     query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=40"),
     query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
+    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
+    query<StoryEvidence>("evidence", "select=*&order=strength.desc,created_at.desc&limit=240"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence };
 }

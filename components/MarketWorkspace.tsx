@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
-import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, NewsThread, PublicStatement, Story, Update } from "@/lib/data";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, NewsThread, PublicStatement, ResearchSource, Story, StoryEvidence, Update } from "@/lib/data";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
 
 type Props = {
@@ -15,6 +15,8 @@ type Props = {
   macroReleases: MacroRelease[];
   statements: PublicStatement[];
   newsThreads: NewsThread[];
+  sources: ResearchSource[];
+  evidence: StoryEvidence[];
   market: MarketData;
 };
 
@@ -311,7 +313,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, market }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -393,7 +395,12 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
     : fallbackCharts;
 
   const activeStory = storyViews[selectedIndex % storyViews.length];
-  const pulse = signalWindow === "This week" ? market.pulseWeek : market.pulseMonth;
+
+  const visibleSources = sources.filter((source) => !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`));
+  const activeSources = visibleSources.filter((source) => source.story_id === activeStory.id).sort((a, b) => b.reliability_score - a.reliability_score);
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  const activeEvidence = evidence.filter((item) => item.story_id === activeStory.id).sort((a, b) => b.strength - a.strength);
+    const pulse = signalWindow === "This week" ? market.pulseWeek : market.pulseMonth;
   const activeSignals = storyViews.slice(0, 6);
   const dataSources = Math.max(7, charts.length + calls.length + guidance.length + newsThreads.length + 3);
   const keySignals = Math.max(12, storyViews.length * 3 + market.breadth.length * 3);
@@ -563,6 +570,29 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                 <Evidence title="Central question" text={activeStory.marketQuestion} tone="neutral" />
                 <Evidence title="Next deciding test" text={activeStory.next} tone="next" />
               </div>
+              <div className="layer-one-research">
+                <section className="canonical-evidence">
+                  <div className="layer-one-heading"><div><small>LAYER 1 · CANONICAL RESEARCH</small><h3>Verified claims behind the story</h3></div><span>{activeEvidence.length} checks</span></div>
+                  <div className="canonical-evidence-list">
+                    {activeEvidence.slice(0, 8).map((item) => {
+                      const source = item.source_id ? sourceById.get(item.source_id) : null;
+                      return <article key={item.id} className={`canonical-evidence-card ${item.evidence_type}`}>
+                        <header><small>{item.evidence_type}</small><b>{item.strength}/100</b></header>
+                        <h4>{item.claim}</h4>
+                        {item.detail && <p>{item.detail}</p>}
+                        {source && !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`) && <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} ↗</a>}
+                      </article>;
+                    })}
+                    {!activeEvidence.length && <div className="canonical-empty">No claim-level evidence has been attached to this story yet.</div>}
+                  </div>
+                </section>
+                <aside className="canonical-sources">
+                  <small>VERIFIED SOURCE CHAIN</small>
+                  <h3>Primary evidence first</h3>
+                  <p>Creator transcripts are observed for claims, then absorbed into the story only after verification. They do not receive their own editorial slot.</p>
+                  <div>{activeSources.slice(0, 8).map((source) => <a key={source.id} href={source.url} target="_blank" rel="noreferrer"><span>{source.source_type.replaceAll("_", " ")} · {source.reliability_score}/100</span><b>{source.title}</b><em>{source.publisher}</em></a>)}{!activeSources.length && <p>No verified source chain is loaded for this story.</p>}</div>
+                </aside>
+              </div>
               <footer>{activeStory.assets.map((asset) => <span key={asset}>{asset}</span>)}</footer>
               <div className="related-coverage"><div><small>PRIOR ALCHEMY COVERAGE</small><b>Has this story moved enough to revisit?</b></div>{articleMemory.filter((article) => article.story?.id === activeStory.id).slice(0, 3).map((article) => <button className={`change-${article.changeKey}`} key={article.id} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span>{article.title}</span><strong>{article.changeScore}</strong></button>)}{!articleMemory.some((article) => article.story?.id === activeStory.id) && <p>No recent Alchemy piece has a strong match with this story.</p>}</div>
             </article>
@@ -683,7 +713,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
         {activeTab === "Ledger" && (
           <div className="ledger-page tab-page">
-            <article className="panel ledger-panel"><div className="section-heading"><span>RESEARCH LEDGER</span><h2>Only material changes enter the record</h2></div><div className="timeline">{updates.length ? updates.slice(0, 12).map((update, index) => <div key={update.id}><i>{String(index + 1).padStart(2, "0")}</i><span><small>{update.update_type}</small><b>{update.headline}</b><p>{update.detail || "Material update recorded."}</p></span></div>) : <div className="empty-state"><b>The ledger is quiet.</b><p>Repeated background information is excluded until the evidence changes.</p></div>}</div></article>
+            <article className="panel ledger-panel"><div className="section-heading"><span>RESEARCH LEDGER</span><h2>Only material changes enter the record</h2></div><div className="research-intake-rule"><small>INGESTION RULE</small><b>Observe the transcript. Publish the verified market story.</b><p>Creator material is scanned for claims, contradictions and useful charts. Those findings are tested against primary evidence, then merged into an existing story or used to open a new market question.</p></div><div className="timeline">{updates.length ? updates.slice(0, 12).map((update, index) => <div key={update.id}><i>{String(index + 1).padStart(2, "0")}</i><span><small>{update.update_type}</small><b>{update.headline}</b><p>{update.detail || "Material update recorded."}</p></span></div>) : <div className="empty-state"><b>The ledger is quiet.</b><p>Repeated background information is excluded until the evidence changes.</p></div>}</div></article>
             <aside className="panel monitor-panel"><PanelTitle icon="◉" title="Persistent monitors" /><div className="monitor-list">{storyViews.map((story, index) => <button key={story.id} onClick={() => { setSelectedIndex(index); setActiveTab("Stories"); }}><span>{String(index + 1).padStart(2, "0")}</span><b>{story.title}</b><small>{story.marketQuestion}</small><em>{story.confidence}%</em></button>)}</div></aside>
           </div>
         )}
