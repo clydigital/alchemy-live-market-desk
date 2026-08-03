@@ -166,6 +166,39 @@ export type StoryEvidence = {
   created_at: string;
 };
 
+
+export type ResearchRegistryItem = {
+  id: string;
+  slug: string;
+  name: string;
+  source_kind: string;
+  source_tier: number;
+  status: string;
+  url: string | null;
+  corpus_size: number;
+  corpus_note: string | null;
+  method_strengths: string[];
+  operational_use: string;
+  safeguards: string;
+  owner_app: string;
+  last_reviewed_at: string | null;
+};
+
+export type ResearchRolloutPhase = {
+  id: string;
+  phase_order: number;
+  phase_key: string;
+  name: string;
+  owner_app: string;
+  status: string;
+  scope: string;
+  deliverables: string[];
+  exit_criteria: string[];
+  dependencies: string[];
+  notes: string | null;
+  updated_at: string;
+};
+
 export type NewsThread = {
   id: string;
   domain: string;
@@ -181,7 +214,7 @@ export type NewsThread = {
 };
 
 export async function getDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
@@ -192,6 +225,8 @@ export async function getDeskData() {
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
     query<StoryEvidence>("evidence", "select=*&order=strength.desc,created_at.desc&limit=240"),
+    query<ResearchRegistryItem>("research_source_registry", "select=*&order=source_tier.asc,status.asc,name.asc"),
+    query<ResearchRolloutPhase>("research_rollout", "select=*&order=phase_order.asc"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout };
 }

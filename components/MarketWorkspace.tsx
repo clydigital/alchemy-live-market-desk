@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
-import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, NewsThread, PublicStatement, ResearchSource, Story, StoryEvidence, Update } from "@/lib/data";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, Update } from "@/lib/data";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
 
 type Props = {
@@ -17,10 +17,12 @@ type Props = {
   newsThreads: NewsThread[];
   sources: ResearchSource[];
   evidence: StoryEvidence[];
+  researchRegistry: ResearchRegistryItem[];
+  researchRollout: ResearchRolloutPhase[];
   market: MarketData;
 };
 
-type Tab = "Overview" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
+type Tab = "Overview" | "Research Layer" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
 type ArticleFilter = "All" | "Revisit now" | "Material evolution" | "Incremental" | "Little changed";
 type Range = "7D" | "30D" | "90D" | "1Y";
 type MacroFilter = "All" | "Inflation" | "Activity" | "Labour";
@@ -308,12 +310,13 @@ function Icon({ name }: { name: string }) {
     "Macro Data": "▦",
     Guidance: "◎",
     Statements: "✦",
+    "Research Layer": "◈",
     Ledger: "▣",
   };
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout, market }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -324,6 +327,12 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState("^GSPC");
   const [macroFilter, setMacroFilter] = useState<MacroFilter>("All");
   const [statementFilter, setStatementFilter] = useState<StatementFilter>("All");
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    const validTabs: Tab[] = ["Overview", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"];
+    if (requested && validTabs.includes(requested as Tab)) setActiveTab(requested as Tab);
+  }, []);
 
   const storyViews = useMemo<DisplayStory[]>(() => {
     const live = stories.map((story) => ({
@@ -451,7 +460,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         </header>
 
         <nav className="workspace-tabs" aria-label="Workspace sections">
-          {(["Overview", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
+          {(["Overview", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
             <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
               <Icon name={tab} /> {tab}
             </button>
@@ -543,6 +552,45 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
               <div className="coverage-summary"><div><b>{articleMemory.length}</b><span>recent pieces scanned</span></div><div><b>{revisitArticles.length}</b><span>materially evolved</span></div><p>Prior coverage is not a reason to ignore a story. The colour shows how much the evidence has changed since publication.</p></div>
               <div className="coverage-preview-list">{articleMemory.slice(0, 3).map((article) => <button key={article.id} className={`change-${article.changeKey}`} onClick={() => { setSelectedArticleId(article.id); setActiveTab("Articles"); }}><span><small>{article.author} · {articleDate(article.publishedAt)}</small><b>{article.title}</b><em>{article.story ? `Aligns with ${article.story.title}` : "No strong current match"}</em></span><strong>{article.changeScore}<small>change</small></strong></button>)}</div>
             </article>
+          </div>
+        )}
+
+
+        {activeTab === "Research Layer" && (
+          <div className="research-layer-page tab-page">
+            <header className="domain-hero research-layer-domain">
+              <div><span>CANONICAL RESEARCH LAYER</span><h2>The original deck owns the evidence.</h2><p>Source ingestion, transcript studies, validation, publication gates and append-only research memory belong here. The hybrid deck consumes this state for journeys and visual learning.</p></div>
+              <div className="domain-stat"><b>{researchRegistry.length}</b><span>registered research methods</span><small>{researchRollout.filter((phase) => phase.status === "in_progress").length} rollout phases active</small></div>
+            </header>
+
+            <section className="research-role-grid">
+              <article className="panel research-role-card"><small>OWNERSHIP</small><h3>Original Live Market Desk</h3><p>Canonical source registry, primary-source checks, structured data, evidence records, transcript analysis, chart requirements and thesis updates.</p><div><span>INGEST</span><span>VERIFY</span><span>DECIDE</span><span>RECORD</span></div></article>
+              <article className="panel research-role-card hybrid-role"><small>DOWNSTREAM</small><h3>Hybrid Market Desk</h3><p>Guided journeys, World transmission maps, decision practice and review history. It may mirror evidence, but it does not become a second research backend.</p><div><span>TEACH</span><span>VISUALISE</span><span>REVIEW</span></div></article>
+              <article className="panel publication-gate"><small>PUBLICATION GATE</small><h3>A priority story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Three evidence records and one meaningful contradiction</li><li>One functioning chart tied to the deciding question</li><li>Confirmation and invalidation conditions</li><li>One dated balance-of-evidence update</li></ul></article>
+            </section>
+
+            <div className="research-layer-layout">
+              <section className="method-library">
+                <div className="section-heading"><span>TRANSCRIPT AND METHOD LIBRARY</span><h2>What each transcript set is allowed to contribute</h2></div>
+                <div className="method-grid">
+                  {researchRegistry.map((item) => <article className={`panel method-card ${item.status}`} key={item.id}>
+                    <header><div><span>TIER {item.source_tier} · {item.source_kind.replaceAll("_", " ")}</span><h3>{item.name}</h3></div><b>{item.status}</b></header>
+                    <p>{item.corpus_note || "Corpus note pending."}</p>
+                    <div className="method-tags">{item.method_strengths.map((strength) => <span key={strength}>{strength}</span>)}{!item.method_strengths.length && <span>review pending</span>}</div>
+                    <section><small>OPERATIONAL USE</small><p>{item.operational_use}</p></section>
+                    <section className="method-guardrail"><small>GUARDRAIL</small><p>{item.safeguards}</p></section>
+                    <footer><span>{item.corpus_size} item{item.corpus_size === 1 ? "" : "s"} reviewed</span>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">Open source ↗</a> : <em>Link pending</em>}</footer>
+                  </article>)}
+                </div>
+              </section>
+
+              <aside className="panel rollout-panel">
+                <div className="section-heading"><span>ROLLOUT</span><h2>One research backend, two experiences</h2></div>
+                <div className="rollout-list">{researchRollout.map((phase) => <article className={`rollout-phase ${phase.status}`} key={phase.id}>
+                  <i>{String(phase.phase_order).padStart(2, "0")}</i><div><header><span>{phase.owner_app.replaceAll("_", " ")}</span><b>{phase.status.replaceAll("_", " ")}</b></header><h3>{phase.name}</h3><p>{phase.scope}</p><ul>{phase.deliverables.slice(0, 4).map((item) => <li key={item}>{item}</li>)}</ul>{phase.notes && <small>{phase.notes}</small>}</div>
+                </article>)}</div>
+              </aside>
+            </div>
           </div>
         )}
 
@@ -725,10 +773,11 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         <div className="action-backdrop" onClick={() => setShowActions(false)}>
           <div className="action-modal" onClick={(event) => event.stopPropagation()}>
             <header><div><span>NEW RESEARCH</span><h2>Where should the desk go next?</h2></div><button onClick={() => setShowActions(false)}>×</button></header>
-            <button onClick={() => openAction("Stories")}><i>01</i><span><b>Open Story Lab</b><small>Compare support, contradiction and the next test.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Articles")}><i>02</i><span><b>Review prior Alchemy coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Charts")}><i>03</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>
-            <button onClick={() => openAction("Earnings")}><i>04</i><span><b>Review earnings intelligence</b><small>Inspect guidance, capex, demand and wording shifts.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Research Layer")}><i>01</i><span><b>Open canonical research layer</b><small>Review transcript methods, source ownership, publication gates and rollout.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Stories")}><i>02</i><span><b>Open Story Lab</b><small>Compare support, contradiction and the next test.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Articles")}><i>03</i><span><b>Review prior Alchemy coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Charts")}><i>04</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Earnings")}><i>05</i><span><b>Review earnings intelligence</b><small>Inspect guidance, capex, demand and wording shifts.</small></span><em>→</em></button>
           </div>
         </div>
       )}
