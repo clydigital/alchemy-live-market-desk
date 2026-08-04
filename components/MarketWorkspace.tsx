@@ -34,6 +34,24 @@ type Props = {
 };
 
 type Tab = "Overview" | "Market State" | "Research Layer" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Economic Calendar" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
+const tabLabels: Record<Tab, string> = {
+  Overview: "Overview",
+  "Market State": "Market State",
+  "Research Layer": "Research",
+  Stories: "Stories",
+  Articles: "Articles",
+  "AI News": "AI News",
+  "Oil System": "Oil",
+  Breadth: "Breadth",
+  "Macro Data": "Macro",
+  "Economic Calendar": "Calendar",
+  Guidance: "Guidance",
+  Statements: "Statements",
+  Signals: "Signals",
+  Earnings: "Earnings",
+  Charts: "Charts",
+  Ledger: "Ledger",
+};
 type ArticleFilter = "All" | "Revisit now" | "Material evolution" | "Incremental" | "Little changed";
 type Range = "7D" | "30D" | "90D" | "1Y";
 type MacroFilter = "All" | "Inflation" | "Activity" | "Labour";
@@ -502,8 +520,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
         <nav className="workspace-tabs" aria-label="Workspace sections">
           {(["Overview", "Market State", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Economic Calendar", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
-            <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
-              <Icon name={tab} /> {tab}
+            <button key={tab} aria-label={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
+              <Icon name={tab} /> {tabLabels[tab]}
             </button>
           ))}
         </nav>
