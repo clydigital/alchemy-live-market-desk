@@ -175,6 +175,11 @@ export type StoryEvidence = {
   detail: string | null;
   strength: number;
   created_at: string;
+  ai_price_stance: string | null;
+  ai_price_reason: string | null;
+  chart_series: string[];
+  judged_asset: string | null;
+  is_active: boolean;
 };
 
 
@@ -235,7 +240,7 @@ export async function getDeskData() {
     query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
-    query<StoryEvidence>("evidence", "select=*&order=strength.desc,created_at.desc&limit=240"),
+    query<StoryEvidence>("evidence", "select=*&is_active=eq.true&order=strength.desc,created_at.desc&limit=240"),
     query<ResearchRegistryItem>("research_source_registry", "select=*&order=source_tier.asc,status.asc,name.asc"),
     query<ResearchRolloutPhase>("research_rollout", "select=*&order=phase_order.asc"),
     query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
