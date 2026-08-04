@@ -629,7 +629,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                     {activeEvidence.slice(0, 8).map((item) => {
                       const source = item.source_id ? sourceById.get(item.source_id) : null;
                       return <article key={item.id} className={`canonical-evidence-card ${item.evidence_type}`}>
-                        <header><small>{item.evidence_type}</small><b>{item.strength}/100</b></header>
+                        <header><small>{item.evidence_type} · {item.judged_asset || activeStory.assets[0] || "asset not set"}</small><b className={`price-call ${item.ai_price_stance || "unclear"}`}>{(item.ai_price_stance || "unclear").toUpperCase()} · {item.strength}/100</b></header>
                         <h4>{item.claim}</h4>
                         {item.detail && <p>{item.detail}</p>}
                         {source && !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`) && <a href={source.url} target="_blank" rel="noreferrer">{source.publisher} ↗</a>}
