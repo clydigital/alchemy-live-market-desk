@@ -477,3 +477,31 @@ button { font: inherit; }
 
 /* Canonical evidence direction labels */
 .price-call{font-family:"JetBrains Mono"!important}.price-call.bullish{color:var(--green)!important}.price-call.bearish{color:var(--red)!important}.price-call.neutral{color:var(--cyan)!important}.price-call.unclear{color:var(--muted)!important}
+
+
+/* Evidence-ready preparation gate */
+.preparation-audit { padding: 20px; }
+.preparation-audit-head { display:flex; justify-content:space-between; gap:18px; align-items:center; margin-bottom:16px; }
+.preparation-audit-head small, .story-preparation-banner small { color:#9e7aff; font-size:10px; font-weight:900; letter-spacing:.1em; }
+.preparation-audit-head h3 { margin:5px 0; font-size:24px; }
+.preparation-audit-head p { margin:0; color:#bebdce; }
+.preparation-audit-head > strong { display:grid; width:72px; height:72px; place-items:center; border:1px solid rgba(158,122,255,.35); border-radius:50%; color:#cbb6ff; font-size:20px; }
+.preparation-audit-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.preparation-audit-list button { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:12px; align-items:center; padding:13px; border:1px solid rgba(180,170,235,.12); border-radius:13px; background:rgba(255,255,255,.02); color:white; text-align:left; cursor:pointer; }
+.preparation-audit-list button.ready { border-color:rgba(72,225,160,.2); }
+.preparation-audit-list button.researching { border-color:rgba(255,191,70,.28); }
+.preparation-audit-list button span b, .preparation-audit-list button span small { display:block; }
+.preparation-audit-list button span small { margin-top:4px; color:var(--muted); line-height:1.35; }
+.preparation-audit-list button em, .prep-pill { font-size:9px; font-style:normal; font-weight:900; letter-spacing:.06em; }
+.preparation-audit-list button i { padding:6px 8px; border-radius:999px; font-size:9px; font-style:normal; font-weight:900; }
+.preparation-audit-list button.ready i, .prep-pill.ready { color:var(--green); background:rgba(72,225,160,.09); }
+.preparation-audit-list button.researching i, .prep-pill.researching { color:var(--amber); background:rgba(255,191,70,.09); }
+.story-list button .prep-pill { align-self:center; padding:5px 7px; border-radius:999px; }
+.story-preparation-banner { display:flex; justify-content:space-between; gap:18px; align-items:center; margin:0 0 18px; padding:15px 17px; border:1px solid rgba(180,170,235,.14); border-radius:15px; background:rgba(255,255,255,.025); }
+.story-preparation-banner.ready { border-color:rgba(72,225,160,.22); }
+.story-preparation-banner.researching { border-color:rgba(255,191,70,.3); }
+.story-preparation-banner b, .story-preparation-banner p { display:block; }
+.story-preparation-banner b { margin:5px 0; }
+.story-preparation-banner p { margin:0; color:#bebdce; line-height:1.45; }
+.story-preparation-banner > strong { color:#cbb6ff; font-size:20px; white-space:nowrap; }
+@media(max-width:820px){.preparation-audit-list{grid-template-columns:1fr}.preparation-audit-head,.story-preparation-banner{align-items:flex-start}.story-list button .prep-pill{display:none}}

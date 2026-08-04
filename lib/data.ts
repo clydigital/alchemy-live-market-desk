@@ -183,6 +183,22 @@ export type StoryEvidence = {
 };
 
 
+
+export type StoryEvidenceCoverage = {
+  slug: string;
+  title: string;
+  source_count: number;
+  tier1_source_count: number;
+  evidence_count: number;
+  linked_evidence_count: number;
+  contradiction_count: number;
+  unresolved_count: number;
+  chart_count: number;
+  update_count: number;
+  gate_score: number;
+  room_status: string;
+};
+
 export type ResearchRegistryItem = {
   id: string;
   slug: string;
@@ -230,7 +246,7 @@ export type NewsThread = {
 };
 
 export async function getDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout, macroObservations, marketObservations] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
@@ -241,10 +257,11 @@ export async function getDeskData() {
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
     query<StoryEvidence>("evidence", "select=*&is_active=eq.true&order=strength.desc,created_at.desc&limit=240"),
+    query<StoryEvidenceCoverage>("story_evidence_coverage", "select=*&order=gate_score.desc,slug.asc"),
     query<ResearchRegistryItem>("research_source_registry", "select=*&order=source_tier.asc,status.asc,name.asc"),
     query<ResearchRolloutPhase>("research_rollout", "select=*&order=phase_order.asc"),
     query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
     query<MarketSeriesObservation>("market_series_observations", "select=*&order=observation_date.asc&limit=800"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout, macroObservations, marketObservations };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations };
 }
