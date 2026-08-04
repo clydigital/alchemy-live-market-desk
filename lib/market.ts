@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 export type PricePoint = { time: number; close: number };
 
 export type MarketSeries = {
@@ -65,6 +67,7 @@ type SeriesSpec = {
 };
 
 const HISTORY_DAYS = 470;
+const CLIENT_HISTORY_SESSIONS = 280;
 const NASDAQ_REVALIDATE = 60 * 60 * 12;
 const OFFICIAL_REVALIDATE = 60 * 60 * 6;
 
@@ -417,27 +420,29 @@ function alignFormula(histories: Map<string, PricePoint[]>, formula: (values: Re
 }
 
 function buildSeries(symbol: string, label: string, sourceName: string, sourceUrl: string, points: PricePoint[]): MarketSeries {
+  const visiblePoints = points.slice(-CLIENT_HISTORY_SESSIONS);
   return {
     symbol,
     label,
     sourceName,
     sourceUrl,
-    points,
-    last: points.at(-1)?.close ?? null,
+    points: visiblePoints,
+    last: visiblePoints.at(-1)?.close ?? null,
     change5d: pctChange(points, 5),
     change21d: pctChange(points, 21),
   };
 }
 
 function buildCrack(id: string, label: string, formulaText: string, points: PricePoint[]): CrackSeries {
+  const visiblePoints = points.slice(-CLIENT_HISTORY_SESSIONS);
   return {
     id,
     label,
     sourceName: "EIA daily spot prices",
     formula: formulaText,
     sourceUrl: "https://www.eia.gov/dnav/pet/pet_pri_spt_s1_d.htm",
-    points,
-    last: points.at(-1)?.close ?? null,
+    points: visiblePoints,
+    last: visiblePoints.at(-1)?.close ?? null,
     change5d: pctChange(points, 5),
     change21d: pctChange(points, 21),
   };
@@ -459,7 +464,7 @@ function calculatePulse(series: MarketSeries[], breadth: BreadthSnapshot, sessio
   return clamp(50 + averageMove * 3 + (breadth.current.above50 - 50) * 0.35 + breadthDelta * 0.7 + highLow * 0.15);
 }
 
-export async function getMarketData(): Promise<MarketData> {
+async function loadMarketData(): Promise<MarketData> {
   const stockUniverse = [...new Set([...MAG7, ...AI_BASKET, ...LARGE_CAP_PROXY])];
   const nasdaqRequests: NasdaqRequest[] = [
     ...CORE_NASDAQ.map(({ providerSymbol, assetClass }) => ({ providerSymbol, assetClass })),
@@ -544,3 +549,5 @@ export async function getMarketData(): Promise<MarketData> {
     limitation: limitations.length ? limitations.join(" ") : null,
   };
 }
+
+export const getMarketData = unstable_cache(loadMarketData, ["alchemy-market-data-v2"], { revalidate: 300 });

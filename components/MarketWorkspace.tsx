@@ -442,11 +442,11 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
     }).sort((a, b) => b.changeScore - a.changeScore || new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
   }, [articles, storyViews, updates]);
 
-  const filteredArticles = articleMemory.filter((article) => articleFilter === "All" || article.changeLabel === articleFilter);
-  const selectedArticle = articleMemory.find((article) => article.id === selectedArticleId) || filteredArticles[0] || articleMemory[0];
-  const revisitArticles = articleMemory.filter((article) => article.changeKey === "revisit" || article.changeKey === "material");
+  const filteredArticles = useMemo(() => articleMemory.filter((article) => articleFilter === "All" || article.changeLabel === articleFilter), [articleMemory, articleFilter]);
+  const selectedArticle = useMemo(() => articleMemory.find((article) => article.id === selectedArticleId) || filteredArticles[0] || articleMemory[0], [articleMemory, filteredArticles, selectedArticleId]);
+  const revisitArticles = useMemo(() => articleMemory.filter((article) => article.changeKey === "revisit" || article.changeKey === "material"), [articleMemory]);
 
-  const chartViews = charts.length
+  const chartViews = useMemo(() => charts.length
     ? charts.slice(0, 6).map((chart) => ({
         id: chart.id,
         instrument: chart.instrument,
@@ -455,33 +455,33 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         overlay: chart.overlay || "No overlay",
         status: chart.status,
       }))
-    : fallbackCharts;
+    : fallbackCharts, [charts]);
 
   const activeStory = storyViews[selectedIndex % storyViews.length];
-  const coverageBySlug = new Map(evidenceCoverage.map((item) => [item.slug, item]));
-  const storyBySlug = new Map(stories.map((item) => [item.slug, item]));
+  const coverageBySlug = useMemo(() => new Map(evidenceCoverage.map((item) => [item.slug, item])), [evidenceCoverage]);
+  const storyBySlug = useMemo(() => new Map(stories.map((item) => [item.slug, item])), [stories]);
   const activeCoverage = coverageBySlug.get(activeStory.slug);
   const activeRawStory = storyBySlug.get(activeStory.slug);
   const activePreparationMissing = preparationMissing(activeCoverage, activeRawStory);
   const activePreparationReady = preparationReady(activeCoverage, activeRawStory);
-  const readyPreparationCount = evidenceCoverage.filter((item) => preparationReady(item, storyBySlug.get(item.slug))).length;
+  const readyPreparationCount = useMemo(() => evidenceCoverage.filter((item) => preparationReady(item, storyBySlug.get(item.slug))).length, [evidenceCoverage, storyBySlug]);
 
-  const visibleSources = sources.filter((source) => !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`));
-  const activeSources = visibleSources.filter((source) => source.story_id === activeStory.id).sort((a, b) => b.reliability_score - a.reliability_score);
-  const sourceById = new Map(sources.map((source) => [source.id, source]));
-  const activeEvidence = evidence.filter((item) => item.story_id === activeStory.id).sort((a, b) => b.strength - a.strength);
+  const visibleSources = useMemo(() => sources.filter((source) => !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`)), [sources]);
+  const activeSources = useMemo(() => visibleSources.filter((source) => source.story_id === activeStory.id).sort((a, b) => b.reliability_score - a.reliability_score), [visibleSources, activeStory.id]);
+  const sourceById = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
+  const activeEvidence = useMemo(() => evidence.filter((item) => item.story_id === activeStory.id).sort((a, b) => b.strength - a.strength), [evidence, activeStory.id]);
     const pulse = signalWindow === "This week" ? market.pulseWeek : market.pulseMonth;
   const activeSignals = storyViews.slice(0, 6);
   const dataSources = Math.max(7, charts.length + calls.length + guidance.length + newsThreads.length + 3);
   const keySignals = Math.max(12, storyViews.length * 3 + market.breadth.length * 3);
   const hypotheses = Math.max(4, Math.ceil(storyViews.length / 2));
-  const marketBySymbol = new Map(market.series.map((series) => [series.symbol, series]));
+  const marketBySymbol = useMemo(() => new Map(market.series.map((series) => [series.symbol, series])), [market.series]);
   const selectedSeries = marketBySymbol.get(selectedMarketSymbol) || market.series[0];
   const spxSeries = marketBySymbol.get("^GSPC");
   const equalWeightSeries = marketBySymbol.get("RSP");
-  const selectedSeriesPoints = selectedSeries ? rangePoints(selectedSeries.points, range) : [];
-  const spxPoints = spxSeries ? rangePoints(spxSeries.points, range) : [];
-  const equalWeightPoints = equalWeightSeries ? rangePoints(equalWeightSeries.points, range) : [];
+  const selectedSeriesPoints = useMemo(() => selectedSeries ? rangePoints(selectedSeries.points, range) : [], [selectedSeries, range]);
+  const spxPoints = useMemo(() => spxSeries ? rangePoints(spxSeries.points, range) : [], [spxSeries, range]);
+  const equalWeightPoints = useMemo(() => equalWeightSeries ? rangePoints(equalWeightSeries.points, range) : [], [equalWeightSeries, range]);
   const liveGuidance = guidance.length ? guidance : fallbackGuidance;
   const liveMacroReleases = macroReleases;
   const liveStatements = statements.length ? statements : fallbackStatements;
@@ -489,7 +489,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const aiThreads = liveThreads.filter((thread) => thread.domain === "ai");
   const oilThreads = liveThreads.filter((thread) => thread.domain === "oil");
   const filteredMacroReleases = liveMacroReleases.filter((item) => macroFilter === "All" || item.category === macroFilter);
-  const statementFilterOptions = ["All", ...Array.from(new Set(liveStatements.flatMap((statement) => [statement.statement_group || "Public Figures", statement.speaker])))];
+  const statementFilterOptions = useMemo(() => ["All", ...Array.from(new Set(liveStatements.flatMap((statement) => [statement.statement_group || "Public Figures", statement.speaker])))], [liveStatements]);
   const filteredStatements = liveStatements.filter((statement) => {
     if (statementFilter === "All") return true;
     return statement.speaker === statementFilter || statement.statement_group === statementFilter;

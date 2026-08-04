@@ -5,7 +5,7 @@ import { getEconomicCalendar } from '@/lib/calendar';
 import { getDeskData } from '@/lib/data';
 import { getMarketData } from '@/lib/market';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function Page() {
   const [data, articles, market, calendarEvents] = await Promise.all([getDeskData(), getAlchemyArticles(), getMarketData(), getEconomicCalendar()]);

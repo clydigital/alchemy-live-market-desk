@@ -1,5 +1,8 @@
+import { unstable_cache } from "next/cache";
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const DESK_REVALIDATE = 60;
 
 async function query<T>(table: string, params = ""): Promise<T[]> {
   if (!url || !key) return [];
@@ -8,7 +11,7 @@ async function query<T>(table: string, params = ""): Promise<T[]> {
       apikey: key,
       Authorization: `Bearer ${key}`,
     },
-    cache: "no-store",
+    next: { revalidate: DESK_REVALIDATE },
   });
   if (!response.ok) return [];
   return response.json();
@@ -271,7 +274,7 @@ export type MarketStateRecord = {
   updated_at: string;
 };
 
-export async function getDeskData() {
+async function loadDeskData() {
   const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
@@ -292,3 +295,5 @@ export async function getDeskData() {
   ]);
   return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords };
 }
+
+export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v2"], { revalidate: DESK_REVALIDATE });

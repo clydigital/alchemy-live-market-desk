@@ -5,7 +5,7 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, type MarketStateRecord } from "@/lib/data";
 import { getMarketData, type MarketData, type MarketSeries } from "@/lib/market";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type Direction = "Boon" | "Risk" | "Mixed" | "Data gap";
 
@@ -163,7 +163,7 @@ export async function GET() {
   }, {
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
     },
   });
 }
