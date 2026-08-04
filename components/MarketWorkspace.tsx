@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
-import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, Update } from "@/lib/data";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
 import MacroSeriesCharts from "@/components/MacroSeriesCharts";
 import RelationshipChart from "@/components/RelationshipChart";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
@@ -19,6 +19,7 @@ type Props = {
   newsThreads: NewsThread[];
   sources: ResearchSource[];
   evidence: StoryEvidence[];
+  evidenceCoverage: StoryEvidenceCoverage[];
   researchRegistry: ResearchRegistryItem[];
   researchRollout: ResearchRolloutPhase[];
   macroObservations: MacroSeriesObservation[];
@@ -45,6 +46,27 @@ type DisplayStory = {
   status: string;
   assets: string[];
 };
+
+
+function preparationMissing(coverage?: StoryEvidenceCoverage, story?: Story) {
+  if (!coverage) return ["Coverage audit unavailable"];
+  const missing: string[] = [];
+  if (coverage.source_count < 3) missing.push("3 credible sources");
+  if (coverage.tier1_source_count < 1) missing.push("1 Tier 1 source");
+  if (coverage.evidence_count < 6) missing.push("6 useful evidence cards");
+  if (coverage.linked_evidence_count < 4) missing.push("direct evidence-source links");
+  if (coverage.contradiction_count < 1) missing.push("1 meaningful contradiction");
+  if (coverage.unresolved_count < 1) missing.push("1 unresolved test");
+  if (coverage.chart_count < 2) missing.push("2 deciding charts");
+  if (coverage.update_count < 1) missing.push("1 dated balance-of-evidence update");
+  if (!story?.confirmation_trigger) missing.push("confirmation condition");
+  if (!story?.invalidation_trigger) missing.push("invalidation condition");
+  return missing;
+}
+
+function preparationReady(coverage?: StoryEvidenceCoverage, story?: Story) {
+  return coverage?.room_status === "ready" && preparationMissing(coverage, story).length === 0;
+}
 
 type ArticleMemory = AlchemyArticle & {
   story: DisplayStory | null;
@@ -320,7 +342,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, researchRegistry, researchRollout, macroObservations, marketObservations, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, market }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -408,6 +430,13 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
     : fallbackCharts;
 
   const activeStory = storyViews[selectedIndex % storyViews.length];
+  const coverageBySlug = new Map(evidenceCoverage.map((item) => [item.slug, item]));
+  const storyBySlug = new Map(stories.map((item) => [item.slug, item]));
+  const activeCoverage = coverageBySlug.get(activeStory.slug);
+  const activeRawStory = storyBySlug.get(activeStory.slug);
+  const activePreparationMissing = preparationMissing(activeCoverage, activeRawStory);
+  const activePreparationReady = preparationReady(activeCoverage, activeRawStory);
+  const readyPreparationCount = evidenceCoverage.filter((item) => preparationReady(item, storyBySlug.get(item.slug))).length;
 
   const visibleSources = sources.filter((source) => !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`));
   const activeSources = visibleSources.filter((source) => source.story_id === activeStory.id).sort((a, b) => b.reliability_score - a.reliability_score);
@@ -570,7 +599,13 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
             <section className="research-role-grid">
               <article className="panel research-role-card"><small>OWNERSHIP</small><h3>Original Live Market Desk</h3><p>Canonical source registry, primary-source checks, structured data, evidence records, transcript analysis, chart requirements and thesis updates.</p><div><span>INGEST</span><span>VERIFY</span><span>DECIDE</span><span>RECORD</span></div></article>
               <article className="panel research-role-card hybrid-role"><small>DOWNSTREAM</small><h3>Hybrid Market Desk</h3><p>Guided journeys, World transmission maps, decision practice and review history. It may mirror evidence, but it does not become a second research backend.</p><div><span>TEACH</span><span>VISUALISE</span><span>REVIEW</span></div></article>
-              <article className="panel publication-gate"><small>PUBLICATION GATE</small><h3>A priority story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Three evidence records and one meaningful contradiction</li><li>One functioning chart tied to the deciding question</li><li>Confirmation and invalidation conditions</li><li>One dated balance-of-evidence update</li></ul></article>
+              <article className="panel publication-gate"><small>PREPARATION GATE</small><h3>A story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Six useful evidence cards with direct source links</li><li>Support, a meaningful contradiction and an unresolved test</li><li>Two relevant charts, including the main price chart</li><li>Confirmation and invalidation conditions</li><li>Maths and definition checks before editorial approval</li><li>One dated balance-of-evidence update</li></ul></article>
+            </section>
+
+
+            <section className="panel preparation-audit">
+              <div className="preparation-audit-head"><div><small>LIVE PREPARATION AUDIT</small><h3>{readyPreparationCount} of {evidenceCoverage.length} active stories pass the automated gate</h3><p>Maths and definition checks remain a manual editorial sign-off. Any failed data check forces the story label back to Researching.</p></div><strong>{evidenceCoverage.length ? Math.round((readyPreparationCount / evidenceCoverage.length) * 100) : 0}%</strong></div>
+              <div className="preparation-audit-list">{evidenceCoverage.map((item) => { const raw = storyBySlug.get(item.slug); const missing = preparationMissing(item, raw); const ready = preparationReady(item, raw); return <button key={item.slug} className={ready ? "ready" : "researching"} onClick={() => { const index = storyViews.findIndex((story) => story.slug === item.slug); if (index >= 0) setSelectedIndex(index); setActiveTab("Stories"); }}><span><b>{item.title}</b><small>{ready ? "Automated gate passed" : `Missing: ${missing.join(" · ")}`}</small></span><em>{item.gate_score}/8</em><i>{ready ? "READY" : "RESEARCHING"}</i></button>; })}</div>
             </section>
 
             <div className="research-layer-layout">
@@ -607,13 +642,15 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                   <button key={story.id} className={selectedIndex === index ? "active" : ""} onClick={() => setSelectedIndex(index)}>
                     <i>{String(index + 1).padStart(2, "0")}</i>
                     <span><b>{story.title}</b><small>{story.marketQuestion}</small></span>
+                    <em className={`prep-pill ${preparationReady(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "ready" : "researching"}`}>{preparationReady(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "READY" : "RESEARCHING"}</em>
                     <strong>{story.confidence}%</strong>
                   </button>
                 ))}
               </div>
             </section>
             <article className="panel story-detail">
-              <header><div><span>{activeStory.status}</span><h2>{activeStory.title}</h2></div><div className="confidence-orb"><b>{activeStory.confidence}</b><small>confidence</small></div></header>
+              <header><div><span>{activePreparationReady ? activeStory.status : "Researching"}</span><h2>{activeStory.title}</h2></div><div className="confidence-orb"><b>{activeStory.confidence}</b><small>confidence</small></div></header>
+              <div className={`story-preparation-banner ${activePreparationReady ? "ready" : "researching"}`}><div><small>EVIDENCE-READY PREPARATION GATE</small><b>{activePreparationReady ? "Automated gate passed" : "This story is still being prepared"}</b><p>{activePreparationReady ? `${activeCoverage?.source_count || 0} sources · ${activeCoverage?.evidence_count || 0} evidence cards · ${activeCoverage?.chart_count || 0} charts · manual maths/definition sign-off still required before publication.` : `Missing: ${activePreparationMissing.join(" · ")}`}</p></div><strong>{activeCoverage?.gate_score || 0}/8</strong></div>
               <p className="story-thesis">{activeStory.thesis}</p>
               <MiniMarketChart series={storySeries(activeStory, market.series)} range={range} title="Live aligned market chart" large />
               <div className="evidence-grid">
