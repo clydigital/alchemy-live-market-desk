@@ -245,8 +245,34 @@ export type NewsThread = {
   affected_assets: string[];
 };
 
+export type MarketStateRecord = {
+  id: string;
+  module_key: string;
+  sector: string;
+  sub_industry: string;
+  status: string;
+  direction: string;
+  magnitude: number | null;
+  probability: number | null;
+  risk: string;
+  boon: string;
+  beneficiaries: string[];
+  losers: string[];
+  evidence_summary: string;
+  source_name: string;
+  source_url: string;
+  source_type: string;
+  observed_at: string | null;
+  freshness_status: string | null;
+  next_test: string;
+  story_id: string | null;
+  transcript_id: string | null;
+  owner_status: string;
+  updated_at: string;
+};
+
 export async function getDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
@@ -262,6 +288,7 @@ export async function getDeskData() {
     query<ResearchRolloutPhase>("research_rollout", "select=*&order=phase_order.asc"),
     query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
     query<MarketSeriesObservation>("market_series_observations", "select=*&order=observation_date.asc&limit=800"),
+    query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords };
 }

@@ -505,3 +505,171 @@ button { font: inherit; }
 .story-preparation-banner p { margin:0; color:#bebdce; line-height:1.45; }
 .story-preparation-banner > strong { color:#cbb6ff; font-size:20px; white-space:nowrap; }
 @media(max-width:820px){.preparation-audit-list{grid-template-columns:1fr}.preparation-audit-head,.story-preparation-banner{align-items:flex-start}.story-list button .prep-pill{display:none}}
+
+/* Market-state operating layer */
+@media (min-width: 1500px) {
+  .workspace-shell { width: min(1720px, 100%); padding-inline: 54px; }
+}
+.market-state-page, .calendar-page, .earnings-hub { display:grid; gap:18px; }
+.market-state-hero, .calendar-hero, .earnings-hub-hero { display:flex; align-items:flex-end; justify-content:space-between; gap:30px; padding:30px 0 24px; border-bottom:1px solid var(--line); }
+.market-state-hero > div:first-child, .calendar-hero > div:first-child, .earnings-hub-hero > div:first-child { max-width:780px; }
+.market-state-hero > div:first-child > span, .calendar-hero > div:first-child > span, .earnings-hub-hero > div:first-child > span { color:#a66cff; font-size:11px; font-weight:900; letter-spacing:0; }
+.market-state-hero h2, .calendar-hero h2, .earnings-hub-hero h2 { margin:8px 0 12px; font-size:42px; line-height:1.02; letter-spacing:0; }
+.market-state-hero p, .calendar-hero p, .earnings-hub-hero p { margin:0; color:#c1c0d1; font-size:16px; line-height:1.55; }
+.state-summary, .earnings-hub-kpis { display:grid; grid-template-columns:repeat(4,minmax(86px,1fr)); gap:8px; min-width:420px; }
+.state-summary span, .earnings-hub-kpis span { padding:12px; border-left:2px solid rgba(157,100,255,.55); background:rgba(255,255,255,.025); color:var(--muted); font-size:10px; text-transform:uppercase; }
+.state-summary b, .earnings-hub-kpis b { display:block; margin-bottom:6px; color:white; font-size:24px; line-height:1; }
+.state-toolbar, .earnings-hub-controls, .calendar-controls { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.state-toolbar > span, .earnings-hub-controls > span { color:var(--muted); font-size:11px; }
+.state-filters, .earnings-hub-controls > div, .calendar-country-tabs, .calendar-window-tabs { display:flex; gap:5px; flex-wrap:wrap; }
+.state-filters button, .earnings-hub-controls button, .calendar-controls button { min-height:36px; padding:8px 13px; border:1px solid rgba(180,170,235,.16); border-radius:6px; background:rgba(255,255,255,.025); color:#bcbacd; cursor:pointer; }
+.state-filters button.active, .earnings-hub-controls button.active, .calendar-controls button.active { border-color:#8f5cff; background:rgba(118,67,216,.24); color:white; }
+.state-table-head, .state-module { display:grid; grid-template-columns:minmax(170px,1.05fr) minmax(125px,.7fr) minmax(210px,1.35fr) minmax(210px,1.35fr) minmax(220px,1.25fr); gap:18px; }
+.state-table-head { padding:9px 16px; color:#8f8da8; font-size:9px; font-weight:900; text-transform:uppercase; }
+.state-module { position:relative; padding:18px 16px; border:1px solid rgba(180,170,235,.13); border-radius:8px; background:rgba(21,24,57,.62); }
+.state-module::before { content:""; position:absolute; inset:0 auto 0 0; width:3px; border-radius:8px 0 0 8px; background:#9f68ff; }
+.state-module.direction-risk::before { background:var(--red); }
+.state-module.direction-boon::before { background:var(--green); }
+.state-module.direction-data-gap::before { background:var(--amber); }
+.state-module-name span, .state-risk > span, .state-boon > span, .state-evidence > small { color:#9d73f4; font-size:9px; font-weight:900; text-transform:uppercase; }
+.state-module-name h3 { margin:7px 0 9px; font-size:16px; letter-spacing:0; }
+.state-module-name small, .state-reading small, .state-risk small, .state-boon small { color:#8f8da8; font-size:10px; line-height:1.35; }
+.state-reading b { display:block; margin-bottom:10px; font-size:14px; }
+.state-reading i { display:block; height:4px; margin-bottom:8px; overflow:hidden; border-radius:4px; background:rgba(255,255,255,.07); }
+.state-reading i span { display:block; height:100%; background:linear-gradient(90deg,#7047da,#b76aff); }
+.state-risk > span { color:var(--red); }.state-boon > span { color:var(--green); }
+.state-risk p, .state-boon p, .state-evidence p { margin:6px 0 8px; color:#d0cfdd; font-size:12px; line-height:1.45; }
+.state-evidence b { display:block; margin:5px 0 9px; font-size:11px; line-height:1.4; }
+.state-evidence a { color:#ad85ff; font-size:10px; font-weight:800; text-decoration:none; }
+
+/* Source-backed G7 economic calendar */
+.calendar-next { min-width:300px; padding:18px; border:1px solid rgba(157,100,255,.34); border-radius:8px; background:rgba(75,44,143,.16); }
+.calendar-next small, .calendar-next b, .calendar-next span { display:block; }
+.calendar-next small { color:#a983ff; font-size:9px; font-weight:900; }
+.calendar-next b { margin:8px 0; font-size:17px; }
+.calendar-next span { color:#c0becf; font-size:11px; }
+.calendar-kpis { display:grid; grid-template-columns:repeat(4,1fr); border-block:1px solid var(--line); }
+.calendar-kpis span { padding:16px; border-right:1px solid var(--line); }
+.calendar-kpis span:last-child { border-right:0; }
+.calendar-kpis small, .calendar-kpis b { display:block; }
+.calendar-kpis small { color:#8e8ca5; font-size:9px; font-weight:900; }
+.calendar-kpis b { margin-top:5px; font-size:24px; }
+.calendar-list-head, .calendar-event { display:grid; grid-template-columns:minmax(125px,.75fr) minmax(190px,1.2fr) minmax(170px,.9fr) minmax(240px,1.45fr) minmax(125px,.75fr); gap:16px; align-items:center; }
+.calendar-list-head { padding:9px 14px; color:#8f8da8; font-size:9px; font-weight:900; text-transform:uppercase; }
+.calendar-list { display:grid; gap:7px; }
+.calendar-event { padding:15px 14px; border:1px solid rgba(180,170,235,.13); border-radius:8px; background:rgba(21,24,57,.62); }
+.calendar-date b, .calendar-date span, .calendar-date small { display:block; }
+.calendar-date b { font-size:14px; }.calendar-date span { margin:4px 0 7px; color:#b7b5c8; font-size:11px; }.calendar-date small { width:max-content; padding:4px 6px; border-radius:4px; background:rgba(159,104,255,.13); color:#ba91ff; font-size:8px; font-weight:900; }
+.calendar-event-name span { display:flex; align-items:center; gap:7px; color:#9d73f4; font-size:9px; font-weight:900; text-transform:uppercase; }
+.calendar-event-name i { display:grid; width:25px; height:20px; place-items:center; border-radius:4px; background:rgba(141,91,237,.19); color:white; font-style:normal; }
+.calendar-event-name h3 { margin:7px 0 5px; font-size:15px; letter-spacing:0; }
+.calendar-event-name small { color:var(--muted); font-size:10px; }
+.calendar-release-state > b { display:inline-block; margin-bottom:7px; color:var(--amber); font-size:10px; text-transform:uppercase; }
+.calendar-release-state dl { display:grid; grid-template-columns:auto 1fr; gap:3px 8px; margin:0; font-size:9px; }
+.calendar-release-state dt { color:#807e99; }.calendar-release-state dd { margin:0; color:#d6d4df; }
+.calendar-question p { margin:0 0 8px; color:#cfcedc; font-size:11px; line-height:1.45; }
+.calendar-question div { display:flex; gap:4px; flex-wrap:wrap; }
+.calendar-question span { padding:3px 5px; border:1px solid rgba(180,170,235,.14); border-radius:4px; color:#aaa6bd; font-size:8px; }
+.calendar-source span, .calendar-source a { display:block; }
+.calendar-source span { color:#6fd6a1; font-size:8px; font-weight:900; }
+.calendar-source a { margin-top:7px; color:#ad85ff; font-size:10px; font-weight:800; line-height:1.35; text-decoration:none; }
+.calendar-empty, .earnings-empty { padding:40px; border:1px dashed var(--line); border-radius:8px; text-align:center; }
+.calendar-empty p, .earnings-empty p { color:var(--muted); }
+
+/* Earnings hub */
+.earnings-focus { display:grid; grid-template-columns:minmax(250px,.75fr) minmax(0,2.25fr); gap:16px; align-items:start; }
+.earnings-company-rail { display:grid; max-height:720px; overflow:auto; border:1px solid rgba(180,170,235,.13); border-radius:8px; background:rgba(21,24,57,.52); }
+.earnings-company-rail button { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:10px; align-items:center; min-height:74px; padding:12px; border:0; border-bottom:1px solid rgba(180,170,235,.12); background:transparent; color:white; text-align:left; cursor:pointer; }
+.earnings-company-rail button:last-child { border-bottom:0; }
+.earnings-company-rail button.active { background:rgba(115,64,208,.2); box-shadow:inset 3px 0 #a465ff; }
+.earnings-company-rail i { color:#ad78ff; font-size:12px; font-style:normal; font-weight:900; }
+.earnings-company-rail span b, .earnings-company-rail span small { display:block; }
+.earnings-company-rail span b { overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.earnings-company-rail span small { margin-top:4px; overflow:hidden; color:var(--muted); font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.earnings-company-rail em { font-size:10px; font-style:normal; font-weight:900; }
+.earnings-company-detail { padding:24px; border:1px solid rgba(180,170,235,.16); border-radius:8px; background:linear-gradient(145deg,rgba(29,32,69,.86),rgba(20,23,53,.8)); }
+.earnings-company-detail > header { display:flex; justify-content:space-between; gap:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+.earnings-company-detail > header > div:first-child { max-width:760px; }
+.earnings-company-detail > header > div:first-child > span { color:#a574ff; font-size:9px; font-weight:900; text-transform:uppercase; }
+.earnings-company-detail h3 { margin:7px 0 10px; font-size:34px; letter-spacing:0; }
+.earnings-company-detail header p { margin:0; color:#c7c6d5; font-size:14px; line-height:1.55; }
+.earnings-price { min-width:125px; text-align:right; }
+.earnings-price small, .earnings-price b, .earnings-price span, .earnings-price em { display:block; }
+.earnings-price small { color:#ad78ff; font-weight:900; }.earnings-price b { margin:5px 0; font-size:28px; }.earnings-price span { font-size:11px; font-weight:900; }.earnings-price em { margin-top:7px; color:var(--muted); font-size:9px; font-style:normal; }
+.earnings-intelligence-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; margin:18px 0; overflow:hidden; border:1px solid rgba(180,170,235,.12); border-radius:8px; background:rgba(180,170,235,.12); }
+.earnings-intelligence-grid > div { min-height:120px; padding:15px; background:#181b3c; }
+.earnings-intelligence-grid small { color:#9c72ef; font-size:8px; font-weight:900; }.earnings-intelligence-grid p { margin:7px 0 0; color:#cfcedc; font-size:12px; line-height:1.5; }
+.earnings-balance { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.earnings-balance > div { padding:15px; border:1px solid rgba(180,170,235,.12); border-radius:8px; background:rgba(255,255,255,.02); }
+.earnings-risk span, .earnings-boon span { font-size:9px; font-weight:900; }.earnings-risk span { color:var(--red); }.earnings-boon span { color:var(--green); }
+.earnings-balance p { margin:7px 0 0; color:#cfcedc; font-size:12px; line-height:1.5; }
+.earnings-company-detail > footer { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin-top:18px; padding-top:17px; border-top:1px solid var(--line); }
+.earnings-company-detail footer small, .earnings-company-detail footer b { display:block; }
+.earnings-company-detail footer small { color:#9d73f4; font-size:8px; font-weight:900; }.earnings-company-detail footer b { max-width:640px; margin-top:5px; font-size:12px; }
+.earnings-source-links { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.earnings-source-links a { color:#ad85ff; font-size:9px; font-weight:800; text-decoration:none; text-transform:capitalize; }
+
+/* Give the chart visual priority over the series rail. */
+.charts-page { grid-template-columns:minmax(0,3.25fr) minmax(235px,.75fr); gap:16px; align-items:start; }
+.primary-chart-panel { padding:28px; }
+.primary-chart-panel .large-chart { height:520px; }
+.chart-request-list { max-height:720px; overflow:auto; padding:18px; }
+.chart-request-list .panel-title { margin-bottom:7px; }
+.chart-request-list .panel-title i { width:32px; height:32px; font-size:14px; }
+.chart-request-list .panel-title h2 { font-size:17px; }
+.chart-request-list button { grid-template-columns:25px minmax(0,1fr); gap:8px; padding:11px 0; }
+.chart-request-list button i { font-size:10px; }
+.chart-request-list button b { overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.chart-request-list button small { overflow:hidden; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.chart-request-list button em { grid-column:2; font-size:8px; text-align:left; }
+
+@media (max-width: 1180px) {
+  .market-state-hero, .calendar-hero, .earnings-hub-hero { align-items:flex-start; }
+  .state-summary, .earnings-hub-kpis { min-width:350px; grid-template-columns:repeat(2,1fr); }
+  .state-table-head { display:none; }
+  .state-module { grid-template-columns:1fr 1fr; }
+  .state-module-name, .state-reading { min-height:80px; }
+  .state-evidence { grid-column:1 / -1; }
+  .calendar-list-head { display:none; }
+  .calendar-event { grid-template-columns:125px 1.2fr .8fr 1.3fr; }
+  .calendar-source { grid-column:2 / -1; display:flex; align-items:center; gap:12px; }
+  .calendar-source a { margin-top:0; }
+}
+@media (max-width: 1100px) {
+  .charts-page { grid-template-columns:1fr; }
+  .chart-request-list { order:0; max-height:330px; }
+  .earnings-focus { grid-template-columns:1fr; }
+  .earnings-company-rail { grid-template-columns:repeat(2,1fr); max-height:300px; }
+  .earnings-company-rail button:nth-child(odd) { border-right:1px solid rgba(180,170,235,.12); }
+}
+@media (max-width: 760px) {
+  .market-state-hero, .calendar-hero, .earnings-hub-hero { display:block; padding-top:12px; }
+  .market-state-hero h2, .calendar-hero h2, .earnings-hub-hero h2 { font-size:32px; }
+  .state-summary, .earnings-hub-kpis { min-width:0; margin-top:20px; }
+  .state-toolbar, .earnings-hub-controls, .calendar-controls { display:block; }
+  .state-toolbar > span, .earnings-hub-controls > span { display:block; margin-top:9px; }
+  .calendar-window-tabs { margin-top:9px; }
+  .state-module { grid-template-columns:1fr; gap:14px; }
+  .state-module-name, .state-reading { min-height:0; }
+  .state-evidence { grid-column:auto; }
+  .calendar-next { min-width:0; margin-top:18px; }
+  .calendar-kpis { grid-template-columns:1fr 1fr; }
+  .calendar-kpis span:nth-child(2) { border-right:0; }
+  .calendar-kpis span:nth-child(-n+2) { border-bottom:1px solid var(--line); }
+  .calendar-event { grid-template-columns:1fr 1fr; align-items:start; }
+  .calendar-date { grid-column:1 / -1; display:flex; align-items:center; gap:10px; }
+  .calendar-date span { margin:0; }.calendar-date small { margin-left:auto; }
+  .calendar-question { grid-column:1 / -1; }
+  .calendar-source { grid-column:1 / -1; }
+  .earnings-company-rail { grid-template-columns:1fr; }
+  .earnings-company-rail button:nth-child(odd) { border-right:0; }
+  .earnings-company-detail { padding:18px; }
+  .earnings-company-detail > header { display:block; }
+  .earnings-price { margin-top:16px; text-align:left; }
+  .earnings-intelligence-grid, .earnings-balance { grid-template-columns:1fr; }
+  .earnings-company-detail > footer { display:block; }
+  .earnings-source-links { justify-content:flex-start; margin-top:13px; }
+  .primary-chart-panel .panel-title-row { display:block; }
+  .primary-chart-panel .range-tabs { margin-top:16px; }
+  .primary-chart-panel .large-chart { height:350px; }
+}

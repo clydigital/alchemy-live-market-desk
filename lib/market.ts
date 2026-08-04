@@ -79,6 +79,15 @@ const CORE_NASDAQ: SeriesSpec[] = [
   { symbol: "META", providerSymbol: "META", assetClass: "stocks", label: "Meta" },
   { symbol: "NVDA", providerSymbol: "NVDA", assetClass: "stocks", label: "Nvidia" },
   { symbol: "TSLA", providerSymbol: "TSLA", assetClass: "stocks", label: "Tesla" },
+  { symbol: "GLD", providerSymbol: "GLD", assetClass: "etf", label: "Gold (GLD proxy)" },
+  { symbol: "SLV", providerSymbol: "SLV", assetClass: "etf", label: "Silver (SLV proxy)" },
+  { symbol: "CPER", providerSymbol: "CPER", assetClass: "etf", label: "Copper (CPER proxy)" },
+  { symbol: "GDX", providerSymbol: "GDX", assetClass: "etf", label: "Gold miners (GDX proxy)" },
+  { symbol: "UUP", providerSymbol: "UUP", assetClass: "etf", label: "US Dollar (UUP proxy)" },
+  { symbol: "FXE", providerSymbol: "FXE", assetClass: "etf", label: "Euro (FXE proxy)" },
+  { symbol: "FXB", providerSymbol: "FXB", assetClass: "etf", label: "Sterling (FXB proxy)" },
+  { symbol: "FXC", providerSymbol: "FXC", assetClass: "etf", label: "Canadian dollar (FXC proxy)" },
+  { symbol: "EWJ", providerSymbol: "EWJ", assetClass: "etf", label: "Japan equities (EWJ proxy)" },
 ];
 
 const MAG7 = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA"];

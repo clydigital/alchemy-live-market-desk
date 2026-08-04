@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
-import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
+import type { EconomicCalendarEvent } from "@/lib/calendar";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, MarketStateRecord, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
+import EarningsHub from "@/components/EarningsHub";
+import EconomicCalendar from "@/components/EconomicCalendar";
+import MarketStateBoard from "@/components/MarketStateBoard";
 import MacroSeriesCharts from "@/components/MacroSeriesCharts";
 import RelationshipChart from "@/components/RelationshipChart";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
@@ -24,10 +28,12 @@ type Props = {
   researchRollout: ResearchRolloutPhase[];
   macroObservations: MacroSeriesObservation[];
   marketObservations: MarketSeriesObservation[];
+  marketStateRecords: MarketStateRecord[];
+  calendarEvents: EconomicCalendarEvent[];
   market: MarketData;
 };
 
-type Tab = "Overview" | "Research Layer" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
+type Tab = "Overview" | "Market State" | "Research Layer" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Economic Calendar" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
 type ArticleFilter = "All" | "Revisit now" | "Material evolution" | "Incremental" | "Little changed";
 type Range = "7D" | "30D" | "90D" | "1Y";
 type MacroFilter = "All" | "Inflation" | "Activity" | "Labour";
@@ -325,6 +331,7 @@ function storySeries(story: DisplayStory | null, series: MarketSeries[]) {
 function Icon({ name }: { name: string }) {
   const icons: Record<string, string> = {
     Overview: "▦",
+    "Market State": "MS",
     Stories: "⌘",
     Articles: "▤",
     Signals: "⌁",
@@ -334,6 +341,7 @@ function Icon({ name }: { name: string }) {
     "Oil System": "◉",
     Breadth: "▥",
     "Macro Data": "▦",
+    "Economic Calendar": "EC",
     Guidance: "◎",
     Statements: "✦",
     "Research Layer": "◈",
@@ -342,7 +350,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, calendarEvents, market }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -356,7 +364,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
-    const validTabs: Tab[] = ["Overview", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"];
+    const validTabs: Tab[] = ["Overview", "Market State", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Economic Calendar", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"];
     if (requested && validTabs.includes(requested as Tab)) setActiveTab(requested as Tab);
   }, []);
 
@@ -493,7 +501,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         </header>
 
         <nav className="workspace-tabs" aria-label="Workspace sections">
-          {(["Overview", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
+          {(["Overview", "Market State", "Research Layer", "Stories", "Articles", "AI News", "Oil System", "Breadth", "Macro Data", "Economic Calendar", "Guidance", "Statements", "Signals", "Earnings", "Charts", "Ledger"] as Tab[]).map((tab) => (
             <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
               <Icon name={tab} /> {tab}
             </button>
@@ -588,6 +596,10 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
           </div>
         )}
 
+
+        {activeTab === "Market State" && (
+          <MarketStateBoard market={market} stories={stories} updates={updates} records={marketStateRecords} />
+        )}
 
         {activeTab === "Research Layer" && (
           <div className="research-layer-page tab-page">
@@ -736,6 +748,10 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
           </div>
         )}
 
+        {activeTab === "Economic Calendar" && (
+          <EconomicCalendar officialEvents={calendarEvents} macroReleases={macroReleases} />
+        )}
+
         {activeTab === "Guidance" && (
           <div className="guidance-page tab-page">
             <header className="domain-hero guidance-domain"><div><span>GUIDANCE INTELLIGENCE</span><h2>Track what management and the Fed expect next.</h2><p>Guidance is separated from reported results. Wording changes, assumptions and the market’s interpretation remain visible beside the original source.</p></div><div className="domain-stat"><b>{liveGuidance.length}</b><span>guidance items</span><small>{liveGuidance.filter((item) => item.category === "fed").length} central-bank items</small></div></header>
@@ -774,18 +790,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         )}
 
         {activeTab === "Earnings" && (
-          <div className="earnings-page tab-page">
-            <article className="panel amd-focus">
-              <div className="amd-chip"><span>AMD</span><small>04 AUG</small></div>
-              <div><span>THE WEEK'S AI PROOF POINT</span><h2>AMD must validate the hardware leg.</h2><p>Data Center growth, gross margin, forward guidance, supply constraints and management confidence decide whether semiconductor enthusiasm has fundamental support.</p><div className="scenario-row"><b>Acceleration</b><b>In-line</b><b>Disappointment</b></div></div>
-            </article>
-            <section className="call-cards">
-              {(calls.length ? calls.slice(0, 6) : []).map((call) => (
-                <article className="panel call-card" key={call.id}><header><b>{call.ticker}</b><span>{call.transcript_status}</span></header><h3>{call.company_name}</h3><p>{call.summary || call.relevance_reason || "Tracked because this call can change an active thesis."}</p><dl><dt>GUIDANCE</dt><dd>{call.guidance || "Monitoring"}</dd><dt>CAPEX</dt><dd>{call.capex || "Monitoring"}</dd><dt>DEMAND</dt><dd>{call.demand || "Monitoring"}</dd></dl></article>
-              ))}
-              {!calls.length && <article className="panel empty-state"><b>No new calls ingested yet.</b><p>The panel will populate automatically when a relevant earnings call enters the research system.</p></article>}
-            </section>
-          </div>
+          <EarningsHub calls={calls} guidance={liveGuidance.filter((item) => item.category !== "fed")} market={market} stories={stories} />
         )}
 
         {activeTab === "Charts" && (
