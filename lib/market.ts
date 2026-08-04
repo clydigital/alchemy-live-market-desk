@@ -12,6 +12,8 @@ export type MarketSeries = {
 };
 
 export type BreadthFrame = {
+  asOf: string | null;
+  sampleSize: number;
   above20: number;
   above50: number;
   above200: number;
@@ -342,7 +344,17 @@ async function fetchTreasurySeries() {
   return series;
 }
 
-function frameAt(histories: Map<string, PricePoint[]>, symbols: string[], offset: number): BreadthFrame {
+function sessionDate(time: number | null) {
+  return time === null ? null : new Date(time * 1000).toISOString().slice(0, 10);
+}
+
+function commonSessionTimes(histories: Map<string, PricePoint[]>, symbols: string[]) {
+  if (!symbols.length) return [];
+  const timeSets = symbols.map((symbol) => new Set((histories.get(symbol) || []).map((point) => point.time)));
+  return [...timeSets[0]].filter((time) => timeSets.every((set) => set.has(time))).sort((a, b) => a - b);
+}
+
+function frameAt(histories: Map<string, PricePoint[]>, symbols: string[], asOfTime: number | null): BreadthFrame {
   let valid = 0;
   let above20 = 0;
   let above50 = 0;
@@ -351,9 +363,8 @@ function frameAt(histories: Map<string, PricePoint[]>, symbols: string[], offset
   let newLows20 = 0;
   for (const symbol of symbols) {
     const points = histories.get(symbol) || [];
-    const end = points.length - offset;
-    if (end < 200) continue;
-    const closes = points.slice(0, end).map((point) => point.close);
+    const closes = points.filter((point) => asOfTime !== null && point.time <= asOfTime).map((point) => point.close);
+    if (closes.length < 200) continue;
     const current = closes.at(-1);
     if (typeof current !== "number") continue;
     valid += 1;
@@ -367,6 +378,8 @@ function frameAt(histories: Map<string, PricePoint[]>, symbols: string[], offset
   }
   const percent = (value: number) => valid ? Math.round(value / valid * 100) : 0;
   return {
+    asOf: sessionDate(asOfTime),
+    sampleSize: valid,
     above20: percent(above20),
     above50: percent(above50),
     above200: percent(above200),
@@ -377,15 +390,20 @@ function frameAt(histories: Map<string, PricePoint[]>, symbols: string[], offset
 
 function breadthSnapshot(histories: Map<string, PricePoint[]>, id: string, label: string, symbols: string[]): BreadthSnapshot {
   const eligible = symbols.filter((symbol) => (histories.get(symbol)?.length || 0) >= 221);
+  const sessions = commonSessionTimes(histories, eligible);
+  const currentTime = sessions.at(-1) ?? null;
+  const weekAgoTime = sessions.at(-6) ?? null;
+  const monthAgoTime = sessions.at(-22) ?? null;
+  const current = frameAt(histories, eligible, currentTime);
   return {
     id,
     label,
     sourceName: "Nasdaq official daily histories",
-    sampleSize: eligible.length,
+    sampleSize: current.sampleSize,
     targetSize: symbols.length,
-    current: frameAt(histories, eligible, 0),
-    weekAgo: frameAt(histories, eligible, 5),
-    monthAgo: frameAt(histories, eligible, 21),
+    current,
+    weekAgo: frameAt(histories, eligible, weekAgoTime),
+    monthAgo: frameAt(histories, eligible, monthAgoTime),
   };
 }
 

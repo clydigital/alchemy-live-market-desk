@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
+import type { AccuracyReport } from "@/lib/accuracy";
 import type { EconomicCalendarEvent } from "@/lib/calendar";
 import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, MarketStateRecord, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
 import EarningsHub from "@/components/EarningsHub";
@@ -31,6 +32,7 @@ type Props = {
   marketStateRecords: MarketStateRecord[];
   calendarEvents: EconomicCalendarEvent[];
   market: MarketData;
+  accuracy: AccuracyReport;
 };
 
 type Tab = "Overview" | "Market State" | "Research Layer" | "Stories" | "Articles" | "AI News" | "Oil System" | "Breadth" | "Macro Data" | "Economic Calendar" | "Guidance" | "Statements" | "Signals" | "Earnings" | "Charts" | "Ledger";
@@ -368,7 +370,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, calendarEvents, market }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, calendarEvents, market, accuracy }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -497,6 +499,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const pulsePoints = spxSeries ? spxSeries.points.slice(signalWindow === "This week" ? -7 : -30) : [];
   const pulseMove = signalWindow === "This week" ? spxSeries?.change5d : spxSeries?.change21d;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
+  const mainBreadthPrior = mainBreadth ? (signalWindow === "This week" ? mainBreadth.weekAgo : mainBreadth.monthAgo) : null;
+  const mainBreadthMove = mainBreadth && mainBreadthPrior ? mainBreadth.current.above50 - mainBreadthPrior.above50 : null;
 
   function openAction(tab: Tab) {
     setActiveTab(tab);
@@ -632,9 +636,15 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
               <article className="panel publication-gate"><small>PREPARATION GATE</small><h3>A story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Six useful evidence cards with direct source links</li><li>Support, a meaningful contradiction and an unresolved test</li><li>Two relevant charts, including the main price chart</li><li>Confirmation and invalidation conditions</li><li>Maths and definition checks before editorial approval</li><li>One dated balance-of-evidence update</li></ul></article>
             </section>
 
+            <section className={`panel accuracy-audit ${accuracy.status}`}>
+              <div className="accuracy-audit-head"><div><small>DETERMINISTIC ACCURACY CHECK</small><h3>Market inputs are {accuracy.updateGate === "open" ? "cleared for analysis" : accuracy.updateGate === "review" ? "waiting for review" : "blocked from analysis"}</h3><p>{accuracy.summary}</p></div><div className="accuracy-score"><b>{accuracy.score}</b><span>/100</span><small>{accuracy.updateGate} gate</small></div></div>
+              <div className="accuracy-check-grid">{accuracy.checks.map((item) => <article className={item.status} key={item.id}><header><span>{item.category}</span><b>{item.status}</b></header><h4>{item.label}</h4><p>{item.detail}</p><small>{item.action}</small></article>)}</div>
+              <footer><span>Checked {articleDate(accuracy.checkedAt)} at {new Date(accuracy.checkedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span><a href="/api/accuracy-check" target="_blank" rel="noreferrer">Open machine-readable report</a></footer>
+            </section>
+
 
             <section className="panel preparation-audit">
-              <div className="preparation-audit-head"><div><small>LIVE PREPARATION AUDIT</small><h3>{readyPreparationCount} of {evidenceCoverage.length} active stories pass the automated gate</h3><p>Maths and definition checks remain a manual editorial sign-off. Any failed data check forces the story label back to Researching.</p></div><strong>{evidenceCoverage.length ? Math.round((readyPreparationCount / evidenceCoverage.length) * 100) : 0}%</strong></div>
+              <div className="preparation-audit-head"><div><small>LIVE PREPARATION AUDIT</small><h3>{readyPreparationCount} of {evidenceCoverage.length} active stories pass the evidence gate</h3><p>The accuracy check now gates market inputs first. Editorial logic runs only after the data gate is open or explicitly reviewed.</p></div><strong>{evidenceCoverage.length ? Math.round((readyPreparationCount / evidenceCoverage.length) * 100) : 0}%</strong></div>
               <div className="preparation-audit-list">{evidenceCoverage.map((item) => { const raw = storyBySlug.get(item.slug); const missing = preparationMissing(item, raw); const ready = preparationReady(item, raw); return <button key={item.slug} className={ready ? "ready" : "researching"} onClick={() => { const index = storyViews.findIndex((story) => story.slug === item.slug); if (index >= 0) setSelectedIndex(index); setActiveTab("Stories"); }}><span><b>{item.title}</b><small>{ready ? "Automated gate passed" : `Missing: ${missing.join(" · ")}`}</small></span><em>{item.gate_score}/8</em><i>{ready ? "READY" : "RESEARCHING"}</i></button>; })}</div>
             </section>
 
@@ -750,7 +760,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
         {activeTab === "Breadth" && (
           <div className="breadth-page tab-page">
-            <header className="domain-hero breadth-domain"><div><span>MARKET BREADTH</span><h2>Is the index move being confirmed by more stocks?</h2><p>Track participation above the 20-day, 50-day and 200-day moving averages. Every percentage uses the same eligible universe and shows the exact coverage.</p></div><div className="breadth-hero-control"><div className="domain-stat"><b>{mainBreadth?.current.above50 ?? "—"}%</b><span>large-cap proxy above 50-day</span><small>{mainBreadth ? `${mainBreadth.sampleSize}/${mainBreadth.targetSize} Nasdaq histories` : "No breadth sample"}</small></div><div className="range-tabs breadth-window">{(["This week","This month"] as const).map((item) => <button key={item} className={signalWindow === item ? "active" : ""} onClick={() => setSignalWindow(item)}>{item}</button>)}</div></div></header>
+            <header className="domain-hero breadth-domain"><div><span>MARKET BREADTH</span><h2>Is the index move being confirmed by more stocks?</h2><p>Track participation above the 20-day, 50-day and 200-day moving averages. Every comparison is aligned to shared trading dates and keeps the same eligible universe.</p></div><div className="breadth-hero-control"><div className="domain-stat breadth-change-stat"><b className={(mainBreadthMove ?? 0) >= 0 ? "positive" : "negative"}>{mainBreadthMove === null ? "—" : `${mainBreadthMove >= 0 ? "+" : ""}${mainBreadthMove} pts`}</b><span>50-day breadth change {signalWindow.toLowerCase()}</span><small>{mainBreadth && mainBreadthPrior ? `${mainBreadth.current.above50}% now vs ${mainBreadthPrior.above50}% on ${mainBreadthPrior.asOf}` : "No breadth sample"}</small></div><div className="range-tabs breadth-window">{(["This week","This month"] as const).map((item) => <button key={item} className={signalWindow === item ? "active" : ""} onClick={() => setSignalWindow(item)}>{item}</button>)}</div></div></header>
             <section className="breadth-grid">{market.breadth.map((snapshot) => <BreadthCard key={snapshot.id} snapshot={snapshot} window={signalWindow} />)}</section>
             <article className="panel breadth-chart-panel"><div className="panel-title-row"><div><span className="panel-kicker">CAP-WEIGHTED VERSUS EQUAL-WEIGHT</span><h2>S&P 500 versus RSP</h2><p>Equal-weight confirmation helps distinguish broad participation from megacap concentration.</p></div><div className="range-tabs">{(["7D","30D","90D","1Y"] as Range[]).map((item) => <button key={item} className={range === item ? "active" : ""} onClick={() => setRange(item)}>{item}</button>)}</div></div><svg className="large-chart" viewBox="0 0 920 360" preserveAspectRatio="none"><path className="chart-grid" d="M0 70H920 M0 140H920 M0 210H920 M0 280H920" />{spxPoints.length > 1 && <path className="trend-primary" d={normalisedPath(spxPoints,920,360,14)} />}{equalWeightPoints.length > 1 && <path className="trend-secondary" d={normalisedPath(equalWeightPoints,920,360,14)} />}</svg><div className="trend-legend"><i className="purple-dot"/>S&P 500<i className="blue-dot"/>RSP<a href={equalWeightSeries?.sourceUrl} target="_blank" rel="noreferrer">Open source ↗</a></div>{market.limitation && <p className="data-limitation">{market.limitation}</p>}</article>
           </div>
@@ -864,12 +874,14 @@ function CrackCard({ crack, range }: { crack: CrackSeries; range: Range }) {
 
 function BreadthCard({ snapshot, window }: { snapshot: BreadthSnapshot; window: "This week" | "This month" }) {
   const prior = window === "This week" ? snapshot.weekAgo : snapshot.monthAgo;
+  const comparisonLabel = window === "This week" ? "5 sessions" : "21 sessions";
+  const headlineMove = snapshot.current.above50 - prior.above50;
   const metrics = [
-    ["Above 20-day", snapshot.current.above20, snapshot.current.above20 - prior.above20],
-    ["Above 50-day", snapshot.current.above50, snapshot.current.above50 - prior.above50],
-    ["Above 200-day", snapshot.current.above200, snapshot.current.above200 - prior.above200],
+    ["Above 20-day", snapshot.current.above20, prior.above20, snapshot.current.above20 - prior.above20],
+    ["Above 50-day", snapshot.current.above50, prior.above50, snapshot.current.above50 - prior.above50],
+    ["Above 200-day", snapshot.current.above200, prior.above200, snapshot.current.above200 - prior.above200],
   ] as const;
-  return <article className="panel breadth-card"><header><div><span>{snapshot.label}</span><small>{snapshot.sampleSize}/{snapshot.targetSize} eligible histories · {snapshot.sourceName}</small></div><b>{snapshot.current.above50}%</b></header><div className="breadth-bars">{metrics.map(([label,value,delta]) => <div key={label}><div><span>{label}</span><b>{value}% <small className={delta >= 0 ? "positive" : "negative"}>{delta >= 0 ? "+" : ""}{delta} pts</small></b></div><i><span style={{ width: `${value}%` }} /></i></div>)}</div><footer><span>20-day highs <b>{snapshot.current.newHighs20}</b></span><span>20-day lows <b>{snapshot.current.newLows20}</b></span></footer></article>;
+  return <article className="panel breadth-card"><header><div><span>{snapshot.label}</span><small>{snapshot.sampleSize}/{snapshot.targetSize} eligible histories · through {snapshot.current.asOf}</small></div><div className="breadth-card-move"><b className={headlineMove >= 0 ? "positive" : "negative"}>{headlineMove >= 0 ? "+" : ""}{headlineMove} pts</b><small>50-day vs {comparisonLabel}</small></div></header><div className="breadth-bars">{metrics.map(([label,value,priorValue,delta]) => <div key={label}><div><span>{label}</span><b>{value}% now <small>{priorValue}% then</small><em className={delta >= 0 ? "positive" : "negative"}>{delta >= 0 ? "+" : ""}{delta} pts</em></b></div><i><span style={{ width: `${value}%` }} /><em style={{ left: `${priorValue}%` }} /></i></div>)}</div><footer><span>20-day highs <b>{snapshot.current.newHighs20}</b></span><span>20-day lows <b>{snapshot.current.newLows20}</b></span><small>Compared with {prior.asOf}</small></footer></article>;
 }
 
 function MacroReleaseCard({ item }: { item: MacroRelease }) {

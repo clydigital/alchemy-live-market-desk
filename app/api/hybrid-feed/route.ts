@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, type MarketStateRecord } from "@/lib/data";
 import { getMarketData, type MarketData, type MarketSeries } from "@/lib/market";
@@ -103,6 +104,7 @@ function generatedState(market: MarketData, records: MarketStateRecord[]) {
 
 export async function GET() {
   const [data, market, calendar] = await Promise.all([getDeskData(), getMarketData(), getEconomicCalendar()]);
+  const accuracy = runAccuracyCheck(market);
   const marketState = generatedState(market, data.marketStateRecords);
   const tickers = [...new Set([...data.calls.map((item) => item.ticker), ...data.guidance.flatMap((item) => item.ticker ? [item.ticker] : [])])].slice(0, 16);
   const bySymbol = new Map(market.series.map((item) => [item.symbol, item]));
@@ -153,6 +155,7 @@ export async function GET() {
     source: "alchemy-live-market-desk",
     generatedAt: new Date().toISOString(),
     marketUpdatedAt: market.updatedAt,
+    accuracy,
     marketState,
     calendar: feedCalendar.map((event) => ({ ...event, missionXp: event.category === "Central bank" ? 25 : 20 })),
     earnings,
