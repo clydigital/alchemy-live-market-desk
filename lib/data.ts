@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DESK_REVALIDATE = 60;
 
 async function query<T>(table: string, params = ""): Promise<T[]> {
@@ -10,6 +11,19 @@ async function query<T>(table: string, params = ""): Promise<T[]> {
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
+    },
+    next: { revalidate: DESK_REVALIDATE },
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
+async function privateQuery<T>(table: string, params = ""): Promise<T[]> {
+  if (!url || !serviceKey) return [];
+  const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
     },
     next: { revalidate: DESK_REVALIDATE },
   });
@@ -347,8 +361,8 @@ async function loadDeskData() {
     query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
     query<MarketSeriesObservation>("market_series_observations", "select=*&order=observation_date.asc&limit=800"),
     query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
-    query<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
-    query<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
+    privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
+    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
   ]);
   return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
 }

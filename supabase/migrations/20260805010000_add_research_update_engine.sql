@@ -91,7 +91,15 @@ select
   divergence_kind, divergence_note, evidence_links, review_reason, updated_at
 from public.research_intake_items;
 
-grant select on public.research_run_status, public.research_intake_queue to anon, authenticated;
+revoke all privileges on table public.research_runs, public.research_intake_items
+  from anon, authenticated;
+revoke all privileges on table public.research_run_status, public.research_intake_queue
+  from anon, authenticated;
+
+grant select, insert, update, delete on table public.research_runs, public.research_intake_items
+  to service_role;
+grant select on table public.research_run_status, public.research_intake_queue
+  to service_role;
 
 insert into public.research_source_registry (
   slug, name, source_kind, source_tier, status, url, corpus_note,
