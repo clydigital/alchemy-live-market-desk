@@ -151,10 +151,44 @@ export async function GET() {
   const cutoffDate = recentCutoff.toISOString().slice(0, 10);
   const feedCalendar = calendar.filter((event) => event.date >= cutoffDate).slice(0, 60);
   const researchHealth = researchScheduleHealth(data.researchRuns);
-  const researchQueue = data.researchIntake.slice(0, 50);
+  const latestDesk1Run = data.researchRuns.find((run) =>
+    run.status === "completed" && (run.schedule_slot === "morning" || run.schedule_slot === "evening"),
+  ) || null;
+  const desk1Focus = latestDesk1Run
+    ? data.researchFocus
+      .filter((focus) => focus.run_id === latestDesk1Run.id && focus.decision !== "rejected")
+      .sort((a, b) => a.priority - b.priority)
+    : [];
+  const desk1EvidenceKeys = new Set(desk1Focus.flatMap((focus) => focus.evidence_item_keys));
+  const desk1Evidence = data.researchIntake
+    .filter((item) => desk1EvidenceKeys.has(item.item_key) && (item.status === "accepted" || item.status === "published"))
+    .map((item) => ({
+      itemKey: item.item_key,
+      itemType: item.item_type,
+      publisher: item.publisher,
+      title: item.title,
+      url: item.url,
+      publishedAt: item.published_at,
+      summary: item.recontextualized_summary || item.summary,
+      affectedStorySlugs: item.affected_story_slugs,
+      freshnessScore: item.freshness_score,
+      candidateScore: item.candidate_score,
+      claimChecks: item.claim_checks,
+      expertNotes: item.expert_notes,
+      divergence: item.divergence_kind === "none" ? null : {
+        kind: item.divergence_kind,
+        note: item.divergence_note,
+      },
+      evidenceLinks: item.evidence_links,
+    }));
+  const researchBlockers = data.researchIntake.filter((item) =>
+    item.status === "blocked"
+    || (item.item_type === "video" && (item.transcript_status !== "ready" || !["reviewed", "listened"].includes(item.video_review_status || "")))
+    || (item.recommended_action === "recalibrate_story" && item.evidence_links.length < 4),
+  );
 
   return NextResponse.json({
-    version: 1,
+    version: 2,
     source: "alchemy-live-market-desk",
     generatedAt: new Date().toISOString(),
     marketUpdatedAt: market.updatedAt,
@@ -164,11 +198,21 @@ export async function GET() {
     earnings,
     stories,
     research: {
+      contract: {
+        canonicalDesk: "desk1",
+        consumer: "desk2_hybrid",
+        mode: "validated_adaptation_only",
+        independentIngestion: false,
+      },
       health: researchHealth,
-      latestRun: data.researchRuns[0] || null,
-      divergences: researchQueue.filter((item) => item.divergence_kind !== "none").slice(0, 10),
-      blockers: researchQueue.filter((item) => (item.item_type === "video" && item.transcript_status !== "ready") || (item.recommended_action === "recalibrate_story" && item.evidence_links.length < 4)).slice(0, 10),
-      articleReviews: researchQueue.filter((item) => item.item_type === "alchemy_article" && item.recommended_action === "review_article").slice(0, 10),
+      desk1Run: latestDesk1Run,
+      focus: desk1Focus,
+      evidence: desk1Evidence,
+      monitoring: {
+        blockerCount: researchBlockers.length,
+        pendingVideoCount: researchBlockers.filter((item) => item.item_type === "video").length,
+        blockedRecalibrationCount: researchBlockers.filter((item) => item.recommended_action === "recalibrate_story").length,
+      },
     },
   }, {
     headers: {
