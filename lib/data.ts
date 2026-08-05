@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
 
+import type { ClaimCheckInput, ExpertNoteInput, JargonResearchInput, ProcessLogInput, ResearchScheduleSlot } from "@/lib/research-update";
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -291,7 +293,7 @@ export type MarketStateRecord = {
 export type ResearchRunStatus = {
   id: string;
   run_key: string;
-  schedule_slot: "morning" | "evening" | "manual";
+  schedule_slot: ResearchScheduleSlot;
   scheduled_for: string;
   started_at: string;
   completed_at: string | null;
@@ -299,7 +301,10 @@ export type ResearchRunStatus = {
   accuracy_gate: "open" | "review" | "blocked";
   required_sources_complete: boolean;
   evidence_gate_passed: boolean;
+  freshness_gate_passed: boolean;
   source_checks: Array<{ source: string; status: string; itemCount?: number; note?: string }>;
+  process_log: ProcessLogInput[];
+  calendar_checks: Array<{ calendar: "economic" | "earnings"; status: "checked" | "blocked"; windowStart: string; windowEnd: string; eventCount: number; note?: string }>;
   videos_found: number;
   transcripts_ready: number;
   news_scanned: number;
@@ -307,6 +312,11 @@ export type ResearchRunStatus = {
   articles_scanned: number;
   articles_flagged: number;
   evidence_added: number;
+  jargon_terms_researched: number;
+  expert_notes_added: number;
+  stories_demoted: number;
+  focus_decisions_count: number;
+  focus_changes_published: number;
   updates_published: number;
   warnings: string[];
   summary: string | null;
@@ -324,7 +334,16 @@ export type ResearchIntakeQueueItem = {
   published_at: string;
   article_position: number | null;
   transcript_status: "ready" | "missing" | "unavailable" | "not_applicable" | null;
+  transcript_provider: "youtubetotranscript.com" | "official" | "other" | null;
+  video_review_status: "reviewed" | "listened" | "transcript_only" | "unavailable" | null;
   transcript_word_count: number;
+  creator_logic: string | null;
+  recontextualized_summary: string | null;
+  terms_detected: string[];
+  jargon_research: JargonResearchInput[];
+  claim_checks: ClaimCheckInput[];
+  expert_notes: ExpertNoteInput[];
+  freshness_score: number;
   summary: string;
   affected_story_slugs: string[];
   source_quality: number;
@@ -343,8 +362,33 @@ export type ResearchIntakeQueueItem = {
   updated_at: string;
 };
 
+export type ResearchStoryFocus = {
+  id: string;
+  run_id: string;
+  run_key: string;
+  schedule_slot: ResearchScheduleSlot;
+  scheduled_for: string;
+  run_status: ResearchRunStatus["status"];
+  story_slug: string;
+  headline: string;
+  angle_key: string;
+  priority: number;
+  proposed_decision: "lead" | "top_three" | "background" | "rejected";
+  decision: "lead" | "top_three" | "background" | "rejected";
+  event_at: string | null;
+  next_catalyst_at: string | null;
+  material_change: boolean;
+  material_change_reason: string | null;
+  freshness_status: "fresh_72h" | "upcoming_7d" | "materially_refreshed" | "stale";
+  freshness_reason: string;
+  demotion_reason: string | null;
+  evidence_item_keys: string[];
+  expert_notes: ExpertNoteInput[];
+  created_at: string;
+};
+
 async function loadDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake, researchFocus] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
@@ -363,8 +407,9 @@ async function loadDeskData() {
     query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
     privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
     privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
+    privateQuery<ResearchStoryFocus>("research_focus_queue", "select=*&order=scheduled_for.desc,priority.asc&limit=120"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake, researchFocus };
 }
 
-export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v2"], { revalidate: DESK_REVALIDATE });
+export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v3"], { revalidate: DESK_REVALIDATE });

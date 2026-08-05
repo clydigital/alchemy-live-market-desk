@@ -562,7 +562,7 @@ button { font: inherit; }
 .update-engine-head > strong { min-width:104px; padding:9px 11px; border:1px solid rgba(72,225,160,.3); border-radius:6px; color:var(--green); font-size:10px; text-align:center; }
 .update-engine.attention .update-engine-head > strong { border-color:rgba(255,191,70,.36); color:var(--amber); }
 .update-engine.not_configured .update-engine-head > strong { border-color:rgba(255,83,112,.4); color:var(--red); }
-.update-schedule { display:grid; grid-template-columns:1fr 1fr 1.2fr; margin-top:18px; border-block:1px solid var(--line); }
+.update-schedule { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.2fr); margin-top:18px; border-block:1px solid var(--line); }
 .update-schedule article { min-width:0; padding:14px 16px; border-right:1px solid var(--line); }
 .update-schedule article:last-child { border-right:0; }
 .update-schedule span,.update-schedule b,.update-schedule small { display:block; }
@@ -570,25 +570,26 @@ button { font: inherit; }
 .update-schedule b { margin:5px 0; color:var(--green); font-size:14px; }
 .update-schedule article.blocked b,.update-schedule article.missed b { color:var(--amber); }
 .update-schedule small { overflow:hidden; color:var(--muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
-.update-run-kpis { display:grid; grid-template-columns:repeat(6,1fr); margin-top:16px; background:rgba(255,255,255,.018); }
+.update-run-kpis { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); margin-top:16px; background:rgba(255,255,255,.018); }
 .update-run-kpis span { min-width:0; padding:13px; border-right:1px solid var(--line); }
 .update-run-kpis span:last-child { border-right:0; }
 .update-run-kpis b,.update-run-kpis small { display:block; }
 .update-run-kpis b { font-size:22px; }
 .update-run-kpis small { margin-top:4px; color:#918fa7; font-size:9px; }
-.update-queues { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:18px; }
+.update-queues { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; margin-top:18px; }
 .update-queues > article { min-width:0; padding-top:12px; border-top:2px solid rgba(158,122,255,.35); }
 .update-queues > article > header { display:flex; justify-content:space-between; gap:10px; margin-bottom:5px; }
 .update-queues > article > header span,.update-queues > article > header b { color:#9e7aff; font-size:9px; font-weight:900; }
-.update-queues a { display:block; padding:10px 0; border-bottom:1px solid var(--line); color:inherit; text-decoration:none; }
-.update-queues a small,.update-queues a b { display:block; }
-.update-queues a small { color:#a98aff; font-size:8px; font-weight:900; text-transform:uppercase; }
-.update-queues a b { margin:5px 0; overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
-.update-queues a p,.queue-empty { margin:0; color:#aaa8b9; font-size:10px; line-height:1.4; }
+.update-queues a,.update-queues .queue-item { display:block; min-width:0; padding:10px 0; border-bottom:1px solid var(--line); color:inherit; text-decoration:none; }
+.update-queues a small,.update-queues a b,.update-queues .queue-item small,.update-queues .queue-item b { display:block; }
+.update-queues a small,.update-queues .queue-item small { color:#a98aff; font-size:8px; font-weight:900; text-transform:uppercase; }
+.update-queues a b,.update-queues .queue-item b { margin:5px 0; overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.update-queues a p,.update-queues .queue-item p,.queue-empty { margin:0; color:#aaa8b9; font-size:10px; line-height:1.4; }
 .queue-empty { padding:18px 0; }
 .update-engine > footer { display:flex; justify-content:space-between; gap:16px; margin-top:16px; color:var(--muted); font-size:10px; }
 .update-engine > footer a { color:#b391ff; font-weight:800; text-decoration:none; }
-@media(max-width:980px){.update-run-kpis{grid-template-columns:repeat(3,1fr)}.update-run-kpis span:nth-child(3){border-right:0}.update-queues{grid-template-columns:1fr}}
+@media(max-width:1180px){.update-schedule{grid-template-columns:repeat(2,minmax(0,1fr))}.update-schedule article:nth-child(2n){border-right:0}.update-schedule article{border-bottom:1px solid var(--line)}.update-schedule article:last-child{border-bottom:0}.update-run-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.update-run-kpis span:nth-child(4n){border-right:0}.update-queues{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:980px){.update-queues{grid-template-columns:1fr}}
 @media(max-width:640px){.update-engine-head{display:block}.update-engine-head>strong{display:inline-block;margin-top:14px}.update-schedule{grid-template-columns:1fr}.update-schedule article{border-right:0;border-bottom:1px solid var(--line)}.update-schedule article:last-child{border-bottom:0}.update-run-kpis{grid-template-columns:repeat(2,1fr)}.update-run-kpis span:nth-child(2n){border-right:0}.update-engine>footer{display:block}.update-engine>footer a{display:block;margin-top:7px}}
 
 /* Market-state operating layer */
