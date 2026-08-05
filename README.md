@@ -4,6 +4,8 @@ Canonical research layer for Alchemy Markets. It owns source ingestion, transcri
 
 See [Research Architecture and Rollout](docs/RESEARCH_ROLLOUT.md).
 
+See the [Editorial-Brain Design Pack](docs/editorial-brain/README.md) for the Original release ledger, story command desk, macro operating system, History Cabinet and judge-panel recommendation.
+
 ## Twice-daily research engine
 
 The 08:30 and 22:00 Asia/Kuala_Lumpur research cycles publish through
