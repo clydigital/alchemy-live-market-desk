@@ -1,0 +1,71 @@
+# Research Update Engine
+
+The original Live Desk is the canonical research backend. The Hybrid consumes
+its redacted status through `/api/hybrid-feed`; it does not repeat ingestion.
+
+## Schedule
+
+- 08:30 Asia/Kuala_Lumpur
+- 22:00 Asia/Kuala_Lumpur
+
+Each run starts by reading `GET /api/research-update` so it can use the last
+completed run as its discovery cutoff and avoid duplicate work.
+
+## Required source checks
+
+Every run records one status for each source, even when nothing new exists:
+
+- StockedUp: new YouTube videos and available captions/transcript
+- Wall Street Truth Bombs: new live videos and available captions/transcript
+- Traders Reality: new live videos and available captions/transcript
+- ZeroHedge: recent dated market reporting
+- Axios: recent dated business, policy and market reporting
+- Investing.com: recent dated market reporting and releases
+- FXStreet: recent dated FX, rates and macro reporting
+- Alchemy Markets Market Insights: the 30 most recent dated articles only
+
+A blocked source is recorded as blocked. It is never silently counted as
+checked. The exact Wall Street Truth Bombs channel identity must be confirmed
+before its transcripts can be accepted automatically.
+
+## Editorial sequence
+
+1. Discover new dated items since the prior successful run.
+2. Obtain the transcript for each retained creator video. A title or video
+   description is not a transcript.
+3. Score source quality, relevance, novelty and materiality from 0–100.
+4. Compare news direction with the Live Desk's current statistics. Record
+   `stats_lead`, `news_lead` or `contradiction` when they diverge.
+5. Review only positions 1–30 in the dated Alchemy article list.
+6. Collect at least four distinct, dated HTTPS evidence links for every
+   proposed story recalibration.
+7. Preserve support, contradiction and the next unresolved test.
+8. Publish only when all source checks, the four-link evidence gate and the
+   deterministic accuracy gate are open. Confidence can move by at most eight
+   points in one run.
+
+## Publishing
+
+Create a JSON payload matching the types in `lib/research-update.ts`, validate
+it without writing, then publish:
+
+```powershell
+$env:RESEARCH_UPDATE_TOKEN = "<server token>"
+npm run research:publish -- run.json --dry-run
+npm run research:publish -- run.json
+```
+
+The bearer token and Supabase service-role key are server secrets. They must
+never use a `NEXT_PUBLIC_` prefix or appear in a research payload, source
+record, transcript, commit, log, or automation prompt.
+
+## Failure behaviour
+
+- Missing dates reject the payload.
+- Missing source checks reject the payload.
+- A source access failure records a blocked run.
+- A missing transcript blocks any video-derived story change.
+- Fewer than four evidence links blocks the linked story change.
+- A warning or failed deterministic accuracy report blocks story changes.
+- Runs and intake items remain visible in the operational queue so the next
+  cycle can repair them instead of silently starting over.

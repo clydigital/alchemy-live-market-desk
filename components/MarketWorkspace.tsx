@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { AlchemyArticle } from "@/lib/alchemy";
 import type { AccuracyReport } from "@/lib/accuracy";
 import type { EconomicCalendarEvent } from "@/lib/calendar";
-import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, MarketStateRecord, NewsThread, PublicStatement, ResearchRegistryItem, ResearchRolloutPhase, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
+import type { ChartRequest, EarningsCall, GuidanceItem, MacroRelease, MacroSeriesObservation, MarketSeriesObservation, MarketStateRecord, NewsThread, PublicStatement, ResearchIntakeQueueItem, ResearchRegistryItem, ResearchRolloutPhase, ResearchRunStatus, ResearchSource, Story, StoryEvidence, StoryEvidenceCoverage, Update } from "@/lib/data";
 import EarningsHub from "@/components/EarningsHub";
 import EconomicCalendar from "@/components/EconomicCalendar";
 import MarketStateBoard from "@/components/MarketStateBoard";
 import MacroSeriesCharts from "@/components/MacroSeriesCharts";
 import RelationshipChart from "@/components/RelationshipChart";
+import ResearchUpdateMonitor from "@/components/ResearchUpdateMonitor";
 import type { BreadthSnapshot, CrackSeries, MarketData, MarketSeries, PricePoint } from "@/lib/market";
 
 type Props = {
@@ -30,6 +31,8 @@ type Props = {
   macroObservations: MacroSeriesObservation[];
   marketObservations: MarketSeriesObservation[];
   marketStateRecords: MarketStateRecord[];
+  researchRuns: ResearchRunStatus[];
+  researchIntake: ResearchIntakeQueueItem[];
   calendarEvents: EconomicCalendarEvent[];
   market: MarketData;
   accuracy: AccuracyReport;
@@ -370,7 +373,7 @@ function Icon({ name }: { name: string }) {
   return <span aria-hidden="true">{icons[name] || "✦"}</span>;
 }
 
-export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, calendarEvents, market, accuracy }: Props) {
+export default function MarketWorkspace({ stories, calls, updates, charts, articles, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake, calendarEvents, market, accuracy }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [range, setRange] = useState<Range>("30D");
@@ -635,6 +638,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
               <article className="panel research-role-card hybrid-role"><small>DOWNSTREAM</small><h3>Hybrid Market Desk</h3><p>Guided journeys, World transmission maps, decision practice and review history. It may mirror evidence, but it does not become a second research backend.</p><div><span>TEACH</span><span>VISUALISE</span><span>REVIEW</span></div></article>
               <article className="panel publication-gate"><small>PREPARATION GATE</small><h3>A story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Six useful evidence cards with direct source links</li><li>Support, a meaningful contradiction and an unresolved test</li><li>Two relevant charts, including the main price chart</li><li>Confirmation and invalidation conditions</li><li>Maths and definition checks before editorial approval</li><li>One dated balance-of-evidence update</li></ul></article>
             </section>
+
+            <ResearchUpdateMonitor runs={researchRuns} intake={researchIntake} />
 
             <section className={`panel accuracy-audit ${accuracy.status}`}>
               <div className="accuracy-audit-head"><div><small>DETERMINISTIC ACCURACY CHECK</small><h3>Market inputs are {accuracy.updateGate === "open" ? "cleared for analysis" : accuracy.updateGate === "review" ? "waiting for review" : "blocked from analysis"}</h3><p>{accuracy.summary}</p></div><div className="accuracy-score"><b>{accuracy.score}</b><span>/100</span><small>{accuracy.updateGate} gate</small></div></div>

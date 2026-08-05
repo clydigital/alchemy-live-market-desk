@@ -274,8 +274,63 @@ export type MarketStateRecord = {
   updated_at: string;
 };
 
+export type ResearchRunStatus = {
+  id: string;
+  run_key: string;
+  schedule_slot: "morning" | "evening" | "manual";
+  scheduled_for: string;
+  started_at: string;
+  completed_at: string | null;
+  status: "running" | "completed" | "blocked" | "failed";
+  accuracy_gate: "open" | "review" | "blocked";
+  required_sources_complete: boolean;
+  evidence_gate_passed: boolean;
+  source_checks: Array<{ source: string; status: string; itemCount?: number; note?: string }>;
+  videos_found: number;
+  transcripts_ready: number;
+  news_scanned: number;
+  candidates_kept: number;
+  articles_scanned: number;
+  articles_flagged: number;
+  evidence_added: number;
+  updates_published: number;
+  warnings: string[];
+  summary: string | null;
+  updated_at: string;
+};
+
+export type ResearchIntakeQueueItem = {
+  id: string;
+  run_id: string;
+  item_key: string;
+  item_type: "video" | "news" | "alchemy_article";
+  publisher: string;
+  title: string;
+  url: string;
+  published_at: string;
+  article_position: number | null;
+  transcript_status: "ready" | "missing" | "unavailable" | "not_applicable" | null;
+  transcript_word_count: number;
+  summary: string;
+  affected_story_slugs: string[];
+  source_quality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  candidate_score: number;
+  recommended_action: "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
+  status: "candidate" | "accepted" | "blocked" | "published" | "rejected";
+  stats_signal: string | null;
+  news_signal: string | null;
+  divergence_kind: "none" | "stats_lead" | "news_lead" | "contradiction";
+  divergence_note: string | null;
+  evidence_links: Array<{ title: string; url: string; publishedAt: string; publisher?: string }>;
+  review_reason: string | null;
+  updated_at: string;
+};
+
 async function loadDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
@@ -292,8 +347,10 @@ async function loadDeskData() {
     query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
     query<MarketSeriesObservation>("market_series_observations", "select=*&order=observation_date.asc&limit=800"),
     query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
+    query<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
+    query<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords };
+  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
 }
 
 export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v2"], { revalidate: DESK_REVALIDATE });

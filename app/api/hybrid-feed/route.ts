@@ -4,6 +4,7 @@ import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, type MarketStateRecord } from "@/lib/data";
 import { getMarketData, type MarketData, type MarketSeries } from "@/lib/market";
+import { researchScheduleHealth } from "@/lib/research-update";
 
 export const revalidate = 60;
 
@@ -149,6 +150,8 @@ export async function GET() {
   recentCutoff.setUTCDate(recentCutoff.getUTCDate() - 2);
   const cutoffDate = recentCutoff.toISOString().slice(0, 10);
   const feedCalendar = calendar.filter((event) => event.date >= cutoffDate).slice(0, 60);
+  const researchHealth = researchScheduleHealth(data.researchRuns);
+  const researchQueue = data.researchIntake.slice(0, 50);
 
   return NextResponse.json({
     version: 1,
@@ -160,6 +163,13 @@ export async function GET() {
     calendar: feedCalendar.map((event) => ({ ...event, missionXp: event.category === "Central bank" ? 25 : 20 })),
     earnings,
     stories,
+    research: {
+      health: researchHealth,
+      latestRun: data.researchRuns[0] || null,
+      divergences: researchQueue.filter((item) => item.divergence_kind !== "none").slice(0, 10),
+      blockers: researchQueue.filter((item) => (item.item_type === "video" && item.transcript_status !== "ready") || (item.recommended_action === "recalibrate_story" && item.evidence_links.length < 4)).slice(0, 10),
+      articleReviews: researchQueue.filter((item) => item.item_type === "alchemy_article" && item.recommended_action === "review_article").slice(0, 10),
+    },
   }, {
     headers: {
       "Access-Control-Allow-Origin": "*",
