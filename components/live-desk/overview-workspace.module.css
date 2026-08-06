@@ -196,11 +196,58 @@
   font-weight: 900;
 }
 
+.weekComparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.weekComparison > div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(178, 169, 255, .13);
+  border-radius: 12px;
+  background: rgba(11, 13, 36, .35);
+}
+
+.weekComparison > div[data-current="true"] {
+  border-color: rgba(104, 77, 255, .35);
+  background: rgba(104, 77, 255, .09);
+}
+
+.weekComparison span,
+.weekComparison strong,
+.weekComparison small {
+  display: block;
+}
+
+.weekComparison span {
+  color: #aaa9c5;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.weekComparison strong {
+  margin-top: 5px;
+  color: #f8f7ff;
+  font-size: 22px;
+}
+
+.weekComparison small {
+  margin-top: 3px;
+  color: #8e8aa4;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
 .pulseDrivers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
-  margin-top: 24px;
+  margin-top: 12px;
 }
 
 .pulseDrivers div {
@@ -269,15 +316,20 @@
 
 .storyLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(290px, .65fr);
-  gap: 26px;
+  grid-template-columns: minmax(360px, .88fr) minmax(0, 1.12fr);
+  gap: 28px;
   align-items: stretch;
   margin-top: 18px;
 }
 
 .storyMap {
   position: relative;
-  min-height: 390px;
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 1;
+  align-self: center;
+  justify-self: center;
+  margin-block: 28px;
   overflow: hidden;
   border: 1px solid rgba(178, 169, 255, .13);
   border-radius: 20px;
@@ -311,15 +363,15 @@
 
 .storyCore {
   left: 50%;
-  top: 51%;
-  width: 196px;
-  height: 196px;
+  top: 50%;
+  width: clamp(168px, 36%, 196px);
+  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   transform: translate(-50%, -50%);
-  padding: 24px;
+  padding: 23px;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, #713bd9 0%, #3a236f 54%, #201a46 100%);
   text-align: center;
@@ -376,9 +428,10 @@
 .selectedNode { background: linear-gradient(145deg, #6534c6, #342064); border-color: #d293ff; }
 
 .storyDetail {
+  min-height: 616px;
   display: flex;
   flex-direction: column;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid rgba(178, 169, 255, .16);
   border-radius: 20px;
   background: rgba(13, 15, 40, .46);
@@ -401,8 +454,8 @@
 .storyHeading h3 {
   margin: 7px 0 0;
   color: #f8f7ff;
-  font-size: 22px;
-  line-height: 1.1;
+  font-size: 24px;
+  line-height: 1.08;
 }
 
 .storyHeading > strong {
@@ -418,7 +471,87 @@
   font-size: 18px;
 }
 
-.storyDetail p {
+.storyImage {
+  position: relative;
+  min-height: 230px;
+  margin: 20px 0 2px;
+  overflow: hidden;
+  border: 1px solid rgba(178, 169, 255, .16);
+  border-radius: 16px;
+  background: rgba(8, 10, 29, .7);
+}
+
+.storyImage img {
+  display: block;
+  width: 100%;
+  height: 230px;
+  object-fit: cover;
+}
+
+.storyImage figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  color: #8f8ca6;
+  background: rgba(8, 10, 29, .88);
+  font-size: 9px;
+}
+
+.storyImage figcaption a {
+  flex: 0 0 auto;
+  color: #b986ff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.storyImage[data-broken="true"] {
+  min-height: 128px;
+}
+
+.storyImage[data-broken="true"] img {
+  display: none;
+}
+
+.storyImage[data-broken="true"]::before {
+  min-height: 86px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: #8f8ca6;
+  font-size: 11px;
+  text-align: center;
+  content: "The linked article image could not be displayed.";
+}
+
+.storyImageFallback {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 20px 0 2px;
+  padding: 20px;
+  border: 1px dashed rgba(178, 169, 255, .2);
+  border-radius: 16px;
+  background: rgba(8, 10, 29, .34);
+}
+
+.storyImageFallback span {
+  color: #9c70e7;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.storyImageFallback p {
+  margin: 8px 0 0;
+  color: #8f8ca6;
+  font-size: 12px;
+}
+
+.storyDetail > p {
   color: #bbb9cb;
   font-size: 14px;
   line-height: 1.58;
@@ -568,7 +701,12 @@
   }
 
   .storyMap {
-    min-height: 370px;
+    width: min(620px, 100%);
+    margin-block: 14px;
+  }
+
+  .storyDetail {
+    min-height: auto;
   }
 }
 
@@ -585,6 +723,7 @@
     width: 116px;
   }
 
+  .weekComparison,
   .pulseDrivers {
     grid-template-columns: 1fr;
   }
@@ -598,13 +737,24 @@
     flex-direction: column;
   }
 
+  .storyLayout {
+    gap: 16px;
+  }
+
   .storyMap {
-    min-height: 500px;
+    margin-block: 12px;
   }
 
   .storyCore {
-    width: 170px;
-    height: 170px;
+    width: 42%;
+    min-width: 154px;
+  }
+
+  .storyNode {
+    max-width: 132px;
+    min-height: 50px;
+    padding: 8px 10px;
+    font-size: 10px;
   }
 
   .node1 { left: 2%; top: 4%; }
@@ -612,4 +762,8 @@
   .node3 { right: 2%; bottom: 8%; }
   .node4 { left: 2%; bottom: 17%; }
   .node5 { top: auto; bottom: 2%; }
+
+  .storyImage img {
+    height: 190px;
+  }
 }
