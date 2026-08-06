@@ -43,7 +43,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
   const authRequired = dashboardAuthRequired();
 
   return (
-    <main className={styles.stage}>
+    <main className={styles.stage} data-live-desk-stage>
       <section className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.brandBlock}>
