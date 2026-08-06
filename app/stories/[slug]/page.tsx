@@ -47,7 +47,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
         />
 
         <div className={styles.gridTwo}>
-          <Panel title="Current thesis state" description="This is the current mutable Story row. PR 2 will preserve every thesis revision separately.">
+          <Panel title="Current thesis state" description="The latest accepted explanation, support and contradiction for this Story.">
             <div className={styles.recordList}>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Market belief</span>
@@ -68,7 +68,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
             </div>
           </Panel>
 
-          <Panel title="Test and portfolio map" description="Confirmation and invalidation remain explicit even before versioned thesis records are introduced.">
+          <Panel title="Test and portfolio map" description="Confirmation, invalidation and the next catalyst remain explicit beside affected assets.">
             <div className={styles.recordList}>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Confirmation</span>
@@ -91,7 +91,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
           </Panel>
         </div>
 
-        <Panel title="Story event timeline" description="Existing updates are retained in date order. PR 2 will add the full append-only event taxonomy.">
+        <Panel title="Story event timeline" description="Existing dated updates in chronological research context.">
           <div className={styles.recordList}>
             {updates.length ? updates.map((update) => (
               <article className={styles.record} key={update.id}>
@@ -104,12 +104,12 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 </div>
                 {update.detail ? <p>{update.detail}</p> : null}
               </article>
-            )) : <DataState title="No Story events returned" detail="The current update table contains no linked events for this Story." />}
+            )) : <DataState title="No dated Story events" detail="No linked update records are available for this Story." />}
           </div>
         </Panel>
 
         <div className={styles.gridTwo}>
-          <Panel title="Evidence" description="Current evidence is shown without reclassifying fact, inference or interpretation.">
+          <Panel title="Evidence" description="Current evidence is shown with its recorded type, strength and supporting detail.">
             <div className={styles.recordList}>
               {evidence.length ? evidence.slice(0, 20).map((item) => (
                 <article className={styles.record} key={item.id}>
@@ -120,7 +120,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                   {item.detail ? <p>{item.detail}</p> : null}
                   <div className={styles.meta}>{item.evidence_type} · {formatDeskDate(item.created_at)}</div>
                 </article>
-              )) : <DataState title="No evidence returned" detail="The evidence query returned no linked records for this Story." />}
+              )) : <DataState title="No linked evidence" detail="No evidence records are currently linked to this Story." />}
             </div>
           </Panel>
 
@@ -137,7 +137,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                   </div>
                   <p>{source.notes || `Published ${formatDeskDate(source.publication_date)}. Observed ${formatDeskDate(source.observation_date)}.`}</p>
                 </article>
-              )) : <DataState title="No source records returned" detail="This Story has no linked source rows in the current loader result." />}
+              )) : <DataState title="No linked sources" detail="No source records are currently linked to this Story." />}
             </div>
           </Panel>
         </div>
