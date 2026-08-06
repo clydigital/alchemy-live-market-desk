@@ -15,7 +15,7 @@ export default async function StoriesPage() {
     <LiveDeskShell
       activePath="/stories"
       title="Stories"
-      description="Persistent market questions, current theses and exact supporting records. PR 1 keeps the existing Story rows intact while adding route ownership and deep links."
+      description="Persistent market questions, current theses and exact supporting records."
       meta={`${data.stories.length} non-archived Stories`}
     >
       <div className={styles.grid}>
@@ -30,8 +30,8 @@ export default async function StoriesPage() {
 
         <Panel
           title="Story registry"
-          description="The current thesis fields are still mutable. PR 2 will add append-only Story events and thesis versions before these fields are treated as reconstructable history."
-          action={<Link className={styles.link} href="/legacy?tab=Stories">Open legacy Story board</Link>}
+          description="Current theses, confidence, catalysts and evidence-room readiness remain visible in one registry."
+          action={<Link className={styles.link} href="/legacy?tab=Stories">Open detailed Story board</Link>}
         >
           <div className={styles.recordList}>
             {data.stories.length ? data.stories.map((story) => {
@@ -57,7 +57,7 @@ export default async function StoriesPage() {
                 </article>
               );
             }) : (
-              <DataState state="risk" title="No Stories returned" detail="The canonical Story query is empty or unavailable. No fallback or illustrative Stories are inserted into this route." />
+              <DataState state="risk" title="Stories are updating" detail="No current Story records are available. No illustrative Stories are inserted in their place." />
             )}
           </div>
         </Panel>
