@@ -2,22 +2,38 @@
 
 ## Status
 
-Implementation branch: `feat/live-desk-v8-shell-pr1`
+- Branch: `feat/live-desk-v8-shell-pr1`
+- Base: `main`
+- Pull request: #4
+- Production: unchanged
+- Supabase: unchanged
+- Merge state: draft and unmerged
 
-This pull request installs the shared V8 route shell and compatibility layer. It does not modify Supabase, replace the research engine, seed mock values or remove the existing workspace.
+## Implemented
 
-## Authorities
+### Shared V8 shell
 
-- `docs/live-desk-v8-reference`
-- open V8 documentation pull request
-- attached `alchemy-live-market-desk-new-mockup-v8` static prototype
-- current `main` runtime and loaders
+The route shell provides two persistent navigation rows:
 
-The committed documents control product behaviour and data integrity. The mockup controls hierarchy, navigation density and interaction direction only. Its illustrative values are not used.
+**Desk**
 
-## Scope
+- Overview
+- What’s New
+- Stories
+- Articles
+- Hybrid Output
 
-### Added route ownership
+**Data and tools**
+
+- Macro Data
+- Heatmaps
+- Positioning
+- Charts
+- History
+
+### Route ownership
+
+The following destinations now have stable route ownership:
 
 - `/`
 - `/whats-new`
@@ -30,80 +46,83 @@ The committed documents control product behaviour and data integrity. The mockup
 - `/tools/charts`
 - `/tools/history`
 - `/hybrid-output`
-
-### Preserved compatibility
-
-The current `MarketWorkspace` remains available at:
-
 - `/legacy`
 
-Legacy `?tab=` links on the root route redirect to the nearest V8 destination. Unknown tab values fall back to `/legacy?tab=...`.
+Legacy `?tab=` URLs are redirected to the corresponding V8 route where a direct mapping exists. The original workspace remains available at `/legacy`.
 
-### Explicit failure states
+### Charts
 
-New routes distinguish:
+The Charts route retains a visible working chart experience rather than reducing charts to summary cards. It includes:
 
-- loaded records;
-- genuine empty results;
-- unavailable private views;
-- missing relations;
-- incomplete methodology or persistence contracts.
+- live market series from the existing market loader;
+- a visible SVG chart canvas;
+- 7D, 30D, 90D and 1Y controls;
+- series selection;
+- last value and 5D/21D change context;
+- source links;
+- existing research chart requests.
 
-They do not convert query failure into a healthy zero state.
+### Heatmaps
 
-## No database changes
+The Heatmaps route uses the existing functional `MarketStateBoard` with current market series, breadth, Story and update records. Missing persisted state cells do not replace the working board with a product-facing schema warning.
 
-This PR includes:
+### Positioning
 
-- no migrations;
-- no RLS changes;
-- no table, index, function or view changes;
-- no destructive operations;
-- no backfill.
+The Positioning route includes:
 
-## Existing data reused
+- an Alchemy raw-position view;
+- a COTSignal-style 52-week view;
+- official CFTC Legacy Futures Only data;
+- Commercial, Large Spec and Small Spec classifications;
+- Commercial raw and inverted scores;
+- percentages of open interest;
+- weekly percentile changes;
+- stale-report labelling;
+- Story links;
+- an official source link.
 
-The route shell reads the current production loaders for:
+No positioning values are inferred from price action or copied from the static prototype.
 
-- Stories;
-- Story updates;
-- evidence and coverage;
-- sources;
-- articles;
-- public statements;
-- news threads;
-- macro releases and observations;
-- market observations and state records;
-- chart requests;
-- research runs and intake.
+### Product copy
 
-## Known gaps intentionally left visible
+Normal product routes no longer display implementation-specific language such as:
 
-- mutable Story thesis fields;
-- incomplete macro vintage history;
-- missing complete CFTC positioning contract;
-- no immutable Hybrid snapshots;
-- no global search;
-- no complete History Cabinet;
-- `market_state_ledger` loader/schema mismatch;
-- silent-empty behaviour remains in the shared legacy loader itself;
-- no durable article-comparison records.
+- pull request or phase numbers;
+- internal relation names;
+- audit-process notes;
+- statements that a feed is not exposed to a route.
 
-These belong to later approved PRs.
+Limitations remain visible in neutral product language where they materially affect interpretation.
 
-## Review checklist
+## Validation
 
-- Two navigation rows remain visible on desktop.
-- Each row scrolls horizontally on narrow screens.
-- Primary destinations do not use dropdown navigation.
-- Every route uses real loader output or an explicit unavailable state.
-- Story rows have stable detail links.
-- Current operational modules remain reachable at `/legacy`.
-- No mock data is used.
-- No production merge occurs without explicit approval.
+- Vercel preview deployment completed successfully.
+- Next.js 15.5.18 production build passed.
+- Compilation completed successfully.
+- TypeScript validation passed through the Next.js build.
+- Lint validation passed through the Next.js build.
+- Route generation completed successfully.
+- Charts, Heatmaps and Positioning routes returned successfully in preview checks.
+- The Positioning route returned official CFTC records rather than illustrative values.
+- The original workspace remains available at `/legacy`.
+
+## Database changes
+
+None.
+
+No Supabase migrations, RLS changes, table changes or data writes are included in this pull request.
+
+## Remaining limitations
+
+- Story thesis fields remain mutable.
+- Complete macro-vintage reconstruction is not installed.
+- Complete point-in-time Story reconstruction is not installed.
+- Hybrid editions are not immutable snapshots.
+- CFTC history is fetched from the official runtime feed rather than persisted as an internal historical dataset.
+- Global search and complete historical replay remain later work.
 
 ## Rollback
 
-The branch can be closed without affecting `main` or Supabase.
+Before merge, closing the pull request leaves production, `main` and Supabase unchanged.
 
-After a future merge, the lowest-risk application rollback is to revert the PR merge commit. The legacy workspace remains available throughout, so route-shell rollback does not require a database rollback.
+After a future authorised merge, revert the merge commit. The legacy workspace remains available throughout the transition.
