@@ -12,14 +12,14 @@ export default async function ArticlesPage() {
     <LiveDeskShell
       activePath="/articles"
       title="Articles"
-      description="Published Alchemy coverage remains linked to the current research engine. Durable comparison history and duplicate decisions remain a later persistence task."
+      description="Published Alchemy coverage remains visible beside current Stories and research updates."
       meta={`${articles.length} published records loaded`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
             { value: articles.length, label: "Published articles" },
-            { value: data.stories.length, label: "Active Stories" },
+            { value: data.stories.length, label: "Tracked Stories" },
             { value: data.updates.length, label: "Recent Story events" },
             { value: data.researchIntake.filter((item) => item.item_type === "alchemy_article").length, label: "Article intake items" },
           ]}
@@ -27,7 +27,7 @@ export default async function ArticlesPage() {
 
         <Panel
           title="Article memory"
-          description="These are source-backed Alchemy article records. PR 4 will persist article-to-Story comparisons and rejection reasons rather than calculating them only in the client."
+          description="Source-backed Alchemy article records with publication date, author, category and original link."
         >
           <div className={styles.recordList}>
             {articles.length ? articles.map((article) => (
@@ -42,7 +42,7 @@ export default async function ArticlesPage() {
                 <p>{article.summary}</p>
               </article>
             )) : (
-              <DataState state="risk" title="No article records returned" detail="The Alchemy article loader returned no records. No mock article values are inserted." />
+              <DataState state="risk" title="Article records are updating" detail="No published records are available at the moment. No illustrative article values are inserted." />
             )}
           </div>
         </Panel>
