@@ -13,7 +13,7 @@ export default async function HybridOutputPage() {
     <LiveDeskShell
       activePath="/hybrid-output"
       title="Hybrid Output"
-      description="Audit the handoff from canonical Live Core records to the interpretative Hybrid layer. PR 1 exposes readiness gaps without claiming that immutable presentation snapshots already exist."
+      description="Review the handoff from canonical Live research records to the interpretative Hybrid experience."
       meta={`${readyCoverage.length} evidence rooms currently marked ready`}
     >
       <div className={styles.grid}>
@@ -22,18 +22,17 @@ export default async function HybridOutputPage() {
             { value: data.stories.length, label: "Available Stories" },
             { value: readyCoverage.length, label: "Evidence rooms ready" },
             { value: blockedCoverage.length, label: "Rooms incomplete" },
-            { value: 0, label: "Immutable snapshots" },
+            { value: 0, label: "Archived editions" },
           ]}
         />
 
         <DataState
-          state="risk"
-          title="Versioned Hybrid snapshot contract not installed"
-          detail="Hybrid currently consumes current-state records and a Live feed. Historical editions cannot yet preserve included records, excluded records, source freshness, approval state and methodology version as one immutable object."
+          title="Historical Hybrid editions are not yet archived"
+          detail="The current Hybrid Desk consumes current research records. Earlier editions cannot yet be replayed as complete, approved point-in-time packages."
         />
 
         <div className={styles.gridTwo}>
-          <Panel title="Current readiness view" description="This is an audit of existing evidence coverage, not a generated Hybrid edition.">
+          <Panel title="Current readiness view" description="Evidence coverage for the Stories available to the current Hybrid experience.">
             <div className={styles.recordList}>
               {data.evidenceCoverage.length ? data.evidenceCoverage.map((coverage) => (
                 <article className={styles.record} key={coverage.slug}>
@@ -44,19 +43,19 @@ export default async function HybridOutputPage() {
                     </div>
                     <Badge tone={coverage.room_status === "ready" ? "ready" : "warn"}>{coverage.room_status}</Badge>
                   </div>
-                  <p>{coverage.contradiction_count} contradiction(s), {coverage.unresolved_count} unresolved test(s), gate score {coverage.gate_score}.</p>
+                  <p>{coverage.contradiction_count} contradiction(s), {coverage.unresolved_count} unresolved test(s), readiness score {coverage.gate_score}.</p>
                 </article>
               )) : (
-                <DataState title="Coverage audit unavailable" detail="The story_evidence_coverage view returned no rows." />
+                <DataState title="Evidence coverage is updating" detail="No current coverage rows are available. Story records remain accessible from the main desk." />
               )}
             </div>
           </Panel>
 
-          <Panel title="Required snapshot contract" description="PR 5 will add immutable snapshot and snapshot-item records after the persistence foundation is approved.">
+          <Panel title="Edition integrity" description="What a durable historical Hybrid edition must retain.">
             <div className={styles.recordList}>
-              <article className={styles.record}><h3>Included and excluded records</h3><p>Every snapshot must record exact Live Core IDs and a reason for each inclusion or exclusion.</p></article>
-              <article className={styles.record}><h3>Freshness and blocked fields</h3><p>Stale or unavailable source state must remain visible. Hybrid cannot fill a gap with a substitute narrative.</p></article>
-              <article className={styles.record}><h3>Approval and reproducibility</h3><p>Generated time, methodology version, approval state and historical edition contents must remain immutable.</p></article>
+              <article className={styles.record}><h3>Included and excluded records</h3><p>Each edition should retain the exact Live records used and the reason for each inclusion or exclusion.</p></article>
+              <article className={styles.record}><h3>Freshness and unavailable fields</h3><p>Stale or unavailable source state must remain visible rather than being replaced with a substitute narrative.</p></article>
+              <article className={styles.record}><h3>Approval and reproducibility</h3><p>Generated time, methodology version, approval state and edition contents should remain fixed once published.</p></article>
             </div>
           </Panel>
         </div>
