@@ -6,6 +6,7 @@ import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
+import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
 export const dynamic = "force-dynamic";
@@ -29,16 +30,25 @@ export default async function Page({ searchParams }: PageProps) {
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
 
-  const stories = data.stories.slice(0, 12).map((story) => ({
-    id: story.id,
-    slug: story.slug,
-    title: story.title,
-    thesis: story.thesis,
-    status: story.article_verdict || story.status,
-    confidence: story.confidence,
-    assets: story.assets || [],
-    tags: deriveStoryTags(story, 6),
-  }));
+  const storyRows = data.stories.slice(0, 12);
+  const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
+  const stories = storyRows.map((story) => {
+    const image = storyImages.get(story.id);
+    return {
+      id: story.id,
+      slug: story.slug,
+      title: story.title,
+      thesis: story.thesis,
+      status: story.article_verdict || story.status,
+      confidence: story.confidence,
+      assets: story.assets || [],
+      tags: deriveStoryTags(story, 6),
+      imageUrl: image?.imageUrl || null,
+      imageSourceUrl: image?.articleUrl || null,
+      imageSourceTitle: image?.articleTitle || null,
+      imagePublisher: image?.publisher || null,
+    };
+  });
 
   const changes = data.updates.slice(0, 6).map((update) => {
     const story = data.stories.find((candidate) => candidate.id === update.story_id);
@@ -102,6 +112,7 @@ export default async function Page({ searchParams }: PageProps) {
         }}
         pulse={{
           score: Number.isFinite(market.pulseWeek) ? market.pulseWeek : null,
+          lastWeekScore: null,
           label: "This week",
           benchmarkMove: benchmark?.change5d ?? null,
           above50: mainBreadth?.current.above50 ?? null,
