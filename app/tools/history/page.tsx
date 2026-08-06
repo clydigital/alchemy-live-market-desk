@@ -14,7 +14,7 @@ export default async function HistoryPage() {
     <LiveDeskShell
       activePath="/tools/history"
       title="History"
-      description="The History Cabinet begins as a route over existing Story updates and research-run records. Full thesis, vintage, correction and snapshot replay requires the persistence schema in PR 2 and PR 5."
+      description="Dated Story updates and research-run records provide an inspectable record of what changed and when."
       meta={`${data.updates.length + data.researchRuns.length} loaded history records`}
     >
       <div className={styles.grid}>
@@ -28,12 +28,12 @@ export default async function HistoryPage() {
         />
 
         <DataState
-          title="History is not yet fully reconstructable"
-          detail="Current Story rows and macro release rows can still be overwritten. This route is a transparent view of existing records, not a claim that complete historical replay already exists."
+          title="Historical replay is currently partial"
+          detail="This view preserves dated update and run records. Earlier versions of every mutable Story and release field are not yet available for complete point-in-time reconstruction."
         />
 
         <div className={styles.gridTwo}>
-          <Panel title="Research-run ledger" description="Private run health is shown when the service-role view is available.">
+          <Panel title="Research-run ledger" description="Completed, blocked and failed research runs remain visible with their summaries and warnings.">
             <div className={styles.recordList}>
               {data.researchRuns.length ? data.researchRuns.map((run) => (
                 <article className={styles.record} key={run.id}>
@@ -47,11 +47,11 @@ export default async function HistoryPage() {
                   <p>{run.summary || `${run.candidates_kept} candidates kept, ${run.evidence_added} evidence links added and ${run.updates_published} updates published.`}</p>
                   {run.warnings.length ? <p>{run.warnings.join(" · ")}</p> : null}
                 </article>
-              )) : <DataState title="Research-run ledger unavailable" detail="The private research_run_status view returned no rows in this environment." />}
+              )) : <DataState title="Research-run history is updating" detail="No private run records are available at the moment. Dated Story updates remain visible beside this panel." />}
             </div>
           </Panel>
 
-          <Panel title="Current Story update history" description="These are the existing dated update rows, newest first.">
+          <Panel title="Current Story update history" description="Existing dated update rows, newest first.">
             <div className={styles.recordList}>
               {data.updates.length ? data.updates.map((update) => {
                 const story = data.stories.find((candidate) => candidate.id === update.story_id);
@@ -67,12 +67,12 @@ export default async function HistoryPage() {
                     {update.detail ? <p>{update.detail}</p> : null}
                   </article>
                 );
-              }) : <DataState title="No Story updates returned" detail="The update table returned no history rows." />}
+              }) : <DataState title="No dated Story updates" detail="The current update feed has no retained rows." />}
             </div>
           </Panel>
         </div>
 
-        <Link className={styles.link} href="/legacy?tab=Ledger">Open the current legacy Ledger</Link>
+        <Link className={styles.link} href="/legacy?tab=Ledger">Open detailed research Ledger</Link>
       </div>
     </LiveDeskShell>
   );
