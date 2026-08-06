@@ -1,0 +1,83 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(121, 82, 255, 0.2), transparent 32%),
+    radial-gradient(circle at 88% 80%, rgba(255, 90, 54, 0.12), transparent 30%),
+    #080a14;
+  color: #f7f7fb;
+}
+
+.card {
+  width: min(520px, 100%);
+  padding: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  background: rgba(17, 21, 38, 0.94);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+}
+
+.kicker {
+  margin: 0 0 10px;
+  color: #bca6ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 14px;
+  font-size: clamp(30px, 7vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.copy {
+  margin: 0 0 24px;
+  color: #b8bfd1;
+  line-height: 1.6;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  border-radius: 13px;
+  background: #f7f7fb;
+  color: #101326;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: #e7e1ff;
+}
+
+.alert {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 107, 122, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 107, 122, 0.1);
+  color: #ffd5da;
+  font-size: 14px;
+}
+
+.note {
+  margin: 18px 0 0;
+  color: #7f879d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.secondary {
+  display: inline-block;
+  margin-top: 18px;
+  color: #cbbcff;
+  font-size: 13px;
+}
