@@ -15,7 +15,7 @@ export default async function MacroDataPage() {
     <LiveDeskShell
       activePath="/data/macro"
       title="Macro Data"
-      description="Current releases and observations are exposed without flattening mixed data into a single bullish or bearish label. Durable release vintages arrive in PR 2."
+      description="Current releases and observations remain separate so mixed evidence is not flattened into one bullish or bearish label."
       meta={`Latest observation: ${formatDeskDate(latestObservation?.observation_date)}`}
     >
       <div className={styles.grid}>
@@ -29,14 +29,14 @@ export default async function MacroDataPage() {
         />
 
         <DataState
-          title="Vintage storage is not complete"
-          detail="The current macro_releases row can hold actual, consensus, prior and revised prior, but it cannot reconstruct every initial and revised vintage. PR 2 will add additive release-event and vintage tables before any existing fields are retired."
+          title="Historical vintages are limited"
+          detail="Current records show actual, consensus, prior and revised-prior values where available. Earlier publication vintages are not yet fully reconstructable."
         />
 
         <Panel
           title="Current release monitor"
-          description="Values below come from the existing canonical loader. They are not copied from the static V8 mockup."
-          action={<Link className={styles.link} href="/legacy?tab=Macro%20Data">Open legacy Macro module</Link>}
+          description="Verified release records, source links and market questions from the current research feed."
+          action={<Link className={styles.link} href="/legacy?tab=Macro%20Data">Open detailed Macro module</Link>}
         >
           <div className={styles.recordList}>
             {data.macroReleases.length ? data.macroReleases.map((release) => (
@@ -60,7 +60,7 @@ export default async function MacroDataPage() {
                 <a className={styles.link} href={release.source_url} target="_blank" rel="noreferrer">Open source</a>
               </article>
             )) : (
-              <DataState state="risk" title="No macro releases returned" detail="The macro release query is empty or unavailable. The page does not substitute prototype values." />
+              <DataState state="risk" title="Macro releases are updating" detail="No verified release records are available at the moment. No estimated values are inserted in their place." />
             )}
           </div>
         </Panel>
