@@ -12,6 +12,10 @@ const NEWS_SOURCE_TYPES = /news|article|analysis|wire|press/i;
 const MAX_CANDIDATES_PER_STORY = 4;
 const IMAGE_REVALIDATE_SECONDS = 60 * 60 * 6;
 
+const VERIFIED_ARTICLE_IMAGES: Record<string, string> = {
+  "https://www.reuters.com/business/sandisk-forecasts-upbeat-quarterly-revenue-ai-driven-demand-2026-08-05/": "https://www.reuters.com/resizer/v2/II5RCCKT4ZMBXA33HRZVFXD5OU.jpg?auth=024f72aaf580c0c1be5f0a1818608868881eaf990ca36ef2df6e200c5d993b92&quality=80&width=1920",
+};
+
 function safeHttpUrl(value: string, base?: string) {
   try {
     const url = base ? new URL(value, base) : new URL(value);
@@ -46,6 +50,7 @@ function metaContent(html: string, key: string) {
 function candidateScore(source: ResearchSource) {
   let score = Number.isFinite(source.reliability_score) ? source.reliability_score : 0;
   const descriptor = `${source.publisher} ${source.source_type} ${source.title} ${source.url}`;
+  if (VERIFIED_ARTICLE_IMAGES[source.url]) score += 100;
   if (VISUAL_PUBLISHERS.test(descriptor)) score += 42;
   if (NEWS_SOURCE_TYPES.test(source.source_type || "")) score += 18;
   if (/\.pdf(?:$|\?)/i.test(source.url)) score -= 80;
@@ -62,6 +67,16 @@ function candidateScore(source: ResearchSource) {
 async function parseHeaderImage(source: ResearchSource): Promise<StoryHeaderImage | null> {
   const articleUrl = safeHttpUrl(source.url);
   if (!articleUrl) return null;
+
+  const verifiedImage = VERIFIED_ARTICLE_IMAGES[source.url];
+  if (verifiedImage) {
+    return {
+      imageUrl: verifiedImage,
+      articleUrl,
+      articleTitle: source.title,
+      publisher: source.publisher,
+    };
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_500);
