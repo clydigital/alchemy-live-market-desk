@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
   const data = await getDeskData();
-  const active = data.stories.filter((story) => story.status === "active").length;
+  const priorityStories = data.stories.filter((story) => ["develop", "publish"].includes(story.status)).length;
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
 
   return (
@@ -22,7 +22,7 @@ export default async function StoriesPage() {
         <MetricGrid
           items={[
             { value: data.stories.length, label: "Tracked Stories" },
-            { value: active, label: "Active state" },
+            { value: priorityStories, label: "Develop or publish" },
             { value: data.updates.length, label: "Loaded events" },
             { value: data.evidence.length, label: "Evidence records" },
           ]}
@@ -44,7 +44,7 @@ export default async function StoriesPage() {
                       <div className={styles.meta}>{story.assets?.join(" · ") || "No affected assets recorded"}</div>
                     </div>
                     <div className={styles.inlineMeta}>
-                      <Badge tone={story.status === "active" ? "ready" : "default"}>{story.status}</Badge>
+                      <Badge tone={["develop", "publish"].includes(story.status) ? "ready" : "default"}>{story.status}</Badge>
                       <Badge tone={story.confidence >= 70 ? "ready" : story.confidence < 45 ? "warn" : "default"}>{story.confidence}% confidence</Badge>
                       {coverage ? <Badge tone={coverage.room_status === "ready" ? "ready" : "warn"}>{coverage.room_status}</Badge> : null}
                     </div>
