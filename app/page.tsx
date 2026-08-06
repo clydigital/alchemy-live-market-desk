@@ -25,12 +25,14 @@ export default async function Page({ searchParams }: PageProps) {
   const latestUpdate = data.updates[0];
   const topStories = data.stories.slice(0, 5);
   const latestChanges = data.updates.slice(0, 6);
+  const priorityStatuses = new Set(["develop", "publish", "active"]);
+  const marketContextCount = data.marketObservations.length;
 
   return (
     <LiveDeskShell
       activePath="/"
       title="Overview"
-      description="The V8 front door keeps research freshness, persistent Story state and exact record access visible without removing the existing operational workspace."
+      description="Current research health, persistent Story state and exact record access in one operational view."
       meta={(
         <>
           <span className={styles.metaLabel}>Latest material record</span><br />
@@ -41,7 +43,7 @@ export default async function Page({ searchParams }: PageProps) {
       <div className={styles.grid}>
         <MetricGrid
           items={[
-            { value: data.stories.length, label: "Active Stories" },
+            { value: data.stories.length, label: "Tracked Stories" },
             { value: data.sources.length, label: "Loaded sources" },
             { value: data.evidence.length, label: "Active evidence" },
             { value: data.charts.length, label: "Chart requests" },
@@ -49,7 +51,7 @@ export default async function Page({ searchParams }: PageProps) {
         />
 
         <div className={styles.gridTwo}>
-          <Panel title="Research system status" description="Operational health is shown explicitly rather than converted into an empty dashboard.">
+          <Panel title="Research system status" description="Scheduled research health and current market context remain visible beside the editorial record.">
             <div className={styles.recordList}>
               {latestRun ? (
                 <DataState
@@ -59,23 +61,23 @@ export default async function Page({ searchParams }: PageProps) {
                 />
               ) : (
                 <DataState
-                  title="Research-run health unavailable"
-                  detail="The private research-run view returned no records. This is shown as unavailable rather than interpreted as a healthy empty queue."
+                  title="Research-run status is updating"
+                  detail="The latest private run record is not currently available. Story and evidence records remain accessible below."
                 />
               )}
               <DataState
-                state={data.marketStateRecords.length ? "ready" : "warn"}
-                title={data.marketStateRecords.length ? "Market-state records loaded" : "Market-state ledger unavailable"}
-                detail={data.marketStateRecords.length
-                  ? `${data.marketStateRecords.length} current state records are available.`
-                  : "The current loader requests market_state_ledger, but no rows were returned. The legacy board remains available while the relation is reconciled."}
+                state={marketContextCount ? "ready" : "warn"}
+                title={marketContextCount ? "Market context loaded" : "Market context is updating"}
+                detail={marketContextCount
+                  ? `${marketContextCount} market observations are available. Heatmaps also use the live Market State model when reviewed cells have not been stored.`
+                  : "Current market observations have not returned yet. The research record remains available while prices refresh."}
               />
             </div>
           </Panel>
 
           <Panel
             title="Persistent Story map"
-            description="Current theses remain canonical in Live Core. Thesis versioning arrives in the persistence phase."
+            description="Current theses, affected assets and workflow state remain linked to their detailed research records."
             action={<Link className={styles.link} href="/stories">Open Stories</Link>}
           >
             <div className={styles.recordList}>
@@ -86,12 +88,12 @@ export default async function Page({ searchParams }: PageProps) {
                       <Link href={`/stories/${story.slug}`}><h3>{story.title}</h3></Link>
                       <div className={styles.meta}>{story.assets?.slice(0, 5).join(" · ") || "Assets not mapped"}</div>
                     </div>
-                    <Badge tone={story.status === "active" ? "ready" : "default"}>{story.status}</Badge>
+                    <Badge tone={priorityStatuses.has(story.status) ? "ready" : "default"}>{story.status}</Badge>
                   </div>
                   <p>{story.thesis}</p>
                 </article>
               )) : (
-                <DataState state="risk" title="No Stories returned" detail="The Story query returned no records. Live Core will not substitute illustrative mockup content." />
+                <DataState state="risk" title="No Stories returned" detail="The Story feed returned no records. No illustrative Stories are inserted in its place." />
               )}
             </div>
           </Panel>
@@ -99,7 +101,7 @@ export default async function Page({ searchParams }: PageProps) {
 
         <Panel
           title="Latest material changes"
-          description="Current Story updates are exposed as dated records. Repeated background should move to What’s New disposition rules in PR 3."
+          description="Dated Story updates show what changed, what it affected and which thesis it belongs to."
           action={<Link className={styles.link} href="/whats-new">Open What’s New</Link>}
         >
           <div className={styles.recordList}>
@@ -118,7 +120,7 @@ export default async function Page({ searchParams }: PageProps) {
                 </article>
               );
             }) : (
-              <DataState title="No update records returned" detail="The update feed is empty or unavailable. This state is not presented as proof that nothing changed." />
+              <DataState title="Update feed is quiet" detail="No dated update records are available at the moment. Existing Story records remain accessible." />
             )}
           </div>
         </Panel>
