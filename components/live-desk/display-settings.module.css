@@ -1,0 +1,99 @@
+.settings {
+  position: relative;
+  z-index: 60;
+}
+
+.settings summary {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid rgba(181, 151, 255, .3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .035);
+  color: #eeeaff;
+  font-size: 12px;
+  font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+}
+
+.settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings[open] summary {
+  border-color: rgba(190, 126, 255, .55);
+  background: rgba(126, 67, 216, .24);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: min(330px, calc(100vw - 30px));
+  padding: 15px;
+  border: 1px solid rgba(181, 151, 255, .3);
+  border-radius: 14px;
+  background: rgba(18, 12, 42, .98);
+  box-shadow: 0 20px 55px rgba(2, 1, 10, .5);
+  backdrop-filter: blur(20px);
+}
+
+.settingGroup + .settingGroup {
+  margin-top: 14px;
+}
+
+.settingGroup > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #a978ff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.optionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.settingGroup:nth-child(2) .optionGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.optionGrid button {
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 1px solid rgba(181, 151, 255, .18);
+  border-radius: 8px;
+  background: rgba(255,255,255,.03);
+  color: #aaa7bd;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.optionGrid button:hover,
+.optionGrid button.active {
+  border-color: rgba(190, 126, 255, .48);
+  color: #fff;
+  background: rgba(126, 67, 216, .28);
+}
+
+.popover small {
+  display: block;
+  margin-top: 12px;
+  color: #77738d;
+  font-size: 9px;
+}
+
+@media (max-width: 680px) {
+  .popover {
+    right: auto;
+    left: 0;
+  }
+}
