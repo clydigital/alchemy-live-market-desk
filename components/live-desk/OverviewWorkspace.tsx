@@ -15,6 +15,10 @@ export type OverviewStory = {
   confidence: number;
   assets: string[];
   tags: StoryTag[];
+  imageUrl: string | null;
+  imageSourceUrl: string | null;
+  imageSourceTitle: string | null;
+  imagePublisher: string | null;
 };
 
 export type OverviewChange = {
@@ -44,6 +48,7 @@ type Props = {
   };
   pulse: {
     score: number | null;
+    lastWeekScore: number | null;
     label: string;
     benchmarkMove: number | null;
     above50: number | null;
@@ -83,7 +88,9 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
   const activeStory = filteredStories.find((story) => story.slug === selectedSlug) || filteredStories[0] || null;
   const mapStories = filteredStories.slice(0, 5);
   const score = clampScore(pulse.score);
+  const lastWeekScore = clampScore(pulse.lastWeekScore);
   const state = scoreState(score);
+  const lastWeekState = scoreState(lastWeekScore);
   const wheelStyle = {
     "--overview-score": `${(score || 0) * 3.6}deg`,
   } as CSSProperties;
@@ -128,6 +135,18 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
               <span>{score ?? "—"}</span>
             </div>
           </div>
+          <div className={styles.weekComparison}>
+            <div data-current="true">
+              <span>This week</span>
+              <strong>{score ?? "—"}</strong>
+              <small>{state.label}</small>
+            </div>
+            <div>
+              <span>Last week</span>
+              <strong>{lastWeekScore ?? "—"}</strong>
+              <small>{lastWeekScore === null ? "Historical score not yet recorded" : lastWeekState.label}</small>
+            </div>
+          </div>
           <div className={styles.pulseDrivers}>
             <div><strong>{formatMove(pulse.benchmarkMove)}</strong><span>S&amp;P 500, five sessions</span></div>
             <div><strong>{pulse.above50 === null ? "Updating" : `${pulse.above50}%`}</strong><span>Above 50-day</span></div>
@@ -156,13 +175,13 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
 
         {activeStory ? (
           <div className={styles.storyLayout}>
-            <div className={styles.storyMap}>
-              <svg viewBox="0 0 600 360" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M300 182 C245 88 185 83 112 75" />
-                <path d="M300 182 C355 88 425 78 500 90" />
-                <path d="M300 182 C380 208 452 240 515 286" />
-                <path d="M300 182 C220 225 170 255 92 282" />
-                <path d="M300 182 C300 122 298 76 300 28" />
+            <div className={styles.storyMap} aria-label="Gantz ball Story map">
+              <svg viewBox="0 0 600 600" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M300 300 C220 155 145 130 75 112" />
+                <path d="M300 300 C380 155 455 138 525 145" />
+                <path d="M300 300 C420 350 472 438 535 500" />
+                <path d="M300 300 C180 360 128 445 65 500" />
+                <path d="M300 300 C300 205 300 115 300 45" />
               </svg>
               <Link className={styles.storyCore} href={`/stories/${activeStory.slug}`}>
                 <small>Selected Story</small>
@@ -188,6 +207,30 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
                 </div>
                 <strong>{activeStory.confidence}</strong>
               </div>
+
+              {activeStory.imageUrl ? (
+                <figure className={styles.storyImage}>
+                  <img
+                    src={activeStory.imageUrl}
+                    alt={`Header image from research coverage linked to ${activeStory.title}`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={(event) => event.currentTarget.closest("figure")?.setAttribute("data-broken", "true")}
+                  />
+                  <figcaption>
+                    <span>{activeStory.imagePublisher || "Linked research source"}</span>
+                    {activeStory.imageSourceUrl ? (
+                      <a href={activeStory.imageSourceUrl} target="_blank" rel="noreferrer" title={activeStory.imageSourceTitle || undefined}>Open article ↗</a>
+                    ) : null}
+                  </figcaption>
+                </figure>
+              ) : (
+                <div className={styles.storyImageFallback}>
+                  <span>Research image</span>
+                  <p>No compatible article header image was returned for this Story.</p>
+                </div>
+              )}
+
               <p>{activeStory.thesis}</p>
               <div className={styles.tagRow}>
                 {activeStory.tags.map((tag) => <span key={tag} data-tone={storyTagTone(tag)}>{tag}</span>)}
