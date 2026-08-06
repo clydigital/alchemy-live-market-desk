@@ -59,9 +59,9 @@
 }
 
 .panelHead p,
-.methodNote p,
 .insight p,
-.emptyState p {
+.emptyState p,
+.explainerGrid p {
   margin: 7px 0 0;
   color: #b7b4c8;
   font-size: 12px;
@@ -169,19 +169,80 @@
   margin-bottom: 12px;
 }
 
-.methodNote {
+.explainerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   margin-bottom: 12px;
-  padding: 13px 14px;
-  border: 1px solid rgba(255, 187, 66, .22);
-  border-radius: 13px;
-  background: rgba(255, 187, 66, .045);
 }
 
-.methodNote strong {
-  color: #ffca68;
+.explainerGrid article {
+  padding: 14px;
+  border: 1px solid rgba(181, 151, 255, .2);
+  border-radius: 13px;
+  background: rgba(126, 67, 216, .075);
+}
+
+.explainerGrid article:nth-child(3) {
+  border-color: rgba(255, 187, 66, .34);
+  background: rgba(255, 171, 36, .09);
+}
+
+.explainerGrid strong {
+  color: #eee8ff;
   font-size: 11px;
+  letter-spacing: .06em;
   text-transform: uppercase;
-  letter-spacing: .08em;
+}
+
+.scoreGuide {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.scoreGuide span {
+  min-height: 46px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #d8d4e6;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.scoreGuide b {
+  color: #fff;
+  font-size: 12px;
+}
+
+.guideCool {
+  border-color: rgba(30, 210, 255, .62) !important;
+  background: rgba(18, 181, 255, .22);
+}
+
+.guideCoolSoft {
+  border-color: rgba(78, 136, 255, .48) !important;
+  background: rgba(67, 109, 255, .17);
+}
+
+.guideNeutral {
+  border-color: rgba(161, 101, 255, .42) !important;
+  background: rgba(137, 77, 255, .14);
+}
+
+.guideWarm {
+  border-color: rgba(255, 178, 41, .56) !important;
+  background: rgba(255, 157, 28, .19);
+}
+
+.guideHot {
+  border-color: rgba(255, 63, 106, .68) !important;
+  background: rgba(255, 42, 91, .24);
 }
 
 .heatmapWrap {
@@ -226,39 +287,57 @@
 .tile {
   align-items: flex-start;
   background: rgba(255, 255, 255, .02);
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.tile:hover {
+  transform: translateY(-1px);
 }
 
 .tile strong {
+  color: #fff;
   font-size: 23px;
   line-height: 1;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .35);
 }
 
 .tile span {
   margin-top: 7px;
+  color: #c9c5d8;
 }
 
 .hot {
-  border-color: rgba(255, 97, 127, .34);
-  background: rgba(255, 97, 127, .1);
+  border-color: rgba(255, 63, 106, .72);
+  background: linear-gradient(145deg, rgba(255, 42, 91, .30), rgba(180, 21, 65, .16));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 0 20px rgba(255, 42, 91, .08);
 }
 
 .warm {
-  border-color: rgba(255, 187, 66, .28);
-  background: rgba(255, 187, 66, .075);
+  border-color: rgba(255, 178, 41, .62);
+  background: linear-gradient(145deg, rgba(255, 157, 28, .25), rgba(171, 91, 6, .13));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 0 18px rgba(255, 157, 28, .06);
 }
 
 .cool {
-  border-color: rgba(87, 220, 255, .26);
-  background: rgba(87, 220, 255, .065);
+  border-color: rgba(30, 210, 255, .68);
+  background: linear-gradient(145deg, rgba(18, 181, 255, .27), rgba(7, 91, 154, .14));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .07), 0 0 18px rgba(18, 181, 255, .06);
+}
+
+.coolSoft {
+  border-color: rgba(78, 136, 255, .52);
+  background: linear-gradient(145deg, rgba(67, 109, 255, .20), rgba(47, 55, 146, .12));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .05);
 }
 
 .neutral {
-  border-color: rgba(145, 140, 175, .22);
-  background: rgba(145, 140, 175, .045);
+  border-color: rgba(161, 101, 255, .42);
+  background: linear-gradient(145deg, rgba(137, 77, 255, .15), rgba(76, 50, 133, .09));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04);
 }
 
 .storyLink {
-  color: #d4bdff;
+  color: #e1d2ff;
   font-size: 11px;
   font-weight: 800;
   line-height: 1.35;
@@ -322,11 +401,17 @@
   .extremes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .scoreGuide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
   .gridTwo,
-  .extremes {
+  .extremes,
+  .explainerGrid,
+  .scoreGuide {
     grid-template-columns: 1fr;
   }
 
