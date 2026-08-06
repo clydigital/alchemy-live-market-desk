@@ -80,7 +80,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
         </div>
 
         <footer className={styles.footer}>
-          <div>PR 1 route shell. Existing operational modules remain available in the Legacy workspace.</div>
+          <div>Persistent research, live market context and auditable Story memory.</div>
           <span>Alchemy Research Core</span>
         </footer>
       </section>
