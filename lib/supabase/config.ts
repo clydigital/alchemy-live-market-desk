@@ -27,4 +27,5 @@ export const PUBLIC_AUTH_PATHS = [
   "/auth/callback",
   "/auth/signout",
   "/auth/auth-code-error",
+  "/api/auth/sso/exchange",
 ] as const;
