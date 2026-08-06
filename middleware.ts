@@ -21,7 +21,7 @@ function loginRedirect(request: NextRequest, reason?: string) {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
-  url.searchParams.set("next", request.nextUrl.pathname);
+  url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   if (reason) url.searchParams.set("error", reason);
   return NextResponse.redirect(url);
 }
