@@ -57,13 +57,13 @@ export default async function WhatsNewPage() {
     <LiveDeskShell
       activePath="/whats-new"
       title="What’s New"
-      description="A shared intake surface for material deltas, public statements and news threads. PR 1 exposes current records without pretending that duplicate grouping or disposition history already exists."
+      description="A shared intake surface for material Story updates, public statements and relevant news threads."
       meta={`${deltas.length} recent records shown`}
     >
       <Panel
         title="Current delta stream"
-        description="Detected time, publication time and Story promotion are still separate concerns. PR 3 will formalise the candidate contract and dispositions."
-        action={<Link className={styles.link} href="/legacy?tab=Research%20Layer">Open legacy research layer</Link>}
+        description="Recent records remain linked to their Story or source so each change can be checked in context."
+        action={<Link className={styles.link} href="/legacy?tab=Research%20Layer">Open detailed research layer</Link>}
       >
         <div className={styles.recordList}>
           {deltas.length ? deltas.map((delta) => (
@@ -85,7 +85,7 @@ export default async function WhatsNewPage() {
               <p>{delta.detail}</p>
             </article>
           )) : (
-            <DataState state="risk" title="No candidate records returned" detail="The combined update, statement and news queries returned no records. The page does not infer that the market was quiet." />
+            <DataState state="risk" title="Recent records are updating" detail="No update, statement or news records are available at the moment. This is not treated as proof that the market was quiet." />
           )}
         </div>
       </Panel>
