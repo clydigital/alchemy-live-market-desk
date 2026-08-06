@@ -15,17 +15,17 @@ type DisplayPreferences = {
 const STORAGE_KEY = "alchemy-live-desk-display";
 const DEFAULTS: DisplayPreferences = { font: "sans", size: "standard" };
 
-const fonts: Array<{ value: FontChoice; label: string }> = [
-  { value: "sans", label: "Sans" },
-  { value: "humanist", label: "Humanist" },
-  { value: "serif", label: "Serif" },
-  { value: "mono", label: "Mono" },
+const fonts: Array<{ value: FontChoice; label: string; stack: string }> = [
+  { value: "sans", label: "Sans", stack: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+  { value: "humanist", label: "Humanist", stack: '"Trebuchet MS", "Segoe UI", sans-serif' },
+  { value: "serif", label: "Serif", stack: 'Georgia, "Times New Roman", serif' },
+  { value: "mono", label: "Mono", stack: '"SFMono-Regular", Consolas, "Liberation Mono", monospace' },
 ];
 
-const sizes: Array<{ value: SizeChoice; label: string }> = [
-  { value: "compact", label: "Compact" },
-  { value: "standard", label: "Standard" },
-  { value: "large", label: "Large" },
+const sizes: Array<{ value: SizeChoice; label: string; scale: string }> = [
+  { value: "compact", label: "Compact", scale: ".94" },
+  { value: "standard", label: "Standard", scale: "1" },
+  { value: "large", label: "Large", scale: "1.07" },
 ];
 
 function isFontChoice(value: unknown): value is FontChoice {
@@ -37,8 +37,14 @@ function isSizeChoice(value: unknown): value is SizeChoice {
 }
 
 function applyPreferences(preferences: DisplayPreferences) {
-  document.documentElement.dataset.deskFont = preferences.font;
-  document.documentElement.dataset.deskSize = preferences.size;
+  const stage = document.querySelector<HTMLElement>("[data-live-desk-stage]");
+  if (!stage) return;
+  const font = fonts.find((item) => item.value === preferences.font) || fonts[0];
+  const size = sizes.find((item) => item.value === preferences.size) || sizes[1];
+  stage.style.fontFamily = font.stack;
+  stage.style.setProperty("zoom", size.scale);
+  stage.dataset.fontChoice = preferences.font;
+  stage.dataset.sizeChoice = preferences.size;
 }
 
 export default function DisplaySettings() {
