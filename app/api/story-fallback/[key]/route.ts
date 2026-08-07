@@ -5,7 +5,7 @@ type RouteContext = {
 };
 
 function decodeDataUri(dataUri: string) {
-  const match = dataUri.match(/^data:([^;,]+);base64,(.+)$/s);
+  const match = dataUri.match(/^data:([^;,]+);base64,([\s\S]+)$/);
   if (!match) return null;
 
   return {
