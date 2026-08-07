@@ -26,5 +26,13 @@ function stableHash(value: string) {
 }
 
 export function getStableStoryFallbackImage(storyId: string) {
-  return STORY_FALLBACK_IMAGES[stableHash(storyId) % STORY_FALLBACK_IMAGES.length];
+  const image = STORY_FALLBACK_IMAGES[stableHash(storyId) % STORY_FALLBACK_IMAGES.length];
+
+  // Serve the bundled ZIP artwork as a normal same-origin image response. This
+  // avoids handing multi-megabyte data URIs to client components while keeping
+  // each Story's assignment deterministic and stable.
+  return {
+    ...image,
+    dataUri: `/api/story-fallback/${image.key}`,
+  };
 }
