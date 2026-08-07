@@ -73,6 +73,12 @@ function closestRun(runs: ResearchRunLike[], slot: CanonicalResearchSlot, expect
     .sort((a, b) => a.distance - b.distance)[0]?.run || null;
 }
 
+function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
+  if (!run) return "missed";
+  if (run.status === "completed") return "complete";
+  return run.status;
+}
+
 export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Date()): FourSlotResearchHealth {
   const parts = malaysiaDateParts(now);
   const today = `${parts.year}-${parts.month}-${parts.day}`;
@@ -89,14 +95,13 @@ export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Dat
       ? todayAt
       : malaysiaSlotIso(tomorrow, slot.hour, slot.minute);
     const run = closestRun(runs, slot.key, expectedAt);
-    const status = run?.status || "missed";
 
     return {
       key: slot.key,
       label: slot.label,
       expectedAt,
       nextAt,
-      status,
+      status: slotStatus(run),
       completedAt: run?.completed_at || null,
       updatesPublished: run?.updates_published || 0,
       warningCount: run?.warnings?.length || 0,
