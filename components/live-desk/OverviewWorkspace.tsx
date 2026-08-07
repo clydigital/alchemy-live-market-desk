@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
 
 import { storyTagTone, type StoryTag } from "@/lib/story-tags";
+import StoryHeaderImage from "./StoryHeaderImage";
 import styles from "./overview-workspace.module.css";
 
 export type OverviewStory = {
@@ -16,6 +17,8 @@ export type OverviewStory = {
   assets: string[];
   tags: StoryTag[];
   imageUrl: string | null;
+  fallbackImageUrl: string;
+  imageKind: "research" | "fallback" | null;
   imageSourceUrl: string | null;
   imageSourceTitle: string | null;
   imagePublisher: string | null;
@@ -209,28 +212,16 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
                 <strong>{activeStory.confidence}</strong>
               </div>
 
-              {activeStory.imageUrl ? (
-                <figure className={styles.storyImage}>
-                  <img
-                    src={activeStory.imageUrl}
-                    alt={`Header image from research coverage linked to ${activeStory.title}`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    onError={(event) => event.currentTarget.closest("figure")?.setAttribute("data-broken", "true")}
-                  />
-                  <figcaption>
-                    <span>{activeStory.imagePublisher || "Linked research source"}</span>
-                    {activeStory.imageSourceUrl ? (
-                      <a href={activeStory.imageSourceUrl} target="_blank" rel="noreferrer" title={activeStory.imageSourceTitle || undefined}>Open article ↗</a>
-                    ) : null}
-                  </figcaption>
-                </figure>
-              ) : (
-                <div className={styles.storyImageFallback}>
-                  <span>Research image</span>
-                  <p>No compatible article header image was returned for this Story.</p>
-                </div>
-              )}
+              <StoryHeaderImage
+                title={activeStory.title}
+                imageUrl={activeStory.imageUrl}
+                fallbackImageUrl={activeStory.fallbackImageUrl}
+                imageKind={activeStory.imageKind}
+                publisher={activeStory.imagePublisher}
+                sourceUrl={activeStory.imageSourceUrl}
+                sourceTitle={activeStory.imageSourceTitle}
+                className={styles.storyImage}
+              />
 
               <p>{activeStory.thesis}</p>
               <div className={styles.tagRow}>
