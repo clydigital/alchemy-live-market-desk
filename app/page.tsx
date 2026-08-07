@@ -21,6 +21,27 @@ type PageProps = {
 
 const HIGH_IMPACT_RELEASE = /nonfarm|payroll|employment situation|unemployment|average hourly|consumer price|\bcpi\b|producer price|\bppi\b|personal consumption|\bpce\b|fomc|rate decision|monetary.policy|gross domestic|\bgdp\b|retail sales|\bism\b|\bpmi\b|jolts|adp|jobless claims/i;
 
+// This verified near-term release fills a temporary gap in the connected calendar
+// feed. A live calendar record with an actual value always supersedes it below.
+const VERIFIED_IMMEDIATE_RELEASES: OverviewEconomicRelease[] = [
+  {
+    id: "bls-employment-situation-2026-07",
+    event: "US Nonfarm Payrolls",
+    date: "2026-08-07",
+    timeLabel: "08:30 ET · 20:30 MYT",
+    referencePeriod: "July 2026",
+    status: "Scheduled",
+    actual: null,
+    forecast: "80K Reuters median",
+    previous: "57K",
+    revisedPrevious: null,
+    decidingQuestion: "Does payroll growth stay firm enough to reinforce Fed tightening risk, and do revisions, unemployment, wages and participation confirm the headline?",
+    affectedAssets: ["DXY", "US2Y", "US10Y", "XAUUSD", "SPX", "NDX"],
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/news.release/empsit.htm",
+  },
+];
+
 function dateKey(value: string | null | undefined) {
   return value?.slice(0, 10) || "";
 }
@@ -122,6 +143,7 @@ function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: Econo
   const candidates = [
     ...macroReleases.map(macroReleaseCandidate),
     ...calendar.map(calendarReleaseCandidate),
+    ...VERIFIED_IMMEDIATE_RELEASES,
   ].filter((item): item is OverviewEconomicRelease => Boolean(item))
     .filter((item) => {
       const distance = dayDistance(item.date, today);
@@ -136,6 +158,7 @@ function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: Econo
     if (aFutureRank !== bFutureRank) return aFutureRank - bFutureRank;
     const priority = releasePriority(a.event) - releasePriority(b.event);
     if (priority) return priority;
+    if (a.status !== b.status) return a.status === "Released" ? -1 : 1;
     const aRichness = [a.actual, a.forecast, a.previous, a.revisedPrevious].filter(Boolean).length;
     const bRichness = [b.actual, b.forecast, b.previous, b.revisedPrevious].filter(Boolean).length;
     return bRichness - aRichness;
