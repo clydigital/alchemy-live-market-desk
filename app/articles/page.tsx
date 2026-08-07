@@ -8,9 +8,21 @@ import { getMarketData } from "@/lib/market";
 
 export const dynamic = "force-dynamic";
 
+function canonicalUrl(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.search = "";
+    return `${url.hostname.replace(/^www\./, "")}${url.pathname.replace(/\/$/, "")}`.toLowerCase();
+  } catch {
+    return value.replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
+  }
+}
+
 export default async function ArticlesPage() {
   const [articles, data, market] = await Promise.all([getAlchemyArticles(30), getDeskData(), getMarketData()]);
   const storyBySlug = new Map(data.stories.map((story) => [story.slug, story]));
+  const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const chartsByStory = new Map<string, typeof data.charts>();
   data.charts.forEach((chart) => {
     if (!chart.story_id) return;
@@ -22,16 +34,33 @@ export default async function ArticlesPage() {
   const intakeByUrl = new Map(
     data.researchIntake
       .filter((item) => item.item_type === "alchemy_article")
-      .map((item) => [item.url.replace(/\/$/, ""), item]),
+      .map((item) => [canonicalUrl(item.url), item]),
   );
+  const sourcesByUrl = new Map<string, typeof data.sources>();
+  data.sources.forEach((source) => {
+    const key = canonicalUrl(source.url);
+    const existing = sourcesByUrl.get(key) || [];
+    existing.push(source);
+    sourcesByUrl.set(key, existing);
+  });
 
   const records = articles.map((article) => {
-    const intake = intakeByUrl.get(article.url.replace(/\/$/, ""));
-    const linkedStoryRecords = (intake?.affected_story_slugs || [])
-      .flatMap((slug) => {
-        const story = storyBySlug.get(slug);
-        return story ? [story] : [];
-      });
+    const articleKey = canonicalUrl(article.url);
+    const intake = intakeByUrl.get(articleKey);
+    const exactSources = sourcesByUrl.get(articleKey) || [];
+    const linkedStoryMap = new Map<string, (typeof data.stories)[number]>();
+
+    (intake?.affected_story_slugs || []).forEach((slug) => {
+      const story = storyBySlug.get(slug);
+      if (story) linkedStoryMap.set(story.id, story);
+    });
+    exactSources.forEach((source) => {
+      if (!source.story_id) return;
+      const story = storyById.get(source.story_id);
+      if (story) linkedStoryMap.set(story.id, story);
+    });
+
+    const linkedStoryRecords = Array.from(linkedStoryMap.values());
     const relatedStories = linkedStoryRecords.map((story) => ({
       id: story.id,
       slug: story.slug,
@@ -51,8 +80,13 @@ export default async function ArticlesPage() {
       ),
     );
 
+    const sourcePublicationDate = exactSources
+      .map((source) => source.publication_date || source.observation_date)
+      .filter((value): value is string => Boolean(value))
+      .sort()[0] || null;
+    const publishedAt = article.publishedAt || sourcePublicationDate;
     const changeState = assessArticleChanges(
-      article.publishedAt,
+      publishedAt,
       linkedStoryRecords.map((story) => ({ id: story.id, slug: story.slug })),
       data.updates,
     );
@@ -62,8 +96,8 @@ export default async function ArticlesPage() {
       title: article.title,
       url: article.url,
       category: article.category,
-      publishedAt: article.publishedAt,
-      publishedLabel: formatDeskDate(article.publishedAt),
+      publishedAt,
+      publishedLabel: formatDeskDate(publishedAt),
       author: article.author,
       image: article.image,
       summary: article.summary,
@@ -106,7 +140,7 @@ export default async function ArticlesPage() {
         <DataState
           state={chartIdeas.length || changedArticles ? "ready" : "warn"}
           title={chartIdeas.length || changedArticles ? "Article monitoring records available" : "Published memory loaded without monitoring links"}
-          detail="Article Charts uses only explicitly linked Story chart requests and current market series. Change Meter uses dated Story updates recorded after publication. No title-keyword relationship or unstored target is treated as confirmed."
+          detail="Article Charts uses exact article-source or intake links to persistent Stories, then compares their structured chart requests with current market series. Change Meter uses dated Story updates recorded after publication. Unstored targets are never presented as hit."
         />
 
         <Panel
