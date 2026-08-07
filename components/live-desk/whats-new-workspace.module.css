@@ -1,0 +1,231 @@
+.workspace {
+  display: grid;
+  gap: 15px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(181,151,255,.17);
+  border-radius: 11px;
+  background: rgba(255,255,255,.02);
+}
+
+.segments button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #aaa7bd;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.segments button b {
+  margin-left: 4px;
+  color: #706c84;
+}
+
+.segments button.active {
+  border-color: rgba(181,151,255,.36);
+  color: #fff;
+  background: rgba(126,67,216,.25);
+}
+
+.search {
+  display: grid;
+  gap: 7px;
+}
+
+.search span {
+  color: #8e8aa1;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.search input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid rgba(181,151,255,.18);
+  border-radius: 10px;
+  outline: none;
+  color: #f5f2ff;
+  background: rgba(10,11,31,.5);
+  font: inherit;
+  font-size: 12px;
+}
+
+.search input:focus {
+  border-color: rgba(181,151,255,.55);
+  box-shadow: 0 0 0 3px rgba(126,67,216,.12);
+}
+
+.resultLine {
+  color: #7f7a91;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.feed {
+  display: grid;
+  gap: 10px;
+}
+
+.record {
+  position: relative;
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(181,151,255,.15);
+  border-radius: 14px;
+  background: rgba(255,255,255,.017);
+  scroll-margin-top: 24px;
+}
+
+.record:target {
+  border-color: rgba(190,126,255,.62);
+  box-shadow: 0 0 0 3px rgba(126,67,216,.13), 0 12px 36px rgba(7,4,22,.22);
+}
+
+.rail {
+  background: #756f89;
+}
+
+.rail[data-stream="story"] { background: linear-gradient(#9a65ff, #6632ca); }
+.rail[data-stream="statement"] { background: linear-gradient(#55bfff, #3375d0); }
+.rail[data-stream="news"] { background: linear-gradient(#ffbf5f, #d27c2f); }
+
+.body {
+  min-width: 0;
+  padding: 16px;
+}
+
+.body header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #8f8aa0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.eyebrow span {
+  color: #a978ff;
+}
+
+.body h3 {
+  margin: 6px 0 0;
+  color: #f5f2ff;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.body a {
+  text-decoration: none;
+}
+
+.badges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.badges span {
+  padding: 5px 7px;
+  border: 1px solid rgba(181,151,255,.16);
+  border-radius: 999px;
+  color: #a8a4b8;
+  background: rgba(255,255,255,.025);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.badges span[data-tone="ready"] { color: #8ce4b1; border-color: rgba(79,209,133,.3); }
+.badges span[data-tone="warn"] { color: #ffd180; border-color: rgba(255,187,66,.31); }
+.badges span[data-tone="risk"] { color: #ff9aae; border-color: rgba(255,84,117,.32); }
+
+.body > p {
+  margin: 11px 0;
+  color: #b5b1c2;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.body footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(181,151,255,.1);
+}
+
+.body footer span {
+  color: #817d94;
+  font-size: 9px;
+}
+
+.body footer a {
+  flex: 0 0 auto;
+  color: #b986ff;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.empty {
+  padding: 28px;
+  border: 1px dashed rgba(181,151,255,.2);
+  border-radius: 14px;
+  color: #9692aa;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .body header,
+  .body footer {
+    display: block;
+  }
+
+  .badges {
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+
+  .body footer a {
+    display: inline-block;
+    margin-top: 8px;
+  }
+}
