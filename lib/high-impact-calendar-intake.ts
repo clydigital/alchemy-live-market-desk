@@ -19,7 +19,7 @@ function numericValue(value: string | null) {
 function surpriseText(event: EconomicCalendarEvent) {
   const actual = numericValue(event.actual);
   const consensus = numericValue(event.consensus);
-  if (actual === null || consensus === null) return null;
+  if (actual === null || consensus === null) return undefined;
   const difference = actual - consensus;
   if (difference === 0) return "Actual matched consensus.";
   return `Actual was ${Math.abs(difference).toLocaleString("en-GB")} ${difference > 0 ? "above" : "below"} consensus on the reported scale.`;
