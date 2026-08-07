@@ -2,7 +2,13 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 
-import type { ArticleChangeDirection, ArticleIdeaDirection, ArticleIdeaStatus } from "@/lib/article-idea-status";
+import type {
+  ArticleChangeDirection,
+  ArticleChangeLinkBasis,
+  ArticleIdeaDirection,
+  ArticleIdeaSource,
+  ArticleIdeaStatus,
+} from "@/lib/article-idea-status";
 import styles from "./article-memory-workspace.module.css";
 
 export type ArticleMemoryItem = {
@@ -15,7 +21,8 @@ export type ArticleMemoryItem = {
   author: string;
   image: string | null;
   summary: string;
-  relatedStories: Array<{ id: string; slug: string; title: string; href: string }>;
+  tradingViewLinks: string[];
+  relatedStories: Array<{ id: string; slug: string; title: string; href: string; relation: "exact" | "asset" }>;
   intakeStatus: string | null;
   candidateScore: number | null;
   chartIdeas: Array<{
@@ -29,14 +36,21 @@ export type ArticleMemoryItem = {
     question: string;
     confirmationArea: string | null;
     invalidationArea: string | null;
+    targetArea: string | null;
     direction: ArticleIdeaDirection;
     currentPrice: number | null;
+    publicationPrice: number | null;
+    sincePublication: number | null;
     change5d: number | null;
     change21d: number | null;
     status: ArticleIdeaStatus;
     statusReason: string;
     sourceName: string | null;
     sourceUrl: string | null;
+    marketLabel: string | null;
+    isProxy: boolean;
+    ideaSource: ArticleIdeaSource;
+    tradingViewUrl: string | null;
   }>;
   changeState: {
     load: number;
@@ -45,6 +59,7 @@ export type ArticleMemoryItem = {
     latestUpdateAt: string | null;
     latestUpdateLabel: string;
     summary: string;
+    linkBasis: ArticleChangeLinkBasis;
     updates: Array<{
       id: string;
       type: string;
@@ -81,6 +96,12 @@ const CHANGE_LABELS: Record<ArticleChangeDirection, string> = {
   challenged: "Challenged",
   invalidated: "Invalidated",
   unchanged: "No recorded change",
+};
+
+const LINK_BASIS_LABELS: Record<ArticleChangeLinkBasis, string> = {
+  exact: "Exact article-to-Story link",
+  asset: "Shared recorded asset",
+  none: "No Story relationship",
 };
 
 function formatPrice(value: number | null) {
@@ -134,7 +155,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
         article.author,
         article.category,
         ...article.relatedStories.map((story) => story.title),
-        ...article.chartIdeas.flatMap((idea) => [idea.instrument, idea.question, idea.storyTitle]),
+        ...article.chartIdeas.flatMap((idea) => [idea.instrument, idea.question, idea.storyTitle, idea.marketLabel || ""]),
         ...article.changeState.updates.map((update) => update.headline),
       ].some((value) => value.toLowerCase().includes(needle));
     });
@@ -155,7 +176,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
         >
           <span>Article Charts</span>
           <b>{chartCount}</b>
-          <small>Recorded ideas versus current price</small>
+          <small>Published ideas versus current price</small>
         </button>
         <button
           type="button"
@@ -190,7 +211,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
         <>
           <div className={styles.methodNote}>
             <strong>How the check works</strong>
-            <span>Current price is compared only with structured confirmation and invalidation levels stored in the linked chart request. “Target hit” is withheld unless a separate target is explicitly stored.</span>
+            <span>The monitor reads the published article and its TradingView links, then prefers structured Story chart records when they exist. Exact levels are used only against a directly comparable instrument. Otherwise, the status uses the price move since publication and identifies proxy data clearly.</span>
           </div>
           <div className={styles.grid}>
             {filtered.map((article) => (
@@ -201,44 +222,57 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
 
                   {article.chartIdeas.length ? (
                     <div className={styles.ideaList}>
-                      {article.chartIdeas.map((idea) => (
-                        <article className={styles.ideaCard} data-status={idea.status} key={idea.id}>
-                          <header>
-                            <div>
-                              <span>{idea.instrument} · {idea.timeframe}</span>
-                              <a href={idea.storyHref}>{idea.storyTitle}</a>
+                      {article.chartIdeas.map((idea) => {
+                        const sourceExternal = idea.ideaSource === "published_article";
+                        return (
+                          <article className={styles.ideaCard} data-status={idea.status} key={idea.id}>
+                            <header>
+                              <div>
+                                <span>{idea.instrument} · {idea.timeframe}</span>
+                                <a href={idea.storyHref} target={sourceExternal ? "_blank" : undefined} rel={sourceExternal ? "noreferrer" : undefined}>
+                                  {idea.ideaSource === "published_article" ? "Parsed from published article" : idea.storyTitle}
+                                </a>
+                              </div>
+                              <b>{IDEA_LABELS[idea.status]}</b>
+                            </header>
+
+                            <p>{idea.question}</p>
+                            <div className={styles.ideaMeta}>
+                              <span>{DIRECTION_LABELS[idea.direction]}</span>
+                              <span>{idea.ideaSource === "published_article" ? "Article-derived" : "Structured chart request"}</span>
+                              {idea.isProxy ? <span>Proxy context: {idea.marketLabel}</span> : null}
+                              {idea.overlay ? <span>{idea.overlay}</span> : null}
                             </div>
-                            <b>{IDEA_LABELS[idea.status]}</b>
-                          </header>
 
-                          <p>{idea.question}</p>
-                          <div className={styles.ideaMeta}>
-                            <span>{DIRECTION_LABELS[idea.direction]}</span>
-                            {idea.overlay ? <span>{idea.overlay}</span> : null}
-                          </div>
+                            <div className={styles.priceGrid}>
+                              <div><span>Current</span><strong>{formatPrice(idea.currentPrice)}</strong></div>
+                              <div><span>At publication</span><strong>{formatPrice(idea.publicationPrice)}</strong></div>
+                              <div><span>Since publication</span><strong>{formatMove(idea.sincePublication)}</strong></div>
+                              <div><span>21 sessions</span><strong>{formatMove(idea.change21d)}</strong></div>
+                            </div>
 
-                          <div className={styles.priceGrid}>
-                            <div><span>Current</span><strong>{formatPrice(idea.currentPrice)}</strong></div>
-                            <div><span>5 sessions</span><strong>{formatMove(idea.change5d)}</strong></div>
-                            <div><span>21 sessions</span><strong>{formatMove(idea.change21d)}</strong></div>
-                          </div>
+                            <div className={styles.levelGrid}>
+                              <div><span>Confirmation</span><p>{idea.confirmationArea || "Not clearly recorded"}</p></div>
+                              <div><span>Target</span><p>{idea.targetArea || "Not clearly recorded"}</p></div>
+                              <div><span>Invalidation</span><p>{idea.invalidationArea || "Not clearly recorded"}</p></div>
+                            </div>
 
-                          <div className={styles.levelGrid}>
-                            <div><span>Confirmation</span><p>{idea.confirmationArea || "Not recorded"}</p></div>
-                            <div><span>Invalidation</span><p>{idea.invalidationArea || "Not recorded"}</p></div>
-                          </div>
-
-                          <div className={styles.ideaReason}>{idea.statusReason}</div>
-                          {idea.sourceUrl ? <a className={styles.sourceLink} href={idea.sourceUrl} target="_blank" rel="noreferrer">Current-price source: {idea.sourceName || "market data"} ↗</a> : null}
-                        </article>
-                      ))}
+                            <div className={styles.ideaReason}>{idea.statusReason}</div>
+                            <div className={styles.ideaLinks}>
+                              {idea.tradingViewUrl ? <a href={idea.tradingViewUrl} target="_blank" rel="noreferrer">Open TradingView chart ↗</a> : null}
+                              {idea.sourceUrl ? <a href={idea.sourceUrl} target="_blank" rel="noreferrer">Current-price source: {idea.sourceName || "market data"} ↗</a> : null}
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <div className={styles.unlinked}>No structured chart idea is explicitly linked to this article’s recorded Stories.</div>
+                    <div className={styles.unlinked}>No instrument or chart idea could be extracted from this published record.</div>
                   )}
 
                   <footer>
                     <div>
+                      {article.tradingViewLinks.length ? <span>{article.tradingViewLinks.length} TradingView link{article.tradingViewLinks.length === 1 ? "" : "s"}</span> : null}
                       {article.intakeStatus ? <span>{article.intakeStatus}</span> : null}
                       {article.candidateScore !== null ? <span>Research score {article.candidateScore}</span> : null}
                     </div>
@@ -271,6 +305,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
                     <p>{article.changeState.summary}</p>
                     <div className={styles.changeMeta}>
                       <span>{article.changeState.updateCount} linked update{article.changeState.updateCount === 1 ? "" : "s"}</span>
+                      <span>{LINK_BASIS_LABELS[article.changeState.linkBasis]}</span>
                       <span>{article.changeState.latestUpdateAt ? `Latest ${article.changeState.latestUpdateLabel}` : "No later dated change"}</span>
                     </div>
                   </section>
@@ -288,10 +323,14 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
                   ) : null}
 
                   <div className={styles.storyLinks}>
-                    <span>Linked research Stories</span>
+                    <span>Related research Stories</span>
                     {article.relatedStories.length
-                      ? article.relatedStories.map((story) => <a key={story.href} href={story.href}>{story.title}</a>)
-                      : <small>No explicit Story link recorded.</small>}
+                      ? article.relatedStories.map((story) => (
+                        <a key={story.href} href={story.href}>
+                          {story.title} <small>{story.relation === "exact" ? "exact link" : "shared asset"}</small>
+                        </a>
+                      ))
+                      : <small>No exact or asset-matched Story is recorded.</small>}
                   </div>
 
                   <footer>
