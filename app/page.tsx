@@ -6,6 +6,7 @@ import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
+import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
@@ -23,12 +24,12 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market] = await Promise.all([getDeskData(), getMarketData()]);
+  const [data, market, recordLayer] = await Promise.all([getDeskData(), getMarketData(), getStoryRecordLayer()]);
   const latestRun = data.researchRuns[0];
-  const latestUpdate = data.updates[0];
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
+  const storyById = new Map(data.stories.map((story) => [story.id, story]));
 
   const storyRows = data.stories.slice(0, 12);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
@@ -50,17 +51,35 @@ export default async function Page({ searchParams }: PageProps) {
     };
   });
 
-  const changes = data.updates.slice(0, 6).map((update) => {
-    const story = data.stories.find((candidate) => candidate.id === update.story_id);
-    return {
-      id: update.id,
-      headline: update.headline,
-      detail: update.detail,
-      date: formatDeskDate(update.observed_at || update.created_at),
-      storyTitle: story?.title || null,
-      updateType: update.update_type,
-    };
-  });
+  const changes = recordLayer.available
+    ? recordLayer.events.slice(0, 6).map((event) => {
+      const story = storyById.get(event.story_id);
+      return {
+        id: event.id,
+        headline: event.headline,
+        detail: event.detail,
+        date: formatDeskDate(event.event_at),
+        storyTitle: story?.title || null,
+        updateType: event.event_type,
+        recordHref: story ? `/stories/${story.slug}#event-${event.id}` : `/whats-new#record-${event.id}`,
+      };
+    })
+    : data.updates.slice(0, 6).map((update) => {
+      const story = storyById.get(update.story_id);
+      return {
+        id: update.id,
+        headline: update.headline,
+        detail: update.detail,
+        date: formatDeskDate(update.observed_at || update.created_at),
+        storyTitle: story?.title || null,
+        updateType: update.update_type,
+        recordHref: story ? `/stories/${story.slug}#event-${update.id}` : `/whats-new#record-${update.id}`,
+      };
+    });
+
+  const latestRecordAt = recordLayer.available
+    ? recordLayer.events[0]?.event_at
+    : data.updates[0]?.observed_at || data.updates[0]?.created_at;
 
   const systems = [
     latestRun ? {
@@ -82,7 +101,7 @@ export default async function Page({ searchParams }: PageProps) {
     {
       title: stories.length ? `${stories.length} Stories mapped` : "Story map is updating",
       detail: stories.length
-        ? "Story records retain their thesis, confidence, assets and controlled market-theme tags."
+        ? `Story records retain their thesis, confidence, assets and controlled market-theme tags. ${recordLayer.available ? "Immutable event links are active." : "Dated update links are active."}`
         : "No Story records were returned. The Overview does not insert illustrative replacements.",
       tone: stories.length ? "ready" as const : "risk" as const,
     },
@@ -96,7 +115,7 @@ export default async function Page({ searchParams }: PageProps) {
       meta={(
         <>
           <span className={styles.metaLabel}>Latest material record</span><br />
-          {formatDeskDate(latestUpdate?.observed_at || latestUpdate?.created_at)}
+          {formatDeskDate(latestRecordAt)}
         </>
       )}
     >
