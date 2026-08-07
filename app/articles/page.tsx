@@ -2,13 +2,23 @@ import ArticleMemoryWorkspace from "@/components/live-desk/ArticleMemoryWorkspac
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getAlchemyArticles } from "@/lib/alchemy";
+import { assessArticleChanges, assessChartIdea } from "@/lib/article-idea-status";
 import { getDeskData } from "@/lib/data";
+import { getMarketData } from "@/lib/market";
 
 export const dynamic = "force-dynamic";
 
 export default async function ArticlesPage() {
-  const [articles, data] = await Promise.all([getAlchemyArticles(30), getDeskData()]);
+  const [articles, data, market] = await Promise.all([getAlchemyArticles(30), getDeskData(), getMarketData()]);
   const storyBySlug = new Map(data.stories.map((story) => [story.slug, story]));
+  const chartsByStory = new Map<string, typeof data.charts>();
+  data.charts.forEach((chart) => {
+    if (!chart.story_id) return;
+    const existing = chartsByStory.get(chart.story_id) || [];
+    existing.push(chart);
+    chartsByStory.set(chart.story_id, existing);
+  });
+
   const intakeByUrl = new Map(
     data.researchIntake
       .filter((item) => item.item_type === "alchemy_article")
@@ -17,11 +27,35 @@ export default async function ArticlesPage() {
 
   const records = articles.map((article) => {
     const intake = intakeByUrl.get(article.url.replace(/\/$/, ""));
-    const relatedStories = (intake?.affected_story_slugs || [])
+    const linkedStoryRecords = (intake?.affected_story_slugs || [])
       .flatMap((slug) => {
         const story = storyBySlug.get(slug);
-        return story ? [{ title: story.title, href: `/stories/${story.slug}` }] : [];
+        return story ? [story] : [];
       });
+    const relatedStories = linkedStoryRecords.map((story) => ({
+      id: story.id,
+      slug: story.slug,
+      title: story.title,
+      href: `/stories/${story.slug}`,
+    }));
+
+    const chartIdeas = linkedStoryRecords.flatMap((story) =>
+      (chartsByStory.get(story.id) || []).map((chart) =>
+        assessChartIdea(
+          chart,
+          story.title,
+          `/stories/${story.slug}`,
+          market.series,
+          data.marketObservations,
+        ),
+      ),
+    );
+
+    const changeState = assessArticleChanges(
+      article.publishedAt,
+      linkedStoryRecords.map((story) => ({ id: story.id, slug: story.slug })),
+      data.updates,
+    );
 
     return {
       id: article.id,
@@ -36,35 +70,48 @@ export default async function ArticlesPage() {
       relatedStories,
       intakeStatus: intake?.status || null,
       candidateScore: typeof intake?.candidate_score === "number" ? intake.candidate_score : null,
+      chartIdeas,
+      changeState: {
+        ...changeState,
+        latestUpdateLabel: formatDeskDate(changeState.latestUpdateAt),
+        updates: changeState.updates.map((update) => ({
+          ...update,
+          dateLabel: formatDeskDate(update.date),
+        })),
+      },
     };
   });
+
+  const chartIdeas = records.flatMap((article) => article.chartIdeas);
+  const assessedIdeas = chartIdeas.filter((idea) => idea.status !== "needs_review").length;
+  const changedArticles = records.filter((article) => article.changeState.updateCount > 0).length;
 
   return (
     <LiveDeskShell
       activePath="/articles"
       title="Articles"
-      description="Published Alchemy coverage, visual article memory and exact links back to the research Stories that informed each piece."
+      description="Published article memory with two monitoring views: current-price checks for recorded chart ideas and a post-publication Change Meter."
       meta={`${records.length} published records loaded`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
             { value: records.length, label: "Published articles" },
-            { value: new Set(records.map((article) => article.category)).size, label: "Article categories" },
-            { value: records.filter((article) => article.relatedStories.length).length, label: "Story-linked articles" },
-            { value: data.researchIntake.filter((item) => item.item_type === "alchemy_article").length, label: "Article intake records" },
+            { value: records.filter((article) => article.chartIdeas.length).length, label: "Chart-linked articles" },
+            { value: assessedIdeas, label: "Rules-assessed ideas" },
+            { value: changedArticles, label: "Articles with later changes" },
           ]}
         />
 
         <DataState
-          state={records.some((article) => article.relatedStories.length) ? "ready" : "warn"}
-          title={records.some((article) => article.relatedStories.length) ? "Article-to-Story links available" : "Published memory loaded without Story links"}
-          detail="Story links are shown only when the article intake record explicitly names an affected Story. No title-keyword relationship is presented as a confirmed link."
+          state={chartIdeas.length || changedArticles ? "ready" : "warn"}
+          title={chartIdeas.length || changedArticles ? "Article monitoring records available" : "Published memory loaded without monitoring links"}
+          detail="Article Charts uses only explicitly linked Story chart requests and current market series. Change Meter uses dated Story updates recorded after publication. No title-keyword relationship or unstored target is treated as confirmed."
         />
 
         <Panel
-          title="Article memory"
-          description="Search published coverage by title, category, author or explicitly linked research Story. Original article images and links remain external."
+          title="Article monitor"
+          description="Switch between Article Charts and Change Meter. Search and category filters apply to both views."
         >
           {records.length ? (
             <ArticleMemoryWorkspace articles={records} />
