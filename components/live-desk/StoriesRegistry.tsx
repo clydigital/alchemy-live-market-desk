@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { storyTagTone, type StoryTag } from "@/lib/story-tags";
+import mediaStyles from "./stories-registry-media.module.css";
 import styles from "./stories-registry.module.css";
 
 export type StoryRegistryItem = {
@@ -81,7 +82,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
         {filtered.map((story) => (
           <article className={styles.card} key={story.id}>
             {story.imageUrl ? (
-              <figure className={styles.storyImage}>
+              <figure className={mediaStyles.storyImage}>
                 <img src={story.imageUrl} alt={`Market illustration for ${story.title}`} loading="lazy" referrerPolicy="no-referrer" />
                 <figcaption>
                   <span>{story.imageKind === "fallback" ? "Alchemy fallback artwork" : story.imagePublisher || "Research image"}</span>
@@ -101,7 +102,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
               <strong>{story.confidence}</strong>
             </header>
 
-            <ul className={styles.keyPoints}>
+            <ul className={mediaStyles.keyPoints}>
               <li>{story.thesis}</li>
               {story.assets.length ? <li>Affected markets: {story.assets.slice(0, 6).join(", ")}.</li> : null}
               {story.marketQuestion ? <li>{story.marketQuestion}</li> : null}
