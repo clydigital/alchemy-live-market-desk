@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
 
 import { storyTagTone, type StoryTag } from "@/lib/story-tags";
-import EconomicReleaseReminder, { type OverviewEconomicRelease } from "./EconomicReleaseReminder";
+import EconomicReleaseReminder, { type OverviewEconomicRelease, type OverviewReleaseStoryLink } from "./EconomicReleaseReminder";
 import StoryHeaderImage from "./StoryHeaderImage";
 import styles from "./overview-workspace.module.css";
 
@@ -46,6 +46,7 @@ type Props = {
   changes: OverviewChange[];
   systems: OverviewSystemState[];
   immediateRelease: OverviewEconomicRelease | null;
+  releaseStories: OverviewReleaseStoryLink[];
   metrics: {
     stories: number;
     sources: number;
@@ -79,7 +80,7 @@ function scoreState(score: number | null) {
   return { label: "Fragile", tone: "negative" };
 }
 
-export default function OverviewWorkspace({ stories, changes, systems, immediateRelease, metrics, pulse }: Props) {
+export default function OverviewWorkspace({ stories, changes, systems, immediateRelease, releaseStories, metrics, pulse }: Props) {
   const availableTags = useMemo(() => {
     const tags = new Set<StoryTag>();
     stories.forEach((story) => story.tags.forEach((tag) => tags.add(tag)));
@@ -161,7 +162,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
         </article>
       </section>
 
-      <EconomicReleaseReminder release={immediateRelease} />
+      <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
 
       <section className={`${styles.panel} ${styles.storyPanel}`}>
         <header className={styles.panelHeader}>
