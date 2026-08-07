@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./economic-release-reminder.module.css";
 
 export type OverviewEconomicRelease = {
@@ -17,8 +19,15 @@ export type OverviewEconomicRelease = {
   sourceUrl: string;
 };
 
+export type OverviewReleaseStoryLink = {
+  slug: string;
+  title: string;
+  reason: string;
+};
+
 type Props = {
   release: OverviewEconomicRelease | null;
+  relatedStories?: OverviewReleaseStoryLink[];
 };
 
 function displayValue(value: string | null, fallback: string) {
@@ -37,7 +46,7 @@ function releaseDateLabel(date: string) {
   }).format(parsed);
 }
 
-export default function EconomicReleaseReminder({ release }: Props) {
+export default function EconomicReleaseReminder({ release, relatedStories = [] }: Props) {
   if (!release) return null;
 
   const released = release.status === "Released" && Boolean(release.actual);
@@ -89,6 +98,23 @@ export default function EconomicReleaseReminder({ release }: Props) {
           </div>
           <a href={release.sourceUrl} target="_blank" rel="noreferrer">{release.sourceName} ↗</a>
         </div>
+
+        {relatedStories.length ? (
+          <div className={styles.storyLinks}>
+            <div>
+              <span>Feeds into active Stories</span>
+              <small>The release is already attached to the desk questions most likely to change when the print lands.</small>
+            </div>
+            <div className={styles.storyLinkList}>
+              {relatedStories.map((story) => (
+                <Link href={`/stories/${story.slug}`} key={story.slug}>
+                  <strong>{story.title}</strong>
+                  <small>{story.reason}</small>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
