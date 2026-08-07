@@ -1,3 +1,5 @@
+import { getFourSlotResearchHealth, type FourSlotResearchHealth } from "@/lib/research-schedule-health";
+
 export const REQUIRED_RESEARCH_SOURCES = [
   "stockedup",
   "wall-street-truth-bombs",
@@ -10,6 +12,7 @@ export const REQUIRED_RESEARCH_SOURCES = [
 ] as const;
 
 export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number];
+export type ResearchScheduleSlot = "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
 export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
 export type IntakeItemType = "video" | "news" | "alchemy_article";
 export type RecommendedAction = "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
@@ -70,7 +73,7 @@ export type StoryRecalibrationInput = {
 
 export type ResearchRunInput = {
   runKey: string;
-  scheduleSlot: "morning" | "evening" | "manual";
+  scheduleSlot: ResearchScheduleSlot;
   scheduledFor: string;
   sourceChecks: SourceCheckInput[];
   items: IntakeItemInput[];
@@ -89,84 +92,18 @@ export type ValidationResult = {
 };
 
 type RunLike = {
-  schedule_slot: "morning" | "evening" | "manual";
+  schedule_slot: ResearchScheduleSlot;
   scheduled_for: string;
   completed_at: string | null;
   status: "running" | "completed" | "blocked" | "failed";
   warnings: string[];
+  updates_published?: number;
 };
 
-export type ResearchScheduleHealth = {
-  state: "healthy" | "attention" | "not_configured";
-  due: Array<{
-    slot: "morning" | "evening";
-    label: string;
-    expectedAt: string;
-    status: "complete" | "blocked" | "missed";
-    completedAt: string | null;
-  }>;
-  latestCompletedAt: string | null;
-  warningCount: number;
-};
-
-function malaysiaParts(now: Date) {
-  const values = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(now);
-  return Object.fromEntries(values.map((part) => [part.type, part.value]));
-}
-
-function malaysiaDueIso(now: Date, slot: "morning" | "evening") {
-  const parts = malaysiaParts(now);
-  const hour = slot === "morning" ? 8 : 22;
-  const minute = slot === "morning" ? 30 : 0;
-  let candidate = new Date(`${parts.year}-${parts.month}-${parts.day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+08:00`);
-  if (candidate.getTime() > now.getTime()) candidate = new Date(candidate.getTime() - 86_400_000);
-  return candidate.toISOString();
-}
+export type ResearchScheduleHealth = FourSlotResearchHealth;
 
 export function researchScheduleHealth(runs: RunLike[], now = new Date()): ResearchScheduleHealth {
-  if (!runs.length) {
-    return {
-      state: "not_configured",
-      due: ["morning", "evening"].map((slot) => ({
-        slot: slot as "morning" | "evening",
-        label: slot === "morning" ? "08:30 MYT" : "22:00 MYT",
-        expectedAt: malaysiaDueIso(now, slot as "morning" | "evening"),
-        status: "missed" as const,
-        completedAt: null,
-      })),
-      latestCompletedAt: null,
-      warningCount: 0,
-    };
-  }
-
-  const due = (["morning", "evening"] as const).map((slot) => {
-    const expectedAt = malaysiaDueIso(now, slot);
-    const matching = runs
-      .filter((run) => run.schedule_slot === slot && Date.parse(run.scheduled_for) >= Date.parse(expectedAt) - 30 * 60_000)
-      .sort((a, b) => Date.parse(b.scheduled_for) - Date.parse(a.scheduled_for))[0];
-    return {
-      slot,
-      label: slot === "morning" ? "08:30 MYT" : "22:00 MYT",
-      expectedAt,
-      status: matching?.status === "completed" ? "complete" as const : matching ? "blocked" as const : "missed" as const,
-      completedAt: matching?.completed_at || null,
-    };
-  });
-  const completed = runs.filter((run) => run.status === "completed" && run.completed_at).sort((a, b) => Date.parse(b.completed_at!) - Date.parse(a.completed_at!));
-  return {
-    state: due.every((item) => item.status === "complete") ? "healthy" : "attention",
-    due,
-    latestCompletedAt: completed[0]?.completed_at || null,
-    warningCount: runs.slice(0, 2).reduce((sum, run) => sum + (run.warnings?.length || 0), 0),
-  };
+  return getFourSlotResearchHealth(runs, now);
 }
 
 function validDate(value: unknown) {
@@ -203,7 +140,7 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   const recalibrations = Array.isArray(input.recalibrations) ? input.recalibrations : [];
 
   if (!input.runKey || input.runKey.length > 120) errors.push("runKey is required and must be at most 120 characters.");
-  if (!["morning", "evening", "manual"].includes(input.scheduleSlot)) errors.push("scheduleSlot is invalid.");
+  if (!["video_midnight", "morning", "video_late_morning", "evening", "manual"].includes(input.scheduleSlot)) errors.push("scheduleSlot is invalid.");
   if (!validDate(input.scheduledFor)) errors.push("scheduledFor must be a valid date.");
   if (items.length > 250) errors.push("A run may contain at most 250 retained intake items.");
 
