@@ -2,7 +2,14 @@ import ArticleMemoryWorkspace from "@/components/live-desk/ArticleMemoryWorkspac
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getAlchemyArticles } from "@/lib/alchemy";
-import { assessArticleChanges, assessChartIdea } from "@/lib/article-idea-status";
+import {
+  assessArticleChanges,
+  assessChartIdea,
+  extractArticleChartIdeas,
+  instrumentMatchesAsset,
+  type ArticleChartIdea,
+  type ArticleChangeLinkBasis,
+} from "@/lib/article-idea-status";
 import { getDeskData } from "@/lib/data";
 import { getMarketData } from "@/lib/market";
 
@@ -17,6 +24,22 @@ function canonicalUrl(value: string) {
   } catch {
     return value.replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
   }
+}
+
+function ideaKey(idea: ArticleChartIdea) {
+  return idea.instrument.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function dedupeIdeas(structured: ArticleChartIdea[], articleNative: ArticleChartIdea[]) {
+  const seen = new Set<string>();
+  const ideas: ArticleChartIdea[] = [];
+  for (const idea of [...structured, ...articleNative]) {
+    const key = ideaKey(idea);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ideas.push(idea);
+  }
+  return ideas.slice(0, 5);
 }
 
 export default async function ArticlesPage() {
@@ -48,27 +71,46 @@ export default async function ArticlesPage() {
     const articleKey = canonicalUrl(article.url);
     const intake = intakeByUrl.get(articleKey);
     const exactSources = sourcesByUrl.get(articleKey) || [];
-    const linkedStoryMap = new Map<string, (typeof data.stories)[number]>();
+    const linkedStoryMap = new Map<string, { story: (typeof data.stories)[number]; relation: "exact" | "asset" }>();
 
     (intake?.affected_story_slugs || []).forEach((slug) => {
       const story = storyBySlug.get(slug);
-      if (story) linkedStoryMap.set(story.id, story);
+      if (story) linkedStoryMap.set(story.id, { story, relation: "exact" });
     });
     exactSources.forEach((source) => {
       if (!source.story_id) return;
       const story = storyById.get(source.story_id);
-      if (story) linkedStoryMap.set(story.id, story);
+      if (story) linkedStoryMap.set(story.id, { story, relation: "exact" });
     });
 
+    const articleNativeIdeas = extractArticleChartIdeas(article, market.series, data.marketObservations);
+    const exactLinkCount = linkedStoryMap.size;
+
+    if (!exactLinkCount && articleNativeIdeas.length) {
+      const assetMatches = data.stories
+        .map((story) => ({
+          story,
+          score: articleNativeIdeas.reduce(
+            (sum, idea) => sum + (story.assets || []).filter((asset) => instrumentMatchesAsset(idea.instrument, asset)).length,
+            0,
+          ),
+        }))
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score || b.story.confidence - a.story.confidence)
+        .slice(0, 3);
+      assetMatches.forEach(({ story }) => linkedStoryMap.set(story.id, { story, relation: "asset" }));
+    }
+
     const linkedStoryRecords = Array.from(linkedStoryMap.values());
-    const relatedStories = linkedStoryRecords.map((story) => ({
+    const relatedStories = linkedStoryRecords.map(({ story, relation }) => ({
       id: story.id,
       slug: story.slug,
       title: story.title,
       href: `/stories/${story.slug}`,
+      relation,
     }));
 
-    const chartIdeas = linkedStoryRecords.flatMap((story) =>
+    const structuredIdeas = linkedStoryRecords.flatMap(({ story }) =>
       (chartsByStory.get(story.id) || []).map((chart) =>
         assessChartIdea(
           chart,
@@ -79,16 +121,19 @@ export default async function ArticlesPage() {
         ),
       ),
     );
+    const chartIdeas = dedupeIdeas(structuredIdeas, articleNativeIdeas);
 
     const sourcePublicationDate = exactSources
       .map((source) => source.publication_date || source.observation_date)
       .filter((value): value is string => Boolean(value))
       .sort()[0] || null;
     const publishedAt = article.publishedAt || sourcePublicationDate;
+    const linkBasis: ArticleChangeLinkBasis = exactLinkCount ? "exact" : linkedStoryRecords.length ? "asset" : "none";
     const changeState = assessArticleChanges(
       publishedAt,
-      linkedStoryRecords.map((story) => ({ id: story.id, slug: story.slug })),
+      linkedStoryRecords.map(({ story }) => ({ id: story.id, slug: story.slug })),
       data.updates,
+      linkBasis,
     );
 
     return {
@@ -101,6 +146,7 @@ export default async function ArticlesPage() {
       author: article.author,
       image: article.image,
       summary: article.summary,
+      tradingViewLinks: article.tradingViewLinks,
       relatedStories,
       intakeStatus: intake?.status || null,
       candidateScore: typeof intake?.candidate_score === "number" ? intake.candidate_score : null,
@@ -131,7 +177,7 @@ export default async function ArticlesPage() {
         <MetricGrid
           items={[
             { value: records.length, label: "Published articles" },
-            { value: records.filter((article) => article.chartIdeas.length).length, label: "Chart-linked articles" },
+            { value: records.filter((article) => article.chartIdeas.length).length, label: "Articles with price checks" },
             { value: assessedIdeas, label: "Rules-assessed ideas" },
             { value: changedArticles, label: "Articles with later changes" },
           ]}
@@ -140,7 +186,7 @@ export default async function ArticlesPage() {
         <DataState
           state={chartIdeas.length || changedArticles ? "ready" : "warn"}
           title={chartIdeas.length || changedArticles ? "Article monitoring records available" : "Published memory loaded without monitoring links"}
-          detail="Article Charts uses exact article-source or intake links to persistent Stories, then compares their structured chart requests with current market series. Change Meter uses dated Story updates recorded after publication. Unstored targets are never presented as hit."
+          detail="Article Charts reads the published article body and TradingView links, combines them with structured Story chart requests where available, and checks current market data. Change Meter prefers exact article-to-Story links and labels asset-matched updates separately."
         />
 
         <Panel
