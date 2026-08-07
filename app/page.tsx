@@ -9,6 +9,8 @@ import { getDeskData, type MacroRelease } from "@/lib/data";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
+import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
@@ -167,6 +169,22 @@ function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: Econo
   return candidates[0] || null;
 }
 
+function scheduleSystemDetail(slot: ReturnType<typeof getFourSlotResearchHealth>["slots"][number]) {
+  if (slot.status === "complete") {
+    return `Completed ${formatDeskDate(slot.completedAt)}. ${slot.updatesPublished} Story update(s) published. ${slot.warningCount} warning(s). Next ${formatDeskDate(slot.nextAt)}.`;
+  }
+  if (slot.status === "running") {
+    return `Run started around ${formatDeskDate(slot.expectedAt)} and is still in progress. Next scheduled ${formatDeskDate(slot.nextAt)}.`;
+  }
+  if (slot.status === "blocked") {
+    return `The ${formatDeskDate(slot.expectedAt)} run was blocked. ${slot.warningCount} warning(s) recorded. Next scheduled ${formatDeskDate(slot.nextAt)}.`;
+  }
+  if (slot.status === "failed") {
+    return `The ${formatDeskDate(slot.expectedAt)} run failed. ${slot.warningCount} warning(s) recorded. Next scheduled ${formatDeskDate(slot.nextAt)}.`;
+  }
+  return `No matching run was recorded for ${formatDeskDate(slot.expectedAt)}. Next scheduled ${formatDeskDate(slot.nextAt)}.`;
+}
+
 export default async function Page({ searchParams }: PageProps) {
   const query = await searchParams;
   const tabValue = Array.isArray(query.tab) ? query.tab[0] : query.tab;
@@ -181,12 +199,13 @@ export default async function Page({ searchParams }: PageProps) {
     getStoryRecordLayer(),
     getEconomicCalendar(),
   ]);
-  const latestRun = data.researchRuns[0];
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const immediateRelease = immediateEconomicRelease(data.macroReleases, calendar);
+  const releaseStories = getRelatedStoriesForRelease(immediateRelease, data.stories, 3);
+  const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
 
   const storyRows = data.stories.slice(0, 12);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
@@ -241,16 +260,18 @@ export default async function Page({ searchParams }: PageProps) {
     ? recordLayer.events[0]?.event_at
     : data.updates[0]?.observed_at || data.updates[0]?.created_at;
 
+  const scheduleSystems = scheduleHealth.slots.map((slot) => ({
+    title: `${slot.label}: ${slot.status}`,
+    detail: scheduleSystemDetail(slot),
+    tone: slot.status === "complete"
+      ? "ready" as const
+      : slot.status === "running" || slot.status === "blocked"
+        ? "warn" as const
+        : "risk" as const,
+  }));
+
   const systems = [
-    latestRun ? {
-      title: `${latestRun.schedule_slot} run: ${latestRun.status}`,
-      detail: `Scheduled ${formatDeskDate(latestRun.scheduled_for)}. ${latestRun.updates_published} Story updates published. ${latestRun.warnings.length} warning(s) recorded.`,
-      tone: latestRun.status === "completed" ? "ready" as const : latestRun.status === "failed" ? "risk" as const : "warn" as const,
-    } : {
-      title: "Research-run status is updating",
-      detail: "The latest private run record is not currently available. Story and evidence records remain accessible.",
-      tone: "warn" as const,
-    },
+    ...scheduleSystems,
     {
       title: marketContextCount ? "Market context loaded" : "Market context is updating",
       detail: marketContextCount
@@ -284,6 +305,7 @@ export default async function Page({ searchParams }: PageProps) {
         changes={changes}
         systems={systems}
         immediateRelease={immediateRelease}
+        releaseStories={releaseStories}
         metrics={{
           stories: data.stories.length,
           sources: data.sources.length,
