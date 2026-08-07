@@ -6,6 +6,8 @@ PR 2 separates source material, structured observations, Story interpretation an
 
 This pull request is additive. It does not remove the existing `stories`, `story_updates`, `sources`, `evidence`, `macro_releases`, `macro_series_observations` or `market_series_observations` tables.
 
+It now also defines the persistence boundary for the verified creator-video pipeline, four canonical research slots, Fiscal Supply and Treasury Liquidity, causal edges, asset impacts and the redacted Live-to-Hybrid handoff. See `PR2_VERIFIED_RESEARCH_AND_FISCAL_MODULE.md` for the extended contract.
+
 ## Current database state inspected
 
 The connected Supabase project currently contains:
@@ -133,6 +135,23 @@ Every correction, supersession, invalidation, restoration or manual override can
 - previous and new structured values;
 - supporting metadata.
 
+### 8. Verified research and fiscal pipeline
+
+The second PR 2 migration adds:
+
+- `research_schedule_slots`;
+- `research_slot_runs`;
+- `research_slot_events`;
+- `creator_claims`;
+- `claim_verifications`;
+- `causal_edges`;
+- `asset_impacts`;
+- `fiscal_supply_snapshots`;
+- `treasury_auction_results`;
+- `hybrid_publication_snapshots`.
+
+These records support the full detect-to-Hybrid chain without allowing creator transcripts to bypass primary-source verification.
+
 ## Immutability
 
 The following tables reject `UPDATE` and `DELETE` operations:
@@ -143,9 +162,19 @@ The following tables reject `UPDATE` and `DELETE` operations:
 - `story_thesis_versions`;
 - `derived_metric_versions`;
 - `macro_release_vintages`;
-- `record_revisions`.
+- `record_revisions`;
+- `research_slot_events`;
+- `creator_claims`;
+- `claim_verifications`;
+- `causal_edges`;
+- `asset_impacts`;
+- `fiscal_supply_snapshots`;
+- `treasury_auction_results`;
+- `hybrid_publication_snapshots`.
 
 Corrections must append a superseding record and, where appropriate, a revision-ledger entry.
+
+`research_schedule_slots` and `research_slot_runs` remain mutable operational state because schedules, heartbeats and stage health must update while a run is active.
 
 ## Read access
 
@@ -155,20 +184,30 @@ Presentation-safe tables retain public read access so the existing desk can cons
 - Story events;
 - Story thesis versions;
 - derived metric versions;
-- macro release vintages.
+- macro release vintages;
+- causal edges;
+- asset impacts;
+- fiscal supply snapshots;
+- Treasury auction results;
+- redacted Hybrid publication snapshots;
+- canonical schedule definitions.
 
-Raw source material remains private. The revision ledger is readable only to authenticated users.
+Raw source material remains private. Creator claims, claim verifications, run health and stage-level execution events are authenticated-only. The revision ledger is also authenticated-only.
 
 ## Migration behaviour
 
-The migration is designed to:
+The migration set is designed to:
 
 1. create new objects without dropping or renaming current ones;
 2. backfill existing Story updates into Story events;
 3. create a baseline thesis version for every existing Story;
 4. set each Story's current-version pointer;
 5. install future automatic thesis capture;
-6. install indexes, RLS and append-only protection.
+6. install indexes, RLS and append-only protection;
+7. seed the four canonical Asia/Kuala_Lumpur research slots;
+8. define creator claim, verification, causal-edge and asset-impact records;
+9. define fiscal-supply and Treasury-auction records;
+10. define a redacted Live-to-Hybrid publication boundary.
 
 The current application continues reading its existing tables until later pull requests intentionally adopt the new contract.
 
@@ -176,28 +215,34 @@ The current application continues reading its existing tables until later pull r
 
 `supabase/tests/pr2_persistence_contract.sql` is a read-only post-migration check. It verifies:
 
-- all required tables exist;
+- all required tables and current-state views exist;
 - the current-version column and triggers exist;
 - every Story has a baseline version and valid pointer;
 - every legacy Story update was backfilled;
-- current-version and event summaries can be queried.
+- immutable claim and Hybrid publication triggers exist;
+- all four canonical research slots use the expected times;
+- verification and Hybrid health states are first-class columns;
+- creator claims are not publicly readable;
+- redacted Hybrid snapshots have a read policy.
 
-The migration has not been executed against the connected Supabase project in this pull request.
+The migrations have not been executed against the connected Supabase project in this pull request.
 
 ## Rollout sequence
 
 1. Review the schema and trigger behaviour.
-2. Apply the migration in a disposable or staging database.
+2. Apply both migrations in order in a disposable or staging database.
 3. Run the read-only contract checks.
 4. Exercise Story insert and thesis-update flows.
-5. Confirm service-role ingestion can write while public clients cannot mutate records.
-6. Review query plans for Story history and current-version queries.
-7. Apply to production only after explicit approval.
+5. Exercise one complete slot run from transcript save through redacted Hybrid publication.
+6. Confirm service-role ingestion can write while public clients cannot mutate or read private records.
+7. Review query plans for Story history, claim verification, fiscal snapshots and current-state views.
+8. Apply to production only after explicit approval.
 
 ## Known boundaries
 
 - Existing source and evidence rows are not duplicated into raw/normalised layers automatically because their original payloads are not recoverable from the current tables alone.
 - Existing Story updates are backfilled as events, but they cannot reconstruct historical full-thesis snapshots that were never stored.
 - Derived-metric writers remain on their current implementation until later PRs.
-- Hybrid snapshots, global search and the complete History Cabinet remain later phases.
+- The pipeline contract does not itself run transcription, verification or fiscal ingestion workers.
+- Hybrid consumption, the Fiscal Supply interface, global search and the complete History Cabinet remain later phases.
 - Raw source retention, payload-size limits and archival policy still require an operational decision before high-volume transcript ingestion is moved to this table.
