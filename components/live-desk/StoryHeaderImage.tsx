@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Props = {
   title: string;
@@ -23,20 +23,48 @@ export default function StoryHeaderImage({
   sourceTitle,
   className,
 }: Props) {
-  const preferredUrl = imageUrl || fallbackImageUrl;
-  const [src, setSrc] = useState(preferredUrl);
-  const [usingFallback, setUsingFallback] = useState(!imageUrl || imageKind === "fallback");
+  const researchUrl = useMemo(() => {
+    if (!imageUrl || imageKind !== "research" || imageUrl === fallbackImageUrl) return null;
+    return imageUrl;
+  }, [fallbackImageUrl, imageKind, imageUrl]);
+
+  // Render the local ZIP artwork first. A remote research image only replaces it
+  // after the browser has proved that the URL can actually be displayed.
+  const [src, setSrc] = useState(fallbackImageUrl);
+  const [usingFallback, setUsingFallback] = useState(true);
 
   useEffect(() => {
-    setSrc(preferredUrl);
-    setUsingFallback(!imageUrl || imageKind === "fallback");
-  }, [fallbackImageUrl, imageKind, imageUrl, preferredUrl, title]);
+    let cancelled = false;
 
-  function useFallback() {
-    if (src !== fallbackImageUrl) {
+    setSrc(fallbackImageUrl);
+    setUsingFallback(true);
+
+    if (!researchUrl) return () => { cancelled = true; };
+
+    const candidate = new Image();
+    candidate.referrerPolicy = "no-referrer";
+    candidate.onload = () => {
+      if (cancelled) return;
+      setSrc(researchUrl);
+      setUsingFallback(false);
+    };
+    candidate.onerror = () => {
+      if (cancelled) return;
       setSrc(fallbackImageUrl);
       setUsingFallback(true);
-    }
+    };
+    candidate.src = researchUrl;
+
+    return () => {
+      cancelled = true;
+      candidate.onload = null;
+      candidate.onerror = null;
+    };
+  }, [fallbackImageUrl, researchUrl, title]);
+
+  function useFallback() {
+    setSrc(fallbackImageUrl);
+    setUsingFallback(true);
   }
 
   return (
