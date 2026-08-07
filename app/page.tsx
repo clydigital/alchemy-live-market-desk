@@ -7,6 +7,7 @@ import { getDeskData } from "@/lib/data";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
@@ -35,6 +36,7 @@ export default async function Page({ searchParams }: PageProps) {
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
   const stories = storyRows.map((story) => {
     const image = storyImages.get(story.id);
+    const fallback = getStableStoryFallbackImage(story.id);
     return {
       id: story.id,
       slug: story.slug,
@@ -44,7 +46,9 @@ export default async function Page({ searchParams }: PageProps) {
       confidence: story.confidence,
       assets: story.assets || [],
       tags: deriveStoryTags(story, 6),
-      imageUrl: image?.imageUrl || null,
+      imageUrl: image?.imageUrl || fallback.dataUri,
+      fallbackImageUrl: fallback.dataUri,
+      imageKind: image?.kind || "fallback" as const,
       imageSourceUrl: image?.articleUrl || null,
       imageSourceTitle: image?.articleTitle || null,
       imagePublisher: image?.publisher || null,
