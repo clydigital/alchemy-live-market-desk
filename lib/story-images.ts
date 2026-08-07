@@ -1,10 +1,13 @@
 import type { ResearchSource } from "@/lib/data";
+import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 
 export type StoryHeaderImage = {
   imageUrl: string;
-  articleUrl: string;
+  articleUrl: string | null;
   articleTitle: string;
   publisher: string;
+  kind: "research" | "fallback";
+  fallbackKey: string | null;
 };
 
 const VISUAL_PUBLISHERS = /reuters|associated press|ap news|investing\.com|wall street journal|bloomberg|cnbc|financial times|axios|marketwatch|marketscreener/i;
@@ -75,6 +78,8 @@ async function parseHeaderImage(source: ResearchSource): Promise<StoryHeaderImag
       articleUrl,
       articleTitle: source.title,
       publisher: source.publisher,
+      kind: "research",
+      fallbackKey: null,
     };
   }
 
@@ -107,12 +112,26 @@ async function parseHeaderImage(source: ResearchSource): Promise<StoryHeaderImag
       articleUrl,
       articleTitle: source.title,
       publisher: source.publisher,
+      kind: "research",
+      fallbackKey: null,
     };
   } catch {
     return null;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function fallbackImage(storyId: string): StoryHeaderImage {
+  const fallback = getStableStoryFallbackImage(storyId);
+  return {
+    imageUrl: fallback.dataUri,
+    articleUrl: null,
+    articleTitle: fallback.label,
+    publisher: "Alchemy Markets",
+    kind: "fallback",
+    fallbackKey: fallback.key,
+  };
 }
 
 export async function getStoryHeaderImages(storyIds: string[], sources: ResearchSource[]) {
@@ -135,8 +154,9 @@ export async function getStoryHeaderImages(storyIds: string[], sources: Research
       const image = await parseHeaderImage(source);
       if (image) return [storyId, image] as const;
     }
-    return [storyId, null] as const;
+
+    return [storyId, fallbackImage(storyId)] as const;
   }));
 
-  return new Map<string, StoryHeaderImage | null>(results);
+  return new Map<string, StoryHeaderImage>(results);
 }
