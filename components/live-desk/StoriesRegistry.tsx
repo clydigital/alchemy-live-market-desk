@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { storyTagTone, type StoryTag } from "@/lib/story-tags";
 import mediaStyles from "./stories-registry-media.module.css";
 import styles from "./stories-registry.module.css";
+import StoryHeaderImage from "./StoryHeaderImage";
 
 export type StoryRegistryItem = {
   id: string;
@@ -22,6 +23,7 @@ export type StoryRegistryItem = {
   eventCount: number;
   versionCount: number | null;
   imageUrl: string | null;
+  fallbackImageUrl: string;
   imageSourceUrl: string | null;
   imagePublisher: string | null;
   imageKind: "research" | "fallback" | null;
@@ -81,15 +83,15 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       <div className={styles.cards}>
         {filtered.map((story) => (
           <article className={styles.card} key={story.id}>
-            {story.imageUrl ? (
-              <figure className={mediaStyles.storyImage}>
-                <img src={story.imageUrl} alt={`Market illustration for ${story.title}`} loading="lazy" referrerPolicy="no-referrer" />
-                <figcaption>
-                  <span>{story.imageKind === "fallback" ? "Alchemy fallback artwork" : story.imagePublisher || "Research image"}</span>
-                  {story.imageSourceUrl ? <a href={story.imageSourceUrl} target="_blank" rel="noreferrer">Source ↗</a> : null}
-                </figcaption>
-              </figure>
-            ) : null}
+            <StoryHeaderImage
+              title={story.title}
+              imageUrl={story.imageUrl}
+              fallbackImageUrl={story.fallbackImageUrl}
+              imageKind={story.imageKind}
+              publisher={story.imagePublisher}
+              sourceUrl={story.imageSourceUrl}
+              className={mediaStyles.storyImage}
+            />
 
             <header>
               <div>
