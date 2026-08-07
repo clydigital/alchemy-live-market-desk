@@ -152,7 +152,8 @@
   border-top: 1px solid rgba(185, 174, 255, .13);
 }
 
-.footer > div:first-child > span {
+.footer > div:first-child > span,
+.storyLinks > div:first-child > span {
   color: #9a74e9;
   font-size: 10px;
   font-weight: 900;
@@ -190,6 +191,64 @@
   font-weight: 900;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.storyLinks {
+  display: grid;
+  grid-template-columns: minmax(180px, .42fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+  padding-top: 17px;
+  border-top: 1px solid rgba(185, 174, 255, .13);
+}
+
+.storyLinks > div:first-child small {
+  display: block;
+  max-width: 360px;
+  margin-top: 6px;
+  color: #9b98ae;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.storyLinkList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.storyLinkList a {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(155, 116, 233, .22);
+  border-radius: 12px;
+  background: rgba(102, 72, 173, .10);
+  text-decoration: none;
+}
+
+.storyLinkList strong,
+.storyLinkList small {
+  display: block;
+}
+
+.storyLinkList strong {
+  color: #f4efff;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.storyLinkList small {
+  margin-top: 5px;
+  color: #9e99b5;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .storyLinks,
+  .storyLinkList {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
