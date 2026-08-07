@@ -20,6 +20,10 @@ export type StoryRegistryItem = {
   evidenceRoom: string | null;
   eventCount: number;
   versionCount: number | null;
+  imageUrl: string | null;
+  imageSourceUrl: string | null;
+  imagePublisher: string | null;
+  imageKind: "research" | "fallback" | null;
 };
 
 export default function StoriesRegistry({ stories }: { stories: StoryRegistryItem[] }) {
@@ -76,6 +80,16 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       <div className={styles.cards}>
         {filtered.map((story) => (
           <article className={styles.card} key={story.id}>
+            {story.imageUrl ? (
+              <figure className={styles.storyImage}>
+                <img src={story.imageUrl} alt={`Market illustration for ${story.title}`} loading="lazy" referrerPolicy="no-referrer" />
+                <figcaption>
+                  <span>{story.imageKind === "fallback" ? "Alchemy fallback artwork" : story.imagePublisher || "Research image"}</span>
+                  {story.imageSourceUrl ? <a href={story.imageSourceUrl} target="_blank" rel="noreferrer">Source ↗</a> : null}
+                </figcaption>
+              </figure>
+            ) : null}
+
             <header>
               <div>
                 <div className={styles.statusLine}>
@@ -87,7 +101,12 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
               <strong>{story.confidence}</strong>
             </header>
 
-            <p>{story.thesis}</p>
+            <ul className={styles.keyPoints}>
+              <li>{story.thesis}</li>
+              {story.assets.length ? <li>Affected markets: {story.assets.slice(0, 6).join(", ")}.</li> : null}
+              {story.marketQuestion ? <li>{story.marketQuestion}</li> : null}
+              {story.nextCatalyst ? <li>Next test: {story.nextCatalyst}</li> : null}
+            </ul>
 
             <div className={styles.tags}>
               {story.tags.map((item) => <span key={item} data-tone={storyTagTone(item)}>{item}</span>)}
@@ -95,11 +114,6 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
 
             <div className={styles.assets}>
               {story.assets.slice(0, 8).map((asset) => <span key={asset}>{asset}</span>)}
-            </div>
-
-            <div className={styles.tests}>
-              <div><span>Market question</span><p>{story.marketQuestion || "Not yet recorded"}</p></div>
-              <div><span>Next catalyst</span><p>{story.nextCatalyst || "Not yet recorded"}</p></div>
             </div>
 
             <footer>
