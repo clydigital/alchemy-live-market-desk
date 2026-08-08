@@ -1,0 +1,20 @@
+{
+  "channels": [
+    {"key":"fx-evolution","name":"FX Evolution","url":"https://www.youtube.com/@fxevolutionvideo/videos"},
+    {"key":"kevin-gerrity","name":"Kevin Gerrity","url":"https://www.youtube.com/@Kevin.Gerrity/videos"},
+    {"key":"clearvalue-tax","name":"ClearValue Tax","url":"https://www.youtube.com/@clearvaluetax9382/videos"},
+    {"key":"stockedup","name":"StockedUp","url":"https://www.youtube.com/@StockedUp/videos"},
+    {"key":"wall-street-truth-bombs","name":"Wall Street Truthbombs","url":"https://www.youtube.com/@wstruthbombs/videos"},
+    {"key":"tradernick","name":"TraderNick","url":"https://www.youtube.com/@TraderNick/videos"},
+    {"key":"traders-reality","name":"Traders Reality","url":"https://www.youtube.com/@TradersReality/videos"},
+    {"key":"beginner-trading","name":"Beginner Trading","url":"https://www.youtube.com/@BeginnerTrading/videos"},
+    {"key":"eurodollar-university","name":"Eurodollar University","url":"https://www.youtube.com/@eurodollaruniversity/videos"}
+  ],
+  "transcriptPolicy": {
+    "preferred":"official_youtube_caption_or_transcript",
+    "fallback":"https://youtubetotranscript.com/",
+    "readyRequiresTranscriptText":true,
+    "metadataIsNotTranscript":true,
+    "blockStoryImpactWithoutReadyTranscript":true
+  }
+}
