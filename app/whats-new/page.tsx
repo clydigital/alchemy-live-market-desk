@@ -10,32 +10,50 @@ const TOPIC_PATTERNS: Array<[WhatsNewTopic, RegExp]> = [
   ["Crypto", /\b(?:crypto|bitcoin|btc|ethereum|eth|stablecoin|blockchain|token)\b/i],
   ["Commodities", /\b(?:oil|brent|wti|crude|gold|silver|copper|commodit(?:y|ies)|energy|lng|gasoline|diesel|xau|xag|refining|crack spread)\b/i],
   ["FX", /\b(?:forex|fx|usd|jpy|eur|gbp|aud|cad|chf|dxy|yen|dollar|sterling|currency|currencies|carry trade|intervention)\b/i],
-  ["Earnings", /\b(?:earnings|revenue|eps|guidance|margin|cash flow|investor day|quarterly results?|results season)\b/i],
   ["Macro", /\b(?:cpi|ppi|inflation|payrolls?|nfp|employment|unemployment|labour|labor|gdp|pmi|ism|fed|fomc|boj|ecb|central bank|rates?|yields?|treasur(?:y|ies)|productivity|macro|growth data)\b/i],
-  ["Stocks", /\b(?:stock|stocks|equity|equities|nasdaq|s&p|spx|soxx|nikkei|kospi|dow|shares?|semiconductors?|technology|tech|ai|artificial intelligence|megacap|mag7)\b/i],
+  ["Stocks", /\b(?:stock|stocks|equity|equities|nasdaq|s&p|spx|soxx|smh|nikkei|kospi|dow|shares?|semiconductors?|technology|tech|ai|artificial intelligence|megacap|mag7|amd|nvidia|nvda|microsoft|msft|meta|alphabet|googl|amazon|amzn|tesla|tsla)\b/i],
+  ["Earnings", /\b(?:earnings|eps|quarterly results?|results season|investor day)\b/i],
   ["Geopolitics", /\b(?:iran|hormuz|war|military|missile|strike|sanctions?|ceasefire|diplomacy|diplomatic|geopolitics?|tariffs?|trade war|election|retaliation|conflict)\b/i],
 ];
 
 function classifyTopic(primary: string, secondary = "", assetText = ""): WhatsNewTopic {
-  // Headline/title/category text decides first. This prevents a stray word in a
-  // long explanation from turning a tech Story into geopolitics, for example.
   for (const [topic, pattern] of TOPIC_PATTERNS) {
     if (pattern.test(primary)) return topic;
   }
 
-  // Assets are useful when the headline is generic, but deliberately sit below
-  // the headline so USDJPY inside an oil Story does not override an oil title.
   const assets = assetText.toUpperCase();
   if (/\b(?:BTCUSD|ETHUSD|BTC|ETH|COIN|MSTR)\b/.test(assets)) return "Crypto";
   if (/\b(?:USOIL|UKOIL|WTI|BRENT|XAUUSD|XAGUSD|XAU|XAG|GOLD|SILVER|DIESEL_CRACK|GASOLINE_CRACK|LNG)\b/.test(assets)) return "Commodities";
   if (/\b(?:DXY|USDJPY|GBPJPY|AUDJPY|EURUSD|GBPUSD|USDCHF|USDCAD|EURJPY|[A-Z]{3}JPY)\b/.test(assets)) return "FX";
-  if (/\b(?:SPX|NASDAQ|NDX|QQQ|RSP|SOXX|SMH|NIKKEI|KOSPI|AAPL|MSFT|AMZN|GOOGL|META|NVDA|AMD|TSLA|BABA|MU|WDC|SNDK)\b/.test(assets)) return "Stocks";
   if (/\b(?:US02Y|US05Y|US10Y|US30Y|TLT|IEF|SHY)\b/.test(assets)) return "Macro";
+  if (/\b(?:SPX|NASDAQ|NDX|QQQ|RSP|SOXX|SMH|NIKKEI|KOSPI|AAPL|MSFT|AMZN|GOOGL|META|NVDA|AMD|TSLA|BABA|MU|WDC|SNDK)\b/.test(assets)) return "Stocks";
 
   for (const [topic, pattern] of TOPIC_PATTERNS) {
     if (pattern.test(secondary)) return topic;
   }
   return "Other";
+}
+
+function classifyStoryTopic(
+  storyTitle: string | null | undefined,
+  eventHeadline: string,
+  storyThesis: string | null | undefined,
+  eventDetail: string | null | undefined,
+  assets: string[] | null | undefined,
+): WhatsNewTopic {
+  const story = storyTitle || "";
+
+  // A Story is already a curated research object, so its canonical subject is
+  // more reliable than a stray word in one update. Event text remains the
+  // fallback when the Story title is generic.
+  if (/\b(?:oil|crude|physical normalisation|physical disruption|energy disruption)\b/i.test(story)) return "Commodities";
+  if (/\b(?:yen|carry|forex|currency|intervention)\b/i.test(story)) return "FX";
+  if (/\b(?:fed|inflation|rates?|long end|treasur(?:y|ies)|macro)\b/i.test(story)) return "Macro";
+  if (/\b(?:earnings|mag7 guidance|guidance dispersion)\b/i.test(story)) return "Earnings";
+  if (/\b(?:ai|market breadth|equity|stocks?)\b/i.test(story)) return "Stocks";
+  if (/\b(?:iran|hormuz|war|geopolitics?|conflict)\b/i.test(story)) return "Geopolitics";
+
+  return classifyTopic(eventHeadline, `${storyThesis || ""} ${eventDetail || ""}`, (assets || []).join(" "));
 }
 
 export default async function WhatsNewPage() {
@@ -49,11 +67,7 @@ export default async function WhatsNewPage() {
         id: event.id,
         kind: event.event_type,
         stream: "Story" as const,
-        topic: classifyTopic(
-          `${story?.title || ""} ${event.headline}`,
-          `${story?.thesis || ""} ${event.detail || ""}`,
-          (story?.assets || []).join(" "),
-        ),
+        topic: classifyStoryTopic(story?.title, event.headline, story?.thesis, event.detail, story?.assets),
         title: event.headline,
         detail: event.detail || "No additional detail was stored for this Story event.",
         dateLabel: formatDeskDate(event.event_at),
@@ -71,11 +85,7 @@ export default async function WhatsNewPage() {
         id: update.id,
         kind: update.update_type,
         stream: "Story" as const,
-        topic: classifyTopic(
-          `${story?.title || ""} ${update.headline}`,
-          `${story?.thesis || ""} ${update.detail || ""}`,
-          (story?.assets || []).join(" "),
-        ),
+        topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
         title: update.headline,
         detail: update.detail || "No additional detail was stored for this update.",
         dateLabel: formatDeskDate(timestamp),
