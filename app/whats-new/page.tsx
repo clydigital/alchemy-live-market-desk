@@ -17,6 +17,24 @@ const TOPIC_PATTERNS: Array<[WhatsNewTopic, RegExp]> = [
   ["Geopolitics", /\b(?:iran|hormuz|war|military|missile|strike|sanctions?|ceasefire|diplomacy|diplomatic|geopolitics?|tariffs?|trade war|election|retaliation|conflict)\b/i],
 ];
 
+const HUMAN_EVENT_LABELS: Record<string, string> = {
+  thesis_revision: "Thesis revised",
+  headline_update: "Story updated",
+  evidence_update: "Evidence added",
+  contradiction: "Contradiction",
+  confirmation: "Confirmed",
+  invalidation: "Invalidated",
+  catalyst: "Catalyst",
+  archive: "Archived",
+  reopen: "Reopened",
+  correction: "Corrected",
+  source_update: "Source updated",
+};
+
+function humanEventLabel(kind: string) {
+  return HUMAN_EVENT_LABELS[kind] || kind.replaceAll("_", " ");
+}
+
 function classifyTopic(primary: string, secondary = "", assetText = ""): WhatsNewTopic {
   for (const [topic, pattern] of TOPIC_PATTERNS) {
     if (pattern.test(primary)) return topic;
@@ -56,6 +74,11 @@ function versionKey(storyId: string, versionNumber: number) {
   return `${storyId}:${versionNumber}`;
 }
 
+function isHumanChangeReason(reason: string | null | undefined) {
+  if (!reason) return false;
+  return !/^(?:story_updated|story update|thesis-bearing story field changed|thesis bearing story field changed)$/i.test(reason.trim());
+}
+
 function humaniseStoryEvent(
   event: StoryEvent,
   storyTitle: string | null | undefined,
@@ -81,9 +104,7 @@ function humaniseStoryEvent(
   const title = version.title || storyTitle || event.headline;
   const now = version.thesis ? `NOW: ${version.thesis}` : "";
   const before = previous?.thesis ? ` PREVIOUSLY: ${previous.thesis}` : "";
-  const reason = version.change_reason && !/thesis-bearing story field changed/i.test(version.change_reason)
-    ? ` WHY IT CHANGED: ${version.change_reason}`
-    : "";
+  const reason = isHumanChangeReason(version.change_reason) ? ` WHY IT CHANGED: ${version.change_reason}` : "";
 
   return {
     title,
@@ -109,7 +130,7 @@ export default async function WhatsNewPage() {
       const human = humaniseStoryEvent(event, story?.title, versionByEventId, versionByStoryAndNumber);
       return {
         id: event.id,
-        kind: event.event_type,
+        kind: humanEventLabel(event.event_type),
         stream: "Story" as const,
         topic: classifyStoryTopic(story?.title, human.title, story?.thesis, human.detail, story?.assets),
         title: human.title,
@@ -127,7 +148,7 @@ export default async function WhatsNewPage() {
       const timestamp = update.observed_at || update.created_at;
       return {
         id: update.id,
-        kind: update.update_type,
+        kind: humanEventLabel(update.update_type),
         stream: "Story" as const,
         topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
         title: update.headline,
@@ -145,7 +166,7 @@ export default async function WhatsNewPage() {
     ...storyDeltas,
     ...data.statements.map((statement) => ({
       id: statement.id,
-      kind: "statement",
+      kind: "Statement",
       stream: "Statement" as const,
       topic: classifyTopic(
         `${statement.topic} ${statement.speaker}`,
