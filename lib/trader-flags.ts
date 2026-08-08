@@ -18,6 +18,7 @@ export type TraderFlagInput = {
 export const TRADER_FLAGS: TraderFlag[] = [
   { key: "fed-hike", label: "FED HIKE RISK", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?.{0,28}(?:hike|hiking|tighten|tightening|hawk|hawkish)|rate hike|hike odds?|tightening risk)\b/i },
   { key: "fed-cut", label: "FED CUT RISK", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?.{0,28}(?:cut|cutting|ease|easing|dove|dovish)|rate cut|cut odds?|easing risk)\b/i },
+  { key: "fed-rates", label: "FED / RATES", tone: "rates", pattern: /\b(?:fed|federal reserve|fomc|rate decision|policy rate|front-end yields?|treasury yields?|yield curve|rate path|rates? repricing|hawkish hold|dovish hold)\b/i },
   { key: "inflation", label: "INFLATION", tone: "macro", pattern: /\b(?:inflation|disinflation|cpi|ppi|pce|price pressure|breakevens?)\b/i },
   { key: "war-risk", label: "WAR RISK", tone: "risk", pattern: /\b(?:war risk|war premium|war|conflict|attack|attacked|strike|missile|tanker|hormuz|interdiction|retaliation|iran)\b/i },
   { key: "intervention", label: "INTERVENTION", tone: "risk", pattern: /\b(?:intervention|fima|reserve-backed|reserve use|repatriation|ministry of finance)\b/i },
