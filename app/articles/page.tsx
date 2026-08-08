@@ -5,11 +5,11 @@ import { getAlchemyArticles } from "@/lib/alchemy";
 import {
   assessArticleChanges,
   assessChartIdea,
-  extractArticleChartIdeas,
   instrumentMatchesAsset,
   type ArticleChartIdea,
   type ArticleChangeLinkBasis,
 } from "@/lib/article-idea-status";
+import { extractArticleScenarios } from "@/lib/article-scenario-extractor";
 import { getDeskData } from "@/lib/data";
 import { getMarketData } from "@/lib/market";
 
@@ -27,7 +27,14 @@ function canonicalUrl(value: string) {
 }
 
 function ideaKey(idea: ArticleChartIdea) {
-  return idea.instrument.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return [
+    idea.instrument,
+    idea.direction,
+    idea.confirmationArea || "",
+    idea.targetArea || "",
+    idea.invalidationArea || "",
+    idea.question,
+  ].join("|").toUpperCase().replace(/\s+/g, " ").trim();
 }
 
 function dedupeIdeas(structured: ArticleChartIdea[], articleNative: ArticleChartIdea[]) {
@@ -39,7 +46,7 @@ function dedupeIdeas(structured: ArticleChartIdea[], articleNative: ArticleChart
     seen.add(key);
     ideas.push(idea);
   }
-  return ideas.slice(0, 5);
+  return ideas.slice(0, 8);
 }
 
 export default async function ArticlesPage() {
@@ -83,7 +90,7 @@ export default async function ArticlesPage() {
       if (story) linkedStoryMap.set(story.id, { story, relation: "exact" });
     });
 
-    const articleNativeIdeas = extractArticleChartIdeas(article, market.series, data.marketObservations);
+    const articleNativeIdeas = extractArticleScenarios(article, market.series, data.marketObservations);
     const exactLinkCount = linkedStoryMap.size;
 
     if (!exactLinkCount && articleNativeIdeas.length) {
@@ -170,28 +177,28 @@ export default async function ArticlesPage() {
     <LiveDeskShell
       activePath="/articles"
       title="Articles"
-      description="Published article memory with two monitoring views: current-price checks for recorded chart ideas and a post-publication Change Meter."
+      description="Published ideas reduced to their live price levels: bullish and bearish cases, current price, trigger, target and invalidation."
       meta={`${records.length} published records loaded`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
             { value: records.length, label: "Published articles" },
-            { value: records.filter((article) => article.chartIdeas.length).length, label: "Articles with price checks" },
-            { value: assessedIdeas, label: "Rules-assessed ideas" },
+            { value: records.filter((article) => article.chartIdeas.length).length, label: "Articles with level checks" },
+            { value: assessedIdeas, label: "Live setups assessed" },
             { value: changedArticles, label: "Articles with later changes" },
           ]}
         />
 
         <DataState
           state={chartIdeas.length || changedArticles ? "ready" : "warn"}
-          title={chartIdeas.length || changedArticles ? "Article monitoring records available" : "Published memory loaded without monitoring links"}
-          detail="Article Charts reads the published article body and TradingView links, combines them with structured Story chart requests where available, and checks current market data. Change Meter prefers exact article-to-Story links and labels asset-matched updates separately."
+          title={chartIdeas.length || changedArticles ? "Article level checks available" : "Published memory loaded without monitoring links"}
+          detail="Article setups are kept as separate bullish and bearish cases. Current market price is checked against the actual trigger, target and invalidation levels; an untriggered setup remains waiting rather than being judged by the move since publication."
         />
 
         <Panel
           title="Article monitor"
-          description="Switch between Article Charts and Change Meter. Search and category filters apply to both views."
+          description="Switch between live price setups and the post-publication Change Meter. Search and category filters apply to both views."
         >
           {records.length ? (
             <ArticleMemoryWorkspace articles={records} />

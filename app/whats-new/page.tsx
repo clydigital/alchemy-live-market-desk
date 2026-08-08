@@ -1,10 +1,60 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
-import WhatsNewWorkspace, { type WhatsNewDelta } from "@/components/live-desk/WhatsNewWorkspace";
+import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 
 export const dynamic = "force-dynamic";
+
+const TOPIC_PATTERNS: Array<[WhatsNewTopic, RegExp]> = [
+  ["Crypto", /\b(?:crypto|bitcoin|btc|ethereum|eth|stablecoin|blockchain|token)\b/i],
+  ["Commodities", /\b(?:oil|brent|wti|crude|gold|silver|copper|commodit(?:y|ies)|energy|lng|gasoline|diesel|xau|xag|refining|crack spread)\b/i],
+  ["FX", /\b(?:forex|fx|usd|jpy|eur|gbp|aud|cad|chf|dxy|yen|dollar|sterling|currency|currencies|carry trade|intervention)\b/i],
+  ["Macro", /\b(?:cpi|ppi|inflation|payrolls?|nfp|employment|unemployment|labour|labor|gdp|pmi|ism|fed|fomc|boj|ecb|central bank|rates?|yields?|treasur(?:y|ies)|productivity|macro|growth data)\b/i],
+  ["Stocks", /\b(?:stock|stocks|equity|equities|nasdaq|s&p|spx|soxx|smh|nikkei|kospi|dow|shares?|semiconductors?|technology|tech|ai|artificial intelligence|megacap|mag7|amd|nvidia|nvda|microsoft|msft|meta|alphabet|googl|amazon|amzn|tesla|tsla)\b/i],
+  ["Earnings", /\b(?:earnings|eps|quarterly results?|results season|investor day)\b/i],
+  ["Geopolitics", /\b(?:iran|hormuz|war|military|missile|strike|sanctions?|ceasefire|diplomacy|diplomatic|geopolitics?|tariffs?|trade war|election|retaliation|conflict)\b/i],
+];
+
+function classifyTopic(primary: string, secondary = "", assetText = ""): WhatsNewTopic {
+  for (const [topic, pattern] of TOPIC_PATTERNS) {
+    if (pattern.test(primary)) return topic;
+  }
+
+  const assets = assetText.toUpperCase();
+  if (/\b(?:BTCUSD|ETHUSD|BTC|ETH|COIN|MSTR)\b/.test(assets)) return "Crypto";
+  if (/\b(?:USOIL|UKOIL|WTI|BRENT|XAUUSD|XAGUSD|XAU|XAG|GOLD|SILVER|DIESEL_CRACK|GASOLINE_CRACK|LNG)\b/.test(assets)) return "Commodities";
+  if (/\b(?:DXY|USDJPY|GBPJPY|AUDJPY|EURUSD|GBPUSD|USDCHF|USDCAD|EURJPY|[A-Z]{3}JPY)\b/.test(assets)) return "FX";
+  if (/\b(?:US02Y|US05Y|US10Y|US30Y|TLT|IEF|SHY)\b/.test(assets)) return "Macro";
+  if (/\b(?:SPX|NASDAQ|NDX|QQQ|RSP|SOXX|SMH|NIKKEI|KOSPI|AAPL|MSFT|AMZN|GOOGL|META|NVDA|AMD|TSLA|BABA|MU|WDC|SNDK)\b/.test(assets)) return "Stocks";
+
+  for (const [topic, pattern] of TOPIC_PATTERNS) {
+    if (pattern.test(secondary)) return topic;
+  }
+  return "Other";
+}
+
+function classifyStoryTopic(
+  storyTitle: string | null | undefined,
+  eventHeadline: string,
+  storyThesis: string | null | undefined,
+  eventDetail: string | null | undefined,
+  assets: string[] | null | undefined,
+): WhatsNewTopic {
+  const story = storyTitle || "";
+
+  // A Story is already a curated research object, so its canonical subject is
+  // more reliable than a stray word in one update. Event text remains the
+  // fallback when the Story title is generic.
+  if (/\b(?:oil|crude|physical normalisation|physical disruption|energy disruption)\b/i.test(story)) return "Commodities";
+  if (/\b(?:yen|carry|forex|currency|intervention)\b/i.test(story)) return "FX";
+  if (/\b(?:fed|inflation|rates?|long end|treasur(?:y|ies)|macro)\b/i.test(story)) return "Macro";
+  if (/\b(?:earnings|mag7 guidance|guidance dispersion)\b/i.test(story)) return "Earnings";
+  if (/\b(?:ai|market breadth|equity|stocks?)\b/i.test(story)) return "Stocks";
+  if (/\b(?:iran|hormuz|war|geopolitics?|conflict)\b/i.test(story)) return "Geopolitics";
+
+  return classifyTopic(eventHeadline, `${storyThesis || ""} ${eventDetail || ""}`, (assets || []).join(" "));
+}
 
 export default async function WhatsNewPage() {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
@@ -17,6 +67,7 @@ export default async function WhatsNewPage() {
         id: event.id,
         kind: event.event_type,
         stream: "Story" as const,
+        topic: classifyStoryTopic(story?.title, event.headline, story?.thesis, event.detail, story?.assets),
         title: event.headline,
         detail: event.detail || "No additional detail was stored for this Story event.",
         dateLabel: formatDeskDate(event.event_at),
@@ -34,6 +85,7 @@ export default async function WhatsNewPage() {
         id: update.id,
         kind: update.update_type,
         stream: "Story" as const,
+        topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
         title: update.headline,
         detail: update.detail || "No additional detail was stored for this update.",
         dateLabel: formatDeskDate(timestamp),
@@ -51,6 +103,10 @@ export default async function WhatsNewPage() {
       id: statement.id,
       kind: "statement",
       stream: "Statement" as const,
+      topic: classifyTopic(
+        `${statement.topic} ${statement.speaker}`,
+        `${statement.market_interpretation || ""} ${statement.quote_excerpt || ""}`,
+      ),
       title: `${statement.speaker}: ${statement.topic}`,
       detail: statement.market_interpretation || statement.quote_excerpt,
       dateLabel: formatDeskDate(statement.statement_date),
@@ -64,6 +120,10 @@ export default async function WhatsNewPage() {
       id: thread.id,
       kind: thread.category || thread.source_type,
       stream: "News" as const,
+      topic: classifyTopic(
+        `${thread.category || ""} ${thread.headline}`,
+        `${thread.current_view || ""} ${thread.summary || ""}`,
+      ),
       title: thread.headline,
       detail: thread.current_view || thread.summary,
       dateLabel: formatDeskDate(thread.published_at),
@@ -79,7 +139,7 @@ export default async function WhatsNewPage() {
     <LiveDeskShell
       activePath="/whats-new"
       title="What’s New"
-      description="Material Story changes, verified statements and relevant news records with stable links back to their exact context."
+      description="Material Story changes, verified statements and relevant news records, grouped visually by the market they belong to."
       meta={`${deltas.length} recent records shown`}
     >
       <div className={styles.grid}>
@@ -93,7 +153,7 @@ export default async function WhatsNewPage() {
 
         <Panel
           title="Current delta stream"
-          description="Filter recent material records by stream or search across headlines, Stories and verification state."
+          description="Two-column scan of recent market changes. Topic icons separate FX, stocks, macro, geopolitics and other desks at a glance."
           action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned events" : "Current events"}</Badge>}
         >
           {deltas.length ? (

@@ -77,17 +77,17 @@ export type ArticleMemoryItem = {
 type ArticleTab = "charts" | "changes";
 
 const IDEA_LABELS: Record<ArticleIdeaStatus, string> = {
-  active: "Active",
-  likely_validated: "Likely validated",
-  likely_invalidated: "Likely invalidated",
+  active: "Waiting",
+  likely_validated: "Triggered",
+  likely_invalidated: "Invalidated",
   target_hit: "Target hit",
-  needs_review: "Needs review",
+  needs_review: "Review",
 };
 
 const DIRECTION_LABELS: Record<ArticleIdeaDirection, string> = {
-  bullish: "Bullish structure",
-  bearish: "Bearish structure",
-  ambiguous: "Direction unclear",
+  bullish: "Bullish case",
+  bearish: "Bearish case",
+  ambiguous: "Conditional case",
 };
 
 const CHANGE_LABELS: Record<ArticleChangeDirection, string> = {
@@ -105,13 +105,8 @@ const LINK_BASIS_LABELS: Record<ArticleChangeLinkBasis, string> = {
 };
 
 function formatPrice(value: number | null) {
-  if (value === null || !Number.isFinite(value)) return "Unavailable";
+  if (value === null || !Number.isFinite(value)) return "N/A";
   return new Intl.NumberFormat("en-GB", { maximumFractionDigits: value >= 100 ? 2 : 4 }).format(value);
-}
-
-function formatMove(value: number | null) {
-  if (value === null || !Number.isFinite(value)) return "Unavailable";
-  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function ArticleVisual({ article }: { article: ArticleMemoryItem }) {
@@ -138,6 +133,53 @@ function ArticleHeading({ article }: { article: ArticleMemoryItem }) {
   );
 }
 
+function SetupCard({ idea, index }: { idea: ArticleMemoryItem["chartIdeas"][number]; index: number }) {
+  const sourceExternal = idea.ideaSource === "published_article";
+  return (
+    <article className={styles.ideaCard} data-status={idea.status} data-direction={idea.direction}>
+      <header className={styles.setupHeader}>
+        <div className={styles.setupIdentity}>
+          <span>Idea {index + 1} · {idea.instrument}</span>
+          <strong>{DIRECTION_LABELS[idea.direction]}</strong>
+          <small>{idea.overlay || (sourceExternal ? "Article-derived levels" : "Recorded chart levels")}</small>
+        </div>
+        <div className={styles.currentPrice} data-status={idea.status}>
+          <span>Now</span>
+          <b>{formatPrice(idea.currentPrice)}</b>
+        </div>
+      </header>
+
+      <div className={styles.setupState}>
+        <b>{IDEA_LABELS[idea.status]}</b>
+        <span>{idea.statusReason}</span>
+      </div>
+
+      <div className={styles.levelGrid}>
+        <div className={styles.triggerLevel}>
+          <span>Trigger</span>
+          <strong>{idea.confirmationArea || "Not extracted"}</strong>
+        </div>
+        <div className={styles.targetLevel}>
+          <span>Target</span>
+          <strong>{idea.targetArea || "Open"}</strong>
+        </div>
+        <div className={styles.invalidationLevel}>
+          <span>Invalidate</span>
+          <strong>{idea.invalidationArea || "Not recorded"}</strong>
+        </div>
+      </div>
+
+      <div className={styles.ideaLinks}>
+        {idea.tradingViewUrl ? <a href={idea.tradingViewUrl} target="_blank" rel="noreferrer">Chart ↗</a> : null}
+        {idea.sourceUrl ? <a href={idea.sourceUrl} target="_blank" rel="noreferrer">Live price: {idea.sourceName || "market data"} ↗</a> : null}
+        <a href={idea.storyHref} target={sourceExternal ? "_blank" : undefined} rel={sourceExternal ? "noreferrer" : undefined}>
+          {sourceExternal ? "Source article ↗" : "Research Story →"}
+        </a>
+      </div>
+    </article>
+  );
+}
+
 export default function ArticleMemoryWorkspace({ articles }: { articles: ArticleMemoryItem[] }) {
   const [tab, setTab] = useState<ArticleTab>("charts");
   const [query, setQuery] = useState("");
@@ -155,7 +197,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
         article.author,
         article.category,
         ...article.relatedStories.map((story) => story.title),
-        ...article.chartIdeas.flatMap((idea) => [idea.instrument, idea.question, idea.storyTitle, idea.marketLabel || ""]),
+        ...article.chartIdeas.flatMap((idea) => [idea.instrument, idea.question, idea.marketLabel || ""]),
         ...article.changeState.updates.map((update) => update.headline),
       ].some((value) => value.toLowerCase().includes(needle));
     });
@@ -167,24 +209,12 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
   return (
     <div className={styles.workspace}>
       <div className={styles.tabs} role="tablist" aria-label="Article monitoring views">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "charts"}
-          className={tab === "charts" ? styles.activeTab : ""}
-          onClick={() => setTab("charts")}
-        >
-          <span>Article Charts</span>
+        <button type="button" role="tab" aria-selected={tab === "charts"} className={tab === "charts" ? styles.activeTab : ""} onClick={() => setTab("charts")}>
+          <span>Live Setups</span>
           <b>{chartCount}</b>
-          <small>Published ideas versus current price</small>
+          <small>Key levels versus current price</small>
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "changes"}
-          className={tab === "changes" ? styles.activeTab : ""}
-          onClick={() => setTab("changes")}
-        >
+        <button type="button" role="tab" aria-selected={tab === "changes"} className={tab === "changes" ? styles.activeTab : ""} onClick={() => setTab("changes")}>
           <span>Change Meter</span>
           <b>{changedCount}</b>
           <small>News and evidence since publication</small>
@@ -194,7 +224,7 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
       <div className={styles.controls}>
         <label>
           <span>Search article memory</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title, market, chart idea or later change" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title, market, level or later change" />
         </label>
         <label>
           <span>Category</span>
@@ -210,8 +240,8 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
       {tab === "charts" ? (
         <>
           <div className={styles.methodNote}>
-            <strong>How the check works</strong>
-            <span>The monitor reads the published article and its TradingView links, then prefers structured Story chart records when they exist. Exact levels are used only against a directly comparable instrument. Otherwise, the status uses the price move since publication and identifies proxy data clearly.</span>
+            <strong>Level check</strong>
+            <span>Each directional case is kept separately. Waiting means the trigger has not been reached. Triggered means the level has been crossed and the setup is still alive. Red is reserved for a setup that triggered and then invalidated.</span>
           </div>
           <div className={styles.grid}>
             {filtered.map((article) => (
@@ -222,52 +252,10 @@ export default function ArticleMemoryWorkspace({ articles }: { articles: Article
 
                   {article.chartIdeas.length ? (
                     <div className={styles.ideaList}>
-                      {article.chartIdeas.map((idea) => {
-                        const sourceExternal = idea.ideaSource === "published_article";
-                        return (
-                          <article className={styles.ideaCard} data-status={idea.status} key={idea.id}>
-                            <header>
-                              <div>
-                                <span>{idea.instrument} · {idea.timeframe}</span>
-                                <a href={idea.storyHref} target={sourceExternal ? "_blank" : undefined} rel={sourceExternal ? "noreferrer" : undefined}>
-                                  {idea.ideaSource === "published_article" ? "Parsed from published article" : idea.storyTitle}
-                                </a>
-                              </div>
-                              <b>{IDEA_LABELS[idea.status]}</b>
-                            </header>
-
-                            <p>{idea.question}</p>
-                            <div className={styles.ideaMeta}>
-                              <span>{DIRECTION_LABELS[idea.direction]}</span>
-                              <span>{idea.ideaSource === "published_article" ? "Article-derived" : "Structured chart request"}</span>
-                              {idea.isProxy ? <span>Proxy context: {idea.marketLabel}</span> : null}
-                              {idea.overlay ? <span>{idea.overlay}</span> : null}
-                            </div>
-
-                            <div className={styles.priceGrid}>
-                              <div><span>Current</span><strong>{formatPrice(idea.currentPrice)}</strong></div>
-                              <div><span>At publication</span><strong>{formatPrice(idea.publicationPrice)}</strong></div>
-                              <div><span>Since publication</span><strong>{formatMove(idea.sincePublication)}</strong></div>
-                              <div><span>21 sessions</span><strong>{formatMove(idea.change21d)}</strong></div>
-                            </div>
-
-                            <div className={styles.levelGrid}>
-                              <div><span>Confirmation</span><p>{idea.confirmationArea || "Not clearly recorded"}</p></div>
-                              <div><span>Target</span><p>{idea.targetArea || "Not clearly recorded"}</p></div>
-                              <div><span>Invalidation</span><p>{idea.invalidationArea || "Not clearly recorded"}</p></div>
-                            </div>
-
-                            <div className={styles.ideaReason}>{idea.statusReason}</div>
-                            <div className={styles.ideaLinks}>
-                              {idea.tradingViewUrl ? <a href={idea.tradingViewUrl} target="_blank" rel="noreferrer">Open TradingView chart ↗</a> : null}
-                              {idea.sourceUrl ? <a href={idea.sourceUrl} target="_blank" rel="noreferrer">Current-price source: {idea.sourceName || "market data"} ↗</a> : null}
-                            </div>
-                          </article>
-                        );
-                      })}
+                      {article.chartIdeas.map((idea, index) => <SetupCard idea={idea} index={index} key={idea.id} />)}
                     </div>
                   ) : (
-                    <div className={styles.unlinked}>No instrument or chart idea could be extracted from this published record.</div>
+                    <div className={styles.unlinked}>No usable support, resistance, trigger or target setup could be extracted from this article.</div>
                   )}
 
                   <footer>
