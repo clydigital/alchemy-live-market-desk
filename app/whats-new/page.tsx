@@ -1,94 +1,108 @@
-import Link from "next/link";
-
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
+import WhatsNewWorkspace, { type WhatsNewDelta } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
+import { getStoryRecordLayer } from "@/lib/persistence/read";
 
 export const dynamic = "force-dynamic";
 
-type Delta = {
-  id: string;
-  kind: string;
-  title: string;
-  detail: string;
-  at: string | null;
-  href?: string;
-  verification?: string;
-};
-
 export default async function WhatsNewPage() {
-  const data = await getDeskData();
+  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
 
-  const deltas: Delta[] = [
-    ...data.updates.map((update) => {
-      const story = storyById.get(update.story_id);
+  const storyDeltas: WhatsNewDelta[] = recordLayer.available
+    ? recordLayer.events.map((event) => {
+      const story = storyById.get(event.story_id);
       return {
-        id: `update-${update.id}`,
+        id: event.id,
+        kind: event.event_type,
+        stream: "Story" as const,
+        title: event.headline,
+        detail: event.detail || "No additional detail was stored for this Story event.",
+        dateLabel: formatDeskDate(event.event_at),
+        timestamp: event.event_at,
+        href: story ? `/stories/${story.slug}#event-${event.id}` : null,
+        external: false,
+        verification: event.impact,
+        storyTitle: story?.title || null,
+      };
+    })
+    : data.updates.map((update) => {
+      const story = storyById.get(update.story_id);
+      const timestamp = update.observed_at || update.created_at;
+      return {
+        id: update.id,
         kind: update.update_type,
+        stream: "Story" as const,
         title: update.headline,
         detail: update.detail || "No additional detail was stored for this update.",
-        at: update.observed_at || update.created_at,
-        href: story ? `/stories/${story.slug}` : undefined,
-        verification: "Story update",
+        dateLabel: formatDeskDate(timestamp),
+        timestamp,
+        href: story ? `/stories/${story.slug}#event-${update.id}` : null,
+        external: false,
+        verification: "Dated Story update",
+        storyTitle: story?.title || null,
       };
-    }),
+    });
+
+  const deltas: WhatsNewDelta[] = [
+    ...storyDeltas,
     ...data.statements.map((statement) => ({
-      id: `statement-${statement.id}`,
+      id: statement.id,
       kind: "statement",
+      stream: "Statement" as const,
       title: `${statement.speaker}: ${statement.topic}`,
       detail: statement.market_interpretation || statement.quote_excerpt,
-      at: statement.statement_date,
-      href: statement.source_url,
+      dateLabel: formatDeskDate(statement.statement_date),
+      timestamp: statement.statement_date,
+      href: statement.source_url || null,
+      external: true,
       verification: statement.verification_status,
+      storyTitle: null,
     })),
     ...data.newsThreads.map((thread) => ({
-      id: `news-${thread.id}`,
+      id: thread.id,
       kind: thread.category || thread.source_type,
+      stream: "News" as const,
       title: thread.headline,
       detail: thread.current_view || thread.summary,
-      at: thread.published_at,
-      href: thread.source_url,
+      dateLabel: formatDeskDate(thread.published_at),
+      timestamp: thread.published_at,
+      href: thread.source_url || null,
+      external: true,
       verification: thread.source_type,
+      storyTitle: null,
     })),
-  ].sort((a, b) => Date.parse(b.at || "") - Date.parse(a.at || "")).slice(0, 24);
+  ].sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")).slice(0, 60);
 
   return (
     <LiveDeskShell
       activePath="/whats-new"
       title="What’s New"
-      description="A shared intake surface for material Story updates, public statements and relevant news threads."
+      description="Material Story changes, verified statements and relevant news records with stable links back to their exact context."
       meta={`${deltas.length} recent records shown`}
     >
-      <Panel
-        title="Current delta stream"
-        description="Recent records remain linked to their Story or source so each change can be checked in context."
-        action={<Link className={styles.link} href="/legacy?tab=Research%20Layer">Open detailed research layer</Link>}
-      >
-        <div className={styles.recordList}>
-          {deltas.length ? deltas.map((delta) => (
-            <article className={styles.record} key={delta.id}>
-              <div className={styles.recordHeader}>
-                <div>
-                  {delta.href ? (
-                    <a href={delta.href} target={delta.href.startsWith("http") ? "_blank" : undefined} rel={delta.href.startsWith("http") ? "noreferrer" : undefined}>
-                      <h3>{delta.title}</h3>
-                    </a>
-                  ) : <h3>{delta.title}</h3>}
-                  <div className={styles.meta}>{formatDeskDate(delta.at)}</div>
-                </div>
-                <div className={styles.inlineMeta}>
-                  <Badge>{delta.kind}</Badge>
-                  {delta.verification ? <Badge tone={/verified|official|primary/i.test(delta.verification) ? "ready" : "default"}>{delta.verification}</Badge> : null}
-                </div>
-              </div>
-              <p>{delta.detail}</p>
-            </article>
-          )) : (
+      <div className={styles.grid}>
+        <DataState
+          state={recordLayer.available ? "ready" : "warn"}
+          title={recordLayer.available ? "Append-only Story events active" : "Dated Story update links active"}
+          detail={recordLayer.available
+            ? "The delta stream is reading immutable Story events and links each item to its exact place in the Story timeline."
+            : "The stream links current dated updates to exact Story anchors. Immutable event history will take over after the approved persistence migration is applied."}
+        />
+
+        <Panel
+          title="Current delta stream"
+          description="Filter recent material records by stream or search across headlines, Stories and verification state."
+          action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned events" : "Current events"}</Badge>}
+        >
+          {deltas.length ? (
+            <WhatsNewWorkspace deltas={deltas} />
+          ) : (
             <DataState state="risk" title="Recent records are updating" detail="No update, statement or news records are available at the moment. This is not treated as proof that the market was quiet." />
           )}
-        </div>
-      </Panel>
+        </Panel>
+      </div>
     </LiveDeskShell>
   );
 }

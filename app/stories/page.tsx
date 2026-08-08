@@ -1,15 +1,39 @@
-import Link from "next/link";
-
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
+import StoriesRegistry from "@/components/live-desk/StoriesRegistry";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
+import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { deriveStoryTags } from "@/lib/story-tags";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
-  const data = await getDeskData();
-  const priorityStories = data.stories.filter((story) => ["develop", "publish"].includes(story.status)).length;
+  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
+  const priorityStories = data.stories.filter((story) => /develop|publish/i.test(story.article_verdict || story.status)).length;
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
+  const legacyEventCounts = new Map<string, number>();
+  data.updates.forEach((update) => legacyEventCounts.set(update.story_id, (legacyEventCounts.get(update.story_id) || 0) + 1));
+
+  const persistentEventCounts = new Map<string, number>();
+  recordLayer.events.forEach((event) => persistentEventCounts.set(event.story_id, (persistentEventCounts.get(event.story_id) || 0) + 1));
+  const versionCounts = new Map<string, number>();
+  recordLayer.thesisVersions.forEach((version) => versionCounts.set(version.story_id, (versionCounts.get(version.story_id) || 0) + 1));
+
+  const registryStories = data.stories.map((story) => ({
+    id: story.id,
+    slug: story.slug,
+    title: story.title,
+    thesis: story.thesis,
+    status: story.article_verdict || story.status,
+    confidence: story.confidence,
+    assets: story.assets || [],
+    tags: deriveStoryTags(story, 8),
+    marketQuestion: story.market_question,
+    nextCatalyst: story.next_catalyst,
+    evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
+    eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
+    versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
+  }));
 
   return (
     <LiveDeskShell
@@ -23,43 +47,29 @@ export default async function StoriesPage() {
           items={[
             { value: data.stories.length, label: "Tracked Stories" },
             { value: priorityStories, label: "Develop or publish" },
-            { value: data.updates.length, label: "Loaded events" },
+            { value: recordLayer.available ? recordLayer.events.length : data.updates.length, label: "Dated Story events" },
             { value: data.evidence.length, label: "Evidence records" },
           ]}
         />
 
+        <DataState
+          state={recordLayer.available ? "ready" : "warn"}
+          title={recordLayer.available ? "Versioned Story history available" : "Current thesis view active"}
+          detail={recordLayer.available
+            ? `${recordLayer.thesisVersions.length} immutable thesis versions and ${recordLayer.events.length} append-only Story events are available.`
+            : "The registry is using current Story records and exact links to dated updates. Historical full-thesis versions will appear after the approved persistence migration is applied."}
+        />
+
         <Panel
           title="Story registry"
-          description="Current theses, confidence, catalysts and evidence-room readiness remain visible in one registry."
-          action={<Link className={styles.link} href="/legacy?tab=Stories">Open detailed Story board</Link>}
+          description="Search by thesis, asset, catalyst or controlled market tag. Each Story opens a stable record with exact event, evidence and source links."
+          action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned" : "Current records"}</Badge>}
         >
-          <div className={styles.recordList}>
-            {data.stories.length ? data.stories.map((story) => {
-              const coverage = coverageBySlug.get(story.slug);
-              return (
-                <article className={styles.record} key={story.id}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <Link href={`/stories/${story.slug}`}><h3>{story.title}</h3></Link>
-                      <div className={styles.meta}>{story.assets?.join(" · ") || "No affected assets recorded"}</div>
-                    </div>
-                    <div className={styles.inlineMeta}>
-                      <Badge tone={["develop", "publish"].includes(story.status) ? "ready" : "default"}>{story.status}</Badge>
-                      <Badge tone={story.confidence >= 70 ? "ready" : story.confidence < 45 ? "warn" : "default"}>{story.confidence}% confidence</Badge>
-                      {coverage ? <Badge tone={coverage.room_status === "ready" ? "ready" : "warn"}>{coverage.room_status}</Badge> : null}
-                    </div>
-                  </div>
-                  <p>{story.thesis}</p>
-                  <div className={styles.gridTwo}>
-                    <div><span className={styles.metaLabel}>Market question</span><p>{story.market_question || "Not recorded"}</p></div>
-                    <div><span className={styles.metaLabel}>Next catalyst</span><p>{story.next_catalyst || "Not recorded"}</p></div>
-                  </div>
-                </article>
-              );
-            }) : (
-              <DataState state="risk" title="Stories are updating" detail="No current Story records are available. No illustrative Stories are inserted in their place." />
-            )}
-          </div>
+          {registryStories.length ? (
+            <StoriesRegistry stories={registryStories} />
+          ) : (
+            <DataState state="risk" title="Stories are updating" detail="No current Story records are available. No illustrative Stories are inserted in their place." />
+          )}
         </Panel>
       </div>
     </LiveDeskShell>

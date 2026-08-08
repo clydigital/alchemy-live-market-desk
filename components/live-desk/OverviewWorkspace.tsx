@@ -28,6 +28,7 @@ export type OverviewChange = {
   date: string;
   storyTitle: string | null;
   updateType: string;
+  recordHref: string;
 };
 
 export type OverviewSystemState = {
@@ -281,7 +282,10 @@ export default function OverviewWorkspace({ stories, changes, systems, metrics, 
                 </div>
                 <h3>{change.headline}</h3>
                 <p>{change.detail || "The dated update is available in the Story record."}</p>
-                {change.storyTitle ? <small>{change.storyTitle}</small> : null}
+                <footer className={styles.changeRecordFooter}>
+                  {change.storyTitle ? <small>{change.storyTitle}</small> : <small>Independent record</small>}
+                  <Link href={change.recordHref}>Open exact record #{change.id.slice(0, 8)}</Link>
+                </footer>
               </article>
             )) : <div className={styles.emptyState}>No dated material changes are available at the moment.</div>}
           </div>
