@@ -1,0 +1,1 @@
+PR 4 is intentionally stacked on `feat/live-desk-v8-stories-pr3` and must remain draft and unmerged until the earlier stack is reviewed. It adds data tools, article-memory validation, Story imagery fallbacks, high-impact calendar awareness and four-slot health without applying the PR 2 persistence migrations.

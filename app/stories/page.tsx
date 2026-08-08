@@ -3,12 +3,15 @@ import StoriesRegistry from "@/components/live-desk/StoriesRegistry";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
+import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
+  const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
   const priorityStories = data.stories.filter((story) => /develop|publish/i.test(story.article_verdict || story.status)).length;
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
   const legacyEventCounts = new Map<string, number>();
@@ -19,21 +22,30 @@ export default async function StoriesPage() {
   const versionCounts = new Map<string, number>();
   recordLayer.thesisVersions.forEach((version) => versionCounts.set(version.story_id, (versionCounts.get(version.story_id) || 0) + 1));
 
-  const registryStories = data.stories.map((story) => ({
-    id: story.id,
-    slug: story.slug,
-    title: story.title,
-    thesis: story.thesis,
-    status: story.article_verdict || story.status,
-    confidence: story.confidence,
-    assets: story.assets || [],
-    tags: deriveStoryTags(story, 8),
-    marketQuestion: story.market_question,
-    nextCatalyst: story.next_catalyst,
-    evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
-    eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
-    versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
-  }));
+  const registryStories = data.stories.map((story) => {
+    const image = storyImages.get(story.id);
+    const fallback = getStableStoryFallbackImage(story.id);
+    return {
+      id: story.id,
+      slug: story.slug,
+      title: story.title,
+      thesis: story.thesis,
+      status: story.article_verdict || story.status,
+      confidence: story.confidence,
+      assets: story.assets || [],
+      tags: deriveStoryTags(story, 8),
+      marketQuestion: story.market_question,
+      nextCatalyst: story.next_catalyst,
+      evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
+      eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
+      versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
+      imageUrl: image?.imageUrl || fallback.dataUri,
+      fallbackImageUrl: fallback.dataUri,
+      imageSourceUrl: image?.articleUrl || null,
+      imagePublisher: image?.publisher || null,
+      imageKind: image?.kind || "fallback" as const,
+    };
+  });
 
   return (
     <LiveDeskShell

@@ -3,7 +3,9 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { runAccuracyCheck } from "@/lib/accuracy";
+import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
+import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
 import { getMarketData } from "@/lib/market";
 import {
   researchScheduleHealth,
@@ -73,6 +75,7 @@ function intakeStatus(
 
 export async function GET() {
   const data = await getDeskData();
+  const calendarItems = buildHighImpactCalendarIntake(await getEconomicCalendar());
   return response({
     generatedAt: new Date().toISOString(),
     timezone: "Asia/Kuala_Lumpur",
@@ -80,6 +83,7 @@ export async function GET() {
     health: researchScheduleHealth(data.researchRuns),
     runs: data.researchRuns.slice(0, 10),
     queue: data.researchIntake.slice(0, 50),
+    highImpactCalendar: calendarItems.map(({ evidence, ...item }) => ({ ...item, evidenceCount: evidence?.length || 0 })),
   });
 }
 
@@ -96,9 +100,23 @@ export async function POST(request: Request) {
     return response({ error: "The request body is not valid JSON." }, 400);
   }
 
+  const anchor = Number.isFinite(Date.parse(input.scheduledFor)) ? new Date(input.scheduledFor) : new Date();
+  const calendarItems = buildHighImpactCalendarIntake(await getEconomicCalendar(), anchor);
+  const suppliedItems = Array.isArray(input.items) ? input.items : [];
+  const suppliedKeys = new Set(suppliedItems.map((item) => item.itemKey));
+  input = {
+    ...input,
+    items: [...suppliedItems, ...calendarItems.filter((item) => !suppliedKeys.has(item.itemKey))],
+  };
+
   const validation = validateResearchRun(input);
   if (validation.errors.length) {
-    return response({ error: "Research run validation failed.", errors: validation.errors, warnings: validation.warnings }, 422);
+    return response({
+      error: "Research run validation failed.",
+      errors: validation.errors,
+      warnings: validation.warnings,
+      calendarCandidates: calendarItems.length,
+    }, 422);
   }
 
   const accuracy = runAccuracyCheck(await getMarketData());
@@ -106,6 +124,7 @@ export async function POST(request: Request) {
     && validation.requiredSourcesComplete
     && validation.evidenceGatePassed;
   const warnings = [...validation.warnings];
+  if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
   if (accuracy.updateGate !== "open") warnings.push(`Accuracy gate is ${accuracy.updateGate}; story recalibration was not published.`);
   if (!validation.requiredSourcesComplete) warnings.push("At least one required source check was blocked.");
   if (input.dryRun) {
@@ -115,6 +134,7 @@ export async function POST(request: Request) {
       publishGate: publishGateOpen ? "open" : "blocked",
       accuracy,
       warnings,
+      calendarCandidates: calendarItems.length,
       scoredItems: validation.scoredItems.map(({ transcriptText: _transcriptText, ...item }) => item),
     });
   }
@@ -141,7 +161,7 @@ export async function POST(request: Request) {
         source_checks: input.sourceChecks,
         videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
         transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
-        news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]),
+        news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItems.length,
         candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
         articles_scanned: Math.min(30, sourceCount(input, ["alchemy-market-insights"])),
         articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
@@ -248,6 +268,8 @@ export async function POST(request: Request) {
     });
 
     revalidatePath("/");
+    revalidatePath("/stories");
+    revalidatePath("/data/macro");
     revalidatePath("/api/hybrid-feed");
     return response({
       accepted: true,
@@ -255,6 +277,7 @@ export async function POST(request: Request) {
       status: runStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
       updatesPublished,
+      calendarCandidates: calendarItems.length,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
     }, runStatus === "completed" ? 200 : 202);

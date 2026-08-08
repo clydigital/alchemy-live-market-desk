@@ -7,6 +7,8 @@ export type AlchemyArticle = {
   author: string;
   image: string | null;
   summary: string;
+  bodyText: string;
+  tradingViewLinks: string[];
 };
 
 const ROOT = "https://alchemymarkets.com";
@@ -28,6 +30,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Lee Yang",
     image: null,
     summary: "USDJPY was stretched near four-decade highs, but intervention risk, bearish divergence and the rate gap made follow-through the deciding test.",
+    bodyText: "USDJPY was stretched near four-decade highs, but intervention risk, bearish divergence and the rate gap made follow-through the deciding test.",
+    tradingViewLinks: [],
   },
   {
     id: "the-market-that-isnt-moving",
@@ -38,6 +42,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Zorrays Junaid",
     image: null,
     summary: "Low index volatility concealed violent single-stock moves as falling correlation turned the market into a market of stocks.",
+    bodyText: "Low index volatility concealed violent single-stock moves as falling correlation turned the market into a market of stocks.",
+    tradingViewLinks: [],
   },
   {
     id: "ai-markets-bounce-july-2026",
@@ -48,6 +54,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Lee Yang",
     image: null,
     summary: "AI shares recovered despite war and yield pressure, making relative strength against front-end yields the next confirmation test.",
+    bodyText: "AI shares recovered despite war and yield pressure, making relative strength against front-end yields the next confirmation test.",
+    tradingViewLinks: [],
   },
   {
     id: "spx-coils-above-a-rising-anchored-vwap",
@@ -58,6 +66,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Zorrays Junaid",
     image: null,
     summary: "The S&P 500 was consolidating above a rising anchored VWAP, with the range structure deciding whether the prior impulse remained intact.",
+    bodyText: "The S&P 500 was consolidating above a rising anchored VWAP, with the range structure deciding whether the prior impulse remained intact.",
+    tradingViewLinks: [],
   },
   {
     id: "wti-crude-the-premium-leaves-as-fast-as-it-arrived",
@@ -68,6 +78,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Zorrays Junaid",
     image: null,
     summary: "WTI was testing the lower boundary of a corrective structure as geopolitical premium faded faster than the physical picture changed.",
+    bodyText: "WTI was testing the lower boundary of a corrective structure as geopolitical premium faded faster than the physical picture changed.",
+    tradingViewLinks: [],
   },
   {
     id: "can-wall-street-outrun-dollar-june-2026",
@@ -78,6 +90,8 @@ const fallbackArticles: AlchemyArticle[] = [
     author: "Lee Yang",
     image: null,
     summary: "A stronger dollar and higher short-term yields challenged equities, while semiconductors and the unresolved Hormuz story kept the cross-asset picture mixed.",
+    bodyText: "A stronger dollar and higher short-term yields challenged equities, while semiconductors and the unresolved Hormuz story kept the cross-asset picture mixed.",
+    tradingViewLinks: [],
   },
 ];
 
@@ -91,6 +105,8 @@ function clean(value: string | undefined | null) {
     .replace(/&ndash;|&#8211;/gi, "–")
     .replace(/&mdash;|&#8212;/gi, "—")
     .replace(/&rsquo;|&#8217;/gi, "’")
+    .replace(/&ldquo;|&#8220;/gi, "“")
+    .replace(/&rdquo;|&#8221;/gi, "”")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -141,6 +157,56 @@ function extractArticleUrls(html: string) {
   return [...new Set(urls)];
 }
 
+function extractTradingViewLinks(html: string) {
+  const links: string[] = [];
+  for (const match of html.matchAll(/href=["']([^"']*tradingview\.com\/[^"']+)["']/gi)) {
+    try {
+      links.push(new URL(match[1], ROOT).toString());
+    } catch {
+      continue;
+    }
+  }
+  return [...new Set(links)];
+}
+
+function extractBodyText(html: string) {
+  const article = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1]
+    || html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]
+    || html;
+  const withoutNoise = article
+    .replace(/<(script|style|svg|form|nav|footer|aside)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/(p|li|h[1-6]|blockquote|figcaption|section|div)>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&ndash;|&#8211;/gi, "–")
+    .replace(/&mdash;|&#8212;/gi, "—")
+    .replace(/&rsquo;|&#8217;/gi, "’")
+    .replace(/&ldquo;|&#8220;/gi, "“")
+    .replace(/&rdquo;|&#8221;/gi, "”");
+
+  return withoutNoise
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line.length >= 24)
+    .filter((line) => !/^(share|related articles|risk warning|disclaimer|subscribe|written by|table of contents)/i.test(line))
+    .slice(0, 220)
+    .join("\n")
+    .slice(0, 28_000);
+}
+
+function extractPublishedAt(html: string) {
+  return meta(html, "article:published_time")
+    || meta(html, "og:published_time")
+    || clean(html.match(/"datePublished"\s*:\s*"([^"]+)"/i)?.[1])
+    || clean(html.match(/<time[^>]+datetime=["']([^"']+)["'][^>]*>/i)?.[1])
+    || clean(html.match(/data-date=["']([^"']+)["']/i)?.[1])
+    || null;
+}
+
 async function fetchText(url: string) {
   const response = await fetch(url, {
     headers: { "user-agent": "Alchemy Live Desk article memory" },
@@ -154,8 +220,9 @@ function parseArticle(url: string, html: string): AlchemyArticle {
   const title = meta(html, "og:title") || clean(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]) || slugFromUrl(url);
   const summary = meta(html, "description") || meta(html, "og:description") || clean(html.match(/<h1[^>]*>[\s\S]*?<\/h1>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i)?.[1]);
   const image = meta(html, "og:image") || null;
-  const publishedAt = meta(html, "article:published_time") || clean(html.match(/"datePublished"\s*:\s*"([^"]+)"/i)?.[1]) || null;
+  const publishedAt = extractPublishedAt(html);
   const author = meta(html, "author") || clean(html.match(/"author"\s*:\s*\{[\s\S]{0,280}?"name"\s*:\s*"([^"]+)"/i)?.[1]) || clean(html.match(/Written by:\s*<[^>]+>\s*([^<]+)/i)?.[1]) || "Alchemy Markets";
+  const bodyText = extractBodyText(html);
   return {
     id: slugFromUrl(url),
     title: title.replace(/\s*[|–-]\s*Alchemy Markets\s*$/i, ""),
@@ -165,6 +232,8 @@ function parseArticle(url: string, html: string): AlchemyArticle {
     author: author.replace(/\s+Market Analyst$/i, ""),
     image,
     summary: summary || "Open the original Alchemy Markets article to review its published thesis and chart context.",
+    bodyText: bodyText || summary,
+    tradingViewLinks: extractTradingViewLinks(html),
   };
 }
 
