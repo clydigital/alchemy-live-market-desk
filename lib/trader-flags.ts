@@ -16,17 +16,17 @@ export type TraderFlagInput = {
 };
 
 export const TRADER_FLAGS: TraderFlag[] = [
-  { key: "fed-hike", label: "FED HIKE RISK", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?.{0,28}(?:hike|hiking|tighten|tightening|hawk|hawkish)|rate hike|hike odds?|tightening risk)\b/i },
-  { key: "fed-cut", label: "FED CUT RISK", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?.{0,28}(?:cut|cutting|ease|easing|dove|dovish)|rate cut|cut odds?|easing risk)\b/i },
-  { key: "fed-rates", label: "FED / RATES", tone: "rates", pattern: /\b(?:fed|federal reserve|fomc|rate decision|policy rate|front-end yields?|treasury yields?|yield curve|rate path|rates? repricing|hawkish hold|dovish hold)\b/i },
-  { key: "inflation", label: "INFLATION", tone: "macro", pattern: /\b(?:inflation|disinflation|cpi|ppi|pce|price pressure|breakevens?)\b/i },
-  { key: "war-risk", label: "WAR RISK", tone: "risk", pattern: /\b(?:war risk|war premium|war|conflict|attack|attacked|strike|missile|tanker|hormuz|interdiction|retaliation|iran)\b/i },
-  { key: "intervention", label: "FX INTERVENTION", tone: "risk", pattern: /(?:\b(?:yen|fx|currency|japan|usdjpy|treasury)\b.{0,32}\bintervention\b|\bintervention\b.{0,32}\b(?:yen|fx|currency|japan|usdjpy|treasury)\b|\b(?:fima|reserve-backed|reserve use|repatriation|ministry of finance)\b)/i },
-  { key: "capex", label: "CAPEX RISK", tone: "purple", pattern: /\b(?:capex|capital expenditure|cash burn|cash conversion|free cash flow|financing burden|capital intensity)\b/i },
-  { key: "bubble", label: "BUBBLE / VALUATION", tone: "warn", pattern: /\b(?:stock bubble|bubble|valuation|multiple|stretched|expensive|overvalued|expectations? reset|return threshold|concentration)\b/i },
-  { key: "liquidity", label: "LIQUIDITY / SQUEEZE", tone: "warn", pattern: /\b(?:liquidity|funding stress|carry unwind|deleverag(?:e|ing)|short squeeze|squeeze|positioning reset)\b/i },
-  { key: "labour", label: "LABOUR", tone: "macro", pattern: /\b(?:payrolls?|jobs?|employment|unemployment|wages?|participation|labour|labor)\b/i },
-  { key: "urgent", label: "URGENT", tone: "urgent", pattern: /\b(?:imminent|breaking|attack|attacked|strike|shock|squeeze|breakdown|reversal|plunge|surge|crash|halt|emergency)\b/i },
+  { key: "fed-hike", label: "FED HIKE", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?\s+(?:rate\s+)?hike|fomc\s+(?:rate\s+)?hike|rate\s+hike|hike\s+odds?|hike\s+probabilit(?:y|ies)|tightening\s+risk)\b/i },
+  { key: "fed-cut", label: "FED CUT", tone: "rates", pattern: /\b(?:fed(?:eral reserve)?\s+(?:rate\s+)?cut|fomc\s+(?:rate\s+)?cut|rate\s+cut|cut\s+odds?|cut\s+probabilit(?:y|ies)|easing\s+risk)\b/i },
+  { key: "payrolls", label: "PAYROLLS / NFP", tone: "macro", pattern: /\b(?:non[- ]?farm\s+payrolls?|payrolls?|nfp|jobs\s+report|employment\s+report)\b/i },
+  { key: "earnings-beat", label: "EARNINGS BEAT", tone: "macro", pattern: /\b(?:(?:earnings|eps|revenue|sales|profit|guidance)\s+(?:beat|beats|beating)\b|(?:beat|beats|beating)\s+(?:estimates?|expectations?|consensus)|better[- ]than[- ]expected\s+(?:earnings|eps|revenue|sales|profit))\b/i },
+  { key: "earnings-miss", label: "EARNINGS MISS", tone: "risk", pattern: /\b(?:(?:earnings|eps|revenue|sales|profit|guidance)\s+(?:miss|misses|missed|disappoints?|disappointed)\b|(?:miss|misses|missed)\s+(?:estimates?|expectations?|consensus)|worse[- ]than[- ]expected\s+(?:earnings|eps|revenue|sales|profit)|guidance\s+(?:cut|lowered|reduced))\b/i },
+  { key: "inflation", label: "INFLATION", tone: "macro", pattern: /\b(?:headline\s+cpi|core\s+cpi|cpi|ppi|pce|core\s+pce|inflation(?:\s+(?:print|report|data|surprise))?|hotter[- ]than[- ]expected\s+inflation|cooler[- ]than[- ]expected\s+inflation)\b/i },
+  { key: "intervention", label: "FX INTERVENTION", tone: "risk", pattern: /\b(?:(?:yen|fx|currency|japan(?:ese)?|usdjpy)\s+intervention|intervention\s+(?:in|on|to support|to weaken|to strengthen)\s+(?:the\s+)?(?:yen|currency|jpy)|joint\s+(?:us[- ]japan\s+)?intervention|coordinated\s+(?:fx|currency|yen)?\s*intervention)\b/i },
+  { key: "war-escalation", label: "WAR ESCALATION", tone: "risk", pattern: /\b(?:war\s+escalation|escalat(?:e|es|ed|ing|ion)\s+(?:the\s+)?(?:war|conflict|hostilities)|military\s+strike|airstrike|missile\s+strike|retaliatory\s+strike|retaliation|tanker\s+attack|ship\s+attack|attacked\s+(?:a\s+)?tanker|renewed\s+hostilities|interdiction)\b/i },
+  { key: "war-risk", label: "WAR RISK", tone: "risk", pattern: /\b(?:war\s+risk|war\s+premium|conflict\s+risk|strike\s+risk|military\s+risk)\b/i },
+  { key: "deescalation", label: "DE-ESCALATION", tone: "macro", pattern: /\b(?:de[- ]?escalat(?:e|es|ed|ing|ion)|ceasefire|truce|pause(?:d)?\s+(?:military\s+)?strikes?|halt(?:ed)?\s+(?:military\s+)?strikes?)\b/i },
+  { key: "peace-deal", label: "PEACE DEAL", tone: "macro", pattern: /\b(?:peace\s+(?:deal|agreement|accord)|ceasefire\s+(?:deal|agreement)|truce\s+(?:deal|agreement)|hormuz\s+(?:deal|agreement)|iran[- ](?:oman|us)\s+(?:deal|agreement)|oman\s+(?:framework|deal|agreement))\b/i },
 ];
 
 function corpus(input: TraderFlagInput) {
