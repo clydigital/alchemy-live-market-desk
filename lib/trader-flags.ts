@@ -26,7 +26,7 @@ export const TRADER_FLAGS: TraderFlag[] = [
   { key: "bubble", label: "BUBBLE / VALUATION", tone: "warn", pattern: /\b(?:stock bubble|bubble|valuation|multiple|stretched|expensive|overvalued|expectations? reset|return threshold|concentration)\b/i },
   { key: "liquidity", label: "LIQUIDITY / SQUEEZE", tone: "warn", pattern: /\b(?:liquidity|funding stress|carry unwind|deleverag(?:e|ing)|short squeeze|squeeze|positioning reset)\b/i },
   { key: "labour", label: "LABOUR", tone: "macro", pattern: /\b(?:payrolls?|jobs?|employment|unemployment|wages?|participation|labour|labor)\b/i },
-  { key: "urgent", label: "URGENT", tone: "urgent", pattern: /\b(?:imminent|breaking|attack|attacked|strike|intervention|shock|squeeze|breakdown|reversal|plunge|surge|crash|halt|emergency|today|tonight|tomorrow)\b/i },
+  { key: "urgent", label: "URGENT", tone: "urgent", pattern: /\b(?:imminent|breaking|attack|attacked|strike|shock|squeeze|breakdown|reversal|plunge|surge|crash|halt|emergency)\b/i },
 ];
 
 function corpus(input: TraderFlagInput) {
