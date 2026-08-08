@@ -11,6 +11,7 @@ export type StoryFallbackImage = {
 const MARKET_PET_01: StoryFallbackImage = { key: "market-pet-01", dataUri: STORY_FALLBACK_IMAGE_1, label: "Alchemy Markets fallback artwork" };
 const MARKET_PET_03: StoryFallbackImage = { key: "market-pet-03", dataUri: STORY_FALLBACK_IMAGE_3, label: "Alchemy Markets fallback artwork" };
 const MARKET_PET_04: StoryFallbackImage = { key: "market-pet-04", dataUri: STORY_FALLBACK_IMAGE_4, label: "Alchemy Markets fallback artwork" };
+const FALLBACK_CACHE_VERSION = "20260808-reroll";
 
 // market-pet-02 has been retired. Keep its old hash slot empty so Stories that
 // were already mapped to 01, 03 or 04 do not get reshuffled. A Story landing on
@@ -50,6 +51,6 @@ export function getStableStoryFallbackImage(storyId: string) {
 
   return {
     ...image,
-    dataUri: `/api/story-fallback/${image.key}`,
+    dataUri: `/api/story-fallback/${image.key}?v=${FALLBACK_CACHE_VERSION}`,
   };
 }
