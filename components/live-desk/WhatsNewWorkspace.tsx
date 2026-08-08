@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { deriveTraderFlags, splitTraderText } from "@/lib/trader-flags";
 import styles from "./whats-new-workspace.module.css";
 
 export type WhatsNewTopic = "FX" | "Stocks" | "Geopolitics" | "Macro" | "Commodities" | "Earnings" | "Crypto" | "Other";
@@ -28,6 +29,12 @@ function tone(kind: string) {
   return "default";
 }
 
+function TraderText({ text }: { text: string }) {
+  return <>{splitTraderText(text).map((segment, index) => segment.flag ? (
+    <mark className={styles.keyword} data-tone={segment.flag.tone} key={`${segment.text}-${index}`}>{segment.text}</mark>
+  ) : <span key={`${segment.text}-${index}`}>{segment.text}</span>)}</>;
+}
+
 function TopicIcon({ topic }: { topic: WhatsNewTopic }) {
   const common = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
 
@@ -45,22 +52,40 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
   const [stream, setStream] = useState<"All" | WhatsNewDelta["stream"]>("All");
   const [query, setQuery] = useState("");
 
+  const enriched = useMemo(() => deltas.map((delta) => ({
+    ...delta,
+    traderFlags: deriveTraderFlags({
+      title: delta.title,
+      detail: delta.detail,
+      storyTitle: delta.storyTitle,
+      kind: delta.kind,
+      topic: delta.topic,
+    }),
+  })), [deltas]);
+
   const counts = useMemo(() => ({
-    All: deltas.length,
-    Story: deltas.filter((delta) => delta.stream === "Story").length,
-    Statement: deltas.filter((delta) => delta.stream === "Statement").length,
-    News: deltas.filter((delta) => delta.stream === "News").length,
-  }), [deltas]);
+    All: enriched.length,
+    Story: enriched.filter((delta) => delta.stream === "Story").length,
+    Statement: enriched.filter((delta) => delta.stream === "Statement").length,
+    News: enriched.filter((delta) => delta.stream === "News").length,
+  }), [enriched]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return deltas.filter((delta) => {
+    return enriched.filter((delta) => {
       if (stream !== "All" && delta.stream !== stream) return false;
       if (!needle) return true;
-      return [delta.title, delta.detail, delta.kind, delta.topic, delta.storyTitle || "", delta.verification || ""]
-        .some((value) => value.toLowerCase().includes(needle));
+      return [
+        delta.title,
+        delta.detail,
+        delta.kind,
+        delta.topic,
+        delta.storyTitle || "",
+        delta.verification || "",
+        ...delta.traderFlags.map((flag) => flag.label),
+      ].some((value) => value.toLowerCase().includes(needle));
     });
-  }, [deltas, query, stream]);
+  }, [enriched, query, stream]);
 
   return (
     <div className={styles.workspace}>
@@ -74,7 +99,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         </div>
         <label className={styles.search}>
           <span>Search recent records</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Headline, market, Story or source status" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Fed hike, war risk, capex, Story or source" />
         </label>
       </div>
 
@@ -92,18 +117,21 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                     <span className={styles.streamLabel}>{delta.stream}</span>
                     <time dateTime={delta.timestamp || undefined}>{delta.dateLabel}</time>
                   </div>
+                  {delta.traderFlags.length ? <div className={styles.traderFlags} aria-label="Trader risk signals">
+                    {delta.traderFlags.map((flag) => <span key={flag.key} data-tone={flag.tone}>{flag.label}</span>)}
+                  </div> : null}
                   {delta.href ? (
                     <a href={delta.href} target={delta.external ? "_blank" : undefined} rel={delta.external ? "noreferrer" : undefined}>
-                      <h3>{delta.title}</h3>
+                      <h3><TraderText text={delta.title} /></h3>
                     </a>
-                  ) : <h3>{delta.title}</h3>}
+                  ) : <h3><TraderText text={delta.title} /></h3>}
                 </div>
                 <div className={styles.badges}>
                   <span data-tone={tone(delta.kind)}>{delta.kind}</span>
                   {delta.verification ? <span data-tone={tone(delta.verification)}>{delta.verification}</span> : null}
                 </div>
               </header>
-              <p>{delta.detail}</p>
+              <p><TraderText text={delta.detail} /></p>
               <footer>
                 <span>{delta.storyTitle || "Independent source record"}</span>
                 <a href={`#record-${delta.id}`} aria-label={`Link to ${delta.title}`}>#{delta.id.slice(0, 8)}</a>
