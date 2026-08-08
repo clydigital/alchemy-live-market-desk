@@ -21,7 +21,7 @@ export const TRADER_FLAGS: TraderFlag[] = [
   { key: "fed-rates", label: "FED / RATES", tone: "rates", pattern: /\b(?:fed|federal reserve|fomc|rate decision|policy rate|front-end yields?|treasury yields?|yield curve|rate path|rates? repricing|hawkish hold|dovish hold)\b/i },
   { key: "inflation", label: "INFLATION", tone: "macro", pattern: /\b(?:inflation|disinflation|cpi|ppi|pce|price pressure|breakevens?)\b/i },
   { key: "war-risk", label: "WAR RISK", tone: "risk", pattern: /\b(?:war risk|war premium|war|conflict|attack|attacked|strike|missile|tanker|hormuz|interdiction|retaliation|iran)\b/i },
-  { key: "intervention", label: "INTERVENTION", tone: "risk", pattern: /\b(?:intervention|fima|reserve-backed|reserve use|repatriation|ministry of finance)\b/i },
+  { key: "intervention", label: "FX INTERVENTION", tone: "risk", pattern: /(?:\b(?:yen|fx|currency|japan|usdjpy|treasury)\b.{0,32}\bintervention\b|\bintervention\b.{0,32}\b(?:yen|fx|currency|japan|usdjpy|treasury)\b|\b(?:fima|reserve-backed|reserve use|repatriation|ministry of finance)\b)/i },
   { key: "capex", label: "CAPEX RISK", tone: "purple", pattern: /\b(?:capex|capital expenditure|cash burn|cash conversion|free cash flow|financing burden|capital intensity)\b/i },
   { key: "bubble", label: "BUBBLE / VALUATION", tone: "warn", pattern: /\b(?:stock bubble|bubble|valuation|multiple|stretched|expensive|overvalued|expectations? reset|return threshold|concentration)\b/i },
   { key: "liquidity", label: "LIQUIDITY / SQUEEZE", tone: "warn", pattern: /\b(?:liquidity|funding stress|carry unwind|deleverag(?:e|ing)|short squeeze|squeeze|positioning reset)\b/i },
