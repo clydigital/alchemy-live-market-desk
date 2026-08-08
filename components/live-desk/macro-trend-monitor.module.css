@@ -1,0 +1,176 @@
+.monitor {
+  padding: clamp(21px, 2.3vw, 30px);
+  border: 1px solid rgba(178, 169, 255, .23);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 5%, rgba(64, 157, 255, .11), transparent 34%),
+    linear-gradient(145deg, rgba(25, 29, 63, .96), rgba(17, 20, 47, .97));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 16px 45px rgba(4, 5, 19, .18);
+}
+
+.header span {
+  color: #65b7ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.header h2 {
+  margin: 6px 0 0;
+  color: #f8f7ff;
+  font-size: clamp(21px, 2vw, 28px);
+  letter-spacing: -.035em;
+}
+
+.header p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: #aaa8bd;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(145, 169, 255, .16);
+  border-radius: 16px;
+  background: rgba(9, 12, 35, .5);
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardHead span,
+.cardHead strong,
+.cardHead small {
+  display: block;
+}
+
+.cardHead span {
+  color: #f2f1fb;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.cardHead strong {
+  margin-top: 5px;
+  color: #8ebfff;
+  font-size: 9px;
+  letter-spacing: .09em;
+}
+
+.cardHead small {
+  margin-top: 3px;
+  color: #77758e;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+
+.cardHead b {
+  align-self: flex-start;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 187, 66, .28);
+  border-radius: 999px;
+  color: #ffd485;
+  font-size: 8px;
+}
+
+.sparkline {
+  display: block;
+  width: 100%;
+  height: 92px;
+  margin: 12px 0 7px;
+  overflow: visible;
+}
+
+.sparkline line {
+  stroke: rgba(255, 255, 255, .055);
+  stroke-width: 1;
+}
+
+.sparkline path {
+  fill: none;
+  stroke: #72b7ff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline circle {
+  fill: #b69bff;
+  stroke: #171a3c;
+  stroke-width: 2;
+}
+
+.values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.values > div {
+  padding: 9px 10px;
+  border: 1px solid rgba(178, 169, 255, .1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .025);
+}
+
+.values span,
+.values strong,
+.values small {
+  display: block;
+}
+
+.values span {
+  color: #77758e;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.values strong {
+  margin-top: 3px;
+  color: #f7f6ff;
+  font-size: 17px;
+}
+
+.values small {
+  margin-top: 2px;
+  color: #858399;
+  font-size: 8px;
+}
+
+.card footer {
+  margin-top: 10px;
+  color: #66647b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1040px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3,6 +3,7 @@ import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/
 import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,24 @@ const TOPIC_PATTERNS: Array<[WhatsNewTopic, RegExp]> = [
   ["Earnings", /\b(?:earnings|eps|quarterly results?|results season|investor day)\b/i],
   ["Geopolitics", /\b(?:iran|hormuz|war|military|missile|strike|sanctions?|ceasefire|diplomacy|diplomatic|geopolitics?|tariffs?|trade war|election|retaliation|conflict)\b/i],
 ];
+
+const HUMAN_EVENT_LABELS: Record<string, string> = {
+  thesis_revision: "Thesis revised",
+  headline_update: "Story updated",
+  evidence_update: "Evidence added",
+  contradiction: "Contradiction",
+  confirmation: "Confirmed",
+  invalidation: "Invalidated",
+  catalyst: "Catalyst",
+  archive: "Archived",
+  reopen: "Reopened",
+  correction: "Corrected",
+  source_update: "Source updated",
+};
+
+function humanEventLabel(kind: string) {
+  return HUMAN_EVENT_LABELS[kind] || kind.replaceAll("_", " ");
+}
 
 function classifyTopic(primary: string, secondary = "", assetText = ""): WhatsNewTopic {
   for (const [topic, pattern] of TOPIC_PATTERNS) {
@@ -42,34 +61,80 @@ function classifyStoryTopic(
   assets: string[] | null | undefined,
 ): WhatsNewTopic {
   const story = storyTitle || "";
-
-  // A Story is already a curated research object, so its canonical subject is
-  // more reliable than a stray word in one update. Event text remains the
-  // fallback when the Story title is generic.
   if (/\b(?:oil|crude|physical normalisation|physical disruption|energy disruption)\b/i.test(story)) return "Commodities";
   if (/\b(?:yen|carry|forex|currency|intervention)\b/i.test(story)) return "FX";
   if (/\b(?:fed|inflation|rates?|long end|treasur(?:y|ies)|macro)\b/i.test(story)) return "Macro";
   if (/\b(?:earnings|mag7 guidance|guidance dispersion)\b/i.test(story)) return "Earnings";
   if (/\b(?:ai|market breadth|equity|stocks?)\b/i.test(story)) return "Stocks";
   if (/\b(?:iran|hormuz|war|geopolitics?|conflict)\b/i.test(story)) return "Geopolitics";
-
   return classifyTopic(eventHeadline, `${storyThesis || ""} ${eventDetail || ""}`, (assets || []).join(" "));
+}
+
+function versionKey(storyId: string, versionNumber: number) {
+  return `${storyId}:${versionNumber}`;
+}
+
+function isHumanChangeReason(reason: string | null | undefined) {
+  if (!reason) return false;
+  return !/^(?:story_updated|story update|thesis-bearing story field changed|thesis bearing story field changed)$/i.test(reason.trim());
+}
+
+function humaniseStoryEvent(
+  event: StoryEvent,
+  storyTitle: string | null | undefined,
+  versionByEventId: Map<string, StoryThesisVersion>,
+  versionByStoryAndNumber: Map<string, StoryThesisVersion>,
+) {
+  if (event.event_type !== "thesis_revision") {
+    return {
+      title: event.headline,
+      detail: event.detail || "No additional detail was stored for this Story event.",
+    };
+  }
+
+  const version = versionByEventId.get(event.id);
+  if (!version) {
+    return {
+      title: storyTitle || event.headline,
+      detail: event.detail || "The Story thesis changed, but the full version record is not available in this view.",
+    };
+  }
+
+  const previous = versionByStoryAndNumber.get(versionKey(version.story_id, version.version_number - 1));
+  const title = version.title || storyTitle || event.headline;
+  const now = version.thesis ? `NOW: ${version.thesis}` : "";
+  const before = previous?.thesis ? ` PREVIOUSLY: ${previous.thesis}` : "";
+  const reason = isHumanChangeReason(version.change_reason) ? ` WHY IT CHANGED: ${version.change_reason}` : "";
+
+  return {
+    title,
+    detail: `${now}${before}${reason}`.trim() || event.detail || "The Story thesis was revised.",
+  };
 }
 
 export default async function WhatsNewPage() {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
+  const versionByEventId = new Map(
+    recordLayer.thesisVersions
+      .filter((version) => version.event_id)
+      .map((version) => [version.event_id as string, version]),
+  );
+  const versionByStoryAndNumber = new Map(
+    recordLayer.thesisVersions.map((version) => [versionKey(version.story_id, version.version_number), version]),
+  );
 
   const storyDeltas: WhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
       const story = storyById.get(event.story_id);
+      const human = humaniseStoryEvent(event, story?.title, versionByEventId, versionByStoryAndNumber);
       return {
         id: event.id,
-        kind: event.event_type,
+        kind: humanEventLabel(event.event_type),
         stream: "Story" as const,
-        topic: classifyStoryTopic(story?.title, event.headline, story?.thesis, event.detail, story?.assets),
-        title: event.headline,
-        detail: event.detail || "No additional detail was stored for this Story event.",
+        topic: classifyStoryTopic(story?.title, human.title, story?.thesis, human.detail, story?.assets),
+        title: human.title,
+        detail: human.detail,
         dateLabel: formatDeskDate(event.event_at),
         timestamp: event.event_at,
         href: story ? `/stories/${story.slug}#event-${event.id}` : null,
@@ -83,7 +148,7 @@ export default async function WhatsNewPage() {
       const timestamp = update.observed_at || update.created_at;
       return {
         id: update.id,
-        kind: update.update_type,
+        kind: humanEventLabel(update.update_type),
         stream: "Story" as const,
         topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
         title: update.headline,
@@ -101,7 +166,7 @@ export default async function WhatsNewPage() {
     ...storyDeltas,
     ...data.statements.map((statement) => ({
       id: statement.id,
-      kind: "statement",
+      kind: "Statement",
       stream: "Statement" as const,
       topic: classifyTopic(
         `${statement.topic} ${statement.speaker}`,
