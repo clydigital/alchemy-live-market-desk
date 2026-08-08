@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
-import type { OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
+import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
+import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
 import { getDeskData, type MacroRelease } from "@/lib/data";
@@ -300,27 +301,31 @@ export default async function Page({ searchParams }: PageProps) {
         </>
       )}
     >
-      <OverviewWorkspace
-        stories={stories}
-        changes={changes}
-        systems={systems}
-        immediateRelease={immediateRelease}
-        releaseStories={releaseStories}
-        metrics={{
-          stories: data.stories.length,
-          sources: data.sources.length,
-          evidence: data.evidence.length,
-          charts: data.charts.length,
-        }}
-        pulse={{
-          score: Number.isFinite(market.pulseWeek) ? market.pulseWeek : null,
-          lastWeekScore: null,
-          label: "This week",
-          benchmarkMove: benchmark?.change5d ?? null,
-          above50: mainBreadth?.current.above50 ?? null,
-          above200: mainBreadth?.current.above200 ?? null,
-        }}
-      />
+      <div style={{ display: "grid", gap: 24 }}>
+        <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
+        <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
+        <OverviewWorkspace
+          stories={stories}
+          changes={changes}
+          systems={systems}
+          immediateRelease={null}
+          releaseStories={[]}
+          metrics={{
+            stories: data.stories.length,
+            sources: data.sources.length,
+            evidence: data.evidence.length,
+            charts: data.charts.length,
+          }}
+          pulse={{
+            score: Number.isFinite(market.pulseWeek) ? market.pulseWeek : null,
+            lastWeekScore: null,
+            label: "This week",
+            benchmarkMove: benchmark?.change5d ?? null,
+            above50: mainBreadth?.current.above50 ?? null,
+            above200: mainBreadth?.current.above200 ?? null,
+          }}
+        />
+      </div>
     </LiveDeskShell>
   );
 }
