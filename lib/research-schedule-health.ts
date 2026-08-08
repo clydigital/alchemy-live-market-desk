@@ -1,8 +1,6 @@
 export const CANONICAL_RESEARCH_SLOTS = [
-  { key: "video_midnight", label: "00:40 video intake", hour: 0, minute: 40 },
   { key: "morning", label: "08:30 full desk update", hour: 8, minute: 30 },
-  { key: "video_late_morning", label: "11:30 video refresh", hour: 11, minute: 30 },
-  { key: "evening", label: "22:00 evening delta", hour: 22, minute: 0 },
+  { key: "evening", label: "23:00 evening delta", hour: 23, minute: 0 },
 ] as const;
 
 export type CanonicalResearchSlot = typeof CANONICAL_RESEARCH_SLOTS[number]["key"];
