@@ -22,6 +22,14 @@ function time(value: string | null) {
   }).format(new Date(value));
 }
 
+function statusLabel(status: "complete" | "running" | "blocked" | "failed" | "missed") {
+  if (status === "complete") return "Completed";
+  if (status === "running") return "Running";
+  if (status === "blocked") return "Blocked";
+  if (status === "failed") return "Failed";
+  return "Missed";
+}
+
 export default function ResearchUpdateMonitor({ runs, intake }: Props) {
   const health = useMemo(() => researchScheduleHealth(runs), [runs]);
   const latest = runs[0];
@@ -46,10 +54,10 @@ export default function ResearchUpdateMonitor({ runs, intake }: Props) {
       </header>
 
       <div className="update-schedule">
-        {health.due.map((slot) => (
-          <article className={slot.status} key={slot.slot}>
+        {health.slots.map((slot) => (
+          <article className={slot.status} key={slot.key}>
             <span>{slot.label}</span>
-            <b>{slot.status === "complete" ? "Completed" : slot.status === "blocked" ? "Blocked" : "Missed"}</b>
+            <b>{statusLabel(slot.status)}</b>
             <small>{slot.completedAt ? time(slot.completedAt) : `Due ${time(slot.expectedAt)}`}</small>
           </article>
         ))}
