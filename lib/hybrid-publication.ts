@@ -36,6 +36,7 @@ type PublicationSnapshot = {
 type ThesisVersion = {
   id: string;
   story_id: string;
+  event_id?: string | null;
   version_number: number;
   title: string;
   thesis: string;
@@ -238,6 +239,8 @@ export function buildHybridPublicationContract({
     materialDeltas,
     canonical: {
       storyStates,
+      thesisVersions: records.thesisVersions,
+      storyEvents: records.events,
       causalEdges: records.causalEdges,
       assetImpacts: records.assetImpacts,
       marketState,
