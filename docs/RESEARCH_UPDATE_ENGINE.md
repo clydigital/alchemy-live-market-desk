@@ -3,6 +3,9 @@
 The original Live Desk is the canonical research backend. The Hybrid consumes
 its redacted status through `/api/hybrid-feed`; it does not repeat ingestion.
 
+The binding case-monitoring standard is in [`CASE_MONITORING_STANDARD.md`](CASE_MONITORING_STANDARD.md).
+A Story is an unresolved market question, not a container for new headlines.
+
 ## Schedule
 
 - 08:30 Asia/Kuala_Lumpur
@@ -39,10 +42,26 @@ before its transcripts can be accepted automatically.
 5. Review only positions 1–30 in the dated Alchemy article list.
 6. Collect at least four distinct, dated HTTPS evidence links for every
    proposed story recalibration.
-7. Preserve support, contradiction and the next unresolved test.
-8. Publish only when all source checks, the four-link evidence gate and the
+7. Before recalibrating a Story, explicitly answer the Story question:
+   - `questionImpact`: `confirming`, `contradicting` or `unresolved`;
+   - `decidingMonitor`: the observable statistic/physical measure/price-spread/statement stream that actually moved;
+   - `stillMissing`: the evidence still required to settle the question.
+8. Preserve the strongest support, strongest contradiction and next unresolved test.
+9. Do not publish a Story recalibration just because a new headline exists. If no deciding monitor or causal link moved, keep it as intake/evidence rather than a thesis change.
+10. Publish only when all source checks, the four-link evidence gate and the
    deterministic accuracy gate are open. Confidence can move by at most eight
    points in one run.
+
+## Recalibration standard
+
+Every Story update must be able to answer:
+
+> **New evidence:** what changed?  
+> **Question impact:** confirming, contradicting or unresolved?  
+> **Deciding monitor:** which observable test moved?  
+> **Still missing:** what would settle the remaining question?
+
+This rule applies even when the eventual UI copy is more natural. A statement, X post or YouTube transcript can change the investigation, but it cannot overrule contradictory physical/statistical evidence by itself.
 
 ## Publishing
 
@@ -66,6 +85,7 @@ record, transcript, commit, log, or automation prompt.
 - A source access failure records a blocked run.
 - A missing transcript blocks any video-derived story change.
 - Fewer than four evidence links blocks the linked story change.
+- Missing `questionImpact`, `decidingMonitor` or `stillMissing` rejects a Story recalibration.
 - A warning or failed deterministic accuracy report blocks story changes.
 - Runs and intake items remain visible in the operational queue so the next
   cycle can repair them instead of silently starting over.
