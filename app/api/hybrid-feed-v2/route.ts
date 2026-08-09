@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { enrichCaseMonitorBoardsWithFred } from "@/lib/case-monitor-fred-overlays";
 import { enrichCaseMonitorBoardsWithMarketData } from "@/lib/case-monitor-market-overlays";
 import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
@@ -23,7 +24,8 @@ export async function GET() {
     buildCaseMonitorBoards(data),
   ]);
   const physicalCaseMonitors = await enrichCaseMonitorBoards(baseCaseMonitors);
-  const caseMonitors = await enrichCaseMonitorBoardsWithMarketData(physicalCaseMonitors, market);
+  const marketCaseMonitors = await enrichCaseMonitorBoardsWithMarketData(physicalCaseMonitors, market);
+  const caseMonitors = await enrichCaseMonitorBoardsWithFred(marketCaseMonitors);
 
   const contract = buildHybridPublicationContract({
     stories: data.stories,
