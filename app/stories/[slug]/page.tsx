@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import CaseMonitorBoard from "@/components/live-desk/CaseMonitorBoard";
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import detailStyles from "@/components/live-desk/story-detail.module.css";
+import { buildCaseMonitorBoards, caseMonitorForStory } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
@@ -19,6 +21,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const story = data.stories.find((candidate) => candidate.slug === slug);
   if (!story) notFound();
+  const caseMonitor = caseMonitorForStory(await buildCaseMonitorBoards(data), slug);
 
   const legacyUpdates = data.updates.filter((update) => update.story_id === story.id);
   const versions = recordLayer.thesisVersions.filter((version) => version.story_id === story.id);
@@ -78,6 +81,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
       <div className={styles.grid}>
         <nav className={detailStyles.recordIndex} aria-label="Story record sections">
           <span>Record index</span>
+          <a href="#monitors">Live monitors</a>
           <a href="#thesis">Current thesis</a>
           <a href="#versions">Thesis versions</a>
           <a href="#events">Event timeline</a>
@@ -101,6 +105,8 @@ export default async function StoryDetailPage({ params }: PageProps) {
             ? `This Story has ${versions.length} complete thesis version${versions.length === 1 ? "" : "s"} and ${events.length} append-only event${events.length === 1 ? "" : "s"}.`
             : "Exact links are available for the current Story, dated updates, evidence and sources. Complete historical thesis snapshots will appear after the approved persistence migration is applied."}
         />
+
+        <CaseMonitorBoard board={caseMonitor} />
 
         <div id="thesis" className={`${styles.gridTwo} ${detailStyles.sectionAnchor}`}>
           <Panel title="Current thesis state" description="The latest accepted explanation, support and contradiction for this Story.">
