@@ -17,6 +17,7 @@ export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
 export type IntakeItemType = "video" | "news" | "alchemy_article";
 export type RecommendedAction = "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
 export type DivergenceKind = "none" | "stats_lead" | "news_lead" | "contradiction";
+export type QuestionImpact = "confirming" | "contradicting" | "unresolved";
 
 export type SourceCheckInput = {
   source: ResearchSourceKey;
@@ -68,6 +69,9 @@ export type StoryRecalibrationInput = {
   strongestSupport: string;
   strongestContradiction: string;
   unresolvedTest: string;
+  questionImpact?: QuestionImpact;
+  decidingMonitor?: string;
+  stillMissing?: string;
   evidenceItemKeys: string[];
 };
 
@@ -214,6 +218,15 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     if (!update.headline?.trim() || update.headline.length > 90) errors.push(`${prefix}.headline is required and must be at most 90 characters.`);
     if (!update.detail?.trim() || !update.strongestSupport?.trim() || !update.strongestContradiction?.trim() || !update.unresolvedTest?.trim()) {
       errors.push(`${prefix} requires detail, support, contradiction and unresolved test.`);
+    }
+    const validQuestionImpact = ["confirming", "contradicting", "unresolved"].includes(update.questionImpact || "");
+    const hasDecidingMonitor = Boolean(update.decidingMonitor?.trim());
+    const hasStillMissing = Boolean(update.stillMissing?.trim());
+    if (!validQuestionImpact || !hasDecidingMonitor || !hasStillMissing) {
+      evidenceGatePassed = false;
+      warnings.push(`${update.storySlug || prefix} is missing questionImpact, decidingMonitor or stillMissing; Story recalibration is blocked while intake can continue.`);
+    } else {
+      update.detail = `Question impact: ${update.questionImpact}.\nDeciding monitor: ${update.decidingMonitor}.\n\n${update.detail}\n\nStill missing: ${update.stillMissing}.`;
     }
     if (!validDate(update.observedAt)) errors.push(`${prefix}.observedAt must be a valid date.`);
     if (!Number.isInteger(update.confidenceDelta) || Math.abs(update.confidenceDelta) > 8) errors.push(`${prefix}.confidenceDelta must be an integer between -8 and 8.`);
