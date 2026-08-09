@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
@@ -14,10 +15,11 @@ export async function GET() {
     getDeskData(),
     getHybridPublicationRecords(),
   ]);
-  const [storyImages, caseMonitors] = await Promise.all([
+  const [storyImages, baseCaseMonitors] = await Promise.all([
     getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
     buildCaseMonitorBoards(data),
   ]);
+  const caseMonitors = await enrichCaseMonitorBoards(baseCaseMonitors);
 
   const contract = buildHybridPublicationContract({
     stories: data.stories,
