@@ -13,6 +13,7 @@ export const deskRoutes: LiveDeskRoute[] = [
 ];
 
 export const dataRoutes: LiveDeskRoute[] = [
+  { label: "Markets", href: "/markets", description: "Cross-asset prices, momentum, anomalies and physical-flow monitors" },
   { label: "Macro Data", href: "/data/macro", description: "Releases, components and observations" },
   { label: "Heatmaps", href: "/data/heatmaps", description: "State, breadth and historical context" },
   { label: "Positioning", href: "/data/positioning", description: "CFTC-derived positioning context" },
@@ -24,6 +25,8 @@ const legacyTabMap: Record<string, string> = {
   overview: "/",
   "market state": "/data/heatmaps",
   "market-state": "/data/heatmaps",
+  markets: "/markets",
+  market: "/markets",
   research: "/whats-new",
   "research layer": "/whats-new",
   "research-layer": "/whats-new",
