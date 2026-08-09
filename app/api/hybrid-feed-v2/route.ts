@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { researchScheduleHealth } from "@/lib/research-update";
@@ -13,7 +14,10 @@ export async function GET() {
     getDeskData(),
     getHybridPublicationRecords(),
   ]);
-  const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
+  const [storyImages, caseMonitors] = await Promise.all([
+    getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
+    buildCaseMonitorBoards(data),
+  ]);
 
   const contract = buildHybridPublicationContract({
     stories: data.stories,
@@ -30,6 +34,10 @@ export async function GET() {
     source: "alchemy-live-market-desk",
     generatedAt,
     ...contract,
+    canonical: {
+      ...contract.canonical,
+      caseMonitors,
+    },
     research: {
       health: researchScheduleHealth(data.researchRuns),
       latestRun: data.researchRuns[0] || null,
