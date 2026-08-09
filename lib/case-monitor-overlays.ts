@@ -1,6 +1,8 @@
 import type { CaseMonitorBoard, CaseMonitorMetric, CaseMonitorSignal } from "@/lib/case-monitors";
 
 const STATUS_URL = "https://straits.live/status";
+const EIA_TABLE4_URL = "https://ir.eia.gov/wpsr/table4.csv";
+const EIA_WPSR_URL = "https://www.eia.gov/petroleum/supply/weekly/";
 
 function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : typeof value === "string" && value.trim() && Number.isFinite(Number(value)) ? Number(value) : null;
@@ -26,6 +28,52 @@ async function statusSnapshot(): Promise<Record<string, unknown> | null> {
   } catch {
     return null;
   }
+}
+
+async function textSnapshot(url: string, revalidate = 1800): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "text/csv,text/plain;q=0.9,*/*;q=0.5" },
+      next: { revalidate },
+      signal: AbortSignal.timeout(6500),
+    });
+    if (!response.ok) return null;
+    return response.text();
+  } catch {
+    return null;
+  }
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') {
+      if (quoted && line[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      fields.push(field.trim());
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  fields.push(field.trim());
+  return fields;
+}
+
+function isoFromUsDate(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (!match) return null;
+  const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+  return `${year}-${String(Number(match[1])).padStart(2, "0")}-${String(Number(match[2])).padStart(2, "0")}T00:00:00.000Z`;
 }
 
 function xPlaceholder(storySlug: string): CaseMonitorSignal {
@@ -57,13 +105,100 @@ function metric(input: Partial<CaseMonitorMetric> & Pick<CaseMonitorMetric, "id"
   };
 }
 
+async function eiaInventoryMetrics(): Promise<CaseMonitorMetric[]> {
+  const csv = await textSnapshot(EIA_TABLE4_URL);
+  if (!csv) return [];
+  const rows = csv.split(/\r?\n/).filter(Boolean).map(parseCsvLine);
+  const header = rows[0] || [];
+  const asOf = isoFromUsDate(header[1] || null);
+  const previousAsOf = header[2] || null;
+
+  function inventoryMetric(rowLabel: string, id: string, label: string, question: string): CaseMonitorMetric | null {
+    const row = rows.find((candidate) => candidate[0]?.trim() === rowLabel);
+    if (!row) return null;
+    const current = num(row[1]);
+    const previous = num(row[2]);
+    const change = num(row[3]) ?? (current != null && previous != null ? current - previous : null);
+    const yearAgo = num(row[4]);
+    const yoy = num(row[5]);
+    if (current == null) return null;
+    const state = change == null ? "unresolved" : change < 0 ? "confirming" : change >= 2 ? "contradicting" : "unresolved";
+    const comparison = `${change != null ? `${change >= 0 ? "+" : ""}${change.toFixed(1)}m bbl WoW` : "weekly change unavailable"}${yearAgo != null && yoy != null ? ` · ${yoy >= 0 ? "+" : ""}${yoy.toFixed(1)}% YoY` : ""}`;
+    return metric({
+      id,
+      label,
+      kind: "macro",
+      state,
+      current: `${current.toFixed(1)}m bbl`,
+      previous: previous == null ? null : `${previous.toFixed(1)}m bbl`,
+      delta: comparison,
+      asOf,
+      cadence: "EIA weekly · Wednesday release",
+      sourceName: "U.S. EIA WPSR · Table 4",
+      sourceUrl: EIA_TABLE4_URL,
+      question,
+      interpretation: `${label} are ${current.toFixed(1)} million barrels versus ${previous != null ? `${previous.toFixed(1)} million the prior week (${previousAsOf})` : "the prior observation"}. ${change != null && change < 0 ? "Stocks fell rather than rebuilt, which leans against a rapid product-market normalisation." : change != null && change > 0 ? "Stocks rebuilt on the week, an early easing signal that still needs crack spreads and refinery runs to agree." : "The weekly stock change is small, so the product-tightness question remains open."}`,
+      confirmationCondition: "Inventories remain depleted or fall across repeated weeks while product cracks stay elevated.",
+      invalidationCondition: "Inventories rebuild materially across several weeks while gasoline/diesel cracks and refinery constraints normalise.",
+      provenance: "Official U.S. EIA Weekly Petroleum Status Report inventory table",
+    });
+  }
+
+  return [
+    inventoryMetric("Total Motor Gasoline", "eia-gasoline-stocks", "U.S. gasoline stocks", "Are gasoline inventories rebuilding fast enough to relieve gasoline-margin pressure?"),
+    inventoryMetric("Distillate Fuel Oil", "eia-distillate-stocks", "U.S. distillate stocks", "Is distillate supply tightness easing enough to pull diesel margins lower?"),
+  ].filter((item): item is CaseMonitorMetric => Boolean(item));
+}
+
+function refineryUtilisationGap(): CaseMonitorMetric {
+  return metric({
+    id: "gap-refining-crack-spread-stress-refinery-utilisation",
+    label: "Refinery utilisation",
+    kind: "coverage_gap",
+    state: "coverage_gap",
+    current: null,
+    cadence: "EIA weekly",
+    sourceName: "U.S. EIA Weekly Petroleum Status Report",
+    sourceUrl: EIA_WPSR_URL,
+    question: "Is refining capacity actually returning fast enough to relieve product tightness?",
+    interpretation: "Gasoline and distillate inventory snapshots are now live, but the refinery-utilisation adaptor still needs to be wired before capacity recovery is treated as confirmed.",
+    confirmationCondition: "Refinery utilisation and runs recover alongside rising product inventories and falling cracks.",
+    invalidationCondition: "Refinery utilisation remains constrained while product inventories stay depleted.",
+    provenance: "Explicit coverage gap for EIA refinery-run/utilisation series",
+  });
+}
+
 export async function enrichCaseMonitorBoard(board: CaseMonitorBoard | null): Promise<CaseMonitorBoard | null> {
   if (!board) return null;
   const signals = board.signals?.some((signal) => signal.kind === "x") ? board.signals : [...(board.signals || []), xPlaceholder(board.storySlug)];
-  if (!["oil-physical-disruption", "refining-crack-spread-stress"].includes(board.storySlug)) return { ...board, signals };
+  const isHormuzCase = ["oil-physical-disruption", "refining-crack-spread-stress"].includes(board.storySlug);
+  if (!isHormuzCase) return { ...board, signals };
 
-  const root = await statusSnapshot();
-  if (!root) return { ...board, signals };
+  const [root, eiaMetrics] = await Promise.all([
+    statusSnapshot(),
+    board.storySlug === "refining-crack-spread-stress" ? eiaInventoryMetrics() : Promise.resolve([]),
+  ]);
+
+  const baseNonHormuz = (board.metrics || []).filter((item) => !item.id.startsWith("hormuz-"));
+  const nonHormuz = board.storySlug === "refining-crack-spread-stress" && eiaMetrics.length
+    ? [...baseNonHormuz.filter((item) => item.id !== "gap-refining-crack-spread-stress-refinery-runs-product-inventories"), refineryUtilisationGap()]
+    : baseNonHormuz;
+  const baseGaps = (board.gaps || []).filter((label) => !["Strait of Hormuz · daily transits", "Strait of Hormuz · 7D transit average", "Hormuz war-risk insurance", "Hormuz AIS presence / dark vessels"].includes(label));
+  const adjustedGaps = board.storySlug === "refining-crack-spread-stress" && eiaMetrics.length
+    ? [...baseGaps.filter((label) => label !== "Refinery runs + product inventories"), "Refinery utilisation"]
+    : baseGaps;
+
+  if (!root) {
+    return {
+      ...board,
+      metrics: [...eiaMetrics, ...nonHormuz],
+      signals,
+      gaps: Array.from(new Set(adjustedGaps)),
+      summary: board.storySlug === "refining-crack-spread-stress" && eiaMetrics.length
+        ? `${board.summary} Official EIA gasoline and distillate inventory snapshots are live; the Hormuz operational overlay is temporarily unavailable.`
+        : board.summary,
+    };
+  }
 
   const transits = rec(root.transits);
   const daily = rec(root.dailyTransits);
@@ -161,7 +296,6 @@ export async function enrichCaseMonitorBoard(board: CaseMonitorBoard | null): Pr
     }),
   ];
 
-  const nonHormuz = (board.metrics || []).filter((item) => !item.id.startsWith("hormuz-"));
   const isNormal = count != null && count >= normalisationThreshold && insuranceMultiple != null && insuranceMultiple <= 3 && stopped <= 1;
   const clearlyNotNormal = (count != null && count < 20) || (throughput != null && throughput < 30) || (insuranceMultiple != null && insuranceMultiple >= 10) || stopped >= 5;
   const state = isNormal ? "confirming" : clearlyNotNormal ? "contradicting" : "unresolved";
@@ -175,11 +309,11 @@ export async function enrichCaseMonitorBoard(board: CaseMonitorBoard | null): Pr
     ...board,
     state: board.storySlug === "refining-crack-spread-stress" && isNormal ? "unresolved" : state,
     stateLabel: board.storySlug === "refining-crack-spread-stress" && isNormal ? "HORMUZ IMPROVING · PRODUCT TEST STILL OPEN" : baseLabel,
-    summary: board.storySlug === "refining-crack-spread-stress" ? `${summary} The product-inflation case still needs diesel/gasoline cracks, refinery runs and product inventories to settle.` : summary,
+    summary: board.storySlug === "refining-crack-spread-stress" ? `${summary}${eiaMetrics.length ? " Official EIA gasoline and distillate inventory snapshots now sit beside the Strait monitor." : ""} The product-inflation case still needs live gasoline/diesel cracks and refinery utilisation before it can be settled.` : summary,
     updatedAt: asOf || board.updatedAt,
-    metrics: [...physicalMetrics, ...nonHormuz],
+    metrics: [...physicalMetrics, ...eiaMetrics, ...nonHormuz],
     signals,
-    gaps: Array.from(new Set((board.gaps || []).filter((label) => !["Strait of Hormuz · daily transits", "Strait of Hormuz · 7D transit average", "Hormuz war-risk insurance", "Hormuz AIS presence / dark vessels"].includes(label)))),
+    gaps: Array.from(new Set(adjustedGaps)),
   };
 }
 
