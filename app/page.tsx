@@ -23,6 +23,7 @@ type PageProps = {
 };
 
 const HIGH_IMPACT_RELEASE = /nonfarm|payroll|employment situation|unemployment|average hourly|consumer price|\bcpi\b|producer price|\bppi\b|personal consumption|\bpce\b|fomc|rate decision|monetary.policy|gross domestic|\bgdp\b|retail sales|\bism\b|\bpmi\b|jolts|adp|jobless claims/i;
+const RELEASE_LINGER_MS = 48 * 60 * 60 * 1000;
 
 // This verified near-term release fills a temporary gap in the connected calendar
 // feed. A live calendar record with an actual value always supersedes it below.
@@ -91,6 +92,24 @@ function normaliseMytTime(date: string, label: string) {
   return clean;
 }
 
+function releaseMomentMs(item: OverviewEconomicRelease) {
+  const myt = item.timeLabel.match(/(?:^|·|\s)(\d{1,2}):(\d{2})\s*MYT/i);
+  if (myt) {
+    return Date.parse(`${item.date}T${String(Number(myt[1])).padStart(2, "0")}:${myt[2]}:00+08:00`);
+  }
+  return Date.parse(`${item.date}T23:59:59+08:00`);
+}
+
+function isReleased(item: OverviewEconomicRelease) {
+  return Boolean(item.actual) || /released|published|complete/i.test(item.status || "");
+}
+
+function isFreshReleased(item: OverviewEconomicRelease, now = Date.now()) {
+  if (!isReleased(item)) return false;
+  const eventMs = releaseMomentMs(item);
+  return Number.isFinite(eventMs) && eventMs <= now && now - eventMs <= RELEASE_LINGER_MS;
+}
+
 function releasePriority(name: string) {
   if (/nonfarm|payroll|employment situation/i.test(name)) return 0;
   if (/consumer price|\bcpi\b|fomc|rate decision|monetary.policy/i.test(name)) return 1;
@@ -143,25 +162,30 @@ function calendarReleaseCandidate(event: EconomicCalendarEvent): OverviewEconomi
 
 function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: EconomicCalendarEvent[]) {
   const today = malaysiaDateKey();
+  const now = Date.now();
   const candidates = [
     ...macroReleases.map(macroReleaseCandidate),
     ...calendar.map(calendarReleaseCandidate),
     ...VERIFIED_IMMEDIATE_RELEASES,
   ].filter((item): item is OverviewEconomicRelease => Boolean(item))
     .filter((item) => {
+      const eventMs = releaseMomentMs(item);
+      if (Number.isFinite(eventMs) && eventMs <= now) return isFreshReleased(item, now);
       const distance = dayDistance(item.date, today);
-      return distance >= -1 && distance <= 8;
+      return distance >= 0 && distance <= 8;
     });
 
   candidates.sort((a, b) => {
+    const aFresh = isFreshReleased(a, now);
+    const bFresh = isFreshReleased(b, now);
+    if (aFresh !== bFresh) return aFresh ? -1 : 1;
+    if (aFresh && bFresh) return releaseMomentMs(b) - releaseMomentMs(a);
+
     const aDistance = dayDistance(a.date, today);
     const bDistance = dayDistance(b.date, today);
-    const aFutureRank = aDistance >= 0 ? aDistance : 20 + Math.abs(aDistance);
-    const bFutureRank = bDistance >= 0 ? bDistance : 20 + Math.abs(bDistance);
-    if (aFutureRank !== bFutureRank) return aFutureRank - bFutureRank;
+    if (aDistance !== bDistance) return aDistance - bDistance;
     const priority = releasePriority(a.event) - releasePriority(b.event);
     if (priority) return priority;
-    if (a.status !== b.status) return a.status === "Released" ? -1 : 1;
     const aRichness = [a.actual, a.forecast, a.previous, a.revisedPrevious].filter(Boolean).length;
     const bRichness = [b.actual, b.forecast, b.previous, b.revisedPrevious].filter(Boolean).length;
     return bRichness - aRichness;
