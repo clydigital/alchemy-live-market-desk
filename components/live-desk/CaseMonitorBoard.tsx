@@ -1,3 +1,4 @@
+import { enrichCaseMonitorBoard } from "@/lib/case-monitor-overlays";
 import type { CaseMonitorBoard as CaseMonitorBoardData } from "@/lib/case-monitors";
 import monitorStyles from "./case-monitor-board.module.css";
 
@@ -15,24 +16,25 @@ function localTime(value: string | null) {
   });
 }
 
-export default function CaseMonitorBoard({ board }: { board: CaseMonitorBoardData | null }) {
-  if (!board) return null;
+export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBoardData | null }) {
+  const effectiveBoard = await enrichCaseMonitorBoard(board);
+  if (!effectiveBoard) return null;
   return (
     <section className={monitorStyles.board} id="monitors">
       <header className={monitorStyles.header}>
         <div>
           <span className={monitorStyles.kicker}>QUESTION MONITOR</span>
-          <h2>{board.stateLabel}</h2>
-          <p>{board.summary}</p>
+          <h2>{effectiveBoard.stateLabel}</h2>
+          <p>{effectiveBoard.summary}</p>
         </div>
-        <div className={`${monitorStyles.state} ${monitorStyles[board.state]}`}>
-          <span>{board.state.replaceAll("_", " ")}</span>
-          <strong>{localTime(board.updatedAt)}</strong>
+        <div className={`${monitorStyles.state} ${monitorStyles[effectiveBoard.state]}`}>
+          <span>{effectiveBoard.state.replaceAll("_", " ")}</span>
+          <strong>{localTime(effectiveBoard.updatedAt)}</strong>
         </div>
       </header>
 
       <div className={monitorStyles.metrics}>
-        {board.metrics.map((metric) => (
+        {effectiveBoard.metrics.map((metric) => (
           <article className={`${monitorStyles.metric} ${monitorStyles[metric.state]}`} key={metric.id}>
             <div className={monitorStyles.metricTop}>
               <span>{metric.kind.replaceAll("_", " ")}</span>
@@ -63,7 +65,7 @@ export default function CaseMonitorBoard({ board }: { board: CaseMonitorBoardDat
           <p>These can move the case, but they do not overrule physical or statistical confirmation by themselves.</p>
         </div>
         <div className={monitorStyles.signals}>
-          {board.signals.map((signal) => (
+          {effectiveBoard.signals.map((signal) => (
             <article key={signal.id}>
               <span>{signal.label} · {signal.kind}</span>
               <h4>{signal.headline}</h4>
@@ -75,9 +77,9 @@ export default function CaseMonitorBoard({ board }: { board: CaseMonitorBoardDat
         </div>
       </div>
 
-      {board.gaps.length ? <div className={monitorStyles.gaps}>
+      {effectiveBoard.gaps.length ? <div className={monitorStyles.gaps}>
         <span className={monitorStyles.kicker}>MONITOR COVERAGE GAPS</span>
-        <p>{board.gaps.join(" · ")}</p>
+        <p>{effectiveBoard.gaps.join(" · ")}</p>
       </div> : null}
     </section>
   );
