@@ -16,6 +16,40 @@ function localTime(value: string | null) {
   });
 }
 
+function ageLabel(value: string | null) {
+  if (!value) return "source time unavailable";
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return value;
+  const hours = Math.max(0, (Date.now() - time) / 36e5);
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m ago`;
+  if (hours < 36) return `${Math.round(hours)}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function numberFrom(value: string | null) {
+  if (!value) return null;
+  const match = value.replaceAll(",", "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function SnapshotSpark({ previous, current }: { previous: string | null; current: string | null }) {
+  const a = numberFrom(previous);
+  const b = numberFrom(current);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  const av = a as number;
+  const bv = b as number;
+  const min = Math.min(av, bv);
+  const max = Math.max(av, bv);
+  const span = max - min || Math.max(Math.abs(max), 1);
+  const y = (value: number) => 30 - ((value - min) / span) * 22;
+  return <svg className={monitorStyles.spark} viewBox="0 0 120 38" role="img" aria-label={`Prior ${previous}, now ${current}`}>
+    <line x1="8" y1="31" x2="112" y2="31" />
+    <polyline points={`12,${y(av)} 108,${y(bv)}`} />
+    <circle cx="12" cy={y(av)} r="3" />
+    <circle cx="108" cy={y(bv)} r="3" />
+  </svg>;
+}
+
 export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBoardData | null }) {
   const effectiveBoard = await enrichCaseMonitorBoard(board);
   if (!effectiveBoard) return null;
@@ -41,9 +75,11 @@ export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBo
               <small>{metric.cadence}</small>
             </div>
             <h3>{metric.label}</h3>
-            <div className={monitorStyles.reading}>
-              <strong>{metric.current || "Not populated"}</strong>
-              {metric.previous ? <span>Prior {metric.previous}{metric.delta ? ` · Δ ${metric.delta}` : ""}</span> : null}
+            <div className={monitorStyles.snapshot}>
+              <div><small>PRIOR SNAPSHOT</small><strong>{metric.previous || "—"}</strong></div>
+              <span>→</span>
+              <div><small>NOW · {ageLabel(metric.asOf)}</small><strong>{metric.current || "Not populated"}</strong>{metric.delta ? <em>Δ {metric.delta}</em> : null}</div>
+              <SnapshotSpark previous={metric.previous} current={metric.current} />
             </div>
             <p className={monitorStyles.question}>{metric.question}</p>
             <p>{metric.interpretation}</p>
@@ -62,7 +98,7 @@ export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBo
       <div className={monitorStyles.signalSection}>
         <div className={monitorStyles.signalHead}>
           <div><span className={monitorStyles.kicker}>SOURCE WATCHES</span><h3>Statements, X, YouTube and research intake</h3></div>
-          <p>These can move the case, but they do not overrule physical or statistical confirmation by themselves.</p>
+          <p>These are context and contradiction monitors. They can change what the desk investigates, but they do not overrule physical or statistical confirmation by themselves.</p>
         </div>
         <div className={monitorStyles.signals}>
           {effectiveBoard.signals.map((signal) => (
