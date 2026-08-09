@@ -5,7 +5,7 @@ import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
-import { getMarketMonitor } from "@/lib/market-monitor";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { researchScheduleHealth } from "@/lib/research-update";
 import { getStoryHeaderImages } from "@/lib/story-images";
 
