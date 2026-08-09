@@ -1,3 +1,4 @@
+import { enrichCaseMonitorBoardsWithFred } from "@/lib/case-monitor-fred-overlays";
 import { enrichCaseMonitorBoardsWithMarketData } from "@/lib/case-monitor-market-overlays";
 import { enrichCaseMonitorBoard } from "@/lib/case-monitor-overlays";
 import type { CaseMonitorBoard as CaseMonitorBoardData } from "@/lib/case-monitors";
@@ -22,7 +23,8 @@ export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBo
   const physicalBoard = await enrichCaseMonitorBoard(board);
   if (!physicalBoard) return null;
   const market = await getMarketData();
-  const [effectiveBoard] = await enrichCaseMonitorBoardsWithMarketData([physicalBoard], market);
+  const marketBoards = await enrichCaseMonitorBoardsWithMarketData([physicalBoard], market);
+  const [effectiveBoard] = await enrichCaseMonitorBoardsWithFred(marketBoards);
   if (!effectiveBoard) return null;
   return (
     <section className={monitorStyles.board} id="monitors">
