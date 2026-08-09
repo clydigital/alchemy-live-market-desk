@@ -30,6 +30,7 @@ type Card = {
 const MEASURE_ORDER: Record<Measure["key"], number> = { mom_change: 0, yoy_change: 1, value: 2 };
 
 function numeric(value: unknown) {
+  if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
