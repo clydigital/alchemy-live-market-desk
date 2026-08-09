@@ -284,7 +284,7 @@ export function buildDeskMemory(versions: HistoricalToneVersion[], generatedAt: 
   const severity = maxShift >= 1 ? "large" : maxShift >= 0.55 ? "meaningful" : "none";
 
   return {
-    archivePolicy: "no_expiry",
+    archivePolicy: "rolling_90d",
     comparisonWindowDays: COMPARISON_DAYS,
     currentWindowHours: 72,
     observedHistoryDays,
