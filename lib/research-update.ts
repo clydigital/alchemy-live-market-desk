@@ -69,9 +69,9 @@ export type StoryRecalibrationInput = {
   strongestSupport: string;
   strongestContradiction: string;
   unresolvedTest: string;
-  questionImpact: QuestionImpact;
-  decidingMonitor: string;
-  stillMissing: string;
+  questionImpact?: QuestionImpact;
+  decidingMonitor?: string;
+  stillMissing?: string;
   evidenceItemKeys: string[];
 };
 
@@ -219,11 +219,15 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     if (!update.detail?.trim() || !update.strongestSupport?.trim() || !update.strongestContradiction?.trim() || !update.unresolvedTest?.trim()) {
       errors.push(`${prefix} requires detail, support, contradiction and unresolved test.`);
     }
-    if (!["confirming", "contradicting", "unresolved"].includes(update.questionImpact)) {
-      errors.push(`${prefix}.questionImpact must be confirming, contradicting or unresolved.`);
+    const validQuestionImpact = ["confirming", "contradicting", "unresolved"].includes(update.questionImpact || "");
+    const hasDecidingMonitor = Boolean(update.decidingMonitor?.trim());
+    const hasStillMissing = Boolean(update.stillMissing?.trim());
+    if (!validQuestionImpact || !hasDecidingMonitor || !hasStillMissing) {
+      evidenceGatePassed = false;
+      warnings.push(`${update.storySlug || prefix} is missing questionImpact, decidingMonitor or stillMissing; Story recalibration is blocked while intake can continue.`);
+    } else {
+      update.detail = `Question impact: ${update.questionImpact}.\nDeciding monitor: ${update.decidingMonitor}.\n\n${update.detail}\n\nStill missing: ${update.stillMissing}.`;
     }
-    if (!update.decidingMonitor?.trim()) errors.push(`${prefix}.decidingMonitor is required and must name the observable monitor moved by this evidence.`);
-    if (!update.stillMissing?.trim()) errors.push(`${prefix}.stillMissing is required and must state what evidence is still needed to settle the Story question.`);
     if (!validDate(update.observedAt)) errors.push(`${prefix}.observedAt must be a valid date.`);
     if (!Number.isInteger(update.confidenceDelta) || Math.abs(update.confidenceDelta) > 8) errors.push(`${prefix}.confidenceDelta must be an integer between -8 and 8.`);
     const linkedItems = [...new Set(update.evidenceItemKeys || [])].map((key) => itemByKey.get(key)).filter(Boolean);
