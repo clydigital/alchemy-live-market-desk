@@ -1,7 +1,7 @@
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import MarketsMonitor from "@/components/live-desk/MarketsMonitor";
 import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
-import { getMarketMonitor } from "@/lib/market-monitor";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 300;
