@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
+import StoryQuestionMonitors from "@/components/live-desk/StoryQuestionMonitors";
 import detailStyles from "@/components/live-desk/story-detail.module.css";
 import { getDeskData } from "@/lib/data";
+import { getMarketData } from "@/lib/market";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getStoryMonitorPack } from "@/lib/story-monitors";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +19,7 @@ type PageProps = {
 
 export default async function StoryDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
+  const [data, recordLayer, market] = await Promise.all([getDeskData(), getStoryRecordLayer(), getMarketData()]);
   const story = data.stories.find((candidate) => candidate.slug === slug);
   if (!story) notFound();
 
@@ -62,6 +65,31 @@ export default async function StoryDetailPage({ params }: PageProps) {
     assets: currentVersion?.assets?.length ? currentVersion.assets : story.assets,
   };
 
+  const monitorStory = {
+    ...story,
+    title: current.title,
+    thesis: current.thesis,
+    status: current.status,
+    confidence: current.confidence,
+    market_question: current.marketQuestion,
+    dominant_narrative: current.dominantNarrative,
+    best_explanation: current.bestExplanation,
+    strongest_support: current.strongestSupport,
+    strongest_contradiction: current.strongestContradiction,
+    confirmation_trigger: current.confirmationTrigger,
+    invalidation_trigger: current.invalidationTrigger,
+    next_catalyst: current.nextCatalyst,
+    assets: current.assets,
+  };
+  const monitorPack = await getStoryMonitorPack({
+    story: monitorStory,
+    market,
+    macroReleases: data.macroReleases,
+    statements: data.statements,
+    researchIntake: data.researchIntake,
+    updates: data.updates,
+  });
+
   return (
     <LiveDeskShell
       activePath="/stories"
@@ -78,6 +106,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
       <div className={styles.grid}>
         <nav className={detailStyles.recordIndex} aria-label="Story record sections">
           <span>Record index</span>
+          <a href="#monitors">Question monitors</a>
           <a href="#thesis">Current thesis</a>
           <a href="#versions">Thesis versions</a>
           <a href="#events">Event timeline</a>
@@ -87,10 +116,10 @@ export default async function StoryDetailPage({ params }: PageProps) {
 
         <MetricGrid
           items={[
+            { value: monitorPack.directMonitorCount, label: "Direct question monitors" },
             { value: events.length, label: "Dated Story events" },
             { value: versions.length || 1, label: recordLayer.available ? "Thesis versions" : "Current thesis state" },
             { value: evidence.length, label: "Evidence records" },
-            { value: sources.length, label: "Linked sources" },
           ]}
         />
 
@@ -101,6 +130,12 @@ export default async function StoryDetailPage({ params }: PageProps) {
             ? `This Story has ${versions.length} complete thesis version${versions.length === 1 ? "" : "s"} and ${events.length} append-only event${events.length === 1 ? "" : "s"}.`
             : "Exact links are available for the current Story, dated updates, evidence and sources. Complete historical thesis snapshots will appear after the approved persistence migration is applied."}
         />
+
+        <div id="monitors" className={detailStyles.sectionAnchor}>
+          <Panel title="Question monitor" description="Live statistics are selected to answer the Story's unresolved question. Headlines stay secondary to the direct confirmation tests.">
+            <StoryQuestionMonitors pack={monitorPack} />
+          </Panel>
+        </div>
 
         <div id="thesis" className={`${styles.gridTwo} ${detailStyles.sectionAnchor}`}>
           <Panel title="Current thesis state" description="The latest accepted explanation, support and contradiction for this Story.">
