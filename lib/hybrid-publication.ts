@@ -2,6 +2,7 @@ import type { Story, Update, ResearchRunStatus } from "@/lib/data";
 import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
+import type { StoryMonitorPack } from "@/lib/story-monitors";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -189,6 +190,7 @@ export function buildHybridPublicationContract({
   marketState,
   records,
   storyImages,
+  storyMonitors,
   generatedAt,
 }: {
   stories: Story[];
@@ -197,6 +199,7 @@ export function buildHybridPublicationContract({
   marketState: Array<Record<string, unknown>>;
   records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
   storyImages?: Map<string, StoryHeaderImage>;
+  storyMonitors?: StoryMonitorPack[];
   generatedAt: string;
 }) {
   const versionByStory = newestThesisByStory(records.thesisVersions);
@@ -262,6 +265,7 @@ export function buildHybridPublicationContract({
       causalEdges: records.causalEdges,
       assetImpacts: records.assetImpacts,
       marketState,
+      storyMonitors: storyMonitors || [],
     },
     publication: {
       snapshotCount: records.snapshots.length,
