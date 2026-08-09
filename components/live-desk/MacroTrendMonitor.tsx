@@ -104,7 +104,7 @@ function buildCards(observations: MacroSeriesObservation[], release: OverviewEco
       return preferred.has(key) || keys.some((focus) => key.startsWith(`${focus}_`));
     })
     : [];
-  const source = focused.length ? focused : observations;
+  const source = keys.length ? focused : observations;
   const groups = new Map<string, MacroSeriesObservation[]>();
 
   for (const row of source) {
