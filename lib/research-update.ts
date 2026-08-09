@@ -17,6 +17,7 @@ export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
 export type IntakeItemType = "video" | "news" | "alchemy_article";
 export type RecommendedAction = "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
 export type DivergenceKind = "none" | "stats_lead" | "news_lead" | "contradiction";
+export type QuestionImpact = "confirming" | "contradicting" | "unresolved";
 
 export type SourceCheckInput = {
   source: ResearchSourceKey;
@@ -68,6 +69,9 @@ export type StoryRecalibrationInput = {
   strongestSupport: string;
   strongestContradiction: string;
   unresolvedTest: string;
+  questionImpact: QuestionImpact;
+  decidingMonitor: string;
+  stillMissing: string;
   evidenceItemKeys: string[];
 };
 
@@ -215,6 +219,11 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     if (!update.detail?.trim() || !update.strongestSupport?.trim() || !update.strongestContradiction?.trim() || !update.unresolvedTest?.trim()) {
       errors.push(`${prefix} requires detail, support, contradiction and unresolved test.`);
     }
+    if (!["confirming", "contradicting", "unresolved"].includes(update.questionImpact)) {
+      errors.push(`${prefix}.questionImpact must be confirming, contradicting or unresolved.`);
+    }
+    if (!update.decidingMonitor?.trim()) errors.push(`${prefix}.decidingMonitor is required and must name the observable monitor moved by this evidence.`);
+    if (!update.stillMissing?.trim()) errors.push(`${prefix}.stillMissing is required and must state what evidence is still needed to settle the Story question.`);
     if (!validDate(update.observedAt)) errors.push(`${prefix}.observedAt must be a valid date.`);
     if (!Number.isInteger(update.confidenceDelta) || Math.abs(update.confidenceDelta) > 8) errors.push(`${prefix}.confidenceDelta must be an integer between -8 and 8.`);
     const linkedItems = [...new Set(update.evidenceItemKeys || [])].map((key) => itemByKey.get(key)).filter(Boolean);
