@@ -1,5 +1,10 @@
+import { enrichCaseMonitorBoardsWithCompanyData } from "@/lib/case-monitor-company-overlays";
+import { enrichCaseMonitorBoardsWithFred } from "@/lib/case-monitor-fred-overlays";
+import { enrichCaseMonitorBoardsWithMarketData } from "@/lib/case-monitor-market-overlays";
 import { enrichCaseMonitorBoard } from "@/lib/case-monitor-overlays";
 import type { CaseMonitorBoard as CaseMonitorBoardData } from "@/lib/case-monitors";
+import { getDeskData } from "@/lib/data";
+import { getMarketData } from "@/lib/market";
 import monitorStyles from "./case-monitor-board.module.css";
 
 function localTime(value: string | null) {
@@ -17,7 +22,12 @@ function localTime(value: string | null) {
 }
 
 export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBoardData | null }) {
-  const effectiveBoard = await enrichCaseMonitorBoard(board);
+  const physicalBoard = await enrichCaseMonitorBoard(board);
+  if (!physicalBoard) return null;
+  const [market, data] = await Promise.all([getMarketData(), getDeskData()]);
+  const marketBoards = await enrichCaseMonitorBoardsWithMarketData([physicalBoard], market);
+  const fredBoards = await enrichCaseMonitorBoardsWithFred(marketBoards);
+  const [effectiveBoard] = enrichCaseMonitorBoardsWithCompanyData(fredBoards, data.calls, data.guidance);
   if (!effectiveBoard) return null;
   return (
     <section className={monitorStyles.board} id="monitors">
