@@ -1,4 +1,5 @@
 import type { Story, Update, ResearchRunStatus } from "@/lib/data";
+import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
 
@@ -105,14 +106,19 @@ type AssetImpact = {
 };
 
 export async function getHybridPublicationRecords() {
-  const [snapshots, thesisVersions, events, causalEdges, assetImpacts] = await Promise.all([
+  const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
+  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions] = await Promise.all([
     optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=120"),
     optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240"),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240"),
     optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240"),
     optionalQuery<AssetImpact>("current_asset_impacts", "select=*&order=as_of.desc&limit=240"),
+    optionalQuery<HistoricalToneVersion>(
+      "story_thesis_versions",
+      `select=story_id,version_number,title,thesis,best_explanation,strongest_contradiction,confidence,status,effective_at&effective_at=gte.${toneCutoff}&order=effective_at.desc&limit=2500`,
+    ),
   ]);
-  return { snapshots, thesisVersions, events, causalEdges, assetImpacts };
+  return { snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions };
 }
 
 function newestThesisByStory(versions: ThesisVersion[]) {
@@ -248,6 +254,7 @@ export function buildHybridPublicationContract({
     contractVersion: 2,
     edition,
     materialDeltas,
+    deskMemory: buildDeskMemory(records.toneVersions, generatedAt),
     canonical: {
       storyStates,
       thesisVersions: records.thesisVersions,
