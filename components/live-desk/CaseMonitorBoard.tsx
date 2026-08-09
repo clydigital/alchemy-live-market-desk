@@ -1,5 +1,7 @@
+import { enrichCaseMonitorBoardsWithMarketData } from "@/lib/case-monitor-market-overlays";
 import { enrichCaseMonitorBoard } from "@/lib/case-monitor-overlays";
 import type { CaseMonitorBoard as CaseMonitorBoardData } from "@/lib/case-monitors";
+import { getMarketData } from "@/lib/market";
 import monitorStyles from "./case-monitor-board.module.css";
 
 function localTime(value: string | null) {
@@ -17,7 +19,10 @@ function localTime(value: string | null) {
 }
 
 export default async function CaseMonitorBoard({ board }: { board: CaseMonitorBoardData | null }) {
-  const effectiveBoard = await enrichCaseMonitorBoard(board);
+  const physicalBoard = await enrichCaseMonitorBoard(board);
+  if (!physicalBoard) return null;
+  const market = await getMarketData();
+  const [effectiveBoard] = await enrichCaseMonitorBoardsWithMarketData([physicalBoard], market);
   if (!effectiveBoard) return null;
   return (
     <section className={monitorStyles.board} id="monitors">
