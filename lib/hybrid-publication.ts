@@ -1,4 +1,6 @@
 import type { Story, Update, ResearchRunStatus } from "@/lib/data";
+import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
+import type { StoryHeaderImage } from "@/lib/story-images";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -124,7 +126,8 @@ function newestThesisByStory(versions: ThesisVersion[]) {
   return result;
 }
 
-function storyState(story: Story, version: ThesisVersion | undefined) {
+function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined) {
+  const fallback = getStableStoryFallbackImage(story.id);
   return {
     id: story.id,
     slug: story.slug,
@@ -142,6 +145,12 @@ function storyState(story: Story, version: ThesisVersion | undefined) {
     confirmationCondition: version?.confirmation_trigger ?? story.confirmation_trigger,
     invalidationCondition: version?.invalidation_trigger ?? story.invalidation_trigger,
     nextCatalyst: version?.next_catalyst ?? story.next_catalyst,
+    imageUrl: image?.imageUrl || fallback.dataUri,
+    fallbackImageUrl: fallback.dataUri,
+    imageKind: image?.kind || "fallback",
+    imageSourceUrl: image?.articleUrl || null,
+    imageSourceTitle: image?.articleTitle || fallback.label,
+    imagePublisher: image?.publisher || "Alchemy Markets",
     thesisVersion: version ? {
       id: version.id,
       version: version.version_number,
@@ -173,6 +182,7 @@ export function buildHybridPublicationContract({
   researchRuns,
   marketState,
   records,
+  storyImages,
   generatedAt,
 }: {
   stories: Story[];
@@ -180,10 +190,11 @@ export function buildHybridPublicationContract({
   researchRuns: ResearchRunStatus[];
   marketState: Array<Record<string, unknown>>;
   records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
+  storyImages?: Map<string, StoryHeaderImage>;
   generatedAt: string;
 }) {
   const versionByStory = newestThesisByStory(records.thesisVersions);
-  const storyStates = stories.map((story) => storyState(story, versionByStory.get(story.id)));
+  const storyStates = stories.map((story) => storyState(story, versionByStory.get(story.id), storyImages?.get(story.id)));
   const storyById = new Map(stories.map((story) => [story.id, story]));
 
   const cutoff = Date.now() - 72 * 60 * 60 * 1000;

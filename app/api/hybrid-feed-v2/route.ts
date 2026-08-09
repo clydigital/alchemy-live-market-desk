@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDeskData } from "@/lib/data";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { researchScheduleHealth } from "@/lib/research-update";
+import { getStoryHeaderImages } from "@/lib/story-images";
 
 export const revalidate = 60;
 
@@ -12,6 +13,7 @@ export async function GET() {
     getDeskData(),
     getHybridPublicationRecords(),
   ]);
+  const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
 
   const contract = buildHybridPublicationContract({
     stories: data.stories,
@@ -19,6 +21,7 @@ export async function GET() {
     researchRuns: data.researchRuns,
     marketState: data.marketStateRecords as unknown as Array<Record<string, unknown>>,
     records,
+    storyImages,
     generatedAt,
   });
 

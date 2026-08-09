@@ -27,6 +27,8 @@ type Card = {
   priority: number;
 };
 
+const MEASURE_ORDER: Record<Measure["key"], number> = { mom_change: 0, yoy_change: 1, value: 2 };
+
 function numeric(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -46,25 +48,25 @@ function monthLabel(value: string) {
 
 function displayName(series: MacroSeriesObservation) {
   const known: Record<string, string> = {
-    cpi_all: "US CPI",
-    cpi_core: "US Core CPI",
-    ppi_final_demand: "US PPI Final Demand",
-    nfp: "US Nonfarm Payrolls",
-    nonfarm_payrolls: "US Nonfarm Payrolls",
-    unemployment_rate: "US Unemployment Rate",
-    average_hourly_earnings: "US Average Hourly Earnings",
-    initial_claims: "US Initial Jobless Claims",
-    jobless_claims: "US Initial Jobless Claims",
-    jolts: "US JOLTS Job Openings",
-    jolts_job_openings: "US JOLTS Job Openings",
-    ism_manufacturing: "US ISM Manufacturing PMI",
-    ism_new_orders: "US ISM New Orders",
-    ism_services: "US ISM Services PMI",
-    retail_sales: "US Retail Sales",
-    retail_sales_control: "US Retail Sales Control Group",
-    core_pce: "US Core PCE",
-    pce_core: "US Core PCE",
-    gdp_real: "US Real GDP",
+    cpi_all: "Headline CPI",
+    cpi_core: "Core CPI",
+    ppi_final_demand: "PPI Final Demand",
+    nfp: "Nonfarm Payrolls",
+    nonfarm_payrolls: "Nonfarm Payrolls",
+    unemployment_rate: "Unemployment Rate",
+    average_hourly_earnings: "Average Hourly Earnings",
+    initial_claims: "Initial Jobless Claims",
+    jobless_claims: "Initial Jobless Claims",
+    jolts: "JOLTS Job Openings",
+    jolts_job_openings: "JOLTS Job Openings",
+    ism_manufacturing: "ISM Manufacturing PMI",
+    ism_new_orders: "ISM New Orders",
+    ism_services: "ISM Services PMI",
+    retail_sales: "Retail Sales",
+    retail_sales_control: "Retail Sales Control Group",
+    core_pce: "Core PCE",
+    pce_core: "Core PCE",
+    gdp_real: "Real GDP",
   };
   return known[series.series_key] || series.series_name || series.series_key.replaceAll("_", " ");
 }
@@ -102,7 +104,7 @@ function buildCards(observations: MacroSeriesObservation[], release: OverviewEco
       return preferred.has(key) || keys.some((focus) => key.startsWith(`${focus}_`));
     })
     : [];
-  const source = focused.length ? focused : observations;
+  const source = keys.length ? focused : observations;
   const groups = new Map<string, MacroSeriesObservation[]>();
 
   for (const row of source) {
@@ -129,7 +131,7 @@ function buildCards(observations: MacroSeriesObservation[], release: OverviewEco
   }
 
   return cards
-    .sort((a, b) => b.priority - a.priority || displayName(a.series).localeCompare(displayName(b.series)))
+    .sort((a, b) => MEASURE_ORDER[a.measure.key] - MEASURE_ORDER[b.measure.key] || b.priority - a.priority || displayName(a.series).localeCompare(displayName(b.series)))
     .slice(0, limit);
 }
 
@@ -167,6 +169,9 @@ function Sparkline({ points }: { points: Point[] }) {
 export default function MacroTrendMonitor({ observations, release, limit = 6 }: Props) {
   const cards = buildCards(observations || [], release, limit);
   if (!cards.length) return null;
+  const sections = Array.from(new Set(cards.map((card) => card.measure.key)))
+    .sort((a, b) => MEASURE_ORDER[a] - MEASURE_ORDER[b])
+    .map((measureKey) => ({ measureKey, cards: cards.filter((card) => card.measure.key === measureKey) }));
 
   return (
     <section className={styles.monitor} aria-label="Economic trend charts">
@@ -175,34 +180,40 @@ export default function MacroTrendMonitor({ observations, release, limit = 6 }: 
           <span>Trend charts</span>
           <h2>{release ? `The last 12 readings behind ${release.event}` : "Recent macro trends"}</h2>
           <p>{release
-            ? "Only verified series tied to the immediate release are shown. Each transformation stays on its own chart."
-            : "Verified macro history from the Live Desk, with each transformation shown separately."}</p>
+            ? "One release, grouped by measure. Headline and core series stay together, with a simple divider between month-on-month, year-on-year and reported levels."
+            : "Verified macro history grouped by measure, with simple dividers between sections."}</p>
         </div>
       </header>
 
-      <div className={styles.grid}>
-        {cards.map((card) => {
-          const latest = card.points.at(-1);
-          const previous = card.points.at(-2);
-          return (
-            <article className={styles.card} key={`${card.series.series_key}-${card.measure.key}`}>
-              <div className={styles.cardHead}>
-                <div>
-                  <span>{displayName(card.series)}</span>
-                  <strong>{card.measure.label}</strong>
-                  <small>{card.measure.suffix || card.series.unit || "LEVEL"} · LAST {card.points.length} READINGS</small>
-                </div>
-                {latest?.preliminary ? <b>PRELIM</b> : null}
-              </div>
-              <Sparkline points={card.points} />
-              <div className={styles.values}>
-                <div><span>Latest</span><strong>{formatValue(latest?.value, card.measure.suffix)}</strong><small>{latest ? monthLabel(latest.date) : "—"}</small></div>
-                <div><span>Previous</span><strong>{formatValue(previous?.value, card.measure.suffix)}</strong><small>{previous ? monthLabel(previous.date) : "—"}</small></div>
-              </div>
-              <footer>{card.series.agency || "OFFICIAL SERIES"} · {card.series.frequency || "FREQUENCY N/A"}</footer>
-            </article>
-          );
-        })}
+      <div className={styles.grouped}>
+        {sections.map((section) => (
+          <section className={styles.measureSection} key={section.measureKey}>
+            <div className={styles.measureLabel}>{section.cards[0]?.measure.label}</div>
+            <div className={styles.grid}>
+              {section.cards.map((card) => {
+                const latest = card.points.at(-1);
+                const previous = card.points.at(-2);
+                return (
+                  <article className={styles.card} key={`${card.series.series_key}-${card.measure.key}`}>
+                    <div className={styles.cardHead}>
+                      <div>
+                        <span>{displayName(card.series)}</span>
+                        <small>{card.measure.suffix || card.series.unit || "LEVEL"} · LAST {card.points.length} READINGS</small>
+                      </div>
+                      {latest?.preliminary ? <b>PRELIM</b> : null}
+                    </div>
+                    <Sparkline points={card.points} />
+                    <div className={styles.values}>
+                      <div><span>Latest</span><strong>{formatValue(latest?.value, card.measure.suffix)}</strong><small>{latest ? monthLabel(latest.date) : "—"}</small></div>
+                      <div><span>Previous</span><strong>{formatValue(previous?.value, card.measure.suffix)}</strong><small>{previous ? monthLabel(previous.date) : "—"}</small></div>
+                    </div>
+                    <footer>{card.series.agency || "OFFICIAL SERIES"} · {card.series.frequency || "FREQUENCY N/A"}</footer>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </section>
   );
