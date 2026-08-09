@@ -1,0 +1,271 @@
+.surface {
+  display: grid;
+  gap: 14px;
+}
+
+.assessment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  padding: 20px;
+  border: 1px solid rgba(181,151,255,.18);
+  border-radius: 15px;
+  background: rgba(255,255,255,.025);
+}
+
+.assessment > div > span,
+.directness {
+  color: #8e89a0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.assessment h3 {
+  margin: 8px 0 6px;
+  color: #f5f2ff;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.assessment p {
+  margin: 0;
+  color: #aaa6b9;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.assessment aside {
+  min-width: 125px;
+  padding-left: 18px;
+  border-left: 1px solid rgba(181,151,255,.13);
+  text-align: right;
+}
+
+.assessment aside b {
+  display: block;
+  color: #f4f1ff;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.assessment aside span,
+.assessment aside small {
+  display: block;
+  margin-top: 6px;
+  color: #8e89a0;
+  font-size: 9px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  min-height: 280px;
+  flex-direction: column;
+  padding: 17px;
+  border: 1px solid rgba(181,151,255,.14);
+  border-radius: 14px;
+  background: rgba(255,255,255,.018);
+}
+
+.card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.card h4 {
+  margin: 5px 0 0;
+  color: #f4f1ff;
+  font-size: 14px;
+}
+
+.card header > strong {
+  max-width: 150px;
+  color: #bba9d7;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-align: right;
+}
+
+.question {
+  margin: 12px 0 8px;
+  color: #8f8a9e;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.reading {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.card dl {
+  display: grid;
+  gap: 0;
+  margin: 13px 0 0;
+}
+
+.card dl > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(181,151,255,.09);
+}
+
+.card dt {
+  color: #747083;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.card dd {
+  margin: 0;
+  color: #b9b5c5;
+  font-size: 10px;
+}
+
+.interpretation {
+  margin: 13px 0;
+  color: #aaa6b9;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(181,151,255,.09);
+  color: #777287;
+  font-size: 8px;
+}
+
+.card footer a {
+  color: #bfa4ef;
+  text-decoration: none;
+}
+
+.card > small {
+  display: block;
+  margin-top: 8px;
+  color: #666176;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.sparkWrap {
+  margin-top: 12px;
+}
+
+.sparkWrap svg {
+  display: block;
+  width: 100%;
+  height: 58px;
+  overflow: visible;
+}
+
+.sparkBase {
+  stroke: rgba(255,255,255,.08);
+  stroke-width: 1;
+}
+
+.sparkLine {
+  fill: none;
+  stroke: #a98add;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkMeta {
+  display: flex;
+  justify-content: space-between;
+  color: #696478;
+  font-size: 7px;
+}
+
+.contextDrawer {
+  border-top: 1px solid rgba(181,151,255,.12);
+}
+
+.contextDrawer summary {
+  padding: 14px 2px;
+  color: #a98add;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.confirmed {
+  border-color: rgba(79,209,133,.32);
+}
+
+.confirmed header > strong,
+.confirmed.assessment > div > span {
+  color: #8fe1b1;
+}
+
+.notConfirmed {
+  border-color: rgba(255,105,120,.3);
+}
+
+.notConfirmed header > strong,
+.notConfirmed.assessment > div > span {
+  color: #ff8f9d;
+}
+
+.waiting {
+  border-color: rgba(227,187,91,.25);
+}
+
+.waiting header > strong,
+.waiting.assessment > div > span {
+  color: #e3bb5b;
+}
+
+.mixed {
+  border-color: rgba(111,169,255,.25);
+}
+
+.mixed header > strong,
+.mixed.assessment > div > span {
+  color: #86b2ff;
+}
+
+.unavailable {
+  opacity: .72;
+}
+
+@media (max-width: 800px) {
+  .grid,
+  .assessment {
+    grid-template-columns: 1fr;
+  }
+
+  .assessment aside {
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(181,151,255,.13);
+    border-left: 0;
+    text-align: left;
+  }
+
+  .card {
+    min-height: 0;
+  }
+}
