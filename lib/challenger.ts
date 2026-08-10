@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { unstable_cache } from "next/cache.js";
 
 export const CHALLENGER_REPOSITORY = "clydigital/alchemy-challenger";
 export const CHALLENGER_CONTRACT_VERSION = 1;
