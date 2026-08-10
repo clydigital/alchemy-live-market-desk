@@ -60,7 +60,7 @@ test("retrieval calls free info before the paid transcript endpoint and preserve
 test("info validates the YouTube reference before spending a provider request", async () => {
   let calls = 0;
   await assert.rejects(
-    fetchTranscriptApiInfo("not-a-video", KEY, {
+    fetchTranscriptApiInfo("not-a-valid-video", KEY, {
       fetchImpl: (async () => {
         calls += 1;
         return json({});
