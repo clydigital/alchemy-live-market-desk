@@ -126,7 +126,7 @@ test("persists a successful transcript once, then serves the database cache with
   assert.equal(providerCalls, 1);
   assert.equal(store.successWrites, 1);
   assert.equal(store.resolved, 1);
-  assert.equal(store.recalculations, 1);
+  assert.equal(store.recalculations, 2);
 });
 
 test("a retryable failure records stable metadata and idempotent research debt", async () => {
