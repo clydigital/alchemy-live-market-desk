@@ -115,6 +115,9 @@ function providerMessage(body: unknown, fallback: string) {
   if (!isRecord(body)) return fallback;
   const direct = [body.message, body.detail, body.error_description].find((value) => typeof value === "string");
   if (typeof direct === "string" && direct.trim()) return direct.trim().slice(0, 1_000);
+  if (isRecord(body.detail) && typeof body.detail.message === "string" && body.detail.message.trim()) {
+    return body.detail.message.trim().slice(0, 1_000);
+  }
   if (typeof body.error === "string" && body.error.trim()) return body.error.trim().slice(0, 1_000);
   if (isRecord(body.error)) {
     const nested = [body.error.message, body.error.detail].find((value) => typeof value === "string");
