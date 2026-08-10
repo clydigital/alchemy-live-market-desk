@@ -14,11 +14,13 @@ export type TranscriptIntakeItem = {
   url: string;
   transcriptStatus: "ready" | "missing" | "unavailable" | "not_applicable";
   required: boolean;
+  attemptCount: number;
 };
 
 export type ReadyTranscriptCache = {
   itemId: string;
   runId: string;
+  retrievedAt: string;
   transcript: TranscriptApiTranscript;
 };
 
@@ -125,7 +127,7 @@ export async function retrieveAndPersistTranscript(input: {
 }): Promise<TranscriptPipelineResult> {
   const cached = await input.store.findReadyTranscript(input.videoId);
   if (cached) {
-    return readyResult(input.videoId, cached.transcript, new Date().toISOString(), true);
+    return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true);
   }
 
   const item = await input.store.findVideoItem(input.videoId);
