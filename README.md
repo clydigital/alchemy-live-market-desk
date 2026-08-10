@@ -46,6 +46,7 @@ Copy `.env.example` and configure these server-side Vercel values:
 - `RESEARCH_UPDATE_TOKEN`
 - `YOUTUBE_DATA_API_KEY`
 - `TRANSCRIPT_API_KEY`
+- `FRED_API_KEY` (owned by Live; used server-side for Challenger point-in-time observations and the release calendar)
 
 `CRON_SECRET` is accepted for scheduled calls. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
 

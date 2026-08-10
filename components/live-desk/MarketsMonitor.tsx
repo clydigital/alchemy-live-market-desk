@@ -2,14 +2,21 @@
 
 import { useMemo, useState } from "react";
 
+import type { ChallengerFactor, ChallengerSnapshot } from "@/lib/challenger";
 import type { GlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import type { MarketMonitor, MarketMonitorRow, MarketMonitorType } from "@/lib/market-monitor";
-import styles from "./markets-monitor.module.css";
+import challengerStyles from "./challenger-monitor.module.css";
+import marketStyles from "./markets-monitor.module.css";
+
+const styles = { ...marketStyles, ...challengerStyles };
 
 type Props = {
   monitor: MarketMonitor;
   flows: GlobalFlowMonitor;
+  challenger: ChallengerSnapshot;
 };
+
+type Surface = "challenger" | "terminal" | "flows";
 
 type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
 type SortKey = "attention" | "day" | "3d" | "5d" | "rsi" | "vol" | "type";
@@ -96,7 +103,71 @@ function FlowTable({ title, rows }: { title: string; rows: GlobalFlowMonitor["oi
   </section>;
 }
 
-export default function MarketsMonitor({ monitor, flows }: Props) {
+function factorValue(factor: ChallengerFactor) {
+  if (factor.value == null) return "Unavailable";
+  const decimals = factor.seriesId === "PAYEMS" || factor.seriesId === "RSAFS" ? 0 : 2;
+  return factor.value.toLocaleString("en-GB", { maximumFractionDigits: decimals });
+}
+
+function ChallengerPanel({ snapshot }: { snapshot: ChallengerSnapshot }) {
+  const asset = snapshot.assets.SPX;
+  const event = snapshot.nextEvent;
+  const eventDate = event ? new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/New_York",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(event.publishAt)).toUpperCase() : null;
+
+  return <section className={styles.challenger}>
+    <header className={styles.challengerHead}>
+      <div><span>CHALLENGER · FORENSIC LEDGER V{snapshot.engine.ledgerVersion}</span><h2>Point-in-time SPX research engine</h2><p>FRED and ALFRED observations follow the Challenger evidence ledger. Disabled rules remain unscored.</p></div>
+      <div className={styles.engineState} data-state={snapshot.status}><small>ENGINE STATUS</small><strong>{snapshot.status.replace("_", " ").toUpperCase()}</strong><a href={`https://github.com/${snapshot.engine.repository}`} target="_blank" rel="noreferrer">Research source ↗</a></div>
+    </header>
+
+    <div className={styles.challengerLead}>
+      <article className={styles.scoreCard} data-bias={asset.bias}>
+        <span>SPX CHALLENGER SCORE</span>
+        <strong>{asset.score == null ? "NOT SCORED" : asset.score.toFixed(1)}</strong>
+        <b>{asset.bias.toUpperCase()}</b>
+        <p>{snapshot.methodology.enabledFactorCount} of {snapshot.methodology.totalFactorCount} rules enabled. The engine fails closed instead of manufacturing conviction.</p>
+      </article>
+      <article className={styles.nextEvent} data-available={Boolean(event)}>
+        <span>NEXT CHALLENGER EVENT</span>
+        {event ? <>
+          <h3>{event.name}</h3>
+          <time dateTime={event.publishAt}>{eventDate}</time>
+          <div><strong>{event.timeEt}</strong><strong>{event.timeMyt}</strong></div>
+          <b>{event.daysUntil === 0 ? "TODAY" : `IN ${event.daysUntil} DAY${event.daysUntil === 1 ? "" : "S"}`}</b>
+          <small>{event.releaseName}</small>
+        </> : <><h3>Schedule unavailable</h3><p>Configure the Live server FRED key or review the current release mapping.</p></>}
+      </article>
+    </div>
+
+    <section className={styles.factorPanel}>
+      <header><div><span>CURRENT DRIVERS</span><h3>Point-in-time factor observations</h3></div><small>OBSERVATIONS ARE CONTEXT, NOT ACTIVE SIGNALS</small></header>
+      <div className={styles.factorGrid}>{asset.factors.map((factor) => <article key={factor.id} data-status={factor.dataStatus}>
+        <div><span>{factor.group} · {factor.seriesId}</span><b>{factor.evidenceStatus}</b></div>
+        <h4>{factor.label}</h4>
+        <strong>{factorValue(factor)}</strong>
+        <p>{factor.delta == null ? "Prior change unavailable" : `${factor.delta >= 0 ? "+" : ""}${factor.delta.toFixed(2)} from prior observation`}</p>
+        <footer><time>{factor.observationDate || "Awaiting FRED"}</time><a href={factor.sourceUrl} target="_blank" rel="noreferrer">FRED ↗</a></footer>
+      </article>)}</div>
+    </section>
+
+    <section className={styles.forwardPanel}>
+      <header><div><span>FORWARD TALLY</span><h3>Challenger event-study horizons</h3></div><p>Results stay blank until validated -1/+1 signals exist.</p></header>
+      <div>{asset.forwardTally.map((row) => <article key={row.horizon}><span>{row.horizon}</span><strong>{row.sampleSize ? `${((row.directionalHitRate || 0) * 100).toFixed(0)}%` : "PENDING"}</strong><small>{row.sampleSize ? `n=${row.sampleSize}` : "NO VALIDATED SIGNALS"}</small></article>)}</div>
+    </section>
+
+    <section className={styles.challengerNotes}>
+      <strong>METHODOLOGY GUARDRAILS</strong>
+      {[...snapshot.methodology.notes, ...snapshot.warnings].map((note) => <p key={note}>{note}</p>)}
+    </section>
+  </section>;
+}
+
+export default function MarketsMonitor({ monitor, flows, challenger }: Props) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"All" | MarketMonitorType>("All");
   const [screen, setScreen] = useState<Screen>("all");
@@ -104,6 +175,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const [lower, setLower] = useState(30);
   const [upper, setUpper] = useState(70);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [surface, setSurface] = useState<Surface>("challenger");
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -121,14 +193,22 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const gapCount = monitor.rows.filter((row) => row.rsi == null || row.dayChange == null).length;
 
   return <div className={styles.workspace}>
-    <section className={styles.statStrip}>
+    <nav className={styles.sectionTabs} aria-label="Markets subsections">
+      <button type="button" data-active={surface === "challenger"} onClick={() => setSurface("challenger")}><span>01</span><strong>Challenger</strong><small>Point-in-time macro</small></button>
+      <button type="button" data-active={surface === "terminal"} onClick={() => setSurface("terminal")}><span>02</span><strong>Cross-Asset</strong><small>Prices and anomalies</small></button>
+      <button type="button" data-active={surface === "flows"} onClick={() => setSurface("flows")}><span>03</span><strong>Flows</strong><small>Gold and oil monitors</small></button>
+    </nav>
+
+    {surface === "challenger" ? <ChallengerPanel snapshot={challenger} /> : null}
+
+    {surface === "terminal" ? <section className={styles.statStrip}>
       <div><span>ASSETS</span><strong>{monitor.rows.length}</strong></div>
       <div><span>HOT NOW</span><strong>{hotCount}</strong></div>
       <div><span>CONTRADICTIONS</span><strong>{monitor.contradictions.length}</strong></div>
       <div><span>PARTIAL DATA</span><strong>{gapCount}</strong></div>
-    </section>
+    </section> : null}
 
-    <section className={styles.terminal}>
+    {surface === "terminal" ? <section className={styles.terminal}>
       <header className={styles.terminalHead}>
         <div><span>CROSS-ASSET TERMINAL</span><h2>Prices, momentum and anomalies</h2><p>Attention Score ranks what deserves a research look first. It is not a trading signal.</p></div>
         <small>LAST REFRESH · {new Date(monitor.updatedAt).toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false })} MYT</small>
@@ -175,18 +255,18 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
         </table>
       </div>
       <div className={styles.resultLine}>{rows.length} assets shown · RSI oversold &lt; {lower} · overbought &gt; {upper}</div>
-    </section>
+    </section> : null}
 
-    {monitor.contradictions.length ? <section className={styles.contradictions}>
+    {surface === "terminal" && monitor.contradictions.length ? <section className={styles.contradictions}>
       <header><span>RESEARCH TRIGGERS</span><h2>Cross-asset contradictions</h2><p>These are relationships worth investigating, not automatic thesis changes.</p></header>
       <div>{monitor.contradictions.map((item) => <article key={item.id}><b>{item.priority}</b><section><span>{item.assets.join(" · ")}</span><h3>{item.title}</h3><p>{item.detail}</p><strong>{item.researchQuestion}</strong></section></article>)}</div>
     </section> : null}
 
-    <div className={styles.flowGrid}>
+    {surface === "flows" ? <div className={styles.flowGrid}>
       <FlowTable title="Central-bank gold watch" rows={flows.gold} />
       <FlowTable title="Global oil flow & demand" rows={flows.oil} />
-    </div>
+    </div> : null}
 
-    {monitor.limitations.length ? <section className={styles.limitations}><strong>DATA NOTES</strong>{monitor.limitations.map((item) => <p key={item}>{item}</p>)}</section> : null}
+    {surface !== "challenger" && monitor.limitations.length ? <section className={styles.limitations}><strong>DATA NOTES</strong>{monitor.limitations.map((item) => <p key={item}>{item}</p>)}</section> : null}
   </div>;
 }
