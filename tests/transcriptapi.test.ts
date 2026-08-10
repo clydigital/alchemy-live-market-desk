@@ -74,6 +74,7 @@ test("info validates the YouTube reference before spending a provider request", 
 for (const scenario of [
   { name: "auth", status: 401, message: "invalid token", code: "provider_auth_error", retryable: false },
   { name: "payment", status: 402, message: "credits required", code: "provider_payment_required", retryable: false },
+  { name: "missing video", status: 404, message: "Video not found", code: "video_not_found", retryable: false },
   { name: "private video", status: 404, message: "This video is private", code: "video_private", retryable: false },
   { name: "deleted video", status: 404, message: "Video was deleted", code: "video_deleted", retryable: false },
   { name: "missing transcript", status: 404, message: "No transcript exists", code: "transcript_missing", retryable: false },
@@ -91,6 +92,23 @@ for (const scenario of [
     );
   });
 }
+
+test("preserves the nested provider message for payment failures", async () => {
+  await assert.rejects(
+    fetchTranscriptApiInfo("yNiWeHGBl98", KEY, {
+      fetchImpl: (async () => json({
+        detail: {
+          message: "The account has no transcript credits.",
+          reason: "insufficient_credits",
+        },
+      }, 402)) as typeof fetch,
+      maxAttempts: 1,
+    }),
+    (error: unknown) => error instanceof TranscriptApiError
+      && error.code === "provider_payment_required"
+      && error.message === "The account has no transcript credits.",
+  );
+});
 
 test("classifies a language-unavailable transcript failure", async () => {
   await assert.rejects(
