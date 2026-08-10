@@ -3,7 +3,7 @@ import {
   type TranscriptApiError,
   type TranscriptApiRetrieval,
   type TranscriptApiTranscript,
-} from "./transcriptapi";
+} from "./transcriptapi.ts";
 
 export type TranscriptIntakeItem = {
   id: string;
