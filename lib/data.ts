@@ -291,7 +291,7 @@ export type MarketStateRecord = {
 export type ResearchRunStatus = {
   id: string;
   run_key: string;
-  schedule_slot: "morning" | "evening" | "manual";
+  schedule_slot: "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
   scheduled_for: string;
   started_at: string;
   completed_at: string | null;
@@ -324,7 +324,20 @@ export type ResearchIntakeQueueItem = {
   published_at: string;
   article_position: number | null;
   transcript_status: "ready" | "missing" | "unavailable" | "not_applicable" | null;
+  transcript_provider: "transcriptapi" | "youtubetotranscript.com" | "official" | "other" | null;
+  video_review_status: "reviewed" | "listened" | "transcript_only" | "unavailable" | null;
   transcript_word_count: number;
+  transcript_language: string | null;
+  transcript_retrieved_at: string | null;
+  transcript_error_code: string | null;
+  transcript_error_message: string | null;
+  transcript_http_status: number | null;
+  transcript_retryable: boolean | null;
+  transcript_attempted_at: string | null;
+  transcript_attempt_count: number;
+  transcript_duration_seconds: number | null;
+  transcript_metadata: Record<string, unknown>;
+  transcript_segment_count: number;
   summary: string;
   affected_story_slugs: string[];
   source_quality: number;
