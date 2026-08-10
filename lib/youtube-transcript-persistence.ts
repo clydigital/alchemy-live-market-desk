@@ -353,6 +353,7 @@ export async function createVideoIntakeRun(input: {
     updated_at: now,
   }, { onConflict: "run_key" }).select("id").single<{ id: string }>();
   throwIfError(error, "Could not create the video intake research run");
+  if (!data) throw new Error("Could not create the video intake research run: no row returned.");
   const { error: slotError } = await client.from("research_slot_runs").upsert({
     research_run_id: data.id,
     slot_key: input.slot,
@@ -425,6 +426,7 @@ export async function ensureVideoIntakeItem(input: {
     updated_at: new Date().toISOString(),
   }).select(select).single<IntakeRow>();
   throwIfError(error, "Could not persist the discovered video intake item");
+  if (!data) throw new Error("Could not persist the discovered video intake item: no row returned.");
   return toIntakeItem(data);
 }
 
