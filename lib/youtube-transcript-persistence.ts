@@ -26,6 +26,8 @@ type IntakeRow = {
   transcript_segments?: unknown;
   transcript_duration_seconds?: number | null;
   transcript_metadata?: unknown;
+  transcript_retrieved_at?: string | null;
+  transcript_attempt_count?: number | null;
 };
 
 type RunRow = {
@@ -72,6 +74,7 @@ function toIntakeItem(row: IntakeRow): TranscriptIntakeItem {
     url: row.url,
     transcriptStatus: row.transcript_status,
     required: true,
+    attemptCount: row.transcript_attempt_count ?? 0,
   };
 }
 
@@ -85,7 +88,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
   async findReadyTranscript(videoId: string): Promise<ReadyTranscriptCache | null> {
     const { data, error } = await this.client
       .from("research_intake_items")
-      .select("id,run_id,external_id,publisher,title,url,transcript_status,transcript_text,transcript_language,transcript_segments,transcript_duration_seconds,transcript_metadata")
+      .select("id,run_id,external_id,publisher,title,url,transcript_status,transcript_text,transcript_language,transcript_segments,transcript_duration_seconds,transcript_metadata,transcript_retrieved_at,transcript_attempt_count")
       .eq("item_type", "video")
       .eq("external_id", videoId)
       .eq("transcript_status", "ready")
@@ -98,6 +101,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
     return {
       itemId: data.id,
       runId: data.run_id,
+      retrievedAt: data.transcript_retrieved_at || new Date(0).toISOString(),
       transcript: {
         videoId,
         language: data.transcript_language || "unknown",
@@ -114,7 +118,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
   async findVideoItem(videoId: string): Promise<TranscriptIntakeItem | null> {
     const { data, error } = await this.client
       .from("research_intake_items")
-      .select("id,run_id,external_id,publisher,title,url,transcript_status")
+      .select("id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempt_count")
       .eq("item_type", "video")
       .eq("external_id", videoId)
       .order("updated_at", { ascending: false })
@@ -140,6 +144,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
         transcript_error_message: null,
         transcript_http_status: transcript.httpStatus,
         transcript_retryable: false,
+        transcript_attempt_count: item.attemptCount + 1,
         transcript_duration_seconds: transcript.durationSeconds,
         transcript_metadata: {
           ...retrieval.info,
@@ -167,6 +172,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
         transcript_error_message: failure.message.slice(0, 1_000),
         transcript_http_status: failure.httpStatus,
         transcript_retryable: failure.retryable,
+        transcript_attempt_count: item.attemptCount + 1,
         video_review_status: failure.retryable ? null : "unavailable",
         status: "blocked",
         review_reason: `TranscriptAPI failed with ${failure.code}; creator claims remain blocked.`,
@@ -187,6 +193,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       retryable: debt.retryable,
       retryAfterSeconds: debt.retryAfterSeconds,
       lastAttemptedAt: debt.attemptedAt,
+      attemptCount: item.attemptCount + 1,
     };
     const { data: existing, error: readError } = await this.client
       .from("research_debt")
@@ -374,7 +381,7 @@ export async function ensureVideoIntakeItem(input: {
 }) {
   const client = input.client ?? createSupabaseAdminClient();
   const itemKey = `youtube:${input.channelKey}:${input.video.videoId}`;
-  const select = "id,run_id,external_id,publisher,title,url,transcript_status";
+  const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempt_count";
   const { data: existing, error: readError } = await client
     .from("research_intake_items")
     .select(select)
@@ -464,9 +471,7 @@ export async function finalizeVideoIntakeRun(input: {
   }).eq("id", input.runId);
   throwIfError(error, "Could not finalize the video intake research run");
   const transcriptStatus = failures.length ? (ready ? "partial" : "blocked") : "complete";
-  const { error: slotError } = await client.from("research_slot_runs").upsert({
-    research_run_id: input.runId,
-    slot_key: input.slot,
+  const { error: slotError } = await client.from("research_slot_runs").update({
     completed_at: completedAt,
     last_heartbeat_at: completedAt,
     status: blocked ? "blocked" : "completed",
@@ -481,7 +486,7 @@ export async function finalizeVideoIntakeRun(input: {
     stage_summary: { discovery: processLog[0], transcript: processLog[1] },
     warnings,
     updated_at: completedAt,
-  }, { onConflict: "research_run_id" });
+  }).eq("research_run_id", input.runId);
   throwIfError(slotError, "Could not finalize the video intake slot run");
 }
 
