@@ -127,6 +127,7 @@ export async function retrieveAndPersistTranscript(input: {
 }): Promise<TranscriptPipelineResult> {
   const cached = await input.store.findReadyTranscript(input.videoId);
   if (cached) {
+    await input.store.recalculateRunState(cached.runId);
     return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true);
   }
 
