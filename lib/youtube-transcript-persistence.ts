@@ -268,7 +268,11 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       .eq("item_type", "video");
     throwIfError(itemsError, "Could not recalculate transcript run state");
     const videos = items || [];
-    const ready = videos.filter((item) => item.transcript_status === "ready").length;
+    const readyVideos = videos.filter((item) => item.transcript_status === "ready");
+    const ready = readyVideos.length;
+    const readyVideoIds = readyVideos
+      .map((item) => item.external_id)
+      .filter((value): value is string => Boolean(value));
     const { data: run, error: runError } = await this.client
       .from("research_runs")
       .select("id,run_key,schedule_slot,scheduled_for,started_at,completed_at,status,warnings,process_log")
@@ -292,10 +296,14 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
     const stageIndex = processLog.findIndex((entry) => entry.stage === "transcribe_and_review_videos");
     if (stageIndex >= 0) processLog[stageIndex] = stageEntry;
     else processLog.push(stageEntry);
+    const warnings = (run.warnings || []).filter(
+      (warning) => !readyVideoIds.some((videoId) => warning.includes(videoId)),
+    );
     const { error: updateError } = await this.client.from("research_runs").update({
       videos_found: videos.length,
       transcripts_ready: ready,
       process_log: processLog,
+      warnings,
       updated_at: new Date().toISOString(),
     }).eq("id", runId);
     throwIfError(updateError, "Could not update transcript run counters");
@@ -321,7 +329,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       videos_detected: videos.length,
       transcripts_saved: ready,
       stage_summary: { transcript: stageEntry },
-      warnings: run.warnings || [],
+      warnings,
       updated_at: new Date().toISOString(),
     }, { onConflict: "research_run_id" });
     throwIfError(slotError, "Could not update transcript slot state");
