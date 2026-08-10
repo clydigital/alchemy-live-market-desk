@@ -69,6 +69,17 @@ create index if not exists research_intake_items_ready_video_cache_idx
     and transcript_status = 'ready'
     and transcript_text is not null;
 
+alter table public.research_schedule_slots
+  drop constraint if exists research_schedule_slots_slot_key_check;
+
+alter table public.research_schedule_slots
+  add constraint research_schedule_slots_slot_key_check
+  check (
+    slot_key = any (
+      array['video_midnight'::text, 'morning'::text, 'video_late_morning'::text, 'evening'::text]
+    )
+  );
+
 insert into public.research_schedule_slots (
   slot_key,
   local_time,
