@@ -400,7 +400,7 @@ function formatDate(time: number | undefined) {
   return typeof time === "number" ? new Date(time * 1000).toISOString().slice(0, 10) : null;
 }
 
-function makeRows(rawSeries: RawSeries[]) {
+function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
   const prelim = rawSeries.map((raw) => {
     const points = raw.points.filter((point) => Number.isFinite(point.close)).sort((a, b) => a.time - b.time);
     const last = points.at(-1);
