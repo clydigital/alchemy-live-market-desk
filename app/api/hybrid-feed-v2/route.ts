@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
+import { getChallengerSnapshot } from "@/lib/challenger";
 import { getDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
@@ -13,11 +14,12 @@ export const revalidate = 60;
 
 export async function GET() {
   const generatedAt = new Date().toISOString();
-  const [data, records, marketMonitor, flowMonitors] = await Promise.all([
+  const [data, records, marketMonitor, flowMonitors, challenger] = await Promise.all([
     getDeskData(),
     getHybridPublicationRecords(),
     getMarketMonitor(),
     getGlobalFlowMonitor(),
+    getChallengerSnapshot(),
   ]);
   const [storyImages, baseCaseMonitors] = await Promise.all([
     getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
@@ -50,6 +52,7 @@ export async function GET() {
       caseMonitors,
       marketMonitor,
       flowMonitors,
+      challenger,
     },
     research: {
       health: researchScheduleHealth(data.researchRuns),
