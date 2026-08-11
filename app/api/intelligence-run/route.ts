@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { runIntelligenceEngine, type IntelligenceTriggerKind } from "@/lib/intelligence/runtime";
+import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,10 @@ const VALID_TRIGGER_KINDS = new Set<IntelligenceTriggerKind>([
 ]);
 
 function authorize(request: Request) {
-  const expected = process.env.RESEARCH_UPDATE_TOKEN || process.env.CRON_SECRET;
-  if (!expected) return false;
-  const header = request.headers.get("authorization") || "";
-  return header === `Bearer ${expected}`;
+  return acceptsResearchAuthorization(request.headers.get("authorization"), [
+    process.env.RESEARCH_UPDATE_TOKEN,
+    process.env.CRON_SECRET,
+  ]);
 }
 
 export async function GET(request: Request) {
