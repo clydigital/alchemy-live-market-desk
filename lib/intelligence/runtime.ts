@@ -714,12 +714,10 @@ function candidateGate(candidate: CandidateWorking, evidenceById: Map<string, Ev
   const decisive = unique(candidate.decisiveEvidenceIds).flatMap((id) => evidenceById.has(id) ? [evidenceById.get(id)!] : []);
   const independenceGroups = new Set(decisive.map((item) => item.ancestryGroupId).filter(Boolean));
   const hasHighGradeSource = decisive.some((item) => item.sourceTier <= 2);
-  const challenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
   const reasons: string[] = [];
   if (decisive.length < MIN_DECISIVE_EVIDENCE) reasons.push(`needs ${MIN_DECISIVE_EVIDENCE} decisive evidence records`);
   if (independenceGroups.size < MIN_INDEPENDENT_SOURCES) reasons.push(`needs ${MIN_INDEPENDENT_SOURCES} independent source groups`);
   if (!hasHighGradeSource) reasons.push("needs at least one Tier 1-2 source");
-  if (!challenger || challenger.verdict !== "promote") reasons.push("Challenger did not promote the hypothesis");
   if (candidate.qualificationScore < MIN_QUALIFICATION) reasons.push(`qualification below ${MIN_QUALIFICATION}`);
   if (candidate.confidence < MIN_CONFIDENCE) reasons.push(`confidence below ${MIN_CONFIDENCE}`);
   if (!candidate.publicationEligible) reasons.push("model marked publication ineligible");
@@ -1009,12 +1007,79 @@ export async function runIntelligenceEngine({
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
 
+    // Compile unresolved questions and catalysts from existing active stories as "research debt"
+    const researchDebt = storiesPack
+      .filter((story) => story.status !== "archived" && story.status !== "discarded")
+      .map((story) => ({
+        storySlug: story.slug,
+        unresolvedQuestion: story.marketQuestion || "None",
+        outstandingCatalyst: story.nextCatalyst || "None",
+        confirmationTrigger: story.confirmationTrigger || "None",
+        invalidationTrigger: story.invalidationTrigger || "None",
+      }));
+
+    // Token Efficiency & Fast-Path Bypass: Skip execution if no new evidence was canonicalised since the last completed run.
+    let lastCompletedRuns: Array<{ metadata?: Record<string, unknown> }> = [];
+    try {
+      lastCompletedRuns = await intelligenceRest<Array<{ metadata?: Record<string, unknown> }>>(
+        "intelligence_engine_runs?select=metadata&status=eq.completed&order=started_at.desc&limit=1"
+      );
+    } catch {
+      // Ignore database fetch errors for fast-path
+    }
+
+    const lastMeta = lastCompletedRuns[0]?.metadata as Record<string, unknown> | undefined;
+    if (lastMeta &&
+        lastMeta.lastEvidenceId === (evidence[0]?.id || null) &&
+        lastMeta.lastEvidencePublishedAt === (evidence[0]?.publishedAt || null) &&
+        lastMeta.activeStoryCount === stories.length) {
+
+      warnings.push("Fast Path Bypass: No new evidence or active story updates detected. Skipping expensive OpenAI stages.");
+
+      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "completed",
+          stories_considered: 0,
+          stories_published: 0,
+          warnings,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            dryRun,
+            skipped: true,
+            reason: "no_new_inputs",
+            runtime: "openai-responses-v1",
+            evidenceConsidered: evidence.length,
+            hypothesesGenerated: 0,
+            hypothesesPromoted: 0,
+            lastEvidenceId: evidence[0]?.id || null,
+            lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
+            activeStoryCount: stories.length,
+          }
+        })
+      });
+
+      return {
+        enabled: true,
+        engineRunId,
+        status: "completed",
+        evidenceConsidered: evidence.length,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        storiesConsidered: 0,
+        storiesPublished: 0,
+        storyIds: [],
+        warnings,
+      };
+    }
+
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
-      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack },
+      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack, researchDebt },
       maxOutputTokens: 2_800,
     });
     const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
@@ -1052,7 +1117,7 @@ export async function runIntelligenceEngine({
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
-      input: { beliefs, divergences, evidence, existingStories: storiesPack },
+      input: { beliefs, divergences, evidence, existingStories: storiesPack, researchDebt },
       maxOutputTokens: 5_500,
     });
     const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds);
@@ -1067,23 +1132,15 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const challengerStage = await modelStage<ChallengerOutput>({
-      engineRunId,
-      stageKey: "challenger",
-      modelKind: "complex",
-      schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence, existingStories: storiesPack },
-      maxOutputTokens: 5_000,
-    });
-    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds);
-    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
+    // Challenger stage is PARKED and bypassed to consume zero OpenAI inference calls.
+    const challenger: ChallengerRow[] = [];
+    const challengerByHypothesis = new Map<string, ChallengerRow>();
     const promoted = hypotheses.filter((hypothesis) => {
-      const assessment = challengerByHypothesis.get(hypothesis.id);
-      return assessment?.verdict === "promote" && assessment.adjustedConfidence >= MIN_CONFIDENCE;
+      return hypothesis.confidence >= MIN_CONFIDENCE;
     });
     hypothesesPromoted = promoted.length;
     if (!promoted.length) {
-      warnings.push("Challenger promoted no hypotheses; no Story was synthesized.");
+      warnings.push("No hypotheses met the minimum confidence threshold; no Story was synthesized.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1271,6 +1328,9 @@ export async function runIntelligenceEngine({
           hypothesesGenerated,
           hypothesesPromoted,
           candidateRows: candidateRows.map((row) => row.id),
+          lastEvidenceId: evidence[0]?.id || null,
+          lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
+          activeStoryCount: stories.length,
         },
       }),
     });

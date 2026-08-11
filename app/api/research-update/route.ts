@@ -81,7 +81,7 @@ export async function GET() {
   return response({
     generatedAt: new Date().toISOString(),
     timezone: "Asia/Kuala_Lumpur",
-    schedule: ["08:30", "22:00"],
+    schedule: ["09:15", "21:15"],
     health: researchScheduleHealth(data.researchRuns),
     runs: data.researchRuns.slice(0, 10),
     queue: data.researchIntake.slice(0, 50),
