@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, type MarketStateRecord } from "@/lib/data";
+import { selectLegacyStoriesForPublication } from "@/lib/hybrid-publication";
+import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getMarketData, type MarketData, type MarketSeries } from "@/lib/market";
 import { researchScheduleHealth } from "@/lib/research-update";
 
@@ -104,7 +106,7 @@ function generatedState(market: MarketData, records: MarketStateRecord[]) {
 }
 
 export async function GET() {
-  const [data, market, calendar] = await Promise.all([getDeskData(), getMarketData(), getEconomicCalendar()]);
+  const [data, market, calendar, recordLayer] = await Promise.all([getDeskData(), getMarketData(), getEconomicCalendar(), getStoryRecordLayer()]);
   const accuracy = runAccuracyCheck(market);
   const marketState = generatedState(market, data.marketStateRecords);
   const tickers = [...new Set([...data.calls.map((item) => item.ticker), ...data.guidance.flatMap((item) => item.ticker ? [item.ticker] : [])])].slice(0, 16);
@@ -136,7 +138,7 @@ export async function GET() {
       missionXp: call?.transcript_status === "official" ? 25 : 15,
     };
   });
-  const stories = data.stories.slice(0, 20).map((story) => ({
+  const stories = selectLegacyStoriesForPublication(data.stories, recordLayer.events).map((story) => ({
     id: story.id,
     slug: story.slug,
     title: story.title,

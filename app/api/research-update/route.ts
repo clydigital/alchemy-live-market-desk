@@ -6,7 +6,12 @@ import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
+import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { getMarketData } from "@/lib/market";
+import {
+  runScheduledResearchIntelligence,
+  unavailableScheduledIntelligence,
+} from "@/lib/intelligence/scheduled-orchestrator";
 import {
   researchScheduleHealth,
   validateResearchRun,
@@ -120,10 +125,12 @@ export async function POST(request: Request) {
   }
 
   const accuracy = runAccuracyCheck(await getMarketData());
+  const macroLifecycle = await persistMacroReleaseLifecycle();
   const publishGateOpen = accuracy.updateGate === "open"
     && validation.requiredSourcesComplete
     && validation.evidenceGatePassed;
   const warnings = [...validation.warnings];
+  if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
   if (accuracy.updateGate !== "open") warnings.push(`Accuracy gate is ${accuracy.updateGate}; story recalibration was not published.`);
   if (!validation.requiredSourcesComplete) warnings.push("At least one required source check was blocked.");
@@ -135,6 +142,7 @@ export async function POST(request: Request) {
       accuracy,
       warnings,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       scoredItems: validation.scoredItems.map(({ transcriptText: _transcriptText, ...item }) => item),
     });
   }
@@ -211,6 +219,20 @@ export async function POST(request: Request) {
       });
     }
 
+    let autonomousIntelligence = unavailableScheduledIntelligence("Autonomous intelligence did not start.");
+    try {
+      autonomousIntelligence = await runScheduledResearchIntelligence({
+        researchRunId: runId,
+        researchRunKey: input.runKey,
+        items: validation.scoredItems,
+      });
+      warnings.push(...autonomousIntelligence.warnings);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      autonomousIntelligence = unavailableScheduledIntelligence(`Autonomous intelligence is unavailable: ${detail}`);
+      warnings.push(...autonomousIntelligence.warnings);
+    }
+
     let updatesPublished = 0;
     if (publishGateOpen && validation.recalibrations.length) {
       const stories = await rest<Array<{ id: string; slug: string; confidence: number }>>(
@@ -255,13 +277,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const totalUpdatesPublished = updatesPublished + autonomousIntelligence.storiesPublished;
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         completed_at: new Date().toISOString(),
         status: runStatus,
-        updates_published: updatesPublished,
+        updates_published: totalUpdatesPublished,
         warnings,
         updated_at: new Date().toISOString(),
       }),
@@ -276,8 +299,11 @@ export async function POST(request: Request) {
       runId,
       status: runStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
-      updatesPublished,
+      updatesPublished: totalUpdatesPublished,
+      legacyRecalibrationsPublished: updatesPublished,
+      autonomousIntelligence,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
     }, runStatus === "completed" ? 200 : 202);

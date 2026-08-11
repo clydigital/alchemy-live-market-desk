@@ -9,6 +9,7 @@ import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar"
 import { getDeskData, type MacroRelease } from "@/lib/data";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
+import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
 import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
@@ -232,7 +233,7 @@ export default async function Page({ searchParams }: PageProps) {
   const releaseStories = getRelatedStoriesForRelease(immediateRelease, data.stories, 3);
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
 
-  const storyRows = data.stories.slice(0, 12);
+  const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
   const stories = storyRows.map((story) => {
     const image = storyImages.get(story.id);
