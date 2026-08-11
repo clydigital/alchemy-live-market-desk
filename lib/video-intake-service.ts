@@ -69,6 +69,7 @@ export async function runScheduledVideoIntake(input: {
   const channels = await discoverXwadaVideoChannels(startedAt);
   const results: TranscriptPipelineResult[] = [];
   const deferredVideoIds: string[] = [];
+  let providerAttempts = 0;
 
   // Process the first new upload from each required channel before spending the
   // bounded TranscriptAPI budget on secondary creators or a second upload.
@@ -86,11 +87,16 @@ export async function runScheduledVideoIntake(input: {
         video,
         client: run.client,
       });
-      if (results.length >= maxTranscriptAttempts) {
+      // Cached transcripts should not consume the provider budget, otherwise a
+      // run full of old uploads can defer a fresh required-channel video.
+      const cached = await store.findReadyTranscript(video.videoId);
+      if (!cached && providerAttempts >= maxTranscriptAttempts) {
         deferredVideoIds.push(video.videoId);
         continue;
       }
-      results.push(await processVideo(video.videoId, store));
+      const result = await processVideo(video.videoId, store);
+      results.push(result);
+      if (!result.cacheHit && result.status !== "not_found") providerAttempts += 1;
     }
   }
 

@@ -100,6 +100,11 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(minimum, Math.min(maximum, Math.floor(value!)));
+}
+
 export async function runStructuredStage<T>({
   stageKey,
   instructions,
@@ -107,6 +112,8 @@ export async function runStructuredStage<T>({
   schema,
   modelKind = "complex",
   maxOutputTokens = 4_000,
+  requestTimeoutMs,
+  maxAttempts,
 }: {
   stageKey: string;
   instructions: string;
@@ -114,6 +121,9 @@ export async function runStructuredStage<T>({
   schema: JsonSchema;
   modelKind?: "complex" | "fast";
   maxOutputTokens?: number;
+  /** Per-stage controls used by bounded serverless orchestrators. */
+  requestTimeoutMs?: number;
+  maxAttempts?: number;
 }): Promise<OpenAIStageResult<T>> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -124,6 +134,8 @@ export async function runStructuredStage<T>({
 
   const model = intelligenceModel(modelKind);
   const effort = intelligenceReasoningEffort(modelKind);
+  const timeoutMs = boundedInteger(requestTimeoutMs, 60_000, 1_000, 60_000);
+  const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const body = {
     model,
     instructions,
@@ -143,7 +155,7 @@ export async function runStructuredStage<T>({
   };
 
   let lastError: OpenAIStageError | null = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < attemptLimit; attempt += 1) {
     let response: Response;
     try {
       response = await fetch(API_URL, {
@@ -154,7 +166,7 @@ export async function runStructuredStage<T>({
         },
         body: JSON.stringify(body),
         cache: "no-store",
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "OpenAI request failed before receiving a response.";
@@ -162,7 +174,7 @@ export async function runStructuredStage<T>({
         code: error instanceof DOMException && error.name === "TimeoutError" ? "timeout" : "network_error",
         retryable: true,
       });
-      if (attempt < 2) {
+      if (attempt < attemptLimit - 1) {
         await sleep(retryDelay(attempt, null));
         continue;
       }
@@ -191,7 +203,7 @@ export async function runStructuredStage<T>({
           retryable,
         },
       );
-      if (retryable && attempt < 2) {
+      if (retryable && attempt < attemptLimit - 1) {
         await sleep(retryDelay(attempt, response.headers.get("retry-after")));
         continue;
       }
