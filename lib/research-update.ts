@@ -11,7 +11,7 @@ export const REQUIRED_RESEARCH_SOURCES = [
   "alchemy-market-insights",
 ] as const;
 
-export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number];
+export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number] | string;
 export type ResearchScheduleSlot = "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
 export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
 export type IntakeItemType = "video" | "news" | "alchemy_article";
@@ -148,23 +148,42 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   if (!validDate(input.scheduledFor)) errors.push("scheduledFor must be a valid date.");
   if (items.length > 250) errors.push("A run may contain at most 250 retained intake items.");
 
+  const isOrchestration = input.runKey?.startsWith("orchestration:") || false;
   const sourceMap = new Map(sourceChecks.map((check) => [check.source, check]));
   if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
-  for (const required of REQUIRED_RESEARCH_SOURCES) {
-    const check = sourceMap.get(required);
-    if (!check) {
-      errors.push(`Missing source check: ${required}.`);
-      continue;
+
+  if (!isOrchestration) {
+    for (const required of REQUIRED_RESEARCH_SOURCES) {
+      const check = sourceMap.get(required);
+      if (!check) {
+        errors.push(`Missing source check: ${required}.`);
+        continue;
+      }
+      if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
+      if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
+      if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
+      if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
     }
-    if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
-    if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
-    if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
-    if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
+  } else {
+    // Dynamic Orchestrator checks - ensure reported sources are valid
+    for (const [key, check] of sourceMap.entries()) {
+      if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${key}.`);
+      if (!Number.isInteger(check.itemCount ?? 0) || (check.itemCount ?? 0) < 0) errors.push(`Invalid itemCount for ${key}.`);
+      if (check.status === "blocked") warnings.push(`${key} was blocked: ${check.note || "no reason supplied"}.`);
+    }
   }
-  const requiredSourcesComplete = REQUIRED_RESEARCH_SOURCES.every((source) => {
-    const check = sourceMap.get(source);
-    return check && check.status !== "blocked";
-  });
+
+  const requiredSourcesComplete = isOrchestration
+    ? (
+        sourceMap.has("economic-calendar") &&
+        sourceMap.has("market-data") &&
+        sourceMap.get("economic-calendar")?.status !== "blocked" &&
+        sourceMap.get("market-data")?.status !== "blocked"
+      ) // Core autonomous acquisition (economic-calendar and market-data) must succeed without blockages
+    : REQUIRED_RESEARCH_SOURCES.every((source) => {
+        const check = sourceMap.get(source);
+        return check && check.status !== "blocked";
+      });
 
   const itemKeys = new Set<string>();
   const articlePositions = new Set<number>();

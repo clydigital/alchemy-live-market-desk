@@ -80,6 +80,7 @@ type StoryRow = {
   next_catalyst: string | null;
   assets: string[];
   created_by?: string;
+  updated_at?: string;
 };
 
 type PromptVersion = {
@@ -176,6 +177,20 @@ const MIN_CONFIDENCE = 60;
 const CORE_RULES = `You are the reasoning layer inside the Alchemy Markets Live Desk. The Live Desk is the canonical research brain.
 Use only the evidence, Stories, hypotheses and scenario records supplied in this request. Never invent a source, fact, market move, consensus view, evidence ID or Story ID.
 This is not a news summarisation task. Synthesize across independent evidence, distinguish the accepted market view from the overlooked variable, build explicit causal mechanisms, test the strongest countercase and preserve uncertainty.
+
+US-FIRST GLOBAL TRANSMISSION RULES:
+- Prioritise US and global market relevance. Treat yields, oil, commodities, and cross-asset transmission as critical macro inputs.
+- Assess non-US market moves (e.g. Europe, Japan, Korea) for material global or US market transmission.
+- Do not use a simple country whitelist. Promote a non-US development only if it has:
+  1. abnormality versus recent volatility;
+  2. breadth of the move;
+  3. cross-asset confirmation;
+  4. direct or indirect transmission to US markets;
+  5. global macro mechanism;
+  6. persistence;
+  7. narrative or positioning repricing.
+- When a non-US market move is promoted, explicitly document its implications for US/global markets.
+
 Creator/video commentary is research-lead material, not proof unless independently verified. A single article can never be the sole basis for a new Story.
 Do not claim that something is unpriced or mispriced unless the supplied evidence directly supports that conclusion.
 Prefer updating an existing Story when the event, thesis, mechanism and deciding evidence are substantially the same. Do not create a duplicate Story merely because the headline changed.
@@ -401,14 +416,27 @@ async function modelStage<T>({
 
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,updated_at&status=neq.archived&status=neq.discarded&order=updated_at.desc",
   );
 }
 
 async function canonicaliseIntake(stories: StoryRow[]) {
-  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
+  let since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
+  try {
+    const lastRuns = await intelligenceRest<Array<{ started_at: string }>>(
+      "intelligence_engine_runs?select=started_at&status=eq.completed&order=started_at.desc&limit=1"
+    );
+    if (lastRuns[0]?.started_at) {
+      // Use a 10-minute overlap safety margin to ensure we don't miss concurrently written items
+      const padTime = new Date(Date.parse(lastRuns[0].started_at) - 10 * 60_000);
+      since = padTime.toISOString();
+    }
+  } catch {
+    // Fallback to default lookback on error
+  }
+
   const rows = await intelligenceRest<IntakeRow[]>(
-    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&published_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=180`,
+    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&updated_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=180`,
   );
   const usable = rows.filter((item) => {
     if (!item.summary?.trim() || !item.url?.startsWith("https://")) return false;
@@ -1028,11 +1056,17 @@ export async function runIntelligenceEngine({
       // Ignore database fetch errors for fast-path
     }
 
+    // Deterministic watermark hash of current evidence state and story state
+    const currentWatermark = createHash("sha256")
+      .update(JSON.stringify({
+        lastEvidenceId: evidence[0]?.id || null,
+        lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
+        storyWatermark: stories.map(s => ({ id: s.id, updated_at: s.updated_at, confidence: s.confidence }))
+      }))
+      .digest("hex");
+
     const lastMeta = lastCompletedRuns[0]?.metadata as Record<string, unknown> | undefined;
-    if (lastMeta &&
-        lastMeta.lastEvidenceId === (evidence[0]?.id || null) &&
-        lastMeta.lastEvidencePublishedAt === (evidence[0]?.publishedAt || null) &&
-        lastMeta.activeStoryCount === stories.length) {
+    if (lastMeta && lastMeta.watermark === currentWatermark) {
 
       warnings.push("Fast Path Bypass: No new evidence or active story updates detected. Skipping expensive OpenAI stages.");
 
@@ -1053,9 +1087,7 @@ export async function runIntelligenceEngine({
             evidenceConsidered: evidence.length,
             hypothesesGenerated: 0,
             hypothesesPromoted: 0,
-            lastEvidenceId: evidence[0]?.id || null,
-            lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
-            activeStoryCount: stories.length,
+            watermark: currentWatermark
           }
         })
       });
@@ -1328,9 +1360,7 @@ export async function runIntelligenceEngine({
           hypothesesGenerated,
           hypothesesPromoted,
           candidateRows: candidateRows.map((row) => row.id),
-          lastEvidenceId: evidence[0]?.id || null,
-          lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
-          activeStoryCount: stories.length,
+          watermark: currentWatermark
         },
       }),
     });

@@ -88,7 +88,7 @@ export async function GET() {
     intelligence: {
       enabled: openAIIntelligenceEnabled(),
       owner: "Live Desk",
-      mode: "evidence_to_hypothesis_to_challenger_to_story",
+      mode: "evidence_to_hypothesis_to_story_synthesis",
     },
     highImpactCalendar: calendarItems.map(({ evidence, ...item }) => ({ ...item, evidenceCount: evidence?.length || 0 })),
   });

@@ -93,6 +93,9 @@ const CORE_NASDAQ: SeriesSpec[] = [
   { symbol: "FXB", providerSymbol: "FXB", assetClass: "etf", label: "Sterling (FXB proxy)" },
   { symbol: "FXC", providerSymbol: "FXC", assetClass: "etf", label: "Canadian dollar (FXC proxy)" },
   { symbol: "EWJ", providerSymbol: "EWJ", assetClass: "etf", label: "Japan equities (EWJ proxy)" },
+  { symbol: "VGK", providerSymbol: "VGK", assetClass: "etf", label: "Europe equities (VGK proxy)" },
+  { symbol: "EWY", providerSymbol: "EWY", assetClass: "etf", label: "South Korea equities (EWY proxy)" },
+  { symbol: "EWU", providerSymbol: "EWU", assetClass: "etf", label: "UK equities (EWU proxy)" },
 ];
 
 const MAG7 = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA"];

@@ -5,10 +5,11 @@ import { runAutonomousOrchestration } from "@/lib/intelligence/coordinator";
 export const dynamic = "force-dynamic";
 
 function authorize(request: Request) {
-  const expected = process.env.RESEARCH_UPDATE_TOKEN || process.env.CRON_SECRET;
-  if (!expected) return false;
-  const header = request.headers.get("authorization") || "";
-  return header === `Bearer ${expected}`;
+  const header = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!header) return false;
+  const updateToken = process.env.RESEARCH_UPDATE_TOKEN?.trim();
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  return (updateToken && header === updateToken) || (cronSecret && header === cronSecret);
 }
 
 function getHostEndpoint(request: Request) {
