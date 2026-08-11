@@ -150,6 +150,14 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
 
   const sourceMap = new Map(sourceChecks.map((check) => [check.source, check]));
   if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
+  if (sourceChecks.length !== REQUIRED_RESEARCH_SOURCES.length) {
+    errors.push(`sourceChecks must contain exactly ${REQUIRED_RESEARCH_SOURCES.length} required sources.`);
+  }
+  for (const check of sourceChecks) {
+    if (!(REQUIRED_RESEARCH_SOURCES as readonly string[]).includes(check.source)) {
+      errors.push(`Unknown source check: ${check.source}.`);
+    }
+  }
   for (const required of REQUIRED_RESEARCH_SOURCES) {
     const check = sourceMap.get(required);
     if (!check) {
@@ -158,6 +166,15 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     }
     if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
     if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
+    if (check.status === "checked" && check.itemCount < 1) {
+      errors.push(`${required} cannot be checked with zero retained items; use no_new_items when the direct acquisition succeeded without a new item.`);
+    }
+    if (check.status === "no_new_items" && check.itemCount !== 0) {
+      errors.push(`${required} cannot report no_new_items with a positive itemCount.`);
+    }
+    if (check.status === "blocked" && check.itemCount !== 0) {
+      errors.push(`${required} cannot report blocked with a positive itemCount.`);
+    }
     if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
     if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
   }

@@ -1,34 +1,21 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import { retrieveAndPersistTranscript, type TranscriptPipelineResult } from "@/lib/transcript-pipeline";
+import { retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
 import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
-import {
-  createVideoIntakeRun,
-  ensureVideoIntakeItem,
-  finalizeVideoIntakeRun,
-  SupabaseTranscriptStore,
-  type VideoResearchSlot,
-} from "@/lib/youtube-transcript-persistence";
-import { discoverXwadaVideoChannels, xwadaDiscoverySummary } from "@/lib/youtube-reliability";
+import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import { runScheduledVideoIntake } from "@/lib/video-intake-service";
+import { SupabaseTranscriptStore, type VideoResearchSlot } from "@/lib/youtube-transcript-persistence";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-function tokensEqual(supplied: string, expected: string) {
-  if (!supplied || supplied.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
-}
-
 function authenticated(request: Request) {
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  const accepted = [
+  return acceptsResearchAuthorization(request.headers.get("authorization"), [
     process.env.RESEARCH_UPDATE_TOKEN,
     process.env.CRON_SECRET,
     process.env.VERCEL_ENV === "production" ? null : process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
-  ].filter((token): token is string => Boolean(token));
-  return accepted.some((token) => tokensEqual(supplied, token));
+  ]);
 }
 
 function response(body: unknown, status = 200) {
@@ -116,54 +103,18 @@ async function runDiscovery(request: Request) {
   const slot = selectedSlot(startedAt, requestUrl.searchParams.get("slot"));
   const local = localParts(startedAt);
   const runKey = `${slot}-${local.date}`;
-  const run = await createVideoIntakeRun({
+  const intake = await runScheduledVideoIntake({
     slot,
     runKey,
     scheduledFor: scheduledFor(local.date, slot),
+    now: startedAt,
   });
-  const store = new SupabaseTranscriptStore(run.client);
-  const channels = await discoverXwadaVideoChannels(startedAt);
-  const results: TranscriptPipelineResult[] = [];
-
-  for (const channel of channels) {
-    for (const video of channel.videos) {
-      await ensureVideoIntakeItem({
-        runId: run.id,
-        channelKey: channel.channelKey,
-        video,
-        client: run.client,
-      });
-      results.push(await processVideo(video.videoId, store));
-    }
-  }
-
-  const discoveryFailures = channels
-    .filter((channel) => !["checked", "no_recent_videos"].includes(channel.status))
-    .map((channel) => ({
-      source: channel.channelName,
-      detail: channel.detail || channel.status,
-    }));
-  await finalizeVideoIntakeRun({
-    runId: run.id,
-    slot,
-    channelChecks: channels.map((channel) => ({
-      source: channel.channelName,
-      status: channel.status,
-      itemCount: channel.videos.length,
-      note: channel.detail,
-    })),
-    results,
-    discoveryFailures,
-    client: run.client,
-  });
-
-  const failedTranscripts = results.filter((result) => result.status === "failed");
   return response({
     engine: "XWADA",
     mode: "scheduled_video_intake",
-    runId: run.id,
+    runId: intake.runId,
     runKey,
-    generatedAt: new Date().toISOString(),
+    generatedAt: intake.generatedAt,
     timezone: "Asia/Kuala_Lumpur",
     policy: {
       discovery: "YouTube Data API uploads playlist",
@@ -172,16 +123,11 @@ async function runDiscovery(request: Request) {
       transcriptProvider: "TranscriptAPI v2",
       transcriptOrder: ["/youtube/info", "/youtube/transcript"],
       cache: "Database-first; completed transcripts are never fetched twice.",
-      failureRule: "Required transcript failures stay blocked and create idempotent research debt.",
+      failureRule: "Required transcript failures stay blocked and create idempotent research debt; overflow is deferred to the next scheduled intake window.",
     },
-    status: discoveryFailures.length || failedTranscripts.length ? "attention" : "healthy",
-    summary: {
-      ...xwadaDiscoverySummary(channels),
-      transcriptsReady: results.filter((result) => result.status === "ready").length,
-      transcriptFailures: failedTranscripts.length,
-      cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
-    },
-    channels: channels.map((channel) => ({
+    status: intake.status,
+    summary: intake.summary,
+    channels: intake.channels.map((channel) => ({
       channelKey: channel.channelKey,
       channelName: channel.channelName,
       status: channel.status,
@@ -189,8 +135,9 @@ async function runDiscovery(request: Request) {
       recentCount: channel.recentCount,
       detail: channel.detail,
     })),
-    transcripts: results,
-  }, discoveryFailures.length || failedTranscripts.length ? 207 : 200);
+    transcripts: intake.transcripts,
+    deferredVideoIds: intake.deferredVideoIds,
+  }, intake.status === "attention" ? 207 : 200);
 }
 
 async function run(request: Request) {

@@ -237,6 +237,59 @@ function parseArticle(url: string, html: string): AlchemyArticle {
   };
 }
 
+export type FreshAlchemyArticlesResult = {
+  status: "checked" | "blocked";
+  articles: AlchemyArticle[];
+  note?: string;
+};
+
+/**
+ * Strict live acquisition for the research scheduler. Unlike getAlchemyArticles,
+ * this function never substitutes the local article fallback when the live site
+ * cannot be reached or does not yield dated articles.
+ */
+export async function getFreshAlchemyArticles(limit = 30): Promise<FreshAlchemyArticlesResult> {
+  try {
+    const fetchLiveText = async (url: string) => {
+      const response = await fetch(url, {
+        headers: { "user-agent": "Alchemy Live Desk scheduled research" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error(`${new URL(url).pathname || "/"} returned HTTP ${response.status}.`);
+      return response.text();
+    };
+    const pages = await Promise.allSettled(CATEGORY_PAGES.map(fetchLiveText));
+    const pageFailures = pages.filter((page) => page.status === "rejected").length;
+    const urls = pages.flatMap((page) => page.status === "fulfilled" ? extractArticleUrls(page.value) : []);
+    const unique = [...new Set(urls)].slice(0, 30);
+    if (!unique.length) {
+      return { status: "blocked", articles: [], note: "The live Alchemy Market Insights pages did not expose any article URLs." };
+    }
+
+    const results = await Promise.allSettled(unique.map(async (url) => parseArticle(url, await fetchLiveText(url))));
+    const articles = results
+      .flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+      .filter((article) => Boolean(article.publishedAt && Number.isFinite(Date.parse(article.publishedAt))))
+      .sort((a, b) => Date.parse(b.publishedAt || "") - Date.parse(a.publishedAt || ""))
+      .slice(0, limit);
+    if (!articles.length) {
+      return { status: "blocked", articles: [], note: "The live Alchemy Market Insights scan returned no dated articles." };
+    }
+    return {
+      status: "checked",
+      articles,
+      note: pageFailures ? `${pageFailures} category page(s) were unavailable; dated articles were acquired from the remaining live pages.` : undefined,
+    };
+  } catch (error) {
+    return {
+      status: "blocked",
+      articles: [],
+      note: error instanceof Error ? `Live Alchemy acquisition failed: ${error.message}` : "Live Alchemy acquisition failed.",
+    };
+  }
+}
+
 export async function getAlchemyArticles(limit = 18): Promise<AlchemyArticle[]> {
   try {
     const pages = await Promise.allSettled(CATEGORY_PAGES.map(fetchText));
