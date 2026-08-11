@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -10,6 +9,8 @@ import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
+import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
+import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import {
   researchScheduleHealth,
   validateResearchRun,
@@ -18,10 +19,12 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const updateToken = process.env.RESEARCH_UPDATE_TOKEN;
+const cronSecret = process.env.CRON_SECRET;
 
 function response(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -34,9 +37,7 @@ function response(body: unknown, status = 200) {
 }
 
 function authenticated(request: Request) {
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  if (!updateToken || supplied.length !== updateToken.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(updateToken));
+  return acceptsResearchAuthorization(request.headers.get("authorization"), [updateToken, cronSecret]);
 }
 
 async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -82,7 +83,7 @@ export async function GET() {
   return response({
     generatedAt: new Date().toISOString(),
     timezone: "Asia/Kuala_Lumpur",
-    schedule: ["08:30", "22:00"],
+    schedule: CANONICAL_RESEARCH_SLOTS.map((slot) => `${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`),
     health: researchScheduleHealth(data.researchRuns),
     runs: data.researchRuns.slice(0, 10),
     queue: data.researchIntake.slice(0, 50),

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { getDeskData } from "@/lib/data";
-import { CANONICAL_RESEARCH_SLOTS, getFourSlotResearchHealth } from "@/lib/research-schedule-health";
+import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
+import { researchScheduleHealth } from "@/lib/research-update";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const data = await getDeskData();
-  const health = getFourSlotResearchHealth(data.researchRuns);
+  const health = researchScheduleHealth(data.researchRuns);
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
