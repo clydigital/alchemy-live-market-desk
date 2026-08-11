@@ -19,14 +19,14 @@ export type ResearchSlotHealth = {
   label: string;
   expectedAt: string;
   nextAt: string;
-  status: "complete" | "running" | "blocked" | "failed" | "missed";
+  status: "complete" | "running" | "blocked" | "failed" | "missed" | "disabled";
   completedAt: string | null;
   updatesPublished: number;
   warningCount: number;
 };
 
 export type FourSlotResearchHealth = {
-  state: "healthy" | "attention" | "not_configured";
+  state: "healthy" | "attention" | "not_configured" | "disabled";
   slots: ResearchSlotHealth[];
   completedCount: number;
   warningCount: number;
@@ -77,7 +77,7 @@ function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
   return run.status;
 }
 
-export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Date()): FourSlotResearchHealth {
+export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Date(), enabled = true): FourSlotResearchHealth {
   const parts = malaysiaDateParts(now);
   const today = `${parts.year}-${parts.month}-${parts.day}`;
   const yesterday = shiftDateKey(today, -1);
@@ -111,11 +111,17 @@ export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Dat
     .sort((a, b) => Date.parse(b.completed_at!) - Date.parse(a.completed_at!));
   const completedCount = slots.filter((slot) => slot.status === "complete").length;
 
-  return {
+  const health: FourSlotResearchHealth = {
     state: !runs.length ? "not_configured" : completedCount === slots.length ? "healthy" : "attention",
     slots,
     completedCount,
     warningCount: slots.reduce((sum, slot) => sum + slot.warningCount, 0),
     latestCompletedAt: completedRuns[0]?.completed_at || null,
+  };
+  if (enabled) return health;
+  return {
+    ...health,
+    state: "disabled",
+    slots: health.slots.map((slot) => ({ ...slot, status: "disabled" })),
   };
 }

@@ -1,10 +1,11 @@
-export type G7Country = "United States" | "Canada" | "United Kingdom" | "Euro Area" | "Japan";
+export type CalendarCountry = "United States" | "Canada" | "United Kingdom" | "Euro Area" | "Japan" | "Australia" | "New Zealand";
+export type G7Country = CalendarCountry;
 
 export type EconomicCalendarEvent = {
   id: string;
   date: string;
   timeLabel: string;
-  country: G7Country;
+  country: CalendarCountry;
   g7Markets: string[];
   event: string;
   category: "Central bank" | "Inflation" | "Labour" | "Growth";
@@ -13,6 +14,7 @@ export type EconomicCalendarEvent = {
   status: "Scheduled" | "Released";
   actual: string | null;
   consensus: string | null;
+  alchemyExpectation?: string | null;
   previous: string | null;
   decidingQuestion: string;
   affectedAssets: string[];
@@ -26,8 +28,136 @@ const BOC_CALENDAR = "https://www.bankofcanada.ca/core-functions/monetary-policy
 const BOE_CALENDAR = "https://www.bankofengland.co.uk/news/2025/september/monetary-policy-committee-dates-for-2026";
 const ECB_CALENDAR = "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html";
 const BOJ_CALENDAR = "https://www.boj.or.jp/en/mopo/mpmsche_minu/m_ref/mref250731a.pdf";
+const RBA_CALENDAR = "https://www.rba.gov.au/schedules-events/board-meeting-schedules.html";
+const RBNZ_CALENDAR = "https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028";
 
 const scheduledEvents: EconomicCalendarEvent[] = [
+  {
+    id: "au-rba-2026-09-29",
+    date: "2026-09-29",
+    timeLabel: "14:30 AEST",
+    country: "Australia",
+    g7Markets: ["Australia"],
+    event: "RBA monetary-policy decision",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Does the RBA validate the market-implied cash-rate path or lean harder against inflation?",
+    affectedAssets: ["AUD", "AU02Y", "ASX"],
+    sourceName: "Reserve Bank of Australia",
+    sourceUrl: RBA_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "au-rba-2026-11-03",
+    date: "2026-11-03",
+    timeLabel: "14:30 AEDT",
+    country: "Australia",
+    g7Markets: ["Australia"],
+    event: "RBA monetary-policy decision and Statement on Monetary Policy",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Do the RBA forecasts change the balance between inflation persistence and domestic demand?",
+    affectedAssets: ["AUD", "AU02Y", "ASX"],
+    sourceName: "Reserve Bank of Australia",
+    sourceUrl: RBA_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "au-rba-2026-12-08",
+    date: "2026-12-08",
+    timeLabel: "14:30 AEDT",
+    country: "Australia",
+    g7Markets: ["Australia"],
+    event: "RBA monetary-policy decision",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Does the year-end decision confirm a durable change in the Australian policy path?",
+    affectedAssets: ["AUD", "AU02Y", "ASX"],
+    sourceName: "Reserve Bank of Australia",
+    sourceUrl: RBA_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "nz-rbnz-2026-09-02",
+    date: "2026-09-02",
+    timeLabel: "14:00 NZST",
+    country: "New Zealand",
+    g7Markets: ["New Zealand"],
+    event: "RBNZ Monetary Policy Statement and OCR decision",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Does the RBNZ validate the market-implied OCR path after the latest inflation and labour evidence?",
+    affectedAssets: ["NZD", "NZ02Y", "NZX"],
+    sourceName: "Reserve Bank of New Zealand",
+    sourceUrl: RBNZ_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "nz-rbnz-2026-10-28",
+    date: "2026-10-28",
+    timeLabel: "14:00 NZDT",
+    country: "New Zealand",
+    g7Markets: ["New Zealand"],
+    event: "RBNZ Monetary Policy Review and OCR decision",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Does the RBNZ reaction function change after the latest CPI release?",
+    affectedAssets: ["NZD", "NZ02Y", "NZX"],
+    sourceName: "Reserve Bank of New Zealand",
+    sourceUrl: RBNZ_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "nz-rbnz-2026-12-09",
+    date: "2026-12-09",
+    timeLabel: "14:00 NZDT",
+    country: "New Zealand",
+    g7Markets: ["New Zealand"],
+    event: "RBNZ Monetary Policy Statement and OCR decision",
+    category: "Central bank",
+    impact: "High",
+    referencePeriod: null,
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    alchemyExpectation: null,
+    previous: null,
+    decidingQuestion: "Do the new RBNZ projections confirm the next phase of the OCR cycle?",
+    affectedAssets: ["NZD", "NZ02Y", "NZX"],
+    sourceName: "Reserve Bank of New Zealand",
+    sourceUrl: RBNZ_CALENDAR,
+    sourceKind: "official-schedule",
+  },
   {
     id: "ca-lfs-2026-08-07",
     date: "2026-08-07",
@@ -454,9 +584,115 @@ async function fetchBlsCalendar(): Promise<EconomicCalendarEvent[]> {
   }
 }
 
+type DeskMacroRelease = {
+  id: string;
+  release_name: string;
+  agency: string;
+  category: string;
+  release_date: string;
+  release_time_label: string | null;
+  reference_period: string | null;
+  status: string;
+  actual: string | null;
+  consensus: string | null;
+  previous: string | null;
+  revised_previous: string | null;
+  watch_question: string | null;
+  source_url: string;
+  affected_assets: string[] | null;
+};
+
+type DeskMacroMetric = {
+  release_id: string;
+  label: string;
+  unit: string | null;
+  previous: number | null;
+  revised_previous: number | null;
+  consensus: number | null;
+  alchemy_expectation: number | null;
+  actual: number | null;
+};
+
+function calendarCountry(agency: string): CalendarCountry {
+  if (/reserve bank of australia|\brba\b/i.test(agency)) return "Australia";
+  if (/reserve bank of new zealand|\brbnz\b/i.test(agency)) return "New Zealand";
+  if (/canada/i.test(agency)) return "Canada";
+  if (/england|united kingdom|\bons\b/i.test(agency)) return "United Kingdom";
+  if (/euro|ecb/i.test(agency)) return "Euro Area";
+  if (/japan|\bboj\b/i.test(agency)) return "Japan";
+  return "United States";
+}
+
+function calendarCategory(release: DeskMacroRelease): EconomicCalendarEvent["category"] {
+  if (/reserve bank|central bank|federal reserve|bank of canada|bank of england|ecb|boj/i.test(release.agency)) return "Central bank";
+  if (/labour|employment|job|wage/i.test(`${release.category} ${release.release_name}`)) return "Labour";
+  if (/inflation|price|cpi|ppi|pce/i.test(`${release.category} ${release.release_name}`)) return "Inflation";
+  return "Growth";
+}
+
+function metricValue(value: number | null, unit: string | null) {
+  if (value === null) return null;
+  return `${value}${unit ? ` ${unit}` : ""}`;
+}
+
+async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const apiKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!baseUrl || !apiKey) return [];
+  try {
+    const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` };
+    const [releaseResponse, metricResponse] = await Promise.all([
+      fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,release_time_label,reference_period,status,actual,consensus,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
+        headers,
+        next: { revalidate: 60 },
+        signal: AbortSignal.timeout(5_000),
+      }),
+      fetch(`${baseUrl}/rest/v1/macro_release_metrics?select=release_id,label,unit,previous,revised_previous,consensus,alchemy_expectation,actual&order=updated_at.desc&limit=320`, {
+        headers,
+        next: { revalidate: 60 },
+        signal: AbortSignal.timeout(5_000),
+      }),
+    ]);
+    if (!releaseResponse.ok) return [];
+    const releases = await releaseResponse.json() as DeskMacroRelease[];
+    const metrics = metricResponse.ok ? await metricResponse.json() as DeskMacroMetric[] : [];
+    const metricByRelease = new Map<string, DeskMacroMetric>();
+    for (const metric of metrics) {
+      if (!metricByRelease.has(metric.release_id)) metricByRelease.set(metric.release_id, metric);
+    }
+    return releases.map((release) => {
+      const metric = metricByRelease.get(release.id);
+      const country = calendarCountry(release.agency);
+      return {
+        id: release.id,
+        date: release.release_date.slice(0, 10),
+        timeLabel: release.release_time_label || "Time TBC",
+        country,
+        g7Markets: [country],
+        event: release.release_name,
+        category: calendarCategory(release),
+        impact: "High",
+        referencePeriod: release.reference_period,
+        status: release.actual || metric?.actual !== null && metric?.actual !== undefined || release.status === "completed" ? "Released" : "Scheduled",
+        actual: release.actual || metricValue(metric?.actual ?? null, metric?.unit ?? null),
+        consensus: release.consensus || metricValue(metric?.consensus ?? null, metric?.unit ?? null),
+        alchemyExpectation: metricValue(metric?.alchemy_expectation ?? null, metric?.unit ?? null),
+        previous: release.revised_previous || release.previous || metricValue(metric?.revised_previous ?? metric?.previous ?? null, metric?.unit ?? null),
+        decidingQuestion: release.watch_question || `What would materially change the market interpretation of ${release.release_name}?`,
+        affectedAssets: release.affected_assets || [],
+        sourceName: release.agency,
+        sourceUrl: release.source_url,
+        sourceKind: "desk-record",
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function getEconomicCalendar() {
-  const blsEvents = await fetchBlsCalendar();
-  const allEvents = [...blsEvents, ...scheduledEvents];
-  return [...new Map(allEvents.map((event) => [`${event.date}:${event.event}`, event])).values()]
+  const [blsEvents, deskEvents] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar()]);
+  const allEvents = [...scheduledEvents, ...blsEvents, ...deskEvents];
+  return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }

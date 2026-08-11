@@ -8,7 +8,8 @@
     {"key":"tradernick","name":"TraderNick","url":"https://www.youtube.com/@TraderNick/videos"},
     {"key":"traders-reality","name":"Traders Reality","url":"https://www.youtube.com/@TradersReality/videos"},
     {"key":"beginner-trading","name":"Beginner Trading","url":"https://www.youtube.com/@BeginnerTrading/videos"},
-    {"key":"eurodollar-university","name":"Eurodollar University","url":"https://www.youtube.com/@eurodollaruniversity/videos"}
+    {"key":"eurodollar-university","name":"Eurodollar University","url":"https://www.youtube.com/@eurodollaruniversity/videos"},
+    {"key":"bravos-research","name":"Bravos Research","url":"https://www.youtube.com/@BravosResearch/videos"}
   ],
   "transcriptPolicy": {
     "preferred":"official_youtube_caption_or_transcript",

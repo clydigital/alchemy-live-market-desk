@@ -401,14 +401,40 @@ export type ResearchIntakeQueueItem = {
 };
 
 export async function getHybridDeskData() {
-  const [stories, updates, sources, marketStateRecords, researchRuns] = await Promise.all([
+  const [stories, updates, sources, marketStateRecords, researchRuns, calls, guidance, macroReleaseRows, macroReleaseMetrics, researchIntake, researchDebt, intelligenceRuns, intelligenceStages, acquisitionFailures] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
     query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
     privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
+    query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=24"),
+    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=80"),
+    query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=160"),
+    query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=320"),
+    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=published_at.desc&limit=160"),
+    privateQuery<Record<string, unknown>>("research_debt", "select=debt_key,severity,status,reason,next_action,next_check_at,last_attempt_at,updated_at&order=next_check_at.asc.nullslast&limit=120"),
+    privateQuery<Record<string, unknown>>("intelligence_engine_runs", "select=id,research_run_id,run_key,trigger_kind,status,stories_considered,stories_published,warnings,failure_detail,started_at,completed_at,metadata&order=started_at.desc&limit=20"),
+    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,provider,model,request_id,error_detail,started_at,completed_at&order=started_at.desc&limit=80"),
+    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,operation,error_code,retryable,occurred_at,resolved_at&order=occurred_at.desc&limit=80"),
   ]);
-  return { stories, updates, sources, marketStateRecords, researchRuns };
+  const now = new Date();
+  const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
+  return {
+    stories,
+    updates,
+    sources,
+    marketStateRecords,
+    researchRuns,
+    calls,
+    guidance,
+    macroReleases,
+    macroReleaseMetrics,
+    researchIntake,
+    researchDebt,
+    intelligenceRuns,
+    intelligenceStages,
+    acquisitionFailures,
+  };
 }
 
 async function loadDeskData() {

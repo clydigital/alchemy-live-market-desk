@@ -51,8 +51,8 @@ type ResponsesApiPayload = {
 };
 
 const API_URL = "https://api.openai.com/v1/responses";
-const DEFAULT_COMPLEX_MODEL = "gpt-5.6-terra";
-const DEFAULT_FAST_MODEL = "gpt-5.6-luna";
+const DEFAULT_COMPLEX_MODEL = "gpt-5-mini";
+const DEFAULT_FAST_MODEL = "gpt-5-mini";
 const VALID_EFFORT = new Set<IntelligenceReasoningEffort>(["none", "low", "medium", "high", "xhigh", "max"]);
 
 export function openAIIntelligenceEnabled() {

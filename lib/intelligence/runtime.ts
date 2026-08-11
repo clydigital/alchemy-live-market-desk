@@ -91,7 +91,14 @@ type PromptVersion = {
 };
 
 type StageRunRow = { id: string };
-type EngineRunRow = { id: string };
+type EngineRunRow = {
+  id: string;
+  status?: string;
+  stories_considered?: number;
+  stories_published?: number;
+  warnings?: string[];
+  metadata?: Record<string, unknown>;
+};
 
 type CanonicalSource = {
   id: string;
@@ -528,6 +535,18 @@ async function loadEvidence() {
   return evidencePack(rows);
 }
 
+async function loadResearchDebt() {
+  return intelligenceRest<Array<{
+    debt_key: string;
+    severity: string;
+    reason: string;
+    next_action: string | null;
+    next_check_at: string | null;
+  }>>(
+    "research_debt?select=debt_key,severity,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
+  ).catch(() => []);
+}
+
 async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<string>) {
   const specs = output.beliefs.flatMap((belief) => {
     const evidenceIds = onlyKnownIds(belief.evidenceIds, knownEvidence);
@@ -786,6 +805,63 @@ async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking
   }
 }
 
+async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking) {
+  const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
+    `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
+  );
+  const versionNumber = (prior[0]?.version_number || 0) + 1;
+  const confidenceDelta = clamp(story.confidence) - Number(prior[0]?.confidence ?? story.confidence);
+  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      story_id: story.id,
+      event_type: "thesis_revision",
+      headline: synthesis.title.slice(0, 180),
+      detail: synthesis.researchSynthesis,
+      confidence_delta: confidenceDelta,
+      event_at: new Date().toISOString(),
+      metadata: { automatic: true, origin: "alchemy_research_engine", novelty_class: "existing_story_update" },
+    }),
+  });
+  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      story_id: story.id,
+      event_id: events[0]?.id || null,
+      version_number: versionNumber,
+      title: story.title,
+      thesis: story.thesis,
+      status: story.status,
+      confidence: story.confidence,
+      market_question: synthesis.question,
+      dominant_narrative: synthesis.marketBelief,
+      best_explanation: synthesis.causalMechanism,
+      strongest_support: synthesis.strongestSupport,
+      strongest_contradiction: synthesis.strongestContradiction,
+      priced_assessment: synthesis.divergenceSummary,
+      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
+      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
+      next_catalyst: synthesis.nextCatalysts.join("; "),
+      article_angle: synthesis.researchSynthesis,
+      provisional_title: synthesis.title,
+      article_verdict: "research_engine",
+      assets: synthesis.affectedAssets,
+      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1 },
+      change_reason: "material_evidence_recalibration",
+      effective_at: new Date().toISOString(),
+    }),
+  });
+  if (versions[0]?.id) {
+    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ current_thesis_version_id: versions[0].id }),
+    });
+  }
+}
+
 async function promoteCandidate({
   candidate,
   candidateRowId,
@@ -844,6 +920,7 @@ async function promoteCandidate({
         observed_at: new Date().toISOString(),
       }),
     });
+    await createRevisionVersion(story, candidate);
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
@@ -970,6 +1047,24 @@ export async function runIntelligenceEngine({
   }
 
   const effectiveRunKey = runKey || `intelligence:${researchRunId || triggerKind}:${new Date().toISOString().slice(0, 16)}`;
+  const priorRuns = await intelligenceRest<EngineRunRow[]>(
+    `intelligence_engine_runs?select=id,status,stories_considered,stories_published,warnings,metadata&run_key=eq.${encodeURIComponent(effectiveRunKey)}&limit=1`,
+  );
+  const priorCompleted = priorRuns.find((row) => row.status === "completed");
+  if (priorCompleted) {
+    return {
+      enabled: true,
+      engineRunId: priorCompleted.id,
+      status: "completed",
+      evidenceConsidered: Number(priorCompleted.metadata?.evidenceConsidered || 0),
+      hypothesesGenerated: Number(priorCompleted.metadata?.hypothesesGenerated || 0),
+      hypothesesPromoted: Number(priorCompleted.metadata?.hypothesesPromoted || 0),
+      storiesConsidered: Number(priorCompleted.stories_considered || 0),
+      storiesPublished: Number(priorCompleted.stories_published || 0),
+      storyIds: [],
+      warnings: [...(priorCompleted.warnings || []), "Idempotent replay: the completed canonical intelligence run was reused."],
+    };
+  }
   const engineRows = await intelligenceRest<EngineRunRow[]>("intelligence_engine_runs?on_conflict=run_key", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -993,6 +1088,8 @@ export async function runIntelligenceEngine({
 
   try {
     const stories = await loadStories();
+    const researchDebt = await loadResearchDebt();
+    if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
     const evidence = await loadEvidence();
     if (!evidence.length) {
@@ -1014,7 +1111,7 @@ export async function runIntelligenceEngine({
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
-      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack },
+      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack, researchDebt },
       maxOutputTokens: 2_800,
     });
     const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
@@ -1052,7 +1149,7 @@ export async function runIntelligenceEngine({
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
-      input: { beliefs, divergences, evidence, existingStories: storiesPack },
+      input: { beliefs, divergences, evidence, existingStories: storiesPack, researchDebt },
       maxOutputTokens: 5_500,
     });
     const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds);

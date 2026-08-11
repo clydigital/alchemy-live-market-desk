@@ -8,11 +8,8 @@ import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
 import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
+import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
-import {
-  runScheduledResearchIntelligence,
-  unavailableScheduledIntelligence,
-} from "@/lib/intelligence/scheduled-orchestrator";
 import {
   researchScheduleHealth,
   validateResearchRun,
@@ -236,18 +233,15 @@ export async function POST(request: Request) {
       });
     }
 
-    let autonomousIntelligence = unavailableScheduledIntelligence("Autonomous intelligence did not start.");
-    try {
-      autonomousIntelligence = await runScheduledResearchIntelligence({
+    let intelligence: IntelligenceRunResult | null = null;
+    if (intelligenceEnabled) {
+      intelligence = await runIntelligenceEngine({
         researchRunId: runId,
-        researchRunKey: input.runKey,
-        items: validation.scoredItems,
+        triggerKind: "new_evidence",
+        runKey: `research:${input.runKey}`,
+        dryRun: !publishGateOpen,
       });
-      warnings.push(...autonomousIntelligence.warnings);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      autonomousIntelligence = unavailableScheduledIntelligence(`Autonomous intelligence is unavailable: ${detail}`);
-      warnings.push(...autonomousIntelligence.warnings);
+      warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
     }
 
     let legacyUpdatesPublished = 0;
@@ -294,7 +288,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const totalUpdatesPublished = legacyUpdatesPublished + autonomousIntelligence.storiesPublished;
+    const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
@@ -319,9 +313,8 @@ export async function POST(request: Request) {
       publishGate: publishGateOpen ? "open" : "blocked",
       updatesPublished: totalUpdatesPublished,
       legacyRecalibrationsPublished: legacyUpdatesPublished,
-      autonomousIntelligence,
       legacyUpdatesPublished,
-      intelligence: autonomousIntelligence,
+      intelligence,
       calendarCandidates: calendarItems.length,
       macroLifecycle: macroLifecycle.summary,
       warnings,

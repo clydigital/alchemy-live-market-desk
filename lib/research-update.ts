@@ -107,7 +107,7 @@ type RunLike = {
 export type ResearchScheduleHealth = FourSlotResearchHealth;
 
 export function researchScheduleHealth(runs: RunLike[], now = new Date()): ResearchScheduleHealth {
-  return getFourSlotResearchHealth(runs, now);
+  return getFourSlotResearchHealth(runs, now, process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED === "true");
 }
 
 function validDate(value: unknown) {
