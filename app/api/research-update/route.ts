@@ -235,7 +235,7 @@ export async function POST(request: Request) {
     }
 
     let intelligence: IntelligenceRunResult | null = null;
-    if (intelligenceEnabled) {
+    if (intelligenceEnabled && validation.requiredSourcesComplete) {
       intelligence = await runIntelligenceEngine({
         researchRunId: runId,
         triggerKind: "new_evidence",
@@ -243,6 +243,8 @@ export async function POST(request: Request) {
         dryRun: !publishGateOpen,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
+    } else if (intelligenceEnabled) {
+      warnings.push("The OpenAI intelligence runtime was not invoked because required source coverage is blocked.");
     }
 
     let legacyUpdatesPublished = 0;
