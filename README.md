@@ -17,6 +17,41 @@ The Asia/Kuala_Lumpur research workflow uses four slots:
 
 Research publishing runs through `/api/research-update`. The `/api/video-intake` route owns both YouTube discovery and durable transcript intake.
 
+## OpenAI market-intelligence runtime
+
+When `OPENAI_API_KEY` is configured, the canonical research publisher hands validated evidence to the server-only OpenAI intelligence runtime. Caller-supplied Story recalibrations are no longer authoritative while this runtime is active.
+
+The runtime follows the persisted intelligence contract:
+
+```text
+validated research intake
+→ canonical evidence + source ancestry
+→ market belief
+→ material divergence
+→ competing hypotheses
+→ Challenger audit
+→ asset scenarios
+→ original Story synthesis
+→ semantic deduplication
+→ Story lifecycle
+→ canonical Live Story
+→ Hybrid feed
+```
+
+The model never writes directly to `stories`. Every stage uses strict structured output and is recorded in `intelligence_stage_runs` with model, provider request ID and token usage. A Story cannot be created or recalibrated unless it passes the deterministic publication gate: at least three decisive evidence records, three independent source groups, at least one Tier 1-2 source, Challenger promotion, qualification of at least 70 and confidence of at least 60.
+
+A single article is therefore insufficient to create a Story. When the event, thesis and mechanism substantially match an existing Story, semantic deduplication prefers updating that Story rather than creating another one. Original Alchemy Stories do not require an external canonical article URL.
+
+The authenticated `/api/intelligence-run` route can run the engine directly or expose sanitized operational status. It never returns stage payloads, transcript text or credentials.
+
+Default model routing is cost-aware:
+
+- GPT-5.6 Terra for hypotheses, Challenger, scenarios and Story synthesis.
+- GPT-5.6 Luna for market-belief extraction, divergence detection, semantic deduplication and lifecycle classification.
+- Medium reasoning for complex stages and low reasoning for fast stages.
+
+All model choices and reasoning effort can be overridden with the server-only environment variables documented in `.env.example`.
+
 ## TranscriptAPI pipeline
 
 Transcript intake is database-first and uses TranscriptAPI v2 as the only transcript provider:
@@ -46,6 +81,9 @@ Copy `.env.example` and configure these server-side Vercel values:
 - `RESEARCH_UPDATE_TOKEN`
 - `YOUTUBE_DATA_API_KEY`
 - `TRANSCRIPT_API_KEY`
+- `OPENAI_API_KEY`
+
+`OPENAI_INTELLIGENCE_ENABLED=false` is the kill switch for the model reasoning layer. If no OpenAI key is configured, the existing legacy recalibration path remains available rather than breaking research ingestion.
 
 `CRON_SECRET` is accepted for scheduled calls. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
 
