@@ -99,6 +99,9 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!authenticated(request)) return response({ error: "Unauthorized research publisher." }, 401);
   if (!supabaseUrl || !serviceKey) return response({ error: "Research publisher database credentials are not configured." }, 503);
+  // This header is added only by the Live-owned Cron handler. It leaves enough
+  // wall-clock room to write a terminal ledger state before Vercel times out.
+  const boundedScheduledExecution = request.headers.get("x-alchemy-scheduled-research") === "1";
 
   let input: ResearchRunInput;
   try {
@@ -241,6 +244,8 @@ export async function POST(request: Request) {
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
         dryRun: !publishGateOpen,
+        stageRequestTimeoutMs: boundedScheduledExecution ? 18_000 : undefined,
+        stageMaxAttempts: boundedScheduledExecution ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
     } else if (intelligenceEnabled) {
@@ -291,13 +296,19 @@ export async function POST(request: Request) {
       }
     }
 
+    let finalStatus: "completed" | "blocked" | "failed" = runStatus;
+    if (intelligenceEnabled && validation.requiredSourcesComplete && intelligence?.status !== "completed") {
+      finalStatus = intelligence?.status === "failed" ? "failed" : "blocked";
+      warnings.push(`The OpenAI intelligence runtime ended ${intelligence?.status || "without a result"}; this research run is not recorded as completed.`);
+    }
+
     const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         completed_at: new Date().toISOString(),
-        status: runStatus,
+        status: finalStatus,
         updates_published: totalUpdatesPublished,
         warnings,
         updated_at: new Date().toISOString(),
@@ -312,7 +323,7 @@ export async function POST(request: Request) {
     return response({
       accepted: true,
       runId,
-      status: runStatus,
+      status: finalStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
       updatesPublished: totalUpdatesPublished,
       legacyRecalibrationsPublished: legacyUpdatesPublished,
@@ -322,7 +333,7 @@ export async function POST(request: Request) {
       macroLifecycle: macroLifecycle.summary,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
-    }, runStatus === "completed" ? 200 : 202);
+    }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown research publisher failure.";
     if (runId) {

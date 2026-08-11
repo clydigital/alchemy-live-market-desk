@@ -129,17 +129,26 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
   }
 
   try {
-    const input = await buildScheduledResearchInput(slot, { now });
+    // Three external TranscriptAPI calls plus eight bounded OpenAI stages fit
+    // inside the 300-second Vercel Cron function while cache hits stay free.
+    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 3 });
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.CRON_SECRET}`,
         "Content-Type": "application/json",
+        "x-alchemy-scheduled-research": "1",
       },
       body: JSON.stringify(input),
     });
     const publication = await publishResearchUpdate(internalRequest);
     const result = await publication.json().catch(() => ({}));
+    if (publication.status >= 400) {
+      const detail = result && typeof result === "object" && "error" in result && typeof result.error === "string"
+        ? result.error
+        : `Publisher returned HTTP ${publication.status}.`;
+      await markClaimFailed(claim.run.id, detail);
+    }
     return response({
       slot,
       runKey,

@@ -363,6 +363,8 @@ async function modelStage<T>({
   schema,
   modelKind,
   maxOutputTokens,
+  requestTimeoutMs,
+  maxAttempts,
 }: {
   engineRunId: string;
   stageKey: string;
@@ -370,6 +372,8 @@ async function modelStage<T>({
   schema: Record<string, unknown>;
   modelKind: "complex" | "fast";
   maxOutputTokens?: number;
+  requestTimeoutMs?: number;
+  maxAttempts?: number;
 }) {
   const prompt = await loadPrompt(stageKey);
   const stageRunId = await beginStage(engineRunId, stageKey, prompt?.id ?? null, {
@@ -384,6 +388,8 @@ async function modelStage<T>({
       schema,
       modelKind,
       maxOutputTokens,
+      requestTimeoutMs,
+      maxAttempts,
     });
     await finishStage(stageRunId, {
       status: "completed",
@@ -1032,11 +1038,16 @@ export async function runIntelligenceEngine({
   triggerKind = "new_evidence",
   runKey,
   dryRun = false,
+  stageRequestTimeoutMs,
+  stageMaxAttempts,
 }: {
   researchRunId?: string | null;
   triggerKind?: IntelligenceTriggerKind;
   runKey?: string;
   dryRun?: boolean;
+  /** Optional bounded-stage controls for a serverless scheduled run. */
+  stageRequestTimeoutMs?: number;
+  stageMaxAttempts?: number;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
   if (!intelligenceDatabaseConfigured()) {
@@ -1085,6 +1096,10 @@ export async function runIntelligenceEngine({
   let hypothesesPromoted = 0;
   let storiesConsidered = 0;
   const publishedStories: StoryRow[] = [];
+  const stageExecution = {
+    requestTimeoutMs: stageRequestTimeoutMs,
+    maxAttempts: stageMaxAttempts,
+  };
 
   try {
     const stories = await loadStories();
@@ -1108,6 +1123,7 @@ export async function runIntelligenceEngine({
 
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
@@ -1127,6 +1143,7 @@ export async function runIntelligenceEngine({
 
     const divergenceStage = await modelStage<DivergenceOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "divergence",
       modelKind: "fast",
       schema: DIVERGENCE_SCHEMA,
@@ -1146,6 +1163,7 @@ export async function runIntelligenceEngine({
 
     const hypothesisStage = await modelStage<HypothesisOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
@@ -1166,6 +1184,7 @@ export async function runIntelligenceEngine({
 
     const challengerStage = await modelStage<ChallengerOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "challenger",
       modelKind: "complex",
       schema: CHALLENGER_SCHEMA,
@@ -1192,6 +1211,7 @@ export async function runIntelligenceEngine({
     const promotedIds = new Set(promoted.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
@@ -1202,6 +1222,7 @@ export async function runIntelligenceEngine({
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "story_synthesis",
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
@@ -1250,6 +1271,7 @@ export async function runIntelligenceEngine({
 
     const dedupeStage = await modelStage<DeduplicationOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "semantic_deduplication",
       modelKind: "fast",
       schema: DEDUPLICATION_SCHEMA,
@@ -1267,6 +1289,7 @@ export async function runIntelligenceEngine({
 
     const lifecycleStage = await modelStage<LifecycleOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "lifecycle",
       modelKind: "fast",
       schema: LIFECYCLE_SCHEMA,

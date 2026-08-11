@@ -19,7 +19,14 @@ export async function getSystemHealth() {
     getHybridPublicationRecords(),
     getEconomicCalendar(),
   ]);
-  const latestResearchRun = data.researchRuns[0] || null;
+  const orderedRuns = [...data.researchRuns].sort((left, right) => (
+    Date.parse(right.scheduled_for) - Date.parse(left.scheduled_for)
+    || Date.parse(right.updated_at) - Date.parse(left.updated_at)
+ ));
+  // Video intake is a child of the desk cycle, not the cycle itself. Keep its
+  // health distinct so it cannot hide a blocked or failed full-desk run.
+  const latestResearchRun = orderedRuns.find((run) => run.schedule_slot === "morning" || run.schedule_slot === "evening") || null;
+  const latestVideoRun = orderedRuns.find((run) => run.schedule_slot === "video_midnight" || run.schedule_slot === "video_late_morning") || null;
   const latestIntelligenceRun = data.intelligenceRuns[0] || null;
   const latestIntelligenceStages = data.intelligenceStages
     .filter((row) => row.engine_run_id === latestIntelligenceRun?.id)
@@ -27,7 +34,23 @@ export async function getSystemHealth() {
   const videoRows = data.researchIntake.filter((item) => item.item_type === "video");
   const latestVideo = videoRows[0] || null;
   const sourceChecks = latestResearchRun?.source_checks || [];
-  const youtubeChecks = sourceChecks.filter((check) => /youtube|video|fx-evolution|stockedup|trader|clearvalue|eurodollar|bravos/i.test(check.source));
+  const youtubeChecks = (latestVideoRun?.source_checks || []).filter((check) => /youtube|video|fx-evolution|stockedup|trader|clearvalue|eurodollar|bravos/i.test(check.source));
+  const scheduledProviderFailures = sourceChecks
+    .filter((check) => check.status === "blocked")
+    .map((check) => ({
+      provider_key: check.source,
+      capability: "scheduled_research",
+      request_key: latestResearchRun?.run_key || null,
+      failure_code: "source_check_blocked",
+      failure_detail: check.note || "Required source check was blocked.",
+      retryable: true,
+      last_failed_at: latestResearchRun?.updated_at || null,
+      resolved_at: null,
+    }));
+  const unresolvedProviderFailures = [
+    ...data.acquisitionFailures.filter((failure) => !failure.resolved_at),
+    ...scheduledProviderFailures,
+  ];
   const openDebt = data.researchDebt.filter((row) => row.status === "open");
   const scheduleEnabled = process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED === "true";
   const cronConfigured = configured(process.env.CRON_SECRET);
@@ -101,10 +124,10 @@ export async function getSystemHealth() {
       } : null,
     },
     providerFailures: {
-      state: data.acquisitionFailures.some((failure) => !failure.resolved_at) ? "attention_required" : "healthy",
-      unresolved: data.acquisitionFailures.filter((failure) => !failure.resolved_at).length,
-      latest: data.acquisitionFailures.slice(0, 20),
-      note: "Only persisted failures are reported. An empty list means no failure was recorded, not that every optional provider was exercised.",
+      state: unresolvedProviderFailures.length ? "attention_required" : "healthy",
+      unresolved: unresolvedProviderFailures.length,
+      latest: unresolvedProviderFailures.slice(0, 20),
+      note: "The latest full-desk source checks and persisted acquisition failures are both reported. An empty list means no required source was blocked in the latest desk cycle.",
     },
     economicCalendar: {
       state: rbaCoverage.length && rbnzCoverage.length && structuredMetrics.length ? "healthy" : "degraded",
