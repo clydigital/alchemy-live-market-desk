@@ -414,8 +414,8 @@ export async function getHybridDeskData() {
     privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=published_at.desc&limit=160"),
     privateQuery<Record<string, unknown>>("research_debt", "select=debt_key,severity,status,reason,next_action,next_check_at,last_attempt_at,updated_at&order=next_check_at.asc.nullslast&limit=120"),
     privateQuery<Record<string, unknown>>("intelligence_engine_runs", "select=id,research_run_id,run_key,trigger_kind,status,stories_considered,stories_published,warnings,failure_detail,started_at,completed_at,metadata&order=started_at.desc&limit=20"),
-    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,provider,model,request_id,error_detail,started_at,completed_at&order=started_at.desc&limit=80"),
-    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,operation,error_code,retryable,occurred_at,resolved_at&order=occurred_at.desc&limit=80"),
+    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,model_name,provider_request_id,failure_code,failure_detail,started_at,completed_at&order=started_at.desc&limit=80"),
+    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,capability,request_key,failure_code,failure_detail,retryable,first_failed_at,last_failed_at,resolved_at,occurrence_count&order=last_failed_at.desc&limit=80"),
   ]);
   const now = new Date();
   const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
