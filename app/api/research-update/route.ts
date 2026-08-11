@@ -6,6 +6,7 @@ import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
+import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
@@ -133,10 +134,12 @@ export async function POST(request: Request) {
   }
 
   const accuracy = runAccuracyCheck(await getMarketData());
+  const macroLifecycle = await persistMacroReleaseLifecycle();
   const publishGateOpen = accuracy.updateGate === "open"
     && validation.requiredSourcesComplete
     && validation.evidenceGatePassed;
   const warnings = [...validation.warnings];
+  if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (intelligenceEnabled && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
   }
@@ -153,6 +156,7 @@ export async function POST(request: Request) {
       accuracy,
       warnings,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       scoredItems: validation.scoredItems.map(({ transcriptText: _transcriptText, ...item }) => item),
     });
   }
@@ -229,7 +233,6 @@ export async function POST(request: Request) {
       });
     }
 
-    let legacyUpdatesPublished = 0;
     let intelligence: IntelligenceRunResult | null = null;
     if (intelligenceEnabled) {
       intelligence = await runIntelligenceEngine({
@@ -239,7 +242,10 @@ export async function POST(request: Request) {
         dryRun: !publishGateOpen,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
-    } else if (publishGateOpen && validation.recalibrations.length) {
+    }
+
+    let legacyUpdatesPublished = 0;
+    if (!intelligenceEnabled && publishGateOpen && validation.recalibrations.length) {
       const stories = await rest<Array<{ id: string; slug: string; confidence: number }>>(
         "stories?select=id,slug,confidence&status=neq.archived",
       );
@@ -282,14 +288,14 @@ export async function POST(request: Request) {
       }
     }
 
-    const updatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
+    const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         completed_at: new Date().toISOString(),
         status: runStatus,
-        updates_published: updatesPublished,
+        updates_published: totalUpdatesPublished,
         warnings,
         updated_at: new Date().toISOString(),
       }),
@@ -305,10 +311,12 @@ export async function POST(request: Request) {
       runId,
       status: runStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
-      updatesPublished,
+      updatesPublished: totalUpdatesPublished,
+      legacyRecalibrationsPublished: legacyUpdatesPublished,
       legacyUpdatesPublished,
       intelligence,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
     }, runStatus === "completed" ? 200 : 202);

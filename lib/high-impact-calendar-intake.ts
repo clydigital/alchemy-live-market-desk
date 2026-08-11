@@ -28,7 +28,8 @@ function surpriseText(event: EconomicCalendarEvent) {
 function releaseSummary(event: EconomicCalendarEvent) {
   const values = [
     `Actual: ${event.actual || "awaiting release"}`,
-    `Forecast: ${event.consensus || "not loaded"}`,
+    `Consensus: ${event.consensus || "not loaded"}`,
+    `Alchemy expectation: ${event.alchemyExpectation || "not recorded"}`,
     `Previous: ${event.previous || "not loaded"}`,
   ].join(" · ");
   return `${event.status} high-impact ${event.category.toLowerCase()} event scheduled for ${event.date} at ${event.timeLabel}. ${values}. Desk question: ${event.decidingQuestion}`;
@@ -73,7 +74,8 @@ export function buildHighImpactCalendarIntake(
         statsSignal: [
           `${event.event}: ${event.status}`,
           `Actual ${event.actual || "awaiting"}`,
-          `Forecast ${event.consensus || "not loaded"}`,
+          `Consensus ${event.consensus || "not loaded"}`,
+          `Alchemy expectation ${event.alchemyExpectation || "not recorded"}`,
           `Previous ${event.previous || "not loaded"}`,
           surprise,
         ].filter(Boolean).join(" · "),
@@ -86,7 +88,7 @@ export function buildHighImpactCalendarIntake(
           publisher: event.sourceName,
           publishedAt: `${event.date}T12:00:00.000Z`,
           claim: event.status === "Released"
-            ? `Official release record for ${event.event}, including the latest actual, forecast and previous values available to the desk.`
+            ? `Official release record for ${event.event}, including the latest actual, consensus, separate Alchemy expectation and previous values available to the desk.`
             : `Official schedule for the upcoming high-impact ${event.event} release.`,
         }],
         reviewReason: released
