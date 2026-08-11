@@ -6,6 +6,8 @@ import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
+import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
+import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
 import {
   researchScheduleHealth,
@@ -83,6 +85,11 @@ export async function GET() {
     health: researchScheduleHealth(data.researchRuns),
     runs: data.researchRuns.slice(0, 10),
     queue: data.researchIntake.slice(0, 50),
+    intelligence: {
+      enabled: openAIIntelligenceEnabled(),
+      owner: "Live Desk",
+      mode: "evidence_to_hypothesis_to_challenger_to_story",
+    },
     highImpactCalendar: calendarItems.map(({ evidence, ...item }) => ({ ...item, evidenceCount: evidence?.length || 0 })),
   });
 }
@@ -109,13 +116,19 @@ export async function POST(request: Request) {
     items: [...suppliedItems, ...calendarItems.filter((item) => !suppliedKeys.has(item.itemKey))],
   };
 
-  const validation = validateResearchRun(input);
+  const intelligenceEnabled = openAIIntelligenceEnabled();
+  const callerRecalibrationCount = Array.isArray(input.recalibrations) ? input.recalibrations.length : 0;
+  const validationInput: ResearchRunInput = intelligenceEnabled
+    ? { ...input, recalibrations: [] }
+    : input;
+  const validation = validateResearchRun(validationInput);
   if (validation.errors.length) {
     return response({
       error: "Research run validation failed.",
       errors: validation.errors,
       warnings: validation.warnings,
       calendarCandidates: calendarItems.length,
+      intelligenceEnabled,
     }, 422);
   }
 
@@ -124,14 +137,19 @@ export async function POST(request: Request) {
     && validation.requiredSourcesComplete
     && validation.evidenceGatePassed;
   const warnings = [...validation.warnings];
+  if (intelligenceEnabled && callerRecalibrationCount) {
+    warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
+  }
   if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
-  if (accuracy.updateGate !== "open") warnings.push(`Accuracy gate is ${accuracy.updateGate}; story recalibration was not published.`);
+  if (accuracy.updateGate !== "open") warnings.push(`Accuracy gate is ${accuracy.updateGate}; intelligence may reason about the evidence but cannot publish a Story in this run.`);
   if (!validation.requiredSourcesComplete) warnings.push("At least one required source check was blocked.");
   if (input.dryRun) {
     return response({
       accepted: true,
       dryRun: true,
       publishGate: publishGateOpen ? "open" : "blocked",
+      intelligenceEnabled,
+      intelligenceWillPublish: false,
       accuracy,
       warnings,
       calendarCandidates: calendarItems.length,
@@ -211,8 +229,17 @@ export async function POST(request: Request) {
       });
     }
 
-    let updatesPublished = 0;
-    if (publishGateOpen && validation.recalibrations.length) {
+    let legacyUpdatesPublished = 0;
+    let intelligence: IntelligenceRunResult | null = null;
+    if (intelligenceEnabled) {
+      intelligence = await runIntelligenceEngine({
+        researchRunId: runId,
+        triggerKind: "new_evidence",
+        runKey: `research:${input.runKey}`,
+        dryRun: !publishGateOpen,
+      });
+      warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
+    } else if (publishGateOpen && validation.recalibrations.length) {
       const stories = await rest<Array<{ id: string; slug: string; confidence: number }>>(
         "stories?select=id,slug,confidence&status=neq.archived",
       );
@@ -251,10 +278,11 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString(),
           }),
         });
-        updatesPublished += 1;
+        legacyUpdatesPublished += 1;
       }
     }
 
+    const updatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
@@ -271,12 +299,15 @@ export async function POST(request: Request) {
     revalidatePath("/stories");
     revalidatePath("/data/macro");
     revalidatePath("/api/hybrid-feed");
+    revalidatePath("/api/hybrid-feed-v2");
     return response({
       accepted: true,
       runId,
       status: runStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
       updatesPublished,
+      legacyUpdatesPublished,
+      intelligence,
       calendarCandidates: calendarItems.length,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
