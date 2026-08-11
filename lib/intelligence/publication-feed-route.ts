@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
+import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, getHybridDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
@@ -44,30 +45,33 @@ function liveMarketState(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
   }));
 }
 
-function liveCalendar(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
+function liveCalendar(
+  data: Awaited<ReturnType<typeof getHybridDeskData>>,
+  calendar: Awaited<ReturnType<typeof getEconomicCalendar>>,
+) {
   const metricsByRelease = new Map<string, typeof data.macroReleaseMetrics>();
   for (const metric of data.macroReleaseMetrics) {
     const rows = metricsByRelease.get(metric.release_id) || [];
     rows.push(metric);
     metricsByRelease.set(metric.release_id, rows);
   }
-  return data.macroReleases.map((release) => ({
+  return calendar.map((release) => ({
     id: release.id,
-    date: release.release_date,
-    timeLabel: release.release_time_label,
-    country: release.agency,
-    event: release.release_name,
+    date: release.date,
+    timeLabel: release.timeLabel,
+    country: release.country,
+    event: release.event,
     category: release.category,
-    impact: "High",
+    impact: release.impact,
     status: release.status,
     actual: release.actual,
     consensus: release.consensus,
-    alchemyExpectation: metricsByRelease.get(release.id)?.find((metric) => metric.alchemy_expectation !== null)?.alchemy_expectation ?? null,
-    previous: release.revised_previous || release.previous,
-    decidingQuestion: release.watch_question,
-    affectedAssets: release.affected_assets || [],
-    sourceName: release.agency,
-    sourceUrl: release.source_url,
+    alchemyExpectation: release.alchemyExpectation ?? metricsByRelease.get(release.id)?.find((metric) => metric.alchemy_expectation !== null)?.alchemy_expectation ?? null,
+    previous: release.previous,
+    decidingQuestion: release.decidingQuestion,
+    affectedAssets: release.affectedAssets,
+    sourceName: release.sourceName,
+    sourceUrl: release.sourceUrl,
     metrics: (metricsByRelease.get(release.id) || []).map((metric) => ({
       key: metric.metric_key,
       label: metric.label,
@@ -138,9 +142,10 @@ export async function getCanonicalPublicationResponse() {
 
   // Canonical Supabase-backed publication data is critical. Optional provider
   // enrichments are bounded so a slow upstream cannot make Hybrid discard V2.
-  const [data, records] = await Promise.all([
+  const [data, records, economicCalendar] = await Promise.all([
     getHybridDeskData(),
     getHybridPublicationRecords(),
+    getEconomicCalendar(),
   ]);
 
   const emptyMarketMonitor: MarketMonitor = {
@@ -227,7 +232,7 @@ export async function getCanonicalPublicationResponse() {
     liveDeskPulse,
     stories: contract.canonical.storyStates,
     marketState,
-    calendar: liveCalendar(data),
+    calendar: liveCalendar(data, economicCalendar),
     earnings: liveEarnings(data),
     accuracy: latestRun ? {
       checkedAt: latestRun.completed_at || latestRun.updated_at,

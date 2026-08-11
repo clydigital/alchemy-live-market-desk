@@ -544,6 +544,7 @@ async function fetchBlsCalendar(): Promise<EconomicCalendarEvent[]> {
     const response = await fetch(BLS_ICS, {
       headers: { accept: "text/calendar", "user-agent": "Alchemy Live Desk economic calendar" },
       next: { revalidate: 60 * 60 * 6 },
+      signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) return [];
     const ics = (await response.text()).replace(/\r?\n[ \t]/g, "");
