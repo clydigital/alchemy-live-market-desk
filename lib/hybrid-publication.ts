@@ -1,15 +1,15 @@
-import type { Story, Update, ResearchRunStatus } from "./data.ts";
-import { buildDeskMemory, type HistoricalToneVersion } from "./desk-memory.ts";
+import type { Story, Update, ResearchRunStatus } from "@/lib/data";
+import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
 import {
   MAX_FEATURED_STORIES,
   MAX_PUBLISHED_STORIES,
   type StoryCandidate,
   type StoryLifecycleStatus,
-} from "./intelligence/contracts.ts";
-import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedStories } from "./intelligence/deduplication.ts";
-import { getStableStoryFallbackImage } from "./story-fallback-images.ts";
-import type { StoryHeaderImage } from "./story-images.ts";
-import { createSupabaseAdminClient } from "./supabase/admin.ts";
+} from "@/lib/intelligence/contracts";
+import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedStories } from "@/lib/intelligence/deduplication";
+import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
+import type { StoryHeaderImage } from "@/lib/story-images";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
