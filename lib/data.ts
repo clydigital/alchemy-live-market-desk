@@ -7,7 +7,15 @@ const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DESK_REVALIDATE = 60;
 
-async function query<T>(table: string, params = ""): Promise<T[]> {
+type QueryOptions = {
+  fresh?: boolean;
+};
+
+function queryCache(options: QueryOptions) {
+  return options.fresh ? { cache: "no-store" as const } : { next: { revalidate: DESK_REVALIDATE } };
+}
+
+async function query<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
@@ -15,7 +23,7 @@ async function query<T>(table: string, params = ""): Promise<T[]> {
         apikey: key,
         Authorization: `Bearer ${key}`,
       },
-      next: { revalidate: DESK_REVALIDATE },
+      ...queryCache(options),
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return [];
@@ -25,7 +33,7 @@ async function query<T>(table: string, params = ""): Promise<T[]> {
   }
 }
 
-async function privateQuery<T>(table: string, params = ""): Promise<T[]> {
+async function privateQuery<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
   if (!url || !serviceKey) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
@@ -33,7 +41,7 @@ async function privateQuery<T>(table: string, params = ""): Promise<T[]> {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
       },
-      next: { revalidate: DESK_REVALIDATE },
+      ...queryCache(options),
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return [];
@@ -400,22 +408,22 @@ export type ResearchIntakeQueueItem = {
   updated_at: string;
 };
 
-export async function getHybridDeskData() {
+export async function getHybridDeskData(options: QueryOptions = {}) {
   const [stories, updates, sources, marketStateRecords, researchRuns, calls, guidance, macroReleaseRows, macroReleaseMetrics, researchIntake, researchDebt, intelligenceRuns, intelligenceStages, acquisitionFailures] = await Promise.all([
-    query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
-    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
-    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
-    query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120"),
-    privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
-    query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=24"),
-    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=80"),
-    query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=160"),
-    query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=320"),
-    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=published_at.desc&limit=160"),
-    privateQuery<Record<string, unknown>>("research_debt", "select=debt_key,severity,status,reason,next_action,next_check_at,last_attempt_at,updated_at&order=next_check_at.asc.nullslast&limit=120"),
-    privateQuery<Record<string, unknown>>("intelligence_engine_runs", "select=id,research_run_id,run_key,trigger_kind,status,stories_considered,stories_published,warnings,failure_detail,started_at,completed_at,metadata&order=started_at.desc&limit=20"),
-    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,model_name,provider_request_id,failure_code,failure_detail,started_at,completed_at&order=started_at.desc&limit=80"),
-    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,capability,request_key,failure_code,failure_detail,retryable,first_failed_at,last_failed_at,resolved_at,occurrence_count&order=last_failed_at.desc&limit=80"),
+    query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
+    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40", options),
+    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240", options),
+    query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120", options),
+    privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20", options),
+    query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=24", options),
+    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=80", options),
+    query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=160", options),
+    query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=320", options),
+    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=published_at.desc&limit=160", options),
+    privateQuery<Record<string, unknown>>("research_debt", "select=debt_key,severity,status,reason,next_action,next_check_at,last_attempt_at,updated_at&order=next_check_at.asc.nullslast&limit=120", options),
+    privateQuery<Record<string, unknown>>("intelligence_engine_runs", "select=id,research_run_id,run_key,trigger_kind,status,stories_considered,stories_published,warnings,failure_detail,started_at,completed_at,metadata&order=started_at.desc&limit=20", options),
+    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,model_name,provider_request_id,failure_code,failure_detail,started_at,completed_at&order=started_at.desc&limit=80", options),
+    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,capability,request_key,failure_code,failure_detail,retryable,first_failed_at,last_failed_at,resolved_at,occurrence_count&order=last_failed_at.desc&limit=80", options),
   ]);
   const now = new Date();
   const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));

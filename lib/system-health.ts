@@ -15,8 +15,10 @@ function state(enabled: boolean, healthy: boolean) {
 export async function getSystemHealth() {
   const generatedAt = new Date().toISOString();
   const [data, publication, calendar] = await Promise.all([
-    getHybridDeskData(),
-    getHybridPublicationRecords(),
+    // Operational health must reflect the current scheduler run and provider
+    // state, rather than the desk's normal short-lived display cache.
+    getHybridDeskData({ fresh: true }),
+    getHybridPublicationRecords({ fresh: true }),
     getEconomicCalendar(),
   ]);
   const orderedRuns = [...data.researchRuns].sort((left, right) => (
