@@ -14,12 +14,16 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function optionalQuery<T>(table: string, params = ""): Promise<T[]> {
+type PublicationQueryOptions = {
+  fresh?: boolean;
+};
+
+async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
-      next: { revalidate: 60 },
+      ...(options.fresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return [];
@@ -161,17 +165,18 @@ type AssetImpact = {
   expires_at: string | null;
 };
 
-export async function getHybridPublicationRecords() {
+export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
   const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
-    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=120"),
-    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240"),
-    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240"),
-    optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240"),
-    optionalQuery<AssetImpact>("current_asset_impacts", "select=*&order=as_of.desc&limit=240"),
+    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=120", options),
+    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
+    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
+    optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240", options),
+    optionalQuery<AssetImpact>("current_asset_impacts", "select=*&order=as_of.desc&limit=240", options),
     optionalQuery<HistoricalToneVersion>(
       "story_thesis_versions",
       `select=story_id,version_number,title,thesis,best_explanation,strongest_contradiction,confidence,status,effective_at&effective_at=gte.${toneCutoff}&order=effective_at.desc&limit=2500`,
+      options,
     ),
     optionalIntelligenceStates(),
   ]);
