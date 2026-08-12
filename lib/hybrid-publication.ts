@@ -168,7 +168,7 @@ type AssetImpact = {
 export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
   const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
-    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=120", options),
+    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=480", options),
     optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
     optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240", options),
@@ -509,7 +509,7 @@ export function buildHybridPublicationContract({
           exceptionProof: comparison.exceptionProof,
         })),
       },
-      latestSnapshots: records.snapshots.slice(0, 30),
+      latestSnapshots: records.snapshots.slice(0, 240),
       persistenceAvailable: records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
       compatibilityMode: !(records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
     },
