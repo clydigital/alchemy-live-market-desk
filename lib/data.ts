@@ -351,7 +351,7 @@ export type ResearchRunStatus = {
   accuracy_gate: "open" | "review" | "blocked";
   required_sources_complete: boolean;
   evidence_gate_passed: boolean;
-  source_checks: Array<{ source: string; status: string; itemCount?: number; note?: string }>;
+  source_checks: Array<{ source: string; status: string; itemCount?: number; retryable?: boolean; note?: string }>;
   videos_found: number;
   transcripts_ready: number;
   news_scanned: number;

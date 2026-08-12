@@ -1,5 +1,5 @@
 import type { TranscriptPipelineResult } from "@/lib/transcript-pipeline";
-import { retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
+import { isKnownPermanentTranscriptUnavailable, retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
 import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
 import {
   createVideoIntakeRun,
@@ -25,11 +25,18 @@ export type ScheduledVideoIntakeResult = {
   summary: ReturnType<typeof xwadaDiscoverySummary> & {
     transcriptsReady: number;
     transcriptFailures: number;
+    transcriptsUnavailable: number;
     cacheHits: number;
     transcriptsDeferred: number;
   };
   channels: XwadaChannelResult[];
   transcripts: TranscriptPipelineResult[];
+  knownUnavailableVideos: Array<{
+    videoId: string;
+    errorCode: string | null;
+    errorMessage: string | null;
+    httpStatus: number | null;
+  }>;
   deferredVideoIds: string[];
 };
 
@@ -68,6 +75,7 @@ export async function runScheduledVideoIntake(input: {
   const store = new SupabaseTranscriptStore(run.client);
   const channels = await discoverXwadaVideoChannels(startedAt);
   const results: TranscriptPipelineResult[] = [];
+  const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
   const deferredVideoIds: string[] = [];
   let providerAttempts = 0;
 
@@ -81,12 +89,24 @@ export async function runScheduledVideoIntake(input: {
     for (const channel of orderedChannels) {
       const video = channel.videos[videoIndex];
       if (!video) continue;
-      await ensureVideoIntakeItem({
+      const item = await ensureVideoIntakeItem({
         runId: run.id,
         channelKey: channel.channelKey,
         video,
         client: run.client,
       });
+      // A persisted non-retryable TranscriptAPI conclusion is intentionally
+      // kept as open research debt and still blocks the required source. It
+      // must not be treated as a cache miss or spend a provider call again.
+      if (isKnownPermanentTranscriptUnavailable(item)) {
+        knownUnavailableVideos.push({
+          videoId: video.videoId,
+          errorCode: item.transcriptErrorCode || null,
+          errorMessage: item.transcriptErrorMessage || null,
+          httpStatus: item.transcriptHttpStatus ?? null,
+        });
+        continue;
+      }
       // Cached transcripts should not consume the provider budget, otherwise a
       // run full of old uploads can defer a fresh required-channel video.
       const cached = await store.findReadyTranscript(video.videoId);
@@ -116,6 +136,7 @@ export async function runScheduledVideoIntake(input: {
       note: channel.detail,
     })),
     results,
+    knownUnavailableVideos,
     deferredVideoIds,
     discoveryFailures,
     client: run.client,
@@ -126,16 +147,18 @@ export async function runScheduledVideoIntake(input: {
     runId: run.id,
     runKey: input.runKey,
     generatedAt: new Date().toISOString(),
-    status: discoveryFailures.length || failedTranscripts.length || deferredVideoIds.length ? "attention" : "healthy",
+    status: discoveryFailures.length || failedTranscripts.length || knownUnavailableVideos.length || deferredVideoIds.length ? "attention" : "healthy",
     summary: {
       ...xwadaDiscoverySummary(channels),
       transcriptsReady: results.filter((result) => result.status === "ready").length,
       transcriptFailures: failedTranscripts.length,
+      transcriptsUnavailable: knownUnavailableVideos.length,
       cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
       transcriptsDeferred: deferredVideoIds.length,
     },
     channels,
     transcripts: results,
+    knownUnavailableVideos,
     deferredVideoIds,
   };
 }

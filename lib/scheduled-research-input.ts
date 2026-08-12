@@ -269,11 +269,26 @@ function videoSourceCheck(input: {
   );
   const pending = channel.videos.filter((video) => !ready.has(video.videoId));
   if (pending.length) {
+    const permanentlyUnavailable = new Set([
+      ...input.videoResult.knownUnavailableVideos.map((video) => video.videoId),
+      ...input.videoResult.transcripts
+        .filter((result) => result.status === "failed" && !result.retryable)
+        .map((result) => result.videoId),
+    ]);
+    const unavailable = pending.filter((video) => permanentlyUnavailable.has(video.videoId));
+    const retryablePending = pending.length - unavailable.length;
+    const unavailableDetail = unavailable.length
+      ? `${unavailable.length} video(s) have a known non-retryable TranscriptAPI unavailability and remain blocked as research debt.`
+      : "";
+    const retryableDetail = retryablePending
+      ? `${retryablePending} video(s) do not yet have a ready TranscriptAPI transcript.`
+      : "";
     return {
       source: input.source,
       status: "blocked",
       itemCount: 0,
-      note: `${pending.length} newly discovered video(s) do not yet have a ready TranscriptAPI transcript.`,
+      retryable: retryablePending > 0,
+      note: [unavailableDetail, retryableDetail].filter(Boolean).join(" "),
     };
   }
   return {
