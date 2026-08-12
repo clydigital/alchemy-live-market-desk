@@ -56,8 +56,11 @@ async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
     const detail = await result.text();
     throw new Error(`Database request failed (${result.status}): ${detail.slice(0, 500)}`);
   }
-  if (result.status === 204) return undefined as T;
-  return result.json() as Promise<T>;
+  // PostgREST may acknowledge `Prefer: return=minimal` with an empty 2xx
+  // response other than 204. Treat that as a successful write instead of
+  // attempting to parse an empty JSON body and incorrectly failing the run.
+  const text = await result.text();
+  return (text.trim() ? JSON.parse(text) : undefined) as T;
 }
 
 function sourceCount(input: ResearchRunInput, keys: string[]) {
