@@ -1,0 +1,121 @@
+{
+  "accounts": [
+    {
+      "handle": "Bluekurtic",
+      "displayName": "Bluekurtic",
+      "sourceType": "social",
+      "category": "specialist commentary/research",
+      "topics": ["oil", "energy", "geopolitics", "physical market"],
+      "priority": "high",
+      "evidenceClass": "specialist_commentary",
+      "requiresCorroboration": false,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "HFI_Research",
+      "displayName": "HFI Research",
+      "sourceType": "social",
+      "category": "specialist research",
+      "topics": ["oil", "balances", "inventories", "OPEC", "energy"],
+      "priority": "high",
+      "evidenceClass": "specialist_research",
+      "requiresCorroboration": false,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "OilandEnergy",
+      "displayName": "Oil and Energy",
+      "sourceType": "social",
+      "category": "specialist commentary / monitoring",
+      "topics": ["oil", "energy", "industry developments"],
+      "priority": "medium-high",
+      "evidenceClass": "specialist_commentary",
+      "requiresCorroboration": false,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "TheStudyofWar",
+      "displayName": "The Institute for the Study of War",
+      "sourceType": "social",
+      "category": "specialist geopolitical source",
+      "topics": ["conflict", "Middle East", "Iran", "military/geopolitical developments"],
+      "priority": "high",
+      "evidenceClass": "specialist_geopolitical",
+      "requiresCorroboration": false,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "Currentreport1",
+      "displayName": "Current Report",
+      "sourceType": "social",
+      "category": "breaking signal",
+      "topics": ["breaking geopolitical and conflict developments"],
+      "priority": "high",
+      "evidenceClass": "breaking_signal",
+      "requiresCorroboration": true,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "arena",
+      "displayName": "Arena",
+      "sourceType": "social",
+      "category": "commentary/discovery",
+      "topics": ["broad market/news discovery"],
+      "priority": "medium",
+      "evidenceClass": "commentary_discovery",
+      "requiresCorroboration": true,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "KobeissiLetter",
+      "displayName": "The Kobeissi Letter",
+      "sourceType": "social",
+      "category": "market commentary / breaking signal",
+      "topics": ["macro", "markets", "economic developments"],
+      "priority": "high",
+      "evidenceClass": "market_commentary",
+      "requiresCorroboration": true,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "FirstSquawk",
+      "displayName": "First Squawk",
+      "sourceType": "social",
+      "category": "breaking signal",
+      "topics": ["macro", "markets", "geopolitics", "breaking news"],
+      "priority": "high",
+      "evidenceClass": "breaking_signal",
+      "requiresCorroboration": true,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    },
+    {
+      "handle": "zerohedge",
+      "displayName": "ZeroHedge",
+      "sourceType": "social",
+      "category": "breaking signal / narrative monitoring",
+      "topics": ["markets", "macro", "geopolitical narratives", "breaking stories"],
+      "priority": "medium-high",
+      "evidenceClass": "breaking_signal",
+      "requiresCorroboration": true,
+      "enabled": true,
+      "lastChecked": null,
+      "lastSuccess": null
+    }
+  ]
+}

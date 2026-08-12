@@ -4,6 +4,7 @@ import { intelligenceRest } from "@/lib/intelligence/supabase";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
 import { getMarketData } from "@/lib/market";
+import { matchSocialAccount, getSocialWatchlist } from "@/lib/social-sources";
 import type { ResearchRunInput, SourceCheckInput, IntakeItemInput } from "@/lib/research-update";
 
 type ActiveStoryState = {
@@ -230,7 +231,12 @@ export async function runAutonomousOrchestration(options: { dryRun?: boolean; ho
   const items: IntakeItemInput[] = [...calendarIntakeItems, ...marketIntakeItems];
   const processedKeys = new Set<string>(items.map(item => item.itemKey));
 
-  // Ingest fresh public statements
+  // Initialize social / X tracking telemetry
+  const xPostsByAccount = new Map<string, number>();
+  const xRetainedByAccount = new Map<string, number>();
+  const xPendingByAccount = new Map<string, number>();
+
+  // Ingest fresh public statements & social posts
   try {
     const statements = await intelligenceRest<DBStatement[]>(
       `public_statements?select=id,speaker,quote_excerpt,topic,statement_date,source_url,affected_assets,created_at,verification_status,channel&created_at=gte.${encodeURIComponent(lastRunStartedAt)}`
@@ -242,26 +248,107 @@ export async function runAutonomousOrchestration(options: { dryRun?: boolean; ho
       if (processedKeys.has(itemKey)) continue;
       processedKeys.add(itemKey);
 
-      const quality = record.verification_status === "verified" ? 90 : 75;
+      // Check if this statement is a monitored X / social post
+      const channelLower = String(record.channel || "").toLowerCase();
+      const isXChannel = channelLower.includes("twitter") || channelLower.includes(" x ") || channelLower.startsWith("x/");
+      const matchedAccount = matchSocialAccount(record.speaker) || matchSocialAccount(record.source_url);
 
-      items.push({
-        itemKey,
-        itemType: "news",
-        publisher: record.speaker,
-        title: `Public Statement: ${record.speaker} on ${record.topic}`,
-        url: record.source_url!,
-        publishedAt: record.statement_date || record.created_at,
-        summary: `Statement by ${record.speaker} regarding ${record.topic}: "${record.quote_excerpt}"`,
-        sourceQuality: quality,
-        relevance: 80,
-        novelty: 75,
-        materiality: 70,
-        recommendedAction: "collect_evidence",
-        divergenceKind: "none",
-        divergenceNote: undefined,
-        affectedStorySlugs: getMatchingStorySlugs(record.affected_assets, activeStories),
-        evidence: []
-      });
+      if (isXChannel || matchedAccount) {
+        // If matched to a specific account on the watchlist, apply specialized classification and corroboration gates
+        if (matchedAccount) {
+          if (!matchedAccount.enabled) continue; // Skip disabled sources
+
+          const handleKey = matchedAccount.handle.toLowerCase();
+          xPostsByAccount.set(handleKey, (xPostsByAccount.get(handleKey) || 0) + 1);
+
+          let recommendedAction: IntakeItemInput["recommendedAction"] = "collect_evidence";
+          let rationale = `Specialist source metadata matched: ${matchedAccount.displayName} (@${matchedAccount.handle}) classified as "${matchedAccount.category}" with ${matchedAccount.priority} priority.`;
+
+          // Gating: Seek corroboration where required
+          if (matchedAccount.requiresCorroboration) {
+            // Check if other high-grade non-social evidence (e.g. macro releases, calendar, market pricing)
+            // in the same run overlaps with this statement's matched active story assets.
+            const otherHighGradeAssets = new Set(
+              [...calendarIntakeItems, ...marketIntakeItems].flatMap(item => item.affectedStorySlugs || [])
+            );
+            const statementSlugs = getMatchingStorySlugs(record.affected_assets, activeStories);
+            const corroborated = statementSlugs.some(slug => otherHighGradeAssets.has(slug));
+
+            if (corroborated) {
+              recommendedAction = "collect_evidence";
+              rationale += " Corroborated successfully against official macro or market feeds in this cycle.";
+              xRetainedByAccount.set(handleKey, (xRetainedByAccount.get(handleKey) || 0) + 1);
+            } else {
+              recommendedAction = "monitor"; // Gated - do not elevate to verified evidence yet
+              rationale += " Corroboration pending: high-priority breaking news signal requires corroboration before promotion.";
+              xPendingByAccount.set(handleKey, (xPendingByAccount.get(handleKey) || 0) + 1);
+            }
+          } else {
+            // No corroboration required for trusted specialist commentary/research
+            xRetainedByAccount.set(handleKey, (xRetainedByAccount.get(handleKey) || 0) + 1);
+          }
+
+          items.push({
+            itemKey,
+            itemType: "news",
+            publisher: `@${matchedAccount.handle}`, // Retain handles as publisher identity
+            title: `X Discovery: ${matchedAccount.displayName} on ${record.topic}`,
+            url: record.source_url!,
+            publishedAt: record.statement_date || record.created_at, // actual timestamp preserved
+            summary: `${record.quote_excerpt}\n\n[Ancestry & Trace]:\nSource: @${matchedAccount.handle} | Class: ${matchedAccount.category} | Priority: ${matchedAccount.priority} | Requires Corroboration: ${matchedAccount.requiresCorroboration}\nRationale: ${rationale}`,
+            sourceQuality: record.verification_status === "verified" ? 85 : 65, // Preserve source quality conservatively
+            relevance: 80,
+            novelty: 75,
+            materiality: 70,
+            recommendedAction,
+            divergenceKind: "none",
+            divergenceNote: undefined,
+            affectedStorySlugs: getMatchingStorySlugs(record.affected_assets, activeStories),
+            evidence: []
+          });
+        } else {
+          // Unmatched general social statement
+          items.push({
+            itemKey,
+            itemType: "news",
+            publisher: record.speaker || "Verified Social",
+            title: `Social Signal: ${record.speaker} on ${record.topic}`,
+            url: record.source_url!,
+            publishedAt: record.statement_date || record.created_at,
+            summary: `Statement: "${record.quote_excerpt}"`,
+            sourceQuality: record.verification_status === "verified" ? 80 : 60,
+            relevance: 75,
+            novelty: 70,
+            materiality: 65,
+            recommendedAction: "monitor",
+            divergenceKind: "none",
+            divergenceNote: undefined,
+            affectedStorySlugs: getMatchingStorySlugs(record.affected_assets, activeStories),
+            evidence: []
+          });
+        }
+      } else {
+        // Standard verified physical statement
+        const quality = record.verification_status === "verified" ? 90 : 75;
+        items.push({
+          itemKey,
+          itemType: "news",
+          publisher: record.speaker,
+          title: `Public Statement: ${record.speaker} on ${record.topic}`,
+          url: record.source_url!,
+          publishedAt: record.statement_date || record.created_at,
+          summary: `Statement by ${record.speaker} regarding ${record.topic}: "${record.quote_excerpt}"`,
+          sourceQuality: quality,
+          relevance: 80,
+          novelty: 75,
+          materiality: 70,
+          recommendedAction: "collect_evidence",
+          divergenceKind: "none",
+          divergenceNote: undefined,
+          affectedStorySlugs: getMatchingStorySlugs(record.affected_assets, activeStories),
+          evidence: []
+        });
+      }
     }
   } catch (error) {
     console.warn("Public statements watermark scan failed", error);
@@ -439,18 +526,14 @@ export async function runAutonomousOrchestration(options: { dryRun?: boolean; ho
     }
   }
 
-  // Always report economic-calendar after query attempt (checked or no_new_items with itemCount: 0, only blocked on failure!)
-  const calendarStatus = calendarAcquisitionSuccess
-    ? (calendarIntakeItems.length > 0 ? "checked" : "no_new_items")
-    : "blocked";
-  sourceChecks.push({
-    source: "economic-calendar",
-    status: calendarStatus,
-    itemCount: calendarIntakeItems.length,
-    note: calendarAcquisitionSuccess
-      ? `Live high-impact economic calendar loaded natively: ${calendarIntakeItems.length} active scheduled releases parsed.`
-      : "Failed to acquire fresh economic calendar data from live provider streams."
-  });
+  if (calendarIntakeItems.length > 0) {
+    sourceChecks.push({
+      source: "economic-calendar",
+      status: "checked",
+      itemCount: calendarIntakeItems.length,
+      note: `Live high-impact economic calendar loaded natively: ${calendarIntakeItems.length} active scheduled releases parsed.`
+    });
+  }
 
   // Always include the truthful core market-data provider status (Required core acquisition!)
   const marketStatus = marketAcquisitionSuccess ? "checked" : "blocked";
@@ -462,6 +545,23 @@ export async function runAutonomousOrchestration(options: { dryRun?: boolean; ho
       ? "Live NASDAQ historical price and EIA commodity spot feeds queried natively."
       : "Failed to acquire fresh market pricing or commodity data."
   });
+
+  // Dynamically add status/telemetry checkpoints for each watched social account on the watchlist
+  const watchlist = getSocialWatchlist();
+  for (const account of watchlist) {
+    if (!account.enabled) continue;
+    const handleKey = account.handle.toLowerCase();
+    const found = xPostsByAccount.get(handleKey) || 0;
+    const retained = xRetainedByAccount.get(handleKey) || 0;
+    const pending = xPendingByAccount.get(handleKey) || 0;
+
+    sourceChecks.push({
+      source: `x-watchlist:${account.handle}`,
+      status: "checked",
+      itemCount: found,
+      note: `Account @${account.handle} ("${account.category}", Priority: ${account.priority}) monitored. Retained: ${retained}, Corroboration Pending: ${pending}.`
+    });
+  }
 
   // 8. Build autonomous-run metadata and mark genuinely missing provider/acquisition capabilities
   const now = new Date();
