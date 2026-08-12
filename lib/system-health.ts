@@ -2,6 +2,7 @@ import { getHybridDeskData } from "@/lib/data";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
+import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
 
 function configured(value: string | undefined) {
   return Boolean(value?.trim());
@@ -37,6 +38,7 @@ export async function getSystemHealth() {
   const latestVideo = videoRows[0] || null;
   const sourceChecks = latestResearchRun?.source_checks || [];
   const youtubeChecks = (latestVideoRun?.source_checks || []).filter((check) => /youtube|video|fx-evolution|stockedup|trader|clearvalue|eurodollar|bravos/i.test(check.source));
+  const youtubeDiscoveryFailures = youtubeChecks.filter((check) => !["ok", "checked", "no_recent_videos"].includes(check.status));
   const scheduledProviderFailures = sourceChecks
     .filter((check) => check.status === "blocked")
     .map((check) => ({
@@ -106,10 +108,11 @@ export async function getSystemHealth() {
         : "No self-hosted OpenBB API/Workspace bridge is configured. Direct official providers remain the active data path.",
     },
     youtube: {
-      state: state(youtubeConfigured, youtubeChecks.some((check) => check.status === "ok" || check.status === "checked") || videoRows.length > 0),
+      state: youtubeDiscoveryHealthState(youtubeConfigured, youtubeChecks),
       configured: youtubeConfigured,
       channelCount: 10,
       latestChecks: youtubeChecks,
+      discoveryFailures: youtubeDiscoveryFailures.length,
       persistedVideos: videoRows.length,
     },
     transcriptAPI: {
