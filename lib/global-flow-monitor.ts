@@ -305,4 +305,4 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
   return { updatedAt: new Date().toISOString(), gold, oil, researchTriggers: researchTriggers.sort((a, b) => b.priority - a.priority), coverageGaps };
 }
 
-export const getGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v1"], { revalidate: 300 });
+export const getGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v1"], { revalidate: 43200, tags: ["global-flow-monitor"] });

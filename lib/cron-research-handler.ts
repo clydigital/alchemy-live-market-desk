@@ -5,6 +5,27 @@ import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { buildScheduledResearchInput, scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-input";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { refreshMarketStateLedger } from "@/lib/market-state-builder";
+import { revalidateTag } from "next/cache";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
+
+export async function warmAndRefreshMarketState() {
+  try {
+    console.log("Warming market and flow monitors...");
+    revalidateTag("market-monitor");
+    revalidateTag("global-flow-monitor");
+    await Promise.all([
+      getMarketMonitor(),
+      getGlobalFlowMonitor(),
+    ]);
+    console.log("Monitors warmed. Rebuilding market state ledger...");
+    await refreshMarketStateLedger();
+    console.log("Market state ledger successfully refreshed!");
+  } catch (err) {
+    console.error("Failed to warm and refresh market state:", err);
+  }
+}
 
 type ClaimedRun = {
   id: string;
@@ -162,6 +183,8 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
         ? result.error
         : `Publisher returned HTTP ${publication.status}.`;
       await markClaimFailed(claim.run.id, detail);
+    } else {
+      await warmAndRefreshMarketState();
     }
     return response({
       slot,
