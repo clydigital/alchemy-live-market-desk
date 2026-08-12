@@ -32,6 +32,15 @@ function cronAuthorised(request: Request) {
   return acceptsResearchAuthorization(request.headers.get("authorization"), [process.env.CRON_SECRET]);
 }
 
+function explicitRetryKey(request: Request, baseRunKey: string) {
+  const retry = new URL(request.url).searchParams.get("retry")?.trim();
+  if (!retry) return baseRunKey;
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/i.test(retry)) {
+    throw new Error("The retry key must contain only letters, numbers, and hyphens and be at most 41 characters.");
+  }
+  return `${baseRunKey}:retry:${retry}`;
+}
+
 async function readRun(runKey: string) {
   const client = createSupabaseAdminClient();
   const { data, error } = await client
@@ -106,7 +115,12 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
   }
 
   const now = new Date();
-  const runKey = scheduledRunKey(slot, now);
+  let runKey: string;
+  try {
+    runKey = explicitRetryKey(request, scheduledRunKey(slot, now));
+  } catch (error) {
+    return response({ error: error instanceof Error ? error.message : "Invalid scheduled retry key." }, 400);
+  }
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   let claim: ClaimResult;
   try {
@@ -129,9 +143,9 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
   }
 
   try {
-    // Three external TranscriptAPI calls plus eight bounded OpenAI stages fit
+    // Six external TranscriptAPI calls plus eight bounded OpenAI stages fit
     // inside the 300-second Vercel Cron function while cache hits stay free.
-    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 3 });
+    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 6 });
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
       method: "POST",
       headers: {

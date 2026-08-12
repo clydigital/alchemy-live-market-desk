@@ -55,7 +55,9 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
   {
     source: "fxstreet",
     publisher: "FXStreet",
-    urls: ["https://www.fxstreet.com/rss/news"],
+    // The root official feed and the news alias carry the same direct FXStreet
+    // coverage, but can be served by different CDN paths.
+    urls: ["https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
   },
 ];
