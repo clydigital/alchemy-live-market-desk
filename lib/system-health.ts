@@ -43,9 +43,9 @@ export async function getSystemHealth() {
       provider_key: check.source,
       capability: "scheduled_research",
       request_key: latestResearchRun?.run_key || null,
-      failure_code: "source_check_blocked",
+      failure_code: check.retryable === false ? "source_check_permanent_unavailability" : "source_check_blocked",
       failure_detail: check.note || "Required source check was blocked.",
-      retryable: true,
+      retryable: check.retryable ?? true,
       last_failed_at: latestResearchRun?.updated_at || null,
       resolved_at: null,
     }));

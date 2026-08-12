@@ -23,6 +23,9 @@ export type SourceCheckInput = {
   source: ResearchSourceKey;
   status: SourceCheckStatus;
   itemCount: number;
+  // A blocked required source may be waiting for a retryable provider issue or
+  // be truthfully unavailable until an external source changes.
+  retryable?: boolean;
   note?: string;
 };
 
@@ -166,6 +169,7 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     }
     if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
     if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
+    if (check.retryable !== undefined && typeof check.retryable !== "boolean") errors.push(`Invalid retryable state for ${required}.`);
     if (check.status === "checked" && check.itemCount < 1) {
       errors.push(`${required} cannot be checked with zero retained items; use no_new_items when the direct acquisition succeeded without a new item.`);
     }
