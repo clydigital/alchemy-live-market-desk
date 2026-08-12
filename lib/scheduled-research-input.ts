@@ -349,7 +349,7 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
  */
 export async function buildScheduledResearchInput(
   slot: CanonicalResearchSlot,
-  options: { now?: Date; maxTranscriptAttempts?: number } = {},
+  options: { now?: Date; maxTranscriptAttempts?: number; runKey?: string } = {},
 ): Promise<ResearchRunInput> {
   const now = options.now ?? new Date();
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
@@ -389,7 +389,7 @@ export async function buildScheduledResearchInput(
   ];
   const blocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
   return {
-    runKey: scheduledRunKey(slot, now),
+    runKey: options.runKey || scheduledRunKey(slot, now),
     scheduleSlot: slot,
     scheduledFor,
     sourceChecks,

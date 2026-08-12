@@ -145,7 +145,7 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
   try {
     // Six external TranscriptAPI calls plus eight bounded OpenAI stages fit
     // inside the 300-second Vercel Cron function while cache hits stay free.
-    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 6 });
+    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 6, runKey });
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
       method: "POST",
       headers: {
