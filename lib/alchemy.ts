@@ -12,6 +12,7 @@ export type AlchemyArticle = {
 };
 
 const ROOT = "https://alchemymarkets.com";
+const MARKET_INSIGHTS_FEED = `${ROOT}/education/market-insights/feed/`;
 const CATEGORY_PAGES = [
   `${ROOT}/education/market-insights/`,
   `${ROOT}/education/market-insights/chart-of-the-day/`,
@@ -237,6 +238,45 @@ function parseArticle(url: string, html: string): AlchemyArticle {
   };
 }
 
+function rssValue(item: string, tag: string) {
+  const escaped = escapeRegExp(tag);
+  const value = item.match(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, "i"))?.[1] || "";
+  return value.replace(/^<!\[CDATA\[/i, "").replace(/\]\]>$/i, "").trim();
+}
+
+/**
+ * Parses the official Market Insights RSS feed. The scheduler needs a dated,
+ * direct source and must never substitute the local article fallback.
+ */
+export function parseAlchemyMarketInsightsFeed(xml: string, limit = 30): AlchemyArticle[] {
+  const articles = [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)]
+    .flatMap((match) => {
+      const item = match[1];
+      const url = rssValue(item, "link");
+      const publishedAt = rssValue(item, "pubDate");
+      if (!url || !publishedAt || !Number.isFinite(Date.parse(publishedAt))) return [];
+
+      const rawContent = rssValue(item, "content:encoded") || rssValue(item, "description");
+      const title = clean(rssValue(item, "title"));
+      return [{
+        id: slugFromUrl(url),
+        title: title || slugFromUrl(url),
+        url,
+        category: categoryFromUrl(url),
+        publishedAt: new Date(publishedAt).toISOString(),
+        author: clean(rssValue(item, "dc:creator")) || "Alchemy Markets",
+        image: null,
+        summary: clean(rssValue(item, "description")) || title || "Open the original Alchemy Markets article to review its published thesis and chart context.",
+        bodyText: extractBodyText(rawContent) || clean(rawContent),
+        tradingViewLinks: extractTradingViewLinks(rawContent),
+      } satisfies AlchemyArticle];
+    });
+
+  return [...new Map(articles.map((article) => [article.url, article])).values()]
+    .sort((a, b) => Date.parse(b.publishedAt || "") - Date.parse(a.publishedAt || ""))
+    .slice(0, limit);
+}
+
 export type FreshAlchemyArticlesResult = {
   status: "checked" | "blocked";
   articles: AlchemyArticle[];
@@ -259,27 +299,14 @@ export async function getFreshAlchemyArticles(limit = 30): Promise<FreshAlchemyA
       if (!response.ok) throw new Error(`${new URL(url).pathname || "/"} returned HTTP ${response.status}.`);
       return response.text();
     };
-    const pages = await Promise.allSettled(CATEGORY_PAGES.map(fetchLiveText));
-    const pageFailures = pages.filter((page) => page.status === "rejected").length;
-    const urls = pages.flatMap((page) => page.status === "fulfilled" ? extractArticleUrls(page.value) : []);
-    const unique = [...new Set(urls)].slice(0, 30);
-    if (!unique.length) {
-      return { status: "blocked", articles: [], note: "The live Alchemy Market Insights pages did not expose any article URLs." };
-    }
-
-    const results = await Promise.allSettled(unique.map(async (url) => parseArticle(url, await fetchLiveText(url))));
-    const articles = results
-      .flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
-      .filter((article) => Boolean(article.publishedAt && Number.isFinite(Date.parse(article.publishedAt))))
-      .sort((a, b) => Date.parse(b.publishedAt || "") - Date.parse(a.publishedAt || ""))
-      .slice(0, limit);
+    const articles = parseAlchemyMarketInsightsFeed(await fetchLiveText(MARKET_INSIGHTS_FEED), limit);
     if (!articles.length) {
-      return { status: "blocked", articles: [], note: "The live Alchemy Market Insights scan returned no dated articles." };
+      return { status: "blocked", articles: [], note: "The official Alchemy Market Insights feed returned no dated articles." };
     }
     return {
       status: "checked",
       articles,
-      note: pageFailures ? `${pageFailures} category page(s) were unavailable; dated articles were acquired from the remaining live pages.` : undefined,
+      note: "Direct Alchemy Market Insights RSS feed acquired.",
     };
   } catch (error) {
     return {
