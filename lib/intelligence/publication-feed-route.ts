@@ -118,7 +118,7 @@ async function optionalWithin<T>(
   label: string,
   work: () => Promise<T>,
   fallback: T,
-  timeoutMs = 3_000,
+  timeoutMs = 2_000,
 ): Promise<OptionalResult<T>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -139,13 +139,14 @@ async function optionalWithin<T>(
 
 export async function getCanonicalPublicationResponse() {
   const generatedAt = new Date().toISOString();
+  const startedAt = Date.now();
 
-  // Canonical Supabase-backed publication data is critical. Optional provider
-  // enrichments are bounded so a slow upstream cannot make Hybrid discard V2.
-  const [data, records, economicCalendar] = await Promise.all([
+  // Only canonical persisted publication data is allowed to block the feed.
+  // Live provider/calendar enrichments are bounded so Hybrid can always consume
+  // the latest canonical state even when an upstream source is slow.
+  const [data, records] = await Promise.all([
     getHybridDeskData(),
     getHybridPublicationRecords(),
-    getEconomicCalendar(),
   ]);
 
   const emptyMarketMonitor: MarketMonitor = {
@@ -164,8 +165,10 @@ export async function getCanonicalPublicationResponse() {
   };
   const emptyStoryImages: Awaited<ReturnType<typeof getStoryHeaderImages>> = new Map();
   const emptyCaseMonitors: Awaited<ReturnType<typeof buildCaseMonitorBoards>> = [];
+  const emptyCalendar: Awaited<ReturnType<typeof getEconomicCalendar>> = [];
 
-  const [marketResult, flowResult, imageResult, baseMonitorResult] = await Promise.all([
+  const [calendarResult, marketResult, flowResult, imageResult, baseMonitorResult] = await Promise.all([
+    optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar),
     optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor),
     optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor),
     optionalWithin(
@@ -185,11 +188,12 @@ export async function getCanonicalPublicationResponse() {
         "Case monitor overlays",
         () => enrichCaseMonitorBoards(baseMonitorResult.value),
         baseMonitorResult.value,
-        2_000,
+        1_000,
       )
     : { value: baseMonitorResult.value, warning: null };
 
   const providerWarnings = [
+    calendarResult.warning,
     marketResult.warning,
     flowResult.warning,
     imageResult.warning,
@@ -215,6 +219,7 @@ export async function getCanonicalPublicationResponse() {
   const marketState = liveMarketState(data);
   const liveDeskPulse = buildLiveDeskPulse(data.marketStateRecords, latestRun);
   const openResearchDebt = data.researchDebt.filter((item) => item.status === "open");
+  const elapsedMs = Date.now() - startedAt;
 
   return NextResponse.json({
     version: 2,
@@ -232,7 +237,7 @@ export async function getCanonicalPublicationResponse() {
     liveDeskPulse,
     stories: contract.canonical.storyStates,
     marketState,
-    calendar: liveCalendar(data, economicCalendar),
+    calendar: liveCalendar(data, calendarResult.value),
     earnings: liveEarnings(data),
     accuracy: latestRun ? {
       checkedAt: latestRun.completed_at || latestRun.updated_at,
@@ -264,6 +269,9 @@ export async function getCanonicalPublicationResponse() {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      "Server-Timing": `canonical-feed;dur=${elapsedMs}`,
+      "X-Alchemy-Feed-Duration-Ms": String(elapsedMs),
+      "X-Alchemy-Provider-Warnings": String(providerWarnings.length),
     },
   });
 }
