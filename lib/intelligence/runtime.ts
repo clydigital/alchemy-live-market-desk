@@ -1535,6 +1535,10 @@ export async function runIntelligenceEngine({
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
     }
 
+    if (!dryRun && editionStories.length) {
+      await persistDailyBrief({ engineRunId, researchRunId, stories: editionStories, evidence });
+    }
+
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
@@ -1571,11 +1575,7 @@ export async function runIntelligenceEngine({
     const message = error instanceof Error ? error.message : "Unknown intelligence runtime failure.";
     warnings.push(message);
     try {
-      if (!dryRun && editionStories.length) {
-      await persistDailyBrief({ engineRunId, researchRunId, stories: editionStories, evidence });
-    }
-
-    await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
