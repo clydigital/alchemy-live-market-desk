@@ -1403,7 +1403,7 @@ export async function runIntelligenceEngine({
         existingStories: storiesPack,
         publicationGate: { minDecisiveEvidence: MIN_DECISIVE_EVIDENCE, minIndependentSources: MIN_INDEPENDENT_SOURCES, requiresTier1Or2: true },
       },
-      maxOutputTokens: 5_500,
+      maxOutputTokens: 9_000,
     });
 
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
