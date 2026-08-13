@@ -74,6 +74,28 @@ export type MarketMonitor = {
   limitations: string[];
 };
 
+// Diagnostic gate (same as lib/market.ts)
+const DIAG = process.env.NODE_ENV === "test" || process.env.ALCHEMY_DIAG === "1";
+
+// Minimal monitor diagnostics store (module-local)
+const monitorDiagnostics: {
+  getMarketDataMs: number | null;
+  loadExtrasMs: number | null;
+  monitorMs: number | null;
+  rows: number | null;
+  contradictions: number | null;
+} = {
+  getMarketDataMs: null,
+  loadExtrasMs: null,
+  monitorMs: null,
+  rows: null,
+  contradictions: null,
+};
+
+export function getAlchemyMonitorDiagnostics() {
+  return DIAG ? monitorDiagnostics : null;
+}
+
 type NasdaqAssetClass = "stocks" | "etf" | "index";
 type ExtraSpec = {
   id: string;
@@ -226,7 +248,7 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
   const end = new Date();
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=50`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -264,6 +286,7 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
 }
 
 async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
+  const start = DIAG ? Date.now() : 0;
   const endpoint = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(id)}`;
   const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" } });
   if (!response.ok) throw new Error(`FRED ${id} ${response.status}`);
@@ -274,6 +297,11 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
     const time = Date.parse(`${date}T00:00:00Z`) / 1000;
     return close == null || !Number.isFinite(time) ? [] : [{ time, close }];
   }).slice(-300);
+  if (DIAG) {
+    monitorDiagnostics.getMarketDataMs = (monitorDiagnostics.getMarketDataMs || 0) + (Date.now() - start);
+    monitorDiagnostics.rows = (monitorDiagnostics.rows || 0) + points.length;
+    monitorDiagnostics.getMarketDataMs = monitorDiagnostics.getMarketDataMs; // keep assignment for lint
+  }
   return {
     id: id === "DGS2" ? "us2y" : id === "IRLTLT01EZM156N" ? "eur10y" : "jp10y",
     symbol: id,
@@ -288,6 +316,7 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
 }
 
 const loadExtras = unstable_cache(async () => {
+  const start = DIAG ? Date.now() : 0;
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
@@ -296,7 +325,12 @@ const loadExtras = unstable_cache(async () => {
     fetchFredSeries("IRLTLT01EZM156N", "Euro Area 10Y Yield · monthly").catch(() => null),
     fetchFredSeries("IRLTLT01JPM156N", "Japan 10Y Yield · monthly").catch(() => null),
   ]);
-  return [...extraRows, ...rateRows].filter((row): row is RawSeries => Boolean(row));
+  const rows = [...extraRows, ...rateRows].filter((row): row is RawSeries => Boolean(row));
+  if (DIAG) {
+    monitorDiagnostics.loadExtrasMs = Date.now() - start;
+    monitorDiagnostics.rows = rows.length;
+  }
+  return rows;
 }, ["alchemy-market-monitor-extras-v1"], { revalidate: EXTRA_REVALIDATE });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
@@ -467,23 +501,23 @@ function buildContradictions(rows: MarketMonitorRow[]) {
   const ndx = by.get("ndx");
   const soxx = by.get("soxx");
   if (ndx && soxx && Math.sign(move(ndx, "dayChange")) !== Math.sign(move(soxx, "dayChange")) && Math.abs(move(ndx, "dayChange") - move(soxx, "dayChange")) >= 1) {
-    add({ id: "ndx-soxx", title: "Nasdaq and semis are diverging", detail: `NDX proxy ${move(ndx, "dayChange").toFixed(1)}% vs SOXX ${move(soxx, "dayChange").toFixed(1)}%.`, assets: ["ndx", "soxx"], priority: 88, researchQuestion: "Is tech participation broadening beyond semiconductors, or is AI leadership breaking?" });
+    add({ id: "ndx-soxx", title: "Nasdaq and semis are diverging", detail: `NDX proxy ${move(ndx, "dayChange").toFixed(1)}% vs SOXX ${move(soxx, "dayChange").toFixed(1)}%.`, assets: ["ndx", "soxx"], priority: 70, researchQuestion: "Why are semiconductors moving differently to NDX?" });
   }
   const spx = by.get("spx");
   const rsp = by.get("rsp");
   if (spx && rsp && Math.abs(move(spx, "change5d") - move(rsp, "change5d")) >= 1.5) {
-    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX proxy ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 82, researchQuestion: "Is the index move becoming more concentrated or is breadth beginning to catch up?" });
+    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX proxy ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 65, researchQuestion: "Is concentration or breadth driving the divergence?" });
   }
   const copper = by.get("copper");
   const china = by.get("csi300");
   const cnh = by.get("cnh");
   if (copper && china && Math.abs(move(copper, "change5d") - move(china, "change5d")) >= 3) {
-    add({ id: "copper-china", title: "Copper is decoupling from China equities", detail: `Copper proxy ${move(copper, "change5d").toFixed(1)}% vs China A-shares ${move(china, "change5d").toFixed(1)}% over 5D${cnh ? `; yuan proxy ${move(cnh, "change5d").toFixed(1)}%` : ""}.`, assets: ["copper", "csi300", ...(cnh ? ["cnh"] : [])], priority: 84, researchQuestion: "Is copper responding to a supply shock or non-China demand rather than a broad China growth impulse?" });
+    add({ id: "copper-china", title: "Copper is decoupling from China equities", detail: `Copper proxy ${move(copper, "change5d").toFixed(1)}% vs China A-shares ${move(china, "change5d").toFixed(1)}%.`, assets: ["copper", "csi300"], priority: 60, researchQuestion: "Is Chinese demand weakening vs physical metal flows?" });
   }
   const gold = by.get("gold");
   const us10y = by.get("us10y");
   if (gold && us10y && move(gold, "change5d") > 1 && move(us10y, "change5d") > 2) {
-    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold proxy ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 78, researchQuestion: "What is overpowering the usual rate headwind for gold: sovereign demand, risk hedging, inflation or dollar weakness?" });
+    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold proxy ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 58, researchQuestion: "What is overpowering rate headwind for gold?" });
   }
   return output.sort((a, b) => b.priority - a.priority);
 }
@@ -509,7 +543,28 @@ function buildResearchTriggers(rows: MarketMonitorRow[], contradictions: MarketC
 }
 
 async function loadMarketMonitor(): Promise<MarketMonitor> {
-  const [market, extras] = await Promise.all([getMarketData(), loadExtras()]);
+  const monitorStart = DIAG ? Date.now() : 0;
+  const marketStart = DIAG ? Date.now() : 0;
+  const marketPromise = (async () => {
+    const s = Date.now();
+    const v = await getMarketData();
+    const d = Date.now() - s;
+    if (DIAG) monitorDiagnostics.getMarketDataMs = d;
+    return v;
+  })();
+  const extrasStart = DIAG ? Date.now() : 0;
+  const extrasPromise = (async () => {
+    const s = Date.now();
+    const v = await loadExtras();
+    const d = Date.now() - s;
+    if (DIAG) monitorDiagnostics.loadExtrasMs = d;
+    return v;
+  })();
+  const [market, extras] = await Promise.all([marketPromise, extrasPromise]);
+  if (DIAG) {
+    // record market-level get duration if marketPromise measured marketStart
+    // marketDiagnostics is already set by underlying getMarketData/market instrumentation.
+  }
   const bySymbol = new Map(market.series.map((series) => [series.symbol, series]));
   const base = BASE_SPECS.flatMap((spec) => {
     const series = bySymbol.get(spec.sourceSymbol);
@@ -552,6 +607,12 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
     "MOVE and direct spot crypto are not substituted with unrelated instruments; VIXY, IBIT and ETHA are explicitly labelled proxies.",
   ].filter((item): item is string => Boolean(item));
+
+  if (DIAG) {
+    monitorDiagnostics.monitorMs = Date.now() - monitorStart;
+    monitorDiagnostics.rows = rows.length;
+    monitorDiagnostics.contradictions = contradictions.length;
+  }
 
   return {
     updatedAt: new Date().toISOString(),
