@@ -287,7 +287,7 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
   };
 }
 
-const loadExtras = unstable_cache(async () => {
+export const loadExtras = unstable_cache(async () => {
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
