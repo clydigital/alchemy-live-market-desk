@@ -288,14 +288,20 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
 }
 
 const loadExtras = unstable_cache(async () => {
+  const startTime = Date.now();
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
-    try { return await fetchNasdaqHistory(spec); } catch { return null; }
+    try { return await fetchNasdaqHistory(spec); } catch (err) {
+      console.warn(`[PERF] fetchNasdaqHistory failed for ${spec.providerSymbol}:`, String(err));
+      return null;
+    }
   });
   const rateRows = await Promise.all([
-    fetchFredSeries("DGS2", "US 2Y Yield").catch(() => null),
-    fetchFredSeries("IRLTLT01EZM156N", "Euro Area 10Y Yield · monthly").catch(() => null),
-    fetchFredSeries("IRLTLT01JPM156N", "Japan 10Y Yield · monthly").catch(() => null),
+    fetchFredSeries("DGS2", "US 2Y Yield").catch((err) => { console.warn("[PERF] fetchFredSeries DGS2 failed:", String(err)); return null; }),
+    fetchFredSeries("IRLTLT01EZM156N", "Euro Area 10Y Yield · monthly").catch((err) => { console.warn("[PERF] fetchFredSeries IRLTLT01EZM156N failed:", String(err)); return null; }),
+    fetchFredSeries("IRLTLT01JPM156N", "Japan 10Y Yield · monthly").catch((err) => { console.warn("[PERF] fetchFredSeries IRLTLT01JPM156N failed:", String(err)); return null; }),
   ]);
+  const duration = Date.now() - startTime;
+  console.log(`[PERF] loadExtras cold execution took ${duration}ms`);
   return [...extraRows, ...rateRows].filter((row): row is RawSeries => Boolean(row));
 }, ["alchemy-market-monitor-extras-v1"], { revalidate: EXTRA_REVALIDATE });
 

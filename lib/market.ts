@@ -93,9 +93,6 @@ const CORE_NASDAQ: SeriesSpec[] = [
   { symbol: "FXB", providerSymbol: "FXB", assetClass: "etf", label: "Sterling (FXB proxy)" },
   { symbol: "FXC", providerSymbol: "FXC", assetClass: "etf", label: "Canadian dollar (FXC proxy)" },
   { symbol: "EWJ", providerSymbol: "EWJ", assetClass: "etf", label: "Japan equities (EWJ proxy)" },
-  { symbol: "VGK", providerSymbol: "VGK", assetClass: "etf", label: "Europe equities (VGK proxy)" },
-  { symbol: "EWY", providerSymbol: "EWY", assetClass: "etf", label: "South Korea equities (EWY proxy)" },
-  { symbol: "EWU", providerSymbol: "EWU", assetClass: "etf", label: "UK equities (EWU proxy)" },
 ];
 
 const MAG7 = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA"];
@@ -468,6 +465,7 @@ function calculatePulse(series: MarketSeries[], breadth: BreadthSnapshot, sessio
 }
 
 async function loadMarketData(): Promise<MarketData> {
+  const startTime = Date.now();
   const stockUniverse = [...new Set([...MAG7, ...AI_BASKET, ...LARGE_CAP_PROXY])];
   const nasdaqRequests: NasdaqRequest[] = [
     ...CORE_NASDAQ.map(({ providerSymbol, assetClass }) => ({ providerSymbol, assetClass })),
@@ -480,6 +478,16 @@ async function loadMarketData(): Promise<MarketData> {
     fetchUsdJpy(),
     Promise.all(Object.values(EIA_SERIES).map(async (item) => [item.symbol, await fetchEiaDaily(item.code, item.sourceUrl)] as const)),
   ]);
+
+  const duration = Date.now() - startTime;
+  const failures = [
+    { name: "nasdaqResult", status: nasdaqResult.status, reason: nasdaqResult.status === "rejected" ? (nasdaqResult as any).reason : null },
+    { name: "treasuryResult", status: treasuryResult.status, reason: treasuryResult.status === "rejected" ? (treasuryResult as any).reason : null },
+    { name: "usdJpyResult", status: usdJpyResult.status, reason: usdJpyResult.status === "rejected" ? (usdJpyResult as any).reason : null },
+    { name: "eiaResult", status: eiaResult.status, reason: eiaResult.status === "rejected" ? (eiaResult as any).reason : null }
+  ].filter(f => f.status === "rejected");
+
+  console.log(`[PERF] loadMarketData cold execution took ${duration}ms. Failures:`, JSON.stringify(failures));
 
   const nasdaq = nasdaqResult.status === "fulfilled" ? nasdaqResult.value : new Map<string, PricePoint[]>();
   const treasury = treasuryResult.status === "fulfilled" ? treasuryResult.value : new Map<string, PricePoint[]>();

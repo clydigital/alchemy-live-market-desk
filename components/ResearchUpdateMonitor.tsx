@@ -22,7 +22,8 @@ function time(value: string | null) {
   }).format(new Date(value));
 }
 
-function statusLabel(status: "complete" | "running" | "blocked" | "failed" | "missed") {
+function statusLabel(status: "complete" | "running" | "blocked" | "failed" | "missed" | "disabled") {
+  if (status === "disabled") return "Disabled";
   if (status === "complete") return "Completed";
   if (status === "running") return "Running";
   if (status === "blocked") return "Blocked";
@@ -47,10 +48,10 @@ export default function ResearchUpdateMonitor({ runs, intake }: Props) {
       <header className="update-engine-head">
         <div>
           <small>TWICE-DAILY UPDATE ENGINE</small>
-          <h3>{health.state === "healthy" ? "Both research cycles are current" : health.state === "not_configured" ? "The update ledger is not connected yet" : "A research cycle needs attention"}</h3>
+          <h3>{health.state === "healthy" ? "Both research cycles are current" : health.state === "disabled" ? "Scheduled runs are intentionally paused" : health.state === "not_configured" ? "The update ledger is not connected yet" : "A research cycle needs attention"}</h3>
           <p>Every run proves its source checks, transcript coverage, dated article scope, evidence threshold and publication decision.</p>
         </div>
-        <strong>{health.state === "healthy" ? "CURRENT" : health.state === "not_configured" ? "SETUP" : "ATTENTION"}</strong>
+        <strong>{health.state === "healthy" ? "CURRENT" : health.state === "disabled" ? "PAUSED" : health.state === "not_configured" ? "SETUP" : "ATTENTION"}</strong>
       </header>
 
       <div className="update-schedule">
@@ -58,7 +59,7 @@ export default function ResearchUpdateMonitor({ runs, intake }: Props) {
           <article className={slot.status} key={slot.key}>
             <span>{slot.label}</span>
             <b>{statusLabel(slot.status)}</b>
-            <small>{slot.completedAt ? time(slot.completedAt) : `Due ${time(slot.expectedAt)}`}</small>
+            <small>{slot.status === "disabled" ? "No run expected while coding" : slot.completedAt ? time(slot.completedAt) : `Due ${time(slot.expectedAt)}`}</small>
           </article>
         ))}
         <article className="latest">

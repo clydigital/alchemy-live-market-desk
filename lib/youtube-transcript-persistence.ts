@@ -27,6 +27,11 @@ type IntakeRow = {
   transcript_duration_seconds?: number | null;
   transcript_metadata?: unknown;
   transcript_retrieved_at?: string | null;
+  transcript_attempted_at?: string | null;
+  transcript_error_code?: string | null;
+  transcript_error_message?: string | null;
+  transcript_http_status?: number | null;
+  transcript_retryable?: boolean | null;
   transcript_attempt_count?: number | null;
 };
 
@@ -73,6 +78,10 @@ function toIntakeItem(row: IntakeRow): TranscriptIntakeItem {
     title: row.title,
     url: row.url,
     transcriptStatus: row.transcript_status,
+    transcriptRetryable: row.transcript_retryable ?? null,
+    transcriptErrorCode: row.transcript_error_code ?? null,
+    transcriptErrorMessage: row.transcript_error_message ?? null,
+    transcriptHttpStatus: row.transcript_http_status ?? null,
     required: true,
     attemptCount: row.transcript_attempt_count ?? 0,
   };
@@ -118,7 +127,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
   async findVideoItem(videoId: string): Promise<TranscriptIntakeItem | null> {
     const { data, error } = await this.client
       .from("research_intake_items")
-      .select("id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempt_count")
+      .select("id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempted_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempt_count")
       .eq("item_type", "video")
       .eq("external_id", videoId)
       .order("updated_at", { ascending: false })
@@ -192,6 +201,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       httpStatus: debt.httpStatus,
       retryable: debt.retryable,
       retryAfterSeconds: debt.retryAfterSeconds,
+      disposition: debt.retryable ? "retry_scheduled" : "permanent_unavailable",
       lastAttemptedAt: debt.attemptedAt,
       attemptCount: item.attemptCount + 1,
     };
@@ -390,7 +400,7 @@ export async function ensureVideoIntakeItem(input: {
 }) {
   const client = input.client ?? createSupabaseAdminClient();
   const itemKey = `youtube:${input.channelKey}:${input.video.videoId}`;
-  const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempt_count";
+  const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempted_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempt_count";
   const { data: existing, error: readError } = await client
     .from("research_intake_items")
     .select(select)
@@ -443,6 +453,13 @@ export async function finalizeVideoIntakeRun(input: {
   slot: VideoResearchSlot;
   channelChecks: Array<{ source: string; status: string; itemCount: number; note?: string }>;
   results: TranscriptPipelineResult[];
+  knownUnavailableVideos?: Array<{
+    videoId: string;
+    errorCode: string | null;
+    errorMessage: string | null;
+    httpStatus: number | null;
+  }>;
+  deferredVideoIds?: string[];
   discoveryFailures: Array<{ source: string; detail: string }>;
   client?: SupabaseClient;
 }) {
@@ -450,48 +467,62 @@ export async function finalizeVideoIntakeRun(input: {
   const completedAt = new Date().toISOString();
   const ready = input.results.filter((result) => result.status === "ready").length;
   const failures = input.results.filter((result) => result.status === "failed");
+  const knownUnavailableVideos = input.knownUnavailableVideos || [];
+  const deferredVideoIds = input.deferredVideoIds || [];
   const warnings = [
     ...input.discoveryFailures.map((failure) => `${failure.source}: ${failure.detail}`),
     ...failures.map((failure) => failure.status === "failed"
       ? `${failure.videoId}: TranscriptAPI ${failure.errorCode}${failure.httpStatus ? ` (HTTP ${failure.httpStatus})` : ""}; retryable=${failure.retryable}.`
       : ""),
+    ...knownUnavailableVideos.map((video) => (
+      `${video.videoId}: prior TranscriptAPI ${video.errorCode || "unavailable"}${video.httpStatus ? ` (HTTP ${video.httpStatus})` : ""}; retryable=false; skipped without a provider request.`
+    )),
+    ...(deferredVideoIds.length
+      ? [`${deferredVideoIds.length} discovered video(s) were persisted but deferred to a later cycle to stay within the scheduled intake budget.`]
+      : []),
   ].filter(Boolean);
-  const blocked = Boolean(input.discoveryFailures.length || failures.length);
+  const blocked = Boolean(input.discoveryFailures.length || failures.length || knownUnavailableVideos.length);
   const processLog = [
     { stage: "detect_new_videos", status: input.discoveryFailures.length ? "partial" : "complete" },
     {
       stage: "transcribe_and_review_videos",
-      status: failures.length ? (ready ? "partial" : "blocked_for_detected_video") : "complete",
+      status: failures.length || knownUnavailableVideos.length
+        ? (ready ? "partial" : "blocked_for_detected_video")
+        : deferredVideoIds.length ? "partial" : "complete",
       ready,
       failed: failures.length,
+      knownUnavailable: knownUnavailableVideos.length,
+      deferred: deferredVideoIds.length,
     },
   ];
   const { error } = await client.from("research_runs").update({
     completed_at: completedAt,
     status: blocked ? "blocked" : "completed",
     source_checks: input.channelChecks,
-    videos_found: input.results.length,
+    videos_found: input.results.length + knownUnavailableVideos.length + deferredVideoIds.length,
     transcripts_ready: ready,
     warnings,
     process_log: processLog,
     summary: blocked
       ? "Video discovery completed with unresolved transcript requirements recorded as research debt."
-      : "Video discovery and TranscriptAPI persistence completed.",
+      : deferredVideoIds.length
+        ? "Video discovery completed; bounded TranscriptAPI intake deferred remaining videos to a later cycle."
+        : "Video discovery and TranscriptAPI persistence completed.",
     updated_at: completedAt,
   }).eq("id", input.runId);
   throwIfError(error, "Could not finalize the video intake research run");
-  const transcriptStatus = failures.length ? (ready ? "partial" : "blocked") : "complete";
+  const transcriptStatus = failures.length || knownUnavailableVideos.length ? (ready ? "partial" : "blocked") : deferredVideoIds.length ? "partial" : "complete";
   const { error: slotError } = await client.from("research_slot_runs").update({
     completed_at: completedAt,
     last_heartbeat_at: completedAt,
     status: blocked ? "blocked" : "completed",
-    health_state: blocked ? "degraded" : "healthy",
+    health_state: blocked || deferredVideoIds.length ? "degraded" : "healthy",
     ingestion_status: input.discoveryFailures.length ? "partial" : "complete",
     transcript_status: transcriptStatus,
     verification_status: "not_required",
     live_publication_status: "not_required",
     hybrid_handoff_status: "not_required",
-    videos_detected: input.results.length,
+    videos_detected: input.results.length + knownUnavailableVideos.length + deferredVideoIds.length,
     transcripts_saved: ready,
     stage_summary: { discovery: processLog[0], transcript: processLog[1] },
     warnings,

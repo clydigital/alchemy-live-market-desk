@@ -80,7 +80,6 @@ type StoryRow = {
   next_catalyst: string | null;
   assets: string[];
   created_by?: string;
-  updated_at?: string;
 };
 
 type PromptVersion = {
@@ -92,7 +91,14 @@ type PromptVersion = {
 };
 
 type StageRunRow = { id: string };
-type EngineRunRow = { id: string };
+type EngineRunRow = {
+  id: string;
+  status?: string;
+  stories_considered?: number;
+  stories_published?: number;
+  warnings?: string[];
+  metadata?: Record<string, unknown>;
+};
 
 type CanonicalSource = {
   id: string;
@@ -177,20 +183,6 @@ const MIN_CONFIDENCE = 60;
 const CORE_RULES = `You are the reasoning layer inside the Alchemy Markets Live Desk. The Live Desk is the canonical research brain.
 Use only the evidence, Stories, hypotheses and scenario records supplied in this request. Never invent a source, fact, market move, consensus view, evidence ID or Story ID.
 This is not a news summarisation task. Synthesize across independent evidence, distinguish the accepted market view from the overlooked variable, build explicit causal mechanisms, test the strongest countercase and preserve uncertainty.
-
-US-FIRST GLOBAL TRANSMISSION RULES:
-- Prioritise US and global market relevance. Treat yields, oil, commodities, and cross-asset transmission as critical macro inputs.
-- Assess non-US market moves (e.g. Europe, Japan, Korea) for material global or US market transmission.
-- Do not use a simple country whitelist. Promote a non-US development only if it has:
-  1. abnormality versus recent volatility;
-  2. breadth of the move;
-  3. cross-asset confirmation;
-  4. direct or indirect transmission to US markets;
-  5. global macro mechanism;
-  6. persistence;
-  7. narrative or positioning repricing.
-- When a non-US market move is promoted, explicitly document its implications for US/global markets.
-
 Creator/video commentary is research-lead material, not proof unless independently verified. A single article can never be the sole basis for a new Story.
 Do not claim that something is unpriced or mispriced unless the supplied evidence directly supports that conclusion.
 Prefer updating an existing Story when the event, thesis, mechanism and deciding evidence are substantially the same. Do not create a duplicate Story merely because the headline changed.
@@ -371,6 +363,8 @@ async function modelStage<T>({
   schema,
   modelKind,
   maxOutputTokens,
+  requestTimeoutMs,
+  maxAttempts,
 }: {
   engineRunId: string;
   stageKey: string;
@@ -378,6 +372,8 @@ async function modelStage<T>({
   schema: Record<string, unknown>;
   modelKind: "complex" | "fast";
   maxOutputTokens?: number;
+  requestTimeoutMs?: number;
+  maxAttempts?: number;
 }) {
   const prompt = await loadPrompt(stageKey);
   const stageRunId = await beginStage(engineRunId, stageKey, prompt?.id ?? null, {
@@ -392,6 +388,8 @@ async function modelStage<T>({
       schema,
       modelKind,
       maxOutputTokens,
+      requestTimeoutMs,
+      maxAttempts,
     });
     await finishStage(stageRunId, {
       status: "completed",
@@ -416,27 +414,14 @@ async function modelStage<T>({
 
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,updated_at&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by&status=neq.archived&status=neq.discarded&order=updated_at.desc",
   );
 }
 
 async function canonicaliseIntake(stories: StoryRow[]) {
-  let since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
-  try {
-    const lastRuns = await intelligenceRest<Array<{ started_at: string }>>(
-      "intelligence_engine_runs?select=started_at&status=eq.completed&order=started_at.desc&limit=1"
-    );
-    if (lastRuns[0]?.started_at) {
-      // Use a 10-minute overlap safety margin to ensure we don't miss concurrently written items
-      const padTime = new Date(Date.parse(lastRuns[0].started_at) - 10 * 60_000);
-      since = padTime.toISOString();
-    }
-  } catch {
-    // Fallback to default lookback on error
-  }
-
+  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
   const rows = await intelligenceRest<IntakeRow[]>(
-    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&updated_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=180`,
+    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&published_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=180`,
   );
   const usable = rows.filter((item) => {
     if (!item.summary?.trim() || !item.url?.startsWith("https://")) return false;
@@ -554,6 +539,18 @@ async function loadEvidence() {
     `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,affected_assets,affected_topics,provenance_urls,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id)&freshness_status=neq.superseded&order=event_at.desc.nullslast,received_at.desc&limit=${MAX_EVIDENCE}`,
   );
   return evidencePack(rows);
+}
+
+async function loadResearchDebt() {
+  return intelligenceRest<Array<{
+    debt_key: string;
+    severity: string;
+    reason: string;
+    next_action: string | null;
+    next_check_at: string | null;
+  }>>(
+    "research_debt?select=debt_key,severity,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
+  ).catch(() => []);
 }
 
 async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<string>) {
@@ -742,10 +739,12 @@ function candidateGate(candidate: CandidateWorking, evidenceById: Map<string, Ev
   const decisive = unique(candidate.decisiveEvidenceIds).flatMap((id) => evidenceById.has(id) ? [evidenceById.get(id)!] : []);
   const independenceGroups = new Set(decisive.map((item) => item.ancestryGroupId).filter(Boolean));
   const hasHighGradeSource = decisive.some((item) => item.sourceTier <= 2);
+  const challenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
   const reasons: string[] = [];
   if (decisive.length < MIN_DECISIVE_EVIDENCE) reasons.push(`needs ${MIN_DECISIVE_EVIDENCE} decisive evidence records`);
   if (independenceGroups.size < MIN_INDEPENDENT_SOURCES) reasons.push(`needs ${MIN_INDEPENDENT_SOURCES} independent source groups`);
   if (!hasHighGradeSource) reasons.push("needs at least one Tier 1-2 source");
+  if (!challenger || challenger.verdict !== "promote") reasons.push("Challenger did not promote the hypothesis");
   if (candidate.qualificationScore < MIN_QUALIFICATION) reasons.push(`qualification below ${MIN_QUALIFICATION}`);
   if (candidate.confidence < MIN_CONFIDENCE) reasons.push(`confidence below ${MIN_CONFIDENCE}`);
   if (!candidate.publicationEligible) reasons.push("model marked publication ineligible");
@@ -812,6 +811,63 @@ async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking
   }
 }
 
+async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking) {
+  const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
+    `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
+  );
+  const versionNumber = (prior[0]?.version_number || 0) + 1;
+  const confidenceDelta = clamp(story.confidence) - Number(prior[0]?.confidence ?? story.confidence);
+  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      story_id: story.id,
+      event_type: "thesis_revision",
+      headline: synthesis.title.slice(0, 180),
+      detail: synthesis.researchSynthesis,
+      confidence_delta: confidenceDelta,
+      event_at: new Date().toISOString(),
+      metadata: { automatic: true, origin: "alchemy_research_engine", novelty_class: "existing_story_update" },
+    }),
+  });
+  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      story_id: story.id,
+      event_id: events[0]?.id || null,
+      version_number: versionNumber,
+      title: story.title,
+      thesis: story.thesis,
+      status: story.status,
+      confidence: story.confidence,
+      market_question: synthesis.question,
+      dominant_narrative: synthesis.marketBelief,
+      best_explanation: synthesis.causalMechanism,
+      strongest_support: synthesis.strongestSupport,
+      strongest_contradiction: synthesis.strongestContradiction,
+      priced_assessment: synthesis.divergenceSummary,
+      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
+      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
+      next_catalyst: synthesis.nextCatalysts.join("; "),
+      article_angle: synthesis.researchSynthesis,
+      provisional_title: synthesis.title,
+      article_verdict: "research_engine",
+      assets: synthesis.affectedAssets,
+      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1 },
+      change_reason: "material_evidence_recalibration",
+      effective_at: new Date().toISOString(),
+    }),
+  });
+  if (versions[0]?.id) {
+    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ current_thesis_version_id: versions[0].id }),
+    });
+  }
+}
+
 async function promoteCandidate({
   candidate,
   candidateRowId,
@@ -870,6 +926,7 @@ async function promoteCandidate({
         observed_at: new Date().toISOString(),
       }),
     });
+    await createRevisionVersion(story, candidate);
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
@@ -981,11 +1038,16 @@ export async function runIntelligenceEngine({
   triggerKind = "new_evidence",
   runKey,
   dryRun = false,
+  stageRequestTimeoutMs,
+  stageMaxAttempts,
 }: {
   researchRunId?: string | null;
   triggerKind?: IntelligenceTriggerKind;
   runKey?: string;
   dryRun?: boolean;
+  /** Optional bounded-stage controls for a serverless scheduled run. */
+  stageRequestTimeoutMs?: number;
+  stageMaxAttempts?: number;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
   if (!intelligenceDatabaseConfigured()) {
@@ -996,6 +1058,24 @@ export async function runIntelligenceEngine({
   }
 
   const effectiveRunKey = runKey || `intelligence:${researchRunId || triggerKind}:${new Date().toISOString().slice(0, 16)}`;
+  const priorRuns = await intelligenceRest<EngineRunRow[]>(
+    `intelligence_engine_runs?select=id,status,stories_considered,stories_published,warnings,metadata&run_key=eq.${encodeURIComponent(effectiveRunKey)}&limit=1`,
+  );
+  const priorCompleted = priorRuns.find((row) => row.status === "completed");
+  if (priorCompleted) {
+    return {
+      enabled: true,
+      engineRunId: priorCompleted.id,
+      status: "completed",
+      evidenceConsidered: Number(priorCompleted.metadata?.evidenceConsidered || 0),
+      hypothesesGenerated: Number(priorCompleted.metadata?.hypothesesGenerated || 0),
+      hypothesesPromoted: Number(priorCompleted.metadata?.hypothesesPromoted || 0),
+      storiesConsidered: Number(priorCompleted.stories_considered || 0),
+      storiesPublished: Number(priorCompleted.stories_published || 0),
+      storyIds: [],
+      warnings: [...(priorCompleted.warnings || []), "Idempotent replay: the completed canonical intelligence run was reused."],
+    };
+  }
   const engineRows = await intelligenceRest<EngineRunRow[]>("intelligence_engine_runs?on_conflict=run_key", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -1016,9 +1096,15 @@ export async function runIntelligenceEngine({
   let hypothesesPromoted = 0;
   let storiesConsidered = 0;
   const publishedStories: StoryRow[] = [];
+  const stageExecution = {
+    requestTimeoutMs: stageRequestTimeoutMs,
+    maxAttempts: stageMaxAttempts,
+  };
 
   try {
     const stories = await loadStories();
+    const researchDebt = await loadResearchDebt();
+    if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
     const evidence = await loadEvidence();
     if (!evidence.length) {
@@ -1035,79 +1121,9 @@ export async function runIntelligenceEngine({
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
 
-    // Compile unresolved questions and catalysts from existing active stories as "research debt"
-    const researchDebt = storiesPack
-      .filter((story) => story.status !== "archived" && story.status !== "discarded")
-      .map((story) => ({
-        storySlug: story.slug,
-        unresolvedQuestion: story.marketQuestion || "None",
-        outstandingCatalyst: story.nextCatalyst || "None",
-        confirmationTrigger: story.confirmationTrigger || "None",
-        invalidationTrigger: story.invalidationTrigger || "None",
-      }));
-
-    // Token Efficiency & Fast-Path Bypass: Skip execution if no new evidence was canonicalised since the last completed run.
-    let lastCompletedRuns: Array<{ metadata?: Record<string, unknown> }> = [];
-    try {
-      lastCompletedRuns = await intelligenceRest<Array<{ metadata?: Record<string, unknown> }>>(
-        "intelligence_engine_runs?select=metadata&status=eq.completed&order=started_at.desc&limit=1"
-      );
-    } catch {
-      // Ignore database fetch errors for fast-path
-    }
-
-    // Deterministic watermark hash of current evidence state and story state
-    const currentWatermark = createHash("sha256")
-      .update(JSON.stringify({
-        lastEvidenceId: evidence[0]?.id || null,
-        lastEvidencePublishedAt: evidence[0]?.publishedAt || null,
-        storyWatermark: stories.map(s => ({ id: s.id, updated_at: s.updated_at, confidence: s.confidence }))
-      }))
-      .digest("hex");
-
-    const lastMeta = lastCompletedRuns[0]?.metadata as Record<string, unknown> | undefined;
-    if (lastMeta && lastMeta.watermark === currentWatermark) {
-
-      warnings.push("Fast Path Bypass: No new evidence or active story updates detected. Skipping expensive OpenAI stages.");
-
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status: "completed",
-          stories_considered: 0,
-          stories_published: 0,
-          warnings,
-          completed_at: new Date().toISOString(),
-          metadata: {
-            dryRun,
-            skipped: true,
-            reason: "no_new_inputs",
-            runtime: "openai-responses-v1",
-            evidenceConsidered: evidence.length,
-            hypothesesGenerated: 0,
-            hypothesesPromoted: 0,
-            watermark: currentWatermark
-          }
-        })
-      });
-
-      return {
-        enabled: true,
-        engineRunId,
-        status: "completed",
-        evidenceConsidered: evidence.length,
-        hypothesesGenerated: 0,
-        hypothesesPromoted: 0,
-        storiesConsidered: 0,
-        storiesPublished: 0,
-        storyIds: [],
-        warnings,
-      };
-    }
-
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
@@ -1127,6 +1143,7 @@ export async function runIntelligenceEngine({
 
     const divergenceStage = await modelStage<DivergenceOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "divergence",
       modelKind: "fast",
       schema: DIVERGENCE_SCHEMA,
@@ -1146,6 +1163,7 @@ export async function runIntelligenceEngine({
 
     const hypothesisStage = await modelStage<HypothesisOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
@@ -1164,15 +1182,24 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    // Challenger stage is PARKED and bypassed to consume zero OpenAI inference calls.
-    const challenger: ChallengerRow[] = [];
-    const challengerByHypothesis = new Map<string, ChallengerRow>();
+    const challengerStage = await modelStage<ChallengerOutput>({
+      engineRunId,
+      ...stageExecution,
+      stageKey: "challenger",
+      modelKind: "complex",
+      schema: CHALLENGER_SCHEMA,
+      input: { hypotheses, evidence, existingStories: storiesPack },
+      maxOutputTokens: 5_000,
+    });
+    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds);
+    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
     const promoted = hypotheses.filter((hypothesis) => {
-      return hypothesis.confidence >= MIN_CONFIDENCE;
+      const assessment = challengerByHypothesis.get(hypothesis.id);
+      return assessment?.verdict === "promote" && assessment.adjustedConfidence >= MIN_CONFIDENCE;
     });
     hypothesesPromoted = promoted.length;
     if (!promoted.length) {
-      warnings.push("No hypotheses met the minimum confidence threshold; no Story was synthesized.");
+      warnings.push("Challenger promoted no hypotheses; no Story was synthesized.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1184,6 +1211,7 @@ export async function runIntelligenceEngine({
     const promotedIds = new Set(promoted.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
@@ -1194,6 +1222,7 @@ export async function runIntelligenceEngine({
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "story_synthesis",
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
@@ -1242,6 +1271,7 @@ export async function runIntelligenceEngine({
 
     const dedupeStage = await modelStage<DeduplicationOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "semantic_deduplication",
       modelKind: "fast",
       schema: DEDUPLICATION_SCHEMA,
@@ -1259,6 +1289,7 @@ export async function runIntelligenceEngine({
 
     const lifecycleStage = await modelStage<LifecycleOutput>({
       engineRunId,
+      ...stageExecution,
       stageKey: "lifecycle",
       modelKind: "fast",
       schema: LIFECYCLE_SCHEMA,
@@ -1360,7 +1391,6 @@ export async function runIntelligenceEngine({
           hypothesesGenerated,
           hypothesesPromoted,
           candidateRows: candidateRows.map((row) => row.id),
-          watermark: currentWatermark
         },
       }),
     });

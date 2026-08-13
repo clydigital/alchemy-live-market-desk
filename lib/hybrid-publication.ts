@@ -1,20 +1,48 @@
 import type { Story, Update, ResearchRunStatus } from "@/lib/data";
 import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
+import {
+  MAX_FEATURED_STORIES,
+  MAX_PUBLISHED_STORIES,
+  type StoryCandidate,
+  type StoryLifecycleStatus,
+} from "@/lib/intelligence/contracts";
+import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedStories } from "@/lib/intelligence/deduplication";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function optionalQuery<T>(table: string, params = ""): Promise<T[]> {
+type PublicationQueryOptions = {
+  fresh?: boolean;
+};
+
+async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
-      next: { revalidate: 60 },
+      ...(options.fresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
+      signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) return [];
     return response.json();
+  } catch {
+    return [];
+  }
+}
+
+async function optionalIntelligenceStates(): Promise<IntelligenceStoryState[]> {
+  try {
+    const client = createSupabaseAdminClient();
+    const { data, error } = await client
+      .from("intelligence_story_states")
+      .select("*")
+      .limit(240)
+      .abortSignal(AbortSignal.timeout(5_000));
+    if (error) return [];
+    return (data || []) as IntelligenceStoryState[];
   } catch {
     return [];
   }
@@ -67,8 +95,40 @@ type StoryEvent = {
   detail: string | null;
   impact: string | null;
   confidence_delta: number | null;
+  evidence_id?: string | null;
+  source_id?: string | null;
   event_at: string;
   recorded_at: string;
+};
+
+type IntelligenceStoryState = {
+  story_id: string;
+  lifecycle_status: StoryLifecycleStatus;
+  publication_eligible: boolean;
+  qualification_score: number;
+  event_signature: string;
+  thesis_signature: string;
+  causal_mechanism: string;
+  affected_assets: string[];
+  decisive_evidence_ids: string[];
+  source_ancestry_group_ids: string[];
+  confirmation_criteria: string[];
+  invalidation_criteria: string[];
+  next_catalysts: string[];
+  novelty_class: string | null;
+  research_synthesis: string | null;
+  market_belief: string | null;
+  divergence_summary: string | null;
+  bias: StoryCandidate["bias"] | null;
+  conviction: number | null;
+  base_case: string | null;
+  bull_case: string | null;
+  bear_case: string | null;
+  tail_case: string | null;
+  strongest_support: string | null;
+  strongest_contradiction: string | null;
+  last_evidence_at: string | null;
+  last_evaluated_at: string | null;
 };
 
 type CausalEdge = {
@@ -105,20 +165,22 @@ type AssetImpact = {
   expires_at: string | null;
 };
 
-export async function getHybridPublicationRecords() {
+export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions] = await Promise.all([
-    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=120"),
-    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240"),
-    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240"),
-    optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240"),
-    optionalQuery<AssetImpact>("current_asset_impacts", "select=*&order=as_of.desc&limit=240"),
+  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
+    optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=480", options),
+    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
+    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
+    optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240", options),
+    optionalQuery<AssetImpact>("current_asset_impacts", "select=*&order=as_of.desc&limit=240", options),
     optionalQuery<HistoricalToneVersion>(
       "story_thesis_versions",
       `select=story_id,version_number,title,thesis,best_explanation,strongest_contradiction,confidence,status,effective_at&effective_at=gte.${toneCutoff}&order=effective_at.desc&limit=2500`,
+      options,
     ),
+    optionalIntelligenceStates(),
   ]);
-  return { snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions };
+  return { snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }
 
 function newestThesisByStory(versions: ThesisVersion[]) {
@@ -132,7 +194,7 @@ function newestThesisByStory(versions: ThesisVersion[]) {
   return result;
 }
 
-function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined) {
+function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined, intelligence: IntelligenceStoryState | undefined) {
   const fallback = getStableStoryFallbackImage(story.id);
   return {
     id: story.id,
@@ -141,6 +203,7 @@ function storyState(story: Story, version: ThesisVersion | undefined, image: Sto
     marketQuestion: version?.market_question ?? story.market_question,
     thesis: version?.thesis || story.thesis,
     confidence: version?.confidence ?? story.confidence,
+    rank: story.rank,
     status: version?.status || story.status,
     assets: version?.assets?.length ? version.assets : story.assets,
     dominantNarrative: version?.dominant_narrative ?? story.dominant_narrative,
@@ -157,6 +220,33 @@ function storyState(story: Story, version: ThesisVersion | undefined, image: Sto
     imageSourceUrl: image?.articleUrl || null,
     imageSourceTitle: image?.articleTitle || fallback.label,
     imagePublisher: image?.publisher || "Alchemy Markets",
+    intelligence: intelligence ? {
+      lifecycleStatus: intelligence.lifecycle_status,
+      publicationEligible: intelligence.publication_eligible,
+      qualificationScore: intelligence.qualification_score,
+      eventSignature: intelligence.event_signature,
+      causalMechanism: intelligence.causal_mechanism,
+      affectedAssets: intelligence.affected_assets,
+      decisiveEvidenceIds: intelligence.decisive_evidence_ids,
+      sourceAncestryGroupIds: intelligence.source_ancestry_group_ids,
+      confirmationCriteria: intelligence.confirmation_criteria,
+      invalidationCriteria: intelligence.invalidation_criteria,
+      nextCatalysts: intelligence.next_catalysts,
+      noveltyClass: intelligence.novelty_class,
+      researchSynthesis: intelligence.research_synthesis,
+      marketBelief: intelligence.market_belief,
+      divergence: intelligence.divergence_summary,
+      bias: intelligence.bias,
+      conviction: intelligence.conviction,
+      baseCase: intelligence.base_case,
+      bullCase: intelligence.bull_case,
+      bearCase: intelligence.bear_case,
+      tailCase: intelligence.tail_case,
+      strongestSupport: intelligence.strongest_support,
+      strongestContradiction: intelligence.strongest_contradiction,
+      lastEvidenceAt: intelligence.last_evidence_at,
+      lastEvaluatedAt: intelligence.last_evaluated_at,
+    } : null,
     thesisVersion: version ? {
       id: version.id,
       version: version.version_number,
@@ -164,6 +254,121 @@ function storyState(story: Story, version: ThesisVersion | undefined, image: Sto
       changeReason: version.change_reason,
     } : null,
   };
+}
+
+function lifecycleStatus(value: string): StoryLifecycleStatus {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("archive")) return "archived";
+  if (normalized.includes("invalid")) return "invalidated";
+  if (normalized.includes("weaken")) return "weakening";
+  if (normalized.includes("confirm") || normalized.includes("publish")) return "confirmed";
+  if (normalized.includes("develop") || normalized.includes("monitor")) return "developing";
+  return "detected";
+}
+
+function publicationCandidate(
+  state: ReturnType<typeof storyState>,
+  events: StoryEvent[],
+): StoryCandidate {
+  const storyEvents = events.filter((event) => event.story_id === state.id);
+  const intelligence = state.intelligence;
+  const status = intelligence?.lifecycleStatus || lifecycleStatus(state.status);
+  const eventSignature = intelligence?.eventSignature
+    || canonicalStoryEventSignature({ title: state.title, thesis: state.thesis, causalMechanism: state.bestExplanation || state.thesis });
+  const eventEvidenceIds = storyEvents
+    .filter((event) => event.evidence_id)
+    .map((event) => event.evidence_id as string);
+  const recencyAt = [
+    intelligence?.lastEvidenceAt,
+    storyEvents[0]?.event_at,
+    state.thesisVersion?.effectiveAt,
+  ].filter((value): value is string => Boolean(value))
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] || null;
+  return {
+    id: state.id,
+    slug: state.slug,
+    title: state.title,
+    thesis: state.thesis,
+    eventSignature,
+    causalMechanism: intelligence?.causalMechanism || state.bestExplanation || state.thesis,
+    affectedAssets: intelligence?.affectedAssets?.length ? intelligence.affectedAssets : state.assets,
+    decisiveEvidenceIds: intelligence?.decisiveEvidenceIds?.length ? intelligence.decisiveEvidenceIds : eventEvidenceIds,
+    sourceAncestryGroupIds: intelligence?.sourceAncestryGroupIds || [],
+    confirmationCriteria: intelligence?.confirmationCriteria?.length ? intelligence.confirmationCriteria : [state.confirmationCondition || ""].filter(Boolean),
+    invalidationCriteria: intelligence?.invalidationCriteria?.length ? intelligence.invalidationCriteria : [state.invalidationCondition || ""].filter(Boolean),
+    nextCatalysts: intelligence?.nextCatalysts?.length ? intelligence.nextCatalysts : [state.nextCatalyst || ""].filter(Boolean),
+    confidence: state.confidence,
+    lifecycleStatus: status,
+    publicationEligible: intelligence?.publicationEligible ?? !["invalidated", "archived"].includes(status),
+    qualificationScore: intelligence?.qualificationScore ?? state.confidence,
+    researchSynthesis: intelligence?.researchSynthesis || null,
+    marketBelief: intelligence?.marketBelief || null,
+    divergence: intelligence?.divergence || undefined,
+    bias: intelligence?.bias || undefined,
+    conviction: intelligence?.conviction ?? null,
+    baseCase: intelligence?.baseCase || undefined,
+    bullCase: intelligence?.bullCase || undefined,
+    bearCase: intelligence?.bearCase || undefined,
+    tailCase: intelligence?.tailCase || null,
+    strongestSupport: intelligence?.strongestSupport || state.strongestSupport || undefined,
+    strongestContradiction: intelligence?.strongestContradiction || state.strongestContradiction || undefined,
+    rank: state.rank,
+    recencyAt,
+  };
+}
+
+type LegacyStoryEvent = {
+  story_id: string;
+  headline: string;
+  detail?: string | null;
+  evidence_id?: string | null;
+  event_at?: string | null;
+};
+
+function legacyPublicationCandidates(stories: Story[], events: LegacyStoryEvent[]) {
+  return stories.map((story): StoryCandidate => {
+    const storyEvents = events.filter((event) => event.story_id === story.id).slice(0, 4);
+    const status = lifecycleStatus(story.article_verdict || story.status);
+    return {
+      id: story.id,
+      slug: story.slug,
+      title: story.title,
+      thesis: story.thesis,
+      eventSignature: canonicalStoryEventSignature({ title: story.title, thesis: story.thesis, causalMechanism: story.best_explanation || story.thesis }),
+      causalMechanism: story.best_explanation || story.thesis,
+      affectedAssets: story.assets || [],
+      decisiveEvidenceIds: storyEvents.map((event) => event.evidence_id).filter((id): id is string => Boolean(id)),
+      sourceAncestryGroupIds: [],
+      confirmationCriteria: [story.confirmation_trigger || ""].filter(Boolean),
+      invalidationCriteria: [story.invalidation_trigger || ""].filter(Boolean),
+      nextCatalysts: [story.next_catalyst || ""].filter(Boolean),
+      confidence: story.confidence,
+      lifecycleStatus: status,
+      publicationEligible: !["invalidated", "archived"].includes(status),
+      qualificationScore: Math.max(0, Math.min(100, (story.confidence + story.source_quality + story.novelty + story.trader_relevance) / 4)),
+      rank: story.rank,
+      recencyAt: storyEvents.map((event) => event.event_at).filter((value): value is string => Boolean(value))[0] || null,
+    };
+  });
+}
+
+export function selectLegacyStoriesForPublication(
+  stories: Story[],
+  events: LegacyStoryEvent[] = [],
+  maximum = MAX_PUBLISHED_STORIES,
+) {
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  return selectQualifiedStories(legacyPublicationCandidates(stories, events), maximum).selected
+    .map((candidate) => byId.get(candidate.id || ""))
+    .filter((story): story is Story => Boolean(story));
+}
+
+export function selectLegacyStoriesForLive(stories: Story[], events: LegacyStoryEvent[] = []) {
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  const published = selectQualifiedStories(legacyPublicationCandidates(stories, events), MAX_PUBLISHED_STORIES).selected;
+  return selectFeaturedStories(published, MAX_FEATURED_STORIES)
+    .map((candidate) => byId.get(candidate.id || ""))
+    .filter((story): story is Story => Boolean(story));
 }
 
 function legacyDelta(update: Update, story: Story | undefined) {
@@ -180,6 +385,32 @@ function legacyDelta(update: Update, story: Story | undefined) {
     materiality: "legacy_unscored",
     canonical: false,
   };
+}
+
+export function selectHybridPublicationStoryStates({
+  stories,
+  records,
+  storyImages,
+}: {
+  stories: Story[];
+  records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
+  storyImages?: Map<string, StoryHeaderImage>;
+}) {
+  const versionByStory = newestThesisByStory(records.thesisVersions);
+  const intelligenceByStory = new Map(records.intelligenceStates.map((state) => [state.story_id, state]));
+  const allStoryStates = stories.map((story) => storyState(story, versionByStory.get(story.id), storyImages?.get(story.id), intelligenceByStory.get(story.id)));
+  const selection = selectQualifiedStories(allStoryStates.map((state) => publicationCandidate(state, records.events)), MAX_PUBLISHED_STORIES);
+  const featured = selectFeaturedStories(selection.selected, MAX_FEATURED_STORIES);
+  const stateById = new Map(allStoryStates.map((state) => [state.id, state]));
+  const featuredRankById = new Map(featured.map((candidate, index) => [candidate.id || "", index + 1]));
+  const storyStates = selection.selected
+    .map((candidate) => {
+      const state = stateById.get(candidate.id || "");
+      return state ? { ...state, featuredRank: featuredRankById.get(state.id) || null, recencyAt: candidate.recencyAt || null } : null;
+    })
+    .filter((state): state is NonNullable<typeof state> => Boolean(state));
+  const featuredStoryStates = storyStates.filter((state) => state.featuredRank !== null);
+  return { allStoryStates, selection, storyStates, featuredStoryStates };
 }
 
 export function buildHybridPublicationContract({
@@ -199,8 +430,7 @@ export function buildHybridPublicationContract({
   storyImages?: Map<string, StoryHeaderImage>;
   generatedAt: string;
 }) {
-  const versionByStory = newestThesisByStory(records.thesisVersions);
-  const storyStates = stories.map((story) => storyState(story, versionByStory.get(story.id), storyImages?.get(story.id)));
+  const { allStoryStates, selection, storyStates, featuredStoryStates } = selectHybridPublicationStoryStates({ stories, records, storyImages });
   const storyById = new Map(stories.map((story) => [story.id, story]));
 
   const cutoff = Date.now() - 72 * 60 * 60 * 1000;
@@ -227,13 +457,7 @@ export function buildHybridPublicationContract({
 
   const latestRun = researchRuns.find((run) => run.status === "completed") || researchRuns[0] || null;
   const dailyBrief = records.snapshots.find((snapshot) => snapshot.snapshot_type === "daily_brief") || null;
-  const lead = [...storyStates].sort((a, b) => {
-    const storyA = stories.find((story) => story.id === a.id);
-    const storyB = stories.find((story) => story.id === b.id);
-    const rankA = storyA?.rank ?? 999;
-    const rankB = storyB?.rank ?? 999;
-    return rankA - rankB || b.confidence - a.confidence;
-  })[0] || null;
+  const lead = featuredStoryStates[0] || null;
 
   const edition = {
     id: dailyBrief?.id || `compat-${latestRun?.id || generatedAt}`,
@@ -257,6 +481,8 @@ export function buildHybridPublicationContract({
     deskMemory: buildDeskMemory(records.toneVersions, generatedAt),
     canonical: {
       storyStates,
+      featuredStoryStates,
+      storyArchive: allStoryStates,
       thesisVersions: records.thesisVersions,
       storyEvents: records.events,
       causalEdges: records.causalEdges,
@@ -265,7 +491,25 @@ export function buildHybridPublicationContract({
     },
     publication: {
       snapshotCount: records.snapshots.length,
-      latestSnapshots: records.snapshots.slice(0, 30),
+      storyQualification: {
+        considered: allStoryStates.length,
+        selected: storyStates.length,
+        maximum: MAX_PUBLISHED_STORIES,
+        featured: featuredStoryStates.length,
+        featuredMaximum: MAX_FEATURED_STORIES,
+        featuredPolicy: "recency_then_qualification",
+        padded: false,
+        excluded: selection.excluded.map(({ story, comparison }) => ({
+          storyId: story.id,
+          storySlug: story.slug,
+          classification: comparison.classification,
+          duplicateOfId: comparison.duplicateOfId,
+          similarityScore: comparison.similarityScore,
+          rationale: comparison.rationale,
+          exceptionProof: comparison.exceptionProof,
+        })),
+      },
+      latestSnapshots: records.snapshots.slice(0, 240),
       persistenceAvailable: records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
       compatibilityMode: !(records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
     },

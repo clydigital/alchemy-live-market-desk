@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  isKnownPermanentTranscriptUnavailable,
   retrieveAndPersistTranscript,
   type ReadyTranscriptCache,
   type TranscriptDebtInput,
@@ -166,6 +167,39 @@ test("a retryable failure records stable metadata and idempotent research debt",
   assert.equal(store.debts.size, 1);
   assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.attemptedAt, "2026-08-10T08:05:00.000Z");
   assert.equal(store.recalculations, 2);
+});
+
+test("a permanent transcript absence remains visible as debt but is not eligible for scheduled retry", async () => {
+  const store = new MemoryStore();
+  const result = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store,
+    retrieve: async () => {
+      throw new TranscriptApiError("No captions are available", {
+        code: "transcript_missing",
+        httpStatus: 404,
+        retryable: false,
+      });
+    },
+    now: () => new Date("2026-08-10T08:00:00.000Z"),
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.retryable, false);
+  assert.equal(result.nextCheckAt, null);
+  assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.retryable, false);
+  assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextCheckAt, null);
+  assert.match(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextAction || "", /will not retry/i);
+  assert.equal(isKnownPermanentTranscriptUnavailable({
+    ...store.item!,
+    transcriptStatus: "unavailable",
+    transcriptRetryable: false,
+  }), true);
+  assert.equal(isKnownPermanentTranscriptUnavailable({
+    ...store.item!,
+    transcriptStatus: "missing",
+    transcriptRetryable: true,
+  }), false);
 });
 
 test("a ready database row cannot be overwritten by a later provider failure", async () => {

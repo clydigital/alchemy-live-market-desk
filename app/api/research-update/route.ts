@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -6,9 +5,15 @@ import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
+import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
+import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
+import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import { updateMarketStateLedger } from "@/lib/market-state-writer";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import {
   researchScheduleHealth,
   validateResearchRun,
@@ -17,10 +22,12 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const updateToken = process.env.RESEARCH_UPDATE_TOKEN;
+const cronSecret = process.env.CRON_SECRET;
 
 function response(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -33,9 +40,7 @@ function response(body: unknown, status = 200) {
 }
 
 function authenticated(request: Request) {
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  if (!updateToken || supplied.length !== updateToken.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(updateToken));
+  return acceptsResearchAuthorization(request.headers.get("authorization"), [updateToken, cronSecret]);
 }
 
 async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -54,8 +59,11 @@ async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
     const detail = await result.text();
     throw new Error(`Database request failed (${result.status}): ${detail.slice(0, 500)}`);
   }
-  if (result.status === 204) return undefined as T;
-  return result.json() as Promise<T>;
+  // PostgREST may acknowledge `Prefer: return=minimal` with an empty 2xx
+  // response other than 204. Treat that as a successful write instead of
+  // attempting to parse an empty JSON body and incorrectly failing the run.
+  const text = await result.text();
+  return (text.trim() ? JSON.parse(text) : undefined) as T;
 }
 
 function sourceCount(input: ResearchRunInput, keys: string[]) {
@@ -81,14 +89,14 @@ export async function GET() {
   return response({
     generatedAt: new Date().toISOString(),
     timezone: "Asia/Kuala_Lumpur",
-    schedule: ["09:15", "21:15"],
+    schedule: CANONICAL_RESEARCH_SLOTS.map((slot) => `${String(slot.hour).padStart(2, "0")}:${String(slot.minute).padStart(2, "0")}`),
     health: researchScheduleHealth(data.researchRuns),
     runs: data.researchRuns.slice(0, 10),
     queue: data.researchIntake.slice(0, 50),
     intelligence: {
       enabled: openAIIntelligenceEnabled(),
       owner: "Live Desk",
-      mode: "evidence_to_hypothesis_to_story_synthesis",
+      mode: "evidence_to_hypothesis_to_challenger_to_story",
     },
     highImpactCalendar: calendarItems.map(({ evidence, ...item }) => ({ ...item, evidenceCount: evidence?.length || 0 })),
   });
@@ -97,6 +105,9 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!authenticated(request)) return response({ error: "Unauthorized research publisher." }, 401);
   if (!supabaseUrl || !serviceKey) return response({ error: "Research publisher database credentials are not configured." }, 503);
+  // This header is added only by the Live-owned Cron handler. It leaves enough
+  // wall-clock room to write a terminal ledger state before Vercel times out.
+  const boundedScheduledExecution = request.headers.get("x-alchemy-scheduled-research") === "1";
 
   let input: ResearchRunInput;
   try {
@@ -133,10 +144,12 @@ export async function POST(request: Request) {
   }
 
   const accuracy = runAccuracyCheck(await getMarketData());
+  const macroLifecycle = await persistMacroReleaseLifecycle();
   const publishGateOpen = accuracy.updateGate === "open"
     && validation.requiredSourcesComplete
     && validation.evidenceGatePassed;
   const warnings = [...validation.warnings];
+  if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (intelligenceEnabled && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
   }
@@ -153,6 +166,7 @@ export async function POST(request: Request) {
       accuracy,
       warnings,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       scoredItems: validation.scoredItems.map(({ transcriptText: _transcriptText, ...item }) => item),
     });
   }
@@ -229,17 +243,23 @@ export async function POST(request: Request) {
       });
     }
 
-    let legacyUpdatesPublished = 0;
     let intelligence: IntelligenceRunResult | null = null;
-    if (intelligenceEnabled) {
+    if (intelligenceEnabled && validation.requiredSourcesComplete) {
       intelligence = await runIntelligenceEngine({
         researchRunId: runId,
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
         dryRun: !publishGateOpen,
+        stageRequestTimeoutMs: boundedScheduledExecution ? 18_000 : undefined,
+        stageMaxAttempts: boundedScheduledExecution ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
-    } else if (publishGateOpen && validation.recalibrations.length) {
+    } else if (intelligenceEnabled) {
+      warnings.push("The OpenAI intelligence runtime was not invoked because required source coverage is blocked.");
+    }
+
+    let legacyUpdatesPublished = 0;
+    if (!intelligenceEnabled && publishGateOpen && validation.recalibrations.length) {
       const stories = await rest<Array<{ id: string; slug: string; confidence: number }>>(
         "stories?select=id,slug,confidence&status=neq.archived",
       );
@@ -282,18 +302,36 @@ export async function POST(request: Request) {
       }
     }
 
-    const updatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
+    let finalStatus: "completed" | "blocked" | "failed" = runStatus;
+    if (intelligenceEnabled && validation.requiredSourcesComplete && intelligence?.status !== "completed") {
+      finalStatus = intelligence?.status === "failed" ? "failed" : "blocked";
+      warnings.push(`The OpenAI intelligence runtime ended ${intelligence?.status || "without a result"}; this research run is not recorded as completed.`);
+    }
+
+    const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         completed_at: new Date().toISOString(),
-        status: runStatus,
-        updates_published: updatesPublished,
+        status: finalStatus,
+        updates_published: totalUpdatesPublished,
         warnings,
         updated_at: new Date().toISOString(),
       }),
     });
+
+    // Update the canonical Live-owned market state ledger & pre-warm Hybrid publication feeds
+    try {
+      await updateMarketStateLedger();
+      // Cache-warm the monitors concurrently so the next Hybrid request is served instantly in ~5ms
+      Promise.all([
+        getMarketMonitor(),
+        getGlobalFlowMonitor()
+      ]).catch((err) => console.warn("[WARM] Background cache-warm failed:", err));
+    } catch (err) {
+      console.error("[LEDGER] Error updating market state ledger:", err);
+    }
 
     revalidatePath("/");
     revalidatePath("/stories");
@@ -303,15 +341,17 @@ export async function POST(request: Request) {
     return response({
       accepted: true,
       runId,
-      status: runStatus,
+      status: finalStatus,
       publishGate: publishGateOpen ? "open" : "blocked",
-      updatesPublished,
+      updatesPublished: totalUpdatesPublished,
+      legacyRecalibrationsPublished: legacyUpdatesPublished,
       legacyUpdatesPublished,
       intelligence,
       calendarCandidates: calendarItems.length,
+      macroLifecycle: macroLifecycle.summary,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
-    }, runStatus === "completed" ? 200 : 202);
+    }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown research publisher failure.";
     if (runId) {

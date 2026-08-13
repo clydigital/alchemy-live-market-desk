@@ -8,11 +8,13 @@ A Story is an unresolved market question, not a container for new headlines.
 
 ## Schedule
 
-- 08:30 Asia/Kuala_Lumpur
-- 22:00 Asia/Kuala_Lumpur
+- 09:15 Asia/Kuala_Lumpur (01:15 UTC)
+- 21:15 Asia/Kuala_Lumpur (13:15 UTC)
 
-Each run starts by reading `GET /api/research-update` so it can use the last
-completed run as its discovery cutoff and avoid duplicate work.
+Each Vercel Cron cycle claims a stable run key before any provider call. It
+performs bounded YouTube/TranscriptAPI intake, acquires the direct named news
+feeds, then invokes the existing canonical Live publisher exactly once. A
+completed, running, blocked or failed key is never silently repeated.
 
 ## Required source checks
 
@@ -28,8 +30,10 @@ Every run records one status for each source, even when nothing new exists:
 - Alchemy Markets Market Insights: the 30 most recent dated articles only
 
 A blocked source is recorded as blocked. It is never silently counted as
-checked. The exact Wall Street Truth Bombs channel identity must be confirmed
-before its transcripts can be accepted automatically.
+checked. `checked` requires a successful direct acquisition and one or more
+dated retained items; `no_new_items` requires successful acquisition with no
+retained item. A provider timeout, HTTP failure, malformed feed, missing
+TranscriptAPI transcript or fallback article is always blocked.
 
 ## Editorial sequence
 
@@ -84,6 +88,8 @@ record, transcript, commit, log, or automation prompt.
 - Missing source checks reject the payload.
 - A source access failure records a blocked run.
 - A missing transcript blocks any video-derived story change.
+- When a required source is blocked, the publisher persists the available
+  intake but does not spend an OpenAI reasoning run or publish a Story.
 - Fewer than four evidence links blocks the linked story change.
 - Missing `questionImpact`, `decidingMonitor` or `stillMissing` rejects a Story recalibration.
 - A warning or failed deterministic accuracy report blocks story changes.

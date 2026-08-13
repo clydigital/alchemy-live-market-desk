@@ -1,12 +1,23 @@
 export const XWADA_VIDEO_CHANNELS = [
   { key: "fx-evolution", name: "FX Evolution", handle: "@FXEvolution", env: "YOUTUBE_CHANNEL_ID_FX_EVOLUTION" },
   { key: "kevin-gerrity", name: "Kevin Gerrity", handle: "@Kevin.Gerrity", env: "YOUTUBE_CHANNEL_ID_KEVIN_GERRITY" },
-  { key: "clearvalue-tax", name: "ClearValue Tax", handle: "@ClearValueTax", env: "YOUTUBE_CHANNEL_ID_CLEARVALUE_TAX" },
+  // @ClearValueTax now resolves to an unrelated channel. Pin the known
+  // ClearValue Tax identity so a renamed handle cannot silently change the
+  // monitored source.
+  {
+    key: "clearvalue-tax",
+    name: "ClearValue Tax",
+    handle: "@clearvaluetax9382",
+    env: "YOUTUBE_CHANNEL_ID_CLEARVALUE_TAX",
+    officialChannelId: "UCigUBIf-zt_DA6xyOQtq2WA",
+  },
   { key: "stockedup", name: "StockedUp", handle: "@StockedUp", env: "YOUTUBE_CHANNEL_ID_STOCKEDUP" },
   { key: "wall-street-truth-bombs", name: "Wall Street Truthbombs", handle: "@wstruthbombs", env: "YOUTUBE_CHANNEL_ID_WALL_STREET_TRUTH_BOMBS" },
   { key: "tradernick", name: "TraderNick", handle: "@TraderNick", env: "YOUTUBE_CHANNEL_ID_TRADERNICK" },
   { key: "traders-reality", name: "Traders Reality", handle: "@TradersReality", env: "YOUTUBE_CHANNEL_ID_TRADERS_REALITY" },
   { key: "beginner-trading", name: "Beginner Trading", handle: "@BeginnerTrading", env: "YOUTUBE_CHANNEL_ID_BEGINNER_TRADING" },
+  { key: "eurodollar-university", name: "Eurodollar University", handle: "@eurodollaruniversity", env: "YOUTUBE_CHANNEL_ID_EURODOLLAR_UNIVERSITY" },
+  { key: "bravos-research", name: "Bravos Research", handle: "@BravosResearch", env: "YOUTUBE_CHANNEL_ID_BRAVOS_RESEARCH" },
 ] as const;
 
 export type XwadaChannelKey = typeof XWADA_VIDEO_CHANNELS[number]["key"];
@@ -75,6 +86,7 @@ async function youtubeJson<T>(path: string, apiKey: string): Promise<T> {
   const separator = path.includes("?") ? "&" : "?";
   const result = await fetch(`${YOUTUBE_API}/${path}${separator}key=${encodeURIComponent(apiKey)}`, {
     cache: "no-store",
+    signal: AbortSignal.timeout(8_000),
   });
   const body = await result.json().catch(() => ({}));
   if (!result.ok) {
@@ -87,6 +99,17 @@ async function youtubeJson<T>(path: string, apiKey: string): Promise<T> {
 
 async function resolveChannelId(channel: typeof XWADA_VIDEO_CHANNELS[number], apiKey: string) {
   const configured = process.env[channel.env]?.trim();
+  if ("officialChannelId" in channel && channel.officialChannelId) {
+    if (configured && configured !== channel.officialChannelId) {
+      const error = new Error(
+        `${channel.env} does not match the pinned official ${channel.name} channel ID. `
+        + `Set it to ${channel.officialChannelId}.`,
+      );
+      Object.assign(error, { xwadaStatus: "configuration_error" satisfies XwadaCheckStatus });
+      throw error;
+    }
+    return channel.officialChannelId;
+  }
   if (configured) return configured;
   const response = await youtubeJson<{ items?: Array<{ id?: string }> }>(
     `channels?part=id&forHandle=${encodeURIComponent(channel.handle)}`,

@@ -13,6 +13,13 @@ export type TranscriptIntakeItem = {
   title: string;
   url: string;
   transcriptStatus: "ready" | "missing" | "unavailable" | "not_applicable";
+  // A non-retryable unavailable row is an auditable provider conclusion, not
+  // a cache miss. Scheduled intake must preserve it without re-spending a
+  // TranscriptAPI request on every cadence.
+  transcriptRetryable?: boolean | null;
+  transcriptErrorCode?: string | null;
+  transcriptErrorMessage?: string | null;
+  transcriptHttpStatus?: number | null;
   required: boolean;
   attemptCount: number;
 };
@@ -89,13 +96,17 @@ function nextAction(error: TranscriptApiError) {
     case "network_error":
     case "timeout": return "Retry after the network/provider cooldown.";
     case "language_unavailable": return "Review the languages reported by /youtube/info and retry with an available track.";
-    case "transcript_missing": return "Confirm caption availability and keep creator claims blocked.";
-    case "video_private": return "Confirm publisher access; do not retry while the video remains private.";
-    case "video_deleted": return "Confirm the source was removed and keep creator claims blocked.";
-    case "video_not_found": return "Confirm the canonical YouTube video ID before retrying.";
-    case "invalid_video_url": return "Correct the canonical YouTube video ID or URL.";
+    case "transcript_missing": return "Confirm caption availability and keep creator claims blocked. Scheduled intake will not retry unless availability changes.";
+    case "video_private": return "Confirm publisher access; scheduled intake will not retry while the video remains private.";
+    case "video_deleted": return "Confirm the source was removed and keep creator claims blocked; scheduled intake will not retry it.";
+    case "video_not_found": return "Confirm the canonical YouTube video ID before a manual retry; scheduled intake will not retry it.";
+    case "invalid_video_url": return "Correct the canonical YouTube video ID or URL before a manual retry; scheduled intake will not retry it.";
     default: return error.retryable ? "Retry after bounded backoff." : "Review the preserved provider response before retrying.";
   }
+}
+
+export function isKnownPermanentTranscriptUnavailable(item: TranscriptIntakeItem) {
+  return item.transcriptStatus === "unavailable" && item.transcriptRetryable === false;
 }
 
 function nextCheck(error: TranscriptApiError, attemptedAt: Date) {

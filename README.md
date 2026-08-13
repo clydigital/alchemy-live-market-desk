@@ -6,16 +6,16 @@ See [Research Architecture and Rollout](docs/RESEARCH_ROLLOUT.md).
 
 See the [Editorial-Brain Design Pack](docs/editorial-brain/README.md) for the Original release ledger, story command desk, macro operating system, History Cabinet and judge-panel recommendation.
 
-## Four-slot research engine
+## Scheduled research engine
 
-The Asia/Kuala_Lumpur research workflow uses four slots:
+The Live Desk runs two full Asia/Kuala_Lumpur research cycles:
 
-- 00:40 video intake (`video_midnight`)
-- 08:30 full desk update (`morning`)
-- 11:30 video refresh (`video_late_morning`)
-- 23:00 evening delta update (`evening`)
+- 09:15 full desk update (`morning`, 01:15 UTC)
+- 21:15 evening delta update (`evening`, 13:15 UTC)
 
-Research publishing runs through `/api/research-update`. The `/api/video-intake` route owns both YouTube discovery and durable transcript intake.
+Each Vercel Cron route first performs bounded YouTube/TranscriptAPI intake, then acquires the direct ZeroHedge, Axios, Investing.com, FXStreet and Alchemy feeds. It submits the resulting evidence only to Live's `/api/research-update` publisher. Hybrid is not called and never performs independent research.
+
+`vercel.json` declares the two production-only Cron routes. Keep `NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED=false` until `CRON_SECRET`, provider credentials and a production smoke test have all been confirmed.
 
 ## OpenAI market-intelligence runtime
 
@@ -82,10 +82,11 @@ Copy `.env.example` and configure these server-side Vercel values:
 - `YOUTUBE_DATA_API_KEY`
 - `TRANSCRIPT_API_KEY`
 - `OPENAI_API_KEY`
+- `CRON_SECRET`
 
 `OPENAI_INTELLIGENCE_ENABLED=false` is the kill switch for the model reasoning layer. If no OpenAI key is configured, the existing legacy recalibration path remains available rather than breaking research ingestion.
 
-`CRON_SECRET` is accepted for scheduled calls. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
+`CRON_SECRET` authorizes only Vercel Cron requests. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
 
 The publisher contract and runbook live in [Research Update Engine](docs/RESEARCH_UPDATE_ENGINE.md).
 

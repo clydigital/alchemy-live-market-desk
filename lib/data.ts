@@ -1,34 +1,54 @@
 import { unstable_cache } from "next/cache";
 
+import { withMacroReleaseLifecycle } from "@/lib/macro-release-lifecycle";
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DESK_REVALIDATE = 60;
 
-async function query<T>(table: string, params = ""): Promise<T[]> {
-  if (!url || !key) return [];
-  const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-    },
-    next: { revalidate: DESK_REVALIDATE },
-  });
-  if (!response.ok) return [];
-  return response.json();
+type QueryOptions = {
+  fresh?: boolean;
+};
+
+function queryCache(options: QueryOptions) {
+  return options.fresh ? { cache: "no-store" as const } : { next: { revalidate: DESK_REVALIDATE } };
 }
 
-async function privateQuery<T>(table: string, params = ""): Promise<T[]> {
+async function query<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
+  if (!url || !key) return [];
+  try {
+    const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      ...queryCache(options),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return [];
+    return response.json();
+  } catch {
+    return [];
+  }
+}
+
+async function privateQuery<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
   if (!url || !serviceKey) return [];
-  const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-    },
-    next: { revalidate: DESK_REVALIDATE },
-  });
-  if (!response.ok) return [];
-  return response.json();
+  try {
+    const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      ...queryCache(options),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return [];
+    return response.json();
+  } catch {
+    return [];
+  }
 }
 
 export type Story = {
@@ -140,6 +160,38 @@ export type MacroRelease = {
   source_classification: string;
   affected_assets: string[];
   published_at: string | null;
+  released_at: string | null;
+  actual_retrieved_at: string | null;
+  consensus_source: string | null;
+  consensus_captured_at: string | null;
+  last_ingestion_attempt_at: string | null;
+  ingestion_gap_reason: string | null;
+  lifecycle_evaluated_at: string | null;
+};
+
+export type MacroReleaseMetric = {
+  id: string;
+  release_id: string;
+  metric_key: string;
+  label: string;
+  transformation: "level" | "mom" | "yoy" | "qoq" | "annualised" | "change";
+  unit: string | null;
+  previous: number | null;
+  revised_previous: number | null;
+  consensus: number | null;
+  consensus_source: string | null;
+  consensus_captured_at: string | null;
+  forecast_low: number | null;
+  forecast_high: number | null;
+  alchemy_expectation: number | null;
+  alchemy_expectation_low: number | null;
+  alchemy_expectation_high: number | null;
+  alchemy_expectation_confidence: number | null;
+  actual: number | null;
+  surprise_vs_consensus: number | null;
+  surprise_vs_alchemy: number | null;
+  source_url: string;
+  retrieved_at: string;
 };
 
 
@@ -299,7 +351,7 @@ export type ResearchRunStatus = {
   accuracy_gate: "open" | "review" | "blocked";
   required_sources_complete: boolean;
   evidence_gate_passed: boolean;
-  source_checks: Array<{ source: string; status: string; itemCount?: number; note?: string }>;
+  source_checks: Array<{ source: string; status: string; itemCount?: number; retryable?: boolean; note?: string }>;
   videos_found: number;
   transcripts_ready: number;
   news_scanned: number;
@@ -356,14 +408,52 @@ export type ResearchIntakeQueueItem = {
   updated_at: string;
 };
 
+export async function getHybridDeskData(options: QueryOptions = {}) {
+  const [stories, updates, sources, marketStateRecords, researchRuns, calls, guidance, macroReleaseRows, macroReleaseMetrics, researchIntake, researchDebt, intelligenceRuns, intelligenceStages, acquisitionFailures] = await Promise.all([
+    query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
+    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40", options),
+    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240", options),
+    query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120", options),
+    privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20", options),
+    query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=24", options),
+    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=80", options),
+    query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=160", options),
+    query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=320", options),
+    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=published_at.desc&limit=160", options),
+    privateQuery<Record<string, unknown>>("research_debt", "select=debt_key,severity,status,reason,next_action,next_check_at,last_attempt_at,updated_at&order=next_check_at.asc.nullslast&limit=120", options),
+    privateQuery<Record<string, unknown>>("intelligence_engine_runs", "select=id,research_run_id,run_key,trigger_kind,status,stories_considered,stories_published,warnings,failure_detail,started_at,completed_at,metadata&order=started_at.desc&limit=20", options),
+    privateQuery<Record<string, unknown>>("intelligence_stage_runs", "select=id,engine_run_id,stage_key,status,model_name,provider_request_id,failure_code,failure_detail,started_at,completed_at&order=started_at.desc&limit=80", options),
+    privateQuery<Record<string, unknown>>("intelligence_acquisition_failures", "select=id,provider_key,capability,request_key,failure_code,failure_detail,retryable,first_failed_at,last_failed_at,resolved_at,occurrence_count&order=last_failed_at.desc&limit=80", options),
+  ]);
+  const now = new Date();
+  const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
+  return {
+    stories,
+    updates,
+    sources,
+    marketStateRecords,
+    researchRuns,
+    calls,
+    guidance,
+    macroReleases,
+    macroReleaseMetrics,
+    researchIntake,
+    researchDebt,
+    intelligenceRuns,
+    intelligenceStages,
+    acquisitionFailures,
+  };
+}
+
 async function loadDeskData() {
-  const [stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake] = await Promise.all([
+  const [stories, calls, updates, charts, guidance, macroReleaseRows, macroReleaseMetrics, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=12"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
     query<ChartRequest>("chart_requests", "select=*&order=created_at.desc&limit=40"),
     query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=40"),
     query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=40"),
+    query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=240"),
     query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
     query<NewsThread>("news_threads", "select=*&order=importance.desc,published_at.desc.nullslast&limit=60"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
@@ -377,7 +467,9 @@ async function loadDeskData() {
     privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20"),
     privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
   ]);
-  return { stories, calls, updates, charts, guidance, macroReleases, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
+  const now = new Date();
+  const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
+  return { stories, calls, updates, charts, guidance, macroReleases, macroReleaseMetrics, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
 }
 
 export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v2"], { revalidate: DESK_REVALIDATE });

@@ -7,6 +7,7 @@ import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/component
 import detailStyles from "@/components/live-desk/story-detail.module.css";
 import { buildCaseMonitorBoards, caseMonitorForStory } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
+import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 
@@ -22,6 +23,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const story = data.stories.find((candidate) => candidate.slug === slug);
   if (!story) notFound();
   const caseMonitor = caseMonitorForStory(await buildCaseMonitorBoards(data), slug);
+  const intelligenceRoom = await getIntelligenceStoryRoom(story.id);
 
   const legacyUpdates = data.updates.filter((update) => update.story_id === story.id);
   const versions = recordLayer.thesisVersions.filter((version) => version.story_id === story.id);
@@ -86,6 +88,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
           <a href="#versions">Thesis versions</a>
           <a href="#events">Event timeline</a>
           <a href="#evidence">Evidence</a>
+          <a href="#intelligence-room">Evidence Room</a>
           <a href="#sources">Sources</a>
         </nav>
 
@@ -205,6 +208,88 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 </article>
               )) : <DataState title="No dated Story events" detail="No linked event records are available for this Story." />}
             </div>
+          </Panel>
+        </div>
+
+        <div id="intelligence-room" className={detailStyles.sectionAnchor}>
+          <Panel
+            title="Canonical Evidence Room"
+            description="Alchemy-first synthesis, provenance-linked evidence, lifecycle state and entity relationships. No external article is required to own this Story."
+            action={intelligenceRoom.state ? <Badge tone={intelligenceRoom.state.publicationEligible ? "ready" : "default"}>{intelligenceRoom.state.lifecycleStatus}</Badge> : null}
+          >
+            {intelligenceRoom.available ? (
+              <div className={styles.recordList}>
+                {intelligenceRoom.state ? (
+                  <article className={styles.record}>
+                    <div className={styles.recordHeader}>
+                      <h3>{intelligenceRoom.room?.title || "Persistent intelligence state"}</h3>
+                      <Badge>{Math.round(intelligenceRoom.state.qualificationScore)} qualification</Badge>
+                    </div>
+                    <p>{intelligenceRoom.room?.synthesis || intelligenceRoom.state.researchSynthesis || "The Evidence Room is open; synthesis awaits sufficient canonical evidence."}</p>
+                    {intelligenceRoom.state.marketBelief ? <p><strong>Market belief:</strong> {intelligenceRoom.state.marketBelief}</p> : null}
+                    {intelligenceRoom.state.divergence ? <p><strong>Divergence:</strong> {intelligenceRoom.state.divergence}</p> : null}
+                    {intelligenceRoom.state.bias ? <div className={styles.meta}>Scenario: {intelligenceRoom.state.bias.replaceAll("_", " ")} · {intelligenceRoom.state.conviction === null ? "unscored" : `${Math.round(intelligenceRoom.state.conviction)} conviction`}</div> : null}
+                    <div className={styles.meta}>Novelty: {intelligenceRoom.state.noveltyClass || "not yet classified"} Â· Room: {intelligenceRoom.room?.status || "state only"}</div>
+                  </article>
+                ) : null}
+                {intelligenceRoom.hypothesis ? (
+                  <article className={styles.record}>
+                    <div className={styles.recordHeader}>
+                      <h3>{intelligenceRoom.hypothesis.question || intelligenceRoom.hypothesis.statement}</h3>
+                      <Badge>{intelligenceRoom.hypothesis.decisionState} · {Math.round(intelligenceRoom.hypothesis.confidence)}</Badge>
+                    </div>
+                    <p>{intelligenceRoom.hypothesis.statement}</p>
+                    <p><strong>Causal mechanism:</strong> {intelligenceRoom.hypothesis.causalMechanism}</p>
+                    {intelligenceRoom.challenger ? (
+                      <p><strong>Alchemy Challenger ({intelligenceRoom.challenger.verdict}):</strong> {intelligenceRoom.challenger.strongestCountercase}{intelligenceRoom.challenger.weakestLink ? ` Weakest link: ${intelligenceRoom.challenger.weakestLink}` : ""}</p>
+                    ) : null}
+                  </article>
+                ) : null}
+                {intelligenceRoom.scenarios.map((scenario) => (
+                  <article className={styles.record} key={scenario.asset}>
+                    <div className={styles.recordHeader}>
+                      <h3>{scenario.asset} scenario</h3>
+                      <Badge>{scenario.bias.replaceAll("_", " ")} · {scenario.conviction === null ? "unscored" : Math.round(scenario.conviction)}</Badge>
+                    </div>
+                    <p><strong>Base:</strong> {String(scenario.baseCase.description || "Not specified")}</p>
+                    <p><strong>Bull:</strong> {String(scenario.bullCase.description || "Not specified")}</p>
+                    <p><strong>Bear:</strong> {String(scenario.bearCase.description || "Not specified")}</p>
+                    <div className={styles.meta}>Confirm: {scenario.confirmation} · Invalidate: {scenario.invalidation}</div>
+                  </article>
+                ))}
+                {intelligenceRoom.evidence.map((item) => (
+                  <article className={`${styles.record} ${detailStyles.exactRecord}`} id={`canonical-evidence-${item.id}`} key={item.id}>
+                    <div className={styles.recordHeader}>
+                      <h3>{item.claim}</h3>
+                      <div className={styles.inlineMeta}><Badge>{item.role}</Badge><Badge>{item.direction}</Badge></div>
+                    </div>
+                    {item.summary ? <p>{item.summary}</p> : null}
+                    <div className={detailStyles.recordFooter}>
+                      <span>{item.confidence}% confidence Â· {formatDeskDate(item.eventAt)}</span>
+                      {item.provenanceUrls[0] ? <a className={detailStyles.recordLink} href={item.provenanceUrls[0]} target="_blank" rel="noreferrer">Provenance</a> : null}
+                    </div>
+                  </article>
+                ))}
+                {intelligenceRoom.relationships.length ? (
+                  <article className={styles.record}>
+                    <span className={styles.metaLabel}>Entity relationship map</span>
+                    {intelligenceRoom.relationships.map((relationship) => {
+                      const from = intelligenceRoom.entities.find((entity) => entity.id === relationship.fromEntityId)?.name || relationship.fromEntityId.slice(0, 8);
+                      const to = intelligenceRoom.entities.find((entity) => entity.id === relationship.toEntityId)?.name || relationship.toEntityId.slice(0, 8);
+                      return <p key={relationship.id}>{from} â†’ {relationship.relationship} â†’ {to} ({Math.round(relationship.confidence)}%)</p>;
+                    })}
+                  </article>
+                ) : null}
+                {intelligenceRoom.room?.unresolvedQuestions.length ? (
+                  <article className={styles.record}>
+                    <span className={styles.metaLabel}>Unresolved questions</span>
+                    {intelligenceRoom.room.unresolvedQuestions.map((question) => <p key={question}>{question}</p>)}
+                  </article>
+                ) : null}
+              </div>
+            ) : (
+              <DataState state="warn" title="Canonical Evidence Room not yet persisted" detail={intelligenceRoom.unavailableReason || "Apply the additive intelligence migration and link canonical evidence to this Story."} />
+            )}
           </Panel>
         </div>
 
