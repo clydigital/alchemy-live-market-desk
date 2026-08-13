@@ -153,7 +153,7 @@ function calendarReleaseCandidate(event: EconomicCalendarEvent): OverviewEconomi
     actual: event.actual,
     forecast: event.consensus,
     previous: event.previous,
-    revisedPrevious: null,
+    revisedPrevious: event.revisedPrevious ?? null,
     decidingQuestion: event.decidingQuestion,
     affectedAssets: event.affectedAssets,
     sourceName: event.sourceName,

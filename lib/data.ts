@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 
 import { withMacroReleaseLifecycle } from "@/lib/macro-release-lifecycle";
+import { buildStructuredEconomicMetrics } from "@/lib/economic-metrics";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -174,6 +175,9 @@ export type MacroReleaseMetric = {
   release_id: string;
   metric_key: string;
   label: string;
+  geography: string;
+  period: string | null;
+  frequency: string;
   transformation: "level" | "mom" | "yoy" | "qoq" | "annualised" | "change";
   unit: string | null;
   previous: number | null;
@@ -191,6 +195,8 @@ export type MacroReleaseMetric = {
   surprise_vs_consensus: number | null;
   surprise_vs_alchemy: number | null;
   source_url: string;
+  source_name: string;
+  observed_at: string;
   retrieved_at: string;
 };
 
@@ -427,6 +433,7 @@ export async function getHybridDeskData(options: QueryOptions = {}) {
   ]);
   const now = new Date();
   const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
+  const structuredMacroReleaseMetrics = buildStructuredEconomicMetrics(macroReleaseRows, macroReleaseMetrics);
   return {
     stories,
     updates,
@@ -436,7 +443,7 @@ export async function getHybridDeskData(options: QueryOptions = {}) {
     calls,
     guidance,
     macroReleases,
-    macroReleaseMetrics,
+    macroReleaseMetrics: structuredMacroReleaseMetrics,
     researchIntake,
     researchDebt,
     intelligenceRuns,
@@ -469,7 +476,8 @@ async function loadDeskData() {
   ]);
   const now = new Date();
   const macroReleases = macroReleaseRows.map((release) => withMacroReleaseLifecycle(release, now));
-  return { stories, calls, updates, charts, guidance, macroReleases, macroReleaseMetrics, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
+  const structuredMacroReleaseMetrics = buildStructuredEconomicMetrics(macroReleaseRows, macroReleaseMetrics);
+  return { stories, calls, updates, charts, guidance, macroReleases, macroReleaseMetrics: structuredMacroReleaseMetrics, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake };
 }
 
 export const getDeskData = unstable_cache(loadDeskData, ["alchemy-desk-data-v2"], { revalidate: DESK_REVALIDATE });

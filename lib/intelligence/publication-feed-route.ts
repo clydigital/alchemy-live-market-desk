@@ -68,6 +68,7 @@ function liveCalendar(
     consensus: release.consensus,
     alchemyExpectation: release.alchemyExpectation ?? metricsByRelease.get(release.id)?.find((metric) => metric.alchemy_expectation !== null)?.alchemy_expectation ?? null,
     previous: release.previous,
+    revisedPrevious: release.revisedPrevious ?? null,
     decidingQuestion: release.decidingQuestion,
     affectedAssets: release.affectedAssets,
     sourceName: release.sourceName,
@@ -75,6 +76,10 @@ function liveCalendar(
     metrics: (metricsByRelease.get(release.id) || []).map((metric) => ({
       key: metric.metric_key,
       label: metric.label,
+      geography: metric.geography,
+      period: metric.period,
+      frequency: metric.frequency,
+      transformation: metric.transformation,
       unit: metric.unit,
       previous: metric.previous,
       revisedPrevious: metric.revised_previous,
@@ -83,6 +88,8 @@ function liveCalendar(
       actual: metric.actual,
       surpriseVsConsensus: metric.surprise_vs_consensus,
       surpriseVsAlchemy: metric.surprise_vs_alchemy,
+      sourceName: metric.source_name,
+      observedAt: metric.observed_at,
     })),
     missionXp: 15,
   }));
