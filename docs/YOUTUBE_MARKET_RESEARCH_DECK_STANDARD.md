@@ -32,7 +32,7 @@ Prefer charts, levels, flows, breadth, positioning, earnings and macro evidence 
 
 ### 3. Preserve creator identity
 
-Each creator gets a separate summary section after synthesis. Never merge their voice or analytical framework into another creator's section.
+Each creator gets a separate tab after synthesis. Never merge their voice or analytical framework into another creator's section.
 
 Every extracted thesis records:
 
@@ -65,7 +65,7 @@ The frame should be captured near the transcript passage that discusses it. Stor
 For every tradable instrument with a useful creator chart, render:
 
 1. **Creator Chart** — static screenshot from the video, preserving the creator's annotations and context.
-2. **Reveal Live Chart** — an expandable TradingView embed mapped to the canonical symbol.
+2. **Reveal TradingView Chart** — an expandable live TradingView embed mapped to the canonical symbol.
 
 The live chart must not silently replace the creator chart because the creator's drawn levels and timeframe are part of the evidence.
 
@@ -103,44 +103,55 @@ The Watch field is educational market monitoring, not a trade instruction.
 
 ## Daily information architecture
 
-### A. Cross-Creator Synthesis
+### Tab 1 — Cross-Creator Synthesis
 
-Top of deck. Recommended modules:
+Use a **two-column desktop layout** so the analyst can compare themes quickly without excessive scrolling. Collapse to one column on mobile.
+
+Recommended modules:
 
 1. **Market Regime** — one concise paragraph.
-2. **Consensus Matrix** — themes × creators with Agree / Mixed / Disagree / Not covered.
+2. **Consensus / Divergence Cards** — each card shows what every creator said about one theme.
 3. **Highest-Conviction Overlaps** — only where multiple independent creator frameworks converge.
 4. **Important Disagreements** — preserve conflicting interpretations.
 5. **Under-the-Hood Rotation** — sectors / breadth / rates / credit / flows.
 6. **Event Risk** — next macro, earnings, regulatory or geopolitical catalysts.
-7. **Combined Watchlist** — ranked by evidence density, not hype.
+7. **Macro Weave** — concise integrated market conclusion.
 
-### B. Creator Summaries
+Do not add a separate Crypto tab just because a source mentions Bitcoin. Crypto commentary belongs inside the relevant creator tab unless the user explicitly requests a standalone crypto view for that batch.
 
-One section each, in source order. Each creator section should include:
+### Tabs 2+ — Individual Creator Breakdowns
 
-- one-paragraph thesis
-- 3–8 major evidence cards depending on materiality
-- creator-chart screenshot when useful
-- timestamp / source link
-- Reveal Live Chart control for relevant tradable instruments
-- verification badge
-- concise takeaways rather than full transcript reproduction
+One creator per tab, in source order.
 
-### C. Crypto Insights & News
+Use a **single-column layout** so there is enough horizontal room for technical-analysis copy, creator screenshots and live TradingView charts.
 
-Maintain a separate Crypto section whenever the source set contains crypto-relevant material. Apply the same synthesis-first and creator-attribution rules.
+Each creator tab should begin with:
+
+- **Central message** — 1–2 paragraphs explaining what the whole video is really arguing.
+- **Core themes** — concise list of the major narratives / evidence categories used.
+
+Then render the charts in source order. Each chart block should include:
+
+- chart / instrument title
+- approximate video timestamp
+- creator screenshot when available
+- **Their read** — what the creator is saying about the chart
+- **How they framed the chart** — structure, levels, evidence, scenario logic and qualifiers
+- independent verification note where relevant
+- `Reveal TradingView Chart` control
+- timestamped creator-video link / embed
+
+Do not compress an individual creator's chart work into small multi-column cards. The chart block is the primary unit on creator tabs.
 
 ## Interaction requirements
 
+- Navigation tabs: **Synthesis → Creator 1 → Creator 2 → Creator 3...**
 - Section / creator navigation must work on desktop and mobile.
-- Every `.news-card` includes headline, concise summary and an info-dot for deeper context.
-- Info-dot modals contain source, timestamp, verification note, deeper rationale and links.
-- `Reveal Live Chart` expands/collapses an embedded TradingView chart in place.
+- `Reveal TradingView Chart` expands/collapses an embedded TradingView chart in place.
 - TradingView embeds load lazily when revealed where practical.
-- Fear & Greed gauges update correctly.
-- Macro Weave appears in both Market and Crypto sections.
+- Timestamped creator-video controls open at the relevant approximate section.
 - No placeholder cards, fake timestamps or fabricated screenshots.
+- Macro Weave belongs on the synthesis tab for this research-deck format.
 
 ## Visual language
 
@@ -151,6 +162,8 @@ Use the existing Market Deck cyberpunk language as the base, but make video rese
 - neon cyan accent
 - dark translucent panels
 - restrained glow
+- synthesis cards in a 2-column desktop grid
+- creator tabs in a 1-column chart stack
 - larger chart surfaces than text surfaces
 - creator attribution as a small eyebrow / badge
 - verification badge adjacent to the evidence label
@@ -164,14 +177,16 @@ Before publishing a batch, verify:
 
 1. All videos used have transcript status ready.
 2. Creator names are correct.
-3. Every screenshot is tied to the correct video and approximate timestamp.
-4. Every tradable screenshot card has a valid TradingView symbol mapping when a live chart is available.
-5. Creator opinion is not presented as verified fact.
-6. Material factual claims are independently checked or explicitly marked unverified.
-7. Cross-creator synthesis appears before creator summaries.
-8. Disagreements are preserved.
-9. Market and Crypto sections both include Macro Weave and Fear & Greed gauge.
-10. Tabs, modals, chart reveals and gauges work without console errors.
+3. Cross-creator synthesis is the first tab and uses the 2-column desktop layout.
+4. Each creator has a dedicated single-column tab.
+5. Every creator tab begins with a central-message summary and core themes.
+6. Every chart section explains what the creator was actually saying, not merely bullish / bearish direction.
+7. Every screenshot is tied to the correct video and approximate timestamp.
+8. Every tradable chart block has a valid TradingView symbol mapping when a live chart is available.
+9. Creator opinion is not presented as verified fact.
+10. Material factual claims are independently checked or explicitly marked unverified.
+11. Disagreements are preserved.
+12. Tabs, creator clips and TradingView reveals work without console errors.
 
 ## File naming
 
