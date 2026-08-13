@@ -141,6 +141,23 @@ export type StorySynthesisOutput = {
     strongestSupport: string;
     strongestContradiction: string;
     researchSynthesis: string;
+    whatChanged: string;
+    previousState: string;
+    currentState: string;
+    marketReaction: string;
+    acceptedExplanation: string;
+    overlookedVariable: string;
+    overlookedVariableEvidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+    marketMayBeRight: string;
+    mechanismSteps: Array<{
+      step: number;
+      text: string;
+      evidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+    }>;
+    plainEnglish: string | null;
+    themes: string[];
+    prohibitedClaims: string[];
+    changeKinds: Array<"evidence" | "catalyst" | "price_confirmation" | "probability" | "cross_asset_transmission" | "official_communication" | "management_communication" | "watchlist_state">;
   }>;
 };
 
@@ -351,7 +368,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "publicationEligible", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis"],
+        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "publicationEligible", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis", "whatChanged", "previousState", "currentState", "marketReaction", "acceptedExplanation", "overlookedVariable", "overlookedVariableEvidenceStatus", "marketMayBeRight", "mechanismSteps", "plainEnglish", "themes", "prohibitedClaims", "changeKinds"],
         properties: {
           primaryHypothesisId: { type: "string" },
           title: { type: "string" },
@@ -379,6 +396,35 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           strongestSupport: { type: "string" },
           strongestContradiction: { type: "string" },
           researchSynthesis: { type: "string" },
+          whatChanged: { type: "string" },
+          previousState: { type: "string" },
+          currentState: { type: "string" },
+          marketReaction: { type: "string" },
+          acceptedExplanation: { type: "string" },
+          overlookedVariable: { type: "string" },
+          overlookedVariableEvidenceStatus: { type: "string", enum: ["observed", "strongly_supported", "inferred", "speculative"] },
+          marketMayBeRight: { type: "string" },
+          mechanismSteps: {
+            type: "array",
+            maxItems: 8,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["step", "text", "evidenceStatus"],
+              properties: {
+                step: { type: "integer", minimum: 1 },
+                text: { type: "string" },
+                evidenceStatus: { type: "string", enum: ["observed", "strongly_supported", "inferred", "speculative"] },
+              },
+            },
+          },
+          plainEnglish: nullableString,
+          themes: stringArray,
+          prohibitedClaims: stringArray,
+          changeKinds: {
+            type: "array",
+            items: { type: "string", enum: ["evidence", "catalyst", "price_confirmation", "probability", "cross_asset_transmission", "official_communication", "management_communication", "watchlist_state"] },
+          },
         },
       },
     },

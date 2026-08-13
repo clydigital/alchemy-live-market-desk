@@ -2,6 +2,14 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import {
+  applyExplanationPass,
+  composeAlchemyEdition,
+  type AlchemyEdition,
+  type EditionStory,
+  type ThemeWatch,
+  type WatchlistItem,
+} from "@/lib/intelligence/edition";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import {
   CHALLENGER_SCHEMA,
@@ -186,7 +194,16 @@ This is not a news summarisation task. Synthesize across independent evidence, d
 Creator/video commentary is research-lead material, not proof unless independently verified. A single article can never be the sole basis for a new Story.
 Do not claim that something is unpriced or mispriced unless the supplied evidence directly supports that conclusion.
 Prefer updating an existing Story when the event, thesis, mechanism and deciding evidence are substantially the same. Do not create a duplicate Story merely because the headline changed.
-Every confirmation or invalidation condition must be observable. Return only the requested structured output.`;
+Every confirmation or invalidation condition must be observable.
+Rank sources in this order: official releases; company filings, earnings releases and official transcripts; direct market data; specialist physical or industry data; reputable named-source reporting; analyst commentary; social media.
+Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
+Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
+
+const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
+For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
+Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
+Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
+Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims.`;
 
 function hash(value: string, length = 32) {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
@@ -383,7 +400,7 @@ async function modelStage<T>({
   try {
     const result = await runStructuredStage<T>({
       stageKey,
-      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.`,
+      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
       input,
       schema,
       modelKind,
@@ -1033,6 +1050,157 @@ async function promoteCandidate({
   return story;
 }
 
+function lifecycleThemeState(status: EditionStory["lifecycleStatus"]): ThemeWatch["state"] {
+  if (status === "confirmed") return "strong";
+  if (status === "developing") return "improving";
+  if (status === "weakening") return "weakening";
+  if (status === "invalidated" || status === "archived") return "breakdown";
+  return "mixed";
+}
+
+function editionStory(
+  candidate: CandidateWorking,
+  story: StoryRow,
+  parentStoryId: string,
+  lifecycleStatus: CandidateWorking["lifecycleStatus"],
+): EditionStory {
+  const locked = applyExplanationPass({
+    thesis: candidate.thesis,
+    confidence: clamp(candidate.confidence),
+    confirmation: candidate.confirmationCriteria.join("; "),
+    invalidation: candidate.invalidationCriteria.join("; "),
+    prohibitedClaims: candidate.prohibitedClaims,
+  }, {
+    plainEnglish: candidate.plainEnglish,
+  });
+  return {
+    id: story.id,
+    parentStoryId,
+    lifecycleStatus,
+    title: candidate.title,
+    centralQuestion: candidate.question,
+    thesis: locked.thesis,
+    whatChanged: candidate.whatChanged,
+    previousState: candidate.previousState,
+    currentState: candidate.currentState,
+    marketReaction: candidate.marketReaction,
+    acceptedExplanation: candidate.acceptedExplanation,
+    contradiction: candidate.strongestContradiction,
+    overlookedVariable: candidate.overlookedVariable,
+    overlookedVariableEvidenceStatus: candidate.overlookedVariableEvidenceStatus,
+    marketMayBeRight: candidate.marketMayBeRight,
+    mechanismSteps: candidate.mechanismSteps,
+    plainEnglish: locked.plainEnglish,
+    affectedAssets: candidate.affectedAssets,
+    themes: candidate.themes,
+    nextTest: candidate.nextCatalysts.join("; "),
+    confirmation: locked.confirmation,
+    invalidation: locked.invalidation,
+    confidence: locked.confidence,
+    prohibitedClaims: locked.prohibitedClaims,
+    changeKinds: candidate.changeKinds,
+    eventAt: new Date().toISOString(),
+  };
+}
+
+function editionThemes(stories: EditionStory[]): ThemeWatch[] {
+  const byTheme = new Map<string, ThemeWatch>();
+  for (const story of stories) {
+    for (const theme of story.themes) {
+      if (!theme.trim() || byTheme.has(theme)) continue;
+      byTheme.set(theme, {
+        theme,
+        state: lifecycleThemeState(story.lifecycleStatus),
+        driver: story.whatChanged,
+        representativeNames: story.affectedAssets.slice(0, 4),
+        whatChangesView: story.invalidation,
+      });
+    }
+  }
+  return [...byTheme.values()].slice(0, 5);
+}
+
+function editionWatchlist(stories: EditionStory[]): WatchlistItem[] {
+  return stories.flatMap((story) => story.affectedAssets.map((symbol): WatchlistItem => ({
+    symbol,
+    bucket: story.lifecycleStatus === "weakening" ? "countertrend_risk" : story.lifecycleStatus === "confirmed" ? "momentum" : "setup",
+    theme: story.themes[0] || "Cross-asset",
+    whyNow: story.whatChanged,
+    structure: story.marketReaction,
+    confirmation: story.confirmation,
+    invalidation: story.invalidation,
+    catalyst: story.nextTest,
+    confidence: story.confidence >= 75 ? "high" : story.confidence >= 55 ? "medium" : "low",
+  }))).slice(0, 6);
+}
+
+function asPreviousEdition(payload: Record<string, unknown> | undefined): AlchemyEdition | null {
+  return payload?.methodologyVersion === "alchemy-mixed-research-voice-v1" ? payload as unknown as AlchemyEdition : null;
+}
+
+async function persistDailyBrief({
+  engineRunId,
+  researchRunId,
+  stories,
+  evidence,
+}: {
+  engineRunId: string;
+  researchRunId: string | null;
+  stories: EditionStory[];
+  evidence: EvidencePackItem[];
+}) {
+  if (!stories.length) return null;
+  const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
+    "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
+  );
+  const generatedAt = new Date().toISOString();
+  const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const marketObservations = evidence
+    .filter((item) => item.evidenceClass === "market_observation" && item.affectedAssets.length)
+    .slice(0, 8);
+  const edition = composeAlchemyEdition({
+    generatedAt,
+    comparisonWindowStart: previousEdition?.generatedAt || prior[0]?.published_at || new Date(Date.now() - 86_400_000).toISOString(),
+    previousEdition,
+    stories,
+    marketTape: {
+      regimeSummary: marketObservations.length
+        ? "Canonical market observations are active; read them with the Story-level countercases."
+        : "Canonical market-tape evidence is not available for this edition.",
+      assets: marketObservations.map((item) => ({
+        symbol: item.affectedAssets[0],
+        move: "Observed",
+        state: item.claim,
+        whyRelevant: item.summary || "Direct market evidence linked to the current edition.",
+      })),
+    },
+    themeWatch: editionThemes(stories),
+    watchlist: editionWatchlist(stories),
+  });
+  await intelligenceRest("hybrid_publication_snapshots", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      research_run_id: researchRunId,
+      slot_run_id: null,
+      story_id: null,
+      story_thesis_version_id: null,
+      supersedes_snapshot_id: prior[0]?.id || null,
+      snapshot_type: "daily_brief",
+      public_summary: edition.finalBoard.highestConvictionChange,
+      payload: { ...edition, engineRunId },
+      source_record_refs: [
+        ...stories.map((story) => ({ type: "story", id: story.id })),
+        ...evidence.flatMap((item) => item.id ? [{ type: "evidence", id: item.id }] : []),
+      ],
+      redaction_log: [],
+      confidence: Math.round(stories.reduce((sum, story) => sum + story.confidence, 0) / stories.length),
+      published_at: generatedAt,
+    }),
+  });
+  return edition;
+}
+
 export async function runIntelligenceEngine({
   researchRunId = null,
   triggerKind = "new_evidence",
@@ -1096,6 +1264,7 @@ export async function runIntelligenceEngine({
   let hypothesesPromoted = 0;
   let storiesConsidered = 0;
   const publishedStories: StoryRow[] = [];
+  const editionStories: EditionStory[] = [];
   const stageExecution = {
     requestTimeoutMs: stageRequestTimeoutMs,
     maxAttempts: stageMaxAttempts,
@@ -1234,7 +1403,7 @@ export async function runIntelligenceEngine({
         existingStories: storiesPack,
         publicationGate: { minDecisiveEvidence: MIN_DECISIVE_EVIDENCE, minIndependentSources: MIN_INDEPENDENT_SOURCES, requiresTier1Or2: true },
       },
-      maxOutputTokens: 5_500,
+      maxOutputTokens: 9_000,
     });
 
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
@@ -1372,7 +1541,12 @@ export async function runIntelligenceEngine({
         evidenceById,
       });
       publishedStories.push(promotedStory);
+      editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
+    }
+
+    if (!dryRun && editionStories.length) {
+      await persistDailyBrief({ engineRunId, researchRunId, stories: editionStories, evidence });
     }
 
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
