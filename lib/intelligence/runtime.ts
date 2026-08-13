@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import {
+  applyExplanationPass,
   composeAlchemyEdition,
   type AlchemyEdition,
   type EditionStory,
@@ -1063,13 +1064,22 @@ function editionStory(
   parentStoryId: string,
   lifecycleStatus: CandidateWorking["lifecycleStatus"],
 ): EditionStory {
+  const locked = applyExplanationPass({
+    thesis: candidate.thesis,
+    confidence: clamp(candidate.confidence),
+    confirmation: candidate.confirmationCriteria.join("; "),
+    invalidation: candidate.invalidationCriteria.join("; "),
+    prohibitedClaims: candidate.prohibitedClaims,
+  }, {
+    plainEnglish: candidate.plainEnglish,
+  });
   return {
     id: story.id,
     parentStoryId,
     lifecycleStatus,
     title: candidate.title,
     centralQuestion: candidate.question,
-    thesis: candidate.thesis,
+    thesis: locked.thesis,
     whatChanged: candidate.whatChanged,
     previousState: candidate.previousState,
     currentState: candidate.currentState,
@@ -1080,14 +1090,14 @@ function editionStory(
     overlookedVariableEvidenceStatus: candidate.overlookedVariableEvidenceStatus,
     marketMayBeRight: candidate.marketMayBeRight,
     mechanismSteps: candidate.mechanismSteps,
-    plainEnglish: candidate.plainEnglish,
+    plainEnglish: locked.plainEnglish,
     affectedAssets: candidate.affectedAssets,
     themes: candidate.themes,
     nextTest: candidate.nextCatalysts.join("; "),
-    confirmation: candidate.confirmationCriteria.join("; "),
-    invalidation: candidate.invalidationCriteria.join("; "),
-    confidence: clamp(candidate.confidence),
-    prohibitedClaims: candidate.prohibitedClaims,
+    confirmation: locked.confirmation,
+    invalidation: locked.invalidation,
+    confidence: locked.confidence,
+    prohibitedClaims: locked.prohibitedClaims,
     changeKinds: candidate.changeKinds,
     eventAt: new Date().toISOString(),
   };
