@@ -98,7 +98,7 @@ const CORE_NASDAQ: SeriesSpec[] = [
 const MAG7 = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA"];
 const AI_BASKET = ["NVDA", "AMD", "AVGO", "MRVL", "MU", "TSM", "ASML", "ARM", "ANET", "DELL", "HPE", "SMCI", "VRT", "CEG", "GEV", "MSFT", "AMZN", "GOOGL", "META", "ORCL"];
 const LARGE_CAP_PROXY = [
-  "AAPL","MSFT","AMZN","GOOGL","META","NVDA","TSLA","BRK-B","JPM","V","MA","UNH","LLY","XOM","CVX","JNJ","PG","HD","COST","WMT","ABBV","KO","PEP","MRK","BAC","CRM","ORCL","CSCO","ACN","MCD","NFLX","AMD","INTC","QCOM","TXN","AVGO","IBM","GE","CAT","BA","HON","UPS","RTX","LMT","NOC","GS","MS","BLK","C","WFC","SPGI","AXP","TMO","DHR","ABT","AMGN","GILD","PFE","BMY","MDT","ISRG","LOW","NKE","SBUX","BKNG","DIS","CMCSA","T","VZ","NEE","DUK","SO","COP","SLB","EOG","LIN","APD","MMM","DE","GM","F","UNP","FDX","ADBE","NOW","PANW","CRWD","MU","AMAT","LRCX","KLAC","ASML","TSM","PLTR","UBER","ABNB","PYPL","INTU","SNOW"
+  "AAPL","MSFT","AMZN","GOOGL","META","NVDA","TSLA","BRK-B","JPM","V","MA","UNH","LLY","XOM","CVX","JNJ","PG","HD","COST","WMT","ABBV","KO","PEP","MRK","BAC","CRM","ORCL","CSCO","ACN","MCD","NFLX",
 ];
 
 const STOCK_SYMBOL_OVERRIDES: Record<string, string> = { "BRK-B": "BRK.B" };
@@ -129,6 +129,34 @@ const EIA_SERIES = {
     sourceUrl: "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=D&n=PET&s=EER_EPD2F_PF4_Y35NY_DPG",
   },
 };
+
+// Diagnostic gate: enabled during tests or when explicit env flag is set.
+const DIAG = process.env.NODE_ENV === "test" || process.env.ALCHEMY_DIAG === "1";
+
+// Minimal diagnostics store (module-local, test-accessible). Aggregated provider summaries only.
+const diagnostics: {
+  nasdaq: { totalMs: number | null; requests: number; success: number; empty: number; failures: number; slow: Array<{ provider: string; durationMs: number; rows: number }>; },
+  treasury: { durationMs: number | null; success: boolean | null; rows: number | null },
+  ecb: { durationMs: number | null; success: boolean | null; rows: number | null },
+  eia: { durationMs: number | null; success: boolean | null; rows: number | null },
+  fred: { durationMs: number | null; requests: number; success: number; failures: number; rows: number },
+  market: { durationMs: number | null; seriesCount: number; breadthSampleSize: number; cracksCount: number },
+} = {
+  nasdaq: { totalMs: null, requests: 0, success: 0, empty: 0, failures: 0, slow: [] },
+  treasury: { durationMs: null, success: null, rows: null },
+  ecb: { durationMs: null, success: null, rows: null },
+  eia: { durationMs: null, success: null, rows: null },
+  fred: { durationMs: null, requests: 0, success: 0, failures: 0, rows: 0 },
+  market: { durationMs: null, seriesCount: 0, breadthSampleSize: 0, cracksCount: 0 },
+};
+
+function slowThresholdMs() {
+  return 800; // per-symbol slow threshold for diagnostic detail
+}
+
+export function getAlchemyMarketDiagnostics() {
+  return DIAG ? diagnostics : null;
+}
 
 function pctChange(points: PricePoint[], sessions: number) {
   if (points.length <= sessions) return null;
@@ -180,7 +208,7 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]> {
   const end = new Date();
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(request.providerSymbol)}/historical?assetclass=${request.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=50`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -190,7 +218,7 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
     },
     next: { revalidate: NASDAQ_REVALIDATE },
   });
-  if (!response.ok) throw new Error(`Nasdaq ${response.status}`);
+  if (!response.ok) throw new Error(`Nasdaq ${request.providerSymbol} ${response.status}`);
   const payload = await response.json();
   if (payload?.status?.rCode !== 200) throw new Error(`Nasdaq ${request.providerSymbol} unavailable`);
   const rows: Array<Record<string, string>> = payload?.data?.tradesTable?.rows || [];
@@ -204,14 +232,49 @@ async function fetchNasdaqHistory(request: NasdaqRequest): Promise<PricePoint[]>
 }
 
 async function fetchNasdaqHistories(requests: NasdaqRequest[]) {
+  const startAll = Date.now();
   const unique = [...new Map(requests.map((request) => [providerKey(request), request])).values()];
+
+  // aggregated counters
+  let success = 0;
+  let empty = 0;
+  let failures = 0;
+
   const rows = await mapLimit(unique, 16, async (request) => {
+    const key = providerKey(request);
+    const start = Date.now();
     try {
-      return [providerKey(request), await fetchNasdaqHistory(request)] as const;
-    } catch {
-      return [providerKey(request), [] as PricePoint[]] as const;
+      const pts = await fetchNasdaqHistory(request);
+      const duration = Date.now() - start;
+      if (DIAG) {
+        diagnostics.nasdaq.requests += 1;
+        diagnostics.nasdaq.totalMs = (diagnostics.nasdaq.totalMs || 0) + duration;
+        if (pts.length) {
+          diagnostics.nasdaq.success += 1;
+          success += 1;
+        } else {
+          diagnostics.nasdaq.empty += 1;
+          empty += 1;
+        }
+        if (duration > slowThresholdMs()) diagnostics.nasdaq.slow.push({ provider: key, durationMs: duration, rows: pts.length });
+      }
+      return [key, pts] as const;
+    } catch (err) {
+      const duration = Date.now() - start;
+      if (DIAG) {
+        diagnostics.nasdaq.requests += 1;
+        diagnostics.nasdaq.failures += 1;
+        diagnostics.nasdaq.totalMs = (diagnostics.nasdaq.totalMs || 0) + duration;
+        diagnostics.nasdaq.slow.push({ provider: key, durationMs: duration, rows: 0 });
+      }
+      failures += 1;
+      return [key, [] as PricePoint[]] as const;
     }
   });
+  if (DIAG) {
+    const totalMs = Date.now() - startAll;
+    diagnostics.nasdaq.totalMs = diagnostics.nasdaq.totalMs ?? totalMs;
+  }
   return new Map<string, PricePoint[]>(rows);
 }
 
@@ -230,11 +293,12 @@ const MONTHS: Record<string, number> = {
 };
 
 async function fetchEiaDaily(code: string, sourceUrl: string): Promise<PricePoint[]> {
+  const start = DIAG ? Date.now() : 0;
   const response = await fetch(sourceUrl, {
     headers: { "user-agent": "Mozilla/5.0 (Alchemy Live Desk)" },
     next: { revalidate: OFFICIAL_REVALIDATE },
   });
-  if (!response.ok) throw new Error(`EIA ${response.status}`);
+  if (!response.ok) throw new Error(`EIA ${code} ${response.status}`);
   const html = await response.text();
   const points: PricePoint[] = [];
   for (const row of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -243,17 +307,22 @@ async function fetchEiaDaily(code: string, sourceUrl: string): Promise<PricePoin
     const label = cells[0];
     const match = label.match(/^(\d{4})\s+([A-Z][a-z]{2})-\s*(\d{1,2})\s+to\s+/);
     if (!match || MONTHS[match[2]] === undefined) continue;
-    const start = Date.UTC(Number(match[1]), MONTHS[match[2]], Number(match[3]));
+    const startDate = Date.UTC(Number(match[1]), MONTHS[match[2]], Number(match[3]));
     for (let index = 0; index < Math.min(5, cells.length - 1); index += 1) {
       const close = parseNumber(cells[index + 1]);
       if (close === null) continue;
-      points.push({ time: (start + index * 86400000) / 1000, close });
+      points.push({ time: (startDate + index * 86400000) / 1000, close });
     }
   }
   const deduped = [...new Map(points.map((point) => [point.time, point])).values()]
     .sort((a, b) => a.time - b.time)
     .slice(-420);
   if (!deduped.length) throw new Error(`EIA ${code} parse failed`);
+  if (DIAG) {
+    diagnostics.eia.durationMs = Date.now() - start;
+    diagnostics.eia.success = true;
+    diagnostics.eia.rows = deduped.length;
+  }
   return deduped;
 }
 
@@ -282,6 +351,7 @@ function parseCsvLine(line: string) {
 }
 
 async function fetchEcbCross(currency: "USD" | "JPY") {
+  const start = DIAG ? Date.now() : 0;
   const endpoint = `https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A?startPeriod=${isoDate(new Date(Date.now() - HISTORY_DAYS * 86400000))}&format=csvdata`;
   const response = await fetch(endpoint, {
     headers: { accept: "text/csv", "user-agent": "Alchemy Live Desk" },
@@ -299,15 +369,25 @@ async function fetchEcbCross(currency: "USD" | "JPY") {
     const time = Date.parse(`${fields[dateIndex]}T00:00:00Z`) / 1000;
     if (close !== null && Number.isFinite(time)) map.set(time, close);
   }
+  if (DIAG) {
+    diagnostics.ecb.durationMs = Date.now() - start;
+    diagnostics.ecb.success = true;
+    diagnostics.ecb.rows = map.size;
+  }
   return map;
 }
 
 async function fetchUsdJpy(): Promise<PricePoint[]> {
+  const start = DIAG ? Date.now() : 0;
   const [usd, jpy] = await Promise.all([fetchEcbCross("USD"), fetchEcbCross("JPY")]);
-  return [...jpy.entries()]
+  const result = [...jpy.entries()]
     .filter(([time]) => usd.has(time))
     .map(([time, jpyPerEur]) => ({ time, close: jpyPerEur / usd.get(time)! }))
     .sort((a, b) => a.time - b.time);
+  if (DIAG) {
+    // rows recorded under ecb
+  }
+  return result;
 }
 
 function extractXmlValue(block: string, tag: string) {
@@ -316,6 +396,7 @@ function extractXmlValue(block: string, tag: string) {
 }
 
 async function fetchTreasurySeries() {
+  const start = DIAG ? Date.now() : 0;
   const currentYear = new Date().getUTCFullYear();
   const years = [currentYear - 1, currentYear];
   const responses = await Promise.allSettled(years.map(async (year) => {
@@ -331,7 +412,7 @@ async function fetchTreasurySeries() {
   const tagMap: Record<string, string> = { "^FVX": "BC_5YEAR", "^TNX": "BC_10YEAR", "^TYX": "BC_30YEAR" };
   for (const result of responses) {
     if (result.status !== "fulfilled") continue;
-    for (const match of result.value.matchAll(/<m:properties>([\s\S]*?)<\/m:properties>/gi)) {
+    for (const match of result.value.matchAll(/<m:properties>([\s\S]*?)<\\/m:properties>/gi)) {
       const dateText = extractXmlValue(match[1], "NEW_DATE");
       const time = dateText ? Date.parse(dateText) / 1000 : NaN;
       if (!Number.isFinite(time)) continue;
@@ -343,6 +424,11 @@ async function fetchTreasurySeries() {
   }
   for (const [symbol, points] of series) {
     series.set(symbol, [...new Map(points.map((point) => [point.time, point])).values()].sort((a, b) => a.time - b.time));
+  }
+  if (DIAG) {
+    diagnostics.treasury.durationMs = Date.now() - start;
+    diagnostics.treasury.success = true;
+    diagnostics.treasury.rows = Array.from(series.values()).reduce((sum, pts) => sum + pts.length, 0);
   }
   return series;
 }
@@ -465,6 +551,7 @@ function calculatePulse(series: MarketSeries[], breadth: BreadthSnapshot, sessio
 }
 
 async function loadMarketData(): Promise<MarketData> {
+  const loadStart = DIAG ? Date.now() : 0;
   const stockUniverse = [...new Set([...MAG7, ...AI_BASKET, ...LARGE_CAP_PROXY])];
   const nasdaqRequests: NasdaqRequest[] = [
     ...CORE_NASDAQ.map(({ providerSymbol, assetClass }) => ({ providerSymbol, assetClass })),
@@ -538,6 +625,13 @@ async function loadMarketData(): Promise<MarketData> {
   if (!usdJpy.length) limitations.push("ECB USDJPY cross is temporarily unavailable.");
   if (treasury.get("^TNX")?.length === 0) limitations.push("Treasury yield history is temporarily unavailable.");
   if (!gasoline.length || !distillate.length) limitations.push("EIA crack proxies are temporarily unavailable.");
+
+  if (DIAG) {
+    diagnostics.market.durationMs = Date.now() - loadStart;
+    diagnostics.market.seriesCount = series.length;
+    diagnostics.market.breadthSampleSize = breadth[0]?.sampleSize ?? 0;
+    diagnostics.market.cracksCount = cracks.length;
+  }
 
   return {
     updatedAt: new Date().toISOString(),
