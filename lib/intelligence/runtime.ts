@@ -1150,8 +1150,8 @@ async function persistDailyBrief({
   evidence: EvidencePackItem[];
 }) {
   if (!stories.length) return null;
-  const prior = await intelligenceRest<Array<{ payload: Record<string, unknown>; published_at: string }>>(
-    "hybrid_publication_snapshots?select=payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
+  const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
+    "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
   );
   const generatedAt = new Date().toISOString();
   const previousEdition = asPreviousEdition(prior[0]?.payload);
@@ -1185,7 +1185,7 @@ async function persistDailyBrief({
       slot_run_id: null,
       story_id: null,
       story_thesis_version_id: null,
-      supersedes_snapshot_id: null,
+      supersedes_snapshot_id: prior[0]?.id || null,
       snapshot_type: "daily_brief",
       public_summary: edition.finalBoard.highestConvictionChange,
       payload: { ...edition, engineRunId },
