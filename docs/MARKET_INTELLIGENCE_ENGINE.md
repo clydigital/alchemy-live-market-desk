@@ -13,6 +13,17 @@ Live Market Desk is the only canonical acquisition, research and reasoning owner
 7. `/api/intelligence-feed`, `/api/hybrid-feed-v2` and the legacy compatibility alias all publish the same persisted canonical contract.
 8. `/api/system-health` exposes redacted configuration presence, latest run state, provider evidence, calendar coverage and research debt.
 
+## Mixed research voice integration
+
+The governing specification is [Alchemy_Mixed_Research_Voice_Method.md](./Alchemy_Mixed_Research_Voice_Method.md).
+
+- The existing Hypothesis, Challenger, Scenario and Story Synthesis stages remain the only reasoning path.
+- Story Synthesis records the accepted explanation, contradiction, overlooked variable, evidence-labelled mechanism steps, market-may-be-right case and material change state.
+- A deterministic composer packages promoted canonical Stories into the existing append-only `daily_brief` snapshot payload.
+- The composer cannot change thesis, confidence, confirmation, invalidation or prohibited-claim locks.
+- The minimum-four rule is a target, not padding. Updates sharing one parent Story count once, and unchanged recurring Stories do not count.
+- Hybrid continues to read the existing canonical feed and performs no research or reasoning.
+
 ## Runtime boundaries
 
 - `/api/intelligence-run` and `lib/intelligence/runtime.ts` are the only OpenAI reasoning entry point.
