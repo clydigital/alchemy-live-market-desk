@@ -5,6 +5,7 @@ The Live Market Desk owns creator-video discovery and transcript-gated intake. H
 ## Required YouTube channels
 
 - FX Evolution — https://www.youtube.com/@fxevolutionvideo/videos
+- Trade Brigade — https://www.youtube.com/@TradeBrigade/videos
 - Kevin Gerrity — https://www.youtube.com/@Kevin.Gerrity/videos
 - ClearValue Tax — https://www.youtube.com/@clearvaluetax9382/videos
 - StockedUp — https://www.youtube.com/@StockedUp/videos
