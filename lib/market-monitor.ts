@@ -226,7 +226,7 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
 async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
   const end = new Date();
   const start = new Date(end.getTime() - HISTORY_DAYS * 86400000);
-  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=5000`;
+  const endpoint = `https://api.nasdaq.com/api/quote/${encodeURIComponent(spec.providerSymbol)}/historical?assetclass=${spec.assetClass}&fromdate=${isoDate(start)}&todate=${isoDate(end)}&limit=50`;
   const response = await fetch(endpoint, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
@@ -287,7 +287,7 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
   };
 }
 
-const loadExtras = unstable_cache(async () => {
+export const loadExtras = unstable_cache(async () => {
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
@@ -467,23 +467,23 @@ function buildContradictions(rows: MarketMonitorRow[]) {
   const ndx = by.get("ndx");
   const soxx = by.get("soxx");
   if (ndx && soxx && Math.sign(move(ndx, "dayChange")) !== Math.sign(move(soxx, "dayChange")) && Math.abs(move(ndx, "dayChange") - move(soxx, "dayChange")) >= 1) {
-    add({ id: "ndx-soxx", title: "Nasdaq and semis are diverging", detail: `NDX proxy ${move(ndx, "dayChange").toFixed(1)}% vs SOXX ${move(soxx, "dayChange").toFixed(1)}%.`, assets: ["ndx", "soxx"], priority: 88, researchQuestion: "Is tech participation broadening beyond semiconductors, or is AI leadership breaking?" });
+    add({ id: "ndx-soxx", title: "Nasdaq and semis are diverging", detail: `NDX proxy ${move(ndx, "dayChange").toFixed(1)}% vs SOXX ${move(soxx, "dayChange").toFixed(1)}%.`, assets: ["ndx", "soxx"], priority: 72, researchQuestion: "Are semis leading or lagging the broader tech rally?" });
   }
   const spx = by.get("spx");
   const rsp = by.get("rsp");
   if (spx && rsp && Math.abs(move(spx, "change5d") - move(rsp, "change5d")) >= 1.5) {
-    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX proxy ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 82, researchQuestion: "Is the index move becoming more concentrated or is breadth beginning to catch up?" });
+    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX proxy ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 68, researchQuestion: "Is the rally concentrated in mega-cap or broad-based?" });
   }
   const copper = by.get("copper");
   const china = by.get("csi300");
   const cnh = by.get("cnh");
   if (copper && china && Math.abs(move(copper, "change5d") - move(china, "change5d")) >= 3) {
-    add({ id: "copper-china", title: "Copper is decoupling from China equities", detail: `Copper proxy ${move(copper, "change5d").toFixed(1)}% vs China A-shares ${move(china, "change5d").toFixed(1)}% over 5D${cnh ? `; yuan proxy ${move(cnh, "change5d").toFixed(1)}%` : ""}.`, assets: ["copper", "csi300", ...(cnh ? ["cnh"] : [])], priority: 84, researchQuestion: "Is copper responding to a supply shock or non-China demand rather than a broad China growth impulse?" });
+    add({ id: "copper-china", title: "Copper is decoupling from China equities", detail: `Copper proxy ${move(copper, "change5d").toFixed(1)}% vs China A-shares ${move(china, "change5d").toFixed(1)}%.`, assets: ["copper", "csi300"], priority: 65, researchQuestion: "Is China demand slowing or copper facing supply pressure?" });
   }
   const gold = by.get("gold");
   const us10y = by.get("us10y");
   if (gold && us10y && move(gold, "change5d") > 1 && move(us10y, "change5d") > 2) {
-    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold proxy ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 78, researchQuestion: "What is overpowering the usual rate headwind for gold: sovereign demand, risk hedging, inflation or dollar weakness?" });
+    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold proxy ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 62, researchQuestion: "What is overpowering the usual rate headwind for gold: sovereign demand, risk hedging, inflation or dollar weakness?" });
   }
   return output.sort((a, b) => b.priority - a.priority);
 }
@@ -509,27 +509,62 @@ function buildResearchTriggers(rows: MarketMonitorRow[], contradictions: MarketC
 }
 
 async function loadMarketMonitor(): Promise<MarketMonitor> {
-  const [market, extras] = await Promise.all([getMarketData(), loadExtras()]);
-  const bySymbol = new Map(market.series.map((series) => [series.symbol, series]));
-  const base = BASE_SPECS.flatMap((spec) => {
-    const series = bySymbol.get(spec.sourceSymbol);
-    return series ? [baseRaw(spec, series)] : [];
-  });
-
-  for (const crack of market.cracks) {
-    base.push({
-      id: `crack-${crack.id}`,
-      symbol: crack.id,
-      label: crack.label,
-      type: "Energy",
-      benchmark: "wti",
-      points: crack.points,
-      sourceName: crack.sourceName,
-      sourceUrl: crack.sourceUrl,
-      frequency: "daily",
-    });
+  // Degrade independently: fetch both getMarketData and loadExtras.
+  // Use Promise.allSettled() so one failure doesn't block the entire monitor.
+  const results = await Promise.allSettled([getMarketData(), loadExtras()]);
+  
+  const marketResult = results[0];
+  const extrasResult = results[1];
+  
+  // Extract data or use empty fallbacks
+  const market = marketResult.status === "fulfilled" ? marketResult.value : null;
+  const extras = extrasResult.status === "fulfilled" ? extrasResult.value : [];
+  
+  // Collect coverage gaps from failed branches
+  const coverageGaps: string[] = [];
+  
+  // If getMarketData failed, record all base provider gaps
+  if (marketResult.status === "rejected") {
+    coverageGaps.push("Core market data providers (Nasdaq, Treasury, ECB, EIA) are temporarily unavailable.");
+  } else if (market && market.limitation) {
+    // Market data succeeded but has provider-level limitations
+    coverageGaps.push(market.limitation);
   }
-
+  
+  // If loadExtras failed, record extras gap
+  if (extrasResult.status === "rejected") {
+    coverageGaps.push("Additional market series (Nasdaq extras, FRED rates) are temporarily unavailable.");
+  }
+  
+  // Build base rows from getMarketData if available
+  const base: RawSeries[] = [];
+  if (market) {
+    const bySymbol = new Map(market.series.map((series) => [series.symbol, series]));
+    for (const spec of BASE_SPECS) {
+      const series = bySymbol.get(spec.sourceSymbol);
+      if (series) {
+        base.push(baseRaw(spec, series));
+      }
+    }
+    
+    // Add crack series if available
+    for (const crack of market.cracks) {
+      base.push({
+        id: `crack-${crack.id}`,
+        symbol: crack.id,
+        label: crack.label,
+        type: "Energy",
+        benchmark: "wti",
+        points: crack.points,
+        sourceName: crack.sourceName,
+        sourceUrl: crack.sourceUrl,
+        frequency: "daily",
+      });
+    }
+  }
+  
+  // Combine base (from getMarketData) and extras (from loadExtras)
+  // If both branches failed, rows will be empty but not crash.
   let rows = makeRows([...base, ...extras]);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
@@ -544,21 +579,23 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     const attentionScore = Math.min(100, row.attentionScore + (contradictionIds.has(row.id) ? 10 : 0));
     return { ...row, attentionScore, hot: attentionScore >= 65, contradiction: contradictionIds.has(row.id), tags };
   });
-
-  const limitations = [
-    market.limitation,
+  
+  // Combine all limitations: from market data + coverage gaps from failed branches
+  const allLimitations = [
+    market?.limitation,
+    ...coverageGaps,
     "Nasdaq/ETF rows are verified daily-history readings, not streaming quotes. Last can therefore represent the latest completed session rather than an intraday price.",
     "Daily open/gap is shown only when the upstream history exposes an opening price.",
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
     "MOVE and direct spot crypto are not substituted with unrelated instruments; VIXY, IBIT and ETHA are explicitly labelled proxies.",
   ].filter((item): item is string => Boolean(item));
-
+  
   return {
     updatedAt: new Date().toISOString(),
     rows,
     contradictions,
     researchTriggers: buildResearchTriggers(rows, contradictions),
-    limitations,
+    limitations: allLimitations,
   };
 }
 
