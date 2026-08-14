@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { POST as publishResearchUpdate } from "@/app/api/research-update/route";
-import { buildScheduledResearchInputWithFirecrawl } from "@/lib/firecrawl-research-fallback";
+import { buildScheduledResearchInputWithFirecrawl } from "@/lib/firecrawl-scheduled-research";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-input";
