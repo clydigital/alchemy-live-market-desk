@@ -42,7 +42,8 @@ function deskEvents(items: MacroRelease[]): EconomicCalendarEvent[] {
       actual: item.actual,
       consensus: item.consensus,
       alchemyExpectation: null,
-      previous: item.revised_previous || item.previous,
+      previous: item.previous,
+      revisedPrevious: item.revised_previous,
       decidingQuestion: item.watch_question,
       affectedAssets: item.affected_assets,
       sourceName: item.agency,
@@ -119,7 +120,7 @@ export default function EconomicCalendar({ officialEvents, macroReleases }: { of
         return <article className={`calendar-event country-${countryCode(event.country).toLowerCase()}`} key={event.id}>
           <div className="calendar-date"><b>{dateLabel(event.date)}</b><span>{event.timeLabel}</span><small>{days < 0 ? "RECENT" : days === 0 ? "TODAY" : days === 1 ? "TOMORROW" : `${days} DAYS`}</small></div>
           <div className="calendar-event-name"><span><i>{countryCode(event.country)}</i>{event.category}</span><h3>{event.event}</h3><small>{event.referencePeriod || event.g7Markets.join(" · ")}</small></div>
-          <div className="calendar-release-state"><b>{event.status}</b><dl><dt>ACTUAL</dt><dd>{event.actual || "Awaiting"}</dd><dt>CONSENSUS</dt><dd>{event.consensus || "Not loaded"}</dd><dt>ALCHEMY EXPECTATION</dt><dd>{event.alchemyExpectation || "Not recorded"}</dd><dt>PREVIOUS</dt><dd>{event.previous || "Not loaded"}</dd></dl></div>
+          <div className="calendar-release-state"><b>{event.status}</b><dl><dt>ACTUAL</dt><dd>{event.actual || "Awaiting"}</dd><dt>CONSENSUS</dt><dd>{event.consensus || "Not loaded"}</dd><dt>ALCHEMY EXPECTATION</dt><dd>{event.alchemyExpectation || "Not recorded"}</dd><dt>PREVIOUS</dt><dd>{event.previous || "Not loaded"}</dd><dt>REVISED PREVIOUS</dt><dd>{event.revisedPrevious || "Not revised"}</dd></dl></div>
           <div className="calendar-question"><p>{event.decidingQuestion}</p><div>{event.affectedAssets.map((asset) => <span key={asset}>{asset}</span>)}</div></div>
           <div className="calendar-source"><span>{event.sourceKind === "official-live" ? "LIVE SCHEDULE" : event.sourceKind === "desk-record" ? "DESK RECORD" : "OFFICIAL"}</span><a href={event.sourceUrl} target="_blank" rel="noreferrer">{event.sourceName} ↗</a></div>
         </article>;

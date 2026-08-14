@@ -16,6 +16,7 @@ export type EconomicCalendarEvent = {
   consensus: string | null;
   alchemyExpectation?: string | null;
   previous: string | null;
+  revisedPrevious?: string | null;
   decidingQuestion: string;
   affectedAssets: string[];
   sourceName: string;
@@ -678,7 +679,8 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
         actual: release.actual || metricValue(metric?.actual ?? null, metric?.unit ?? null),
         consensus: release.consensus || metricValue(metric?.consensus ?? null, metric?.unit ?? null),
         alchemyExpectation: metricValue(metric?.alchemy_expectation ?? null, metric?.unit ?? null),
-        previous: release.revised_previous || release.previous || metricValue(metric?.revised_previous ?? metric?.previous ?? null, metric?.unit ?? null),
+        previous: release.previous || metricValue(metric?.previous ?? null, metric?.unit ?? null),
+        revisedPrevious: release.revised_previous || metricValue(metric?.revised_previous ?? null, metric?.unit ?? null),
         decidingQuestion: release.watch_question || `What would materially change the market interpretation of ${release.release_name}?`,
         affectedAssets: release.affected_assets || [],
         sourceName: release.agency,
