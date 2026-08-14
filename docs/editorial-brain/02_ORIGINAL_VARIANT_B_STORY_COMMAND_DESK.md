@@ -86,7 +86,7 @@ Every promoted story receives one action:
 | Action | Meaning |
 |---|---|
 | Lead now | Strongest current OB or breaking angle |
-| Develop today | Worth additional research before publication |
+| Develop today | Worth additional research; may publish as EARLY or DEVELOPING when material and traceable |
 | Prepare conditional | Draft scenarios around an upcoming catalyst |
 | COTD | Chart-led focused opportunity |
 | Add to OB | Supporting section rather than main story |

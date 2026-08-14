@@ -187,6 +187,7 @@ export type StoryCandidate = {
   nextCatalysts: string[];
   confidence: number;
   lifecycleStatus: StoryLifecycleStatus;
+  /** Structural compatibility flag: traceable evidence plus material novelty, never research quality. */
   publicationEligible: boolean;
   qualificationScore: number;
   canonicalExternalUrl?: string | null;

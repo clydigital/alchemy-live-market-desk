@@ -286,7 +286,7 @@ export function composeAlchemyEdition({
   const contradiction = stories.find((story) => story.contradiction.trim())?.contradiction || "No evidence-backed contradiction cleared the edition gate.";
   const macroTest = normalisedUpcoming.economicCalendar[0]?.event || "No scheduled macro test is available in canonical evidence.";
   const geopoliticalTest = normalisedUpcoming.geopoliticalClock[0]?.event || "No scheduled geopolitical event is available in canonical evidence.";
-  const strongestTheme = themeWatch[0]?.theme || stories.flatMap((story) => story.themes)[0] || "No theme cleared the evidence gate.";
+  const strongestTheme = themeWatch[0]?.theme || stories.flatMap((story) => story.themes)[0] || "No material evidence theme is available.";
 
   return {
     methodologyVersion: ALCHEMY_MIXED_METHOD_VERSION,
@@ -313,7 +313,7 @@ export function composeAlchemyEdition({
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
     finalBoard: {
-      highestConvictionChange: lead?.whatChanged || "No material change cleared the evidence gate.",
+      highestConvictionChange: lead?.whatChanged || "No material change is available.",
       biggestUnresolvedContradiction: contradiction,
       mostImportantMacroTest: macroTest,
       mostImportantGeopoliticalTest: geopoliticalTest,
