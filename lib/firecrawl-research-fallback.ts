@@ -253,8 +253,8 @@ export async function applyFirecrawlResearchFallback(input: ResearchRunInput, no
     sourceChecks,
     items: mergedItems,
     summary: stillBlocked.length
-      ? `${input.summary || "Autonomous Live-owned research cycle."} Firecrawl fallback ran; unresolved blocked sources: ${stillBlocked.join(", ")}.`
-      : `${input.summary || "Autonomous Live-owned research cycle."} Firecrawl fallback recovered all supported blocked public-feed sources.`,
+      ? `Autonomous Live-owned research cycle. Firecrawl fallback ran; unresolved blocked sources: ${stillBlocked.join(", ")}.`
+      : "Autonomous Live-owned research cycle. Firecrawl fallback recovered all supported blocked public-feed sources; canonical evidence and Story reasoning remain unchanged.",
   };
 }
 
