@@ -1,12 +1,69 @@
 import { createHash } from "node:crypto";
 
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
-import type {
-  IntakeItemInput,
-  ResearchRunInput,
-  ResearchSourceKey,
-  SourceCheckInput,
-} from "./research-update.ts";
+
+type ResearchSourceKey =
+  | "stockedup"
+  | "wall-street-truth-bombs"
+  | "traders-reality"
+  | "zerohedge"
+  | "axios"
+  | "investing-com"
+  | "fxstreet"
+  | "alchemy-market-insights";
+
+type SourceCheckInput = {
+  source: ResearchSourceKey;
+  status: "checked" | "no_new_items" | "blocked";
+  itemCount: number;
+  retryable?: boolean;
+  note?: string;
+};
+
+type EvidenceLinkInput = {
+  title: string;
+  url: string;
+  publisher: string;
+  publishedAt: string;
+  claim: string;
+};
+
+type IntakeItemInput = {
+  itemKey: string;
+  itemType: "video" | "news" | "alchemy_article";
+  publisher: string;
+  externalId?: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  articlePosition?: number;
+  transcriptStatus?: "ready" | "missing" | "unavailable" | "not_applicable";
+  transcriptText?: string;
+  summary: string;
+  affectedStorySlugs?: string[];
+  sourceQuality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  recommendedAction: "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
+  statsSignal?: string;
+  newsSignal?: string;
+  divergenceKind?: "none" | "stats_lead" | "news_lead" | "contradiction";
+  divergenceNote?: string;
+  evidence?: EvidenceLinkInput[];
+  reviewReason?: string;
+};
+
+type ResearchRunInput = {
+  runKey: string;
+  scheduleSlot: "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
+  scheduledFor: string;
+  sourceChecks: SourceCheckInput[];
+  items: IntakeItemInput[];
+  recalibrations?: unknown[];
+  summary?: string;
+  dryRun?: boolean;
+};
 
 type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "alchemy-market-insights">;
 
@@ -177,7 +234,7 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
       }],
       reviewReason: alchemy
         ? `Firecrawl recovered the public Alchemy Market Insights feed; original article URL and publisher provenance are preserved. Category: ${categoryFromUrl(url)}.`
-        : `Firecrawl recovered the publisher's public feed after direct acquisition failed; the original article URL remains the canonical provenance URL.`,
+        : "Firecrawl recovered the publisher's public feed after direct acquisition failed; the original article URL remains the canonical provenance URL.",
     }];
   });
 
