@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildStructuredEconomicMetrics,
+  economicGeography,
   parseEconomicNumber,
   type EconomicMetricRelease,
 } from "../lib/economic-metrics.ts";
@@ -36,6 +37,26 @@ test("parses CPI YoY as a percent rate of change", () => {
   assert.equal(metric.transformation, "yoy");
   assert.equal(metric.unit, "%");
   assert.equal(metric.actual, 2.7);
+});
+
+test("parses existing economic value units with percentage-point precedence", () => {
+  assert.deepEqual(parseEconomicNumber("0.3 percentage points"), { value: 0.3, unit: "percentage points" });
+  assert.deepEqual(parseEconomicNumber("2.7%"), { value: 2.7, unit: "%" });
+  assert.deepEqual(parseEconomicNumber("323.048 index points"), { value: 323.048, unit: "index points" });
+});
+
+test("maps only deterministically recognised economic geographies", () => {
+  const geography = (agency: string, series_key: string, source_url: string) => economicGeography({ agency, series_key, source_url });
+
+  assert.equal(geography("U.S. Bureau of Labor Statistics", "cpi-yoy", "https://www.bls.gov/cpi/"), "United States");
+  assert.equal(geography("Reserve Bank of Australia", "cash-rate", "https://www.rba.gov.au/"), "Australia");
+  assert.equal(geography("Reserve Bank of New Zealand", "ocr", "https://www.rbnz.govt.nz/"), "New Zealand");
+  assert.equal(geography("Bank of England", "bank-rate", "https://www.bankofengland.co.uk/"), "United Kingdom");
+  assert.equal(geography("Bank of Japan", "policy-rate", "https://www.boj.or.jp/en/"), "Japan");
+  assert.equal(geography("Bank of Canada", "policy-rate", "https://www.bankofcanada.ca/"), "Canada");
+  assert.equal(geography("European Central Bank", "deposit-rate", "https://www.ecb.europa.eu/"), "Euro Area");
+  assert.equal(geography("Banco Central do Brasil", "policy-rate", "https://www.bcb.gov.br/"), "Unknown");
+  assert.notEqual(geography("Unknown foreign agency", "mystery-release", "https://example.test/release"), "United States");
 });
 
 test("parses CPI MoM separately from CPI YoY", () => {

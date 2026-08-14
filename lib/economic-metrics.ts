@@ -70,8 +70,8 @@ function cleanUnit(unit: string | null | undefined) {
 }
 
 function unitFromValue(value: string) {
-  if (/%|\bpercent(?:age)?\b/i.test(value)) return "%";
   if (/\b(?:percentage points?|pp|ppts?)\b/i.test(value)) return "percentage points";
+  if (/%|\bpercent(?:age)?\b/i.test(value)) return "%";
   if (/\b(?:index points?|index)\b/i.test(value)) return "index points";
   if (/\d\s*k\b|\bthousands?\b/i.test(value)) return "thousand";
   return null;
@@ -90,14 +90,45 @@ export function parseEconomicNumber(raw: string | null | undefined): ParsedNumbe
 }
 
 export function economicGeography(release: Pick<EconomicMetricRelease, "agency" | "series_key" | "source_url">) {
-  const text = `${release.agency} ${release.series_key} ${release.source_url}`.toLowerCase();
-  if (/reserve bank of australia|\brba\b|australia/.test(text)) return "Australia";
-  if (/reserve bank of new zealand|\brbnz\b|new zealand/.test(text)) return "New Zealand";
-  if (/bank of canada|statcan|canada/.test(text)) return "Canada";
-  if (/bank of england|ons\.gov|united kingdom|\buk\b/.test(text)) return "United Kingdom";
-  if (/bank of japan|\bboj\b|japan/.test(text)) return "Japan";
-  if (/european central bank|eurostat|\becb\b|euro area/.test(text)) return "Euro Area";
-  return "United States";
+  const agency = release.agency.trim().toLowerCase();
+  const seriesKey = release.series_key.trim().toLowerCase();
+  let hostname = "";
+  try {
+    hostname = new URL(release.source_url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    // An invalid source URL supplies no geographic evidence.
+  }
+
+  const knownGeographies = [
+    { geography: "Australia", seriesPrefix: "au-", agencies: [/^reserve bank of australia$/, /^rba$/], domains: ["rba.gov.au", "abs.gov.au"] },
+    { geography: "New Zealand", seriesPrefix: "nz-", agencies: [/^reserve bank of new zealand$/, /^rbnz$/], domains: ["rbnz.govt.nz", "stats.govt.nz"] },
+    { geography: "United Kingdom", seriesPrefix: "uk-", agencies: [/^bank of england$/, /^uk office for national statistics$/, /^office for national statistics$/], domains: ["bankofengland.co.uk", "ons.gov.uk"] },
+    { geography: "Japan", seriesPrefix: "jp-", agencies: [/^bank of japan$/, /^boj$/], domains: ["boj.or.jp", "stat.go.jp"] },
+    { geography: "Canada", seriesPrefix: "ca-", agencies: [/^bank of canada$/, /^statistics canada$/, /^statcan$/], domains: ["bankofcanada.ca", "statcan.gc.ca"] },
+    { geography: "Euro Area", seriesPrefix: "ea-", agencies: [/^european central bank$/, /^ecb$/, /^eurostat$/], domains: ["ecb.europa.eu", "ec.europa.eu"] },
+    {
+      geography: "United States",
+      seriesPrefix: "us-",
+      agencies: [
+        /^u\.s\. bureau of labor statistics$/,
+        /^bureau of labor statistics$/,
+        /^u\.s\. bureau of economic analysis$/,
+        /^bureau of economic analysis$/,
+        /^federal reserve(?: board)?$/,
+        /^u\.s\. census bureau$/,
+      ],
+      domains: ["bls.gov", "bea.gov", "federalreserve.gov", "census.gov"],
+    },
+  ] as const;
+
+  for (const mapping of knownGeographies) {
+    if (
+      seriesKey.startsWith(mapping.seriesPrefix)
+      || mapping.agencies.some((pattern) => pattern.test(agency))
+      || mapping.domains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`))
+    ) return mapping.geography;
+  }
+  return "Unknown";
 }
 
 export function economicTransformation(release: Pick<EconomicMetricRelease, "series_key" | "release_name" | "category" | "unit">): EconomicMetricTransformation {
