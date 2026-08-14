@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
 
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
-import {
-  type IntakeItemInput,
-  type ResearchRunInput,
-  type ResearchSourceKey,
-  type SourceCheckInput,
+import type {
+  IntakeItemInput,
+  ResearchRunInput,
+  ResearchSourceKey,
+  SourceCheckInput,
 } from "./research-update.ts";
-import { type CanonicalResearchSlot } from "./research-schedule-health.ts";
-import { buildScheduledResearchInput } from "./scheduled-research-input.ts";
 
 type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "alchemy-market-insights">;
 
@@ -256,13 +254,4 @@ export async function applyFirecrawlResearchFallback(input: ResearchRunInput, no
       ? `Autonomous Live-owned research cycle. Firecrawl fallback ran; unresolved blocked sources: ${stillBlocked.join(", ")}.`
       : "Autonomous Live-owned research cycle. Firecrawl fallback recovered all supported blocked public-feed sources; canonical evidence and Story reasoning remain unchanged.",
   };
-}
-
-export async function buildScheduledResearchInputWithFirecrawl(
-  slot: CanonicalResearchSlot,
-  options: Parameters<typeof buildScheduledResearchInput>[1] = {},
-) {
-  const now = options.now ?? new Date();
-  const input = await buildScheduledResearchInput(slot, options);
-  return applyFirecrawlResearchFallback(input, now);
 }
