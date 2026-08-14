@@ -1,6 +1,11 @@
 import { unstable_cache } from "next/cache";
 
 import { getMarketMonitor, type MarketResearchTrigger } from "@/lib/market-monitor";
+import {
+  EIA_WEEKLY_PETROLEUM_ROUTE,
+  fetchEiaWeeklyPetroleumSnapshot,
+  type EiaWeeklyMetric,
+} from "@/lib/providers/eia-v2";
 
 export type FlowMetricState = "ready" | "watch" | "coverage_gap";
 
@@ -105,8 +110,58 @@ function pctText(value: number | null) {
   return value == null ? null : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
+function eiaNumber(value: number, units: string | null) {
+  const digits = Math.abs(value) >= 100 ? 0 : 1;
+  const formatted = value.toLocaleString("en-US", { maximumFractionDigits: digits });
+  return `${formatted}${units ? ` ${units}` : ""}`;
+}
+
+function eiaFlowMetric(input: {
+  id: string;
+  family: FlowMetric["family"];
+  label: string;
+  metric: EiaWeeklyMetric | undefined;
+  interpretation: string;
+}): FlowMetric {
+  const metric = input.metric;
+  if (!metric) {
+    return oilGap(
+      input.id,
+      input.family,
+      "United States",
+      input.label,
+      "U.S. Energy Information Administration Open Data API v2",
+      EIA_WEEKLY_PETROLEUM_ROUTE,
+      "Weekly",
+    );
+  }
+  const latest = metric.latest;
+  const previous = metric.previous;
+  const difference = previous ? latest.value - previous.value : null;
+  return {
+    id: input.id,
+    family: input.family,
+    geography: "United States",
+    label: input.label,
+    current: eiaNumber(latest.value, latest.units),
+    previous: previous ? eiaNumber(previous.value, previous.units || latest.units) : null,
+    delta: difference == null ? null : eiaNumber(difference, latest.units),
+    direction: difference == null ? "unknown" : difference > 0 ? "rising" : difference < 0 ? "falling" : "flat",
+    state: "ready",
+    asOf: latest.period,
+    cadence: "Weekly · EIA WPSR",
+    sourceName: `U.S. EIA Open Data v2 · ${metric.seriesId}`,
+    sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
+    interpretation: input.interpretation,
+  };
+}
+
 async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
-  const [statusRoot, market] = await Promise.all([straitsStatus(), getMarketMonitor()]);
+  const [statusRoot, market, eia] = await Promise.all([
+    straitsStatus(),
+    getMarketMonitor(),
+    fetchEiaWeeklyPetroleumSnapshot(),
+  ]);
   const root = rec(statusRoot);
   const transits = rec(root.transits);
   const daily = rec(root.dailyTransits);
@@ -206,7 +261,7 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
       direction: "unknown",
       state: carriers.length ? "ready" : "coverage_gap",
       asOf,
-      cadence: "Curated / source-driven",
+      cadence: "Curated / weekly review",
       sourceName: "Straits.live carrier advisories",
       sourceUrl: STRAITS_STATUS_URL,
       interpretation: carriers.length ? `${stopped} of ${carriers.length} tracked major carriers remain stopped, suspended or rerouting.` : "Carrier posture is not populated on this refresh.",
@@ -266,15 +321,68 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
         interpretation: "Product-margin confirmation. A widening crack while crude falls can signal refined-product tightness that the flat crude price misses.",
       };
     }),
+    eiaFlowMetric({
+      id: "us-crude-stocks",
+      family: "Oil Supply",
+      label: "Commercial crude stocks ex-SPR",
+      metric: eia.metrics.crudeStocksExSpr,
+      interpretation: "A large weekly inventory build can absorb physical disruption and cap the crude risk premium; a draw tightens the balance.",
+    }),
+    eiaFlowMetric({
+      id: "us-gasoline-stocks",
+      family: "Oil Demand",
+      label: "Gasoline stocks",
+      metric: eia.metrics.gasolineStocks,
+      interpretation: "Gasoline inventories help distinguish weak end-demand from refinery/product tightness.",
+    }),
+    eiaFlowMetric({
+      id: "us-distillate-stocks",
+      family: "Oil Demand",
+      label: "Distillate stocks",
+      metric: eia.metrics.distillateStocks,
+      interpretation: "Distillate inventories are a direct physical check on diesel/product-market tightness.",
+    }),
+    eiaFlowMetric({
+      id: "us-refinery-utilisation",
+      family: "Oil Supply",
+      label: "Refinery operable utilisation",
+      metric: eia.metrics.refineryUtilisation,
+      interpretation: "Refinery utilisation shows whether downstream capacity is absorbing crude and replenishing product inventories.",
+    }),
+    eiaFlowMetric({
+      id: "us-refinery-inputs",
+      family: "Oil Supply",
+      label: "Refiner crude inputs",
+      metric: eia.metrics.refineryCrudeInputs,
+      interpretation: "Crude inputs measure actual refinery throughput rather than inferring runs from product prices.",
+    }),
+    eiaFlowMetric({
+      id: "us-implied-demand",
+      family: "Oil Demand",
+      label: "Finished motor gasoline product supplied",
+      metric: eia.metrics.gasolineProductSupplied,
+      interpretation: "EIA product supplied is the canonical weekly US demand proxy used here; it is not treated as literal end-consumption.",
+    }),
+    eiaFlowMetric({
+      id: "us-spr",
+      family: "Strategic Reserves",
+      label: "SPR crude stocks",
+      metric: eia.metrics.sprStocks,
+      interpretation: "A rising or falling SPR balance shows whether strategic inventories are adding to or subtracting from the commercial crude balance.",
+    }),
+    eiaFlowMetric({
+      id: "us-production",
+      family: "Oil Supply",
+      label: "US crude production",
+      metric: eia.metrics.crudeProduction,
+      interpretation: "Weekly domestic production provides an official US supply offset to geopolitical disruption and import risk.",
+    }),
     oilGap("china-crude-imports", "Oil Demand", "China", "Crude imports", "China General Administration of Customs", "http://english.customs.gov.cn/", "Monthly"),
     oilGap("india-crude-imports", "Oil Demand", "India", "Crude imports / refinery intake", "Government of India PPAC", "https://ppac.gov.in/", "Monthly"),
-    oilGap("us-implied-demand", "Oil Demand", "United States", "Petroleum products supplied", "U.S. Energy Information Administration", EIA_WEEKLY_URL, "Weekly"),
     oilGap("oecd-inventories", "Oil Demand", "OECD", "Commercial inventories", "International Energy Agency", IEA_OIL_URL, "Monthly"),
     oilGap("global-refinery-runs", "Oil Demand", "Global", "Refinery runs", "International Energy Agency / EIA", IEA_OIL_URL, "Monthly / weekly"),
-    oilGap("us-spr", "Strategic Reserves", "United States", "SPR purchases / releases", "U.S. Energy Information Administration", EIA_WEEKLY_URL, "Weekly"),
     oilGap("china-storage", "Strategic Reserves", "China", "Strategic / commercial storage activity", "Customs + specialist physical-flow data", "http://english.customs.gov.cn/", "Monthly / estimate"),
     oilGap("opec-output", "Oil Supply", "OPEC+", "Crude production", "OPEC Monthly Oil Market Report", "https://www.opec.org/opec_web/en/publications/338.htm", "Monthly"),
-    oilGap("us-production", "Oil Supply", "United States", "Crude production", "U.S. Energy Information Administration", EIA_WEEKLY_URL, "Weekly"),
     oilGap("russia-exports", "Oil Supply", "Russia", "Seaborne crude exports", "Specialist physical-flow data", IEA_OIL_URL, "Weekly / monthly"),
     oilGap("iran-exports", "Oil Supply", "Iran", "Crude exports", "Specialist physical-flow data", IEA_OIL_URL, "Weekly / monthly"),
   ];
@@ -289,6 +397,19 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
       researchQuestion: "Is the market discounting diplomatic progress faster than actual shipping, insurance and carrier behaviour are normalising?",
     });
   }
+  const crudeStocks = eia.metrics.crudeStocksExSpr;
+  if (crudeStocks?.previous) {
+    const inventoryChange = crudeStocks.latest.value - crudeStocks.previous.value;
+    if (inventoryChange >= 10_000) {
+      researchTriggers.push({
+        id: "eia-large-crude-inventory-build",
+        priority: 93,
+        assets: ["wti", "brent", "us-crude-stocks"],
+        reason: `EIA commercial crude stocks rose by ${inventoryChange.toLocaleString("en-US", { maximumFractionDigits: 0 })} ${crudeStocks.latest.units || "units"} week on week.`,
+        researchQuestion: "Is the inventory build large enough to absorb the physical-disruption premium and explain crude weakness despite geopolitical stress?",
+      });
+    }
+  }
   const strongestCrack = [gasolineCrack, distillateCrack, crack321].filter(Boolean).sort((a, b) => Math.abs((b?.change5d || 0)) - Math.abs((a?.change5d || 0)))[0];
   if (wti?.change5d != null && strongestCrack?.change5d != null && strongestCrack.change5d - wti.change5d >= 5) {
     researchTriggers.push({
@@ -302,7 +423,8 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
   researchTriggers.push(...market.researchTriggers.filter((trigger) => trigger.assets.some((asset) => ["wti", "brent", "gold", "silver", "copper"].includes(asset))).slice(0, 6));
 
   const coverageGaps = [...gold, ...oil].filter((item) => item.state === "coverage_gap").map((item) => `${item.geography} · ${item.label}`);
+  if (eia.state !== "ready" && eia.note) coverageGaps.push(`EIA Open Data v2 · ${eia.note}`);
   return { updatedAt: new Date().toISOString(), gold, oil, researchTriggers: researchTriggers.sort((a, b) => b.priority - a.priority), coverageGaps };
 }
 
-export const getGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v1"], { revalidate: 300 });
+export const getGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v2"], { revalidate: 300 });
