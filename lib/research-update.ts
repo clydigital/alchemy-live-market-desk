@@ -182,10 +182,10 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
     if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
   }
-  const requiredSourcesComplete = REQUIRED_RESEARCH_SOURCES.every((source) => {
-    const check = sourceMap.get(source);
-    return check && check.status !== "blocked";
-  });
+  const directFeeds: readonly ResearchSourceKey[] = ["zerohedge", "axios", "investing-com", "fxstreet"];
+  // Direct providers are alternatives for current macro/news coverage. Creator transcripts
+  // and optional commentary can degrade independently without globally blocking Stories.
+  const requiredSourcesComplete = directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked");
 
   const itemKeys = new Set<string>();
   const articlePositions = new Set<number>();

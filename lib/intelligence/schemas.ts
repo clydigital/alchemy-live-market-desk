@@ -1,4 +1,5 @@
 import type { JsonSchema } from "@/lib/intelligence/openai";
+import { STABLE_REQUIREMENT_IDS } from "@/lib/intelligence/publication-gate";
 
 export type EvidencePackItem = {
   id: string;
@@ -87,6 +88,7 @@ export type ChallengerOutput = {
     hiddenAssumptions: string[];
     alternativeMechanisms: string[];
     missingEvidence: string[];
+    missingRequirementIds: string[];
     conflictingEvidenceIds: string[];
     pricingConfirmation: string | null;
     crossAssetConfirmation: string | null;
@@ -188,6 +190,11 @@ export type LifecycleOutput = {
 const nullableString = { type: ["string", "null"] };
 const nullableNumber = { type: ["number", "null"], minimum: 0, maximum: 100 };
 const stringArray = { type: "array", items: { type: "string" } };
+const requirementIdArray = {
+  type: "array",
+  items: { type: "string", enum: STABLE_REQUIREMENT_IDS },
+  uniqueItems: true,
+};
 
 export const MARKET_BELIEF_SCHEMA: JsonSchema = {
   type: "object",
@@ -295,7 +302,7 @@ export const CHALLENGER_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["hypothesisId", "verdict", "strongestCountercase", "weakestLink", "hiddenAssumptions", "alternativeMechanisms", "missingEvidence", "conflictingEvidenceIds", "pricingConfirmation", "crossAssetConfirmation", "timingRisk", "nextResolvingEvidence", "adjustedConfidence", "confidenceAdjustment"],
+        required: ["hypothesisId", "verdict", "strongestCountercase", "weakestLink", "hiddenAssumptions", "alternativeMechanisms", "missingEvidence", "missingRequirementIds", "conflictingEvidenceIds", "pricingConfirmation", "crossAssetConfirmation", "timingRisk", "nextResolvingEvidence", "adjustedConfidence", "confidenceAdjustment"],
         properties: {
           hypothesisId: { type: "string" },
           verdict: { type: "string", enum: ["promote", "downgrade", "watch", "reject"] },
@@ -304,6 +311,7 @@ export const CHALLENGER_SCHEMA: JsonSchema = {
           hiddenAssumptions: stringArray,
           alternativeMechanisms: stringArray,
           missingEvidence: stringArray,
+          missingRequirementIds: requirementIdArray,
           conflictingEvidenceIds: stringArray,
           pricingConfirmation: nullableString,
           crossAssetConfirmation: nullableString,
