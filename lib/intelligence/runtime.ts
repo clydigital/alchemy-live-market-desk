@@ -10,6 +10,7 @@ import {
   type ThemeWatch,
   type WatchlistItem,
 } from "@/lib/intelligence/edition";
+import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import {
   CHALLENGER_SCHEMA,
@@ -114,15 +115,6 @@ type PromptVersion = {
 };
 
 type StageRunRow = { id: string };
-type EngineRunRow = {
-  id: string;
-  status?: string;
-  stories_considered?: number;
-  stories_published?: number;
-  warnings?: string[];
-  metadata?: Record<string, unknown>;
-};
-
 type CanonicalSource = {
   id: string;
   external_source_id: string | null;
@@ -1338,12 +1330,14 @@ export async function runIntelligenceEngine({
     return { enabled: false, engineRunId: null, status: "skipped", evidenceConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings: ["OpenAI intelligence is disabled or OPENAI_API_KEY is not configured."] };
   }
 
-  const effectiveRunKey = runKey || `intelligence:${researchRunId || triggerKind}:${new Date().toISOString().slice(0, 16)}`;
-  const priorRuns = await intelligenceRest<EngineRunRow[]>(
-    `intelligence_engine_runs?select=id,status,stories_considered,stories_published,warnings,metadata&run_key=eq.${encodeURIComponent(effectiveRunKey)}&limit=1`,
-  );
-  const priorCompleted = priorRuns.find((row) => row.status === "completed");
-  if (priorCompleted) {
+  const startRunResult = await startIntelligenceEngineRun({
+    researchRunId,
+    triggerKind,
+    runKey,
+    dryRun,
+  });
+  if (startRunResult.kind === "reused_completed") {
+    const priorCompleted = startRunResult.run;
     return {
       enabled: true,
       engineRunId: priorCompleted.id,
@@ -1357,21 +1351,7 @@ export async function runIntelligenceEngine({
       warnings: [...(priorCompleted.warnings || []), "Idempotent replay: the completed canonical intelligence run was reused."],
     };
   }
-  const engineRows = await intelligenceRest<EngineRunRow[]>("intelligence_engine_runs?on_conflict=run_key", {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify({
-      research_run_id: researchRunId,
-      trigger_kind: triggerKind,
-      status: "started",
-      run_key: effectiveRunKey,
-      warnings: [],
-      metadata: { dryRun, runtime: "openai-responses-v1" },
-      started_at: new Date().toISOString(),
-    }),
-  });
-  const engineRunId = engineRows[0]?.id;
-  if (!engineRunId) throw new Error("Intelligence engine run did not return an id.");
+  const engineRunId = startRunResult.engineRunId;
 
   let hypothesesGenerated = 0;
   let hypothesesPromoted = 0;
