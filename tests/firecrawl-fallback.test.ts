@@ -3,22 +3,21 @@ import test from "node:test";
 
 import { applyFirecrawlResearchFallback } from "../lib/firecrawl-research-fallback.ts";
 import { scrapePublicUrlWithFirecrawl } from "../lib/firecrawl.ts";
-import { type ResearchRunInput } from "../lib/research-update.ts";
 
-function inputWithSource(status: "checked" | "blocked" = "blocked"): ResearchRunInput {
+function inputWithSource(status: "checked" | "blocked" = "blocked") {
   return {
     runKey: "firecrawl-test",
-    scheduleSlot: "morning",
+    scheduleSlot: "morning" as const,
     scheduledFor: "2026-08-14T09:15:00+08:00",
     sourceChecks: [{
-      source: "zerohedge",
+      source: "zerohedge" as const,
       status,
       itemCount: status === "checked" ? 1 : 0,
       note: status === "blocked" ? "Direct feed returned HTTP 403." : "Direct feed acquired.",
     }],
     items: status === "checked" ? [{
       itemKey: "existing",
-      itemType: "news",
+      itemType: "news" as const,
       publisher: "ZeroHedge",
       title: "Existing direct item",
       url: "https://www.zerohedge.com/existing",
@@ -28,7 +27,7 @@ function inputWithSource(status: "checked" | "blocked" = "blocked"): ResearchRun
       relevance: 68,
       novelty: 72,
       materiality: 64,
-      recommendedAction: "collect_evidence",
+      recommendedAction: "collect_evidence" as const,
     }] : [],
     recalibrations: [],
   };
