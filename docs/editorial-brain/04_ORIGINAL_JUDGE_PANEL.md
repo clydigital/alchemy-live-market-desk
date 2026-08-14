@@ -135,7 +135,7 @@ Use Variant B first, Variant A one click below and Variant C as the logic connec
 | Variant | Score / 10 | Judgement |
 |---|---:|---|
 | A | 9.1 | Component detail supports careful writing. Requires concise output views. |
-| B | 9.3 | Best narrative structure if the evidence gate remains binding. |
+| B | 9.3 | Best narrative structure for the earlier binding-gate concept, now superseded by descriptive research state. |
 | C | 9.0 | Strong conditional language, but regime labels must not sound more certain than the evidence. |
 
 ### Selection

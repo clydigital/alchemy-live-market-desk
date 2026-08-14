@@ -7,7 +7,7 @@ Live Market Desk is the only canonical acquisition, research and reasoning owner
 1. Authenticated research intake is validated and persisted by `/api/research-update`.
 2. The canonical runtime in `lib/intelligence/runtime.ts` normalizes usable intake into provenance-linked evidence.
 3. Versioned OpenAI stages run in order: Market Belief, Divergence, Hypothesis, Challenger, Scenario, Story Synthesis, semantic deduplication and lifecycle.
-4. The publication gate requires decisive evidence, independent ancestry groups, a high-grade source, Challenger promotion, qualification and confidence.
+4. The runtime derives a descriptive `SUPPORTED`, `DEVELOPING`, `CONTESTED` or `EARLY` research state. Completeness, missing requirements, source depth, confidence and Challenger verdict guide follow-up work but never decide publication. Only unusable evidence or no material new state suppresses a candidate.
 5. A material update revises the matched canonical Story and appends a Story event plus thesis version. A genuinely distinct thesis creates one new Story.
 6. The run key is idempotent. Replaying a completed run reuses its result instead of creating another Story version.
 7. `/api/intelligence-feed`, `/api/hybrid-feed-v2` and the legacy compatibility alias all publish the same persisted canonical contract.

@@ -51,7 +51,7 @@ Complete. Both apps share Supabase state and stable story slugs. Creator methods
 
 Owner: original Live Market Desk. Status: in progress.
 
-Connect BLS, FRED, EIA, SEC EDGAR, BOJ and Japan MOF. Maintain the source registry, evidence gate, transcript-method library and research memory.
+Connect BLS, FRED, EIA, SEC EDGAR, BOJ and Japan MOF. Maintain the source registry, descriptive research-state diagnostics, transcript-method library and research memory.
 
 ### Phase 2: hybrid presentation layer
 

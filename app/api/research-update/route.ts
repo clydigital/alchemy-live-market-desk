@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { runAccuracyCheck } from "@/lib/accuracy";
-import { evaluateIntakeStatus } from "@/lib/intelligence/publication-gate";
+import { evaluateIntakeStatus } from "@/lib/intelligence/research-state";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
@@ -72,9 +72,8 @@ function sourceCount(input: ResearchRunInput, keys: string[]) {
 
 export function intakeStatus(
   item: ReturnType<typeof validateResearchRun>["scoredItems"][number],
-  publishGateOpen: boolean,
 ) {
-  return evaluateIntakeStatus(item, publishGateOpen);
+  return evaluateIntakeStatus(item);
 }
 
 export async function GET() {
@@ -139,22 +138,23 @@ export async function POST(request: Request) {
 
   const accuracy = runAccuracyCheck(await getMarketData());
   const macroLifecycle = await persistMacroReleaseLifecycle();
-  const publishGateOpen = accuracy.updateGate === "open"
-    && validation.requiredSourcesComplete
-    && validation.evidenceGatePassed;
+  // Only a structurally blocked canonical market-data check prevents writes.
+  // Provider coverage and research completeness remain descriptive diagnostics.
+  const runtimePublicationReady = accuracy.updateGate !== "blocked";
   const warnings = [...validation.warnings];
   if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (intelligenceEnabled && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
   }
   if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
-  if (accuracy.updateGate !== "open") warnings.push(`Accuracy gate is ${accuracy.updateGate}; intelligence may reason about the evidence but cannot publish a Story in this run.`);
-  if (!validation.requiredSourcesComplete) warnings.push("At least one required source check was blocked.");
+  if (accuracy.updateGate === "blocked") warnings.push("Canonical market data failed structural accuracy checks; intelligence may reason but writes are disabled for this run.");
+  else if (accuracy.updateGate === "review") warnings.push("Canonical market data has review diagnostics; legitimate traceable Stories may still publish.");
+  if (!validation.sourceCoverageAvailable) warnings.push("Direct-provider coverage is degraded; available canonical evidence and unrelated Stories continue independently.");
   if (input.dryRun) {
     return response({
       accepted: true,
       dryRun: true,
-      publishGate: publishGateOpen ? "open" : "blocked",
+      publicationReadiness: runtimePublicationReady ? "ready" : "structurally_blocked",
       intelligenceEnabled,
       intelligenceWillPublish: false,
       accuracy,
@@ -167,11 +167,8 @@ export async function POST(request: Request) {
 
   let runId: string | null = null;
   try {
-    const runStatus = accuracy.updateGate === "open"
-      && validation.requiredSourcesComplete
-      && validation.evidenceGatePassed
-      ? "completed"
-      : "blocked";
+    const runStatus = runtimePublicationReady ? "completed" : "blocked";
+
     const runRows = await rest<Array<{ id: string }>>("research_runs?on_conflict=run_key", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -182,8 +179,8 @@ export async function POST(request: Request) {
         started_at: new Date().toISOString(),
         status: "running",
         accuracy_gate: accuracy.updateGate,
-        required_sources_complete: validation.requiredSourcesComplete,
-        evidence_gate_passed: validation.evidenceGatePassed,
+        required_sources_complete: validation.sourceCoverageAvailable,
+        evidence_gate_passed: validation.recalibrationEvidenceUsable,
         source_checks: input.sourceChecks,
         videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
         transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
@@ -225,7 +222,7 @@ export async function POST(request: Request) {
           materiality: item.materiality,
           candidate_score: item.candidateScore,
           recommended_action: item.recommendedAction,
-          status: intakeStatus(item, publishGateOpen),
+          status: intakeStatus(item),
           stats_signal: item.statsSignal || null,
           news_signal: item.newsSignal || null,
           divergence_kind: item.divergenceKind || "none",
@@ -238,22 +235,20 @@ export async function POST(request: Request) {
     }
 
     let intelligence: IntelligenceRunResult | null = null;
-    if (intelligenceEnabled && validation.requiredSourcesComplete) {
+    if (intelligenceEnabled) {
       intelligence = await runIntelligenceEngine({
         researchRunId: runId,
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
-        dryRun: !publishGateOpen,
+        dryRun: !runtimePublicationReady,
         stageRequestTimeoutMs: boundedScheduledExecution ? 18_000 : undefined,
         stageMaxAttempts: boundedScheduledExecution ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
-    } else if (intelligenceEnabled) {
-      warnings.push("The OpenAI intelligence runtime was not invoked because required source coverage is blocked.");
     }
 
     let legacyUpdatesPublished = 0;
-    if (!intelligenceEnabled && publishGateOpen && validation.recalibrations.length) {
+    if (!intelligenceEnabled && runtimePublicationReady && validation.recalibrations.length) {
       const stories = await rest<Array<{ id: string; slug: string; confidence: number }>>(
         "stories?select=id,slug,confidence&status=neq.archived",
       );
@@ -297,7 +292,7 @@ export async function POST(request: Request) {
     }
 
     let finalStatus: "completed" | "blocked" | "failed" = runStatus;
-    if (intelligenceEnabled && validation.requiredSourcesComplete && intelligence?.status !== "completed") {
+    if (intelligenceEnabled && intelligence?.status !== "completed") {
       finalStatus = intelligence?.status === "failed" ? "failed" : "blocked";
       warnings.push(`The OpenAI intelligence runtime ended ${intelligence?.status || "without a result"}; this research run is not recorded as completed.`);
     }
@@ -324,7 +319,7 @@ export async function POST(request: Request) {
       accepted: true,
       runId,
       status: finalStatus,
-      publishGate: publishGateOpen ? "open" : "blocked",
+      publicationReadiness: runtimePublicationReady ? "ready" : "structurally_blocked",
       updatesPublished: totalUpdatesPublished,
       legacyRecalibrationsPublished: legacyUpdatesPublished,
       legacyUpdatesPublished,

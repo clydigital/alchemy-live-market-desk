@@ -77,7 +77,7 @@ type DisplayStory = {
 };
 
 
-function preparationMissing(coverage?: StoryEvidenceCoverage, story?: Story) {
+function coverageGaps(coverage?: StoryEvidenceCoverage, story?: Story) {
   if (!coverage) return ["Coverage audit unavailable"];
   const missing: string[] = [];
   if (coverage.source_count < 3) missing.push("3 credible sources");
@@ -93,8 +93,8 @@ function preparationMissing(coverage?: StoryEvidenceCoverage, story?: Story) {
   return missing;
 }
 
-function preparationReady(coverage?: StoryEvidenceCoverage, story?: Story) {
-  return coverage?.room_status === "ready" && preparationMissing(coverage, story).length === 0;
+function coverageChecklistComplete(coverage?: StoryEvidenceCoverage, story?: Story) {
+  return coverage?.room_status === "ready" && coverageGaps(coverage, story).length === 0;
 }
 
 type ArticleMemory = AlchemyArticle & {
@@ -465,9 +465,9 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
   const storyBySlug = useMemo(() => new Map(stories.map((item) => [item.slug, item])), [stories]);
   const activeCoverage = coverageBySlug.get(activeStory.slug);
   const activeRawStory = storyBySlug.get(activeStory.slug);
-  const activePreparationMissing = preparationMissing(activeCoverage, activeRawStory);
-  const activePreparationReady = preparationReady(activeCoverage, activeRawStory);
-  const readyPreparationCount = useMemo(() => evidenceCoverage.filter((item) => preparationReady(item, storyBySlug.get(item.slug))).length, [evidenceCoverage, storyBySlug]);
+  const activeCoverageGaps = coverageGaps(activeCoverage, activeRawStory);
+  const activeCoverageChecklistComplete = coverageChecklistComplete(activeCoverage, activeRawStory);
+  const completeCoverageCount = useMemo(() => evidenceCoverage.filter((item) => coverageChecklistComplete(item, storyBySlug.get(item.slug))).length, [evidenceCoverage, storyBySlug]);
 
   const visibleSources = useMemo(() => sources.filter((source) => !/creator|youtube|discovery/i.test(`${source.source_type} ${source.publisher}`)), [sources]);
   const activeSources = useMemo(() => visibleSources.filter((source) => source.story_id === activeStory.id).sort((a, b) => b.reliability_score - a.reliability_score), [visibleSources, activeStory.id]);
@@ -629,14 +629,14 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         {activeTab === "Research Layer" && (
           <div className="research-layer-page tab-page">
             <header className="domain-hero research-layer-domain">
-              <div><span>CANONICAL RESEARCH LAYER</span><h2>The original deck owns the evidence.</h2><p>Source ingestion, transcript studies, validation, publication gates and append-only research memory belong here. The hybrid deck consumes this state for journeys and visual learning.</p></div>
+              <div><span>CANONICAL RESEARCH LAYER</span><h2>The original deck owns the evidence.</h2><p>Source ingestion, transcript studies, validation, descriptive research states and append-only research memory belong here. The hybrid deck consumes this state for journeys and visual learning.</p></div>
               <div className="domain-stat"><b>{researchRegistry.length}</b><span>registered research methods</span><small>{researchRollout.filter((phase) => phase.status === "in_progress").length} rollout phases active</small></div>
             </header>
 
             <section className="research-role-grid">
               <article className="panel research-role-card"><small>OWNERSHIP</small><h3>Original Live Market Desk</h3><p>Canonical source registry, primary-source checks, structured data, evidence records, transcript analysis, chart requirements and thesis updates.</p><div><span>INGEST</span><span>VERIFY</span><span>DECIDE</span><span>RECORD</span></div></article>
               <article className="panel research-role-card hybrid-role"><small>DOWNSTREAM</small><h3>Hybrid Market Desk</h3><p>Guided journeys, World transmission maps, decision practice and review history. It may mirror evidence, but it does not become a second research backend.</p><div><span>TEACH</span><span>VISUALISE</span><span>REVIEW</span></div></article>
-              <article className="panel publication-gate"><small>PREPARATION GATE</small><h3>A story remains Researching until it has:</h3><ul><li>Three credible sources, including one Tier 1 source</li><li>Six useful evidence cards with direct source links</li><li>Support, a meaningful contradiction and an unresolved test</li><li>Two relevant charts, including the main price chart</li><li>Confirmation and invalidation conditions</li><li>Maths and definition checks before editorial approval</li><li>One dated balance-of-evidence update</li></ul></article>
+              <article className="panel research-state-guide"><small>RESEARCH STATE</small><h3>Completeness describes the Story. It does not decide publication.</h3><ul><li>SUPPORTED, DEVELOPING, CONTESTED and EARLY Stories can all publish</li><li>Missing canonical requirements remain visible and prioritised by criticality</li><li>Source depth and corroboration inform confidence and follow-up research</li><li>Challenger records the strongest countercase without acting as a bouncer</li><li>Only unusable evidence, malformed state or no material change prevents a Story update</li></ul></article>
             </section>
 
             <ResearchUpdateMonitor runs={researchRuns} intake={researchIntake} />
@@ -649,8 +649,8 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
 
 
             <section className="panel preparation-audit">
-              <div className="preparation-audit-head"><div><small>LIVE PREPARATION AUDIT</small><h3>{readyPreparationCount} of {evidenceCoverage.length} active stories pass the evidence gate</h3><p>The accuracy check now gates market inputs first. Editorial logic runs only after the data gate is open or explicitly reviewed.</p></div><strong>{evidenceCoverage.length ? Math.round((readyPreparationCount / evidenceCoverage.length) * 100) : 0}%</strong></div>
-              <div className="preparation-audit-list">{evidenceCoverage.map((item) => { const raw = storyBySlug.get(item.slug); const missing = preparationMissing(item, raw); const ready = preparationReady(item, raw); return <button key={item.slug} className={ready ? "ready" : "researching"} onClick={() => { const index = storyViews.findIndex((story) => story.slug === item.slug); if (index >= 0) setSelectedIndex(index); setActiveTab("Stories"); }}><span><b>{item.title}</b><small>{ready ? "Automated gate passed" : `Missing: ${missing.join(" · ")}`}</small></span><em>{item.gate_score}/8</em><i>{ready ? "READY" : "RESEARCHING"}</i></button>; })}</div>
+              <div className="preparation-audit-head"><div><small>LIVE RESEARCH COVERAGE</small><h3>{completeCoverageCount} of {evidenceCoverage.length} active stories have a complete coverage checklist</h3><p>This checklist describes research depth and follow-up priorities. It never decides whether a material, traceable Story may publish.</p></div><strong>{evidenceCoverage.length ? Math.round((completeCoverageCount / evidenceCoverage.length) * 100) : 0}%</strong></div>
+              <div className="preparation-audit-list">{evidenceCoverage.map((item) => { const raw = storyBySlug.get(item.slug); const missing = coverageGaps(item, raw); const ready = coverageChecklistComplete(item, raw); return <button key={item.slug} className={ready ? "ready" : "researching"} onClick={() => { const index = storyViews.findIndex((story) => story.slug === item.slug); if (index >= 0) setSelectedIndex(index); setActiveTab("Stories"); }}><span><b>{item.title}</b><small>{ready ? "Coverage checklist complete" : `Research next: ${missing.join(" · ")}`}</small></span><em>{item.gate_score}/8</em><i>{ready ? "COVERED" : "GAPS"}</i></button>; })}</div>
             </section>
 
             <div className="research-layer-layout">
@@ -687,15 +687,15 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
                   <button key={story.id} className={selectedIndex === index ? "active" : ""} onClick={() => setSelectedIndex(index)}>
                     <i>{String(index + 1).padStart(2, "0")}</i>
                     <span><b>{story.title}</b><small>{story.marketQuestion}</small></span>
-                    <em className={`prep-pill ${preparationReady(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "ready" : "researching"}`}>{preparationReady(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "READY" : "RESEARCHING"}</em>
+                    <em className={`prep-pill ${coverageChecklistComplete(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "ready" : "researching"}`}>{coverageChecklistComplete(coverageBySlug.get(story.slug), storyBySlug.get(story.slug)) ? "COVERED" : "GAPS"}</em>
                     <strong>{story.confidence}%</strong>
                   </button>
                 ))}
               </div>
             </section>
             <article className="panel story-detail">
-              <header><div><span>{activePreparationReady ? activeStory.status : "Researching"}</span><h2>{activeStory.title}</h2></div><div className="confidence-orb"><b>{activeStory.confidence}</b><small>confidence</small></div></header>
-              <div className={`story-preparation-banner ${activePreparationReady ? "ready" : "researching"}`}><div><small>EVIDENCE-READY PREPARATION GATE</small><b>{activePreparationReady ? "Automated gate passed" : "This story is still being prepared"}</b><p>{activePreparationReady ? `${activeCoverage?.source_count || 0} sources · ${activeCoverage?.evidence_count || 0} evidence cards · ${activeCoverage?.chart_count || 0} charts · manual maths/definition sign-off still required before publication.` : `Missing: ${activePreparationMissing.join(" · ")}`}</p></div><strong>{activeCoverage?.gate_score || 0}/8</strong></div>
+              <header><div><span>{activeStory.status}</span><h2>{activeStory.title}</h2></div><div className="confidence-orb"><b>{activeStory.confidence}</b><small>confidence</small></div></header>
+              <div className={`story-preparation-banner ${activeCoverageChecklistComplete ? "ready" : "researching"}`}><div><small>RESEARCH COVERAGE DIAGNOSTIC</small><b>{activeCoverageChecklistComplete ? "Coverage checklist complete" : "Follow-up research remains"}</b><p>{activeCoverageChecklistComplete ? `${activeCoverage?.source_count || 0} sources · ${activeCoverage?.evidence_count || 0} evidence cards · ${activeCoverage?.chart_count || 0} charts · Coverage informs research state and priority, not publication permission.` : `Research next: ${activeCoverageGaps.join(" · ")}. These gaps do not prevent publication.`}</p></div><strong>{activeCoverage?.gate_score || 0}/8</strong></div>
               <p className="story-thesis">{activeStory.thesis}</p>
               <MiniMarketChart series={storySeries(activeStory, market.series)} range={range} title="Live aligned market chart" large />
               <div className="evidence-grid">
@@ -854,7 +854,7 @@ export default function MarketWorkspace({ stories, calls, updates, charts, artic
         <div className="action-backdrop" onClick={() => setShowActions(false)}>
           <div className="action-modal" onClick={(event) => event.stopPropagation()}>
             <header><div><span>NEW RESEARCH</span><h2>Where should the desk go next?</h2></div><button onClick={() => setShowActions(false)}>×</button></header>
-            <button onClick={() => openAction("Research Layer")}><i>01</i><span><b>Open canonical research layer</b><small>Review transcript methods, source ownership, publication gates and rollout.</small></span><em>→</em></button>
+            <button onClick={() => openAction("Research Layer")}><i>01</i><span><b>Open canonical research layer</b><small>Review transcript methods, source ownership, research-state diagnostics and rollout.</small></span><em>→</em></button>
             <button onClick={() => openAction("Stories")}><i>02</i><span><b>Open Story Lab</b><small>Compare support, contradiction and the next test.</small></span><em>→</em></button>
             <button onClick={() => openAction("Articles")}><i>03</i><span><b>Review prior Alchemy coverage</b><small>See what was said, how the story evolved and whether it is ready to revisit.</small></span><em>→</em></button>
             <button onClick={() => openAction("Charts")}><i>04</i><span><b>Request a chart</b><small>Choose the visual that answers a defined question.</small></span><em>→</em></button>

@@ -38,9 +38,9 @@ validated research intake
 → Hybrid feed
 ```
 
-The model never writes directly to `stories`. Every stage uses strict structured output and is recorded in `intelligence_stage_runs` with model, provider request ID and token usage. A Story cannot be created or recalibrated unless it passes the deterministic publication gate: at least three decisive evidence records, three independent source groups, at least one Tier 1-2 source, Challenger promotion, qualification of at least 70 and confidence of at least 60.
+The model never writes directly to `stories`. Every stage uses strict structured output and is recorded in `intelligence_stage_runs` with model, provider request ID and token usage. Research completeness, missing requirements, source depth, confidence and Challenger verdict describe a Story as `SUPPORTED`, `DEVELOPING`, `CONTESTED` or `EARLY`; all four states may publish. A candidate is suppressed only when it lacks usable traceable evidence or semantic deduplication finds no material new state.
 
-A single article is therefore insufficient to create a Story. When the event, thesis and mechanism substantially match an existing Story, semantic deduplication prefers updating that Story rather than creating another one. Original Alchemy Stories do not require an external canonical article URL.
+A traceable material update may publish with limited corroboration while its research state remains `EARLY` or `DEVELOPING`. Creator commentary remains a research lead rather than independent proof. When the event, thesis and mechanism substantially match an existing Story, semantic deduplication prefers updating that Story rather than creating another one. Original Alchemy Stories do not require an external canonical article URL.
 
 The authenticated `/api/intelligence-run` route can run the engine directly or expose sanitized operational status. It never returns stage payloads, transcript text or credentials.
 

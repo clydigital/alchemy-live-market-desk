@@ -52,9 +52,7 @@ TranscriptAPI transcript or fallback article is always blocked.
    - `stillMissing`: the evidence still required to settle the question.
 8. Preserve the strongest support, strongest contradiction and next unresolved test.
 9. Do not publish a Story recalibration just because a new headline exists. If no deciding monitor or causal link moved, keep it as intake/evidence rather than a thesis change.
-10. Publish only when all source checks, the four-link evidence gate and the
-   deterministic accuracy gate are open. Confidence can move by at most eight
-   points in one run.
+10. Publish a material recalibration when it has at least one usable traceable evidence link. Provider coverage, missing research and corroboration depth remain visible diagnostics and cannot suppress unrelated Stories. A structural accuracy failure still stops writes for the run. Confidence can move by at most eight points in one run.
 
 ## Recalibration standard
 

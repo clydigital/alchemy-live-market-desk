@@ -33,11 +33,13 @@ import {
 } from "@/lib/intelligence/schemas";
 import {
   STABLE_REQUIREMENT_IDS,
-  evaluateRuntimePublicationGate,
-  publicationRequirementRegistry,
+  evaluateCandidateIntegrity,
+  evaluateRuntimeResearchState,
+  researchRequirementRegistry,
   validateScopedRequirementIds,
-  type PublicationRequirement,
-} from "@/lib/intelligence/publication-gate";
+  type ResearchRequirement,
+  type ResearchStateResult,
+} from "@/lib/intelligence/research-state";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
@@ -201,15 +203,12 @@ type CandidatePersisted = { id: string; candidateKey: string; primaryHypothesisI
 
 const MAX_EVIDENCE = 72;
 const LOOKBACK_DAYS = 90;
-const MIN_INDEPENDENT_SOURCES = 3;
-const MIN_DECISIVE_EVIDENCE = 3;
-const MIN_QUALIFICATION = 70;
-const MIN_CONFIDENCE = 60;
+
 
 const CORE_RULES = `You are the reasoning layer inside the Alchemy Markets Live Desk. The Live Desk is the canonical research brain.
 Use only the evidence, Stories, hypotheses and scenario records supplied in this request. Never invent a source, fact, market move, consensus view, evidence ID or Story ID.
 This is not a news summarisation task. Synthesize across independent evidence, distinguish the accepted market view from the overlooked variable, build explicit causal mechanisms, test the strongest countercase and preserve uncertainty.
-Creator/video commentary is research-lead material, not proof unless independently verified. A single article can never be the sole basis for a new Story.
+Creator/video commentary is research-lead material, not proof unless independently verified. Source depth and corroboration inform research state, confidence and follow-up priority; they do not decide publication.
 Do not claim that something is unpriced or mispriced unless the supplied evidence directly supports that conclusion.
 Prefer updating an existing Story when the event, thesis, mechanism and deciding evidence are substantially the same. Do not create a duplicate Story merely because the headline changed.
 Every confirmation or invalidation condition must be observable.
@@ -219,14 +218,14 @@ Use British English, calm probabilistic language and short grade-8 sentences. Re
 
 const CHALLENGER_REQUIREMENT_RULES = `For each assessment, select missingRequirementIds only from the requirements in that hypothesisId's requirementScopes entry.
 These are canonical public.research_story_requirements.requirement_key values. Never translate them into another vocabulary and never use a requirement from another hypothesis scope.
-Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation; it does not control the publication gate.
+Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation. Missing research informs state and priority; it never decides publication.
 Return an empty missingRequirementIds array when the scoped requirements are satisfied or the hypothesis has no scoped requirements.`;
 
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
 For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
-Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims.`;
+Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims. All descriptive research states may publish when the update is material and has usable traceable evidence.`;
 
 function hash(value: string, length = 32) {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
@@ -463,7 +462,7 @@ async function loadStoryRequirements(stories: StoryRow[]) {
   const rows = await intelligenceRest<StoryRequirementRow[]>(
     "research_story_requirements?select=story_id,requirement_key,label&is_active=eq.true&is_required=eq.true",
   );
-  return publicationRequirementRegistry(rows.flatMap((row) => {
+  return researchRequirementRegistry(rows.flatMap((row) => {
     const story = storyById.get(row.story_id);
     return story ? [{
       requirementId: row.requirement_key,
@@ -478,10 +477,10 @@ function scopeRequirementsByHypothesis(
   hypotheses: HypothesisRow[],
   evidenceById: Map<string, EvidencePackItem>,
   stories: StoryRow[],
-  requirements: PublicationRequirement[],
+  requirements: ResearchRequirement[],
 ) {
   const storyBySlug = new Map(stories.map((story) => [story.slug, story]));
-  const requirementsByStory = new Map<string, PublicationRequirement[]>();
+  const requirementsByStory = new Map<string, ResearchRequirement[]>();
   for (const requirement of requirements) {
     const existing = requirementsByStory.get(requirement.storyId) ?? [];
     existing.push(requirement);
@@ -837,35 +836,32 @@ async function persistScenarios(engineRunId: string, output: ScenarioOutput, pro
   return specs;
 }
 
-function candidateGate(candidate: CandidateWorking, evidenceById: Map<string, EvidencePackItem>, challengerByHypothesis: Map<string, ChallengerRow>) {
+function candidateResearchState(candidate: CandidateWorking, evidenceById: Map<string, EvidencePackItem>, challengerByHypothesis: Map<string, ChallengerRow>) {
   const decisive = unique(candidate.decisiveEvidenceIds).flatMap((id) => evidenceById.has(id) ? [evidenceById.get(id)!] : []);
   const independenceGroups = new Set(decisive.map((item) => item.ancestryGroupId).filter(Boolean));
-  const hasHighGradeSource = decisive.some((item) => item.sourceTier <= 2);
+  const hasTierOneOrTwoSource = decisive.some((item) => item.sourceTier <= 2);
   const challenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
-  const gateResult = evaluateRuntimePublicationGate({
-    candidate,
-    decisiveCount: decisive.length,
-    independenceGroupsCount: independenceGroups.size,
-    hasHighGradeSource,
+  const research = evaluateRuntimeResearchState({
+    decisiveEvidenceCount: decisive.length,
+    independentSourceGroupCount: independenceGroups.size,
+    hasTierOneOrTwoSource,
     challenger,
   });
 
-  if (gateResult.missingImportant && !gateResult.missingCritical) {
-    candidate.confidence = Math.min(candidate.confidence, 65);
-    if (!candidate.researchSynthesis.includes("IMPORTANT coverage gap recorded")) {
-      candidate.researchSynthesis = `[IMPORTANT coverage gap recorded: missing some important evidence]\n${candidate.researchSynthesis}`;
-    }
+  const diagnosticLines = [
+    `[RESEARCH STATE: ${research.researchState} | completeness ${research.researchCompleteness}%]`,
+    research.missingRequirementIds.length ? `Missing canonical requirement IDs: ${research.missingRequirementIds.join(", ")}` : null,
+    research.missingEvidence.length ? `Missing evidence: ${research.missingEvidence.join("; ")}` : null,
+    research.unknownRequirementIds.length ? `Unknown requirement IDs (diagnostic only): ${research.unknownRequirementIds.join(", ")}` : null,
+    research.outOfScopeRequirementIds.length ? `Out-of-scope requirement IDs (isolated): ${research.outOfScopeRequirementIds.join(", ")}` : null,
+    `Source depth: ${research.decisiveEvidenceCount} decisive record(s), ${research.independentSourceGroupCount} independent group(s), Tier 1-2 ${research.hasTierOneOrTwoSource ? "present" : "absent"}`,
+  ].filter((line): line is string => Boolean(line));
+  if (!candidate.researchSynthesis.includes("[RESEARCH STATE:")) {
+    candidate.researchSynthesis = `${diagnosticLines.join("\n")}\n${candidate.researchSynthesis}`;
   }
 
-  if (gateResult.missingSupporting && !gateResult.missingCritical) {
-    if (!candidate.researchSynthesis.includes("SUPPORTING provider warning recorded")) {
-      candidate.researchSynthesis = `[SUPPORTING provider warning recorded: missing supplemental creator transcript or commentary]\n${candidate.researchSynthesis}`;
-    }
-  }
-
-  return { open: gateResult.publicationEligible, reasons: gateResult.reasons, warnings: gateResult.warnings, decisive };
+  return { research, decisive };
 }
-
 function statusFromLifecycle(value: CandidateWorking["lifecycleStatus"]) {
   if (value === "confirmed") return "publish";
   if (value === "developing") return "develop";
@@ -988,6 +984,7 @@ async function promoteCandidate({
   candidateRowId,
   decision,
   lifecycleStatus,
+  researchState,
   existingStories,
   evidenceById,
 }: {
@@ -995,6 +992,7 @@ async function promoteCandidate({
   candidateRowId: string;
   decision: DeduplicationOutput["decisions"][number];
   lifecycleStatus: CandidateWorking["lifecycleStatus"];
+  researchState: ResearchStateResult;
   existingStories: StoryRow[];
   evidenceById: Map<string, EvidencePackItem>;
 }) {
@@ -1120,7 +1118,24 @@ async function promoteCandidate({
         novelty_class: decision.noveltyClass,
         qualification_score: clamp(candidate.qualificationScore),
         change_reason: isNew ? "original_story_created" : "existing_story_recalibrated",
-        state_snapshot: { candidateKey: candidate.candidateKey, bias: candidate.bias, conviction: candidate.conviction },
+        state_snapshot: {
+          candidateKey: candidate.candidateKey,
+          bias: candidate.bias,
+          conviction: candidate.conviction,
+          researchState: researchState.researchState,
+          researchCompleteness: researchState.researchCompleteness,
+          missingRequirementIds: researchState.missingRequirementIds,
+          missingEvidence: researchState.missingEvidence,
+          missingCriticalRequirementIds: researchState.missingCriticalRequirementIds,
+          missingImportantRequirementIds: researchState.missingImportantRequirementIds,
+          missingSupportingRequirementIds: researchState.missingSupportingRequirementIds,
+          unknownRequirementIds: researchState.unknownRequirementIds,
+          outOfScopeRequirementIds: researchState.outOfScopeRequirementIds,
+          decisiveEvidenceCount: researchState.decisiveEvidenceCount,
+          independentSourceGroupCount: researchState.independentSourceGroupCount,
+          hasTierOneOrTwoSource: researchState.hasTierOneOrTwoSource,
+          challengerVerdict: researchState.challengerVerdict,
+        },
       }),
     });
   }
@@ -1370,7 +1385,7 @@ export async function runIntelligenceEngine({
 
   try {
     const stories = await loadStories();
-    const publicationRequirements = await loadStoryRequirements(stories);
+    const researchRequirements = await loadStoryRequirements(stories);
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
@@ -1450,7 +1465,7 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, publicationRequirements);
+    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
     const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
     const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
       scope.hypothesisId,
@@ -1467,13 +1482,12 @@ export async function runIntelligenceEngine({
     });
     const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
     const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    const promoted = hypotheses.filter((hypothesis) => {
-      const assessment = challengerByHypothesis.get(hypothesis.id);
-      return assessment?.verdict === "promote" && assessment.adjustedConfidence >= MIN_CONFIDENCE;
-    });
-    hypothesesPromoted = promoted.length;
-    if (!promoted.length) {
-      warnings.push("Challenger promoted no hypotheses; no Story was synthesized.");
+    // Challenger is a critic, not a publication bouncer. Every structurally valid
+    // assessed hypothesis continues to scenario and Story synthesis regardless of verdict.
+    const reviewed = hypotheses.filter((hypothesis) => challengerByHypothesis.has(hypothesis.id));
+    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
+    if (!reviewed.length) {
+      warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1482,17 +1496,17 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const promotedIds = new Set(promoted.map((item) => item.id));
+    const reviewedIds = new Set(reviewed.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
       ...stageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
-      input: { hypotheses: promoted, challenger: challenger.filter((row) => promotedIds.has(row.hypothesisId)), evidence },
+      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence },
       maxOutputTokens: 5_500,
     });
-    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, promotedIds, knownEvidenceIds);
+    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
@@ -1501,18 +1515,18 @@ export async function runIntelligenceEngine({
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
       input: {
-        hypotheses: promoted,
-        challenger: challenger.filter((row) => promotedIds.has(row.hypothesisId)),
+        hypotheses: reviewed,
+        challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
         evidence,
         existingStories: storiesPack,
-        publicationGate: { minDecisiveEvidence: MIN_DECISIVE_EVIDENCE, minIndependentSources: MIN_INDEPENDENT_SOURCES, requiresTier1Or2: true },
+        researchStatePolicy: { states: ["SUPPORTED", "DEVELOPING", "CONTESTED", "EARLY"], allStatesMayPublish: true, completenessIsDescriptive: true },
       },
       maxOutputTokens: 9_000,
     });
 
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
-      if (!promotedIds.has(candidate.primaryHypothesisId)) return [];
+      if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
       const normalized: CandidateWorking = {
         ...candidate,
@@ -1534,7 +1548,7 @@ export async function runIntelligenceEngine({
     });
     storiesConsidered = candidates.length;
     if (!candidates.length) {
-      warnings.push("Story synthesis produced no candidate tied to a promoted hypothesis.");
+      warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1587,12 +1601,18 @@ export async function runIntelligenceEngine({
         rationale: "No semantic-deduplication decision was returned.",
         exceptionProof: { distinctEvent: false, distinctMechanism: false, distinctDecisiveEvidence: false, distinctCatalyst: false },
       };
-      const gate = candidateGate(candidate, evidenceById, challengerByHypothesis);
+      const researchContext = candidateResearchState(candidate, evidenceById, challengerByHypothesis);
       const lifecycle = lifecycleByCandidate.get(candidate.candidateKey)?.lifecycleStatus || candidate.lifecycleStatus;
-      const ancestry = unique(gate.decisive.map((item) => item.ancestryGroupId).filter((id): id is string => Boolean(id)));
-      const publicationEligible = gate.open && !["duplicate", "insufficient_novelty"].includes(decision.noveltyClass);
-      if (!gate.open) warnings.push(`${candidate.title}: publication blocked because ${gate.reasons.join(", ")}.`);
-      for (const warning of gate.warnings) warnings.push(`${candidate.title}: ${warning}.`);
+      const ancestry = unique(researchContext.decisive.map((item) => item.ancestryGroupId).filter((id): id is string => Boolean(id)));
+      // This persisted compatibility flag represents structural publishability only.
+      // Research completeness, criticality, confidence, source depth and Challenger verdict never set it.
+      const integrity = evaluateCandidateIntegrity({
+        decisiveEvidenceCount: researchContext.decisive.length,
+        noveltyClass: decision.noveltyClass,
+      });
+      const structurallyPublishable = integrity.publishable;
+      if (!integrity.publishable) warnings.push(`${candidate.title}: not published for structural reason: ${integrity.structuralReasons.join(", ")}.`);
+      for (const warning of researchContext.research.warnings) warnings.push(`${candidate.title}: ${warning}.`);
 
       const rows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
         method: "POST",
@@ -1612,14 +1632,14 @@ export async function runIntelligenceEngine({
           next_catalysts: candidate.nextCatalysts,
           confidence: clamp(candidate.confidence),
           qualification_score: clamp(candidate.qualificationScore),
-          publication_eligible: publicationEligible,
+          publication_eligible: structurallyPublishable,
           lifecycle_status: lifecycle,
           novelty_fingerprint: candidate.noveltyFingerprint,
           novelty_class: decision.noveltyClass,
           duplicate_of_story_id: decision.noveltyClass === "duplicate" ? decision.matchedStoryId : null,
           canonical_external_url: null,
           research_synthesis: candidate.researchSynthesis,
-          candidate_status: publicationEligible ? "qualified" : "rejected",
+          candidate_status: structurallyPublishable ? "qualified" : "rejected",
           question: candidate.question,
           market_belief: candidate.marketBelief,
           divergence_summary: candidate.divergenceSummary,
@@ -1637,12 +1657,13 @@ export async function runIntelligenceEngine({
       });
       if (rows[0]?.id) candidateRows.push({ id: rows[0].id, candidateKey: candidate.candidateKey, primaryHypothesisId: candidate.primaryHypothesisId });
 
-      if (!publicationEligible || dryRun || !rows[0]?.id) continue;
+      if (!structurallyPublishable || dryRun || !rows[0]?.id) continue;
       const promotedStory = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
         decision,
         lifecycleStatus: lifecycle,
+        researchState: researchContext.research,
         existingStories: stories,
         evidenceById,
       });

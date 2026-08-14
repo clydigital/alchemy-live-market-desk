@@ -1,19 +1,35 @@
 export type Criticality = "critical" | "important" | "supporting";
 
-export interface PublicationGateResult {
-  publicationEligible: boolean;
+export type ResearchState = "SUPPORTED" | "DEVELOPING" | "CONTESTED" | "EARLY";
+
+export interface ResearchStateResult {
+  researchState: ResearchState;
   researchCompleteness: number;
   missingCritical: boolean;
   missingImportant: boolean;
   missingSupporting: boolean;
+  missingRequirementIds: StableRequirementId[];
+  missingCriticalRequirementIds: StableRequirementId[];
+  missingImportantRequirementIds: StableRequirementId[];
+  missingSupportingRequirementIds: StableRequirementId[];
+  missingEvidence: string[];
   unknownRequirementIds: string[];
   outOfScopeRequirementIds: string[];
-  reasons: string[];
+  decisiveEvidenceCount: number;
+  independentSourceGroupCount: number;
+  hasTierOneOrTwoSource: boolean;
+  challengerVerdict: string | null;
   warnings: string[];
 }
 
-// Canonical publication policy keyed by public.research_story_requirements.requirement_key.
-// Every active required database key must have an explicit policy before Challenger can use it.
+export type CandidateIntegrityResult = {
+  publishable: boolean;
+  structuralReasons: string[];
+};
+
+// Canonical research policy keyed by public.research_story_requirements.requirement_key.
+// Every active required database key must have an explicit criticality policy before Challenger can use it.
+// Criticality describes research priority, never permission to publish.
 export const STABLE_REQUIREMENTS = {
   "contradiction-recheck": { name: "Re-evaluate strongest contradiction", criticality: "important" },
   "next-test-recheck": { name: "Re-evaluate next deciding test", criticality: "important" },
@@ -43,7 +59,7 @@ export const STABLE_REQUIREMENTS = {
 
 export type StableRequirementId = keyof typeof STABLE_REQUIREMENTS;
 
-export type PublicationRequirement = {
+export type ResearchRequirement = {
   requirementId: StableRequirementId;
   name: string;
   criticality: Criticality;
@@ -64,11 +80,11 @@ export function isStableRequirementId(value: string): value is StableRequirement
   return Object.prototype.hasOwnProperty.call(STABLE_REQUIREMENTS, value);
 }
 
-export function publicationRequirementRegistry(records: CanonicalRequirementRecord[]): PublicationRequirement[] {
+export function researchRequirementRegistry(records: CanonicalRequirementRecord[]): ResearchRequirement[] {
   const seen = new Set<string>();
   return records.map((record) => {
     if (!isStableRequirementId(record.requirementId)) {
-      throw new Error(`No publication criticality policy exists for canonical requirement key: ${record.requirementId}`);
+      throw new Error(`No research criticality policy exists for canonical requirement key: ${record.requirementId}`);
     }
     const identity = `${record.storyId}:${record.requirementId}`;
     if (seen.has(identity)) throw new Error(`Duplicate canonical Story requirement: ${identity}`);
@@ -112,94 +128,106 @@ export function getRequirementCriticality(requirementId: string): Criticality | 
   return isStableRequirementId(requirementId) ? STABLE_REQUIREMENTS[requirementId].criticality : null;
 }
 
-export function evaluatePublicationGate({
-  candidate,
-  decisiveCount,
-  independenceGroupsCount,
-  hasHighGradeSource,
+function descriptiveState({
+  challengerVerdict,
+  missingCritical,
+  missingImportant,
+  decisiveEvidenceCount,
+  independentSourceGroupCount,
+}: {
+  challengerVerdict: string | null;
+  missingCritical: boolean;
+  missingImportant: boolean;
+  decisiveEvidenceCount: number;
+  independentSourceGroupCount: number;
+}): ResearchState {
+  if (challengerVerdict === "reject" || challengerVerdict === "downgrade") return "CONTESTED";
+  if (challengerVerdict === "watch" || missingCritical || missingImportant) return "DEVELOPING";
+  if (!challengerVerdict || decisiveEvidenceCount < 2 || independentSourceGroupCount < 2) return "EARLY";
+  return "SUPPORTED";
+}
+
+export function evaluateResearchState({
+  decisiveEvidenceCount,
+  independentSourceGroupCount,
+  hasTierOneOrTwoSource,
   challengerVerdict,
   missingRequirements = [],
+  missingEvidence = [],
   unknownRequirementIds = [],
   outOfScopeRequirementIds = [],
 }: {
-  candidate: {
-    confidence: number;
-    qualificationScore: number;
-    publicationEligible: boolean;
-  };
-  decisiveCount: number;
-  independenceGroupsCount: number;
-  hasHighGradeSource: boolean;
+  decisiveEvidenceCount: number;
+  independentSourceGroupCount: number;
+  hasTierOneOrTwoSource: boolean;
   challengerVerdict: string | null;
   missingRequirements?: Array<{ requirementId: string }>;
+  missingEvidence?: string[];
   unknownRequirementIds?: string[];
   outOfScopeRequirementIds?: string[];
-}): PublicationGateResult {
-  const reasons: string[] = [];
+}): ResearchStateResult {
   const warnings: string[] = [];
   const validated = validateRequirementIds(missingRequirements.map((requirement) => requirement.requirementId));
   const unknown = [...new Set([...validated.unknown, ...unknownRequirementIds.map((id) => id.trim()).filter(Boolean)])];
   const outOfScope = [...new Set(outOfScopeRequirementIds.map((id) => id.trim()).filter(Boolean))];
-  const totalObligations = decisiveCount + validated.known.length + unknown.length;
-  const researchCompleteness = totalObligations > 0
-    ? Math.round((decisiveCount / totalObligations) * 100)
+  const totalKnownObligations = decisiveEvidenceCount + validated.known.length;
+  const researchCompleteness = totalKnownObligations > 0
+    ? Math.round((decisiveEvidenceCount / totalKnownObligations) * 100)
     : 100;
 
-  const missingCriticalDetails: string[] = [];
-  const missingImportantDetails: string[] = [];
-  const missingSupportingDetails: string[] = [];
+  const missingCriticalRequirementIds = validated.known.filter((id) => STABLE_REQUIREMENTS[id].criticality === "critical");
+  const missingImportantRequirementIds = validated.known.filter((id) => STABLE_REQUIREMENTS[id].criticality === "important");
+  const missingSupportingRequirementIds = validated.known.filter((id) => getRequirementCriticality(id) === "supporting");
+  const missingCritical = missingCriticalRequirementIds.length > 0;
+  const missingImportant = missingImportantRequirementIds.length > 0;
+  const missingSupporting = missingSupportingRequirementIds.length > 0;
 
-  for (const requirementId of validated.known) {
-    const requirement = STABLE_REQUIREMENTS[requirementId];
-    const detail = `${requirement.name} (ID: ${requirementId})`;
-    if (requirement.criticality === "critical") missingCriticalDetails.push(detail);
-    else if (requirement.criticality === "important") missingImportantDetails.push(detail);
-    else missingSupportingDetails.push(detail);
-  }
-
-  const missingCritical = missingCriticalDetails.length > 0;
-  const missingImportant = missingImportantDetails.length > 0;
-  const missingSupporting = missingSupportingDetails.length > 0;
-
-  if (unknown.length) reasons.push(`unknown requirement IDs returned by Challenger: ${unknown.join(", ")}`);
+  if (unknown.length) warnings.push(`unknown requirement IDs returned by Challenger: ${unknown.join(", ")}`);
   if (outOfScope.length) warnings.push(`ignored canonical requirement IDs outside this hypothesis Story scope: ${outOfScope.join(", ")}`);
-  if (missingCritical) reasons.push(`missing critical evidence: ${missingCriticalDetails.join("; ")}`);
-  if (candidate.qualificationScore < 70) reasons.push("qualification below 70");
-  if (candidate.confidence < 60) reasons.push("confidence below 60");
-  if (challengerVerdict !== "promote") reasons.push("Challenger did not promote the hypothesis");
-  if (!candidate.publicationEligible) reasons.push("model marked publication ineligible");
-  if (decisiveCount < 3) reasons.push("needs 3 decisive evidence records");
-  if (independenceGroupsCount < 3) reasons.push("needs 3 independent source groups");
-  if (!hasHighGradeSource) reasons.push("needs at least one Tier 1-2 source");
+  if (missingCritical) warnings.push(`missing critical research: ${missingCriticalRequirementIds.join(", ")}`);
+  if (missingImportant) warnings.push(`missing important research: ${missingImportantRequirementIds.join(", ")}`);
+  if (missingSupporting) warnings.push(`missing supporting research: ${missingSupportingRequirementIds.join(", ")}`);
+  if (challengerVerdict && challengerVerdict !== "promote") warnings.push(`Challenger verdict is ${challengerVerdict}; the verdict informs research state but does not decide publication`);
+  if (decisiveEvidenceCount < 3) warnings.push(`source depth: ${decisiveEvidenceCount} decisive evidence record(s)`);
+  if (independentSourceGroupCount < 3) warnings.push(`corroboration depth: ${independentSourceGroupCount} independent source group(s)`);
+  if (!hasTierOneOrTwoSource) warnings.push("source depth: no Tier 1-2 source is present");
 
   return {
-    publicationEligible: reasons.length === 0,
+    researchState: descriptiveState({
+      challengerVerdict,
+      missingCritical,
+      missingImportant,
+      decisiveEvidenceCount,
+      independentSourceGroupCount,
+    }),
     researchCompleteness,
     missingCritical,
     missingImportant,
     missingSupporting,
+    missingRequirementIds: validated.known,
+    missingCriticalRequirementIds,
+    missingImportantRequirementIds,
+    missingSupportingRequirementIds,
+    missingEvidence: [...new Set(missingEvidence.map((value) => value.trim()).filter(Boolean))],
     unknownRequirementIds: unknown,
     outOfScopeRequirementIds: outOfScope,
-    reasons,
+    decisiveEvidenceCount,
+    independentSourceGroupCount,
+    hasTierOneOrTwoSource,
+    challengerVerdict,
     warnings,
   };
 }
 
-export function evaluateRuntimePublicationGate({
-  candidate,
-  decisiveCount,
-  independenceGroupsCount,
-  hasHighGradeSource,
+export function evaluateRuntimeResearchState({
+  decisiveEvidenceCount,
+  independentSourceGroupCount,
+  hasTierOneOrTwoSource,
   challenger,
 }: {
-  candidate: {
-    confidence: number;
-    qualificationScore: number;
-    publicationEligible: boolean;
-  };
-  decisiveCount: number;
-  independenceGroupsCount: number;
-  hasHighGradeSource: boolean;
+  decisiveEvidenceCount: number;
+  independentSourceGroupCount: number;
+  hasTierOneOrTwoSource: boolean;
   challenger: {
     verdict: string;
     missingRequirementIds: string[];
@@ -212,29 +240,40 @@ export function evaluateRuntimePublicationGate({
   const knownIds = new Set(STABLE_REQUIREMENT_IDS);
   const allowedIds = new Set(challenger?.allowedRequirementIds ?? []);
   const validated = validateScopedRequirementIds(challenger?.missingRequirementIds ?? [], knownIds, allowedIds);
-  return evaluatePublicationGate({
-    candidate,
-    decisiveCount,
-    independenceGroupsCount,
-    hasHighGradeSource,
+  return evaluateResearchState({
+    decisiveEvidenceCount,
+    independentSourceGroupCount,
+    hasTierOneOrTwoSource,
     challengerVerdict: challenger?.verdict ?? null,
     missingRequirements: validated.known.map((requirementId) => ({ requirementId })),
+    missingEvidence: challenger?.missingEvidence ?? [],
     unknownRequirementIds: [...validated.unknown, ...(challenger?.unknownRequirementIds ?? [])],
     outOfScopeRequirementIds: [...validated.outOfScope, ...(challenger?.outOfScopeRequirementIds ?? [])],
   });
 }
 
-export function evaluateIntakeStatus(
-  item: {
-    itemType: string;
-    transcriptStatus?: "ready" | "missing" | "unavailable" | "not_applicable";
-    recommendedAction: string;
-  },
-  publishGateOpen: boolean,
-): "rejected" | "blocked" | "published" | "accepted" {
+export function evaluateCandidateIntegrity({
+  decisiveEvidenceCount,
+  noveltyClass,
+}: {
+  decisiveEvidenceCount: number;
+  noveltyClass: string;
+}): CandidateIntegrityResult {
+  const structuralReasons: string[] = [];
+  if (decisiveEvidenceCount < 1) structuralReasons.push("no usable traceable decisive evidence");
+  if (noveltyClass === "duplicate" || noveltyClass === "insufficient_novelty") {
+    structuralReasons.push("duplicate or no material new state");
+  }
+  return { publishable: structuralReasons.length === 0, structuralReasons };
+}
+export function evaluateIntakeStatus(item: {
+  itemType: string;
+  transcriptStatus?: "ready" | "missing" | "unavailable" | "not_applicable";
+  recommendedAction: string;
+  evidence?: unknown[];
+}): "rejected" | "blocked" | "published" | "accepted" {
   if (item.recommendedAction === "ignore") return "rejected";
   if (item.itemType === "video" && item.transcriptStatus !== "ready") return "blocked";
-  if (item.recommendedAction === "recalibrate_story" && !publishGateOpen) return "blocked";
-  if (item.recommendedAction === "recalibrate_story") return "published";
+  if (item.recommendedAction === "recalibrate_story" && item.evidence?.length) return "published";
   return "accepted";
 }

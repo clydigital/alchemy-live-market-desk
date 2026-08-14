@@ -92,8 +92,8 @@ export type ResearchRunInput = {
 export type ValidationResult = {
   errors: string[];
   warnings: string[];
-  requiredSourcesComplete: boolean;
-  evidenceGatePassed: boolean;
+  sourceCoverageAvailable: boolean;
+  recalibrationEvidenceUsable: boolean;
   scoredItems: Array<IntakeItemInput & { candidateScore: number; evidence: EvidenceLinkInput[] }>;
   recalibrations: StoryRecalibrationInput[];
 };
@@ -185,7 +185,7 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   const directFeeds: readonly ResearchSourceKey[] = ["zerohedge", "axios", "investing-com", "fxstreet"];
   // Direct providers are alternatives for current macro/news coverage. Creator transcripts
   // and optional commentary can degrade independently without globally blocking Stories.
-  const requiredSourcesComplete = directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked");
+  const sourceCoverageAvailable = directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked"); // Diagnostic only.
 
   const itemKeys = new Set<string>();
   const articlePositions = new Set<number>();
@@ -232,8 +232,8 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   });
 
   const itemByKey = new Map(scoredItems.map((item) => [item.itemKey, item]));
-  let evidenceGatePassed = true;
-  recalibrations.forEach((update, index) => {
+  let recalibrationEvidenceUsable = true;
+  const usableRecalibrations = recalibrations.flatMap((update, index) => {
     const prefix = `recalibrations[${index}]`;
     if (!update.storySlug?.trim()) errors.push(`${prefix}.storySlug is required.`);
     if (!update.headline?.trim() || update.headline.length > 90) errors.push(`${prefix}.headline is required and must be at most 90 characters.`);
@@ -244,29 +244,34 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     const hasDecidingMonitor = Boolean(update.decidingMonitor?.trim());
     const hasStillMissing = Boolean(update.stillMissing?.trim());
     if (!validQuestionImpact || !hasDecidingMonitor || !hasStillMissing) {
-      evidenceGatePassed = false;
-      warnings.push(`${update.storySlug || prefix} is missing questionImpact, decidingMonitor or stillMissing; Story recalibration is blocked while intake can continue.`);
+      warnings.push(`${update.storySlug || prefix} is missing questionImpact, decidingMonitor or stillMissing; those research diagnostics remain unresolved.`);
     } else {
       update.detail = `Question impact: ${update.questionImpact}.\nDeciding monitor: ${update.decidingMonitor}.\n\n${update.detail}\n\nStill missing: ${update.stillMissing}.`;
     }
     if (!validDate(update.observedAt)) errors.push(`${prefix}.observedAt must be a valid date.`);
     if (!Number.isInteger(update.confidenceDelta) || Math.abs(update.confidenceDelta) > 8) errors.push(`${prefix}.confidenceDelta must be an integer between -8 and 8.`);
+
     const linkedItems = [...new Set(update.evidenceItemKeys || [])].map((key) => itemByKey.get(key)).filter(Boolean);
-    const evidenceUrls = new Set(linkedItems.flatMap((item) => item!.evidence.map((link) => link.url)));
-    const videoBlocked = linkedItems.some((item) => item!.itemType === "video" && item!.transcriptStatus !== "ready");
-    if (evidenceUrls.size < 4) {
-      evidenceGatePassed = false;
-      warnings.push(`${update.storySlug} has ${evidenceUrls.size}/4 distinct evidence links; recalibration is blocked.`);
+    const usableLinkedItems = linkedItems.filter((item) => item!.itemType !== "video" || item!.transcriptStatus === "ready");
+    const evidenceUrls = new Set(usableLinkedItems.flatMap((item) => item!.evidence.map((link) => link.url)));
+    const ignoredVideos = linkedItems.filter((item) => item!.itemType === "video" && item!.transcriptStatus !== "ready");
+    if (ignoredVideos.length) {
+      warnings.push(`${update.storySlug} ignores ${ignoredVideos.length} video item(s) without a ready transcript; other usable evidence remains independent.`);
     }
-    if (videoBlocked) {
-      evidenceGatePassed = false;
-      warnings.push(`${update.storySlug} references a video without a ready transcript; recalibration is blocked.`);
+    if (!evidenceUrls.size) {
+      recalibrationEvidenceUsable = false;
+      warnings.push(`${update.storySlug} has no usable traceable evidence; that recalibration is skipped without affecting unrelated Stories.`);
+      return [];
     }
-    if (!linkedItems.length) {
-      evidenceGatePassed = false;
-      warnings.push(`${update.storySlug} has no linked intake items; recalibration is blocked.`);
-    }
+    return [update];
   });
 
-  return { errors, warnings, requiredSourcesComplete, evidenceGatePassed, scoredItems, recalibrations };
+  return {
+    errors,
+    warnings,
+    sourceCoverageAvailable,
+    recalibrationEvidenceUsable,
+    scoredItems,
+    recalibrations: usableRecalibrations,
+  };
 }

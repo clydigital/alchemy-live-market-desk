@@ -1,5 +1,5 @@
 import type { JsonSchema } from "@/lib/intelligence/openai";
-import { STABLE_REQUIREMENT_IDS } from "@/lib/intelligence/publication-gate";
+import { STABLE_REQUIREMENT_IDS } from "@/lib/intelligence/research-state";
 
 export type EvidencePackItem = {
   id: string;
@@ -132,7 +132,7 @@ export type StorySynthesisOutput = {
     nextCatalysts: string[];
     confidence: number;
     qualificationScore: number;
-    publicationEligible: boolean;
+
     lifecycleStatus: "detected" | "developing" | "confirmed" | "weakening" | "invalidated" | "archived";
     bias: "bullish" | "slightly_bullish" | "neutral" | "slightly_bearish" | "bearish" | "unscored";
     conviction: number | null;
@@ -376,7 +376,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "publicationEligible", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis", "whatChanged", "previousState", "currentState", "marketReaction", "acceptedExplanation", "overlookedVariable", "overlookedVariableEvidenceStatus", "marketMayBeRight", "mechanismSteps", "plainEnglish", "themes", "prohibitedClaims", "changeKinds"],
+        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis", "whatChanged", "previousState", "currentState", "marketReaction", "acceptedExplanation", "overlookedVariable", "overlookedVariableEvidenceStatus", "marketMayBeRight", "mechanismSteps", "plainEnglish", "themes", "prohibitedClaims", "changeKinds"],
         properties: {
           primaryHypothesisId: { type: "string" },
           title: { type: "string" },
@@ -393,7 +393,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           nextCatalysts: stringArray,
           confidence: { type: "number", minimum: 0, maximum: 100 },
           qualificationScore: { type: "number", minimum: 0, maximum: 100 },
-          publicationEligible: { type: "boolean" },
+
           lifecycleStatus: { type: "string", enum: ["detected", "developing", "confirmed", "weakening", "invalidated", "archived"] },
           bias: { type: "string", enum: ["bullish", "slightly_bullish", "neutral", "slightly_bearish", "bearish", "unscored"] },
           conviction: nullableNumber,
