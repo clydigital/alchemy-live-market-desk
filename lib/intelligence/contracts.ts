@@ -141,6 +141,7 @@ export type ChallengerAssessment = {
   hiddenAssumptions: string[];
   alternativeMechanisms: string[];
   missingEvidence: string[];
+  missingRequirementIds: string[];
   confidenceAdjustment: number;
   adjustedConfidence: number;
 };

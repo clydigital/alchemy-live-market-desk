@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { runAccuracyCheck } from "@/lib/accuracy";
+import { evaluateIntakeStatus } from "@/lib/intelligence/publication-gate";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
@@ -69,15 +70,11 @@ function sourceCount(input: ResearchRunInput, keys: string[]) {
     .reduce((sum, check) => sum + check.itemCount, 0);
 }
 
-function intakeStatus(
+export function intakeStatus(
   item: ReturnType<typeof validateResearchRun>["scoredItems"][number],
   publishGateOpen: boolean,
 ) {
-  if (item.recommendedAction === "ignore") return "rejected";
-  if (item.itemType === "video" && item.transcriptStatus !== "ready") return "blocked";
-  if (item.recommendedAction === "recalibrate_story" && !publishGateOpen) return "blocked";
-  if (item.recommendedAction === "recalibrate_story") return "published";
-  return "accepted";
+  return evaluateIntakeStatus(item, publishGateOpen);
 }
 
 export async function GET() {

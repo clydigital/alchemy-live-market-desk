@@ -31,6 +31,13 @@ import {
   type ScenarioOutput,
   type StorySynthesisOutput,
 } from "@/lib/intelligence/schemas";
+import {
+  STABLE_REQUIREMENT_IDS,
+  evaluateRuntimePublicationGate,
+  publicationRequirementRegistry,
+  validateScopedRequirementIds,
+  type PublicationRequirement,
+} from "@/lib/intelligence/publication-gate";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
@@ -88,6 +95,12 @@ type StoryRow = {
   next_catalyst: string | null;
   assets: string[];
   created_by?: string;
+};
+
+type StoryRequirementRow = {
+  story_id: string;
+  requirement_key: string;
+  label: string;
 };
 
 type PromptVersion = {
@@ -172,7 +185,12 @@ type HypothesisRow = {
   decision_state: string;
 };
 
-type ChallengerRow = ChallengerOutput["assessments"][number] & { stageRunId: string | null };
+type ChallengerRow = ChallengerOutput["assessments"][number] & {
+  stageRunId: string | null;
+  allowedRequirementIds: string[];
+  unknownRequirementIds: string[];
+  outOfScopeRequirementIds: string[];
+};
 
 type CandidateWorking = StorySynthesisOutput["candidates"][number] & {
   candidateKey: string;
@@ -198,6 +216,11 @@ Every confirmation or invalidation condition must be observable.
 Rank sources in this order: official releases; company filings, earnings releases and official transcripts; direct market data; specialist physical or industry data; reputable named-source reporting; analyst commentary; social media.
 Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
 Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
+
+const CHALLENGER_REQUIREMENT_RULES = `For each assessment, select missingRequirementIds only from the requirements in that hypothesisId's requirementScopes entry.
+These are canonical public.research_story_requirements.requirement_key values. Never translate them into another vocabulary and never use a requirement from another hypothesis scope.
+Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation; it does not control the publication gate.
+Return an empty missingRequirementIds array when the scoped requirements are satisfied or the hypothesis has no scoped requirements.`;
 
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
 For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
@@ -400,7 +423,7 @@ async function modelStage<T>({
   try {
     const result = await runStructuredStage<T>({
       stageKey,
-      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
+      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
       input,
       schema,
       modelKind,
@@ -433,6 +456,51 @@ async function loadStories() {
   return intelligenceRest<StoryRow[]>(
     "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by&status=neq.archived&status=neq.discarded&order=updated_at.desc",
   );
+}
+
+async function loadStoryRequirements(stories: StoryRow[]) {
+  const storyById = new Map(stories.map((story) => [story.id, story]));
+  const rows = await intelligenceRest<StoryRequirementRow[]>(
+    "research_story_requirements?select=story_id,requirement_key,label&is_active=eq.true&is_required=eq.true",
+  );
+  return publicationRequirementRegistry(rows.flatMap((row) => {
+    const story = storyById.get(row.story_id);
+    return story ? [{
+      requirementId: row.requirement_key,
+      name: row.label,
+      storyId: story.id,
+      storySlug: story.slug,
+    }] : [];
+  }));
+}
+
+function scopeRequirementsByHypothesis(
+  hypotheses: HypothesisRow[],
+  evidenceById: Map<string, EvidencePackItem>,
+  stories: StoryRow[],
+  requirements: PublicationRequirement[],
+) {
+  const storyBySlug = new Map(stories.map((story) => [story.slug, story]));
+  const requirementsByStory = new Map<string, PublicationRequirement[]>();
+  for (const requirement of requirements) {
+    const existing = requirementsByStory.get(requirement.storyId) ?? [];
+    existing.push(requirement);
+    requirementsByStory.set(requirement.storyId, existing);
+  }
+
+  return hypotheses.map((hypothesis) => {
+    const evidenceIds = unique([...(hypothesis.evidence_for_ids ?? []), ...(hypothesis.evidence_against_ids ?? [])]);
+    const storySlugs = unique(evidenceIds.flatMap((id) => evidenceById.get(id)?.affectedTopics ?? []))
+      .filter((slug) => storyBySlug.has(slug));
+    const storyIds = storySlugs.map((slug) => storyBySlug.get(slug)!.id);
+    const scopedRequirements = storyIds.flatMap((storyId) => requirementsByStory.get(storyId) ?? []);
+    return {
+      hypothesisId: hypothesis.id,
+      storyIds,
+      storySlugs,
+      requirements: scopedRequirements,
+    };
+  });
 }
 
 async function canonicaliseIntake(stories: StoryRow[]) {
@@ -679,12 +747,25 @@ async function persistHypotheses(output: HypothesisOutput, divergences: Divergen
   return rows;
 }
 
-async function persistChallenger(output: ChallengerOutput, hypotheses: HypothesisRow[], stageRunId: string | null, knownEvidence: Set<string>) {
+async function persistChallenger(
+  output: ChallengerOutput,
+  hypotheses: HypothesisRow[],
+  stageRunId: string | null,
+  knownEvidence: Set<string>,
+  knownRequirementIds: ReadonlySet<string>,
+  allowedRequirementIdsByHypothesis: ReadonlyMap<string, ReadonlySet<string>>,
+) {
   const hypothesisIds = new Set(hypotheses.map((row) => row.id));
   const rows: ChallengerRow[] = output.assessments.flatMap((assessment) => {
     if (!hypothesisIds.has(assessment.hypothesisId)) return [];
+    const allowedRequirementIds = allowedRequirementIdsByHypothesis.get(assessment.hypothesisId) ?? new Set<string>();
+    const requirementIds = validateScopedRequirementIds(assessment.missingRequirementIds, knownRequirementIds, allowedRequirementIds);
     return [{
       ...assessment,
+      missingRequirementIds: requirementIds.known,
+      allowedRequirementIds: [...allowedRequirementIds],
+      unknownRequirementIds: requirementIds.unknown,
+      outOfScopeRequirementIds: requirementIds.outOfScope,
       conflictingEvidenceIds: onlyKnownIds(assessment.conflictingEvidenceIds, knownEvidence),
       adjustedConfidence: clamp(assessment.adjustedConfidence),
       confidenceAdjustment: Math.max(-100, Math.min(100, assessment.confidenceAdjustment)),
@@ -705,6 +786,10 @@ async function persistChallenger(output: ChallengerOutput, hypotheses: Hypothesi
       missing_evidence: row.missingEvidence,
       adjusted_confidence: row.adjustedConfidence,
       assessment_payload: {
+        missingRequirementIds: row.missingRequirementIds,
+        allowedRequirementIds: row.allowedRequirementIds,
+        unknownRequirementIds: row.unknownRequirementIds,
+        outOfScopeRequirementIds: row.outOfScopeRequirementIds,
         pricingConfirmation: row.pricingConfirmation,
         crossAssetConfirmation: row.crossAssetConfirmation,
         timingRisk: row.timingRisk,
@@ -757,15 +842,28 @@ function candidateGate(candidate: CandidateWorking, evidenceById: Map<string, Ev
   const independenceGroups = new Set(decisive.map((item) => item.ancestryGroupId).filter(Boolean));
   const hasHighGradeSource = decisive.some((item) => item.sourceTier <= 2);
   const challenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
-  const reasons: string[] = [];
-  if (decisive.length < MIN_DECISIVE_EVIDENCE) reasons.push(`needs ${MIN_DECISIVE_EVIDENCE} decisive evidence records`);
-  if (independenceGroups.size < MIN_INDEPENDENT_SOURCES) reasons.push(`needs ${MIN_INDEPENDENT_SOURCES} independent source groups`);
-  if (!hasHighGradeSource) reasons.push("needs at least one Tier 1-2 source");
-  if (!challenger || challenger.verdict !== "promote") reasons.push("Challenger did not promote the hypothesis");
-  if (candidate.qualificationScore < MIN_QUALIFICATION) reasons.push(`qualification below ${MIN_QUALIFICATION}`);
-  if (candidate.confidence < MIN_CONFIDENCE) reasons.push(`confidence below ${MIN_CONFIDENCE}`);
-  if (!candidate.publicationEligible) reasons.push("model marked publication ineligible");
-  return { open: reasons.length === 0, reasons, decisive };
+  const gateResult = evaluateRuntimePublicationGate({
+    candidate,
+    decisiveCount: decisive.length,
+    independenceGroupsCount: independenceGroups.size,
+    hasHighGradeSource,
+    challenger,
+  });
+
+  if (gateResult.missingImportant && !gateResult.missingCritical) {
+    candidate.confidence = Math.min(candidate.confidence, 65);
+    if (!candidate.researchSynthesis.includes("IMPORTANT coverage gap recorded")) {
+      candidate.researchSynthesis = `[IMPORTANT coverage gap recorded: missing some important evidence]\n${candidate.researchSynthesis}`;
+    }
+  }
+
+  if (gateResult.missingSupporting && !gateResult.missingCritical) {
+    if (!candidate.researchSynthesis.includes("SUPPORTING provider warning recorded")) {
+      candidate.researchSynthesis = `[SUPPORTING provider warning recorded: missing supplemental creator transcript or commentary]\n${candidate.researchSynthesis}`;
+    }
+  }
+
+  return { open: gateResult.publicationEligible, reasons: gateResult.reasons, warnings: gateResult.warnings, decisive };
 }
 
 function statusFromLifecycle(value: CandidateWorking["lifecycleStatus"]) {
@@ -1272,6 +1370,7 @@ export async function runIntelligenceEngine({
 
   try {
     const stories = await loadStories();
+    const publicationRequirements = await loadStoryRequirements(stories);
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
@@ -1351,16 +1450,22 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
+    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, publicationRequirements);
+    const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
+    const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
+      scope.hypothesisId,
+      new Set(scope.requirements.map((requirement) => requirement.requirementId)),
+    ]));
     const challengerStage = await modelStage<ChallengerOutput>({
       engineRunId,
       ...stageExecution,
       stageKey: "challenger",
       modelKind: "complex",
       schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence, existingStories: storiesPack },
+      input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
       maxOutputTokens: 5_000,
     });
-    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds);
+    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
     const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
     const promoted = hypotheses.filter((hypothesis) => {
       const assessment = challengerByHypothesis.get(hypothesis.id);
@@ -1487,6 +1592,7 @@ export async function runIntelligenceEngine({
       const ancestry = unique(gate.decisive.map((item) => item.ancestryGroupId).filter((id): id is string => Boolean(id)));
       const publicationEligible = gate.open && !["duplicate", "insufficient_novelty"].includes(decision.noveltyClass);
       if (!gate.open) warnings.push(`${candidate.title}: publication blocked because ${gate.reasons.join(", ")}.`);
+      for (const warning of gate.warnings) warnings.push(`${candidate.title}: ${warning}.`);
 
       const rows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
         method: "POST",
