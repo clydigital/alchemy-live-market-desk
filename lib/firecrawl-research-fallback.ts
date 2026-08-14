@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 
-import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "@/lib/firecrawl";
+import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
 import {
   type IntakeItemInput,
   type ResearchRunInput,
   type ResearchSourceKey,
   type SourceCheckInput,
-} from "@/lib/research-update";
-import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
-import { buildScheduledResearchInput } from "@/lib/scheduled-research-input";
+} from "./research-update.ts";
+import { type CanonicalResearchSlot } from "./research-schedule-health.ts";
+import { buildScheduledResearchInput } from "./scheduled-research-input.ts";
 
 type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "alchemy-market-insights">;
 
