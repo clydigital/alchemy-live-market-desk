@@ -7,11 +7,8 @@ import {
   type ResearchSourceKey,
   type SourceCheckInput,
 } from "@/lib/research-update";
-import {
-  buildScheduledResearchInput,
-  type scheduledForMalaysiaSlot,
-} from "@/lib/scheduled-research-input";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
+import { buildScheduledResearchInput } from "@/lib/scheduled-research-input";
 
 type SupportedFallbackSource = Extract<ResearchSourceKey, "zerohedge" | "axios" | "investing-com" | "fxstreet" | "alchemy-market-insights">;
 
