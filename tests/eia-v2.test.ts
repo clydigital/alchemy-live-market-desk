@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildGlobalFlowMonitorFromInputs } from "../lib/global-flow-monitor.ts";
+import { buildGlobalFlowMonitorFromInputs } from "../lib/global-flow-monitor-core.ts";
 import {
   buildEiaWeeklyPetroleumUrl,
   EIA_WEEKLY_SERIES,
