@@ -32,6 +32,7 @@ export type EiaWeeklyMetric = {
 export type EiaWeeklyPetroleumSnapshot = {
   state: "ready" | "unconfigured" | "unavailable";
   asOf: string | null;
+  retrievedAt: string | null;
   metrics: Partial<Record<EiaWeeklyMetricKey, EiaWeeklyMetric>>;
   sourceName: "U.S. Energy Information Administration";
   sourceUrl: string;
@@ -70,7 +71,11 @@ function normalizeUnits(rawUnits: string | null, key: EiaWeeklyMetricKey): strin
   return rawUnits;
 }
 
-export function parseEiaWeeklyPetroleumPayload(payload: unknown): EiaWeeklyPetroleumSnapshot {
+export function parseEiaWeeklyPetroleumPayload(
+  payload: unknown,
+  options?: { retrievedAt?: string | null },
+): EiaWeeklyPetroleumSnapshot {
+  const retrievedAt = options?.retrievedAt ?? new Date().toISOString();
   const response = payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as { response?: unknown }).response
     : null;
@@ -81,6 +86,7 @@ export function parseEiaWeeklyPetroleumPayload(payload: unknown): EiaWeeklyPetro
     return {
       state: "unavailable",
       asOf: null,
+      retrievedAt: options?.retrievedAt ?? null,
       metrics: {},
       sourceName: "U.S. Energy Information Administration",
       sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
@@ -124,6 +130,7 @@ export function parseEiaWeeklyPetroleumPayload(payload: unknown): EiaWeeklyPetro
   return {
     state: available.length ? "ready" : "unavailable",
     asOf: available.map((metric) => metric?.latest.period || "").sort().at(-1) || null,
+    retrievedAt: available.length ? retrievedAt : (options?.retrievedAt ?? null),
     metrics,
     sourceName: "U.S. Energy Information Administration",
     sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
@@ -155,6 +162,7 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
     return {
       state: "unconfigured",
       asOf: null,
+      retrievedAt: null,
       metrics: {},
       sourceName: "U.S. Energy Information Administration",
       sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
@@ -162,6 +170,7 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
     };
   }
 
+  const retrievedAt = new Date().toISOString();
   try {
     const response = await fetch(buildEiaWeeklyPetroleumUrl(apiKey), {
       headers: {
@@ -175,17 +184,19 @@ export async function fetchEiaWeeklyPetroleumSnapshot(
       return {
         state: "unavailable",
         asOf: null,
+        retrievedAt,
         metrics: {},
         sourceName: "U.S. Energy Information Administration",
         sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,
         note: `EIA Open Data API returned HTTP ${response.status}.`,
       };
     }
-    return parseEiaWeeklyPetroleumPayload(await response.json());
+    return parseEiaWeeklyPetroleumPayload(await response.json(), { retrievedAt });
   } catch (error) {
     return {
       state: "unavailable",
       asOf: null,
+      retrievedAt,
       metrics: {},
       sourceName: "U.S. Energy Information Administration",
       sourceUrl: EIA_WEEKLY_PETROLEUM_ROUTE,

@@ -33,7 +33,13 @@ The EIA v2 adapter (`lib/providers/eia-v2.ts`) acquires deterministic weekly pet
 | `gasolineProductSupplied` | `WGFUPUS2` | Finished motor gasoline product supplied | Thousand Barrels per Day | `MBBL/D` | Weekly (`YYYY-MM-DD`) |
 
 ### Unit Conversion & Normalization
-Raw string labels returned by the API (e.g. `"Thousand Barrels"`, `"Percent"`, `"Thousand Barrels per Day"`) are normalized to standardized canonical symbols (`MBBL`, `%`, `MBBL/D`). Numeric values are kept exact and formatted deterministically withThousands separators for monitor consumption.
+Raw string labels returned by the API (e.g. `"Thousand Barrels"`, `"Percent"`, `"Thousand Barrels per Day"`) are normalized to standardized canonical symbols (`MBBL`, `%`, `MBBL/D`). Numeric values are kept exact and formatted deterministically with thousands separators for monitor consumption.
+
+### Timestamp Semantics
+The canonical snapshot contract (`EiaWeeklyPetroleumSnapshot`) clearly distinguishes observation periods and retrieval timestamps:
+- **Observation / As-Of Period (`period` / `asOf`)**: The ending date of the weekly reporting period provided directly by EIA (e.g. `2026-08-07`).
+- **Retrieval Timestamp (`retrievedAt`)**: An ISO-8601 UTC timestamp recording exactly when the HTTP response payload was retrieved and parsed by the system.
+- **Release Timestamp**: The EIA v2 endpoint does not supply a separate publication release timestamp in its weekly JSON records. The adapter never fabricates or invents a fake release timestamp.
 
 ### Failure & Degradation Behavior
 If `EIA_API_KEY` is absent, the adapter returns state `unconfigured`. If the API returns non-200 HTTP responses, timeouts, or malformed payloads without valid data arrays, the adapter degrades gracefully to `state: "unavailable"` with diagnostic notes. Provider failures or gaps are propagated as coverage gaps rather than producing local fallback or LLM-fabricated estimates.
