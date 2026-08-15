@@ -98,9 +98,10 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!authenticated(request)) return response({ error: "Unauthorized research publisher." }, 401);
   if (!supabaseUrl || !serviceKey) return response({ error: "Research publisher database credentials are not configured." }, 503);
-  // This header is added only by the Live-owned Cron handler. It leaves enough
-  // wall-clock room to write a terminal ledger state before Vercel times out.
-  const boundedScheduledExecution = request.headers.get("x-alchemy-scheduled-research") === "1";
+
+  // PART A: Distinguish scheduled vs non-scheduled paths.
+  // ONLY trusted after passing authorization (line 72 above).
+  const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
 
   let input: ResearchRunInput;
   try {
@@ -169,34 +170,85 @@ export async function POST(request: Request) {
   try {
     const runStatus = runtimePublicationReady ? "completed" : "blocked";
 
-    const runRows = await rest<Array<{ id: string }>>("research_runs?on_conflict=run_key", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify({
-        run_key: input.runKey,
-        schedule_slot: input.scheduleSlot,
-        scheduled_for: input.scheduledFor,
-        started_at: new Date().toISOString(),
-        status: "running",
-        accuracy_gate: accuracy.updateGate,
-        required_sources_complete: validation.sourceCoverageAvailable,
-        evidence_gate_passed: validation.recalibrationEvidenceUsable,
-        source_checks: input.sourceChecks,
-        videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
-        transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
-        news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItems.length,
-        candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
-        articles_scanned: Math.min(30, sourceCount(input, ["alchemy-market-insights"])),
-        articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
-        evidence_added: new Set(validation.scoredItems.flatMap((item) => item.evidence.map((link) => link.url))).size,
-        updates_published: 0,
-        warnings,
-        summary: input.summary || null,
-        updated_at: new Date().toISOString(),
-      }),
-    });
-    runId = runRows[0]?.id || null;
-    if (!runId) throw new Error("The research run did not return an id.");
+    // PART A: Preserve started_at immutability for preclaimed scheduled runs.
+    // Scheduled runs: cron handler has already claimed the row with started_at.
+    // PATCH only mutable fields; never overwrite started_at.
+    // Non-scheduled runs: INSERT with started_at populated once.
+    let runId_temp: string | null = null;
+
+    if (isScheduledInternalRequest) {
+      // Scheduled path: MUST find preclaimed row by run_key. Fail closed if missing.
+      const existingRows = await rest<Array<{ id: string }>>(
+        `research_runs?run_key=eq.${encodeURIComponent(input.runKey)}&select=id`,
+        {}
+      );
+      if (!existingRows.length) {
+        throw new Error(
+          `Scheduled research run not found by run_key ${input.runKey}. ` +
+          "Cron handler must claim the run before publisher invocation. " +
+          "This indicates a claim/publication race or missing claim step."
+        );
+      }
+      runId_temp = existingRows[0].id;
+
+      // PATCH: update mutable fields. started_at is intentionally omitted.
+      await rest(`research_runs?id=eq.${encodeURIComponent(runId_temp)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          schedule_slot: input.scheduleSlot,
+          scheduled_for: input.scheduledFor,
+          status: "running",
+          accuracy_gate: accuracy.updateGate,
+          required_sources_complete: validation.sourceCoverageAvailable,
+          evidence_gate_passed: validation.recalibrationEvidenceUsable,
+          source_checks: input.sourceChecks,
+          videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
+          transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
+          news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItems.length,
+          candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
+          articles_scanned: Math.min(30, sourceCount(input, ["alchemy-market-insights"])),
+          articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
+          evidence_added: new Set(validation.scoredItems.flatMap((item) => item.evidence.map((link) => link.url))).size,
+          updates_published: 0,
+          warnings,
+          summary: input.summary || null,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else {
+      // Non-scheduled path: normal INSERT/UPSERT with started_at.
+      const runRows = await rest<Array<{ id: string }>>("research_runs?on_conflict=run_key", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          run_key: input.runKey,
+          schedule_slot: input.scheduleSlot,
+          scheduled_for: input.scheduledFor,
+          started_at: new Date().toISOString(),
+          status: "running",
+          accuracy_gate: accuracy.updateGate,
+          required_sources_complete: validation.sourceCoverageAvailable,
+          evidence_gate_passed: validation.recalibrationEvidenceUsable,
+          source_checks: input.sourceChecks,
+          videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
+          transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
+          news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItems.length,
+          candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
+          articles_scanned: Math.min(30, sourceCount(input, ["alchemy-market-insights"])),
+          articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
+          evidence_added: new Set(validation.scoredItems.flatMap((item) => item.evidence.map((link) => link.url))).size,
+          updates_published: 0,
+          warnings,
+          summary: input.summary || null,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      runId_temp = runRows[0]?.id || null;
+    }
+
+    if (!runId_temp) throw new Error("The research run did not return an id.");
+    runId = runId_temp;
 
     if (validation.scoredItems.length) {
       await rest("research_intake_items?on_conflict=item_key", {
@@ -241,8 +293,8 @@ export async function POST(request: Request) {
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
         dryRun: !runtimePublicationReady,
-        stageRequestTimeoutMs: boundedScheduledExecution ? 18_000 : undefined,
-        stageMaxAttempts: boundedScheduledExecution ? 1 : undefined,
+        stageRequestTimeoutMs: isScheduledInternalRequest ? 18_000 : undefined,
+        stageMaxAttempts: isScheduledInternalRequest ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
     }
