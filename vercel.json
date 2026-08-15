@@ -6,8 +6,16 @@
       "schedule": "15 1 * * *"
     },
     {
+      "path": "/api/cron/research/morning-watchdog",
+      "schedule": "20 1 * * *"
+    },
+    {
       "path": "/api/cron/research/evening",
       "schedule": "15 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-watchdog",
+      "schedule": "20 13 * * *"
     }
   ]
 }

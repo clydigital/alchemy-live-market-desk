@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
+import { malaysiaDateKey, scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
 import {
   type IntakeItemInput,
   type ResearchRunInput,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/research-update";
 import { runScheduledVideoIntake } from "@/lib/video-intake-service";
 
-const MALAYSIA_TIME_ZONE = "Asia/Kuala_Lumpur";
 const SOURCE_WINDOW_MS = 36 * 60 * 60 * 1_000;
 const MAX_FEED_ITEMS_PER_SOURCE = 12;
 
@@ -61,27 +61,6 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
     sourceQuality: 72,
   },
 ];
-
-function localDateParts(now: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: MALAYSIA_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-export function scheduledForMalaysiaSlot(slot: CanonicalResearchSlot, now = new Date()) {
-  const date = localDateParts(now);
-  const time = slot === "morning" ? "09:15:00" : "21:15:00";
-  return `${date}T${time}+08:00`;
-}
-
-export function scheduledRunKey(slot: CanonicalResearchSlot, now = new Date()) {
-  return `cron-v1:${slot}:${localDateParts(now)}`;
-}
 
 function stripMarkup(value: string) {
   return value
@@ -373,7 +352,7 @@ export async function buildScheduledResearchInput(
   const videoSlot = slot === "morning" ? "video_midnight" : "video_late_morning";
   const video = await runScheduledVideoIntake({
     slot: videoSlot,
-    runKey: `cron-video-v1:${slot}:${localDateParts(now)}`,
+    runKey: `cron-video-v1:${slot}:${malaysiaDateKey(now)}`,
     scheduledFor,
     now,
     maxTranscriptAttempts: options.maxTranscriptAttempts,
