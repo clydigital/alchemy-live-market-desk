@@ -41,6 +41,7 @@ import {
   type ResearchRequirement,
   type ResearchStateResult,
 } from "@/lib/intelligence/research-state";
+import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
@@ -509,17 +510,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
   if (!usable.length) return [];
 
   const storyAssets = new Map(stories.map((story) => [story.slug, story.assets ?? []]));
-  const ancestrySpecs = unique(usable.map((item) => {
-    const domain = canonicalDomain(item.url);
-    return JSON.stringify({
-      ancestry_key: `domain:${domain}`,
-      canonical_name: domain === "unknown" ? item.publisher : domain,
-      owner_name: item.publisher,
-      independence_notes: "Independence is conservatively grouped by canonical source domain.",
-      metadata: { domain },
-      updated_at: new Date().toISOString(),
-    });
-  })).map((item) => JSON.parse(item) as Record<string, unknown>);
+  const ancestrySpecs = buildAncestryUpsertSpecs(usable);
 
   const ancestryRows = await intelligenceRest<Array<{ id: string; ancestry_key: string }>>(
     "intelligence_source_ancestry_groups?on_conflict=ancestry_key",
