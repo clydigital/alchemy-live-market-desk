@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { POST as publishResearchUpdate } from "@/app/api/research-update/route";
+import { buildScheduledResearchInputWithFirecrawl } from "@/lib/firecrawl-scheduled-research";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
-import { buildScheduledResearchInput, scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-input";
+import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-input";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type ClaimedRun = {
@@ -145,7 +146,7 @@ export async function handleScheduledResearch(request: Request, slot: CanonicalR
   try {
     // Six external TranscriptAPI calls plus eight bounded OpenAI stages fit
     // inside the 300-second Vercel Cron function while cache hits stay free.
-    const input = await buildScheduledResearchInput(slot, { now, maxTranscriptAttempts: 6, runKey });
+    const input = await buildScheduledResearchInputWithFirecrawl(slot, { now, maxTranscriptAttempts: 6, runKey });
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
       method: "POST",
       headers: {

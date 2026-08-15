@@ -1,5 +1,6 @@
 import { getHybridDeskData } from "@/lib/data";
 import { getEconomicCalendar } from "@/lib/calendar";
+import { firecrawlConfigured } from "@/lib/firecrawl";
 import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
@@ -25,7 +26,7 @@ export async function getSystemHealth() {
   const orderedRuns = [...data.researchRuns].sort((left, right) => (
     Date.parse(right.scheduled_for) - Date.parse(left.scheduled_for)
     || Date.parse(right.updated_at) - Date.parse(left.updated_at)
- ));
+  ));
   // Video intake is a child of the desk cycle, not the cycle itself. Keep its
   // health distinct so it cannot hide a blocked or failed full-desk run.
   const latestResearchRun = orderedRuns.find((run) => run.schedule_slot === "morning" || run.schedule_slot === "evening") || null;
@@ -37,6 +38,7 @@ export async function getSystemHealth() {
   const videoRows = data.researchIntake.filter((item) => item.item_type === "video");
   const latestVideo = videoRows[0] || null;
   const sourceChecks = latestResearchRun?.source_checks || [];
+  const firecrawlRecoveries = sourceChecks.filter((check) => /firecrawl fallback recovered/i.test(check.note || ""));
   const youtubeChecks = (latestVideoRun?.source_checks || []).filter((check) => /youtube|video|fx-evolution|stockedup|trader|clearvalue|eurodollar|bravos/i.test(check.source));
   const youtubeDiscoveryFailures = youtubeChecks.filter((check) => !["ok", "checked", "no_recent_videos"].includes(check.status));
   const scheduledProviderFailures = sourceChecks
@@ -62,6 +64,7 @@ export async function getSystemHealth() {
   const youtubeConfigured = configured(process.env.YOUTUBE_DATA_API_KEY);
   const transcriptConfigured = configured(process.env.TRANSCRIPT_API_KEY);
   const openBBConfigured = configured(process.env.OPENBB_API_URL);
+  const firecrawlEnabled = firecrawlConfigured();
   const rbaCoverage = calendar.filter((release) => release.country === "Australia");
   const rbnzCoverage = calendar.filter((release) => release.country === "New Zealand");
   const structuredMetrics = data.macroReleaseMetrics;
@@ -106,6 +109,15 @@ export async function getSystemHealth() {
       note: openBBConfigured
         ? "A self-hosted OpenBB endpoint is configured; no secret or endpoint value is exposed here."
         : "No self-hosted OpenBB API/Workspace bridge is configured. Direct official providers remain the active data path.",
+    },
+    firecrawl: {
+      state: firecrawlEnabled ? (firecrawlRecoveries.length ? "healthy" : "configured_unverified") : "not_configured",
+      configured: firecrawlEnabled,
+      mode: "fallback_only",
+      recoveriesInLatestDeskRun: firecrawlRecoveries.length,
+      note: firecrawlEnabled
+        ? "Firecrawl is available only after a supported public direct feed is blocked; original publisher/article provenance remains canonical."
+        : "Firecrawl fallback is optional and inactive. Healthy direct providers continue unchanged.",
     },
     youtube: {
       state: youtubeDiscoveryHealthState(youtubeConfigured, youtubeChecks),
