@@ -1,0 +1,40 @@
+name: Run Live Research Now
+
+on:
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: Production research slot to run
+        required: true
+        type: choice
+        options:
+          - morning
+          - evening
+
+permissions:
+  contents: read
+
+jobs:
+  run-production-cron:
+    name: Run ${{ inputs.slot }} production research
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
+      VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Confirm Vercel token is configured
+        shell: bash
+        run: |
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            echo "Missing required repository secret: VERCEL_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Invoke existing production cron
+        shell: bash
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
