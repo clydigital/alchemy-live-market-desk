@@ -10,6 +10,7 @@ import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
+import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import {
@@ -70,6 +71,38 @@ function sourceCount(input: ResearchRunInput, keys: string[]) {
     .reduce((sum, check) => sum + check.itemCount, 0);
 }
 
+export function buildResearchRunLedgerStartFields(input: {
+  researchRun: ResearchRunInput;
+  validation: ReturnType<typeof validateResearchRun>;
+  accuracyGate: ReturnType<typeof runAccuracyCheck>["updateGate"];
+  calendarItemCount: number;
+  warnings: string[];
+  now?: string;
+}): ResearchRunLedgerStartFields {
+  const { researchRun, validation, accuracyGate, calendarItemCount, warnings } = input;
+  const now = input.now ?? new Date().toISOString();
+  return {
+    schedule_slot: researchRun.scheduleSlot,
+    scheduled_for: researchRun.scheduledFor,
+    status: "running",
+    accuracy_gate: accuracyGate,
+    required_sources_complete: validation.sourceCoverageAvailable,
+    evidence_gate_passed: validation.recalibrationEvidenceUsable,
+    source_checks: researchRun.sourceChecks,
+    videos_found: sourceCount(researchRun, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
+    transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
+    news_scanned: sourceCount(researchRun, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItemCount,
+    candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
+    articles_scanned: Math.min(30, sourceCount(researchRun, ["alchemy-market-insights"])),
+    articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
+    evidence_added: new Set(validation.scoredItems.flatMap((item) => item.evidence.map((link) => link.url))).size,
+    updates_published: 0,
+    warnings,
+    summary: researchRun.summary || null,
+    updated_at: now,
+  };
+}
+
 export function intakeStatus(
   item: ReturnType<typeof validateResearchRun>["scoredItems"][number],
 ) {
@@ -98,9 +131,10 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!authenticated(request)) return response({ error: "Unauthorized research publisher." }, 401);
   if (!supabaseUrl || !serviceKey) return response({ error: "Research publisher database credentials are not configured." }, 503);
-  // This header is added only by the Live-owned Cron handler. It leaves enough
-  // wall-clock room to write a terminal ledger state before Vercel times out.
-  const boundedScheduledExecution = request.headers.get("x-alchemy-scheduled-research") === "1";
+
+  // PART A: Distinguish scheduled vs non-scheduled paths.
+  // ONLY trusted after passing authorization (line 72 above).
+  const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
 
   let input: ResearchRunInput;
   try {
@@ -168,35 +202,22 @@ export async function POST(request: Request) {
   let runId: string | null = null;
   try {
     const runStatus = runtimePublicationReady ? "completed" : "blocked";
-
-    const runRows = await rest<Array<{ id: string }>>("research_runs?on_conflict=run_key", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify({
-        run_key: input.runKey,
-        schedule_slot: input.scheduleSlot,
-        scheduled_for: input.scheduledFor,
-        started_at: new Date().toISOString(),
-        status: "running",
-        accuracy_gate: accuracy.updateGate,
-        required_sources_complete: validation.sourceCoverageAvailable,
-        evidence_gate_passed: validation.recalibrationEvidenceUsable,
-        source_checks: input.sourceChecks,
-        videos_found: sourceCount(input, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
-        transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
-        news_scanned: sourceCount(input, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItems.length,
-        candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
-        articles_scanned: Math.min(30, sourceCount(input, ["alchemy-market-insights"])),
-        articles_flagged: validation.scoredItems.filter((item) => item.itemType === "alchemy_article" && item.recommendedAction === "review_article").length,
-        evidence_added: new Set(validation.scoredItems.flatMap((item) => item.evidence.map((link) => link.url))).size,
-        updates_published: 0,
-        warnings,
-        summary: input.summary || null,
-        updated_at: new Date().toISOString(),
-      }),
+    const now = new Date().toISOString();
+    const ledgerFields = buildResearchRunLedgerStartFields({
+      researchRun: input,
+      validation,
+      accuracyGate: accuracy.updateGate,
+      calendarItemCount: calendarItems.length,
+      warnings,
+      now,
     });
-    runId = runRows[0]?.id || null;
-    if (!runId) throw new Error("The research run did not return an id.");
+    runId = await writeResearchRunLedgerStart({
+      rest,
+      runKey: input.runKey,
+      isScheduledInternalRequest,
+      fields: ledgerFields,
+      now,
+    });
 
     if (validation.scoredItems.length) {
       await rest("research_intake_items?on_conflict=item_key", {
@@ -241,8 +262,8 @@ export async function POST(request: Request) {
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
         dryRun: !runtimePublicationReady,
-        stageRequestTimeoutMs: boundedScheduledExecution ? 18_000 : undefined,
-        stageMaxAttempts: boundedScheduledExecution ? 1 : undefined,
+        stageRequestTimeoutMs: isScheduledInternalRequest ? 18_000 : undefined,
+        stageMaxAttempts: isScheduledInternalRequest ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
     }
