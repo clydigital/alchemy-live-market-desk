@@ -1,5 +1,7 @@
 import "server-only";
 
+import { providerCompatibleJsonSchema } from "@/lib/intelligence/structured-output-schema";
+
 export type IntelligenceReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export type JsonSchema = Record<string, unknown>;
@@ -154,7 +156,7 @@ export async function runStructuredStage<T>({
         type: "json_schema",
         name: `alchemy_${stageKey.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48)}`,
         strict: true,
-        schema,
+        schema: providerCompatibleJsonSchema(schema),
       },
     },
     max_output_tokens: maxOutputTokens,
