@@ -55,6 +55,13 @@ const DEFAULT_COMPLEX_MODEL = "gpt-5-mini";
 const DEFAULT_FAST_MODEL = "gpt-5-mini";
 const VALID_EFFORT = new Set<IntelligenceReasoningEffort>(["none", "low", "medium", "high", "xhigh", "max"]);
 
+/**
+ * A scheduled stage may use more than the historical 60-second request window,
+ * but no individual provider call can consume the entire 300-second function.
+ * Callers still own the tighter route-level allocation.
+ */
+export const MAX_STAGE_REQUEST_TIMEOUT_MS = 240_000;
+
 export function openAIIntelligenceEnabled() {
   return Boolean(process.env.OPENAI_API_KEY?.trim()) && process.env.OPENAI_INTELLIGENCE_ENABLED !== "false";
 }
@@ -134,7 +141,7 @@ export async function runStructuredStage<T>({
 
   const model = intelligenceModel(modelKind);
   const effort = intelligenceReasoningEffort(modelKind);
-  const timeoutMs = boundedInteger(requestTimeoutMs, 60_000, 1_000, 60_000);
+  const timeoutMs = boundedInteger(requestTimeoutMs, 60_000, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const body = {
     model,
