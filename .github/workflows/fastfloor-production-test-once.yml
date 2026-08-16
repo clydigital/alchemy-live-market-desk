@@ -1,0 +1,68 @@
+name: Fastfloor Production Test Once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  fastfloor-production-test:
+    if: contains(github.event.head_commit.message, '[fastfloor-test]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
+      VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Confirm Vercel token is configured
+        shell: bash
+        run: |
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            echo "Missing required repository secret: VERCEL_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Wait for this commit to be READY in production
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            payload="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&target=production&limit=20")"
+            state="$(printf '%s' "$payload" | jq -r --arg sha "$GITHUB_SHA" '[.deployments[] | select(.meta.githubCommitSha == $sha)][0].state // empty')"
+            if [[ "$state" == "READY" ]]; then
+              exit 0
+            fi
+            if [[ "$state" == "ERROR" || "$state" == "CANCELED" ]]; then
+              echo "Production deployment for $GITHUB_SHA ended $state." >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Production deployment for $GITHUB_SHA did not become READY within the workflow window." >&2
+          exit 1
+
+      - name: Invoke audited acquisition retry
+        shell: bash
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/morning-watchdog"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
+
+      - name: Allow acquisition handoff to persist
+        shell: bash
+        run: sleep 120
+
+      - name: Invoke matching intelligence continuation
+        shell: bash
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/morning-intelligence-watchdog"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
