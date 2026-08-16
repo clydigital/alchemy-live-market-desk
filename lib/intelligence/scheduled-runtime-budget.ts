@@ -10,13 +10,20 @@ export const SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS = 20_000;
 export const SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS = 20_000;
 export const SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS = 2_500;
 
+/**
+ * These are standalone-intelligence ceilings. Scheduled acquisition now hands
+ * off durably before this budget begins, so the complex reasoning stages can
+ * use materially longer requests without sharing the provider-acquisition time.
+ * The complete nominal model chain remains inside the 285-second route deadline
+ * together with persistence and finalisation reserves.
+ */
 const SCHEDULED_STAGE_TIMEOUT_MS = {
   market_belief: 14_000,
   divergence: 14_000,
-  hypothesis: 34_000,
+  hypothesis: 60_000,
   challenger: 30_000,
   scenario: 30_000,
-  story_synthesis: 34_000,
+  story_synthesis: 55_000,
   semantic_deduplication: 12_000,
   lifecycle: 12_000,
 } as const;
