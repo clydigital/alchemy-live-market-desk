@@ -12,7 +12,11 @@ import {
 } from "@/lib/intelligence/edition";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
-import { scheduledStageRequestTimeoutMs, scheduledStageTimeoutFailure } from "@/lib/intelligence/scheduled-runtime-budget";
+import {
+  ScheduledIntelligenceDeadlineError,
+  scheduledStageRequestTimeoutMs,
+  scheduledStageTimeoutFailure,
+} from "@/lib/intelligence/scheduled-runtime-budget";
 import {
   CHALLENGER_SCHEMA,
   DEDUPLICATION_SCHEMA,
@@ -440,7 +444,9 @@ async function modelStage<T>({
     });
     return { data: result.data, stageRunId };
   } catch (error) {
-    const code = error instanceof OpenAIStageError ? error.code : "stage_error";
+    const code = error instanceof ScheduledIntelligenceDeadlineError
+      ? error.code
+      : error instanceof OpenAIStageError ? error.code : "stage_error";
     const originalMessage = error instanceof Error ? error.message : "Unknown intelligence stage failure.";
     const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
       ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)

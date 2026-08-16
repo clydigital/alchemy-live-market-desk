@@ -1,10 +1,13 @@
+/** Vercel's configured ceiling for the scheduled Node.js route. */
+export const VERCEL_FUNCTION_CEILING_MS = 300_000;
+
 /**
- * Vercel gives the cron route 300 seconds. Keep the scheduled intelligence
- * path inside 270 seconds and retain 20 seconds for its final persistence and
- * response, leaving a further 30-second platform reserve.
+ * Stop intelligence work 15 seconds before the platform limit. The remaining
+ * interval is deliberately not a model budget.
  */
-export const SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS = 270_000;
+export const SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS = 285_000;
 export const SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS = 20_000;
+export const SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS = 20_000;
 
 const SCHEDULED_STAGE_TIMEOUT_MS = {
   market_belief: 14_000,
@@ -17,50 +20,118 @@ const SCHEDULED_STAGE_TIMEOUT_MS = {
   lifecycle: 12_000,
 } as const;
 
-export type ScheduledIntelligenceStage =
-  keyof typeof SCHEDULED_STAGE_TIMEOUT_MS;
+const MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS = {
+  market_belief: 6_000,
+  divergence: 6_000,
+  hypothesis: 18_000,
+  challenger: 15_000,
+  scenario: 15_000,
+  story_synthesis: 18_000,
+  semantic_deduplication: 5_000,
+  lifecycle: 5_000,
+} as const;
+
+export type ScheduledIntelligenceStage = keyof typeof SCHEDULED_STAGE_TIMEOUT_MS;
+
+export const SCHEDULED_INTELLIGENCE_STAGES = Object.keys(
+  SCHEDULED_STAGE_TIMEOUT_MS,
+) as ScheduledIntelligenceStage[];
 
 export const SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS = Object.values(
   SCHEDULED_STAGE_TIMEOUT_MS,
 ).reduce((total, timeoutMs) => total + timeoutMs, 0);
 
-function isScheduledIntelligenceStage(
-  stageKey: string,
-): stageKey is ScheduledIntelligenceStage {
+export const SCHEDULED_MINIMUM_STAGE_BUDGET_MS = Object.values(
+  MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS,
+).reduce((total, timeoutMs) => total + timeoutMs, 0);
+
+export class ScheduledIntelligenceDeadlineError extends Error {
+  readonly code = "scheduled_deadline_exhausted";
+  readonly stageKey: string;
+  readonly availableModelMs: number;
+
+  constructor(stageKey: string, availableModelMs: number) {
+    super(
+      `Scheduled intelligence deadline exhausted before stage "${stageKey}"; ${Math.max(0, availableModelMs)}ms remained after persistence and finalisation reserves.`,
+    );
+    this.name = "ScheduledIntelligenceDeadlineError";
+    this.stageKey = stageKey;
+    this.availableModelMs = availableModelMs;
+  }
+}
+
+function isScheduledIntelligenceStage(stageKey: string): stageKey is ScheduledIntelligenceStage {
   return stageKey in SCHEDULED_STAGE_TIMEOUT_MS;
 }
 
-export function scheduledStageTimeoutFailure(
-  stageKey: string,
-  allottedMs: number,
-) {
+function sum(values: Record<ScheduledIntelligenceStage, number>) {
+  return SCHEDULED_INTELLIGENCE_STAGES.reduce((total, stage) => total + values[stage], 0);
+}
+
+function distributeBudget(availableModelMs: number): Record<ScheduledIntelligenceStage, number> {
+  if (availableModelMs >= SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS) {
+    return { ...SCHEDULED_STAGE_TIMEOUT_MS };
+  }
+
+  const budget: Record<ScheduledIntelligenceStage, number> = { ...MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS };
+  let undistributedMs = availableModelMs - SCHEDULED_MINIMUM_STAGE_BUDGET_MS;
+  const expandable = SCHEDULED_INTELLIGENCE_STAGES.map((stage) => ({
+    stage,
+    capacity: SCHEDULED_STAGE_TIMEOUT_MS[stage] - MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS[stage],
+  }));
+  const capacityTotal = expandable.reduce((total, item) => total + item.capacity, 0);
+  const remainders = expandable.map(({ stage, capacity }) => {
+    const proportional = capacity * undistributedMs / capacityTotal;
+    const allocation = Math.floor(proportional);
+    budget[stage] += allocation;
+    return { stage, remainder: proportional - allocation };
+  });
+  undistributedMs -= sum(budget) - SCHEDULED_MINIMUM_STAGE_BUDGET_MS;
+  for (const { stage } of remainders.sort((left, right) => right.remainder - left.remainder)) {
+    if (undistributedMs <= 0) break;
+    budget[stage] += 1;
+    undistributedMs -= 1;
+  }
+  return budget;
+}
+
+export function scheduledStageTimeoutFailure(stageKey: string, allottedMs: number) {
   return `Intelligence stage "${stageKey}" timed out after its ${allottedMs}ms allotted budget.`;
 }
 
 /**
- * Selects a per-stage request budget that cannot overrun the scheduled route's
- * execution deadline. Call this immediately before each model request so time
- * already spent on acquisition, persistence, or earlier stages is accounted for.
+ * Builds one bounded allocation for the entire required stage chain. A late
+ * handoff shrinks every stage proportionally down to an explicit safe floor,
+ * instead of allowing early stages to consume the last request time.
+ */
+export function scheduledStageBudgetPlan(input: {
+  executionStartedAtMs: number;
+  nowMs?: number;
+  firstStageKey?: string;
+}) {
+  const nowMs = input.nowMs ?? Date.now();
+  const elapsedMs = Math.max(0, nowMs - input.executionStartedAtMs);
+  const availableModelMs = SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS
+    - SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS
+    - SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS
+    - elapsedMs;
+  if (availableModelMs < SCHEDULED_MINIMUM_STAGE_BUDGET_MS) {
+    throw new ScheduledIntelligenceDeadlineError(input.firstStageKey || "market_belief", availableModelMs);
+  }
+  return distributeBudget(availableModelMs);
+}
+
+/**
+ * Selects a stage's request timeout from a chain-wide allocation. Calling this
+ * immediately before each request accounts for acquisition and persistence
+ * time already spent while retaining a floor for every required later stage.
  */
 export function scheduledStageRequestTimeoutMs(
   stageKey: string,
   input: { executionStartedAtMs: number; nowMs?: number },
 ) {
   if (!isScheduledIntelligenceStage(stageKey)) {
-    throw new Error(
-      `No scheduled intelligence budget is configured for stage "${stageKey}".`,
-    );
+    throw new Error(`No scheduled intelligence budget is configured for stage "${stageKey}".`);
   }
-  const nowMs = input.nowMs ?? Date.now();
-  const elapsedMs = Math.max(0, nowMs - input.executionStartedAtMs);
-  const remainingMs =
-    SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS -
-    SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS -
-    elapsedMs;
-  if (remainingMs < 1_000) {
-    throw new Error(
-      `Scheduled intelligence deadline exhausted before stage "${stageKey}"; ${Math.max(0, remainingMs)}ms remained after finalisation reserve.`,
-    );
-  }
-  return Math.min(SCHEDULED_STAGE_TIMEOUT_MS[stageKey], remainingMs);
+  return scheduledStageBudgetPlan({ ...input, firstStageKey: stageKey })[stageKey];
 }

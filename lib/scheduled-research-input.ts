@@ -9,7 +9,13 @@ import {
   type ResearchSourceKey,
   type SourceCheckInput,
 } from "@/lib/research-update";
-import { runScheduledVideoIntake } from "@/lib/video-intake-service";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  blockedVideoSourceChecks,
+  videoSourceChecksFromDedicatedRun,
+  type DedicatedVideoRun,
+  type DedicatedVideoSlotRun,
+} from "@/lib/scheduled-video-handoff";
 
 const SOURCE_WINDOW_MS = 36 * 60 * 60 * 1_000;
 const MAX_FEED_ITEMS_PER_SOURCE = 12;
@@ -226,56 +232,31 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
   };
 }
 
-function videoSourceCheck(input: {
-  source: Extract<ResearchSourceKey, "stockedup" | "wall-street-truth-bombs" | "traders-reality">;
-  channelKey: string;
-  videoResult: Awaited<ReturnType<typeof runScheduledVideoIntake>>;
-}): SourceCheckInput {
-  const channel = input.videoResult.channels.find((result) => result.channelKey === input.channelKey);
-  if (!channel) {
-    return { source: input.source, status: "blocked", itemCount: 0, note: "The required YouTube channel was not returned by discovery." };
+async function loadDedicatedVideoSourceChecks(slot: CanonicalResearchSlot, now: Date) {
+  const videoSlot = slot === "morning" ? "video_midnight" : "video_late_morning";
+  const date = malaysiaDateKey(now);
+  const scheduledFor = `${date}T${videoSlot === "video_midnight" ? "00:40:00" : "11:30:00"}+08:00`;
+  try {
+    const client = createSupabaseAdminClient();
+    const { data: videoRun, error: videoError } = await client
+      .from("research_runs")
+      .select("id,status,source_checks,warnings")
+      .eq("schedule_slot", videoSlot)
+      .eq("scheduled_for", scheduledFor)
+      .maybeSingle<DedicatedVideoRun>();
+    if (videoError) throw new Error(videoError.message);
+    if (!videoRun) return videoSourceChecksFromDedicatedRun(null, null);
+    const { data: slotRun, error: slotError } = await client
+      .from("research_slot_runs")
+      .select("transcript_status")
+      .eq("research_run_id", videoRun.id)
+      .maybeSingle<DedicatedVideoSlotRun>();
+    if (slotError) throw new Error(slotError.message);
+    return videoSourceChecksFromDedicatedRun(videoRun, slotRun);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown persistence failure";
+    return blockedVideoSourceChecks(`Could not read the dedicated video-intake checkpoint: ${detail.slice(0, 400)}.`);
   }
-  if (!(["checked", "no_recent_videos"] as string[]).includes(channel.status)) {
-    return { source: input.source, status: "blocked", itemCount: 0, note: channel.detail || `YouTube discovery status: ${channel.status}.` };
-  }
-  if (!channel.videos.length) {
-    return { source: input.source, status: "no_new_items", itemCount: 0, note: "YouTube uploads were checked; no videos were published in the 72-hour discovery window." };
-  }
-  const ready = new Set(
-    input.videoResult.transcripts
-      .filter((result) => result.status === "ready")
-      .map((result) => result.videoId),
-  );
-  const pending = channel.videos.filter((video) => !ready.has(video.videoId));
-  if (pending.length) {
-    const permanentlyUnavailable = new Set([
-      ...input.videoResult.knownUnavailableVideos.map((video) => video.videoId),
-      ...input.videoResult.transcripts
-        .filter((result) => result.status === "failed" && !result.retryable)
-        .map((result) => result.videoId),
-    ]);
-    const unavailable = pending.filter((video) => permanentlyUnavailable.has(video.videoId));
-    const retryablePending = pending.length - unavailable.length;
-    const unavailableDetail = unavailable.length
-      ? `${unavailable.length} video(s) have a known non-retryable TranscriptAPI unavailability and remain blocked as research debt.`
-      : "";
-    const retryableDetail = retryablePending
-      ? `${retryablePending} video(s) do not yet have a ready TranscriptAPI transcript.`
-      : "";
-    return {
-      source: input.source,
-      status: "blocked",
-      itemCount: 0,
-      retryable: retryablePending > 0,
-      note: [unavailableDetail, retryableDetail].filter(Boolean).join(" "),
-    };
-  }
-  return {
-    source: input.source,
-    status: "checked",
-    itemCount: channel.videos.length,
-    note: `${channel.videos.length} newly discovered video(s) have ready TranscriptAPI transcripts in the canonical intake queue.`,
-  };
 }
 
 async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcquisition> {
@@ -343,21 +324,14 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
  */
 export async function buildScheduledResearchInput(
   slot: CanonicalResearchSlot,
-  options: { now?: Date; maxTranscriptAttempts?: number; runKey?: string } = {},
+  options: { now?: Date; runKey?: string } = {},
 ): Promise<ResearchRunInput> {
   const now = options.now ?? new Date();
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
-  const videoSlot = slot === "morning" ? "video_midnight" : "video_late_morning";
-  const video = await runScheduledVideoIntake({
-    slot: videoSlot,
-    runKey: `cron-video-v1:${slot}:${malaysiaDateKey(now)}`,
-    scheduledFor,
-    now,
-    maxTranscriptAttempts: options.maxTranscriptAttempts,
-  });
-  const [zerohedge, axios, investing, fxstreet, alchemy] = await Promise.all([
+  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy] = await Promise.all([
+    loadDedicatedVideoSourceChecks(slot, now),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
@@ -365,9 +339,7 @@ export async function buildScheduledResearchInput(
     acquireAlchemy(windowStart, windowEnd),
   ]);
   const sourceChecks: SourceCheckInput[] = [
-    videoSourceCheck({ source: "stockedup", channelKey: "stockedup", videoResult: video }),
-    videoSourceCheck({ source: "wall-street-truth-bombs", channelKey: "wall-street-truth-bombs", videoResult: video }),
-    videoSourceCheck({ source: "traders-reality", channelKey: "traders-reality", videoResult: video }),
+    ...videoChecks,
     zerohedge.check,
     axios.check,
     investing.check,
