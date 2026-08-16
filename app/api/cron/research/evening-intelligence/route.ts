@@ -6,8 +6,6 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-  return handleScheduledResearchIntelligence(
-    promoteManualScheduledResearchAuthorization(request),
-    "evening",
-  );
+  request = promoteManualScheduledResearchAuthorization(request);
+  return handleScheduledResearchIntelligence(request, "evening");
 }
