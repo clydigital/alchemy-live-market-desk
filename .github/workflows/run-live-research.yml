@@ -10,6 +10,11 @@ on:
         options:
           - morning
           - evening
+      retry_key:
+        description: Optional audited retry suffix (letters, numbers, hyphens only)
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -18,10 +23,14 @@ jobs:
   run-production-cron:
     name: Run ${{ inputs.slot }} production research
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
       VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PROD_URL: https://alchemy-live-market-desk.vercel.app
+      SLOT: ${{ inputs.slot }}
+      RETRY_KEY: ${{ inputs.retry_key }}
     steps:
       - name: Confirm Vercel token is configured
         shell: bash
@@ -31,7 +40,17 @@ jobs:
             exit 1
           fi
 
+      - name: Validate audited retry key
+        if: ${{ inputs.retry_key != '' }}
+        shell: bash
+        run: |
+          if [[ ! "$RETRY_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,40}$ ]]; then
+            echo "retry_key must contain only letters, numbers, and hyphens and be at most 41 characters." >&2
+            exit 1
+          fi
+
       - name: Invoke production acquisition cron
+        if: ${{ inputs.retry_key == '' }}
         shell: bash
         run: >-
           npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}"
@@ -40,9 +59,50 @@ jobs:
           --scope "rogue-magazine"
 
       - name: Invoke production intelligence continuation
+        if: ${{ inputs.retry_key == '' }}
         shell: bash
         run: >-
           npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}-intelligence"
           --token "$VERCEL_TOKEN"
           --project "$VERCEL_PROJECT_ID"
           --scope "rogue-magazine"
+
+      - name: Invoke audited acquisition retry
+        if: ${{ inputs.retry_key != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$PROD_URL/api/cron/research/$SLOT?retry=$RETRY_KEY"
+          npx --yes vercel@latest env run -e production \
+            --token "$VERCEL_TOKEN" \
+            --scope "rogue-magazine" \
+            -- bash -c '
+              set -euo pipefail
+              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
+                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
+                exit 1
+              fi
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
+                "$1"
+            ' _ "$URL"
+
+      - name: Invoke audited intelligence continuation
+        if: ${{ inputs.retry_key != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$PROD_URL/api/cron/research/$SLOT-intelligence?retry=$RETRY_KEY"
+          npx --yes vercel@latest env run -e production \
+            --token "$VERCEL_TOKEN" \
+            --scope "rogue-magazine" \
+            -- bash -c '
+              set -euo pipefail
+              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
+                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
+                exit 1
+              fi
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
+                "$1"
+            ' _ "$URL"
