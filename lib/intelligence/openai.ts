@@ -83,6 +83,25 @@ export function intelligenceReasoningEffort(kind: "complex" | "fast"): Intellige
   return kind === "complex" ? "medium" : "low";
 }
 
+/**
+ * The Responses structured-output subset does not accept every JSON Schema
+ * keyword. `uniqueItems`, for example, is rejected before inference starts.
+ * Remove only that unsupported presentation constraint at the provider edge;
+ * canonical requirement IDs are still deduplicated and scope-validated after
+ * model output by the deterministic research-state validators.
+ */
+export function responsesCompatibleJsonSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(responsesCompatibleJsonSchema);
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "uniqueItems") continue;
+    output[key] = responsesCompatibleJsonSchema(child);
+  }
+  return output;
+}
+
 function outputText(payload: ResponsesApiPayload) {
   if (typeof payload.output_text === "string" && payload.output_text.trim()) return payload.output_text.trim();
   const chunks: string[] = [];
@@ -154,7 +173,7 @@ export async function runStructuredStage<T>({
         type: "json_schema",
         name: `alchemy_${stageKey.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48)}`,
         strict: true,
-        schema,
+        schema: responsesCompatibleJsonSchema(schema),
       },
     },
     max_output_tokens: maxOutputTokens,
