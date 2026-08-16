@@ -10,13 +10,22 @@ import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedSto
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  buildCanonicalEditionResponseContract,
+  type EditionSnapshot,
+} from "@/lib/edition-replay";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type PublicationQueryOptions = {
   fresh?: boolean;
+  editionId?: string | null;
 };
+
+const EDITION_ARCHIVE_PAGE_SIZE = 250;
+const LEGACY_STORY_RUN_BATCH_SIZE = 100;
+const LEGACY_STORY_PAGE_SIZE = 250;
 
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
@@ -30,6 +39,20 @@ async function optionalQuery<T>(table: string, params = "", options: Publication
     return response.json();
   } catch {
     return [];
+  }
+}
+
+/** Daily briefs are the canonical edition archive, never the mixed 480-row operational window. */
+async function getDailyBriefArchive(options: PublicationQueryOptions = {}) {
+  const archive: PublicationSnapshot[] = [];
+  for (let offset = 0; ; offset += EDITION_ARCHIVE_PAGE_SIZE) {
+    const page = await optionalQuery<PublicationSnapshot>(
+      "hybrid_publication_snapshots",
+      `select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=${EDITION_ARCHIVE_PAGE_SIZE}&offset=${offset}`,
+      options,
+    );
+    archive.push(...page);
+    if (page.length < EDITION_ARCHIVE_PAGE_SIZE) return archive;
   }
 }
 
@@ -48,7 +71,7 @@ async function optionalIntelligenceStates(): Promise<IntelligenceStoryState[]> {
   }
 }
 
-type PublicationSnapshot = {
+export type PublicationSnapshot = EditionSnapshot & {
   id: string;
   research_run_id: string | null;
   slot_run_id: string | null;
@@ -63,6 +86,47 @@ type PublicationSnapshot = {
   published_at: string;
   expires_at: string | null;
 };
+
+function legacyStoryVerificationRunIds(dailyBriefArchive: PublicationSnapshot[]) {
+  return [...new Set(dailyBriefArchive.flatMap((snapshot) => {
+    const canonicalStoryIds = snapshot.payload.canonicalStoryIds;
+    const hasManifest = Array.isArray(snapshot.payload.canonicalStoryManifest)
+      || Array.isArray(snapshot.payload.storyManifest);
+    return !hasManifest
+      && Array.isArray(canonicalStoryIds)
+      && canonicalStoryIds.length > 0
+      && canonicalStoryIds.every((storyId) => typeof storyId === "string")
+      && snapshot.research_run_id
+      ? [snapshot.research_run_id]
+      : [];
+  }))].sort();
+}
+
+/**
+ * Legacy briefs prove replayability only through same-run immutable Story rows.
+ * Query all candidate runs in deterministic batches so picker construction does
+ * not depend on selecting an edition first.
+ */
+async function getLegacyStoryVerificationSnapshots(
+  researchRunIds: string[],
+  options: PublicationQueryOptions = {},
+) {
+  const snapshots: PublicationSnapshot[] = [];
+  for (let start = 0; start < researchRunIds.length; start += LEGACY_STORY_RUN_BATCH_SIZE) {
+    const runIds = researchRunIds.slice(start, start + LEGACY_STORY_RUN_BATCH_SIZE);
+    const runFilter = runIds.map(encodeURIComponent).join(",");
+    for (let offset = 0; ; offset += LEGACY_STORY_PAGE_SIZE) {
+      const page = await optionalQuery<PublicationSnapshot>(
+        "hybrid_publication_snapshots",
+        `select=*&snapshot_type=eq.story&research_run_id=in.(${runFilter})&order=research_run_id.asc,published_at.asc,id.asc&limit=${LEGACY_STORY_PAGE_SIZE}&offset=${offset}`,
+        options,
+      );
+      snapshots.push(...page);
+      if (page.length < LEGACY_STORY_PAGE_SIZE) break;
+    }
+  }
+  return snapshots;
+}
 
 type ThesisVersion = {
   id: string;
@@ -167,8 +231,9 @@ type AssetImpact = {
 
 export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
+  const [snapshots, dailyBriefArchive, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
     optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=480", options),
+    getDailyBriefArchive(options),
     optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
     optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240", options),
@@ -180,7 +245,21 @@ export async function getHybridPublicationRecords(options: PublicationQueryOptio
     ),
     optionalIntelligenceStates(),
   ]);
-  return { snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
+  const requested = options.editionId
+    ? dailyBriefArchive.find((snapshot) => snapshot.id === options.editionId) || null
+    : null;
+  const legacyRunIds = legacyStoryVerificationRunIds(dailyBriefArchive);
+  // The requested row is normally already a candidate. Keep this explicit so
+  // direct legacy requests receive the same proof path after archive changes.
+  const requestedLegacyRunId = requested && legacyStoryVerificationRunIds([requested])[0];
+  const verificationRunIds = [...new Set([
+    ...legacyRunIds,
+    ...(requestedLegacyRunId ? [requestedLegacyRunId] : []),
+  ])].sort();
+  const legacyStorySnapshots = await getLegacyStoryVerificationSnapshots(verificationRunIds, options);
+  const editionSnapshots = [...dailyBriefArchive, ...legacyStorySnapshots]
+    .filter((snapshot, index, list) => list.findIndex((candidate) => candidate.id === snapshot.id) === index);
+  return { snapshots, dailyBriefArchive, editionSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }
 
 function newestThesisByStory(versions: ThesisVersion[]) {
@@ -421,6 +500,7 @@ export function buildHybridPublicationContract({
   records,
   storyImages,
   generatedAt,
+  editionId = null,
 }: {
   stories: Story[];
   updates: Update[];
@@ -429,6 +509,7 @@ export function buildHybridPublicationContract({
   records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
   storyImages?: Map<string, StoryHeaderImage>;
   generatedAt: string;
+  editionId?: string | null;
 }) {
   const { allStoryStates, selection, storyStates, featuredStoryStates } = selectHybridPublicationStoryStates({ stories, records, storyImages });
   const storyById = new Map(stories.map((story) => [story.id, story]));
@@ -456,40 +537,67 @@ export function buildHybridPublicationContract({
     : updates.filter((update) => Date.parse(update.observed_at || update.created_at) >= cutoff).slice(0, 30).map((update) => legacyDelta(update, storyById.get(update.story_id)));
 
   const latestRun = researchRuns.find((run) => run.status === "completed") || researchRuns[0] || null;
-  const dailyBrief = records.snapshots.find((snapshot) => snapshot.snapshot_type === "daily_brief") || null;
+  const editionReplay = buildCanonicalEditionResponseContract({
+    snapshots: records.editionSnapshots,
+    researchRuns,
+    editionId,
+    currentStoryStates: storyStates,
+    currentFeaturedStoryStates: featuredStoryStates,
+  });
+  const { selectedSnapshot, replay: historicalReplay, isHistoricalReplay, selection: editionSelection } = editionReplay;
+  const editionIndex = editionReplay.publication.editionIndex;
+  const selectedPublicationSnapshot = selectedSnapshot as PublicationSnapshot | null;
+  const currentEdition = editionReplay.publication.currentEdition;
+  const requestedEdition = editionSelection.status === "historical" ? editionSelection.selected : null;
+  const dailyBrief = currentEdition
+    ? records.editionSnapshots.find((snapshot) => snapshot.id === currentEdition.snapshotId) || null
+    : null;
   const lead = featuredStoryStates[0] || null;
+  const selectedEdition = editionReplay.publication.selectedEdition;
 
   const edition = {
-    id: dailyBrief?.id || `compat-${latestRun?.id || generatedAt}`,
-    snapshotId: dailyBrief?.id || null,
-    researchRunId: dailyBrief?.research_run_id || latestRun?.id || null,
-    generatedAt: dailyBrief?.published_at || generatedAt,
-    approvedAt: dailyBrief?.published_at || latestRun?.completed_at || null,
-    immutable: Boolean(dailyBrief),
-    mode: dailyBrief ? "approved_snapshot" : "compatibility",
-    summary: dailyBrief?.public_summary || null,
+    id: requestedEdition?.snapshotId || currentEdition?.snapshotId || `compat-${latestRun?.id || generatedAt}`,
+    snapshotId: requestedEdition?.snapshotId || currentEdition?.snapshotId || null,
+    researchRunId: requestedEdition?.researchRunId || currentEdition?.researchRunId || latestRun?.id || null,
+    generatedAt: selectedSnapshot?.published_at || dailyBrief?.published_at || generatedAt,
+    approvedAt: selectedSnapshot?.published_at || dailyBrief?.published_at || latestRun?.completed_at || null,
+    immutable: Boolean(requestedEdition || currentEdition),
+    mode: isHistoricalReplay ? "immutable_replay" : currentEdition ? "current_canonical" : "compatibility",
+    summary: selectedPublicationSnapshot?.public_summary || dailyBrief?.public_summary || null,
     payload: dailyBrief?.payload || {},
-    leadStoryId: lead?.id || null,
-    leadStorySlug: lead?.slug || null,
-    materialChangeCount: materialDeltas.length,
+    ...(selectedPublicationSnapshot ? { payload: selectedPublicationSnapshot.payload } : {}),
+    leadStoryId: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.id || null : lead?.id || null,
+    leadStorySlug: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.slug || null : lead?.slug || null,
+    materialChangeCount: isHistoricalReplay ? 0 : materialDeltas.length,
+    selected: {
+      requestedSnapshotId: editionId,
+      snapshotId: editionReplay.canonical.snapshotId,
+      status: editionSelection.status,
+      exactStoryReplay: Boolean(historicalReplay && !historicalReplay.limitation),
+      limitation: editionReplay.diagnostic.limitation,
+    },
+    current: currentEdition,
   };
 
   return {
     contractVersion: 2,
     edition,
-    materialDeltas,
+    materialDeltas: isHistoricalReplay ? [] : materialDeltas,
     deskMemory: buildDeskMemory(records.toneVersions, generatedAt),
     canonical: {
-      storyStates,
-      featuredStoryStates,
-      storyArchive: allStoryStates,
-      thesisVersions: records.thesisVersions,
-      storyEvents: records.events,
-      causalEdges: records.causalEdges,
-      assetImpacts: records.assetImpacts,
-      marketState,
+      snapshotId: editionReplay.canonical.snapshotId,
+      storyStates: editionReplay.canonical.storyStates,
+      featuredStoryStates: editionReplay.canonical.featuredStoryStates,
+      storyArchive: isHistoricalReplay ? editionReplay.canonical.storyStates : allStoryStates,
+      thesisVersions: isHistoricalReplay ? [] : records.thesisVersions,
+      storyEvents: isHistoricalReplay ? [] : records.events,
+      causalEdges: isHistoricalReplay ? [] : records.causalEdges,
+      assetImpacts: isHistoricalReplay ? [] : records.assetImpacts,
+      marketState: isHistoricalReplay ? [] : marketState,
     },
     publication: {
+      currentEdition: editionReplay.publication.currentEdition,
+      selectedEdition: editionReplay.publication.selectedEdition,
       snapshotCount: records.snapshots.length,
       storyQualification: {
         considered: allStoryStates.length,
@@ -510,8 +618,10 @@ export function buildHybridPublicationContract({
         })),
       },
       latestSnapshots: records.snapshots.slice(0, 240),
-      persistenceAvailable: records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
-      compatibilityMode: !(records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
+      editionIndex,
+      editionDiagnostics: editionReplay.diagnostic,
+      persistenceAvailable: records.dailyBriefArchive.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
+      compatibilityMode: !(records.dailyBriefArchive.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
     },
   };
 }

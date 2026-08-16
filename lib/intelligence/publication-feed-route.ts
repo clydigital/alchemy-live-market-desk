@@ -144,7 +144,7 @@ async function optionalWithin<T>(
   }
 }
 
-export async function getCanonicalPublicationResponse() {
+export async function getCanonicalPublicationResponse(editionId: string | null = null) {
   const generatedAt = new Date().toISOString();
   const startedAt = Date.now();
 
@@ -153,7 +153,7 @@ export async function getCanonicalPublicationResponse() {
   // the latest canonical state even when an upstream source is slow.
   const [data, records] = await Promise.all([
     getHybridDeskData(),
-    getHybridPublicationRecords(),
+    getHybridPublicationRecords({ editionId }),
   ]);
 
   const emptyMarketMonitor: MarketMonitor = {
@@ -216,6 +216,7 @@ export async function getCanonicalPublicationResponse() {
     records,
     storyImages: imageResult.value,
     generatedAt,
+    editionId,
   });
 
   const marketTriggers = [
