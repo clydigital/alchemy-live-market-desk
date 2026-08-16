@@ -24,6 +24,8 @@ type PublicationQueryOptions = {
 };
 
 const EDITION_ARCHIVE_PAGE_SIZE = 250;
+const LEGACY_STORY_RUN_BATCH_SIZE = 100;
+const LEGACY_STORY_PAGE_SIZE = 250;
 
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
@@ -84,6 +86,47 @@ export type PublicationSnapshot = EditionSnapshot & {
   published_at: string;
   expires_at: string | null;
 };
+
+function legacyStoryVerificationRunIds(dailyBriefArchive: PublicationSnapshot[]) {
+  return [...new Set(dailyBriefArchive.flatMap((snapshot) => {
+    const canonicalStoryIds = snapshot.payload.canonicalStoryIds;
+    const hasManifest = Array.isArray(snapshot.payload.canonicalStoryManifest)
+      || Array.isArray(snapshot.payload.storyManifest);
+    return !hasManifest
+      && Array.isArray(canonicalStoryIds)
+      && canonicalStoryIds.length > 0
+      && canonicalStoryIds.every((storyId) => typeof storyId === "string")
+      && snapshot.research_run_id
+      ? [snapshot.research_run_id]
+      : [];
+  }))].sort();
+}
+
+/**
+ * Legacy briefs prove replayability only through same-run immutable Story rows.
+ * Query all candidate runs in deterministic batches so picker construction does
+ * not depend on selecting an edition first.
+ */
+async function getLegacyStoryVerificationSnapshots(
+  researchRunIds: string[],
+  options: PublicationQueryOptions = {},
+) {
+  const snapshots: PublicationSnapshot[] = [];
+  for (let start = 0; start < researchRunIds.length; start += LEGACY_STORY_RUN_BATCH_SIZE) {
+    const runIds = researchRunIds.slice(start, start + LEGACY_STORY_RUN_BATCH_SIZE);
+    const runFilter = runIds.map(encodeURIComponent).join(",");
+    for (let offset = 0; ; offset += LEGACY_STORY_PAGE_SIZE) {
+      const page = await optionalQuery<PublicationSnapshot>(
+        "hybrid_publication_snapshots",
+        `select=*&snapshot_type=eq.story&research_run_id=in.(${runFilter})&order=research_run_id.asc,published_at.asc,id.asc&limit=${LEGACY_STORY_PAGE_SIZE}&offset=${offset}`,
+        options,
+      );
+      snapshots.push(...page);
+      if (page.length < LEGACY_STORY_PAGE_SIZE) break;
+    }
+  }
+  return snapshots;
+}
 
 type ThesisVersion = {
   id: string;
@@ -205,14 +248,16 @@ export async function getHybridPublicationRecords(options: PublicationQueryOptio
   const requested = options.editionId
     ? dailyBriefArchive.find((snapshot) => snapshot.id === options.editionId) || null
     : null;
-  const requestedStories = requested?.research_run_id
-      ? optionalQuery<PublicationSnapshot>(
-          "hybrid_publication_snapshots",
-          `select=*&snapshot_type=eq.story&research_run_id=eq.${encodeURIComponent(requested.research_run_id)}&order=published_at.asc&limit=240`,
-          options,
-        )
-      : Promise.resolve([] as PublicationSnapshot[]);
-  const editionSnapshots = [...dailyBriefArchive, ...(await requestedStories)]
+  const legacyRunIds = legacyStoryVerificationRunIds(dailyBriefArchive);
+  // The requested row is normally already a candidate. Keep this explicit so
+  // direct legacy requests receive the same proof path after archive changes.
+  const requestedLegacyRunId = requested && legacyStoryVerificationRunIds([requested])[0];
+  const verificationRunIds = [...new Set([
+    ...legacyRunIds,
+    ...(requestedLegacyRunId ? [requestedLegacyRunId] : []),
+  ])].sort();
+  const legacyStorySnapshots = await getLegacyStoryVerificationSnapshots(verificationRunIds, options);
+  const editionSnapshots = [...dailyBriefArchive, ...legacyStorySnapshots]
     .filter((snapshot, index, list) => list.findIndex((candidate) => candidate.id === snapshot.id) === index);
   return { snapshots, dailyBriefArchive, editionSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }

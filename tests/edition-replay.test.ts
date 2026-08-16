@@ -182,6 +182,49 @@ test("hundreds of mixed Story snapshots cannot truncate the daily-brief edition 
   assert.deepEqual(response.publication.editionIndex.map((edition) => edition.snapshotId), ["current-edition", "older-edition"]);
 });
 
+test("a complete same-run legacy Story snapshot set makes the edition discoverable before selection", () => {
+  const current = daily("current-future", "2026-08-16T13:15:00.000Z", {
+    canonicalStoryManifest: [{ position: 1, snapshotId: "current-story", storyId: "current", state: { id: "current", title: "Current immutable Story", featuredRank: 1 } }],
+  });
+  const legacy = {
+    ...daily("3bd9c1d4-42ea-4972-81da-db0abd71e6d9", "2026-08-15T01:15:00.000Z", { canonicalStoryIds: ["A", "B", "C", "D", "E"] }),
+    research_run_id: "f38b9c8c-e51d-4bf9-92a2-ae7998074f19",
+  };
+  const legacyStorySnapshots: EditionSnapshot[] = ["A", "B", "C", "D", "E"].map((storyId, index) => ({
+    id: `legacy-story-snapshot-${storyId}`,
+    research_run_id: "f38b9c8c-e51d-4bf9-92a2-ae7998074f19",
+    story_id: storyId,
+    supersedes_snapshot_id: null,
+    snapshot_type: "story",
+    payload: { canonicalStoryState: { id: storyId, title: `Published ${storyId}`, featuredRank: index === 0 ? 1 : null } },
+    published_at: "2026-08-15T01:15:00.000Z",
+  }));
+  const input = {
+    snapshots: [current, legacy, ...legacyStorySnapshots],
+    currentStoryStates: [{ id: "current", title: "Current live Story" }],
+    currentFeaturedStoryStates: [],
+  };
+
+  const discovered = buildCanonicalEditionResponseContract(input);
+  assert.deepEqual(discovered.publication.editionIndex.map((edition) => edition.snapshotId), ["current-future", "3bd9c1d4-42ea-4972-81da-db0abd71e6d9"]);
+
+  const incomplete = buildCanonicalEditionResponseContract({
+    ...input,
+    snapshots: [current, legacy, ...legacyStorySnapshots.slice(0, -1)],
+  });
+  assert.deepEqual(incomplete.publication.editionIndex.map((edition) => edition.snapshotId), ["current-future"]);
+
+  const directFallback = buildCanonicalEditionResponseContract({
+    ...input,
+    snapshots: [current, legacy, ...legacyStorySnapshots.slice(0, -1)],
+    editionId: "3bd9c1d4-42ea-4972-81da-db0abd71e6d9",
+  });
+  assert.equal(directFallback.publication.selectedEdition?.status, "invalid_fallback_current");
+  assert.equal(directFallback.publication.selectedEdition?.snapshotId, "current-future");
+  assert.equal(directFallback.canonical.snapshotId, "current-future");
+  assert.match(directFallback.diagnostic.limitation || "", /no matching immutable Story snapshot/i);
+});
+
 test("unprovable legacy editions are excluded and direct requests safely fall back to current", () => {
   const current = daily("current-edition", "2026-08-16T13:15:00.000Z");
   const legacy = daily("legacy-unprovable", "2026-08-15T01:15:00.000Z", { canonicalStoryIds: ["missing-story"] });
