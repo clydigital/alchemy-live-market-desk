@@ -12,11 +12,13 @@ jobs:
   post53-production-retry:
     if: contains(github.event.head_commit.message, '[post53-retry]')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
       VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PROD_URL: https://alchemy-live-market-desk.vercel.app
+      RETRY_KEY: post53-test
     steps:
       - name: Confirm Vercel token is configured
         shell: bash
@@ -26,18 +28,61 @@ jobs:
             exit 1
           fi
 
+      - name: Wait for this commit to be READY in production
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            payload="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&target=production&limit=20")"
+            state="$(printf '%s' "$payload" | jq -r --arg sha "$GITHUB_SHA" '[.deployments[] | select(.meta.githubCommitSha == $sha)][0].state // empty')"
+            if [[ "$state" == "READY" ]]; then
+              exit 0
+            fi
+            if [[ "$state" == "ERROR" || "$state" == "CANCELED" ]]; then
+              echo "Production deployment for $GITHUB_SHA ended $state." >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Production deployment for $GITHUB_SHA did not become READY within the workflow window." >&2
+          exit 1
+
       - name: Invoke audited morning acquisition retry
         shell: bash
-        run: >-
-          npx --yes vercel@latest crons run "/api/cron/research/morning?retry=post53-test"
-          --token "$VERCEL_TOKEN"
-          --project "$VERCEL_PROJECT_ID"
-          --scope "rogue-magazine"
+        run: |
+          set -euo pipefail
+          URL="$PROD_URL/api/cron/research/morning?retry=$RETRY_KEY"
+          npx --yes vercel@latest env run -e production \
+            --token "$VERCEL_TOKEN" \
+            --scope "rogue-magazine" \
+            -- bash -c '
+              set -euo pipefail
+              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
+                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
+                exit 1
+              fi
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
+                "$1"
+            ' _ "$URL"
 
       - name: Invoke matching intelligence continuation
         shell: bash
-        run: >-
-          npx --yes vercel@latest crons run "/api/cron/research/morning-intelligence?retry=post53-test"
-          --token "$VERCEL_TOKEN"
-          --project "$VERCEL_PROJECT_ID"
-          --scope "rogue-magazine"
+        run: |
+          set -euo pipefail
+          URL="$PROD_URL/api/cron/research/morning-intelligence?retry=$RETRY_KEY"
+          npx --yes vercel@latest env run -e production \
+            --token "$VERCEL_TOKEN" \
+            --scope "rogue-magazine" \
+            -- bash -c '
+              set -euo pipefail
+              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
+                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
+                exit 1
+              fi
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
+                "$1"
+            ' _ "$URL"
