@@ -207,64 +207,51 @@ test("structured observability captures safe Vercel metadata without logging sec
   assert.equal(claimAttempt.authStatus, "authorized");
 });
 
-test("research and dedicated-video cron routes remain thin delegates with deterministic schedules", () => {
+test("scheduled acquisition and intelligence routes are separate durable phases", () => {
   const morningPrimary = readFileSync(new URL("../app/api/cron/research/morning/route.ts", import.meta.url), "utf8");
   const morningWatchdog = readFileSync(new URL("../app/api/cron/research/morning-watchdog/route.ts", import.meta.url), "utf8");
   const eveningPrimary = readFileSync(new URL("../app/api/cron/research/evening/route.ts", import.meta.url), "utf8");
   const eveningWatchdog = readFileSync(new URL("../app/api/cron/research/evening-watchdog/route.ts", import.meta.url), "utf8");
+  const morningIntelligence = readFileSync(new URL("../app/api/cron/research/morning-intelligence/route.ts", import.meta.url), "utf8");
+  const morningIntelligenceWatchdog = readFileSync(new URL("../app/api/cron/research/morning-intelligence-watchdog/route.ts", import.meta.url), "utf8");
+  const eveningIntelligence = readFileSync(new URL("../app/api/cron/research/evening-intelligence/route.ts", import.meta.url), "utf8");
+  const eveningIntelligenceWatchdog = readFileSync(new URL("../app/api/cron/research/evening-intelligence-watchdog/route.ts", import.meta.url), "utf8");
   const midnightVideo = readFileSync(new URL("../app/api/cron/video/midnight/route.ts", import.meta.url), "utf8");
   const lateMorningVideo = readFileSync(new URL("../app/api/cron/video/late-morning/route.ts", import.meta.url), "utf8");
-  const handler = readFileSync(new URL("../lib/cron-research-handler.ts", import.meta.url), "utf8");
+  const acquisitionWrapper = readFileSync(new URL("../lib/cron-research-acquisition-handler.ts", import.meta.url), "utf8");
+  const continuationHandler = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
   const publisher = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
   const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")) as {
     crons: Array<{ path: string; schedule: string }>;
   };
 
-  assert.match(morningPrimary, /handleScheduledResearch\(request, "morning"\)/);
-  assert.match(morningWatchdog, /handleScheduledResearch\(request, "morning"\)/);
-  assert.match(eveningPrimary, /handleScheduledResearch\(request, "evening"\)/);
-  assert.match(eveningWatchdog, /handleScheduledResearch\(request, "evening"\)/);
+  assert.match(morningPrimary, /handleScheduledResearchAcquisition\(request, "morning"\)/);
+  assert.match(morningWatchdog, /handleScheduledResearchAcquisition\(request, "morning"\)/);
+  assert.match(eveningPrimary, /handleScheduledResearchAcquisition\(request, "evening"\)/);
+  assert.match(eveningWatchdog, /handleScheduledResearchAcquisition\(request, "evening"\)/);
+  assert.match(morningIntelligence, /handleScheduledResearchIntelligence\(request, "morning"\)/);
+  assert.match(morningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "morning"\)/);
+  assert.match(eveningIntelligence, /handleScheduledResearchIntelligence\(request, "evening"\)/);
+  assert.match(eveningIntelligenceWatchdog, /handleScheduledResearchIntelligence\(request, "evening"\)/);
   assert.match(midnightVideo, /handleVideoIntakeRequest\(request, "video_midnight"\)/);
   assert.match(lateMorningVideo, /handleVideoIntakeRequest\(request, "video_late_morning"\)/);
-  assert.match(handler, /if \(claim\.state !== "claimed"\) \{/);
-  assert.match(handler, /"scheduled_research_received"/);
-  assert.match(handler, /"scheduled_research_publisher_start"/);
-  assert.match(handler, /x-alchemy-scheduled-research-started-at/);
-  assert.match(publisher, /scheduledExecutionStartedAtMs/);
-
-  const morningIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
-    "morning",
-    FIXED_NOW,
-  );
-  const morningWatchdogIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning-watchdog", "20 1 * * *"),
-    "morning",
-    FIXED_NOW,
-  );
-  const eveningIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/evening", "15 13 * * *"),
-    "evening",
-    new Date("2026-08-15T13:18:00.000Z"),
-  );
-  const eveningWatchdogIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/evening-watchdog", "20 13 * * *"),
-    "evening",
-    new Date("2026-08-15T13:18:00.000Z"),
-  );
-
-  assert.equal(morningIdentity.runKey, morningWatchdogIdentity.runKey);
-  assert.equal(morningIdentity.scheduledFor, morningWatchdogIdentity.scheduledFor);
-  assert.equal(eveningIdentity.runKey, eveningWatchdogIdentity.runKey);
-  assert.equal(eveningIdentity.scheduledFor, eveningWatchdogIdentity.scheduledFor);
+  assert.match(acquisitionWrapper, /x-alchemy-defer-intelligence/);
+  assert.match(publisher, /deferScheduledIntelligence/);
+  assert.match(publisher, /status: "intelligence_pending"/);
+  assert.match(continuationHandler, /scheduledExecutionStartedAtMs: intelligenceStartedAtMs/);
+  assert.match(continuationHandler, /persistCanonicalEditionForResearchRun/);
 
   const schedules = vercelConfig.crons
     .map((cron) => `${cron.path} ${cron.schedule}`)
     .sort();
   assert.deepEqual(schedules, [
     "/api/cron/research/evening 15 13 * * *",
+    "/api/cron/research/evening-intelligence 25 13 * * *",
+    "/api/cron/research/evening-intelligence-watchdog 33 13 * * *",
     "/api/cron/research/evening-watchdog 20 13 * * *",
     "/api/cron/research/morning 15 1 * * *",
+    "/api/cron/research/morning-intelligence 25 1 * * *",
+    "/api/cron/research/morning-intelligence-watchdog 33 1 * * *",
     "/api/cron/research/morning-watchdog 20 1 * * *",
     "/api/cron/video/late-morning 30 3 * * *",
     "/api/cron/video/midnight 40 16 * * *",
