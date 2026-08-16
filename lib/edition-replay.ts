@@ -189,14 +189,41 @@ export function buildCanonicalEditionResponseContract({
   currentStoryStates: Array<Record<string, unknown>>;
   currentFeaturedStoryStates: Array<Record<string, unknown>>;
 }) {
-  const editionIndex = buildCanonicalEditionIndex(snapshots, researchRuns);
+  const terminalIndex = buildCanonicalEditionIndex(snapshots, researchRuns);
+  const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
+  const currentSnapshotId = terminalIndex[0]?.snapshotId || null;
+  const replayBySnapshotId = new Map<string, HistoricalEditionReplay>();
+  const replayFor = (snapshotId: string) => {
+    const cached = replayBySnapshotId.get(snapshotId);
+    if (cached) return cached;
+    const snapshot = snapshotById.get(snapshotId);
+    if (!snapshot) return null;
+    const replay = replayImmutableEdition(snapshot, snapshots);
+    replayBySnapshotId.set(snapshotId, replay);
+    return replay;
+  };
+  // The current Live edition remains available even if it predates manifests.
+  // Older rows belong in the picker only when their own persisted immutable
+  // state proves a complete replay.
+  const editionIndex = terminalIndex.filter((edition) => (
+    edition.snapshotId === currentSnapshotId || !replayFor(edition.snapshotId)?.limitation
+  ));
   const selection = selectCanonicalEdition(editionIndex, editionId);
   const requestedEdition = selection.status === "historical" ? selection.selected : null;
   const selectedSnapshot = requestedEdition
     ? snapshots.find((snapshot) => snapshot.id === requestedEdition.snapshotId) || null
     : null;
-  const replay = selectedSnapshot ? replayImmutableEdition(selectedSnapshot, snapshots) : null;
+  const replay = selectedSnapshot ? replayFor(selectedSnapshot.id) : null;
   const isHistoricalReplay = Boolean(selectedSnapshot && replay);
+  const requestedSnapshot = editionId ? snapshotById.get(editionId) || null : null;
+  const requestedReplay = requestedSnapshot ? replayFor(requestedSnapshot.id) : null;
+  const limitation = selection.status === "invalid_fallback_current" && editionId
+    ? (requestedSnapshot && !terminalIndex.some((edition) => edition.snapshotId === requestedSnapshot.id)
+      ? "Requested edition is superseded and is not selectable."
+      : requestedReplay?.limitation || (requestedSnapshot
+        ? "Requested edition is not selectable from the canonical archive."
+        : "Requested edition was not found in the canonical archive."))
+    : replay?.limitation || null;
   const selectedEdition = selection.selected ? { ...selection.selected, status: selection.status } : null;
 
   return {
@@ -214,5 +241,10 @@ export function buildCanonicalEditionResponseContract({
     replay,
     isHistoricalReplay,
     selection,
+    diagnostic: {
+      requestedSnapshotId: editionId,
+      status: selection.status,
+      limitation,
+    },
   };
 }

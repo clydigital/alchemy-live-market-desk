@@ -158,3 +158,60 @@ test("Hybrid PR #33 contract fields pin current, historical, and invalid request
   assert.equal(invalid.publication.selectedEdition?.snapshotId, "current");
   assert.equal(invalid.canonical.snapshotId, "current");
 });
+
+test("hundreds of mixed Story snapshots cannot truncate the daily-brief edition archive", () => {
+  const historical = daily("older-edition", "2026-07-01T01:15:00.000Z", {
+    canonicalStoryManifest: [{ position: 1, snapshotId: "older-story-snapshot", storyId: "older-story", state: { id: "older-story", title: "Older", featuredRank: 1 } }],
+  });
+  const current = daily("current-edition", "2026-08-16T13:15:00.000Z");
+  const operationalStories: EditionSnapshot[] = Array.from({ length: 480 }, (_, index) => ({
+    id: `operational-story-${index}`,
+    research_run_id: `operational-run-${index}`,
+    story_id: `operational-story-${index}`,
+    supersedes_snapshot_id: null,
+    snapshot_type: "story",
+    payload: { id: `operational-story-${index}` },
+    published_at: "2026-08-16T14:00:00.000Z",
+  }));
+  const response = buildCanonicalEditionResponseContract({
+    snapshots: [current, historical, ...operationalStories],
+    currentStoryStates: [],
+    currentFeaturedStoryStates: [],
+  });
+
+  assert.deepEqual(response.publication.editionIndex.map((edition) => edition.snapshotId), ["current-edition", "older-edition"]);
+});
+
+test("unprovable legacy editions are excluded and direct requests safely fall back to current", () => {
+  const current = daily("current-edition", "2026-08-16T13:15:00.000Z");
+  const legacy = daily("legacy-unprovable", "2026-08-15T01:15:00.000Z", { canonicalStoryIds: ["missing-story"] });
+  const response = buildCanonicalEditionResponseContract({
+    snapshots: [current, legacy],
+    editionId: "legacy-unprovable",
+    currentStoryStates: [{ id: "current-story", title: "Current canonical Story" }],
+    currentFeaturedStoryStates: [],
+  });
+
+  assert.deepEqual(response.publication.editionIndex.map((edition) => edition.snapshotId), ["current-edition"]);
+  assert.equal(response.publication.selectedEdition?.status, "invalid_fallback_current");
+  assert.equal(response.publication.selectedEdition?.snapshotId, "current-edition");
+  assert.equal(response.canonical.snapshotId, "current-edition");
+  assert.match(response.diagnostic.limitation || "", /no matching immutable Story snapshot/i);
+  assert.deepEqual(response.canonical.storyStates, [{ id: "current-story", title: "Current canonical Story" }]);
+});
+
+test("superseded requests fall back to the current canonical snapshot", () => {
+  const superseded = daily("retry-old", "2026-08-16T01:15:00.000Z");
+  const current = daily("retry-current", "2026-08-16T01:20:00.000Z", {}, "retry-old");
+  const response = buildCanonicalEditionResponseContract({
+    snapshots: [current, superseded],
+    editionId: "retry-old",
+    currentStoryStates: [{ id: "current-story" }],
+    currentFeaturedStoryStates: [],
+  });
+
+  assert.equal(response.publication.selectedEdition?.status, "invalid_fallback_current");
+  assert.equal(response.publication.selectedEdition?.snapshotId, "retry-current");
+  assert.equal(response.canonical.snapshotId, "retry-current");
+  assert.match(response.diagnostic.limitation || "", /superseded/i);
+});

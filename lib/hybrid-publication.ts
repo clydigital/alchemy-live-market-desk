@@ -23,6 +23,8 @@ type PublicationQueryOptions = {
   editionId?: string | null;
 };
 
+const EDITION_ARCHIVE_PAGE_SIZE = 250;
+
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
   if (!url || !key) return [];
   try {
@@ -35,6 +37,20 @@ async function optionalQuery<T>(table: string, params = "", options: Publication
     return response.json();
   } catch {
     return [];
+  }
+}
+
+/** Daily briefs are the canonical edition archive, never the mixed 480-row operational window. */
+async function getDailyBriefArchive(options: PublicationQueryOptions = {}) {
+  const archive: PublicationSnapshot[] = [];
+  for (let offset = 0; ; offset += EDITION_ARCHIVE_PAGE_SIZE) {
+    const page = await optionalQuery<PublicationSnapshot>(
+      "hybrid_publication_snapshots",
+      `select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=${EDITION_ARCHIVE_PAGE_SIZE}&offset=${offset}`,
+      options,
+    );
+    archive.push(...page);
+    if (page.length < EDITION_ARCHIVE_PAGE_SIZE) return archive;
   }
 }
 
@@ -172,8 +188,9 @@ type AssetImpact = {
 
 export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates, requestedSnapshots] = await Promise.all([
+  const [snapshots, dailyBriefArchive, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
     optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=480", options),
+    getDailyBriefArchive(options),
     optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
     optionalQuery<CausalEdge>("current_causal_edges", "select=*&order=effective_at.desc&limit=240", options),
@@ -184,30 +201,20 @@ export async function getHybridPublicationRecords(options: PublicationQueryOptio
       options,
     ),
     optionalIntelligenceStates(),
-    options.editionId
-      ? optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", `select=*&id=eq.${encodeURIComponent(options.editionId)}&limit=1`, options)
-      : Promise.resolve([] as PublicationSnapshot[]),
   ]);
-  const requested = requestedSnapshots[0] || null;
-  const [requestedStories, successors] = await Promise.all([
-    requested?.research_run_id
+  const requested = options.editionId
+    ? dailyBriefArchive.find((snapshot) => snapshot.id === options.editionId) || null
+    : null;
+  const requestedStories = requested?.research_run_id
       ? optionalQuery<PublicationSnapshot>(
           "hybrid_publication_snapshots",
           `select=*&snapshot_type=eq.story&research_run_id=eq.${encodeURIComponent(requested.research_run_id)}&order=published_at.asc&limit=240`,
           options,
         )
-      : Promise.resolve([] as PublicationSnapshot[]),
-    requested
-      ? optionalQuery<PublicationSnapshot>(
-          "hybrid_publication_snapshots",
-          `select=*&snapshot_type=eq.daily_brief&supersedes_snapshot_id=eq.${encodeURIComponent(requested.id)}&limit=1`,
-          options,
-        )
-      : Promise.resolve([] as PublicationSnapshot[]),
-  ]);
-  const allSnapshots = [...snapshots, ...requestedSnapshots, ...requestedStories, ...successors]
+      : Promise.resolve([] as PublicationSnapshot[]);
+  const editionSnapshots = [...dailyBriefArchive, ...(await requestedStories)]
     .filter((snapshot, index, list) => list.findIndex((candidate) => candidate.id === snapshot.id) === index);
-  return { snapshots: allSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
+  return { snapshots, dailyBriefArchive, editionSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }
 
 function newestThesisByStory(versions: ThesisVersion[]) {
@@ -486,7 +493,7 @@ export function buildHybridPublicationContract({
 
   const latestRun = researchRuns.find((run) => run.status === "completed") || researchRuns[0] || null;
   const editionReplay = buildCanonicalEditionResponseContract({
-    snapshots: records.snapshots,
+    snapshots: records.editionSnapshots,
     researchRuns,
     editionId,
     currentStoryStates: storyStates,
@@ -498,7 +505,7 @@ export function buildHybridPublicationContract({
   const currentEdition = editionReplay.publication.currentEdition;
   const requestedEdition = editionSelection.status === "historical" ? editionSelection.selected : null;
   const dailyBrief = currentEdition
-    ? records.snapshots.find((snapshot) => snapshot.id === currentEdition.snapshotId) || null
+    ? records.editionSnapshots.find((snapshot) => snapshot.id === currentEdition.snapshotId) || null
     : null;
   const lead = featuredStoryStates[0] || null;
   const selectedEdition = editionReplay.publication.selectedEdition;
@@ -522,7 +529,7 @@ export function buildHybridPublicationContract({
       snapshotId: editionReplay.canonical.snapshotId,
       status: editionSelection.status,
       exactStoryReplay: Boolean(historicalReplay && !historicalReplay.limitation),
-      limitation: historicalReplay?.limitation || null,
+      limitation: editionReplay.diagnostic.limitation,
     },
     current: currentEdition,
   };
@@ -567,8 +574,9 @@ export function buildHybridPublicationContract({
       },
       latestSnapshots: records.snapshots.slice(0, 240),
       editionIndex,
-      persistenceAvailable: records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
-      compatibilityMode: !(records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
+      editionDiagnostics: editionReplay.diagnostic,
+      persistenceAvailable: records.dailyBriefArchive.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
+      compatibilityMode: !(records.dailyBriefArchive.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
     },
   };
 }
