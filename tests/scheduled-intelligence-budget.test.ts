@@ -18,22 +18,24 @@ import {
   scheduledStageTimeoutFailure,
 } from "../lib/intelligence/scheduled-runtime-budget.ts";
 
-test("production-informed standalone intelligence gives hypothesis the dominant bounded budget", () => {
+test("production-informed standalone intelligence protects fast stages while keeping hypothesis dominant", () => {
   const executionStartedAtMs = 1_000_000;
   const plan = scheduledStageBudgetPlan({ executionStartedAtMs, nowMs: executionStartedAtMs });
   const marketBeliefBudget = scheduledStageRequestTimeoutMs("market_belief", plan);
+  const divergenceBudget = scheduledStageRequestTimeoutMs("divergence", plan);
   const hypothesisBudget = scheduledStageRequestTimeoutMs("hypothesis", plan);
   const challengerBudget = scheduledStageRequestTimeoutMs("challenger", plan);
   const scenarioBudget = scheduledStageRequestTimeoutMs("scenario", plan);
   const synthesisBudget = scheduledStageRequestTimeoutMs("story_synthesis", plan);
 
-  assert.equal(marketBeliefBudget, 10_000);
-  assert.equal(hypothesisBudget, 110_000);
-  assert.equal(challengerBudget, 25_000);
-  assert.equal(scenarioBudget, 25_000);
-  assert.equal(synthesisBudget, 45_000);
-  assert.ok(hypothesisBudget > marketBeliefBudget * 10);
-  assert.ok(synthesisBudget > marketBeliefBudget * 4);
+  assert.equal(marketBeliefBudget, 20_000);
+  assert.equal(divergenceBudget, 15_000);
+  assert.equal(hypothesisBudget, 105_000);
+  assert.equal(challengerBudget, 20_000);
+  assert.equal(scenarioBudget, 20_000);
+  assert.equal(synthesisBudget, 40_000);
+  assert.ok(hypothesisBudget > marketBeliefBudget * 5);
+  assert.ok(synthesisBudget >= marketBeliefBudget * 2);
 });
 
 test("standalone scheduled intelligence stage budgets stay inside the global route deadline", () => {
@@ -64,7 +66,7 @@ test("provider layer no longer silently clamps a scheduled stage back to 60 seco
   assert.match(openai, /boundedInteger\(requestTimeoutMs, 60_000, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS\)/);
 });
 
-test("a legacy 125-second handoff still degrades safely if a non-split caller uses the bounded runtime", () => {
+test("a legacy 125-second handoff preserves observed fast-stage latency floors", () => {
   const executionStartedAtMs = 1_000_000;
   const controller = createScheduledStageBudgetController({
     executionStartedAtMs,
@@ -83,14 +85,13 @@ test("a legacy 125-second handoff still degrades safely if a non-split caller us
 
   const plan = controller.plan();
   assert.ok(plan);
+  assert.ok(plan.market_belief >= 14_000);
+  assert.ok(plan.divergence >= 11_000);
+  assert.ok(plan.hypothesis >= 36_000);
+  assert.ok(plan.story_synthesis >= 21_000);
   for (const stage of SCHEDULED_INTELLIGENCE_STAGES) {
     assert.ok(plan[stage] >= 5_000, `${stage} lost its meaningful model budget`);
   }
-  assert.ok(plan.hypothesis >= 43_000);
-  assert.ok(plan.story_synthesis >= 24_000);
-  assert.ok(plan.hypothesis > plan.market_belief * 6);
-  assert.ok(plan.challenger > plan.divergence * 2);
-  assert.ok(plan.scenario > plan.divergence * 2);
   assert.equal(Object.values(plan).reduce((total, budget) => total + budget, 0), 120_000);
   assert.equal(
     SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS * SCHEDULED_INTELLIGENCE_STAGES.length,
@@ -116,7 +117,7 @@ test("a global deadline exhaustion is deterministic and identifies the stage", (
       && error.stageKey === "hypothesis"
       && /deadline exhausted before stage "hypothesis"/.test(error.message),
   );
-  assert.equal(SCHEDULED_MINIMUM_STAGE_BUDGET_MS, 96_000);
+  assert.equal(SCHEDULED_MINIMUM_STAGE_BUDGET_MS, 109_000);
 });
 
 test("runtime persists an exhausted scheduled deadline with its deterministic code", () => {
@@ -128,7 +129,7 @@ test("runtime persists an exhausted scheduled deadline with its deterministic co
 
 test("scheduled timeout reporting identifies the failed stage and its allotted budget", () => {
   assert.equal(
-    scheduledStageTimeoutFailure("hypothesis", 110_000),
-    'Intelligence stage "hypothesis" timed out after its 110000ms allotted budget.',
+    scheduledStageTimeoutFailure("hypothesis", 105_000),
+    'Intelligence stage "hypothesis" timed out after its 105000ms allotted budget.',
   );
 });
