@@ -11,9 +11,7 @@ import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  buildCanonicalEditionIndex,
-  replayImmutableEdition,
-  selectCanonicalEdition,
+  buildCanonicalEditionResponseContract,
   type EditionSnapshot,
 } from "@/lib/edition-replay";
 
@@ -487,19 +485,23 @@ export function buildHybridPublicationContract({
     : updates.filter((update) => Date.parse(update.observed_at || update.created_at) >= cutoff).slice(0, 30).map((update) => legacyDelta(update, storyById.get(update.story_id)));
 
   const latestRun = researchRuns.find((run) => run.status === "completed") || researchRuns[0] || null;
-  const editionIndex = buildCanonicalEditionIndex(records.snapshots, researchRuns);
-  const editionSelection = selectCanonicalEdition(editionIndex, editionId);
-  const currentEdition = editionSelection.current;
+  const editionReplay = buildCanonicalEditionResponseContract({
+    snapshots: records.snapshots,
+    researchRuns,
+    editionId,
+    currentStoryStates: storyStates,
+    currentFeaturedStoryStates: featuredStoryStates,
+  });
+  const { selectedSnapshot, replay: historicalReplay, isHistoricalReplay, selection: editionSelection } = editionReplay;
+  const editionIndex = editionReplay.publication.editionIndex;
+  const selectedPublicationSnapshot = selectedSnapshot as PublicationSnapshot | null;
+  const currentEdition = editionReplay.publication.currentEdition;
   const requestedEdition = editionSelection.status === "historical" ? editionSelection.selected : null;
-  const selectedSnapshot = requestedEdition
-    ? records.snapshots.find((snapshot) => snapshot.id === requestedEdition.snapshotId) || null
-    : null;
-  const historicalReplay = selectedSnapshot ? replayImmutableEdition(selectedSnapshot, records.snapshots) : null;
-  const isHistoricalReplay = Boolean(selectedSnapshot && historicalReplay);
   const dailyBrief = currentEdition
     ? records.snapshots.find((snapshot) => snapshot.id === currentEdition.snapshotId) || null
     : null;
   const lead = featuredStoryStates[0] || null;
+  const selectedEdition = editionReplay.publication.selectedEdition;
 
   const edition = {
     id: requestedEdition?.snapshotId || currentEdition?.snapshotId || `compat-${latestRun?.id || generatedAt}`,
@@ -509,15 +511,15 @@ export function buildHybridPublicationContract({
     approvedAt: selectedSnapshot?.published_at || dailyBrief?.published_at || latestRun?.completed_at || null,
     immutable: Boolean(requestedEdition || currentEdition),
     mode: isHistoricalReplay ? "immutable_replay" : currentEdition ? "current_canonical" : "compatibility",
-    summary: selectedSnapshot?.public_summary || dailyBrief?.public_summary || null,
+    summary: selectedPublicationSnapshot?.public_summary || dailyBrief?.public_summary || null,
     payload: dailyBrief?.payload || {},
-    ...(selectedSnapshot ? { payload: selectedSnapshot.payload } : {}),
+    ...(selectedPublicationSnapshot ? { payload: selectedPublicationSnapshot.payload } : {}),
     leadStoryId: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.id || null : lead?.id || null,
     leadStorySlug: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.slug || null : lead?.slug || null,
     materialChangeCount: isHistoricalReplay ? 0 : materialDeltas.length,
     selected: {
       requestedSnapshotId: editionId,
-      snapshotId: requestedEdition?.snapshotId || currentEdition?.snapshotId || null,
+      snapshotId: editionReplay.canonical.snapshotId,
       status: editionSelection.status,
       exactStoryReplay: Boolean(historicalReplay && !historicalReplay.limitation),
       limitation: historicalReplay?.limitation || null,
@@ -531,9 +533,10 @@ export function buildHybridPublicationContract({
     materialDeltas: isHistoricalReplay ? [] : materialDeltas,
     deskMemory: buildDeskMemory(records.toneVersions, generatedAt),
     canonical: {
-      storyStates: isHistoricalReplay ? historicalReplay!.storyStates : storyStates,
-      featuredStoryStates: isHistoricalReplay ? historicalReplay!.featuredStoryStates : featuredStoryStates,
-      storyArchive: isHistoricalReplay ? historicalReplay!.storyStates : allStoryStates,
+      snapshotId: editionReplay.canonical.snapshotId,
+      storyStates: editionReplay.canonical.storyStates,
+      featuredStoryStates: editionReplay.canonical.featuredStoryStates,
+      storyArchive: isHistoricalReplay ? editionReplay.canonical.storyStates : allStoryStates,
       thesisVersions: isHistoricalReplay ? [] : records.thesisVersions,
       storyEvents: isHistoricalReplay ? [] : records.events,
       causalEdges: isHistoricalReplay ? [] : records.causalEdges,
@@ -541,6 +544,8 @@ export function buildHybridPublicationContract({
       marketState: isHistoricalReplay ? [] : marketState,
     },
     publication: {
+      currentEdition: editionReplay.publication.currentEdition,
+      selectedEdition: editionReplay.publication.selectedEdition,
       snapshotCount: records.snapshots.length,
       storyQualification: {
         considered: allStoryStates.length,

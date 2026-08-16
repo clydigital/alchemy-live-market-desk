@@ -170,3 +170,49 @@ function legacyReplay(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): 
 export function replayImmutableEdition(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): HistoricalEditionReplay {
   return manifestReplay(snapshot.payload) || legacyReplay(snapshot, snapshots);
 }
+
+/**
+ * This is the exact Live-to-Hybrid selection envelope. Keep the three
+ * publication fields and canonical.snapshotId in lockstep: Hybrid only renders
+ * historical state when these pin the requested immutable snapshot.
+ */
+export function buildCanonicalEditionResponseContract({
+  snapshots,
+  researchRuns = [],
+  editionId = null,
+  currentStoryStates,
+  currentFeaturedStoryStates,
+}: {
+  snapshots: EditionSnapshot[];
+  researchRuns?: ResearchRunIdentity[];
+  editionId?: string | null;
+  currentStoryStates: Array<Record<string, unknown>>;
+  currentFeaturedStoryStates: Array<Record<string, unknown>>;
+}) {
+  const editionIndex = buildCanonicalEditionIndex(snapshots, researchRuns);
+  const selection = selectCanonicalEdition(editionIndex, editionId);
+  const requestedEdition = selection.status === "historical" ? selection.selected : null;
+  const selectedSnapshot = requestedEdition
+    ? snapshots.find((snapshot) => snapshot.id === requestedEdition.snapshotId) || null
+    : null;
+  const replay = selectedSnapshot ? replayImmutableEdition(selectedSnapshot, snapshots) : null;
+  const isHistoricalReplay = Boolean(selectedSnapshot && replay);
+  const selectedEdition = selection.selected ? { ...selection.selected, status: selection.status } : null;
+
+  return {
+    publication: {
+      currentEdition: selection.current,
+      selectedEdition,
+      editionIndex,
+    },
+    canonical: {
+      snapshotId: selectedEdition?.snapshotId || null,
+      storyStates: isHistoricalReplay ? replay!.storyStates : currentStoryStates,
+      featuredStoryStates: isHistoricalReplay ? replay!.featuredStoryStates : currentFeaturedStoryStates,
+    },
+    selectedSnapshot,
+    replay,
+    isHistoricalReplay,
+    selection,
+  };
+}

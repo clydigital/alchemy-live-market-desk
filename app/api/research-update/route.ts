@@ -8,7 +8,7 @@ import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
 import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
-import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
+import { persistCanonicalEditionForResearchRun, runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { getMarketData } from "@/lib/market";
 import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
@@ -323,6 +323,13 @@ export async function POST(request: Request) {
     }
 
     const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
+    if (finalStatus === "completed") {
+      await persistCanonicalEditionForResearchRun({
+        researchRunId: runId,
+        runKey: input.runKey,
+        publicSummary: input.summary || null,
+      });
+    }
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },

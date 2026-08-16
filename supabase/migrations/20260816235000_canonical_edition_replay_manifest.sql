@@ -46,20 +46,7 @@ begin
       'contractVersion',2,'scheduleSlot',new.schedule_slot,'scheduledFor',new.scheduled_for,
       'runKey',new.run_key,'completedAt',new.completed_at,'updatesPublished',new.updates_published,
       'warnings',new.warnings,'timezone','Asia/Kuala_Lumpur',
-      'canonicalStoryManifest',coalesce((
-        select jsonb_agg(jsonb_build_object(
-          'position', ranked.position,
-          'snapshotId', ranked.id,
-          'storyId', ranked.story_id,
-          'state', ranked.payload
-        ) order by ranked.position)
-        from (
-          select snapshot.id,snapshot.story_id,snapshot.payload,
-            row_number() over (order by (snapshot.payload->>'rank')::integer nulls last, snapshot.id) as position
-          from public.hybrid_publication_snapshots snapshot
-          where snapshot.research_run_id = new.id and snapshot.snapshot_type = 'story'
-        ) ranked
-      ), '[]'::jsonb)
+      'replayStatus','legacy_unproven'
     ),avg_conf,coalesce(new.completed_at,now())
   ) on conflict do nothing;
 
@@ -73,6 +60,6 @@ end;
 $$;
 
 comment on column public.hybrid_publication_snapshots.payload is
-  'For future daily_brief rows, canonicalStoryManifest is an ordered immutable Story-snapshot manifest for exact edition replay.';
+  'Live publisher daily_brief rows carry canonicalStoryManifest, an ordered immutable Story-snapshot manifest for exact replay. Trigger-only legacy rows are marked replayStatus=legacy_unproven.';
 
 commit;

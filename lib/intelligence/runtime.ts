@@ -49,6 +49,9 @@ import {
 } from "@/lib/intelligence/research-state";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
+import { getHybridDeskData } from "@/lib/data";
+import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
+import { getStoryHeaderImages } from "@/lib/story-images";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -1254,6 +1257,125 @@ function asPreviousEdition(payload: Record<string, unknown> | undefined): Alchem
   return payload?.methodologyVersion === "alchemy-mixed-research-voice-v1" ? payload as unknown as AlchemyEdition : null;
 }
 
+/**
+ * Capture the exact Story-state projection emitted by the Live feed at
+ * publication time. Historical replay consumes this persisted projection as-is
+ * and must never enrich it from current tables later.
+ */
+async function captureCanonicalStoryStates() {
+  const [desk, records] = await Promise.all([
+    getHybridDeskData({ fresh: true }),
+    getHybridPublicationRecords({ fresh: true }),
+  ]);
+  const storyImages = await getStoryHeaderImages(desk.stories.map((story) => story.id), desk.sources);
+  return selectHybridPublicationStoryStates({
+    stories: desk.stories,
+    records,
+    storyImages,
+  }).storyStates;
+}
+
+async function persistCanonicalStoryManifest({
+  researchRunId,
+  canonicalStoryStates,
+  publishedAt,
+}: {
+  researchRunId: string | null;
+  canonicalStoryStates: Awaited<ReturnType<typeof captureCanonicalStoryStates>>;
+  publishedAt: string;
+}) {
+  const storySnapshotRows = await intelligenceRest<Array<{ id: string; story_id: string | null; payload: Record<string, unknown> }>>(
+    "hybrid_publication_snapshots",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(canonicalStoryStates.map((story) => ({
+        research_run_id: researchRunId,
+        slot_run_id: null,
+        story_id: story.id,
+        story_thesis_version_id: null,
+        supersedes_snapshot_id: null,
+        snapshot_type: "story",
+        public_summary: story.title,
+        payload: { canonicalStoryState: story },
+        source_record_refs: [],
+        redaction_log: [],
+        confidence: story.confidence,
+        published_at: publishedAt,
+      }))),
+    },
+  );
+  const snapshotByStoryId = new Map(storySnapshotRows
+    .filter((row) => row.story_id)
+    .map((row) => [row.story_id as string, row]));
+  return canonicalStoryStates.map((story, index) => {
+    const snapshot = snapshotByStoryId.get(story.id);
+    const state = snapshot?.payload.canonicalStoryState;
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+      throw new Error(`Immutable Story snapshot was not persisted for edition Story ${story.id}.`);
+    }
+    return { position: index + 1, snapshotId: snapshot.id, storyId: story.id, state };
+  });
+}
+
+/**
+ * The research publisher calls this before a run becomes completed. That order
+ * prevents the database's operational completion trigger from creating a
+ * reduced legacy brief before Live stores the complete feed projection.
+ */
+export async function persistCanonicalEditionForResearchRun({
+  researchRunId,
+  runKey,
+  publicSummary = null,
+}: {
+  researchRunId: string;
+  runKey: string;
+  publicSummary?: string | null;
+}) {
+  const existing = await intelligenceRest<Array<{ id: string }>>(
+    `hybrid_publication_snapshots?select=id&snapshot_type=eq.daily_brief&research_run_id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
+  );
+  if (existing[0]) return existing[0].id;
+
+  const generatedAt = new Date().toISOString();
+  const researchRun = (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
+    `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
+  ))[0] || null;
+  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+    researchRunId,
+    canonicalStoryStates: await captureCanonicalStoryStates(),
+    publishedAt: generatedAt,
+  });
+  const rows = await intelligenceRest<Array<{ id: string }>>("hybrid_publication_snapshots", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      research_run_id: researchRunId,
+      slot_run_id: null,
+      story_id: null,
+      story_thesis_version_id: null,
+      supersedes_snapshot_id: null,
+      snapshot_type: "daily_brief",
+      public_summary: publicSummary || `${researchRun?.schedule_slot || "manual"} research edition completed`,
+      payload: {
+        contractVersion: 2,
+        scheduleSlot: researchRun?.schedule_slot || null,
+        scheduledFor: researchRun?.scheduled_for || null,
+        runKey: researchRun?.run_key || runKey,
+        canonicalStoryManifest,
+      },
+      source_record_refs: canonicalStoryManifest.map((entry) => ({ type: "story", id: entry.storyId, snapshotId: entry.snapshotId })),
+      redaction_log: [],
+      confidence: canonicalStoryManifest.length
+        ? Math.round(canonicalStoryManifest.reduce((sum, entry) => sum + Number((entry.state as { confidence?: number }).confidence || 0), 0) / canonicalStoryManifest.length)
+        : 50,
+      published_at: generatedAt,
+    }),
+  });
+  if (!rows[0]?.id) throw new Error("Unable to persist canonical edition snapshot.");
+  return rows[0].id;
+}
+
 async function persistDailyBrief({
   engineRunId,
   researchRunId,
@@ -1277,66 +1399,10 @@ async function persistDailyBrief({
         `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
       ))[0] || null
     : null;
-  const storySnapshotRows = await intelligenceRest<Array<{ id: string; story_id: string | null; payload: Record<string, unknown> }>>(
-    "hybrid_publication_snapshots",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(stories.map((story, index) => ({
-        research_run_id: researchRunId,
-        slot_run_id: null,
-        story_id: story.id,
-        story_thesis_version_id: null,
-        supersedes_snapshot_id: null,
-        snapshot_type: "story",
-        public_summary: story.title,
-        payload: {
-          canonicalStoryState: {
-            id: story.id,
-            slug: null,
-            title: story.title,
-            marketQuestion: story.centralQuestion,
-            thesis: story.thesis,
-            confidence: story.confidence,
-            rank: index + 1,
-            status: story.lifecycleStatus,
-            assets: story.affectedAssets,
-            dominantNarrative: story.currentState,
-            bestExplanation: story.acceptedExplanation,
-            strongestSupport: null,
-            strongestContradiction: story.contradiction,
-            pricedAssessment: story.marketReaction,
-            confirmationCondition: story.confirmation,
-            invalidationCondition: story.invalidation,
-            nextCatalyst: story.nextTest,
-            imageUrl: null,
-            fallbackImageUrl: null,
-            imageKind: "unavailable",
-            imageSourceUrl: null,
-            imageSourceTitle: null,
-            imagePublisher: null,
-            intelligence: null,
-            thesisVersion: null,
-            featuredRank: index < 6 ? index + 1 : null,
-          },
-        },
-        source_record_refs: [],
-        redaction_log: [],
-        confidence: story.confidence,
-        published_at: generatedAt,
-      }))),
-    },
-  );
-  const snapshotByStoryId = new Map(storySnapshotRows
-    .filter((row) => row.story_id)
-    .map((row) => [row.story_id as string, row]));
-  const canonicalStoryManifest = stories.map((story, index) => {
-    const snapshot = snapshotByStoryId.get(story.id);
-    const state = snapshot?.payload.canonicalStoryState;
-    if (!state || typeof state !== "object" || Array.isArray(state)) {
-      throw new Error(`Immutable Story snapshot was not persisted for edition Story ${story.id}.`);
-    }
-    return { position: index + 1, snapshotId: snapshot.id, storyId: story.id, state };
+  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+    researchRunId,
+    canonicalStoryStates: await captureCanonicalStoryStates(),
+    publishedAt: generatedAt,
   });
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   const marketObservations = evidence

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildCanonicalEditionIndex,
+  buildCanonicalEditionResponseContract,
   replayImmutableEdition,
   selectCanonicalEdition,
   type EditionSnapshot,
@@ -104,4 +105,56 @@ test("legacy snapshots never reconstruct Story state from current tables", () =>
 
   assert.deepEqual(replay.storyStates, []);
   assert.match(replay.limitation || "", /no partial replay was fabricated/i);
+});
+
+test("Hybrid PR #33 contract fields pin current, historical, and invalid requests to canonical snapshot IDs", () => {
+  const immutableHistoricalState = {
+    id: "story-historical",
+    slug: "historical-story",
+    title: "Published historical Story",
+    thesis: "Published historical thesis",
+    status: "developing",
+    confidence: 80,
+    rank: 1,
+    featuredRank: 1,
+    assets: ["UKOIL"],
+    strongestSupport: "Published support",
+    imageUrl: "https://example.com/published.jpg",
+    intelligence: { lifecycleStatus: "developing" },
+    thesisVersion: { id: "version-historical", version: 2, effectiveAt: "2026-08-15T01:15:00.000Z", changeReason: "published" },
+  };
+  const snapshots = [
+    daily("historical", "2026-08-15T01:15:00.000Z", {
+      canonicalStoryManifest: [{ position: 1, snapshotId: "story-snapshot-historical", storyId: "story-historical", state: immutableHistoricalState }],
+    }),
+    daily("current", "2026-08-16T13:15:00.000Z", { scheduleSlot: "evening", scheduledFor: "2026-08-16T13:15:00.000Z" }),
+  ];
+  const currentStory = {
+    id: "story-current", slug: "current-story", title: "Current Story", thesis: "Current thesis", status: "developing", confidence: 70,
+    rank: 1, market_question: "Current question", dominant_narrative: null, best_explanation: null,
+    strongest_support: "Current support", strongest_contradiction: null, priced_assessment: null,
+    confirmation_trigger: null, invalidation_trigger: null, next_catalyst: null,
+    article_angle: null, provisional_title: null, article_verdict: null, assets: ["SPX"],
+    source_quality: 70, novelty: 70, persistence: 70, trader_relevance: 70, article_potential: 70,
+  };
+  const input = {
+    snapshots,
+    currentStoryStates: [currentStory],
+    currentFeaturedStoryStates: [currentStory],
+  };
+
+  const historical = buildCanonicalEditionResponseContract({ ...input, editionId: "historical" });
+  assert.equal(historical.publication.selectedEdition?.snapshotId, "historical");
+  assert.equal(historical.canonical.snapshotId, "historical");
+  assert.deepEqual(historical.canonical.storyStates, [immutableHistoricalState]);
+
+  const current = buildCanonicalEditionResponseContract(input);
+  assert.equal(current.publication.currentEdition?.snapshotId, "current");
+  assert.equal(current.publication.selectedEdition?.snapshotId, "current");
+  assert.equal(current.canonical.snapshotId, "current");
+
+  const invalid = buildCanonicalEditionResponseContract({ ...input, editionId: "superseded-or-missing" });
+  assert.equal(invalid.publication.selectedEdition?.status, "invalid_fallback_current");
+  assert.equal(invalid.publication.selectedEdition?.snapshotId, "current");
+  assert.equal(invalid.canonical.snapshotId, "current");
 });
