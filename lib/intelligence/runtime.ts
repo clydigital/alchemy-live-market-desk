@@ -1257,11 +1257,13 @@ function asPreviousEdition(payload: Record<string, unknown> | undefined): Alchem
 async function persistDailyBrief({
   engineRunId,
   researchRunId,
+  runKey,
   stories,
   evidence,
 }: {
   engineRunId: string;
   researchRunId: string | null;
+  runKey: string | undefined;
   stories: EditionStory[];
   evidence: EvidencePackItem[];
 }) {
@@ -1270,6 +1272,72 @@ async function persistDailyBrief({
     "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
   );
   const generatedAt = new Date().toISOString();
+  const researchRun = researchRunId
+    ? (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
+        `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
+      ))[0] || null
+    : null;
+  const storySnapshotRows = await intelligenceRest<Array<{ id: string; story_id: string | null; payload: Record<string, unknown> }>>(
+    "hybrid_publication_snapshots",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(stories.map((story, index) => ({
+        research_run_id: researchRunId,
+        slot_run_id: null,
+        story_id: story.id,
+        story_thesis_version_id: null,
+        supersedes_snapshot_id: null,
+        snapshot_type: "story",
+        public_summary: story.title,
+        payload: {
+          canonicalStoryState: {
+            id: story.id,
+            slug: null,
+            title: story.title,
+            marketQuestion: story.centralQuestion,
+            thesis: story.thesis,
+            confidence: story.confidence,
+            rank: index + 1,
+            status: story.lifecycleStatus,
+            assets: story.affectedAssets,
+            dominantNarrative: story.currentState,
+            bestExplanation: story.acceptedExplanation,
+            strongestSupport: null,
+            strongestContradiction: story.contradiction,
+            pricedAssessment: story.marketReaction,
+            confirmationCondition: story.confirmation,
+            invalidationCondition: story.invalidation,
+            nextCatalyst: story.nextTest,
+            imageUrl: null,
+            fallbackImageUrl: null,
+            imageKind: "unavailable",
+            imageSourceUrl: null,
+            imageSourceTitle: null,
+            imagePublisher: null,
+            intelligence: null,
+            thesisVersion: null,
+            featuredRank: index < 6 ? index + 1 : null,
+          },
+        },
+        source_record_refs: [],
+        redaction_log: [],
+        confidence: story.confidence,
+        published_at: generatedAt,
+      }))),
+    },
+  );
+  const snapshotByStoryId = new Map(storySnapshotRows
+    .filter((row) => row.story_id)
+    .map((row) => [row.story_id as string, row]));
+  const canonicalStoryManifest = stories.map((story, index) => {
+    const snapshot = snapshotByStoryId.get(story.id);
+    const state = snapshot?.payload.canonicalStoryState;
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+      throw new Error(`Immutable Story snapshot was not persisted for edition Story ${story.id}.`);
+    }
+    return { position: index + 1, snapshotId: snapshot.id, storyId: story.id, state };
+  });
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   const marketObservations = evidence
     .filter((item) => item.evidenceClass === "market_observation" && item.affectedAssets.length)
@@ -1304,7 +1372,14 @@ async function persistDailyBrief({
       supersedes_snapshot_id: prior[0]?.id || null,
       snapshot_type: "daily_brief",
       public_summary: edition.finalBoard.highestConvictionChange,
-      payload: { ...edition, engineRunId },
+      payload: {
+        ...edition,
+        engineRunId,
+        scheduleSlot: researchRun?.schedule_slot || null,
+        scheduledFor: researchRun?.scheduled_for || null,
+        runKey: researchRun?.run_key || runKey || null,
+        canonicalStoryManifest,
+      },
       source_record_refs: [
         ...stories.map((story) => ({ type: "story", id: story.id })),
         ...evidence.flatMap((item) => item.id ? [{ type: "evidence", id: item.id }] : []),
@@ -1670,7 +1745,7 @@ export async function runIntelligenceEngine({
     }
 
     if (!dryRun && editionStories.length) {
-      await persistDailyBrief({ engineRunId, researchRunId, stories: editionStories, evidence });
+      await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence });
     }
 
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {

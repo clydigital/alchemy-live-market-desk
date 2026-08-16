@@ -10,12 +10,19 @@ import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedSto
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  buildCanonicalEditionIndex,
+  replayImmutableEdition,
+  selectCanonicalEdition,
+  type EditionSnapshot,
+} from "@/lib/edition-replay";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type PublicationQueryOptions = {
   fresh?: boolean;
+  editionId?: string | null;
 };
 
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
@@ -48,7 +55,7 @@ async function optionalIntelligenceStates(): Promise<IntelligenceStoryState[]> {
   }
 }
 
-type PublicationSnapshot = {
+export type PublicationSnapshot = EditionSnapshot & {
   id: string;
   research_run_id: string | null;
   slot_run_id: string | null;
@@ -167,7 +174,7 @@ type AssetImpact = {
 
 export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
+  const [snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates, requestedSnapshots] = await Promise.all([
     optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", "select=*&order=published_at.desc&limit=480", options),
     optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
@@ -179,8 +186,30 @@ export async function getHybridPublicationRecords(options: PublicationQueryOptio
       options,
     ),
     optionalIntelligenceStates(),
+    options.editionId
+      ? optionalQuery<PublicationSnapshot>("hybrid_publication_snapshots", `select=*&id=eq.${encodeURIComponent(options.editionId)}&limit=1`, options)
+      : Promise.resolve([] as PublicationSnapshot[]),
   ]);
-  return { snapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
+  const requested = requestedSnapshots[0] || null;
+  const [requestedStories, successors] = await Promise.all([
+    requested?.research_run_id
+      ? optionalQuery<PublicationSnapshot>(
+          "hybrid_publication_snapshots",
+          `select=*&snapshot_type=eq.story&research_run_id=eq.${encodeURIComponent(requested.research_run_id)}&order=published_at.asc&limit=240`,
+          options,
+        )
+      : Promise.resolve([] as PublicationSnapshot[]),
+    requested
+      ? optionalQuery<PublicationSnapshot>(
+          "hybrid_publication_snapshots",
+          `select=*&snapshot_type=eq.daily_brief&supersedes_snapshot_id=eq.${encodeURIComponent(requested.id)}&limit=1`,
+          options,
+        )
+      : Promise.resolve([] as PublicationSnapshot[]),
+  ]);
+  const allSnapshots = [...snapshots, ...requestedSnapshots, ...requestedStories, ...successors]
+    .filter((snapshot, index, list) => list.findIndex((candidate) => candidate.id === snapshot.id) === index);
+  return { snapshots: allSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }
 
 function newestThesisByStory(versions: ThesisVersion[]) {
@@ -421,6 +450,7 @@ export function buildHybridPublicationContract({
   records,
   storyImages,
   generatedAt,
+  editionId = null,
 }: {
   stories: Story[];
   updates: Update[];
@@ -429,6 +459,7 @@ export function buildHybridPublicationContract({
   records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
   storyImages?: Map<string, StoryHeaderImage>;
   generatedAt: string;
+  editionId?: string | null;
 }) {
   const { allStoryStates, selection, storyStates, featuredStoryStates } = selectHybridPublicationStoryStates({ stories, records, storyImages });
   const storyById = new Map(stories.map((story) => [story.id, story]));
@@ -456,38 +487,58 @@ export function buildHybridPublicationContract({
     : updates.filter((update) => Date.parse(update.observed_at || update.created_at) >= cutoff).slice(0, 30).map((update) => legacyDelta(update, storyById.get(update.story_id)));
 
   const latestRun = researchRuns.find((run) => run.status === "completed") || researchRuns[0] || null;
-  const dailyBrief = records.snapshots.find((snapshot) => snapshot.snapshot_type === "daily_brief") || null;
+  const editionIndex = buildCanonicalEditionIndex(records.snapshots, researchRuns);
+  const editionSelection = selectCanonicalEdition(editionIndex, editionId);
+  const currentEdition = editionSelection.current;
+  const requestedEdition = editionSelection.status === "historical" ? editionSelection.selected : null;
+  const selectedSnapshot = requestedEdition
+    ? records.snapshots.find((snapshot) => snapshot.id === requestedEdition.snapshotId) || null
+    : null;
+  const historicalReplay = selectedSnapshot ? replayImmutableEdition(selectedSnapshot, records.snapshots) : null;
+  const isHistoricalReplay = Boolean(selectedSnapshot && historicalReplay);
+  const dailyBrief = currentEdition
+    ? records.snapshots.find((snapshot) => snapshot.id === currentEdition.snapshotId) || null
+    : null;
   const lead = featuredStoryStates[0] || null;
 
   const edition = {
-    id: dailyBrief?.id || `compat-${latestRun?.id || generatedAt}`,
-    snapshotId: dailyBrief?.id || null,
-    researchRunId: dailyBrief?.research_run_id || latestRun?.id || null,
-    generatedAt: dailyBrief?.published_at || generatedAt,
-    approvedAt: dailyBrief?.published_at || latestRun?.completed_at || null,
-    immutable: Boolean(dailyBrief),
-    mode: dailyBrief ? "approved_snapshot" : "compatibility",
-    summary: dailyBrief?.public_summary || null,
+    id: requestedEdition?.snapshotId || currentEdition?.snapshotId || `compat-${latestRun?.id || generatedAt}`,
+    snapshotId: requestedEdition?.snapshotId || currentEdition?.snapshotId || null,
+    researchRunId: requestedEdition?.researchRunId || currentEdition?.researchRunId || latestRun?.id || null,
+    generatedAt: selectedSnapshot?.published_at || dailyBrief?.published_at || generatedAt,
+    approvedAt: selectedSnapshot?.published_at || dailyBrief?.published_at || latestRun?.completed_at || null,
+    immutable: Boolean(requestedEdition || currentEdition),
+    mode: isHistoricalReplay ? "immutable_replay" : currentEdition ? "current_canonical" : "compatibility",
+    summary: selectedSnapshot?.public_summary || dailyBrief?.public_summary || null,
     payload: dailyBrief?.payload || {},
-    leadStoryId: lead?.id || null,
-    leadStorySlug: lead?.slug || null,
-    materialChangeCount: materialDeltas.length,
+    ...(selectedSnapshot ? { payload: selectedSnapshot.payload } : {}),
+    leadStoryId: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.id || null : lead?.id || null,
+    leadStorySlug: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.slug || null : lead?.slug || null,
+    materialChangeCount: isHistoricalReplay ? 0 : materialDeltas.length,
+    selected: {
+      requestedSnapshotId: editionId,
+      snapshotId: requestedEdition?.snapshotId || currentEdition?.snapshotId || null,
+      status: editionSelection.status,
+      exactStoryReplay: Boolean(historicalReplay && !historicalReplay.limitation),
+      limitation: historicalReplay?.limitation || null,
+    },
+    current: currentEdition,
   };
 
   return {
     contractVersion: 2,
     edition,
-    materialDeltas,
+    materialDeltas: isHistoricalReplay ? [] : materialDeltas,
     deskMemory: buildDeskMemory(records.toneVersions, generatedAt),
     canonical: {
-      storyStates,
-      featuredStoryStates,
-      storyArchive: allStoryStates,
-      thesisVersions: records.thesisVersions,
-      storyEvents: records.events,
-      causalEdges: records.causalEdges,
-      assetImpacts: records.assetImpacts,
-      marketState,
+      storyStates: isHistoricalReplay ? historicalReplay!.storyStates : storyStates,
+      featuredStoryStates: isHistoricalReplay ? historicalReplay!.featuredStoryStates : featuredStoryStates,
+      storyArchive: isHistoricalReplay ? historicalReplay!.storyStates : allStoryStates,
+      thesisVersions: isHistoricalReplay ? [] : records.thesisVersions,
+      storyEvents: isHistoricalReplay ? [] : records.events,
+      causalEdges: isHistoricalReplay ? [] : records.causalEdges,
+      assetImpacts: isHistoricalReplay ? [] : records.assetImpacts,
+      marketState: isHistoricalReplay ? [] : marketState,
     },
     publication: {
       snapshotCount: records.snapshots.length,
@@ -510,6 +561,7 @@ export function buildHybridPublicationContract({
         })),
       },
       latestSnapshots: records.snapshots.slice(0, 240),
+      editionIndex,
       persistenceAvailable: records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0 || records.causalEdges.length > 0 || records.assetImpacts.length > 0,
       compatibilityMode: !(records.snapshots.length > 0 || records.thesisVersions.length > 0 || records.events.length > 0),
     },
