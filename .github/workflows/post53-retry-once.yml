@@ -1,0 +1,47 @@
+name: Post53 Production Retry Once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  post53-production-retry:
+    if: contains(github.event.head_commit.message, '[post53-retry]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
+      VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PROD_URL: https://alchemy-live-market-desk.vercel.app
+      RETRY_KEY: post53-test
+    steps:
+      - name: Confirm Vercel token is configured
+        shell: bash
+        run: |
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            echo "Missing required repository secret: VERCEL_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Run audited production retry through split phases
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest env run -e production \
+            --token "$VERCEL_TOKEN" \
+            --scope "rogue-magazine" \
+            -- bash -c '
+              set -euo pipefail
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                "$PROD_URL/api/cron/research/morning?retry=$RETRY_KEY"
+              printf "\n"
+              curl --fail-with-body --silent --show-error --max-time 295 \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                "$PROD_URL/api/cron/research/morning-intelligence?retry=$RETRY_KEY"
+            '
