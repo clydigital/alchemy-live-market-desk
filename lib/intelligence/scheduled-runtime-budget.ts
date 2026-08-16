@@ -12,29 +12,30 @@ export const SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS = 2_500;
 
 /**
  * These are standalone-intelligence ceilings. Scheduled acquisition now hands
- * off durably before this budget begins, so the complex reasoning stages can
- * use materially longer requests without sharing the provider-acquisition time.
- * The complete nominal model chain remains inside the 285-second route deadline
- * together with persistence and finalisation reserves.
+ * off durably before this budget begins. Production on 2026-08-17 showed that
+ * hypothesis needed more than the old 60-second provider ceiling, while
+ * market-belief and divergence completed in roughly 6.6s and 5.4s. Reallocate
+ * the existing bounded route budget toward the complex reasoning stages without
+ * increasing the 285-second internal deadline or the 300-second Vercel ceiling.
  */
 const SCHEDULED_STAGE_TIMEOUT_MS = {
-  market_belief: 14_000,
-  divergence: 14_000,
-  hypothesis: 60_000,
-  challenger: 30_000,
-  scenario: 30_000,
-  story_synthesis: 55_000,
-  semantic_deduplication: 12_000,
-  lifecycle: 12_000,
+  market_belief: 10_000,
+  divergence: 10_000,
+  hypothesis: 110_000,
+  challenger: 25_000,
+  scenario: 25_000,
+  story_synthesis: 45_000,
+  semantic_deduplication: 8_000,
+  lifecycle: 7_000,
 } as const;
 
 const MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS = {
   market_belief: 6_000,
   divergence: 6_000,
-  hypothesis: 18_000,
-  challenger: 15_000,
-  scenario: 15_000,
-  story_synthesis: 18_000,
+  hypothesis: 30_000,
+  challenger: 12_000,
+  scenario: 12_000,
+  story_synthesis: 20_000,
   semantic_deduplication: 5_000,
   lifecycle: 5_000,
 } as const;
