@@ -11,27 +11,31 @@ export const SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS = 20_000;
 export const SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS = 2_500;
 
 /**
- * These are standalone-intelligence ceilings. Scheduled acquisition now hands
- * off durably before this budget begins. Production on 2026-08-17 showed that
- * hypothesis needed more than the old 60-second provider ceiling, while
- * market-belief and divergence completed in roughly 6.6s and 5.4s. Reallocate
- * the existing bounded route budget toward the complex reasoning stages without
- * increasing the 285-second internal deadline or the 300-second Vercel ceiling.
+ * Standalone-intelligence ceilings, bounded by the same 285-second route
+ * deadline. Production history through 2026-08-17 shows market_belief has
+ * completed as slowly as 13.43s and divergence as slowly as 9.86s, so the
+ * fast stages need real latency headroom. The hypothesis stage still receives
+ * the dominant budget after the old hidden 60-second provider cap was removed.
  */
 const SCHEDULED_STAGE_TIMEOUT_MS = {
-  market_belief: 10_000,
-  divergence: 10_000,
-  hypothesis: 110_000,
-  challenger: 25_000,
-  scenario: 25_000,
-  story_synthesis: 45_000,
-  semantic_deduplication: 8_000,
-  lifecycle: 7_000,
+  market_belief: 20_000,
+  divergence: 15_000,
+  hypothesis: 105_000,
+  challenger: 20_000,
+  scenario: 20_000,
+  story_synthesis: 40_000,
+  semantic_deduplication: 10_000,
+  lifecycle: 10_000,
 } as const;
 
+/**
+ * Floors used only when a legacy/non-split caller reaches intelligence late.
+ * The two fast-stage floors are anchored above observed production p90/max
+ * timings so proportional degradation does not starve them first.
+ */
 const MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS = {
-  market_belief: 6_000,
-  divergence: 6_000,
+  market_belief: 14_000,
+  divergence: 11_000,
   hypothesis: 30_000,
   challenger: 12_000,
   scenario: 12_000,
