@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
-import { malaysiaDateKey, scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
+import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
 import {
   type IntakeItemInput,
   type ResearchRunInput,
@@ -10,6 +10,7 @@ import {
   type SourceCheckInput,
 } from "@/lib/research-update";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { scheduledVideoRunIdentity, scheduledVideoSlotForDesk } from "@/lib/scheduled-video-identity";
 import {
   blockedVideoSourceChecks,
   videoSourceChecksFromDedicatedRun,
@@ -233,9 +234,8 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
 }
 
 async function loadDedicatedVideoSourceChecks(slot: CanonicalResearchSlot, now: Date) {
-  const videoSlot = slot === "morning" ? "video_midnight" : "video_late_morning";
-  const date = malaysiaDateKey(now);
-  const scheduledFor = `${date}T${videoSlot === "video_midnight" ? "00:40:00" : "11:30:00"}+08:00`;
+  const videoSlot = scheduledVideoSlotForDesk(slot);
+  const { scheduledFor } = scheduledVideoRunIdentity(videoSlot, now);
   try {
     const client = createSupabaseAdminClient();
     const { data: videoRun, error: videoError } = await client

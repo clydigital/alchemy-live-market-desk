@@ -14,8 +14,9 @@ import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import {
   ScheduledIntelligenceDeadlineError,
-  scheduledStageRequestTimeoutMs,
+  createScheduledStageBudgetController,
   scheduledStageTimeoutFailure,
+  type ScheduledStageBudgetController,
 } from "@/lib/intelligence/scheduled-runtime-budget";
 import {
   CHALLENGER_SCHEMA,
@@ -402,7 +403,7 @@ async function modelStage<T>({
   maxOutputTokens,
   requestTimeoutMs,
   maxAttempts,
-  scheduledExecutionStartedAtMs,
+  scheduledBudgetController,
 }: {
   engineRunId: string;
   stageKey: string;
@@ -412,7 +413,7 @@ async function modelStage<T>({
   maxOutputTokens?: number;
   requestTimeoutMs?: number;
   maxAttempts?: number;
-  scheduledExecutionStartedAtMs?: number;
+  scheduledBudgetController?: ScheduledStageBudgetController;
 }) {
   const prompt = await loadPrompt(stageKey);
   const stageRunId = await beginStage(engineRunId, stageKey, prompt?.id ?? null, {
@@ -421,8 +422,8 @@ async function modelStage<T>({
   });
   let effectiveTimeoutMs = requestTimeoutMs;
   try {
-    effectiveTimeoutMs = Number.isFinite(scheduledExecutionStartedAtMs)
-      ? scheduledStageRequestTimeoutMs(stageKey, { executionStartedAtMs: scheduledExecutionStartedAtMs! })
+    effectiveTimeoutMs = scheduledBudgetController
+      ? scheduledBudgetController.timeoutFor(stageKey)
       : requestTimeoutMs;
     const result = await runStructuredStage<T>({
       stageKey,
@@ -1374,7 +1375,9 @@ export async function runIntelligenceEngine({
   const stageExecution = {
     requestTimeoutMs: stageRequestTimeoutMs,
     maxAttempts: stageMaxAttempts,
-    scheduledExecutionStartedAtMs,
+    scheduledBudgetController: Number.isFinite(scheduledExecutionStartedAtMs)
+      ? createScheduledStageBudgetController({ executionStartedAtMs: scheduledExecutionStartedAtMs! })
+      : undefined,
   };
 
   try {

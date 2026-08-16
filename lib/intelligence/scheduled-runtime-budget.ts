@@ -8,6 +8,7 @@ export const VERCEL_FUNCTION_CEILING_MS = 300_000;
 export const SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS = 285_000;
 export const SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS = 20_000;
 export const SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS = 20_000;
+export const SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS = 2_500;
 
 const SCHEDULED_STAGE_TIMEOUT_MS = {
   market_belief: 14_000,
@@ -32,6 +33,12 @@ const MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS = {
 } as const;
 
 export type ScheduledIntelligenceStage = keyof typeof SCHEDULED_STAGE_TIMEOUT_MS;
+export type ScheduledStageBudgetPlan = Record<ScheduledIntelligenceStage, number>;
+
+export type ScheduledStageBudgetController = {
+  timeoutFor: (stageKey: string) => number;
+  plan: () => ScheduledStageBudgetPlan | null;
+};
 
 export const SCHEDULED_INTELLIGENCE_STAGES = Object.keys(
   SCHEDULED_STAGE_TIMEOUT_MS,
@@ -64,16 +71,16 @@ function isScheduledIntelligenceStage(stageKey: string): stageKey is ScheduledIn
   return stageKey in SCHEDULED_STAGE_TIMEOUT_MS;
 }
 
-function sum(values: Record<ScheduledIntelligenceStage, number>) {
+function sum(values: ScheduledStageBudgetPlan) {
   return SCHEDULED_INTELLIGENCE_STAGES.reduce((total, stage) => total + values[stage], 0);
 }
 
-function distributeBudget(availableModelMs: number): Record<ScheduledIntelligenceStage, number> {
+function distributeBudget(availableModelMs: number): ScheduledStageBudgetPlan {
   if (availableModelMs >= SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS) {
     return { ...SCHEDULED_STAGE_TIMEOUT_MS };
   }
 
-  const budget: Record<ScheduledIntelligenceStage, number> = { ...MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS };
+  const budget: ScheduledStageBudgetPlan = { ...MINIMUM_SCHEDULED_STAGE_TIMEOUT_MS };
   let undistributedMs = availableModelMs - SCHEDULED_MINIMUM_STAGE_BUDGET_MS;
   const expandable = SCHEDULED_INTELLIGENCE_STAGES.map((stage) => ({
     stage,
@@ -122,16 +129,40 @@ export function scheduledStageBudgetPlan(input: {
 }
 
 /**
- * Selects a stage's request timeout from a chain-wide allocation. Calling this
- * immediately before each request accounts for acquisition and persistence
- * time already spent while retaining a floor for every required later stage.
+ * Retrieves a timeout from an allocation that was already calculated for this
+ * engine run. It never recomputes a plan after a completed stage.
  */
 export function scheduledStageRequestTimeoutMs(
   stageKey: string,
-  input: { executionStartedAtMs: number; nowMs?: number },
+  plan: ScheduledStageBudgetPlan,
 ) {
   if (!isScheduledIntelligenceStage(stageKey)) {
     throw new Error(`No scheduled intelligence budget is configured for stage "${stageKey}".`);
   }
-  return scheduledStageBudgetPlan({ ...input, firstStageKey: stageKey })[stageKey];
+  return plan[stageKey];
+}
+
+/**
+ * Defers the one immutable calculation until the first model stage begins, so
+ * any pre-stage loading time is included while the resulting allocation is
+ * shared by every later stage in this engine run.
+ */
+export function createScheduledStageBudgetController(input: {
+  executionStartedAtMs: number;
+  nowMs?: () => number;
+}): ScheduledStageBudgetController {
+  let plan: ScheduledStageBudgetPlan | null = null;
+  return {
+    timeoutFor(stageKey) {
+      if (!plan) {
+        plan = scheduledStageBudgetPlan({
+          executionStartedAtMs: input.executionStartedAtMs,
+          nowMs: input.nowMs?.() ?? Date.now(),
+          firstStageKey: stageKey,
+        });
+      }
+      return scheduledStageRequestTimeoutMs(stageKey, plan);
+    },
+    plan: () => plan,
+  };
 }

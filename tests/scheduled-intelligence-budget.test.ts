@@ -8,9 +8,11 @@ import {
   SCHEDULED_MINIMUM_STAGE_BUDGET_MS,
   SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS,
   SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS,
+  SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS,
   SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS,
   ScheduledIntelligenceDeadlineError,
   VERCEL_FUNCTION_CEILING_MS,
+  createScheduledStageBudgetController,
   scheduledStageBudgetPlan,
   scheduledStageRequestTimeoutMs,
   scheduledStageTimeoutFailure,
@@ -18,22 +20,11 @@ import {
 
 test("scheduled intelligence assigns complex stages materially larger request budgets", () => {
   const executionStartedAtMs = 1_000_000;
-  const marketBeliefBudget = scheduledStageRequestTimeoutMs("market_belief", {
-    executionStartedAtMs,
-    nowMs: executionStartedAtMs,
-  });
-  const hypothesisBudget = scheduledStageRequestTimeoutMs("hypothesis", {
-    executionStartedAtMs,
-    nowMs: executionStartedAtMs,
-  });
-  const challengerBudget = scheduledStageRequestTimeoutMs("challenger", {
-    executionStartedAtMs,
-    nowMs: executionStartedAtMs,
-  });
-  const scenarioBudget = scheduledStageRequestTimeoutMs("scenario", {
-    executionStartedAtMs,
-    nowMs: executionStartedAtMs,
-  });
+  const plan = scheduledStageBudgetPlan({ executionStartedAtMs, nowMs: executionStartedAtMs });
+  const marketBeliefBudget = scheduledStageRequestTimeoutMs("market_belief", plan);
+  const hypothesisBudget = scheduledStageRequestTimeoutMs("hypothesis", plan);
+  const challengerBudget = scheduledStageRequestTimeoutMs("challenger", plan);
+  const scenarioBudget = scheduledStageRequestTimeoutMs("scenario", plan);
 
   assert.equal(marketBeliefBudget, 14_000);
   assert.equal(hypothesisBudget, 34_000);
@@ -62,13 +53,25 @@ test("scheduled intelligence stage budgets stay inside the global route deadline
   );
 });
 
-test("a realistic 125-second pre-intelligence delay reserves meaningful time for every required stage", () => {
+test("a 125-second handoff keeps one immutable budget plan through the full sequential stage chain", () => {
   const executionStartedAtMs = 1_000_000;
-  const plan = scheduledStageBudgetPlan({
+  const controller = createScheduledStageBudgetController({
     executionStartedAtMs,
-    nowMs: executionStartedAtMs + 125_000,
+    nowMs: () => executionStartedAtMs + 125_000,
   });
+  let elapsedMs = 125_000;
+  let initialPlan: ReturnType<typeof controller.plan> = null;
 
+  for (const stage of SCHEDULED_INTELLIGENCE_STAGES) {
+    const budget = controller.timeoutFor(stage);
+    if (!initialPlan) initialPlan = controller.plan();
+    assert.equal(controller.plan(), initialPlan, "completed stages must not trigger a new all-stage allocation");
+    assert.equal(budget, initialPlan?.[stage]);
+    elapsedMs += budget + SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS;
+  }
+
+  const plan = controller.plan();
+  assert.ok(plan);
   for (const stage of SCHEDULED_INTELLIGENCE_STAGES) {
     assert.ok(plan[stage] >= 5_000, `${stage} lost its meaningful model budget`);
   }
@@ -79,18 +82,24 @@ test("a realistic 125-second pre-intelligence delay reserves meaningful time for
   assert.ok(plan.scenario > plan.divergence * 2);
   assert.equal(Object.values(plan).reduce((total, budget) => total + budget, 0), 120_000);
   assert.equal(
-    125_000 + 120_000 + SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS + SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS,
+    SCHEDULED_RESEARCH_PER_STAGE_PERSISTENCE_OVERHEAD_MS * SCHEDULED_INTELLIGENCE_STAGES.length,
+    SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS,
+  );
+  assert.equal(
+    elapsedMs + SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS,
     SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS,
   );
+  assert.ok(elapsedMs + SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS < VERCEL_FUNCTION_CEILING_MS);
 });
 
 test("a global deadline exhaustion is deterministic and identifies the stage", () => {
   const executionStartedAtMs = 1_000_000;
+  const controller = createScheduledStageBudgetController({
+    executionStartedAtMs,
+    nowMs: () => executionStartedAtMs + 178_000,
+  });
   assert.throws(
-    () => scheduledStageRequestTimeoutMs("hypothesis", {
-      executionStartedAtMs,
-      nowMs: executionStartedAtMs + 178_000,
-    }),
+    () => controller.timeoutFor("hypothesis"),
     (error: unknown) => error instanceof ScheduledIntelligenceDeadlineError
       && error.code === "scheduled_deadline_exhausted"
       && error.stageKey === "hypothesis"
