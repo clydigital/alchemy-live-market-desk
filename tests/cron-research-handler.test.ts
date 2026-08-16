@@ -159,6 +159,24 @@ test("terminal scheduled runs remain non-retriable without an explicit retry key
   assert.equal(claim.run.id, "run-terminal");
 });
 
+test("an explicit audited retry has a separate, traceable run identity", async () => {
+  const canonical = resolveScheduledResearchIdentity(
+    cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    "morning",
+    FIXED_NOW,
+  );
+  const retry = resolveScheduledResearchIdentity(
+    cronRequest("https://example.com/api/cron/research/morning?retry=intelligence-timeout-20260816", "15 1 * * *"),
+    "morning",
+    FIXED_NOW,
+  );
+
+  assert.equal(canonical.runKey, "cron-v1:morning:2026-08-15");
+  assert.equal(retry.runKey, "cron-v1:morning:2026-08-15:retry:intelligence-timeout-20260816");
+  assert.notEqual(retry.runKey, canonical.runKey);
+  assert.equal(retry.scheduledFor, canonical.scheduledFor);
+});
+
 test("structured observability captures safe Vercel metadata without logging secrets", () => {
   const received = buildScheduledResearchLogEvent({
     event: "scheduled_research_received",
@@ -195,6 +213,7 @@ test("primary and watchdog routes remain thin delegates and vercel.json schedule
   const eveningPrimary = readFileSync(new URL("../app/api/cron/research/evening/route.ts", import.meta.url), "utf8");
   const eveningWatchdog = readFileSync(new URL("../app/api/cron/research/evening-watchdog/route.ts", import.meta.url), "utf8");
   const handler = readFileSync(new URL("../lib/cron-research-handler.ts", import.meta.url), "utf8");
+  const publisher = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
   const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")) as {
     crons: Array<{ path: string; schedule: string }>;
   };
@@ -206,6 +225,8 @@ test("primary and watchdog routes remain thin delegates and vercel.json schedule
   assert.match(handler, /if \(claim\.state !== "claimed"\) \{/);
   assert.match(handler, /"scheduled_research_received"/);
   assert.match(handler, /"scheduled_research_publisher_start"/);
+  assert.match(handler, /x-alchemy-scheduled-research-started-at/);
+  assert.match(publisher, /scheduledExecutionStartedAtMs/);
 
   const morningIdentity = resolveScheduledResearchIdentity(
     cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),

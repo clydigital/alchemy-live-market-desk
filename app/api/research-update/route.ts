@@ -135,6 +135,8 @@ export async function POST(request: Request) {
   // PART A: Distinguish scheduled vs non-scheduled paths.
   // ONLY trusted after passing authorization (line 72 above).
   const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
+  const scheduledExecutionStartedAt = request.headers.get("x-alchemy-scheduled-research-started-at");
+  const scheduledExecutionStartedAtMs = scheduledExecutionStartedAt ? Date.parse(scheduledExecutionStartedAt) : Number.NaN;
 
   let input: ResearchRunInput;
   try {
@@ -262,7 +264,9 @@ export async function POST(request: Request) {
         triggerKind: "new_evidence",
         runKey: `research:${input.runKey}`,
         dryRun: !runtimePublicationReady,
-        stageRequestTimeoutMs: isScheduledInternalRequest ? 18_000 : undefined,
+        scheduledExecutionStartedAtMs: isScheduledInternalRequest
+          ? (Number.isFinite(scheduledExecutionStartedAtMs) ? scheduledExecutionStartedAtMs : Date.now())
+          : undefined,
         stageMaxAttempts: isScheduledInternalRequest ? 1 : undefined,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));

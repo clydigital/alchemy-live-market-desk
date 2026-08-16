@@ -209,6 +209,7 @@ export async function handleScheduledResearchWithDependencies(
         Authorization: `Bearer ${process.env.CRON_SECRET}`,
         "Content-Type": "application/json",
         "x-alchemy-scheduled-research": "1",
+        "x-alchemy-scheduled-research-started-at": cronReceivedAt,
       },
       body: JSON.stringify(input),
     });
