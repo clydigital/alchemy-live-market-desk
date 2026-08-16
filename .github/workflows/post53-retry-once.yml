@@ -17,8 +17,6 @@ jobs:
       VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
       VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      PROD_URL: https://alchemy-live-market-desk.vercel.app
-      RETRY_KEY: post53-test
     steps:
       - name: Confirm Vercel token is configured
         shell: bash
@@ -51,38 +49,16 @@ jobs:
 
       - name: Invoke audited morning acquisition retry
         shell: bash
-        run: |
-          set -euo pipefail
-          URL="$PROD_URL/api/cron/research/morning?retry=$RETRY_KEY"
-          npx --yes vercel@latest env run -e production \
-            --token "$VERCEL_TOKEN" \
-            --scope "rogue-magazine" \
-            -- bash -c '
-              set -euo pipefail
-              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
-                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
-                exit 1
-              fi
-              curl --fail-with-body --silent --show-error --max-time 295 \
-                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
-                "$1"
-            ' _ "$URL"
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/morning-watchdog"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
 
       - name: Invoke matching intelligence continuation
         shell: bash
-        run: |
-          set -euo pipefail
-          URL="$PROD_URL/api/cron/research/morning-intelligence?retry=$RETRY_KEY"
-          npx --yes vercel@latest env run -e production \
-            --token "$VERCEL_TOKEN" \
-            --scope "rogue-magazine" \
-            -- bash -c '
-              set -euo pipefail
-              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
-                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
-                exit 1
-              fi
-              curl --fail-with-body --silent --show-error --max-time 295 \
-                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
-                "$1"
-            ' _ "$URL"
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/morning-intelligence-watchdog"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
