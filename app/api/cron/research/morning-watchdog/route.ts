@@ -5,11 +5,17 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 /**
- * PART C: Watchdog for morning research acquisition.
- * Invoked ~5 minutes after the primary morning cron (09:15 → 09:20 MYT).
- * It shares the canonical run identity and safely no-ops when the primary
- * already claimed or completed the acquisition phase.
+ * TEMPORARY POST-#53 ACCEPTANCE HOOK.
+ *
+ * This already-registered Vercel Cron route is temporarily pinned to the
+ * audited `post53-test` retry identity so production can exercise the split
+ * acquisition path without mutating the failed canonical morning run. The
+ * normal watchdog implementation must be restored immediately after the
+ * acceptance run.
  */
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  url.searchParams.set("retry", "post53-test");
+  request = new Request(url, request);
   return handleScheduledResearchAcquisition(request, "morning");
 }
