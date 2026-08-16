@@ -18,7 +18,7 @@ import {
   scheduledStageTimeoutFailure,
 } from "../lib/intelligence/scheduled-runtime-budget.ts";
 
-test("standalone scheduled intelligence gives hypothesis and synthesis materially larger budgets", () => {
+test("production-informed standalone intelligence gives hypothesis the dominant bounded budget", () => {
   const executionStartedAtMs = 1_000_000;
   const plan = scheduledStageBudgetPlan({ executionStartedAtMs, nowMs: executionStartedAtMs });
   const marketBeliefBudget = scheduledStageRequestTimeoutMs("market_belief", plan);
@@ -27,21 +27,27 @@ test("standalone scheduled intelligence gives hypothesis and synthesis materiall
   const scenarioBudget = scheduledStageRequestTimeoutMs("scenario", plan);
   const synthesisBudget = scheduledStageRequestTimeoutMs("story_synthesis", plan);
 
-  assert.equal(marketBeliefBudget, 14_000);
-  assert.equal(hypothesisBudget, 60_000);
-  assert.equal(synthesisBudget, 55_000);
-  assert.ok(hypothesisBudget > marketBeliefBudget * 4);
-  assert.ok(synthesisBudget > marketBeliefBudget * 3);
-  assert.ok(challengerBudget > marketBeliefBudget * 2);
-  assert.ok(scenarioBudget > marketBeliefBudget * 2);
+  assert.equal(marketBeliefBudget, 10_000);
+  assert.equal(hypothesisBudget, 110_000);
+  assert.equal(challengerBudget, 25_000);
+  assert.equal(scenarioBudget, 25_000);
+  assert.equal(synthesisBudget, 45_000);
+  assert.ok(hypothesisBudget > marketBeliefBudget * 10);
+  assert.ok(synthesisBudget > marketBeliefBudget * 4);
 });
 
 test("standalone scheduled intelligence stage budgets stay inside the global route deadline", () => {
-  assert.equal(SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS, 227_000);
+  assert.equal(SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS, 240_000);
+  assert.equal(
+    SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS +
+      SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS +
+      SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS,
+    280_000,
+  );
   assert.ok(
     SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS +
       SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS +
-      SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS <=
+      SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS <
       SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS,
   );
   assert.ok(SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS < VERCEL_FUNCTION_CEILING_MS);
@@ -50,10 +56,12 @@ test("standalone scheduled intelligence stage budgets stay inside the global rou
   const plan = scheduledStageBudgetPlan({ executionStartedAtMs, nowMs: executionStartedAtMs });
   const modelBudget = Object.values(plan).reduce((total, budget) => total + budget, 0);
   assert.equal(modelBudget, SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS);
-  assert.ok(
-    modelBudget + SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS + SCHEDULED_RESEARCH_FINALISATION_RESERVE_MS <=
-      SCHEDULED_RESEARCH_EXECUTION_DEADLINE_MS,
-  );
+});
+
+test("provider layer no longer silently clamps a scheduled stage back to 60 seconds", () => {
+  const openai = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
+  assert.match(openai, /MAX_STAGE_REQUEST_TIMEOUT_MS = 240_000/);
+  assert.match(openai, /boundedInteger\(requestTimeoutMs, 60_000, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS\)/);
 });
 
 test("a legacy 125-second handoff still degrades safely if a non-split caller uses the bounded runtime", () => {
@@ -78,9 +86,9 @@ test("a legacy 125-second handoff still degrades safely if a non-split caller us
   for (const stage of SCHEDULED_INTELLIGENCE_STAGES) {
     assert.ok(plan[stage] >= 5_000, `${stage} lost its meaningful model budget`);
   }
-  assert.ok(plan.hypothesis >= 27_000);
-  assert.ok(plan.story_synthesis >= 26_000);
-  assert.ok(plan.hypothesis > plan.market_belief * 3);
+  assert.ok(plan.hypothesis >= 43_000);
+  assert.ok(plan.story_synthesis >= 24_000);
+  assert.ok(plan.hypothesis > plan.market_belief * 6);
   assert.ok(plan.challenger > plan.divergence * 2);
   assert.ok(plan.scenario > plan.divergence * 2);
   assert.equal(Object.values(plan).reduce((total, budget) => total + budget, 0), 120_000);
@@ -108,7 +116,7 @@ test("a global deadline exhaustion is deterministic and identifies the stage", (
       && error.stageKey === "hypothesis"
       && /deadline exhausted before stage "hypothesis"/.test(error.message),
   );
-  assert.equal(SCHEDULED_MINIMUM_STAGE_BUDGET_MS, 88_000);
+  assert.equal(SCHEDULED_MINIMUM_STAGE_BUDGET_MS, 96_000);
 });
 
 test("runtime persists an exhausted scheduled deadline with its deterministic code", () => {
@@ -120,7 +128,7 @@ test("runtime persists an exhausted scheduled deadline with its deterministic co
 
 test("scheduled timeout reporting identifies the failed stage and its allotted budget", () => {
   assert.equal(
-    scheduledStageTimeoutFailure("hypothesis", 60_000),
-    'Intelligence stage "hypothesis" timed out after its 60000ms allotted budget.',
+    scheduledStageTimeoutFailure("hypothesis", 110_000),
+    'Intelligence stage "hypothesis" timed out after its 110000ms allotted budget.',
   );
 });
