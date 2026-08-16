@@ -18,23 +18,26 @@ import {
   scheduledStageTimeoutFailure,
 } from "../lib/intelligence/scheduled-runtime-budget.ts";
 
-test("scheduled intelligence assigns complex stages materially larger request budgets", () => {
+test("standalone scheduled intelligence gives hypothesis and synthesis materially larger budgets", () => {
   const executionStartedAtMs = 1_000_000;
   const plan = scheduledStageBudgetPlan({ executionStartedAtMs, nowMs: executionStartedAtMs });
   const marketBeliefBudget = scheduledStageRequestTimeoutMs("market_belief", plan);
   const hypothesisBudget = scheduledStageRequestTimeoutMs("hypothesis", plan);
   const challengerBudget = scheduledStageRequestTimeoutMs("challenger", plan);
   const scenarioBudget = scheduledStageRequestTimeoutMs("scenario", plan);
+  const synthesisBudget = scheduledStageRequestTimeoutMs("story_synthesis", plan);
 
   assert.equal(marketBeliefBudget, 14_000);
-  assert.equal(hypothesisBudget, 34_000);
-  assert.ok(hypothesisBudget > marketBeliefBudget * 2);
+  assert.equal(hypothesisBudget, 60_000);
+  assert.equal(synthesisBudget, 55_000);
+  assert.ok(hypothesisBudget > marketBeliefBudget * 4);
+  assert.ok(synthesisBudget > marketBeliefBudget * 3);
   assert.ok(challengerBudget > marketBeliefBudget * 2);
   assert.ok(scenarioBudget > marketBeliefBudget * 2);
 });
 
-test("scheduled intelligence stage budgets stay inside the global route deadline", () => {
-  assert.equal(SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS, 180_000);
+test("standalone scheduled intelligence stage budgets stay inside the global route deadline", () => {
+  assert.equal(SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS, 227_000);
   assert.ok(
     SCHEDULED_INTELLIGENCE_STAGE_BUDGET_MS +
       SCHEDULED_RESEARCH_STAGE_PERSISTENCE_RESERVE_MS +
@@ -53,7 +56,7 @@ test("scheduled intelligence stage budgets stay inside the global route deadline
   );
 });
 
-test("a 125-second handoff keeps one immutable budget plan through the full sequential stage chain", () => {
+test("a legacy 125-second handoff still degrades safely if a non-split caller uses the bounded runtime", () => {
   const executionStartedAtMs = 1_000_000;
   const controller = createScheduledStageBudgetController({
     executionStartedAtMs,
@@ -75,9 +78,9 @@ test("a 125-second handoff keeps one immutable budget plan through the full sequ
   for (const stage of SCHEDULED_INTELLIGENCE_STAGES) {
     assert.ok(plan[stage] >= 5_000, `${stage} lost its meaningful model budget`);
   }
-  assert.ok(plan.hypothesis >= 23_000);
-  assert.ok(plan.story_synthesis >= 23_000);
-  assert.ok(plan.hypothesis > plan.market_belief * 2);
+  assert.ok(plan.hypothesis >= 27_000);
+  assert.ok(plan.story_synthesis >= 26_000);
+  assert.ok(plan.hypothesis > plan.market_belief * 3);
   assert.ok(plan.challenger > plan.divergence * 2);
   assert.ok(plan.scenario > plan.divergence * 2);
   assert.equal(Object.values(plan).reduce((total, budget) => total + budget, 0), 120_000);
@@ -117,7 +120,7 @@ test("runtime persists an exhausted scheduled deadline with its deterministic co
 
 test("scheduled timeout reporting identifies the failed stage and its allotted budget", () => {
   assert.equal(
-    scheduledStageTimeoutFailure("hypothesis", 34_000),
-    'Intelligence stage "hypothesis" timed out after its 34000ms allotted budget.',
+    scheduledStageTimeoutFailure("hypothesis", 60_000),
+    'Intelligence stage "hypothesis" timed out after its 60000ms allotted budget.',
   );
 });

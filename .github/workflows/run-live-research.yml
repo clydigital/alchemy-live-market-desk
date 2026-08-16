@@ -31,10 +31,18 @@ jobs:
             exit 1
           fi
 
-      - name: Invoke existing production cron
+      - name: Invoke production acquisition cron
         shell: bash
         run: >-
           npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}"
+          --token "$VERCEL_TOKEN"
+          --project "$VERCEL_PROJECT_ID"
+          --scope "rogue-magazine"
+
+      - name: Invoke production intelligence continuation
+        shell: bash
+        run: >-
+          npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}-intelligence"
           --token "$VERCEL_TOKEN"
           --project "$VERCEL_PROJECT_ID"
           --scope "rogue-magazine"
