@@ -196,11 +196,11 @@ export async function handleScheduledResearchWithDependencies(
       claimOutcome: claim.state,
       runId: claim.run.id,
     });
-    // Six external TranscriptAPI calls plus eight bounded OpenAI stages fit
-    // inside the 300-second Vercel Cron function while cache hits stay free.
+    // Video discovery and TranscriptAPI work run on their dedicated cadence.
+    // This desk cycle reads that persisted checkpoint rather than duplicating
+    // serial provider work before its bounded intelligence path.
     const input = await (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
       now,
-      maxTranscriptAttempts: 6,
       runKey,
     });
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
@@ -209,6 +209,7 @@ export async function handleScheduledResearchWithDependencies(
         Authorization: `Bearer ${process.env.CRON_SECRET}`,
         "Content-Type": "application/json",
         "x-alchemy-scheduled-research": "1",
+        "x-alchemy-scheduled-research-started-at": cronReceivedAt,
       },
       body: JSON.stringify(input),
     });

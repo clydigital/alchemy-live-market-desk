@@ -13,6 +13,12 @@ import {
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import {
+  ScheduledIntelligenceDeadlineError,
+  createScheduledStageBudgetController,
+  scheduledStageTimeoutFailure,
+  type ScheduledStageBudgetController,
+} from "@/lib/intelligence/scheduled-runtime-budget";
+import {
   CHALLENGER_SCHEMA,
   DEDUPLICATION_SCHEMA,
   DIVERGENCE_SCHEMA,
@@ -397,6 +403,7 @@ async function modelStage<T>({
   maxOutputTokens,
   requestTimeoutMs,
   maxAttempts,
+  scheduledBudgetController,
 }: {
   engineRunId: string;
   stageKey: string;
@@ -406,13 +413,18 @@ async function modelStage<T>({
   maxOutputTokens?: number;
   requestTimeoutMs?: number;
   maxAttempts?: number;
+  scheduledBudgetController?: ScheduledStageBudgetController;
 }) {
   const prompt = await loadPrompt(stageKey);
   const stageRunId = await beginStage(engineRunId, stageKey, prompt?.id ?? null, {
     evidenceCount: Array.isArray((input as { evidence?: unknown[] })?.evidence) ? (input as { evidence: unknown[] }).evidence.length : undefined,
     storyCount: Array.isArray((input as { existingStories?: unknown[] })?.existingStories) ? (input as { existingStories: unknown[] }).existingStories.length : undefined,
   });
+  let effectiveTimeoutMs = requestTimeoutMs;
   try {
+    effectiveTimeoutMs = scheduledBudgetController
+      ? scheduledBudgetController.timeoutFor(stageKey)
+      : requestTimeoutMs;
     const result = await runStructuredStage<T>({
       stageKey,
       instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
@@ -420,7 +432,7 @@ async function modelStage<T>({
       schema,
       modelKind,
       maxOutputTokens,
-      requestTimeoutMs,
+      requestTimeoutMs: effectiveTimeoutMs,
       maxAttempts,
     });
     await finishStage(stageRunId, {
@@ -433,13 +445,21 @@ async function modelStage<T>({
     });
     return { data: result.data, stageRunId };
   } catch (error) {
-    const code = error instanceof OpenAIStageError ? error.code : "stage_error";
-    const message = error instanceof Error ? error.message : "Unknown intelligence stage failure.";
+    const code = error instanceof ScheduledIntelligenceDeadlineError
+      ? error.code
+      : error instanceof OpenAIStageError ? error.code : "stage_error";
+    const originalMessage = error instanceof Error ? error.message : "Unknown intelligence stage failure.";
+    const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
+      ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)
+      : originalMessage;
     await finishStage(stageRunId, {
       status: error instanceof OpenAIStageError && error.code === "configuration_required" ? "blocked" : "failed",
       failureCode: code,
       failureDetail: message.slice(0, 2_000),
     });
+    if (message !== originalMessage && error instanceof OpenAIStageError) {
+      throw new OpenAIStageError(message, { code: error.code, status: error.status, retryable: error.retryable });
+    }
     throw error;
   }
 }
@@ -1304,6 +1324,7 @@ export async function runIntelligenceEngine({
   dryRun = false,
   stageRequestTimeoutMs,
   stageMaxAttempts,
+  scheduledExecutionStartedAtMs,
 }: {
   researchRunId?: string | null;
   triggerKind?: IntelligenceTriggerKind;
@@ -1312,6 +1333,8 @@ export async function runIntelligenceEngine({
   /** Optional bounded-stage controls for a serverless scheduled run. */
   stageRequestTimeoutMs?: number;
   stageMaxAttempts?: number;
+  /** Cron receipt time; keeps scheduled stage requests inside the route deadline. */
+  scheduledExecutionStartedAtMs?: number;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
   if (!intelligenceDatabaseConfigured()) {
@@ -1352,6 +1375,9 @@ export async function runIntelligenceEngine({
   const stageExecution = {
     requestTimeoutMs: stageRequestTimeoutMs,
     maxAttempts: stageMaxAttempts,
+    scheduledBudgetController: Number.isFinite(scheduledExecutionStartedAtMs)
+      ? createScheduledStageBudgetController({ executionStartedAtMs: scheduledExecutionStartedAtMs! })
+      : undefined,
   };
 
   try {
