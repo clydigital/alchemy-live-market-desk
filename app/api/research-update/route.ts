@@ -135,6 +135,7 @@ export async function POST(request: Request) {
   // PART A: Distinguish scheduled vs non-scheduled paths.
   // ONLY trusted after passing authorization (line 72 above).
   const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
+  const deferScheduledIntelligence = isScheduledInternalRequest && request.headers.get("x-alchemy-defer-intelligence") === "1";
   const scheduledExecutionStartedAt = request.headers.get("x-alchemy-scheduled-research-started-at");
   const scheduledExecutionStartedAtMs = scheduledExecutionStartedAt ? Date.parse(scheduledExecutionStartedAt) : Number.NaN;
 
@@ -255,6 +256,36 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         }))),
       });
+    }
+
+    if (deferScheduledIntelligence && intelligenceEnabled) {
+      const deferredWarning = "Scheduled acquisition persisted; canonical intelligence is pending a dedicated continuation invocation.";
+      if (!warnings.includes(deferredWarning)) warnings.push(deferredWarning);
+      await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          completed_at: null,
+          status: "running",
+          updates_published: 0,
+          warnings,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      return response({
+        accepted: true,
+        runId,
+        status: "intelligence_pending",
+        publicationReadiness: runtimePublicationReady ? "ready" : "structurally_blocked",
+        updatesPublished: 0,
+        legacyRecalibrationsPublished: 0,
+        legacyUpdatesPublished: 0,
+        intelligence: null,
+        calendarCandidates: calendarItems.length,
+        macroLifecycle: macroLifecycle.summary,
+        warnings,
+        accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
+      }, 202);
     }
 
     let intelligence: IntelligenceRunResult | null = null;
