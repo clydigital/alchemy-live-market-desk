@@ -88,6 +88,13 @@ Copy `.env.example` and configure these server-side Vercel values:
 
 `CRON_SECRET` authorizes only Vercel Cron requests. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
 
+Authorised maintainers can run the canonical production research pipeline from the
+`Run Live Research Now` GitHub Actions workflow. The workflow uses a short-lived
+GitHub OIDC identity scoped to the exact workflow on `main`; the production route
+validates that identity, keeps `CRON_SECRET` inside Vercel, and calls the existing
+scheduled acquisition and intelligence handlers with one audited retry identity.
+No research credential is copied into the workflow or returned to the operator.
+
 The publisher contract and runbook live in [Research Update Engine](docs/RESEARCH_UPDATE_ENGINE.md).
 
 ## Verification
