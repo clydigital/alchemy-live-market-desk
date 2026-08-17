@@ -10,5 +10,11 @@ export async function buildScheduledResearchInputWithFirecrawl(
   const now = options.now ?? new Date();
   const input = await buildScheduledResearchInput(slot, options);
   const recovered = await applyFirecrawlResearchFallback(input, now);
-  return applyResearchDiscoveryProviders(recovered, slot, { now });
+
+  // Firecrawl intentionally owns a structurally duplicated transport type so its
+  // Node tests do not depend on Next path aliases. It only passes recalibrations
+  // through unchanged from the canonical scheduled input, so bridge that known
+  // transport boundary here rather than weakening the canonical discovery type.
+  const discoveryInput = recovered as Parameters<typeof applyResearchDiscoveryProviders>[0];
+  return applyResearchDiscoveryProviders(discoveryInput, slot, { now });
 }
