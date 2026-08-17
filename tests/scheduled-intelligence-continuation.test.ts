@@ -6,6 +6,7 @@ import {
   evaluateScheduledIntelligenceContinuation,
   finalScheduledResearchStatus,
   intelligenceContinuationClaimWarning,
+  intelligenceContinuationReleaseWarning,
   latestIntelligenceContinuationClaimAt,
   mergeScheduledWarnings,
   type ScheduledContinuationRun,
@@ -66,6 +67,16 @@ test("a fresh continuation claim suppresses a racing watchdog and a stale claim 
     "ready",
   );
   assert.equal(latestIntelligenceContinuationClaimAt([freshClaim]), Date.parse(freshClaim.split(" at ")[1]));
+});
+
+test("a bounded partial continuation releases its orchestration claim for a later resume", () => {
+  const claim = intelligenceContinuationClaimWarning(NOW);
+  const release = intelligenceContinuationReleaseWarning(NOW);
+
+  assert.equal(
+    evaluateScheduledIntelligenceContinuation(run({ warnings: [claim, release] }), NOW).state,
+    "ready",
+  );
 });
 
 test("research final status preserves structural blocking and intelligence failures", () => {

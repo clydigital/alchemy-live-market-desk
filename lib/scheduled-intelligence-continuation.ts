@@ -24,6 +24,8 @@ export type ScheduledContinuationDecision = {
 
 export const INTELLIGENCE_CONTINUATION_CLAIM_PREFIX =
   "[orchestration] intelligence continuation claimed at ";
+export const INTELLIGENCE_CONTINUATION_RELEASE_PREFIX =
+  "[orchestration] intelligence continuation released at ";
 
 export const INTELLIGENCE_CONTINUATION_CLAIM_STALE_MS = 6 * 60 * 1_000;
 
@@ -41,6 +43,18 @@ export function latestIntelligenceContinuationClaimAt(warnings: string[] | null 
 
 export function intelligenceContinuationClaimWarning(now = new Date()) {
   return `${INTELLIGENCE_CONTINUATION_CLAIM_PREFIX}${now.toISOString()}`;
+}
+
+export function intelligenceContinuationReleaseWarning(now = new Date()) {
+  return `${INTELLIGENCE_CONTINUATION_RELEASE_PREFIX}${now.toISOString()}`;
+}
+
+function latestIntelligenceContinuationReleaseAt(warnings: string[] | null | undefined) {
+  const releases = (warnings ?? [])
+    .filter((warning) => warning.startsWith(INTELLIGENCE_CONTINUATION_RELEASE_PREFIX))
+    .map((warning) => Date.parse(warning.slice(INTELLIGENCE_CONTINUATION_RELEASE_PREFIX.length)))
+    .filter(Number.isFinite);
+  return releases.length ? Math.max(...releases) : null;
 }
 
 export function evaluateScheduledIntelligenceContinuation(
@@ -67,7 +81,12 @@ export function evaluateScheduledIntelligenceContinuation(
   }
 
   const claimedAt = latestIntelligenceContinuationClaimAt(run.warnings);
-  if (claimedAt !== null && now.getTime() - claimedAt < INTELLIGENCE_CONTINUATION_CLAIM_STALE_MS) {
+  const releasedAt = latestIntelligenceContinuationReleaseAt(run.warnings);
+  if (
+    claimedAt !== null
+    && (releasedAt === null || releasedAt < claimedAt)
+    && now.getTime() - claimedAt < INTELLIGENCE_CONTINUATION_CLAIM_STALE_MS
+  ) {
     return {
       state: "intelligence_running",
       reason: "A recent intelligence continuation claim is already active.",

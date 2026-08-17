@@ -13,6 +13,12 @@ import {
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import {
+  completedStageCheckpoints,
+  hasReusableStagePayload,
+  type PersistedStageRun,
+  type StageCheckpoint,
+} from "@/lib/intelligence/resumable-checkpoints";
+import {
   ScheduledIntelligenceDeadlineError,
   createScheduledStageBudgetController,
   scheduledStageTimeoutFailure,
@@ -124,7 +130,12 @@ type PromptVersion = {
   model_hint: string | null;
 };
 
-type StageRunRow = { id: string };
+type StageRunRow = PersistedStageRun;
+type StageClaimRow = {
+  stage_run_id: string;
+  claim_state: "claimed" | "completed" | "busy";
+  output_payload: unknown;
+};
 type CanonicalSource = {
   id: string;
   external_source_id: string | null;
@@ -353,21 +364,35 @@ async function loadPrompt(stageKey: string) {
   return rows[0] ?? null;
 }
 
-async function beginStage(engineRunId: string, stageKey: string, promptVersionId: string | null, inputRefs: unknown) {
-  const rows = await intelligenceRest<StageRunRow[]>("intelligence_stage_runs", {
+class IntelligenceStageClaimUnavailableError extends Error {
+  constructor(readonly stageKey: string, readonly stageRunId: string) {
+    super(`Intelligence stage "${stageKey}" is already claimed by another continuation invocation.`);
+    this.name = "IntelligenceStageClaimUnavailableError";
+  }
+}
+
+async function loadCompletedStageCheckpoints(engineRunId: string) {
+  const rows = await intelligenceRest<StageRunRow[]>(
+    `intelligence_stage_runs?select=id,stage_key,status,output_payload,started_at,completed_at&engine_run_id=eq.${encodeURIComponent(engineRunId)}&status=eq.completed&order=completed_at.desc.nullslast,started_at.desc`,
+  );
+  return completedStageCheckpoints(rows);
+}
+
+async function claimStage(engineRunId: string, stageKey: string, promptVersionId: string | null, inputRefs: unknown) {
+  const rows = await intelligenceRest<StageClaimRow[]>("rpc/claim_intelligence_stage", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
-      engine_run_id: engineRunId,
-      prompt_version_id: promptVersionId,
-      stage_key: stageKey,
-      status: "started",
-      input_refs: inputRefs,
-      started_at: new Date().toISOString(),
+      p_engine_run_id: engineRunId,
+      p_stage_key: stageKey,
+      p_prompt_version_id: promptVersionId,
+      p_input_refs: inputRefs,
+      p_stale_after_seconds: 360,
     }),
   });
-  if (!rows[0]?.id) throw new Error(`Unable to create intelligence stage run for ${stageKey}.`);
-  return rows[0].id;
+  const claim = rows[0];
+  if (!claim?.stage_run_id || !claim.claim_state) throw new Error(`Unable to claim intelligence stage ${stageKey}.`);
+  return claim;
 }
 
 async function finishStage(stageRunId: string, payload: {
@@ -407,6 +432,7 @@ async function modelStage<T>({
   requestTimeoutMs,
   maxAttempts,
   scheduledBudgetController,
+  completedCheckpoints,
 }: {
   engineRunId: string;
   stageKey: string;
@@ -417,12 +443,28 @@ async function modelStage<T>({
   requestTimeoutMs?: number;
   maxAttempts?: number;
   scheduledBudgetController?: ScheduledStageBudgetController;
+  completedCheckpoints?: Map<string, StageCheckpoint>;
 }) {
+  const checkpoint = completedCheckpoints?.get(stageKey);
+  if (checkpoint) {
+    return { data: checkpoint.outputPayload as T, stageRunId: checkpoint.stageRunId, reused: true as const };
+  }
   const prompt = await loadPrompt(stageKey);
-  const stageRunId = await beginStage(engineRunId, stageKey, prompt?.id ?? null, {
+  const inputRefs = {
     evidenceCount: Array.isArray((input as { evidence?: unknown[] })?.evidence) ? (input as { evidence: unknown[] }).evidence.length : undefined,
     storyCount: Array.isArray((input as { existingStories?: unknown[] })?.existingStories) ? (input as { existingStories: unknown[] }).existingStories.length : undefined,
-  });
+  };
+  const claim = await claimStage(engineRunId, stageKey, prompt?.id ?? null, inputRefs);
+  if (claim.claim_state === "busy") throw new IntelligenceStageClaimUnavailableError(stageKey, claim.stage_run_id);
+  if (claim.claim_state === "completed") {
+    if (!hasReusableStagePayload(stageKey, claim.output_payload)) {
+      throw new Error(`Completed intelligence checkpoint ${stageKey} has an invalid persisted payload and cannot be reused.`);
+    }
+    const recovered = { stageRunId: claim.stage_run_id, stageKey, outputPayload: claim.output_payload };
+    completedCheckpoints?.set(stageKey, recovered);
+    return { data: claim.output_payload as T, stageRunId: claim.stage_run_id, reused: true as const };
+  }
+  const stageRunId = claim.stage_run_id;
   let effectiveTimeoutMs = requestTimeoutMs;
   try {
     effectiveTimeoutMs = scheduledBudgetController
@@ -446,7 +488,8 @@ async function modelStage<T>({
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
     });
-    return { data: result.data, stageRunId };
+    completedCheckpoints?.set(stageKey, { stageRunId, stageKey, outputPayload: result.data });
+    return { data: result.data, stageRunId, reused: false as const };
   } catch (error) {
     const code = error instanceof ScheduledIntelligenceDeadlineError
       ? error.code
@@ -778,9 +821,9 @@ async function persistChallenger(
     }];
   });
   if (!rows.length) return [];
-  await intelligenceRest("intelligence_challenger_assessments", {
+  await intelligenceRest("intelligence_challenger_assessments?on_conflict=stage_run_id,hypothesis_id", {
     method: "POST",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(rows.map((row) => ({
       hypothesis_id: row.hypothesisId,
       stage_run_id: row.stageRunId,
@@ -1511,6 +1554,7 @@ export async function runIntelligenceEngine({
   let hypothesesGenerated = 0;
   let hypothesesPromoted = 0;
   let storiesConsidered = 0;
+  let evidenceConsidered = 0;
   const publishedStories: StoryRow[] = [];
   const editionStories: EditionStory[] = [];
   const stageExecution = {
@@ -1528,6 +1572,7 @@ export async function runIntelligenceEngine({
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
     const evidence = await loadEvidence();
+    evidenceConsidered = evidence.length;
     if (!evidence.length) {
       warnings.push("No canonical evidence is available for intelligence reasoning.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
@@ -1541,10 +1586,12 @@ export async function runIntelligenceEngine({
     const evidenceById = new Map(evidence.map((item) => [item.id, item]));
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
+    const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
+    const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
@@ -1564,7 +1611,7 @@ export async function runIntelligenceEngine({
 
     const divergenceStage = await modelStage<DivergenceOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "divergence",
       modelKind: "fast",
       schema: DIVERGENCE_SCHEMA,
@@ -1584,7 +1631,7 @@ export async function runIntelligenceEngine({
 
     const hypothesisStage = await modelStage<HypothesisOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
@@ -1611,7 +1658,7 @@ export async function runIntelligenceEngine({
     ]));
     const challengerStage = await modelStage<ChallengerOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "challenger",
       modelKind: "complex",
       schema: CHALLENGER_SCHEMA,
@@ -1637,7 +1684,7 @@ export async function runIntelligenceEngine({
     const reviewedIds = new Set(reviewed.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
@@ -1648,7 +1695,7 @@ export async function runIntelligenceEngine({
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "story_synthesis",
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
@@ -1697,7 +1744,7 @@ export async function runIntelligenceEngine({
 
     const dedupeStage = await modelStage<DeduplicationOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "semantic_deduplication",
       modelKind: "fast",
       schema: DEDUPLICATION_SCHEMA,
@@ -1715,7 +1762,7 @@ export async function runIntelligenceEngine({
 
     const lifecycleStage = await modelStage<LifecycleOutput>({
       engineRunId,
-      ...stageExecution,
+      ...resumableStageExecution,
       stageKey: "lifecycle",
       modelKind: "fast",
       schema: LIFECYCLE_SCHEMA,
@@ -1831,6 +1878,7 @@ export async function runIntelligenceEngine({
           hypothesesPromoted,
           candidateRows: candidateRows.map((row) => row.id),
         },
+        failure_detail: null,
       }),
     });
 
@@ -1849,27 +1897,37 @@ export async function runIntelligenceEngine({
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown intelligence runtime failure.";
     warnings.push(message);
-    try {
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status: "failed",
-          warnings,
-          failure_detail: message.slice(0, 2_000),
-          stories_considered: storiesConsidered,
-          stories_published: publishedStories.length,
-          completed_at: new Date().toISOString(),
-        }),
-      });
-    } catch {
-      // Preserve the original intelligence failure.
+    const blocked = error instanceof OpenAIStageError && error.code === "configuration_required";
+    const competingClaim = error instanceof IntelligenceStageClaimUnavailableError;
+    const resumable = competingClaim
+      || error instanceof ScheduledIntelligenceDeadlineError
+      || (error instanceof OpenAIStageError && error.retryable);
+    if (!competingClaim) {
+      try {
+        await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            // A failed attempt is deliberately not a terminal engine run. Its
+            // stage row remains the audit record while the canonical run can
+            // resume from the first incomplete checkpoint on a later request.
+            ...(blocked ? { status: "blocked" } : resumable ? { status: "partial" } : { status: "failed" }),
+            warnings,
+            failure_detail: message.slice(0, 2_000),
+            stories_considered: storiesConsidered,
+            stories_published: publishedStories.length,
+            ...(resumable ? { completed_at: null } : { completed_at: new Date().toISOString() }),
+          }),
+        });
+      } catch {
+        // Preserve the original intelligence failure.
+      }
     }
     return {
       enabled: true,
       engineRunId,
-      status: "failed",
-      evidenceConsidered: 0,
+      status: blocked ? "blocked" : resumable ? "partial" : "failed",
+      evidenceConsidered,
       hypothesesGenerated,
       hypothesesPromoted,
       storiesConsidered,
