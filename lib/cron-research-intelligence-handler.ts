@@ -12,6 +12,7 @@ import {
   evaluateScheduledIntelligenceContinuation,
   finalScheduledResearchStatus,
   intelligenceContinuationClaimWarning,
+  intelligenceContinuationReleaseWarning,
   mergeScheduledWarnings,
   type ScheduledContinuationRun,
 } from "@/lib/scheduled-intelligence-continuation";
@@ -80,6 +81,26 @@ async function persistFinalRun(input: {
     .eq("id", input.runId)
     .eq("status", "running");
   if (error) throw new Error(`Could not finalise scheduled research continuation: ${error.message}`);
+}
+
+async function persistResumableRun(input: {
+  runId: string;
+  warnings: string[];
+}) {
+  const client = createSupabaseAdminClient();
+  const { error } = await client
+    .from("research_runs")
+    .update({
+      // Keep the canonical acquisition lineage open: a later cron or manual
+      // continuation must resume this engine run instead of making a new edition.
+      status: "running",
+      completed_at: null,
+      warnings: input.warnings,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.runId)
+    .eq("status", "running");
+  if (error) throw new Error(`Could not persist resumable scheduled intelligence state: ${error.message}`);
 }
 
 async function markUnexpectedFailure(runId: string, warnings: string[], message: string) {
@@ -167,6 +188,23 @@ export async function handleScheduledResearchIntelligence(
       stageMaxAttempts: 1,
     });
     const warnings = mergeScheduledWarnings(claimedWarnings, intelligence.warnings);
+    if (intelligence.status === "partial") {
+      const resumableWarnings = mergeScheduledWarnings(
+        warnings,
+        [intelligenceContinuationReleaseWarning()],
+      );
+      await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
+      return response({
+        status: "partial",
+        slot,
+        runKey,
+        runId: run.id,
+        scheduledFor,
+        message: "A bounded intelligence stage attempt stopped. Completed checkpoints remain attached to this canonical research run and the next continuation will resume from the first incomplete stage.",
+        intelligence,
+        warnings: resumableWarnings,
+      }, 202);
+    }
     const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
     const updatesPublished = intelligence.storiesPublished || 0;
 

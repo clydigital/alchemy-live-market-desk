@@ -62,6 +62,6 @@ export async function POST(request: Request) {
     runKey: typeof body.runKey === "string" ? body.runKey : undefined,
     dryRun: body.dryRun === true,
   });
-  const status = result.status === "failed" ? 500 : result.status === "blocked" ? 503 : 200;
+  const status = result.status === "failed" ? 500 : result.status === "blocked" ? 503 : result.status === "partial" ? 202 : 200;
   return NextResponse.json(result, { status });
 }
