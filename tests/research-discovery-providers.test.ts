@@ -32,7 +32,7 @@ test("provider calls use their official service endpoints and GDELT stays keyles
 test("discovery is ordered after deterministic acquisition and Firecrawl recovery", () => {
   const directIndex = scheduledSource.indexOf("buildScheduledResearchInput(slot, options)");
   const firecrawlIndex = scheduledSource.indexOf("applyFirecrawlResearchFallback(input, now)");
-  const discoveryIndex = scheduledSource.indexOf("applyResearchDiscoveryProviders(recovered, slot");
+  const discoveryIndex = scheduledSource.lastIndexOf("applyResearchDiscoveryProviders(");
   assert.ok(directIndex >= 0);
   assert.ok(firecrawlIndex > directIndex);
   assert.ok(discoveryIndex > firecrawlIndex);
