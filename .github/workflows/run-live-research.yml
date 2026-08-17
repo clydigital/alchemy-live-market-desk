@@ -11,98 +11,104 @@ on:
           - morning
           - evening
       retry_key:
-        description: Optional audited retry suffix (letters, numbers, hyphens only)
+        description: Optional audited manual identity (auto-generated when empty)
         required: false
         type: string
         default: ""
 
 permissions:
   contents: read
+  id-token: write
+
+concurrency:
+  group: production-live-research
+  cancel-in-progress: false
 
 jobs:
   run-production-cron:
     name: Run ${{ inputs.slot }} production research
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     env:
-      VERCEL_ORG_ID: team_9AogaVT7XiFYay1fSAuBoix9
-      VERCEL_PROJECT_ID: prj_mHZ3Tosmi2iHCFthG4Eok8BLnWlq
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       PROD_URL: https://alchemy-live-market-desk.vercel.app
       SLOT: ${{ inputs.slot }}
       RETRY_KEY: ${{ inputs.retry_key }}
+      OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
-      - name: Confirm Vercel token is configured
+      - name: Resolve audited manual identity
         shell: bash
         run: |
-          if [[ -z "$VERCEL_TOKEN" ]]; then
-            echo "Missing required repository secret: VERCEL_TOKEN." >&2
-            exit 1
+          if [[ -z "$RETRY_KEY" ]]; then
+            RETRY_KEY="live-manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           fi
-
-      - name: Validate audited retry key
-        if: ${{ inputs.retry_key != '' }}
-        shell: bash
-        run: |
           if [[ ! "$RETRY_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,40}$ ]]; then
             echo "retry_key must contain only letters, numbers, and hyphens and be at most 41 characters." >&2
             exit 1
           fi
+          echo "RETRY_KEY=$RETRY_KEY" >> "$GITHUB_ENV"
+          echo "Manual research identity: $RETRY_KEY"
 
-      - name: Invoke production acquisition cron
-        if: ${{ inputs.retry_key == '' }}
-        shell: bash
-        run: >-
-          npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}"
-          --token "$VERCEL_TOKEN"
-          --project "$VERCEL_PROJECT_ID"
-          --scope "rogue-magazine"
-
-      - name: Invoke production intelligence continuation
-        if: ${{ inputs.retry_key == '' }}
-        shell: bash
-        run: >-
-          npx --yes vercel@latest crons run "/api/cron/research/${{ inputs.slot }}-intelligence"
-          --token "$VERCEL_TOKEN"
-          --project "$VERCEL_PROJECT_ID"
-          --scope "rogue-magazine"
-
-      - name: Invoke audited acquisition retry
-        if: ${{ inputs.retry_key != '' }}
+      - name: Run canonical production pipeline
         shell: bash
         run: |
           set -euo pipefail
-          URL="$PROD_URL/api/cron/research/$SLOT?retry=$RETRY_KEY"
-          npx --yes vercel@latest env run -e production \
-            --token "$VERCEL_TOKEN" \
-            --scope "rogue-magazine" \
-            -- bash -c '
-              set -euo pipefail
-              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
-                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
-                exit 1
-              fi
-              curl --fail-with-body --silent --show-error --max-time 295 \
-                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
-                "$1"
-            ' _ "$URL"
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
 
-      - name: Invoke audited intelligence continuation
-        if: ${{ inputs.retry_key != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          URL="$PROD_URL/api/cron/research/$SLOT-intelligence?retry=$RETRY_KEY"
-          npx --yes vercel@latest env run -e production \
-            --token "$VERCEL_TOKEN" \
-            --scope "rogue-magazine" \
-            -- bash -c '
-              set -euo pipefail
-              if [[ -z "${RESEARCH_UPDATE_TOKEN:-}" ]]; then
-                echo "RESEARCH_UPDATE_TOKEN is not configured in production." >&2
+          request_oidc_token() {
+            local encoded_audience response
+            encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+            response="$(curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+            OIDC_TOKEN="$(jq -er '.value' <<<"$response")"
+            echo "::add-mask::$OIDC_TOKEN"
+          }
+
+          invoke_stage() {
+            local stage="$1" body http_status
+            request_oidc_token
+            body="$(jq -cn \
+              --arg slot "$SLOT" \
+              --arg stage "$stage" \
+              --arg retryKey "$RETRY_KEY" \
+              '{slot:$slot,stage:$stage,retryKey:$retryKey}')"
+            http_status="$(curl --silent --show-error --max-time 305 \
+              -o "$RESPONSE_FILE" -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$body" \
+              "$PROD_URL/api/admin/research/run")"
+            jq -c '{status,slot,runKey,runId,scheduledFor,updatesPublished,message,intelligenceStatus:.intelligence.status}' "$RESPONSE_FILE"
+            if [[ ! "$http_status" =~ ^2 ]]; then
+              echo "Manual Live $stage invocation returned HTTP $http_status." >&2
+              exit 1
+            fi
+          }
+
+          invoke_stage acquisition
+
+          for attempt in {1..8}; do
+            echo "Intelligence continuation attempt $attempt"
+            invoke_stage intelligence
+            state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+            case "$state" in
+              completed)
+                exit 0
+                ;;
+              partial|intelligence_running|acquisition_pending)
+                sleep 15
+                ;;
+              blocked|failed|terminal|missing)
+                echo "Canonical intelligence ended in state: $state" >&2
                 exit 1
-              fi
-              curl --fail-with-body --silent --show-error --max-time 295 \
-                -H "Authorization: Bearer $RESEARCH_UPDATE_TOKEN" \
-                "$1"
-            ' _ "$URL"
+                ;;
+              *)
+                echo "Unexpected canonical intelligence state: ${state:-missing}" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Canonical intelligence did not complete within eight continuations." >&2
+          exit 1
