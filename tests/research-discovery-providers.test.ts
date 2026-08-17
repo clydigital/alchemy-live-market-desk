@@ -39,11 +39,11 @@ test("discovery is ordered after deterministic acquisition and Firecrawl recover
 });
 
 test("discovery providers preserve underlying publisher provenance and deduplicate URLs", () => {
-  assert.match(providerSource, /publisherFromUrl\(lead\.url\)/);
+  assert.match(providerSource, /publisherFromUrl\(item\.url\)/);
   assert.match(providerSource, /Search APIs are discovery mechanisms, not publication authorities/);
   assert.match(providerSource, /cross-provider duplicates count once/i);
   assert.match(providerSource, /seen\.has\(key\)/);
-  assert.match(providerSource, /normaliseDiscoveryUrl\(item\.url\)/);
+  assert.match(providerSource, /safeUrl\(item\.url\)/);
 });
 
 test("keyed providers and kill switches are documented for deployment", () => {
