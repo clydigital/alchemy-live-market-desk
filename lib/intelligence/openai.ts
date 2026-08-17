@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 export type IntelligenceReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -18,13 +19,50 @@ export class OpenAIStageError extends Error {
   code: string;
   status: number | null;
   retryable: boolean;
+  model: string | null;
+  requestId: string | null;
+  responseId: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  providerStatus: string | null;
+  incompleteReason: string | null;
+  generatedLength: number | null;
+  generatedHash: string | null;
 
-  constructor(message: string, options: { code: string; status?: number | null; retryable?: boolean }) {
+  constructor(
+    message: string,
+    options: {
+      code: string;
+      status?: number | null;
+      retryable?: boolean;
+      model?: string | null;
+      requestId?: string | null;
+      responseId?: string | null;
+      inputTokens?: number | null;
+      outputTokens?: number | null;
+      totalTokens?: number | null;
+      providerStatus?: string | null;
+      incompleteReason?: string | null;
+      generatedLength?: number | null;
+      generatedHash?: string | null;
+    },
+  ) {
     super(message);
     this.name = "OpenAIStageError";
     this.code = options.code;
     this.status = options.status ?? null;
     this.retryable = options.retryable ?? false;
+    this.model = options.model ?? null;
+    this.requestId = options.requestId ?? null;
+    this.responseId = options.responseId ?? null;
+    this.inputTokens = options.inputTokens ?? null;
+    this.outputTokens = options.outputTokens ?? null;
+    this.totalTokens = options.totalTokens ?? null;
+    this.providerStatus = options.providerStatus ?? null;
+    this.incompleteReason = options.incompleteReason ?? null;
+    this.generatedLength = options.generatedLength ?? null;
+    this.generatedHash = options.generatedHash ?? null;
   }
 }
 
@@ -40,6 +78,10 @@ type ResponseOutputItem = {
 type ResponsesApiPayload = {
   id?: string;
   model?: string;
+  status?: string;
+  incomplete_details?: {
+    reason?: string;
+  };
   output?: ResponseOutputItem[];
   output_text?: string;
   error?: { message?: string; code?: string };
@@ -102,13 +144,35 @@ export function responsesCompatibleJsonSchema(value: unknown): unknown {
   return output;
 }
 
-function outputText(payload: ResponsesApiPayload) {
+function outputText(payload: ResponsesApiPayload, telemetry?: {
+  status: number;
+  model: string;
+  requestId: string | null;
+  responseId: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  providerStatus: string | null;
+  incompleteReason: string | null;
+}) {
   if (typeof payload.output_text === "string" && payload.output_text.trim()) return payload.output_text.trim();
   const chunks: string[] = [];
   for (const item of payload.output ?? []) {
     for (const part of item.content ?? []) {
       if (part.type === "refusal" && part.refusal) {
-        throw new OpenAIStageError(part.refusal, { code: "provider_refusal" });
+        throw new OpenAIStageError(part.refusal, {
+          code: "provider_refusal",
+          status: telemetry?.status ?? null,
+          retryable: false,
+          model: telemetry?.model ?? null,
+          requestId: telemetry?.requestId ?? null,
+          responseId: telemetry?.responseId ?? null,
+          inputTokens: telemetry?.inputTokens ?? null,
+          outputTokens: telemetry?.outputTokens ?? null,
+          totalTokens: telemetry?.totalTokens ?? null,
+          providerStatus: telemetry?.providerStatus ?? null,
+          incompleteReason: telemetry?.incompleteReason ?? null,
+        });
       }
       if (part.type === "output_text" && typeof part.text === "string") chunks.push(part.text);
     }
@@ -199,6 +263,7 @@ export async function runStructuredStage<T>({
       lastError = new OpenAIStageError(message, {
         code: error instanceof DOMException && error.name === "TimeoutError" ? "timeout" : "network_error",
         retryable: true,
+        model,
       });
       if (attempt < attemptLimit - 1) {
         await sleep(retryDelay(attempt, null));
@@ -216,8 +281,30 @@ export async function runStructuredStage<T>({
       throw new OpenAIStageError(`OpenAI returned malformed JSON (HTTP ${response.status}).`, {
         code: "malformed_provider_response",
         status: response.status,
+        model,
+        requestId,
+        retryable: response.status >= 500,
       });
     }
+
+    const responseId = payload.id ?? null;
+    const modelName = payload.model || model;
+    const inputTokens = payload.usage?.input_tokens ?? null;
+    const outputTokens = payload.usage?.output_tokens ?? null;
+    const totalTokens = payload.usage?.total_tokens ?? null;
+    const providerStatus = payload.status ?? null;
+    const incompleteReason = payload.incomplete_details?.reason ?? null;
+
+    const commonTelemetry = {
+      model: modelName,
+      requestId,
+      responseId,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      providerStatus,
+      incompleteReason,
+    };
 
     if (!response.ok) {
       const retryable = response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500;
@@ -227,6 +314,7 @@ export async function runStructuredStage<T>({
           code: payload.error?.code || `http_${response.status}`,
           status: response.status,
           retryable,
+          ...commonTelemetry,
         },
       );
       if (retryable && attempt < attemptLimit - 1) {
@@ -236,32 +324,82 @@ export async function runStructuredStage<T>({
       throw lastError;
     }
 
-    const generated = outputText(payload);
+    if (providerStatus === "incomplete" || incompleteReason === "max_output_tokens") {
+      lastError = new OpenAIStageError(
+        `OpenAI response was incomplete (${incompleteReason || "truncated"}).`,
+        {
+          code: "incomplete_provider_response",
+          status: response.status,
+          retryable: true,
+          ...commonTelemetry,
+        },
+      );
+      if (attempt < attemptLimit - 1) {
+        await sleep(retryDelay(attempt, null));
+        continue;
+      }
+      throw lastError;
+    }
+
+    const generated = outputText(payload, { status: response.status, ...commonTelemetry });
     if (!generated) {
-      throw new OpenAIStageError("OpenAI returned no structured output text.", {
+      lastError = new OpenAIStageError("OpenAI returned no structured output text.", {
         code: "empty_provider_response",
         status: response.status,
+        retryable: true,
+        ...commonTelemetry,
       });
+      if (attempt < attemptLimit - 1) {
+        await sleep(retryDelay(attempt, null));
+        continue;
+      }
+      throw lastError;
     }
+
+    const generatedLength = generated.length;
+    const generatedHash = createHash("sha256").update(generated).digest("hex").slice(0, 16);
 
     let data: T;
     try {
       data = JSON.parse(generated) as T;
     } catch {
-      throw new OpenAIStageError("OpenAI structured output could not be parsed as JSON.", {
-        code: "malformed_structured_output",
-        status: response.status,
-      });
+      if (outputTokens !== null && outputTokens >= maxOutputTokens) {
+        lastError = new OpenAIStageError(
+          `OpenAI response was incomplete (output token limit reached: ${outputTokens}/${maxOutputTokens}).`,
+          {
+            code: "incomplete_provider_response",
+            status: response.status,
+            retryable: true,
+            ...commonTelemetry,
+            generatedLength,
+            generatedHash,
+          },
+        );
+      } else {
+        lastError = new OpenAIStageError("OpenAI structured output could not be parsed as JSON.", {
+          code: "malformed_structured_output",
+          status: response.status,
+          retryable: true,
+          ...commonTelemetry,
+          generatedLength,
+          generatedHash,
+        });
+      }
+      if (attempt < attemptLimit - 1) {
+        await sleep(retryDelay(attempt, null));
+        continue;
+      }
+      throw lastError;
     }
 
     return {
       data,
       requestId,
-      responseId: payload.id ?? null,
-      model: payload.model || model,
-      inputTokens: payload.usage?.input_tokens ?? null,
-      outputTokens: payload.usage?.output_tokens ?? null,
-      totalTokens: payload.usage?.total_tokens ?? null,
+      responseId,
+      model: modelName,
+      inputTokens,
+      outputTokens,
+      totalTokens,
     };
   }
 
