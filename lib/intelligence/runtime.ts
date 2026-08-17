@@ -53,6 +53,11 @@ import {
   type ResearchRequirement,
   type ResearchStateResult,
 } from "@/lib/intelligence/research-state";
+import {
+  buildHypothesisEvidencePack,
+  buildHypothesisStoryPack,
+  formatStageFailureDetail,
+} from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { getHybridDeskData } from "@/lib/data";
@@ -248,45 +253,7 @@ Explain causal arrows one at a time and label each mechanism step observed, stro
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
 Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims. All descriptive research states may publish when the update is material and has usable traceable evidence.`;
 
-export function buildHypothesisEvidencePack(
-  beliefs: BeliefRow[],
-  divergences: DivergenceRow[],
-  allEvidence: EvidencePackItem[],
-): EvidencePackItem[] {
-  const relevantIds = new Set<string>();
-  for (const belief of beliefs) {
-    for (const id of belief.evidence_ids ?? []) {
-      relevantIds.add(id);
-    }
-  }
-  for (const divergence of divergences) {
-    for (const id of divergence.decisive_evidence_ids ?? []) {
-      relevantIds.add(id);
-    }
-  }
-
-  const filtered = allEvidence.filter((item) => relevantIds.has(item.id));
-  return filtered.length > 0 ? filtered : allEvidence;
-}
-
-export function buildHypothesisStoryPack(
-  beliefs: BeliefRow[],
-  hypothesisEvidence: EvidencePackItem[],
-  existingStoriesPack: ExistingStoryPackItem[],
-): ExistingStoryPackItem[] {
-  const affectedAssets = new Set<string>([
-    ...beliefs.flatMap((b) => b.affected_assets ?? []),
-    ...hypothesisEvidence.flatMap((e) => e.affectedAssets ?? []),
-  ]);
-
-  if (affectedAssets.size === 0) return existingStoriesPack;
-
-  const relevantStories = existingStoriesPack.filter((story) =>
-    (story.assets ?? []).some((asset) => affectedAssets.has(asset))
-  );
-
-  return relevantStories.length > 0 ? relevantStories : existingStoriesPack;
-}
+export { buildHypothesisEvidencePack, buildHypothesisStoryPack };
 
 function hash(value: string, length = 32) {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
@@ -552,10 +519,19 @@ async function modelStage<T>({
     const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
       ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)
       : originalMessage;
+    const failureDetail = formatStageFailureDetail({
+      message,
+      failureCode: code,
+      providerStatus: stageError?.providerStatus,
+      incompleteReason: stageError?.incompleteReason,
+      generatedLength: stageError?.generatedLength,
+      generatedHash: stageError?.generatedHash,
+      totalTokens: stageError?.totalTokens,
+    });
     await finishStage(stageRunId, {
       status: error instanceof OpenAIStageError && error.code === "configuration_required" ? "blocked" : "failed",
       failureCode: code,
-      failureDetail: message.slice(0, 2_000),
+      failureDetail,
       modelName: stageError?.model ?? null,
       providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
       inputTokens: stageError?.inputTokens ?? null,
@@ -796,19 +772,27 @@ async function persistDivergences(output: DivergenceOutput, beliefs: BeliefRow[]
   });
 }
 
-async function persistHypotheses(output: HypothesisOutput, divergences: DivergenceRow[], beliefs: BeliefRow[], knownEvidence: Set<string>) {
+async function persistHypotheses(
+  output: HypothesisOutput,
+  divergences: DivergenceRow[],
+  beliefs: BeliefRow[],
+  knownEvidence: Set<string>,
+  allowedHypothesisEvidenceIds?: Set<string>,
+) {
   const divergenceIds = new Set(divergences.map((row) => row.id));
   const beliefById = new Map(beliefs.map((row) => [row.id, row]));
   const divergenceById = new Map(divergences.map((row) => [row.id, row]));
+  const allowedEvidence = allowedHypothesisEvidenceIds ?? knownEvidence;
+
   const specs = output.hypotheses.flatMap((hypothesis) => {
     if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
     const divergence = divergenceById.get(hypothesis.divergenceId)!;
     const belief = beliefById.get(divergence.market_belief_id);
-    const evidenceFor = onlyKnownIds(hypothesis.evidenceForIds, knownEvidence);
-    const evidenceAgainst = onlyKnownIds(hypothesis.evidenceAgainstIds, knownEvidence);
+    const evidenceFor = onlyKnownIds(hypothesis.evidenceForIds, allowedEvidence);
+    const evidenceAgainst = onlyKnownIds(hypothesis.evidenceAgainstIds, allowedEvidence);
     const causalChain = hypothesis.causalChain.map((edge) => ({
       ...edge,
-      evidenceIds: onlyKnownIds(edge.evidenceIds, knownEvidence),
+      evidenceIds: onlyKnownIds(edge.evidenceIds, allowedEvidence),
     }));
     return [{
       divergence_id: hypothesis.divergenceId,
@@ -1689,6 +1673,7 @@ export async function runIntelligenceEngine({
 
     const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, evidence);
     const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
+    const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
 
     const hypothesisStage = await modelStage<HypothesisOutput>({
       engineRunId,
@@ -1705,7 +1690,7 @@ export async function runIntelligenceEngine({
       },
       maxOutputTokens: 5_500,
     });
-    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds);
+    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
     hypothesesGenerated = hypotheses.length;
     if (!hypotheses.length) {
       warnings.push("No testable hypotheses survived evidence-ID validation.");

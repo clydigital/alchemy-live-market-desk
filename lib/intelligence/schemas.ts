@@ -1,5 +1,5 @@
-import type { JsonSchema } from "@/lib/intelligence/openai";
-import { STABLE_REQUIREMENT_IDS } from "@/lib/intelligence/research-state";
+import type { JsonSchema } from "./openai.ts";
+import { STABLE_REQUIREMENT_IDS } from "./research-state.ts";
 
 export type EvidencePackItem = {
   id: string;

@@ -7,7 +7,7 @@
     "build": "npm test && next build",
     "start": "next start",
     "research:publish": "node scripts/publish-research-update.mjs",
-    "test": "npx tsx --conditions=react-server --test tests/*.test.ts"
+    "test": "node --test --experimental-strip-types tests/*.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -15,8 +15,7 @@
     "jose": "6.2.9",
     "next": "15.5.18",
     "react": "19.1.7",
-    "react-dom": "19.1.7",
-    "server-only": "^0.0.1"
+    "react-dom": "19.1.7"
   },
   "devDependencies": {
     "@types/node": "22.15.30",
