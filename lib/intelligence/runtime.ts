@@ -53,6 +53,11 @@ import {
   type ResearchRequirement,
   type ResearchStateResult,
 } from "@/lib/intelligence/research-state";
+import {
+  buildHypothesisEvidencePack,
+  buildHypothesisStoryPack,
+  formatStageFailureDetail,
+} from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { getHybridDeskData } from "@/lib/data";
@@ -229,6 +234,14 @@ Rank sources in this order: official releases; company filings, earnings release
 Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
 Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
 
+const HYPOTHESIS_ROLE_RULES = `For stage "hypothesis": Hypothesis owns causal-thesis formation only.
+For each material divergence:
+- Formulate testable causal mechanisms explaining why the observed divergence occurred.
+- Produce exactly ONE primary causal hypothesis for each divergence by default.
+- A second hypothesis is permitted ONLY if it represents a genuinely different competing causal mechanism (e.g. supply disruption versus demand destruction).
+- FORBIDDEN: Do NOT create opposite (yes/no), bullish/bearish, or partial/degree variants of the same causal mechanism. Those scenario branches belong in Scenario and Challenger, not Hypothesis.
+- Do NOT write full bull/base/bear cases, hidden assumptions, counterarguments, publication eligibility, or customer prose. Focus strictly on central question, causal statement, causal mechanism, affected assets, supporting and conflicting evidence IDs, bounded causal chain, confirmation/invalidation criteria, resolving catalysts, and confidence.`;
+
 const CHALLENGER_REQUIREMENT_RULES = `For each assessment, select missingRequirementIds only from the requirements in that hypothesisId's requirementScopes entry.
 These are canonical public.research_story_requirements.requirement_key values. Never translate them into another vocabulary and never use a requirement from another hypothesis scope.
 Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation. Missing research informs state and priority; it never decides publication.
@@ -239,6 +252,8 @@ For every candidate, reuse question as the one central question. State what chan
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
 Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims. All descriptive research states may publish when the update is material and has usable traceable evidence.`;
+
+export { buildHypothesisEvidencePack, buildHypothesisStoryPack };
 
 function hash(value: string, length = 32) {
   return createHash("sha256").update(value).digest("hex").slice(0, length);
@@ -365,9 +380,14 @@ async function loadPrompt(stageKey: string) {
 }
 
 class IntelligenceStageClaimUnavailableError extends Error {
-  constructor(readonly stageKey: string, readonly stageRunId: string) {
+  stageKey: string;
+  stageRunId: string;
+
+  constructor(stageKey: string, stageRunId: string) {
     super(`Intelligence stage "${stageKey}" is already claimed by another continuation invocation.`);
     this.name = "IntelligenceStageClaimUnavailableError";
+    this.stageKey = stageKey;
+    this.stageRunId = stageRunId;
   }
 }
 
@@ -472,7 +492,7 @@ async function modelStage<T>({
       : requestTimeoutMs;
     const result = await runStructuredStage<T>({
       stageKey,
-      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
+      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
       input,
       schema,
       modelKind,
@@ -491,17 +511,31 @@ async function modelStage<T>({
     completedCheckpoints?.set(stageKey, { stageRunId, stageKey, outputPayload: result.data });
     return { data: result.data, stageRunId, reused: false as const };
   } catch (error) {
+    const stageError = error instanceof OpenAIStageError ? error : null;
     const code = error instanceof ScheduledIntelligenceDeadlineError
       ? error.code
-      : error instanceof OpenAIStageError ? error.code : "stage_error";
+      : stageError ? stageError.code : "stage_error";
     const originalMessage = error instanceof Error ? error.message : "Unknown intelligence stage failure.";
     const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
       ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)
       : originalMessage;
+    const failureDetail = formatStageFailureDetail({
+      message,
+      failureCode: code,
+      providerStatus: stageError?.providerStatus,
+      incompleteReason: stageError?.incompleteReason,
+      generatedLength: stageError?.generatedLength,
+      generatedHash: stageError?.generatedHash,
+      totalTokens: stageError?.totalTokens,
+    });
     await finishStage(stageRunId, {
       status: error instanceof OpenAIStageError && error.code === "configuration_required" ? "blocked" : "failed",
       failureCode: code,
-      failureDetail: message.slice(0, 2_000),
+      failureDetail,
+      modelName: stageError?.model ?? null,
+      providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
+      inputTokens: stageError?.inputTokens ?? null,
+      outputTokens: stageError?.outputTokens ?? null,
     });
     if (message !== originalMessage && error instanceof OpenAIStageError) {
       throw new OpenAIStageError(message, { code: error.code, status: error.status, retryable: error.retryable });
@@ -738,19 +772,27 @@ async function persistDivergences(output: DivergenceOutput, beliefs: BeliefRow[]
   });
 }
 
-async function persistHypotheses(output: HypothesisOutput, divergences: DivergenceRow[], beliefs: BeliefRow[], knownEvidence: Set<string>) {
+async function persistHypotheses(
+  output: HypothesisOutput,
+  divergences: DivergenceRow[],
+  beliefs: BeliefRow[],
+  knownEvidence: Set<string>,
+  allowedHypothesisEvidenceIds?: Set<string>,
+) {
   const divergenceIds = new Set(divergences.map((row) => row.id));
   const beliefById = new Map(beliefs.map((row) => [row.id, row]));
   const divergenceById = new Map(divergences.map((row) => [row.id, row]));
+  const allowedEvidence = allowedHypothesisEvidenceIds ?? knownEvidence;
+
   const specs = output.hypotheses.flatMap((hypothesis) => {
     if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
     const divergence = divergenceById.get(hypothesis.divergenceId)!;
     const belief = beliefById.get(divergence.market_belief_id);
-    const evidenceFor = onlyKnownIds(hypothesis.evidenceForIds, knownEvidence);
-    const evidenceAgainst = onlyKnownIds(hypothesis.evidenceAgainstIds, knownEvidence);
+    const evidenceFor = onlyKnownIds(hypothesis.evidenceForIds, allowedEvidence);
+    const evidenceAgainst = onlyKnownIds(hypothesis.evidenceAgainstIds, allowedEvidence);
     const causalChain = hypothesis.causalChain.map((edge) => ({
       ...edge,
-      evidenceIds: onlyKnownIds(edge.evidenceIds, knownEvidence),
+      evidenceIds: onlyKnownIds(edge.evidenceIds, allowedEvidence),
     }));
     return [{
       divergence_id: hypothesis.divergenceId,
@@ -1629,16 +1671,26 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
+    const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, evidence);
+    const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
+    const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
+
     const hypothesisStage = await modelStage<HypothesisOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "hypothesis",
       modelKind: "complex",
       schema: HYPOTHESIS_SCHEMA,
-      input: { beliefs, divergences, evidence, existingStories: storiesPack, researchDebt },
+      input: {
+        beliefs,
+        divergences,
+        evidence: hypothesisEvidence,
+        existingStories: hypothesisStories,
+        researchDebt,
+      },
       maxOutputTokens: 5_500,
     });
-    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds);
+    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
     hypothesesGenerated = hypotheses.length;
     if (!hypotheses.length) {
       warnings.push("No testable hypotheses survived evidence-ID validation.");
