@@ -217,15 +217,13 @@ export function parseStructuredProviderResponse<T>(input: {
   }
 
   if (providerStatus === "incomplete" || incompleteReason) {
-    const isTokenExhaustion = incompleteReason === "max_tokens" || incompleteReason === "max_output_tokens";
-    const isSafetyOrFilter = incompleteReason === "content_filter" || incompleteReason === "safety";
-    const isRetryable = isTokenExhaustion;
+    const isTokenExhaustion = incompleteReason === "max_tokens";
     throw new OpenAIStageError(
       `OpenAI response was incomplete (${incompleteReason || "truncated"}).`,
       {
-        code: isSafetyOrFilter ? "content_filter" : "incomplete_provider_response",
+        code: isTokenExhaustion ? "incomplete_provider_response" : "incomplete_provider_response",
         status: input.status,
-        retryable: isRetryable,
+        retryable: isTokenExhaustion,
         ...commonTelemetry,
       },
     );
@@ -333,6 +331,62 @@ export async function executeProviderWithRetry<T>(input: {
   throw lastError || new OpenAIStageError("Stage failed.", { code: "unknown" });
 }
 
+export function buildStageFailurePersistencePayload(input: {
+  message: string;
+  failureCode?: string | null;
+  stageError?: OpenAIStageError | null;
+}) {
+  const stageError = input.stageError;
+  const failureDetail = formatStageFailureDetail({
+    message: input.message,
+    failureCode: input.failureCode,
+    providerStatus: stageError?.providerStatus,
+    incompleteReason: stageError?.incompleteReason,
+    responseId: stageError?.responseId,
+    generatedLength: stageError?.generatedLength,
+    generatedHash: stageError?.generatedHash,
+    totalTokens: stageError?.totalTokens,
+  });
+
+  return {
+    failureCode: input.failureCode || "stage_error",
+    failureDetail,
+    modelName: stageError?.model ?? null,
+    providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
+    inputTokens: stageError?.inputTokens ?? null,
+    outputTokens: stageError?.outputTokens ?? null,
+  };
+}
+
+export function formatStageFailureDetail(input: {
+  message: string;
+  failureCode?: string | null;
+  providerStatus?: string | null;
+  incompleteReason?: string | null;
+  generatedLength?: number | null;
+  generatedHash?: string | null;
+  totalTokens?: number | null;
+  responseId?: string | null;
+}): string {
+  const parts: string[] = [input.message];
+  if (input.failureCode) parts.push(`code: ${input.failureCode}`);
+  if (input.providerStatus) parts.push(`providerStatus: ${input.providerStatus}`);
+  if (input.incompleteReason) parts.push(`incompleteReason: ${input.incompleteReason}`);
+  if (input.responseId) parts.push(`responseId: ${input.responseId}`);
+  if (input.generatedLength !== undefined && input.generatedLength !== null) {
+    parts.push(`generatedLength: ${input.generatedLength}`);
+  }
+  if (input.generatedHash) parts.push(`generatedHash: ${input.generatedHash}`);
+  if (input.totalTokens !== undefined && input.totalTokens !== null) {
+    parts.push(`totalTokens: ${input.totalTokens}`);
+  }
+  return parts.join(" | ").slice(0, 2_000);
+}
+
+/**
+ * Pure Hypothesis Domain Helpers
+ */
+
 /**
  * Builds a deterministic Hypothesis evidence pack from upstream state.
  * Scope Invariant: Returns strictly the union of evidence IDs cited by Market Beliefs
@@ -393,60 +447,4 @@ export function restrictHypothesisEvidenceIds(
 ): string[] {
   if (!evidenceIds || !Array.isArray(evidenceIds)) return [];
   return [...new Set(evidenceIds.filter((id) => allowedEvidenceIds.has(id)))];
-}
-
-/**
- * Formats a safe, structured diagnostic string for durable stage persistence
- * in `intelligence_stage_runs.failure_detail` without leaking raw output or secrets.
- */
-export function buildStageFailurePersistencePayload(input: {
-  message: string;
-  failureCode?: string | null;
-  stageError?: OpenAIStageError | null;
-}) {
-  const stageError = input.stageError;
-  const failureDetail = formatStageFailureDetail({
-    message: input.message,
-    failureCode: input.failureCode,
-    providerStatus: stageError?.providerStatus,
-    incompleteReason: stageError?.incompleteReason,
-    responseId: stageError?.responseId,
-    generatedLength: stageError?.generatedLength,
-    generatedHash: stageError?.generatedHash,
-    totalTokens: stageError?.totalTokens,
-  });
-
-  return {
-    failureCode: input.failureCode || "stage_error",
-    failureDetail,
-    modelName: stageError?.model ?? null,
-    providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
-    inputTokens: stageError?.inputTokens ?? null,
-    outputTokens: stageError?.outputTokens ?? null,
-  };
-}
-
-export function formatStageFailureDetail(input: {
-  message: string;
-  failureCode?: string | null;
-  providerStatus?: string | null;
-  incompleteReason?: string | null;
-  generatedLength?: number | null;
-  generatedHash?: string | null;
-  totalTokens?: number | null;
-  responseId?: string | null;
-}): string {
-  const parts: string[] = [input.message];
-  if (input.failureCode) parts.push(`code: ${input.failureCode}`);
-  if (input.providerStatus) parts.push(`providerStatus: ${input.providerStatus}`);
-  if (input.incompleteReason) parts.push(`incompleteReason: ${input.incompleteReason}`);
-  if (input.responseId) parts.push(`responseId: ${input.responseId}`);
-  if (input.generatedLength !== undefined && input.generatedLength !== null) {
-    parts.push(`generatedLength: ${input.generatedLength}`);
-  }
-  if (input.generatedHash) parts.push(`generatedHash: ${input.generatedHash}`);
-  if (input.totalTokens !== undefined && input.totalTokens !== null) {
-    parts.push(`totalTokens: ${input.totalTokens}`);
-  }
-  return parts.join(" | ").slice(0, 2_000);
 }

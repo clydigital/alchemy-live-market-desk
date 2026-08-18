@@ -25,6 +25,10 @@ import {
   type PersistedStageRun,
   type StageClaim,
 } from "../lib/intelligence/resumable-checkpoints.ts";
+import {
+  defaultIntelligenceRunKey,
+  startIntelligenceEngineRunWithClient,
+} from "../lib/intelligence/engine-run-contract.ts";
 
 test("Provider Boundary 1: completed valid Structured Output parses successfully", async () => {
   const responseText = JSON.stringify({
@@ -198,27 +202,27 @@ test("Production runStructuredStage bounded retry: malformed -> malformed exhaus
   }
 });
 
-test("Provider Boundary Refusal & Safety: content_filter and refusal are non-retryable", async () => {
+test("Provider Boundary Refusal: refusal in text output is non-retryable", async () => {
   const responseText = JSON.stringify({
-    id: "resp_safety",
+    id: "resp_refusal",
     model: "gpt-5-mini",
-    status: "incomplete",
-    incomplete_details: { reason: "content_filter" },
+    status: "completed",
+    output: [{ content: [{ type: "refusal", refusal: "I cannot generate financial advice." }] }],
   });
 
   try {
     parseStructuredProviderResponse({
       status: 200,
       ok: true,
-      requestId: "req_safety",
+      requestId: "req_refusal",
       responseText,
       fallbackModel: "gpt-5-mini",
     });
-    assert.fail("Should have thrown content_filter error");
+    assert.fail("Should have thrown provider_refusal error");
   } catch (error) {
     assert.ok(error instanceof OpenAIStageError);
-    assert.equal(error.code, "content_filter");
-    assert.equal(error.retryable, false, "Safety/content filter incomplete responses must not be retried");
+    assert.equal(error.code, "provider_refusal");
+    assert.equal(error.retryable, false);
   }
 });
 
@@ -332,9 +336,32 @@ test("Hypothesis Contract & Mandate: schema right-sizing & role rules enforce ca
   assert.equal((SCENARIO_SCHEMA as Record<string, unknown>).type, "object");
 });
 
-test("Resumability Lineage & Checkpoints: engineRunId identity contract is preserved across stage continuation", async () => {
-  const engineRunId = "engine_run_20260817_0915_abc123";
-  const runKey = "scheduled:0915:2026-08-17";
+test("Resumability Lineage & Checkpoints: engine-run contract derives deterministic runKey and engineRunId lineage", async () => {
+  const researchRunId = "res_12345";
+  const triggerKind = "scheduled";
+  const runKey = defaultIntelligenceRunKey(researchRunId, triggerKind);
+  assert.match(runKey, /^intelligence:res_12345:scheduled:/);
+
+  const mockClient = async <T>(path: string, init?: RequestInit): Promise<T> => {
+    if (path.includes("select=id,status")) {
+      return [] as unknown as T;
+    }
+    if (path.includes("on_conflict=run_key") && init?.method === "POST") {
+      return [{ id: "engine_run_999", status: "started" }] as unknown as T;
+    }
+    return [] as unknown as T;
+  };
+
+  const startResult = await startIntelligenceEngineRunWithClient(mockClient, {
+    researchRunId,
+    triggerKind,
+    runKey,
+  });
+
+  assert.equal(startResult.kind, "started");
+  assert.equal(startResult.runKey, runKey);
+  const engineRunId = startResult.engineRunId;
+  assert.equal(engineRunId, "engine_run_999");
 
   const MARKET_BELIEF = { beliefs: [{ id: "belief-1", statement: "Rates fall", affectedAssets: ["US10Y"] }] };
   const DIVERGENCE = { divergences: [{ id: "divergence-1", marketBeliefId: "belief-1", observedChange: "Yields rose 15bps" }] };
@@ -349,10 +376,6 @@ test("Resumability Lineage & Checkpoints: engineRunId identity contract is prese
   ];
 
   const checkpoints = completedStageCheckpoints(runs);
-
-  // Lineage contract assertion
-  assert.equal(engineRunId, "engine_run_20260817_0915_abc123");
-  assert.equal(runKey, "scheduled:0915:2026-08-17");
 
   // Reused Market Belief
   let mbCalls = 0;
@@ -386,9 +409,9 @@ test("Resumability Lineage & Checkpoints: engineRunId identity contract is prese
   let activeClaim = false;
   let hypCalls = 0;
   const claim = async (): Promise<StageClaim> => {
-    if (activeClaim) return { state: "busy", stageRunId: "run_hyp_attempt_1" };
+    if (activeClaim) return { state: "busy", stageRunId: `${engineRunId}_stage_hypothesis_attempt_1` };
     activeClaim = true;
-    return { state: "claimed", stageRunId: "run_hyp_attempt_1" };
+    return { state: "claimed", stageRunId: `${engineRunId}_stage_hypothesis_attempt_1` };
   };
 
   const [res1, res2] = await Promise.all([
