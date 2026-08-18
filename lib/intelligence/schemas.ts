@@ -1,5 +1,5 @@
-import type { JsonSchema } from "@/lib/intelligence/openai";
-import { STABLE_REQUIREMENT_IDS } from "@/lib/intelligence/research-state";
+import type { JsonSchema } from "./openai.ts";
+import { STABLE_REQUIREMENT_IDS } from "./research-state.ts";
 
 export type EvidencePackItem = {
   id: string;
@@ -245,6 +245,8 @@ export const DIVERGENCE_SCHEMA: JsonSchema = {
   },
 };
 
+const boundedStringArray4 = { type: "array", maxItems: 4, items: { type: "string" } };
+
 export const HYPOTHESIS_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
@@ -252,7 +254,7 @@ export const HYPOTHESIS_SCHEMA: JsonSchema = {
   properties: {
     hypotheses: {
       type: "array",
-      maxItems: 12,
+      maxItems: 8,
       items: {
         type: "object",
         additionalProperties: false,
@@ -267,7 +269,7 @@ export const HYPOTHESIS_SCHEMA: JsonSchema = {
           evidenceAgainstIds: stringArray,
           causalChain: {
             type: "array",
-            maxItems: 8,
+            maxItems: 5,
             items: {
               type: "object",
               additionalProperties: false,
@@ -281,9 +283,9 @@ export const HYPOTHESIS_SCHEMA: JsonSchema = {
               },
             },
           },
-          confirmationCriteria: stringArray,
-          invalidationCriteria: stringArray,
-          nextCatalysts: stringArray,
+          confirmationCriteria: boundedStringArray4,
+          invalidationCriteria: boundedStringArray4,
+          nextCatalysts: boundedStringArray4,
           confidence: { type: "number", minimum: 0, maximum: 100 },
         },
       },
