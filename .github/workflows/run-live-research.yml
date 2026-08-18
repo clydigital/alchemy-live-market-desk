@@ -88,16 +88,19 @@ jobs:
 
           invoke_stage acquisition
 
-          for attempt in {1..8}; do
+          attempt=1
+          while true; do
             echo "Intelligence continuation attempt $attempt"
             invoke_stage intelligence
             state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
             case "$state" in
               completed)
+                echo "Canonical intelligence completed successfully."
                 exit 0
                 ;;
               partial|intelligence_running|acquisition_pending)
-                sleep 15
+                attempt=$((attempt + 1))
+                sleep 10
                 ;;
               blocked|failed|terminal|missing)
                 echo "Canonical intelligence ended in state: $state" >&2
@@ -109,6 +112,3 @@ jobs:
                 ;;
             esac
           done
-
-          echo "Canonical intelligence did not complete within eight continuations." >&2
-          exit 1

@@ -76,8 +76,8 @@ export async function runStructuredStage<T>({
   schema: JsonSchema;
   modelKind?: "complex" | "fast";
   maxOutputTokens?: number;
-  /** Per-stage controls used by bounded serverless orchestrators. */
-  requestTimeoutMs?: number;
+  /** Per-stage controls used by bounded serverless orchestrators. Default null means platform-bounded. */
+  requestTimeoutMs?: number | null;
   maxAttempts?: number;
 }): Promise<OpenAIStageResult<T>> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -89,7 +89,7 @@ export async function runStructuredStage<T>({
 
   const model = intelligenceModel(modelKind);
   const effort = intelligenceReasoningEffort(modelKind);
-  const timeoutMs = boundedInteger(requestTimeoutMs, 60_000, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
+  const timeoutMs = requestTimeoutMs === null ? null : boundedInteger(requestTimeoutMs, 60_000, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const body = {
     model,
@@ -110,7 +110,7 @@ export async function runStructuredStage<T>({
   };
 
   const fetcher = async () => {
-    const response = await fetch(API_URL, {
+    const fetchOptions: RequestInit = {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -118,8 +118,11 @@ export async function runStructuredStage<T>({
       },
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    };
+    if (timeoutMs !== null) {
+      fetchOptions.signal = AbortSignal.timeout(timeoutMs);
+    }
+    const response = await fetch(API_URL, fetchOptions);
     const requestId = response.headers.get("x-request-id");
     const responseText = await response.text();
     const retryAfter = response.headers.get("retry-after");

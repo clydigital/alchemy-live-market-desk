@@ -20,12 +20,6 @@ import {
   type StageCheckpoint,
 } from "@/lib/intelligence/resumable-checkpoints";
 import {
-  ScheduledIntelligenceDeadlineError,
-  createScheduledStageBudgetController,
-  scheduledStageTimeoutFailure,
-  type ScheduledStageBudgetController,
-} from "@/lib/intelligence/scheduled-runtime-budget";
-import {
   CHALLENGER_SCHEMA,
   DEDUPLICATION_SCHEMA,
   DIVERGENCE_SCHEMA,
@@ -450,9 +444,8 @@ async function modelStage<T>({
   schema,
   modelKind,
   maxOutputTokens,
-  requestTimeoutMs,
+  requestTimeoutMs = null,
   maxAttempts,
-  scheduledBudgetController,
   completedCheckpoints,
 }: {
   engineRunId: string;
@@ -461,9 +454,8 @@ async function modelStage<T>({
   schema: Record<string, unknown>;
   modelKind: "complex" | "fast";
   maxOutputTokens?: number;
-  requestTimeoutMs?: number;
+  requestTimeoutMs?: number | null;
   maxAttempts?: number;
-  scheduledBudgetController?: ScheduledStageBudgetController;
   completedCheckpoints?: Map<string, StageCheckpoint>;
 }) {
   const checkpoint = completedCheckpoints?.get(stageKey);
@@ -486,11 +478,7 @@ async function modelStage<T>({
     return { data: claim.output_payload as T, stageRunId: claim.stage_run_id, reused: true as const };
   }
   const stageRunId = claim.stage_run_id;
-  let effectiveTimeoutMs = requestTimeoutMs;
   try {
-    effectiveTimeoutMs = scheduledBudgetController
-      ? scheduledBudgetController.timeoutFor(stageKey)
-      : requestTimeoutMs;
     const result = await runStructuredStage<T>({
       stageKey,
       instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
@@ -498,7 +486,7 @@ async function modelStage<T>({
       schema,
       modelKind,
       maxOutputTokens,
-      requestTimeoutMs: effectiveTimeoutMs,
+      requestTimeoutMs,
       maxAttempts,
     });
     await finishStage(stageRunId, {
@@ -513,15 +501,10 @@ async function modelStage<T>({
     return { data: result.data, stageRunId, reused: false as const };
   } catch (error) {
     const stageError = error instanceof OpenAIStageError ? error : null;
-    const code = error instanceof ScheduledIntelligenceDeadlineError
-      ? error.code
-      : stageError ? stageError.code : "stage_error";
+    const code = stageError ? stageError.code : "stage_error";
     const originalMessage = error instanceof Error ? error.message : "Unknown intelligence stage failure.";
-    const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
-      ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)
-      : originalMessage;
     const failurePayload = buildStageFailurePersistencePayload({
-      message,
+      message: originalMessage,
       failureCode: code,
       stageError,
     });
@@ -529,23 +512,6 @@ async function modelStage<T>({
       status: error instanceof OpenAIStageError && error.code === "configuration_required" ? "blocked" : "failed",
       ...failurePayload,
     });
-    if (message !== originalMessage && error instanceof OpenAIStageError) {
-      throw new OpenAIStageError(message, {
-        code: error.code,
-        status: error.status,
-        retryable: error.retryable,
-        model: error.model,
-        requestId: error.requestId,
-        responseId: error.responseId,
-        inputTokens: error.inputTokens,
-        outputTokens: error.outputTokens,
-        totalTokens: error.totalTokens,
-        providerStatus: error.providerStatus,
-        incompleteReason: error.incompleteReason,
-        generatedLength: error.generatedLength,
-        generatedHash: error.generatedHash,
-      });
-    }
     throw error;
   }
 }
@@ -1608,9 +1574,6 @@ export async function runIntelligenceEngine({
   const stageExecution = {
     requestTimeoutMs: stageRequestTimeoutMs,
     maxAttempts: stageMaxAttempts,
-    scheduledBudgetController: Number.isFinite(scheduledExecutionStartedAtMs)
-      ? createScheduledStageBudgetController({ executionStartedAtMs: scheduledExecutionStartedAtMs! })
-      : undefined,
   };
 
   try {
@@ -1718,45 +1681,48 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    // Challenger decoupling: Challenger is a non-blocking critic/research process.
-    // We attempt Challenger if available or already completed, but Challenger missing/delayed/failed
-    // NEVER prevents Scenario, Story Synthesis, or snapshot publication.
-    let challenger: ChallengerRow[] = [];
-    try {
-      const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
-      const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
-      const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
-        scope.hypothesisId,
-        new Set(scope.requirements.map((requirement) => requirement.requirementId)),
-      ]));
-      const challengerStage = await modelStage<ChallengerOutput>({
-        engineRunId,
-        ...resumableStageExecution,
-        stageKey: "challenger",
-        modelKind: "complex",
-        schema: CHALLENGER_SCHEMA,
-        input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
-        maxOutputTokens: 5_000,
+    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
+    const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
+    const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
+      scope.hypothesisId,
+      new Set(scope.requirements.map((requirement) => requirement.requirementId)),
+    ]));
+    const challengerStage = await modelStage<ChallengerOutput>({
+      engineRunId,
+      ...resumableStageExecution,
+      stageKey: "challenger",
+      modelKind: "complex",
+      schema: CHALLENGER_SCHEMA,
+      input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
+      maxOutputTokens: 5_000,
+    });
+    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
+    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
+    // Challenger is a critic, not a publication bouncer. Every structurally valid
+    // assessed hypothesis continues to scenario and Story synthesis regardless of verdict.
+    const reviewed = hypotheses.filter((hypothesis) => challengerByHypothesis.has(hypothesis.id));
+    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
+    if (!reviewed.length) {
+      warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
+      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
       });
-      challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
-    } catch (challengerErr) {
-      warnings.push(`Challenger stage was delayed or failed (${challengerErr instanceof Error ? challengerErr.message : "non-blocking failure"}); proceeding along canonical blocking path.`);
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    hypothesesPromoted = hypotheses.length;
-    const activeHypothesisIds = new Set(hypotheses.map((item) => item.id));
-
+    const reviewedIds = new Set(reviewed.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
-      input: { hypotheses, challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)), evidence },
+      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence },
       maxOutputTokens: 5_500,
     });
-    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, activeHypothesisIds, knownEvidenceIds);
+    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
@@ -1765,8 +1731,8 @@ export async function runIntelligenceEngine({
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
       input: {
-        hypotheses,
-        challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)),
+        hypotheses: reviewed,
+        challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
         evidence,
         existingStories: storiesPack,
@@ -1776,7 +1742,7 @@ export async function runIntelligenceEngine({
     });
 
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
-      if (!activeHypothesisIds.has(candidate.primaryHypothesisId)) return [];
+      if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
       const normalized: CandidateWorking = {
         ...candidate,
@@ -1965,7 +1931,6 @@ export async function runIntelligenceEngine({
     const blocked = error instanceof OpenAIStageError && error.code === "configuration_required";
     const competingClaim = error instanceof IntelligenceStageClaimUnavailableError;
     const resumable = competingClaim
-      || error instanceof ScheduledIntelligenceDeadlineError
       || (error instanceof OpenAIStageError && error.retryable);
     if (!competingClaim) {
       try {

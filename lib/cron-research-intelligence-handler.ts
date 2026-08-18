@@ -178,13 +178,12 @@ export async function handleScheduledResearchIntelligence(
     }
     claimedWarnings = claim.warnings;
 
-    const intelligenceStartedAtMs = Date.now();
     const intelligence = await runIntelligenceEngine({
       researchRunId: run.id,
       triggerKind: "new_evidence",
       runKey: `research:${runKey}`,
       dryRun: run.accuracy_gate === "blocked",
-      scheduledExecutionStartedAtMs: intelligenceStartedAtMs,
+      stageRequestTimeoutMs: undefined,
       stageMaxAttempts: 1,
     });
     const warnings = mergeScheduledWarnings(claimedWarnings, intelligence.warnings);

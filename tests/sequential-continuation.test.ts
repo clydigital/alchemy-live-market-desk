@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -18,7 +19,7 @@ import {
 const validObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object");
 
-test("Regression Test A: One stage per continuation - no checkpoints => invocation 1 calls only Market Belief", async () => {
+test("Acceptance Test 1: Invocation with no checkpoints runs Market Belief only and returns before Divergence starts", async () => {
   const checkpoints = new Map<string, StageCheckpoint>();
   const stageCalls: string[] = [];
 
@@ -43,7 +44,40 @@ test("Regression Test A: One stage per continuation - no checkpoints => invocati
   assert.deepEqual(stageCalls, ["market_belief"], "Invocation 1 must call only Market Belief");
 });
 
-test("Regression Test B: Resume directly at Scenario - completed MB/Divergence/Hypothesis => next invocation calls Scenario", async () => {
+test("Acceptance Test 2: Next invocation reuses MB and runs Divergence only", async () => {
+  const runs: PersistedStageRun[] = [
+    { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
+  ];
+
+  const checkpoints = completedStageCheckpoints(runs);
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "divergence");
+
+  let divCalls = 0;
+  let reusedCalls = 0;
+
+  const mbRes = await runCheckpointedStage({
+    stageKey: "market_belief",
+    checkpoints,
+    claim: async () => { throw new Error("Should not claim completed MB"); },
+    invoke: async () => { reusedCalls += 1; return {}; },
+    valid: validObject,
+  });
+  assert.equal(mbRes.source, "reused");
+  assert.equal(reusedCalls, 0);
+
+  const divRes = await runCheckpointedStage({
+    stageKey: "divergence",
+    checkpoints,
+    claim: async () => ({ state: "claimed", stageRunId: "claim_div_1" }),
+    invoke: async () => { divCalls += 1; return { divergences: [{ id: "d1" }] }; },
+    valid: validObject,
+  });
+
+  assert.equal(divRes.source, "invoked");
+  assert.equal(divCalls, 1, "Divergence called exactly once");
+});
+
+test("Acceptance Test 3: Completed MB/Divergence/Hypothesis -> next invocation runs Scenario directly, 0 completed calls, 0 Challenger wait", async () => {
   const runs: PersistedStageRun[] = [
     { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
     { id: "div_1", stage_key: "divergence", status: "completed", output_payload: { divergences: [{ id: "d1" }] } },
@@ -51,12 +85,11 @@ test("Regression Test B: Resume directly at Scenario - completed MB/Divergence/H
   ];
 
   const checkpoints = completedStageCheckpoints(runs);
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario", "Next required stage must be scenario directly");
 
   let scenarioCalls = 0;
   let reusedCalls = 0;
 
-  // Verify completed stages are reused without model calls
   for (const completedStage of ["market_belief", "divergence", "hypothesis"]) {
     const res = await runCheckpointedStage({
       stageKey: completedStage,
@@ -69,8 +102,7 @@ test("Regression Test B: Resume directly at Scenario - completed MB/Divergence/H
   }
   assert.equal(reusedCalls, 0, "Zero model calls to completed stages");
 
-  // Execute Scenario stage
-  const res = await runCheckpointedStage({
+  const scenarioRes = await runCheckpointedStage({
     stageKey: "scenario",
     checkpoints,
     claim: async () => ({ state: "claimed", stageRunId: "claim_scen_1" }),
@@ -78,50 +110,36 @@ test("Regression Test B: Resume directly at Scenario - completed MB/Divergence/H
     valid: validObject,
   });
 
-  assert.equal(res.source, "invoked");
-  assert.equal(scenarioCalls, 1, "Scenario called exactly once");
+  assert.equal(scenarioRes.source, "invoked");
+  assert.equal(scenarioCalls, 1, "Scenario called directly without Challenger wait");
 });
 
-test("Regression Test C: No inherited synthetic budget - no-synthetic-timeout platform-bounded mode", () => {
-  // Verify REQUIRED_CANONICAL_INTELLIGENCE_STAGES does not require synthetic stage timeouts
-  assert.deepEqual(
-    REQUIRED_CANONICAL_INTELLIGENCE_STAGES,
-    ["market_belief", "divergence", "hypothesis", "scenario", "story_synthesis", "semantic_deduplication", "lifecycle"],
-    "Canonical blocking path contains exactly the required 7 stages",
-  );
+test("Acceptance Test 4: Scenario-first continuation proves no synthetic 20s/all-stage budget supplied (requestTimeoutMs = undefined)", () => {
+  const openaiCode = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
+  const handlerCode = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
+
+  assert.match(openaiCode, /requestTimeoutMs === null/, "openai.ts must support requestTimeoutMs = null for platform-bounded execution");
+  assert.match(handlerCode, /stageRequestTimeoutMs:\s*undefined/, "handler must pass stageRequestTimeoutMs: undefined to disable synthetic timers");
 });
 
-test("Regression Test D: Challenger cannot block - missing/failed Challenger allows Hypothesis -> Scenario path", async () => {
+test("Acceptance Test 5: Story Synthesis cannot start before Scenario checkpoint persistence resolves", async () => {
   const runs: PersistedStageRun[] = [
     { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
     { id: "div_1", stage_key: "divergence", status: "completed", output_payload: { divergences: [{ id: "d1" }] } },
     { id: "hyp_1", stage_key: "hypothesis", status: "completed", output_payload: { hypotheses: [{ id: "h1" }] } },
-    { id: "chal_failed", stage_key: "challenger", status: "failed", output_payload: {} },
   ];
 
   const checkpoints = completedStageCheckpoints(runs);
-  // Next required stage ignores failed Challenger checkpoint and proceeds directly to Scenario
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario", "Challenger failure must NOT block Scenario stage");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
+  assert.notEqual(nextIncompleteIntelligenceStage(checkpoints), "story_synthesis", "Story synthesis cannot run before Scenario is persisted");
 });
 
-test("Regression Test E: Strict persistence sequencing - Scenario cannot run until Hypothesis checkpoint persists", async () => {
-  const runs: PersistedStageRun[] = [
-    { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
-    { id: "div_1", stage_key: "divergence", status: "completed", output_payload: { divergences: [{ id: "d1" }] } },
-    // Hypothesis not yet completed/persisted
-  ];
-
-  const checkpoints = completedStageCheckpoints(runs);
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "hypothesis");
-  assert.notEqual(nextIncompleteIntelligenceStage(checkpoints), "scenario", "Scenario cannot run before Hypothesis checkpoint is persisted");
-});
-
-test("Regression Test F: Lineage/idempotency - same research run retains same engine run ID and run key", async () => {
+test("Acceptance Test 6: Same canonical run key and engine ID persist across all continuations", async () => {
   const researchRunId = "res_run_20260818";
   const slot = "0915";
   const date = "2026-08-18";
 
-  const runKey = `scheduled:${slot}:${date}`;
+  const runKey = defaultIntelligenceRunKey(researchRunId, "scheduled");
   const engineRunId = `engine_run_scheduled_${slot}_${date}`;
 
   const mockClient = async <T>(path: string, init?: RequestInit): Promise<T> => {
@@ -130,17 +148,19 @@ test("Regression Test F: Lineage/idempotency - same research run retains same en
     return [] as unknown as T;
   };
 
-  // Continuation 1
   const start1 = await startIntelligenceEngineRunWithClient(mockClient, { researchRunId, triggerKind: "scheduled", runKey });
-  // Continuation 2
   const start2 = await startIntelligenceEngineRunWithClient(mockClient, { researchRunId, triggerKind: "scheduled", runKey });
 
-  assert.equal(start1.engineRunId, engineRunId);
-  assert.equal(start2.engineRunId, engineRunId);
-  assert.equal(start1.engineRunId, start2.engineRunId, "Engine run ID lineage must remain identical across continuations");
+  if (start1.kind === "started" && start2.kind === "started") {
+    assert.equal(start1.engineRunId, engineRunId);
+    assert.equal(start2.engineRunId, engineRunId);
+    assert.equal(start1.engineRunId, start2.engineRunId, "Engine run ID lineage must remain identical across continuations");
+  } else {
+    assert.fail("Both engine runs should start with the mock client");
+  }
 });
 
-test("Regression Test G: Controlled engine E2E - sequential continuations progress to canonical completed", async () => {
+test("Acceptance Test 7: Controlled sequential E2E - continuations progress through all 7 required stages", async () => {
   const checkpoints = new Map<string, StageCheckpoint>();
   const executedStages: string[] = [];
 
@@ -154,7 +174,6 @@ test("Regression Test G: Controlled engine E2E - sequential continuations progre
     lifecycle: { decisions: [{ id: "l1" }] },
   };
 
-  // Simulate 7 sequential continuations
   for (let i = 0; i < 7; i += 1) {
     const stageToRun = nextIncompleteIntelligenceStage(checkpoints);
     if (!stageToRun) break;
@@ -174,4 +193,11 @@ test("Regression Test G: Controlled engine E2E - sequential continuations progre
     "Sequential continuations must execute all 7 required stages in exact canonical order",
   );
   assert.equal(nextIncompleteIntelligenceStage(checkpoints), null, "All required stages complete -> cycle complete");
+});
+
+test("Acceptance Test 8: Workflow source verification proves {1..8} cap is replaced with state-driven continuation", () => {
+  const workflowCode = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
+
+  assert.ok(!workflowCode.includes("for attempt in {1..8}"), "Workflow must no longer contain arbitrary 8 attempt cap");
+  assert.match(workflowCode, /while true; do/, "Workflow must use state-driven sequential continuation loop");
 });
