@@ -2,21 +2,10 @@ import "server-only";
 
 import {
   OpenAIStageError,
+  executeProviderWithRetry,
   intelligenceModel,
-  parseStructuredProviderResponse,
+  responsesCompatibleJsonSchema,
 } from "./hypothesis-core.ts";
-
-export function responsesCompatibleJsonSchema(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(responsesCompatibleJsonSchema);
-  if (!value || typeof value !== "object") return value;
-
-  const output: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (key === "uniqueItems") continue;
-    output[key] = responsesCompatibleJsonSchema(child);
-  }
-  return output;
-}
 
 export type IntelligenceReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -32,7 +21,7 @@ export type OpenAIStageResult<T> = {
   totalTokens: number | null;
 };
 
-export { OpenAIStageError, intelligenceModel };
+export { OpenAIStageError, intelligenceModel, responsesCompatibleJsonSchema };
 
 const API_URL = "https://api.openai.com/v1/responses";
 const VALID_EFFORT = new Set<IntelligenceReasoningEffort>(["none", "low", "medium", "high", "xhigh", "max"]);
@@ -120,57 +109,36 @@ export async function runStructuredStage<T>({
     store: false,
   };
 
-  let lastError: OpenAIStageError | null = null;
-  for (let attempt = 0; attempt < attemptLimit; attempt += 1) {
-    let response: Response;
-    try {
-      response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        cache: "no-store",
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "OpenAI request failed before receiving a response.";
-      lastError = new OpenAIStageError(message, {
-        code: error instanceof DOMException && error.name === "TimeoutError" ? "timeout" : "network_error",
-        retryable: true,
-        model,
-      });
-      if (attempt < attemptLimit - 1) {
-        await sleep(retryDelay(attempt, null));
-        continue;
-      }
-      throw lastError;
-    }
-
+  const fetcher = async () => {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     const requestId = response.headers.get("x-request-id");
     const responseText = await response.text();
+    const retryAfter = response.headers.get("retry-after");
+    return {
+      status: response.status,
+      ok: response.ok,
+      requestId,
+      responseText,
+      retryAfter,
+    };
+  };
 
-    try {
-      return parseStructuredProviderResponse<T>({
-        status: response.status,
-        ok: response.ok,
-        requestId,
-        responseText,
-        fallbackModel: model,
-        maxOutputTokens,
-      });
-    } catch (error) {
-      if (error instanceof OpenAIStageError) {
-        lastError = error;
-        if (error.retryable && attempt < attemptLimit - 1) {
-          await sleep(retryDelay(attempt, response.headers.get("retry-after")));
-          continue;
-        }
-      }
-      throw error;
-    }
-  }
-
-  throw lastError || new OpenAIStageError("OpenAI stage failed.", { code: "unknown" });
+  return executeProviderWithRetry<T>({
+    fetcher,
+    fallbackModel: model,
+    maxOutputTokens,
+    maxAttempts: attemptLimit,
+    sleepFn: async (attempt, retryAfter) => {
+      await sleep(retryDelay(attempt, retryAfter));
+    },
+  });
 }

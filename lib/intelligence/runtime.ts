@@ -56,7 +56,9 @@ import {
 import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
+  buildStageFailurePersistencePayload,
   formatStageFailureDetail,
+  restrictHypothesisEvidenceIds,
 } from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
@@ -519,24 +521,14 @@ async function modelStage<T>({
     const message = code === "timeout" && Number.isFinite(effectiveTimeoutMs)
       ? scheduledStageTimeoutFailure(stageKey, effectiveTimeoutMs!)
       : originalMessage;
-    const failureDetail = formatStageFailureDetail({
+    const failurePayload = buildStageFailurePersistencePayload({
       message,
       failureCode: code,
-      providerStatus: stageError?.providerStatus,
-      incompleteReason: stageError?.incompleteReason,
-      responseId: stageError?.responseId,
-      generatedLength: stageError?.generatedLength,
-      generatedHash: stageError?.generatedHash,
-      totalTokens: stageError?.totalTokens,
+      stageError,
     });
     await finishStage(stageRunId, {
       status: error instanceof OpenAIStageError && error.code === "configuration_required" ? "blocked" : "failed",
-      failureCode: code,
-      failureDetail,
-      modelName: stageError?.model ?? null,
-      providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
-      inputTokens: stageError?.inputTokens ?? null,
-      outputTokens: stageError?.outputTokens ?? null,
+      ...failurePayload,
     });
     if (message !== originalMessage && error instanceof OpenAIStageError) {
       throw new OpenAIStageError(message, {
@@ -803,11 +795,11 @@ async function persistHypotheses(
     if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
     const divergence = divergenceById.get(hypothesis.divergenceId)!;
     const belief = beliefById.get(divergence.market_belief_id);
-    const evidenceFor = onlyKnownIds(hypothesis.evidenceForIds, allowedEvidence);
-    const evidenceAgainst = onlyKnownIds(hypothesis.evidenceAgainstIds, allowedEvidence);
+    const evidenceFor = restrictHypothesisEvidenceIds(hypothesis.evidenceForIds, allowedEvidence);
+    const evidenceAgainst = restrictHypothesisEvidenceIds(hypothesis.evidenceAgainstIds, allowedEvidence);
     const causalChain = hypothesis.causalChain.map((edge) => ({
       ...edge,
-      evidenceIds: onlyKnownIds(edge.evidenceIds, allowedEvidence),
+      evidenceIds: restrictHypothesisEvidenceIds(edge.evidenceIds, allowedEvidence),
     }));
     return [{
       divergence_id: hypothesis.divergenceId,
@@ -1691,7 +1683,13 @@ export async function runIntelligenceEngine({
     const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
 
     if (hypothesisEvidence.length === 0) {
-      warnings.push("Hypothesis input reduction produced 0 matching evidence records from upstream beliefs/divergences; proceeding with empty evidence pack.");
+      warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
+      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+      });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const hypothesisStage = await modelStage<HypothesisOutput>({

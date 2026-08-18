@@ -217,13 +217,15 @@ export function parseStructuredProviderResponse<T>(input: {
   }
 
   if (providerStatus === "incomplete" || incompleteReason) {
+    const isTokenExhaustion = incompleteReason === "max_tokens" || incompleteReason === "max_output_tokens";
     const isSafetyOrFilter = incompleteReason === "content_filter" || incompleteReason === "safety";
+    const isRetryable = isTokenExhaustion;
     throw new OpenAIStageError(
       `OpenAI response was incomplete (${incompleteReason || "truncated"}).`,
       {
         code: isSafetyOrFilter ? "content_filter" : "incomplete_provider_response",
         status: input.status,
-        retryable: !isSafetyOrFilter,
+        retryable: isRetryable,
         ...commonTelemetry,
       },
     );
@@ -286,7 +288,7 @@ export async function executeProviderWithRetry<T>(input: {
   fallbackModel: string;
   maxOutputTokens?: number;
   maxAttempts?: number;
-  sleepFn?: (ms: number) => Promise<void>;
+  sleepFn?: (attempt: number, retryAfter: string | null) => Promise<void>;
 }): Promise<{ data: T; requestId: string | null; responseId: string | null; model: string; inputTokens: number | null; outputTokens: number | null; totalTokens: number | null }> {
   const attemptLimit = input.maxAttempts ?? 3;
   let lastError: OpenAIStageError | null = null;
@@ -302,7 +304,7 @@ export async function executeProviderWithRetry<T>(input: {
         model: input.fallbackModel,
       });
       if (attempt < attemptLimit - 1) {
-        if (input.sleepFn) await input.sleepFn(0);
+        if (input.sleepFn) await input.sleepFn(attempt, null);
         continue;
       }
       throw lastError;
@@ -321,7 +323,7 @@ export async function executeProviderWithRetry<T>(input: {
       if (err instanceof OpenAIStageError) {
         lastError = err;
         if (err.retryable && attempt < attemptLimit - 1) {
-          if (input.sleepFn) await input.sleepFn(0);
+          if (input.sleepFn) await input.sleepFn(attempt, res.retryAfter ?? null);
           continue;
         }
       }
@@ -397,6 +399,33 @@ export function restrictHypothesisEvidenceIds(
  * Formats a safe, structured diagnostic string for durable stage persistence
  * in `intelligence_stage_runs.failure_detail` without leaking raw output or secrets.
  */
+export function buildStageFailurePersistencePayload(input: {
+  message: string;
+  failureCode?: string | null;
+  stageError?: OpenAIStageError | null;
+}) {
+  const stageError = input.stageError;
+  const failureDetail = formatStageFailureDetail({
+    message: input.message,
+    failureCode: input.failureCode,
+    providerStatus: stageError?.providerStatus,
+    incompleteReason: stageError?.incompleteReason,
+    responseId: stageError?.responseId,
+    generatedLength: stageError?.generatedLength,
+    generatedHash: stageError?.generatedHash,
+    totalTokens: stageError?.totalTokens,
+  });
+
+  return {
+    failureCode: input.failureCode || "stage_error",
+    failureDetail,
+    modelName: stageError?.model ?? null,
+    providerRequestId: stageError ? (stageError.requestId || stageError.responseId) : null,
+    inputTokens: stageError?.inputTokens ?? null,
+    outputTokens: stageError?.outputTokens ?? null,
+  };
+}
+
 export function formatStageFailureDetail(input: {
   message: string;
   failureCode?: string | null;
