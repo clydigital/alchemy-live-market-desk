@@ -1,14 +1,19 @@
-export const CHECKPOINTED_INTELLIGENCE_STAGES = [
+export const REQUIRED_CANONICAL_INTELLIGENCE_STAGES = [
   "market_belief",
   "divergence",
   "hypothesis",
-  "challenger",
   "scenario",
   "story_synthesis",
   "semantic_deduplication",
   "lifecycle",
 ] as const;
 
+export const CHECKPOINTED_INTELLIGENCE_STAGES = [
+  ...REQUIRED_CANONICAL_INTELLIGENCE_STAGES,
+  "challenger",
+] as const;
+
+export type RequiredCanonicalIntelligenceStage = (typeof REQUIRED_CANONICAL_INTELLIGENCE_STAGES)[number];
 export type CheckpointedIntelligenceStage = (typeof CHECKPOINTED_INTELLIGENCE_STAGES)[number];
 
 export type PersistedStageRun = {
@@ -70,8 +75,11 @@ export function completedStageCheckpoints(rows: PersistedStageRun[]) {
   return checkpoints;
 }
 
-export function nextIncompleteIntelligenceStage(checkpoints: ReadonlyMap<string, StageCheckpoint>) {
-  return CHECKPOINTED_INTELLIGENCE_STAGES.find((stageKey) => !checkpoints.has(stageKey)) ?? null;
+export function nextIncompleteIntelligenceStage(
+  checkpoints: ReadonlyMap<string, StageCheckpoint>,
+  stagesToEvaluate: readonly string[] = REQUIRED_CANONICAL_INTELLIGENCE_STAGES,
+) {
+  return stagesToEvaluate.find((stageKey) => !checkpoints.has(stageKey)) ?? null;
 }
 
 /**

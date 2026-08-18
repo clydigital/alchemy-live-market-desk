@@ -1718,48 +1718,45 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
-    const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
-    const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
-      scope.hypothesisId,
-      new Set(scope.requirements.map((requirement) => requirement.requirementId)),
-    ]));
-    const challengerStage = await modelStage<ChallengerOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "challenger",
-      modelKind: "complex",
-      schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
-      maxOutputTokens: 5_000,
-    });
-    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
-    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    // Challenger is a critic, not a publication bouncer. Every structurally valid
-    // assessed hypothesis continues to scenario and Story synthesis regardless of verdict.
-    const reviewed = hypotheses.filter((hypothesis) => challengerByHypothesis.has(hypothesis.id));
-    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
-    if (!reviewed.length) {
-      warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+    // Challenger decoupling: Challenger is a non-blocking critic/research process.
+    // We attempt Challenger if available or already completed, but Challenger missing/delayed/failed
+    // NEVER prevents Scenario, Story Synthesis, or snapshot publication.
+    let challenger: ChallengerRow[] = [];
+    try {
+      const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
+      const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
+      const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
+        scope.hypothesisId,
+        new Set(scope.requirements.map((requirement) => requirement.requirementId)),
+      ]));
+      const challengerStage = await modelStage<ChallengerOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "challenger",
+        modelKind: "complex",
+        schema: CHALLENGER_SCHEMA,
+        input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
+        maxOutputTokens: 5_000,
       });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
+    } catch (challengerErr) {
+      warnings.push(`Challenger stage was delayed or failed (${challengerErr instanceof Error ? challengerErr.message : "non-blocking failure"}); proceeding along canonical blocking path.`);
     }
 
-    const reviewedIds = new Set(reviewed.map((item) => item.id));
+    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
+    hypothesesPromoted = hypotheses.length;
+    const activeHypothesisIds = new Set(hypotheses.map((item) => item.id));
+
     const scenarioStage = await modelStage<ScenarioOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
-      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence },
+      input: { hypotheses, challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)), evidence },
       maxOutputTokens: 5_500,
     });
-    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
+    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, activeHypothesisIds, knownEvidenceIds);
 
     const synthesisStage = await modelStage<StorySynthesisOutput>({
       engineRunId,
@@ -1768,8 +1765,8 @@ export async function runIntelligenceEngine({
       modelKind: "complex",
       schema: STORY_SYNTHESIS_SCHEMA,
       input: {
-        hypotheses: reviewed,
-        challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
+        hypotheses,
+        challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
         evidence,
         existingStories: storiesPack,
@@ -1779,7 +1776,7 @@ export async function runIntelligenceEngine({
     });
 
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
-      if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
+      if (!activeHypothesisIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
       const normalized: CandidateWorking = {
         ...candidate,
