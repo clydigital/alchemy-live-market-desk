@@ -76,7 +76,7 @@ export async function runStructuredStage<T>({
   schema: JsonSchema;
   modelKind?: "complex" | "fast";
   maxOutputTokens?: number;
-  /** Per-stage controls used by bounded serverless orchestrators. Default null means platform-bounded. */
+  /** Per-stage controls used by bounded serverless orchestrators. Default null means platform/provider-bounded (no application AbortSignal.timeout). */
   requestTimeoutMs?: number | null;
   maxAttempts?: number;
 }): Promise<OpenAIStageResult<T>> {

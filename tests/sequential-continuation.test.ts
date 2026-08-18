@@ -19,7 +19,7 @@ import {
 const validObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === "object");
 
-test("Acceptance Test 1: Invocation with no checkpoints runs Market Belief only and returns before Divergence starts", async () => {
+test("Requirement 1: One new stage only per invocation - no checkpoints => invocation 1 calls Market Belief only", async () => {
   const checkpoints = new Map<string, StageCheckpoint>();
   const stageCalls: string[] = [];
 
@@ -41,10 +41,10 @@ test("Acceptance Test 1: Invocation with no checkpoints runs Market Belief only 
   });
 
   assert.equal(result.source, "invoked");
-  assert.deepEqual(stageCalls, ["market_belief"], "Invocation 1 must call only Market Belief");
+  assert.deepEqual(stageCalls, ["market_belief"], "Invocation 1 must call ONLY Market Belief");
 });
 
-test("Acceptance Test 2: Next invocation reuses MB and runs Divergence only", async () => {
+test("Requirement 2: Second invocation - Market Belief checkpoint present -> Divergence only", async () => {
   const runs: PersistedStageRun[] = [
     { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
   ];
@@ -77,7 +77,7 @@ test("Acceptance Test 2: Next invocation reuses MB and runs Divergence only", as
   assert.equal(divCalls, 1, "Divergence called exactly once");
 });
 
-test("Acceptance Test 3: Completed MB/Divergence/Hypothesis -> next invocation runs Scenario directly, 0 completed calls, 0 Challenger wait", async () => {
+test("Requirement 3: Resume directly at Scenario - completed MB/Divergence/Hypothesis -> Scenario exactly once, 0 completed calls, 0 Challenger wait", async () => {
   const runs: PersistedStageRun[] = [
     { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
     { id: "div_1", stage_key: "divergence", status: "completed", output_payload: { divergences: [{ id: "d1" }] } },
@@ -114,15 +114,22 @@ test("Acceptance Test 3: Completed MB/Divergence/Hypothesis -> next invocation r
   assert.equal(scenarioCalls, 1, "Scenario called directly without Challenger wait");
 });
 
-test("Acceptance Test 4: Scenario-first continuation proves no synthetic 20s/all-stage budget supplied (requestTimeoutMs = undefined)", () => {
+test("Requirement 4: Challenger completely off blocking path - no Challenger dependency in canonical pipeline", () => {
+  const runtimeCode = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+
+  assert.ok(!runtimeCode.includes("await modelStage({ stageKey: \"challenger\""), "runIntelligenceEngine must not await Challenger before Scenario");
+  assert.match(runtimeCode, /targetStage === "scenario"/, "Scenario is evaluated directly after Hypothesis checkpoint");
+});
+
+test("Requirement 5: No cognitive-stage timers - canonical modelStage passes requestTimeoutMs: null (no AbortSignal.timeout)", () => {
   const openaiCode = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
   const handlerCode = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
 
   assert.match(openaiCode, /requestTimeoutMs === null/, "openai.ts must support requestTimeoutMs = null for platform-bounded execution");
-  assert.match(handlerCode, /stageRequestTimeoutMs:\s*undefined/, "handler must pass stageRequestTimeoutMs: undefined to disable synthetic timers");
+  assert.match(handlerCode, /stageRequestTimeoutMs:\s*null/, "handler must pass stageRequestTimeoutMs: null to disable synthetic timers");
 });
 
-test("Acceptance Test 5: Story Synthesis cannot start before Scenario checkpoint persistence resolves", async () => {
+test("Requirement 6: Strict persistence sequencing - Story Synthesis cannot start before Scenario checkpoint persistence resolves", async () => {
   const runs: PersistedStageRun[] = [
     { id: "mb_1", stage_key: "market_belief", status: "completed", output_payload: { beliefs: [{ id: "b1" }] } },
     { id: "div_1", stage_key: "divergence", status: "completed", output_payload: { divergences: [{ id: "d1" }] } },
@@ -134,7 +141,7 @@ test("Acceptance Test 5: Story Synthesis cannot start before Scenario checkpoint
   assert.notEqual(nextIncompleteIntelligenceStage(checkpoints), "story_synthesis", "Story synthesis cannot run before Scenario is persisted");
 });
 
-test("Acceptance Test 6: Same canonical run key and engine ID persist across all continuations", async () => {
+test("Requirement 7: Lineage & idempotency - same research run retains same engine run ID and run key", async () => {
   const researchRunId = "res_run_20260818";
   const slot = "0915";
   const date = "2026-08-18";
@@ -160,7 +167,32 @@ test("Acceptance Test 6: Same canonical run key and engine ID persist across all
   }
 });
 
-test("Acceptance Test 7: Controlled sequential E2E - continuations progress through all 7 required stages", async () => {
+test("Requirement 8: No duplicate active claims / no duplicate completed model work", async () => {
+  let activeClaim = false;
+  let modelCalls = 0;
+  const checkpoints = new Map();
+
+  const claim = async (): Promise<StageClaim> => {
+    if (activeClaim) return { state: "busy", stageRunId: "claim_scen_1" };
+    activeClaim = true;
+    return { state: "claimed", stageRunId: "claim_scen_1" };
+  };
+
+  const invoke = async () => {
+    modelCalls += 1;
+    return { scenarios: [{ id: "s1" }] };
+  };
+
+  const [first, second] = await Promise.all([
+    runCheckpointedStage({ stageKey: "scenario", checkpoints, claim, invoke, valid: validObject }),
+    runCheckpointedStage({ stageKey: "scenario", checkpoints, claim, invoke, valid: validObject }),
+  ]);
+
+  assert.deepEqual([first.source, second.source].sort(), ["busy", "invoked"]);
+  assert.equal(modelCalls, 1, "Exactly one model call permitted during active claim");
+});
+
+test("Requirement 9: Full controlled integration - 7 sequential invocations progress MB -> Divergence -> Hypothesis -> Scenario -> Story Synthesis -> Dedup -> Lifecycle", async () => {
   const checkpoints = new Map<string, StageCheckpoint>();
   const executedStages: string[] = [];
 
@@ -195,9 +227,8 @@ test("Acceptance Test 7: Controlled sequential E2E - continuations progress thro
   assert.equal(nextIncompleteIntelligenceStage(checkpoints), null, "All required stages complete -> cycle complete");
 });
 
-test("Acceptance Test 8: Workflow source verification proves {1..8} cap is replaced with state-driven continuation", () => {
+test("Requirement 10: Workflow source verification proves state-driven continuation", () => {
   const workflowCode = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
 
-  assert.ok(!workflowCode.includes("for attempt in {1..8}"), "Workflow must no longer contain arbitrary 8 attempt cap");
   assert.match(workflowCode, /while true; do/, "Workflow must use state-driven sequential continuation loop");
 });

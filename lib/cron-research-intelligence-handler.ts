@@ -183,7 +183,7 @@ export async function handleScheduledResearchIntelligence(
       triggerKind: "new_evidence",
       runKey: `research:${runKey}`,
       dryRun: run.accuracy_gate === "blocked",
-      stageRequestTimeoutMs: undefined,
+      stageRequestTimeoutMs: null,
       stageMaxAttempts: 1,
     });
     const warnings = mergeScheduledWarnings(claimedWarnings, intelligence.warnings);

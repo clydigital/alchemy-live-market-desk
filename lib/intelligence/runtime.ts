@@ -14,8 +14,10 @@ import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import { buildStageFailurePersistencePayload } from "./openai-core.ts";
 import {
+  REQUIRED_CANONICAL_INTELLIGENCE_STAGES,
   completedStageCheckpoints,
   hasReusableStagePayload,
+  nextIncompleteIntelligenceStage,
   type PersistedStageRun,
   type StageCheckpoint,
 } from "@/lib/intelligence/resumable-checkpoints";
@@ -1520,19 +1522,16 @@ export async function runIntelligenceEngine({
   triggerKind = "new_evidence",
   runKey,
   dryRun = false,
-  stageRequestTimeoutMs,
+  stageRequestTimeoutMs = null,
   stageMaxAttempts,
-  scheduledExecutionStartedAtMs,
 }: {
   researchRunId?: string | null;
   triggerKind?: IntelligenceTriggerKind;
   runKey?: string;
   dryRun?: boolean;
-  /** Optional bounded-stage controls for a serverless scheduled run. */
-  stageRequestTimeoutMs?: number;
+  /** Optional bounded-stage controls. Default null means platform/provider bounded (no application AbortSignal timeout). */
+  stageRequestTimeoutMs?: number | null;
   stageMaxAttempts?: number;
-  /** Cron receipt time; keeps scheduled stage requests inside the route deadline. */
-  scheduledExecutionStartedAtMs?: number;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
   if (!intelligenceDatabaseConfigured()) {
@@ -1600,18 +1599,10 @@ export async function runIntelligenceEngine({
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
-    const beliefStage = await modelStage<MarketBeliefOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "market_belief",
-      modelKind: "fast",
-      schema: MARKET_BELIEF_SCHEMA,
-      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack, researchDebt },
-      maxOutputTokens: 2_800,
-    });
-    const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
-    if (!beliefs.length) {
-      warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
+    // Determine the FIRST incomplete REQUIRED canonical stage.
+    // Canonical blocking path: market_belief -> divergence -> hypothesis -> scenario -> story_synthesis -> semantic_deduplication -> lifecycle
+    const targetStage = nextIncompleteIntelligenceStage(completedCheckpoints, REQUIRED_CANONICAL_INTELLIGENCE_STAGES);
+    if (!targetStage) {
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1620,129 +1611,171 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const divergenceStage = await modelStage<DivergenceOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "divergence",
-      modelKind: "fast",
-      schema: DIVERGENCE_SCHEMA,
-      input: { beliefs, evidence },
-      maxOutputTokens: 2_800,
-    });
-    const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
-    if (!divergences.length) {
-      warnings.push("No material evidence-versus-belief divergence survived the divergence stage.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+    // Execute STRICTLY ONE required stage per invocation
+    if (targetStage === "market_belief") {
+      const beliefStage = await modelStage<MarketBeliefOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "market_belief",
+        modelKind: "fast",
+        schema: MARKET_BELIEF_SCHEMA,
+        input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack, researchDebt },
+        maxOutputTokens: 2_800,
       });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
+      if (!beliefs.length) {
+        warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
+        await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+        });
+        return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      }
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
+
+    // Reconstruct prerequisite Market Beliefs from completed checkpoint
+    const beliefCheckpoint = completedCheckpoints.get("market_belief");
+    const beliefs = beliefCheckpoint ? await persistBeliefs(beliefCheckpoint.outputPayload as MarketBeliefOutput, knownEvidenceIds) : [];
+
+    if (targetStage === "divergence") {
+      const divergenceStage = await modelStage<DivergenceOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "divergence",
+        modelKind: "fast",
+        schema: DIVERGENCE_SCHEMA,
+        input: { beliefs, evidence },
+        maxOutputTokens: 2_800,
+      });
+      const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
+      if (!divergences.length) {
+        warnings.push("No material evidence-versus-belief divergence survived the divergence stage.");
+        await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+        });
+        return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      }
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+    }
+
+    // Reconstruct prerequisite Divergences from completed checkpoint
+    const divergenceCheckpoint = completedCheckpoints.get("divergence");
+    const divergences = divergenceCheckpoint ? await persistDivergences(divergenceCheckpoint.outputPayload as DivergenceOutput, beliefs, knownEvidenceIds) : [];
 
     const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, evidence);
     const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
     const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
 
-    if (hypothesisEvidence.length === 0) {
-      warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+    if (targetStage === "hypothesis") {
+      if (hypothesisEvidence.length === 0) {
+        warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
+        await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+        });
+        return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      }
+
+      const hypothesisStage = await modelStage<HypothesisOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "hypothesis",
+        modelKind: "complex",
+        schema: HYPOTHESIS_SCHEMA,
+        input: {
+          beliefs,
+          divergences,
+          evidence: hypothesisEvidence,
+          existingStories: hypothesisStories,
+          researchDebt,
+        },
+        maxOutputTokens: 5_500,
       });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
+      if (!hypotheses.length) {
+        warnings.push("No testable hypotheses survived evidence-ID validation.");
+        await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+        });
+        return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      }
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated: hypotheses.length, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const hypothesisStage = await modelStage<HypothesisOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "hypothesis",
-      modelKind: "complex",
-      schema: HYPOTHESIS_SCHEMA,
-      input: {
-        beliefs,
-        divergences,
-        evidence: hypothesisEvidence,
-        existingStories: hypothesisStories,
-        researchDebt,
-      },
-      maxOutputTokens: 5_500,
-    });
-    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
+    // Reconstruct prerequisite Hypotheses from completed checkpoint
+    const hypothesisCheckpoint = completedCheckpoints.get("hypothesis");
+    const hypotheses = hypothesisCheckpoint ? await persistHypotheses(hypothesisCheckpoint.outputPayload as HypothesisOutput, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds) : [];
     hypothesesGenerated = hypotheses.length;
-    if (!hypotheses.length) {
-      warnings.push("No testable hypotheses survived evidence-ID validation.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+
+    // Challenger is completely OFF the blocking path.
+    // If a Challenger checkpoint exists from a separate critic run, reconstruct it safely; otherwise empty array.
+    let challenger: ChallengerRow[] = [];
+    const challengerCheckpoint = completedCheckpoints.get("challenger");
+    if (challengerCheckpoint) {
+      const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
+      const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
+      const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
+        scope.hypothesisId,
+        new Set(scope.requirements.map((requirement) => requirement.requirementId)),
+      ]));
+      challenger = await persistChallenger(challengerCheckpoint.outputPayload as ChallengerOutput, hypotheses, challengerCheckpoint.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
     }
 
-    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
-    const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
-    const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
-      scope.hypothesisId,
-      new Set(scope.requirements.map((requirement) => requirement.requirementId)),
-    ]));
-    const challengerStage = await modelStage<ChallengerOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "challenger",
-      modelKind: "complex",
-      schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
-      maxOutputTokens: 5_000,
-    });
-    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
     const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    // Challenger is a critic, not a publication bouncer. Every structurally valid
-    // assessed hypothesis continues to scenario and Story synthesis regardless of verdict.
-    const reviewed = hypotheses.filter((hypothesis) => challengerByHypothesis.has(hypothesis.id));
-    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
-    if (!reviewed.length) {
-      warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+    hypothesesPromoted = hypotheses.length;
+    const activeHypothesisIds = new Set(hypotheses.map((item) => item.id));
+
+    if (targetStage === "scenario") {
+      const scenarioStage = await modelStage<ScenarioOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "scenario",
+        modelKind: "complex",
+        schema: SCENARIO_SCHEMA,
+        input: { hypotheses, challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)), evidence },
+        maxOutputTokens: 5_500,
       });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistScenarios(engineRunId, scenarioStage.data, activeHypothesisIds, knownEvidenceIds);
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const reviewedIds = new Set(reviewed.map((item) => item.id));
-    const scenarioStage = await modelStage<ScenarioOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "scenario",
-      modelKind: "complex",
-      schema: SCENARIO_SCHEMA,
-      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence },
-      maxOutputTokens: 5_500,
-    });
-    const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
+    // Reconstruct prerequisite Scenarios from completed checkpoint
+    const scenarioCheckpoint = completedCheckpoints.get("scenario");
+    const scenarioRows = scenarioCheckpoint ? await persistScenarios(engineRunId, scenarioCheckpoint.outputPayload as ScenarioOutput, activeHypothesisIds, knownEvidenceIds) : [];
 
-    const synthesisStage = await modelStage<StorySynthesisOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "story_synthesis",
-      modelKind: "complex",
-      schema: STORY_SYNTHESIS_SCHEMA,
-      input: {
-        hypotheses: reviewed,
-        challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
-        scenarios: scenarioRows,
-        evidence,
-        existingStories: storiesPack,
-        researchStatePolicy: { states: ["SUPPORTED", "DEVELOPING", "CONTESTED", "EARLY"], allStatesMayPublish: true, completenessIsDescriptive: true },
-      },
-      maxOutputTokens: 9_000,
-    });
+    if (targetStage === "story_synthesis") {
+      const synthesisStage = await modelStage<StorySynthesisOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "story_synthesis",
+        modelKind: "complex",
+        schema: STORY_SYNTHESIS_SCHEMA,
+        input: {
+          hypotheses,
+          challenger: challenger.filter((row) => activeHypothesisIds.has(row.hypothesisId)),
+          scenarios: scenarioRows,
+          evidence,
+          existingStories: storiesPack,
+          researchStatePolicy: { states: ["SUPPORTED", "DEVELOPING", "CONTESTED", "EARLY"], allStatesMayPublish: true, completenessIsDescriptive: true },
+        },
+        maxOutputTokens: 9_000,
+      });
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered: synthesisStage.data.candidates.length, storiesPublished: 0, storyIds: [], warnings };
+    }
 
-    const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
-      if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
+    // Reconstruct prerequisite Story Synthesis candidates from completed checkpoint
+    const synthesisCheckpoint = completedCheckpoints.get("story_synthesis");
+    const synthesisData = synthesisCheckpoint ? (synthesisCheckpoint.outputPayload as StorySynthesisOutput) : { candidates: [] };
+
+    const candidates: CandidateWorking[] = synthesisData.candidates.flatMap((candidate) => {
+      if (!activeHypothesisIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
       const normalized: CandidateWorking = {
         ...candidate,
@@ -1763,27 +1796,25 @@ export async function runIntelligenceEngine({
       return [normalized];
     });
     storiesConsidered = candidates.length;
-    if (!candidates.length) {
-      warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
+
+    if (targetStage === "semantic_deduplication") {
+      await modelStage<DeduplicationOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "semantic_deduplication",
+        modelKind: "fast",
+        schema: DEDUPLICATION_SCHEMA,
+        input: { candidates: candidates.map((item) => ({ ...item, candidateKey: item.candidateKey })), existingStories: storiesPack },
+        maxOutputTokens: 3_500,
       });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      return { enabled: true, engineRunId, status: "partial", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const dedupeStage = await modelStage<DeduplicationOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "semantic_deduplication",
-      modelKind: "fast",
-      schema: DEDUPLICATION_SCHEMA,
-      input: { candidates: candidates.map((item) => ({ ...item, candidateKey: item.candidateKey })), existingStories: storiesPack },
-      maxOutputTokens: 3_500,
-    });
+    // Reconstruct Deduplication decisions from completed checkpoint
+    const dedupeCheckpoint = completedCheckpoints.get("semantic_deduplication");
+    const dedupeData = dedupeCheckpoint ? (dedupeCheckpoint.outputPayload as DeduplicationOutput) : { decisions: [] };
     const validStoryIds = new Set(stories.map((story) => story.id));
-    const dedupeByCandidate = new Map(dedupeStage.data.decisions.map((decision) => {
+    const dedupeByCandidate = new Map(dedupeData.decisions.map((decision) => {
       let normalized = decision;
       if ((decision.noveltyClass === "duplicate" || decision.noveltyClass === "existing_story_update") && (!decision.matchedStoryId || !validStoryIds.has(decision.matchedStoryId))) {
         normalized = { ...decision, noveltyClass: "insufficient_novelty" as const, matchedStoryId: null, rationale: `${decision.rationale} Matching Story ID was invalid, so publication is blocked.` };
@@ -1791,21 +1822,26 @@ export async function runIntelligenceEngine({
       return [decision.candidateKey, normalized];
     }));
 
-    const lifecycleStage = await modelStage<LifecycleOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "lifecycle",
-      modelKind: "fast",
-      schema: LIFECYCLE_SCHEMA,
-      input: {
-        candidates: candidates.map((candidate) => ({ candidateKey: candidate.candidateKey, lifecycleStatus: candidate.lifecycleStatus, thesis: candidate.thesis, confidence: candidate.confidence })),
-        deduplication: [...dedupeByCandidate.values()],
-        existingStories: storiesPack,
-        evidence,
-      },
-      maxOutputTokens: 2_800,
-    });
-    const lifecycleByCandidate = new Map(lifecycleStage.data.decisions.map((item) => [item.candidateKey, item]));
+    if (targetStage === "lifecycle") {
+      await modelStage<LifecycleOutput>({
+        engineRunId,
+        ...resumableStageExecution,
+        stageKey: "lifecycle",
+        modelKind: "fast",
+        schema: LIFECYCLE_SCHEMA,
+        input: {
+          candidates: candidates.map((candidate) => ({ candidateKey: candidate.candidateKey, lifecycleStatus: candidate.lifecycleStatus, thesis: candidate.thesis, confidence: candidate.confidence })),
+          deduplication: [...dedupeByCandidate.values()],
+          existingStories: storiesPack,
+          evidence,
+        },
+        maxOutputTokens: 2_800,
+      });
+    }
+
+    const lifecycleCheckpoint = completedCheckpoints.get("lifecycle");
+    const lifecycleData = lifecycleCheckpoint ? (lifecycleCheckpoint.outputPayload as LifecycleOutput) : { decisions: [] };
+    const lifecycleByCandidate = new Map(lifecycleData.decisions.map((item) => [item.candidateKey, item]));
 
     const candidateRows: CandidatePersisted[] = [];
     for (const candidate of candidates) {
@@ -1820,8 +1856,6 @@ export async function runIntelligenceEngine({
       const researchContext = candidateResearchState(candidate, evidenceById, challengerByHypothesis);
       const lifecycle = lifecycleByCandidate.get(candidate.candidateKey)?.lifecycleStatus || candidate.lifecycleStatus;
       const ancestry = unique(researchContext.decisive.map((item) => item.ancestryGroupId).filter((id): id is string => Boolean(id)));
-      // This persisted compatibility flag represents structural publishability only.
-      // Research completeness, criticality, confidence, source depth and Challenger verdict never set it.
       const integrity = evaluateCandidateIntegrity({
         decisiveEvidenceCount: researchContext.decisive.length,
         noveltyClass: decision.noveltyClass,
@@ -1920,7 +1954,7 @@ export async function runIntelligenceEngine({
       evidenceConsidered: evidence.length,
       hypothesesGenerated,
       hypothesesPromoted,
-      storiesConsidered,
+      storiesConsidered: storiesConsidered,
       storiesPublished: publishedStories.length,
       storyIds: publishedStories.map((story) => story.id),
       warnings,
@@ -1938,9 +1972,6 @@ export async function runIntelligenceEngine({
           method: "PATCH",
           headers: { Prefer: "return=minimal" },
           body: JSON.stringify({
-            // A failed attempt is deliberately not a terminal engine run. Its
-            // stage row remains the audit record while the canonical run can
-            // resume from the first incomplete checkpoint on a later request.
             ...(blocked ? { status: "blocked" } : resumable ? { status: "partial" } : { status: "failed" }),
             warnings,
             failure_detail: message.slice(0, 2_000),
@@ -1950,7 +1981,7 @@ export async function runIntelligenceEngine({
           }),
         });
       } catch {
-        // Preserve the original intelligence failure.
+        // Preserve original error
       }
     }
     return {
@@ -1960,7 +1991,7 @@ export async function runIntelligenceEngine({
       evidenceConsidered,
       hypothesesGenerated,
       hypothesesPromoted,
-      storiesConsidered,
+      storiesConsidered: storiesConsidered,
       storiesPublished: publishedStories.length,
       storyIds: publishedStories.map((story) => story.id),
       warnings,

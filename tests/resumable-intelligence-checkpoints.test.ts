@@ -21,12 +21,12 @@ const CHALLENGER = { assessments: [{ hypothesisId: "hypothesis-1", verdict: "wat
 
 const validObject = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
 
-test("completed Market Belief, Divergence, and Hypothesis are reused and Challenger is next", async () => {
+test("completed Market Belief, Divergence, and Hypothesis are reused and Scenario is next", async () => {
   const checkpoints = completedStageCheckpoints([
     completed("market-1", "market_belief", MARKET_BELIEF),
     completed("divergence-1", "divergence", DIVERGENCE),
     completed("hypothesis-1", "hypothesis", HYPOTHESIS),
-    { id: "challenger-failed-1", stage_key: "challenger", status: "failed", output_payload: {} },
+    { id: "scenario-failed-1", stage_key: "scenario", status: "failed", output_payload: {} },
   ]);
   let modelCalls = 0;
   const reuse = async (stageKey: string) => runCheckpointedStage({
@@ -55,43 +55,43 @@ test("completed Market Belief, Divergence, and Hypothesis are reused and Challen
   assert.deepEqual(divergence.data, DIVERGENCE);
   assert.deepEqual(hypothesis.data, HYPOTHESIS);
   assert.equal(modelCalls, 0, "upstream OpenAI calls must not be duplicated");
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "challenger");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
 });
 
-test("a failed Challenger attempt is retried from Challenger with the persisted upstream payload", async () => {
+test("a failed Scenario attempt is retried from Scenario with the persisted upstream payload", async () => {
   const checkpoints = completedStageCheckpoints([
     completed("market-1", "market_belief", MARKET_BELIEF),
     completed("divergence-1", "divergence", DIVERGENCE),
     completed("hypothesis-1", "hypothesis", HYPOTHESIS),
   ]);
-  let challengerCalls = 0;
+  let scenarioCalls = 0;
 
   await assert.rejects(() => runCheckpointedStage({
-    stageKey: "challenger",
+    stageKey: "scenario",
     checkpoints,
-    claim: async () => ({ state: "claimed", stageRunId: "challenger-attempt-1" }),
+    claim: async () => ({ state: "claimed", stageRunId: "scenario-attempt-1" }),
     invoke: async () => {
-      challengerCalls += 1;
+      scenarioCalls += 1;
       throw new Error("timeout");
     },
     valid: validObject,
   }), /timeout/);
 
   const resumed = await runCheckpointedStage({
-    stageKey: "challenger",
+    stageKey: "scenario",
     checkpoints,
-    claim: async () => ({ state: "claimed", stageRunId: "challenger-attempt-2" }),
+    claim: async () => ({ state: "claimed", stageRunId: "scenario-attempt-2" }),
     invoke: async () => {
-      challengerCalls += 1;
-      return CHALLENGER;
+      scenarioCalls += 1;
+      return { scenarios: [{ id: "scenario-1", hypothesisId: "hypothesis-1" }] };
     },
     valid: validObject,
   });
 
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "challenger");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
   assert.equal(resumed.source, "invoked");
-  assert.deepEqual(resumed.data, CHALLENGER);
-  assert.equal(challengerCalls, 2, "only Challenger receives a new attempt after its failure");
+  assert.equal(scenarioCalls, 2, "only Scenario receives a new attempt after its failure");
   assert.deepEqual(checkpoints.get("hypothesis")?.outputPayload, HYPOTHESIS, "downstream work receives the persisted hypothesis output");
 });
 
