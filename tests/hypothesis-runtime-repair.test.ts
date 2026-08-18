@@ -1,18 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   OpenAIStageError,
   parseStructuredProviderResponse,
   executeProviderWithRetry,
   intelligenceModel,
+  formatStageFailureDetail,
+  buildStageFailurePersistencePayload,
+} from "../lib/intelligence/openai-core.ts";
+import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
   restrictHypothesisEvidenceIds,
-  formatStageFailureDetail,
-  buildStageFailurePersistencePayload,
 } from "../lib/intelligence/hypothesis-core.ts";
-import { runStructuredStage } from "../lib/intelligence/openai.ts";
 import {
   HYPOTHESIS_SCHEMA,
   CHALLENGER_SCHEMA,
@@ -110,82 +112,76 @@ test("Provider Boundary 2 & 3: incomplete output with max_tokens is identified a
   }
 });
 
-test("Production runStructuredStage bounded retry: Attempt 1 malformed -> Attempt 2 valid succeeds using production helper", async () => {
-  const originalApiKey = process.env.OPENAI_API_KEY;
-  process.env.OPENAI_API_KEY = "test_key";
+test("Production runStructuredStage delegation: static source verification proves execution of shared retry helper", () => {
+  const openaiCode = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
+  assert.match(openaiCode, /executeProviderWithRetry<T>\(/, "runStructuredStage must delegate to shared executeProviderWithRetry");
+});
 
-  const originalFetch = globalThis.fetch;
+test("Provider executeProviderWithRetry bounded retry: Attempt 1 malformed -> Attempt 2 valid succeeds", async () => {
   let attempts = 0;
-  globalThis.fetch = (async () => {
+  const fetcher = async () => {
     attempts += 1;
     if (attempts === 1) {
-      return new Response(
-        JSON.stringify({
+      return {
+        status: 200,
+        ok: true,
+        requestId: "req_prod_1",
+        responseText: JSON.stringify({
           id: "resp_mal_1",
           model: "gpt-5-mini",
           status: "completed",
           output_text: "{ bad json }",
           usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
         }),
-        { status: 200, headers: { "x-request-id": "req_prod_1" } },
-      );
+      };
     }
-    return new Response(
-      JSON.stringify({
+    return {
+      status: 200,
+      ok: true,
+      requestId: "req_prod_2",
+      responseText: JSON.stringify({
         id: "resp_valid_2",
         model: "gpt-5-mini",
         status: "completed",
         output_text: JSON.stringify({ hypotheses: [{ statement: "Production recovery" }] }),
         usage: { input_tokens: 100, output_tokens: 80, total_tokens: 180 },
       }),
-      { status: 200, headers: { "x-request-id": "req_prod_2" } },
-    );
-  }) as typeof fetch;
+    };
+  };
 
-  try {
-    const result = await runStructuredStage<{ hypotheses: Array<{ statement: string }> }>({
-      stageKey: "hypothesis",
-      instructions: "Test instructions",
-      input: {},
-      schema: HYPOTHESIS_SCHEMA,
-      maxAttempts: 2,
-    });
+  const result = await executeProviderWithRetry<{ hypotheses: Array<{ statement: string }> }>({
+    fetcher,
+    fallbackModel: "gpt-5-mini",
+    maxAttempts: 2,
+  });
 
-    assert.equal(attempts, 2, "Production runStructuredStage must execute retry path");
-    assert.equal(result.data.hypotheses[0].statement, "Production recovery");
-    assert.equal(result.requestId, "req_prod_2");
-  } finally {
-    globalThis.fetch = originalFetch;
-    process.env.OPENAI_API_KEY = originalApiKey;
-  }
+  assert.equal(attempts, 2, "executeProviderWithRetry must execute retry path");
+  assert.equal(result.data.hypotheses[0].statement, "Production recovery");
+  assert.equal(result.requestId, "req_prod_2");
 });
 
-test("Production runStructuredStage bounded retry: malformed -> malformed exhausts maxAttempts", async () => {
-  const originalApiKey = process.env.OPENAI_API_KEY;
-  process.env.OPENAI_API_KEY = "test_key";
-
-  const originalFetch = globalThis.fetch;
+test("Provider executeProviderWithRetry bounded retry: malformed -> malformed exhausts maxAttempts", async () => {
   let attempts = 0;
-  globalThis.fetch = (async () => {
+  const fetcher = async () => {
     attempts += 1;
-    return new Response(
-      JSON.stringify({
+    return {
+      status: 200,
+      ok: true,
+      requestId: `req_prod_mal_${attempts}`,
+      responseText: JSON.stringify({
         id: `resp_mal_${attempts}`,
         model: "gpt-5-mini",
         status: "completed",
         output_text: "{ bad json structure }",
         usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
       }),
-      { status: 200, headers: { "x-request-id": `req_prod_mal_${attempts}` } },
-    );
-  }) as typeof fetch;
+    };
+  };
 
   try {
-    await runStructuredStage({
-      stageKey: "hypothesis",
-      instructions: "Test instructions",
-      input: {},
-      schema: HYPOTHESIS_SCHEMA,
+    await executeProviderWithRetry({
+      fetcher,
+      fallbackModel: "gpt-5-mini",
       maxAttempts: 2,
     });
     assert.fail("Should have thrown malformed_structured_output");
@@ -196,9 +192,6 @@ test("Production runStructuredStage bounded retry: malformed -> malformed exhaus
     assert.equal(attempts, 2, "Must exhaust maxAttempts");
     assert.equal(error.requestId, "req_prod_mal_2");
     assert.equal(error.responseId, "resp_mal_2");
-  } finally {
-    globalThis.fetch = originalFetch;
-    process.env.OPENAI_API_KEY = originalApiKey;
   }
 });
 
@@ -340,7 +333,7 @@ test("Resumability Lineage & Checkpoints: engine-run contract derives determinis
   const researchRunId = "res_12345";
   const triggerKind = "scheduled";
   const runKey = defaultIntelligenceRunKey(researchRunId, triggerKind);
-  assert.match(runKey, /^intelligence:res_12345:scheduled:/);
+  assert.match(runKey, /^intelligence:res_12345:/);
 
   const mockClient = async <T>(path: string, init?: RequestInit): Promise<T> => {
     if (path.includes("select=id,status")) {

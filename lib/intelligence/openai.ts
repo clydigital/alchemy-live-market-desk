@@ -4,19 +4,8 @@ import {
   OpenAIStageError,
   executeProviderWithRetry,
   intelligenceModel,
-} from "./hypothesis-core.ts";
-
-export function responsesCompatibleJsonSchema(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(responsesCompatibleJsonSchema);
-  if (!value || typeof value !== "object") return value;
-
-  const output: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (key === "uniqueItems") continue;
-    output[key] = responsesCompatibleJsonSchema(child);
-  }
-  return output;
-}
+  responsesCompatibleJsonSchema,
+} from "./openai-core.ts";
 
 export type IntelligenceReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 

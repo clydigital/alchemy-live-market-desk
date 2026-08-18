@@ -12,6 +12,7 @@ import {
 } from "@/lib/intelligence/edition";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
+import { buildStageFailurePersistencePayload } from "./openai-core.ts";
 import {
   completedStageCheckpoints,
   hasReusableStagePayload,
@@ -56,8 +57,6 @@ import {
 import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
-  buildStageFailurePersistencePayload,
-  formatStageFailureDetail,
   restrictHypothesisEvidenceIds,
 } from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
