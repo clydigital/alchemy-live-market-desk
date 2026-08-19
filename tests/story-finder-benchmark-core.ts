@@ -39,6 +39,7 @@ export type CandidateChange = {
 export type StoryFinderDecision = {
   relation: StoryRelation;
   matchedStorySlug: string | null;
+  relatedStorySlugs: string[];
   score: number;
   runnerUpScore: number;
   margin: number;
@@ -94,16 +95,15 @@ function scoreStory(candidate: CandidateChange, story: StoryFingerprint) {
   const candidateText = tokenSet([candidate.headline, candidate.detail, ...candidate.themes, ...candidate.mechanismTerms]);
   const storyText = tokenSet([story.title, story.thesis, ...story.themes, ...story.mechanismTerms]);
 
-  const themeScore = overlapCoefficient(candidateThemes, storyThemes) * 4;
-  const mechanismScore = overlapCoefficient(candidateMechanism, storyMechanism) * 5;
-  const assetScore = overlapCoefficient(candidateAssets, storyAssets) * 3;
-  const textScore = jaccard(candidateText, storyText) * 2;
-
-  return themeScore + mechanismScore + assetScore + textScore;
+  return (
+    overlapCoefficient(candidateThemes, storyThemes) * 4 +
+    overlapCoefficient(candidateMechanism, storyMechanism) * 5 +
+    overlapCoefficient(candidateAssets, storyAssets) * 3 +
+    jaccard(candidateText, storyText) * 2
+  );
 }
 
 const MATCH_THRESHOLD = 5.4;
-const MIN_MARGIN = 0.65;
 
 function mapRelation(signal: UpstreamRelationSignal): StoryRelation {
   if (signal === "confirmation") return "CONFIRMATION";
@@ -124,6 +124,7 @@ export function findStoryForChange(input: {
     return {
       relation: "DUPLICATE",
       matchedStorySlug: null,
+      relatedStorySlugs: [],
       score: 0,
       runnerUpScore: 0,
       margin: 0,
@@ -135,6 +136,7 @@ export function findStoryForChange(input: {
     return {
       relation: "NOISE",
       matchedStorySlug: null,
+      relatedStorySlugs: [],
       score: 0,
       runnerUpScore: 0,
       margin: 0,
@@ -151,28 +153,29 @@ export function findStoryForChange(input: {
   const runnerUpScore = runnerUp?.score ?? 0;
   const margin = bestScore - runnerUpScore;
 
-  if (!best || bestScore < MATCH_THRESHOLD || margin < MIN_MARGIN) {
+  if (!best || bestScore < MATCH_THRESHOLD) {
     return {
       relation: "NEW_STORY",
       matchedStorySlug: null,
+      relatedStorySlugs: [],
       score: bestScore,
       runnerUpScore,
       margin,
-      reason: !best
-        ? "No existing Story fingerprint was available."
-        : bestScore < MATCH_THRESHOLD
-          ? "No existing Story crossed the deterministic match threshold."
-          : "The leading Story match was too ambiguous versus the runner-up.",
+      reason: best ? "No existing Story crossed the deterministic match threshold." : "No existing Story fingerprint was available.",
     };
   }
 
+  const matched = ranked.filter((item) => item.score >= MATCH_THRESHOLD).slice(0, 3);
   return {
     relation: mapRelation(candidate.relationSignal),
     matchedStorySlug: best.story.slug,
+    relatedStorySlugs: matched.slice(1).map((item) => item.story.slug),
     score: bestScore,
     runnerUpScore,
     margin,
-    reason: "Existing Story matched on structured themes, mechanism and assets.",
+    reason: matched.length > 1
+      ? "Change has one primary existing Story and additional materially related Stories."
+      : "Existing Story matched on structured themes, mechanism and assets.",
   };
 }
 
@@ -199,6 +202,7 @@ export function evaluateStoryFinderBenchmark(input: {
       actualRelation: actual.relation,
       expectedStorySlug: testCase.expectedStorySlug,
       actualStorySlug: actual.matchedStorySlug,
+      relatedStorySlugs: actual.relatedStorySlugs,
       relationCorrect,
       storyCorrect,
       correct: relationCorrect && storyCorrect,
