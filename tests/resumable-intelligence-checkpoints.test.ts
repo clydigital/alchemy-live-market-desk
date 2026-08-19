@@ -18,10 +18,11 @@ const MARKET_BELIEF = { beliefs: [{ id: "belief-1", statement: "Rates fall", aff
 const DIVERGENCE = { divergences: [{ id: "divergence-1", marketBeliefId: "belief-1" }] };
 const HYPOTHESIS = { hypotheses: [{ id: "hypothesis-1", divergenceId: "divergence-1" }] };
 const CHALLENGER = { assessments: [{ hypothesisId: "hypothesis-1", verdict: "watch" }] };
+const SCENARIO = { scenarios: [{ hypothesisId: "hypothesis-1", asset: "SPX" }] };
 
 const validObject = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
 
-test("completed Market Belief, Divergence, and Hypothesis are reused and Challenger is next", async () => {
+test("completed Market Belief, Divergence, and Hypothesis are reused and Scenario is next", async () => {
   const checkpoints = completedStageCheckpoints([
     completed("market-1", "market_belief", MARKET_BELIEF),
     completed("divergence-1", "divergence", DIVERGENCE),
@@ -55,63 +56,74 @@ test("completed Market Belief, Divergence, and Hypothesis are reused and Challen
   assert.deepEqual(divergence.data, DIVERGENCE);
   assert.deepEqual(hypothesis.data, HYPOTHESIS);
   assert.equal(modelCalls, 0, "upstream OpenAI calls must not be duplicated");
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "challenger");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
 });
 
-test("a failed Challenger attempt is retried from Challenger with the persisted upstream payload", async () => {
+test("a failed Scenario attempt is retried from Scenario with persisted upstream payload", async () => {
   const checkpoints = completedStageCheckpoints([
     completed("market-1", "market_belief", MARKET_BELIEF),
     completed("divergence-1", "divergence", DIVERGENCE),
     completed("hypothesis-1", "hypothesis", HYPOTHESIS),
   ]);
-  let challengerCalls = 0;
+  let scenarioCalls = 0;
 
   await assert.rejects(() => runCheckpointedStage({
-    stageKey: "challenger",
+    stageKey: "scenario",
     checkpoints,
-    claim: async () => ({ state: "claimed", stageRunId: "challenger-attempt-1" }),
+    claim: async () => ({ state: "claimed", stageRunId: "scenario-attempt-1" }),
     invoke: async () => {
-      challengerCalls += 1;
+      scenarioCalls += 1;
       throw new Error("timeout");
     },
     valid: validObject,
   }), /timeout/);
 
   const resumed = await runCheckpointedStage({
-    stageKey: "challenger",
+    stageKey: "scenario",
     checkpoints,
-    claim: async () => ({ state: "claimed", stageRunId: "challenger-attempt-2" }),
+    claim: async () => ({ state: "claimed", stageRunId: "scenario-attempt-2" }),
     invoke: async () => {
-      challengerCalls += 1;
-      return CHALLENGER;
+      scenarioCalls += 1;
+      return SCENARIO;
     },
     valid: validObject,
   });
 
-  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "challenger");
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
   assert.equal(resumed.source, "invoked");
-  assert.deepEqual(resumed.data, CHALLENGER);
-  assert.equal(challengerCalls, 2, "only Challenger receives a new attempt after its failure");
+  assert.deepEqual(resumed.data, SCENARIO);
+  assert.equal(scenarioCalls, 2, "only Scenario receives a new attempt after its failure");
   assert.deepEqual(checkpoints.get("hypothesis")?.outputPayload, HYPOTHESIS, "downstream work receives the persisted hypothesis output");
 });
 
-test("concurrent continuation claims allow only one model invocation for a stage", async () => {
+test("historic Challenger checkpoints remain readable but never alter canonical next-stage order", () => {
+  const checkpoints = completedStageCheckpoints([
+    completed("market-1", "market_belief", MARKET_BELIEF),
+    completed("divergence-1", "divergence", DIVERGENCE),
+    completed("hypothesis-1", "hypothesis", HYPOTHESIS),
+    completed("challenger-1", "challenger", CHALLENGER),
+  ]);
+  assert.deepEqual(checkpoints.get("challenger")?.outputPayload, CHALLENGER);
+  assert.equal(nextIncompleteIntelligenceStage(checkpoints), "scenario");
+});
+
+test("concurrent continuation claims allow only one model invocation for a required stage", async () => {
   let active = false;
   let stageCalls = 0;
   const claim = async (): Promise<StageClaim> => {
-    if (active) return { state: "busy", stageRunId: "challenger-attempt-1" };
+    if (active) return { state: "busy", stageRunId: "scenario-attempt-1" };
     active = true;
-    return { state: "claimed", stageRunId: "challenger-attempt-1" };
+    return { state: "claimed", stageRunId: "scenario-attempt-1" };
   };
   const invoke = async () => {
     stageCalls += 1;
     await Promise.resolve();
-    return CHALLENGER;
+    return SCENARIO;
   };
   const checkpoints = new Map();
   const [first, second] = await Promise.all([
-    runCheckpointedStage({ stageKey: "challenger", checkpoints, claim, invoke, valid: validObject }),
-    runCheckpointedStage({ stageKey: "challenger", checkpoints, claim, invoke, valid: validObject }),
+    runCheckpointedStage({ stageKey: "scenario", checkpoints, claim, invoke, valid: validObject }),
+    runCheckpointedStage({ stageKey: "scenario", checkpoints, claim, invoke, valid: validObject }),
   ]);
 
   assert.deepEqual([first.source, second.source].sort(), ["busy", "invoked"]);
@@ -123,7 +135,6 @@ test("a final recovered checkpoint still proceeds to normal Story persistence/pu
     completed("market-1", "market_belief", MARKET_BELIEF),
     completed("divergence-1", "divergence", DIVERGENCE),
     completed("hypothesis-1", "hypothesis", HYPOTHESIS),
-    completed("challenger-1", "challenger", CHALLENGER),
     completed("scenario-1", "scenario", { scenarios: [] }),
     completed("synthesis-1", "story_synthesis", { candidates: [{ primaryHypothesisId: "hypothesis-1" }] }),
     completed("dedupe-1", "semantic_deduplication", { decisions: [] }),
@@ -141,7 +152,7 @@ test("a final recovered checkpoint still proceeds to normal Story persistence/pu
     },
     valid: validObject,
   });
-  if (lifecycle.source === "reused") persisted += 1; // The runtime's normal candidate/promotion path follows this final model stage.
+  if (lifecycle.source === "reused") persisted += 1;
 
   assert.equal(modelCalls, 0);
   assert.equal(persisted, 1);

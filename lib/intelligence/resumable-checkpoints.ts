@@ -2,7 +2,6 @@ export const CHECKPOINTED_INTELLIGENCE_STAGES = [
   "market_belief",
   "divergence",
   "hypothesis",
-  "challenger",
   "scenario",
   "story_synthesis",
   "semantic_deduplication",
@@ -46,6 +45,8 @@ export function hasReusableStagePayload(stageKey: string, payload: unknown) {
     case "market_belief": return objectWithArray(payload, "beliefs");
     case "divergence": return objectWithArray(payload, "divergences");
     case "hypothesis": return objectWithArray(payload, "hypotheses");
+    // Historic Challenger checkpoints remain readable for audit compatibility,
+    // but Challenger is not part of the canonical required-stage order.
     case "challenger": return objectWithArray(payload, "assessments");
     case "scenario": return objectWithArray(payload, "scenarios");
     case "story_synthesis": return objectWithArray(payload, "candidates");

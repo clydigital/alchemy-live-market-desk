@@ -5,11 +5,12 @@ export type EngineRunRow = {
   stories_published?: number;
   warnings?: string[];
   metadata?: Record<string, unknown>;
+  started_at?: string | null;
 };
 
 export type StartIntelligenceEngineRunResult =
   | { kind: "reused_completed"; runKey: string; run: EngineRunRow }
-  | { kind: "started"; runKey: string; engineRunId: string };
+  | { kind: "started"; runKey: string; engineRunId: string; reusedExisting: boolean; run: EngineRunRow };
 
 type StartIntelligenceEngineRunInput = {
   researchRunId?: string | null;
@@ -44,14 +45,27 @@ export async function startIntelligenceEngineRunWithClient(
 ): Promise<StartIntelligenceEngineRunResult> {
   const effectiveRunKey = runKey || defaultIntelligenceRunKey(researchRunId, triggerKind);
   const priorRuns = await intelligenceRest<EngineRunRow[]>(
-    `intelligence_engine_runs?select=id,status,stories_considered,stories_published,warnings,metadata&run_key=eq.${encodeURIComponent(effectiveRunKey)}&limit=1`,
+    `intelligence_engine_runs?select=id,status,stories_considered,stories_published,warnings,metadata,started_at&run_key=eq.${encodeURIComponent(effectiveRunKey)}&limit=1`,
   );
-  const priorCompleted = priorRuns.find((row) => row.status === "completed");
-  if (priorCompleted) {
+  const prior = priorRuns[0] ?? null;
+  if (prior?.status === "completed") {
     return {
       kind: "reused_completed",
       runKey: effectiveRunKey,
-      run: priorCompleted,
+      run: prior,
+    };
+  }
+
+  // Continuation means reuse the exact engine row. The old upsert path rewrote
+  // started_at and metadata every time the run resumed, corrupting lineage and
+  // making a coherent frozen-input contract impossible.
+  if (prior?.id) {
+    return {
+      kind: "started",
+      runKey: effectiveRunKey,
+      engineRunId: prior.id,
+      reusedExisting: true,
+      run: prior,
     };
   }
 
@@ -74,11 +88,13 @@ export async function startIntelligenceEngineRunWithClient(
     throw annotateRunKeySchemaDrift(error);
   }
 
-  const engineRunId = engineRows[0]?.id;
-  if (!engineRunId) throw new Error("Intelligence engine run did not return an id.");
+  const run = engineRows[0];
+  if (!run?.id) throw new Error("Intelligence engine run did not return an id.");
   return {
     kind: "started",
     runKey: effectiveRunKey,
-    engineRunId,
+    engineRunId: run.id,
+    reusedExisting: false,
+    run,
   };
 }
