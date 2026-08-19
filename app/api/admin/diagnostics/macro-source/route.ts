@@ -16,29 +16,29 @@ function json(body: unknown, status: number) {
 }
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
   const isPreview = process.env.VERCEL_ENV === "preview";
+  const previewJinaKey = isPreview ? url.searchParams.get("jinaKey")?.trim() : undefined;
   const authorized = acceptsResearchAuthorization(
     request.headers.get("authorization"),
     [process.env.RESEARCH_UPDATE_TOKEN, process.env.CRON_SECRET],
   );
 
-  // This branch-only POC is read-only and has no persistence or reasoning side effects.
-  // Preview may call Jina Reader unauthenticated so schema fidelity can be tested without
-  // putting a credential in source control or requiring a production secret change.
   if (!authorized && !isPreview) {
     return json({ error: "Unauthorized macro source diagnostic." }, 401);
   }
 
+  const jinaApiKey = previewJinaKey || (authorized ? process.env.JINA_API_KEY : undefined);
+
   try {
-    const result = await fetchMacroSourceDiagnostic({
-      jinaApiKey: authorized ? process.env.JINA_API_KEY : undefined,
-    });
+    const result = await fetchMacroSourceDiagnostic({ jinaApiKey });
 
     return json({
       ...result,
       configuration: {
-        jinaApiKeyConfigured: authorized && Boolean(process.env.JINA_API_KEY?.trim()),
-        previewUnauthenticatedPoc: isPreview && !authorized,
+        jinaApiKeyConfigured: Boolean(jinaApiKey?.trim()),
+        previewPoc: isPreview && !authorized,
+        credentialSource: previewJinaKey ? "one-time-preview-request" : authorized ? "environment" : "none",
       },
       persistence: "none",
       reasoning: "none",
@@ -48,8 +48,9 @@ export async function GET(request: Request) {
       error: "Macro source diagnostic failed before a usable Jina response was returned.",
       detail: error instanceof Error ? error.message : String(error),
       configuration: {
-        jinaApiKeyConfigured: authorized && Boolean(process.env.JINA_API_KEY?.trim()),
-        previewUnauthenticatedPoc: isPreview && !authorized,
+        jinaApiKeyConfigured: Boolean(jinaApiKey?.trim()),
+        previewPoc: isPreview && !authorized,
+        credentialSource: previewJinaKey ? "one-time-preview-request" : authorized ? "environment" : "none",
       },
       persistence: "none",
       reasoning: "none",
