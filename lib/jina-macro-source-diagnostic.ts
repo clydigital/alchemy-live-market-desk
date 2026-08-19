@@ -39,6 +39,7 @@ export type MacroSourceTextAnalysis = {
   calendarFieldsMissing: string[];
   hasMeaningfulContent: boolean;
   markdownTableCount: number;
+  tableCatalog: Array<Pick<MarkdownTableDiagnostic, "index" | "section" | "headers" | "rowCount">>;
   focusTables: MarkdownTableDiagnostic[];
   sample: string;
 };
@@ -143,6 +144,12 @@ export function analyzeMacroSourceText(text: string): MacroSourceTextAnalysis {
     calendarFieldsMissing: CALENDAR_FIELDS.filter((field) => !calendarFieldsFound.includes(field)),
     hasMeaningfulContent: normalized.trim().length >= 500,
     markdownTableCount: tables.length,
+    tableCatalog: tables.slice(0, 100).map(({ index, section, headers, rowCount }) => ({
+      index,
+      section,
+      headers,
+      rowCount,
+    })),
     focusTables: focusTables.slice(0, 30),
     sample: normalized.slice(0, 4_000),
   };
