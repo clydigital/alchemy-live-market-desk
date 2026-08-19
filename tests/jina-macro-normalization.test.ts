@@ -140,7 +140,7 @@ test("secondary Jina data fills canonical gaps but never overwrites an existing 
   };
   const patch = mergeSecondaryReleaseCandidate(existing, candidate);
   assert.equal("actual" in patch, false);
-  assert.equal(patch.consensus, null, "grouped CPI anchor has no single consensus and must not fabricate one");
+  assert.equal("consensus" in patch, false, "grouped CPI anchor has no single consensus and must not fabricate one");
   assert.equal("previous" in patch, false);
   assert.equal("unit" in patch, false);
   assert.equal(patch.source_snapshot_id, undefined, "lineage is attached only when the secondary source actually fills a field");
