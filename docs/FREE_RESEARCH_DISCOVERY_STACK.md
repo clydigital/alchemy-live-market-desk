@@ -55,6 +55,14 @@ No second implementation was added. Live already has a dedicated YouTube discove
 
 Firecrawl remains a fallback, not a general discovery engine. It is invoked only after supported deterministic direct acquisition fails. Discovery providers run after that fallback stage.
 
+### Jina Reader
+
+Jina Reader is **not** part of the general discovery-provider fan-out. It is a validated deterministic extraction transport, initially for the Macro Indicators dashboard. The reusable adapter and Macro parsing/snapshot contracts may live in the codebase without being activated in scheduled canonical acquisition.
+
+Configuration: server-only `JINA_API_KEY`.
+
+Jina is not treated as a universal Firecrawl replacement. Any future use against other blocked or JavaScript-heavy sources must be tested source-by-source before it is added to a production acquisition path.
+
 ## Provider switches
 
 Each keyed provider is enabled when its credentials exist unless explicitly disabled:
@@ -83,9 +91,8 @@ Apify is intentionally task-based and narrow because platform usage depends on t
 
 ## Deliberate exclusions
 
-The broader research-tool survey also considered Jina Reader, Crawl4AI, Neo4j Aura and Alpha Vantage. They are not added to this runtime change:
+The broader research-tool survey also considered Crawl4AI, Neo4j Aura and Alpha Vantage. They are not added to this runtime change:
 
-- Jina's signup token allowance is not treated as a guaranteed recurring free budget.
 - Crawl4AI would duplicate the already-installed Firecrawl extraction layer unless a future self-hosted fallback requirement is explicit.
 - Neo4j would create another persistence system. Causal/relationship state should remain canonical in Supabase first; a graph database may later be a derived read/query layer.
 - Alpha Vantage's free request ceiling is better reserved for a specific deterministic data gap rather than overlapping current canonical market-data adapters.
