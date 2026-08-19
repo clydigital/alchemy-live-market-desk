@@ -361,11 +361,15 @@ export async function normalizeMacroIndicatorsSnapshot(snapshotId: string): Prom
   } catch (error) {
     const note = error instanceof Error ? error.message : String(error);
     if (snapshot?.id) {
-      await client.from("macro_source_snapshots").update({
-        normalization_status: "failed",
-        normalization_version: MACRO_NORMALIZATION_VERSION,
-        normalization_note: note.slice(0, 1_000),
-      }).eq("id", snapshot.id).catch(() => undefined);
+      try {
+        await client.from("macro_source_snapshots").update({
+          normalization_status: "failed",
+          normalization_version: MACRO_NORMALIZATION_VERSION,
+          normalization_note: note.slice(0, 1_000),
+        }).eq("id", snapshot.id);
+      } catch {
+        // The primary normalization failure remains the diagnostic source of truth.
+      }
     }
     return {
       status: "FAILED",
