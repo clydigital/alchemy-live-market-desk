@@ -65,10 +65,9 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const record = input as Record<string, unknown>;
 
-  // Challenger is retained only as a compatibility checkpoint while the old
-  // runtime is being retired. It is deterministic, cannot block Scenario or
-  // Story Synthesis, consumes no model call, and is ignored by research-state
-  // scoring through the `synthetic` marker.
+  // Challenger is retained only as a deterministic compatibility checkpoint
+  // while the old runtime shape is being retired. It cannot block canonical
+  // reasoning, consumes no model call, and never changes canonical confidence.
   if (stageKey === "challenger") {
     const hypotheses = Array.isArray(record.hypotheses) ? record.hypotheses : [];
     const assessments = hypotheses.flatMap((value) => {
@@ -84,8 +83,8 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
         : [];
       return [{
         hypothesisId,
-        verdict: "watch",
-        strongestCountercase: "Non-blocking critic deferred; canonical reasoning proceeds through Scenario and explicit invalidation tests.",
+        verdict: "promote",
+        strongestCountercase: "Compatibility critic is non-blocking; countercase testing belongs to Scenario and explicit invalidation criteria.",
         weakestLink: null,
         hiddenAssumptions: [],
         alternativeMechanisms: [],
@@ -144,6 +143,18 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
   return null;
 }
 
+/**
+ * Transitional runtime compatibility can still construct a `challenger` field.
+ * Scenario and Story Synthesis must never receive it as canonical model input.
+ */
+export function canonicalStageInput(stageKey: string, input: unknown) {
+  if ((stageKey !== "scenario" && stageKey !== "story_synthesis") || !input || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const { challenger: _criticCompatibilityOnly, ...canonical } = input as Record<string, unknown>;
+  return canonical;
+}
+
 export async function runStructuredStage<T>({
   stageKey,
   instructions,
@@ -178,10 +189,11 @@ export async function runStructuredStage<T>({
   const effort = intelligenceReasoningEffort(modelKind);
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
+  const modelInput = canonicalStageInput(stageKey, input);
   const body = {
     model,
     instructions,
-    input: JSON.stringify(input),
+    input: JSON.stringify(modelInput),
     reasoning: { effort },
     text: {
       verbosity: "low",
