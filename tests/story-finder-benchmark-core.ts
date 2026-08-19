@@ -151,7 +151,8 @@ export function findStoryForChange(input: {
   const runnerUp = ranked[1] ?? null;
   const bestScore = best?.score ?? 0;
   const runnerUpScore = runnerUp?.score ?? 0;
-  const margin = bestScore - runnerUpScore;
+  const rawMargin = bestScore - runnerUpScore;
+  const matched = ranked.filter((item) => item.score >= MATCH_THRESHOLD).slice(0, 3);
 
   if (!best || bestScore < MATCH_THRESHOLD) {
     return {
@@ -160,22 +161,31 @@ export function findStoryForChange(input: {
       relatedStorySlugs: [],
       score: bestScore,
       runnerUpScore,
-      margin,
+      margin: rawMargin,
       reason: best ? "No existing Story crossed the deterministic match threshold." : "No existing Story fingerprint was available.",
     };
   }
 
-  const matched = ranked.filter((item) => item.score >= MATCH_THRESHOLD).slice(0, 3);
+  if (matched.length > 1) {
+    return {
+      relation: "NEW_STORY",
+      matchedStorySlug: null,
+      relatedStorySlugs: matched.map((item) => item.story.slug),
+      score: bestScore,
+      runnerUpScore,
+      margin: 0,
+      reason: "Cross-Story candidate matched multiple existing mechanisms; do not auto-attach before synthesis resolves the relationship.",
+    };
+  }
+
   return {
     relation: mapRelation(candidate.relationSignal),
     matchedStorySlug: best.story.slug,
-    relatedStorySlugs: matched.slice(1).map((item) => item.story.slug),
+    relatedStorySlugs: [],
     score: bestScore,
     runnerUpScore,
-    margin,
-    reason: matched.length > 1
-      ? "Change has one primary existing Story and additional materially related Stories."
-      : "Existing Story matched on structured themes, mechanism and assets.",
+    margin: rawMargin,
+    reason: "Existing Story matched on structured themes, mechanism and assets.",
   };
 }
 
