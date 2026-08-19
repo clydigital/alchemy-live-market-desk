@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { runWithIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import {
   persistCanonicalEditionForResearchRun,
@@ -91,8 +92,6 @@ async function persistResumableRun(input: {
   const { error } = await client
     .from("research_runs")
     .update({
-      // Keep the canonical acquisition lineage open: a later cron or manual
-      // continuation must resume this engine run instead of making a new edition.
       status: "running",
       completed_at: null,
       warnings: input.warnings,
@@ -116,10 +115,23 @@ async function markUnexpectedFailure(runId: string, warnings: string[], message:
   }
 }
 
+function handoffWarnings(
+  warnings: string[],
+  invokedStage: string | null,
+  deferredStage: string | null,
+) {
+  const cleaned = warnings.filter((warning) => !/^Intelligence stage ".+" is already claimed by another continuation invocation\.$/.test(warning));
+  if (!deferredStage) return cleaned;
+  return mergeScheduledWarnings(cleaned, [
+    `Canonical continuation handoff: ${invokedStage || "the current stage"} completed; ${deferredStage} is the next stage and was not started in the same invocation.`,
+  ]);
+}
+
 /**
- * Runs the Live-owned OpenAI reasoning chain only after the scheduled acquisition
- * invocation has durably persisted its intake. This gives intelligence a fresh
- * serverless deadline instead of sharing one 300-second request with providers.
+ * Scheduled intelligence now gives one model stage to one durable invocation.
+ * Completed checkpoints are replayed from the same engine run, and a later
+ * stage is not even claimed after a model call has already been made. This
+ * avoids the historical cognitive-stage stopwatch / cascading-timeout design.
  */
 export async function handleScheduledResearchIntelligence(
   request: Request,
@@ -178,16 +190,20 @@ export async function handleScheduledResearchIntelligence(
     }
     claimedWarnings = claim.warnings;
 
-    const intelligenceStartedAtMs = Date.now();
-    const intelligence = await runIntelligenceEngine({
+    const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, () => runIntelligenceEngine({
       researchRunId: run.id,
       triggerKind: "new_evidence",
       runKey: `research:${runKey}`,
       dryRun: run.accuracy_gate === "blocked",
-      scheduledExecutionStartedAtMs: intelligenceStartedAtMs,
       stageMaxAttempts: 1,
-    });
-    const warnings = mergeScheduledWarnings(claimedWarnings, intelligence.warnings);
+    }));
+    const intelligence = invocation.value;
+    const warnings = handoffWarnings(
+      mergeScheduledWarnings(claimedWarnings, intelligence.warnings),
+      invocation.summary.invokedModelStage,
+      invocation.summary.deferredStage,
+    );
+
     if (intelligence.status === "partial") {
       const resumableWarnings = mergeScheduledWarnings(
         warnings,
@@ -196,11 +212,16 @@ export async function handleScheduledResearchIntelligence(
       await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
       return response({
         status: "partial",
+        continuation: invocation.summary.deferredStage ? "CONTINUE" : "RETRY_STAGE",
+        completedStage: invocation.summary.invokedModelStage,
+        nextStage: invocation.summary.deferredStage,
         slot,
         runKey,
         runId: run.id,
         scheduledFor,
-        message: "A bounded intelligence stage attempt stopped. Completed checkpoints remain attached to this canonical research run and the next continuation will resume from the first incomplete stage.",
+        message: invocation.summary.deferredStage
+          ? `One model stage completed. Continue from ${invocation.summary.deferredStage} in a fresh invocation.`
+          : "The current stage did not complete. Retry the same persisted stage without rerunning completed upstream work.",
         intelligence,
         warnings: resumableWarnings,
       }, 202);
@@ -231,6 +252,7 @@ export async function handleScheduledResearchIntelligence(
 
     return response({
       status: finalStatus,
+      continuation: finalStatus === "completed" ? "COMPLETED" : "TERMINAL_FAILURE",
       slot,
       runKey,
       runId: run.id,
@@ -242,6 +264,6 @@ export async function handleScheduledResearchIntelligence(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scheduled intelligence continuation failed.";
     await markUnexpectedFailure(run.id, claimedWarnings, message);
-    return response({ error: message, slot, runKey, runId: run.id, scheduledFor }, 500);
+    return response({ error: message, continuation: "TERMINAL_FAILURE", slot, runKey, runId: run.id, scheduledFor }, 500);
   }
 }
