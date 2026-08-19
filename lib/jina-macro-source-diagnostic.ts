@@ -195,7 +195,7 @@ function stableHash(value: string) {
 function slug(value: string) {
   return normalizeWhitespace(value)
     .toLocaleLowerCase("en-US")
-    .replace(/\[[^\]]+\]\([^\)]+\)/g, (match) => match.replace(/^\[|\]\(.+$/g, ""))
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60) || "unlabelled";
@@ -357,8 +357,16 @@ function tableIdentityBase(input: {
   headers: string[];
 }) {
   const section = input.section?.toLocaleLowerCase("en-US") ?? "unknown";
-  const context = slug(input.contextLabel ?? input.kind);
-  return `${section}:${input.kind}:${context}:${headerSignature(input.headers)}`;
+  const signature = headerSignature(input.headers);
+
+  // Live values, timestamps, quotes and row counts can appear immediately before a table.
+  // They are useful diagnostics but must never become part of canonical table identity.
+  // Only generic tables use a context slug because their schemas have no stronger semantic role.
+  if (input.kind === "generic") {
+    return `${section}:${input.kind}:${slug(input.contextLabel ?? "generic")}:${signature}`;
+  }
+
+  return `${section}:${input.kind}:${signature}`;
 }
 
 function parseMarkdownTables(text: string): ParsedMarkdownTable[] {
