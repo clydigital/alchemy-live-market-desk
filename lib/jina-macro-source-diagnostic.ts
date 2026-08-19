@@ -41,7 +41,7 @@ export type MacroSourceDiagnosticResult = {
 };
 
 function containsToken(text: string, token: string) {
-  return new RegExp(`(^|\\W)${token.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?=\\W|$)`, "i").test(text);
+  return text.toLocaleLowerCase("en-US").includes(token.toLocaleLowerCase("en-US"));
 }
 
 export function analyzeMacroSourceText(text: string): MacroSourceTextAnalysis {
