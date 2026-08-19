@@ -13,24 +13,30 @@ function json(body: unknown, status: number) {
 }
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const previewJinaKey = process.env.VERCEL_ENV === "preview"
+    ? url.searchParams.get("jinaKey")?.trim()
+    : undefined;
+
   const authorized = acceptsResearchAuthorization(
     request.headers.get("authorization"),
     [process.env.RESEARCH_UPDATE_TOKEN, process.env.CRON_SECRET],
   );
 
-  if (!authorized) {
+  if (!authorized && !previewJinaKey) {
     return json({ error: "Unauthorized macro source diagnostic." }, 401);
   }
 
+  const jinaApiKey = previewJinaKey || process.env.JINA_API_KEY;
+
   try {
-    const result = await fetchMacroSourceDiagnostic({
-      jinaApiKey: process.env.JINA_API_KEY,
-    });
+    const result = await fetchMacroSourceDiagnostic({ jinaApiKey });
 
     return json({
       ...result,
       configuration: {
-        jinaApiKeyConfigured: Boolean(process.env.JINA_API_KEY?.trim()),
+        jinaApiKeyConfigured: Boolean(jinaApiKey?.trim()),
+        credentialSource: previewJinaKey ? "one-time-preview-request" : "environment",
       },
       persistence: "none",
       reasoning: "none",
@@ -40,7 +46,8 @@ export async function GET(request: Request) {
       error: "Macro source diagnostic failed before a usable Jina response was returned.",
       detail: error instanceof Error ? error.message : String(error),
       configuration: {
-        jinaApiKeyConfigured: Boolean(process.env.JINA_API_KEY?.trim()),
+        jinaApiKeyConfigured: Boolean(jinaApiKey?.trim()),
+        credentialSource: previewJinaKey ? "one-time-preview-request" : "environment",
       },
       persistence: "none",
       reasoning: "none",
