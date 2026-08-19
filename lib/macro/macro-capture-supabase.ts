@@ -6,18 +6,10 @@ import {
   type MacroCaptureStore,
   type MacroSectionManifest,
 } from "./macro-capture.ts";
-import {
-  normalizeMacroIndicatorsSnapshot,
-  type MacroNormalizationResult,
-} from "./macro-normalization-supabase.ts";
 import { type MacroSnapshotTable } from "./macro-snapshot.ts";
 
 const SOURCE_KEY = "macro_indicators";
 const ROW_BATCH_SIZE = 500;
-
-export type CapturedMacroIndicatorsResult = MacroCaptureResult & {
-  normalization?: MacroNormalizationResult;
-};
 
 function productionStore(): MacroCaptureStore {
   const client = createSupabaseAdminClient();
@@ -124,26 +116,14 @@ function productionStore(): MacroCaptureStore {
   };
 }
 
-export async function captureMacroIndicatorsSnapshot(options: { now?: Date } = {}): Promise<CapturedMacroIndicatorsResult> {
+export async function captureMacroIndicatorsSnapshot(options: { now?: Date } = {}): Promise<MacroCaptureResult> {
   const now = options.now ?? new Date();
   try {
-    const capture = await captureMacroIndicatorsWithDependencies({
+    return await captureMacroIndicatorsWithDependencies({
       store: productionStore(),
       apiKey: process.env.JINA_API_KEY,
       now: () => now,
     });
-
-    if (capture.status !== "COMPLETE" || !capture.currentSnapshotId) return capture;
-
-    // Canonical normalization is deterministic post-processing of the immutable
-    // COMPLETE snapshot. A normalization failure is descriptive: the raw source
-    // snapshot remains valid and unrelated research acquisition continues.
-    const normalization = await normalizeMacroIndicatorsSnapshot(capture.currentSnapshotId);
-    return {
-      ...capture,
-      normalization,
-      note: `${capture.note} ${normalization.note}`,
-    };
   } catch (error) {
     return {
       status: "UNAVAILABLE",
