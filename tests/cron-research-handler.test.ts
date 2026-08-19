@@ -238,7 +238,9 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(acquisitionWrapper, /x-alchemy-defer-intelligence/);
   assert.match(publisher, /deferScheduledIntelligence/);
   assert.match(publisher, /status: "intelligence_pending"/);
-  assert.match(continuationHandler, /scheduledExecutionStartedAtMs: intelligenceStartedAtMs/);
+  assert.match(continuationHandler, /runWithIntelligenceInvocation\(\{ oneModelStage: true \}/);
+  assert.match(continuationHandler, /stageMaxAttempts:\s*1/);
+  assert.doesNotMatch(continuationHandler, /scheduledExecutionStartedAtMs:/);
   assert.match(continuationHandler, /persistCanonicalEditionForResearchRun/);
 
   const schedules = vercelConfig.crons
