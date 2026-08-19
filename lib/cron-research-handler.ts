@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { POST as publishResearchUpdate } from "@/app/api/research-update/route";
 import { buildScheduledResearchInputWithFirecrawl } from "@/lib/firecrawl-scheduled-research";
+import {
+  attachMacroCaptureToResearchRun,
+  captureMacroIndicatorsSnapshot,
+} from "@/lib/macro/macro-capture-supabase";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
@@ -21,6 +25,8 @@ type ScheduledResearchHandlerDependencies = {
   now?: () => Date;
   claimRun?: (slot: CanonicalResearchSlot, runKey: string, scheduledFor: string) => Promise<ClaimResult>;
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
+  captureMacroIndicators?: typeof captureMacroIndicatorsSnapshot;
+  attachMacroCapture?: typeof attachMacroCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
   logger?: (event: ScheduledResearchLogEvent) => void;
@@ -196,13 +202,26 @@ export async function handleScheduledResearchWithDependencies(
       claimOutcome: claim.state,
       runId: claim.run.id,
     });
-    // Video discovery and TranscriptAPI work run on their dedicated cadence.
-    // This desk cycle reads that persisted checkpoint rather than duplicating
-    // serial provider work before its bounded intelligence path.
-    const input = await (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
-      now,
-      runKey,
-    });
+    // Macro Indicators capture is an independent deterministic collector. Run it
+    // in parallel with news/transcript acquisition so it cannot serially consume
+    // the research route's reasoning budget.
+    const [input, macroCapture] = await Promise.all([
+      (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
+        now,
+        runKey,
+      }),
+      (dependencies.captureMacroIndicators ?? captureMacroIndicatorsSnapshot)(),
+    ]);
+
+    let macroLineagePersisted = false;
+    let macroLineageNote: string | null = null;
+    try {
+      await (dependencies.attachMacroCapture ?? attachMacroCaptureToResearchRun)(claim.run.id, macroCapture);
+      macroLineagePersisted = true;
+    } catch (error) {
+      macroLineageNote = error instanceof Error ? error.message : "Could not attach Macro Indicators lineage to the run.";
+    }
+
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
       method: "POST",
       headers: {
@@ -247,6 +266,11 @@ export async function handleScheduledResearchWithDependencies(
       acquisition: {
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
+        macro: {
+          ...macroCapture,
+          runLineagePersisted: macroLineagePersisted,
+          lineageNote: macroLineageNote,
+        },
       },
       publication: result,
     }, publication.status);
