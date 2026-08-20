@@ -1,6 +1,7 @@
 import type { TranscriptPipelineResult } from "@/lib/transcript-pipeline";
 import { isKnownPermanentTranscriptUnavailable, retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
 import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
+import { reviewReadyCreatorTranscripts, type TranscriptReviewBatchResult } from "@/lib/transcript-research-review";
 import {
   createVideoIntakeRun,
   ensureVideoIntakeItem,
@@ -28,9 +29,12 @@ export type ScheduledVideoIntakeResult = {
     transcriptsUnavailable: number;
     cacheHits: number;
     transcriptsDeferred: number;
+    transcriptsReviewed: number;
+    transcriptReviewFailures: number;
   };
   channels: XwadaChannelResult[];
   transcripts: TranscriptPipelineResult[];
+  transcriptReview: TranscriptReviewBatchResult;
   knownUnavailableVideos: Array<{
     videoId: string;
     errorCode: string | null;
@@ -52,11 +56,25 @@ async function processVideo(videoId: string, store: SupabaseTranscriptStore) {
   });
 }
 
+function emptyReviewResult(error?: unknown): TranscriptReviewBatchResult {
+  return {
+    reviewed: 0,
+    failed: error ? 1 : 0,
+    considered: 0,
+    reviewedVideoIds: [],
+    failures: error ? [{
+      id: "transcript-review-queue",
+      title: "Creator transcript research review",
+      error: error instanceof Error ? error.message.slice(0, 500) : "Unknown creator transcript research-review failure.",
+    }] : [],
+  };
+}
+
 /**
- * The shared Live-only YouTube and TranscriptAPI intake step.  It deliberately
+ * The shared Live-only YouTube and TranscriptAPI intake step. It deliberately
  * caps transcript work so a slow provider cannot consume an entire scheduled
- * research window. Deferred videos remain persisted and are retried on a
- * later cycle without being represented as a successful transcript.
+ * research window. A retrieved transcript is then reviewed into a research
+ * lead before it can become canonical evidence; retrieval alone is not review.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
@@ -120,6 +138,16 @@ export async function runScheduledVideoIntake(input: {
     }
   }
 
+  // Review the newest transcript-only records, prioritising required creators.
+  // A review failure is diagnostic and leaves the row transcript_only, which
+  // keeps it out of canonical evidence rather than promoting placeholder text.
+  let transcriptReview = emptyReviewResult();
+  try {
+    transcriptReview = await reviewReadyCreatorTranscripts({ client: run.client, maxReviews: 3 });
+  } catch (error) {
+    transcriptReview = emptyReviewResult(error);
+  }
+
   const discoveryFailures = channels
     .filter((channel) => !["checked", "no_recent_videos"].includes(channel.status))
     .map((channel) => ({
@@ -147,7 +175,9 @@ export async function runScheduledVideoIntake(input: {
     runId: run.id,
     runKey: input.runKey,
     generatedAt: new Date().toISOString(),
-    status: discoveryFailures.length || failedTranscripts.length || knownUnavailableVideos.length || deferredVideoIds.length ? "attention" : "healthy",
+    status: discoveryFailures.length || failedTranscripts.length || knownUnavailableVideos.length || deferredVideoIds.length || transcriptReview.failed
+      ? "attention"
+      : "healthy",
     summary: {
       ...xwadaDiscoverySummary(channels),
       transcriptsReady: results.filter((result) => result.status === "ready").length,
@@ -155,9 +185,12 @@ export async function runScheduledVideoIntake(input: {
       transcriptsUnavailable: knownUnavailableVideos.length,
       cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
       transcriptsDeferred: deferredVideoIds.length,
+      transcriptsReviewed: transcriptReview.reviewed,
+      transcriptReviewFailures: transcriptReview.failed,
     },
     channels,
     transcripts: results,
+    transcriptReview,
     knownUnavailableVideos,
     deferredVideoIds,
   };
