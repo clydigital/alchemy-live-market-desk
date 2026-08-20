@@ -1,6 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { enrichResearchIntakeForStories } from "@/lib/intelligence/research-intake-enrichment";
+import { applyMarketBeliefStoryMaintenance } from "@/lib/intelligence/market-belief-story-maintenance";
 import { runWithIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import {
@@ -128,10 +130,12 @@ function handoffWarnings(
 }
 
 /**
- * Scheduled intelligence now gives one model stage to one durable invocation.
- * Completed checkpoints are replayed from the same engine run, and a later
- * stage is not even claimed after a model call has already been made. This
- * avoids the historical cognitive-stage stopwatch / cascading-timeout design.
+ * Scheduled intelligence gives one model stage to one durable invocation.
+ * Before the model runs, deterministic intake enrichment removes transport
+ * markup, quarantines transcript-only creator rows and routes evidence to
+ * existing Stories. The Market Belief call returns a bounded maintenance
+ * assessment for those Stories; that assessment is persisted without a second
+ * LLM call before the continuation is released.
  */
 export async function handleScheduledResearchIntelligence(
   request: Request,
@@ -175,6 +179,20 @@ export async function handleScheduledResearchIntelligence(
     }, status);
   }
 
+  let intakeEnrichment: Awaited<ReturnType<typeof enrichResearchIntakeForStories>>;
+  try {
+    intakeEnrichment = await enrichResearchIntakeForStories();
+  } catch (error) {
+    return response({
+      status: "intake_enrichment_failed",
+      slot,
+      runKey,
+      runId: run.id,
+      scheduledFor,
+      error: error instanceof Error ? error.message : "Canonical research-intake enrichment failed.",
+    }, 503);
+  }
+
   let claimedWarnings = run.warnings ?? [];
   try {
     const claim = await claimContinuation(run, now);
@@ -185,21 +203,33 @@ export async function handleScheduledResearchIntelligence(
         runKey,
         runId: run.id,
         scheduledFor,
+        intakeEnrichment,
         message: "Another continuation invocation changed the canonical run first; no duplicate model work was started.",
       }, 202);
     }
     claimedWarnings = claim.warnings;
+    const dryRun = run.accuracy_gate === "blocked";
 
-    const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, () => runIntelligenceEngine({
-      researchRunId: run.id,
-      triggerKind: "new_evidence",
-      runKey: `research:${runKey}`,
-      dryRun: run.accuracy_gate === "blocked",
-      stageMaxAttempts: 1,
-    }));
-    const intelligence = invocation.value;
+    const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, async () => {
+      const intelligence = await runIntelligenceEngine({
+        researchRunId: run.id,
+        triggerKind: "new_evidence",
+        runKey: `research:${runKey}`,
+        dryRun,
+        stageMaxAttempts: 1,
+      });
+      const storyMaintenance = intelligence.engineRunId
+        ? await applyMarketBeliefStoryMaintenance({ engineRunId: intelligence.engineRunId, dryRun })
+        : { evaluatedStoryIds: [], materiallyChangedStoryIds: [], reused: false, stageRunId: null };
+      return { intelligence, storyMaintenance };
+    });
+    const intelligence = invocation.value.intelligence;
+    const storyMaintenance = invocation.value.storyMaintenance;
+    const maintenanceNote = storyMaintenance.evaluatedStoryIds.length
+      ? [`Existing Story maintenance evaluated ${storyMaintenance.evaluatedStoryIds.length} routed Story(s); ${storyMaintenance.materiallyChangedStoryIds.length} material recalibration(s) survived evidence validation.`]
+      : [];
     const warnings = handoffWarnings(
-      mergeScheduledWarnings(claimedWarnings, intelligence.warnings),
+      mergeScheduledWarnings(claimedWarnings, [...intelligence.warnings, ...maintenanceNote]),
       invocation.summary.invokedModelStage,
       invocation.summary.deferredStage,
     );
@@ -219,6 +249,8 @@ export async function handleScheduledResearchIntelligence(
         runKey,
         runId: run.id,
         scheduledFor,
+        intakeEnrichment,
+        storyMaintenance,
         message: invocation.summary.deferredStage
           ? `One model stage completed. Continue from ${invocation.summary.deferredStage} in a fresh invocation.`
           : "The current stage did not complete. Retry the same persisted stage without rerunning completed upstream work.",
@@ -227,7 +259,8 @@ export async function handleScheduledResearchIntelligence(
       }, 202);
     }
     const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
-    const updatesPublished = intelligence.storiesPublished || 0;
+    const maintenancePublished = dryRun ? 0 : storyMaintenance.materiallyChangedStoryIds.length;
+    const updatesPublished = (intelligence.storiesPublished || 0) + maintenancePublished;
 
     if (finalStatus === "completed") {
       await persistCanonicalEditionForResearchRun({
@@ -258,12 +291,14 @@ export async function handleScheduledResearchIntelligence(
       runId: run.id,
       scheduledFor,
       updatesPublished,
+      intakeEnrichment,
+      storyMaintenance,
       intelligence,
       warnings,
     }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scheduled intelligence continuation failed.";
     await markUnexpectedFailure(run.id, claimedWarnings, message);
-    return response({ error: message, continuation: "TERMINAL_FAILURE", slot, runKey, runId: run.id, scheduledFor }, 500);
+    return response({ error: message, continuation: "TERMINAL_FAILURE", slot, runKey, runId: run.id, scheduledFor, intakeEnrichment }, 500);
   }
 }
