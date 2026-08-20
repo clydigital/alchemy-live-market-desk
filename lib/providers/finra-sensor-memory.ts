@@ -1,11 +1,11 @@
 import {
   fetchFinraConsolidatedShortVolume,
   type FinraShortVolumeSnapshot,
-} from "./finra-short-volume";
+} from "./finra-short-volume.ts";
 import {
   type SensorMemoryInput,
   type SensorMemoryResult,
-} from "./sensor-memory";
+} from "./sensor-memory.ts";
 
 export const FINRA_SENSOR_MEMORY_PROVIDER = "finra-cnms" as const;
 export const FINRA_SENSOR_MEMORY_METHOD = "finra-cnms-v1" as const;
