@@ -4,7 +4,40 @@ import {
   persistSensorMemoryWithStore,
   type SensorMemoryInput,
   type SensorMemoryStore,
+  type SensorObservationVersion,
 } from "./sensor-memory";
+
+type SensorObservationRow = {
+  id: string;
+  observation_type: string;
+  subject_type: string;
+  subject_key: string;
+  observed_at: string;
+  effective_at: string | null;
+  value: unknown;
+  unit: string | null;
+  confidence: number;
+  is_preliminary: boolean;
+  methodology_version: string;
+};
+
+function mapObservation(data: SensorObservationRow): SensorObservationVersion {
+  return {
+    id: data.id,
+    observationType: data.observation_type,
+    subjectType: data.subject_type,
+    subjectKey: data.subject_key,
+    observedAt: data.observed_at,
+    effectiveAt: data.effective_at,
+    value: data.value,
+    unit: data.unit,
+    confidence: data.confidence,
+    isPreliminary: data.is_preliminary,
+    methodologyVersion: data.methodology_version,
+  };
+}
+
+const OBSERVATION_COLUMNS = "id,observation_type,subject_type,subject_key,observed_at,effective_at,value,unit,confidence,is_preliminary,methodology_version";
 
 function productionSensorMemoryStore(): SensorMemoryStore {
   const client = createSupabaseAdminClient();
@@ -77,7 +110,7 @@ function productionSensorMemoryStore(): SensorMemoryStore {
     async latestObservation(input) {
       const { data, error } = await client
         .from("normalised_observations")
-        .select("id,observation_type,subject_type,subject_key,observed_at,effective_at,value,unit,confidence,is_preliminary,methodology_version")
+        .select(OBSERVATION_COLUMNS)
         .eq("observation_type", input.observationType)
         .eq("subject_type", input.subjectType)
         .eq("subject_key", input.subjectKey)
@@ -85,33 +118,40 @@ function productionSensorMemoryStore(): SensorMemoryStore {
         .eq("methodology_version", input.methodologyVersion)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle<{
-          id: string;
-          observation_type: string;
-          subject_type: string;
-          subject_key: string;
-          observed_at: string;
-          effective_at: string | null;
-          value: unknown;
-          unit: string | null;
-          confidence: number;
-          is_preliminary: boolean;
-          methodology_version: string;
-        }>();
+        .maybeSingle<SensorObservationRow>();
       if (error) throw new Error(`Could not read prior sensor observation: ${error.message}`);
-      return data ? {
-        id: data.id,
-        observationType: data.observation_type,
-        subjectType: data.subject_type,
-        subjectKey: data.subject_key,
-        observedAt: data.observed_at,
-        effectiveAt: data.effective_at,
-        value: data.value,
-        unit: data.unit,
-        confidence: data.confidence,
-        isPreliminary: data.is_preliminary,
-        methodologyVersion: data.methodology_version,
-      } : null;
+      return data ? mapObservation(data) : null;
+    },
+
+    async latestObservationBefore(input) {
+      const { data, error } = await client
+        .from("normalised_observations")
+        .select(OBSERVATION_COLUMNS)
+        .eq("observation_type", input.observationType)
+        .eq("subject_type", input.subjectType)
+        .eq("subject_key", input.subjectKey)
+        .eq("methodology_version", input.methodologyVersion)
+        .lt("observed_at", input.observedAt)
+        .order("observed_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<SensorObservationRow>();
+      if (error) throw new Error(`Could not read earlier sensor observation: ${error.message}`);
+      return data ? mapObservation(data) : null;
+    },
+
+    async hasSeriesObservation(input) {
+      const { data, error } = await client
+        .from("normalised_observations")
+        .select("id")
+        .eq("observation_type", input.observationType)
+        .eq("subject_type", input.subjectType)
+        .eq("subject_key", input.subjectKey)
+        .eq("methodology_version", input.methodologyVersion)
+        .limit(1)
+        .maybeSingle<{ id: string }>();
+      if (error) throw new Error(`Could not inspect sensor series history: ${error.message}`);
+      return Boolean(data?.id);
     },
 
     async insertObservation(input) {
@@ -147,11 +187,13 @@ function productionSensorMemoryStore(): SensorMemoryStore {
             .eq("methodology_version", input.methodologyVersion)
             .limit(1)
             .maybeSingle<{ id: string }>();
-          if (!existing.error && existing.data?.id) return existing.data.id;
+          if (!existing.error && existing.data?.id) {
+            return { id: existing.data.id, inserted: false };
+          }
         }
         throw new Error(`Could not append sensor observation: ${error?.message || "missing observation id"}`);
       }
-      return data.id;
+      return { id: data.id, inserted: true };
     },
   };
 }
