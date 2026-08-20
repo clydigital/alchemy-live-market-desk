@@ -129,13 +129,26 @@ function handoffWarnings(
   ]);
 }
 
+type MaintenanceResult = Awaited<ReturnType<typeof applyMarketBeliefStoryMaintenance>>;
+
+function emptyMaintenance(stageRunId: string | null = null): MaintenanceResult {
+  return {
+    evaluatedStoryIds: [],
+    materiallyChangedStoryIds: [],
+    missingTargetStoryIds: [],
+    rejectedMaterialStoryIds: [],
+    updatedStories: [],
+    reused: false,
+    stageRunId,
+  };
+}
+
 /**
  * Scheduled intelligence gives one model stage to one durable invocation.
- * Before the model runs, deterministic intake enrichment removes transport
- * markup, quarantines transcript-only creator rows and routes evidence to
- * existing Stories. The Market Belief call returns a bounded maintenance
- * assessment for those Stories; that assessment is persisted without a second
- * LLM call before the continuation is released.
+ * Deterministic intake enrichment and existing-Story maintenance sit outside
+ * that model budget. Maintenance is a resumable finalisation prerequisite: a
+ * temporary persistence error cannot convert an otherwise resumable engine
+ * run into a terminal failure or publish an edition with stale Story state.
  */
 export async function handleScheduledResearchIntelligence(
   request: Request,
@@ -218,21 +231,60 @@ export async function handleScheduledResearchIntelligence(
         dryRun,
         stageMaxAttempts: 1,
       });
-      const storyMaintenance = intelligence.engineRunId
-        ? await applyMarketBeliefStoryMaintenance({ engineRunId: intelligence.engineRunId, dryRun })
-        : { evaluatedStoryIds: [], materiallyChangedStoryIds: [], reused: false, stageRunId: null };
-      return { intelligence, storyMaintenance };
+      let storyMaintenance = emptyMaintenance();
+      let maintenanceError: string | null = null;
+      if (intelligence.engineRunId) {
+        try {
+          storyMaintenance = await applyMarketBeliefStoryMaintenance({ engineRunId: intelligence.engineRunId, dryRun });
+        } catch (error) {
+          maintenanceError = error instanceof Error ? error.message : "Existing Story maintenance failed.";
+        }
+      }
+      return { intelligence, storyMaintenance, maintenanceError };
     });
     const intelligence = invocation.value.intelligence;
     const storyMaintenance = invocation.value.storyMaintenance;
+    const maintenanceError = invocation.value.maintenanceError;
     const maintenanceNote = storyMaintenance.evaluatedStoryIds.length
       ? [`Existing Story maintenance evaluated ${storyMaintenance.evaluatedStoryIds.length} routed Story(s); ${storyMaintenance.materiallyChangedStoryIds.length} material recalibration(s) survived evidence validation.`]
       : [];
+    const maintenanceDiagnostics = [
+      ...(storyMaintenance.missingTargetStoryIds.length
+        ? [`Story maintenance left ${storyMaintenance.missingTargetStoryIds.length} targeted Story(s) unevaluated because the structured assessment was missing or ambiguous.`]
+        : []),
+      ...(storyMaintenance.rejectedMaterialStoryIds.length
+        ? [`Story maintenance rejected ${storyMaintenance.rejectedMaterialStoryIds.length} requested material mutation(s) because authoritative non-creator evidence was insufficient.`]
+        : []),
+      ...(maintenanceError ? [`Story maintenance finalisation is retryable: ${maintenanceError}`] : []),
+    ];
     const warnings = handoffWarnings(
-      mergeScheduledWarnings(claimedWarnings, [...intelligence.warnings, ...maintenanceNote]),
+      mergeScheduledWarnings(claimedWarnings, [...intelligence.warnings, ...maintenanceNote, ...maintenanceDiagnostics]),
       invocation.summary.invokedModelStage,
       invocation.summary.deferredStage,
     );
+
+    // A maintenance persistence failure is not a terminal intelligence failure.
+    // Keep the research row running so the next scheduled continuation reuses
+    // all completed model checkpoints and retries maintenance idempotently.
+    if (maintenanceError) {
+      const resumableWarnings = mergeScheduledWarnings(warnings, [intelligenceContinuationReleaseWarning()]);
+      await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
+      return response({
+        status: "partial",
+        continuation: "RETRY_MAINTENANCE",
+        completedStage: invocation.summary.invokedModelStage,
+        nextStage: invocation.summary.deferredStage,
+        slot,
+        runKey,
+        runId: run.id,
+        scheduledFor,
+        intakeEnrichment,
+        storyMaintenance,
+        intelligence,
+        warnings: resumableWarnings,
+        message: "Canonical model work was preserved. Existing Story maintenance must succeed before the edition can be finalised.",
+      }, 202);
+    }
 
     if (intelligence.status === "partial") {
       const resumableWarnings = mergeScheduledWarnings(
