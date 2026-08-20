@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
 
+import {
+  deriveSensorChangeEvent,
+  type SensorChangeEvent,
+} from "./sensor-change-events.ts";
+
 export type SensorMemoryObservationInput = {
   observationType: string;
   subjectType: string;
@@ -80,6 +85,19 @@ export type SensorMemoryStore = {
     observedAt: string;
     methodologyVersion: string;
   }): Promise<SensorObservationVersion | null>;
+  latestObservationBefore(input: {
+    observationType: string;
+    subjectType: string;
+    subjectKey: string;
+    observedAt: string;
+    methodologyVersion: string;
+  }): Promise<SensorObservationVersion | null>;
+  hasSeriesObservation(input: {
+    observationType: string;
+    subjectType: string;
+    subjectKey: string;
+    methodologyVersion: string;
+  }): Promise<boolean>;
   insertObservation(input: {
     rawRecordId: string;
     sourceId: string | null;
@@ -94,7 +112,7 @@ export type SensorMemoryStore = {
     confidence: number;
     isPreliminary: boolean;
     methodologyVersion: string;
-  }): Promise<string>;
+  }): Promise<{ id: string; inserted: boolean }>;
 };
 
 export type SensorMemoryResult = {
@@ -102,6 +120,7 @@ export type SensorMemoryResult = {
   rawRecordInserted: boolean;
   observationsInserted: number;
   observationsUnchanged: number;
+  changeEvents: SensorChangeEvent[];
 };
 
 function canonicalise(value: unknown): unknown {
@@ -200,6 +219,8 @@ export async function persistSensorMemoryWithStore(
 
   let observationsInserted = 0;
   let observationsUnchanged = 0;
+  const changeEvents: SensorChangeEvent[] = [];
+
   for (const observation of input.observations) {
     const observationType = cleanRequired(observation.observationType, "Observation type");
     const subjectType = cleanRequired(observation.subjectType, "Observation subject type");
@@ -233,7 +254,21 @@ export async function persistSensorMemoryWithStore(
       continue;
     }
 
-    await store.insertObservation({
+    const priorPeriod = previous ? null : await store.latestObservationBefore({
+      observationType,
+      subjectType,
+      subjectKey,
+      observedAt,
+      methodologyVersion,
+    });
+    const seriesAlreadyExists = Boolean(previous || priorPeriod || await store.hasSeriesObservation({
+      observationType,
+      subjectType,
+      subjectKey,
+      methodologyVersion,
+    }));
+
+    const inserted = await store.insertObservation({
       rawRecordId: rawRecord.id,
       sourceId: input.sourceId ?? null,
       supersedesObservationId: previous?.id ?? null,
@@ -248,7 +283,35 @@ export async function persistSensorMemoryWithStore(
       isPreliminary,
       methodologyVersion,
     });
+
+    // A concurrent replay can lose the unique-index race after reading the same
+    // prior state. Treat that as unchanged rather than emitting a duplicate event.
+    if (!inserted.inserted) {
+      observationsUnchanged += 1;
+      continue;
+    }
+
     observationsInserted += 1;
+    changeEvents.push(deriveSensorChangeEvent({
+      provider,
+      rawRecordId: rawRecord.id,
+      observationId: inserted.id,
+      current: {
+        observationType,
+        subjectType,
+        subjectKey,
+        observedAt,
+        effectiveAt,
+        value,
+        unit,
+        confidence,
+        isPreliminary,
+        methodologyVersion,
+      },
+      samePeriodPrevious: previous,
+      priorPeriod,
+      seriesAlreadyExists,
+    }));
   }
 
   return {
@@ -256,5 +319,6 @@ export async function persistSensorMemoryWithStore(
     rawRecordInserted,
     observationsInserted,
     observationsUnchanged,
+    changeEvents,
   };
 }
