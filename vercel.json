@@ -15,11 +15,11 @@
     },
     {
       "path": "/api/cron/research/morning-intelligence",
-      "schedule": "25 1 * * *"
+      "schedule": "25-55/5 1 * * *"
     },
     {
-      "path": "/api/cron/research/morning-intelligence-watchdog",
-      "schedule": "33 1 * * *"
+      "path": "/api/cron/research/morning-intelligence",
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/video/late-morning",
@@ -35,11 +35,11 @@
     },
     {
       "path": "/api/cron/research/evening-intelligence",
-      "schedule": "25 13 * * *"
+      "schedule": "25-55/5 13 * * *"
     },
     {
-      "path": "/api/cron/research/evening-intelligence-watchdog",
-      "schedule": "33 13 * * *"
+      "path": "/api/cron/research/evening-intelligence",
+      "schedule": "0 14 * * *"
     }
   ]
 }
