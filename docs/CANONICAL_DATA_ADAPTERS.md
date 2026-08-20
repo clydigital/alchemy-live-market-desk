@@ -86,6 +86,47 @@ SEC EDGAR/XBRL
 
 No SEC call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
 
+## FINRA Daily Short-Sale Volume Integration Contract
+
+The FINRA adapter (`lib/providers/finra-short-volume.ts`) reads the official public **Consolidated NMS Daily Short Sale Volume** text file for an explicitly supplied trade date.
+
+### Source endpoint
+
+`https://cdn.finra.org/equity/regsho/daily/CNMSshvolYYYYMMDD.txt`
+
+The file is keyless and public. The adapter intentionally uses the published daily file rather than introducing FINRA Identity Platform credentials for the Query API.
+
+The parser preserves:
+
+- trade date;
+- source symbol exactly as FINRA publishes it;
+- short-sale volume;
+- short-exempt volume;
+- total publicly disseminated reported volume;
+- FINRA market/facility codes;
+- deterministic `shortShareOfReportedVolume = shortVolume / totalVolume` when total volume is non-zero.
+
+The adapter can narrow one daily file to a bounded symbol watchlist without changing source identity.
+
+### Interpretation guardrail
+
+FINRA daily short-sale volume is **not short interest** and is **not a complete market-wide short-sale measure**. It covers publicly disseminated off-exchange trades reported to FINRA facilities. The ratio is therefore a positioning/anomaly context field only and must not be described as the percentage of a company's shares sold short.
+
+### Failure semantics
+
+The requested trade date is explicit; the adapter does not silently roll backward to a different date. A missing/holiday file therefore returns `unavailable` with the requested source URL intact. Schema drift or malformed source content also returns `unavailable` rather than fabricating rows.
+
+This first implementation remains sensor-only:
+
+```text
+FINRA public daily file
+→ deterministic normalized snapshot
+→ persistence/change contract next
+→ Story Finder activation only after review
+```
+
+No FINRA call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
+
 ## Credential map
 
 - `EIA_API_KEY`: required by EIA Open Data API v2.
