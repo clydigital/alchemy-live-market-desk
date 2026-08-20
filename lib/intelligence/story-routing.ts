@@ -50,6 +50,9 @@ const NAMED_ENTITIES: Array<{ canonical: string; terms: string[] }> = [
   { canonical: "DXY", terms: ["dxy", "dollar index"] },
   { canonical: "WTI", terms: ["wti", "west texas intermediate"] },
   { canonical: "BRENT", terms: ["brent"] },
+  { canonical: "US02Y", terms: ["us02y", "2-year yield", "2 year yield", "two-year treasury", "2y treasury"] },
+  { canonical: "US10Y", terms: ["us10y", "10-year yield", "10 year yield", "ten-year treasury", "10y treasury"] },
+  { canonical: "US30Y", terms: ["us30y", "30-year yield", "30 year yield", "thirty-year treasury", "30y treasury"] },
   { canonical: "NVDA", terms: ["nvda", "nvidia"] },
   { canonical: "AMD", terms: ["amd", "advanced micro devices"] },
   { canonical: "MU", terms: ["mu", "micron"] },
@@ -121,17 +124,33 @@ function topicWeights(text: string) {
   return result;
 }
 
+function entityAliases(canonical: string) {
+  return NAMED_ENTITIES.find((entity) => entity.canonical === canonical.toUpperCase())?.terms ?? [canonical];
+}
+
 function explicitEntityHits(text: string, assets: string[]) {
   const hits = new Set<string>();
   for (const asset of assets) {
     const cleaned = asset.trim();
-    if (cleaned && containsTerm(text, cleaned)) hits.add(cleaned.toUpperCase());
-  }
-  for (const entity of NAMED_ENTITIES) {
-    if (!entity.terms.some((term) => containsTerm(text, term))) continue;
-    if (assets.some((asset) => asset.toUpperCase() === entity.canonical)) hits.add(entity.canonical);
+    if (cleaned && entityAliases(cleaned).some((term) => containsTerm(text, term))) hits.add(cleaned.toUpperCase());
   }
   return [...hits];
+}
+
+/**
+ * Attribute assets only when the source text actually names the instrument,
+ * company or an accepted alias. Story membership by itself must never imply
+ * that every asset attached to the Story was observed in this evidence item.
+ */
+export function mentionedStoryAssets(input: {
+  title?: string | null;
+  summary?: string | null;
+  extraText?: string | null;
+  candidateAssets: string[];
+}) {
+  const text = normalise([input.title, input.summary, input.extraText].filter(Boolean).join(" "));
+  if (!text) return [];
+  return explicitEntityHits(text, [...new Set(input.candidateAssets.filter(Boolean))]);
 }
 
 function storyProfile(story: RoutableStory) {
@@ -192,9 +211,14 @@ export function routeResearchItemToStories(input: {
       + Math.min(7.2, sharedTokens.length * 1.2)
       + Math.min(4.5, slugHits.length * 1.5);
 
-    // Require a semantic anchor. Generic lexical overlap alone must not route a Story.
-    const anchored = assetHits.length > 0 || sharedTopics.length > 0 || slugHits.length >= 2;
-    if (!anchored || score < 5) return [];
+    // One broad topic family is not enough. Require either an actual named
+    // asset/entity, two topic families, a strong slug anchor, or a topic plus
+    // at least two Story-specific lexical overlaps.
+    const anchored = assetHits.length > 0
+      || sharedTopics.length >= 2
+      || slugHits.length >= 2
+      || (sharedTopics.length >= 1 && sharedTokens.length >= 2);
+    if (!anchored || score < 6) return [];
 
     const reasons = [
       ...assetHits.map((asset) => `asset:${asset}`),
