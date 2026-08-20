@@ -3,9 +3,6 @@ import {
   type FinraShortVolumeSnapshot,
 } from "./finra-short-volume";
 import {
-  persistSensorMemory,
-} from "./sensor-memory-supabase";
-import {
   type SensorMemoryInput,
   type SensorMemoryResult,
 } from "./sensor-memory";
@@ -25,7 +22,7 @@ export type FinraSensorMemoryCaptureResult = {
 
 type FinraSensorMemoryDependencies = {
   fetchSnapshot?: typeof fetchFinraConsolidatedShortVolume;
-  persist?: typeof persistSensorMemory;
+  persist: (input: SensorMemoryInput) => Promise<SensorMemoryResult>;
 };
 
 function observedAtForTradeDate(tradeDate: string) {
@@ -108,11 +105,10 @@ export function buildFinraSensorMemoryInput(
 
 export async function captureFinraSensorMemory(
   tradeDate: string | Date,
-  symbols?: string[],
-  dependencies: FinraSensorMemoryDependencies = {},
+  symbols: string[] | undefined,
+  dependencies: FinraSensorMemoryDependencies,
 ): Promise<FinraSensorMemoryCaptureResult> {
   const fetchSnapshot = dependencies.fetchSnapshot ?? fetchFinraConsolidatedShortVolume;
-  const persist = dependencies.persist ?? persistSensorMemory;
 
   // Fetch the complete official daily file for canonical raw-memory identity.
   // Caller-supplied symbols only bound the observations promoted from that raw file.
@@ -132,7 +128,7 @@ export async function captureFinraSensorMemory(
   }
 
   const memoryInput = buildFinraSensorMemoryInput(snapshot, selectedSymbols);
-  const memory = await persist(memoryInput);
+  const memory = await dependencies.persist(memoryInput);
   return {
     state: "ready",
     tradeDate: snapshot.tradeDate,
