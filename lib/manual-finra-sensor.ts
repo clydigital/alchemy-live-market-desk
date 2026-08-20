@@ -1,11 +1,11 @@
 import {
   verifyGitHubActionsManualLiveTrigger,
   type ManualLiveTriggerAuthorization,
-} from "./manual-live-trigger-auth";
+} from "./manual-live-trigger-auth.ts";
 import {
   type FinraSensorMemoryCaptureResult,
-} from "./providers/finra-sensor-memory";
-import { formatFinraTradeDate } from "./providers/finra-short-volume";
+} from "./providers/finra-sensor-memory.ts";
+import { formatFinraTradeDate } from "./providers/finra-short-volume.ts";
 
 type ManualFinraSensorInput = {
   tradeDate?: unknown;
@@ -52,7 +52,7 @@ function normaliseRequestedSymbols(value: unknown) {
 }
 
 async function captureProductionFinraSensor(tradeDate: string, symbols: string[]) {
-  const { captureFinraSensorMemoryToSupabase } = await import("./providers/finra-sensor-memory-supabase");
+  const { captureFinraSensorMemoryToSupabase } = await import("./providers/finra-sensor-memory-supabase.ts");
   return captureFinraSensorMemoryToSupabase(tradeDate, symbols);
 }
 
