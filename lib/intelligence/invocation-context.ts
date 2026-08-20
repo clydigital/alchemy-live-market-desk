@@ -19,6 +19,7 @@ export type IntelligenceInvocationState = {
 };
 
 const storage = new AsyncLocalStorage<IntelligenceInvocationState>();
+const DETERMINISTIC_STAGE_KEYS = new Set(["challenger", "lifecycle"]);
 
 export async function runWithIntelligenceInvocation<T>(
   input: {
@@ -69,6 +70,10 @@ export function shouldDeferStageClaim(stageKey: string) {
   const state = storage.getStore();
   if (!state?.oneModelStage || !state.invokedModelStage) return false;
   if (state.invokedModelStage === stageKey) return false;
+  // Challenger and Lifecycle are deterministic compatibility/state-transition
+  // checkpoints. They consume no provider call, so running them after the one
+  // model stage does not violate the one-model-stage-per-invocation contract.
+  if (DETERMINISTIC_STAGE_KEYS.has(stageKey)) return false;
   state.deferredStage = stageKey;
   return true;
 }
