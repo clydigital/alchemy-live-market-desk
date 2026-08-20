@@ -44,6 +44,48 @@ The canonical snapshot contract (`EiaWeeklyPetroleumSnapshot`) clearly distingui
 ### Failure & Degradation Behavior
 If `EIA_API_KEY` is absent, the adapter returns state `unconfigured`. If the API returns non-200 HTTP responses, timeouts, or malformed payloads without valid data arrays, the adapter degrades gracefully to `state: "unavailable"` with diagnostic notes. Provider failures or gaps are propagated as coverage gaps rather than producing local fallback or LLM-fabricated estimates.
 
+## SEC EDGAR / XBRL Integration Contract
+
+The SEC adapter (`lib/providers/sec-edgar.ts`) is a deterministic specialist sensor. It remains detached from the scheduled Brain/Story path until its persistence/change contract is reviewed.
+
+### Source endpoints
+
+- `https://data.sec.gov/submissions/CIK##########.json` — recent filing identity and metadata.
+- `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json` — company XBRL facts.
+
+CIKs are normalized to ten digits. Filing accession numbers remain canonical identities and primary-document URLs are reconstructed against the official SEC archive path.
+
+### Initial metric registry
+
+The adapter selects a bounded set of US-GAAP concepts with conservative fallbacks:
+
+- revenue;
+- operating income;
+- net income;
+- operating cash flow;
+- capital expenditure;
+- cash;
+- assets;
+- liabilities;
+- stockholders' equity.
+
+It preserves the original XBRL concept, unit, filing date, period start/end, form, fiscal year/period, accession number and frame. It does not fabricate missing facts or coerce incompatible units.
+
+### Fetch / failure semantics
+
+SEC EDGAR does not require an API key, but requests must include a descriptive `SEC_USER_AGENT` containing application identity and contact information. Missing configuration returns `unconfigured`; HTTP/network/schema failures return `unavailable`; a usable submissions/XBRL response returns `ready`.
+
+The first implementation is intentionally **sensor-only**:
+
+```text
+SEC EDGAR/XBRL
+→ deterministic normalized snapshot
+→ tests / persistence contract next
+→ Story Finder activation only after review
+```
+
+No SEC call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
+
 ## Credential map
 
 - `EIA_API_KEY`: required by EIA Open Data API v2.
