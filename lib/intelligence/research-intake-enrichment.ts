@@ -141,7 +141,13 @@ export async function enrichResearchIntakeForStories(input: {
 
     const cleanedSummary = cleanEvidenceClaim({ title: item.title, summary: item.summary });
     const cleanTitle = sanitiseResearchText(item.title);
-    const explicitStorySlugs = (item.affected_story_slugs ?? []).filter((slug) => validSlugs.has(slug));
+    // Only an explicit reviewed-transcript mapping is trusted as a persisted
+    // direct link. Legacy news/article affected_story_slugs were previously
+    // inferred and may be stale, so they must be recomputed rather than
+    // promoted to an immutable score-100 route.
+    const explicitStorySlugs = item.item_type === "video" && item.video_review_status === "reviewed"
+      ? (item.affected_story_slugs ?? []).filter((slug) => validSlugs.has(slug))
+      : [];
     const routes = routeResearchItemToStories({
       title: cleanTitle,
       summary: cleanedSummary,
