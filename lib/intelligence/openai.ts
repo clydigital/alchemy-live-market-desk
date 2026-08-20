@@ -26,6 +26,15 @@ export { OpenAIStageError, intelligenceModel };
 
 const API_URL = "https://api.openai.com/v1/responses";
 const VALID_EFFORT = new Set<IntelligenceReasoningEffort>(["none", "low", "medium", "high", "xhigh", "max"]);
+const MARKET_BELIEF_MAINTENANCE_RULES = `The market_belief output also contains existing-Story maintenance assessments.
+- Return at most four storyAssessments.
+- Assess only existing Stories whose slug is present in the affectedTopics of supplied fresh evidence.
+- When more than four Stories qualify, prioritise the Stories linked to the newest evidence eventAt/publishedAt.
+- Ask: did the existing thesis actually change, or was this only price/macro noise?
+- Creator/video commentary is a research lead, never sufficient by itself for materialChange=true.
+- materialChange=true only for a meaningful change in thesis, probability/confidence, mechanism, confirmation/invalidation state, cross-asset transmission, or next catalyst.
+- Keep prose fields concise. Do not repeat the whole Story or evidence pack.
+- Use only supplied Story IDs and evidence IDs.`;
 
 /**
  * Provider-level safety ceiling only. Canonical intelligence no longer assigns
@@ -59,6 +68,13 @@ async function sleep(ms: number) {
 function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number) {
   if (!Number.isFinite(value)) return fallback;
   return Math.max(minimum, Math.min(maximum, Math.floor(value!)));
+}
+
+export function effectiveStageOutputTokens(stageKey: string, requested: number) {
+  // Market Belief now carries a bounded existing-Story maintenance payload in
+  // addition to beliefs. Preserve enough output room so strict Structured
+  // Output does not regress into the historical max_tokens/incomplete cascade.
+  return stageKey === "market_belief" ? Math.max(5_000, requested) : requested;
 }
 
 function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageResult<T> | null {
@@ -190,9 +206,13 @@ export async function runStructuredStage<T>({
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const modelInput = canonicalStageInput(stageKey, input);
+  const outputTokenLimit = effectiveStageOutputTokens(stageKey, maxOutputTokens);
+  const effectiveInstructions = stageKey === "market_belief"
+    ? `${instructions}\n\n${MARKET_BELIEF_MAINTENANCE_RULES}`
+    : instructions;
   const body = {
     model,
-    instructions,
+    instructions: effectiveInstructions,
     input: JSON.stringify(modelInput),
     reasoning: { effort },
     text: {
@@ -204,7 +224,7 @@ export async function runStructuredStage<T>({
         schema: responsesCompatibleJsonSchema(schema),
       },
     },
-    max_output_tokens: maxOutputTokens,
+    max_output_tokens: outputTokenLimit,
     store: false,
   };
 
@@ -235,7 +255,7 @@ export async function runStructuredStage<T>({
   return executeProviderWithRetry<T>({
     fetcher,
     fallbackModel: model,
-    maxOutputTokens,
+    maxOutputTokens: outputTokenLimit,
     maxAttempts: attemptLimit,
     sleepFn: async (attempt, retryAfter) => {
       await sleep(retryDelay(attempt, retryAfter));
