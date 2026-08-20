@@ -3,7 +3,6 @@ import {
   type ManualLiveTriggerAuthorization,
 } from "./manual-live-trigger-auth";
 import {
-  captureFinraSensorMemory,
   type FinraSensorMemoryCaptureResult,
 } from "./providers/finra-sensor-memory";
 import { formatFinraTradeDate } from "./providers/finra-short-volume";
@@ -52,6 +51,11 @@ function normaliseRequestedSymbols(value: unknown) {
   return symbols.sort();
 }
 
+async function captureProductionFinraSensor(tradeDate: string, symbols: string[]) {
+  const { captureFinraSensorMemoryToSupabase } = await import("./providers/finra-sensor-memory-supabase");
+  return captureFinraSensorMemoryToSupabase(tradeDate, symbols);
+}
+
 export async function handleManualFinraSensorRunWithDependencies(
   request: Request,
   dependencies: ManualFinraSensorDependencies = {},
@@ -89,7 +93,7 @@ export async function handleManualFinraSensorRunWithDependencies(
   });
 
   try {
-    const capture = dependencies.capture ?? ((date, selectedSymbols) => captureFinraSensorMemory(date, selectedSymbols));
+    const capture = dependencies.capture ?? captureProductionFinraSensor;
     const result = await capture(tradeDate, symbols);
     if (result.state !== "ready" || !result.memory) {
       return json({
