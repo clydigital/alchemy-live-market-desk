@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import {
   deriveSensorChangeEvent,
   type SensorChangeEvent,
-} from "./sensor-change-events";
+} from "./sensor-change-events.ts";
 
 export type SensorMemoryObservationInput = {
   observationType: string;
