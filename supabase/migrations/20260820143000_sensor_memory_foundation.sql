@@ -7,9 +7,9 @@
 
 create table if not exists public.raw_source_records (
   id uuid primary key default gen_random_uuid(),
-  source_id uuid references public.sources(id) on delete set null,
-  intake_item_id uuid references public.research_intake_items(id) on delete set null,
-  research_run_id uuid references public.research_runs(id) on delete set null,
+  source_id uuid references public.sources(id) on delete restrict,
+  intake_item_id uuid references public.research_intake_items(id) on delete restrict,
+  research_run_id uuid references public.research_runs(id) on delete restrict,
   supersedes_record_id uuid references public.raw_source_records(id) on delete restrict,
   ingestion_key text,
   provider text not null,
@@ -43,8 +43,8 @@ create index if not exists raw_source_records_provider_fetched_idx
 create table if not exists public.normalised_observations (
   id uuid primary key default gen_random_uuid(),
   raw_record_id uuid not null references public.raw_source_records(id) on delete restrict,
-  source_id uuid references public.sources(id) on delete set null,
-  story_id uuid references public.stories(id) on delete set null,
+  source_id uuid references public.sources(id) on delete restrict,
+  story_id uuid references public.stories(id) on delete restrict,
   supersedes_observation_id uuid references public.normalised_observations(id) on delete restrict,
   observation_type text not null,
   subject_type text not null,
