@@ -152,6 +152,7 @@ export async function reviewReadyCreatorTranscripts(input: {
           expert_notes: review.expertNotes,
           affected_story_slugs: review.affectedStorySlugs,
           video_review_status: "reviewed",
+          status: "accepted",
           review_reason: "Transcript reviewed into a research lead. Creator claims remain non-canonical until corroborated by traceable evidence.",
           updated_at: new Date().toISOString(),
         })
