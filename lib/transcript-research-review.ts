@@ -33,7 +33,7 @@ Useful reasoning patterns include: compare the latest move with the existing the
 
 Do not invent facts, sources, market moves, Story slugs or thresholds. Do not treat the creator's assertion as proof. Return only the requested structured output.`;
 
-type ReviewableVideo = {
+export type ReviewableVideo = {
   id: string;
   publisher: string;
   title: string;
@@ -65,6 +65,36 @@ export type TranscriptReviewBatchResult = {
 
 function creatorPriority(publisher: string) {
   return REQUIRED_CREATOR_NAMES.has(publisher.trim().toLowerCase()) ? 0 : 1;
+}
+
+/**
+ * Prevent one prolific channel from consuming the whole review budget. The
+ * first pass takes the newest item from each publisher (required creators
+ * first); spare capacity is then spent on additional videos.
+ */
+export function selectTranscriptReviewBatch(videos: ReviewableVideo[], maxReviews: number) {
+  const limit = Math.max(1, Math.min(6, maxReviews));
+  const ordered = [...videos].sort((left, right) => (
+    creatorPriority(left.publisher) - creatorPriority(right.publisher)
+      || right.published_at.localeCompare(left.published_at)
+      || left.id.localeCompare(right.id)
+  ));
+  const selected: ReviewableVideo[] = [];
+  const seenPublishers = new Set<string>();
+  for (const video of ordered) {
+    const publisher = video.publisher.trim().toLowerCase();
+    if (seenPublishers.has(publisher)) continue;
+    seenPublishers.add(publisher);
+    selected.push(video);
+    if (selected.length >= limit) return selected;
+  }
+  const selectedIds = new Set(selected.map((video) => video.id));
+  for (const video of ordered) {
+    if (selectedIds.has(video.id)) continue;
+    selected.push(video);
+    if (selected.length >= limit) break;
+  }
+  return selected;
 }
 
 async function reviewOne(video: ReviewableVideo, stories: ReviewStory[]) {
@@ -109,7 +139,8 @@ export async function reviewReadyCreatorTranscripts(input: {
   maxReviews?: number;
 } = {}): Promise<TranscriptReviewBatchResult> {
   const client = input.client ?? createSupabaseAdminClient();
-  const maxReviews = Math.max(1, Math.min(4, input.maxReviews ?? 3));
+  const maxReviews = Math.max(1, Math.min(6, input.maxReviews ?? 6));
+  const since = new Date(Date.now() - (7 * 86_400_000)).toISOString();
   const [{ data: videos, error: videoError }, { data: stories, error: storyError }] = await Promise.all([
     client
       .from("research_intake_items")
@@ -117,9 +148,10 @@ export async function reviewReadyCreatorTranscripts(input: {
       .eq("item_type", "video")
       .eq("transcript_status", "ready")
       .eq("video_review_status", "transcript_only")
+      .gte("published_at", since)
       .not("transcript_text", "is", null)
       .order("published_at", { ascending: false })
-      .limit(12),
+      .limit(48),
     client
       .from("stories")
       .select("id,slug,title,thesis,market_question,dominant_narrative,confirmation_trigger,invalidation_trigger,next_catalyst,assets")
@@ -130,15 +162,9 @@ export async function reviewReadyCreatorTranscripts(input: {
   if (videoError) throw new Error(`Could not load transcript review queue: ${videoError.message}`);
   if (storyError) throw new Error(`Could not load Story registry for transcript review: ${storyError.message}`);
 
-  const selected = ([...(videos ?? [])] as ReviewableVideo[])
-    .sort((left, right) => creatorPriority(left.publisher) - creatorPriority(right.publisher)
-      || right.published_at.localeCompare(left.published_at))
-    .slice(0, maxReviews);
+  const selected = selectTranscriptReviewBatch((videos ?? []) as ReviewableVideo[], maxReviews);
   const storyRows = (stories ?? []) as ReviewStory[];
-  const failures: TranscriptReviewBatchResult["failures"] = [];
-  const reviewedVideoIds: string[] = [];
-
-  for (const video of selected) {
+  const outcomes = await Promise.all(selected.map(async (video) => {
     try {
       const review = await reviewOne(video, storyRows);
       const { error } = await client
@@ -159,15 +185,22 @@ export async function reviewReadyCreatorTranscripts(input: {
         .eq("id", video.id)
         .eq("video_review_status", "transcript_only");
       if (error) throw new Error(error.message);
-      reviewedVideoIds.push(video.id);
+      return { ok: true as const, video };
     } catch (error) {
-      failures.push({
-        id: video.id,
-        title: video.title,
+      return {
+        ok: false as const,
+        video,
         error: error instanceof Error ? error.message.slice(0, 500) : "Unknown transcript research-review failure.",
-      });
+      };
     }
-  }
+  }));
+
+  const reviewedVideoIds = outcomes.flatMap((outcome) => outcome.ok ? [outcome.video.id] : []);
+  const failures = outcomes.flatMap((outcome) => outcome.ok ? [] : [{
+    id: outcome.video.id,
+    title: outcome.video.title,
+    error: outcome.error,
+  }]);
 
   return {
     reviewed: reviewedVideoIds.length,
