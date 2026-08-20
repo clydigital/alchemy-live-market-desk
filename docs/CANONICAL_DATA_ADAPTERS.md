@@ -127,6 +127,69 @@ FINRA public daily file
 
 No FINRA call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
 
+## JODI-Oil Integration Contract
+
+The JODI adapter (`lib/providers/jodi-oil.ts`) reads the official annual primary/secondary CSV files from the JODI-Oil World Database. JODI publishes the dataset for free and the current year can use a different filename from completed years, so the adapter explicitly tries both known naming conventions rather than treating a 404 as an empty year.
+
+### Source files
+
+Base path:
+
+`https://www.jodidata.org/_resources/files/downloads/oil-data/annual-csv/`
+
+For each requested year and table family the adapter tries:
+
+```text
+primary/{year}.csv
+primary/primaryyear{year}.csv
+
+secondary/{year}.csv
+secondary/secondaryyear{year}.csv
+```
+
+By default it requests both the current and prior calendar year and both primary/secondary families, which prevents an early-year run from silently losing the latest published month.
+
+### Canonical row identity
+
+Each observation preserves the JODI source identity:
+
+```text
+REF_AREA
++ ENERGY_PRODUCT
++ FLOW_BREAKDOWN
++ UNIT_MEASURE
++ TIME_PERIOD
+```
+
+The default sensor filter keeps `KBD` (thousand barrels/day), but callers can request other published units or countries without changing source values.
+
+### Assessment / quality codes
+
+The adapter preserves `ASSESSMENT_CODE` rather than discarding lower-confidence rows:
+
+- `1` → comparable / reasonable level of comparability;
+- `2` → caution / consult metadata;
+- `3` → unassessed;
+- `4` → under verification;
+- anything else → unknown.
+
+This quality field is context for later reasoning; the sensor itself does not rewrite a valid reported value to null solely because it is unassessed.
+
+### Failure semantics
+
+A missing annual source file is explicit. If some requested files are available and others are not, the snapshot is `partial`; missing files are never interpreted as deletions. If none of the requested files yield usable observations, the snapshot is `unavailable`.
+
+The first implementation remains sensor-only:
+
+```text
+JODI annual CSV
+→ deterministic normalized snapshot
+→ persistence/change contract next
+→ oil Story activation only after review
+```
+
+No JODI call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
+
 ## Credential map
 
 - `EIA_API_KEY`: required by EIA Open Data API v2.
