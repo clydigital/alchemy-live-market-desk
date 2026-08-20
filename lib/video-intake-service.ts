@@ -70,6 +70,38 @@ function emptyReviewResult(error?: unknown): TranscriptReviewBatchResult {
   };
 }
 
+async function persistTranscriptReviewHealth(
+  runId: string,
+  review: TranscriptReviewBatchResult,
+  client: Parameters<typeof finalizeVideoIntakeRun>[0]["client"] extends infer T ? NonNullable<T> : never,
+) {
+  const { data, error } = await client
+    .from("research_slot_runs")
+    .select("stage_summary,warnings,health_state")
+    .eq("research_run_id", runId)
+    .maybeSingle<{ stage_summary: Record<string, unknown> | null; warnings: string[] | null; health_state: string | null }>();
+  if (error) throw new Error(`Could not read transcript-review slot health: ${error.message}`);
+  if (!data) return;
+  const reviewWarnings = review.failures.map((failure) => `${failure.title}: transcript research review failed: ${failure.error}`);
+  const verificationStatus = review.failed ? "partial" : review.considered ? "complete" : "not_required";
+  const { error: updateError } = await client.from("research_slot_runs").update({
+    verification_status: verificationStatus,
+    ...(review.failed ? { health_state: "degraded" } : {}),
+    stage_summary: {
+      ...(data.stage_summary ?? {}),
+      transcriptReview: {
+        status: review.failed ? (review.reviewed ? "partial" : "failed") : review.considered ? "complete" : "not_required",
+        considered: review.considered,
+        reviewed: review.reviewed,
+        failed: review.failed,
+      },
+    },
+    warnings: [...new Set([...(data.warnings ?? []), ...reviewWarnings])],
+    updated_at: new Date().toISOString(),
+  }).eq("research_run_id", runId);
+  if (updateError) throw new Error(`Could not persist transcript-review slot health: ${updateError.message}`);
+}
+
 /**
  * The shared Live-only YouTube and TranscriptAPI intake step. It deliberately
  * caps transcript work so a slow provider cannot consume an entire scheduled
@@ -138,12 +170,11 @@ export async function runScheduledVideoIntake(input: {
     }
   }
 
-  // Review the newest transcript-only records, prioritising required creators.
-  // A review failure is diagnostic and leaves the row transcript_only, which
-  // keeps it out of canonical evidence rather than promoting placeholder text.
+  // Review a diverse bounded batch. Review is deliberately separate from
+  // retrieval state: a provider success is not equivalent to a researched lead.
   let transcriptReview = emptyReviewResult();
   try {
-    transcriptReview = await reviewReadyCreatorTranscripts({ client: run.client, maxReviews: 3 });
+    transcriptReview = await reviewReadyCreatorTranscripts({ client: run.client, maxReviews: 6 });
   } catch (error) {
     transcriptReview = emptyReviewResult(error);
   }
@@ -169,6 +200,19 @@ export async function runScheduledVideoIntake(input: {
     discoveryFailures,
     client: run.client,
   });
+  try {
+    await persistTranscriptReviewHealth(run.id, transcriptReview, run.client);
+  } catch (error) {
+    transcriptReview = {
+      ...transcriptReview,
+      failed: transcriptReview.failed + 1,
+      failures: [...transcriptReview.failures, {
+        id: "transcript-review-health",
+        title: "Transcript review health persistence",
+        error: error instanceof Error ? error.message.slice(0, 500) : "Unknown transcript review health persistence failure.",
+      }],
+    };
+  }
 
   const failedTranscripts = results.filter((result) => result.status === "failed");
   return {
