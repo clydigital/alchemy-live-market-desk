@@ -1,5 +1,6 @@
 import "server-only";
 
+import { mentionedStoryAssets } from "./story-routing.ts";
 import {
   currentIntelligenceInvocation,
   frozenRead,
@@ -98,13 +99,52 @@ function withFrozenAnalysisTimestamp(path: string, init: RequestInit) {
   };
 }
 
+/**
+ * Legacy canonicalisation attached every asset from a routed Story to an intake
+ * item. That turns topic membership into fake market observations. Restrict the
+ * research-intake-v1 write to assets explicitly named in its own title/claim.
+ */
+export function sanitiseResearchIntakeEvidenceWrite(path: string, init: RequestInit) {
+  if (!path.startsWith("intelligence_evidence?on_conflict=source_id,content_hash") || typeof init.body !== "string") return init;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(init.body);
+  } catch {
+    return init;
+  }
+  const rows = Array.isArray(payload) ? payload : [payload];
+  let changed = false;
+  const patched = rows.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+    const value = { ...(row as Record<string, unknown>) };
+    if (value.normalizer_version !== "research-intake-v1" || !Array.isArray(value.affected_assets)) return row;
+    const structured = value.structured_payload && typeof value.structured_payload === "object" && !Array.isArray(value.structured_payload)
+      ? value.structured_payload as Record<string, unknown>
+      : {};
+    const filtered = mentionedStoryAssets({
+      title: typeof structured.title === "string" ? structured.title : null,
+      summary: typeof value.claim_text === "string" ? value.claim_text : null,
+      extraText: typeof value.summary === "string" ? value.summary : null,
+      candidateAssets: value.affected_assets.filter((asset): asset is string => typeof asset === "string"),
+    });
+    if (JSON.stringify(filtered) !== JSON.stringify(value.affected_assets)) changed = true;
+    value.affected_assets = filtered;
+    return value;
+  });
+  if (!changed) return init;
+  return {
+    ...init,
+    body: JSON.stringify(Array.isArray(payload) ? patched : patched[0]),
+  };
+}
+
 export async function intelligenceRest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
 
   // A successful model-stage handoff is not a retry failure. Once one model
   // stage has run in this serverless invocation, do not even create/claim the
-  // next stage row. Return the same shape as a competing DB claim so the legacy
-  // runtime exits through its already-resumable path without another model call.
+  // next provider-backed stage. Deterministic compatibility checkpoints are
+  // explicitly allowed by shouldDeferStageClaim.
   if (path === "rpc/claim_intelligence_stage" && method === "POST" && typeof init.body === "string") {
     try {
       const body = JSON.parse(init.body) as { p_stage_key?: string };
@@ -128,7 +168,8 @@ export async function intelligenceRest<T>(path: string, init: RequestInit = {}):
     if (state?.frozenInputs && existing !== null) return structuredClone(existing) as T;
   }
 
-  const effectiveInit = withFrozenAnalysisTimestamp(path, init);
+  const timestampedInit = withFrozenAnalysisTimestamp(path, init);
+  const effectiveInit = sanitiseResearchIntakeEvidenceWrite(path, timestampedInit);
   const result = await rawIntelligenceRest<T>(path, effectiveInit);
 
   if (readKind && Array.isArray(result)) {
