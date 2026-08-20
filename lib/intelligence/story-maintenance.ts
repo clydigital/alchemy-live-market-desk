@@ -3,6 +3,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import type { EvidencePackItem, MarketBeliefOutput } from "@/lib/intelligence/schemas";
+import {
+  effectiveMaintenanceDisposition,
+  materialDecisiveEvidenceIds,
+  materialMutationAuthorised,
+  type MaintenanceDisposition,
+} from "@/lib/intelligence/story-maintenance-policy";
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 
 export type MaintenanceStory = {
@@ -45,7 +51,7 @@ export type StoryReviewTarget = {
 
 export type StoryMaintenanceAssessment = {
   storyId: string;
-  disposition: "unchanged" | "reinforced" | "weakened" | "reframed" | "invalidated";
+  disposition: MaintenanceDisposition;
   materialChange: boolean;
   supportingEvidenceIds: string[];
   contradictingEvidenceIds: string[];
@@ -96,7 +102,7 @@ export const MARKET_BELIEF_MAINTENANCE_SCHEMA = {
     },
     storyAssessments: {
       type: "array",
-      maxItems: 10,
+      maxItems: 4,
       items: {
         type: "object",
         additionalProperties: false,
@@ -141,7 +147,7 @@ export const MARKET_BELIEF_STORY_MAINTENANCE_RULES = `Market Belief also owns a 
 This maintenance pass is separate from new-Story discovery. Divergence is NOT required for an existing Story to be reviewed.
 
 For every storyReviewTarget, answer the question: "Did anything actually change about this existing thesis?"
-- Compare fresh routed evidence with the Story's current thesis, support, contradiction, catalyst, confirmation and invalidation.
+- Compare only the evidence supplied inside that target with the Story's current thesis, support, contradiction, catalyst, confirmation and invalidation.
 - Distinguish a macro-driven price move from a change in the underlying Story fundamentals.
 - Reconstruct the causal chain explicitly: driver -> mechanism -> market reaction -> implication.
 - Distinguish the accepted headline explanation from the actual mechanism and scale supported by evidence.
@@ -150,7 +156,8 @@ For every storyReviewTarget, answer the question: "Did anything actually change 
 - Creator/video commentary is a research lead only. It can contextualise or suggest a test, but by itself it MUST NOT set materialChange=true.
 - Set materialChange=false when evidence merely repeats, confirms without changing probability/conditions, or leaves the thesis intact.
 - Set materialChange=true only when evidence changes the thesis, probability/confidence materially, confirmation/invalidation state, causal mechanism, next catalyst, or cross-asset transmission.
-- Return exactly one assessment for every supplied target and only use evidence IDs included inside that target.
+- Return exactly one assessment for every supplied target. Do not return an assessment for any Story that was not supplied as a target.
+- Only use evidence IDs included inside that target.
 - Do not create new Stories here. New Story discovery remains the Divergence -> Hypothesis rail.`;
 
 function hash(value: string, length = 64) {
@@ -183,8 +190,8 @@ export async function buildStoryReviewTargets(input: {
   ).catch(() => []);
   const lastEvaluated = new Map(stateRows.map((row) => [row.story_id, row.last_evaluated_at]));
   const fallbackCutoff = Date.parse(input.analysisAsOf) - (72 * 60 * 60 * 1000);
-  const maxStories = Math.max(1, Math.min(12, input.maxStories ?? 10));
-  const maxEvidence = Math.max(1, Math.min(16, input.maxEvidencePerStory ?? 12));
+  const maxStories = Math.max(1, Math.min(4, input.maxStories ?? 4));
+  const maxEvidence = Math.max(1, Math.min(12, input.maxEvidencePerStory ?? 10));
 
   return input.stories.flatMap((story): StoryReviewTarget[] => {
     const watermarkRaw = lastEvaluated.get(story.id) ?? null;
@@ -220,7 +227,7 @@ export async function buildStoryReviewTargets(input: {
     .slice(0, maxStories);
 }
 
-function lifecycleFor(disposition: StoryMaintenanceAssessment["disposition"], currentStatus: string) {
+function lifecycleFor(disposition: MaintenanceDisposition, currentStatus: string) {
   if (disposition === "invalidated") return "invalidated";
   if (disposition === "weakened") return "weakening";
   if (disposition === "reinforced") return currentStatus === "publish" ? "confirmed" : "developing";
@@ -228,7 +235,7 @@ function lifecycleFor(disposition: StoryMaintenanceAssessment["disposition"], cu
   return currentStatus === "publish" ? "confirmed" : currentStatus === "develop" ? "developing" : "detected";
 }
 
-function publicStatusFor(disposition: StoryMaintenanceAssessment["disposition"], currentStatus: string) {
+function publicStatusFor(disposition: MaintenanceDisposition, currentStatus: string) {
   if (disposition === "invalidated") return "archived";
   if (disposition === "weakened" || disposition === "reframed") return "develop";
   return currentStatus;
@@ -241,11 +248,11 @@ function evidenceRoleSets(assessment: StoryMaintenanceAssessment, allowed: Set<s
   return { supporting, contradicting, context, all: unique([...supporting, ...contradicting, ...context]) };
 }
 
-function materialEvidenceAllowed(ids: string[], evidenceById: Map<string, EvidencePackItem>) {
-  return ids.some((id) => {
-    const item = evidenceById.get(id);
-    return Boolean(item && item.evidenceClass !== "transcript" && item.evidenceClass !== "research_analysis" && item.sourceTier <= 4);
-  });
+function ancestryGroups(ids: string[], evidenceById: Map<string, EvidencePackItem>) {
+  return unique(ids.flatMap((id) => {
+    const ancestry = evidenceById.get(id)?.ancestryGroupId;
+    return ancestry ? [ancestry] : [];
+  }));
 }
 
 async function linkStoryEvidence(storyId: string, roles: ReturnType<typeof evidenceRoleSets>) {
@@ -262,26 +269,84 @@ async function linkStoryEvidence(storyId: string, roles: ReturnType<typeof evide
   });
 }
 
+type ExistingState = {
+  id: string;
+  lifecycle_status: string;
+  publication_eligible: boolean;
+  decisive_evidence_ids: string[];
+  source_ancestry_group_ids: string[];
+  last_evidence_at: string | null;
+};
+
 async function writeStoryState(input: {
   story: MaintenanceStory;
   assessment: StoryMaintenanceAssessment;
-  evidenceIds: string[];
+  materialChange: boolean;
+  decisiveEvidenceIds: string[];
+  allEvidenceIds: string[];
   evidenceById: Map<string, EvidencePackItem>;
   analysisAsOf: string;
 }) {
   const story = input.story;
-  const latestEvidenceAt = latestTimestamp(input.evidenceIds.flatMap((id) => input.evidenceById.has(id) ? [input.evidenceById.get(id)!] : []));
-  const rows = await intelligenceRest<Array<{ id: string }>>(
-    `intelligence_story_states?select=id&story_id=eq.${encodeURIComponent(story.id)}&limit=1`,
+  const latestEvidenceAt = latestTimestamp(input.allEvidenceIds.flatMap((id) => input.evidenceById.has(id) ? [input.evidenceById.get(id)!] : []));
+  const rows = await intelligenceRest<ExistingState[]>(
+    `intelligence_story_states?select=id,lifecycle_status,publication_eligible,decisive_evidence_ids,source_ancestry_group_ids,last_evidence_at&story_id=eq.${encodeURIComponent(story.id)}&limit=1`,
   );
+  const existing = rows[0];
+
+  // No material thesis change: advance only freshness/watermark fields. This is
+  // the key distinction between "reviewed and unchanged" and "not reviewed".
+  if (existing && !input.materialChange) {
+    await intelligenceRest(`intelligence_story_states?id=eq.${encodeURIComponent(existing.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        last_evidence_at: latestEvidenceAt || existing.last_evidence_at,
+        last_evaluated_at: input.analysisAsOf,
+        updated_at: input.analysisAsOf,
+      }),
+    });
+    return;
+  }
+
+  if (!existing && !input.materialChange) {
+    await intelligenceRest("intelligence_story_states", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        story_id: story.id,
+        lifecycle_status: lifecycleFor("unchanged", story.status),
+        publication_eligible: story.status !== "archived" && story.status !== "discarded",
+        qualification_score: 50,
+        event_signature: `maintenance:init:${hash(story.id, 24)}`,
+        thesis_signature: hash(story.thesis),
+        causal_mechanism: "",
+        affected_assets: story.assets ?? [],
+        decisive_evidence_ids: [],
+        source_ancestry_group_ids: [],
+        confirmation_criteria: story.confirmation_trigger ? [story.confirmation_trigger] : [],
+        invalidation_criteria: story.invalidation_trigger ? [story.invalidation_trigger] : [],
+        next_catalysts: story.next_catalyst ? [story.next_catalyst] : [],
+        research_synthesis: "Existing Story reviewed against fresh routed evidence; no material canonical thesis change was authorised.",
+        last_evidence_at: latestEvidenceAt,
+        last_evaluated_at: input.analysisAsOf,
+        strongest_support: story.strongest_support,
+        strongest_contradiction: story.strongest_contradiction,
+        updated_at: input.analysisAsOf,
+      }),
+    });
+    return;
+  }
+
   const payload = {
     lifecycle_status: lifecycleFor(input.assessment.disposition, story.status),
     publication_eligible: input.assessment.disposition !== "invalidated",
     event_signature: `maintenance:${hash(`${story.id}|${input.assessment.whatChanged}`, 24)}`,
-    thesis_signature: hash(input.assessment.materialChange ? input.assessment.thesis : story.thesis),
+    thesis_signature: hash(input.assessment.thesis),
     causal_mechanism: input.assessment.causalMechanism,
     affected_assets: story.assets ?? [],
-    decisive_evidence_ids: input.evidenceIds,
+    decisive_evidence_ids: input.decisiveEvidenceIds,
+    source_ancestry_group_ids: ancestryGroups(input.decisiveEvidenceIds, input.evidenceById),
     confirmation_criteria: input.assessment.confirmationTrigger ? [input.assessment.confirmationTrigger] : [],
     invalidation_criteria: input.assessment.invalidationTrigger ? [input.assessment.invalidationTrigger] : [],
     next_catalysts: input.assessment.nextCatalyst ? [input.assessment.nextCatalyst] : [],
@@ -292,8 +357,8 @@ async function writeStoryState(input: {
     strongest_contradiction: input.assessment.strongestContradiction,
     updated_at: input.analysisAsOf,
   };
-  if (rows[0]?.id) {
-    await intelligenceRest(`intelligence_story_states?id=eq.${encodeURIComponent(rows[0].id)}`, {
+  if (existing) {
+    await intelligenceRest(`intelligence_story_states?id=eq.${encodeURIComponent(existing.id)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify(payload),
@@ -307,50 +372,86 @@ async function writeStoryState(input: {
   });
 }
 
+async function findMaintenanceEvent(input: { storyId: string; analysisAsOf: string; stageRunId: string }) {
+  const rows = await intelligenceRest<Array<{ id: string; metadata: Record<string, unknown> | null }>>(
+    `story_events?select=id,metadata&story_id=eq.${encodeURIComponent(input.storyId)}&event_at=eq.${encodeURIComponent(input.analysisAsOf)}&limit=20`,
+  );
+  return rows.find((row) => row.metadata?.maintenanceStageRunId === input.stageRunId)?.id ?? null;
+}
+
+async function ensureStoryUpdate(input: {
+  storyId: string;
+  updateType: string;
+  headline: string;
+  detail: string;
+  observedAt: string;
+}) {
+  const existing = await intelligenceRest<Array<{ id: string }>>(
+    `story_updates?select=id&story_id=eq.${encodeURIComponent(input.storyId)}&observed_at=eq.${encodeURIComponent(input.observedAt)}&headline=eq.${encodeURIComponent(input.headline)}&limit=1`,
+  );
+  if (existing[0]) return;
+  await intelligenceRest("story_updates", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      story_id: input.storyId,
+      update_type: input.updateType,
+      headline: input.headline,
+      detail: input.detail,
+      observed_at: input.observedAt,
+    }),
+  });
+}
+
 async function applyMaterialRevision(input: {
   story: MaintenanceStory;
   assessment: StoryMaintenanceAssessment;
   evidenceIds: string[];
   engineRunId: string;
   stageRunId: string;
+  researchRunId: string | null;
   analysisAsOf: string;
 }) {
   const latest = await intelligenceRest<Array<{ id: string; version_number: number; snapshot: Record<string, unknown> | null }>>(
     `story_thesis_versions?select=id,version_number,snapshot&story_id=eq.${encodeURIComponent(input.story.id)}&order=version_number.desc&limit=1`,
   );
   const alreadyApplied = latest[0]?.snapshot?.maintenanceStageRunId === input.stageRunId;
-  let versionId = latest[0]?.id ?? null;
+  let versionId = alreadyApplied ? latest[0]?.id ?? null : null;
   if (!alreadyApplied) {
-    const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        story_id: input.story.id,
-        evidence_id: input.evidenceIds[0] ?? null,
-        research_run_id: null,
-        event_type: input.assessment.disposition === "invalidated" ? "invalidation" : input.assessment.disposition === "reinforced" ? "confirmation" : "thesis_revision",
-        headline: input.assessment.whatChanged.slice(0, 180),
-        detail: `${input.assessment.acceptedExplanation}\n\nCountercase: ${input.assessment.strongestCountercase}`,
-        confidence_delta: finiteConfidence(input.assessment.confidence, input.story.confidence) - input.story.confidence,
-        event_at: input.analysisAsOf,
-        metadata: {
-          automatic: true,
-          origin: "existing_story_maintenance",
-          maintenanceEngineRunId: input.engineRunId,
-          maintenanceStageRunId: input.stageRunId,
-          disposition: input.assessment.disposition,
-          evidenceIds: input.evidenceIds,
-          marketReaction: input.assessment.marketReaction,
-          changeKinds: input.assessment.changeKinds,
-        },
-      }),
-    });
+    let eventId = await findMaintenanceEvent({ storyId: input.story.id, analysisAsOf: input.analysisAsOf, stageRunId: input.stageRunId });
+    if (!eventId) {
+      const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          story_id: input.story.id,
+          evidence_id: input.evidenceIds[0] ?? null,
+          research_run_id: input.researchRunId,
+          event_type: input.assessment.disposition === "invalidated" ? "invalidation" : input.assessment.disposition === "reinforced" ? "confirmation" : "thesis_revision",
+          headline: input.assessment.whatChanged.slice(0, 180),
+          detail: `${input.assessment.acceptedExplanation}\n\nCountercase: ${input.assessment.strongestCountercase}`,
+          confidence_delta: finiteConfidence(input.assessment.confidence, input.story.confidence) - input.story.confidence,
+          event_at: input.analysisAsOf,
+          metadata: {
+            automatic: true,
+            origin: "existing_story_maintenance",
+            maintenanceEngineRunId: input.engineRunId,
+            maintenanceStageRunId: input.stageRunId,
+            disposition: input.assessment.disposition,
+            evidenceIds: input.evidenceIds,
+            marketReaction: input.assessment.marketReaction,
+            changeKinds: input.assessment.changeKinds,
+          },
+        }),
+      });
+      eventId = events[0]?.id ?? null;
+    }
     const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
       method: "POST",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         story_id: input.story.id,
-        event_id: events[0]?.id ?? null,
+        event_id: eventId,
         version_number: (latest[0]?.version_number ?? 0) + 1,
         title: input.story.title,
         thesis: input.assessment.thesis,
@@ -405,30 +506,32 @@ async function applyMaterialRevision(input: {
       updated_at: input.analysisAsOf,
     }),
   });
-  await intelligenceRest("story_updates", {
-    method: "POST",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({
-      story_id: input.story.id,
-      update_type: input.assessment.disposition === "invalidated" ? "invalidation" : input.assessment.disposition === "reinforced" ? "confirmation" : "recalibration",
-      headline: input.assessment.whatChanged.slice(0, 90),
-      detail: `${input.assessment.acceptedExplanation}\n\nCountercase: ${input.assessment.strongestCountercase}`,
-      observed_at: input.analysisAsOf,
-    }),
+  await ensureStoryUpdate({
+    storyId: input.story.id,
+    updateType: input.assessment.disposition === "invalidated" ? "invalidation" : input.assessment.disposition === "reinforced" ? "confirmation" : "recalibration",
+    headline: input.assessment.whatChanged.slice(0, 90),
+    detail: `${input.assessment.acceptedExplanation}\n\nCountercase: ${input.assessment.strongestCountercase}`,
+    observedAt: input.analysisAsOf,
   });
   return updated[0] ?? { ...input.story, thesis: input.assessment.thesis, confidence: finiteConfidence(input.assessment.confidence, input.story.confidence) };
 }
 
 async function readMaintenanceMarker(engineRunId: string) {
-  const rows = await intelligenceRest<Array<{ metadata: Record<string, unknown> | null }>>(
-    `intelligence_engine_runs?select=metadata&id=eq.${encodeURIComponent(engineRunId)}&limit=1`,
+  const rows = await intelligenceRest<Array<{ research_run_id: string | null; metadata: Record<string, unknown> | null }>>(
+    `intelligence_engine_runs?select=research_run_id,metadata&id=eq.${encodeURIComponent(engineRunId)}&limit=1`,
   );
   const metadata = rows[0]?.metadata ?? {};
   const marker = metadata.storyMaintenance;
   return {
+    researchRunId: rows[0]?.research_run_id ?? null,
     metadata,
     marker: marker && typeof marker === "object" && !Array.isArray(marker) ? marker as Record<string, unknown> : null,
   };
+}
+
+function markerIds(marker: Record<string, unknown> | null, key: string) {
+  const value = marker?.[key];
+  return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
 }
 
 export async function persistStoryMaintenanceAssessments(input: {
@@ -444,40 +547,87 @@ export async function persistStoryMaintenanceAssessments(input: {
   const markerState = await readMaintenanceMarker(input.engineRunId);
   if (markerState.marker?.stageRunId === input.stageRunId) {
     return {
-      evaluatedStoryIds: Array.isArray(markerState.marker.evaluatedStoryIds) ? markerState.marker.evaluatedStoryIds.filter((id): id is string => typeof id === "string") : [],
-      materiallyChangedStoryIds: Array.isArray(markerState.marker.materiallyChangedStoryIds) ? markerState.marker.materiallyChangedStoryIds.filter((id): id is string => typeof id === "string") : [],
+      evaluatedStoryIds: markerIds(markerState.marker, "evaluatedStoryIds"),
+      materiallyChangedStoryIds: markerIds(markerState.marker, "materiallyChangedStoryIds"),
+      missingTargetStoryIds: markerIds(markerState.marker, "missingTargetStoryIds"),
+      rejectedMaterialStoryIds: markerIds(markerState.marker, "rejectedMaterialStoryIds"),
       updatedStories: [] as MaintenanceStory[],
       reused: true,
     };
   }
 
   const storyById = new Map(input.stories.map((story) => [story.id, story]));
-  const targetById = new Map(input.targets.map((target) => [target.story.id, target]));
+  const assessmentGroups = new Map<string, StoryMaintenanceAssessment[]>();
+  for (const assessment of input.assessments ?? []) {
+    const values = assessmentGroups.get(assessment.storyId) ?? [];
+    values.push(assessment);
+    assessmentGroups.set(assessment.storyId, values);
+  }
   const evaluatedStoryIds: string[] = [];
   const materiallyChangedStoryIds: string[] = [];
+  const missingTargetStoryIds: string[] = [];
+  const rejectedMaterialStoryIds: string[] = [];
   const updatedStories: MaintenanceStory[] = [];
 
-  for (const assessment of input.assessments ?? []) {
-    const story = storyById.get(assessment.storyId);
-    const target = targetById.get(assessment.storyId);
-    if (!story || !target) continue;
+  // Iterate the deterministic target list, not arbitrary model output. A target
+  // is only marked evaluated when exactly one valid assessment is returned.
+  for (const target of input.targets) {
+    const story = storyById.get(target.story.id);
+    const matching = assessmentGroups.get(target.story.id) ?? [];
+    if (!story || matching.length !== 1) {
+      missingTargetStoryIds.push(target.story.id);
+      continue;
+    }
+    const assessment = matching[0];
     const allowedIds = new Set(target.evidence.map((item) => item.id));
     const roles = evidenceRoleSets(assessment, allowedIds);
-    if (!roles.all.length) continue;
-    evaluatedStoryIds.push(story.id);
+    if (!roles.all.length) {
+      missingTargetStoryIds.push(story.id);
+      continue;
+    }
+
     const requestedMaterialChange = Boolean(assessment.materialChange) && assessment.disposition !== "unchanged";
-    const materialChange = requestedMaterialChange && materialEvidenceAllowed(roles.all, input.evidenceById);
+    const authorised = materialMutationAuthorised({
+      disposition: assessment.disposition,
+      evidenceIds: roles.all,
+      evidenceById: input.evidenceById,
+    });
+    const materialChange = requestedMaterialChange && authorised;
+    const effectiveDisposition = effectiveMaintenanceDisposition({
+      disposition: assessment.disposition,
+      requestedMaterialChange,
+      authorised,
+    });
+    const effectiveAssessment: StoryMaintenanceAssessment = {
+      ...assessment,
+      disposition: effectiveDisposition,
+      materialChange,
+    };
+    const decisiveEvidenceIds = materialChange
+      ? materialDecisiveEvidenceIds({ supporting: roles.supporting, contradicting: roles.contradicting })
+      : [];
+    if (requestedMaterialChange && !materialChange) rejectedMaterialStoryIds.push(story.id);
+    evaluatedStoryIds.push(story.id);
 
     if (!input.dryRun) {
       await linkStoryEvidence(story.id, roles);
-      await writeStoryState({ story, assessment: { ...assessment, materialChange }, evidenceIds: roles.all, evidenceById: input.evidenceById, analysisAsOf: input.analysisAsOf });
+      await writeStoryState({
+        story,
+        assessment: effectiveAssessment,
+        materialChange,
+        decisiveEvidenceIds,
+        allEvidenceIds: roles.all,
+        evidenceById: input.evidenceById,
+        analysisAsOf: input.analysisAsOf,
+      });
       if (materialChange) {
         const updated = await applyMaterialRevision({
           story,
-          assessment: { ...assessment, materialChange: true },
-          evidenceIds: roles.all,
+          assessment: effectiveAssessment,
+          evidenceIds: decisiveEvidenceIds,
           engineRunId: input.engineRunId,
           stageRunId: input.stageRunId,
+          researchRunId: markerState.researchRunId,
           analysisAsOf: input.analysisAsOf,
         });
         updatedStories.push(updated);
@@ -489,17 +639,18 @@ export async function persistStoryMaintenanceAssessments(input: {
   }
 
   if (!input.dryRun) {
-    const metadata = markerState.metadata;
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(input.engineRunId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         metadata: {
-          ...metadata,
+          ...markerState.metadata,
           storyMaintenance: {
             stageRunId: input.stageRunId,
             evaluatedStoryIds: unique(evaluatedStoryIds),
             materiallyChangedStoryIds: unique(materiallyChangedStoryIds),
+            missingTargetStoryIds: unique(missingTargetStoryIds),
+            rejectedMaterialStoryIds: unique(rejectedMaterialStoryIds),
             appliedAt: input.analysisAsOf,
           },
         },
@@ -510,6 +661,8 @@ export async function persistStoryMaintenanceAssessments(input: {
   return {
     evaluatedStoryIds: unique(evaluatedStoryIds),
     materiallyChangedStoryIds: unique(materiallyChangedStoryIds),
+    missingTargetStoryIds: unique(missingTargetStoryIds),
+    rejectedMaterialStoryIds: unique(rejectedMaterialStoryIds),
     updatedStories,
     reused: false,
   };
