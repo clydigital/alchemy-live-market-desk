@@ -43,6 +43,28 @@ export type MarketBeliefOutput = {
     affectedAssets: string[];
     evidenceIds: string[];
   }>;
+  storyAssessments: Array<{
+    storyId: string;
+    disposition: "unchanged" | "reinforced" | "weakened" | "reframed" | "invalidated";
+    materialChange: boolean;
+    supportingEvidenceIds: string[];
+    contradictingEvidenceIds: string[];
+    contextEvidenceIds: string[];
+    whatChanged: string;
+    marketReaction: string;
+    acceptedExplanation: string;
+    causalMechanism: string;
+    strongestSupport: string;
+    strongestContradiction: string;
+    strongestCountercase: string;
+    thesis: string;
+    confidence: number;
+    pricedAssessment: string;
+    confirmationTrigger: string;
+    invalidationTrigger: string;
+    nextCatalyst: string;
+    changeKinds: Array<"evidence" | "catalyst" | "price_confirmation" | "probability" | "cross_asset_transmission" | "official_communication" | "management_communication" | "watchlist_state">;
+  }>;
 };
 
 export type DivergenceOutput = {
@@ -190,6 +212,7 @@ export type LifecycleOutput = {
 const nullableString = { type: ["string", "null"] };
 const nullableNumber = { type: ["number", "null"], minimum: 0, maximum: 100 };
 const stringArray = { type: "array", items: { type: "string" } };
+const uniqueStringArray = { type: "array", items: { type: "string" }, uniqueItems: true };
 const requirementIdArray = {
   type: "array",
   items: { type: "string", enum: STABLE_REQUIREMENT_IDS },
@@ -199,7 +222,7 @@ const requirementIdArray = {
 export const MARKET_BELIEF_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["beliefs"],
+  required: ["beliefs", "storyAssessments"],
   properties: {
     beliefs: {
       type: "array",
@@ -214,6 +237,42 @@ export const MARKET_BELIEF_SCHEMA: JsonSchema = {
           consensusStrength: { type: "number", minimum: 0, maximum: 100 },
           affectedAssets: stringArray,
           evidenceIds: stringArray,
+        },
+      },
+    },
+    storyAssessments: {
+      type: "array",
+      maxItems: 10,
+      description: "Maintain existing Stories in the same state-assessment pass. Review only Stories whose slug appears in fresh evidence affectedTopics. Ask whether the existing thesis actually changed. A creator/video transcript is a research lead and cannot by itself justify materialChange=true. No new Story is created here.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["storyId", "disposition", "materialChange", "supportingEvidenceIds", "contradictingEvidenceIds", "contextEvidenceIds", "whatChanged", "marketReaction", "acceptedExplanation", "causalMechanism", "strongestSupport", "strongestContradiction", "strongestCountercase", "thesis", "confidence", "pricedAssessment", "confirmationTrigger", "invalidationTrigger", "nextCatalyst", "changeKinds"],
+        properties: {
+          storyId: { type: "string", description: "Must be an ID from existingStories and only when fresh evidence affectedTopics contains that Story slug." },
+          disposition: { type: "string", enum: ["unchanged", "reinforced", "weakened", "reframed", "invalidated"] },
+          materialChange: { type: "boolean", description: "True only when evidence changes thesis, probability/confidence materially, causal mechanism, confirmation/invalidation state, cross-asset transmission, or next catalyst. Repetition or ordinary confirmation is false." },
+          supportingEvidenceIds: uniqueStringArray,
+          contradictingEvidenceIds: uniqueStringArray,
+          contextEvidenceIds: uniqueStringArray,
+          whatChanged: { type: "string" },
+          marketReaction: { type: "string" },
+          acceptedExplanation: { type: "string" },
+          causalMechanism: { type: "string", description: "Explain driver -> mechanism -> market reaction -> implication without inventing links." },
+          strongestSupport: { type: "string" },
+          strongestContradiction: { type: "string" },
+          strongestCountercase: { type: "string", description: "Strongest case that the existing thesis remains right or that the apparent change is only macro/price noise." },
+          thesis: { type: "string", description: "Return the current thesis unchanged when materialChange=false; return the evidence-supported revised thesis when true." },
+          confidence: { type: "number", minimum: 0, maximum: 100 },
+          pricedAssessment: { type: "string" },
+          confirmationTrigger: { type: "string" },
+          invalidationTrigger: { type: "string" },
+          nextCatalyst: { type: "string" },
+          changeKinds: {
+            type: "array",
+            uniqueItems: true,
+            items: { type: "string", enum: ["evidence", "catalyst", "price_confirmation", "probability", "cross_asset_transmission", "official_communication", "management_communication", "watchlist_state"] },
+          },
         },
       },
     },
