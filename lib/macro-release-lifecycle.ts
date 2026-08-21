@@ -2,6 +2,7 @@ export const MACRO_RELEASE_LIFECYCLE_STATUSES = [
   "scheduled",
   "pre_release",
   "released_pending_ingestion",
+  "ingestion_pending",
   "completed",
   "revision_detected",
   "stale_error",
@@ -13,6 +14,7 @@ type MacroReleaseLike = {
   release_date: string;
   status: string;
   actual: string | null;
+  last_ingestion_attempt_at?: string | null;
   ingestion_gap_reason?: string | null;
 };
 
@@ -26,6 +28,10 @@ export const DEFAULT_MACRO_INGESTION_GRACE_MS = 4 * 60 * 60 * 1000;
 
 function hasActual(value: string | null | undefined) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function validTimestamp(value: string | null | undefined) {
+  return Boolean(value && Number.isFinite(Date.parse(value)));
 }
 
 export function deriveMacroReleaseLifecycle(
@@ -62,14 +68,25 @@ export function deriveMacroReleaseLifecycle(
       status: "released_pending_ingestion",
       ingestionGap: true,
       ingestionGapReason: release.ingestion_gap_reason
-        || "Official Actual is not yet available in the ingestion store after the scheduled release time.",
+        || "The release window has passed and the official Actual is still inside the normal ingestion grace period.",
     };
   }
+
+  // Time passing is not an ingestion error. Only call a release stale/error when
+  // an ingestion attempt actually ran and still failed to persist an Actual.
+  if (!validTimestamp(release.last_ingestion_attempt_at)) {
+    return {
+      status: "ingestion_pending",
+      ingestionGap: true,
+      ingestionGapReason: "No official-Actual ingestion attempt is recorded for this past release. The value is pending collection, not a confirmed ingestion error.",
+    };
+  }
+
   return {
     status: "stale_error",
     ingestionGap: true,
     ingestionGapReason: release.ingestion_gap_reason
-      || "Official Actual remains unavailable beyond the post-release ingestion grace window.",
+      || "An official-Actual ingestion attempt was recorded but no verified Actual is stored beyond the post-release grace window.",
   };
 }
 
