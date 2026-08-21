@@ -77,7 +77,7 @@ begin
   if jsonb_typeof(existing_targets) <> 'array' then
     update public.intelligence_engine_runs run
     set metadata = jsonb_set(
-          jsonb_set(run.metadata, '{frozenInputs}', coalesce(run.metadata -> 'frozenInputs', '{}'::jsonb), true),
+          jsonb_set(coalesce(run.metadata, '{}'::jsonb), '{frozenInputs}', coalesce(run.metadata -> 'frozenInputs', '{}'::jsonb), true),
           '{frozenInputs,storyReviewTargets}',
           p_targets,
           true
@@ -252,7 +252,6 @@ comment on column public.research_debt.story_id is
   'Optional Story-local scope. Null debt remains diagnostic and cannot block unrelated Story publication.';
 
 alter table public.macro_releases
-  add column if not exists ingestion_last_attempt_at timestamptz,
   add column if not exists ingestion_attempt_status text,
   add column if not exists ingestion_retry_exhausted boolean not null default false;
 
@@ -293,7 +292,7 @@ begin
         when nullif(btrim(release.actual), '') is not null then 'completed'
         when release.release_date > p_now + interval '24 hours' then 'scheduled'
         when release.release_date > p_now then 'pre_release'
-        when release.ingestion_last_attempt_at is null then 'ingestion_pending'
+        when release.last_ingestion_attempt_at is null then 'ingestion_pending'
         when release.ingestion_retry_exhausted then 'stale_error'
         else 'released_pending_ingestion'
       end,
@@ -303,7 +302,7 @@ begin
       end,
       ingestion_gap_reason = case
         when nullif(btrim(release.actual), '') is not null or release.release_date > p_now then null
-        when release.ingestion_last_attempt_at is null
+        when release.last_ingestion_attempt_at is null
           then 'The release time passed and no official Actual ingestion attempt is recorded yet.'
         when release.ingestion_retry_exhausted
           then coalesce(release.ingestion_gap_reason, 'Verified official Actual ingestion attempts failed and the retry policy is exhausted.')
@@ -316,7 +315,7 @@ begin
           when nullif(btrim(release.actual), '') is not null then 'completed'
           when release.release_date > p_now + interval '24 hours' then 'scheduled'
           when release.release_date > p_now then 'pre_release'
-          when release.ingestion_last_attempt_at is null then 'ingestion_pending'
+          when release.last_ingestion_attempt_at is null then 'ingestion_pending'
           when release.ingestion_retry_exhausted then 'stale_error'
           else 'released_pending_ingestion'
         end then p_now
