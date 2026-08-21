@@ -10,7 +10,7 @@ test("old release with no ingestion attempt is ingestion_pending, never age-only
     release_date: "2026-08-01T12:30:00.000Z",
     status: "upcoming",
     actual: null,
-    ingestion_last_attempt_at: null,
+    last_ingestion_attempt_at: null,
   }, now);
 
   assert.equal(lifecycle.status, "ingestion_pending");
@@ -23,7 +23,7 @@ test("attempted ingestion inside retry state remains released_pending_ingestion"
     release_date: "2026-08-01T12:30:00.000Z",
     status: "ingestion_pending",
     actual: null,
-    ingestion_last_attempt_at: "2026-08-11T11:30:00.000Z",
+    last_ingestion_attempt_at: "2026-08-11T11:30:00.000Z",
     ingestion_attempt_status: "failed_retryable",
     ingestion_retry_exhausted: false,
   }, now);
@@ -37,7 +37,7 @@ test("a verified failed attempt becomes stale_error only when retry policy is ex
     release_date: "2026-08-10T12:30:00.000Z",
     status: "released_pending_ingestion",
     actual: null,
-    ingestion_last_attempt_at: "2026-08-11T10:00:00.000Z",
+    last_ingestion_attempt_at: "2026-08-11T10:00:00.000Z",
     ingestion_attempt_status: "failed",
     ingestion_retry_exhausted: true,
   }, now);
