@@ -5,16 +5,30 @@ import { deriveMacroReleaseLifecycle } from "../lib/macro-release-lifecycle.ts";
 
 const now = new Date("2026-08-11T12:00:00.000Z");
 
-test("a past release with no Actual becomes an explicit ingestion gap", () => {
+test("an old release with no ingestion attempt is pending, not an error", () => {
   const lifecycle = deriveMacroReleaseLifecycle({
     release_date: "2026-08-10T12:30:00.000Z",
     status: "upcoming",
     actual: null,
+    last_ingestion_attempt_at: null,
+  }, now);
+
+  assert.equal(lifecycle.status, "ingestion_pending");
+  assert.equal(lifecycle.ingestionGap, true);
+  assert.match(lifecycle.ingestionGapReason || "", /no official-Actual ingestion attempt/i);
+});
+
+test("an old release becomes stale_error only after a recorded ingestion attempt", () => {
+  const lifecycle = deriveMacroReleaseLifecycle({
+    release_date: "2026-08-10T12:30:00.000Z",
+    status: "released_pending_ingestion",
+    actual: null,
+    last_ingestion_attempt_at: "2026-08-10T17:00:00.000Z",
   }, now);
 
   assert.equal(lifecycle.status, "stale_error");
   assert.equal(lifecycle.ingestionGap, true);
-  assert.match(lifecycle.ingestionGapReason || "", /Actual remains unavailable/i);
+  assert.match(lifecycle.ingestionGapReason || "", /attempt was recorded/i);
 });
 
 test("the short post-release grace window remains visible and non-final", () => {
