@@ -64,7 +64,7 @@ import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalizatio
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
-import { explicitlyMentionedAssets } from "@/lib/instrument-mentions";
+import { explicitlyMentionedAssets, normaliseInstrument } from "@/lib/instrument-mentions";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -280,6 +280,11 @@ function clamp(value: number, min = 0, max = 100) {
 
 function unique<T>(values: T[]) {
   return [...new Set(values)];
+}
+
+function onlyExplicitAssets(candidates: string[], allowed: string[]) {
+  const allowedKeys = new Set(allowed.map(normaliseInstrument));
+  return unique(candidates.filter((asset) => allowedKeys.has(normaliseInstrument(asset))));
 }
 
 function validUrlList(value: unknown) {
@@ -927,9 +932,11 @@ async function persistStoryAssessments(input: {
   }
 }
 
-async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<string>) {
+async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<string, EvidencePackItem>) {
+  const knownEvidence = new Set(evidenceById.keys());
   const specs = output.beliefs.flatMap((belief) => {
     const evidenceIds = onlyKnownIds(belief.evidenceIds, knownEvidence);
+    const allowedAssets = unique(evidenceIds.flatMap((id) => evidenceById.get(id)?.affectedAssets ?? []));
     if (!belief.statement.trim()) return [];
     const beliefKey = stableKey("belief", belief.statement.trim().toLowerCase(), [...belief.affectedAssets].sort());
     return [{
@@ -937,7 +944,7 @@ async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<str
       statement: belief.statement.trim(),
       priced_state: belief.pricedState?.trim() || null,
       consensus_strength: clamp(belief.consensusStrength),
-      affected_assets: unique(belief.affectedAssets),
+      affected_assets: onlyExplicitAssets(belief.affectedAssets, allowedAssets),
       evidence_ids: evidenceIds,
       observed_at: new Date().toISOString(),
       status: "active",
@@ -1006,7 +1013,7 @@ async function persistHypotheses(
       hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), hypothesis.causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
       causal_mechanism: hypothesis.causalMechanism.trim(),
-      affected_assets: unique(hypothesis.affectedAssets),
+      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief?.affected_assets ?? []),
       confirmation_criteria: unique(hypothesis.confirmationCriteria.filter(Boolean)),
       invalidation_criteria: unique(hypothesis.invalidationCriteria.filter(Boolean)),
       next_catalysts: unique(hypothesis.nextCatalysts.filter(Boolean)),
@@ -1850,7 +1857,7 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 2_800,
     });
     await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
-    const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
+    const beliefs = await persistBeliefs(beliefStage.data, evidenceById);
     if (!beliefs.length) {
       warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
@@ -1982,19 +1989,21 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 9_000,
     });
 
+    const reviewedById = new Map(reviewed.map((hypothesis) => [hypothesis.id, hypothesis]));
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
       if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
+      const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
       const normalized: CandidateWorking = {
         ...candidate,
         decisiveEvidenceIds,
-        affectedAssets: unique(candidate.affectedAssets),
+        affectedAssets,
         candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
         noveltyFingerprint: hash(JSON.stringify({
           event: candidate.eventSignature.toLowerCase(),
           thesis: candidate.thesis.toLowerCase(),
           mechanism: candidate.causalMechanism.toLowerCase(),
-          assets: [...candidate.affectedAssets].sort(),
+          assets: [...affectedAssets].sort(),
           decisiveEvidenceIds: [...decisiveEvidenceIds].sort(),
           confirmation: [...candidate.confirmationCriteria].sort(),
           invalidation: [...candidate.invalidationCriteria].sort(),
