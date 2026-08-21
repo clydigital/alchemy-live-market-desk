@@ -3,7 +3,9 @@ import "server-only";
 import {
   currentIntelligenceInvocation,
   frozenRead,
+  frozenStoryReviewTargets,
   rememberFrozenRead,
+  rememberFrozenStoryReviewTargets,
   shouldDeferStageClaim,
 } from "./invocation-context.ts";
 
@@ -144,4 +146,23 @@ export async function intelligenceRest<T>(path: string, init: RequestInit = {}):
 
 export function restSelect(value: string) {
   return encodeURIComponent(value).replace(/%2C/g, ",").replace(/%28/g, "(").replace(/%29/g, ")");
+}
+
+export async function freezeStoryReviewTargets(targets: unknown[]) {
+  const existing = frozenStoryReviewTargets();
+  if (existing !== null) return structuredClone(existing);
+
+  const state = currentIntelligenceInvocation();
+  if (!state?.engineRunId) return targets;
+  const rows = await rawIntelligenceRest<Array<{ targets: unknown[] }>>("rpc/freeze_intelligence_story_review_targets", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      p_engine_run_id: state.engineRunId,
+      p_targets: targets,
+    }),
+  });
+  const frozen = Array.isArray(rows[0]?.targets) ? rows[0].targets : targets;
+  rememberFrozenStoryReviewTargets(frozen);
+  return structuredClone(frozen);
 }
