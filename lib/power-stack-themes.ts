@@ -4,7 +4,8 @@ import { type IntakeItemInput } from "@/lib/research-update";
 
 const POWER_STACK_FEED_URL = "https://clydigital.github.io/power-stack/data/developing-themes.json";
 const MAX_THEMES = 12;
-const MAX_RADAR_ITEMS = 18;
+const MAX_WATCH_LEADS = 8;
+const MAX_LEADS_PER_THEME = 2;
 const THEME_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1_000;
 
 type PowerStackNews = {
@@ -70,24 +71,23 @@ function publisher(news: PowerStackNews) {
 
 function itemKey(theme: PowerStackTheme, url: string, publishedAt: string) {
   const identity = `${theme.id || theme.name || "theme"}|${url}|${publishedAt}`;
-  return `power-stack-lead:${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`;
+  return `power-stack-watch:${createHash("sha256").update(identity).digest("hex").slice(0, 24)}`;
 }
 
-function adjacencyContext(theme: PowerStackTheme) {
-  const watch = unique(theme.watch || []).slice(0, 12);
-  const assets = unique([...(theme.powerStackTickers || []), ...(theme.researchCandidates || [])]).slice(0, 16);
-  const context = [
-    `Power Stack discovery context only${theme.name ? ` for ${theme.name}` : ""}; this context is not evidence and must not self-corroborate Live.`,
-    watch.length ? `Adjacent news and data to check: ${watch.join("; ")}.` : null,
-    assets.length ? `Adjacent assets to cross-check: ${assets.join(", ")}.` : null,
-    "Test one causal step upstream and downstream: physical constraints, policy, financing, cross-asset confirmation, earnings or calendar catalysts, and second-order beneficiaries or losers. Preserve missing adjacent evidence as a research gap rather than inferring it.",
-  ];
-  return context.filter(Boolean).join(" ");
+function watchContext(theme: PowerStackTheme) {
+  const checks = unique(theme.watch || []).slice(0, 2);
+  const themeName = theme.name || theme.id || "developing theme";
+  return [
+    `Power Stack watchlist prompt only for ${themeName}.`,
+    "Ask whether anything materially changed since the previous research cycle; do not treat the Power Stack synthesis as evidence or corroboration.",
+    checks.length ? `Low-cost adjacent checks: ${checks.join("; ")}.` : null,
+    "Only independently acquired current news or data may alter Market Belief, Divergence, confidence or publication decisions.",
+  ].filter(Boolean).join(" ");
 }
 
-function linkedItems(theme: PowerStackTheme, fallbackDate: Date): IntakeItemInput[] {
-  const context = adjacencyContext(theme);
-  return (Array.isArray(theme.mainNews) ? theme.mainNews : []).flatMap((news) => {
+function linkedWatchItems(theme: PowerStackTheme, fallbackDate: Date): IntakeItemInput[] {
+  const context = watchContext(theme);
+  return (Array.isArray(theme.mainNews) ? theme.mainNews : []).slice(0, MAX_LEADS_PER_THEME).flatMap((news) => {
     const url = validHttpsUrl(news.url);
     const title = (news.title || news.headline || "").trim();
     if (!url || !title) return [];
@@ -101,25 +101,22 @@ function linkedItems(theme: PowerStackTheme, fallbackDate: Date): IntakeItemInpu
       title: title.slice(0, 500),
       url,
       publishedAt,
-      // Canonical claim text remains the linked source headline. Power Stack's
-      // own thematic synthesis is deliberately kept out of the evidence claim.
-      summary: title.slice(0, 2_000),
-      sourceQuality: 68,
-      relevance: 72,
-      novelty: 68,
-      materiality: 64,
-      recommendedAction: "collect_evidence",
-      newsSignal: "Underlying source discovered through the auxiliary Power Stack thematic radar.",
+      summary: `Developing-theme watch lead: ${title}`.slice(0, 2_000),
+      // Deliberately low candidate weight. Power Stack is a read-through of
+      // developing themes, not a canonical evidence provider or story driver.
+      sourceQuality: 35,
+      relevance: 35,
+      novelty: 30,
+      materiality: 30,
+      recommendedAction: "monitor",
+      newsSignal: "Low-weight developing-theme lead from Power Stack; discovery only.",
       divergenceKind: "none",
       divergenceNote: context.slice(0, 2_000),
-      evidence: [{
-        title: title.slice(0, 500),
-        url,
-        publisher: source,
-        publishedAt,
-        claim: title.slice(0, 1_000),
-      }],
-      reviewReason: "Power Stack is acting only as a discovery and adjacency layer. The linked source carries the traceable evidence; Power Stack's internal synthesis must never count as a separate corroborating source.",
+      // Zero evidentiary weight at intake. The linked source must be acquired
+      // independently through Live's normal source path before it can support
+      // or contradict a canonical claim.
+      evidence: [],
+      reviewReason: "Power Stack is only a developing-theme watchlist. This lead may prompt one or two adjacent checks, but it must not change Market Belief, confidence, divergence or Story state unless independent current evidence is acquired elsewhere.",
     }];
   });
 }
@@ -129,7 +126,7 @@ export async function acquirePowerStackThemes(now = new Date()): Promise<PowerSt
     const response = await fetch(POWER_STACK_FEED_URL, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "Alchemy Live Desk thematic adjacency research",
+        "User-Agent": "Alchemy Live Desk developing-theme watchlist",
       },
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
@@ -142,20 +139,19 @@ export async function acquirePowerStackThemes(now = new Date()): Promise<PowerSt
         const updated = Date.parse(theme.lastUpdated);
         return Number.isFinite(updated) && now.getTime() - updated <= THEME_MAX_AGE_MS;
       })
+      .sort((a, b) => Date.parse(b.lastUpdated || "") - Date.parse(a.lastUpdated || ""))
       .slice(0, MAX_THEMES);
-    const items = themes.flatMap((theme) => linkedItems(theme, now)).slice(0, MAX_RADAR_ITEMS);
-    const themesWithLinkedEvidence = themes.filter((theme) => linkedItems(theme, now).length > 0).length;
+    const items = themes.flatMap((theme) => linkedWatchItems(theme, now)).slice(0, MAX_WATCH_LEADS);
+    const themesWithWatchLeads = themes.filter((theme) => linkedWatchItems(theme, now).length > 0).length;
     return {
       items,
-      note: items.length
-        ? `Power Stack auxiliary radar surfaced ${items.length} linked source item${items.length === 1 ? "" : "s"} across ${themesWithLinkedEvidence} active theme${themesWithLinkedEvidence === 1 ? "" : "s"}. Power Stack itself is not persisted as canonical evidence; it only widens adjacent-news and adjacent-data checks.`
-        : "Power Stack auxiliary radar loaded successfully but exposed no fresh traceable linked source items.",
+      note: `Power Stack watchlist scanned ${themes.length} developing theme${themes.length === 1 ? "" : "s"}; queued ${items.length} low-weight watch lead${items.length === 1 ? "" : "s"} across ${themesWithWatchLeads} theme${themesWithWatchLeads === 1 ? "" : "s"}. Canonical evidence contribution: 0. Independent Live sources must confirm any material change.`,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown acquisition failure";
     return {
       items: [],
-      note: `Power Stack auxiliary radar unavailable (${detail.slice(0, 240)}); canonical research continues without blocking the run.`,
+      note: `Power Stack developing-theme watchlist unavailable (${detail.slice(0, 240)}); canonical research continues without blocking the run.`,
     };
   }
 }

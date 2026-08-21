@@ -68,7 +68,7 @@ function breadthChecks(breadth: BreadthSnapshot[]) {
     "Breadth universe coverage",
     coverageStatus,
     breadth.length ? breadth.map((item) => `${item.label}: ${item.sampleSize}/${item.targetSize}`).join("; ") : "No breadth snapshots were produced.",
-    coverageStatus === "pass" ? "No action required." : "Repair missing Nasdaq histories before using breadth in story scoring.",
+    coverageStatus === "pass" ? "No action required." : "Quarantine incomplete breadth from story scoring and repair the missing Nasdaq histories.",
   ));
 
   const datesValid = breadth.length > 0 && breadth.every((item) => {
@@ -84,7 +84,7 @@ function breadthChecks(breadth: BreadthSnapshot[]) {
     datesValid
       ? breadth.map((item) => `${item.label}: ${item.current.asOf} / ${item.weekAgo.asOf} / ${item.monthAgo.asOf}`).join("; ")
       : "Current, five-session and 21-session breadth dates are missing or not ordered.",
-    datesValid ? "No action required." : "Block the update and rebuild all breadth frames on shared market dates.",
+    datesValid ? "No action required." : "Quarantine affected breadth frames and rebuild them on shared market dates; unrelated research may continue.",
   ));
 
   const denominatorValid = breadth.length > 0 && breadth.every((item) => [item.current, item.weekAgo, item.monthAgo].every((frame) => frame.sampleSize === item.sampleSize));
@@ -94,7 +94,7 @@ function breadthChecks(breadth: BreadthSnapshot[]) {
     "Stable breadth denominators",
     denominatorValid ? "pass" : "fail",
     denominatorValid ? "Current, weekly and monthly frames use the same eligible names." : "At least one comparison frame uses a different denominator.",
-    denominatorValid ? "No action required." : "Do not compare the frames until the eligible universe is held constant.",
+    denominatorValid ? "No action required." : "Quarantine cross-frame breadth comparisons until the eligible universe is held constant.",
   ));
 
   const valuesValid = breadth.length > 0 && breadth.every((item) => [item.current, item.weekAgo, item.monthAgo].every((frame) => {
@@ -109,7 +109,7 @@ function breadthChecks(breadth: BreadthSnapshot[]) {
     "Breadth value ranges",
     valuesValid ? "pass" : "fail",
     valuesValid ? "Percentages are within 0-100 and high/low counts fit the sample." : "A breadth percentage or count is outside its permitted range.",
-    valuesValid ? "No action required." : "Block publication and inspect the affected frame calculation.",
+    valuesValid ? "No action required." : "Quarantine the affected frame, record research debt and inspect the calculation.",
   ));
   return checks;
 }
@@ -125,7 +125,7 @@ function seriesChecks(market: MarketData) {
     "Market-series observations",
     populationStatus,
     `${populated.length}/${market.series.length} series contain at least 22 valid sessions.`,
-    populationStatus === "pass" ? "No action required." : "Review failed upstream requests before refreshing analysis.",
+    populationStatus === "pass" ? "No action required." : "Quarantine missing series from affected claims and review failed upstream requests.",
   ));
 
   const malformed = market.series.filter((item) => {
@@ -139,7 +139,7 @@ function seriesChecks(market: MarketData) {
     "Observation ordering and uniqueness",
     malformed.length ? "fail" : "pass",
     malformed.length ? `Invalid or duplicate timestamps: ${malformed.map((item) => item.symbol).join(", ")}.` : "All populated series are finite, unique and strictly chronological.",
-    malformed.length ? "Block the update and deduplicate or reorder the named histories." : "No action required.",
+    malformed.length ? "Quarantine the named histories and deduplicate or reorder them before using them in claims." : "No action required.",
   ));
 
   const mismatched = market.series.filter((item) => {
@@ -152,7 +152,7 @@ function seriesChecks(market: MarketData) {
     "Displayed-market reconciliation",
     mismatched.length ? "fail" : "pass",
     mismatched.length ? `Last price or change does not reconcile for ${mismatched.map((item) => item.symbol).join(", ")}.` : "Last values and five/21-session changes reproduce from the source observations.",
-    mismatched.length ? "Block the update and recompute the derived fields." : "No action required.",
+    mismatched.length ? "Quarantine the affected derived fields and recompute them before those fields support a claim." : "No action required.",
   ));
 
   const official = market.series.filter((item) => item.sourceName.startsWith("Nasdaq") && item.points.length);
@@ -166,7 +166,7 @@ function seriesChecks(market: MarketData) {
     "Latest official market session",
     freshnessStatus,
     lagDays === null ? "A latest Nasdaq session could not be established." : `Latest Nasdaq observation is ${lagDays} calendar day${lagDays === 1 ? "" : "s"} behind the check time.`,
-    freshnessStatus === "pass" ? "No action required." : freshnessStatus === "warning" ? "Confirm a weekend or market holiday before publishing." : "Block the update and restore the official market feed.",
+    freshnessStatus === "pass" ? "No action required." : freshnessStatus === "warning" ? "Confirm a weekend or market holiday before using freshness-sensitive claims." : "Quarantine freshness-sensitive market claims and restore the official feed; unrelated research may continue.",
   ));
 
   const invalidSources = market.series.filter((item) => !item.sourceName || !/^https:\/\//.test(item.sourceUrl));
@@ -176,7 +176,7 @@ function seriesChecks(market: MarketData) {
     "Source lineage",
     invalidSources.length ? "fail" : "pass",
     invalidSources.length ? `Missing official source metadata: ${invalidSources.map((item) => item.symbol).join(", ")}.` : "Every market series names its source and provides an HTTPS source link.",
-    invalidSources.length ? "Block publication until source lineage is restored." : "No action required.",
+    invalidSources.length ? "Quarantine the affected series until source lineage is restored." : "No action required.",
   ));
   return checks;
 }
@@ -191,7 +191,7 @@ export function runAccuracyCheck(market: MarketData): AccuracyReport {
     "Market-pulse reproduction",
     pulseValid ? "pass" : "fail",
     pulseValid ? `Weekly score ${market.pulseWeek}; monthly score ${market.pulseMonth}. Both reproduce from market moves and breadth.` : "One or both pulse scores do not reproduce from their inputs.",
-    pulseValid ? "No action required." : "Block downstream story scoring until the pulse calculation reconciles.",
+    pulseValid ? "No action required." : "Quarantine the pulse from story scoring until the calculation reconciles; other evidence remains usable.",
   ));
 
   const counts = checks.reduce<Record<AccuracyCheckStatus, number>>((result, item) => {
@@ -200,11 +200,14 @@ export function runAccuracyCheck(market: MarketData): AccuracyReport {
   }, { pass: 0, warning: 0, fail: 0 });
   const status: AccuracyCheckStatus = counts.fail ? "fail" : counts.warning ? "warning" : "pass";
   const score = Math.round(checks.reduce((total, item) => total + (item.status === "pass" ? 100 : item.status === "warning" ? 60 : 0), 0) / checks.length);
-  const updateGate = status === "fail" ? "blocked" : status === "warning" ? "review" : "open";
+  // State, not gate: deterministic integrity failures quarantine only the
+  // affected market-data claims. They never suppress an otherwise valid
+  // canonical research run or unrelated traceable evidence.
+  const updateGate: AccuracyReport["updateGate"] = status === "pass" ? "open" : "review";
   const summary = status === "pass"
-    ? "All deterministic checks passed. The data update may proceed to editorial logic."
+    ? "All deterministic market-data checks passed."
     : status === "warning"
-      ? "The update needs a human freshness or coverage review before story logic runs."
-      : "The update is blocked. At least one source, calculation or reconciliation check failed.";
+      ? "Market data has review diagnostics. Use the affected fields cautiously while canonical research continues."
+      : "Some market-data integrity checks failed. Quarantine the affected metrics and record research debt; unaffected canonical research continues.";
   return { checkedAt: new Date().toISOString(), status, score, updateGate, summary, checks, counts };
 }
