@@ -35,6 +35,27 @@ export type ExistingStoryPackItem = {
   assets: string[];
 };
 
+export type StoryReviewTargetPackItem = {
+  story: ExistingStoryPackItem;
+  reason: string;
+  reasonRank: number;
+  reasons: string[];
+  queueIds: string[];
+  relevantEvidence: EvidencePackItem[];
+  selectedAt: string;
+};
+
+export type StoryAssessmentDisposition = "unchanged" | "reinforced" | "weakened" | "reframed" | "invalidated";
+
+export type StoryAssessmentOutput = {
+  storyId: string;
+  disposition: StoryAssessmentDisposition;
+  rationale: string;
+  confidenceDelta: number;
+  proposedThesis: string | null;
+  evidenceIds: string[];
+};
+
 export type MarketBeliefOutput = {
   beliefs: Array<{
     statement: string;
@@ -43,6 +64,7 @@ export type MarketBeliefOutput = {
     affectedAssets: string[];
     evidenceIds: string[];
   }>;
+  storyAssessments: StoryAssessmentOutput[];
 };
 
 export type DivergenceOutput = {
@@ -199,7 +221,7 @@ const requirementIdArray = {
 export const MARKET_BELIEF_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["beliefs"],
+  required: ["beliefs", "storyAssessments"],
   properties: {
     beliefs: {
       type: "array",
@@ -213,6 +235,23 @@ export const MARKET_BELIEF_SCHEMA: JsonSchema = {
           pricedState: nullableString,
           consensusStrength: { type: "number", minimum: 0, maximum: 100 },
           affectedAssets: stringArray,
+          evidenceIds: stringArray,
+        },
+      },
+    },
+    storyAssessments: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["storyId", "disposition", "rationale", "confidenceDelta", "proposedThesis", "evidenceIds"],
+        properties: {
+          storyId: { type: "string" },
+          disposition: { type: "string", enum: ["unchanged", "reinforced", "weakened", "reframed", "invalidated"] },
+          rationale: { type: "string" },
+          confidenceDelta: { type: "number", minimum: -100, maximum: 100 },
+          proposedThesis: nullableString,
           evidenceIds: stringArray,
         },
       },
