@@ -43,7 +43,7 @@ test("unchanged and creator-only assessments advance state without rewriting Sto
 });
 
 test("Macro stale_error requires an explicit exhausted retry and source health is separate", () => {
-  assert.match(migration, /when release\.ingestion_last_attempt_at is null then 'ingestion_pending'/);
+  assert.match(migration, /when release\.last_ingestion_attempt_at is null then 'ingestion_pending'/);
   assert.match(migration, /when release\.ingestion_retry_exhausted then 'stale_error'/);
   assert.doesNotMatch(migration, /release_date >= p_now - p_ingestion_grace[\s\S]{0,120}stale_error/);
   assert.match(macroPage, /Latest Macro source attempt degraded/);
