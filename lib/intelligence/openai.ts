@@ -190,6 +190,12 @@ export async function runStructuredStage<T>({
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const modelInput = canonicalStageInput(stageKey, input);
+  // Market Belief now carries the bounded existing-Story maintenance output in
+  // the same provider call. Give strict JSON enough headroom to finish instead
+  // of forcing a truncation/retry loop. This does not add another model call.
+  const effectiveMaxOutputTokens = stageKey === "market_belief"
+    ? Math.max(maxOutputTokens, 4_500)
+    : maxOutputTokens;
   const body = {
     model,
     instructions,
@@ -204,7 +210,7 @@ export async function runStructuredStage<T>({
         schema: responsesCompatibleJsonSchema(schema),
       },
     },
-    max_output_tokens: maxOutputTokens,
+    max_output_tokens: effectiveMaxOutputTokens,
     store: false,
   };
 
@@ -235,7 +241,7 @@ export async function runStructuredStage<T>({
   return executeProviderWithRetry<T>({
     fetcher,
     fallbackModel: model,
-    maxOutputTokens,
+    maxOutputTokens: effectiveMaxOutputTokens,
     maxAttempts: attemptLimit,
     sleepFn: async (attempt, retryAfter) => {
       await sleep(retryDelay(attempt, retryAfter));

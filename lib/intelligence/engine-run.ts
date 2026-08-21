@@ -22,7 +22,8 @@ function validFrozenInputs(value: unknown): value is FrozenIntelligenceInputs {
     && (input.macroSnapshotId === null || typeof input.macroSnapshotId === "string")
     && (input.stories === null || Array.isArray(input.stories))
     && (input.evidence === null || Array.isArray(input.evidence))
-    && (input.researchDebt === null || Array.isArray(input.researchDebt));
+    && (input.researchDebt === null || Array.isArray(input.researchDebt))
+    && (input.storyReviewTargets == null || Array.isArray(input.storyReviewTargets));
 }
 
 async function initialFrozenInputs(input: {
@@ -32,7 +33,10 @@ async function initialFrozenInputs(input: {
   startedAt: string | null | undefined;
 }) {
   const existing = input.metadata?.frozenInputs;
-  if (validFrozenInputs(existing)) return existing;
+  if (validFrozenInputs(existing)) return {
+    ...existing,
+    storyReviewTargets: Array.isArray(existing.storyReviewTargets) ? existing.storyReviewTargets : null,
+  };
 
   let macroSnapshotId: string | null = null;
   if (input.researchRunId) {
@@ -48,6 +52,7 @@ async function initialFrozenInputs(input: {
     stories: null,
     evidence: null,
     researchDebt: null,
+    storyReviewTargets: null,
   };
   await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(input.engineRunId)}`, {
     method: "PATCH",

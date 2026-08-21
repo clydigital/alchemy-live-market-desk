@@ -36,7 +36,9 @@ export type MacroCaptureAttempt = {
   rawMarkdown: string | null;
   transportStatus: number | null;
   transportErrorCode: string | null;
+  transportErrorMessage: string | null;
   usedAuthentication: boolean;
+  authenticationMode: "bearer" | "none";
 };
 
 export type MacroSectionManifest = {
@@ -109,7 +111,9 @@ function failedAttempt(input: {
     rawMarkdown: null,
     transportStatus: input.reader.status,
     transportErrorCode: input.reader.errorCode,
+    transportErrorMessage: input.reader.errorMessage,
     usedAuthentication: input.reader.usedAuthentication,
+    authenticationMode: input.reader.authenticationMode,
   };
 }
 
@@ -175,7 +179,9 @@ export async function captureMacroIndicatorsWithDependencies(
     rawMarkdown: reader.text,
     transportStatus: reader.status,
     transportErrorCode: null,
+    transportErrorMessage: null,
     usedAuthentication: reader.usedAuthentication,
+    authenticationMode: reader.authenticationMode,
   });
 
   await options.store.insertSections(attemptSnapshotId, buildSectionManifests(snapshot));

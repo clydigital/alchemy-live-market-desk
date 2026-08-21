@@ -70,8 +70,8 @@ test("Jina Reader uses authenticated Markdown transport without returning creden
   assert.equal(JSON.stringify(result).includes(secret), false);
 });
 
-test("Jina transport failures are bounded and do not return provider bodies", async () => {
-  const fetchImpl = (async () => new Response("sensitive provider body", { status: 429, statusText: "Too Many Requests" })) as typeof fetch;
+test("Jina transport failures preserve a bounded diagnostic excerpt without leaking credentials", async () => {
+  const fetchImpl = (async () => new Response("provider diagnostic " + "x".repeat(2_000), { status: 422, statusText: "Unprocessable Entity" })) as typeof fetch;
   const result = await fetchJinaReader({
     sourceUrl: "https://macro-indicators-a3d.pages.dev/",
     apiKey: "secret",
@@ -80,8 +80,11 @@ test("Jina transport failures are bounded and do not return provider bodies", as
 
   assert.equal(result.ok, false);
   assert.equal(result.errorCode, "http_error");
-  assert.equal(result.status, 429);
+  assert.equal(result.status, 422);
   assert.equal(result.text, "");
+  assert.match(result.errorMessage || "", /provider diagnostic/);
+  assert.ok((result.errorMessage?.length ?? 0) <= 1_000);
+  assert.equal(result.authenticationMode, "bearer");
   assert.equal(JSON.stringify(result).includes("secret"), false);
 });
 

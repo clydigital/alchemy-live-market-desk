@@ -2,8 +2,9 @@ import type { AlchemyArticle } from "@/lib/alchemy";
 import { findMarketSeries, type ArticleChartIdea, type ArticleIdeaDirection, type ArticleIdeaStatus } from "@/lib/article-idea-status";
 import type { MarketSeriesObservation } from "@/lib/data";
 import type { MarketSeries, PricePoint } from "@/lib/market";
+import { containsInstrumentAlias, explicitlyMentionedInstrumentSpecs } from "@/lib/instrument-mentions";
 
-type InstrumentSpec = { instrument: string; aliases: string[] };
+type InstrumentSpec = { instrument: string; aliases: readonly string[] };
 type ParsedRange = { min: number; max: number; values: number[] };
 type TriggerMode = "above" | "below" | "reject";
 
@@ -16,47 +17,8 @@ type ScenarioSeed = {
   invalidationLine: string | null;
 };
 
-const INSTRUMENTS: InstrumentSpec[] = [
-  { instrument: "GOOGL", aliases: ["GOOGL", "ALPHABET", "GOOGLE"] },
-  { instrument: "MSFT", aliases: ["MSFT", "MICROSOFT"] },
-  { instrument: "META", aliases: ["META", "META PLATFORMS"] },
-  { instrument: "AMZN", aliases: ["AMZN", "AMAZON"] },
-  { instrument: "AAPL", aliases: ["AAPL", "APPLE"] },
-  { instrument: "AMD", aliases: ["AMD", "ADVANCED MICRO DEVICES"] },
-  { instrument: "NVDA", aliases: ["NVDA", "NVIDIA"] },
-  { instrument: "TSLA", aliases: ["TSLA", "TESLA"] },
-  { instrument: "XLK", aliases: ["XLK", "TECHNOLOGY SELECT SECTOR"] },
-  { instrument: "SOXX", aliases: ["SOXX", "SEMICONDUCTOR ETF", "SEMICONDUCTORS", "SEMIS"] },
-  { instrument: "SPX", aliases: ["S&P 500", "S&P500", "SPX", "US500"] },
-  { instrument: "NASDAQ", aliases: ["NASDAQ", "NAS100", "NDX", "US100"] },
-  { instrument: "KOSPI", aliases: ["KOSPI"] },
-  { instrument: "NIKKEI", aliases: ["NIKKEI", "JAPAN STOCKS", "JAPANESE STOCKS"] },
-  { instrument: "FTSE100", aliases: ["FTSE 100", "FTSE100", "UK100"] },
-  { instrument: "XAUUSD", aliases: ["XAUUSD", "XAU/USD", "GOLD"] },
-  { instrument: "XAGUSD", aliases: ["XAGUSD", "XAG/USD", "SILVER"] },
-  { instrument: "WTI", aliases: ["WTI", "USOIL", "US OIL", "CRUDE OIL"] },
-  { instrument: "BRENT", aliases: ["BRENT", "UKOIL", "UK OIL"] },
-  { instrument: "DXY", aliases: ["DXY", "DOLLAR INDEX", "US DOLLAR INDEX"] },
-  { instrument: "USDJPY", aliases: ["USDJPY", "USD/JPY"] },
-  { instrument: "GBPJPY", aliases: ["GBPJPY", "GBP/JPY"] },
-  { instrument: "AUDJPY", aliases: ["AUDJPY", "AUD/JPY"] },
-  { instrument: "EURUSD", aliases: ["EURUSD", "EUR/USD"] },
-  { instrument: "GBPUSD", aliases: ["GBPUSD", "GBP/USD"] },
-  { instrument: "USDCHF", aliases: ["USDCHF", "USD/CHF"] },
-  { instrument: "USDCAD", aliases: ["USDCAD", "USD/CAD"] },
-  { instrument: "US10Y", aliases: ["US10Y", "US 10-YEAR", "10-YEAR YIELD", "10 YEAR YIELD"] },
-  { instrument: "US30Y", aliases: ["US30Y", "US 30-YEAR", "30-YEAR YIELD", "30 YEAR YIELD"] },
-  { instrument: "BTCUSD", aliases: ["BTCUSD", "BTC/USD", "BITCOIN"] },
-];
-
-function normalise(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
-
 function containsAlias(text: string, alias: string) {
-  const haystack = normalise(text);
-  const needle = normalise(alias);
-  return needle.length >= 3 && haystack.includes(needle);
+  return containsInstrumentAlias(text, alias);
 }
 
 function numericValues(value: string | null) {
@@ -103,7 +65,7 @@ function articleInstrumentScore(article: AlchemyArticle, spec: InstrumentSpec) {
 }
 
 function articleInstruments(article: AlchemyArticle) {
-  return INSTRUMENTS
+  return explicitlyMentionedInstrumentSpecs(`${article.title}\n${article.summary}\n${article.bodyText}`)
     .map((spec) => ({ spec, score: articleInstrumentScore(article, spec) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)

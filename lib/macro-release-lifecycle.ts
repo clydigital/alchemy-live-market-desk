@@ -1,6 +1,7 @@
 export const MACRO_RELEASE_LIFECYCLE_STATUSES = [
   "scheduled",
   "pre_release",
+  "ingestion_pending",
   "released_pending_ingestion",
   "completed",
   "revision_detected",
@@ -14,6 +15,9 @@ type MacroReleaseLike = {
   status: string;
   actual: string | null;
   ingestion_gap_reason?: string | null;
+  last_ingestion_attempt_at?: string | null;
+  ingestion_attempt_status?: string | null;
+  ingestion_retry_exhausted?: boolean | null;
 };
 
 export type MacroReleaseLifecycle = {
@@ -31,7 +35,7 @@ function hasActual(value: string | null | undefined) {
 export function deriveMacroReleaseLifecycle(
   release: MacroReleaseLike,
   now = new Date(),
-  ingestionGraceMs = DEFAULT_MACRO_INGESTION_GRACE_MS,
+  _ingestionGraceMs = DEFAULT_MACRO_INGESTION_GRACE_MS,
 ): MacroReleaseLifecycle {
   if (hasActual(release.actual)) {
     return {
@@ -57,19 +61,26 @@ export function deriveMacroReleaseLifecycle(
   if (remaining > 0) {
     return { status: "pre_release", ingestionGap: false, ingestionGapReason: null };
   }
-  if (Math.abs(remaining) <= ingestionGraceMs) {
+  if (!release.last_ingestion_attempt_at) {
     return {
-      status: "released_pending_ingestion",
+      status: "ingestion_pending",
+      ingestionGap: true,
+      ingestionGapReason: "The release time passed and no official Actual ingestion attempt is recorded yet.",
+    };
+  }
+  if (release.ingestion_retry_exhausted) {
+    return {
+      status: "stale_error",
       ingestionGap: true,
       ingestionGapReason: release.ingestion_gap_reason
-        || "Official Actual is not yet available in the ingestion store after the scheduled release time.",
+        || "Verified official Actual ingestion attempts failed and the retry policy is exhausted.",
     };
   }
   return {
-    status: "stale_error",
+    status: "released_pending_ingestion",
     ingestionGap: true,
     ingestionGapReason: release.ingestion_gap_reason
-      || "Official Actual remains unavailable beyond the post-release ingestion grace window.",
+      || "Official Actual ingestion was attempted and remains inside its grace or retry state.",
   };
 }
 

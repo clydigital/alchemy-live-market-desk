@@ -4,6 +4,7 @@ import { firecrawlConfigured } from "@/lib/firecrawl";
 import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
+import { getMacroSourceSnapshotHealth } from "@/lib/macro/macro-capture-supabase";
 
 function configured(value: string | undefined) {
   return Boolean(value?.trim());
@@ -16,12 +17,13 @@ function state(enabled: boolean, healthy: boolean) {
 
 export async function getSystemHealth() {
   const generatedAt = new Date().toISOString();
-  const [data, publication, calendar] = await Promise.all([
+  const [data, publication, calendar, macroSource] = await Promise.all([
     // Operational health must reflect the current scheduler run and provider
     // state, rather than the desk's normal short-lived display cache.
     getHybridDeskData({ fresh: true }),
     getHybridPublicationRecords({ fresh: true }),
     getEconomicCalendar(),
+    getMacroSourceSnapshotHealth(),
   ]);
   const orderedRuns = [...data.researchRuns].sort((left, right) => (
     Date.parse(right.scheduled_for) - Date.parse(left.scheduled_for)
@@ -145,6 +147,13 @@ export async function getSystemHealth() {
       unresolved: unresolvedProviderFailures.length,
       latest: unresolvedProviderFailures.slice(0, 20),
       note: "The latest full-desk source checks and persisted acquisition failures are both reported. An empty list means no required source was blocked in the latest desk cycle.",
+    },
+    macroSource: {
+      state: macroSource.retainedPriorComplete ? "degraded_retaining_complete" : macroSource.latestAttemptStatus || "unavailable",
+      ...macroSource,
+      note: macroSource.retainedPriorComplete
+        ? "The latest Macro source attempt degraded; the prior COMPLETE snapshot remains canonical."
+        : "Only a COMPLETE Macro source snapshot becomes canonical.",
     },
     economicCalendar: {
       state: rbaCoverage.length && rbnzCoverage.length && structuredMetrics.length ? "healthy" : "degraded",

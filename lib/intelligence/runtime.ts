@@ -43,6 +43,7 @@ import {
   type LifecycleOutput,
   type MarketBeliefOutput,
   type ScenarioOutput,
+  type StoryReviewTargetPackItem,
   type StorySynthesisOutput,
 } from "@/lib/intelligence/schemas";
 import {
@@ -60,7 +61,10 @@ import {
   restrictHypothesisEvidenceIds,
 } from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
-import { intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
+import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
+import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
+import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { explicitlyMentionedAssets, normaliseInstrument } from "@/lib/instrument-mentions";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -248,6 +252,12 @@ These are canonical public.research_story_requirements.requirement_key values. N
 Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation. Missing research informs state and priority; it never decides publication.
 Return an empty missingRequirementIds array when the scoped requirements are satisfied or the hypothesis has no scoped requirements.`;
 
+const MARKET_BELIEF_STORY_REVIEW_RULES = `For stage "market_belief", produce normal market beliefs and exactly one existing-Story assessment for every supplied storyReviewTargets item.
+Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
+An unchanged assessment advances freshness only. It must not rewrite the thesis or manufacture a recalibration.
+Creator/video transcript evidence may create a lead or test, but cannot by itself materially change thesis, lifecycle or confidence.
+Do not omit a supplied Story. Return an empty storyAssessments array only when storyReviewTargets is empty.`;
+
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
 For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
@@ -270,6 +280,11 @@ function clamp(value: number, min = 0, max = 100) {
 
 function unique<T>(values: T[]) {
   return [...new Set(values)];
+}
+
+function onlyExplicitAssets(candidates: string[], allowed: string[]) {
+  const allowedKeys = new Set(allowed.map(normaliseInstrument));
+  return unique(candidates.filter((asset) => allowedKeys.has(normaliseInstrument(asset))));
 }
 
 function validUrlList(value: unknown) {
@@ -474,6 +489,10 @@ async function modelStage<T>({
   const inputRefs = {
     evidenceCount: Array.isArray((input as { evidence?: unknown[] })?.evidence) ? (input as { evidence: unknown[] }).evidence.length : undefined,
     storyCount: Array.isArray((input as { existingStories?: unknown[] })?.existingStories) ? (input as { existingStories: unknown[] }).existingStories.length : undefined,
+    storyReviewTargetCount: Array.isArray((input as { storyReviewTargets?: unknown[] })?.storyReviewTargets) ? (input as { storyReviewTargets: unknown[] }).storyReviewTargets.length : undefined,
+    storyReviewTargetIds: Array.isArray((input as { storyReviewTargets?: Array<{ story?: { id?: string } }> })?.storyReviewTargets)
+      ? (input as { storyReviewTargets: Array<{ story?: { id?: string } }> }).storyReviewTargets.map((target) => target.story?.id).filter(Boolean)
+      : undefined,
   };
   const claim = await claimStage(engineRunId, stageKey, prompt?.id ?? null, inputRefs);
   if (claim.claim_state === "busy") throw new IntelligenceStageClaimUnavailableError(stageKey, claim.stage_run_id);
@@ -493,7 +512,7 @@ async function modelStage<T>({
       : requestTimeoutMs;
     const result = await runStructuredStage<T>({
       stageKey,
-      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
+      instructions: `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
       input,
       schema,
       modelKind,
@@ -662,7 +681,8 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     const domain = canonicalDomain(item.url);
     const source = sourceByExternal.get(`${domain}|${slugPart(item.publisher)}`);
     if (!source) return [];
-    const affectedAssets = unique((item.affected_story_slugs ?? []).flatMap((slug) => storyAssets.get(slug) ?? []));
+    const routedAssets = unique((item.affected_story_slugs ?? []).flatMap((slug) => storyAssets.get(slug) ?? []));
+    const affectedAssets = explicitlyMentionedAssets(`${item.title}\n${item.summary}\n${item.divergence_note || ""}`, routedAssets);
     return [{
       source_id: source.id,
       research_run_id: item.run_id,
@@ -714,21 +734,216 @@ async function loadEvidence() {
   return evidencePack(rows);
 }
 
+type ResearchDebtRow = {
+  story_id: string | null;
+  debt_key: string;
+  severity: string;
+  status: string;
+  reason: string;
+  next_action: string | null;
+  next_check_at: string | null;
+};
+
 async function loadResearchDebt() {
-  return intelligenceRest<Array<{
-    debt_key: string;
-    severity: string;
-    reason: string;
-    next_action: string | null;
-    next_check_at: string | null;
-  }>>(
-    "research_debt?select=debt_key,severity,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
+  return intelligenceRest<ResearchDebtRow[]>(
+    "research_debt?select=story_id,debt_key,severity,status,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
   ).catch(() => []);
 }
 
-async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<string>) {
+function validFrozenStoryReviewTargets(value: unknown): value is StoryReviewTargetPackItem[] {
+  return Array.isArray(value) && value.every((target) => Boolean(
+    target && typeof target === "object"
+    && (target as StoryReviewTargetPackItem).story?.id
+    && Array.isArray((target as StoryReviewTargetPackItem).relevantEvidence)
+    && Array.isArray((target as StoryReviewTargetPackItem).queueIds),
+  ));
+}
+
+async function claimStoryReviewQueues(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
+  const queueIds = unique(targets.flatMap((target) => target.queueIds));
+  if (!queueIds.length) return;
+  await intelligenceRest("rpc/claim_intelligence_story_reevaluations", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ p_engine_run_id: engineRunId, p_queue_ids: queueIds }),
+  });
+}
+
+async function loadOrCreateStoryReviewTargets(
+  engineRunId: string,
+  stories: StoryRow[],
+  evidence: EvidencePackItem[],
+  researchDebt: ResearchDebtRow[],
+) {
+  const frozen = currentIntelligenceInvocation()?.frozenInputs?.storyReviewTargets;
+  if (validFrozenStoryReviewTargets(frozen)) {
+    const persisted = structuredClone(frozen);
+    await claimStoryReviewQueues(engineRunId, persisted);
+    return persisted;
+  }
+  if (!stories.length) return freezeStoryReviewTargets([]) as Promise<StoryReviewTargetPackItem[]>;
+
+  const storyIds = stories.map((story) => story.id).join(",");
+  const [states, links, queued] = await Promise.all([
+    intelligenceRest<Array<{
+      story_id: string;
+      lifecycle_status: string;
+      last_evidence_at: string | null;
+      last_evaluated_at: string | null;
+      next_catalysts: string[];
+    }>>("intelligence_story_states?select=story_id,lifecycle_status,last_evidence_at,last_evaluated_at,next_catalysts&story_id=in.(" + storyIds + ")"),
+    intelligenceRest<Array<{ story_id: string; evidence_id: string; evidence_role: string; linked_at: string }>>(
+      "intelligence_story_evidence?select=story_id,evidence_id,evidence_role,linked_at&story_id=in.(" + storyIds + ")",
+    ),
+    intelligenceRest<Array<{
+      id: string;
+      target_id: string;
+      status: string;
+      reason: string;
+      priority: number;
+      available_at: string;
+      created_at: string;
+    }>>("intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()"),
+  ]);
+  const stateByStory = new Map(states.map((state) => [state.story_id, state]));
+  const packedById = new Map(existingStoryPack(stories).map((story) => [story.id, story]));
+  const selectableStories: StoryReviewStory[] = stories.map((story) => {
+    const state = stateByStory.get(story.id);
+    return {
+      ...packedById.get(story.id)!,
+      status: state?.lifecycle_status || story.status,
+      lastEvaluatedAt: state?.last_evaluated_at ?? null,
+      lastEvidenceAt: state?.last_evidence_at ?? null,
+      nextCatalysts: unique([...(state?.next_catalysts ?? []), ...(story.next_catalyst ? [story.next_catalyst] : [])]),
+    };
+  });
+  const queue: StoryReviewQueueItem[] = queued.map((item) => ({
+    id: item.id,
+    storyId: item.target_id,
+    status: item.status,
+    reason: item.reason,
+    priority: item.priority,
+    availableAt: item.available_at,
+    createdAt: item.created_at,
+  }));
+  const evidenceLinks: StoryEvidenceLink[] = links.map((link) => ({
+    storyId: link.story_id,
+    evidenceId: link.evidence_id,
+    evidenceRole: link.evidence_role,
+    linkedAt: link.linked_at,
+  }));
+  const debt: StoryReviewDebt[] = researchDebt.map((item) => ({
+    storyId: item.story_id,
+    debtKey: item.debt_key,
+    severity: item.severity,
+    status: item.status,
+    nextCheckAt: item.next_check_at,
+  }));
+  const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
+  const selected = selectStoryReviewTargets({
+    stories: selectableStories,
+    evidence,
+    evidenceLinks,
+    queue,
+    debt,
+    now: new Date(analysisAsOf),
+  });
+  const persisted = await freezeStoryReviewTargets(selected) as StoryReviewTargetPackItem[];
+  await claimStoryReviewQueues(engineRunId, persisted);
+  return persisted;
+}
+
+async function markStoryReviewRetryable(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
+  const queueIds = unique(targets.flatMap((target) => target.queueIds));
+  if (!queueIds.length) return;
+  await intelligenceRest("intelligence_reevaluation_queue?id=in.(" + queueIds.join(",") + ")&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId), {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      status: "retryable",
+      available_at: new Date(Date.now() + 15 * 60 * 1_000).toISOString(),
+      last_error: "The Market Belief response omitted or duplicated the required Story assessment.",
+      updated_at: new Date().toISOString(),
+    }),
+  });
+}
+
+async function persistStoryAssessments(input: {
+  engineRunId: string;
+  stageRunId: string;
+  output: MarketBeliefOutput;
+  targets: StoryReviewTargetPackItem[];
+}) {
+  const supplied = Array.isArray(input.output.storyAssessments) ? input.output.storyAssessments : [];
+  const grouped = new Map<string, typeof supplied>();
+  for (const assessment of supplied) {
+    const existing = grouped.get(assessment.storyId) ?? [];
+    existing.push(assessment);
+    grouped.set(assessment.storyId, existing);
+  }
+  const omitted = input.targets.filter((target) => (grouped.get(target.story.id)?.length ?? 0) !== 1);
+  await markStoryReviewRetryable(input.engineRunId, omitted);
+
+  for (const target of input.targets) {
+    const matches = grouped.get(target.story.id) ?? [];
+    if (matches.length !== 1) continue;
+    const assessment = matches[0];
+    const allowedEvidence = new Map(target.relevantEvidence.map((item) => [item.id, item]));
+    const evidenceIds = unique(assessment.evidenceIds.filter((id) => allowedEvidence.has(id)));
+    const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
+    const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
+    const disposition = materialAllowed ? assessment.disposition : "unchanged";
+    const evidenceTimes = evidenceIds
+      .map((id) => allowedEvidence.get(id)?.eventAt ?? allowedEvidence.get(id)?.publishedAt ?? null)
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => Date.parse(right) - Date.parse(left));
+    const payload = {
+      engine_run_id: input.engineRunId,
+      market_belief_stage_run_id: input.stageRunId,
+      story_id: target.story.id,
+      queue_ids: target.queueIds,
+      model_disposition: assessment.disposition,
+      disposition,
+      rationale: materialAllowed
+        ? assessment.rationale
+        : assessment.rationale + " Material mutation was suppressed because no eligible non-creator evidence was supplied.",
+      confidence_delta: assessment.confidenceDelta,
+      proposed_thesis: assessment.proposedThesis?.trim() || null,
+      evidence_ids: evidenceIds,
+      eligible_evidence_ids: eligibleEvidenceIds,
+      last_evidence_at: evidenceTimes[0] ?? null,
+      selected_reason: target.reason,
+      selected_at: target.selectedAt,
+    };
+    let rows = await intelligenceRest<Array<{ id: string; applied_at: string | null }>>(
+      "intelligence_story_assessments?on_conflict=engine_run_id,story_id",
+      {
+        method: "POST",
+        headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!rows[0]) {
+      rows = await intelligenceRest<Array<{ id: string; applied_at: string | null }>>(
+        "intelligence_story_assessments?select=id,applied_at&engine_run_id=eq." + encodeURIComponent(input.engineRunId)
+          + "&story_id=eq." + encodeURIComponent(target.story.id) + "&limit=1",
+      );
+    }
+    const row = rows[0];
+    if (!row || row.applied_at) continue;
+    await intelligenceRest("rpc/apply_intelligence_story_assessment", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ p_assessment_id: row.id }),
+    });
+  }
+}
+
+async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<string, EvidencePackItem>) {
+  const knownEvidence = new Set(evidenceById.keys());
   const specs = output.beliefs.flatMap((belief) => {
     const evidenceIds = onlyKnownIds(belief.evidenceIds, knownEvidence);
+    const allowedAssets = unique(evidenceIds.flatMap((id) => evidenceById.get(id)?.affectedAssets ?? []));
     if (!belief.statement.trim()) return [];
     const beliefKey = stableKey("belief", belief.statement.trim().toLowerCase(), [...belief.affectedAssets].sort());
     return [{
@@ -736,7 +951,7 @@ async function persistBeliefs(output: MarketBeliefOutput, knownEvidence: Set<str
       statement: belief.statement.trim(),
       priced_state: belief.pricedState?.trim() || null,
       consensus_strength: clamp(belief.consensusStrength),
-      affected_assets: unique(belief.affectedAssets),
+      affected_assets: onlyExplicitAssets(belief.affectedAssets, allowedAssets),
       evidence_ids: evidenceIds,
       observed_at: new Date().toISOString(),
       status: "active",
@@ -805,7 +1020,7 @@ async function persistHypotheses(
       hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), hypothesis.causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
       causal_mechanism: hypothesis.causalMechanism.trim(),
-      affected_assets: unique(hypothesis.affectedAssets),
+      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief?.affected_assets ?? []),
       confirmation_criteria: unique(hypothesis.confirmationCriteria.filter(Boolean)),
       invalidation_criteria: unique(hypothesis.invalidationCriteria.filter(Boolean)),
       next_catalysts: unique(hypothesis.nextCatalysts.filter(Boolean)),
@@ -1634,6 +1849,8 @@ export async function runIntelligenceEngine({
     const evidenceById = new Map(evidence.map((item) => [item.id, item]));
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
+    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, evidence, researchDebt);
+    storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
@@ -1643,10 +1860,11 @@ export async function runIntelligenceEngine({
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
-      input: { asOf: new Date().toISOString(), evidence, existingStories: storiesPack, researchDebt },
+      input: { asOf: currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString(), evidence, storyReviewTargets },
       maxOutputTokens: 2_800,
     });
-    const beliefs = await persistBeliefs(beliefStage.data, knownEvidenceIds);
+    await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
+    const beliefs = await persistBeliefs(beliefStage.data, evidenceById);
     if (!beliefs.length) {
       warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
@@ -1778,19 +1996,21 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 9_000,
     });
 
+    const reviewedById = new Map(reviewed.map((hypothesis) => [hypothesis.id, hypothesis]));
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
       if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
+      const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
       const normalized: CandidateWorking = {
         ...candidate,
         decisiveEvidenceIds,
-        affectedAssets: unique(candidate.affectedAssets),
+        affectedAssets,
         candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
         noveltyFingerprint: hash(JSON.stringify({
           event: candidate.eventSignature.toLowerCase(),
           thesis: candidate.thesis.toLowerCase(),
           mechanism: candidate.causalMechanism.toLowerCase(),
-          assets: [...candidate.affectedAssets].sort(),
+          assets: [...affectedAssets].sort(),
           decisiveEvidenceIds: [...decisiveEvidenceIds].sort(),
           confirmation: [...candidate.confirmationCriteria].sort(),
           invalidation: [...candidate.invalidationCriteria].sort(),
@@ -1799,7 +2019,7 @@ export async function runIntelligenceEngine({
       if (normalized.bias === "unscored") normalized.conviction = null;
       return [normalized];
     });
-    storiesConsidered = candidates.length;
+    storiesConsidered += candidates.length;
     if (!candidates.length) {
       warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
       await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {

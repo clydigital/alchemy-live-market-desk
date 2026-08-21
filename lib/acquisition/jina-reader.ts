@@ -13,6 +13,8 @@ export type JinaReaderResult = {
   usedAuthentication: boolean;
   text: string;
   errorCode: JinaReaderErrorCode | null;
+  errorMessage: string | null;
+  authenticationMode: "bearer" | "none";
 };
 
 export type JinaReaderOptions = {
@@ -60,6 +62,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
     });
 
     if (!response.ok) {
+      const providerBody = (await response.text()).replace(/\s+/g, " ").trim().slice(0, 1_000);
       return {
         ok: false,
         sourceUrl: options.sourceUrl,
@@ -69,6 +72,8 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
         usedAuthentication: Boolean(apiKey),
         text: "",
         errorCode: "http_error",
+        errorMessage: providerBody || response.statusText || "Jina Reader HTTP failure.",
+        authenticationMode: apiKey ? "bearer" : "none",
       };
     }
 
@@ -83,6 +88,8 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
         usedAuthentication: Boolean(apiKey),
         text: "",
         errorCode: "empty_response",
+        errorMessage: "Jina Reader returned an empty response.",
+        authenticationMode: apiKey ? "bearer" : "none",
       };
     }
 
@@ -95,6 +102,8 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
       usedAuthentication: Boolean(apiKey),
       text,
       errorCode: null,
+      errorMessage: null,
+      authenticationMode: apiKey ? "bearer" : "none",
     };
   } catch (error) {
     return {
@@ -106,6 +115,8 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
       usedAuthentication: Boolean(apiKey),
       text: "",
       errorCode: isTimeout(error) ? "timeout" : "network_error",
+      errorMessage: (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 1_000),
+      authenticationMode: apiKey ? "bearer" : "none",
     };
   }
 }

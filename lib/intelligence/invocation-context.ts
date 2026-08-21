@@ -8,6 +8,7 @@ export type FrozenIntelligenceInputs = {
   stories: unknown[] | null;
   evidence: unknown[] | null;
   researchDebt: unknown[] | null;
+  storyReviewTargets: unknown[] | null;
 };
 
 export type IntelligenceInvocationState = {
@@ -87,4 +88,15 @@ export function rememberFrozenRead(kind: "stories" | "evidence" | "researchDebt"
   if (kind === "stories" && state.frozenInputs.stories === null) state.frozenInputs.stories = structuredClone(value);
   if (kind === "evidence" && state.frozenInputs.evidence === null) state.frozenInputs.evidence = structuredClone(value);
   if (kind === "researchDebt" && state.frozenInputs.researchDebt === null) state.frozenInputs.researchDebt = structuredClone(value);
+}
+
+export function frozenStoryReviewTargets() {
+  return storage.getStore()?.frozenInputs?.storyReviewTargets ?? null;
+}
+
+export function rememberFrozenStoryReviewTargets(value: unknown[]) {
+  const state = storage.getStore();
+  if (state?.frozenInputs && state.frozenInputs.storyReviewTargets === null) {
+    state.frozenInputs.storyReviewTargets = structuredClone(value);
+  }
 }
