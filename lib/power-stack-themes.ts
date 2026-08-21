@@ -78,10 +78,10 @@ function watchContext(theme: PowerStackTheme) {
   const checks = unique(theme.watch || []).slice(0, 2);
   const themeName = theme.name || theme.id || "developing theme";
   return [
-    `Power Stack watchlist prompt only for ${themeName}.`,
-    "Ask whether anything materially changed since the previous research cycle; do not treat the Power Stack synthesis as evidence or corroboration.",
-    checks.length ? `Low-cost adjacent checks: ${checks.join("; ")}.` : null,
-    "Only independently acquired current news or data may alter Market Belief, Divergence, confidence or publication decisions.",
+    `Power Stack developing-theme watch only for ${themeName}.`,
+    "Check whether independently acquired Live news or data materially changed this theme since the previous research cycle.",
+    checks.length ? `Useful adjacent checks if normal Live sources surface the theme: ${checks.join("; ")}.` : null,
+    "Power Stack itself is not evidence, corroboration, a confidence input or a publication driver.",
   ].filter(Boolean).join(" ");
 }
 
@@ -102,21 +102,20 @@ function linkedWatchItems(theme: PowerStackTheme, fallbackDate: Date): IntakeIte
       url,
       publishedAt,
       summary: `Developing-theme watch lead: ${title}`.slice(0, 2_000),
-      // Deliberately low candidate weight. Power Stack is a read-through of
-      // developing themes, not a canonical evidence provider or story driver.
+      // These scores are descriptive only. recommendedAction="ignore" is
+      // intentional: the canonicaliser excludes ignored intake rows, which
+      // keeps Power Stack out of the evidence pool while preserving an
+      // auditable record that the developing-theme watchlist was scanned.
       sourceQuality: 35,
       relevance: 35,
       novelty: 30,
       materiality: 30,
-      recommendedAction: "monitor",
-      newsSignal: "Low-weight developing-theme lead from Power Stack; discovery only.",
+      recommendedAction: "ignore",
+      newsSignal: "Developing-theme watchlist marker from Power Stack; discovery context only.",
       divergenceKind: "none",
       divergenceNote: context.slice(0, 2_000),
-      // Zero evidentiary weight at intake. The linked source must be acquired
-      // independently through Live's normal source path before it can support
-      // or contradict a canonical claim.
       evidence: [],
-      reviewReason: "Power Stack is only a developing-theme watchlist. This lead may prompt one or two adjacent checks, but it must not change Market Belief, confidence, divergence or Story state unless independent current evidence is acquired elsewhere.",
+      reviewReason: "Power Stack is a developing-theme read-through only. This row is deliberately excluded from canonical evidence. Any material update must arrive independently through Live's normal news, official-data, market-data or specialist-source intake before it can affect reasoning.",
     }];
   });
 }
@@ -145,7 +144,7 @@ export async function acquirePowerStackThemes(now = new Date()): Promise<PowerSt
     const themesWithWatchLeads = themes.filter((theme) => linkedWatchItems(theme, now).length > 0).length;
     return {
       items,
-      note: `Power Stack watchlist scanned ${themes.length} developing theme${themes.length === 1 ? "" : "s"}; queued ${items.length} low-weight watch lead${items.length === 1 ? "" : "s"} across ${themesWithWatchLeads} theme${themesWithWatchLeads === 1 ? "" : "s"}. Canonical evidence contribution: 0. Independent Live sources must confirm any material change.`,
+      note: `Power Stack watchlist scanned ${themes.length} developing theme${themes.length === 1 ? "" : "s"}; recorded ${items.length} watch lead${items.length === 1 ? "" : "s"} across ${themesWithWatchLeads} theme${themesWithWatchLeads === 1 ? "" : "s"}. These rows are excluded from canonical evidence. Independent Live sources must surface and confirm any material change.`,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown acquisition failure";
