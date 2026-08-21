@@ -76,11 +76,12 @@ test("selector consumes queue, debt and evidence triggers in deterministic prior
     evidence: rows,
     evidenceLinks: links,
     queue: [{
-      id: "queue-1", storyId: "queue", status: "pending", reason: "manual",
+      id: "queue-1", storyId: "queue", status: "pending", reason: "Manual review after positioning reversal",
       priority: 90, availableAt: "2026-08-21T10:00:00Z", createdAt: "2026-08-21T10:00:00Z",
     }],
     debt: [{
-      storyId: "debt", debtKey: "debt-1", severity: "critical", status: "open",
+      storyId: "debt", debtKey: "physical-flow-confirmation", severity: "critical", status: "open",
+      reason: "Need physical shipping-flow confirmation", nextAction: "Check JODI/EIA/flow evidence",
       nextCheckAt: "2026-08-21T10:00:00Z",
     }],
     now,
@@ -91,6 +92,16 @@ test("selector consumes queue, debt and evidence triggers in deterministic prior
     "explicit_queue", "criteria_evidence", "overdue_critical_debt", "contradictory_evidence",
   ]);
   assert.equal(selected.length, 4);
+  const queueContext = (selected[0] as typeof selected[0] & { reviewContext?: { queueReasons?: string[] } }).reviewContext;
+  assert.deepEqual(queueContext?.queueReasons, ["Manual review after positioning reversal"]);
+  const debtContext = (selected[2] as typeof selected[2] & { reviewContext?: { researchDebt?: Array<{ debtKey: string; reason: string | null; nextAction: string | null }> } }).reviewContext;
+  assert.deepEqual(debtContext?.researchDebt, [{
+    debtKey: "physical-flow-confirmation",
+    severity: "critical",
+    reason: "Need physical shipping-flow confirmation",
+    nextAction: "Check JODI/EIA/flow evidence",
+    nextCheckAt: "2026-08-21T10:00:00Z",
+  }]);
 });
 
 test("stale review age creates a target using lifecycle-specific thresholds", () => {
@@ -131,7 +142,7 @@ test("unrelated Story debt cannot make another fresh Story eligible", () => {
   assert.deepEqual(selected, []);
 });
 
-test("transcript-only evidence cannot materially mutate a Story", () => {
+test("creator-only evidence cannot materially mutate a Story", () => {
   const target = {
     story: story("video"),
     reason: "contradictory_evidence",
@@ -139,11 +150,31 @@ test("transcript-only evidence cannot materially mutate a Story", () => {
     reasons: ["contradictory_evidence"],
     queueIds: [],
     selectedAt: now.toISOString(),
-    relevantEvidence: [evidence("video-only", "video", { evidenceClass: "transcript", supportDirection: "contradicting" })],
+    relevantEvidence: [
+      evidence("video-only", "video", { evidenceClass: "transcript", supportDirection: "contradicting" }),
+      evidence("house-research", "video", { evidenceClass: "research_analysis", sourceTier: 4, supportDirection: "contradicting" }),
+    ],
   };
-  assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["video-only"], target), false);
-  target.relevantEvidence.push(evidence("official", "video", { supportDirection: "contradicting" }));
+  assert.equal(materialAssessmentHasEligibleEvidence("weakened", ["video-only"], target), false);
+  assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["house-research"], target), false);
+});
+
+test("invalidation requires Tier 1-2 evidence or two independent credible sources", () => {
+  const oneNews = evidence("news-a", "strict", {
+    evidenceClass: "news_report", sourceTier: 3, sourceName: "News A", ancestryGroupId: "group-a", supportDirection: "contradicting",
+  });
+  const secondNews = evidence("news-b", "strict", {
+    evidenceClass: "news_report", sourceTier: 3, sourceName: "News B", ancestryGroupId: "group-b", supportDirection: "contradicting",
+  });
+  const official = evidence("official", "strict", { sourceTier: 1, supportDirection: "contradicting" });
+  const target = {
+    story: story("strict"), reason: "contradictory_evidence", reasonRank: 4, reasons: ["contradictory_evidence"],
+    queueIds: [], selectedAt: now.toISOString(), relevantEvidence: [oneNews, secondNews, official],
+  };
+  assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["news-a"], target), false);
+  assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["news-a", "news-b"], target), true);
   assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["official"], target), true);
+  assert.equal(materialAssessmentHasEligibleEvidence("weakened", ["news-a"], target), true);
 });
 
 test("Story routing never fabricates asset mentions", () => {
