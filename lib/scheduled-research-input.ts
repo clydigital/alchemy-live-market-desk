@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
+import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
 import {
@@ -330,13 +331,14 @@ export async function buildScheduledResearchInput(
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
-  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy] = await Promise.all([
+  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy, powerStack] = await Promise.all([
     loadDedicatedVideoSourceChecks(slot, now),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[3], windowStart, windowEnd),
     acquireAlchemy(windowStart, windowEnd),
+    acquirePowerStackThemes(now),
   ]);
   const sourceChecks: SourceCheckInput[] = [
     ...videoChecks,
@@ -352,6 +354,7 @@ export async function buildScheduledResearchInput(
     ...investing.items,
     ...fxstreet.items,
     ...alchemy.items,
+    ...powerStack.items,
   ];
   const blocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
   return {
@@ -362,8 +365,8 @@ export async function buildScheduledResearchInput(
     items,
     recalibrations: [],
     summary: blocked.length
-      ? `Autonomous Live-owned research cycle is blocked by required source coverage: ${blocked.join(", ")}.`
-      : "Autonomous Live-owned research cycle. Video evidence remains in its dedicated canonical intake record and is not reassigned to the desk run.",
+      ? `Autonomous Live-owned research cycle is blocked by required source coverage: ${blocked.join(", ")}. ${powerStack.note}`
+      : `Autonomous Live-owned research cycle. Video evidence remains in its dedicated canonical intake record and is not reassigned to the desk run. ${powerStack.note}`,
     dryRun: false,
   };
 }
