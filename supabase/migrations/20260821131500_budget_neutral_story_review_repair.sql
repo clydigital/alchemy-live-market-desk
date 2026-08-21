@@ -189,6 +189,10 @@ begin
   material_allowed := assessment.disposition <> 'unchanged'
     and cardinality(assessment.eligible_evidence_ids) > 0;
 
+  insert into public.intelligence_story_states (story_id, last_evaluated_at, last_evidence_at)
+  values (assessment.story_id, evaluated_at, assessment.last_evidence_at)
+  on conflict (story_id) do nothing;
+
   update public.intelligence_story_states state
   set last_evaluated_at = evaluated_at,
       last_evidence_at = case
@@ -250,6 +254,18 @@ comment on table public.intelligence_story_assessments is
   'One idempotent existing-Story assessment per engine run, produced inside the existing Market Belief stage.';
 comment on column public.research_debt.story_id is
   'Optional Story-local scope. Null debt remains diagnostic and cannot block unrelated Story publication.';
+
+-- Freshness-only reviews must not manufacture a Story history version. Material
+-- changes continue to use the existing history trigger.
+drop trigger if exists intelligence_story_states_history on public.intelligence_story_states;
+create trigger intelligence_story_states_history
+before update on public.intelligence_story_states
+for each row when (
+  (to_jsonb(old) - array['last_evaluated_at', 'last_evidence_at', 'updated_at'])
+  is distinct from
+  (to_jsonb(new) - array['last_evaluated_at', 'last_evidence_at', 'updated_at'])
+)
+execute function public.intelligence_capture_story_history();
 
 alter table public.macro_releases
   add column if not exists ingestion_attempt_status text,
