@@ -77,8 +77,8 @@ begin
 
   if jsonb_typeof(existing_targets) <> 'array' then
     -- Enrich the deterministic selector output with the exact blocker/queue
-    -- context before freezing. This means a resumed Market Belief call knows
-    -- why the Story was reopened, rather than only seeing a generic reason tag.
+    -- context before freezing. A resumed Market Belief call therefore knows
+    -- why the Story was reopened instead of only seeing a generic reason tag.
     select coalesce(jsonb_agg(
       item || jsonb_build_object(
         'reviewContext',
@@ -148,9 +148,8 @@ security invoker
 set search_path = ''
 as $$
 begin
-  -- Repair abandoned claims opportunistically during the normal research cycle.
-  -- No extra cron is required. Partial engines retain their claim for a bounded
-  -- window; terminal or old claims become retryable.
+  -- Recover abandoned claims opportunistically during the normal research
+  -- cycle. No extra scheduler is introduced.
   update public.intelligence_reevaluation_queue queue
   set status = 'retryable',
       claimed_by_engine_run_id = null,
@@ -260,9 +259,9 @@ declare
   material_allowed boolean := false;
   effective_status text := 'unchanged';
   public_status text;
-  lifecycle_status text;
+  new_lifecycle_status text;
   new_thesis text;
-  new_confidence numeric;
+  new_confidence integer;
   credible_count integer := 0;
   independent_groups integer := 0;
   has_tier_one_or_two boolean := false;
@@ -292,8 +291,8 @@ begin
     raise exception 'Story not found for assessment %', assessment.id;
   end if;
 
-  -- Enforce the material-mutation policy again inside the database boundary.
-  -- Creator/research-analysis rows never authorise a canonical mutation.
+  -- Enforce material-mutation safety again inside the database boundary.
+  -- Creator and house-research commentary never authorise mutation alone.
   select
     count(*)::integer,
     count(distinct coalesce(source.ancestry_group_id::text, evidence.source_id::text))::integer,
@@ -314,9 +313,24 @@ begin
     );
   effective_status := case when material_allowed then assessment.disposition else 'unchanged' end;
 
-  insert into public.intelligence_story_states (story_id, last_evaluated_at, last_evidence_at)
-  values (assessment.story_id, evaluated_at, assessment.last_evidence_at)
-  on conflict (story_id) do nothing;
+  insert into public.intelligence_story_states (
+    story_id,
+    lifecycle_status,
+    publication_eligible,
+    last_evaluated_at,
+    last_evidence_at
+  ) values (
+    assessment.story_id,
+    case
+      when story_row.status = 'publish' then 'confirmed'
+      when story_row.status = 'develop' then 'developing'
+      when story_row.status = 'archived' then 'archived'
+      else 'detected'
+    end,
+    story_row.status not in ('archived', 'discarded'),
+    evaluated_at,
+    assessment.last_evidence_at
+  ) on conflict (story_id) do nothing;
 
   -- Every valid assessment advances the review watermark. An unchanged review
   -- stops here and does not manufacture a Story Event or thesis version.
@@ -335,19 +349,19 @@ begin
       when effective_status in ('weakened', 'reframed') then 'develop'
       else story_row.status
     end;
-    lifecycle_status := case
+    new_lifecycle_status := case
       when effective_status = 'reinforced' then 'confirmed'
       when effective_status = 'weakened' then 'weakening'
       when effective_status = 'reframed' then 'developing'
       when effective_status = 'invalidated' then 'invalidated'
-      else coalesce((select lifecycle_status from public.intelligence_story_states where story_id = assessment.story_id), 'detected')
+      else coalesce((select state.lifecycle_status from public.intelligence_story_states state where state.story_id = assessment.story_id), 'detected')
     end;
     new_thesis := case
       when effective_status = 'reframed' and nullif(btrim(assessment.proposed_thesis), '') is not null
         then btrim(assessment.proposed_thesis)
       else story_row.thesis
     end;
-    new_confidence := greatest(0, least(100, case
+    new_confidence := round(greatest(0, least(100, case
       when effective_status = 'reinforced'
         then story_row.confidence + greatest(abs(assessment.confidence_delta), 1)
       when effective_status = 'weakened'
@@ -355,9 +369,9 @@ begin
       when effective_status = 'invalidated'
         then story_row.confidence - greatest(abs(assessment.confidence_delta), 25)
       else story_row.confidence + assessment.confidence_delta
-    end));
+    end)))::integer;
 
-    -- Idempotency marker: one maintenance thesis version per Market Belief stage.
+    -- One immutable maintenance thesis version per Market Belief stage.
     select version.id into existing_version_id
     from public.story_thesis_versions version
     where version.story_id = assessment.story_id
@@ -386,7 +400,7 @@ begin
           metadata
         ) values (
           assessment.story_id,
-          assessment.evidence_ids[1],
+          null,
           (select research_run_id from public.intelligence_engine_runs where id = assessment.engine_run_id),
           case
             when effective_status = 'invalidated' then 'invalidation'
@@ -403,15 +417,15 @@ begin
             'engineRunId', assessment.engine_run_id,
             'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
             'disposition', effective_status,
-            'evidenceIds', assessment.evidence_ids
+            'intelligenceEvidenceIds', assessment.evidence_ids
           )
         ) returning id into event_id;
       end if;
 
-      select coalesce(max(version_number), 0) + 1
+      select coalesce(max(version.version_number), 0) + 1
       into next_version
-      from public.story_thesis_versions
-      where story_id = assessment.story_id;
+      from public.story_thesis_versions version
+      where version.story_id = assessment.story_id;
 
       insert into public.story_thesis_versions (
         story_id,
@@ -463,7 +477,7 @@ begin
           'engineRunId', assessment.engine_run_id,
           'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
           'disposition', effective_status,
-          'evidenceIds', assessment.evidence_ids,
+          'intelligenceEvidenceIds', assessment.evidence_ids,
           'priorVersion', next_version - 1
         ),
         'material_evidence_recalibration',
@@ -480,7 +494,7 @@ begin
     where story.id = assessment.story_id;
 
     update public.intelligence_story_states state
-    set lifecycle_status = lifecycle_status,
+    set lifecycle_status = new_lifecycle_status,
         publication_eligible = effective_status <> 'invalidated',
         updated_at = evaluated_at
     where state.story_id = assessment.story_id;
