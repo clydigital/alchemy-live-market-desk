@@ -132,7 +132,9 @@ export function selectStoryReviewTargets(input: {
     const relevantEvidence = relevantEvidenceForStory(story, input.evidence, input.evidenceLinks);
     const fresh = relevantEvidence.filter((item) => (milliseconds(item.eventAt ?? item.publishedAt) ?? 0) > lastEvaluated);
     const relevantDebt = input.debt.filter((debt) => debt.storyId === story.id && debt.status === "open");
-    const overdueCriticalDebt = relevantDebt.filter((debt) => debt.severity === "critical"
+    // Production obligations historically use both high and critical severity.
+    // Both are actionable Story-local blockers once their next-check time passes.
+    const overdueCriticalDebt = relevantDebt.filter((debt) => ["high", "critical"].includes(debt.severity)
       && (milliseconds(debt.nextCheckAt) ?? Number.POSITIVE_INFINITY) <= nowMs);
     const dueCatalysts = story.nextCatalysts.filter((catalyst) => {
       const due = catalystTime(catalyst);
