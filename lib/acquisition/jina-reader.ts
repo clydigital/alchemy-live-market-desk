@@ -13,6 +13,7 @@ export type JinaReaderResult = {
   usedAuthentication: boolean;
   text: string;
   errorCode: JinaReaderErrorCode | null;
+  errorDetail: string | null;
 };
 
 export type JinaReaderOptions = {
@@ -23,6 +24,7 @@ export type JinaReaderOptions = {
 };
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_ERROR_DETAIL = 600;
 
 export function buildJinaReaderUrl(sourceUrl: string) {
   const parsed = new URL(sourceUrl);
@@ -37,6 +39,10 @@ export function buildJinaReaderUrl(sourceUrl: string) {
 
 function isTimeout(error: unknown) {
   return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+function cleanErrorDetail(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, MAX_ERROR_DETAIL) || null;
 }
 
 export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaReaderResult> {
@@ -60,6 +66,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
     });
 
     if (!response.ok) {
+      const errorDetail = cleanErrorDetail(await response.text().catch(() => ""));
       return {
         ok: false,
         sourceUrl: options.sourceUrl,
@@ -69,6 +76,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
         usedAuthentication: Boolean(apiKey),
         text: "",
         errorCode: "http_error",
+        errorDetail,
       };
     }
 
@@ -83,6 +91,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
         usedAuthentication: Boolean(apiKey),
         text: "",
         errorCode: "empty_response",
+        errorDetail: "Jina Reader returned an empty response body.",
       };
     }
 
@@ -95,6 +104,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
       usedAuthentication: Boolean(apiKey),
       text,
       errorCode: null,
+      errorDetail: null,
     };
   } catch (error) {
     return {
@@ -106,6 +116,7 @@ export async function fetchJinaReader(options: JinaReaderOptions): Promise<JinaR
       usedAuthentication: Boolean(apiKey),
       text: "",
       errorCode: isTimeout(error) ? "timeout" : "network_error",
+      errorDetail: error instanceof Error ? cleanErrorDetail(error.message) : "Unknown Jina Reader transport failure.",
     };
   }
 }
