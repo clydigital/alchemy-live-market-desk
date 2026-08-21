@@ -34,6 +34,8 @@ export type StoryReviewDebt = {
   severity: string;
   status: string;
   nextCheckAt: string | null;
+  reason?: string | null;
+  nextAction?: string | null;
 };
 
 export type StoryEvidenceLink = {
@@ -41,6 +43,19 @@ export type StoryEvidenceLink = {
   evidenceId: string;
   evidenceRole: string;
   linkedAt: string;
+};
+
+export type StoryReviewContext = {
+  queueReasons: string[];
+  researchDebt: Array<{
+    debtKey: string;
+    severity: string;
+    reason: string | null;
+    nextAction: string | null;
+    nextCheckAt: string | null;
+  }>;
+  dueCatalysts: string[];
+  triggerEvidenceIds: string[];
 };
 
 const REASON_RANK: Record<StoryReviewReason, number> = {
@@ -116,23 +131,36 @@ export function selectStoryReviewTargets(input: {
     const lastEvaluated = milliseconds(story.lastEvaluatedAt) ?? 0;
     const relevantEvidence = relevantEvidenceForStory(story, input.evidence, input.evidenceLinks);
     const fresh = relevantEvidence.filter((item) => (milliseconds(item.eventAt ?? item.publishedAt) ?? 0) > lastEvaluated);
+    const relevantDebt = input.debt.filter((debt) => debt.storyId === story.id && debt.status === "open");
+    const overdueCriticalDebt = relevantDebt.filter((debt) => debt.severity === "critical"
+      && (milliseconds(debt.nextCheckAt) ?? Number.POSITIVE_INFINITY) <= nowMs);
+    const dueCatalysts = story.nextCatalysts.filter((catalyst) => {
+      const due = catalystTime(catalyst);
+      return due !== null && due <= nowMs && due > lastEvaluated;
+    });
     const reasons: StoryReviewReason[] = [];
     if (availableQueue.length) reasons.push("explicit_queue");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");
-    if (input.debt.some((debt) => debt.storyId === story.id
-      && debt.status === "open"
-      && debt.severity === "critical"
-      && (milliseconds(debt.nextCheckAt) ?? Number.POSITIVE_INFINITY) <= nowMs)) reasons.push("overdue_critical_debt");
+    if (overdueCriticalDebt.length) reasons.push("overdue_critical_debt");
     if (fresh.some((item) => item.supportDirection === "contradicting" || linkRoles.get(item.id) === "contradicting")) reasons.push("contradictory_evidence");
     if (fresh.some((item) => item.supportDirection === "supporting" || ["supporting", "decisive"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("supporting_evidence");
-    if (story.nextCatalysts.some((catalyst) => {
-      const due = catalystTime(catalyst);
-      return due !== null && due <= nowMs && due > lastEvaluated;
-    })) reasons.push("catalyst_due");
+    if (dueCatalysts.length) reasons.push("catalyst_due");
     if (nowMs - lastEvaluated >= reviewAgeHours(story.status) * 60 * 60 * 1_000) reasons.push("review_age");
     if (!reasons.length) return [];
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
+    const reviewContext: StoryReviewContext = {
+      queueReasons: [...new Set(availableQueue.map((item) => item.reason).filter(Boolean))],
+      researchDebt: relevantDebt.map((debt) => ({
+        debtKey: debt.debtKey,
+        severity: debt.severity,
+        reason: debt.reason ?? null,
+        nextAction: debt.nextAction ?? null,
+        nextCheckAt: debt.nextCheckAt,
+      })),
+      dueCatalysts,
+      triggerEvidenceIds: fresh.map((item) => item.id),
+    };
     return [{
       story,
       reason,
@@ -141,10 +169,11 @@ export function selectStoryReviewTargets(input: {
       queueIds: availableQueue.map((item) => item.id).sort(),
       relevantEvidence,
       selectedAt: input.now.toISOString(),
+      reviewContext,
       queuePriority: Math.max(0, ...availableQueue.map((item) => item.priority)),
       dueAt: availableQueue.map((item) => milliseconds(item.createdAt) ?? nowMs).sort((a, b) => a - b)[0]
         ?? lastEvaluated,
-    }];
+    } as StoryReviewTargetPackItem & { reviewContext: StoryReviewContext; queuePriority: number; dueAt: number }];
   });
 
   return candidates
@@ -156,6 +185,19 @@ export function selectStoryReviewTargets(input: {
     .map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
+function creatorOnly(item: EvidencePackItem) {
+  return item.evidenceClass === "transcript" || item.evidenceClass === "research_analysis";
+}
+
+function independentGroup(item: EvidencePackItem) {
+  return item.ancestryGroupId || `source:${item.sourceName.trim().toLowerCase()}`;
+}
+
+/**
+ * Existing-Story mutation policy. Creator commentary can wake a review or suggest
+ * a test, but it cannot materially rewrite the canonical thesis by itself.
+ * Invalidation is stricter because it is the highest-impact automatic transition.
+ */
 export function materialAssessmentHasEligibleEvidence(
   disposition: string,
   evidenceIds: string[],
@@ -163,5 +205,11 @@ export function materialAssessmentHasEligibleEvidence(
 ) {
   if (disposition === "unchanged") return true;
   const selected = new Set(evidenceIds);
-  return target.relevantEvidence.some((item) => selected.has(item.id) && item.evidenceClass !== "transcript");
+  const credible = target.relevantEvidence.filter((item) => selected.has(item.id)
+    && !creatorOnly(item)
+    && item.sourceTier <= 4);
+  if (!credible.length) return false;
+  if (disposition !== "invalidated") return true;
+  if (credible.some((item) => item.sourceTier <= 2)) return true;
+  return new Set(credible.map(independentGroup)).size >= 2;
 }
