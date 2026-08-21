@@ -49,8 +49,8 @@ create index if not exists intelligence_story_assessments_story_time_idx
   on public.intelligence_story_assessments(story_id, selected_at desc);
 
 alter table public.intelligence_story_assessments enable row level security;
-revoke all on table public.intelligence_story_assessments from anon, authenticated;
-grant all on table public.intelligence_story_assessments to service_role;
+revoke all on table public.intelligence_story_assessments from anon, authenticated, service_role;
+grant select, insert, update on table public.intelligence_story_assessments to service_role;
 
 create or replace function public.freeze_intelligence_story_review_targets(
   p_engine_run_id uuid,
@@ -63,6 +63,7 @@ set search_path = ''
 as $$
 declare
   existing_targets jsonb;
+  enriched_targets jsonb;
 begin
   if jsonb_typeof(p_targets) <> 'array' or jsonb_array_length(p_targets) > 4 then
     raise exception 'Story review targets must be a JSON array with at most four items';
@@ -75,19 +76,59 @@ begin
   for update;
 
   if jsonb_typeof(existing_targets) <> 'array' then
+    -- Enrich the deterministic selector output with the exact blocker/queue
+    -- context before freezing. This means a resumed Market Belief call knows
+    -- why the Story was reopened, rather than only seeing a generic reason tag.
+    select coalesce(jsonb_agg(
+      item || jsonb_build_object(
+        'reviewContext',
+        coalesce(item -> 'reviewContext', '{}'::jsonb) || jsonb_build_object(
+          'queueReasons', coalesce((
+            select jsonb_agg(reason_row.reason order by reason_row.reason)
+            from (
+              select distinct q.reason
+              from public.intelligence_reevaluation_queue q
+              where q.id::text in (
+                select value
+                from jsonb_array_elements_text(coalesce(item -> 'queueIds', '[]'::jsonb))
+              )
+                and nullif(btrim(q.reason), '') is not null
+            ) reason_row
+          ), '[]'::jsonb),
+          'researchDebt', coalesce((
+            select jsonb_agg(jsonb_build_object(
+              'debtKey', debt.debt_key,
+              'severity', debt.severity,
+              'reason', debt.reason,
+              'nextAction', debt.next_action,
+              'nextCheckAt', debt.next_check_at
+            ) order by debt.next_check_at nulls last, debt.debt_key)
+            from public.research_debt debt
+            where debt.story_id = ((item -> 'story' ->> 'id')::uuid)
+              and debt.status = 'open'
+          ), '[]'::jsonb),
+          'dueCatalysts', coalesce(item #> '{reviewContext,dueCatalysts}', '[]'::jsonb),
+          'triggerEvidenceIds', coalesce(item #> '{reviewContext,triggerEvidenceIds}', '[]'::jsonb)
+        )
+      )
+      order by (item ->> 'reasonRank')::integer, item -> 'story' ->> 'id'
+    ), '[]'::jsonb)
+    into enriched_targets
+    from jsonb_array_elements(p_targets) item;
+
     update public.intelligence_engine_runs run
     set metadata = jsonb_set(
           jsonb_set(coalesce(run.metadata, '{}'::jsonb), '{frozenInputs}', coalesce(run.metadata -> 'frozenInputs', '{}'::jsonb), true),
           '{frozenInputs,storyReviewTargets}',
-          p_targets,
+          enriched_targets,
           true
         ),
         target_story_ids = array(
           select ((item -> 'story' ->> 'id')::uuid)
-          from jsonb_array_elements(p_targets) item
+          from jsonb_array_elements(enriched_targets) item
         )
     where run.id = p_engine_run_id;
-    existing_targets := p_targets;
+    existing_targets := enriched_targets;
   end if;
 
   return query select existing_targets;
@@ -102,10 +143,33 @@ create or replace function public.claim_intelligence_story_reevaluations(
   p_queue_ids uuid[]
 )
 returns setof public.intelligence_reevaluation_queue
-language sql
+language plpgsql
 security invoker
 set search_path = ''
 as $$
+begin
+  -- Repair abandoned claims opportunistically during the normal research cycle.
+  -- No extra cron is required. Partial engines retain their claim for a bounded
+  -- window; terminal or old claims become retryable.
+  update public.intelligence_reevaluation_queue queue
+  set status = 'retryable',
+      claimed_by_engine_run_id = null,
+      available_at = now(),
+      last_error = coalesce(queue.last_error, 'Recovered abandoned Story reevaluation claim.'),
+      updated_at = now()
+  where queue.target_kind = 'story'
+    and queue.status = 'processing'
+    and (
+      queue.updated_at < now() - interval '20 minutes'
+      or exists (
+        select 1
+        from public.intelligence_engine_runs run
+        where run.id = queue.claimed_by_engine_run_id
+          and run.status in ('completed', 'failed', 'blocked')
+      )
+    );
+
+  return query
   update public.intelligence_reevaluation_queue as queue
   set status = 'processing',
       claimed_by_engine_run_id = p_engine_run_id,
@@ -127,6 +191,7 @@ as $$
     for update skip locked
   )
   returning queue.*;
+end;
 $$;
 
 revoke all on function public.claim_intelligence_story_reevaluations(uuid, uuid[]) from public, anon, authenticated;
@@ -136,10 +201,30 @@ create or replace function public.claim_intelligence_story_reevaluation(
   p_queue_id uuid default null
 )
 returns setof public.intelligence_reevaluation_queue
-language sql
+language plpgsql
 security invoker
 set search_path = ''
 as $$
+begin
+  update public.intelligence_reevaluation_queue queue
+  set status = 'retryable',
+      claimed_by_engine_run_id = null,
+      available_at = now(),
+      last_error = coalesce(queue.last_error, 'Recovered abandoned Story reevaluation claim.'),
+      updated_at = now()
+  where queue.target_kind = 'story'
+    and queue.status = 'processing'
+    and (
+      queue.updated_at < now() - interval '20 minutes'
+      or exists (
+        select 1
+        from public.intelligence_engine_runs run
+        where run.id = queue.claimed_by_engine_run_id
+          and run.status in ('completed', 'failed', 'blocked')
+      )
+    );
+
+  return query
   update public.intelligence_reevaluation_queue as queue
   set status = 'processing',
       started_at = now(),
@@ -158,6 +243,7 @@ as $$
     limit 1
   )
   returning queue.*;
+end;
 $$;
 
 create or replace function public.apply_intelligence_story_assessment(
@@ -170,7 +256,19 @@ set search_path = ''
 as $$
 declare
   assessment public.intelligence_story_assessments%rowtype;
-  material_allowed boolean;
+  story_row public.stories%rowtype;
+  material_allowed boolean := false;
+  effective_status text := 'unchanged';
+  public_status text;
+  lifecycle_status text;
+  new_thesis text;
+  new_confidence numeric;
+  credible_count integer := 0;
+  independent_groups integer := 0;
+  has_tier_one_or_two boolean := false;
+  existing_version_id uuid;
+  event_id uuid;
+  next_version integer;
   evaluated_at timestamptz := now();
 begin
   select * into assessment
@@ -186,51 +284,224 @@ begin
     return;
   end if;
 
+  select * into story_row
+  from public.stories
+  where id = assessment.story_id
+  for update;
+  if story_row.id is null then
+    raise exception 'Story not found for assessment %', assessment.id;
+  end if;
+
+  -- Enforce the material-mutation policy again inside the database boundary.
+  -- Creator/research-analysis rows never authorise a canonical mutation.
+  select
+    count(*)::integer,
+    count(distinct coalesce(source.ancestry_group_id::text, evidence.source_id::text))::integer,
+    coalesce(bool_or(source.source_tier <= 2), false)
+  into credible_count, independent_groups, has_tier_one_or_two
+  from public.intelligence_evidence evidence
+  join public.intelligence_evidence_sources source on source.id = evidence.source_id
+  where evidence.id = any(assessment.eligible_evidence_ids)
+    and evidence.evidence_class not in ('transcript', 'research_analysis')
+    and source.source_tier <= 4;
+
   material_allowed := assessment.disposition <> 'unchanged'
-    and cardinality(assessment.eligible_evidence_ids) > 0;
+    and credible_count > 0
+    and (
+      assessment.disposition <> 'invalidated'
+      or has_tier_one_or_two
+      or independent_groups >= 2
+    );
+  effective_status := case when material_allowed then assessment.disposition else 'unchanged' end;
 
   insert into public.intelligence_story_states (story_id, last_evaluated_at, last_evidence_at)
   values (assessment.story_id, evaluated_at, assessment.last_evidence_at)
   on conflict (story_id) do nothing;
 
+  -- Every valid assessment advances the review watermark. An unchanged review
+  -- stops here and does not manufacture a Story Event or thesis version.
   update public.intelligence_story_states state
   set last_evaluated_at = evaluated_at,
       last_evidence_at = case
         when assessment.last_evidence_at is null then state.last_evidence_at
         else greatest(state.last_evidence_at, assessment.last_evidence_at)
       end,
-      lifecycle_status = case
-        when material_allowed and assessment.disposition = 'reinforced' then 'confirmed'
-        when material_allowed and assessment.disposition = 'weakened' then 'weakening'
-        when material_allowed and assessment.disposition = 'reframed' then 'developing'
-        when material_allowed and assessment.disposition = 'invalidated' then 'invalidated'
-        else state.lifecycle_status
-      end,
       updated_at = evaluated_at
   where state.story_id = assessment.story_id;
 
   if material_allowed then
+    public_status := case
+      when effective_status = 'invalidated' then 'archived'
+      when effective_status in ('weakened', 'reframed') then 'develop'
+      else story_row.status
+    end;
+    lifecycle_status := case
+      when effective_status = 'reinforced' then 'confirmed'
+      when effective_status = 'weakened' then 'weakening'
+      when effective_status = 'reframed' then 'developing'
+      when effective_status = 'invalidated' then 'invalidated'
+      else coalesce((select lifecycle_status from public.intelligence_story_states where story_id = assessment.story_id), 'detected')
+    end;
+    new_thesis := case
+      when effective_status = 'reframed' and nullif(btrim(assessment.proposed_thesis), '') is not null
+        then btrim(assessment.proposed_thesis)
+      else story_row.thesis
+    end;
+    new_confidence := greatest(0, least(100, case
+      when effective_status = 'reinforced'
+        then story_row.confidence + greatest(abs(assessment.confidence_delta), 1)
+      when effective_status = 'weakened'
+        then story_row.confidence - greatest(abs(assessment.confidence_delta), 1)
+      when effective_status = 'invalidated'
+        then story_row.confidence - greatest(abs(assessment.confidence_delta), 25)
+      else story_row.confidence + assessment.confidence_delta
+    end));
+
+    -- Idempotency marker: one maintenance thesis version per Market Belief stage.
+    select version.id into existing_version_id
+    from public.story_thesis_versions version
+    where version.story_id = assessment.story_id
+      and version.snapshot ->> 'marketBeliefStageRunId' = assessment.market_belief_stage_run_id::text
+    order by version.version_number desc
+    limit 1;
+
+    if existing_version_id is null then
+      select event.id into event_id
+      from public.story_events event
+      where event.story_id = assessment.story_id
+        and event.metadata ->> 'marketBeliefStageRunId' = assessment.market_belief_stage_run_id::text
+      order by event.event_at desc
+      limit 1;
+
+      if event_id is null then
+        insert into public.story_events (
+          story_id,
+          evidence_id,
+          research_run_id,
+          event_type,
+          headline,
+          detail,
+          confidence_delta,
+          event_at,
+          metadata
+        ) values (
+          assessment.story_id,
+          assessment.evidence_ids[1],
+          (select research_run_id from public.intelligence_engine_runs where id = assessment.engine_run_id),
+          case
+            when effective_status = 'invalidated' then 'invalidation'
+            when effective_status = 'reinforced' then 'confirmation'
+            else 'thesis_revision'
+          end,
+          left(assessment.rationale, 180),
+          assessment.rationale,
+          new_confidence - story_row.confidence,
+          evaluated_at,
+          jsonb_build_object(
+            'automatic', true,
+            'origin', 'existing_story_maintenance',
+            'engineRunId', assessment.engine_run_id,
+            'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
+            'disposition', effective_status,
+            'evidenceIds', assessment.evidence_ids
+          )
+        ) returning id into event_id;
+      end if;
+
+      select coalesce(max(version_number), 0) + 1
+      into next_version
+      from public.story_thesis_versions
+      where story_id = assessment.story_id;
+
+      insert into public.story_thesis_versions (
+        story_id,
+        event_id,
+        version_number,
+        title,
+        thesis,
+        status,
+        confidence,
+        market_question,
+        dominant_narrative,
+        best_explanation,
+        strongest_support,
+        strongest_contradiction,
+        priced_assessment,
+        confirmation_trigger,
+        invalidation_trigger,
+        next_catalyst,
+        article_angle,
+        provisional_title,
+        article_verdict,
+        assets,
+        snapshot,
+        change_reason,
+        effective_at
+      ) values (
+        assessment.story_id,
+        event_id,
+        next_version,
+        story_row.title,
+        new_thesis,
+        public_status,
+        new_confidence,
+        story_row.market_question,
+        story_row.dominant_narrative,
+        story_row.best_explanation,
+        story_row.strongest_support,
+        story_row.strongest_contradiction,
+        story_row.priced_assessment,
+        story_row.confirmation_trigger,
+        story_row.invalidation_trigger,
+        story_row.next_catalyst,
+        assessment.rationale,
+        story_row.title,
+        'story_maintenance',
+        story_row.assets,
+        jsonb_build_object(
+          'origin', 'existing_story_maintenance',
+          'engineRunId', assessment.engine_run_id,
+          'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
+          'disposition', effective_status,
+          'evidenceIds', assessment.evidence_ids,
+          'priorVersion', next_version - 1
+        ),
+        'material_evidence_recalibration',
+        evaluated_at
+      ) returning id into existing_version_id;
+    end if;
+
     update public.stories story
-    set thesis = case
-          when assessment.disposition = 'reframed' and nullif(btrim(assessment.proposed_thesis), '') is not null
-            then btrim(assessment.proposed_thesis)
-          else story.thesis
-        end,
-        confidence = greatest(0, least(100, case
-          when assessment.disposition = 'reinforced'
-            then story.confidence + greatest(abs(assessment.confidence_delta), 1)
-          when assessment.disposition = 'weakened'
-            then story.confidence - greatest(abs(assessment.confidence_delta), 1)
-          when assessment.disposition = 'invalidated'
-            then story.confidence - greatest(abs(assessment.confidence_delta), 25)
-          else story.confidence + assessment.confidence_delta
-        end)),
+    set thesis = new_thesis,
+        status = public_status,
+        confidence = new_confidence,
+        current_thesis_version_id = existing_version_id,
         updated_at = evaluated_at
     where story.id = assessment.story_id;
+
+    update public.intelligence_story_states state
+    set lifecycle_status = lifecycle_status,
+        publication_eligible = effective_status <> 'invalidated',
+        updated_at = evaluated_at
+    where state.story_id = assessment.story_id;
+
+    insert into public.story_updates (story_id, update_type, headline, detail, observed_at)
+    values (
+      assessment.story_id,
+      case
+        when effective_status = 'invalidated' then 'invalidation'
+        when effective_status = 'reinforced' then 'confirmation'
+        else 'recalibration'
+      end,
+      left(assessment.rationale, 90),
+      assessment.rationale,
+      evaluated_at
+    );
   end if;
 
   update public.intelligence_story_assessments
-  set material_change_applied = material_allowed,
+  set disposition = effective_status,
+      material_change_applied = material_allowed,
       applied_at = evaluated_at
   where id = assessment.id;
 
@@ -243,7 +514,7 @@ begin
     and queue.status = 'processing'
     and queue.claimed_by_engine_run_id = assessment.engine_run_id;
 
-  return query select true, assessment.disposition;
+  return query select true, effective_status;
 end;
 $$;
 
