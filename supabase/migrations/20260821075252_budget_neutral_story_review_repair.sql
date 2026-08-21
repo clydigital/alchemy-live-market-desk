@@ -76,9 +76,6 @@ begin
   for update;
 
   if jsonb_typeof(existing_targets) <> 'array' then
-    -- Enrich the deterministic selector output with the exact blocker/queue
-    -- context before freezing. A resumed Market Belief call therefore knows
-    -- why the Story was reopened instead of only seeing a generic reason tag.
     select coalesce(jsonb_agg(
       item || jsonb_build_object(
         'reviewContext',
@@ -148,8 +145,6 @@ security invoker
 set search_path = ''
 as $$
 begin
-  -- Recover abandoned claims opportunistically during the normal research
-  -- cycle. No extra scheduler is introduced.
   update public.intelligence_reevaluation_queue queue
   set status = 'retryable',
       claimed_by_engine_run_id = null,
@@ -291,8 +286,6 @@ begin
     raise exception 'Story not found for assessment %', assessment.id;
   end if;
 
-  -- Enforce material-mutation safety again inside the database boundary.
-  -- Creator and house-research commentary never authorise mutation alone.
   select
     count(*)::integer,
     count(distinct coalesce(source.ancestry_group_id::text, evidence.source_id::text))::integer,
@@ -314,221 +307,48 @@ begin
   effective_status := case when material_allowed then assessment.disposition else 'unchanged' end;
 
   insert into public.intelligence_story_states (
-    story_id,
-    lifecycle_status,
-    publication_eligible,
-    last_evaluated_at,
-    last_evidence_at
+    story_id,lifecycle_status,publication_eligible,last_evaluated_at,last_evidence_at
   ) values (
     assessment.story_id,
-    case
-      when story_row.status = 'publish' then 'confirmed'
-      when story_row.status = 'develop' then 'developing'
-      when story_row.status = 'archived' then 'archived'
-      else 'detected'
-    end,
-    story_row.status not in ('archived', 'discarded'),
-    evaluated_at,
-    assessment.last_evidence_at
-  ) on conflict (story_id) do nothing;
+    case when story_row.status='publish' then 'confirmed' when story_row.status='develop' then 'developing' when story_row.status='archived' then 'archived' else 'detected' end,
+    story_row.status not in ('archived','discarded'),evaluated_at,assessment.last_evidence_at
+  ) on conflict(story_id) do nothing;
 
-  -- Every valid assessment advances the review watermark. An unchanged review
-  -- stops here and does not manufacture a Story Event or thesis version.
   update public.intelligence_story_states state
-  set last_evaluated_at = evaluated_at,
-      last_evidence_at = case
-        when assessment.last_evidence_at is null then state.last_evidence_at
-        else greatest(state.last_evidence_at, assessment.last_evidence_at)
-      end,
-      updated_at = evaluated_at
-  where state.story_id = assessment.story_id;
+  set last_evaluated_at=evaluated_at,
+      last_evidence_at=case when assessment.last_evidence_at is null then state.last_evidence_at else greatest(state.last_evidence_at,assessment.last_evidence_at) end,
+      updated_at=evaluated_at
+  where state.story_id=assessment.story_id;
 
   if material_allowed then
-    public_status := case
-      when effective_status = 'invalidated' then 'archived'
-      when effective_status in ('weakened', 'reframed') then 'develop'
-      else story_row.status
-    end;
-    new_lifecycle_status := case
-      when effective_status = 'reinforced' then 'confirmed'
-      when effective_status = 'weakened' then 'weakening'
-      when effective_status = 'reframed' then 'developing'
-      when effective_status = 'invalidated' then 'invalidated'
-      else coalesce((select state.lifecycle_status from public.intelligence_story_states state where state.story_id = assessment.story_id), 'detected')
-    end;
-    new_thesis := case
-      when effective_status = 'reframed' and nullif(btrim(assessment.proposed_thesis), '') is not null
-        then btrim(assessment.proposed_thesis)
-      else story_row.thesis
-    end;
-    new_confidence := round(greatest(0, least(100, case
-      when effective_status = 'reinforced'
-        then story_row.confidence + greatest(abs(assessment.confidence_delta), 1)
-      when effective_status = 'weakened'
-        then story_row.confidence - greatest(abs(assessment.confidence_delta), 1)
-      when effective_status = 'invalidated'
-        then story_row.confidence - greatest(abs(assessment.confidence_delta), 25)
-      else story_row.confidence + assessment.confidence_delta
-    end)))::integer;
+    public_status := case when effective_status='invalidated' then 'archived' when effective_status in ('weakened','reframed') then 'develop' else story_row.status end;
+    new_lifecycle_status := case when effective_status='reinforced' then 'confirmed' when effective_status='weakened' then 'weakening' when effective_status='reframed' then 'developing' when effective_status='invalidated' then 'invalidated' else 'detected' end;
+    new_thesis := case when effective_status='reframed' and nullif(btrim(assessment.proposed_thesis),'') is not null then btrim(assessment.proposed_thesis) else story_row.thesis end;
+    new_confidence := round(greatest(0,least(100,case when effective_status='reinforced' then story_row.confidence+greatest(abs(assessment.confidence_delta),1) when effective_status='weakened' then story_row.confidence-greatest(abs(assessment.confidence_delta),1) when effective_status='invalidated' then story_row.confidence-greatest(abs(assessment.confidence_delta),25) else story_row.confidence+assessment.confidence_delta end)))::integer;
 
-    -- One immutable maintenance thesis version per Market Belief stage.
-    select version.id into existing_version_id
-    from public.story_thesis_versions version
-    where version.story_id = assessment.story_id
-      and version.snapshot ->> 'marketBeliefStageRunId' = assessment.market_belief_stage_run_id::text
-    order by version.version_number desc
-    limit 1;
+    select version.id into existing_version_id from public.story_thesis_versions version
+    where version.story_id=assessment.story_id and version.snapshot ->> 'marketBeliefStageRunId'=assessment.market_belief_stage_run_id::text
+    order by version.version_number desc limit 1;
 
     if existing_version_id is null then
-      select event.id into event_id
-      from public.story_events event
-      where event.story_id = assessment.story_id
-        and event.metadata ->> 'marketBeliefStageRunId' = assessment.market_belief_stage_run_id::text
-      order by event.event_at desc
-      limit 1;
-
+      select event.id into event_id from public.story_events event where event.story_id=assessment.story_id and event.metadata ->> 'marketBeliefStageRunId'=assessment.market_belief_stage_run_id::text order by event.event_at desc limit 1;
       if event_id is null then
-        insert into public.story_events (
-          story_id,
-          evidence_id,
-          research_run_id,
-          event_type,
-          headline,
-          detail,
-          confidence_delta,
-          event_at,
-          metadata
-        ) values (
-          assessment.story_id,
-          null,
-          (select research_run_id from public.intelligence_engine_runs where id = assessment.engine_run_id),
-          case
-            when effective_status = 'invalidated' then 'invalidation'
-            when effective_status = 'reinforced' then 'confirmation'
-            else 'thesis_revision'
-          end,
-          left(assessment.rationale, 180),
-          assessment.rationale,
-          new_confidence - story_row.confidence,
-          evaluated_at,
-          jsonb_build_object(
-            'automatic', true,
-            'origin', 'existing_story_maintenance',
-            'engineRunId', assessment.engine_run_id,
-            'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
-            'disposition', effective_status,
-            'intelligenceEvidenceIds', assessment.evidence_ids
-          )
-        ) returning id into event_id;
+        insert into public.story_events(story_id,evidence_id,research_run_id,event_type,headline,detail,confidence_delta,event_at,metadata)
+        values(assessment.story_id,null,(select research_run_id from public.intelligence_engine_runs where id=assessment.engine_run_id),case when effective_status='invalidated' then 'invalidation' when effective_status='reinforced' then 'confirmation' else 'thesis_revision' end,left(assessment.rationale,180),assessment.rationale,new_confidence-story_row.confidence,evaluated_at,jsonb_build_object('automatic',true,'origin','existing_story_maintenance','engineRunId',assessment.engine_run_id,'marketBeliefStageRunId',assessment.market_belief_stage_run_id,'disposition',effective_status,'intelligenceEvidenceIds',assessment.evidence_ids)) returning id into event_id;
       end if;
-
-      select coalesce(max(version.version_number), 0) + 1
-      into next_version
-      from public.story_thesis_versions version
-      where version.story_id = assessment.story_id;
-
-      insert into public.story_thesis_versions (
-        story_id,
-        event_id,
-        version_number,
-        title,
-        thesis,
-        status,
-        confidence,
-        market_question,
-        dominant_narrative,
-        best_explanation,
-        strongest_support,
-        strongest_contradiction,
-        priced_assessment,
-        confirmation_trigger,
-        invalidation_trigger,
-        next_catalyst,
-        article_angle,
-        provisional_title,
-        article_verdict,
-        assets,
-        snapshot,
-        change_reason,
-        effective_at
-      ) values (
-        assessment.story_id,
-        event_id,
-        next_version,
-        story_row.title,
-        new_thesis,
-        public_status,
-        new_confidence,
-        story_row.market_question,
-        story_row.dominant_narrative,
-        story_row.best_explanation,
-        story_row.strongest_support,
-        story_row.strongest_contradiction,
-        story_row.priced_assessment,
-        story_row.confirmation_trigger,
-        story_row.invalidation_trigger,
-        story_row.next_catalyst,
-        assessment.rationale,
-        story_row.title,
-        'story_maintenance',
-        story_row.assets,
-        jsonb_build_object(
-          'origin', 'existing_story_maintenance',
-          'engineRunId', assessment.engine_run_id,
-          'marketBeliefStageRunId', assessment.market_belief_stage_run_id,
-          'disposition', effective_status,
-          'intelligenceEvidenceIds', assessment.evidence_ids,
-          'priorVersion', next_version - 1
-        ),
-        'material_evidence_recalibration',
-        evaluated_at
-      ) returning id into existing_version_id;
+      select coalesce(max(version.version_number),0)+1 into next_version from public.story_thesis_versions version where version.story_id=assessment.story_id;
+      insert into public.story_thesis_versions(story_id,event_id,version_number,title,thesis,status,confidence,market_question,dominant_narrative,best_explanation,strongest_support,strongest_contradiction,priced_assessment,confirmation_trigger,invalidation_trigger,next_catalyst,article_angle,provisional_title,article_verdict,assets,snapshot,change_reason,effective_at)
+      values(assessment.story_id,event_id,next_version,story_row.title,new_thesis,public_status,new_confidence,story_row.market_question,story_row.dominant_narrative,story_row.best_explanation,story_row.strongest_support,story_row.strongest_contradiction,story_row.priced_assessment,story_row.confirmation_trigger,story_row.invalidation_trigger,story_row.next_catalyst,assessment.rationale,story_row.title,'story_maintenance',story_row.assets,jsonb_build_object('origin','existing_story_maintenance','engineRunId',assessment.engine_run_id,'marketBeliefStageRunId',assessment.market_belief_stage_run_id,'disposition',effective_status,'intelligenceEvidenceIds',assessment.evidence_ids,'priorVersion',next_version-1),'material_evidence_recalibration',evaluated_at) returning id into existing_version_id;
     end if;
 
-    update public.stories story
-    set thesis = new_thesis,
-        status = public_status,
-        confidence = new_confidence,
-        current_thesis_version_id = existing_version_id,
-        updated_at = evaluated_at
-    where story.id = assessment.story_id;
-
-    update public.intelligence_story_states state
-    set lifecycle_status = new_lifecycle_status,
-        publication_eligible = effective_status <> 'invalidated',
-        updated_at = evaluated_at
-    where state.story_id = assessment.story_id;
-
-    insert into public.story_updates (story_id, update_type, headline, detail, observed_at)
-    values (
-      assessment.story_id,
-      case
-        when effective_status = 'invalidated' then 'invalidation'
-        when effective_status = 'reinforced' then 'confirmation'
-        else 'recalibration'
-      end,
-      left(assessment.rationale, 90),
-      assessment.rationale,
-      evaluated_at
-    );
+    update public.stories set thesis=new_thesis,status=public_status,confidence=new_confidence,current_thesis_version_id=existing_version_id,updated_at=evaluated_at where id=assessment.story_id;
+    update public.intelligence_story_states set lifecycle_status=new_lifecycle_status,publication_eligible=effective_status<>'invalidated',updated_at=evaluated_at where story_id=assessment.story_id;
+    insert into public.story_updates(story_id,update_type,headline,detail,observed_at) values(assessment.story_id,case when effective_status='invalidated' then 'invalidation' when effective_status='reinforced' then 'confirmation' else 'recalibration' end,left(assessment.rationale,90),assessment.rationale,evaluated_at);
   end if;
 
-  update public.intelligence_story_assessments
-  set disposition = effective_status,
-      material_change_applied = material_allowed,
-      applied_at = evaluated_at
-  where id = assessment.id;
-
-  update public.intelligence_reevaluation_queue queue
-  set status = 'completed',
-      completed_at = evaluated_at,
-      last_error = null,
-      updated_at = evaluated_at
-  where queue.id = any(assessment.queue_ids)
-    and queue.status = 'processing'
-    and queue.claimed_by_engine_run_id = assessment.engine_run_id;
-
-  return query select true, effective_status;
+  update public.intelligence_story_assessments set disposition=effective_status,material_change_applied=material_allowed,applied_at=evaluated_at where id=assessment.id;
+  update public.intelligence_reevaluation_queue queue set status='completed',completed_at=evaluated_at,last_error=null,updated_at=evaluated_at where queue.id=any(assessment.queue_ids) and queue.status='processing' and queue.claimed_by_engine_run_id=assessment.engine_run_id;
+  return query select true,effective_status;
 end;
 $$;
 
@@ -540,108 +360,36 @@ comment on table public.intelligence_story_assessments is
 comment on column public.research_debt.story_id is
   'Optional Story-local scope. Null debt remains diagnostic and cannot block unrelated Story publication.';
 
--- Freshness-only reviews must not manufacture a Story history version. Material
--- changes continue to use the existing history trigger.
 drop trigger if exists intelligence_story_states_history on public.intelligence_story_states;
 create trigger intelligence_story_states_history
 before update on public.intelligence_story_states
-for each row when (
-  (to_jsonb(old) - array['last_evaluated_at', 'last_evidence_at', 'updated_at'])
-  is distinct from
-  (to_jsonb(new) - array['last_evaluated_at', 'last_evidence_at', 'updated_at'])
-)
+for each row when ((to_jsonb(old)-array['last_evaluated_at','last_evidence_at','updated_at']) is distinct from (to_jsonb(new)-array['last_evaluated_at','last_evidence_at','updated_at']))
 execute function public.intelligence_capture_story_history();
 
 alter table public.macro_releases
   add column if not exists ingestion_attempt_status text,
   add column if not exists ingestion_retry_exhausted boolean not null default false;
 
-alter table public.macro_releases
-  drop constraint if exists macro_releases_status_check;
-
-alter table public.macro_releases
-  add constraint macro_releases_status_check
-  check (status in (
-    'upcoming', 'scheduled', 'pre_release', 'ingestion_pending',
-    'released_pending_ingestion', 'completed', 'revision_detected', 'stale_error'
-  ));
+alter table public.macro_releases drop constraint if exists macro_releases_status_check;
+alter table public.macro_releases add constraint macro_releases_status_check check (status in ('upcoming','scheduled','pre_release','ingestion_pending','released_pending_ingestion','completed','revision_detected','stale_error'));
 
 drop function if exists public.refresh_macro_release_lifecycle(timestamptz, interval);
-
-create function public.refresh_macro_release_lifecycle(
-  p_now timestamptz default now(),
-  p_ingestion_grace interval default interval '4 hours'
-)
-returns table (
-  evaluated_count integer,
-  scheduled_count integer,
-  pre_release_count integer,
-  ingestion_pending_count integer,
-  released_pending_ingestion_count integer,
-  completed_count integer,
-  revision_detected_count integer,
-  stale_error_count integer
-)
-language plpgsql
-security invoker
-set search_path = ''
-as $$
+create function public.refresh_macro_release_lifecycle(p_now timestamptz default now(),p_ingestion_grace interval default interval '4 hours')
+returns table(evaluated_count integer,scheduled_count integer,pre_release_count integer,ingestion_pending_count integer,released_pending_ingestion_count integer,completed_count integer,revision_detected_count integer,stale_error_count integer)
+language plpgsql security invoker set search_path='' as $$
 begin
   update public.macro_releases release
-  set status = case
-        when nullif(btrim(release.actual), '') is not null and release.status = 'revision_detected' then 'revision_detected'
-        when nullif(btrim(release.actual), '') is not null then 'completed'
-        when release.release_date > p_now + interval '24 hours' then 'scheduled'
-        when release.release_date > p_now then 'pre_release'
-        when release.last_ingestion_attempt_at is null then 'ingestion_pending'
-        when release.ingestion_retry_exhausted then 'stale_error'
-        else 'released_pending_ingestion'
-      end,
-      released_at = case
-        when nullif(btrim(release.actual), '') is not null then coalesce(release.released_at, release.published_at)
-        else release.released_at
-      end,
-      ingestion_gap_reason = case
-        when nullif(btrim(release.actual), '') is not null or release.release_date > p_now then null
-        when release.last_ingestion_attempt_at is null
-          then 'The release time passed and no official Actual ingestion attempt is recorded yet.'
-        when release.ingestion_retry_exhausted
-          then coalesce(release.ingestion_gap_reason, 'Verified official Actual ingestion attempts failed and the retry policy is exhausted.')
-        else coalesce(release.ingestion_gap_reason, 'Official Actual ingestion was attempted and remains inside its grace or retry state.')
-      end,
-      lifecycle_evaluated_at = p_now,
-      updated_at = case
-        when release.status is distinct from case
-          when nullif(btrim(release.actual), '') is not null and release.status = 'revision_detected' then 'revision_detected'
-          when nullif(btrim(release.actual), '') is not null then 'completed'
-          when release.release_date > p_now + interval '24 hours' then 'scheduled'
-          when release.release_date > p_now then 'pre_release'
-          when release.last_ingestion_attempt_at is null then 'ingestion_pending'
-          when release.ingestion_retry_exhausted then 'stale_error'
-          else 'released_pending_ingestion'
-        end then p_now
-        else release.updated_at
-      end
+  set status=case when nullif(btrim(release.actual),'') is not null and release.status='revision_detected' then 'revision_detected' when nullif(btrim(release.actual),'') is not null then 'completed' when release.release_date>p_now+interval '24 hours' then 'scheduled' when release.release_date>p_now then 'pre_release' when release.last_ingestion_attempt_at is null then 'ingestion_pending' when release.ingestion_retry_exhausted then 'stale_error' else 'released_pending_ingestion' end,
+      released_at=case when nullif(btrim(release.actual),'') is not null then coalesce(release.released_at,release.published_at) else release.released_at end,
+      ingestion_gap_reason=case when nullif(btrim(release.actual),'') is not null or release.release_date>p_now then null when release.last_ingestion_attempt_at is null then 'The release time passed and no official Actual ingestion attempt is recorded yet.' when release.ingestion_retry_exhausted then coalesce(release.ingestion_gap_reason,'Verified official Actual ingestion attempts failed and the retry policy is exhausted.') else coalesce(release.ingestion_gap_reason,'Official Actual ingestion was attempted and remains inside its grace or retry state.') end,
+      lifecycle_evaluated_at=p_now,
+      updated_at=case when release.status is distinct from case when nullif(btrim(release.actual),'') is not null and release.status='revision_detected' then 'revision_detected' when nullif(btrim(release.actual),'') is not null then 'completed' when release.release_date>p_now+interval '24 hours' then 'scheduled' when release.release_date>p_now then 'pre_release' when release.last_ingestion_attempt_at is null then 'ingestion_pending' when release.ingestion_retry_exhausted then 'stale_error' else 'released_pending_ingestion' end then p_now else release.updated_at end
   where release.release_date is not null;
-
-  get diagnostics evaluated_count = row_count;
-
-  select
-    count(*) filter (where status = 'scheduled'),
-    count(*) filter (where status = 'pre_release'),
-    count(*) filter (where status = 'ingestion_pending'),
-    count(*) filter (where status = 'released_pending_ingestion'),
-    count(*) filter (where status = 'completed'),
-    count(*) filter (where status = 'revision_detected'),
-    count(*) filter (where status = 'stale_error')
-  into scheduled_count, pre_release_count, ingestion_pending_count,
-    released_pending_ingestion_count, completed_count, revision_detected_count, stale_error_count
-  from public.macro_releases;
-
+  get diagnostics evaluated_count=row_count;
+  select count(*) filter(where status='scheduled'),count(*) filter(where status='pre_release'),count(*) filter(where status='ingestion_pending'),count(*) filter(where status='released_pending_ingestion'),count(*) filter(where status='completed'),count(*) filter(where status='revision_detected'),count(*) filter(where status='stale_error') into scheduled_count,pre_release_count,ingestion_pending_count,released_pending_ingestion_count,completed_count,revision_detected_count,stale_error_count from public.macro_releases;
   return next;
 end;
 $$;
-
 revoke all on function public.refresh_macro_release_lifecycle(timestamptz, interval) from public, anon, authenticated;
 grant execute on function public.refresh_macro_release_lifecycle(timestamptz, interval) to service_role;
 
@@ -649,7 +397,5 @@ alter table public.macro_source_snapshots
   add column if not exists transport_error_message text,
   add column if not exists authentication_mode text;
 
-comment on column public.macro_source_snapshots.transport_error_message is
-  'Bounded provider response excerpt for diagnostics; large response bodies are never persisted.';
-comment on column public.macro_source_snapshots.authentication_mode is
-  'Non-secret transport authentication mode such as bearer or none.';
+comment on column public.macro_source_snapshots.transport_error_message is 'Bounded provider response excerpt for diagnostics; large response bodies are never persisted.';
+comment on column public.macro_source_snapshots.authentication_mode is 'Non-secret transport authentication mode such as bearer or none.';

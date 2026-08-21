@@ -112,6 +112,28 @@ test("stale review age creates a target using lifecycle-specific thresholds", ()
   assert.equal(selected[0]?.reason, "review_age");
 });
 
+test("overdue high Story debt wakes a review like production research obligations", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("oil", { lastEvaluatedAt: "2026-08-21T11:59:00Z" })],
+    evidence: [], evidenceLinks: [], queue: [],
+    debt: [{
+      storyId: "oil",
+      debtKey: "oil-physical-disruption:freight-insurance-premia",
+      severity: "high",
+      status: "open",
+      reason: "Required Story research obligation has never been checked.",
+      nextAction: "Check the registered source/monitor, record a requirement check, then re-run debt refresh.",
+      nextCheckAt: "2026-08-09T22:55:32.915849Z",
+    }],
+    now,
+  });
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.reason, "overdue_critical_debt");
+  const context = (selected[0] as typeof selected[0] & { reviewContext?: { researchDebt?: Array<{ severity: string; debtKey: string }> } }).reviewContext;
+  assert.equal(context?.researchDebt?.[0]?.severity, "high");
+  assert.equal(context?.researchDebt?.[0]?.debtKey, "oil-physical-disruption:freight-insurance-premia");
+});
+
 test("relevant evidence is prioritised before the maximum-ten truncation", () => {
   const rows = Array.from({ length: 14 }, (_, index) => evidence("ev-" + index, "bounded", {
     sourceTier: index === 13 ? 1 : 4,

@@ -8,7 +8,9 @@ const runtime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.
 const schema = fs.readFileSync(path.join(root, "lib", "intelligence", "schemas.ts"), "utf8");
 const checkpoints = fs.readFileSync(path.join(root, "lib", "intelligence", "resumable-checkpoints.ts"), "utf8");
 const openai = fs.readFileSync(path.join(root, "lib", "intelligence", "openai.ts"), "utf8");
-const migration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821131500_budget_neutral_story_review_repair.sql"), "utf8");
+const baseMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821075252_budget_neutral_story_review_repair.sql"), "utf8");
+const hardeningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821080427_story_review_proof_hardening.sql"), "utf8");
+const migration = `${baseMigration}\n${hardeningMigration}`;
 const macroPage = fs.readFileSync(path.join(root, "app", "data", "macro", "page.tsx"), "utf8");
 
 test("existing Story maintenance piggybacks on the one Market Belief call", () => {
@@ -22,50 +24,61 @@ test("existing Story maintenance piggybacks on the one Market Belief call", () =
   assert.match(openai, /max_output_tokens: effectiveMaxOutputTokens/);
 });
 
-test("target list and blocker context are frozen durably", () => {
+test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
   assert.match(runtime, /freezeStoryReviewTargets\(selected\)/);
-  assert.match(migration, /freeze_intelligence_story_review_targets/);
-  assert.match(migration, /jsonb_array_length\(p_targets\) > 4/);
-  assert.match(migration, /'reviewContext'/);
-  assert.match(migration, /'researchDebt'/);
-  assert.match(migration, /'reason', debt\.reason/);
-  assert.match(migration, /'nextAction', debt\.next_action/);
-  assert.match(migration, /'queueReasons'/);
+  assert.match(hardeningMigration, /freeze_intelligence_story_review_targets/);
+  assert.match(hardeningMigration, /jsonb_array_length\(p_targets\) > 4/);
+  assert.match(hardeningMigration, /jsonb_typeof\(existing_targets\) is distinct from 'array'/);
+  assert.match(hardeningMigration, /'reviewContext'/);
+  assert.match(hardeningMigration, /'researchDebt'/);
+  assert.match(hardeningMigration, /'reason', debt\.reason/);
+  assert.match(hardeningMigration, /'nextAction', debt\.next_action/);
+  assert.match(hardeningMigration, /'queueReasons'/);
 });
 
-test("assessment application is idempotent and material mutation creates canonical history", () => {
-  assert.match(migration, /unique\(engine_run_id, story_id\)/);
-  assert.match(migration, /if assessment\.applied_at is not null/);
-  assert.match(migration, /marketBeliefStageRunId/);
-  assert.match(migration, /insert into public\.story_events/);
-  assert.match(migration, /insert into public\.story_thesis_versions/);
-  assert.match(migration, /current_thesis_version_id = existing_version_id/);
-  assert.match(migration, /insert into public\.story_updates/);
-  assert.match(migration, /update public\.intelligence_story_assessments[\s\S]*applied_at = evaluated_at[\s\S]*update public\.intelligence_reevaluation_queue/);
-  assert.match(migration, /queue\.claimed_by_engine_run_id = assessment\.engine_run_id/);
+test("material Story maintenance reuses canonical version trigger and suppresses duplicate mirrored events", () => {
+  assert.match(baseMigration, /unique\(engine_run_id, story_id\)/);
+  assert.match(hardeningMigration, /if assessment\.applied_at is not null/);
+  assert.match(hardeningMigration, /alchemy\.story_maintenance_context/);
+  assert.match(hardeningMigration, /marketBeliefStageRunId/);
+  assert.match(hardeningMigration, /create or replace function public\.capture_story_thesis_version/);
+  assert.match(hardeningMigration, /insert into public\.story_events/);
+  assert.match(hardeningMigration, /insert into public\.story_thesis_versions/);
+  assert.match(hardeningMigration, /current_thesis_version_id=new_version_id/);
+  assert.match(hardeningMigration, /suppress_event_mirror boolean not null default false/);
+  assert.match(hardeningMigration, /if new\.suppress_event_mirror then/);
+  assert.match(hardeningMigration, /suppress_event_mirror\)[\s\S]*true/);
+  assert.match(hardeningMigration, /update public\.intelligence_story_assessments[\s\S]*applied_at=evaluated_at[\s\S]*update public\.intelligence_reevaluation_queue/);
 });
 
 test("unchanged and creator-only assessments advance freshness without rewriting Story", () => {
   assert.match(runtime, /Material mutation was suppressed because no eligible non-creator evidence/);
-  assert.match(migration, /effective_status := case when material_allowed then assessment\.disposition else 'unchanged' end/);
-  assert.match(migration, /Every valid assessment advances the review watermark/);
-  assert.match(migration, /if material_allowed then[\s\S]*insert into public\.story_thesis_versions/);
+  assert.match(hardeningMigration, /effective_status := case when material_allowed then assessment\.disposition else 'unchanged' end/);
+  assert.match(hardeningMigration, /update public\.intelligence_story_states state[\s\S]*last_evaluated_at=evaluated_at/);
+  assert.match(hardeningMigration, /if material_allowed then[\s\S]*update public\.stories story/);
 });
 
 test("automatic invalidation uses the strict evidence policy", () => {
-  assert.match(migration, /evidence\.evidence_class not in \('transcript', 'research_analysis'\)/);
-  assert.match(migration, /source\.source_tier <= 4/);
-  assert.match(migration, /assessment\.disposition <> 'invalidated'[\s\S]*has_tier_one_or_two[\s\S]*independent_groups >= 2/);
-  assert.match(migration, /when effective_status = 'invalidated' then 'archived'/);
-  assert.match(migration, /when effective_status = 'invalidated' then 'invalidated'/);
+  assert.match(hardeningMigration, /evidence\.evidence_class not in \('transcript', 'research_analysis'\)/);
+  assert.match(hardeningMigration, /source\.source_tier <= 4/);
+  assert.match(hardeningMigration, /assessment\.disposition <> 'invalidated'[\s\S]*has_tier_one_or_two[\s\S]*independent_groups >= 2/);
+  assert.match(hardeningMigration, /when effective_status='invalidated' then 'archived'/);
+  assert.match(hardeningMigration, /when effective_status='invalidated' then 'invalidated'/);
 });
 
 test("abandoned reevaluation queue claims recover without another cron", () => {
-  assert.match(migration, /Recovered abandoned Story reevaluation claim/);
-  assert.match(migration, /queue\.updated_at < now\(\) - interval '20 minutes'/);
-  assert.match(migration, /run\.status in \('completed', 'failed', 'blocked'\)/);
+  assert.match(baseMigration, /Recovered abandoned Story reevaluation claim/);
+  assert.match(baseMigration, /queue\.updated_at < now\(\) - interval '20 minutes'/);
+  assert.match(baseMigration, /run\.status in \('completed', 'failed', 'blocked'\)/);
   assert.match(runtime, /status: "retryable"/);
   assert.match(runtime, /omitted or duplicated the required Story assessment/);
+});
+
+test("due high and critical Story debt is rescheduled after assessment rather than globally blocking", () => {
+  assert.match(hardeningMigration, /debt\.severity in \('high','critical'\)/);
+  assert.match(hardeningMigration, /debt\.severity='critical' then interval '6 hours' else interval '24 hours'/);
+  assert.match(hardeningMigration, /last_attempt_at=evaluated_at/);
+  assert.doesNotMatch(hardeningMigration, /status='resolved'/);
 });
 
 test("Belief, Hypothesis and Story assets are intersected with explicit evidence attribution", () => {
@@ -76,9 +89,9 @@ test("Belief, Hypothesis and Story assets are intersected with explicit evidence
 });
 
 test("Macro stale_error requires an explicit exhausted retry and source health is separate", () => {
-  assert.match(migration, /when release\.last_ingestion_attempt_at is null then 'ingestion_pending'/);
-  assert.match(migration, /when release\.ingestion_retry_exhausted then 'stale_error'/);
-  assert.doesNotMatch(migration, /release_date >= p_now - p_ingestion_grace[\s\S]{0,120}stale_error/);
+  assert.match(baseMigration, /when release\.last_ingestion_attempt_at is null then 'ingestion_pending'/);
+  assert.match(baseMigration, /when release\.ingestion_retry_exhausted then 'stale_error'/);
+  assert.doesNotMatch(baseMigration, /release_date >= p_now - p_ingestion_grace[\s\S]{0,120}stale_error/);
   assert.match(macroPage, /Latest Macro source attempt degraded/);
   assert.match(macroPage, /prior COMPLETE snapshot remains canonical/);
 });
