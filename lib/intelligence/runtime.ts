@@ -759,6 +759,16 @@ function validFrozenStoryReviewTargets(value: unknown): value is StoryReviewTarg
   ));
 }
 
+async function claimStoryReviewQueues(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
+  const queueIds = unique(targets.flatMap((target) => target.queueIds));
+  if (!queueIds.length) return;
+  await intelligenceRest("rpc/claim_intelligence_story_reevaluations", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ p_engine_run_id: engineRunId, p_queue_ids: queueIds }),
+  });
+}
+
 async function loadOrCreateStoryReviewTargets(
   engineRunId: string,
   stories: StoryRow[],
@@ -766,7 +776,11 @@ async function loadOrCreateStoryReviewTargets(
   researchDebt: ResearchDebtRow[],
 ) {
   const frozen = currentIntelligenceInvocation()?.frozenInputs?.storyReviewTargets;
-  if (validFrozenStoryReviewTargets(frozen)) return structuredClone(frozen);
+  if (validFrozenStoryReviewTargets(frozen)) {
+    const persisted = structuredClone(frozen);
+    await claimStoryReviewQueues(engineRunId, persisted);
+    return persisted;
+  }
   if (!stories.length) return freezeStoryReviewTargets([]) as Promise<StoryReviewTargetPackItem[]>;
 
   const storyIds = stories.map((story) => story.id).join(",");
@@ -835,14 +849,7 @@ async function loadOrCreateStoryReviewTargets(
     now: new Date(analysisAsOf),
   });
   const persisted = await freezeStoryReviewTargets(selected) as StoryReviewTargetPackItem[];
-  const queueIds = unique(persisted.flatMap((target) => target.queueIds));
-  if (queueIds.length) {
-    await intelligenceRest("rpc/claim_intelligence_story_reevaluations", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ p_engine_run_id: engineRunId, p_queue_ids: queueIds }),
-    });
-  }
+  await claimStoryReviewQueues(engineRunId, persisted);
   return persisted;
 }
 
