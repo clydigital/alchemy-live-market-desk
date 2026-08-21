@@ -15,7 +15,7 @@ type MacroReleaseLike = {
   status: string;
   actual: string | null;
   ingestion_gap_reason?: string | null;
-  ingestion_last_attempt_at?: string | null;
+  last_ingestion_attempt_at?: string | null;
   ingestion_attempt_status?: string | null;
   ingestion_retry_exhausted?: boolean | null;
 };
@@ -61,7 +61,7 @@ export function deriveMacroReleaseLifecycle(
   if (remaining > 0) {
     return { status: "pre_release", ingestionGap: false, ingestionGapReason: null };
   }
-  if (!release.ingestion_last_attempt_at) {
+  if (!release.last_ingestion_attempt_at) {
     return {
       status: "ingestion_pending",
       ingestionGap: true,
