@@ -42,6 +42,13 @@ test("unchanged and creator-only assessments advance state without rewriting Sto
   assert.match(migration, /set last_evaluated_at = evaluated_at/);
 });
 
+test("Belief, Hypothesis and Story assets are intersected with explicit evidence attribution", () => {
+  assert.match(runtime, /persistBeliefs\(output: MarketBeliefOutput, evidenceById:/);
+  assert.match(runtime, /affected_assets: onlyExplicitAssets\(belief\.affectedAssets, allowedAssets\)/);
+  assert.match(runtime, /affected_assets: onlyExplicitAssets\(hypothesis\.affectedAssets, belief\?\.affected_assets \?\? \[\]\)/);
+  assert.match(runtime, /const affectedAssets = onlyExplicitAssets\(candidate\.affectedAssets, reviewedById/);
+});
+
 test("Macro stale_error requires an explicit exhausted retry and source health is separate", () => {
   assert.match(migration, /when release\.last_ingestion_attempt_at is null then 'ingestion_pending'/);
   assert.match(migration, /when release\.ingestion_retry_exhausted then 'stale_error'/);
