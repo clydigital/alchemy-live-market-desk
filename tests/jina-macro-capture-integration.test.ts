@@ -92,6 +92,8 @@ function readerSuccess(text: string) {
     usedAuthentication: true,
     text,
     errorCode: null,
+    errorMessage: null,
+    authenticationMode: "bearer",
   } as const);
 }
 
@@ -146,6 +148,8 @@ test("transport failure records a failed attempt and preserves previous COMPLETE
       usedAuthentication: true,
       text: "",
       errorCode: "http_error",
+      errorMessage: "rate limited",
+      authenticationMode: "bearer",
     }),
   });
 
@@ -153,6 +157,8 @@ test("transport failure records a failed attempt and preserves previous COMPLETE
   assert.equal(result.currentSnapshotId, "previous-complete");
   assert.equal(fake.attempts[0]?.attempt.status, "failed");
   assert.equal(fake.attempts[0]?.attempt.transportStatus, 429);
+  assert.equal(fake.attempts[0]?.attempt.transportErrorMessage, "rate limited");
+  assert.equal(fake.attempts[0]?.attempt.authenticationMode, "bearer");
   assert.equal(fake.sections.size, 0);
   assert.equal(fake.tables.size, 0);
 });

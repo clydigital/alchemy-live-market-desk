@@ -3,12 +3,13 @@ import Link from "next/link";
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
+import { getMacroSourceSnapshotHealth } from "@/lib/macro/macro-capture-supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function MacroDataPage() {
-  const data = await getDeskData();
-  const ingestionGaps = data.macroReleases.filter((release) => ["released_pending_ingestion", "stale_error"].includes(release.status));
+  const [data, macroSource] = await Promise.all([getDeskData(), getMacroSourceSnapshotHealth()]);
+  const ingestionGaps = data.macroReleases.filter((release) => ["ingestion_pending", "released_pending_ingestion", "stale_error"].includes(release.status));
   const latestObservation = [...data.macroObservations]
     .sort((a, b) => Date.parse(b.observation_date) - Date.parse(a.observation_date))[0];
 
@@ -39,6 +40,14 @@ export default async function MacroDataPage() {
         ) : null}
 
         <DataState
+          state={macroSource.retainedPriorComplete ? "risk" : undefined}
+          title={macroSource.retainedPriorComplete ? "Latest Macro source attempt degraded" : "Macro source snapshot health"}
+          detail={macroSource.retainedPriorComplete
+            ? "The prior COMPLETE snapshot remains canonical. The failed or partial attempt is retained separately for diagnostics."
+            : `Latest complete: ${formatDeskDate(macroSource.latestCompleteSnapshotTimestamp)} · Latest attempt: ${formatDeskDate(macroSource.latestCaptureAttemptTimestamp)} · ${macroSource.latestAttemptStatus || "unavailable"}`}
+        />
+
+        <DataState
           title="Historical vintages are limited"
           detail="Current records show actual, consensus, prior and revised-prior values where available. Earlier publication vintages are not yet fully reconstructable."
         />
@@ -51,7 +60,7 @@ export default async function MacroDataPage() {
           <div className={styles.recordList}>
             {data.macroReleases.length ? data.macroReleases.map((release) => {
               const metrics = data.macroReleaseMetrics.filter((metric) => metric.release_id === release.id);
-              const gap = ["released_pending_ingestion", "stale_error"].includes(release.status);
+              const gap = ["ingestion_pending", "released_pending_ingestion", "stale_error"].includes(release.status);
               return (
               <article className={styles.record} key={release.id}>
                 <div className={styles.recordHeader}>

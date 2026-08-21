@@ -48,7 +48,9 @@ function productionStore(): MacroCaptureStore {
           raw_markdown: attempt.rawMarkdown,
           transport_status: attempt.transportStatus,
           transport_error_code: attempt.transportErrorCode,
+          transport_error_message: attempt.transportErrorMessage,
           used_authentication: attempt.usedAuthentication,
+          authentication_mode: attempt.authenticationMode,
         })
         .select("id")
         .single<{ id: string }>();
@@ -152,4 +154,67 @@ export async function attachMacroCaptureToResearchRun(
     .eq("id", researchRunId)
     .eq("status", "running");
   if (error) throw new Error(`Could not attach Macro Indicators lineage to research run: ${error.message}`);
+}
+
+export type MacroSourceSnapshotHealth = {
+  latestCompleteSnapshotTimestamp: string | null;
+  latestCaptureAttemptTimestamp: string | null;
+  latestAttemptStatus: string | null;
+  transportStatus: number | null;
+  transportErrorCode: string | null;
+  transportErrorMessage: string | null;
+  authenticationMode: string | null;
+  retainedPriorComplete: boolean;
+};
+
+export async function getMacroSourceSnapshotHealth(): Promise<MacroSourceSnapshotHealth> {
+  try {
+    const client = createSupabaseAdminClient();
+    const [complete, attempt] = await Promise.all([
+      client.from("macro_source_snapshots")
+        .select("id,capture_completed_at")
+        .eq("source_key", SOURCE_KEY)
+        .eq("status", "complete")
+        .order("capture_completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ id: string; capture_completed_at: string }>(),
+      client.from("macro_source_snapshots")
+        .select("id,status,capture_completed_at,transport_status,transport_error_code,transport_error_message,authentication_mode")
+        .eq("source_key", SOURCE_KEY)
+        .order("capture_completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{
+          id: string;
+          status: string;
+          capture_completed_at: string;
+          transport_status: number | null;
+          transport_error_code: string | null;
+          transport_error_message: string | null;
+          authentication_mode: string | null;
+        }>(),
+    ]);
+    if (complete.error) throw complete.error;
+    if (attempt.error) throw attempt.error;
+    return {
+      latestCompleteSnapshotTimestamp: complete.data?.capture_completed_at ?? null,
+      latestCaptureAttemptTimestamp: attempt.data?.capture_completed_at ?? null,
+      latestAttemptStatus: attempt.data?.status ?? null,
+      transportStatus: attempt.data?.transport_status ?? null,
+      transportErrorCode: attempt.data?.transport_error_code ?? null,
+      transportErrorMessage: attempt.data?.transport_error_message ?? null,
+      authenticationMode: attempt.data?.authentication_mode ?? null,
+      retainedPriorComplete: Boolean(complete.data?.id && attempt.data?.id && complete.data.id !== attempt.data.id && attempt.data.status !== "complete"),
+    };
+  } catch {
+    return {
+      latestCompleteSnapshotTimestamp: null,
+      latestCaptureAttemptTimestamp: null,
+      latestAttemptStatus: null,
+      transportStatus: null,
+      transportErrorCode: null,
+      transportErrorMessage: null,
+      authenticationMode: null,
+      retainedPriorComplete: false,
+    };
+  }
 }
