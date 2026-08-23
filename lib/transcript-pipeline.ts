@@ -14,8 +14,9 @@ export type TranscriptIntakeItem = {
   url: string;
   transcriptStatus: "ready" | "missing" | "unavailable" | "not_applicable";
   // A non-retryable unavailable row is an auditable provider conclusion, not
-  // a cache miss. Scheduled intake must preserve it without re-spending a
-  // TranscriptAPI request on every cadence.
+  // a cache miss. Scheduled intake preserves it as research debt. Some states
+  // are structural and remain suppressed; some can change and are revalidated
+  // on a bounded cooldown instead of every scheduled cadence.
   transcriptRetryable?: boolean | null;
   transcriptErrorCode?: string | null;
   transcriptErrorMessage?: string | null;
@@ -87,6 +88,13 @@ export type TranscriptPipelineResult =
     cacheHit: false;
   };
 
+const TRANSCRIPT_REVALIDATION_MS = 24 * 60 * 60 * 1_000;
+const REVALIDATABLE_UNAVAILABLE_CODES = new Set([
+  "transcript_missing",
+  "video_private",
+  "language_unavailable",
+]);
+
 function nextAction(error: TranscriptApiError) {
   switch (error.code) {
     case "provider_auth_error": return "Verify the server-side TRANSCRIPT_API_KEY and redeploy.";
@@ -95,9 +103,9 @@ function nextAction(error: TranscriptApiError) {
     case "provider_server_error": return "Retry after bounded backoff; escalate if the provider remains unavailable.";
     case "network_error":
     case "timeout": return "Retry after the network/provider cooldown.";
-    case "language_unavailable": return "Review the languages reported by /youtube/info and retry with an available track.";
-    case "transcript_missing": return "Confirm caption availability and keep creator claims blocked. Scheduled intake will not retry unless availability changes.";
-    case "video_private": return "Confirm publisher access; scheduled intake will not retry while the video remains private.";
+    case "language_unavailable": return "Review the languages reported by /youtube/info; scheduled intake will revalidate after the 24-hour cooldown.";
+    case "transcript_missing": return "Keep creator claims blocked; scheduled intake will revalidate caption availability after the 24-hour cooldown.";
+    case "video_private": return "Keep creator claims blocked; scheduled intake will revalidate publisher access after the 24-hour cooldown.";
     case "video_deleted": return "Confirm the source was removed and keep creator claims blocked; scheduled intake will not retry it.";
     case "video_not_found": return "Confirm the canonical YouTube video ID before a manual retry; scheduled intake will not retry it.";
     case "invalid_video_url": return "Correct the canonical YouTube video ID or URL before a manual retry; scheduled intake will not retry it.";
@@ -105,12 +113,36 @@ function nextAction(error: TranscriptApiError) {
   }
 }
 
+export function isRevalidatableTranscriptUnavailable(item: TranscriptIntakeItem) {
+  return item.transcriptStatus === "unavailable"
+    && item.transcriptRetryable === false
+    && REVALIDATABLE_UNAVAILABLE_CODES.has(item.transcriptErrorCode || "");
+}
+
 export function isKnownPermanentTranscriptUnavailable(item: TranscriptIntakeItem) {
-  return item.transcriptStatus === "unavailable" && item.transcriptRetryable === false;
+  return item.transcriptStatus === "unavailable"
+    && item.transcriptRetryable === false
+    && !REVALIDATABLE_UNAVAILABLE_CODES.has(item.transcriptErrorCode || "");
+}
+
+export function isTranscriptRevalidationDue(
+  item: TranscriptIntakeItem,
+  nextCheckAt: string | null | undefined,
+  now = new Date(),
+) {
+  if (!isRevalidatableTranscriptUnavailable(item)) return false;
+  if (!nextCheckAt) return true;
+  const nextCheckTime = Date.parse(nextCheckAt);
+  return !Number.isFinite(nextCheckTime) || nextCheckTime <= now.getTime();
 }
 
 function nextCheck(error: TranscriptApiError, attemptedAt: Date) {
-  if (!error.retryable) return null;
+  if (!error.retryable) {
+    if (REVALIDATABLE_UNAVAILABLE_CODES.has(error.code)) {
+      return new Date(attemptedAt.getTime() + TRANSCRIPT_REVALIDATION_MS).toISOString();
+    }
+    return null;
+  }
   const seconds = error.retryAfterSeconds
     ?? (error.code === "provider_rate_limit" ? 15 * 60 : 30 * 60);
   return new Date(attemptedAt.getTime() + Math.max(60, seconds) * 1_000).toISOString();
@@ -190,4 +222,3 @@ export async function retrieveAndPersistTranscript(input: {
     };
   }
 }
-
