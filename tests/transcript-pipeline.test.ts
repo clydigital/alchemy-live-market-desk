@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   isKnownPermanentTranscriptUnavailable,
+  isRevalidatableTranscriptUnavailable,
+  isTranscriptRevalidationDue,
   retrieveAndPersistTranscript,
   type ReadyTranscriptCache,
   type TranscriptDebtInput,
@@ -169,7 +171,7 @@ test("a retryable failure records stable metadata and idempotent research debt",
   assert.equal(store.recalculations, 2);
 });
 
-test("a permanent transcript absence remains visible as debt but is not eligible for scheduled retry", async () => {
+test("a changeable transcript absence remains debt and receives a 24-hour revalidation clock", async () => {
   const store = new MemoryStore();
   const result = await retrieveAndPersistTranscript({
     videoId: "yNiWeHGBl98",
@@ -186,20 +188,45 @@ test("a permanent transcript absence remains visible as debt but is not eligible
 
   assert.equal(result.status, "failed");
   assert.equal(result.retryable, false);
-  assert.equal(result.nextCheckAt, null);
+  assert.equal(result.nextCheckAt, "2026-08-11T08:00:00.000Z");
   assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.retryable, false);
-  assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextCheckAt, null);
-  assert.match(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextAction || "", /will not retry/i);
-  assert.equal(isKnownPermanentTranscriptUnavailable({
+  assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextCheckAt, "2026-08-11T08:00:00.000Z");
+  assert.match(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextAction || "", /24-hour cooldown/i);
+
+  const unavailable: TranscriptIntakeItem = {
     ...store.item!,
     transcriptStatus: "unavailable",
     transcriptRetryable: false,
-  }), true);
-  assert.equal(isKnownPermanentTranscriptUnavailable({
-    ...store.item!,
-    transcriptStatus: "missing",
-    transcriptRetryable: true,
-  }), false);
+    transcriptErrorCode: "transcript_missing",
+  };
+  assert.equal(isRevalidatableTranscriptUnavailable(unavailable), true);
+  assert.equal(isKnownPermanentTranscriptUnavailable(unavailable), false);
+  assert.equal(isTranscriptRevalidationDue(unavailable, "2026-08-11T08:00:00.000Z", new Date("2026-08-10T20:00:00.000Z")), false);
+  assert.equal(isTranscriptRevalidationDue(unavailable, "2026-08-11T08:00:00.000Z", new Date("2026-08-11T08:00:00.000Z")), true);
+  assert.equal(isTranscriptRevalidationDue(unavailable, null, new Date("2026-08-10T08:00:00.000Z")), true);
+});
+
+test("structural transcript failures remain permanently suppressed", () => {
+  const base: TranscriptIntakeItem = {
+    id: "item-structural",
+    runId: "run-1",
+    videoId: "deleted-video",
+    publisher: "Publisher",
+    title: "Deleted video",
+    url: "https://www.youtube.com/watch?v=deleted-video",
+    transcriptStatus: "unavailable",
+    transcriptRetryable: false,
+    transcriptErrorCode: "video_deleted",
+    required: true,
+    attemptCount: 1,
+  };
+
+  assert.equal(isKnownPermanentTranscriptUnavailable(base), true);
+  assert.equal(isRevalidatableTranscriptUnavailable(base), false);
+  assert.equal(isTranscriptRevalidationDue(base, null, new Date("2026-08-12T08:00:00.000Z")), false);
+
+  assert.equal(isKnownPermanentTranscriptUnavailable({ ...base, transcriptErrorCode: "video_not_found" }), true);
+  assert.equal(isKnownPermanentTranscriptUnavailable({ ...base, transcriptErrorCode: "invalid_video_url" }), true);
 });
 
 test("a ready database row cannot be overwritten by a later provider failure", async () => {
