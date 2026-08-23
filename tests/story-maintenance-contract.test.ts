@@ -15,7 +15,7 @@ const migrationPath = path.join(
   root,
   "supabase",
   "migrations",
-  "20260823193000_existing_story_maintenance_contract_v1.sql",
+  "20260823220916_existing_story_maintenance_contract_v1.sql",
 );
 const migration = fs.readFileSync(migrationPath, "utf8");
 const sqlContract = fs.readFileSync(
