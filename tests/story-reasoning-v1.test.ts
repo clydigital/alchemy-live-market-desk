@@ -21,9 +21,17 @@ const evidenceById = new Map(evidence.map((item) => [item.id, item]));
 function buildSnapshot({
   acceptedExplanationEvidenceIds = ["ev-2"],
   overlookedVariableEvidenceIds = ["ev-1"],
+  decisiveEvidenceIds = ["ev-1", "ev-2"],
+  hypothesisEvidenceForIds = ["ev-1"],
+  challengerEvidenceIds = ["ev-3"],
+  scenarioEvidenceIds = ["ev-1", "ev-2"],
 }: {
   acceptedExplanationEvidenceIds?: string[];
   overlookedVariableEvidenceIds?: string[];
+  decisiveEvidenceIds?: string[];
+  hypothesisEvidenceForIds?: string[];
+  challengerEvidenceIds?: string[];
+  scenarioEvidenceIds?: string[];
 } = {}) {
   return buildCanonicalStoryReasoningSnapshotV1({
     synthesis: {
@@ -39,11 +47,11 @@ function buildSnapshot({
       overlookedVariableEvidenceStatus: "inferred",
       overlookedVariableEvidenceIds,
       marketMayBeRight: "The move can reverse if inflation reaccelerates.",
-      decisiveEvidenceIds: ["ev-1", "ev-2"],
+      decisiveEvidenceIds,
     },
     hypothesis: {
       id: "hyp-1",
-      evidenceForIds: ["ev-1"],
+      evidenceForIds: hypothesisEvidenceForIds,
       causalChain: [
         {
           from: "Lower front-end yields",
@@ -72,7 +80,7 @@ function buildSnapshot({
     },
     challenger: {
       strongestCountercase: "Inflation reacceleration could reverse the yield move.",
-      conflictingEvidenceIds: ["ev-3"],
+      conflictingEvidenceIds: challengerEvidenceIds,
       weakestLink: "The durability of the rates move is not yet proven.",
     },
     scenarios: [
@@ -81,7 +89,7 @@ function buildSnapshot({
         bias: "slightly_bullish",
         conviction: 65,
         baseCase: { summary: "Gold remains supported while front-end yields stay contained." },
-        explanatoryEvidenceIds: ["ev-1", "ev-2"],
+        explanatoryEvidenceIds: scenarioEvidenceIds,
         confirmation: "Gold holds above the breakout while yields remain lower.",
         invalidation: "Gold loses the breakout as yields and DXY recover.",
       },
@@ -230,6 +238,25 @@ test("unknown Story Synthesis provenance IDs fail closed", () => {
   assert.throws(
     () => buildSnapshot({ overlookedVariableEvidenceIds: ["missing-overlooked-evidence"] }),
     /Overlooked variable references unknown canonical evidence ID/,
+  );
+});
+
+test("unknown decisive and stage-owned provenance IDs fail closed", () => {
+  assert.throws(
+    () => buildSnapshot({ decisiveEvidenceIds: ["missing-decisive-evidence"] }),
+    /Decisive evidence references unknown canonical evidence ID/,
+  );
+  assert.throws(
+    () => buildSnapshot({ hypothesisEvidenceForIds: ["missing-hypothesis-evidence"] }),
+    /Primary hypothesis thesis evidence references unknown canonical evidence ID/,
+  );
+  assert.throws(
+    () => buildSnapshot({ challengerEvidenceIds: ["missing-challenger-evidence"] }),
+    /Countercase references unknown canonical evidence ID/,
+  );
+  assert.throws(
+    () => buildSnapshot({ scenarioEvidenceIds: ["missing-scenario-evidence"] }),
+    /Scenario XAUUSD references unknown canonical evidence ID/,
   );
 });
 

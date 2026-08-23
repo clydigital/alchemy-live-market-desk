@@ -58,7 +58,6 @@ import {
 import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
-  restrictHypothesisEvidenceIds,
 } from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
@@ -1049,11 +1048,23 @@ async function persistHypotheses(
     if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
     const divergence = divergenceById.get(hypothesis.divergenceId)!;
     const belief = beliefById.get(divergence.market_belief_id);
-    const evidenceFor = restrictHypothesisEvidenceIds(hypothesis.evidenceForIds, allowedEvidence);
-    const evidenceAgainst = restrictHypothesisEvidenceIds(hypothesis.evidenceAgainstIds, allowedEvidence);
-    const causalChain = hypothesis.causalChain.map((edge) => ({
+    const evidenceFor = requireKnownEvidenceIds(
+      hypothesis.evidenceForIds,
+      allowedEvidence,
+      `Hypothesis ${hypothesis.divergenceId} supporting evidence`,
+    );
+    const evidenceAgainst = requireKnownEvidenceIds(
+      hypothesis.evidenceAgainstIds,
+      allowedEvidence,
+      `Hypothesis ${hypothesis.divergenceId} conflicting evidence`,
+    );
+    const causalChain = hypothesis.causalChain.map((edge, ordinal) => ({
       ...edge,
-      evidenceIds: restrictHypothesisEvidenceIds(edge.evidenceIds, allowedEvidence),
+      evidenceIds: requireKnownEvidenceIds(
+        edge.evidenceIds,
+        allowedEvidence,
+        `Hypothesis ${hypothesis.divergenceId} causal edge ${ordinal}`,
+      ),
     }));
     return [{
       divergence_id: hypothesis.divergenceId,
@@ -1117,7 +1128,11 @@ async function persistChallenger(
       allowedRequirementIds: [...allowedRequirementIds],
       unknownRequirementIds: requirementIds.unknown,
       outOfScopeRequirementIds: requirementIds.outOfScope,
-      conflictingEvidenceIds: onlyKnownIds(assessment.conflictingEvidenceIds, knownEvidence),
+      conflictingEvidenceIds: requireKnownEvidenceIds(
+        assessment.conflictingEvidenceIds,
+        knownEvidence,
+        `Challenger assessment ${assessment.hypothesisId} conflicting evidence`,
+      ),
       adjustedConfidence: clamp(assessment.adjustedConfidence),
       confidenceAdjustment: Math.max(-100, Math.min(100, assessment.confidenceAdjustment)),
       stageRunId,
@@ -1175,7 +1190,11 @@ async function persistScenarios(engineRunId: string, output: ScenarioOutput, pro
       tail_case: scenario.tailCase,
       confirmation: scenario.confirmation,
       invalidation: scenario.invalidation,
-      explanatory_evidence_ids: onlyKnownIds(scenario.explanatoryEvidenceIds, knownEvidence),
+      explanatory_evidence_ids: requireKnownEvidenceIds(
+        scenario.explanatoryEvidenceIds,
+        knownEvidence,
+        `Scenario ${scenario.hypothesisId}/${scenario.asset} explanatory evidence`,
+      ),
       updated_at: new Date().toISOString(),
     }];
   });
@@ -1252,7 +1271,11 @@ function persistedCausalChain(hypothesis: HypothesisRow): StoryReasoningHypothes
   });
 }
 
-function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: StoryReasoningContext) {
+function buildStoryReasoningSnapshot(
+  synthesis: CandidateWorking,
+  context: StoryReasoningContext,
+  lifecycleStatus: CandidateWorking["lifecycleStatus"],
+) {
   if (synthesis.primaryHypothesisId !== context.hypothesis.id) {
     throw new Error(`Story candidate ${synthesis.candidateKey} does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
   }
@@ -1264,7 +1287,7 @@ function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: Story
   );
   return buildCanonicalStoryReasoningSnapshotV1({
     synthesis: {
-      lifecycleStatus: synthesis.lifecycleStatus,
+      lifecycleStatus,
       thesis: synthesis.thesis,
       whatChanged: synthesis.whatChanged,
       previousState: synthesis.previousState,
@@ -1305,8 +1328,12 @@ function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: Story
   });
 }
 
-async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking, reasoningContext: StoryReasoningContext) {
-  const reasoning = buildStoryReasoningSnapshot(synthesis, reasoningContext);
+async function createInitialVersion(
+  story: StoryRow,
+  synthesis: CandidateWorking,
+  reasoningContext: StoryReasoningContext,
+  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>,
+) {
   const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -1350,17 +1377,20 @@ async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking
     }),
   });
   const versionId = versions[0]?.id;
-  if (versionId) {
-    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ current_thesis_version_id: versionId }),
-    });
-  }
+  if (!versionId) throw new Error(`Initial thesis version for Story ${story.id} was not persisted.`);
+  await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ current_thesis_version_id: versionId }),
+  });
 }
 
-async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking, reasoningContext: StoryReasoningContext) {
-  const reasoning = buildStoryReasoningSnapshot(synthesis, reasoningContext);
+async function createRevisionVersion(
+  story: StoryRow,
+  synthesis: CandidateWorking,
+  reasoningContext: StoryReasoningContext,
+  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>,
+) {
   const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
     `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
   );
@@ -1408,13 +1438,13 @@ async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorkin
       effective_at: new Date().toISOString(),
     }),
   });
-  if (versions[0]?.id) {
-    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ current_thesis_version_id: versions[0].id }),
-    });
-  }
+  const versionId = versions[0]?.id;
+  if (!versionId) throw new Error(`Revised thesis version for Story ${story.id} was not persisted.`);
+  await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ current_thesis_version_id: versionId }),
+  });
 }
 
 async function promoteCandidate({
@@ -1441,6 +1471,7 @@ async function promoteCandidate({
   scenarios: ScenarioRow[];
 }) {
   const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
+  const reasoning = buildStoryReasoningSnapshot(candidate, reasoningContext, lifecycleStatus);
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
   const storyPayload = {
     title: candidate.title.slice(0, 180),
@@ -1484,7 +1515,7 @@ async function promoteCandidate({
         observed_at: new Date().toISOString(),
       }),
     });
-    await createRevisionVersion(story, candidate, reasoningContext);
+    await createRevisionVersion(story, candidate, reasoningContext, reasoning);
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
@@ -1506,10 +1537,14 @@ async function promoteCandidate({
     story = rows[0];
     if (!story) throw new Error("New Alchemy Story could not be created.");
     isNew = true;
-    await createInitialVersion(story, candidate, reasoningContext);
+    await createInitialVersion(story, candidate, reasoningContext, reasoning);
   }
 
-  const decisive = onlyKnownIds(candidate.decisiveEvidenceIds, new Set(evidenceById.keys()));
+  const decisive = requireKnownEvidenceIds(
+    candidate.decisiveEvidenceIds,
+    new Set(evidenceById.keys()),
+    `Story candidate ${candidate.candidateKey} decisive evidence`,
+  );
   const ancestry = unique(decisive.map((id) => evidenceById.get(id)?.ancestryGroupId).filter((id): id is string => Boolean(id)));
   const stateRows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_states?on_conflict=story_id", {
     method: "POST",
@@ -2132,7 +2167,11 @@ export async function runIntelligenceEngine({
     const reviewedById = new Map(reviewed.map((hypothesis) => [hypothesis.id, hypothesis]));
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
       if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
-      const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
+      const decisiveEvidenceIds = requireKnownEvidenceIds(
+        candidate.decisiveEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} decisive evidence`,
+      );
       const acceptedExplanationEvidenceIds = requireKnownEvidenceIds(
         candidate.acceptedExplanationEvidenceIds,
         knownEvidenceIds,
