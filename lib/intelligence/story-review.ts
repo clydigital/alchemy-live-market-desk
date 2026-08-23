@@ -56,6 +56,10 @@ export type StoryReviewContext = {
   }>;
   dueCatalysts: string[];
   triggerEvidenceIds: string[];
+  catalystCandidates: Array<{
+    label: string;
+    catalystRef: string | null;
+  }>;
 };
 
 const REASON_RANK: Record<StoryReviewReason, number> = {
@@ -140,6 +144,8 @@ export function selectStoryReviewTargets(input: {
       const due = catalystTime(catalyst);
       return due !== null && due <= nowMs && due > lastEvaluated;
     });
+    const catalystCandidates = [...new Set(story.nextCatalysts.map((value) => value.trim()).filter(Boolean))]
+      .map((label) => ({ label, catalystRef: null }));
     const reasons: StoryReviewReason[] = [];
     if (availableQueue.length) reasons.push("explicit_queue");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");
@@ -162,6 +168,7 @@ export function selectStoryReviewTargets(input: {
       })),
       dueCatalysts,
       triggerEvidenceIds: fresh.map((item) => item.id),
+      catalystCandidates,
     };
     return [{
       story,
