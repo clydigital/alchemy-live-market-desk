@@ -206,6 +206,49 @@ test("a changeable transcript absence remains debt and receives a 24-hour revali
   assert.equal(isTranscriptRevalidationDue(unavailable, null, new Date("2026-08-10T08:00:00.000Z")), true);
 });
 
+test("operational non-retryable failures are revalidated instead of permanently suppressed", async () => {
+  const store = new MemoryStore();
+  const result = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store,
+    retrieve: async () => {
+      throw new TranscriptApiError("TranscriptAPI credits are unavailable", {
+        code: "provider_payment_required",
+        httpStatus: 402,
+        retryable: false,
+      });
+    },
+    now: () => new Date("2026-08-10T08:00:00.000Z"),
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.retryable, false);
+  assert.equal(result.nextCheckAt, "2026-08-11T08:00:00.000Z");
+  assert.equal(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextCheckAt, "2026-08-11T08:00:00.000Z");
+  assert.match(store.debts.get("transcript:youtube:yNiWeHGBl98")?.nextAction || "", /24-hour cooldown/i);
+
+  const base: TranscriptIntakeItem = {
+    id: "item-operational",
+    runId: "run-1",
+    videoId: "operational",
+    publisher: "Publisher",
+    title: "Operational failure",
+    url: "https://www.youtube.com/watch?v=yNiWeHGBl98",
+    transcriptStatus: "unavailable",
+    transcriptRetryable: false,
+    transcriptErrorCode: "provider_auth_error",
+    required: true,
+    attemptCount: 1,
+  };
+
+  for (const code of ["provider_auth_error", "provider_payment_required", "malformed_provider_response", "unknown"]) {
+    const item = { ...base, transcriptErrorCode: code };
+    assert.equal(isRevalidatableTranscriptUnavailable(item), true, `${code} should be revalidatable`);
+    assert.equal(isKnownPermanentTranscriptUnavailable(item), false, `${code} should not be permanent`);
+    assert.equal(isTranscriptRevalidationDue(item, null, new Date("2026-08-12T08:00:00.000Z")), true);
+  }
+});
+
 test("structural transcript failures remain permanently suppressed", () => {
   const base: TranscriptIntakeItem = {
     id: "item-structural",
