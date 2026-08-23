@@ -163,13 +163,31 @@ declare
     'visualPlan',jsonb_build_array(jsonb_build_object('id','visual-1','edgeIds',jsonb_build_array('edge-1')))
   );
   maintained jsonb;
+  catalyst_maintained jsonb;
+  due_next_test jsonb;
+  upcoming_next_test jsonb;
+  catalyst_context jsonb := jsonb_build_object(
+    'dueCatalysts', jsonb_build_array('2026-08-23 Earnings call'),
+    'catalystCandidates', jsonb_build_array(
+      jsonb_build_object('label','2026-08-23 Earnings call','catalystRef',null),
+      jsonb_build_object('label','2026-08-28 PCE release','catalystRef','calendar:pce')
+    )
+  );
+  fixture_story_id uuid := '30000000-0000-4000-8000-000000000001';
   component text;
 begin
   if public.story_maintenance_reasoning_for_version(
     null,
-    jsonb_build_object('lifecycle','confirmed')
+    jsonb_build_object(
+      'nextTest', public.story_maintenance_next_test_for_candidate(
+        fixture_story_id,
+        '2026-08-28 PCE release',
+        'calendar:pce',
+        catalyst_context
+      )
+    )
   ) is not null then
-    raise exception 'Legacy maintenance must leave reasoning absent';
+    raise exception 'Legacy catalyst roll must leave reasoning absent';
   end if;
 
   maintained := public.story_maintenance_reasoning_for_version(
@@ -182,7 +200,7 @@ begin
   );
 
   foreach component in array array[
-    'causalChain','assetImplications','countercase','overlookedVariable','claims','visualPlan','nextTest'
+    'causalChain','assetImplications','countercase','overlookedVariable','claims','visualPlan'
   ] loop
     if maintained -> component is distinct from prior_reasoning -> component then
       raise exception 'Protected V1 % changed during maintenance', component;
@@ -193,6 +211,71 @@ begin
     or maintained -> 'invalidation' <> jsonb_build_array('New invalidation') then
     raise exception 'Permitted V1 maintenance projections were not applied';
   end if;
+  if maintained -> 'nextTest' is distinct from prior_reasoning -> 'nextTest' then
+    raise exception 'No catalyst change must leave V1 nextTest unchanged';
+  end if;
+
+  due_next_test := public.story_maintenance_next_test_for_candidate(
+    fixture_story_id,
+    '2026-08-23 Earnings call',
+    null,
+    catalyst_context
+  );
+  upcoming_next_test := public.story_maintenance_next_test_for_candidate(
+    fixture_story_id,
+    '2026-08-28 PCE release',
+    'calendar:pce',
+    catalyst_context
+  );
+  if due_next_test ->> 'status' <> 'due' then
+    raise exception 'Accepted due candidate must produce due nextTest status';
+  end if;
+  if upcoming_next_test ->> 'status' <> 'upcoming' then
+    raise exception 'Accepted future candidate must produce upcoming nextTest status';
+  end if;
+  if upcoming_next_test ->> 'label' <> '2026-08-28 PCE release'
+    or upcoming_next_test ->> 'catalystRef' <> 'calendar:pce' then
+    raise exception 'V1 nextTest candidate label/ref must match the accepted candidate';
+  end if;
+  if upcoming_next_test -> 'dueAt' <> 'null'::jsonb
+    or upcoming_next_test -> 'expiresAt' <> 'null'::jsonb
+    or upcoming_next_test -> 'evidenceIds' <> '[]'::jsonb
+    or upcoming_next_test -> 'resolutionEvidenceIds' <> '[]'::jsonb then
+    raise exception 'V1 nextTest must not preserve stale timing or evidence state';
+  end if;
+  if upcoming_next_test ->> 'id' <> (
+    public.story_maintenance_next_test_for_candidate(
+      fixture_story_id,
+      '2026-08-28 PCE release',
+      'calendar:pce',
+      catalyst_context
+    ) ->> 'id'
+  ) then
+    raise exception 'V1 nextTest ID must be deterministic';
+  end if;
+
+  catalyst_maintained := public.story_maintenance_reasoning_for_version(
+    prior_reasoning,
+    jsonb_build_object('nextTest', upcoming_next_test)
+  );
+  if catalyst_maintained -> 'nextTest' is distinct from upcoming_next_test then
+    raise exception 'V1 catalyst roll must patch nextTest to the accepted candidate';
+  end if;
+  foreach component in array array[
+    'causalChain','assetImplications','countercase','overlookedVariable','claims','visualPlan'
+  ] loop
+    if catalyst_maintained -> component is distinct from prior_reasoning -> component then
+      raise exception 'Protected V1 % changed during catalyst maintenance', component;
+    end if;
+  end loop;
+  if public.story_maintenance_next_test_for_candidate(
+    fixture_story_id,
+    '2026-09-01 Invented event',
+    null,
+    catalyst_context
+  ) is not null then
+    raise exception 'Invented/unvalidated candidate must not produce a nextTest patch';
+  end if;
 
   -- Stable message anchors keep every protected component visible to the
   -- repository-level contract test without duplicating the fixture there.
@@ -202,7 +285,12 @@ begin
   perform 'Protected V1 overlookedVariable';
   perform 'Protected V1 claims';
   perform 'Protected V1 visualPlan';
-  perform 'Protected V1 nextTest';
+  perform 'V1 nextTest accepted candidate';
+  perform 'V1 nextTest due status';
+  perform 'V1 nextTest upcoming status';
+  perform 'V1 nextTest unchanged without catalyst mutation';
+  perform 'Legacy catalyst reasoning remains absent';
+  perform 'Invented candidate cannot patch nextTest';
 end;
 $$;
 

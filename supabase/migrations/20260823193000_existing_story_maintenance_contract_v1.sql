@@ -159,6 +159,62 @@ $$;
 revoke all on function public.story_maintenance_catalyst_candidate_is_valid(text, text, text, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.story_maintenance_catalyst_candidate_is_valid(text, text, text, jsonb, boolean) to service_role;
 
+create or replace function public.story_maintenance_next_test_for_candidate(
+  p_story_id uuid,
+  p_candidate_label text,
+  p_candidate_ref text,
+  p_review_context jsonb
+)
+returns jsonb
+language plpgsql
+immutable
+security invoker
+set search_path = ''
+as $$
+declare
+  candidate_due boolean;
+begin
+  if p_story_id is null
+    or not public.story_maintenance_catalyst_candidate_is_valid(
+      null,
+      p_candidate_label,
+      p_candidate_ref,
+      p_review_context,
+      false
+    ) then
+    return null;
+  end if;
+
+  candidate_due := exists (
+    select 1
+    from jsonb_array_elements_text(case
+      when jsonb_typeof(p_review_context -> 'dueCatalysts') = 'array'
+        then p_review_context -> 'dueCatalysts'
+      else '[]'::jsonb
+    end) due
+    where btrim(due) = btrim(p_candidate_label)
+  );
+
+  return jsonb_build_object(
+    'id', 'story:' || p_story_id::text || ':next-test:'
+      || md5(jsonb_build_array(
+        nullif(btrim(p_candidate_label), ''),
+        nullif(btrim(p_candidate_ref), '')
+      )::text),
+    'label', nullif(btrim(p_candidate_label), ''),
+    'status', case when candidate_due then 'due' else 'upcoming' end,
+    'catalystRef', nullif(btrim(p_candidate_ref), ''),
+    'dueAt', null,
+    'expiresAt', null,
+    'evidenceIds', '[]'::jsonb,
+    'resolutionEvidenceIds', '[]'::jsonb
+  );
+end;
+$$;
+
+revoke all on function public.story_maintenance_next_test_for_candidate(uuid, text, text, jsonb) from public, anon, authenticated;
+grant execute on function public.story_maintenance_next_test_for_candidate(uuid, text, text, jsonb) to service_role;
+
 create or replace function public.story_maintenance_reasoning_for_version(
   p_prior_reasoning jsonb,
   p_reasoning_patch jsonb
@@ -178,7 +234,7 @@ begin
     raise exception 'Existing Story maintenance cannot carry forward an unknown reasoning contract';
   end if;
   if jsonb_typeof(p_reasoning_patch) <> 'object'
-    or p_reasoning_patch - array['lifecycle','confirmation','invalidation']::text[] <> '{}'::jsonb then
+    or p_reasoning_patch - array['lifecycle','confirmation','invalidation','nextTest']::text[] <> '{}'::jsonb then
     raise exception 'Existing Story maintenance reasoning patch contains a protected field';
   end if;
   return p_prior_reasoning || p_reasoning_patch;
@@ -481,6 +537,7 @@ declare
   proposal_invalidation_text text;
   proposal_next_label text;
   proposal_next_ref text;
+  accepted_next_test jsonb;
   allowed_fields text[];
   candidate_valid boolean := false;
   current_catalyst_due boolean := false;
@@ -614,6 +671,12 @@ begin
     proposal_next_ref,
     review_context,
     true
+  );
+  accepted_next_test := public.story_maintenance_next_test_for_candidate(
+    assessment.story_id,
+    proposal_next_label,
+    proposal_next_ref,
+    review_context
   );
 
   select
@@ -772,6 +835,11 @@ begin
         and jsonb_typeof(proposal_invalidation) = 'array' then
         reasoning_patch := reasoning_patch || jsonb_build_object('invalidation', proposal_invalidation);
       end if;
+    end if;
+    if new_next_catalyst is distinct from story_row.next_catalyst
+      and candidate_valid
+      and accepted_next_test is not null then
+      reasoning_patch := reasoning_patch || jsonb_build_object('nextTest', accepted_next_test);
     end if;
 
     maintenance_context := jsonb_build_object(

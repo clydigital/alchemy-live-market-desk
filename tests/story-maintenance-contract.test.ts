@@ -242,7 +242,7 @@ test("maintenance versions preserve prior V1 reasoning and patch only lifecycle 
   assert.match(migration, /jsonb_build_object\('lifecycle', new_lifecycle_status\)/);
   assert.match(migration, /jsonb_build_object\('confirmation', proposal_confirmation\)/);
   assert.match(migration, /jsonb_build_object\('invalidation', proposal_invalidation\)/);
-  assert.match(migration, /p_reasoning_patch - array\['lifecycle','confirmation','invalidation'\]/);
+  assert.match(migration, /p_reasoning_patch - array\['lifecycle','confirmation','invalidation','nextTest'\]/);
   for (const protectedComponent of [
     "causalChain",
     "assetImplications",
@@ -250,15 +250,35 @@ test("maintenance versions preserve prior V1 reasoning and patch only lifecycle 
     "overlookedVariable",
     "claims",
     "visualPlan",
-    "nextTest",
   ]) {
     assert.match(sqlContract, new RegExp(`Protected V1 ${protectedComponent}`));
   }
 });
 
+test("validated catalyst changes deterministically patch V1 nextTest only", () => {
+  assert.match(migration, /story_maintenance_next_test_for_candidate/);
+  assert.match(migration, /'story:' \|\| p_story_id::text \|\| ':next-test:'[\s\S]*md5/);
+  assert.match(migration, /case when candidate_due then 'due' else 'upcoming' end/);
+  assert.match(migration, /'dueAt', null/);
+  assert.match(migration, /'expiresAt', null/);
+  assert.match(migration, /'evidenceIds', '\[\]'::jsonb/);
+  assert.match(migration, /'resolutionEvidenceIds', '\[\]'::jsonb/);
+  assert.match(migration, /new_next_catalyst is distinct from story_row\.next_catalyst[\s\S]*candidate_valid[\s\S]*'nextTest', accepted_next_test/);
+  for (const contractCase of [
+    "Legacy catalyst reasoning remains absent",
+    "V1 nextTest accepted candidate",
+    "V1 nextTest due status",
+    "V1 nextTest upcoming status",
+    "V1 nextTest unchanged without catalyst mutation",
+    "Invented candidate cannot patch nextTest",
+  ]) {
+    assert.match(sqlContract, new RegExp(contractCase));
+  }
+});
+
 test("legacy maintenance cannot synthesize a reasoning object", () => {
   assert.match(migration, /if p_prior_reasoning is null then[\s\S]*return null/);
-  assert.match(sqlContract, /Legacy maintenance must leave reasoning absent/);
+  assert.match(sqlContract, /Legacy catalyst roll must leave reasoning absent/);
 });
 
 test("maintenance context is consumed before the nested pointer update", () => {
