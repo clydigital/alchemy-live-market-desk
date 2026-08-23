@@ -170,8 +170,10 @@ export type StorySynthesisOutput = {
     currentState: string;
     marketReaction: string;
     acceptedExplanation: string;
+    acceptedExplanationEvidenceIds: string[];
     overlookedVariable: string;
     overlookedVariableEvidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+    overlookedVariableEvidenceIds: string[];
     marketMayBeRight: string;
     mechanismSteps: Array<{
       step: number;
@@ -417,7 +419,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis", "whatChanged", "previousState", "currentState", "marketReaction", "acceptedExplanation", "overlookedVariable", "overlookedVariableEvidenceStatus", "marketMayBeRight", "mechanismSteps", "plainEnglish", "themes", "prohibitedClaims", "changeKinds"],
+        required: ["primaryHypothesisId", "title", "thesis", "question", "marketBelief", "divergenceSummary", "eventSignature", "causalMechanism", "affectedAssets", "decisiveEvidenceIds", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence", "qualificationScore", "lifecycleStatus", "bias", "conviction", "baseCase", "bullCase", "bearCase", "tailCase", "strongestSupport", "strongestContradiction", "researchSynthesis", "whatChanged", "previousState", "currentState", "marketReaction", "acceptedExplanation", "acceptedExplanationEvidenceIds", "overlookedVariable", "overlookedVariableEvidenceStatus", "overlookedVariableEvidenceIds", "marketMayBeRight", "mechanismSteps", "plainEnglish", "themes", "prohibitedClaims", "changeKinds"],
         properties: {
           primaryHypothesisId: { type: "string" },
           title: { type: "string" },
@@ -450,8 +452,10 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           currentState: { type: "string" },
           marketReaction: { type: "string" },
           acceptedExplanation: { type: "string" },
+          acceptedExplanationEvidenceIds: stringArray,
           overlookedVariable: { type: "string" },
           overlookedVariableEvidenceStatus: { type: "string", enum: ["observed", "strongly_supported", "inferred", "speculative"] },
+          overlookedVariableEvidenceIds: stringArray,
           marketMayBeRight: { type: "string" },
           mechanismSteps: {
             type: "array",
