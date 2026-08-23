@@ -1,11 +1,14 @@
 -- PR3A: exact immutable Story-version linkage at the publication boundary.
 --
--- Story publication snapshots are append-only. This trigger freezes the exact
--- current thesis version into each future Story snapshot and, when that version
--- carries CanonicalStoryReasoningV1, embeds a fully materialised V1 object in
--- the publication payload. Legacy/core-only versions remain reasoning-null.
+-- Two Story publication shapes currently exist and are both supported:
+-- 1. trigger-generated flat Story payloads, which already supply an exact FK;
+-- 2. canonical-manifest payloads under payload.canonicalStoryState, whose FK is
+--    currently null.
 --
--- No existing publication row is rewritten by this migration.
+-- This trigger freezes both shapes to the authoritative current thesis version
+-- and, when that version carries CanonicalStoryReasoningV1, embeds a fully
+-- materialised V1 object in the publication payload. Legacy/core-only versions
+-- remain reasoning-null. No existing append-only publication row is rewritten.
 
 create or replace function public.materialise_story_reasoning_for_publication_v1(
   p_version_id uuid
@@ -54,7 +57,8 @@ begin
     end
   );
 
-  -- Immutable direct version columns override duplicated reasoning projections.
+  -- Immutable direct version columns override duplicated reasoning projections,
+  -- matching materialiseCanonicalStoryReasoningV1() in application code.
   return reasoning || jsonb_build_object(
     'storyId', version_row.story_id::text,
     'storyVersionId', version_row.id::text,
@@ -82,9 +86,10 @@ set search_path = ''
 as $$
 declare
   current_version_id uuid;
-  state_story_id text;
+  payload_story_id text;
   state_version_text text;
   state_version_id uuid;
+  nested_canonical_state boolean := false;
   version_row public.story_thesis_versions%rowtype;
   materialised_reasoning jsonb;
   exact_version_projection jsonb;
@@ -96,14 +101,19 @@ begin
   if new.story_id is null then
     raise exception 'Story publication snapshot requires story_id';
   end if;
-  if jsonb_typeof(new.payload) <> 'object'
-    or jsonb_typeof(new.payload -> 'canonicalStoryState') <> 'object' then
-    raise exception 'Story publication snapshot requires canonicalStoryState payload';
+  if jsonb_typeof(new.payload) <> 'object' then
+    raise exception 'Story publication snapshot payload must be an object';
   end if;
 
-  state_story_id := nullif(btrim(new.payload #>> '{canonicalStoryState,id}'), '');
-  if state_story_id is null or state_story_id <> new.story_id::text then
-    raise exception 'Story publication canonicalStoryState.id must match story_id';
+  nested_canonical_state := jsonb_typeof(new.payload -> 'canonicalStoryState') = 'object';
+  payload_story_id := case
+    when nested_canonical_state
+      then nullif(btrim(new.payload #>> '{canonicalStoryState,id}'), '')
+    else nullif(btrim(new.payload ->> 'id'), '')
+  end;
+
+  if payload_story_id is null or payload_story_id <> new.story_id::text then
+    raise exception 'Story publication payload Story id must match story_id';
   end if;
 
   select story.current_thesis_version_id
@@ -118,19 +128,25 @@ begin
     raise exception 'Story % has no current immutable thesis version to publish', new.story_id;
   end if;
 
-  state_version_text := nullif(btrim(new.payload #>> '{canonicalStoryState,thesisVersion,id}'), '');
-  if state_version_text is not null then
-    begin
-      state_version_id := state_version_text::uuid;
-    exception when invalid_text_representation then
-      raise exception 'Story publication canonicalStoryState.thesisVersion.id is not a UUID';
-    end;
-    if state_version_id is distinct from current_version_id then
-      raise exception 'Story publication state version % is stale; current version is %',
-        state_version_id, current_version_id;
+  -- Canonical-manifest rows may already carry a nested version projection.
+  -- If present it must be current; if absent this trigger freezes it below.
+  if nested_canonical_state then
+    state_version_text := nullif(btrim(new.payload #>> '{canonicalStoryState,thesisVersion,id}'), '');
+    if state_version_text is not null then
+      begin
+        state_version_id := state_version_text::uuid;
+      exception when invalid_text_representation then
+        raise exception 'Story publication canonicalStoryState.thesisVersion.id is not a UUID';
+      end;
+      if state_version_id is distinct from current_version_id then
+        raise exception 'Story publication state version % is stale; current version is %',
+          state_version_id, current_version_id;
+      end if;
     end if;
   end if;
 
+  -- Flat trigger-generated rows already supply this FK. Canonical-manifest rows
+  -- currently do not. Either way, a supplied value may never disagree.
   if new.story_thesis_version_id is not null
     and new.story_thesis_version_id is distinct from current_version_id then
     raise exception 'Story publication version % does not match current Story version %',
@@ -156,12 +172,19 @@ begin
     'effectiveAt', version_row.effective_at,
     'changeReason', version_row.change_reason
   );
-  new.payload := jsonb_set(
-    new.payload,
-    '{canonicalStoryState,thesisVersion}',
-    exact_version_projection,
-    true
-  );
+
+  if nested_canonical_state then
+    new.payload := jsonb_set(
+      new.payload,
+      '{canonicalStoryState,thesisVersion}',
+      exact_version_projection,
+      true
+    );
+  else
+    -- Preserve the established flat payload shape and add only exact immutable
+    -- version metadata; existing replay fields remain untouched.
+    new.payload := jsonb_set(new.payload, '{thesisVersion}', exact_version_projection, true);
+  end if;
 
   materialised_reasoning := public.materialise_story_reasoning_for_publication_v1(current_version_id);
   new.payload := jsonb_set(

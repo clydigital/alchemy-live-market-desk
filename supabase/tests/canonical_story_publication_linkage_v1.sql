@@ -13,7 +13,8 @@ declare
   v2_version_id uuid := '31000000-0000-4000-8000-000000000012';
   legacy_story_id uuid := '31000000-0000-4000-8000-000000000002';
   legacy_version_id uuid := '31000000-0000-4000-8000-000000000021';
-  v1_snapshot_id uuid;
+  flat_snapshot_id uuid;
+  canonical_snapshot_id uuid;
   legacy_snapshot_id uuid;
   before_payload jsonb;
   after_payload jsonb;
@@ -61,6 +62,39 @@ begin
   set current_thesis_version_id=v1_version_id
   where id=v1_story_id;
 
+  -- Existing database-trigger writer shape: flat payload + already-supplied FK.
+  insert into public.hybrid_publication_snapshots(
+    story_id,story_thesis_version_id,snapshot_type,public_summary,payload,confidence
+  ) values (
+    v1_story_id,v1_version_id,'story','PR3A V1 flat Story',
+    jsonb_build_object(
+      'id',v1_story_id::text,
+      'slug','pr3a-v1-fixture',
+      'title','PR3A V1 Story',
+      'thesis','Fixture thesis',
+      'confidence',67
+    ),67
+  ) returning id into flat_snapshot_id;
+
+  select story_thesis_version_id,payload
+  into row_version_id,after_payload
+  from public.hybrid_publication_snapshots
+  where id=flat_snapshot_id;
+
+  if row_version_id is distinct from v1_version_id then
+    raise exception 'Flat Story snapshot lost its exact current thesis version';
+  end if;
+  if after_payload #>> '{thesisVersion,id}' <> v1_version_id::text then
+    raise exception 'Flat Story payload did not receive exact immutable thesisVersion';
+  end if;
+  if after_payload #>> '{canonicalStoryReasoning,storyVersionId}' <> v1_version_id::text then
+    raise exception 'Flat Story payload did not receive matching materialised V1';
+  end if;
+  if after_payload #>> '{title}' <> 'PR3A V1 Story' then
+    raise exception 'Flat Story replay fields must remain intact';
+  end if;
+
+  -- Current canonical-manifest writer shape: nested state + currently null FK.
   insert into public.hybrid_publication_snapshots(
     story_id,story_thesis_version_id,snapshot_type,public_summary,payload,confidence
   ) values (
@@ -72,17 +106,16 @@ begin
         'thesis','Fixture thesis',
         'thesisVersion',null
       )
-    ),
-    67
-  ) returning id into v1_snapshot_id;
+    ),67
+  ) returning id into canonical_snapshot_id;
 
   select story_thesis_version_id,payload
   into row_version_id,before_payload
   from public.hybrid_publication_snapshots
-  where id=v1_snapshot_id;
+  where id=canonical_snapshot_id;
 
   if row_version_id is distinct from v1_version_id then
-    raise exception 'V1 Story snapshot did not freeze exact current thesis version';
+    raise exception 'Canonical Story snapshot did not freeze exact current thesis version';
   end if;
   if before_payload #>> '{canonicalStoryState,thesisVersion,id}' <> v1_version_id::text then
     raise exception 'canonicalStoryState thesisVersion was not frozen to exact version';
@@ -131,7 +164,7 @@ begin
 
   select payload into after_payload
   from public.hybrid_publication_snapshots
-  where id=v1_snapshot_id;
+  where id=canonical_snapshot_id;
   if after_payload is distinct from before_payload then
     raise exception 'Historical Story publication changed after current Story advanced';
   end if;
@@ -141,10 +174,7 @@ begin
       story_id,story_thesis_version_id,snapshot_type,public_summary,payload,confidence
     ) values (
       v1_story_id,v1_version_id,'story','Stale fixture publication',
-      jsonb_build_object('canonicalStoryState',jsonb_build_object(
-        'id',v1_story_id::text,
-        'thesisVersion',jsonb_build_object('id',v1_version_id::text)
-      )),67
+      jsonb_build_object('id',v1_story_id::text,'title','Stale fixture'),67
     );
   exception when others then
     mismatch_rejected := true;

@@ -23,13 +23,24 @@ const sqlContract = fs.readFileSync(
   "utf8",
 );
 
-test("PR3A freezes Story publications to the authoritative current thesis version", () => {
+test("PR3A freezes both active Story publication shapes to the authoritative current thesis version", () => {
   assert.match(migration, /if new\.snapshot_type <> 'story' then[\s\S]*return new/);
+  assert.match(migration, /nested_canonical_state := jsonb_typeof\(new\.payload -> 'canonicalStoryState'\) = 'object'/);
+  assert.match(migration, /when nested_canonical_state[\s\S]*canonicalStoryState,id[\s\S]*else nullif\(btrim\(new\.payload ->> 'id'\)/);
   assert.match(migration, /select story\.current_thesis_version_id[\s\S]*into current_version_id/);
   assert.match(migration, /new\.story_thesis_version_id := current_version_id/);
   assert.match(migration, /state_version_id is distinct from current_version_id/);
   assert.match(migration, /new\.story_thesis_version_id is distinct from current_version_id/);
   assert.match(migration, /version\.id = current_version_id[\s\S]*version\.story_id = new\.story_id/);
+});
+
+test("PR3A preserves the flat replay shape while adding exact version metadata", () => {
+  assert.match(migration, /if nested_canonical_state then[\s\S]*\{canonicalStoryState,thesisVersion\}/);
+  assert.match(migration, /else[\s\S]*\{thesisVersion\}[\s\S]*exact_version_projection/);
+  assert.match(sqlContract, /Flat Story snapshot lost its exact current thesis version/);
+  assert.match(sqlContract, /Flat Story payload did not receive exact immutable thesisVersion/);
+  assert.match(sqlContract, /Flat Story payload did not receive matching materialised V1/);
+  assert.match(sqlContract, /Flat Story replay fields must remain intact/);
 });
 
 test("PR3A materialises V1 from the exact immutable version and lets direct columns win", () => {
@@ -52,8 +63,7 @@ test("PR3A materialises V1 from the exact immutable version and lets direct colu
   assert.match(migration, /'storyVersionId', version_row\.id::text/);
 });
 
-test("PR3A persists the exact version projection and materialised reasoning in the append-only payload", () => {
-  assert.match(migration, /\{canonicalStoryState,thesisVersion\}/);
+test("PR3A persists materialised reasoning in the append-only payload without rewriting history", () => {
   assert.match(migration, /\{canonicalStoryReasoning\}/);
   assert.match(migration, /coalesce\(materialised_reasoning, 'null'::jsonb\)/);
   assert.match(migration, /before insert on public\.hybrid_publication_snapshots/);
@@ -61,9 +71,10 @@ test("PR3A persists the exact version projection and materialised reasoning in t
   assert.doesNotMatch(migration, /delete from public\.hybrid_publication_snapshots/i);
 });
 
-test("PR3A executable SQL contract covers V1, legacy, stale-version rejection and replay immutability", () => {
+test("PR3A executable SQL contract covers V1, legacy, both writers, stale-version rejection and replay immutability", () => {
   for (const phrase of [
-    "V1 Story snapshot did not freeze exact current thesis version",
+    "Flat Story snapshot lost its exact current thesis version",
+    "Canonical Story snapshot did not freeze exact current thesis version",
     "Materialised V1 storyVersionId does not match snapshot FK",
     "Empty V1 visual plan must remain exactly empty",
     "Historical Story publication changed after current Story advanced",
