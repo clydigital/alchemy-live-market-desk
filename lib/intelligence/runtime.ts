@@ -58,7 +58,6 @@ import {
 import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
-  restrictHypothesisEvidenceIds,
 } from "./hypothesis-core.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
@@ -68,6 +67,12 @@ import { explicitlyMentionedAssets, normaliseInstrument } from "@/lib/instrument
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
+import {
+  buildCanonicalStoryReasoningSnapshotV1,
+  type EvidenceState,
+  type StoryReasoningEvidence,
+  type StoryReasoningHypothesis,
+} from "@/lib/intelligence/story-reasoning";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -215,6 +220,28 @@ type ChallengerRow = ChallengerOutput["assessments"][number] & {
   allowedRequirementIds: string[];
   unknownRequirementIds: string[];
   outOfScopeRequirementIds: string[];
+};
+
+type ScenarioRow = {
+  engine_run_id: string;
+  hypothesis_id: string;
+  asset: string;
+  bias: ScenarioOutput["scenarios"][number]["bias"];
+  conviction: number | null;
+  base_case: ScenarioOutput["scenarios"][number]["baseCase"];
+  bull_case: ScenarioOutput["scenarios"][number]["bullCase"];
+  bear_case: ScenarioOutput["scenarios"][number]["bearCase"];
+  tail_case: ScenarioOutput["scenarios"][number]["tailCase"];
+  confirmation: string;
+  invalidation: string;
+  explanatory_evidence_ids: string[];
+};
+
+type StoryReasoningContext = {
+  hypothesis: HypothesisRow;
+  challenger: ChallengerRow;
+  scenarios: ScenarioRow[];
+  evidenceById: Map<string, EvidencePackItem>;
 };
 
 type CandidateWorking = StorySynthesisOutput["candidates"][number] & {
@@ -386,6 +413,18 @@ function evidencePack(rows: CanonicalEvidenceRow[]): EvidencePackItem[] {
 
 function onlyKnownIds(values: string[], allowed: Set<string>) {
   return unique((values ?? []).filter((value) => allowed.has(value)));
+}
+
+function requireKnownEvidenceIds(values: unknown, allowed: ReadonlySet<string>, context: string) {
+  if (!Array.isArray(values) || !values.every((value) => typeof value === "string")) {
+    throw new Error(`${context} must be an array of canonical evidence IDs.`);
+  }
+  const normalized = unique(values);
+  const unknown = normalized.filter((value) => !allowed.has(value));
+  if (unknown.length) {
+    throw new Error(`${context} references unknown canonical evidence ID(s): ${unknown.join(", ")}`);
+  }
+  return normalized;
 }
 
 async function loadPrompt(stageKey: string) {
@@ -1009,11 +1048,23 @@ async function persistHypotheses(
     if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
     const divergence = divergenceById.get(hypothesis.divergenceId)!;
     const belief = beliefById.get(divergence.market_belief_id);
-    const evidenceFor = restrictHypothesisEvidenceIds(hypothesis.evidenceForIds, allowedEvidence);
-    const evidenceAgainst = restrictHypothesisEvidenceIds(hypothesis.evidenceAgainstIds, allowedEvidence);
-    const causalChain = hypothesis.causalChain.map((edge) => ({
+    const evidenceFor = requireKnownEvidenceIds(
+      hypothesis.evidenceForIds,
+      allowedEvidence,
+      `Hypothesis ${hypothesis.divergenceId} supporting evidence`,
+    );
+    const evidenceAgainst = requireKnownEvidenceIds(
+      hypothesis.evidenceAgainstIds,
+      allowedEvidence,
+      `Hypothesis ${hypothesis.divergenceId} conflicting evidence`,
+    );
+    const causalChain = hypothesis.causalChain.map((edge, ordinal) => ({
       ...edge,
-      evidenceIds: restrictHypothesisEvidenceIds(edge.evidenceIds, allowedEvidence),
+      evidenceIds: requireKnownEvidenceIds(
+        edge.evidenceIds,
+        allowedEvidence,
+        `Hypothesis ${hypothesis.divergenceId} causal edge ${ordinal}`,
+      ),
     }));
     return [{
       divergence_id: hypothesis.divergenceId,
@@ -1077,7 +1128,11 @@ async function persistChallenger(
       allowedRequirementIds: [...allowedRequirementIds],
       unknownRequirementIds: requirementIds.unknown,
       outOfScopeRequirementIds: requirementIds.outOfScope,
-      conflictingEvidenceIds: onlyKnownIds(assessment.conflictingEvidenceIds, knownEvidence),
+      conflictingEvidenceIds: requireKnownEvidenceIds(
+        assessment.conflictingEvidenceIds,
+        knownEvidence,
+        `Challenger assessment ${assessment.hypothesisId} conflicting evidence`,
+      ),
       adjustedConfidence: clamp(assessment.adjustedConfidence),
       confidenceAdjustment: Math.max(-100, Math.min(100, assessment.confidenceAdjustment)),
       stageRunId,
@@ -1119,7 +1174,7 @@ async function persistChallenger(
 }
 
 async function persistScenarios(engineRunId: string, output: ScenarioOutput, promotedHypothesisIds: Set<string>, knownEvidence: Set<string>) {
-  const specs = output.scenarios.flatMap((scenario) => {
+  const specs: ScenarioRow[] = output.scenarios.flatMap((scenario) => {
     if (!promotedHypothesisIds.has(scenario.hypothesisId) || !scenario.asset.trim()) return [];
     const bias = scenario.bias;
     const conviction = bias === "unscored" ? null : (scenario.conviction === null ? 0 : clamp(scenario.conviction));
@@ -1135,17 +1190,20 @@ async function persistScenarios(engineRunId: string, output: ScenarioOutput, pro
       tail_case: scenario.tailCase,
       confirmation: scenario.confirmation,
       invalidation: scenario.invalidation,
-      explanatory_evidence_ids: onlyKnownIds(scenario.explanatoryEvidenceIds, knownEvidence),
+      explanatory_evidence_ids: requireKnownEvidenceIds(
+        scenario.explanatoryEvidenceIds,
+        knownEvidence,
+        `Scenario ${scenario.hypothesisId}/${scenario.asset} explanatory evidence`,
+      ),
       updated_at: new Date().toISOString(),
     }];
   });
   if (!specs.length) return [];
-  await intelligenceRest("intelligence_scenarios?on_conflict=engine_run_id,hypothesis_id,asset", {
+  return intelligenceRest<ScenarioRow[]>("intelligence_scenarios?on_conflict=engine_run_id,hypothesis_id,asset", {
     method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(specs),
   });
-  return specs;
 }
 
 function candidateResearchState(candidate: CandidateWorking, evidenceById: Map<string, EvidencePackItem>, challengerByHypothesis: Map<string, ChallengerRow>) {
@@ -1181,114 +1239,141 @@ function statusFromLifecycle(value: CandidateWorking["lifecycleStatus"]) {
   return "monitor";
 }
 
-async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking) {
-  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_type: "thesis_revision",
-      headline: "Original Alchemy research-engine thesis recorded",
-      detail: synthesis.researchSynthesis,
-      event_at: new Date().toISOString(),
-      metadata: { automatic: true, origin: "alchemy_research_engine" },
-    }),
-  });
-  const eventId = events[0]?.id ?? null;
-  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_id: eventId,
-      version_number: 1,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.status,
-      confidence: story.confidence,
-      market_question: synthesis.question,
-      dominant_narrative: synthesis.marketBelief,
-      best_explanation: synthesis.causalMechanism,
-      strongest_support: synthesis.strongestSupport,
-      strongest_contradiction: synthesis.strongestContradiction,
-      priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
-      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
-      next_catalyst: synthesis.nextCatalysts.join("; "),
-      article_angle: synthesis.researchSynthesis,
-      provisional_title: synthesis.title,
-      article_verdict: "research_engine",
-      assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine" },
-      change_reason: "story_created",
-      effective_at: new Date().toISOString(),
-    }),
-  });
-  const versionId = versions[0]?.id;
-  if (versionId) {
-    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ current_thesis_version_id: versionId }),
-    });
+const EVIDENCE_STATES = new Set<EvidenceState>(["observed", "strongly_supported", "inferred", "speculative"]);
+
+function persistedCausalChain(hypothesis: HypothesisRow): StoryReasoningHypothesis["causalChain"] {
+  if (!Array.isArray(hypothesis.causal_chain)) {
+    throw new Error(`Persisted Hypothesis ${hypothesis.id} has no canonical causal chain.`);
   }
+  return hypothesis.causal_chain.map((value, ordinal) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`Persisted Hypothesis ${hypothesis.id} causal edge ${ordinal} is invalid.`);
+    }
+    const edge = value as Record<string, unknown>;
+    if (
+      typeof edge.from !== "string"
+      || typeof edge.relationship !== "string"
+      || typeof edge.to !== "string"
+      || typeof edge.evidenceState !== "string"
+      || !EVIDENCE_STATES.has(edge.evidenceState as EvidenceState)
+      || !Array.isArray(edge.evidenceIds)
+      || !edge.evidenceIds.every((id) => typeof id === "string")
+    ) {
+      throw new Error(`Persisted Hypothesis ${hypothesis.id} causal edge ${ordinal} is invalid.`);
+    }
+    return {
+      from: edge.from,
+      relationship: edge.relationship,
+      to: edge.to,
+      evidenceState: edge.evidenceState as EvidenceState,
+      evidenceIds: edge.evidenceIds as string[],
+    };
+  });
 }
 
-async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking) {
-  const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
-    `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
-  );
-  const versionNumber = (prior[0]?.version_number || 0) + 1;
-  const confidenceDelta = clamp(story.confidence) - Number(prior[0]?.confidence ?? story.confidence);
-  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_type: "thesis_revision",
-      headline: synthesis.title.slice(0, 180),
-      detail: synthesis.researchSynthesis,
-      confidence_delta: confidenceDelta,
-      event_at: new Date().toISOString(),
-      metadata: { automatic: true, origin: "alchemy_research_engine", novelty_class: "existing_story_update" },
-    }),
-  });
-  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_id: events[0]?.id || null,
-      version_number: versionNumber,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.status,
-      confidence: story.confidence,
-      market_question: synthesis.question,
-      dominant_narrative: synthesis.marketBelief,
-      best_explanation: synthesis.causalMechanism,
-      strongest_support: synthesis.strongestSupport,
-      strongest_contradiction: synthesis.strongestContradiction,
-      priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
-      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
-      next_catalyst: synthesis.nextCatalysts.join("; "),
-      article_angle: synthesis.researchSynthesis,
-      provisional_title: synthesis.title,
-      article_verdict: "research_engine",
-      assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1 },
-      change_reason: "material_evidence_recalibration",
-      effective_at: new Date().toISOString(),
-    }),
-  });
-  if (versions[0]?.id) {
-    await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ current_thesis_version_id: versions[0].id }),
-    });
+function buildStoryReasoningSnapshot(
+  synthesis: CandidateWorking,
+  context: StoryReasoningContext,
+  lifecycleStatus: CandidateWorking["lifecycleStatus"],
+) {
+  if (synthesis.primaryHypothesisId !== context.hypothesis.id) {
+    throw new Error(`Story candidate ${synthesis.candidateKey} does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
   }
+  if (context.challenger.hypothesisId !== context.hypothesis.id) {
+    throw new Error(`Challenger assessment does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
+  }
+  const evidenceById = new Map<string, StoryReasoningEvidence>(
+    [...context.evidenceById.values()].map((item) => [item.id, { id: item.id, claim: item.claim }]),
+  );
+  return buildCanonicalStoryReasoningSnapshotV1({
+    synthesis: {
+      lifecycleStatus,
+      thesis: synthesis.thesis,
+      whatChanged: synthesis.whatChanged,
+      previousState: synthesis.previousState,
+      currentState: synthesis.currentState,
+      marketReaction: synthesis.marketReaction,
+      acceptedExplanation: synthesis.acceptedExplanation,
+      acceptedExplanationEvidenceIds: synthesis.acceptedExplanationEvidenceIds,
+      overlookedVariable: synthesis.overlookedVariable,
+      overlookedVariableEvidenceStatus: synthesis.overlookedVariableEvidenceStatus,
+      overlookedVariableEvidenceIds: synthesis.overlookedVariableEvidenceIds,
+      marketMayBeRight: synthesis.marketMayBeRight,
+      decisiveEvidenceIds: synthesis.decisiveEvidenceIds,
+    },
+    hypothesis: {
+      id: context.hypothesis.id,
+      evidenceForIds: context.hypothesis.evidence_for_ids,
+      causalChain: persistedCausalChain(context.hypothesis),
+      confirmationCriteria: context.hypothesis.confirmation_criteria,
+      invalidationCriteria: context.hypothesis.invalidation_criteria,
+    },
+    challenger: {
+      strongestCountercase: context.challenger.strongestCountercase,
+      conflictingEvidenceIds: context.challenger.conflictingEvidenceIds,
+      weakestLink: context.challenger.weakestLink,
+    },
+    scenarios: context.scenarios
+      .filter((scenario) => scenario.hypothesis_id === context.hypothesis.id)
+      .map((scenario) => ({
+        asset: scenario.asset,
+        bias: scenario.bias,
+        conviction: scenario.conviction,
+        baseCase: scenario.base_case.summary,
+        explanatoryEvidenceIds: scenario.explanatory_evidence_ids,
+        confirmation: scenario.confirmation,
+        invalidation: scenario.invalidation,
+      })),
+    evidenceById,
+  });
+}
+
+type CanonicalStoryPersistenceResult = {
+  story: StoryRow & { current_thesis_version_id: string | null };
+  version_id: string;
+  event_id: string;
+  version_number: number;
+  created: boolean;
+  applied: boolean;
+};
+
+async function persistCanonicalStoryReasoning({
+  mutationKey,
+  storyId,
+  storyPayload,
+  reasoning,
+  event,
+}: {
+  mutationKey: string;
+  storyId: string | null;
+  storyPayload: Record<string, unknown>;
+  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>;
+  event: { headline: string; detail: string; eventAt: string; metadata: Record<string, unknown> };
+}) {
+  const rows = await intelligenceRest<CanonicalStoryPersistenceResult[]>("rpc/persist_canonical_story_reasoning", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      p_mutation_key: mutationKey,
+      p_story_id: storyId,
+      p_story: storyPayload,
+      p_reasoning: reasoning,
+      p_event: {
+        headline: event.headline,
+        detail: event.detail,
+        event_at: event.eventAt,
+        metadata: event.metadata,
+      },
+    }),
+  });
+  const result = rows[0];
+  if (!result?.story?.id || !result.version_id || !result.event_id || result.version_number < 1) {
+    throw new Error(`Canonical Story mutation ${mutationKey} did not return an exact Story/event/version pointer.`);
+  }
+  if (result.story.current_thesis_version_id !== result.version_id) {
+    throw new Error(`Canonical Story mutation ${mutationKey} returned a stale Story thesis version pointer.`);
+  }
+  return result;
 }
 
 async function promoteCandidate({
@@ -1299,6 +1384,9 @@ async function promoteCandidate({
   researchState,
   existingStories,
   evidenceById,
+  hypothesis,
+  challenger,
+  scenarios,
 }: {
   candidate: CandidateWorking;
   candidateRowId: string;
@@ -1307,8 +1395,14 @@ async function promoteCandidate({
   researchState: ResearchStateResult;
   existingStories: StoryRow[];
   evidenceById: Map<string, EvidencePackItem>;
+  hypothesis: HypothesisRow;
+  challenger: ChallengerRow;
+  scenarios: ScenarioRow[];
 }) {
+  const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
+  const reasoning = buildStoryReasoningSnapshot(candidate, reasoningContext, lifecycleStatus);
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
+  const mutationAt = new Date().toISOString();
   const storyPayload = {
     title: candidate.title.slice(0, 180),
     thesis: candidate.thesis,
@@ -1316,50 +1410,45 @@ async function promoteCandidate({
     confidence: clamp(candidate.confidence),
     market_question: candidate.question,
     dominant_narrative: candidate.marketBelief,
-    best_explanation: candidate.causalMechanism,
+    best_explanation: hypothesis.causal_mechanism,
     strongest_support: candidate.strongestSupport,
     strongest_contradiction: candidate.strongestContradiction,
     priced_assessment: candidate.divergenceSummary,
-    confirmation_trigger: candidate.confirmationCriteria.join("; "),
-    invalidation_trigger: candidate.invalidationCriteria.join("; "),
-    next_catalyst: candidate.nextCatalysts.join("; "),
+    confirmation_trigger: hypothesis.confirmation_criteria.join("; "),
+    invalidation_trigger: hypothesis.invalidation_criteria.join("; "),
+    next_catalyst: hypothesis.next_catalysts.join("; "),
     article_angle: candidate.researchSynthesis,
     provisional_title: candidate.title,
     article_verdict: "research_engine",
     assets: unique(candidate.affectedAssets),
-    updated_at: new Date().toISOString(),
+    updated_at: mutationAt,
   };
 
   let story: StoryRow;
   let isNew = false;
   if (decision.noveltyClass === "existing_story_update" && matched) {
-    const rows = await intelligenceRest<StoryRow[]>(`stories?id=eq.${encodeURIComponent(matched.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(storyPayload),
-    });
-    story = rows[0];
-    if (!story) throw new Error(`Story ${matched.id} could not be updated.`);
-    await intelligenceRest("story_updates", {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        story_id: story.id,
-        update_type: "recalibration",
-        headline: candidate.title.slice(0, 90),
+    const persisted = await persistCanonicalStoryReasoning({
+      mutationKey: candidateRowId,
+      storyId: matched.id,
+      storyPayload,
+      reasoning,
+      event: {
+        headline: candidate.title.slice(0, 180),
         detail: candidate.researchSynthesis,
-        observed_at: new Date().toISOString(),
-      }),
+        eventAt: mutationAt,
+        metadata: { novelty_class: "existing_story_update" },
+      },
     });
-    await createRevisionVersion(story, candidate);
+    story = persisted.story;
+    isNew = persisted.created;
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
     if (usedSlugs.has(slug)) slug = `${slug.slice(0, 62)}-${hash(candidate.noveltyFingerprint, 7)}`;
-    const rows = await intelligenceRest<StoryRow[]>("stories", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
+    const persisted = await persistCanonicalStoryReasoning({
+      mutationKey: candidateRowId,
+      storyId: null,
+      storyPayload: {
         slug,
         ...storyPayload,
         created_by: "alchemy_research_engine",
@@ -1368,15 +1457,24 @@ async function promoteCandidate({
         persistence: clamp(candidate.confidence),
         trader_relevance: clamp(candidate.qualificationScore),
         article_potential: clamp(candidate.qualificationScore),
-      }),
+      },
+      reasoning,
+      event: {
+        headline: "Original Alchemy research-engine thesis recorded",
+        detail: candidate.researchSynthesis,
+        eventAt: mutationAt,
+        metadata: { novelty_class: decision.noveltyClass },
+      },
     });
-    story = rows[0];
-    if (!story) throw new Error("New Alchemy Story could not be created.");
-    isNew = true;
-    await createInitialVersion(story, candidate);
+    story = persisted.story;
+    isNew = persisted.created;
   }
 
-  const decisive = onlyKnownIds(candidate.decisiveEvidenceIds, new Set(evidenceById.keys()));
+  const decisive = requireKnownEvidenceIds(
+    candidate.decisiveEvidenceIds,
+    new Set(evidenceById.keys()),
+    `Story candidate ${candidate.candidateKey} decisive evidence`,
+  );
   const ancestry = unique(decisive.map((id) => evidenceById.get(id)?.ancestryGroupId).filter((id): id is string => Boolean(id)));
   const stateRows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_states?on_conflict=story_id", {
     method: "POST",
@@ -1389,13 +1487,13 @@ async function promoteCandidate({
       qualification_score: clamp(candidate.qualificationScore),
       event_signature: candidate.eventSignature,
       thesis_signature: hash(candidate.thesis, 64),
-      causal_mechanism: candidate.causalMechanism,
+      causal_mechanism: hypothesis.causal_mechanism,
       affected_assets: unique(candidate.affectedAssets),
       decisive_evidence_ids: decisive,
       source_ancestry_group_ids: ancestry,
-      confirmation_criteria: candidate.confirmationCriteria,
-      invalidation_criteria: candidate.invalidationCriteria,
-      next_catalysts: candidate.nextCatalysts,
+      confirmation_criteria: hypothesis.confirmation_criteria,
+      invalidation_criteria: hypothesis.invalidation_criteria,
+      next_catalysts: hypothesis.next_catalysts,
       novelty_fingerprint: candidate.noveltyFingerprint,
       novelty_class: decision.noveltyClass,
       duplicate_of_story_id: null,
@@ -1999,11 +2097,27 @@ export async function runIntelligenceEngine({
     const reviewedById = new Map(reviewed.map((hypothesis) => [hypothesis.id, hypothesis]));
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
       if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
-      const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
+      const decisiveEvidenceIds = requireKnownEvidenceIds(
+        candidate.decisiveEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} decisive evidence`,
+      );
+      const acceptedExplanationEvidenceIds = requireKnownEvidenceIds(
+        candidate.acceptedExplanationEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} accepted explanation`,
+      );
+      const overlookedVariableEvidenceIds = requireKnownEvidenceIds(
+        candidate.overlookedVariableEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} overlooked variable`,
+      );
       const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
       const normalized: CandidateWorking = {
         ...candidate,
         decisiveEvidenceIds,
+        acceptedExplanationEvidenceIds,
+        overlookedVariableEvidenceIds,
         affectedAssets,
         candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
         noveltyFingerprint: hash(JSON.stringify({
@@ -2131,6 +2245,11 @@ export async function runIntelligenceEngine({
       if (rows[0]?.id) candidateRows.push({ id: rows[0].id, candidateKey: candidate.candidateKey, primaryHypothesisId: candidate.primaryHypothesisId });
 
       if (!structurallyPublishable || dryRun || !rows[0]?.id) continue;
+      const primaryHypothesis = reviewedById.get(candidate.primaryHypothesisId);
+      const primaryChallenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
+      if (!primaryHypothesis || !primaryChallenger) {
+        throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
+      }
       const promotedStory = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
@@ -2139,6 +2258,9 @@ export async function runIntelligenceEngine({
         researchState: researchContext.research,
         existingStories: stories,
         evidenceById,
+        hypothesis: primaryHypothesis,
+        challenger: primaryChallenger,
+        scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
