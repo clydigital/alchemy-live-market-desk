@@ -10,7 +10,7 @@ const migrationPath = path.join(
   "migrations",
   "20260823183129_canonical_story_reasoning_atomic_persistence.sql",
 );
-const migration = fs.readFileSync(migrationPath, "utf8");
+const migration = fs.readFileSync(migrationPath, "utf8").replaceAll("\r\n", "\n");
 
 function section(start: string, end: string) {
   const startAt = migration.indexOf(start);
