@@ -18,7 +18,13 @@ const evidence: StoryReasoningEvidence[] = [
 
 const evidenceById = new Map(evidence.map((item) => [item.id, item]));
 
-function buildSnapshot() {
+function buildSnapshot({
+  acceptedExplanationEvidenceIds = ["ev-2"],
+  overlookedVariableEvidenceIds = ["ev-1"],
+}: {
+  acceptedExplanationEvidenceIds?: string[];
+  overlookedVariableEvidenceIds?: string[];
+} = {}) {
   return buildCanonicalStoryReasoningSnapshotV1({
     synthesis: {
       lifecycleStatus: "developing",
@@ -28,17 +34,16 @@ function buildSnapshot() {
       currentState: "Rates have moved in the thesis direction.",
       marketReaction: "Gold strengthened and DXY weakened.",
       acceptedExplanation: "The rates impulse is easing the opportunity cost of holding gold.",
-      acceptedExplanationEvidenceIds: ["ev-1", "ev-2"],
+      acceptedExplanationEvidenceIds,
       overlookedVariable: "Treasury intervention can temporarily distort long-end price signals.",
       overlookedVariableEvidenceStatus: "inferred",
-      overlookedVariableEvidenceIds: ["ev-1"],
+      overlookedVariableEvidenceIds,
       marketMayBeRight: "The move can reverse if inflation reaccelerates.",
       decisiveEvidenceIds: ["ev-1", "ev-2"],
     },
     hypothesis: {
       id: "hyp-1",
-      causalMechanism: "Lower front-end yields reduce the opportunity cost of holding gold.",
-      evidenceForIds: ["ev-1", "ev-2"],
+      evidenceForIds: ["ev-1"],
       causalChain: [
         {
           from: "Lower front-end yields",
@@ -64,7 +69,6 @@ function buildSnapshot() {
       ],
       confirmationCriteria: ["Front-end yields continue lower"],
       invalidationCriteria: ["DXY and real yields break materially higher"],
-      nextCatalysts: ["Next CPI release"],
     },
     challenger: {
       strongestCountercase: "Inflation reacceleration could reverse the yield move.",
@@ -76,10 +80,7 @@ function buildSnapshot() {
         asset: "XAUUSD",
         bias: "slightly_bullish",
         conviction: 65,
-        baseCase: { summary: "Gold remains supported while front-end yields stay contained.", probability: 55 },
-        bullCase: { summary: "Gold extends higher as yields fall further.", probability: 25 },
-        bearCase: { summary: "Gold reverses as yields and DXY recover.", probability: 15 },
-        tailCase: { summary: "A liquidity shock lifts the dollar and gold together.", probability: 5 },
+        baseCase: { summary: "Gold remains supported while front-end yields stay contained." },
         explanatoryEvidenceIds: ["ev-1", "ev-2"],
         confirmation: "Gold holds above the breakout while yields remain lower.",
         invalidation: "Gold loses the breakout as yields and DXY recover.",
@@ -113,14 +114,15 @@ test("Canonical Story Reasoning V1 rejects unknown causal evidence IDs", () => {
       currentState: null,
       marketReaction: null,
       acceptedExplanation: null,
+      acceptedExplanationEvidenceIds: [],
       overlookedVariable: null,
       overlookedVariableEvidenceStatus: null,
+      overlookedVariableEvidenceIds: [],
       marketMayBeRight: null,
       decisiveEvidenceIds: [],
     },
     hypothesis: {
       id: "hyp-1",
-      causalMechanism: "A moves B.",
       evidenceForIds: [],
       causalChain: [{
         from: "A",
@@ -131,7 +133,6 @@ test("Canonical Story Reasoning V1 rejects unknown causal evidence IDs", () => {
       }],
       confirmationCriteria: [],
       invalidationCriteria: [],
-      nextCatalysts: [],
     },
     challenger: null,
     scenarios: [],
@@ -150,14 +151,15 @@ test("observed and strongly-supported causal edges require evidence", () => {
         currentState: null,
         marketReaction: null,
         acceptedExplanation: null,
+        acceptedExplanationEvidenceIds: [],
         overlookedVariable: null,
         overlookedVariableEvidenceStatus: null,
+        overlookedVariableEvidenceIds: [],
         marketMayBeRight: null,
         decisiveEvidenceIds: [],
       },
       hypothesis: {
         id: "hyp-1",
-        causalMechanism: "A moves B.",
         evidenceForIds: [],
         causalChain: [{
           from: "A",
@@ -168,7 +170,6 @@ test("observed and strongly-supported causal edges require evidence", () => {
         }],
         confirmationCriteria: [],
         invalidationCriteria: [],
-        nextCatalysts: [],
       },
       challenger: null,
       scenarios: [],
@@ -184,12 +185,10 @@ test("fact claims are copied only from canonical evidence text", () => {
   assert.deepEqual(facts.map((claim) => claim.evidenceIds), [["ev-1"], ["ev-2"]]);
 });
 
-test("Hypothesis-owned causal state and criteria survive materialisation", () => {
+test("Hypothesis-owned causal chain and criteria survive materialisation", () => {
   const snapshot = buildSnapshot();
-  assert.equal(snapshot.causalMechanism, "Lower front-end yields reduce the opportunity cost of holding gold.");
   assert.deepEqual(snapshot.confirmation, ["Front-end yields continue lower"]);
   assert.deepEqual(snapshot.invalidation, ["DXY and real yields break materially higher"]);
-  assert.deepEqual(snapshot.nextCatalysts, ["Next CPI release"]);
 });
 
 test("Challenger countercase survives materialisation", () => {
@@ -208,14 +207,87 @@ test("Scenario asset implications survive materialisation", () => {
     asset: "XAUUSD",
     bias: "bullish",
     conviction: 65,
-    baseCase: { summary: "Gold remains supported while front-end yields stay contained.", probability: 55 },
-    bullCase: { summary: "Gold extends higher as yields fall further.", probability: 25 },
-    bearCase: { summary: "Gold reverses as yields and DXY recover.", probability: 15 },
-    tailCase: { summary: "A liquidity shock lifts the dollar and gold together.", probability: 5 },
+    baseCase: "Gold remains supported while front-end yields stay contained.",
     evidenceIds: ["ev-1", "ev-2"],
     confirmation: "Gold holds above the breakout while yields remain lower.",
     invalidation: "Gold loses the breakout as yields and DXY recover.",
   }]);
+});
+
+test("Story Synthesis provenance supplies accepted-explanation and overlooked-variable evidence", () => {
+  const snapshot = buildSnapshot();
+  const interpretation = snapshot.claims.find((claim) => claim.type === "interpretation");
+  assert.ok(interpretation);
+  assert.deepEqual(interpretation.evidenceIds, ["ev-2"]);
+  assert.deepEqual(snapshot.overlookedVariable.evidenceIds, ["ev-1"]);
+});
+
+test("unknown Story Synthesis provenance IDs fail closed", () => {
+  assert.throws(
+    () => buildSnapshot({ acceptedExplanationEvidenceIds: ["missing-accepted-evidence"] }),
+    /Accepted explanation references unknown canonical evidence ID/,
+  );
+  assert.throws(
+    () => buildSnapshot({ overlookedVariableEvidenceIds: ["missing-overlooked-evidence"] }),
+    /Overlooked variable references unknown canonical evidence ID/,
+  );
+});
+
+test("materialised V1 matches the frozen A1 transport shape", () => {
+  const version: ImmutableStoryVersionV1 = {
+    id: "version-shape",
+    story_id: "story-shape",
+    version_number: 1,
+    effective_at: "2026-08-23T06:00:00.000Z",
+    title: "Frozen title",
+    market_question: "What changed?",
+    status: "monitor",
+    confidence: 68,
+    thesis: "Frozen thesis",
+    snapshot: { origin: "alchemy_research_engine", reasoning: buildSnapshot() },
+  };
+  const materialised = materialiseCanonicalStoryReasoningV1(version);
+  assert.ok(materialised);
+  assert.deepEqual(Object.keys(materialised).sort(), [
+    "acceptedExplanation",
+    "assetImplications",
+    "causalChain",
+    "centralQuestion",
+    "claims",
+    "confidence",
+    "confirmation",
+    "contractVersion",
+    "countercase",
+    "currentState",
+    "effectiveAt",
+    "invalidation",
+    "lifecycle",
+    "marketReaction",
+    "nextTest",
+    "overlookedVariable",
+    "previousState",
+    "storyId",
+    "storyVersionId",
+    "thesis",
+    "title",
+    "versionNumber",
+    "visualPlan",
+    "whatChanged",
+  ].sort());
+  assert.equal("causalMechanism" in materialised, false);
+  assert.equal("nextCatalysts" in materialised, false);
+  assert.deepEqual(Object.keys(materialised.assetImplications[0]).sort(), [
+    "asset",
+    "baseCase",
+    "bias",
+    "confirmation",
+    "conviction",
+    "evidenceIds",
+    "invalidation",
+  ].sort());
+  assert.equal("bullCase" in materialised.assetImplications[0], false);
+  assert.equal("bearCase" in materialised.assetImplications[0], false);
+  assert.equal("tailCase" in materialised.assetImplications[0], false);
 });
 
 test("materialisation is immutable and ignores later current Story state", () => {

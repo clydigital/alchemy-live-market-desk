@@ -5,6 +5,7 @@ import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
 const runtime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
+const schemas = fs.readFileSync(path.join(root, "lib", "intelligence", "schemas.ts"), "utf8");
 
 function section(start: string, end: string) {
   const startAt = runtime.indexOf(start);
@@ -20,21 +21,33 @@ const revisionVersion = section("async function createRevisionVersion", "async f
 
 test("runtime builds reasoning from persisted stage-owned records", () => {
   assert.match(reasoningBuilder, /buildCanonicalStoryReasoningSnapshotV1\(\{/);
-  assert.match(reasoningBuilder, /causalMechanism: context\.hypothesis\.causal_mechanism/);
   assert.match(reasoningBuilder, /causalChain: persistedCausalChain\(context\.hypothesis\)/);
   assert.match(reasoningBuilder, /confirmationCriteria: context\.hypothesis\.confirmation_criteria/);
   assert.match(reasoningBuilder, /invalidationCriteria: context\.hypothesis\.invalidation_criteria/);
-  assert.match(reasoningBuilder, /nextCatalysts: context\.hypothesis\.next_catalysts/);
+  assert.match(reasoningBuilder, /acceptedExplanationEvidenceIds: synthesis\.acceptedExplanationEvidenceIds/);
+  assert.match(reasoningBuilder, /overlookedVariableEvidenceIds: synthesis\.overlookedVariableEvidenceIds/);
   assert.match(reasoningBuilder, /strongestCountercase: context\.challenger\.strongestCountercase/);
   assert.match(reasoningBuilder, /conflictingEvidenceIds: context\.challenger\.conflictingEvidenceIds/);
   assert.match(reasoningBuilder, /context\.scenarios[\s\S]*scenario\.hypothesis_id === context\.hypothesis\.id/);
+  assert.match(reasoningBuilder, /baseCase: scenario\.base_case\.summary/);
   assert.match(reasoningBuilder, /claim: item\.claim/);
-  assert.doesNotMatch(reasoningBuilder, /synthesis\.causalMechanism/);
+  assert.doesNotMatch(reasoningBuilder, /(?:causalMechanism|nextCatalysts|bullCase|bearCase|tailCase):/);
+});
+
+test("Story Synthesis provenance is required and rejected unless canonical", () => {
+  assert.match(schemas, /required: \[[^\]]*"acceptedExplanationEvidenceIds"[^\]]*"overlookedVariableEvidenceIds"/);
+  assert.match(schemas, /acceptedExplanationEvidenceIds: stringArray/);
+  assert.match(schemas, /overlookedVariableEvidenceIds: stringArray/);
+  assert.match(runtime, /acceptedExplanationEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.acceptedExplanationEvidenceIds/);
+  assert.match(runtime, /overlookedVariableEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.overlookedVariableEvidenceIds/);
+  assert.match(runtime, /references unknown canonical evidence ID\(s\)/);
 });
 
 test("initial Story creation preserves metadata and persists reasoning", () => {
   assert.match(initialVersion, /const reasoning = buildStoryReasoningSnapshot\(synthesis, reasoningContext\)/);
   assert.match(initialVersion, /snapshot: \{ origin: "alchemy_research_engine", reasoning \}/);
+  assert.match(initialVersion, /best_explanation: reasoningContext\.hypothesis\.causal_mechanism/);
+  assert.match(initialVersion, /next_catalyst: reasoningContext\.hypothesis\.next_catalysts\.join/);
   assert.match(initialVersion, /const versionId = versions\[0\]\?\.id/);
   assert.match(initialVersion, /current_thesis_version_id: versionId/);
 });
@@ -42,6 +55,8 @@ test("initial Story creation preserves metadata and persists reasoning", () => {
 test("full-reasoning Story revision preserves metadata and persists reasoning", () => {
   assert.match(revisionVersion, /const reasoning = buildStoryReasoningSnapshot\(synthesis, reasoningContext\)/);
   assert.match(revisionVersion, /snapshot: \{ origin: "alchemy_research_engine", priorVersion: versionNumber - 1, reasoning \}/);
+  assert.match(revisionVersion, /best_explanation: reasoningContext\.hypothesis\.causal_mechanism/);
+  assert.match(revisionVersion, /next_catalyst: reasoningContext\.hypothesis\.next_catalysts\.join/);
   assert.match(revisionVersion, /current_thesis_version_id: versions\[0\]\.id/);
 });
 

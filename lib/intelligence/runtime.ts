@@ -416,6 +416,18 @@ function onlyKnownIds(values: string[], allowed: Set<string>) {
   return unique((values ?? []).filter((value) => allowed.has(value)));
 }
 
+function requireKnownEvidenceIds(values: unknown, allowed: ReadonlySet<string>, context: string) {
+  if (!Array.isArray(values) || !values.every((value) => typeof value === "string")) {
+    throw new Error(`${context} must be an array of canonical evidence IDs.`);
+  }
+  const normalized = unique(values);
+  const unknown = normalized.filter((value) => !allowed.has(value));
+  if (unknown.length) {
+    throw new Error(`${context} references unknown canonical evidence ID(s): ${unknown.join(", ")}`);
+  }
+  return normalized;
+}
+
 async function loadPrompt(stageKey: string) {
   const rows = await intelligenceRest<PromptVersion[]>(
     `intelligence_prompt_versions?select=id,stage_key,version,prompt_text,model_hint&stage_key=eq.${encodeURIComponent(stageKey)}&is_active=eq.true&order=version.desc&limit=1`,
@@ -1259,20 +1271,19 @@ function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: Story
       currentState: synthesis.currentState,
       marketReaction: synthesis.marketReaction,
       acceptedExplanation: synthesis.acceptedExplanation,
-      acceptedExplanationEvidenceIds: context.hypothesis.evidence_for_ids,
+      acceptedExplanationEvidenceIds: synthesis.acceptedExplanationEvidenceIds,
       overlookedVariable: synthesis.overlookedVariable,
       overlookedVariableEvidenceStatus: synthesis.overlookedVariableEvidenceStatus,
+      overlookedVariableEvidenceIds: synthesis.overlookedVariableEvidenceIds,
       marketMayBeRight: synthesis.marketMayBeRight,
       decisiveEvidenceIds: synthesis.decisiveEvidenceIds,
     },
     hypothesis: {
       id: context.hypothesis.id,
-      causalMechanism: context.hypothesis.causal_mechanism,
       evidenceForIds: context.hypothesis.evidence_for_ids,
       causalChain: persistedCausalChain(context.hypothesis),
       confirmationCriteria: context.hypothesis.confirmation_criteria,
       invalidationCriteria: context.hypothesis.invalidation_criteria,
-      nextCatalysts: context.hypothesis.next_catalysts,
     },
     challenger: {
       strongestCountercase: context.challenger.strongestCountercase,
@@ -1285,10 +1296,7 @@ function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: Story
         asset: scenario.asset,
         bias: scenario.bias,
         conviction: scenario.conviction,
-        baseCase: scenario.base_case,
-        bullCase: scenario.bull_case,
-        bearCase: scenario.bear_case,
-        tailCase: scenario.tail_case,
+        baseCase: scenario.base_case.summary,
         explanatoryEvidenceIds: scenario.explanatory_evidence_ids,
         confirmation: scenario.confirmation,
         invalidation: scenario.invalidation,
@@ -2125,10 +2133,22 @@ export async function runIntelligenceEngine({
     const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
       if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
       const decisiveEvidenceIds = onlyKnownIds(candidate.decisiveEvidenceIds, knownEvidenceIds);
+      const acceptedExplanationEvidenceIds = requireKnownEvidenceIds(
+        candidate.acceptedExplanationEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} accepted explanation`,
+      );
+      const overlookedVariableEvidenceIds = requireKnownEvidenceIds(
+        candidate.overlookedVariableEvidenceIds,
+        knownEvidenceIds,
+        `Story Synthesis candidate ${candidate.primaryHypothesisId} overlooked variable`,
+      );
       const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
       const normalized: CandidateWorking = {
         ...candidate,
         decisiveEvidenceIds,
+        acceptedExplanationEvidenceIds,
+        overlookedVariableEvidenceIds,
         affectedAssets,
         candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
         noveltyFingerprint: hash(JSON.stringify({

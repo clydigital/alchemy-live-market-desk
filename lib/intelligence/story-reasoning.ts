@@ -59,11 +59,6 @@ export type CanonicalCountercaseV1 = {
   marketMayBeRight: string | null;
 };
 
-export type CanonicalScenarioCaseV1 = {
-  summary: string;
-  probability: number | null;
-};
-
 export type CanonicalOverlookedVariableV1 = {
   text: string | null;
   evidenceState: EvidenceState | null;
@@ -74,10 +69,7 @@ export type CanonicalAssetImplicationV1 = {
   asset: string;
   bias: AssetBias;
   conviction: number | null;
-  baseCase: CanonicalScenarioCaseV1;
-  bullCase: CanonicalScenarioCaseV1;
-  bearCase: CanonicalScenarioCaseV1;
-  tailCase: CanonicalScenarioCaseV1 | null;
+  baseCase: string;
   evidenceIds: string[];
   confirmation: string;
   invalidation: string;
@@ -159,7 +151,6 @@ export type CanonicalStoryReasoningV1 = {
   currentState: string | null;
   marketReaction: string | null;
   acceptedExplanation: string | null;
-  causalMechanism: string;
   claims: CanonicalClaimV1[];
   causalChain: CanonicalCausalEdgeV1[];
   countercase: CanonicalCountercaseV1;
@@ -167,7 +158,6 @@ export type CanonicalStoryReasoningV1 = {
   assetImplications: CanonicalAssetImplicationV1[];
   confirmation: string[];
   invalidation: string[];
-  nextCatalysts: string[];
   nextTest: CanonicalNextTestV1 | null;
   visualPlan: VisualPlanV1[];
 };
@@ -184,7 +174,6 @@ export type StoryReasoningEvidence = {
 
 export type StoryReasoningHypothesis = {
   id: string;
-  causalMechanism: string;
   evidenceForIds: string[];
   causalChain: Array<{
     from: string;
@@ -195,7 +184,6 @@ export type StoryReasoningHypothesis = {
   }>;
   confirmationCriteria: string[];
   invalidationCriteria: string[];
-  nextCatalysts: string[];
 };
 
 export type StoryReasoningChallenger = {
@@ -208,10 +196,7 @@ export type StoryReasoningScenario = {
   asset: string;
   bias: "bullish" | "slightly_bullish" | "neutral" | "slightly_bearish" | "bearish" | "unscored";
   conviction: number | null;
-  baseCase: CanonicalScenarioCaseV1;
-  bullCase: CanonicalScenarioCaseV1;
-  bearCase: CanonicalScenarioCaseV1;
-  tailCase: CanonicalScenarioCaseV1 | null;
+  baseCase: { summary: string } | string;
   explanatoryEvidenceIds: string[];
   confirmation: string;
   invalidation: string;
@@ -225,10 +210,10 @@ export type StoryReasoningSynthesis = {
   currentState: string | null;
   marketReaction: string | null;
   acceptedExplanation: string | null;
-  acceptedExplanationEvidenceIds?: string[];
+  acceptedExplanationEvidenceIds: string[];
   overlookedVariable: string | null;
   overlookedVariableEvidenceStatus: EvidenceState | null;
-  overlookedVariableEvidenceIds?: string[];
+  overlookedVariableEvidenceIds: string[];
   marketMayBeRight: string | null;
   decisiveEvidenceIds: string[];
 };
@@ -280,6 +265,10 @@ function mapBias(value: StoryReasoningScenario["bias"]): AssetBias {
   return value;
 }
 
+function baseCaseText(value: StoryReasoningScenario["baseCase"]) {
+  return typeof value === "string" ? value : value.summary;
+}
+
 function factClaims(
   decisiveEvidenceIds: string[],
   evidenceById: ReadonlyMap<string, StoryReasoningEvidence>,
@@ -327,7 +316,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
   });
 
   const interpretationEvidenceIds = assertKnownEvidenceIds(
-    input.synthesis.acceptedExplanationEvidenceIds ?? [],
+    input.synthesis.acceptedExplanationEvidenceIds,
     knownEvidenceIds,
     "Accepted explanation",
   );
@@ -355,7 +344,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     "Countercase",
   );
   const overlookedVariableEvidenceIds = assertKnownEvidenceIds(
-    input.synthesis.overlookedVariableEvidenceIds ?? [],
+    input.synthesis.overlookedVariableEvidenceIds,
     knownEvidenceIds,
     "Overlooked variable",
   );
@@ -364,10 +353,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     asset: scenario.asset,
     bias: mapBias(scenario.bias),
     conviction: scenario.bias === "unscored" ? null : scenario.conviction,
-    baseCase: structuredClone(scenario.baseCase),
-    bullCase: structuredClone(scenario.bullCase),
-    bearCase: structuredClone(scenario.bearCase),
-    tailCase: scenario.tailCase ? structuredClone(scenario.tailCase) : null,
+    baseCase: baseCaseText(scenario.baseCase),
     evidenceIds: assertKnownEvidenceIds(scenario.explanatoryEvidenceIds, knownEvidenceIds, `Scenario ${scenario.asset}`),
     confirmation: scenario.confirmation,
     invalidation: scenario.invalidation,
@@ -381,7 +367,6 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     currentState: input.synthesis.currentState,
     marketReaction: input.synthesis.marketReaction,
     acceptedExplanation: input.synthesis.acceptedExplanation,
-    causalMechanism: input.hypothesis.causalMechanism,
     claims,
     causalChain,
     countercase: {
@@ -398,7 +383,6 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     assetImplications,
     confirmation: [...input.hypothesis.confirmationCriteria],
     invalidation: [...input.hypothesis.invalidationCriteria],
-    nextCatalysts: [...input.hypothesis.nextCatalysts],
     nextTest: input.nextTest ?? null,
     visualPlan: input.visualPlan ?? [],
   };
