@@ -68,6 +68,12 @@ import { explicitlyMentionedAssets, normaliseInstrument } from "@/lib/instrument
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
+import {
+  buildCanonicalStoryReasoningSnapshotV1,
+  type EvidenceState,
+  type StoryReasoningEvidence,
+  type StoryReasoningHypothesis,
+} from "@/lib/intelligence/story-reasoning";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -215,6 +221,28 @@ type ChallengerRow = ChallengerOutput["assessments"][number] & {
   allowedRequirementIds: string[];
   unknownRequirementIds: string[];
   outOfScopeRequirementIds: string[];
+};
+
+type ScenarioRow = {
+  engine_run_id: string;
+  hypothesis_id: string;
+  asset: string;
+  bias: ScenarioOutput["scenarios"][number]["bias"];
+  conviction: number | null;
+  base_case: ScenarioOutput["scenarios"][number]["baseCase"];
+  bull_case: ScenarioOutput["scenarios"][number]["bullCase"];
+  bear_case: ScenarioOutput["scenarios"][number]["bearCase"];
+  tail_case: ScenarioOutput["scenarios"][number]["tailCase"];
+  confirmation: string;
+  invalidation: string;
+  explanatory_evidence_ids: string[];
+};
+
+type StoryReasoningContext = {
+  hypothesis: HypothesisRow;
+  challenger: ChallengerRow;
+  scenarios: ScenarioRow[];
+  evidenceById: Map<string, EvidencePackItem>;
 };
 
 type CandidateWorking = StorySynthesisOutput["candidates"][number] & {
@@ -1119,7 +1147,7 @@ async function persistChallenger(
 }
 
 async function persistScenarios(engineRunId: string, output: ScenarioOutput, promotedHypothesisIds: Set<string>, knownEvidence: Set<string>) {
-  const specs = output.scenarios.flatMap((scenario) => {
+  const specs: ScenarioRow[] = output.scenarios.flatMap((scenario) => {
     if (!promotedHypothesisIds.has(scenario.hypothesisId) || !scenario.asset.trim()) return [];
     const bias = scenario.bias;
     const conviction = bias === "unscored" ? null : (scenario.conviction === null ? 0 : clamp(scenario.conviction));
@@ -1140,12 +1168,11 @@ async function persistScenarios(engineRunId: string, output: ScenarioOutput, pro
     }];
   });
   if (!specs.length) return [];
-  await intelligenceRest("intelligence_scenarios?on_conflict=engine_run_id,hypothesis_id,asset", {
+  return intelligenceRest<ScenarioRow[]>("intelligence_scenarios?on_conflict=engine_run_id,hypothesis_id,asset", {
     method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(specs),
   });
-  return specs;
 }
 
 function candidateResearchState(candidate: CandidateWorking, evidenceById: Map<string, EvidencePackItem>, challengerByHypothesis: Map<string, ChallengerRow>) {
@@ -1181,7 +1208,97 @@ function statusFromLifecycle(value: CandidateWorking["lifecycleStatus"]) {
   return "monitor";
 }
 
-async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking) {
+const EVIDENCE_STATES = new Set<EvidenceState>(["observed", "strongly_supported", "inferred", "speculative"]);
+
+function persistedCausalChain(hypothesis: HypothesisRow): StoryReasoningHypothesis["causalChain"] {
+  if (!Array.isArray(hypothesis.causal_chain)) {
+    throw new Error(`Persisted Hypothesis ${hypothesis.id} has no canonical causal chain.`);
+  }
+  return hypothesis.causal_chain.map((value, ordinal) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`Persisted Hypothesis ${hypothesis.id} causal edge ${ordinal} is invalid.`);
+    }
+    const edge = value as Record<string, unknown>;
+    if (
+      typeof edge.from !== "string"
+      || typeof edge.relationship !== "string"
+      || typeof edge.to !== "string"
+      || typeof edge.evidenceState !== "string"
+      || !EVIDENCE_STATES.has(edge.evidenceState as EvidenceState)
+      || !Array.isArray(edge.evidenceIds)
+      || !edge.evidenceIds.every((id) => typeof id === "string")
+    ) {
+      throw new Error(`Persisted Hypothesis ${hypothesis.id} causal edge ${ordinal} is invalid.`);
+    }
+    return {
+      from: edge.from,
+      relationship: edge.relationship,
+      to: edge.to,
+      evidenceState: edge.evidenceState as EvidenceState,
+      evidenceIds: edge.evidenceIds as string[],
+    };
+  });
+}
+
+function buildStoryReasoningSnapshot(synthesis: CandidateWorking, context: StoryReasoningContext) {
+  if (synthesis.primaryHypothesisId !== context.hypothesis.id) {
+    throw new Error(`Story candidate ${synthesis.candidateKey} does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
+  }
+  if (context.challenger.hypothesisId !== context.hypothesis.id) {
+    throw new Error(`Challenger assessment does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
+  }
+  const evidenceById = new Map<string, StoryReasoningEvidence>(
+    [...context.evidenceById.values()].map((item) => [item.id, { id: item.id, claim: item.claim }]),
+  );
+  return buildCanonicalStoryReasoningSnapshotV1({
+    synthesis: {
+      lifecycleStatus: synthesis.lifecycleStatus,
+      thesis: synthesis.thesis,
+      whatChanged: synthesis.whatChanged,
+      previousState: synthesis.previousState,
+      currentState: synthesis.currentState,
+      marketReaction: synthesis.marketReaction,
+      acceptedExplanation: synthesis.acceptedExplanation,
+      acceptedExplanationEvidenceIds: context.hypothesis.evidence_for_ids,
+      overlookedVariable: synthesis.overlookedVariable,
+      overlookedVariableEvidenceStatus: synthesis.overlookedVariableEvidenceStatus,
+      marketMayBeRight: synthesis.marketMayBeRight,
+      decisiveEvidenceIds: synthesis.decisiveEvidenceIds,
+    },
+    hypothesis: {
+      id: context.hypothesis.id,
+      causalMechanism: context.hypothesis.causal_mechanism,
+      evidenceForIds: context.hypothesis.evidence_for_ids,
+      causalChain: persistedCausalChain(context.hypothesis),
+      confirmationCriteria: context.hypothesis.confirmation_criteria,
+      invalidationCriteria: context.hypothesis.invalidation_criteria,
+      nextCatalysts: context.hypothesis.next_catalysts,
+    },
+    challenger: {
+      strongestCountercase: context.challenger.strongestCountercase,
+      conflictingEvidenceIds: context.challenger.conflictingEvidenceIds,
+      weakestLink: context.challenger.weakestLink,
+    },
+    scenarios: context.scenarios
+      .filter((scenario) => scenario.hypothesis_id === context.hypothesis.id)
+      .map((scenario) => ({
+        asset: scenario.asset,
+        bias: scenario.bias,
+        conviction: scenario.conviction,
+        baseCase: scenario.base_case,
+        bullCase: scenario.bull_case,
+        bearCase: scenario.bear_case,
+        tailCase: scenario.tail_case,
+        explanatoryEvidenceIds: scenario.explanatory_evidence_ids,
+        confirmation: scenario.confirmation,
+        invalidation: scenario.invalidation,
+      })),
+    evidenceById,
+  });
+}
+
+async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking, reasoningContext: StoryReasoningContext) {
+  const reasoning = buildStoryReasoningSnapshot(synthesis, reasoningContext);
   const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -1208,18 +1325,18 @@ async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking
       confidence: story.confidence,
       market_question: synthesis.question,
       dominant_narrative: synthesis.marketBelief,
-      best_explanation: synthesis.causalMechanism,
+      best_explanation: reasoningContext.hypothesis.causal_mechanism,
       strongest_support: synthesis.strongestSupport,
       strongest_contradiction: synthesis.strongestContradiction,
       priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
-      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
-      next_catalyst: synthesis.nextCatalysts.join("; "),
+      confirmation_trigger: reasoningContext.hypothesis.confirmation_criteria.join("; "),
+      invalidation_trigger: reasoningContext.hypothesis.invalidation_criteria.join("; "),
+      next_catalyst: reasoningContext.hypothesis.next_catalysts.join("; "),
       article_angle: synthesis.researchSynthesis,
       provisional_title: synthesis.title,
       article_verdict: "research_engine",
       assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine" },
+      snapshot: { origin: "alchemy_research_engine", reasoning },
       change_reason: "story_created",
       effective_at: new Date().toISOString(),
     }),
@@ -1234,7 +1351,8 @@ async function createInitialVersion(story: StoryRow, synthesis: CandidateWorking
   }
 }
 
-async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking) {
+async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorking, reasoningContext: StoryReasoningContext) {
+  const reasoning = buildStoryReasoningSnapshot(synthesis, reasoningContext);
   const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
     `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
   );
@@ -1266,18 +1384,18 @@ async function createRevisionVersion(story: StoryRow, synthesis: CandidateWorkin
       confidence: story.confidence,
       market_question: synthesis.question,
       dominant_narrative: synthesis.marketBelief,
-      best_explanation: synthesis.causalMechanism,
+      best_explanation: reasoningContext.hypothesis.causal_mechanism,
       strongest_support: synthesis.strongestSupport,
       strongest_contradiction: synthesis.strongestContradiction,
       priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: synthesis.confirmationCriteria.join("; "),
-      invalidation_trigger: synthesis.invalidationCriteria.join("; "),
-      next_catalyst: synthesis.nextCatalysts.join("; "),
+      confirmation_trigger: reasoningContext.hypothesis.confirmation_criteria.join("; "),
+      invalidation_trigger: reasoningContext.hypothesis.invalidation_criteria.join("; "),
+      next_catalyst: reasoningContext.hypothesis.next_catalysts.join("; "),
       article_angle: synthesis.researchSynthesis,
       provisional_title: synthesis.title,
       article_verdict: "research_engine",
       assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1 },
+      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1, reasoning },
       change_reason: "material_evidence_recalibration",
       effective_at: new Date().toISOString(),
     }),
@@ -1299,6 +1417,9 @@ async function promoteCandidate({
   researchState,
   existingStories,
   evidenceById,
+  hypothesis,
+  challenger,
+  scenarios,
 }: {
   candidate: CandidateWorking;
   candidateRowId: string;
@@ -1307,7 +1428,11 @@ async function promoteCandidate({
   researchState: ResearchStateResult;
   existingStories: StoryRow[];
   evidenceById: Map<string, EvidencePackItem>;
+  hypothesis: HypothesisRow;
+  challenger: ChallengerRow;
+  scenarios: ScenarioRow[];
 }) {
+  const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
   const storyPayload = {
     title: candidate.title.slice(0, 180),
@@ -1316,13 +1441,13 @@ async function promoteCandidate({
     confidence: clamp(candidate.confidence),
     market_question: candidate.question,
     dominant_narrative: candidate.marketBelief,
-    best_explanation: candidate.causalMechanism,
+    best_explanation: hypothesis.causal_mechanism,
     strongest_support: candidate.strongestSupport,
     strongest_contradiction: candidate.strongestContradiction,
     priced_assessment: candidate.divergenceSummary,
-    confirmation_trigger: candidate.confirmationCriteria.join("; "),
-    invalidation_trigger: candidate.invalidationCriteria.join("; "),
-    next_catalyst: candidate.nextCatalysts.join("; "),
+    confirmation_trigger: hypothesis.confirmation_criteria.join("; "),
+    invalidation_trigger: hypothesis.invalidation_criteria.join("; "),
+    next_catalyst: hypothesis.next_catalysts.join("; "),
     article_angle: candidate.researchSynthesis,
     provisional_title: candidate.title,
     article_verdict: "research_engine",
@@ -1351,7 +1476,7 @@ async function promoteCandidate({
         observed_at: new Date().toISOString(),
       }),
     });
-    await createRevisionVersion(story, candidate);
+    await createRevisionVersion(story, candidate, reasoningContext);
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
@@ -1373,7 +1498,7 @@ async function promoteCandidate({
     story = rows[0];
     if (!story) throw new Error("New Alchemy Story could not be created.");
     isNew = true;
-    await createInitialVersion(story, candidate);
+    await createInitialVersion(story, candidate, reasoningContext);
   }
 
   const decisive = onlyKnownIds(candidate.decisiveEvidenceIds, new Set(evidenceById.keys()));
@@ -1389,13 +1514,13 @@ async function promoteCandidate({
       qualification_score: clamp(candidate.qualificationScore),
       event_signature: candidate.eventSignature,
       thesis_signature: hash(candidate.thesis, 64),
-      causal_mechanism: candidate.causalMechanism,
+      causal_mechanism: hypothesis.causal_mechanism,
       affected_assets: unique(candidate.affectedAssets),
       decisive_evidence_ids: decisive,
       source_ancestry_group_ids: ancestry,
-      confirmation_criteria: candidate.confirmationCriteria,
-      invalidation_criteria: candidate.invalidationCriteria,
-      next_catalysts: candidate.nextCatalysts,
+      confirmation_criteria: hypothesis.confirmation_criteria,
+      invalidation_criteria: hypothesis.invalidation_criteria,
+      next_catalysts: hypothesis.next_catalysts,
       novelty_fingerprint: candidate.noveltyFingerprint,
       novelty_class: decision.noveltyClass,
       duplicate_of_story_id: null,
@@ -2131,6 +2256,11 @@ export async function runIntelligenceEngine({
       if (rows[0]?.id) candidateRows.push({ id: rows[0].id, candidateKey: candidate.candidateKey, primaryHypothesisId: candidate.primaryHypothesisId });
 
       if (!structurallyPublishable || dryRun || !rows[0]?.id) continue;
+      const primaryHypothesis = reviewedById.get(candidate.primaryHypothesisId);
+      const primaryChallenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
+      if (!primaryHypothesis || !primaryChallenger) {
+        throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
+      }
       const promotedStory = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
@@ -2139,6 +2269,9 @@ export async function runIntelligenceEngine({
         researchState: researchContext.research,
         existingStories: stories,
         evidenceById,
+        hypothesis: primaryHypothesis,
+        challenger: primaryChallenger,
+        scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));

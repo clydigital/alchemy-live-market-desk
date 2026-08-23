@@ -59,6 +59,11 @@ export type CanonicalCountercaseV1 = {
   marketMayBeRight: string | null;
 };
 
+export type CanonicalScenarioCaseV1 = {
+  summary: string;
+  probability: number | null;
+};
+
 export type CanonicalOverlookedVariableV1 = {
   text: string | null;
   evidenceState: EvidenceState | null;
@@ -69,7 +74,10 @@ export type CanonicalAssetImplicationV1 = {
   asset: string;
   bias: AssetBias;
   conviction: number | null;
-  baseCase: string;
+  baseCase: CanonicalScenarioCaseV1;
+  bullCase: CanonicalScenarioCaseV1;
+  bearCase: CanonicalScenarioCaseV1;
+  tailCase: CanonicalScenarioCaseV1 | null;
   evidenceIds: string[];
   confirmation: string;
   invalidation: string;
@@ -151,6 +159,7 @@ export type CanonicalStoryReasoningV1 = {
   currentState: string | null;
   marketReaction: string | null;
   acceptedExplanation: string | null;
+  causalMechanism: string;
   claims: CanonicalClaimV1[];
   causalChain: CanonicalCausalEdgeV1[];
   countercase: CanonicalCountercaseV1;
@@ -158,6 +167,7 @@ export type CanonicalStoryReasoningV1 = {
   assetImplications: CanonicalAssetImplicationV1[];
   confirmation: string[];
   invalidation: string[];
+  nextCatalysts: string[];
   nextTest: CanonicalNextTestV1 | null;
   visualPlan: VisualPlanV1[];
 };
@@ -174,6 +184,7 @@ export type StoryReasoningEvidence = {
 
 export type StoryReasoningHypothesis = {
   id: string;
+  causalMechanism: string;
   evidenceForIds: string[];
   causalChain: Array<{
     from: string;
@@ -182,6 +193,9 @@ export type StoryReasoningHypothesis = {
     evidenceState: EvidenceState;
     evidenceIds: string[];
   }>;
+  confirmationCriteria: string[];
+  invalidationCriteria: string[];
+  nextCatalysts: string[];
 };
 
 export type StoryReasoningChallenger = {
@@ -194,7 +208,10 @@ export type StoryReasoningScenario = {
   asset: string;
   bias: "bullish" | "slightly_bullish" | "neutral" | "slightly_bearish" | "bearish" | "unscored";
   conviction: number | null;
-  baseCase: { summary: string } | string;
+  baseCase: CanonicalScenarioCaseV1;
+  bullCase: CanonicalScenarioCaseV1;
+  bearCase: CanonicalScenarioCaseV1;
+  tailCase: CanonicalScenarioCaseV1 | null;
   explanatoryEvidenceIds: string[];
   confirmation: string;
   invalidation: string;
@@ -214,8 +231,6 @@ export type StoryReasoningSynthesis = {
   overlookedVariableEvidenceIds?: string[];
   marketMayBeRight: string | null;
   decisiveEvidenceIds: string[];
-  confirmationCriteria: string[];
-  invalidationCriteria: string[];
 };
 
 export type ImmutableStoryVersionV1 = {
@@ -263,10 +278,6 @@ function mapBias(value: StoryReasoningScenario["bias"]): AssetBias {
   if (value === "slightly_bullish") return "bullish";
   if (value === "slightly_bearish") return "bearish";
   return value;
-}
-
-function baseCaseText(value: StoryReasoningScenario["baseCase"]) {
-  return typeof value === "string" ? value : value.summary;
 }
 
 function factClaims(
@@ -353,7 +364,10 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     asset: scenario.asset,
     bias: mapBias(scenario.bias),
     conviction: scenario.bias === "unscored" ? null : scenario.conviction,
-    baseCase: baseCaseText(scenario.baseCase),
+    baseCase: structuredClone(scenario.baseCase),
+    bullCase: structuredClone(scenario.bullCase),
+    bearCase: structuredClone(scenario.bearCase),
+    tailCase: scenario.tailCase ? structuredClone(scenario.tailCase) : null,
     evidenceIds: assertKnownEvidenceIds(scenario.explanatoryEvidenceIds, knownEvidenceIds, `Scenario ${scenario.asset}`),
     confirmation: scenario.confirmation,
     invalidation: scenario.invalidation,
@@ -367,6 +381,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     currentState: input.synthesis.currentState,
     marketReaction: input.synthesis.marketReaction,
     acceptedExplanation: input.synthesis.acceptedExplanation,
+    causalMechanism: input.hypothesis.causalMechanism,
     claims,
     causalChain,
     countercase: {
@@ -381,8 +396,9 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
       evidenceIds: overlookedVariableEvidenceIds,
     },
     assetImplications,
-    confirmation: [...input.synthesis.confirmationCriteria],
-    invalidation: [...input.synthesis.invalidationCriteria],
+    confirmation: [...input.hypothesis.confirmationCriteria],
+    invalidation: [...input.hypothesis.invalidationCriteria],
+    nextCatalysts: [...input.hypothesis.nextCatalysts],
     nextTest: input.nextTest ?? null,
     visualPlan: input.visualPlan ?? [],
   };
