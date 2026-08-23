@@ -482,7 +482,12 @@ comment on function public.persist_canonical_story_reasoning(text, uuid, jsonb, 
   'PR #99 atomic persistence boundary for one validated Canonical Story Reasoning V1 mutation. Reasoning is supplied by the application and is never reconstructed here.';
 
 -- Rollback path (not executed here): drop persist_canonical_story_reasoning and
--- story_thesis_versions_canonical_mutation_key_uidx, then restore
--- capture_story_thesis_version() from
--- 20260821080427_story_review_proof_hardening.sql. No historical row is changed
--- by either this migration or that rollback sequence.
+-- story_thesis_versions_canonical_mutation_key_uidx, then restore the exact
+-- deployed pre-PR99 capture_story_thesis_version() definition. That predecessor
+-- matches 20260821080427_story_review_proof_hardening.sql except it also
+-- contains the dead assignment:
+--   event_headline := format('Story thesis version %%s recorded');
+-- immediately after:
+--   version_snapshot := to_jsonb(new);
+-- No historical row is changed by either this migration or that rollback
+-- sequence.
