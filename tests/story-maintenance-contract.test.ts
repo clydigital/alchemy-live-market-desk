@@ -151,6 +151,7 @@ test("creator-only evidence still cannot authorise a material Story mutation", (
   assert.ok(target);
   assert.equal(materialAssessmentHasEligibleEvidence("reinforced", ["transcript-1"], target), false);
   assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["transcript-1"], target), false);
+  assert.equal(materialAssessmentHasEligibleEvidence("reinforced", ["not-in-frozen-evidence"], target), false);
 });
 
 test("database freezes the full proposal object from the persisted Market Belief stage output", () => {
@@ -194,22 +195,77 @@ test("required negative maintenance cases fail closed or ignore illegal fields",
   );
 });
 
+test("lightweight reframe validation is symmetric and covers every mutable prose projection", () => {
+  assert.match(migration, /story_maintenance_text_reframe_is_lightweight/);
+  assert.match(migration, /\(select old_tokens from old_tokens\) = \(select new_tokens from new_tokens\)/);
+  assert.match(migration, /proposal_title is not null[\s\S]*story_row\.title/);
+  assert.match(migration, /proposal_question is not null[\s\S]*story_row\.market_question/);
+  assert.match(migration, /proposal_confirmation_text is not null[\s\S]*story_row\.confirmation_trigger/);
+  assert.match(migration, /proposal_invalidation_text is not null[\s\S]*story_row\.invalidation_trigger/);
+  for (const adversarialCase of [
+    "supply rather than demand",
+    "credit rather than rates",
+    "overlooked variable becomes",
+    "asset transmission changes",
+  ]) {
+    assert.match(sqlContract, new RegExp(adversarialCase));
+  }
+});
+
 test("unchanged next-catalyst rolling is conditional and cannot invent a candidate", () => {
-  assert.match(migration, /candidate_valid := exists/);
+  assert.match(migration, /story_maintenance_catalyst_candidate_is_valid/);
   assert.match(migration, /review_context -> 'catalystCandidates'/);
   assert.match(migration, /review_context -> 'dueCatalysts'/);
   assert.match(migration, /assessment\.disposition = 'unchanged'[\s\S]*candidate_valid[\s\S]*current_catalyst_due/);
+  for (const catalystCase of [
+    "not-yet-due catalyst",
+    "wrong catalystRef",
+    "invented candidate",
+    "null proposed label",
+    "legitimate due candidate",
+  ]) {
+    assert.match(sqlContract, new RegExp(catalystCase));
+  }
+});
+
+test("a later applied assessment makes an older pending assessment stale", () => {
+  assert.match(migration, /newer\.story_id = assessment\.story_id/);
+  assert.match(migration, /newer\.applied_at is not null/);
+  assert.match(migration, /row\(newer\.selected_at,newer\.created_at\)[\s\S]*row\(assessment\.selected_at,assessment\.created_at\)/);
+  assert.match(migration, /Story assessment was superseded by a newer applied assessment/);
 });
 
 test("maintenance versions preserve prior V1 reasoning and patch only lifecycle or criteria", () => {
   assert.match(migration, /version\.snapshot -> 'reasoning'/);
-  assert.match(migration, /prior_reasoning ->> 'contractVersion' <> 'canonical-story-reasoning\/v1'/);
-  assert.match(migration, /'reasoning', prior_reasoning \|\| reasoning_patch/);
+  assert.match(migration, /p_prior_reasoning ->> 'contractVersion' <> 'canonical-story-reasoning\/v1'/);
+  assert.match(migration, /return p_prior_reasoning \|\| p_reasoning_patch/);
   assert.match(migration, /jsonb_build_object\('lifecycle', new_lifecycle_status\)/);
   assert.match(migration, /jsonb_build_object\('confirmation', proposal_confirmation\)/);
   assert.match(migration, /jsonb_build_object\('invalidation', proposal_invalidation\)/);
-  assert.doesNotMatch(migration, /reasoning_patch[^;]*causalChain/);
-  assert.doesNotMatch(migration, /reasoning_patch[^;]*assetImplications/);
+  assert.match(migration, /p_reasoning_patch - array\['lifecycle','confirmation','invalidation'\]/);
+  for (const protectedComponent of [
+    "causalChain",
+    "assetImplications",
+    "countercase",
+    "overlookedVariable",
+    "claims",
+    "visualPlan",
+    "nextTest",
+  ]) {
+    assert.match(sqlContract, new RegExp(`Protected V1 ${protectedComponent}`));
+  }
+});
+
+test("legacy maintenance cannot synthesize a reasoning object", () => {
+  assert.match(migration, /if p_prior_reasoning is null then[\s\S]*return null/);
+  assert.match(sqlContract, /Legacy maintenance must leave reasoning absent/);
+});
+
+test("maintenance context is consumed before the nested pointer update", () => {
+  assert.match(
+    migration,
+    /set_config\('alchemy\.story_maintenance_context', '', true\)[\s\S]*set current_thesis_version_id = new_version_id/,
+  );
 });
 
 test("PR2 stays inside the existing Market Belief maintenance path", () => {

@@ -35,6 +35,59 @@ $$;
 revoke all on function public.story_maintenance_allowed_fields(text) from public, anon, authenticated;
 grant execute on function public.story_maintenance_allowed_fields(text) to service_role;
 
+create or replace function public.story_maintenance_text_reframe_is_lightweight(
+  p_old_text text,
+  p_new_text text
+)
+returns boolean
+language sql
+immutable
+security invoker
+set search_path = ''
+as $$
+  with scope_words as (
+    select array[
+      'a','an','the','currently','narrowly','primarily',
+      'broadly','mainly','largely','still'
+    ]::text[] as words
+  ),
+  old_tokens as (
+    select coalesce(
+      array_agg(token order by ordinal) filter (
+        where token <> '' and not (token = any(scope_words.words))
+      ),
+      '{}'::text[]
+    ) as old_tokens
+    from scope_words
+    cross join lateral regexp_split_to_table(
+      lower(coalesce(p_old_text, '')),
+      '[^a-z0-9]+'
+    ) with ordinality token(token, ordinal)
+  ),
+  new_tokens as (
+    select coalesce(
+      array_agg(token order by ordinal) filter (
+        where token <> '' and not (token = any(scope_words.words))
+      ),
+      '{}'::text[]
+    ) as new_tokens
+    from scope_words
+    cross join lateral regexp_split_to_table(
+      lower(coalesce(p_new_text, '')),
+      '[^a-z0-9]+'
+    ) with ordinality token(token, ordinal)
+  )
+  select coalesce(
+    nullif(btrim(p_new_text), '') is not null
+    and (select old_tokens from old_tokens) = (select new_tokens from new_tokens)
+    and cardinality((select new_tokens from new_tokens)) > 0,
+    false
+  );
+$$;
+
+revoke all on function public.story_maintenance_text_reframe_is_lightweight(text, text) from public, anon, authenticated;
+grant execute on function public.story_maintenance_text_reframe_is_lightweight(text, text) to service_role;
+
 create or replace function public.story_maintenance_reframe_is_lightweight(
   p_old_thesis text,
   p_new_thesis text,
@@ -46,38 +99,94 @@ immutable
 security invoker
 set search_path = ''
 as $$
-  with old_tokens as (
-    select distinct token
-    from regexp_split_to_table(lower(coalesce(p_old_thesis, '')), '[^a-z0-9]+') token
-    where length(token) >= 4
-  ),
-  new_tokens as (
-    select distinct token
-    from regexp_split_to_table(lower(coalesce(p_new_thesis, '')), '[^a-z0-9]+') token
-    where length(token) >= 4
-  ),
-  counts as (
-    select
-      (select count(*) from old_tokens) as old_count,
-      (select count(*) from new_tokens) as new_count,
-      (select count(*) from old_tokens old_token join new_tokens new_token using (token)) as shared_count
-  )
   select coalesce(
-    nullif(btrim(p_new_thesis), '') is not null
+    public.story_maintenance_text_reframe_is_lightweight(p_old_thesis, p_new_thesis)
     and lower(coalesce(p_rationale, '')) !~
-      '(requires|needs|introduces|switches to|replaces)[^.!?]{0,80}(new|different|alternative)[^.!?]{0,50}(causal mechanism|causal edge|asset transmission|overlooked variable|accepted explanation)'
-    and lower(coalesce(p_rationale, '')) !~
-      '(new causal mechanism|different causal mechanism|new causal edge|new asset transmission|new overlooked variable|materially different accepted explanation)'
-    and (
-      select shared_count::numeric / greatest(least(old_count, new_count), 1)
-      from counts
-    ) >= 0.60,
+      '(caus(e|al)|driver|driven|mechanis|transmission|explanation|variable|channel|edge|rather than|instead of|replac|supplant|switch)',
     false
   );
 $$;
 
 revoke all on function public.story_maintenance_reframe_is_lightweight(text, text, text) from public, anon, authenticated;
 grant execute on function public.story_maintenance_reframe_is_lightweight(text, text, text) to service_role;
+
+create or replace function public.story_maintenance_catalyst_candidate_is_valid(
+  p_current_label text,
+  p_proposed_label text,
+  p_proposed_ref text,
+  p_review_context jsonb,
+  p_require_due boolean
+)
+returns boolean
+language sql
+immutable
+security invoker
+set search_path = ''
+as $$
+  select coalesce(
+    nullif(btrim(p_proposed_label), '') is not null
+    and exists (
+      select 1
+      from jsonb_array_elements(case
+        when jsonb_typeof(p_review_context -> 'catalystCandidates') = 'array'
+          then p_review_context -> 'catalystCandidates'
+        else '[]'::jsonb
+      end) candidate
+      where nullif(btrim(candidate ->> 'label'), '') = nullif(btrim(p_proposed_label), '')
+        and nullif(btrim(candidate ->> 'catalystRef'), '')
+          is not distinct from nullif(btrim(p_proposed_ref), '')
+    )
+    and (
+      not p_require_due
+      or (
+        nullif(btrim(p_current_label), '') is not null
+        and nullif(btrim(p_proposed_label), '') is distinct from nullif(btrim(p_current_label), '')
+        and exists (
+          select 1
+          from jsonb_array_elements_text(case
+            when jsonb_typeof(p_review_context -> 'dueCatalysts') = 'array'
+              then p_review_context -> 'dueCatalysts'
+            else '[]'::jsonb
+          end) due
+          where btrim(due) = btrim(p_current_label)
+        )
+      )
+    ),
+    false
+  );
+$$;
+
+revoke all on function public.story_maintenance_catalyst_candidate_is_valid(text, text, text, jsonb, boolean) from public, anon, authenticated;
+grant execute on function public.story_maintenance_catalyst_candidate_is_valid(text, text, text, jsonb, boolean) to service_role;
+
+create or replace function public.story_maintenance_reasoning_for_version(
+  p_prior_reasoning jsonb,
+  p_reasoning_patch jsonb
+)
+returns jsonb
+language plpgsql
+immutable
+security invoker
+set search_path = ''
+as $$
+begin
+  if p_prior_reasoning is null then
+    return null;
+  end if;
+  if jsonb_typeof(p_prior_reasoning) <> 'object'
+    or p_prior_reasoning ->> 'contractVersion' <> 'canonical-story-reasoning/v1' then
+    raise exception 'Existing Story maintenance cannot carry forward an unknown reasoning contract';
+  end if;
+  if jsonb_typeof(p_reasoning_patch) <> 'object'
+    or p_reasoning_patch - array['lifecycle','confirmation','invalidation']::text[] <> '{}'::jsonb then
+    raise exception 'Existing Story maintenance reasoning patch contains a protected field';
+  end if;
+  return p_prior_reasoning || p_reasoning_patch;
+end;
+$$;
+
+revoke all on function public.story_maintenance_reasoning_for_version(jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.story_maintenance_reasoning_for_version(jsonb, jsonb) to service_role;
 
 create or replace function public.freeze_story_assessment_proposed_updates()
 returns trigger
@@ -184,6 +293,7 @@ declare
   event_metadata jsonb;
   version_snapshot jsonb;
   prior_reasoning jsonb;
+  carried_reasoning jsonb;
   reasoning_patch jsonb;
   event_type_value text := 'thesis_revision';
   event_headline text;
@@ -283,13 +393,10 @@ begin
         and version.story_id = new.id;
     end if;
 
-    if prior_reasoning is not null then
-      if jsonb_typeof(prior_reasoning) <> 'object'
-        or prior_reasoning ->> 'contractVersion' <> 'canonical-story-reasoning/v1' then
-        raise exception 'Existing Story maintenance cannot carry forward an unknown reasoning contract';
-      end if;
+    carried_reasoning := public.story_maintenance_reasoning_for_version(prior_reasoning, reasoning_patch);
+    if carried_reasoning is not null then
       version_snapshot := version_snapshot || jsonb_build_object(
-        'reasoning', prior_reasoning || reasoning_patch
+        'reasoning', carried_reasoning
       );
     end if;
 
@@ -338,6 +445,9 @@ begin
   if reasoning_context is not null then
     perform set_config('alchemy.story_reasoning_context', '', true);
   end if;
+  if maintenance_context is not null then
+    perform set_config('alchemy.story_maintenance_context', '', true);
+  end if;
 
   update public.stories story
   set current_thesis_version_id = new_version_id
@@ -367,6 +477,8 @@ declare
   proposal_question text;
   proposal_confirmation jsonb;
   proposal_invalidation jsonb;
+  proposal_confirmation_text text;
+  proposal_invalidation_text text;
   proposal_next_label text;
   proposal_next_ref text;
   allowed_fields text[];
@@ -414,6 +526,34 @@ begin
     raise exception 'Story not found for assessment %', assessment.id;
   end if;
 
+  -- Story-row locking serializes concurrent applies. Once the lock is held, an
+  -- older assessment can safely observe and yield to any newer applied result.
+  if exists (
+    select 1
+    from public.intelligence_story_assessments newer
+    where newer.story_id = assessment.story_id
+      and newer.id <> assessment.id
+      and newer.applied_at is not null
+      and row(newer.selected_at,newer.created_at)
+        >= row(assessment.selected_at,assessment.created_at)
+  ) then
+    update public.intelligence_story_assessments stale
+    set disposition='unchanged',
+        rationale=assessment.rationale || ' Story assessment was superseded by a newer applied assessment.',
+        material_change_applied=false,
+        applied_at=evaluated_at
+    where stale.id=assessment.id;
+
+    update public.intelligence_reevaluation_queue queue
+    set status='completed',completed_at=evaluated_at,last_error=null,updated_at=evaluated_at
+    where queue.id=any(assessment.queue_ids)
+      and queue.status='processing'
+      and queue.claimed_by_engine_run_id=assessment.engine_run_id;
+
+    return query select true,'unchanged'::text;
+    return;
+  end if;
+
   proposal := coalesce(assessment.proposed_updates, '{}'::jsonb);
   if jsonb_typeof(proposal) <> 'object' then
     raise exception 'Story assessment proposed_updates must be an object';
@@ -439,6 +579,19 @@ begin
     raise exception 'Story maintenance invalidation proposal must be an array or null';
   end if;
 
+  if jsonb_typeof(proposal_confirmation) = 'array' then
+    select string_agg(btrim(value), '; ' order by ordinal)
+    into proposal_confirmation_text
+    from jsonb_array_elements_text(proposal_confirmation) with ordinality item(value, ordinal)
+    where nullif(btrim(value), '') is not null;
+  end if;
+  if jsonb_typeof(proposal_invalidation) = 'array' then
+    select string_agg(btrim(value), '; ' order by ordinal)
+    into proposal_invalidation_text
+    from jsonb_array_elements_text(proposal_invalidation) with ordinality item(value, ordinal)
+    where nullif(btrim(value), '') is not null;
+  end if;
+
   select target -> 'reviewContext'
   into review_context
   from public.intelligence_engine_runs run
@@ -448,22 +601,20 @@ begin
   limit 1;
   review_context := coalesce(review_context, '{}'::jsonb);
 
-  if proposal_next_label is not null then
-    candidate_valid := exists (
-      select 1
-      from jsonb_array_elements(coalesce(review_context -> 'catalystCandidates', '[]'::jsonb)) candidate
-      where nullif(btrim(candidate ->> 'label'), '') = proposal_next_label
-        and nullif(btrim(candidate ->> 'catalystRef'), '') is not distinct from proposal_next_ref
-    );
-  end if;
-
-  if story_row.next_catalyst is not null then
-    current_catalyst_due := exists (
-      select 1
-      from jsonb_array_elements_text(coalesce(review_context -> 'dueCatalysts', '[]'::jsonb)) due
-      where btrim(due) = btrim(story_row.next_catalyst)
-    );
-  end if;
+  candidate_valid := public.story_maintenance_catalyst_candidate_is_valid(
+    story_row.next_catalyst,
+    proposal_next_label,
+    proposal_next_ref,
+    review_context,
+    false
+  );
+  current_catalyst_due := public.story_maintenance_catalyst_candidate_is_valid(
+    story_row.next_catalyst,
+    proposal_next_label,
+    proposal_next_ref,
+    review_context,
+    true
+  );
 
   select
     count(*)::integer,
@@ -483,7 +634,29 @@ begin
       story_row.thesis,
       proposal_thesis,
       assessment.rationale
-    );
+    )
+      or (
+        proposal_title is not null
+        and not public.story_maintenance_text_reframe_is_lightweight(story_row.title, proposal_title)
+      )
+      or (
+        proposal_question is not null
+        and not public.story_maintenance_text_reframe_is_lightweight(story_row.market_question, proposal_question)
+      )
+      or (
+        proposal_confirmation_text is not null
+        and not public.story_maintenance_text_reframe_is_lightweight(
+          story_row.confirmation_trigger,
+          proposal_confirmation_text
+        )
+      )
+      or (
+        proposal_invalidation_text is not null
+        and not public.story_maintenance_text_reframe_is_lightweight(
+          story_row.invalidation_trigger,
+          proposal_invalidation_text
+        )
+      );
   end if;
 
   material_allowed := assessment.disposition <> 'unchanged'
@@ -561,18 +734,12 @@ begin
     if 'confirmation' = any(allowed_fields)
       and jsonb_typeof(proposal_confirmation) = 'array'
       and jsonb_array_length(proposal_confirmation) > 0 then
-      select string_agg(btrim(value), '; ' order by ordinal)
-      into new_confirmation
-      from jsonb_array_elements_text(proposal_confirmation) with ordinality item(value, ordinal)
-      where nullif(btrim(value), '') is not null;
+      new_confirmation := proposal_confirmation_text;
     end if;
     if 'invalidation' = any(allowed_fields)
       and jsonb_typeof(proposal_invalidation) = 'array'
       and jsonb_array_length(proposal_invalidation) > 0 then
-      select string_agg(btrim(value), '; ' order by ordinal)
-      into new_invalidation
-      from jsonb_array_elements_text(proposal_invalidation) with ordinality item(value, ordinal)
-      where nullif(btrim(value), '') is not null;
+      new_invalidation := proposal_invalidation_text;
     end if;
     if 'nextCatalyst' = any(allowed_fields) and proposal_next_label is not null and candidate_valid then
       new_next_catalyst := proposal_next_label;
