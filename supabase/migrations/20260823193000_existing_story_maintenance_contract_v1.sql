@@ -71,7 +71,7 @@ as $$
     and (
       select shared_count::numeric / greatest(least(old_count, new_count), 1)
       from counts
-    ) >= 0.25,
+    ) >= 0.60,
     false
   );
 $$;
@@ -158,6 +158,7 @@ end;
 $$;
 
 revoke all on function public.freeze_story_assessment_proposed_updates() from public, anon, authenticated;
+grant execute on function public.freeze_story_assessment_proposed_updates() to service_role;
 
 drop trigger if exists intelligence_story_assessments_freeze_proposed_updates
   on public.intelligence_story_assessments;
@@ -475,7 +476,9 @@ begin
     and evidence.evidence_class not in ('transcript', 'research_analysis')
     and source.source_tier <= 4;
 
-  if assessment.disposition = 'reframed' then
+  -- The model's original disposition owns the mechanism boundary even when
+  -- evidence eligibility later downgrades the effective disposition to unchanged.
+  if assessment.model_disposition = 'reframed' then
     mechanism_reframe_blocked := not public.story_maintenance_reframe_is_lightweight(
       story_row.thesis,
       proposal_thesis,
@@ -645,9 +648,17 @@ begin
     );
   end if;
 
+  -- Lifecycle/publication state must advance only with the same concrete Story
+  -- mutation that produced the new immutable thesis version.
   update public.intelligence_story_states state
-  set lifecycle_status=case when material_allowed then new_lifecycle_status else state.lifecycle_status end,
-      publication_eligible=case when effective_status='invalidated' then false else state.publication_eligible end,
+  set lifecycle_status=case
+        when material_allowed and story_changed then new_lifecycle_status
+        else state.lifecycle_status
+      end,
+      publication_eligible=case
+        when material_allowed and story_changed and effective_status='invalidated' then false
+        else state.publication_eligible
+      end,
       updated_at=evaluated_at
   where state.story_id=assessment.story_id;
 
