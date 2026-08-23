@@ -1,5 +1,10 @@
 import type { TranscriptPipelineResult } from "@/lib/transcript-pipeline";
-import { isKnownPermanentTranscriptUnavailable, retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
+import {
+  isKnownPermanentTranscriptUnavailable,
+  isRevalidatableTranscriptUnavailable,
+  isTranscriptRevalidationDue,
+  retrieveAndPersistTranscript,
+} from "@/lib/transcript-pipeline";
 import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
 import {
   createVideoIntakeRun,
@@ -52,6 +57,19 @@ async function processVideo(videoId: string, store: SupabaseTranscriptStore) {
   });
 }
 
+async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoIntakeItem>[0]["client"], videoId: string) {
+  if (!runClient) return null;
+  const { data, error } = await runClient
+    .from("research_debt")
+    .select("next_check_at")
+    .eq("debt_key", `transcript:youtube:${videoId}`)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle<{ next_check_at: string | null }>();
+  if (error) throw new Error(`Could not read transcript revalidation debt: ${error.message}`);
+  return data?.next_check_at ?? null;
+}
+
 /**
  * The shared Live-only YouTube and TranscriptAPI intake step.  It deliberately
  * caps transcript work so a slow provider cannot consume an entire scheduled
@@ -95,10 +113,18 @@ export async function runScheduledVideoIntake(input: {
         video,
         client: run.client,
       });
-      // A persisted non-retryable TranscriptAPI conclusion is intentionally
-      // kept as open research debt and still blocks the required source. It
-      // must not be treated as a cache miss or spend a provider call again.
-      if (isKnownPermanentTranscriptUnavailable(item)) {
+
+      let suppressUnavailable = isKnownPermanentTranscriptUnavailable(item);
+      if (!suppressUnavailable && isRevalidatableTranscriptUnavailable(item)) {
+        const nextCheckAt = await revalidationNextCheckAt(run.client, video.videoId);
+        suppressUnavailable = !isTranscriptRevalidationDue(item, nextCheckAt, startedAt);
+      }
+
+      // Structural failures remain suppressed. Changeable non-retryable states
+      // stay visible as research debt but receive one bounded revalidation when
+      // their persisted next_check_at becomes due. Legacy rows with no
+      // next_check_at are revalidated once, then acquire the new 24-hour clock.
+      if (suppressUnavailable) {
         knownUnavailableVideos.push({
           videoId: video.videoId,
           errorCode: item.transcriptErrorCode || null,
