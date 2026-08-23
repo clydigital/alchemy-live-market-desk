@@ -43,6 +43,22 @@ export type StoryReviewTargetPackItem = {
   queueIds: string[];
   relevantEvidence: EvidencePackItem[];
   selectedAt: string;
+  reviewContext?: {
+    queueReasons: string[];
+    researchDebt: Array<{
+      debtKey: string;
+      severity: string;
+      reason: string | null;
+      nextAction: string | null;
+      nextCheckAt: string | null;
+    }>;
+    dueCatalysts: string[];
+    triggerEvidenceIds: string[];
+    catalystCandidates: Array<{
+      label: string;
+      catalystRef: string | null;
+    }>;
+  };
 };
 
 export type StoryAssessmentDisposition = "unchanged" | "reinforced" | "weakened" | "reframed" | "invalidated";
@@ -52,8 +68,16 @@ export type StoryAssessmentOutput = {
   disposition: StoryAssessmentDisposition;
   rationale: string;
   confidenceDelta: number;
-  proposedThesis: string | null;
   evidenceIds: string[];
+  proposedTitle: string | null;
+  proposedThesis: string | null;
+  proposedMarketQuestion: string | null;
+  proposedConfirmation: string[] | null;
+  proposedInvalidation: string[] | null;
+  proposedNextCatalyst: {
+    label: string;
+    catalystRef: string | null;
+  } | null;
 };
 
 export type MarketBeliefOutput = {
@@ -214,6 +238,26 @@ export type LifecycleOutput = {
 const nullableString = { type: ["string", "null"] };
 const nullableNumber = { type: ["number", "null"], minimum: 0, maximum: 100 };
 const stringArray = { type: "array", items: { type: "string" } };
+const nullableStringArray4 = {
+  anyOf: [
+    { type: "array", maxItems: 4, items: { type: "string" } },
+    { type: "null" },
+  ],
+};
+const nullableNextCatalyst = {
+  anyOf: [
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["label", "catalystRef"],
+      properties: {
+        label: { type: "string" },
+        catalystRef: nullableString,
+      },
+    },
+    { type: "null" },
+  ],
+};
 const requirementIdArray = {
   type: "array",
   items: { type: "string", enum: STABLE_REQUIREMENT_IDS },
@@ -247,14 +291,31 @@ export const MARKET_BELIEF_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["storyId", "disposition", "rationale", "confidenceDelta", "proposedThesis", "evidenceIds"],
+        required: [
+          "storyId",
+          "disposition",
+          "rationale",
+          "confidenceDelta",
+          "evidenceIds",
+          "proposedTitle",
+          "proposedThesis",
+          "proposedMarketQuestion",
+          "proposedConfirmation",
+          "proposedInvalidation",
+          "proposedNextCatalyst",
+        ],
         properties: {
           storyId: { type: "string" },
           disposition: { type: "string", enum: ["unchanged", "reinforced", "weakened", "reframed", "invalidated"] },
           rationale: { type: "string" },
           confidenceDelta: { type: "number", minimum: -100, maximum: 100 },
-          proposedThesis: nullableString,
           evidenceIds: stringArray,
+          proposedTitle: nullableString,
+          proposedThesis: nullableString,
+          proposedMarketQuestion: nullableString,
+          proposedConfirmation: nullableStringArray4,
+          proposedInvalidation: nullableStringArray4,
+          proposedNextCatalyst: nullableNextCatalyst,
         },
       },
     },
