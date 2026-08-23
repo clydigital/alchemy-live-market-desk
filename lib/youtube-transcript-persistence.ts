@@ -201,7 +201,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       httpStatus: debt.httpStatus,
       retryable: debt.retryable,
       retryAfterSeconds: debt.retryAfterSeconds,
-      disposition: debt.retryable ? "retry_scheduled" : "permanent_unavailable",
+      disposition: debt.retryable ? "retry_scheduled" : debt.nextCheckAt ? "revalidation_scheduled" : "permanent_unavailable",
       lastAttemptedAt: debt.attemptedAt,
       attemptCount: item.attemptCount + 1,
     };
@@ -530,4 +530,3 @@ export async function finalizeVideoIntakeRun(input: {
   }).eq("research_run_id", input.runId);
   throwIfError(slotError, "Could not finalize the video intake slot run");
 }
-
