@@ -285,10 +285,17 @@ begin
       raise exception 'Canonical Story mutation retry changed its event payload';
     end if;
 
-    select to_jsonb(existing_story)
-    into result_story
+    select *
+    into story_row
     from public.stories existing_story
-    where existing_story.id = existing_story_id;
+    where existing_story.id = existing_story_id
+    for share;
+
+    if story_row.current_thesis_version_id is distinct from result_version_id then
+      raise exception 'Canonical Story mutation retry is stale because a newer thesis version is current';
+    end if;
+
+    result_story := to_jsonb(story_row);
 
     return query select
       result_story,

@@ -68,6 +68,14 @@ test("mutation-key idempotency prevents retry history duplication", () => {
   assert.match(rpc, /where version\.snapshot ->> 'canonicalMutationKey' = mutation_key_value/);
   assert.match(rpc, /if result_version_id is not null then[\s\S]*false;[\s\S]*return;/);
   assert.match(rpc, /existing_reasoning is distinct from p_reasoning/);
+  assert.match(
+    rpc,
+    /from public\.stories existing_story[\s\S]*for share;[\s\S]*story_row\.current_thesis_version_id is distinct from result_version_id/,
+  );
+  assert.match(
+    rpc,
+    /raise exception 'Canonical Story mutation retry is stale because a newer thesis version is current'/,
+  );
 });
 
 test("PR #94/#95 maintenance and freshness semantics remain active", () => {

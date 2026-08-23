@@ -59,6 +59,11 @@ test("reasoning is validated before the one atomic Story persistence call", () =
   assert.match(persistence, /p_story_id: storyId/);
   assert.match(persistence, /p_reasoning: reasoning/);
   assert.match(persistence, /if \(!result\?\.story\?\.id \|\| !result\.version_id \|\| !result\.event_id/);
+  assert.match(persistence, /story: StoryRow & \{ current_thesis_version_id: string \| null \}/);
+  assert.match(
+    persistence,
+    /result\.story\.current_thesis_version_id !== result\.version_id[\s\S]*returned a stale Story thesis version pointer/,
+  );
 });
 
 test("new and existing Stories use the same mutation-keyed transactional boundary", () => {

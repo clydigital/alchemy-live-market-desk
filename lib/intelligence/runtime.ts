@@ -1329,7 +1329,7 @@ function buildStoryReasoningSnapshot(
 }
 
 type CanonicalStoryPersistenceResult = {
-  story: StoryRow;
+  story: StoryRow & { current_thesis_version_id: string | null };
   version_id: string;
   event_id: string;
   version_number: number;
@@ -1369,6 +1369,9 @@ async function persistCanonicalStoryReasoning({
   const result = rows[0];
   if (!result?.story?.id || !result.version_id || !result.event_id || result.version_number < 1) {
     throw new Error(`Canonical Story mutation ${mutationKey} did not return an exact Story/event/version pointer.`);
+  }
+  if (result.story.current_thesis_version_id !== result.version_id) {
+    throw new Error(`Canonical Story mutation ${mutationKey} returned a stale Story thesis version pointer.`);
   }
   return result;
 }
