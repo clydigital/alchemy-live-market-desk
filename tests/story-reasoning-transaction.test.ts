@@ -8,7 +8,7 @@ const migrationPath = path.join(
   root,
   "supabase",
   "migrations",
-  "20260823131844_canonical_story_reasoning_atomic_persistence.sql",
+  "20260823183129_canonical_story_reasoning_atomic_persistence.sql",
 );
 const migration = fs.readFileSync(migrationPath, "utf8");
 

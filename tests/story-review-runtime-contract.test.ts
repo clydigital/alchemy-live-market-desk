@@ -10,7 +10,7 @@ const checkpoints = fs.readFileSync(path.join(root, "lib", "intelligence", "resu
 const openai = fs.readFileSync(path.join(root, "lib", "intelligence", "openai.ts"), "utf8");
 const baseMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821075252_budget_neutral_story_review_repair.sql"), "utf8");
 const hardeningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821080427_story_review_proof_hardening.sql"), "utf8");
-const atomicReasoningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260823131844_canonical_story_reasoning_atomic_persistence.sql"), "utf8");
+const atomicReasoningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260823183129_canonical_story_reasoning_atomic_persistence.sql"), "utf8");
 const migration = `${baseMigration}\n${hardeningMigration}\n${atomicReasoningMigration}`;
 const macroPage = fs.readFileSync(path.join(root, "app", "data", "macro", "page.tsx"), "utf8");
 
