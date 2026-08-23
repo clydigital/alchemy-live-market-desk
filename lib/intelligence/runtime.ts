@@ -1328,123 +1328,49 @@ function buildStoryReasoningSnapshot(
   });
 }
 
-async function createInitialVersion(
-  story: StoryRow,
-  synthesis: CandidateWorking,
-  reasoningContext: StoryReasoningContext,
-  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>,
-) {
-  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_type: "thesis_revision",
-      headline: "Original Alchemy research-engine thesis recorded",
-      detail: synthesis.researchSynthesis,
-      event_at: new Date().toISOString(),
-      metadata: { automatic: true, origin: "alchemy_research_engine" },
-    }),
-  });
-  const eventId = events[0]?.id ?? null;
-  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_id: eventId,
-      version_number: 1,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.status,
-      confidence: story.confidence,
-      market_question: synthesis.question,
-      dominant_narrative: synthesis.marketBelief,
-      best_explanation: reasoningContext.hypothesis.causal_mechanism,
-      strongest_support: synthesis.strongestSupport,
-      strongest_contradiction: synthesis.strongestContradiction,
-      priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: reasoningContext.hypothesis.confirmation_criteria.join("; "),
-      invalidation_trigger: reasoningContext.hypothesis.invalidation_criteria.join("; "),
-      next_catalyst: reasoningContext.hypothesis.next_catalysts.join("; "),
-      article_angle: synthesis.researchSynthesis,
-      provisional_title: synthesis.title,
-      article_verdict: "research_engine",
-      assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine", reasoning },
-      change_reason: "story_created",
-      effective_at: new Date().toISOString(),
-    }),
-  });
-  const versionId = versions[0]?.id;
-  if (!versionId) throw new Error(`Initial thesis version for Story ${story.id} was not persisted.`);
-  await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({ current_thesis_version_id: versionId }),
-  });
-}
+type CanonicalStoryPersistenceResult = {
+  story: StoryRow;
+  version_id: string;
+  event_id: string;
+  version_number: number;
+  created: boolean;
+  applied: boolean;
+};
 
-async function createRevisionVersion(
-  story: StoryRow,
-  synthesis: CandidateWorking,
-  reasoningContext: StoryReasoningContext,
-  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>,
-) {
-  const prior = await intelligenceRest<Array<{ version_number: number; confidence: number }>>(
-    `story_thesis_versions?select=version_number,confidence&story_id=eq.${encodeURIComponent(story.id)}&order=version_number.desc&limit=1`,
-  );
-  const versionNumber = (prior[0]?.version_number || 0) + 1;
-  const confidenceDelta = clamp(story.confidence) - Number(prior[0]?.confidence ?? story.confidence);
-  const events = await intelligenceRest<Array<{ id: string }>>("story_events", {
+async function persistCanonicalStoryReasoning({
+  mutationKey,
+  storyId,
+  storyPayload,
+  reasoning,
+  event,
+}: {
+  mutationKey: string;
+  storyId: string | null;
+  storyPayload: Record<string, unknown>;
+  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>;
+  event: { headline: string; detail: string; eventAt: string; metadata: Record<string, unknown> };
+}) {
+  const rows = await intelligenceRest<CanonicalStoryPersistenceResult[]>("rpc/persist_canonical_story_reasoning", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
-      story_id: story.id,
-      event_type: "thesis_revision",
-      headline: synthesis.title.slice(0, 180),
-      detail: synthesis.researchSynthesis,
-      confidence_delta: confidenceDelta,
-      event_at: new Date().toISOString(),
-      metadata: { automatic: true, origin: "alchemy_research_engine", novelty_class: "existing_story_update" },
+      p_mutation_key: mutationKey,
+      p_story_id: storyId,
+      p_story: storyPayload,
+      p_reasoning: reasoning,
+      p_event: {
+        headline: event.headline,
+        detail: event.detail,
+        event_at: event.eventAt,
+        metadata: event.metadata,
+      },
     }),
   });
-  const versions = await intelligenceRest<Array<{ id: string }>>("story_thesis_versions", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      story_id: story.id,
-      event_id: events[0]?.id || null,
-      version_number: versionNumber,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.status,
-      confidence: story.confidence,
-      market_question: synthesis.question,
-      dominant_narrative: synthesis.marketBelief,
-      best_explanation: reasoningContext.hypothesis.causal_mechanism,
-      strongest_support: synthesis.strongestSupport,
-      strongest_contradiction: synthesis.strongestContradiction,
-      priced_assessment: synthesis.divergenceSummary,
-      confirmation_trigger: reasoningContext.hypothesis.confirmation_criteria.join("; "),
-      invalidation_trigger: reasoningContext.hypothesis.invalidation_criteria.join("; "),
-      next_catalyst: reasoningContext.hypothesis.next_catalysts.join("; "),
-      article_angle: synthesis.researchSynthesis,
-      provisional_title: synthesis.title,
-      article_verdict: "research_engine",
-      assets: synthesis.affectedAssets,
-      snapshot: { origin: "alchemy_research_engine", priorVersion: versionNumber - 1, reasoning },
-      change_reason: "material_evidence_recalibration",
-      effective_at: new Date().toISOString(),
-    }),
-  });
-  const versionId = versions[0]?.id;
-  if (!versionId) throw new Error(`Revised thesis version for Story ${story.id} was not persisted.`);
-  await intelligenceRest(`stories?id=eq.${encodeURIComponent(story.id)}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({ current_thesis_version_id: versionId }),
-  });
+  const result = rows[0];
+  if (!result?.story?.id || !result.version_id || !result.event_id || result.version_number < 1) {
+    throw new Error(`Canonical Story mutation ${mutationKey} did not return an exact Story/event/version pointer.`);
+  }
+  return result;
 }
 
 async function promoteCandidate({
@@ -1473,6 +1399,7 @@ async function promoteCandidate({
   const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
   const reasoning = buildStoryReasoningSnapshot(candidate, reasoningContext, lifecycleStatus);
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
+  const mutationAt = new Date().toISOString();
   const storyPayload = {
     title: candidate.title.slice(0, 180),
     thesis: candidate.thesis,
@@ -1491,39 +1418,34 @@ async function promoteCandidate({
     provisional_title: candidate.title,
     article_verdict: "research_engine",
     assets: unique(candidate.affectedAssets),
-    updated_at: new Date().toISOString(),
+    updated_at: mutationAt,
   };
 
   let story: StoryRow;
   let isNew = false;
   if (decision.noveltyClass === "existing_story_update" && matched) {
-    const rows = await intelligenceRest<StoryRow[]>(`stories?id=eq.${encodeURIComponent(matched.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(storyPayload),
-    });
-    story = rows[0];
-    if (!story) throw new Error(`Story ${matched.id} could not be updated.`);
-    await intelligenceRest("story_updates", {
-      method: "POST",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        story_id: story.id,
-        update_type: "recalibration",
-        headline: candidate.title.slice(0, 90),
+    const persisted = await persistCanonicalStoryReasoning({
+      mutationKey: candidateRowId,
+      storyId: matched.id,
+      storyPayload,
+      reasoning,
+      event: {
+        headline: candidate.title.slice(0, 180),
         detail: candidate.researchSynthesis,
-        observed_at: new Date().toISOString(),
-      }),
+        eventAt: mutationAt,
+        metadata: { novelty_class: "existing_story_update" },
+      },
     });
-    await createRevisionVersion(story, candidate, reasoningContext, reasoning);
+    story = persisted.story;
+    isNew = persisted.created;
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
     let slug = slugPart(candidate.title);
     if (usedSlugs.has(slug)) slug = `${slug.slice(0, 62)}-${hash(candidate.noveltyFingerprint, 7)}`;
-    const rows = await intelligenceRest<StoryRow[]>("stories", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
+    const persisted = await persistCanonicalStoryReasoning({
+      mutationKey: candidateRowId,
+      storyId: null,
+      storyPayload: {
         slug,
         ...storyPayload,
         created_by: "alchemy_research_engine",
@@ -1532,12 +1454,17 @@ async function promoteCandidate({
         persistence: clamp(candidate.confidence),
         trader_relevance: clamp(candidate.qualificationScore),
         article_potential: clamp(candidate.qualificationScore),
-      }),
+      },
+      reasoning,
+      event: {
+        headline: "Original Alchemy research-engine thesis recorded",
+        detail: candidate.researchSynthesis,
+        eventAt: mutationAt,
+        metadata: { novelty_class: decision.noveltyClass },
+      },
     });
-    story = rows[0];
-    if (!story) throw new Error("New Alchemy Story could not be created.");
-    isNew = true;
-    await createInitialVersion(story, candidate, reasoningContext, reasoning);
+    story = persisted.story;
+    isNew = persisted.created;
   }
 
   const decisive = requireKnownEvidenceIds(

@@ -10,7 +10,8 @@ const checkpoints = fs.readFileSync(path.join(root, "lib", "intelligence", "resu
 const openai = fs.readFileSync(path.join(root, "lib", "intelligence", "openai.ts"), "utf8");
 const baseMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821075252_budget_neutral_story_review_repair.sql"), "utf8");
 const hardeningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821080427_story_review_proof_hardening.sql"), "utf8");
-const migration = `${baseMigration}\n${hardeningMigration}`;
+const atomicReasoningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260823131844_canonical_story_reasoning_atomic_persistence.sql"), "utf8");
+const migration = `${baseMigration}\n${hardeningMigration}\n${atomicReasoningMigration}`;
 const macroPage = fs.readFileSync(path.join(root, "app", "data", "macro", "page.tsx"), "utf8");
 
 test("existing Story maintenance piggybacks on the one Market Belief call", () => {
@@ -39,12 +40,13 @@ test("target list and blocker context are frozen durably, including a fresh null
 test("material Story maintenance reuses canonical version trigger and suppresses duplicate mirrored events", () => {
   assert.match(baseMigration, /unique\(engine_run_id, story_id\)/);
   assert.match(hardeningMigration, /if assessment\.applied_at is not null/);
-  assert.match(hardeningMigration, /alchemy\.story_maintenance_context/);
-  assert.match(hardeningMigration, /marketBeliefStageRunId/);
-  assert.match(hardeningMigration, /create or replace function public\.capture_story_thesis_version/);
-  assert.match(hardeningMigration, /insert into public\.story_events/);
-  assert.match(hardeningMigration, /insert into public\.story_thesis_versions/);
-  assert.match(hardeningMigration, /current_thesis_version_id=new_version_id/);
+  assert.match(migration, /alchemy\.story_maintenance_context/);
+  assert.match(migration, /marketBeliefStageRunId/);
+  assert.match(atomicReasoningMigration, /create or replace function public\.capture_story_thesis_version/);
+  assert.match(atomicReasoningMigration, /insert into public\.story_events/);
+  assert.match(atomicReasoningMigration, /insert into public\.story_thesis_versions/);
+  assert.match(atomicReasoningMigration, /current_thesis_version_id = new_version_id/);
+  assert.match(atomicReasoningMigration, /suppress_event_mirror[\s\S]*true/);
   assert.match(hardeningMigration, /suppress_event_mirror boolean not null default false/);
   assert.match(hardeningMigration, /if new\.suppress_event_mirror then/);
   assert.match(hardeningMigration, /suppress_event_mirror\)[\s\S]*true/);

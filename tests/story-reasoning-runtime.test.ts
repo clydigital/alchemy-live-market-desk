@@ -15,9 +15,8 @@ function section(start: string, end: string) {
   return runtime.slice(startAt, endAt);
 }
 
-const reasoningBuilder = section("function buildStoryReasoningSnapshot", "async function createInitialVersion");
-const initialVersion = section("async function createInitialVersion", "async function createRevisionVersion");
-const revisionVersion = section("async function createRevisionVersion", "async function promoteCandidate");
+const reasoningBuilder = section("function buildStoryReasoningSnapshot", "type CanonicalStoryPersistenceResult");
+const persistence = section("type CanonicalStoryPersistenceResult", "async function promoteCandidate");
 const promotion = section("async function promoteCandidate", "function lifecycleThemeState");
 
 test("runtime builds reasoning from persisted stage-owned records", () => {
@@ -49,31 +48,35 @@ test("Story Synthesis provenance is required and rejected unless canonical", () 
   assert.match(runtime, /references unknown canonical evidence ID\(s\)/);
 });
 
-test("initial Story creation preserves metadata and persists reasoning", () => {
+test("reasoning is validated before the one atomic Story persistence call", () => {
   assert.match(promotion, /const reasoning = buildStoryReasoningSnapshot\(candidate, reasoningContext, lifecycleStatus\)/);
   assert.ok(
-    promotion.indexOf("const reasoning = buildStoryReasoningSnapshot") < promotion.indexOf("intelligenceRest<StoryRow[]>(`stories"),
+    promotion.indexOf("const reasoning = buildStoryReasoningSnapshot") < promotion.indexOf("persistCanonicalStoryReasoning({"),
     "Canonical reasoning must be validated before the first Story mutation.",
   );
-  assert.match(initialVersion, /snapshot: \{ origin: "alchemy_research_engine", reasoning \}/);
-  assert.match(initialVersion, /best_explanation: reasoningContext\.hypothesis\.causal_mechanism/);
-  assert.match(initialVersion, /next_catalyst: reasoningContext\.hypothesis\.next_catalysts\.join/);
-  assert.match(initialVersion, /const versionId = versions\[0\]\?\.id/);
-  assert.match(initialVersion, /if \(!versionId\) throw new Error/);
-  assert.match(initialVersion, /current_thesis_version_id: versionId/);
+  assert.match(persistence, /"rpc\/persist_canonical_story_reasoning"/);
+  assert.match(persistence, /p_mutation_key: mutationKey/);
+  assert.match(persistence, /p_story_id: storyId/);
+  assert.match(persistence, /p_reasoning: reasoning/);
+  assert.match(persistence, /if \(!result\?\.story\?\.id \|\| !result\.version_id \|\| !result\.event_id/);
 });
 
-test("full-reasoning Story revision preserves metadata and persists reasoning", () => {
-  assert.match(revisionVersion, /snapshot: \{ origin: "alchemy_research_engine", priorVersion: versionNumber - 1, reasoning \}/);
-  assert.match(revisionVersion, /best_explanation: reasoningContext\.hypothesis\.causal_mechanism/);
-  assert.match(revisionVersion, /next_catalyst: reasoningContext\.hypothesis\.next_catalysts\.join/);
-  assert.match(revisionVersion, /if \(!versionId\) throw new Error/);
-  assert.match(revisionVersion, /current_thesis_version_id: versionId/);
+test("new and existing Stories use the same mutation-keyed transactional boundary", () => {
+  const calls = promotion.match(/persistCanonicalStoryReasoning\(\{/g) ?? [];
+  assert.equal(calls.length, 2);
+  assert.match(promotion, /mutationKey: candidateRowId,[\s\S]*storyId: matched\.id/);
+  assert.match(promotion, /mutationKey: candidateRowId,[\s\S]*storyId: null/);
+  assert.match(promotion, /best_explanation: hypothesis\.causal_mechanism/);
+  assert.match(promotion, /next_catalyst: hypothesis\.next_catalysts\.join/);
+  assert.match(promotion, /isNew = persisted\.created/);
 });
 
-test("runtime retains the two existing direct thesis-version inserts", () => {
-  const writes = runtime.match(/intelligenceRest<Array<\{ id: string \}>>\("story_thesis_versions", \{/g) ?? [];
-  assert.equal(writes.length, 2);
-  assert.match(runtime, /await createRevisionVersion\(story, candidate, reasoningContext, reasoning\)/);
-  assert.match(runtime, /await createInitialVersion\(story, candidate, reasoningContext, reasoning\)/);
+test("runtime has no direct Story, event, version, pointer, or mirrored-update writer", () => {
+  assert.doesNotMatch(promotion, /intelligenceRest<StoryRow\[]>\(`stories/);
+  assert.doesNotMatch(promotion, /intelligenceRest<StoryRow\[]>\("stories"/);
+  assert.doesNotMatch(promotion, /intelligenceRest\("story_updates"/);
+  assert.doesNotMatch(runtime, /intelligenceRest<Array<\{ id: string \}>>\("story_thesis_versions"/);
+  assert.doesNotMatch(runtime, /intelligenceRest<Array<\{ id: string \}>>\("story_events"/);
+  assert.doesNotMatch(runtime, /current_thesis_version_id: versionId/);
+  assert.doesNotMatch(runtime, /createInitialVersion|createRevisionVersion/);
 });
