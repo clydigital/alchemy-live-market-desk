@@ -1,6 +1,8 @@
 import "server-only";
 
 import { markModelStageInvoked } from "./invocation-context.ts";
+import { sanitizeHypothesisOutputEvidenceIds } from "./hypothesis-core.ts";
+import type { HypothesisOutput } from "./schemas.ts";
 import {
   OpenAIStageError,
   executeProviderWithRetry,
@@ -155,6 +157,32 @@ export function canonicalStageInput(stageKey: string, input: unknown) {
   return canonical;
 }
 
+function canonicalStageOutput<T>(stageKey: string, input: unknown, data: T): T {
+  if (stageKey !== "hypothesis" || !input || typeof input !== "object" || Array.isArray(input)) return data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+
+  const evidence = Array.isArray((input as { evidence?: unknown[] }).evidence)
+    ? (input as { evidence: unknown[] }).evidence
+    : [];
+  const allowedEvidenceIds = new Set(evidence.flatMap((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const id = (value as { id?: unknown }).id;
+    return typeof id === "string" && id ? [id] : [];
+  }));
+  const output = data as HypothesisOutput;
+  if (!Array.isArray(output.hypotheses)) return data;
+
+  const sanitized = sanitizeHypothesisOutputEvidenceIds(output, allowedEvidenceIds);
+  if (sanitized.removedReferenceCount || sanitized.droppedHypothesisCount) {
+    console.warn(JSON.stringify({
+      event: "hypothesis_evidence_reference_sanitized",
+      removedReferenceCount: sanitized.removedReferenceCount,
+      droppedHypothesisCount: sanitized.droppedHypothesisCount,
+    }));
+  }
+  return sanitized.output as T;
+}
+
 export async function runStructuredStage<T>({
   stageKey,
   instructions,
@@ -238,7 +266,7 @@ export async function runStructuredStage<T>({
     };
   };
 
-  return executeProviderWithRetry<T>({
+  const result = await executeProviderWithRetry<T>({
     fetcher,
     fallbackModel: model,
     maxOutputTokens: effectiveMaxOutputTokens,
@@ -247,4 +275,8 @@ export async function runStructuredStage<T>({
       await sleep(retryDelay(attempt, retryAfter));
     },
   });
+  return {
+    ...result,
+    data: canonicalStageOutput(stageKey, modelInput, result.data),
+  };
 }
