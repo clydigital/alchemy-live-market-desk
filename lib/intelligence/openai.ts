@@ -169,7 +169,7 @@ function canonicalStageOutput<T>(stageKey: string, input: unknown, data: T): T {
     const id = (value as { id?: unknown }).id;
     return typeof id === "string" && id ? [id] : [];
   }));
-  const output = data as HypothesisOutput;
+  const output = data as unknown as HypothesisOutput;
   if (!Array.isArray(output.hypotheses)) return data;
 
   const sanitized = sanitizeHypothesisOutputEvidenceIds(output, allowedEvidenceIds);
