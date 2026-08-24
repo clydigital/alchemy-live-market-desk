@@ -5,12 +5,12 @@ import {
   isTranscriptRevalidationDue,
   retrieveAndPersistTranscript,
 } from "@/lib/transcript-pipeline";
-import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
+import { retrieveSupadataVideo } from "@/lib/supadata";
+import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
 import {
   createVideoIntakeRun,
   ensureVideoIntakeItem,
   finalizeVideoIntakeRun,
-  SupabaseTranscriptStore,
   type VideoResearchSlot,
 } from "@/lib/youtube-transcript-persistence";
 import {
@@ -20,7 +20,8 @@ import {
 } from "@/lib/youtube-reliability";
 
 const DEFAULT_MAX_TRANSCRIPT_ATTEMPTS = 6;
-const REQUIRED_CHANNEL_KEYS = new Set(["stockedup", "wall-street-truth-bombs", "traders-reality"]);
+export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = ["stockedup", "kevin-gerrity", "clearvalue-tax"] as const;
+const SUPADATA_TRANSCRIPT_CHANNEL_KEYS = new Set<string>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY);
 
 export type ScheduledVideoIntakeResult = {
   runId: string;
@@ -33,6 +34,7 @@ export type ScheduledVideoIntakeResult = {
     transcriptsUnavailable: number;
     cacheHits: number;
     transcriptsDeferred: number;
+    livestreamsSkipped: number;
   };
   channels: XwadaChannelResult[];
   transcripts: TranscriptPipelineResult[];
@@ -43,17 +45,23 @@ export type ScheduledVideoIntakeResult = {
     httpStatus: number | null;
   }>;
   deferredVideoIds: string[];
+  skippedLivestreamIds: string[];
 };
 
-async function processVideo(videoId: string, store: SupabaseTranscriptStore) {
-  const transcriptApiKey = process.env.TRANSCRIPT_API_KEY?.trim() || "";
+export function isSupadataTranscriptChannel(channelKey: string) {
+  return SUPADATA_TRANSCRIPT_CHANNEL_KEYS.has(channelKey);
+}
+
+async function processVideo(videoId: string, store: SupadataTranscriptStore) {
+  const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
     store,
+    provider: "supadata",
     // Scheduled work uses a single bounded attempt. Retryable failures are
     // persisted as debt and are picked up by a later cadence rather than
     // holding the full research cycle for minutes.
-    retrieve: (id) => retrieveTranscriptApiVideo(id, transcriptApiKey, { timeoutMs: 8_000, maxAttempts: 1 }),
+    retrieve: (id) => retrieveSupadataVideo(id, supadataApiKey, { timeoutMs: 8_000 }),
   });
 }
 
@@ -71,10 +79,10 @@ async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoI
 }
 
 /**
- * The shared Live-only YouTube and TranscriptAPI intake step.  It deliberately
- * caps transcript work so a slow provider cannot consume an entire scheduled
- * research window. Deferred videos remain persisted and are retried on a
- * later cycle without being represented as a successful transcript.
+ * The shared Live-only YouTube intake step. Discovery remains broad, while
+ * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity
+ * and ClearValue Tax. Livestreams are classified upstream and never enter the
+ * transcript provider path.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
@@ -90,18 +98,23 @@ export async function runScheduledVideoIntake(input: {
     runKey: input.runKey,
     scheduledFor: input.scheduledFor,
   });
-  const store = new SupabaseTranscriptStore(run.client);
+  const store = new SupadataTranscriptStore(run.client);
   const channels = await discoverXwadaVideoChannels(startedAt);
   const results: TranscriptPipelineResult[] = [];
   const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
   const deferredVideoIds: string[] = [];
+  const selectedChannels = channels.filter((channel) => isSupadataTranscriptChannel(channel.channelKey));
+  const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
+    channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
+  ));
+  const priority = new Map(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY.map((key, index) => [key, index]));
+  const orderedChannels = selectedChannels
+    .map((channel) => ({ ...channel, videos: channel.videos.filter((video) => video.isLive !== true) }))
+    .sort((left, right) => (priority.get(left.channelKey) ?? 99) - (priority.get(right.channelKey) ?? 99));
   let providerAttempts = 0;
 
-  // Process the first new upload from each required channel before spending the
-  // bounded TranscriptAPI budget on secondary creators or a second upload.
-  const orderedChannels = [...channels].sort((left, right) => (
-    Number(REQUIRED_CHANNEL_KEYS.has(right.channelKey)) - Number(REQUIRED_CHANNEL_KEYS.has(left.channelKey))
-  ));
+  // Process one upload from each selected channel before spending a second
+  // Supadata credit on another upload from the same creator.
   const longestChannel = Math.max(0, ...orderedChannels.map((channel) => channel.videos.length));
   for (let videoIndex = 0; videoIndex < longestChannel; videoIndex += 1) {
     for (const channel of orderedChannels) {
@@ -134,7 +147,7 @@ export async function runScheduledVideoIntake(input: {
         continue;
       }
       // Cached transcripts should not consume the provider budget, otherwise a
-      // run full of old uploads can defer a fresh required-channel video.
+      // run full of old uploads can defer a fresh selected-channel video.
       const cached = await store.findReadyTranscript(video.videoId);
       if (!cached && providerAttempts >= maxTranscriptAttempts) {
         deferredVideoIds.push(video.videoId);
@@ -181,10 +194,12 @@ export async function runScheduledVideoIntake(input: {
       transcriptsUnavailable: knownUnavailableVideos.length,
       cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
       transcriptsDeferred: deferredVideoIds.length,
+      livestreamsSkipped: skippedLivestreamIds.length,
     },
     channels,
     transcripts: results,
     knownUnavailableVideos,
     deferredVideoIds,
+    skippedLivestreamIds,
   };
 }
