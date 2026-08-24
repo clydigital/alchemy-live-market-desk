@@ -72,7 +72,7 @@ test("new and existing Stories use the same mutation-keyed transactional boundar
   assert.match(promotion, /mutationKey: candidateRowId,[\s\S]*storyId: matched\.id/);
   assert.match(promotion, /mutationKey: candidateRowId,[\s\S]*storyId: null/);
   assert.match(promotion, /best_explanation: hypothesis\.causal_mechanism/);
-  assert.match(promotion, /next_catalyst: hypothesis\.next_catalysts\.join/);
+  assert.match(promotion, /next_catalyst: reasoning\.nextTest\?\.label/);
   assert.match(promotion, /isNew = persisted\.created/);
 });
 
