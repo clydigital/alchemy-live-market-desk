@@ -107,7 +107,7 @@ export async function runScheduledVideoIntake(input: {
   const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
     channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
   ));
-  const priority = new Map(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY.map((key, index) => [key, index]));
+  const priority = new Map<string, number>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY.map((key, index) => [key, index]));
   const orderedChannels = selectedChannels
     .map((channel) => ({ ...channel, videos: channel.videos.filter((video) => video.isLive !== true) }))
     .sort((left, right) => (priority.get(left.channelKey) ?? 99) - (priority.get(right.channelKey) ?? 99));
