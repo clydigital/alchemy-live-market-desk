@@ -301,7 +301,7 @@ export function buildValidatedStorySynthesisPlanV1(input: {
     knownEvidenceIds: input.knownEvidenceIds,
     now: input.now,
   });
-  const visualPlan = validateVisualPlanV1(input.selection.visualPlan, {
+  const visualPlan = validateVisualPlanV1(input.selection.visualPlan ?? [], {
     ...input.visualAllowList,
     hasNextTest: Boolean(nextTest),
   });
