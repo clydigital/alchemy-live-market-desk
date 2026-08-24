@@ -1604,7 +1604,7 @@ async function promoteCandidate({
   if (decisive.length) {
     await intelligenceRest("intelligence_story_evidence?on_conflict=story_id,evidence_id,evidence_role", {
       method: "POST",
-      headers: { Prefer: "return=minimal" },
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(decisive.map((evidenceId) => ({
         story_id: story.id,
         evidence_id: evidenceId,
