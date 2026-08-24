@@ -1,4 +1,4 @@
-import type { EvidencePackItem, ExistingStoryPackItem } from "./schemas.ts";
+import type { EvidencePackItem, ExistingStoryPackItem, HypothesisOutput } from "./schemas.ts";
 
 export type BeliefRowLike = {
   evidence_ids?: string[];
@@ -69,8 +69,71 @@ export function buildHypothesisStoryPack(
  */
 export function restrictHypothesisEvidenceIds(
   evidenceIds: string[] | undefined,
-  allowedEvidenceIds: Set<string>,
+  allowedEvidenceIds: ReadonlySet<string>,
 ): string[] {
   if (!evidenceIds || !Array.isArray(evidenceIds)) return [];
   return [...new Set(evidenceIds.filter((id) => allowedEvidenceIds.has(id)))];
+}
+
+export type HypothesisEvidenceSanitizationResult = {
+  output: HypothesisOutput;
+  removedReferenceCount: number;
+  droppedHypothesisCount: number;
+};
+
+/**
+ * Provider-boundary safety net for model-generated Hypothesis evidence IDs.
+ *
+ * Unknown IDs are never corrected, fuzzily matched, or promoted to aliases.
+ * They are removed deterministically. A Hypothesis is discarded when that
+ * removal leaves it with no supporting evidence or leaves an observed / strongly
+ * supported causal edge without canonical evidence. Inferred/speculative edges
+ * may remain evidence-free because the Story reasoning contract permits that.
+ */
+export function sanitizeHypothesisOutputEvidenceIds(
+  output: HypothesisOutput,
+  allowedEvidenceIds: ReadonlySet<string>,
+): HypothesisEvidenceSanitizationResult {
+  let removedReferenceCount = 0;
+  let droppedHypothesisCount = 0;
+
+  const restrict = (ids: string[] | undefined) => {
+    const values = Array.isArray(ids) ? ids : [];
+    const uniqueValues = [...new Set(values)];
+    const retained = restrictHypothesisEvidenceIds(uniqueValues, allowedEvidenceIds);
+    removedReferenceCount += uniqueValues.length - retained.length;
+    return retained;
+  };
+
+  const hypotheses = output.hypotheses.flatMap((hypothesis) => {
+    const evidenceForIds = restrict(hypothesis.evidenceForIds);
+    const evidenceAgainstIds = restrict(hypothesis.evidenceAgainstIds);
+    const causalChain = hypothesis.causalChain.map((edge) => ({
+      ...edge,
+      evidenceIds: restrict(edge.evidenceIds),
+    }));
+
+    const unsupportedStrongEdge = causalChain.some((edge) =>
+      (edge.evidenceState === "observed" || edge.evidenceState === "strongly_supported")
+      && edge.evidenceIds.length === 0
+    );
+
+    if (evidenceForIds.length === 0 || unsupportedStrongEdge) {
+      droppedHypothesisCount += 1;
+      return [];
+    }
+
+    return [{
+      ...hypothesis,
+      evidenceForIds,
+      evidenceAgainstIds,
+      causalChain,
+    }];
+  });
+
+  return {
+    output: { ...output, hypotheses },
+    removedReferenceCount,
+    droppedHypothesisCount,
+  };
 }
