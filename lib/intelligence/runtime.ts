@@ -1467,7 +1467,7 @@ async function promoteCandidate({
     priced_assessment: candidate.divergenceSummary,
     confirmation_trigger: hypothesis.confirmation_criteria.join("; "),
     invalidation_trigger: hypothesis.invalidation_criteria.join("; "),
-    next_catalyst: reasoning.nextTest?.label ?? (hypothesis.next_catalysts.join("; ") || null),
+    next_catalyst: reasoning.nextTest?.label ?? null,
     article_angle: candidate.researchSynthesis,
     provisional_title: candidate.title,
     article_verdict: "research_engine",
@@ -1604,7 +1604,7 @@ async function promoteCandidate({
   if (decisive.length) {
     await intelligenceRest("intelligence_story_evidence?on_conflict=story_id,evidence_id,evidence_role", {
       method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      headers: { Prefer: "return=minimal" },
       body: JSON.stringify(decisive.map((evidenceId) => ({
         story_id: story.id,
         evidence_id: evidenceId,
