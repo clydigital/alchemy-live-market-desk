@@ -33,7 +33,6 @@ import {
   LIFECYCLE_SCHEMA,
   MARKET_BELIEF_SCHEMA,
   SCENARIO_SCHEMA,
-  STORY_SYNTHESIS_SCHEMA,
   type ChallengerOutput,
   type DeduplicationOutput,
   type DivergenceOutput,
@@ -44,8 +43,11 @@ import {
   type MarketBeliefOutput,
   type ScenarioOutput,
   type StoryReviewTargetPackItem,
-  type StorySynthesisOutput,
 } from "@/lib/intelligence/schemas";
+import {
+  STORY_SYNTHESIS_WITH_PLAN_SCHEMA,
+  type StorySynthesisWithPlanOutputV1,
+} from "@/lib/intelligence/story-synthesis-contract-v1";
 import {
   STABLE_REQUIREMENT_IDS,
   evaluateCandidateIntegrity,
@@ -69,10 +71,12 @@ import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from 
 import { getStoryHeaderImages } from "@/lib/story-images";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
+  canonicalCausalEdgeId,
   type EvidenceState,
   type StoryReasoningEvidence,
   type StoryReasoningHypothesis,
 } from "@/lib/intelligence/story-reasoning";
+import { buildValidatedStorySynthesisPlanV1 } from "@/lib/intelligence/story-synthesis-plan";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -244,7 +248,7 @@ type StoryReasoningContext = {
   evidenceById: Map<string, EvidencePackItem>;
 };
 
-type CandidateWorking = StorySynthesisOutput["candidates"][number] & {
+type CandidateWorking = StorySynthesisWithPlanOutputV1["candidates"][number] & {
   candidateKey: string;
   noveltyFingerprint: string;
 };
@@ -289,7 +293,10 @@ const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Met
 For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
-Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims. All descriptive research states may publish when the update is material and has usable traceable evidence.`;
+Do not manufacture four changes. Do not split several updates to one parent Story into separate changes. Use themes selectively and record any claims the evidence does not permit in prohibitedClaims. All descriptive research states may publish when the update is material and has usable traceable evidence.
+For nextTestSelection, choose exactly one {label,catalystRef} pair from the matching storyPlanCandidates.catalystCandidates, or null. Never rewrite or invent a catalyst.
+For visualPlan, choose presentation form only. Every edge ID, claim ID, series ID, entity ID and analytical relationship must already exist in the matching storyPlanCandidates entry or supplied canonical evidence. If a candidate list is empty, do not invent a replacement. Use [] when no valid visual form can be expressed from the supplied references.
+Visual IDs are non-authoritative placeholders and will be replaced deterministically. Do not use title, slug, theme, asset name or general market knowledge to manufacture a series, geography, entity, causal edge or expected relationship.`;
 
 export { buildHypothesisEvidencePack, buildHypothesisStoryPack };
 
@@ -1271,6 +1278,23 @@ function persistedCausalChain(hypothesis: HypothesisRow): StoryReasoningHypothes
   });
 }
 
+function storyPlanCandidatesForHypotheses(hypotheses: HypothesisRow[]) {
+  return hypotheses.map((hypothesis) => {
+    const causalChain = persistedCausalChain(hypothesis);
+    return {
+      hypothesisId: hypothesis.id,
+      catalystCandidates: unique(hypothesis.next_catalysts.filter(Boolean)).map((label) => ({ label, catalystRef: null })),
+      edgeIds: causalChain.map((edge, ordinal) => canonicalCausalEdgeId(hypothesis.id, ordinal, edge)),
+      claimIds: [],
+      seriesCandidates: [],
+      entityCandidates: [],
+      expectedRelationships: [],
+      confirmationCount: hypothesis.confirmation_criteria.length,
+      invalidationCount: hypothesis.invalidation_criteria.length,
+    };
+  });
+}
+
 function buildStoryReasoningSnapshot(
   synthesis: CandidateWorking,
   context: StoryReasoningContext,
@@ -1285,7 +1309,7 @@ function buildStoryReasoningSnapshot(
   const evidenceById = new Map<string, StoryReasoningEvidence>(
     [...context.evidenceById.values()].map((item) => [item.id, { id: item.id, claim: item.claim }]),
   );
-  return buildCanonicalStoryReasoningSnapshotV1({
+  const reasoningInput = {
     synthesis: {
       lifecycleStatus,
       thesis: synthesis.thesis,
@@ -1325,6 +1349,33 @@ function buildStoryReasoningSnapshot(
         invalidation: scenario.invalidation,
       })),
     evidenceById,
+  };
+  const baseReasoning = buildCanonicalStoryReasoningSnapshotV1(reasoningInput);
+  const knownEvidenceIds = new Set(evidenceById.keys());
+  const plan = buildValidatedStorySynthesisPlanV1({
+    ownerKey: synthesis.candidateKey,
+    selection: {
+      nextTest: synthesis.nextTestSelection,
+      visualPlan: synthesis.visualPlan,
+    },
+    catalystCandidates: unique(context.hypothesis.next_catalysts.filter(Boolean)).map((label) => ({ label, catalystRef: null })),
+    knownEvidenceIds,
+    visualAllowList: {
+      edgeIds: new Set(baseReasoning.causalChain.map((edge) => edge.id)),
+      claimIds: new Set(baseReasoning.claims.map((claim) => claim.id)),
+      evidenceIds: knownEvidenceIds,
+      seriesById: new Map(),
+      entityById: new Map(),
+      expectedRelationships: new Set(),
+      confirmationCount: baseReasoning.confirmation.length,
+      invalidationCount: baseReasoning.invalidation.length,
+    },
+    now: currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString(),
+  });
+  return buildCanonicalStoryReasoningSnapshotV1({
+    ...reasoningInput,
+    nextTest: plan.nextTest,
+    visualPlan: plan.visualPlan,
   });
 }
 
@@ -1416,7 +1467,7 @@ async function promoteCandidate({
     priced_assessment: candidate.divergenceSummary,
     confirmation_trigger: hypothesis.confirmation_criteria.join("; "),
     invalidation_trigger: hypothesis.invalidation_criteria.join("; "),
-    next_catalyst: hypothesis.next_catalysts.join("; "),
+    next_catalyst: reasoning.nextTest?.label ?? (hypothesis.next_catalysts.join("; ") || null),
     article_angle: candidate.researchSynthesis,
     provisional_title: candidate.title,
     article_verdict: "research_engine",
@@ -1616,7 +1667,7 @@ function editionStory(
     plainEnglish: locked.plainEnglish,
     affectedAssets: candidate.affectedAssets,
     themes: candidate.themes,
-    nextTest: candidate.nextCatalysts.join("; "),
+    nextTest: story.next_catalyst || "",
     confirmation: locked.confirmation,
     invalidation: locked.invalidation,
     confidence: locked.confidence,
@@ -2076,19 +2127,21 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 5_500,
     });
     const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
+    const storyPlanCandidates = storyPlanCandidatesForHypotheses(reviewed);
 
-    const synthesisStage = await modelStage<StorySynthesisOutput>({
+    const synthesisStage = await modelStage<StorySynthesisWithPlanOutputV1>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "story_synthesis",
       modelKind: "complex",
-      schema: STORY_SYNTHESIS_SCHEMA,
+      schema: STORY_SYNTHESIS_WITH_PLAN_SCHEMA,
       input: {
         hypotheses: reviewed,
         challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
         evidence,
         existingStories: storiesPack,
+        storyPlanCandidates,
         researchStatePolicy: { states: ["SUPPORTED", "DEVELOPING", "CONTESTED", "EARLY"], allStatesMayPublish: true, completenessIsDescriptive: true },
       },
       maxOutputTokens: 9_000,
