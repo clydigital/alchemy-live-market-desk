@@ -18,7 +18,6 @@ function section(start: string, end: string) {
 const planCandidates = section("function storyPlanCandidatesForHypotheses", "function buildStoryReasoningSnapshot");
 const reasoningBuilder = section("function buildStoryReasoningSnapshot", "type CanonicalStoryPersistenceResult");
 const promotion = section("async function promoteCandidate", "function lifecycleThemeState");
-const engine = section("export async function runIntelligenceEngine", "");
 
 test("Story Synthesis V1 output contract requires structured next-test and visual plan fields", () => {
   assert.match(contract, /StorySynthesisWithPlanOutputV1/);
@@ -63,8 +62,9 @@ test("model plan output is validated against the canonical reasoning assembled f
 });
 
 test("canonical Story persistence uses validated next-test ownership rather than raw Story Synthesis catalysts", () => {
-  assert.match(promotion, /next_catalyst: reasoning\.nextTest\?\.label/);
+  assert.match(promotion, /next_catalyst: reasoning\.nextTest\?\.label \?\? null/);
   assert.doesNotMatch(promotion, /next_catalyst: candidate\.nextCatalysts/);
+  assert.doesNotMatch(promotion, /hypothesis\.next_catalysts\.join/);
   assert.match(runtime, /nextTest: story\.next_catalyst \|\| ""/);
 });
 
