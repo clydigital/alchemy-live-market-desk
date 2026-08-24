@@ -125,6 +125,17 @@ export async function retrieveSupadataVideo(
       }
     }
 
+    if (response.status === 206) {
+      const classified = classifyFailure(response.status, body);
+      throw new TranscriptApiError(classified.message, {
+        code: classified.code,
+        httpStatus: response.status,
+        retryable: classified.retryable,
+        retryAfterSeconds: retryAfterSeconds(response),
+        providerMessage: classified.message,
+      });
+    }
+
     if (response.status === 202) {
       throw new TranscriptApiError(
         "Supadata returned an asynchronous job for a mode=native request; no generated transcript was requested or accepted.",
