@@ -49,7 +49,7 @@ export function blockedVideoSourceChecks(note: string): DedicatedVideoSourceChec
  * Maps the independently persisted video intake result into the desk's source
  * contract. The desk never treats a partial or missing transcript run as
  * successful coverage; the dedicated video cadence remains the sole owner of
- * discovery and TranscriptAPI work.
+ * discovery and transcript-provider work.
  */
 export function videoSourceChecksFromDedicatedRun(
   videoRun: DedicatedVideoRun | null,
@@ -89,7 +89,7 @@ export function videoSourceChecksFromDedicatedRun(
       source,
       status: "checked",
       itemCount: Math.max(1, check.itemCount),
-      note: `${check.itemCount} dedicated video intake item(s) have completed TranscriptAPI processing in the canonical intake queue.`,
+      note: `${check.itemCount} dedicated video intake item(s) have completed transcript processing in the canonical intake queue.`,
     };
   });
 }

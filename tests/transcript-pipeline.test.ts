@@ -132,6 +132,23 @@ test("persists a successful transcript once, then serves the database cache with
   assert.equal(store.recalculations, 2);
 });
 
+test("empty provider text is persisted as transcript_missing rather than READY", async () => {
+  const store = new MemoryStore();
+  const result = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store,
+    retrieve: async () => ({
+      ...retrieval,
+      transcript: { ...retrieval.transcript, text: "   " },
+    }),
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorCode, "transcript_missing");
+  assert.equal(store.successWrites, 0);
+  assert.equal(store.failureWrites, 1);
+});
+
 test("a retryable failure records stable metadata and idempotent research debt", async () => {
   const store = new MemoryStore();
   let providerCalls = 0;

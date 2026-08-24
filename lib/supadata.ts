@@ -114,7 +114,11 @@ export async function retrieveSupadataVideo(
       try {
         body = JSON.parse(raw);
       } catch {
-        if (response.ok) {
+        // Fetch defines HTTP 206 as successful, but Supadata uses it to
+        // signal that a native transcript is unavailable. Do not let an
+        // unexpected 206 body turn that provider conclusion into a JSON
+        // parsing failure.
+        if (response.ok && response.status !== 206) {
           throw new TranscriptApiError("Supadata returned malformed JSON.", {
             code: "malformed_provider_response",
             httpStatus: response.status,

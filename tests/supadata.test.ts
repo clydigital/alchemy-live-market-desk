@@ -75,6 +75,21 @@ test("Supadata 206 transcript unavailable remains blocked and never falls throug
   assert.equal(url.searchParams.get("mode"), "native");
 });
 
+test("Supadata 206 with a non-JSON body is still transcript_missing", async () => {
+  await assert.rejects(
+    retrieveSupadataVideo(VIDEO_ID, "test-key", {
+      fetchImpl: async () => new Response("native captions unavailable", { status: 206 }),
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof TranscriptApiError);
+      assert.equal(error.code, "transcript_missing");
+      assert.equal(error.httpStatus, 206);
+      assert.equal(error.retryable, false);
+      return true;
+    },
+  );
+});
+
 test("Supadata empty native content never becomes a ready transcript", async () => {
   await assert.rejects(
     retrieveSupadataVideo(VIDEO_ID, "test-key", {

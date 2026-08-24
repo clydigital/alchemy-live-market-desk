@@ -1,6 +1,6 @@
 import {
   normalizeTranscriptApiError,
-  type TranscriptApiError,
+  TranscriptApiError,
   type TranscriptApiRetrieval,
   type TranscriptApiTranscript,
 } from "./transcriptapi.ts";
@@ -217,6 +217,13 @@ export async function retrieveAndPersistTranscript(input: {
   const attemptedAt = attemptedDate.toISOString();
   try {
     const retrieval = await input.retrieve(input.videoId);
+    if (!retrieval.transcript.text.trim()) {
+      throw new TranscriptApiError("The transcript provider returned no transcript text.", {
+        code: "transcript_missing",
+        httpStatus: retrieval.transcript.httpStatus,
+        retryable: false,
+      });
+    }
     await input.store.saveSuccess(item, retrieval, attemptedAt, provider);
     await input.store.resolveDebt(input.videoId, attemptedAt);
     await input.store.recalculateRunState(item.runId);

@@ -6,6 +6,11 @@ import {
   retrieveAndPersistTranscript,
 } from "@/lib/transcript-pipeline";
 import { retrieveSupadataVideo } from "@/lib/supadata";
+import {
+  isSupadataTranscriptChannel,
+  selectedSupadataTranscriptChannels,
+  SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY,
+} from "@/lib/supadata-intake-policy";
 import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
 import {
   createVideoIntakeRun,
@@ -20,8 +25,7 @@ import {
 } from "@/lib/youtube-reliability";
 
 const DEFAULT_MAX_TRANSCRIPT_ATTEMPTS = 6;
-export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = ["stockedup", "kevin-gerrity", "clearvalue-tax"] as const;
-const SUPADATA_TRANSCRIPT_CHANNEL_KEYS = new Set<string>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY);
+export { isSupadataTranscriptChannel, selectedSupadataTranscriptChannels, SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY };
 
 export type ScheduledVideoIntakeResult = {
   runId: string;
@@ -47,10 +51,6 @@ export type ScheduledVideoIntakeResult = {
   deferredVideoIds: string[];
   skippedLivestreamIds: string[];
 };
-
-export function isSupadataTranscriptChannel(channelKey: string) {
-  return SUPADATA_TRANSCRIPT_CHANNEL_KEYS.has(channelKey);
-}
 
 async function processVideo(videoId: string, store: SupadataTranscriptStore) {
   const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
@@ -107,10 +107,7 @@ export async function runScheduledVideoIntake(input: {
   const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
     channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
   ));
-  const priority = new Map<string, number>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY.map((key, index) => [key, index]));
-  const orderedChannels = selectedChannels
-    .map((channel) => ({ ...channel, videos: channel.videos.filter((video) => video.isLive !== true) }))
-    .sort((left, right) => (priority.get(left.channelKey) ?? 99) - (priority.get(right.channelKey) ?? 99));
+  const orderedChannels = selectedSupadataTranscriptChannels(channels);
   let providerAttempts = 0;
 
   // Process one upload from each selected channel before spending a second
