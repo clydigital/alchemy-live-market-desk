@@ -1,4 +1,4 @@
-export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = ["stockedup", "kevin-gerrity", "clearvalue-tax"] as const;
+export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = ["stockedup", "kevin-gerrity", "clearvalue-tax", "fx-evolution"] as const;
 
 const SUPADATA_TRANSCRIPT_CHANNEL_KEYS = new Set<string>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY);
 
