@@ -77,6 +77,7 @@ import {
   type StoryReasoningHypothesis,
 } from "@/lib/intelligence/story-reasoning";
 import { buildValidatedStorySynthesisPlanV1 } from "@/lib/intelligence/story-synthesis-plan";
+import { buildEditionEventHorizon } from "@/lib/market-event-runtime";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -1860,6 +1861,7 @@ async function persistDailyBrief({
     publishedAt: generatedAt,
   });
   const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const eventHorizon = await buildEditionEventHorizon(stories.map((story) => ({ id: story.id, title: story.title, assets: story.affectedAssets })));
   const marketObservations = evidence
     .filter((item) => item.evidenceClass === "market_observation" && item.affectedAssets.length)
     .slice(0, 8);
@@ -1881,6 +1883,7 @@ async function persistDailyBrief({
     },
     themeWatch: editionThemes(stories),
     watchlist: editionWatchlist(stories),
+    upcoming: eventHorizon.upcoming,
   });
   await intelligenceRest("hybrid_publication_snapshots", {
     method: "POST",

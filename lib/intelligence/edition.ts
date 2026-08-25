@@ -116,12 +116,18 @@ export type EarningsItem = {
 };
 
 export type GeopoliticalClockItem = {
-  time: string;
+  time: string | null;
   event: string;
   participants: string[];
   transmission: string;
   decisiveOutcome: string;
   scheduled: boolean;
+  eventType?: string;
+  timePrecision?: "exact" | "date" | "window" | "tbc";
+  verificationState?: "official" | "corroborated" | "reported" | "unverified";
+  affectedAssets?: string[];
+  sourceName?: string | null;
+  sourceUrl?: string | null;
 };
 
 export type EditionUpcoming = {
@@ -246,7 +252,11 @@ export function normaliseWatchlist(items: WatchlistItem[]) {
 }
 
 export function scheduledGeopoliticalEvents(items: GeopoliticalClockItem[]) {
-  return items.filter((item) => item.scheduled && Number.isFinite(Date.parse(item.time)) && item.event.trim().length > 0);
+  return items.filter((item) => {
+    if (!item.scheduled || !item.event.trim()) return false;
+    if (item.timePrecision === "tbc") return true;
+    return Boolean(item.time && Number.isFinite(Date.parse(item.time)));
+  });
 }
 
 function emptyUpcoming(): EditionUpcoming {
