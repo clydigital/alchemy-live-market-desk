@@ -38,6 +38,7 @@ export type XwadaVideo = {
   title: string;
   url: string;
   publishedAt: string;
+  isLive?: boolean;
 };
 
 export type XwadaChannelResult = {
@@ -149,6 +150,32 @@ async function latestUploads(playlistId: string, apiKey: string) {
   );
 }
 
+function titleLooksLive(title: string) {
+  return /\b(live|livestream|live-stream)\b/i.test(title);
+}
+
+async function livestreamVideoIds(videoIds: string[], apiKey: string) {
+  if (!videoIds.length) return new Set<string>();
+  const response = await youtubeJson<{
+    items?: Array<{
+      id?: string;
+      snippet?: { liveBroadcastContent?: string };
+      liveStreamingDetails?: { actualStartTime?: string; scheduledStartTime?: string };
+    }>;
+  }>(
+    `videos?part=snippet,liveStreamingDetails&id=${videoIds.map(encodeURIComponent).join(",")}`,
+    apiKey,
+  );
+  return new Set((response.items || []).flatMap((item) => {
+    const liveState = item.snippet?.liveBroadcastContent;
+    const wasOrIsLive = liveState === "live"
+      || liveState === "upcoming"
+      || Boolean(item.liveStreamingDetails?.actualStartTime)
+      || Boolean(item.liveStreamingDetails?.scheduledStartTime);
+    return item.id && wasOrIsLive ? [item.id] : [];
+  }));
+}
+
 function statusFromError(error: unknown, fallback: XwadaCheckStatus): XwadaCheckStatus {
   if (error && typeof error === "object" && "xwadaStatus" in error) {
     return (error as { xwadaStatus: XwadaCheckStatus }).xwadaStatus;
@@ -181,18 +208,22 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
         const publishedAt = item.contentDetails?.videoPublishedAt || item.snippet?.publishedAt;
         return Boolean(publishedAt && Number.isFinite(Date.parse(publishedAt)) && Date.parse(publishedAt!) >= cutoff);
       });
+      const recentVideoIds = recent.flatMap((item) => item.contentDetails?.videoId ? [item.contentDetails.videoId] : []);
+      const liveIds = await livestreamVideoIds(recentVideoIds, youtubeApiKey);
       const videos = recent.flatMap((item): XwadaVideo[] => {
         const videoId = item.contentDetails?.videoId;
         const publishedAt = item.contentDetails?.videoPublishedAt || item.snippet?.publishedAt;
         if (!videoId || !publishedAt) return [];
+        const title = item.snippet?.title || videoId;
         return [{
           channelKey: channel.key,
           channelName: channel.name,
           channelId,
           videoId,
-          title: item.snippet?.title || videoId,
+          title,
           url: `https://www.youtube.com/watch?v=${videoId}`,
           publishedAt,
+          isLive: liveIds.has(videoId) || titleLooksLive(title),
         }];
       });
       return {
@@ -205,7 +236,7 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
         recentCount: videos.length,
         videos,
         detail: recent.length
-          ? `Scanned the latest ${scanned.length} uploads and retained videos published in the last 72 hours.`
+          ? `Scanned the latest ${scanned.length} uploads and retained videos published in the last 72 hours with livestream classification.`
           : `Scanned the latest ${scanned.length} uploads; none were published in the last 72 hours.`,
       };
     } catch (error) {

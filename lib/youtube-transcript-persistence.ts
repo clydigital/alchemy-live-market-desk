@@ -106,7 +106,7 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
       .limit(1)
       .maybeSingle<IntakeRow>();
     throwIfError(error, "Could not read the transcript cache");
-    if (!data?.transcript_text) return null;
+    if (!data?.transcript_text?.trim()) return null;
     return {
       itemId: data.id,
       runId: data.run_id,
@@ -367,7 +367,7 @@ export async function createVideoIntakeRun(input: {
     source_checks: [],
     warnings: [],
     process_log: [{ stage: "detect_new_videos", status: "running" }],
-    summary: "Required creator video discovery and TranscriptAPI intake.",
+    summary: "Required creator video discovery and transcript intake.",
     updated_at: now,
   }, { onConflict: "run_key" }).select("id").single<{ id: string }>();
   throwIfError(error, "Could not create the video intake research run");
@@ -472,10 +472,10 @@ export async function finalizeVideoIntakeRun(input: {
   const warnings = [
     ...input.discoveryFailures.map((failure) => `${failure.source}: ${failure.detail}`),
     ...failures.map((failure) => failure.status === "failed"
-      ? `${failure.videoId}: TranscriptAPI ${failure.errorCode}${failure.httpStatus ? ` (HTTP ${failure.httpStatus})` : ""}; retryable=${failure.retryable}.`
+      ? `${failure.videoId}: transcript provider ${failure.errorCode}${failure.httpStatus ? ` (HTTP ${failure.httpStatus})` : ""}; retryable=${failure.retryable}.`
       : ""),
     ...knownUnavailableVideos.map((video) => (
-      `${video.videoId}: prior TranscriptAPI ${video.errorCode || "unavailable"}${video.httpStatus ? ` (HTTP ${video.httpStatus})` : ""}; retryable=false; skipped without a provider request.`
+      `${video.videoId}: prior transcript provider ${video.errorCode || "unavailable"}${video.httpStatus ? ` (HTTP ${video.httpStatus})` : ""}; retryable=false; skipped without a provider request.`
     )),
     ...(deferredVideoIds.length
       ? [`${deferredVideoIds.length} discovered video(s) were persisted but deferred to a later cycle to stay within the scheduled intake budget.`]
@@ -506,8 +506,8 @@ export async function finalizeVideoIntakeRun(input: {
     summary: blocked
       ? "Video discovery completed with unresolved transcript requirements recorded as research debt."
       : deferredVideoIds.length
-        ? "Video discovery completed; bounded TranscriptAPI intake deferred remaining videos to a later cycle."
-        : "Video discovery and TranscriptAPI persistence completed.",
+        ? "Video discovery completed; bounded transcript intake deferred remaining videos to a later cycle."
+        : "Video discovery and transcript persistence completed.",
     updated_at: completedAt,
   }).eq("id", input.runId);
   throwIfError(error, "Could not finalize the video intake research run");

@@ -12,7 +12,7 @@ A Story is an unresolved market question, not a container for new headlines.
 - 21:15 Asia/Kuala_Lumpur (13:15 UTC)
 
 Each Vercel Cron cycle claims a stable run key before any provider call. It
-performs bounded YouTube/TranscriptAPI intake, acquires the direct named news
+performs bounded YouTube transcript intake, acquires the direct named news
 feeds, then invokes the existing canonical Live publisher exactly once. A
 completed, running, blocked or failed key is never silently repeated.
 
@@ -33,7 +33,7 @@ A blocked source is recorded as blocked. It is never silently counted as
 checked. `checked` requires a successful direct acquisition and one or more
 dated retained items; `no_new_items` requires successful acquisition with no
 retained item. A provider timeout, HTTP failure, malformed feed, missing
-TranscriptAPI transcript or fallback article is always blocked.
+transcript or fallback article is always blocked.
 
 ## Editorial sequence
 

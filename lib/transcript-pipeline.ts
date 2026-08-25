@@ -1,9 +1,11 @@
 import {
   normalizeTranscriptApiError,
-  type TranscriptApiError,
+  TranscriptApiError,
   type TranscriptApiRetrieval,
   type TranscriptApiTranscript,
 } from "./transcriptapi.ts";
+
+export type TranscriptProvider = "transcriptapi" | "supadata";
 
 export type TranscriptIntakeItem = {
   id: string;
@@ -13,6 +15,7 @@ export type TranscriptIntakeItem = {
   title: string;
   url: string;
   transcriptStatus: "ready" | "missing" | "unavailable" | "not_applicable";
+  transcriptProvider?: TranscriptProvider | null;
   // A non-retryable unavailable row is an auditable provider conclusion, not
   // a cache miss. Scheduled intake preserves it as research debt. Structural
   // states remain suppressed; all other non-retryable states are revalidated
@@ -29,6 +32,7 @@ export type ReadyTranscriptCache = {
   itemId: string;
   runId: string;
   retrievedAt: string;
+  provider?: TranscriptProvider;
   transcript: TranscriptApiTranscript;
 };
 
@@ -36,7 +40,7 @@ export type TranscriptDebtInput = {
   debtKey: string;
   videoId: string;
   publisher: string;
-  provider: "transcriptapi";
+  provider: TranscriptProvider;
   reason: string;
   errorCode: string;
   httpStatus: number | null;
@@ -50,8 +54,18 @@ export type TranscriptDebtInput = {
 export interface TranscriptPipelineStore {
   findReadyTranscript(videoId: string): Promise<ReadyTranscriptCache | null>;
   findVideoItem(videoId: string): Promise<TranscriptIntakeItem | null>;
-  saveSuccess(item: TranscriptIntakeItem, retrieval: TranscriptApiRetrieval, attemptedAt: string): Promise<void>;
-  saveFailure(item: TranscriptIntakeItem, error: TranscriptApiError, attemptedAt: string): Promise<void>;
+  saveSuccess(
+    item: TranscriptIntakeItem,
+    retrieval: TranscriptApiRetrieval,
+    attemptedAt: string,
+    provider: TranscriptProvider,
+  ): Promise<void>;
+  saveFailure(
+    item: TranscriptIntakeItem,
+    error: TranscriptApiError,
+    attemptedAt: string,
+    provider: TranscriptProvider,
+  ): Promise<void>;
   upsertDebt(item: TranscriptIntakeItem, debt: TranscriptDebtInput): Promise<void>;
   resolveDebt(videoId: string, attemptedAt: string): Promise<void>;
   recalculateRunState(runId: string): Promise<void>;
@@ -61,7 +75,7 @@ export type TranscriptPipelineResult =
   | {
     status: "ready";
     videoId: string;
-    provider: "transcriptapi";
+    provider: TranscriptProvider;
     cacheHit: boolean;
     language: string;
     segmentCount: number;
@@ -72,7 +86,7 @@ export type TranscriptPipelineResult =
   | {
     status: "failed";
     videoId: string;
-    provider: "transcriptapi";
+    provider: TranscriptProvider;
     cacheHit: false;
     errorCode: string;
     errorMessage: string;
@@ -84,7 +98,7 @@ export type TranscriptPipelineResult =
   | {
     status: "not_found";
     videoId: string;
-    provider: "transcriptapi";
+    provider: TranscriptProvider;
     cacheHit: false;
   };
 
@@ -95,16 +109,22 @@ const STRUCTURAL_UNAVAILABLE_CODES = new Set([
   "invalid_video_url",
 ]);
 
-function nextAction(error: TranscriptApiError) {
+function providerLabel(provider: TranscriptProvider) {
+  return provider === "supadata" ? "Supadata" : "TranscriptAPI";
+}
+
+function nextAction(error: TranscriptApiError, provider: TranscriptProvider) {
   switch (error.code) {
-    case "provider_auth_error": return "Verify the server-side TRANSCRIPT_API_KEY and redeploy; scheduled intake will revalidate after the 24-hour cooldown.";
-    case "provider_payment_required": return "Restore TranscriptAPI credits or plan access; scheduled intake will revalidate after the 24-hour cooldown.";
+    case "provider_auth_error": return provider === "supadata"
+      ? "Verify the server-side SUPADATA_API_KEY and redeploy; scheduled intake will revalidate after the 24-hour cooldown."
+      : "Verify the server-side TRANSCRIPT_API_KEY and redeploy; scheduled intake will revalidate after the 24-hour cooldown.";
+    case "provider_payment_required": return `Restore ${providerLabel(provider)} credits or plan access; scheduled intake will revalidate after the 24-hour cooldown.`;
     case "provider_rate_limit": return "Retry after the provider cooldown.";
     case "provider_server_error": return "Retry after bounded backoff; escalate if the provider remains unavailable.";
     case "network_error":
     case "timeout": return "Retry after the network/provider cooldown.";
-    case "language_unavailable": return "Review the languages reported by /youtube/info; scheduled intake will revalidate after the 24-hour cooldown.";
-    case "transcript_missing": return "Keep creator claims blocked; scheduled intake will revalidate caption availability after the 24-hour cooldown.";
+    case "language_unavailable": return "Keep creator claims blocked and revalidate caption-language availability after the 24-hour cooldown.";
+    case "transcript_missing": return "Keep creator claims blocked; scheduled intake will revalidate native-caption availability after the 24-hour cooldown.";
     case "video_private": return "Keep creator claims blocked; scheduled intake will revalidate publisher access after the 24-hour cooldown.";
     case "video_deleted": return "Confirm the source was removed and keep creator claims blocked; scheduled intake will not retry it.";
     case "video_not_found": return "Confirm the canonical YouTube video ID before a manual retry; scheduled intake will not retry it.";
@@ -154,11 +174,17 @@ function nextCheck(error: TranscriptApiError, attemptedAt: Date) {
   return new Date(attemptedAt.getTime() + Math.max(60, seconds) * 1_000).toISOString();
 }
 
-function readyResult(videoId: string, transcript: TranscriptApiTranscript, retrievedAt: string, cacheHit: boolean): TranscriptPipelineResult {
+function readyResult(
+  videoId: string,
+  transcript: TranscriptApiTranscript,
+  retrievedAt: string,
+  cacheHit: boolean,
+  provider: TranscriptProvider,
+): TranscriptPipelineResult {
   return {
     status: "ready",
     videoId,
-    provider: "transcriptapi",
+    provider,
     cacheHit,
     language: transcript.language,
     segmentCount: transcript.segments.length,
@@ -172,37 +198,46 @@ export async function retrieveAndPersistTranscript(input: {
   videoId: string;
   store: TranscriptPipelineStore;
   retrieve: (videoId: string) => Promise<TranscriptApiRetrieval>;
+  provider?: TranscriptProvider;
   now?: () => Date;
 }): Promise<TranscriptPipelineResult> {
+  const provider = input.provider ?? "transcriptapi";
   const cached = await input.store.findReadyTranscript(input.videoId);
   if (cached) {
     await input.store.recalculateRunState(cached.runId);
-    return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true);
+    return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true, cached.provider ?? provider);
   }
 
   const item = await input.store.findVideoItem(input.videoId);
   if (!item) {
-    return { status: "not_found", videoId: input.videoId, provider: "transcriptapi", cacheHit: false };
+    return { status: "not_found", videoId: input.videoId, provider, cacheHit: false };
   }
 
   const attemptedDate = input.now?.() ?? new Date();
   const attemptedAt = attemptedDate.toISOString();
   try {
     const retrieval = await input.retrieve(input.videoId);
-    await input.store.saveSuccess(item, retrieval, attemptedAt);
+    if (!retrieval.transcript.text.trim()) {
+      throw new TranscriptApiError("The transcript provider returned no transcript text.", {
+        code: "transcript_missing",
+        httpStatus: retrieval.transcript.httpStatus,
+        retryable: false,
+      });
+    }
+    await input.store.saveSuccess(item, retrieval, attemptedAt, provider);
     await input.store.resolveDebt(input.videoId, attemptedAt);
     await input.store.recalculateRunState(item.runId);
-    return readyResult(input.videoId, retrieval.transcript, attemptedAt, false);
+    return readyResult(input.videoId, retrieval.transcript, attemptedAt, false, provider);
   } catch (error) {
     const normalized = normalizeTranscriptApiError(error);
-    await input.store.saveFailure(item, normalized, attemptedAt);
+    await input.store.saveFailure(item, normalized, attemptedAt, provider);
     const nextCheckAt = nextCheck(normalized, attemptedDate);
     if (item.required) {
       await input.store.upsertDebt(item, {
         debtKey: `transcript:youtube:${input.videoId}`,
         videoId: input.videoId,
         publisher: item.publisher,
-        provider: "transcriptapi",
+        provider,
         reason: normalized.message,
         errorCode: normalized.code,
         httpStatus: normalized.httpStatus,
@@ -210,14 +245,14 @@ export async function retrieveAndPersistTranscript(input: {
         retryAfterSeconds: normalized.retryAfterSeconds,
         attemptedAt,
         nextCheckAt,
-        nextAction: nextAction(normalized),
+        nextAction: nextAction(normalized, provider),
       });
     }
     await input.store.recalculateRunState(item.runId);
     return {
       status: "failed",
       videoId: input.videoId,
-      provider: "transcriptapi",
+      provider,
       cacheHit: false,
       errorCode: normalized.code,
       errorMessage: normalized.message,

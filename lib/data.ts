@@ -382,7 +382,7 @@ export type ResearchIntakeQueueItem = {
   published_at: string;
   article_position: number | null;
   transcript_status: "ready" | "missing" | "unavailable" | "not_applicable" | null;
-  transcript_provider: "transcriptapi" | "youtubetotranscript.com" | "official" | "other" | null;
+  transcript_provider: "transcriptapi" | "supadata" | "youtubetotranscript.com" | "official" | "other" | null;
   video_review_status: "reviewed" | "listened" | "transcript_only" | "unavailable" | null;
   transcript_word_count: number;
   transcript_language: string | null;
