@@ -80,9 +80,9 @@ async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoI
 
 /**
  * The shared Live-only YouTube intake step. Discovery remains broad, while
- * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity
- * and ClearValue Tax. Livestreams are classified upstream and never enter the
- * transcript provider path.
+ * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity,
+ * ClearValue Tax and FX Evolution. Livestreams are classified upstream and
+ * never enter the transcript provider path.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
