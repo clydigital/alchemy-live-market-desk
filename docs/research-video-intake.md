@@ -22,8 +22,9 @@ Creator discovery remains broad, but automated Supadata transcript spend is deli
 1. StockedUp
 2. Kevin Gerrity
 3. ClearValue Tax
+4. FX Evolution
 
-Only non-live uploads from those three channels enter the Supadata transcript path. Current, upcoming and archived livestreams are classified from YouTube video/live-stream metadata and are excluded before a Supadata request is made.
+Only non-live uploads from those four channels enter the Supadata transcript path. Current, upcoming and archived livestreams are classified from YouTube video/live-stream metadata and are excluded before a Supadata request is made.
 
 Supadata is called with `mode=native`, `text=false` and `lang=en`. `mode=auto` and `mode=generate` are not permitted in scheduled Live intake. If an existing caption track is unavailable, the item remains blocked/revalidatable; Live does not ask Supadata to generate a transcript with AI.
 
