@@ -7,12 +7,15 @@ export function isSupadataTranscriptChannel(channelKey: string) {
 }
 
 export function selectedSupadataTranscriptChannels<
-  T extends { channelKey: string; videos: Array<{ isLive?: boolean }> },
+  T extends { channelKey: string; videos: Array<{ isLive?: boolean; isShort?: boolean }> },
 >(channels: readonly T[]): Array<Omit<T, "videos"> & { videos: T["videos"] }> {
   const priority = new Map<string, number>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY.map((key, index) => [key, index]));
   return channels
     .filter((channel) => isSupadataTranscriptChannel(channel.channelKey))
-    .map((channel) => ({ ...channel, videos: channel.videos.filter((video) => video.isLive !== true) }))
+    .map((channel) => ({
+      ...channel,
+      videos: channel.videos.filter((video) => video.isLive !== true && video.isShort !== true),
+    }))
     .sort((left, right) => (priority.get(left.channelKey) ?? 99) - (priority.get(right.channelKey) ?? 99)) as Array<
       Omit<T, "videos"> & { videos: T["videos"] }
     >;
