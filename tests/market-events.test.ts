@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   dedupeMarketEvents,
+  marketEventFromEarningsCallRow,
   marketEventFromEarnings,
   marketEventFromEconomicCalendar,
+  marketEventSignature,
   normaliseMarketEvent,
 } from "../lib/market-events.ts";
 
@@ -78,12 +80,12 @@ test("adapts macro and earnings records into the Event Horizon shape", () => {
 
   assert.equal(macro?.eventType, "economic_release");
   assert.equal(earnings?.eventType, "earnings");
-  assert.equal(macro?.timePrecision, "exact");
+  assert.equal(macro?.timePrecision, "date");
   assert.equal(macro?.timeLabel, "08:30 ET");
   assert.equal(earnings?.timePrecision, "date");
 });
 
-test("dedupe keeps the newest event state and merges source links", () => {
+test("dedupe merges distinct source identities for one canonical real-world event", () => {
   const base = normaliseMarketEvent({
     id: "event:one",
     eventType: "geopolitical_meeting",
@@ -95,7 +97,7 @@ test("dedupe keeps the newest event state and merges source links", () => {
     updatedAt: "2026-08-26T00:00:00.000Z",
   })!;
   const newer = normaliseMarketEvent({
-    id: "event:one",
+    id: "event:two",
     eventType: "geopolitical_meeting",
     title: "Talks",
     startAt: "2026-09-01",
@@ -107,7 +109,46 @@ test("dedupe keeps the newest event state and merges source links", () => {
 
   const [event] = dedupeMarketEvents([base, newer]);
   assert.equal(event.sourceName, "Source B");
-  assert.deepEqual(event.sourceRecordRefs, ["record:a", "record:b"]);
+  assert.equal(event.id, base.id);
+  assert.equal(event.id, newer.id);
+  assert.equal(marketEventSignature(base), marketEventSignature(newer));
+  assert.deepEqual(event.sourceUrls, ["https://example.com/a", "https://example.com/b"]);
+  assert.deepEqual(event.sourceRecordRefs, ["record:a", "event:one", "record:b", "event:two"]);
+});
+
+test("rejects an exact event when the input is only a date plus a labelled clock time", () => {
+  const event = normaliseMarketEvent({
+    eventType: "economic_release",
+    title: "Consumer Price Index",
+    startAt: "2026-09-10",
+    timeLabel: "08:30 ET",
+    timePrecision: "exact",
+    sourceName: "Official calendar",
+    sourceUrl: "https://www.example.gov/calendar",
+  });
+
+  assert.equal(event, null);
+});
+
+test("maps a real earnings-call row through the runtime adapter using canonical source fields", () => {
+  const event = marketEventFromEarningsCallRow({
+    id: "earnings:nvda-q3-2026",
+    ticker: "NVDA",
+    company_name: "NVIDIA",
+    fiscal_period: "Q3 2026",
+    call_date: "2026-11-18",
+    event_time_label: "17:00 ET",
+    source_url: "https://investor.nvidia.com/financial-info/",
+    relevance_reason: "Does guidance confirm the current demand path?",
+    guidance: "Data-centre demand remains the decisive variable.",
+    demand: null,
+  });
+
+  assert.equal(event?.eventType, "earnings");
+  assert.equal(event?.sourceUrl, "https://investor.nvidia.com/financial-info/");
+  assert.deepEqual(event?.sourceUrls, ["https://investor.nvidia.com/financial-info/"]);
+  assert.equal(event?.timeLabel, "17:00 ET");
+  assert.equal(event?.timePrecision, "date");
 });
 
 test("normalises a sanctions or policy deadline as a dated event", () => {

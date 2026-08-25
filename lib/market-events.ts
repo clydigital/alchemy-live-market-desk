@@ -43,6 +43,7 @@ export type MarketEventV1 = {
   expectation: string | null;
   sourceName: string;
   sourceUrl: string;
+  sourceUrls: string[];
   sourceRecordRefs: string[];
   firstSeenAt: string;
   lastVerifiedAt: string;
@@ -61,6 +62,7 @@ export type EarningsMarketEventInput = {
   companyName: string;
   callDate: string;
   sourceUrl?: string | null;
+  timeLabel?: string | null;
   linkedStoryIds?: string[];
   linkedStorySlugs?: string[];
   affectedAssets?: string[];
@@ -68,8 +70,20 @@ export type EarningsMarketEventInput = {
   transmission?: string | null;
 };
 
+export type EarningsCallMarketEventRow = {
+  id: string;
+  ticker: string;
+  company_name: string;
+  fiscal_period: string;
+  call_date: string | null;
+  event_time_label?: string | null;
+  source_url?: string | null;
+  relevance_reason: string | null;
+  guidance: string | null;
+  demand: string | null;
+};
+
 const EMPTY_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}T/;
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -84,6 +98,17 @@ function validTimestamp(value: unknown) {
   return text && Number.isFinite(Date.parse(text)) ? text : null;
 }
 
+function offsetAwareTimestamp(value: unknown) {
+  const text = clean(value);
+  if (!text || !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) return null;
+  return Number.isFinite(Date.parse(text)) ? text : null;
+}
+
+function dateOnly(value: unknown) {
+  const text = clean(value);
+  return EMPTY_DATE.test(text) ? text : null;
+}
+
 function safeUrl(value: unknown) {
   const text = clean(value);
   try {
@@ -93,16 +118,28 @@ function safeUrl(value: unknown) {
   }
 }
 
-function stableId(input: Pick<MarketEventV1, "eventType" | "title" | "startAt" | "sourceUrl"> & { sourceRecordRefs?: string[] }) {
-  const sourceRef = input.sourceRecordRefs?.[0] || input.sourceUrl;
-  const key = [input.eventType, clean(input.title).toLowerCase(), input.startAt || "", sourceRef].join("|");
+function canonicalTitle(value: unknown) {
+  return clean(value).toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function canonicalTime(value: string | null) {
+  const offsetAware = offsetAwareTimestamp(value);
+  return offsetAware ? new Date(offsetAware).toISOString() : value || "";
+}
+
+export function marketEventSignature(input: Pick<MarketEventV1, "eventType" | "title" | "startAt" | "endAt">) {
+  return [input.eventType, canonicalTitle(input.title), canonicalTime(input.startAt), canonicalTime(input.endAt)].join("|");
+}
+
+function stableId(input: Pick<MarketEventV1, "eventType" | "title" | "startAt" | "endAt">) {
+  const key = marketEventSignature(input);
   return `mev_${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
 }
 
 function inferPrecision(startAt: string | null, requested: MarketEventTimePrecision | undefined) {
   if (requested) return requested;
   if (!startAt) return "tbc" as const;
-  return ISO_DATE.test(startAt) ? "exact" as const : "date" as const;
+  return offsetAwareTimestamp(startAt) ? "exact" as const : "date" as const;
 }
 
 function inferStatus(value: unknown): MarketEventStatus {
@@ -126,17 +163,21 @@ export function normaliseMarketEvent(input: MarketEventInput): MarketEventV1 | n
   if (!title || !sourceUrl || !sourceName) return null;
 
   const now = new Date().toISOString();
-  const startAt = validTimestamp(input.startAt) || (EMPTY_DATE.test(clean(input.startAt)) ? clean(input.startAt) : null);
-  const endAt = validTimestamp(input.endAt) || (EMPTY_DATE.test(clean(input.endAt)) ? clean(input.endAt) : null);
+  const startAt = offsetAwareTimestamp(input.startAt) || dateOnly(input.startAt);
+  const endAt = offsetAwareTimestamp(input.endAt) || dateOnly(input.endAt);
+  const sourceRecordRefs = list([...(input.sourceRecordRefs || []), input.id]);
+  const sourceUrls = list([...(input.sourceUrls || []), sourceUrl]);
+  const timePrecision = inferPrecision(startAt, input.timePrecision);
+  if (timePrecision === "exact" && !offsetAwareTimestamp(input.startAt)) return null;
   const event: MarketEventV1 = {
     version: MARKET_EVENT_VERSION,
-    id: clean(input.id) || stableId({ eventType: input.eventType || "other_verified_market_event", title, startAt, sourceUrl, sourceRecordRefs: list(input.sourceRecordRefs) }),
+    id: stableId({ eventType: input.eventType || "other_verified_market_event", title, startAt, endAt }),
     eventType: input.eventType || "other_verified_market_event",
     title,
     startAt,
     endAt,
     timeLabel: clean(input.timeLabel) || null,
-    timePrecision: inferPrecision(startAt, input.timePrecision),
+    timePrecision,
     status: inferStatus(input.status),
     verificationState: inferVerification(input.verificationState),
     participants: list(input.participants),
@@ -150,25 +191,24 @@ export function normaliseMarketEvent(input: MarketEventInput): MarketEventV1 | n
     expectation: clean(input.expectation) || null,
     sourceName,
     sourceUrl,
-    sourceRecordRefs: list(input.sourceRecordRefs),
+    sourceUrls,
+    sourceRecordRefs,
     firstSeenAt: validTimestamp(input.firstSeenAt) || now,
     lastVerifiedAt: validTimestamp(input.lastVerifiedAt) || now,
     updatedAt: validTimestamp(input.updatedAt) || now,
   };
-  if (event.timePrecision === "exact" && !event.startAt) return null;
   return event;
 }
 
 export function marketEventFromEconomicCalendar(event: EconomicCalendarEvent): MarketEventV1 | null {
   const centralBank = event.category === "Central bank";
-  const hasTime = /^\d{1,2}:\d{2}\s+[A-Z]{2,5}$/i.test(event.timeLabel.trim());
   return normaliseMarketEvent({
     id: `calendar:${event.id}`,
     eventType: centralBank ? "central_bank_decision" : "economic_release",
     title: event.event,
     startAt: event.date,
     timeLabel: event.timeLabel,
-    timePrecision: hasTime ? "exact" : "tbc",
+    timePrecision: offsetAwareTimestamp(event.date) ? "exact" : dateOnly(event.date) ? "date" : "tbc",
     status: event.status === "Released" ? "completed" : "scheduled",
     verificationState: event.sourceKind === "desk-record" ? "corroborated" : "official",
     geography: [event.country],
@@ -187,7 +227,8 @@ export function marketEventFromEarnings(input: EarningsMarketEventInput): Market
     eventType: "earnings",
     title: `${input.companyName} earnings`,
     startAt: input.callDate,
-    timePrecision: ISO_DATE.test(input.callDate) ? "exact" : "date",
+    timeLabel: input.timeLabel,
+    timePrecision: offsetAwareTimestamp(input.callDate) ? "exact" : dateOnly(input.callDate) ? "date" : "tbc",
     status: "scheduled",
     verificationState: "corroborated",
     affectedAssets: input.affectedAssets,
@@ -201,10 +242,23 @@ export function marketEventFromEarnings(input: EarningsMarketEventInput): Market
   });
 }
 
+export function marketEventFromEarningsCallRow(row: EarningsCallMarketEventRow): MarketEventV1 | null {
+  return marketEventFromEarnings({
+    id: row.id,
+    companyName: row.company_name,
+    callDate: row.call_date || "",
+    timeLabel: row.event_time_label,
+    sourceUrl: row.source_url,
+    affectedAssets: [row.ticker],
+    decisiveVariable: row.relevance_reason,
+    transmission: row.guidance || row.demand,
+  });
+}
+
 export function dedupeMarketEvents(events: MarketEventV1[]) {
   const byKey = new Map<string, MarketEventV1>();
   for (const event of events) {
-    const key = event.id || event.sourceRecordRefs[0] || `${event.eventType}|${event.title.toLowerCase()}|${event.startAt || ""}`;
+    const key = marketEventSignature(event);
     const current = byKey.get(key);
     if (!current || Date.parse(event.updatedAt) >= Date.parse(current.updatedAt)) {
       byKey.set(key, current ? {
@@ -215,6 +269,7 @@ export function dedupeMarketEvents(events: MarketEventV1[]) {
         affectedAssets: list([...current.affectedAssets, ...event.affectedAssets]),
         linkedStoryIds: list([...current.linkedStoryIds, ...event.linkedStoryIds]),
         linkedStorySlugs: list([...current.linkedStorySlugs, ...event.linkedStorySlugs]),
+        sourceUrls: list([...current.sourceUrls, ...event.sourceUrls, current.sourceUrl, event.sourceUrl]),
         sourceRecordRefs: list([...current.sourceRecordRefs, ...event.sourceRecordRefs]),
         firstSeenAt: Date.parse(current.firstSeenAt) <= Date.parse(event.firstSeenAt) ? current.firstSeenAt : event.firstSeenAt,
       } : event);

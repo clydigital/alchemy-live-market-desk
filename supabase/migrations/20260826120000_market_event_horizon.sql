@@ -29,6 +29,7 @@ create table if not exists public.market_events (
   expectation text,
   source_name text not null,
   source_url text not null,
+  source_urls text[] not null default '{}',
   source_record_refs text[] not null default '{}',
   first_seen_at timestamptz not null default now(),
   last_verified_at timestamptz not null default now(),

@@ -1845,7 +1845,7 @@ async function persistDailyBrief({
   stories: EditionStory[];
   evidence: EvidencePackItem[];
 }) {
-  if (!stories.length) return null;
+  if (!stories.length) return [];
   const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
     "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
   );
@@ -1884,6 +1884,7 @@ async function persistDailyBrief({
     themeWatch: editionThemes(stories),
     watchlist: editionWatchlist(stories),
     upcoming: eventHorizon.upcoming,
+    diagnostics: { warnings: eventHorizon.warnings },
   });
   await intelligenceRest("hybrid_publication_snapshots", {
     method: "POST",
@@ -1913,7 +1914,7 @@ async function persistDailyBrief({
       published_at: generatedAt,
     }),
   });
-  return edition;
+  return eventHorizon.warnings;
 }
 
 export async function runIntelligenceEngine({
@@ -2324,7 +2325,8 @@ export async function runIntelligenceEngine({
     }
 
     if (!dryRun && editionStories.length) {
-      await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence });
+      const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence });
+      warnings.push(...eventHorizonWarnings.map((warning) => `Event Horizon: ${warning}`));
     }
 
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {

@@ -21,6 +21,7 @@ export type MarketEventRow = {
   expectation: string | null;
   source_name: string;
   source_url: string;
+  source_urls: string[];
   source_record_refs: string[];
   first_seen_at: string;
   last_verified_at: string;
@@ -50,6 +51,7 @@ export function marketEventToRow(event: MarketEventV1): MarketEventRow {
     expectation: event.expectation,
     source_name: event.sourceName,
     source_url: event.sourceUrl,
+    source_urls: event.sourceUrls,
     source_record_refs: event.sourceRecordRefs,
     first_seen_at: event.firstSeenAt,
     last_verified_at: event.lastVerifiedAt,
@@ -82,6 +84,7 @@ export function marketEventFromRow(row: Partial<MarketEventRow>): MarketEventV1 
     expectation: row.expectation || (payload as MarketEventV1).expectation,
     sourceName: row.source_name || (payload as MarketEventV1).sourceName,
     sourceUrl: row.source_url || (payload as MarketEventV1).sourceUrl,
+    sourceUrls: row.source_urls || (payload as MarketEventV1).sourceUrls,
     sourceRecordRefs: row.source_record_refs || (payload as MarketEventV1).sourceRecordRefs,
     firstSeenAt: row.first_seen_at || (payload as MarketEventV1).firstSeenAt,
     lastVerifiedAt: row.last_verified_at || (payload as MarketEventV1).lastVerifiedAt,

@@ -136,6 +136,10 @@ export type EditionUpcoming = {
   geopoliticalClock: GeopoliticalClockItem[];
 };
 
+export type EditionDiagnostics = {
+  warnings: string[];
+};
+
 export type AlchemyEdition = {
   methodologyVersion: typeof ALCHEMY_MIXED_METHOD_VERSION;
   generatedAt: string;
@@ -160,6 +164,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  diagnostics?: EditionDiagnostics;
   finalBoard: {
     highestConvictionChange: string;
     biggestUnresolvedContradiction: string;
@@ -274,6 +279,7 @@ export function composeAlchemyEdition({
   watchlist = [],
   positioningAnomaly = null,
   upcoming = emptyUpcoming(),
+  diagnostics = { warnings: [] },
 }: {
   generatedAt: string;
   comparisonWindowStart: string;
@@ -285,6 +291,7 @@ export function composeAlchemyEdition({
   watchlist?: WatchlistItem[];
   positioningAnomaly?: PositioningAnomaly | null;
   upcoming?: EditionUpcoming;
+  diagnostics?: EditionDiagnostics;
 }): AlchemyEdition {
   const changes = selectMaterialChanges(stories, previousEdition);
   const normalisedWatchlist = normaliseWatchlist(watchlist);
@@ -322,6 +329,7 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    diagnostics: { warnings: [...new Set(diagnostics.warnings)] },
     finalBoard: {
       highestConvictionChange: lead?.whatChanged || "No material change is available.",
       biggestUnresolvedContradiction: contradiction,

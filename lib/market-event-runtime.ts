@@ -4,23 +4,15 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import {
   dedupeMarketEvents,
   marketEventFromEconomicCalendar,
-  marketEventFromEarnings,
+  marketEventFromEarningsCallRow,
+  type EarningsCallMarketEventRow,
   type MarketEventV1,
 } from "@/lib/market-events";
 import { marketEventFromRow, marketEventToRow, type MarketEventRow } from "@/lib/market-event-persistence";
 import type { EarningsItem, EditionUpcoming, EconomicCalendarItem, GeopoliticalClockItem } from "@/lib/intelligence/edition";
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 
-type EarningsCallRow = {
-  id: string;
-  ticker: string;
-  company_name: string;
-  fiscal_period: string;
-  call_date: string | null;
-  relevance_reason: string | null;
-  guidance: string | null;
-  demand: string | null;
-};
+type EarningsCallRow = EarningsCallMarketEventRow;
 
 type EventHorizonResult = {
   upcoming: EditionUpcoming;
@@ -46,7 +38,7 @@ function calendarItem(event: Awaited<ReturnType<typeof getEconomicCalendar>>[num
 function earningsItem(call: EarningsCallRow, linkedStory?: { title?: string; assets?: string[] }) : EarningsItem {
   return {
     company: call.company_name,
-    time: call.call_date || "TBC",
+    time: call.call_date ? `${call.call_date}${call.event_time_label ? ` · ${call.event_time_label}` : ""}` : "TBC",
     decisiveVariable: call.relevance_reason || "What changes in demand, guidance or cash conversion?",
     linkedTheme: linkedStory?.title || call.ticker,
     confirmationCase: call.guidance || "Guidance and demand remain consistent with the current view.",
@@ -84,7 +76,7 @@ async function loadStoredEvents() {
 async function loadEarningsCalls() {
   try {
     return await intelligenceRest<EarningsCallRow[]>(
-      "earnings_calls?select=id,ticker,company_name,fiscal_period,call_date,relevance_reason,guidance,demand&call_date=not.is.null&order=call_date.asc&limit=80",
+      "earnings_calls?select=id,ticker,company_name,fiscal_period,call_date,event_time_label,source_url,relevance_reason,guidance,demand&call_date=not.is.null&order=call_date.asc&limit=80",
     );
   } catch {
     return [];
@@ -117,22 +109,20 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
   const calendarEvents = calendar.map(marketEventFromEconomicCalendar).filter((event): event is MarketEventV1 => Boolean(event));
   const earningsEvents = earningsCalls.map((call) => {
     const story = stories.find((candidate) => candidate.assets.includes(call.ticker));
-    return marketEventFromEarnings({
-      id: call.id,
-      companyName: call.company_name,
-      callDate: call.call_date || "",
-      linkedStoryIds: story ? [story.id] : [],
-      affectedAssets: story?.assets || [call.ticker],
-      decisiveVariable: call.relevance_reason,
-      transmission: call.guidance || call.demand,
-    });
+    const event = marketEventFromEarningsCallRow(call);
+    return event
+      ? { ...event, linkedStoryIds: story ? [story.id] : [], affectedAssets: story?.assets || event.affectedAssets }
+      : null;
   }).filter((event): event is MarketEventV1 => Boolean(event));
   const storedEvents = storedRows.map(marketEventFromRow).filter((event): event is MarketEventV1 => Boolean(event));
   const currentEvents = dedupeMarketEvents([...calendarEvents, ...earningsEvents]);
   if (currentEvents.length && !(await persistEvents(currentEvents))) warnings.push("Market event persistence unavailable; using the current verified horizon for this edition only.");
   const allEvents = dedupeMarketEvents([...storedEvents, ...currentEvents]);
   const linkedStoryByTicker = new Map(stories.flatMap((story) => story.assets.map((asset) => [asset, story] as const)));
-  const earnings = earningsCalls.map((call) => earningsItem(call, linkedStoryByTicker.get(call.ticker))).filter((item) => Boolean(safeDate(item.time)));
+  const earnings = earningsCalls
+    .map((call) => ({ item: earningsItem(call, linkedStoryByTicker.get(call.ticker)), callDate: call.call_date }))
+    .filter(({ callDate }) => Boolean(safeDate(callDate)))
+    .map(({ item }) => item);
   const geopolitical = allEvents
     .filter((event) => !["economic_release", "central_bank_decision", "earnings"].includes(event.eventType))
     .filter((event) => event.status !== "cancelled")
