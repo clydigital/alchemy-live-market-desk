@@ -5,9 +5,10 @@ import {
   isSupadataTranscriptChannel,
   selectedSupadataTranscriptChannels,
 } from "../lib/supadata-intake-policy.ts";
+import { youtubeDurationSeconds } from "../lib/youtube-reliability.ts";
 import type { XwadaChannelKey, XwadaChannelResult, XwadaVideo } from "../lib/youtube-reliability.ts";
 
-function video(channelKey: XwadaChannelKey, videoId: string, isLive = false): XwadaVideo {
+function video(channelKey: XwadaChannelKey, videoId: string, options: { isLive?: boolean; isShort?: boolean } = {}): XwadaVideo {
   return {
     channelKey,
     channelName: channelKey,
@@ -16,7 +17,8 @@ function video(channelKey: XwadaChannelKey, videoId: string, isLive = false): Xw
     title: videoId,
     url: `https://www.youtube.com/watch?v=${videoId}`,
     publishedAt: "2026-08-25T00:00:00.000Z",
-    isLive,
+    isLive: options.isLive ?? false,
+    isShort: options.isShort ?? false,
   };
 }
 
@@ -32,12 +34,24 @@ function channel(channelKey: XwadaChannelKey, videos: XwadaVideo[]): XwadaChanne
   };
 }
 
-test("only selected creators' non-live videos enter the Supadata provider work list", () => {
+test("only selected creators' long-form non-live videos enter the Supadata provider work list", () => {
   const channels = [
-    channel("fx-evolution", [video("fx-evolution", "fx-upload"), video("fx-evolution", "fx-live", true)]),
-    channel("stockedup", [video("stockedup", "stock-upload"), video("stockedup", "stock-live", true)]),
+    channel("fx-evolution", [
+      video("fx-evolution", "fx-upload"),
+      video("fx-evolution", "fx-live", { isLive: true }),
+      video("fx-evolution", "fx-short", { isShort: true }),
+    ]),
+    channel("stockedup", [
+      video("stockedup", "stock-upload"),
+      video("stockedup", "stock-live", { isLive: true }),
+      video("stockedup", "stock-short", { isShort: true }),
+    ]),
     channel("kevin-gerrity", [video("kevin-gerrity", "kevin-upload")]),
-    channel("clearvalue-tax", [video("clearvalue-tax", "clear-upload"), video("clearvalue-tax", "clear-live", true)]),
+    channel("clearvalue-tax", [
+      video("clearvalue-tax", "clear-upload"),
+      video("clearvalue-tax", "clear-live", { isLive: true }),
+      video("clearvalue-tax", "clear-short", { isShort: true }),
+    ]),
     channel("tradernick", [video("tradernick", "nick-upload")]),
   ];
 
@@ -59,4 +73,12 @@ test("only selected creators' non-live videos enter the Supadata provider work l
   assert.equal(isSupadataTranscriptChannel("clearvalue-tax"), true);
   assert.equal(isSupadataTranscriptChannel("fx-evolution"), true);
   assert.equal(isSupadataTranscriptChannel("tradernick"), false);
+});
+
+test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {
+  assert.equal(youtubeDurationSeconds("PT59S"), 59);
+  assert.equal(youtubeDurationSeconds("PT3M"), 180);
+  assert.equal(youtubeDurationSeconds("PT3M1S"), 181);
+  assert.equal(youtubeDurationSeconds("PT15M39S"), 939);
+  assert.equal(youtubeDurationSeconds("not-a-duration"), null);
 });
