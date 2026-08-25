@@ -39,6 +39,7 @@ export type ScheduledVideoIntakeResult = {
     cacheHits: number;
     transcriptsDeferred: number;
     livestreamsSkipped: number;
+    shortsSkipped: number;
   };
   channels: XwadaChannelResult[];
   transcripts: TranscriptPipelineResult[];
@@ -50,6 +51,7 @@ export type ScheduledVideoIntakeResult = {
   }>;
   deferredVideoIds: string[];
   skippedLivestreamIds: string[];
+  skippedShortIds: string[];
 };
 
 async function processVideo(videoId: string, store: SupadataTranscriptStore) {
@@ -80,9 +82,9 @@ async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoI
 
 /**
  * The shared Live-only YouTube intake step. Discovery remains broad, while
- * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity
- * and ClearValue Tax. Livestreams are classified upstream and never enter the
- * transcript provider path.
+ * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity,
+ * ClearValue Tax and FX Evolution. Livestreams and short-form uploads are
+ * classified upstream and never enter the transcript provider path.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
@@ -106,6 +108,9 @@ export async function runScheduledVideoIntake(input: {
   const selectedChannels = channels.filter((channel) => isSupadataTranscriptChannel(channel.channelKey));
   const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
     channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
+  ));
+  const skippedShortIds = selectedChannels.flatMap((channel) => (
+    channel.videos.filter((video) => video.isShort === true).map((video) => video.videoId)
   ));
   const orderedChannels = selectedSupadataTranscriptChannels(channels);
   let providerAttempts = 0;
@@ -192,11 +197,13 @@ export async function runScheduledVideoIntake(input: {
       cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
       transcriptsDeferred: deferredVideoIds.length,
       livestreamsSkipped: skippedLivestreamIds.length,
+      shortsSkipped: skippedShortIds.length,
     },
     channels,
     transcripts: results,
     knownUnavailableVideos,
     deferredVideoIds,
     skippedLivestreamIds,
+    skippedShortIds,
   };
 }

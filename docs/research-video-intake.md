@@ -22,8 +22,11 @@ Creator discovery remains broad, but automated Supadata transcript spend is deli
 1. StockedUp
 2. Kevin Gerrity
 3. ClearValue Tax
+4. FX Evolution
 
-Only non-live uploads from those three channels enter the Supadata transcript path. Current, upcoming and archived livestreams are classified from YouTube video/live-stream metadata and are excluded before a Supadata request is made.
+Only long-form, non-live uploads from those four channels enter the Supadata transcript path. Current, upcoming and archived livestreams are classified from YouTube video/live-stream metadata and are excluded before a Supadata request is made.
+
+YouTube does not expose a first-class Shorts flag through the Data API. Scheduled Live intake therefore uses a conservative spend guard: any upload with a YouTube-reported duration of 180 seconds or less is treated as short-form and excluded before Supadata. This can intentionally exclude an occasional normal sub-three-minute upload rather than risk spending transcript credits on Shorts.
 
 Supadata is called with `mode=native`, `text=false` and `lang=en`. `mode=auto` and `mode=generate` are not permitted in scheduled Live intake. If an existing caption track is unavailable, the item remains blocked/revalidatable; Live does not ask Supadata to generate a transcript with AI.
 
@@ -34,7 +37,7 @@ The provider credential is server-side `SUPADATA_API_KEY`. Persist provider prov
 For every video admitted to transcript intake:
 
 1. Discover the video from the channel's official uploads feed and record the channel, video ID, URL and publication time.
-2. Classify whether it is a livestream. Livestreams do not enter the automated transcript provider path.
+2. Classify whether it is a livestream or short-form upload. Livestreams and uploads at or below the 180-second spend guard do not enter the automated transcript provider path.
 3. Obtain the full existing caption transcript before using the video as evidence. Scheduled Supadata intake must use `mode=native`; it must not trigger AI transcript generation.
 4. `transcriptStatus: "ready"` is valid only when `transcriptText` contains genuine transcript text. A title, description, chapter list, thumbnail text, comments or search-result summary is not a transcript.
 5. If a native transcript cannot be retrieved, mark it `missing` or `unavailable`. The video may be logged for awareness but must not affect a Story or recalibration until a transcript is ready.

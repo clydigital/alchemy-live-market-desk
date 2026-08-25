@@ -39,6 +39,8 @@ export type XwadaVideo = {
   url: string;
   publishedAt: string;
   isLive?: boolean;
+  isShort?: boolean;
+  durationSeconds?: number;
 };
 
 export type XwadaChannelResult = {
@@ -56,6 +58,7 @@ export type XwadaChannelResult = {
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
 const LOOKBACK_MS = 72 * 60 * 60 * 1000;
 const LATEST_VIDEO_LIMIT = 10;
+const SHORT_FORM_MAX_SECONDS = 180;
 
 type YoutubeErrorBody = {
   error?: {
@@ -154,26 +157,53 @@ function titleLooksLive(title: string) {
   return /\b(live|livestream|live-stream)\b/i.test(title);
 }
 
-async function livestreamVideoIds(videoIds: string[], apiKey: string) {
-  if (!videoIds.length) return new Set<string>();
+export function youtubeDurationSeconds(duration?: string) {
+  if (!duration) return null;
+  const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(duration);
+  if (!match) return null;
+  const days = Number(match[1] || 0);
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  const seconds = Number(match[4] || 0);
+  const total = days * 86_400 + hours * 3_600 + minutes * 60 + seconds;
+  return Number.isFinite(total) ? total : null;
+}
+
+async function videoClassifications(videoIds: string[], apiKey: string) {
+  const liveIds = new Set<string>();
+  const shortIds = new Set<string>();
+  const durationSeconds = new Map<string, number>();
+  if (!videoIds.length) return { liveIds, shortIds, durationSeconds };
+
   const response = await youtubeJson<{
     items?: Array<{
       id?: string;
       snippet?: { liveBroadcastContent?: string };
       liveStreamingDetails?: { actualStartTime?: string; scheduledStartTime?: string };
+      contentDetails?: { duration?: string };
     }>;
   }>(
-    `videos?part=snippet,liveStreamingDetails&id=${videoIds.map(encodeURIComponent).join(",")}`,
+    `videos?part=snippet,liveStreamingDetails,contentDetails&id=${videoIds.map(encodeURIComponent).join(",")}`,
     apiKey,
   );
-  return new Set((response.items || []).flatMap((item) => {
+
+  for (const item of response.items || []) {
+    if (!item.id) continue;
     const liveState = item.snippet?.liveBroadcastContent;
     const wasOrIsLive = liveState === "live"
       || liveState === "upcoming"
       || Boolean(item.liveStreamingDetails?.actualStartTime)
       || Boolean(item.liveStreamingDetails?.scheduledStartTime);
-    return item.id && wasOrIsLive ? [item.id] : [];
-  }));
+    if (wasOrIsLive) liveIds.add(item.id);
+
+    const duration = youtubeDurationSeconds(item.contentDetails?.duration);
+    if (duration !== null) {
+      durationSeconds.set(item.id, duration);
+      if (duration <= SHORT_FORM_MAX_SECONDS) shortIds.add(item.id);
+    }
+  }
+
+  return { liveIds, shortIds, durationSeconds };
 }
 
 function statusFromError(error: unknown, fallback: XwadaCheckStatus): XwadaCheckStatus {
@@ -209,7 +239,7 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
         return Boolean(publishedAt && Number.isFinite(Date.parse(publishedAt)) && Date.parse(publishedAt!) >= cutoff);
       });
       const recentVideoIds = recent.flatMap((item) => item.contentDetails?.videoId ? [item.contentDetails.videoId] : []);
-      const liveIds = await livestreamVideoIds(recentVideoIds, youtubeApiKey);
+      const classification = await videoClassifications(recentVideoIds, youtubeApiKey);
       const videos = recent.flatMap((item): XwadaVideo[] => {
         const videoId = item.contentDetails?.videoId;
         const publishedAt = item.contentDetails?.videoPublishedAt || item.snippet?.publishedAt;
@@ -223,7 +253,9 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
           title,
           url: `https://www.youtube.com/watch?v=${videoId}`,
           publishedAt,
-          isLive: liveIds.has(videoId) || titleLooksLive(title),
+          isLive: classification.liveIds.has(videoId) || titleLooksLive(title),
+          isShort: classification.shortIds.has(videoId),
+          durationSeconds: classification.durationSeconds.get(videoId),
         }];
       });
       return {
@@ -236,7 +268,7 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
         recentCount: videos.length,
         videos,
         detail: recent.length
-          ? `Scanned the latest ${scanned.length} uploads and retained videos published in the last 72 hours with livestream classification.`
+          ? `Scanned the latest ${scanned.length} uploads and retained videos published in the last 72 hours with livestream and short-form classification.`
           : `Scanned the latest ${scanned.length} uploads; none were published in the last 72 hours.`,
       };
     } catch (error) {
