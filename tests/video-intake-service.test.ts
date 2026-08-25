@@ -34,7 +34,7 @@ function channel(channelKey: XwadaChannelKey, videos: XwadaVideo[]): XwadaChanne
 
 test("only selected creators' non-live videos enter the Supadata provider work list", () => {
   const channels = [
-    channel("fx-evolution", [video("fx-evolution", "fx-upload")]),
+    channel("fx-evolution", [video("fx-evolution", "fx-upload"), video("fx-evolution", "fx-live", true)]),
     channel("stockedup", [video("stockedup", "stock-upload"), video("stockedup", "stock-live", true)]),
     channel("kevin-gerrity", [video("kevin-gerrity", "kevin-upload")]),
     channel("clearvalue-tax", [video("clearvalue-tax", "clear-upload"), video("clearvalue-tax", "clear-live", true)]),
@@ -42,15 +42,21 @@ test("only selected creators' non-live videos enter the Supadata provider work l
   ];
 
   const workList = selectedSupadataTranscriptChannels(channels);
-  assert.deepEqual(workList.map((entry) => entry.channelKey), ["stockedup", "kevin-gerrity", "clearvalue-tax"]);
+  assert.deepEqual(workList.map((entry) => entry.channelKey), [
+    "stockedup",
+    "kevin-gerrity",
+    "clearvalue-tax",
+    "fx-evolution",
+  ]);
   assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
     "stock-upload",
     "kevin-upload",
     "clear-upload",
+    "fx-upload",
   ]);
   assert.equal(isSupadataTranscriptChannel("stockedup"), true);
   assert.equal(isSupadataTranscriptChannel("kevin-gerrity"), true);
   assert.equal(isSupadataTranscriptChannel("clearvalue-tax"), true);
-  assert.equal(isSupadataTranscriptChannel("fx-evolution"), false);
+  assert.equal(isSupadataTranscriptChannel("fx-evolution"), true);
   assert.equal(isSupadataTranscriptChannel("tradernick"), false);
 });
