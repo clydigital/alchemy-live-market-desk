@@ -1,4 +1,5 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
+import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
 export const TARGET_MINIMUM_MATERIAL_CHANGES = 4;
@@ -138,6 +139,7 @@ export type EditionUpcoming = {
 
 export type EditionDiagnostics = {
   warnings: string[];
+  eventHorizonCoverage?: EventHorizonCoverage[];
 };
 
 export type AlchemyEdition = {
@@ -329,7 +331,7 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
-    diagnostics: { warnings: [...new Set(diagnostics.warnings)] },
+    diagnostics: { warnings: [...new Set(diagnostics.warnings)], eventHorizonCoverage: diagnostics.eventHorizonCoverage },
     finalBoard: {
       highestConvictionChange: lead?.whatChanged || "No material change is available.",
       biggestUnresolvedContradiction: contradiction,

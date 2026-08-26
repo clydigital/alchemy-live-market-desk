@@ -1884,7 +1884,7 @@ async function persistDailyBrief({
     themeWatch: editionThemes(stories),
     watchlist: editionWatchlist(stories),
     upcoming: eventHorizon.upcoming,
-    diagnostics: { warnings: eventHorizon.warnings },
+    diagnostics: { warnings: eventHorizon.warnings, eventHorizonCoverage: eventHorizon.coverage },
   });
   await intelligenceRest("hybrid_publication_snapshots", {
     method: "POST",
