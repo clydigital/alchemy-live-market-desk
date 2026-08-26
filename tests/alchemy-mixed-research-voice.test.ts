@@ -66,6 +66,19 @@ test("minimum-four logic does not manufacture a fourth weak story", () => {
   assert.equal(result.materialChangeTargetMet, false);
 });
 
+test("Event Horizon warnings remain descriptive edition diagnostics, not a publication gate", () => {
+  const result = composeAlchemyEdition({
+    generatedAt: "2026-08-13T07:00:00.000Z",
+    comparisonWindowStart: "2026-08-12T07:00:00.000Z",
+    stories: [story()],
+    diagnostics: { warnings: ["Market event persistence unavailable."] },
+  });
+
+  assert.deepEqual(result.diagnostics?.warnings, ["Market event persistence unavailable."]);
+  assert.equal(result.sinceYouLastChecked.length, 1);
+  assert.equal(result.materialChangeTargetMet, false);
+});
+
 test("four updates to one parent story remain one material change", () => {
   const result = selectMaterialChanges([1, 2, 3, 4].map((index) => story({
     id: `child-${index}`,

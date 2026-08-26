@@ -2,17 +2,18 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { runAccuracyCheck } from "@/lib/accuracy";
-import { evaluateIntakeStatus } from "@/lib/intelligence/research-state";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
 import { buildHighImpactCalendarIntake } from "@/lib/high-impact-calendar-intake";
-import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
+import { persistCanonicalJourneyEditionForResearchRun } from "@/lib/intelligence/canonical-journey-edition";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
-import { persistCanonicalEditionForResearchRun, runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
+import { evaluateIntakeStatus } from "@/lib/intelligence/research-state";
+import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
+import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { getMarketData } from "@/lib/market";
+import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
-import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import {
   researchScheduleHealth,
   validateResearchRun,
@@ -355,7 +356,7 @@ export async function POST(request: Request) {
 
     const totalUpdatesPublished = legacyUpdatesPublished + (intelligence?.storiesPublished || 0);
     if (finalStatus === "completed") {
-      await persistCanonicalEditionForResearchRun({
+      await persistCanonicalJourneyEditionForResearchRun({
         researchRunId: runId,
         runKey: input.runKey,
         publicSummary: input.summary || null,

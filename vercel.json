@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/video/midnight",
-      "schedule": "40 16 * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/research/morning",
@@ -22,8 +22,32 @@
       "schedule": "33 1 * * *"
     },
     {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "41 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "49 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "57 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "5 2 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "13 2 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence-watchdog",
+      "schedule": "21 2 * * *"
+    },
+    {
       "path": "/api/cron/video/late-morning",
-      "schedule": "30 3 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/research/evening",
@@ -40,6 +64,30 @@
     {
       "path": "/api/cron/research/evening-intelligence-watchdog",
       "schedule": "33 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "41 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "49 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "57 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "5 14 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "13 14 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence-watchdog",
+      "schedule": "21 14 * * *"
     }
   ]
 }
