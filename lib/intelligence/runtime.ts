@@ -10,6 +10,7 @@ import {
   type ThemeWatch,
   type WatchlistItem,
 } from "@/lib/intelligence/edition";
+import type { JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import { buildStageFailurePersistencePayload } from "./openai-core.ts";
@@ -71,7 +72,9 @@ import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from 
 import { getStoryHeaderImages } from "@/lib/story-images";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
+  CANONICAL_STORY_REASONING_V1,
   canonicalCausalEdgeId,
+  type CanonicalStoryReasoningV1,
   type EvidenceState,
   type StoryReasoningEvidence,
   type StoryReasoningHypothesis,
@@ -1740,7 +1743,12 @@ async function persistCanonicalStoryManifest({
   canonicalStoryStates: Awaited<ReturnType<typeof captureCanonicalStoryStates>>;
   publishedAt: string;
 }) {
-  const storySnapshotRows = await intelligenceRest<Array<{ id: string; story_id: string | null; payload: Record<string, unknown> }>>(
+  const storySnapshotRows = await intelligenceRest<Array<{
+    id: string;
+    story_id: string | null;
+    story_thesis_version_id: string | null;
+    payload: Record<string, unknown>;
+  }>>(
     "hybrid_publication_snapshots",
     {
       method: "POST",
@@ -1749,7 +1757,7 @@ async function persistCanonicalStoryManifest({
         research_run_id: researchRunId,
         slot_run_id: null,
         story_id: story.id,
-        story_thesis_version_id: null,
+        story_thesis_version_id: story.thesisVersion?.id || null,
         supersedes_snapshot_id: null,
         snapshot_type: "story",
         public_summary: story.title,
@@ -1764,14 +1772,41 @@ async function persistCanonicalStoryManifest({
   const snapshotByStoryId = new Map(storySnapshotRows
     .filter((row) => row.story_id)
     .map((row) => [row.story_id as string, row]));
-  return canonicalStoryStates.map((story, index) => {
+  const persisted = canonicalStoryStates.map((story, index) => {
     const snapshot = snapshotByStoryId.get(story.id);
     const state = snapshot?.payload.canonicalStoryState;
     if (!state || typeof state !== "object" || Array.isArray(state)) {
       throw new Error(`Immutable Story snapshot was not persisted for edition Story ${story.id}.`);
     }
-    return { position: index + 1, snapshotId: snapshot.id, storyId: story.id, state };
+    const stateVersionId = story.thesisVersion?.id || null;
+    const thesisVersionId = snapshot.story_thesis_version_id;
+    if (stateVersionId && thesisVersionId !== stateVersionId) {
+      throw new Error(`Immutable Story snapshot thesis version mismatch for edition Story ${story.id}.`);
+    }
+    const candidateReasoning = snapshot.payload.canonicalStoryReasoning;
+    const reasoning = candidateReasoning
+      && typeof candidateReasoning === "object"
+      && !Array.isArray(candidateReasoning)
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).contractVersion === CANONICAL_STORY_REASONING_V1
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyId === story.id
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyVersionId === thesisVersionId
+      ? candidateReasoning as CanonicalStoryReasoningV1
+      : null;
+    return {
+      manifest: { position: index + 1, snapshotId: snapshot.id, storyId: story.id, thesisVersionId, state },
+      journeySource: reasoning && thesisVersionId ? {
+        position: index + 1,
+        publicationSnapshotId: snapshot.id,
+        storyId: story.id,
+        thesisVersionId,
+        reasoning,
+      } satisfies JourneyStorySource : null,
+    };
   });
+  return {
+    manifest: persisted.map((entry) => entry.manifest),
+    journeySources: persisted.flatMap((entry) => entry.journeySource ? [entry.journeySource] : []),
+  };
 }
 
 /**
@@ -1797,7 +1832,7 @@ export async function persistCanonicalEditionForResearchRun({
   const researchRun = (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
     `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
   ))[0] || null;
-  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+  const { manifest: canonicalStoryManifest } = await persistCanonicalStoryManifest({
     researchRunId,
     canonicalStoryStates: await captureCanonicalStoryStates(),
     publishedAt: generatedAt,
@@ -1855,7 +1890,7 @@ async function persistDailyBrief({
         `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
       ))[0] || null
     : null;
-  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+  const { manifest: canonicalStoryManifest, journeySources } = await persistCanonicalStoryManifest({
     researchRunId,
     canonicalStoryStates: await captureCanonicalStoryStates(),
     publishedAt: generatedAt,
@@ -1884,6 +1919,8 @@ async function persistDailyBrief({
     themeWatch: editionThemes(stories),
     watchlist: editionWatchlist(stories),
     upcoming: eventHorizon.upcoming,
+    journeyStorySources: journeySources,
+    marketEvents: eventHorizon.events,
     diagnostics: { warnings: eventHorizon.warnings, eventHorizonCoverage: eventHorizon.coverage },
   });
   await intelligenceRest("hybrid_publication_snapshots", {

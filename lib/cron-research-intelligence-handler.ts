@@ -1,12 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { persistCanonicalJourneyEditionForResearchRun } from "@/lib/intelligence/canonical-journey-edition";
 import { runWithIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
-import {
-  persistCanonicalEditionForResearchRun,
-  runIntelligenceEngine,
-} from "@/lib/intelligence/runtime";
+import { runIntelligenceEngine } from "@/lib/intelligence/runtime";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
@@ -230,7 +228,7 @@ export async function handleScheduledResearchIntelligence(
     const updatesPublished = intelligence.storiesPublished || 0;
 
     if (finalStatus === "completed") {
-      await persistCanonicalEditionForResearchRun({
+      await persistCanonicalJourneyEditionForResearchRun({
         researchRunId: run.id,
         runKey,
         publicSummary: run.summary,

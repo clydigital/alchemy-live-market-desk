@@ -1,5 +1,7 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
+import type { MarketEventV1 } from "@/lib/market-events";
+import { composeJourneyBriefing, type JourneyBriefingV1, type JourneyStorySource } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
 export const TARGET_MINIMUM_MATERIAL_CHANGES = 4;
@@ -166,6 +168,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  journey?: JourneyBriefingV1;
   diagnostics?: EditionDiagnostics;
   finalBoard: {
     highestConvictionChange: string;
@@ -281,6 +284,8 @@ export function composeAlchemyEdition({
   watchlist = [],
   positioningAnomaly = null,
   upcoming = emptyUpcoming(),
+  journeyStorySources = [],
+  marketEvents = [],
   diagnostics = { warnings: [] },
 }: {
   generatedAt: string;
@@ -293,6 +298,8 @@ export function composeAlchemyEdition({
   watchlist?: WatchlistItem[];
   positioningAnomaly?: PositioningAnomaly | null;
   upcoming?: EditionUpcoming;
+  journeyStorySources?: JourneyStorySource[];
+  marketEvents?: MarketEventV1[];
   diagnostics?: EditionDiagnostics;
 }): AlchemyEdition {
   const changes = selectMaterialChanges(stories, previousEdition);
@@ -306,6 +313,14 @@ export function composeAlchemyEdition({
   const macroTest = normalisedUpcoming.economicCalendar[0]?.event || "No scheduled macro test is available in canonical evidence.";
   const geopoliticalTest = normalisedUpcoming.geopoliticalClock[0]?.event || "No scheduled geopolitical event is available in canonical evidence.";
   const strongestTheme = themeWatch[0]?.theme || stories.flatMap((story) => story.themes)[0] || "No material evidence theme is available.";
+  const finalBoard = {
+    highestConvictionChange: lead?.whatChanged || "No material change is available.",
+    biggestUnresolvedContradiction: contradiction,
+    mostImportantMacroTest: macroTest,
+    mostImportantGeopoliticalTest: geopoliticalTest,
+    strongestTheme,
+    riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
+  };
 
   return {
     methodologyVersion: ALCHEMY_MIXED_METHOD_VERSION,
@@ -331,15 +346,18 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    journey: composeJourneyBriefing({
+      generatedAt,
+      stories,
+      changes,
+      journeyStorySources,
+      marketTape,
+      marketEvents,
+      diagnostics,
+      finalBoard,
+    }),
     diagnostics: { warnings: [...new Set(diagnostics.warnings)], eventHorizonCoverage: diagnostics.eventHorizonCoverage },
-    finalBoard: {
-      highestConvictionChange: lead?.whatChanged || "No material change is available.",
-      biggestUnresolvedContradiction: contradiction,
-      mostImportantMacroTest: macroTest,
-      mostImportantGeopoliticalTest: geopoliticalTest,
-      strongestTheme,
-      riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
-    },
+    finalBoard,
   };
 }
 
