@@ -2,6 +2,7 @@ import "server-only";
 
 import { getEconomicCalendar } from "@/lib/calendar";
 import { acquireEventHorizonEvents, type EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
+import { eventHorizonUpcomingLane } from "@/lib/event-horizon-lanes";
 import {
   dedupeMarketEvents,
   marketEventFromEconomicCalendar,
@@ -34,6 +35,20 @@ function calendarItem(event: Awaited<ReturnType<typeof getEconomicCalendar>>[num
     prior: event.revisedPrevious || event.previous,
     exposedAssets: event.affectedAssets,
     whyItMatters: event.decidingQuestion,
+  };
+}
+
+function marketEventCalendarItem(event: MarketEventV1): EconomicCalendarItem {
+  const time = event.startAt
+    ? `${event.startAt}${event.timeLabel ? ` · ${event.timeLabel}` : ""}`
+    : event.timeLabel || "Time TBC";
+  return {
+    time,
+    event: event.title,
+    consensus: null,
+    prior: null,
+    exposedAssets: event.affectedAssets,
+    whyItMatters: event.decisiveVariable || event.transmission,
   };
 }
 
@@ -126,13 +141,17 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
     .map((call) => ({ item: earningsItem(call, linkedStoryByTicker.get(call.ticker)), callDate: call.call_date }))
     .filter(({ callDate }) => Boolean(safeDate(callDate)))
     .map(({ item }) => item);
+  const policyCalendar = allEvents
+    .filter((event) => eventHorizonUpcomingLane(event.eventType) === "economicCalendar")
+    .filter((event) => event.status !== "cancelled")
+    .map(marketEventCalendarItem);
   const geopolitical = allEvents
-    .filter((event) => !["economic_release", "central_bank_decision", "earnings"].includes(event.eventType))
+    .filter((event) => eventHorizonUpcomingLane(event.eventType) === "geopoliticalClock")
     .filter((event) => event.status !== "cancelled")
     .map(geopoliticalClockItem);
   return {
     upcoming: {
-      economicCalendar: calendar.map(calendarItem),
+      economicCalendar: [...calendar.map(calendarItem), ...policyCalendar],
       earnings,
       geopoliticalClock: geopolitical,
     },
@@ -141,4 +160,3 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
     coverage: acquisition.coverage,
   };
 }
-
