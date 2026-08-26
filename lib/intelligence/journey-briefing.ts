@@ -151,7 +151,7 @@ function orderedChangedStories(changes: MaterialChange[], sources: JourneyStoryS
   return validSources
     .filter((source) => changedIds.has(source.storyId))
     .sort((left, right) => left.position - right.position)
-    .map((source, index) => journeyStory(source, index + 1));
+    .map((source) => journeyStory(source, source.position));
 }
 
 function eventLane(event: MarketEventV1): JourneyChronologyItem["lane"] {
