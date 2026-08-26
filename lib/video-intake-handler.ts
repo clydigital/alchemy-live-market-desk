@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledVideoRunIdentity, type ScheduledVideoSlot } from "@/lib/scheduled-video-identity";
+import { retrieveSupadataVideo } from "@/lib/supadata";
+import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
 import { retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
-import { retrieveTranscriptApiVideo } from "@/lib/transcriptapi";
 import { runScheduledVideoIntake } from "@/lib/video-intake-service";
-import { SupabaseTranscriptStore, type VideoResearchSlot } from "@/lib/youtube-transcript-persistence";
+import type { VideoResearchSlot } from "@/lib/youtube-transcript-persistence";
 
 function authenticated(request: Request) {
   return acceptsResearchAuthorization(request.headers.get("authorization"), [
@@ -54,12 +55,13 @@ async function targetFromRequest(request: Request) {
   return typeof body?.videoId === "string" ? body.videoId.trim() : null;
 }
 
-async function processVideo(videoId: string, store: SupabaseTranscriptStore) {
-  const transcriptApiKey = process.env.TRANSCRIPT_API_KEY?.trim() || "";
+async function processVideo(videoId: string, store: SupadataTranscriptStore) {
+  const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
     store,
-    retrieve: (id) => retrieveTranscriptApiVideo(id, transcriptApiKey),
+    provider: "supadata",
+    retrieve: (id) => retrieveSupadataVideo(id, supadataApiKey, { timeoutMs: 8_000 }),
   });
 }
 
@@ -67,7 +69,7 @@ async function runTarget(videoId: string) {
   if (!validVideoId(videoId)) {
     return response({ status: "failed", videoId, errorCode: "invalid_video_url" }, 400);
   }
-  const result = await processVideo(videoId, new SupabaseTranscriptStore());
+  const result = await processVideo(videoId, new SupadataTranscriptStore());
   if (result.status === "not_found") {
     return response({
       status: "not_found",
@@ -100,8 +102,10 @@ async function runDiscovery(request: Request, forcedSlot?: ScheduledVideoSlot) {
       discovery: "YouTube Data API uploads playlist",
       uploadsPerChannel: 10,
       backfillHours: 72,
-      transcriptProvider: "TranscriptAPI v2",
-      transcriptOrder: ["/youtube/info", "/youtube/transcript"],
+      transcriptProvider: "Supadata native captions",
+      transcriptMode: "native",
+      transcriptFormat: "timestamped",
+      generatedTranscriptFallback: false,
       cache: "Database-first; completed transcripts are never fetched twice.",
       failureRule: "Required transcript failures stay blocked and create idempotent research debt; overflow is deferred to the next scheduled intake window.",
     },

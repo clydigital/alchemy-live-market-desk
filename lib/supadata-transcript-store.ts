@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   ReadyTranscriptCache,
   TranscriptDebtInput,
@@ -27,9 +28,9 @@ export class SupadataTranscriptStore implements TranscriptPipelineStore {
   private readonly client: SupabaseClient;
   private readonly delegate: SupabaseTranscriptStore;
 
-  constructor(client: SupabaseClient) {
-    this.client = client;
-    this.delegate = new SupabaseTranscriptStore(client);
+  constructor(client?: SupabaseClient) {
+    this.client = client ?? createSupabaseAdminClient();
+    this.delegate = new SupabaseTranscriptStore(this.client);
   }
 
   async findReadyTranscript(videoId: string): Promise<ReadyTranscriptCache | null> {

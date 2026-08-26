@@ -44,3 +44,21 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   assert.match(midnightRoute, /handleVideoIntakeRequest\(request, "video_midnight"\)/);
   assert.match(lateMorningRoute, /handleVideoIntakeRequest\(request, "video_late_morning"\)/);
 });
+
+test("targeted transcript retries and advertised policy stay on Supadata native captions", () => {
+  const videoHandler = readFileSync(new URL("../lib/video-intake-handler.ts", import.meta.url), "utf8");
+  const supadataStore = readFileSync(new URL("../lib/supadata-transcript-store.ts", import.meta.url), "utf8");
+
+  assert.match(videoHandler, /retrieveSupadataVideo/);
+  assert.match(videoHandler, /new SupadataTranscriptStore\(\)/);
+  assert.match(videoHandler, /provider:\s*"supadata"/);
+  assert.match(videoHandler, /transcriptProvider:\s*"Supadata native captions"/);
+  assert.match(videoHandler, /transcriptMode:\s*"native"/);
+  assert.match(videoHandler, /transcriptFormat:\s*"timestamped"/);
+  assert.match(videoHandler, /generatedTranscriptFallback:\s*false/);
+  assert.doesNotMatch(videoHandler, /retrieveTranscriptApiVideo/);
+  assert.doesNotMatch(videoHandler, /TRANSCRIPT_API_KEY/);
+
+  assert.match(supadataStore, /constructor\(client\?: SupabaseClient\)/);
+  assert.match(supadataStore, /client \?\? createSupabaseAdminClient\(\)/);
+});
