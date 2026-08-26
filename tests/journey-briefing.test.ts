@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { composeAlchemyEdition, type EditionStory } from "../lib/intelligence/edition.ts";
@@ -176,10 +177,33 @@ test("contradictory edition retains the full Challenger and does not strengthen 
   assert.equal(result.journey?.bigStories[0]?.confidence, 51);
 });
 
+test("zero-change editions still compose a valid explicitly sparse Journey contract", () => {
+  const result = board([], []);
+  assert.equal(result.journey?.contractVersion, "journey-briefing/v1");
+  assert.deepEqual(result.journey?.bigStories, []);
+  assert.equal(result.journey?.leadStoryId, null);
+  assert.equal(result.journey?.opening.headline, "No materially supported Story change in this edition.");
+});
+
 test("sparse editions stay sparse while a fourth supported Story is not hidden by a three-card cap", () => {
   assert.deepEqual(board([story("only")]).journey?.bigStories.map((item) => item.storyId), ["only"]);
   const four = [story("a"), story("b"), story("c"), story("d")];
   assert.equal(board(four).journey?.bigStories.length, 4);
+});
+
+test("degraded immutable linkage preserves surviving canonical manifest positions instead of renumbering them", () => {
+  const result = board(
+    [story("first"), story("missing"), story("third")],
+    [source("first", 1), source("third", 3)],
+  );
+  assert.deepEqual(
+    result.journey?.bigStories.map((item) => ({ storyId: item.storyId, rank: item.rank })),
+    [{ storyId: "first", rank: 1 }, { storyId: "third", rank: 3 }],
+  );
+  assert.match(
+    result.journey?.diagnostics.warnings.find((warning) => warning.includes("missing")) || "",
+    /exact immutable Canonical Story Reasoning V1 snapshot is unavailable/i,
+  );
 });
 
 test("degraded Event Horizon preserves known event IDs and visible coverage debt", () => {
@@ -249,4 +273,13 @@ test("missing exact reasoning degrades visibly instead of blocking the edition o
   const result = board([story("missing")], []);
   assert.equal(result.journey?.bigStories.length, 0);
   assert.match(result.journey?.diagnostics.warnings[0] || "", /exact immutable Canonical Story Reasoning V1 snapshot is unavailable/i);
+});
+
+test("all completed-run entry points use the canonical Journey fallback publisher", () => {
+  const cron = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
+  for (const sourceText of [cron, route]) {
+    assert.match(sourceText, /persistCanonicalJourneyEditionForResearchRun/);
+    assert.doesNotMatch(sourceText, /persistCanonicalEditionForResearchRun/);
+  }
 });
