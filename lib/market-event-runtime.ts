@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getEconomicCalendar } from "@/lib/calendar";
+import { acquireEventHorizonEvents, type EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import {
   dedupeMarketEvents,
   marketEventFromEconomicCalendar,
@@ -18,6 +19,7 @@ type EventHorizonResult = {
   upcoming: EditionUpcoming;
   events: MarketEventV1[];
   warnings: string[];
+  coverage: EventHorizonCoverage[];
 };
 
 function safeDate(value: string | null | undefined) {
@@ -98,13 +100,14 @@ async function persistEvents(events: MarketEventV1[]) {
 
 export async function buildEditionEventHorizon(stories: Array<{ id: string; title: string; assets: string[] }>): Promise<EventHorizonResult> {
   const warnings: string[] = [];
-  const [calendar, storedRows, earningsCalls] = await Promise.all([
+  const [calendar, storedRows, earningsCalls, acquisition] = await Promise.all([
     getEconomicCalendar().catch((error) => {
       warnings.push(`Economic calendar unavailable: ${error instanceof Error ? error.message : String(error)}`);
       return [] as Awaited<ReturnType<typeof getEconomicCalendar>>;
     }),
     loadStoredEvents(),
     loadEarningsCalls(),
+    acquireEventHorizonEvents(),
   ]);
   const calendarEvents = calendar.map(marketEventFromEconomicCalendar).filter((event): event is MarketEventV1 => Boolean(event));
   const earningsEvents = earningsCalls.map((call) => {
@@ -115,7 +118,7 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
       : null;
   }).filter((event): event is MarketEventV1 => Boolean(event));
   const storedEvents = storedRows.map(marketEventFromRow).filter((event): event is MarketEventV1 => Boolean(event));
-  const currentEvents = dedupeMarketEvents([...calendarEvents, ...earningsEvents]);
+  const currentEvents = dedupeMarketEvents([...calendarEvents, ...earningsEvents, ...acquisition.events]);
   if (currentEvents.length && !(await persistEvents(currentEvents))) warnings.push("Market event persistence unavailable; using the current verified horizon for this edition only.");
   const allEvents = dedupeMarketEvents([...storedEvents, ...currentEvents]);
   const linkedStoryByTicker = new Map(stories.flatMap((story) => story.assets.map((asset) => [asset, story] as const)));
@@ -134,7 +137,8 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
       geopoliticalClock: geopolitical,
     },
     events: allEvents,
-    warnings,
+    warnings: [...warnings, ...acquisition.warnings],
+    coverage: acquisition.coverage,
   };
 }
 
