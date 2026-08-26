@@ -1477,6 +1477,7 @@ async function promoteCandidate({
   };
 
   let story: StoryRow;
+  let canonicalVersionId: string;
   let isNew = false;
   if (decision.noveltyClass === "existing_story_update" && matched) {
     const persisted = await persistCanonicalStoryReasoning({
@@ -1492,6 +1493,7 @@ async function promoteCandidate({
       },
     });
     story = persisted.story;
+    canonicalVersionId = persisted.version_id;
     isNew = persisted.created;
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
@@ -1519,6 +1521,7 @@ async function promoteCandidate({
       },
     });
     story = persisted.story;
+    canonicalVersionId = persisted.version_id;
     isNew = persisted.created;
   }
 
@@ -1622,7 +1625,7 @@ async function promoteCandidate({
     body: JSON.stringify({ promoted_story_id: story.id, candidate_status: "promoted", updated_at: new Date().toISOString() }),
   });
 
-  return story;
+  return { story, canonicalVersionId };
 }
 
 function lifecycleThemeState(status: EditionStory["lifecycleStatus"]): ThemeWatch["state"] {
@@ -1638,6 +1641,7 @@ function editionStory(
   story: StoryRow,
   parentStoryId: string,
   lifecycleStatus: CandidateWorking["lifecycleStatus"],
+  canonicalVersionId: string | null = null,
 ): EditionStory {
   const locked = applyExplanationPass({
     thesis: candidate.thesis,
@@ -1675,6 +1679,12 @@ function editionStory(
     prohibitedClaims: locked.prohibitedClaims,
     changeKinds: candidate.changeKinds,
     eventAt: new Date().toISOString(),
+    thesisVersionId: canonicalVersionId,
+    evidenceRefs: unique([
+      ...candidate.decisiveEvidenceIds,
+      ...candidate.acceptedExplanationEvidenceIds,
+      ...candidate.overlookedVariableEvidenceIds,
+    ]),
   };
 }
 
@@ -1749,7 +1759,7 @@ async function persistCanonicalStoryManifest({
         research_run_id: researchRunId,
         slot_run_id: null,
         story_id: story.id,
-        story_thesis_version_id: null,
+        story_thesis_version_id: story.thesisVersion?.id || null,
         supersedes_snapshot_id: null,
         snapshot_type: "story",
         public_summary: story.title,
@@ -2307,7 +2317,7 @@ export async function runIntelligenceEngine({
       if (!primaryHypothesis || !primaryChallenger) {
         throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
       }
-      const promotedStory = await promoteCandidate({
+      const promoted = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
         decision,
@@ -2319,9 +2329,9 @@ export async function runIntelligenceEngine({
         challenger: primaryChallenger,
         scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });
-      publishedStories.push(promotedStory);
-      editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
-      if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
+      publishedStories.push(promoted.story);
+      editionStories.push(editionStory(candidate, promoted.story, decision.matchedStoryId || promoted.story.id, lifecycle, promoted.canonicalVersionId));
+      if (!stories.some((story) => story.id === promoted.story.id)) stories.push(promoted.story);
     }
 
     if (!dryRun && editionStories.length) {

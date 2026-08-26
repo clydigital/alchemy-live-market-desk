@@ -1,5 +1,6 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
+import { composeJourneyBriefing, type JourneyBriefingV1 } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
 export const TARGET_MINIMUM_MATERIAL_CHANGES = 4;
@@ -51,6 +52,10 @@ export type EditionStory = {
   prohibitedClaims: string[];
   changeKinds: MaterialChangeKind[];
   eventAt: string;
+  /** Exact immutable Story thesis version used for this edition. */
+  thesisVersionId?: string | null;
+  /** Canonical evidence IDs carried by the Story synthesis. */
+  evidenceRefs?: string[];
 };
 
 export type MarketTape = {
@@ -166,6 +171,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  journey?: JourneyBriefingV1;
   diagnostics?: EditionDiagnostics;
   finalBoard: {
     highestConvictionChange: string;
@@ -306,6 +312,14 @@ export function composeAlchemyEdition({
   const macroTest = normalisedUpcoming.economicCalendar[0]?.event || "No scheduled macro test is available in canonical evidence.";
   const geopoliticalTest = normalisedUpcoming.geopoliticalClock[0]?.event || "No scheduled geopolitical event is available in canonical evidence.";
   const strongestTheme = themeWatch[0]?.theme || stories.flatMap((story) => story.themes)[0] || "No material evidence theme is available.";
+  const finalBoard = {
+    highestConvictionChange: lead?.whatChanged || "No material change is available.",
+    biggestUnresolvedContradiction: contradiction,
+    mostImportantMacroTest: macroTest,
+    mostImportantGeopoliticalTest: geopoliticalTest,
+    strongestTheme,
+    riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
+  };
 
   return {
     methodologyVersion: ALCHEMY_MIXED_METHOD_VERSION,
@@ -331,15 +345,22 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    journey: composeJourneyBriefing({
+      generatedAt,
+      stories,
+      changes: changes.map((story, index) => ({
+        rank: index + 1,
+        headline: story.title,
+        whatChanged: story.whatChanged,
+        linkedStoryId: story.id,
+      })),
+      marketTape,
+      upcoming: normalisedUpcoming,
+      diagnostics,
+      finalBoard,
+    }),
     diagnostics: { warnings: [...new Set(diagnostics.warnings)], eventHorizonCoverage: diagnostics.eventHorizonCoverage },
-    finalBoard: {
-      highestConvictionChange: lead?.whatChanged || "No material change is available.",
-      biggestUnresolvedContradiction: contradiction,
-      mostImportantMacroTest: macroTest,
-      mostImportantGeopoliticalTest: geopoliticalTest,
-      strongestTheme,
-      riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
-    },
+    finalBoard,
   };
 }
 
