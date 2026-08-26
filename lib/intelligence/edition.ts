@@ -1,6 +1,7 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
-import { composeJourneyBriefing, type JourneyBriefingV1 } from "./journey-briefing.ts";
+import type { MarketEventV1 } from "@/lib/market-events";
+import { composeJourneyBriefing, type JourneyBriefingV1, type JourneyStorySource } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
 export const TARGET_MINIMUM_MATERIAL_CHANGES = 4;
@@ -52,10 +53,6 @@ export type EditionStory = {
   prohibitedClaims: string[];
   changeKinds: MaterialChangeKind[];
   eventAt: string;
-  /** Exact immutable Story thesis version used for this edition. */
-  thesisVersionId?: string | null;
-  /** Canonical evidence IDs carried by the Story synthesis. */
-  evidenceRefs?: string[];
 };
 
 export type MarketTape = {
@@ -287,6 +284,8 @@ export function composeAlchemyEdition({
   watchlist = [],
   positioningAnomaly = null,
   upcoming = emptyUpcoming(),
+  journeyStorySources = [],
+  marketEvents = [],
   diagnostics = { warnings: [] },
 }: {
   generatedAt: string;
@@ -299,6 +298,8 @@ export function composeAlchemyEdition({
   watchlist?: WatchlistItem[];
   positioningAnomaly?: PositioningAnomaly | null;
   upcoming?: EditionUpcoming;
+  journeyStorySources?: JourneyStorySource[];
+  marketEvents?: MarketEventV1[];
   diagnostics?: EditionDiagnostics;
 }): AlchemyEdition {
   const changes = selectMaterialChanges(stories, previousEdition);
@@ -348,14 +349,10 @@ export function composeAlchemyEdition({
     journey: composeJourneyBriefing({
       generatedAt,
       stories,
-      changes: changes.map((story, index) => ({
-        rank: index + 1,
-        headline: story.title,
-        whatChanged: story.whatChanged,
-        linkedStoryId: story.id,
-      })),
+      changes,
+      journeyStorySources,
       marketTape,
-      upcoming: normalisedUpcoming,
+      marketEvents,
       diagnostics,
       finalBoard,
     }),

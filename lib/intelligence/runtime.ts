@@ -10,6 +10,7 @@ import {
   type ThemeWatch,
   type WatchlistItem,
 } from "@/lib/intelligence/edition";
+import type { JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import { buildStageFailurePersistencePayload } from "./openai-core.ts";
@@ -71,7 +72,9 @@ import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from 
 import { getStoryHeaderImages } from "@/lib/story-images";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
+  CANONICAL_STORY_REASONING_V1,
   canonicalCausalEdgeId,
+  type CanonicalStoryReasoningV1,
   type EvidenceState,
   type StoryReasoningEvidence,
   type StoryReasoningHypothesis,
@@ -1477,7 +1480,6 @@ async function promoteCandidate({
   };
 
   let story: StoryRow;
-  let canonicalVersionId: string;
   let isNew = false;
   if (decision.noveltyClass === "existing_story_update" && matched) {
     const persisted = await persistCanonicalStoryReasoning({
@@ -1493,7 +1495,6 @@ async function promoteCandidate({
       },
     });
     story = persisted.story;
-    canonicalVersionId = persisted.version_id;
     isNew = persisted.created;
   } else {
     const usedSlugs = new Set(existingStories.map((item) => item.slug));
@@ -1521,7 +1522,6 @@ async function promoteCandidate({
       },
     });
     story = persisted.story;
-    canonicalVersionId = persisted.version_id;
     isNew = persisted.created;
   }
 
@@ -1625,7 +1625,7 @@ async function promoteCandidate({
     body: JSON.stringify({ promoted_story_id: story.id, candidate_status: "promoted", updated_at: new Date().toISOString() }),
   });
 
-  return { story, canonicalVersionId };
+  return story;
 }
 
 function lifecycleThemeState(status: EditionStory["lifecycleStatus"]): ThemeWatch["state"] {
@@ -1641,7 +1641,6 @@ function editionStory(
   story: StoryRow,
   parentStoryId: string,
   lifecycleStatus: CandidateWorking["lifecycleStatus"],
-  canonicalVersionId: string | null = null,
 ): EditionStory {
   const locked = applyExplanationPass({
     thesis: candidate.thesis,
@@ -1679,12 +1678,6 @@ function editionStory(
     prohibitedClaims: locked.prohibitedClaims,
     changeKinds: candidate.changeKinds,
     eventAt: new Date().toISOString(),
-    thesisVersionId: canonicalVersionId,
-    evidenceRefs: unique([
-      ...candidate.decisiveEvidenceIds,
-      ...candidate.acceptedExplanationEvidenceIds,
-      ...candidate.overlookedVariableEvidenceIds,
-    ]),
   };
 }
 
@@ -1750,7 +1743,12 @@ async function persistCanonicalStoryManifest({
   canonicalStoryStates: Awaited<ReturnType<typeof captureCanonicalStoryStates>>;
   publishedAt: string;
 }) {
-  const storySnapshotRows = await intelligenceRest<Array<{ id: string; story_id: string | null; payload: Record<string, unknown> }>>(
+  const storySnapshotRows = await intelligenceRest<Array<{
+    id: string;
+    story_id: string | null;
+    story_thesis_version_id: string | null;
+    payload: Record<string, unknown>;
+  }>>(
     "hybrid_publication_snapshots",
     {
       method: "POST",
@@ -1774,14 +1772,41 @@ async function persistCanonicalStoryManifest({
   const snapshotByStoryId = new Map(storySnapshotRows
     .filter((row) => row.story_id)
     .map((row) => [row.story_id as string, row]));
-  return canonicalStoryStates.map((story, index) => {
+  const persisted = canonicalStoryStates.map((story, index) => {
     const snapshot = snapshotByStoryId.get(story.id);
     const state = snapshot?.payload.canonicalStoryState;
     if (!state || typeof state !== "object" || Array.isArray(state)) {
       throw new Error(`Immutable Story snapshot was not persisted for edition Story ${story.id}.`);
     }
-    return { position: index + 1, snapshotId: snapshot.id, storyId: story.id, state };
+    const stateVersionId = story.thesisVersion?.id || null;
+    const thesisVersionId = snapshot.story_thesis_version_id;
+    if (stateVersionId && thesisVersionId !== stateVersionId) {
+      throw new Error(`Immutable Story snapshot thesis version mismatch for edition Story ${story.id}.`);
+    }
+    const candidateReasoning = snapshot.payload.canonicalStoryReasoning;
+    const reasoning = candidateReasoning
+      && typeof candidateReasoning === "object"
+      && !Array.isArray(candidateReasoning)
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).contractVersion === CANONICAL_STORY_REASONING_V1
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyId === story.id
+      && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyVersionId === thesisVersionId
+      ? candidateReasoning as CanonicalStoryReasoningV1
+      : null;
+    return {
+      manifest: { position: index + 1, snapshotId: snapshot.id, storyId: story.id, thesisVersionId, state },
+      journeySource: reasoning && thesisVersionId ? {
+        position: index + 1,
+        publicationSnapshotId: snapshot.id,
+        storyId: story.id,
+        thesisVersionId,
+        reasoning,
+      } satisfies JourneyStorySource : null,
+    };
   });
+  return {
+    manifest: persisted.map((entry) => entry.manifest),
+    journeySources: persisted.flatMap((entry) => entry.journeySource ? [entry.journeySource] : []),
+  };
 }
 
 /**
@@ -1807,7 +1832,7 @@ export async function persistCanonicalEditionForResearchRun({
   const researchRun = (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
     `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
   ))[0] || null;
-  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+  const { manifest: canonicalStoryManifest } = await persistCanonicalStoryManifest({
     researchRunId,
     canonicalStoryStates: await captureCanonicalStoryStates(),
     publishedAt: generatedAt,
@@ -1865,7 +1890,7 @@ async function persistDailyBrief({
         `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
       ))[0] || null
     : null;
-  const canonicalStoryManifest = await persistCanonicalStoryManifest({
+  const { manifest: canonicalStoryManifest, journeySources } = await persistCanonicalStoryManifest({
     researchRunId,
     canonicalStoryStates: await captureCanonicalStoryStates(),
     publishedAt: generatedAt,
@@ -1894,6 +1919,8 @@ async function persistDailyBrief({
     themeWatch: editionThemes(stories),
     watchlist: editionWatchlist(stories),
     upcoming: eventHorizon.upcoming,
+    journeyStorySources: journeySources,
+    marketEvents: eventHorizon.events,
     diagnostics: { warnings: eventHorizon.warnings, eventHorizonCoverage: eventHorizon.coverage },
   });
   await intelligenceRest("hybrid_publication_snapshots", {
@@ -2317,7 +2344,7 @@ export async function runIntelligenceEngine({
       if (!primaryHypothesis || !primaryChallenger) {
         throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
       }
-      const promoted = await promoteCandidate({
+      const promotedStory = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
         decision,
@@ -2329,9 +2356,9 @@ export async function runIntelligenceEngine({
         challenger: primaryChallenger,
         scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });
-      publishedStories.push(promoted.story);
-      editionStories.push(editionStory(candidate, promoted.story, decision.matchedStoryId || promoted.story.id, lifecycle, promoted.canonicalVersionId));
-      if (!stories.some((story) => story.id === promoted.story.id)) stories.push(promoted.story);
+      publishedStories.push(promotedStory);
+      editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
+      if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
     }
 
     if (!dryRun && editionStories.length) {

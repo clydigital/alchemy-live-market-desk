@@ -1,245 +1,279 @@
-import type {
-  EditionDiagnostics,
-  EditionStory,
-  EditionUpcoming,
-  MarketTape,
-  MechanismStep,
-} from "./edition";
+import type { EventHorizonCoverage } from "../event-horizon-acquisition.ts";
+import type { MarketEventV1, MarketEventTimePrecision } from "../market-events.ts";
+import {
+  CANONICAL_STORY_REASONING_V1,
+  type CanonicalAssetImplicationV1,
+  type CanonicalCausalEdgeV1,
+  type CanonicalClaimV1,
+  type CanonicalNextTestV1,
+  type CanonicalStoryReasoningV1,
+} from "./story-reasoning.ts";
+import type { EditionDiagnostics, EditionStory, MarketTape } from "./edition.ts";
 
 export const JOURNEY_BRIEFING_V1 = "journey-briefing/v1" as const;
 
-export type JourneyTimePrecision = "exact" | "date" | "window" | "tbc";
+export type JourneyStorySource = {
+  position: number;
+  publicationSnapshotId: string;
+  storyId: string;
+  thesisVersionId: string;
+  reasoning: CanonicalStoryReasoningV1;
+};
 
 export type JourneyTiming = {
   value: string | null;
   label: string | null;
-  precision: JourneyTimePrecision;
+  precision: MarketEventTimePrecision;
 };
 
 export type JourneyChronologyItem = {
   id: string;
-  lane: "story" | "economic_calendar" | "earnings" | "geopolitical_clock";
+  lane: "story" | "economic_calendar" | "earnings" | "geopolitical_clock" | "market_event";
   title: string;
   storyId: string | null;
+  thesisVersionId: string | null;
+  eventId: string | null;
   timing: JourneyTiming;
   evidenceRefs: string[];
 };
 
 export type JourneyBigStory = {
   storyId: string;
-  parentStoryId: string;
-  thesisVersionId: string | null;
+  publicationSnapshotId: string;
+  thesisVersionId: string;
   rank: number;
-  question: string;
+  question: string | null;
   headline: string;
-  whatChanged: string;
-  whereThingsStand: string;
+  lifecycle: CanonicalStoryReasoningV1["lifecycle"];
+  whatChanged: string | null;
+  previousState: string | null;
+  whereThingsStand: string | null;
+  facts: CanonicalClaimV1[];
   evidenceRefs: string[];
-  marketInterpretation: string;
+  marketInterpretation: string | null;
   alchemyInterpretation: string;
-  mechanism: MechanismStep[];
-  contradiction: string | null;
-  assetImplications: { assets: string[]; text: string };
-  nextTest: string;
-  invalidation: string;
+  mechanism: CanonicalCausalEdgeV1[];
+  contradiction: CanonicalStoryReasoningV1["countercase"];
+  overlookedVariable: CanonicalStoryReasoningV1["overlookedVariable"];
+  assetImplications: CanonicalAssetImplicationV1[];
+  nextTest: CanonicalNextTestV1 | null;
+  confirmation: string[];
+  invalidation: string[];
   confidence: number;
-  eventAt: string;
+  effectiveAt: string;
 };
 
 export type JourneyBriefingV1 = {
   contractVersion: typeof JOURNEY_BRIEFING_V1;
-  opening: {
-    headline: string;
-    summary: string;
-    marketState: string;
-  };
+  opening: { headline: string; summary: string; marketState: string };
   tape: MarketTape["assets"];
   bigStories: JourneyBigStory[];
   leadStoryId: string | null;
   chronology: JourneyChronologyItem[];
-  horizon: {
-    today: JourneyChronologyItem[];
-    tonight: JourneyChronologyItem[];
-    later: JourneyChronologyItem[];
-  };
+  horizon: { today: JourneyChronologyItem[]; tonight: JourneyChronologyItem[]; later: JourneyChronologyItem[] };
   closingMemory: {
     currentBias: string;
     biggestUnresolvedQuestion: string;
     nextDecisiveTest: string;
     whatWouldChangeTheView: string;
   };
-  diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage">;
+  diagnostics: { warnings: string[]; eventHorizonCoverage: EventHorizonCoverage[] };
 };
 
-type MaterialChange = {
-  rank: number;
-  headline: string;
-  whatChanged: string;
-  linkedStoryId: string;
-};
+type MaterialChange = Pick<EditionStory, "id">;
 
-function unique(values: string[]) {
-  return [...new Set(values.filter((value) => value.trim()))];
+function unique(values: Array<string | null | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value?.trim())))];
 }
 
-function datePart(value: string | null | undefined) {
-  if (!value) return null;
-  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
-  return match?.[1] || null;
+function storyEvidence(reasoning: CanonicalStoryReasoningV1) {
+  return unique([
+    ...reasoning.claims.flatMap((claim) => claim.evidenceIds),
+    ...reasoning.causalChain.flatMap((edge) => edge.evidenceIds),
+    ...reasoning.countercase.evidenceIds,
+    ...reasoning.overlookedVariable.evidenceIds,
+    ...reasoning.assetImplications.flatMap((impact) => impact.evidenceIds),
+    ...(reasoning.nextTest?.evidenceIds || []),
+    ...(reasoning.nextTest?.resolutionEvidenceIds || []),
+  ]);
 }
 
-function timeLabel(value: string | null | undefined) {
-  if (!value) return null;
-  const match = String(value).match(/^\d{4}-\d{2}-\d{2}\s*[·|]\s*(.+)$/);
-  return match?.[1]?.trim() || null;
-}
-
-function offsetAware(value: string) {
-  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value.trim());
-}
-
-function timing(value: string | null | undefined, explicitPrecision?: JourneyTimePrecision | null): JourneyTiming {
-  const raw = value ? String(value) : null;
-  const label = timeLabel(raw);
-  const date = datePart(raw);
-  if (explicitPrecision === "tbc") return { value: raw, label, precision: "tbc" };
-  if (explicitPrecision === "window") return { value: raw, label, precision: "window" };
-  if (explicitPrecision === "date" || date) return { value: raw, label, precision: "date" };
-  if (explicitPrecision === "exact" && raw && offsetAware(raw)) return { value: raw, label, precision: "exact" };
-  if (raw && offsetAware(raw)) return { value: raw, label, precision: "exact" };
-  return { value: raw, label, precision: "tbc" };
-}
-
-function chronologyId(lane: JourneyChronologyItem["lane"], title: string, rawTime: string | null) {
-  return `${lane}:${title}:${rawTime || "tbc"}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function storyEvidence(story: EditionStory) {
-  return unique(story.evidenceRefs || []);
-}
-
-function storyForMaterialChange(change: MaterialChange, stories: EditionStory[]): JourneyBigStory | null {
-  const story = stories.find((candidate) => candidate.id === change.linkedStoryId);
-  if (!story) return null;
+function journeyStory(source: JourneyStorySource, rank: number): JourneyBigStory {
+  const reasoning = source.reasoning;
   return {
-    storyId: story.id,
-    parentStoryId: story.parentStoryId,
-    thesisVersionId: story.thesisVersionId || null,
-    rank: change.rank,
-    question: story.centralQuestion,
-    headline: change.headline,
-    whatChanged: change.whatChanged,
-    whereThingsStand: story.currentState,
-    evidenceRefs: storyEvidence(story),
-    marketInterpretation: story.acceptedExplanation,
-    alchemyInterpretation: story.thesis,
-    mechanism: story.mechanismSteps.map((step) => ({ ...step })),
-    contradiction: story.contradiction.trim() ? story.contradiction : null,
-    assetImplications: { assets: [...story.affectedAssets], text: story.marketReaction },
-    nextTest: story.nextTest,
-    invalidation: story.invalidation,
-    confidence: story.confidence,
-    eventAt: story.eventAt,
+    storyId: source.storyId,
+    publicationSnapshotId: source.publicationSnapshotId,
+    thesisVersionId: source.thesisVersionId,
+    rank,
+    question: reasoning.centralQuestion,
+    headline: reasoning.title,
+    lifecycle: reasoning.lifecycle,
+    whatChanged: reasoning.whatChanged,
+    previousState: reasoning.previousState,
+    whereThingsStand: reasoning.currentState,
+    facts: reasoning.claims.filter((claim) => claim.type === "fact").map((claim) => ({ ...claim, evidenceIds: [...claim.evidenceIds] })),
+    evidenceRefs: storyEvidence(reasoning),
+    marketInterpretation: reasoning.acceptedExplanation,
+    alchemyInterpretation: reasoning.thesis,
+    mechanism: reasoning.causalChain.map((edge) => ({ ...edge, evidenceIds: [...edge.evidenceIds] })),
+    contradiction: { ...reasoning.countercase, evidenceIds: [...reasoning.countercase.evidenceIds] },
+    overlookedVariable: { ...reasoning.overlookedVariable, evidenceIds: [...reasoning.overlookedVariable.evidenceIds] },
+    assetImplications: reasoning.assetImplications.map((impact) => ({ ...impact, evidenceIds: [...impact.evidenceIds] })),
+    nextTest: reasoning.nextTest ? {
+      ...reasoning.nextTest,
+      evidenceIds: [...reasoning.nextTest.evidenceIds],
+      resolutionEvidenceIds: [...reasoning.nextTest.resolutionEvidenceIds],
+    } : null,
+    confirmation: [...reasoning.confirmation],
+    invalidation: [...reasoning.invalidation],
+    confidence: reasoning.confidence,
+    effectiveAt: reasoning.effectiveAt,
   };
 }
 
-function forwardItem(
-  lane: JourneyChronologyItem["lane"],
-  title: string,
-  rawTime: string | null,
-  explicitPrecision: JourneyTimePrecision | null,
-  evidenceRefs: string[] = [],
-): JourneyChronologyItem {
+function validJourneySource(source: JourneyStorySource) {
+  const reasoning = source.reasoning;
+  return source.position > 0
+    && Boolean(source.publicationSnapshotId)
+    && Boolean(source.storyId)
+    && Boolean(source.thesisVersionId)
+    && reasoning.contractVersion === CANONICAL_STORY_REASONING_V1
+    && reasoning.storyId === source.storyId
+    && reasoning.storyVersionId === source.thesisVersionId;
+}
+
+function orderedChangedStories(changes: MaterialChange[], sources: JourneyStorySource[], warnings: string[]) {
+  const changedIds = new Set(changes.map((change) => change.id));
+  const validSources = sources.filter(validJourneySource);
+  const sourceIds = new Set(validSources.map((source) => source.storyId));
+  const missing = [...changedIds].filter((storyId) => !sourceIds.has(storyId));
+  warnings.push(...missing.map((storyId) => `Journey omitted Story ${storyId}: exact immutable Canonical Story Reasoning V1 snapshot is unavailable.`));
+  return validSources
+    .filter((source) => changedIds.has(source.storyId))
+    .sort((left, right) => left.position - right.position)
+    .map((source, index) => journeyStory(source, index + 1));
+}
+
+function eventLane(event: MarketEventV1): JourneyChronologyItem["lane"] {
+  if (event.eventType === "earnings") return "earnings";
+  if (["geopolitical_meeting", "sanctions_or_policy_deadline", "energy_policy_meeting", "regulatory_or_legal_event"].includes(event.eventType)) return "geopolitical_clock";
+  if (["economic_release", "central_bank_decision", "central_bank_speech", "conference_or_symposium", "treasury_or_fiscal_event"].includes(event.eventType)) return "economic_calendar";
+  return "market_event";
+}
+
+function eventItem(event: MarketEventV1): JourneyChronologyItem {
   return {
-    id: chronologyId(lane, title, rawTime),
-    lane,
-    title,
-    storyId: null,
-    timing: timing(rawTime, explicitPrecision),
-    evidenceRefs: unique(evidenceRefs),
+    id: event.id,
+    lane: eventLane(event),
+    title: event.title,
+    storyId: event.linkedStoryIds[0] || null,
+    thesisVersionId: null,
+    eventId: event.id,
+    timing: { value: event.startAt, label: event.timeLabel, precision: event.timePrecision },
+    evidenceRefs: unique(event.sourceRecordRefs),
   };
 }
 
-function upcomingChronology(upcoming: EditionUpcoming) {
-  return [
-    ...upcoming.economicCalendar.map((item) => forwardItem(
-      "economic_calendar",
-      item.event,
-      item.time || null,
-      /^\d{4}-\d{2}-\d{2}$/.test(item.time) ? "date" : null,
-    )),
-    ...upcoming.earnings.map((item) => forwardItem(
-      "earnings",
-      `${item.company} earnings`,
-      item.time || null,
-      /^\d{4}-\d{2}-\d{2}$/.test(item.time) ? "date" : null,
-    )),
-    ...upcoming.geopoliticalClock.map((item) => forwardItem(
-      "geopolitical_clock",
-      item.event,
-      item.time,
-      item.timePrecision || null,
-    )),
-  ];
-}
-
-function chronologyFor(stories: JourneyBigStory[], upcoming: EditionUpcoming) {
-  const storyItems = stories.map((story) => ({
-    id: `story:${story.storyId}`,
-    lane: "story" as const,
-    title: story.headline,
+function storyChronologyItem(story: JourneyBigStory): JourneyChronologyItem {
+  return {
+    id: story.thesisVersionId,
+    lane: "story",
+    title: story.whatChanged || story.headline,
     storyId: story.storyId,
-    timing: timing(story.eventAt || null, "exact"),
+    thesisVersionId: story.thesisVersionId,
+    eventId: null,
+    timing: { value: story.effectiveAt, label: null, precision: "exact" },
     evidenceRefs: [...story.evidenceRefs],
-  }));
-  return [...storyItems, ...upcomingChronology(upcoming)].sort((left, right) => {
-    const leftDate = datePart(left.timing.value);
-    const rightDate = datePart(right.timing.value);
-    if (leftDate && rightDate && leftDate !== rightDate) return leftDate.localeCompare(rightDate);
-    if (leftDate && !rightDate) return -1;
-    if (!leftDate && rightDate) return 1;
-    return 0;
-  });
+  };
 }
 
-function horizonBuckets(items: JourneyChronologyItem[], generatedAt: string) {
-  const editionDate = datePart(generatedAt);
-  const today: JourneyChronologyItem[] = [];
-  const tonight: JourneyChronologyItem[] = [];
-  const later: JourneyChronologyItem[] = [];
-  for (const item of items.filter((candidate) => candidate.lane !== "story")) {
-    const label = item.timing.label || "";
-    if (datePart(item.timing.value) === editionDate && /tonight|evening|overnight/i.test(label)) tonight.push(item);
-    else if (datePart(item.timing.value) === editionDate) today.push(item);
-    else later.push(item);
+const KL_OFFSET_MS = 8 * 60 * 60 * 1_000;
+
+function localParts(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  const local = new Date(timestamp + KL_OFFSET_MS);
+  return { timestamp, date: local.toISOString().slice(0, 10), hour: local.getUTCHours() };
+}
+
+function eventDate(event: MarketEventV1) {
+  if (!event.startAt) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(event.startAt)) return event.startAt;
+  return localParts(event.startAt)?.date || null;
+}
+
+function nextDate(date: string) {
+  const parsed = Date.parse(`${date}T00:00:00Z`);
+  return Number.isFinite(parsed) ? new Date(parsed + 86_400_000).toISOString().slice(0, 10) : null;
+}
+
+function horizonBucket(event: MarketEventV1, generatedAt: string): "today" | "tonight" | "later" {
+  const generated = localParts(generatedAt);
+  const date = eventDate(event);
+  if (!generated || !date || event.timePrecision === "tbc") return "later";
+  if (event.timePrecision === "date" || event.timePrecision === "window") return date === generated.date ? "today" : "later";
+  const exact = event.startAt ? localParts(event.startAt) : null;
+  if (!exact) return "later";
+  if (date === generated.date) return exact.hour >= 18 ? "tonight" : "today";
+  if (date === nextDate(generated.date) && exact.hour < 6 && exact.timestamp - generated.timestamp <= 12 * 60 * 60 * 1_000) return "tonight";
+  return "later";
+}
+
+function splitEvents(events: MarketEventV1[], generatedAt: string) {
+  const generatedMs = Date.parse(generatedAt);
+  const chronology: JourneyChronologyItem[] = [];
+  const horizon = { today: [] as JourneyChronologyItem[], tonight: [] as JourneyChronologyItem[], later: [] as JourneyChronologyItem[] };
+  for (const event of events) {
+    if (event.status === "cancelled") continue;
+    const exactMs = event.timePrecision === "exact" && event.startAt ? Date.parse(event.startAt) : Number.NaN;
+    const completed = event.status === "completed" || (Number.isFinite(exactMs) && exactMs <= generatedMs);
+    if (completed) chronology.push(eventItem(event));
+    else horizon[horizonBucket(event, generatedAt)].push(eventItem(event));
   }
-  return { today, tonight, later };
+  const sort = (left: JourneyChronologyItem, right: JourneyChronologyItem) => {
+    const leftTime = Date.parse(left.timing.value || "");
+    const rightTime = Date.parse(right.timing.value || "");
+    if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) return leftTime - rightTime || left.id.localeCompare(right.id);
+    if (Number.isFinite(leftTime)) return -1;
+    if (Number.isFinite(rightTime)) return 1;
+    return left.id.localeCompare(right.id);
+  };
+  chronology.sort(sort);
+  horizon.today.sort(sort);
+  horizon.tonight.sort(sort);
+  horizon.later.sort(sort);
+  return { chronology, horizon };
+}
+
+function noPortfolioBias(marketTape: MarketTape) {
+  return marketTape.assets.length ? marketTape.regimeSummary : "No single portfolio-wide bias is canonically supported for this edition.";
 }
 
 export function composeJourneyBriefing({
   generatedAt,
-  stories,
   changes,
+  journeyStorySources,
   marketTape,
-  upcoming,
+  marketEvents,
   diagnostics,
   finalBoard,
 }: {
   generatedAt: string;
   stories: EditionStory[];
   changes: MaterialChange[];
+  journeyStorySources: JourneyStorySource[];
   marketTape: MarketTape;
-  upcoming: EditionUpcoming;
+  marketEvents: MarketEventV1[];
   diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage">;
   finalBoard: AlchemyFinalBoard;
 }): JourneyBriefingV1 {
-  const bigStories = changes
-    .slice(0, 3)
-    .map((change) => storyForMaterialChange(change, stories))
-    .filter((story): story is JourneyBigStory => Boolean(story));
+  const warnings = [...new Set(diagnostics.warnings)];
+  const bigStories = orderedChangedStories(changes, journeyStorySources, warnings);
   const lead = bigStories[0] || null;
-  const chronology = chronologyFor(bigStories, upcoming);
-  const horizon = horizonBuckets(chronology, generatedAt);
+  const temporal = splitEvents(marketEvents, generatedAt);
+  const chronology = [...bigStories.map(storyChronologyItem), ...temporal.chronology]
+    .sort((left, right) => (Date.parse(left.timing.value || "") || 0) - (Date.parse(right.timing.value || "") || 0) || left.id.localeCompare(right.id));
+  const nextEvent = [...temporal.horizon.today, ...temporal.horizon.tonight, ...temporal.horizon.later][0] || null;
 
   return {
     contractVersion: JOURNEY_BRIEFING_V1,
@@ -252,16 +286,16 @@ export function composeJourneyBriefing({
     bigStories,
     leadStoryId: lead?.storyId || null,
     chronology,
-    horizon,
+    horizon: temporal.horizon,
     closingMemory: {
-      currentBias: lead?.alchemyInterpretation || finalBoard.highestConvictionChange,
-      biggestUnresolvedQuestion: lead?.question || finalBoard.biggestUnresolvedContradiction,
-      nextDecisiveTest: lead?.nextTest || finalBoard.mostImportantMacroTest,
-      whatWouldChangeTheView: lead?.invalidation || finalBoard.riskToRespect,
+      currentBias: noPortfolioBias(marketTape),
+      biggestUnresolvedQuestion: lead?.contradiction.strongest || lead?.question || finalBoard.biggestUnresolvedContradiction,
+      nextDecisiveTest: lead?.nextTest?.label || nextEvent?.title || finalBoard.mostImportantMacroTest,
+      whatWouldChangeTheView: lead?.invalidation.join("; ") || finalBoard.riskToRespect,
     },
     diagnostics: {
-      warnings: [...new Set(diagnostics.warnings)],
-      eventHorizonCoverage: diagnostics.eventHorizonCoverage,
+      warnings: [...new Set(warnings)],
+      eventHorizonCoverage: (diagnostics.eventHorizonCoverage || []).map((item) => ({ ...item })),
     },
   };
 }
