@@ -241,7 +241,8 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(continuationHandler, /runWithIntelligenceInvocation\(\{ oneModelStage: true \}/);
   assert.match(continuationHandler, /stageMaxAttempts:\s*1/);
   assert.doesNotMatch(continuationHandler, /scheduledExecutionStartedAtMs:/);
-  assert.match(continuationHandler, /persistCanonicalEditionForResearchRun/);
+  assert.match(continuationHandler, /persistCanonicalJourneyEditionForResearchRun/);
+  assert.doesNotMatch(continuationHandler, /persistCanonicalEditionForResearchRun/);
 
   const schedules = vercelConfig.crons
     .map((cron) => `${cron.path} ${cron.schedule}`)
