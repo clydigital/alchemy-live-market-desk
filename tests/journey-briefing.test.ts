@@ -81,8 +81,16 @@ test("sparse edition does not manufacture additional big stories", () => {
 });
 
 test("Event Horizon degradation remains visible and does not gate the Journey", () => {
+  const base = board([story("fed")]);
   const result = composeAlchemyEdition({
-    ...board([story("fed")]),
+    generatedAt: base.generatedAt,
+    comparisonWindowStart: base.comparisonWindowStart,
+    stories: base.stories,
+    marketTape: base.marketTape,
+    upcoming: {
+      ...base.upcoming,
+      economicCalendar: [{ time: "2026-08-27", event: "Fed appearance", consensus: null, prior: null, exposedAssets: ["USD"], whyItMatters: "Does communication change the policy path?" }],
+    },
     diagnostics: {
       warnings: ["Energy source_failed", "Geopolitical coverage unsupported"],
       eventHorizonCoverage: [
@@ -93,6 +101,7 @@ test("Event Horizon degradation remains visible and does not gate the Journey", 
     },
   });
   assert.equal(result.journey?.bigStories.length, 1);
+  assert.equal(result.journey?.horizon.later[0]?.title, "Fed appearance");
   assert.deepEqual(result.journey?.diagnostics.warnings, ["Energy source_failed", "Geopolitical coverage unsupported"]);
   assert.equal(result.journey?.diagnostics.eventHorizonCoverage?.find((item) => item.family === "energy_policy")?.state, "source_failed");
 });
