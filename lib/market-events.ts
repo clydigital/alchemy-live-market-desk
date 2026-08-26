@@ -129,11 +129,11 @@ function canonicalOccurrenceKey(value: unknown) {
   return clean(value).toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-export function marketEventSignature(input: Pick<MarketEventV1, "eventType" | "title" | "occurrenceKey">) {
-  return [input.eventType, canonicalTitle(input.title), canonicalOccurrenceKey(input.occurrenceKey)].join("|");
+export function marketEventSignature(input: Pick<MarketEventV1, "eventType" | "occurrenceKey">) {
+  return [input.eventType, canonicalOccurrenceKey(input.occurrenceKey)].join("|");
 }
 
-function stableId(input: Pick<MarketEventV1, "eventType" | "title" | "occurrenceKey">) {
+function stableId(input: Pick<MarketEventV1, "eventType" | "occurrenceKey">) {
   const key = marketEventSignature(input);
   return `mev_${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
 }
@@ -175,7 +175,7 @@ export function normaliseMarketEvent(input: MarketEventInput): MarketEventV1 | n
   const occurrenceKey = canonicalOccurrenceKey(input.occurrenceKey) || canonicalTitle(title);
   const event: MarketEventV1 = {
     version: MARKET_EVENT_VERSION,
-    id: stableId({ eventType, title, occurrenceKey }),
+    id: stableId({ eventType, occurrenceKey }),
     occurrenceKey,
     eventType,
     title,

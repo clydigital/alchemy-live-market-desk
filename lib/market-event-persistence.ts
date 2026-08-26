@@ -1,5 +1,11 @@
 import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
+function restoreDateOnly(value: string | null | undefined) {
+  if (!value) return value || null;
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+  return match?.[1] || value;
+}
+
 export type MarketEventRow = {
   event_key: string;
   occurrence_key: string;
@@ -64,16 +70,19 @@ export function marketEventToRow(event: MarketEventV1): MarketEventRow {
 
 export function marketEventFromRow(row: Partial<MarketEventRow>): MarketEventV1 | null {
   const payload = row.payload && typeof row.payload === "object" ? row.payload : {};
+  const timePrecision = row.time_precision || (payload as MarketEventV1).timePrecision;
+  const storedStartAt = row.start_at || (payload as MarketEventV1).startAt;
+  const storedEndAt = row.end_at || (payload as MarketEventV1).endAt;
   return normaliseMarketEvent({
     ...payload,
     id: row.event_key || (payload as MarketEventV1).id,
     occurrenceKey: row.occurrence_key || (payload as MarketEventV1).occurrenceKey,
     eventType: row.event_type || (payload as MarketEventV1).eventType,
     title: row.title || (payload as MarketEventV1).title,
-    startAt: row.start_at || (payload as MarketEventV1).startAt,
-    endAt: row.end_at || (payload as MarketEventV1).endAt,
+    startAt: timePrecision === "date" ? restoreDateOnly(storedStartAt) : storedStartAt,
+    endAt: timePrecision === "date" ? restoreDateOnly(storedEndAt) : storedEndAt,
     timeLabel: row.time_label || (payload as MarketEventV1).timeLabel,
-    timePrecision: row.time_precision || (payload as MarketEventV1).timePrecision,
+    timePrecision,
     status: row.status || (payload as MarketEventV1).status,
     verificationState: row.verification_state || (payload as MarketEventV1).verificationState,
     participants: row.participants || (payload as MarketEventV1).participants,

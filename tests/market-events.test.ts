@@ -137,7 +137,38 @@ test("preserves the canonical event key through a date-only persistence round tr
 
   assert.equal(roundTrip?.id, original.id);
   assert.equal(roundTrip?.occurrenceKey, original.occurrenceKey);
+  assert.equal(roundTrip?.startAt, "2026-09-15");
   assert.equal(roundTrip?.timePrecision, "date");
+});
+
+test("ignores mutable title wording when the event type and occurrence key match", () => {
+  const first = normaliseMarketEvent({
+    occurrenceKey: "central-bank:2026-09",
+    eventType: "central_bank_decision",
+    title: "Federal Reserve rate decision",
+    startAt: "2026-09-16",
+    sourceName: "Source A",
+    sourceUrl: "https://www.example.gov/a",
+    sourceRecordRefs: ["source-a:2026-09"],
+    updatedAt: "2026-08-26T00:00:00.000Z",
+  })!;
+  const second = normaliseMarketEvent({
+    occurrenceKey: "central-bank:2026-09",
+    eventType: "central_bank_decision",
+    title: "FOMC September policy announcement",
+    startAt: "2026-09-16",
+    sourceName: "Source B",
+    sourceUrl: "https://www.example.gov/b",
+    sourceRecordRefs: ["source-b:2026-09"],
+    updatedAt: "2026-08-26T01:00:00.000Z",
+  })!;
+
+  const [event] = dedupeMarketEvents([first, second]);
+  assert.equal(first.id, second.id);
+  assert.equal(marketEventSignature(first), marketEventSignature(second));
+  assert.equal(event.title, second.title);
+  assert.deepEqual(event.sourceUrls, ["https://www.example.gov/a", "https://www.example.gov/b"]);
+  assert.deepEqual(event.sourceRecordRefs, ["source-a:2026-09", "source-b:2026-09"]);
 });
 
 test("keeps one canonical occurrence when TBC becomes dated", () => {
