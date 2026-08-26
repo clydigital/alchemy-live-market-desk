@@ -4,6 +4,7 @@
 create table if not exists public.market_events (
   id uuid primary key default gen_random_uuid(),
   event_key text not null unique,
+  occurrence_key text not null,
   event_type text not null check (event_type in (
     'economic_release', 'central_bank_decision', 'central_bank_speech',
     'conference_or_symposium', 'geopolitical_meeting',

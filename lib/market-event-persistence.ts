@@ -1,7 +1,8 @@
-import { normaliseMarketEvent, type MarketEventV1 } from "@/lib/market-events";
+import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
 export type MarketEventRow = {
   event_key: string;
+  occurrence_key: string;
   event_type: MarketEventV1["eventType"];
   title: string;
   start_at: string | null;
@@ -32,6 +33,7 @@ export type MarketEventRow = {
 export function marketEventToRow(event: MarketEventV1): MarketEventRow {
   return {
     event_key: event.id,
+    occurrence_key: event.occurrenceKey,
     event_type: event.eventType,
     title: event.title,
     start_at: event.startAt,
@@ -65,6 +67,7 @@ export function marketEventFromRow(row: Partial<MarketEventRow>): MarketEventV1 
   return normaliseMarketEvent({
     ...payload,
     id: row.event_key || (payload as MarketEventV1).id,
+    occurrenceKey: row.occurrence_key || (payload as MarketEventV1).occurrenceKey,
     eventType: row.event_type || (payload as MarketEventV1).eventType,
     title: row.title || (payload as MarketEventV1).title,
     startAt: row.start_at || (payload as MarketEventV1).startAt,

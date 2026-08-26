@@ -24,6 +24,8 @@ export type MarketEventVerificationState = "official" | "corroborated" | "report
 export type MarketEventV1 = {
   version: typeof MARKET_EVENT_VERSION;
   id: string;
+  /** Stable identity for the real-world occurrence; timing is mutable schedule data. */
+  occurrenceKey: string;
   eventType: MarketEventType;
   title: string;
   startAt: string | null;
@@ -61,6 +63,7 @@ export type EarningsMarketEventInput = {
   id: string;
   companyName: string;
   callDate: string;
+  occurrenceKey?: string;
   sourceUrl?: string | null;
   timeLabel?: string | null;
   linkedStoryIds?: string[];
@@ -122,16 +125,15 @@ function canonicalTitle(value: unknown) {
   return clean(value).toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function canonicalTime(value: string | null) {
-  const offsetAware = offsetAwareTimestamp(value);
-  return offsetAware ? new Date(offsetAware).toISOString() : value || "";
+function canonicalOccurrenceKey(value: unknown) {
+  return clean(value).toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-export function marketEventSignature(input: Pick<MarketEventV1, "eventType" | "title" | "startAt" | "endAt">) {
-  return [input.eventType, canonicalTitle(input.title), canonicalTime(input.startAt), canonicalTime(input.endAt)].join("|");
+export function marketEventSignature(input: Pick<MarketEventV1, "eventType" | "title" | "occurrenceKey">) {
+  return [input.eventType, canonicalTitle(input.title), canonicalOccurrenceKey(input.occurrenceKey)].join("|");
 }
 
-function stableId(input: Pick<MarketEventV1, "eventType" | "title" | "startAt" | "endAt">) {
+function stableId(input: Pick<MarketEventV1, "eventType" | "title" | "occurrenceKey">) {
   const key = marketEventSignature(input);
   return `mev_${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
 }
@@ -169,10 +171,13 @@ export function normaliseMarketEvent(input: MarketEventInput): MarketEventV1 | n
   const sourceUrls = list([...(input.sourceUrls || []), sourceUrl]);
   const timePrecision = inferPrecision(startAt, input.timePrecision);
   if (timePrecision === "exact" && !offsetAwareTimestamp(input.startAt)) return null;
+  const eventType = input.eventType || "other_verified_market_event";
+  const occurrenceKey = canonicalOccurrenceKey(input.occurrenceKey) || canonicalTitle(title);
   const event: MarketEventV1 = {
     version: MARKET_EVENT_VERSION,
-    id: stableId({ eventType: input.eventType || "other_verified_market_event", title, startAt, endAt }),
-    eventType: input.eventType || "other_verified_market_event",
+    id: stableId({ eventType, title, occurrenceKey }),
+    occurrenceKey,
+    eventType,
     title,
     startAt,
     endAt,
@@ -202,10 +207,14 @@ export function normaliseMarketEvent(input: MarketEventInput): MarketEventV1 | n
 
 export function marketEventFromEconomicCalendar(event: EconomicCalendarEvent): MarketEventV1 | null {
   const centralBank = event.category === "Central bank";
+  const occurrenceKey = event.referencePeriod
+    ? `calendar:${event.event}:${event.referencePeriod}`
+    : `calendar:${event.id}`;
   return normaliseMarketEvent({
     id: `calendar:${event.id}`,
     eventType: centralBank ? "central_bank_decision" : "economic_release",
     title: event.event,
+    occurrenceKey,
     startAt: event.date,
     timeLabel: event.timeLabel,
     timePrecision: offsetAwareTimestamp(event.date) ? "exact" : dateOnly(event.date) ? "date" : "tbc",
@@ -224,6 +233,7 @@ export function marketEventFromEconomicCalendar(event: EconomicCalendarEvent): M
 export function marketEventFromEarnings(input: EarningsMarketEventInput): MarketEventV1 | null {
   return normaliseMarketEvent({
     id: `earnings:${input.id}`,
+    occurrenceKey: input.occurrenceKey || `earnings:${input.companyName}:${input.id}`,
     eventType: "earnings",
     title: `${input.companyName} earnings`,
     startAt: input.callDate,
@@ -247,6 +257,7 @@ export function marketEventFromEarningsCallRow(row: EarningsCallMarketEventRow):
     id: row.id,
     companyName: row.company_name,
     callDate: row.call_date || "",
+    occurrenceKey: `earnings:${row.ticker}:${row.fiscal_period}`,
     timeLabel: row.event_time_label,
     sourceUrl: row.source_url,
     affectedAssets: [row.ticker],
