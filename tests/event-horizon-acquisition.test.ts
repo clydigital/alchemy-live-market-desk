@@ -64,7 +64,7 @@ test("source failure and unsupported families remain machine-readable blind spot
   assert.equal(result.warnings.length, 2);
 });
 
-test("unavailable endpoints and stale feeds are distinct from an operational empty source", async () => {
+test("unavailable endpoints and stale empty feeds are distinct from an operational empty source", async () => {
   const unavailable = await acquireEventHorizonEvents({
     now,
     fetchImpl: async (input) => responseFor(String(input), "not found", 404),
@@ -81,6 +81,22 @@ test("unavailable endpoints and stale feeds are distinct from an operational emp
     ),
   });
   assert.equal(stale.coverage.find((item) => item.family === "central_bank_appearances")?.state, "stale");
+});
+
+test("old document metadata does not stale a Fed or OPEC family with future canonical events", async () => {
+  const result = await acquireEventHorizonEvents({
+    now,
+    fetchImpl: async (input) => responseFor(
+      String(input),
+      String(input).includes("federalreserve")
+        ? JSON.stringify({ events: [{ title: "Speech - Governor Example", month: "2026-08", days: "28", type: "Speeches" }] })
+        : "Hold the 42nd OPEC and non-OPEC Ministerial Meeting on 29 November 2026.",
+      200,
+      { "last-modified": "Wed, 01 Jul 2026 00:00:00 GMT" },
+    ),
+  });
+  assert.equal(result.coverage.find((item) => item.family === "central_bank_appearances")?.state, "covered");
+  assert.equal(result.coverage.find((item) => item.family === "energy_policy")?.state, "covered");
 });
 
 test("confirmed timing and source wording dedupe against the same OPEC occurrence", () => {

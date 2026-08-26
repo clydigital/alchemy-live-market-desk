@@ -38,7 +38,8 @@ function occurrencePart(value: string) { return value.toLowerCase().replace(/[^a
 function coverage(family: EventHorizonCoverage["family"], state: EventHorizonCoverageState, sourceName: string | null, sourceUrl: string | null, retrievedAt: string, confirmedEventCount: number, detail: string): EventHorizonCoverage {
   return { family, state, sourceName, sourceUrl, retrievedAt, confirmedEventCount, detail };
 }
-function responseState(response: Response, now: Date): Extract<EventHorizonCoverageState, "covered" | "stale"> {
+function responseState(response: Response, now: Date, confirmedEventCount: number): Extract<EventHorizonCoverageState, "covered" | "stale"> {
+  if (confirmedEventCount > 0) return "covered";
   const lastModified = Date.parse(response.headers.get("last-modified") || "");
   return Number.isFinite(lastModified) && now.getTime() - lastModified > STALE_SOURCE_AGE_MS ? "stale" : "covered";
 }
@@ -103,7 +104,7 @@ async function acquireFed(fetchImpl: typeof fetch, now: Date): Promise<{ events:
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const events = parseFederalReserveCalendar(await response.json() as FedCalendarPayload, now);
-    const state = responseState(response, now);
+    const state = responseState(response, now, events.length);
     return { events, coverage: coverage("central_bank_appearances", state, "Federal Reserve Board calendar", FED_CALENDAR_URL, now.toISOString(), events.length, state === "stale" ? "Official Fed calendar response is stale." : events.length ? "Official upcoming Fed appearances acquired." : "Official calendar returned no future speeches or testimony.") };
   } catch (error) {
     return { events: [], coverage: coverage("central_bank_appearances", "source_failed", "Federal Reserve Board calendar", FED_CALENDAR_URL, now.toISOString(), 0, "Official Fed calendar acquisition failed."), warning: `Federal Reserve calendar unavailable: ${error instanceof Error ? error.message : String(error)}` };
@@ -118,7 +119,7 @@ async function acquireOpec(fetchImpl: typeof fetch, now: Date): Promise<{ events
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const events = parseOpecForwardMeetings(await response.text(), OPEC_PRESS_ROOM_URL, now);
-    const state = responseState(response, now);
+    const state = responseState(response, now, events.length);
     return { events, coverage: coverage("energy_policy", state, "OPEC official press room", OPEC_PRESS_ROOM_URL, now.toISOString(), events.length, state === "stale" ? "Official OPEC source response is stale." : events.length ? "Officially announced OPEC forward meetings acquired." : "Official OPEC source returned no confirmed forward meeting." ) };
   } catch (error) {
     return { events: [], coverage: coverage("energy_policy", "source_failed", "OPEC official press room", OPEC_PRESS_ROOM_URL, now.toISOString(), 0, "Official OPEC source acquisition failed."), warning: `OPEC schedule unavailable: ${error instanceof Error ? error.message : String(error)}` };
