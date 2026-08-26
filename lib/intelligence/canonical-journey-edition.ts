@@ -3,7 +3,7 @@ import "server-only";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { composeAlchemyEdition, type AlchemyEdition } from "@/lib/intelligence/edition";
-import type { JourneyStorySource } from "@/lib/intelligence/journey-briefing";
+import { JOURNEY_BRIEFING_V1, type JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import {
   CANONICAL_STORY_REASONING_V1,
   type CanonicalStoryReasoningV1,
@@ -11,8 +11,6 @@ import {
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 import { buildEditionEventHorizon } from "@/lib/market-event-runtime";
 import { getStoryHeaderImages } from "@/lib/story-images";
-
-const JOURNEY_BRIEFING_V1 = "journey-briefing/v1";
 
 type StorySnapshotRow = {
   id: string;
@@ -188,11 +186,9 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
-  const eventHorizon = await buildEditionEventHorizon(canonicalStoryStates.map((story) => ({
-    id: story.id,
-    title: story.title,
-    assets: story.assets,
-  })));
+  // A zero-change edition must not attach current Story IDs to forward events.
+  // Event acquisition/coverage is still canonical, but Story linkage remains empty.
+  const eventHorizon = await buildEditionEventHorizon([]);
 
   const edition = composeAlchemyEdition({
     generatedAt,
