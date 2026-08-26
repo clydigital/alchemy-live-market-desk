@@ -116,18 +116,28 @@ export type EarningsItem = {
 };
 
 export type GeopoliticalClockItem = {
-  time: string;
+  time: string | null;
   event: string;
   participants: string[];
   transmission: string;
   decisiveOutcome: string;
   scheduled: boolean;
+  eventType?: string;
+  timePrecision?: "exact" | "date" | "window" | "tbc";
+  verificationState?: "official" | "corroborated" | "reported" | "unverified";
+  affectedAssets?: string[];
+  sourceName?: string | null;
+  sourceUrl?: string | null;
 };
 
 export type EditionUpcoming = {
   economicCalendar: EconomicCalendarItem[];
   earnings: EarningsItem[];
   geopoliticalClock: GeopoliticalClockItem[];
+};
+
+export type EditionDiagnostics = {
+  warnings: string[];
 };
 
 export type AlchemyEdition = {
@@ -154,6 +164,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  diagnostics?: EditionDiagnostics;
   finalBoard: {
     highestConvictionChange: string;
     biggestUnresolvedContradiction: string;
@@ -246,7 +257,11 @@ export function normaliseWatchlist(items: WatchlistItem[]) {
 }
 
 export function scheduledGeopoliticalEvents(items: GeopoliticalClockItem[]) {
-  return items.filter((item) => item.scheduled && Number.isFinite(Date.parse(item.time)) && item.event.trim().length > 0);
+  return items.filter((item) => {
+    if (!item.scheduled || !item.event.trim()) return false;
+    if (item.timePrecision === "tbc") return true;
+    return Boolean(item.time && Number.isFinite(Date.parse(item.time)));
+  });
 }
 
 function emptyUpcoming(): EditionUpcoming {
@@ -264,6 +279,7 @@ export function composeAlchemyEdition({
   watchlist = [],
   positioningAnomaly = null,
   upcoming = emptyUpcoming(),
+  diagnostics = { warnings: [] },
 }: {
   generatedAt: string;
   comparisonWindowStart: string;
@@ -275,6 +291,7 @@ export function composeAlchemyEdition({
   watchlist?: WatchlistItem[];
   positioningAnomaly?: PositioningAnomaly | null;
   upcoming?: EditionUpcoming;
+  diagnostics?: EditionDiagnostics;
 }): AlchemyEdition {
   const changes = selectMaterialChanges(stories, previousEdition);
   const normalisedWatchlist = normaliseWatchlist(watchlist);
@@ -312,6 +329,7 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    diagnostics: { warnings: [...new Set(diagnostics.warnings)] },
     finalBoard: {
       highestConvictionChange: lead?.whatChanged || "No material change is available.",
       biggestUnresolvedContradiction: contradiction,
