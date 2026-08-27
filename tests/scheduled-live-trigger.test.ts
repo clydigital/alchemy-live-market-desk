@@ -134,9 +134,9 @@ test("workflow schedules primary and rescue passes well before the 10am and 10pm
   const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/admin/research/scheduled-run/route.ts", import.meta.url), "utf8");
 
-  assert.match(workflow, /cron: "45 0 \* \* \*"/);
+  assert.match(workflow, /cron: "55 0 \* \* \*"/);
   assert.match(workflow, /cron: "30 1 \* \* \*"/);
-  assert.match(workflow, /cron: "45 12 \* \* \*"/);
+  assert.match(workflow, /cron: "55 12 \* \* \*"/);
   assert.match(workflow, /cron: "30 13 \* \* \*"/);
   assert.match(workflow, /api\/admin\/research\/scheduled-run/);
   assert.match(workflow, /for attempt in \{1\.\.10\}/);
