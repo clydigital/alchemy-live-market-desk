@@ -8,27 +8,27 @@ import {
   scheduledVideoSlotForDesk,
 } from "../lib/scheduled-video-identity.ts";
 
-test("desk checkpoint lookup uses the exact video run identity produced by each dedicated cycle", () => {
-  const midnight = scheduledVideoRunIdentity(
+test("desk checkpoint lookup uses the exact 15-minute video preflight identity", () => {
+  const morning = scheduledVideoRunIdentity(
     scheduledVideoSlotForDesk("morning"),
-    new Date("2026-08-16T16:40:00.000Z"),
+    new Date("2026-08-17T01:00:00.000Z"),
   );
-  const lateMorning = scheduledVideoRunIdentity(
+  const evening = scheduledVideoRunIdentity(
     scheduledVideoSlotForDesk("evening"),
-    new Date("2026-08-17T03:30:00.000Z"),
+    new Date("2026-08-17T13:00:00.000Z"),
   );
 
-  assert.deepEqual(midnight, {
+  assert.deepEqual(morning, {
     runKey: "video_midnight-2026-08-17",
-    scheduledFor: "2026-08-17T00:40:00+08:00",
+    scheduledFor: "2026-08-17T09:00:00+08:00",
   });
-  assert.deepEqual(lateMorning, {
+  assert.deepEqual(evening, {
     runKey: "video_late_morning-2026-08-17",
-    scheduledFor: "2026-08-17T11:30:00+08:00",
+    scheduledFor: "2026-08-17T21:00:00+08:00",
   });
   assert.deepEqual(SCHEDULED_VIDEO_CRON_UTC, {
-    video_midnight: "40 16 * * *",
-    video_late_morning: "30 3 * * *",
+    video_midnight: "0 1 * * *",
+    video_late_morning: "0 13 * * *",
   });
 });
 
