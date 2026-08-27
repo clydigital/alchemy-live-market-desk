@@ -9,6 +9,7 @@ const authorized = async () => ({
   actor: "production-operator",
   githubRunId: "123456",
   workflowSha: "abc123",
+  eventName: "workflow_dispatch" as const,
 });
 
 function request(body: unknown, authorization = "Bearer short-lived-oidc-token") {
