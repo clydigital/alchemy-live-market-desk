@@ -349,10 +349,11 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
 export async function recoverStaleVideoRuns(input: {
   slot: VideoResearchSlot;
   maxAgeMs?: number;
+  now?: Date;
   client?: SupabaseClient;
 }) {
   const client = input.client ?? createSupabaseAdminClient();
-  const now = new Date();
+  const now = input.now ?? new Date();
   const maxAgeMs = input.maxAgeMs ?? 15 * 60 * 1_000; // 15 minutes default
   const cutoff = new Date(now.getTime() - maxAgeMs).toISOString();
 
@@ -363,30 +364,39 @@ export async function recoverStaleVideoRuns(input: {
     .eq("status", "running")
     .lt("last_heartbeat_at", cutoff);
 
-  if (queryError || !staleSlotRuns || !staleSlotRuns.length) return { recoveredCount: 0 };
+  throwIfError(queryError, "Could not query stale video slot runs");
+  if (!staleSlotRuns?.length) return { recoveredCount: 0 };
 
   let recoveredCount = 0;
+  const recoveredRunIds = new Set<string>();
   for (const slotRun of staleSlotRuns) {
     const runId = slotRun.research_run_id;
+    if (recoveredRunIds.has(runId)) continue;
+    recoveredRunIds.add(runId);
     const summaryNote = `Stale video run abandoned (no heartbeat since ${slotRun.last_heartbeat_at}). Terminal state marked by watchdog/reaper.`;
 
-    const { data: run } = await client
+    const { data: run, error: runReadError } = await client
       .from("research_runs")
       .select("process_log, warnings")
       .eq("id", runId)
       .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+    throwIfError(runReadError, `Could not read stale video research run ${runId}`);
+    if (!run) throw new Error(`Could not recover stale video research run ${runId}: research run not found.`);
 
     const processLog = [...(run?.process_log || [])];
-    processLog.push({
-      stage: "stale_run_recovery",
-      status: "failed",
-      reason: "abandoned_timeout",
-      timestamp: now.toISOString(),
-    });
+    if (!processLog.some((entry) => entry.stage === "stale_run_recovery")) {
+      processLog.push({
+        stage: "stale_run_recovery",
+        status: "failed",
+        reason: "abandoned_timeout",
+        timestamp: now.toISOString(),
+      });
+    }
 
-    const warnings = [...(run?.warnings || []), summaryNote];
+    const warnings = [...(run?.warnings || [])];
+    if (!warnings.includes(summaryNote)) warnings.push(summaryNote);
 
-    await client.from("research_runs").update({
+    const { error: runUpdateError } = await client.from("research_runs").update({
       completed_at: now.toISOString(),
       status: "failed",
       summary: summaryNote,
@@ -394,8 +404,9 @@ export async function recoverStaleVideoRuns(input: {
       warnings,
       updated_at: now.toISOString(),
     }).eq("id", runId);
+    throwIfError(runUpdateError, `Could not mark stale video research run ${runId} failed`);
 
-    await client.from("research_slot_runs").update({
+    const { error: slotUpdateError } = await client.from("research_slot_runs").update({
       completed_at: now.toISOString(),
       last_heartbeat_at: now.toISOString(),
       status: "failed",
@@ -406,6 +417,7 @@ export async function recoverStaleVideoRuns(input: {
       warnings,
       updated_at: now.toISOString(),
     }).eq("research_run_id", runId);
+    throwIfError(slotUpdateError, `Could not mark stale video slot run ${runId} failed`);
 
     recoveredCount += 1;
   }
@@ -659,13 +671,14 @@ export async function ensureVideoIntakeItem(input: {
   throwIfError(readError, "Could not read the canonical video intake item");
   if (existing) {
     const { error } = await client.from("research_intake_items").update({
+      run_id: input.runId,
       title: input.video.title,
       url: input.video.url,
       published_at: input.video.publishedAt,
       updated_at: new Date().toISOString(),
     }).eq("id", existing.id);
     throwIfError(error, "Could not refresh video intake metadata");
-    return toIntakeItem(existing);
+    return toIntakeItem({ ...existing, run_id: input.runId });
   }
   const { data, error } = await client.from("research_intake_items").insert({
     run_id: input.runId,
@@ -778,6 +791,8 @@ export async function finalizeVideoIntakeRun(input: {
   }).eq("id", input.runId);
   throwIfError(error, "Could not finalize the video intake research run");
   const transcriptStatus = failures.length || knownUnavailableVideos.length ? (ready ? "partial" : "blocked") : deferredVideoIds.length ? "partial" : "complete";
+  const discoveryStage = processLog.find((entry) => entry.stage === "youtube_discovery_complete") ?? null;
+  const transcriptStage = processLog.find((entry) => entry.stage === "transcribe_and_review_videos") ?? null;
   const { error: slotError } = await client.from("research_slot_runs").update({
     completed_at: completedAt,
     last_heartbeat_at: completedAt,
@@ -790,7 +805,12 @@ export async function finalizeVideoIntakeRun(input: {
     hybrid_handoff_status: "not_required",
     videos_detected: input.results.length + knownUnavailableVideos.length + deferredVideoIds.length,
     transcripts_saved: ready,
-    stage_summary: { discovery: processLog[0], transcript: processLog[1] },
+    stage_summary: {
+      lastStage: "source_checks_finalized",
+      lastStatus: "complete",
+      discovery: discoveryStage,
+      transcript: transcriptStage,
+    },
     warnings,
     updated_at: completedAt,
   }).eq("research_run_id", input.runId);

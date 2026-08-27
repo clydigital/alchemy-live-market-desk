@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 
-import { acceptsResearchAuthorization } from "@/lib/research-auth";
-import { scheduledVideoRunIdentity, type ScheduledVideoSlot } from "@/lib/scheduled-video-identity";
-import { retrieveSupadataVideo } from "@/lib/supadata";
-import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
-import { retrieveAndPersistTranscript } from "@/lib/transcript-pipeline";
-import { runScheduledVideoIntake } from "@/lib/video-intake-service";
-import type { VideoResearchSlot } from "@/lib/youtube-transcript-persistence";
+import { acceptsResearchAuthorization } from "./research-auth.ts";
+import { scheduledVideoRunIdentity, type ScheduledVideoSlot } from "./scheduled-video-identity.ts";
+import { retrieveSupadataVideo } from "./supadata.ts";
+import { SupadataTranscriptStore } from "./supadata-transcript-store.ts";
+import { retrieveAndPersistTranscript, type TranscriptPipelineStore } from "./transcript-pipeline.ts";
+import { runScheduledVideoIntake } from "./video-intake-service.ts";
+import type { VideoResearchSlot } from "./youtube-transcript-persistence.ts";
 
 function authenticated(request: Request) {
   return acceptsResearchAuthorization(request.headers.get("authorization"), [
@@ -15,6 +15,22 @@ function authenticated(request: Request) {
     process.env.VERCEL_ENV === "production" ? null : process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
   ]);
 }
+
+export type VideoIntakeHandlerDependencies = {
+  authenticate: (request: Request) => boolean;
+  now: () => Date;
+  createStore: () => TranscriptPipelineStore;
+  retrieveTranscript: typeof retrieveSupadataVideo;
+  runScheduled: typeof runScheduledVideoIntake;
+};
+
+const defaultDependencies: VideoIntakeHandlerDependencies = {
+  authenticate: authenticated,
+  now: () => new Date(),
+  createStore: () => new SupadataTranscriptStore(),
+  retrieveTranscript: retrieveSupadataVideo,
+  runScheduled: runScheduledVideoIntake,
+};
 
 function response(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -55,21 +71,25 @@ async function targetFromRequest(request: Request) {
   return typeof body?.videoId === "string" ? body.videoId.trim() : null;
 }
 
-async function processVideo(videoId: string, store: SupadataTranscriptStore) {
+async function processVideo(
+  videoId: string,
+  store: TranscriptPipelineStore,
+  retrieveTranscript: typeof retrieveSupadataVideo,
+) {
   const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
     store,
     provider: "supadata",
-    retrieve: (id) => retrieveSupadataVideo(id, supadataApiKey, { timeoutMs: 8_000 }),
+    retrieve: (id) => retrieveTranscript(id, supadataApiKey, { timeoutMs: 8_000 }),
   });
 }
 
-async function runTarget(videoId: string) {
+async function runTarget(videoId: string, dependencies: VideoIntakeHandlerDependencies) {
   if (!validVideoId(videoId)) {
     return response({ status: "failed", videoId, errorCode: "invalid_video_url" }, 400);
   }
-  const result = await processVideo(videoId, new SupadataTranscriptStore());
+  const result = await processVideo(videoId, dependencies.createStore(), dependencies.retrieveTranscript);
   if (result.status === "not_found") {
     return response({
       status: "not_found",
@@ -85,12 +105,16 @@ async function runTarget(videoId: string) {
   }, result.status === "ready" ? 200 : 502);
 }
 
-async function runDiscovery(request: Request, forcedSlot?: ScheduledVideoSlot) {
-  const startedAt = new Date();
+async function runDiscovery(
+  request: Request,
+  dependencies: VideoIntakeHandlerDependencies,
+  forcedSlot?: ScheduledVideoSlot,
+) {
+  const startedAt = dependencies.now();
   const requestUrl = new URL(request.url);
   const slot = forcedSlot ?? selectedSlot(startedAt, requestUrl.searchParams.get("slot"));
   const { runKey, scheduledFor } = scheduledVideoRunIdentity(slot, startedAt);
-  const intake = await runScheduledVideoIntake({ slot, runKey, scheduledFor, now: startedAt });
+  const intake = await dependencies.runScheduled({ slot, runKey, scheduledFor, now: startedAt });
   return response({
     engine: "XWADA",
     mode: "scheduled_video_intake",
@@ -125,11 +149,18 @@ async function runDiscovery(request: Request, forcedSlot?: ScheduledVideoSlot) {
 }
 
 /** Shared public and Vercel-cron handler; a forced slot never relies on a query string. */
-export async function handleVideoIntakeRequest(request: Request, forcedSlot?: ScheduledVideoSlot) {
-  if (!authenticated(request)) return response({ error: "Unauthorized video intake request." }, 401);
+export async function handleVideoIntakeRequest(
+  request: Request,
+  forcedSlot?: ScheduledVideoSlot,
+  dependencyOverrides: Partial<VideoIntakeHandlerDependencies> = {},
+) {
+  const dependencies = { ...defaultDependencies, ...dependencyOverrides };
+  if (!dependencies.authenticate(request)) return response({ error: "Unauthorized video intake request." }, 401);
   try {
     const target = forcedSlot ? null : await targetFromRequest(request);
-    return target ? await runTarget(target) : await runDiscovery(request, forcedSlot);
+    return target
+      ? await runTarget(target, dependencies)
+      : await runDiscovery(request, dependencies, forcedSlot);
   } catch (error) {
     return response({
       status: "failed",

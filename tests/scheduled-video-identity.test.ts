@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -61,4 +61,17 @@ test("targeted transcript retries and advertised policy stay on Supadata native 
 
   assert.match(supadataStore, /constructor\(client\?: SupabaseClient\)/);
   assert.match(supadataStore, /client \?\? createSupabaseAdminClient\(\)/);
+});
+
+test("database contract accepts Supadata while preserving legacy transcript providers", () => {
+  const migrationsDirectory = new URL("../supabase/migrations/", import.meta.url);
+  const migrationName = readdirSync(migrationsDirectory).find((name) => name.endsWith("_allow_supadata_transcript_provider.sql"));
+  assert.ok(migrationName, "Supadata provider constraint migration is required");
+  const migration = readFileSync(new URL(migrationName, migrationsDirectory), "utf8");
+
+  assert.match(migration, /drop constraint if exists research_intake_items_transcript_provider_check/i);
+  assert.match(migration, /add constraint research_intake_items_transcript_provider_check/i);
+  for (const provider of ["transcriptapi", "supadata", "youtubetotranscript.com", "official", "other"]) {
+    assert.match(migration, new RegExp(`'${provider.replace(".", "\\.")}'::text`));
+  }
 });

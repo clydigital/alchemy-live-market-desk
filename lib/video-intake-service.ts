@@ -1,17 +1,17 @@
-import type { TranscriptPipelineResult } from "@/lib/transcript-pipeline";
+import type { TranscriptPipelineResult, TranscriptPipelineStore } from "./transcript-pipeline.ts";
 import {
   isKnownPermanentTranscriptUnavailable,
   isRevalidatableTranscriptUnavailable,
   isTranscriptRevalidationDue,
   retrieveAndPersistTranscript,
-} from "@/lib/transcript-pipeline";
-import { retrieveSupadataVideo } from "@/lib/supadata";
+} from "./transcript-pipeline.ts";
+import { retrieveSupadataVideo } from "./supadata.ts";
 import {
   isSupadataTranscriptChannel,
   selectedSupadataTranscriptChannels,
   SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY,
-} from "@/lib/supadata-intake-policy";
-import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
+} from "./supadata-intake-policy.ts";
+import { SupadataTranscriptStore } from "./supadata-transcript-store.ts";
 import {
   createVideoIntakeRun,
   ensureVideoIntakeItem,
@@ -20,12 +20,12 @@ import {
   persistDiscoveryResult,
   recordVideoIntakeStage,
   type VideoResearchSlot,
-} from "@/lib/youtube-transcript-persistence";
+} from "./youtube-transcript-persistence.ts";
 import {
   discoverXwadaVideoChannels,
   xwadaDiscoverySummary,
   type XwadaChannelResult,
-} from "@/lib/youtube-reliability";
+} from "./youtube-reliability.ts";
 
 const DEFAULT_MAX_TRANSCRIPT_ATTEMPTS = 6;
 export { isSupadataTranscriptChannel, selectedSupadataTranscriptChannels, SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY };
@@ -57,7 +57,38 @@ export type ScheduledVideoIntakeResult = {
   skippedShortIds: string[];
 };
 
-async function processVideo(videoId: string, store: SupadataTranscriptStore, activeRunId: string) {
+type VideoIntakeClient = Awaited<ReturnType<typeof createVideoIntakeRun>>["client"];
+
+export type ScheduledVideoIntakeDependencies = {
+  createRun: typeof createVideoIntakeRun;
+  recordStage: typeof recordVideoIntakeStage;
+  persistDiscovery: typeof persistDiscoveryResult;
+  ensureItem: typeof ensureVideoIntakeItem;
+  finalizeRun: typeof finalizeVideoIntakeRun;
+  failRun: typeof failVideoIntakeRun;
+  discoverChannels: typeof discoverXwadaVideoChannels;
+  createStore: (client: VideoIntakeClient) => TranscriptPipelineStore;
+  retrieveTranscript: typeof retrieveSupadataVideo;
+};
+
+const defaultDependencies: ScheduledVideoIntakeDependencies = {
+  createRun: createVideoIntakeRun,
+  recordStage: recordVideoIntakeStage,
+  persistDiscovery: persistDiscoveryResult,
+  ensureItem: ensureVideoIntakeItem,
+  finalizeRun: finalizeVideoIntakeRun,
+  failRun: failVideoIntakeRun,
+  discoverChannels: discoverXwadaVideoChannels,
+  createStore: (client) => new SupadataTranscriptStore(client),
+  retrieveTranscript: retrieveSupadataVideo,
+};
+
+async function processVideo(
+  videoId: string,
+  store: TranscriptPipelineStore,
+  activeRunId: string,
+  retrieveTranscript: typeof retrieveSupadataVideo,
+) {
   const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
@@ -67,7 +98,7 @@ async function processVideo(videoId: string, store: SupadataTranscriptStore, act
     // Scheduled work uses a single bounded attempt. Retryable failures are
     // persisted as debt and are picked up by a later cadence rather than
     // holding the full research cycle for minutes.
-    retrieve: (id) => retrieveSupadataVideo(id, supadataApiKey, { timeoutMs: 8_000 }),
+    retrieve: (id) => retrieveTranscript(id, supadataApiKey, { timeoutMs: 8_000 }),
   });
 }
 
@@ -96,10 +127,11 @@ export async function runScheduledVideoIntake(input: {
   scheduledFor: string;
   now?: Date;
   maxTranscriptAttempts?: number;
-}): Promise<ScheduledVideoIntakeResult> {
+}, dependencyOverrides: Partial<ScheduledVideoIntakeDependencies> = {}): Promise<ScheduledVideoIntakeResult> {
+  const dependencies = { ...defaultDependencies, ...dependencyOverrides };
   const startedAt = input.now ?? new Date();
   const maxTranscriptAttempts = Math.max(1, input.maxTranscriptAttempts ?? DEFAULT_MAX_TRANSCRIPT_ATTEMPTS);
-  const run = await createVideoIntakeRun({
+  const run = await dependencies.createRun({
     slot: input.slot,
     runKey: input.runKey,
     scheduledFor: input.scheduledFor,
@@ -107,7 +139,7 @@ export async function runScheduledVideoIntake(input: {
 
   let currentStage = "youtube_discovery_started";
   try {
-    await recordVideoIntakeStage({
+    await dependencies.recordStage({
       runId: run.id,
       slot: input.slot,
       stage: "youtube_discovery_started",
@@ -115,8 +147,8 @@ export async function runScheduledVideoIntake(input: {
       client: run.client,
     });
 
-    const store = new SupadataTranscriptStore(run.client);
-    const channels = await discoverXwadaVideoChannels(startedAt);
+    const store = dependencies.createStore(run.client);
+    const channels = await dependencies.discoverChannels(startedAt);
     const totalDetected = channels.reduce((sum, ch) => sum + ch.videos.length, 0);
 
     const discoveryFailures = channels
@@ -128,7 +160,7 @@ export async function runScheduledVideoIntake(input: {
 
     currentStage = "youtube_discovery_complete";
     // Crucial requirement: commit YouTube discovery independently of transcript processing success
-    await persistDiscoveryResult({
+    await dependencies.persistDiscovery({
       runId: run.id,
       slot: input.slot,
       channelChecks: channels.map((channel) => ({
@@ -164,14 +196,14 @@ export async function runScheduledVideoIntake(input: {
         if (!video) continue;
 
         currentStage = "video_item_persisted";
-        const item = await ensureVideoIntakeItem({
+        const item = await dependencies.ensureItem({
           runId: run.id,
           channelKey: channel.channelKey,
           video,
           client: run.client,
         });
 
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "video_item_persisted",
@@ -198,7 +230,7 @@ export async function runScheduledVideoIntake(input: {
 
         currentStage = "transcript_cache_checked";
         const cached = await store.findReadyTranscript(video.videoId);
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "transcript_cache_checked",
@@ -208,13 +240,22 @@ export async function runScheduledVideoIntake(input: {
         });
 
         if (cached) {
-          const result = await processVideo(video.videoId, store, run.id);
+          const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
           results.push(result);
           currentStage = "transcript_persisted";
-          await recordVideoIntakeStage({
+          await dependencies.recordStage({
             runId: run.id,
             slot: input.slot,
             stage: "transcript_persisted",
+            status: "complete",
+            detail: { videoId: video.videoId, cacheHit: true, provider: result.provider },
+            client: run.client,
+          });
+          currentStage = "transcript_state_updated";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "transcript_state_updated",
             status: "complete",
             detail: { videoId: video.videoId, cacheHit: true, provider: result.provider },
             client: run.client,
@@ -228,7 +269,7 @@ export async function runScheduledVideoIntake(input: {
         }
 
         currentStage = "supadata_request_started";
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "supadata_request_started",
@@ -237,11 +278,20 @@ export async function runScheduledVideoIntake(input: {
           client: run.client,
         });
 
-        const result = await processVideo(video.videoId, store, run.id);
+        const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
         results.push(result);
 
+        await dependencies.recordStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "supadata_request_started",
+          status: "complete",
+          detail: { videoId: video.videoId, providerResult: result.status },
+          client: run.client,
+        });
+
         currentStage = "supadata_response_received";
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "supadata_response_received",
@@ -261,7 +311,7 @@ export async function runScheduledVideoIntake(input: {
         });
 
         currentStage = "transcript_persisted";
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "transcript_persisted",
@@ -271,7 +321,7 @@ export async function runScheduledVideoIntake(input: {
         });
 
         currentStage = "transcript_state_updated";
-        await recordVideoIntakeStage({
+        await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
           stage: "transcript_state_updated",
@@ -284,7 +334,8 @@ export async function runScheduledVideoIntake(input: {
       }
     }
 
-    await finalizeVideoIntakeRun({
+    currentStage = "source_checks_finalized";
+    await dependencies.finalizeRun({
       runId: run.id,
       slot: input.slot,
       channelChecks: channels.map((channel) => ({
@@ -300,8 +351,7 @@ export async function runScheduledVideoIntake(input: {
       client: run.client,
     });
 
-    currentStage = "source_checks_finalized";
-    await recordVideoIntakeStage({
+    await dependencies.recordStage({
       runId: run.id,
       slot: input.slot,
       stage: "source_checks_finalized",
@@ -310,7 +360,7 @@ export async function runScheduledVideoIntake(input: {
     });
 
     currentStage = "run_completed";
-    await recordVideoIntakeStage({
+    await dependencies.recordStage({
       runId: run.id,
       slot: input.slot,
       stage: "run_completed",
@@ -342,7 +392,7 @@ export async function runScheduledVideoIntake(input: {
       skippedShortIds,
     };
   } catch (error) {
-    await failVideoIntakeRun({
+    await dependencies.failRun({
       runId: run.id,
       slot: input.slot,
       stage: currentStage,
