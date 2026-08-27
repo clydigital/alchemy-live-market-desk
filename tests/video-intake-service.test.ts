@@ -83,12 +83,57 @@ test("YouTube ISO durations support the conservative three-minute Shorts guard",
   assert.equal(youtubeDurationSeconds("not-a-duration"), null);
 });
 
-test("video intake run helper creates initial stage log and slot run", async () => {
-  const mockUpdates: Array<{ table: string; payload: unknown }> = [];
+test("recoverStaleVideoRuns recovers abandoned running slots and leaves fresh slots intact", async () => {
+  const updates: Array<{ table: string; payload: unknown; eqKey?: string; eqVal?: string }> = [];
   const mockClient = {
     from: (table: string) => ({
+      select: () => ({
+        eq: (_k1: string, _v1: string) => ({
+          eq: (_k2: string, _v2: string) => ({
+            lt: (_k3: string, _v3: string) => ({
+              data: [
+                { research_run_id: "stale-run-1", slot_key: "video_midnight", last_heartbeat_at: "2026-08-27T00:00:00.000Z" },
+              ],
+              error: null,
+            }),
+          }),
+        }),
+        maybeSingle: async () => ({
+          data: { process_log: [{ stage: "create_run", status: "complete" }], warnings: [] },
+          error: null,
+        }),
+      }),
+      update: (payload: unknown) => ({
+        eq: (eqKey: string, eqVal: string) => {
+          updates.push({ table, payload, eqKey, eqVal });
+          return Promise.resolve({ error: null });
+        },
+      }),
+    }),
+  } as unknown as Parameters<typeof import("../lib/youtube-transcript-persistence.ts").recoverStaleVideoRuns>[0]["client"];
+
+  const { recoverStaleVideoRuns } = await import("../lib/youtube-transcript-persistence.ts");
+  const res = await recoverStaleVideoRuns({ slot: "video_midnight", client: mockClient });
+  assert.equal(res.recoveredCount, 1);
+  assert.equal(updates.length, 2);
+  const runPayload = updates[0].payload as { status: string; summary: string };
+  assert.equal(runPayload.status, "failed");
+  assert.match(runPayload.summary, /Stale video run abandoned/);
+});
+
+test("createVideoIntakeRun creates initial stage log and slot run", async () => {
+  const updates: Array<{ table: string; payload: unknown }> = [];
+  const mockClient = {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            lt: () => ({ data: [], error: null }),
+          }),
+        }),
+      }),
       upsert: (payload: unknown) => {
-        mockUpdates.push({ table, payload });
+        updates.push({ table, payload });
         return {
           select: () => ({
             single: async () => ({ data: { id: "test-run-id" }, error: null }),
@@ -107,14 +152,14 @@ test("video intake run helper creates initial stage log and slot run", async () 
   });
 
   assert.equal(result.id, "test-run-id");
-  assert.equal(mockUpdates.length, 2);
-  const runPayload = mockUpdates[0].payload as { process_log: Array<{ stage: string }> };
+  assert.equal(updates.length, 2);
+  const runPayload = updates[0].payload as { process_log: Array<{ stage: string }> };
   assert.equal(runPayload.process_log[0].stage, "create_run");
   assert.equal(runPayload.process_log[1].stage, "youtube_discovery_started");
 });
 
 test("persistDiscoveryResult updates source_checks and discovery stages independently", async () => {
-  const mockUpdates: Array<{ table: string; payload: unknown }> = [];
+  const updates: Array<{ table: string; payload: unknown }> = [];
   const mockClient = {
     from: (table: string) => ({
       select: () => ({
@@ -126,7 +171,7 @@ test("persistDiscoveryResult updates source_checks and discovery stages independ
         }),
       }),
       update: (payload: unknown) => {
-        mockUpdates.push({ table, payload });
+        updates.push({ table, payload });
         return {
           eq: () => Promise.resolve({ error: null }),
         };
@@ -144,15 +189,15 @@ test("persistDiscoveryResult updates source_checks and discovery stages independ
     client: mockClient,
   });
 
-  assert.equal(mockUpdates.length, 2);
-  const runUpdate = mockUpdates[0].payload as { source_checks: unknown[]; videos_found: number; process_log: Array<{ stage: string }> };
+  assert.equal(updates.length, 2);
+  const runUpdate = updates[0].payload as { source_checks: unknown[]; videos_found: number; process_log: Array<{ stage: string }> };
   assert.equal(runUpdate.videos_found, 1);
   assert.equal(runUpdate.source_checks.length, 1);
   assert.ok(runUpdate.process_log.some((entry) => entry.stage === "youtube_discovery_complete"));
 });
 
 test("failVideoIntakeRun transitions run to terminal failed state on error", async () => {
-  const mockUpdates: Array<{ table: string; payload: unknown }> = [];
+  const updates: Array<{ table: string; payload: unknown }> = [];
   const mockClient = {
     from: (table: string) => ({
       select: () => ({
@@ -164,7 +209,7 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
         }),
       }),
       update: (payload: unknown) => {
-        mockUpdates.push({ table, payload });
+        updates.push({ table, payload });
         return {
           eq: () => Promise.resolve({ error: null }),
         };
@@ -181,12 +226,12 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
     client: mockClient,
   });
 
-  assert.equal(mockUpdates.length, 2);
-  const runUpdate = mockUpdates[0].payload as { status: string; summary: string };
+  assert.equal(updates.length, 2);
+  const runUpdate = updates[0].payload as { status: string; summary: string };
   assert.equal(runUpdate.status, "failed");
   assert.match(runUpdate.summary, /Execution failed at stage 'supadata_request_started': Provider timeout/);
 
-  const slotUpdate = mockUpdates[1].payload as { status: string; health_state: string };
+  const slotUpdate = updates[1].payload as { status: string; health_state: string };
   assert.equal(slotUpdate.status, "failed");
   assert.equal(slotUpdate.health_state, "failed");
 });

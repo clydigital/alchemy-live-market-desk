@@ -1,15 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { XwadaChannelKey, XwadaVideo } from "@/lib/youtube-reliability";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import type { XwadaChannelKey, XwadaVideo } from "./youtube-reliability.ts";
 import type {
   ReadyTranscriptCache,
   TranscriptDebtInput,
   TranscriptIntakeItem,
   TranscriptPipelineResult,
   TranscriptPipelineStore,
-} from "@/lib/transcript-pipeline";
-import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "@/lib/transcriptapi";
+} from "./transcript-pipeline.ts";
+import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "./transcriptapi.ts";
 
 export type VideoResearchSlot = "video_midnight" | "video_late_morning";
 
