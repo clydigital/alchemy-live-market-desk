@@ -12,8 +12,8 @@ const VIDEO_SLOT_TIME_MY: Record<ScheduledVideoSlot, string> = {
   video_late_morning: "21:00:00",
 };
 
-/** Vercel cron expressions are UTC; these remain best-effort Hobby fallbacks. */
-export const SCHEDULED_VIDEO_CRON_UTC: Record<ScheduledVideoSlot, string> = {
+/** Canonical target clock expressed in UTC for the GitHub orchestrator. */
+export const SCHEDULED_VIDEO_TARGET_CRON_UTC: Record<ScheduledVideoSlot, string> = {
   video_midnight: "0 1 * * *",
   video_late_morning: "0 13 * * *",
 };
