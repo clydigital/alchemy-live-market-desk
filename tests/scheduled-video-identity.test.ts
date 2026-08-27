@@ -2,21 +2,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { scheduledForMalaysiaSlot } from "../lib/scheduled-research-identity.ts";
 import {
-  SCHEDULED_VIDEO_CRON_UTC,
+  SCHEDULED_VIDEO_TARGET_CRON_UTC,
   scheduledVideoRunIdentity,
   scheduledVideoSlotForDesk,
 } from "../lib/scheduled-video-identity.ts";
 
 test("desk checkpoint lookup uses the exact 15-minute video preflight identity", () => {
-  const morning = scheduledVideoRunIdentity(
-    scheduledVideoSlotForDesk("morning"),
-    new Date("2026-08-17T01:00:00.000Z"),
-  );
-  const evening = scheduledVideoRunIdentity(
-    scheduledVideoSlotForDesk("evening"),
-    new Date("2026-08-17T13:00:00.000Z"),
-  );
+  const now = new Date("2026-08-17T01:00:00.000Z");
+  const morning = scheduledVideoRunIdentity(scheduledVideoSlotForDesk("morning"), now);
+  const eveningNow = new Date("2026-08-17T13:00:00.000Z");
+  const evening = scheduledVideoRunIdentity(scheduledVideoSlotForDesk("evening"), eveningNow);
 
   assert.deepEqual(morning, {
     runKey: "video_midnight-2026-08-17",
@@ -26,7 +23,9 @@ test("desk checkpoint lookup uses the exact 15-minute video preflight identity",
     runKey: "video_late_morning-2026-08-17",
     scheduledFor: "2026-08-17T21:00:00+08:00",
   });
-  assert.deepEqual(SCHEDULED_VIDEO_CRON_UTC, {
+  assert.equal(Date.parse(scheduledForMalaysiaSlot("morning", now)) - Date.parse(morning.scheduledFor), 15 * 60_000);
+  assert.equal(Date.parse(scheduledForMalaysiaSlot("evening", eveningNow)) - Date.parse(evening.scheduledFor), 15 * 60_000);
+  assert.deepEqual(SCHEDULED_VIDEO_TARGET_CRON_UTC, {
     video_midnight: "0 1 * * *",
     video_late_morning: "0 13 * * *",
   });
