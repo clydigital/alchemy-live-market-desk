@@ -57,11 +57,12 @@ export type ScheduledVideoIntakeResult = {
   skippedShortIds: string[];
 };
 
-async function processVideo(videoId: string, store: SupadataTranscriptStore) {
+async function processVideo(videoId: string, store: SupadataTranscriptStore, activeRunId: string) {
   const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
     store,
+    activeRunId,
     provider: "supadata",
     // Scheduled work uses a single bounded attempt. Retryable failures are
     // persisted as debt and are picked up by a later cadence rather than
@@ -201,27 +202,40 @@ export async function runScheduledVideoIntake(input: {
           runId: run.id,
           slot: input.slot,
           stage: "transcript_cache_checked",
-          status: cached ? "complete" : "partial",
-          detail: { videoId: video.videoId, cacheHit: Boolean(cached) },
+          status: "complete",
+          detail: { videoId: video.videoId, cacheHit: Boolean(cached), cachedProvider: cached?.provider },
           client: run.client,
         });
 
-        if (!cached && providerAttempts >= maxTranscriptAttempts) {
+        if (cached) {
+          const result = await processVideo(video.videoId, store, run.id);
+          results.push(result);
+          currentStage = "transcript_persisted";
+          await recordVideoIntakeStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "transcript_persisted",
+            status: "complete",
+            detail: { videoId: video.videoId, cacheHit: true, provider: result.provider },
+            client: run.client,
+          });
+          continue;
+        }
+
+        if (providerAttempts >= maxTranscriptAttempts) {
           deferredVideoIds.push(video.videoId);
           continue;
         }
 
         currentStage = "supadata_request_started";
-        if (!cached) {
-          await recordVideoIntakeStage({
-            runId: run.id,
-            slot: input.slot,
-            stage: "supadata_request_started",
-            status: "running",
-            detail: { videoId: video.videoId },
-            client: run.client,
-          });
-        }
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "supadata_request_started",
+          status: "running",
+          detail: { videoId: video.videoId },
+          client: run.client,
+        });
 
         const result = await processVideo(video.videoId, store);
         results.push(result);
@@ -232,7 +246,17 @@ export async function runScheduledVideoIntake(input: {
           slot: input.slot,
           stage: "supadata_response_received",
           status: result.status === "ready" ? "complete" : "failed",
-          detail: { videoId: video.videoId, status: result.status, provider: result.provider, cacheHit: result.cacheHit },
+          detail: {
+            videoId: video.videoId,
+            status: result.status,
+            provider: result.provider,
+            cacheHit: false,
+            errorCode: result.status === "failed" ? result.errorCode : undefined,
+            errorMessage: result.status === "failed" ? result.errorMessage : undefined,
+            httpStatus: result.status === "failed" ? result.httpStatus : undefined,
+            retryable: result.status === "failed" ? result.retryable : undefined,
+            nextCheckAt: result.status === "failed" ? result.nextCheckAt : undefined,
+          },
           client: run.client,
         });
 

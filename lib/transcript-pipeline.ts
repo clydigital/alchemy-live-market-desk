@@ -198,13 +198,15 @@ export async function retrieveAndPersistTranscript(input: {
   videoId: string;
   store: TranscriptPipelineStore;
   retrieve: (videoId: string) => Promise<TranscriptApiRetrieval>;
+  activeRunId?: string;
   provider?: TranscriptProvider;
   now?: () => Date;
 }): Promise<TranscriptPipelineResult> {
   const provider = input.provider ?? "transcriptapi";
   const cached = await input.store.findReadyTranscript(input.videoId);
   if (cached) {
-    await input.store.recalculateRunState(cached.runId);
+    const targetRunId = input.activeRunId ?? cached.runId;
+    await input.store.recalculateRunState(targetRunId);
     return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true, cached.provider ?? provider);
   }
 
@@ -213,6 +215,7 @@ export async function retrieveAndPersistTranscript(input: {
     return { status: "not_found", videoId: input.videoId, provider, cacheHit: false };
   }
 
+  const targetRunId = input.activeRunId ?? item.runId;
   const attemptedDate = input.now?.() ?? new Date();
   const attemptedAt = attemptedDate.toISOString();
   try {
@@ -226,7 +229,7 @@ export async function retrieveAndPersistTranscript(input: {
     }
     await input.store.saveSuccess(item, retrieval, attemptedAt, provider);
     await input.store.resolveDebt(input.videoId, attemptedAt);
-    await input.store.recalculateRunState(item.runId);
+    await input.store.recalculateRunState(targetRunId);
     return readyResult(input.videoId, retrieval.transcript, attemptedAt, false, provider);
   } catch (error) {
     const normalized = normalizeTranscriptApiError(error);
@@ -248,7 +251,7 @@ export async function retrieveAndPersistTranscript(input: {
         nextAction: nextAction(normalized, provider),
       });
     }
-    await input.store.recalculateRunState(item.runId);
+    await input.store.recalculateRunState(targetRunId);
     return {
       status: "failed",
       videoId: input.videoId,

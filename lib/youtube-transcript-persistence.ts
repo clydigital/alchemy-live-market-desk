@@ -412,10 +412,14 @@ export async function recordVideoIntakeStage(input: {
     .select("process_log")
     .eq("id", input.runId)
     .maybeSingle<{ process_log: Array<Record<string, unknown>> }>();
-  if (runError || !run) return;
+  throwIfError(runError, `Could not read process_log for stage ${input.stage}`);
+  if (!run) throw new Error(`Could not record stage ${input.stage}: research run ${input.runId} not found.`);
 
   const processLog = [...(run.process_log || [])];
-  const existingIndex = processLog.findIndex((entry) => entry.stage === input.stage);
+  const videoId = typeof input.detail?.videoId === "string" ? input.detail.videoId : null;
+  const existingIndex = processLog.findIndex((entry) => (
+    entry.stage === input.stage && (videoId ? entry.videoId === videoId : true)
+  ));
   const newEntry = {
     stage: input.stage,
     status: input.status,
@@ -428,16 +432,18 @@ export async function recordVideoIntakeStage(input: {
     processLog.push(newEntry);
   }
 
-  await client.from("research_runs").update({
+  const { error: updateRunError } = await client.from("research_runs").update({
     process_log: processLog,
     updated_at: now,
   }).eq("id", input.runId);
+  throwIfError(updateRunError, `Could not record stage ${input.stage} on research_runs`);
 
-  await client.from("research_slot_runs").update({
+  const { error: updateSlotError } = await client.from("research_slot_runs").update({
     last_heartbeat_at: now,
     stage_summary: { lastStage: input.stage, lastStatus: input.status, timestamp: now, detail: input.detail },
     updated_at: now,
   }).eq("research_run_id", input.runId);
+  throwIfError(updateSlotError, `Could not record stage ${input.stage} on research_slot_runs`);
 }
 
 export async function persistDiscoveryResult(input: {
@@ -450,18 +456,20 @@ export async function persistDiscoveryResult(input: {
 }) {
   const client = input.client ?? createSupabaseAdminClient();
   const now = new Date().toISOString();
-  const { data: run } = await client
+  const { data: run, error: runReadError } = await client
     .from("research_runs")
     .select("process_log, warnings")
     .eq("id", input.runId)
     .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+  throwIfError(runReadError, "Could not read research_runs for discovery persistence");
+  if (!run) throw new Error(`Could not persist discovery result: research run ${input.runId} not found.`);
 
   const warnings = [
-    ...(run?.warnings || []),
+    ...(run.warnings || []),
     ...input.discoveryFailures.map((failure) => `${failure.source}: ${failure.detail}`),
   ];
 
-  const processLog = [...(run?.process_log || [])];
+  const processLog = [...(run.process_log || [])];
   const updateStage = (stageName: string, status: string, detail?: Record<string, unknown>) => {
     const idx = processLog.findIndex((entry) => entry.stage === stageName);
     const entry = { stage: stageName, status, timestamp: now, ...(detail || {}) };
@@ -476,15 +484,16 @@ export async function persistDiscoveryResult(input: {
   });
   updateStage("detect_new_videos", input.discoveryFailures.length ? "partial" : "complete");
 
-  await client.from("research_runs").update({
+  const { error: runUpdateError } = await client.from("research_runs").update({
     source_checks: input.channelChecks,
     videos_found: input.videosDetected,
     warnings,
     process_log: processLog,
     updated_at: now,
   }).eq("id", input.runId);
+  throwIfError(runUpdateError, "Could not update research_runs for discovery persistence");
 
-  await client.from("research_slot_runs").update({
+  const { error: slotUpdateError } = await client.from("research_slot_runs").update({
     last_heartbeat_at: now,
     ingestion_status: input.discoveryFailures.length ? "partial" : "complete",
     videos_detected: input.videosDetected,
@@ -495,6 +504,7 @@ export async function persistDiscoveryResult(input: {
     warnings,
     updated_at: now,
   }).eq("research_run_id", input.runId);
+  throwIfError(slotUpdateError, "Could not update research_slot_runs for discovery persistence");
 }
 
 export async function failVideoIntakeRun(input: {
@@ -509,21 +519,30 @@ export async function failVideoIntakeRun(input: {
   const errorMessage = input.error instanceof Error ? input.error.message : String(input.error);
   const errorSummary = `Execution failed at stage '${input.stage}': ${errorMessage.slice(0, 500)}`;
 
-  const { data: run } = await client
-    .from("research_runs")
-    .select("process_log, warnings")
-    .eq("id", input.runId)
-    .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+  let processLog: Array<Record<string, unknown>> = [];
+  let warnings: string[] = [];
 
-  const processLog = [...(run?.process_log || [])];
+  try {
+    const { data: run } = await client
+      .from("research_runs")
+      .select("process_log, warnings")
+      .eq("id", input.runId)
+      .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+
+    processLog = [...(run?.process_log || [])];
+    warnings = [...(run?.warnings || [])];
+  } catch {
+    // Best-effort read
+  }
+
   const idx = processLog.findIndex((entry) => entry.stage === input.stage);
   const failureEntry = { stage: input.stage, status: "failed", error: errorMessage, timestamp: now };
   if (idx >= 0) processLog[idx] = failureEntry;
   else processLog.push(failureEntry);
 
-  const warnings = [...(run?.warnings || []), errorSummary];
+  warnings.push(errorSummary);
 
-  await client.from("research_runs").update({
+  const { error: runError } = await client.from("research_runs").update({
     completed_at: now,
     status: "failed",
     summary: errorSummary,
@@ -532,7 +551,7 @@ export async function failVideoIntakeRun(input: {
     updated_at: now,
   }).eq("id", input.runId);
 
-  await client.from("research_slot_runs").update({
+  const { error: slotError } = await client.from("research_slot_runs").update({
     completed_at: now,
     last_heartbeat_at: now,
     status: "failed",
@@ -543,6 +562,13 @@ export async function failVideoIntakeRun(input: {
     warnings,
     updated_at: now,
   }).eq("research_run_id", input.runId);
+
+  if (runError || slotError) {
+    throw new Error(
+      `failVideoIntakeRun failed to persist terminal failure state: ` +
+      `runError=${runError?.message || "none"}, slotError=${slotError?.message || "none"}`
+    );
+  }
 }
 
 export async function ensureVideoIntakeItem(input: {
@@ -635,19 +661,33 @@ export async function finalizeVideoIntakeRun(input: {
       : []),
   ].filter(Boolean);
   const blocked = Boolean(input.discoveryFailures.length || failures.length || knownUnavailableVideos.length);
-  const processLog = [
-    { stage: "detect_new_videos", status: input.discoveryFailures.length ? "partial" : "complete" },
+  const { data: existingRun } = await client
+    .from("research_runs")
+    .select("process_log")
+    .eq("id", input.runId)
+    .maybeSingle<{ process_log: Array<Record<string, unknown>> }>();
+
+  const processLog = [...(existingRun?.process_log || [])];
+  const updateStage = (stageName: string, status: string, detail?: Record<string, unknown>) => {
+    const idx = processLog.findIndex((entry) => entry.stage === stageName);
+    const entry = { stage: stageName, status, timestamp: completedAt, ...(detail || {}) };
+    if (idx >= 0) processLog[idx] = entry;
+    else processLog.push(entry);
+  };
+
+  updateStage("detect_new_videos", input.discoveryFailures.length ? "partial" : "complete");
+  updateStage(
+    "transcribe_and_review_videos",
+    failures.length || knownUnavailableVideos.length
+      ? (ready ? "partial" : "blocked_for_detected_video")
+      : deferredVideoIds.length ? "partial" : "complete",
     {
-      stage: "transcribe_and_review_videos",
-      status: failures.length || knownUnavailableVideos.length
-        ? (ready ? "partial" : "blocked_for_detected_video")
-        : deferredVideoIds.length ? "partial" : "complete",
       ready,
       failed: failures.length,
       knownUnavailable: knownUnavailableVideos.length,
       deferred: deferredVideoIds.length,
     },
-  ];
+  );
   const { error } = await client.from("research_runs").update({
     completed_at: completedAt,
     status: blocked ? "blocked" : "completed",
