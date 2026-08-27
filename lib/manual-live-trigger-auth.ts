@@ -27,7 +27,7 @@ export type ManualLiveTriggerAuthorization =
       actor: string;
       githubRunId: string;
       workflowSha: string;
-      eventName: TrustedLiveTriggerEvent;
+      eventName?: TrustedLiveTriggerEvent;
     }
   | { authorized: false };
 
