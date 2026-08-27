@@ -167,7 +167,7 @@ test("ignores mutable title wording when the event type and occurrence key match
   assert.equal(first.id, second.id);
   assert.equal(marketEventSignature(first), marketEventSignature(second));
   assert.equal(event.title, second.title);
-  assert.deepEqual(event.sourceUrls, ["https://www.example.gov/a", "https://www.example.gov/b"]);
+  assert.deepEqual(event.sourceUrls, ["https://example.com/a", "https://example.com/b"]);
   assert.deepEqual(event.sourceRecordRefs, ["source-a:2026-09", "source-b:2026-09"]);
 });
 
@@ -179,6 +179,7 @@ test("keeps one canonical occurrence when TBC becomes dated", () => {
     timePrecision: "tbc",
     sourceName: "Diplomatic briefing",
     sourceUrl: "https://www.state.gov/",
+    updatedAt: "2026-08-26T00:00:00.000Z",
   })!;
   const dated = normaliseMarketEvent({
     occurrenceKey: "iran-policy-discussion:2026-09",
