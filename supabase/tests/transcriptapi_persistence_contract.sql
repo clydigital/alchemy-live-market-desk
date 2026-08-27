@@ -46,6 +46,10 @@ begin
     raise exception 'TranscriptAPI is not an allowed transcript_provider';
   end if;
 
+  if provider_check is null or position('supadata' in provider_check) = 0 then
+    raise exception 'Supadata is not an allowed transcript_provider';
+  end if;
+
   select indexdef
   into cache_index
   from pg_indexes

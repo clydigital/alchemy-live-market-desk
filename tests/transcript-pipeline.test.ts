@@ -54,6 +54,8 @@ class MemoryStore implements TranscriptPipelineStore {
   successWrites = 0;
   failureWrites = 0;
   recalculations = 0;
+  recalculationRunIds: string[] = [];
+  debtRunIds: string[] = [];
   resolved = 0;
   debts = new Map<string, TranscriptDebtInput>();
 
@@ -83,7 +85,8 @@ class MemoryStore implements TranscriptPipelineStore {
     item.attemptCount += 1;
   }
 
-  async upsertDebt(_item: TranscriptIntakeItem, debt: TranscriptDebtInput) {
+  async upsertDebt(item: TranscriptIntakeItem, debt: TranscriptDebtInput) {
+    this.debtRunIds.push(item.runId);
     this.debts.set(debt.debtKey, debt);
   }
 
@@ -92,8 +95,9 @@ class MemoryStore implements TranscriptPipelineStore {
     this.debts.delete(`transcript:youtube:${videoId}`);
   }
 
-  async recalculateRunState() {
+  async recalculateRunState(runId: string) {
     this.recalculations += 1;
+    this.recalculationRunIds.push(runId);
   }
 }
 
@@ -130,6 +134,80 @@ test("persists a successful transcript once, then serves the database cache with
   assert.equal(store.successWrites, 1);
   assert.equal(store.resolved, 1);
   assert.equal(store.recalculations, 2);
+});
+
+test("active scheduled run owns cache, success, failure, and debt state", async () => {
+  const cacheStore = new MemoryStore();
+  cacheStore.cache = {
+    itemId: "item-cache",
+    runId: "historic-cache-run",
+    retrievedAt: "2026-08-10T07:00:00.000Z",
+    provider: "transcriptapi",
+    transcript: retrieval.transcript,
+  };
+  const cached = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store: cacheStore,
+    activeRunId: "active-run-cache",
+    provider: "supadata",
+    retrieve: async () => assert.fail("cache hit must not invoke Supadata"),
+  });
+  assert.equal(cached.status, "ready");
+  assert.equal(cached.provider, "transcriptapi");
+  assert.deepEqual(cacheStore.recalculationRunIds, ["active-run-cache"]);
+
+  const successStore = new MemoryStore();
+  const success = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store: successStore,
+    activeRunId: "active-run-success",
+    provider: "supadata",
+    retrieve: async () => retrieval,
+  });
+  assert.equal(success.status, "ready");
+  assert.equal(successStore.cache?.runId, "active-run-success");
+  assert.deepEqual(successStore.recalculationRunIds, ["active-run-success"]);
+
+  const failureStore = new MemoryStore();
+  const failure = await retrieveAndPersistTranscript({
+    videoId: "yNiWeHGBl98",
+    store: failureStore,
+    activeRunId: "active-run-failure",
+    provider: "supadata",
+    retrieve: async () => {
+      throw new TranscriptApiError("Provider cooldown", {
+        code: "provider_rate_limit",
+        httpStatus: 429,
+        retryable: true,
+      });
+    },
+  });
+  assert.equal(failure.status, "failed");
+  assert.deepEqual(failureStore.debtRunIds, ["active-run-failure"]);
+  assert.deepEqual(failureStore.recalculationRunIds, ["active-run-failure"]);
+});
+
+test("a success persistence error propagates without being relabelled as a provider failure", async () => {
+  class FailingSuccessStore extends MemoryStore {
+    override async saveSuccess() {
+      this.successWrites += 1;
+      throw new Error("database constraint rejected transcript_provider=supadata");
+    }
+  }
+
+  const store = new FailingSuccessStore();
+  await assert.rejects(
+    retrieveAndPersistTranscript({
+      videoId: "yNiWeHGBl98",
+      store,
+      provider: "supadata",
+      retrieve: async () => retrieval,
+    }),
+    /database constraint rejected transcript_provider=supadata/,
+  );
+  assert.equal(store.successWrites, 1);
+  assert.equal(store.failureWrites, 0);
+  assert.equal(store.debts.size, 0);
 });
 
 test("empty provider text is persisted as transcript_missing rather than READY", async () => {

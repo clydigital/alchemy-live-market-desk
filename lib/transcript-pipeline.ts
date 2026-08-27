@@ -198,13 +198,15 @@ export async function retrieveAndPersistTranscript(input: {
   videoId: string;
   store: TranscriptPipelineStore;
   retrieve: (videoId: string) => Promise<TranscriptApiRetrieval>;
+  activeRunId?: string;
   provider?: TranscriptProvider;
   now?: () => Date;
 }): Promise<TranscriptPipelineResult> {
   const provider = input.provider ?? "transcriptapi";
   const cached = await input.store.findReadyTranscript(input.videoId);
   if (cached) {
-    await input.store.recalculateRunState(cached.runId);
+    const targetRunId = input.activeRunId ?? cached.runId;
+    await input.store.recalculateRunState(targetRunId);
     return readyResult(input.videoId, cached.transcript, cached.retrievedAt, true, cached.provider ?? provider);
   }
 
@@ -213,10 +215,13 @@ export async function retrieveAndPersistTranscript(input: {
     return { status: "not_found", videoId: input.videoId, provider, cacheHit: false };
   }
 
+  const targetRunId = input.activeRunId ?? item.runId;
+  const activeItem = targetRunId === item.runId ? item : { ...item, runId: targetRunId };
   const attemptedDate = input.now?.() ?? new Date();
   const attemptedAt = attemptedDate.toISOString();
+  let retrieval: TranscriptApiRetrieval;
   try {
-    const retrieval = await input.retrieve(input.videoId);
+    retrieval = await input.retrieve(input.videoId);
     if (!retrieval.transcript.text.trim()) {
       throw new TranscriptApiError("The transcript provider returned no transcript text.", {
         code: "transcript_missing",
@@ -224,19 +229,15 @@ export async function retrieveAndPersistTranscript(input: {
         retryable: false,
       });
     }
-    await input.store.saveSuccess(item, retrieval, attemptedAt, provider);
-    await input.store.resolveDebt(input.videoId, attemptedAt);
-    await input.store.recalculateRunState(item.runId);
-    return readyResult(input.videoId, retrieval.transcript, attemptedAt, false, provider);
   } catch (error) {
     const normalized = normalizeTranscriptApiError(error);
-    await input.store.saveFailure(item, normalized, attemptedAt, provider);
+    await input.store.saveFailure(activeItem, normalized, attemptedAt, provider);
     const nextCheckAt = nextCheck(normalized, attemptedDate);
-    if (item.required) {
-      await input.store.upsertDebt(item, {
+    if (activeItem.required) {
+      await input.store.upsertDebt(activeItem, {
         debtKey: `transcript:youtube:${input.videoId}`,
         videoId: input.videoId,
-        publisher: item.publisher,
+        publisher: activeItem.publisher,
         provider,
         reason: normalized.message,
         errorCode: normalized.code,
@@ -248,7 +249,7 @@ export async function retrieveAndPersistTranscript(input: {
         nextAction: nextAction(normalized, provider),
       });
     }
-    await input.store.recalculateRunState(item.runId);
+    await input.store.recalculateRunState(targetRunId);
     return {
       status: "failed",
       videoId: input.videoId,
@@ -262,4 +263,13 @@ export async function retrieveAndPersistTranscript(input: {
       nextCheckAt,
     };
   }
+
+  // Persistence failures are orchestration failures, not provider failures.
+  // Let them propagate so the scheduled run records the true broken edge
+  // instead of attempting to overwrite a successful provider response with a
+  // fabricated provider error.
+  await input.store.saveSuccess(activeItem, retrieval, attemptedAt, provider);
+  await input.store.resolveDebt(input.videoId, attemptedAt);
+  await input.store.recalculateRunState(targetRunId);
+  return readyResult(input.videoId, retrieval.transcript, attemptedAt, false, provider);
 }

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-import { getSupabasePublicConfig } from "@/lib/supabase/config";
+import { getSupabasePublicConfig } from "./config.ts";
 
 export function createSupabaseAdminClient() {
   const { url } = getSupabasePublicConfig();

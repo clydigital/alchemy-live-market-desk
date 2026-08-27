@@ -1,15 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type {
   ReadyTranscriptCache,
   TranscriptDebtInput,
   TranscriptIntakeItem,
   TranscriptPipelineStore,
   TranscriptProvider,
-} from "@/lib/transcript-pipeline";
-import type { TranscriptApiError, TranscriptApiRetrieval } from "@/lib/transcriptapi";
-import { SupabaseTranscriptStore } from "@/lib/youtube-transcript-persistence";
+} from "./transcript-pipeline.ts";
+import type { TranscriptApiError, TranscriptApiRetrieval } from "./transcriptapi.ts";
+import { SupabaseTranscriptStore } from "./youtube-transcript-persistence.ts";
 
 function throwIfError(error: { message: string } | null, context: string) {
   if (error) throw new Error(`${context}: ${error.message}`);
