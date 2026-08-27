@@ -87,8 +87,9 @@ test("recoverStaleVideoRuns recovers abandoned running slots and leaves fresh sl
   const updates: Array<{ table: string; payload: unknown; eqKey?: string; eqVal?: string }> = [];
   const mockClient = {
     from: (table: string) => ({
-      select: () => ({
-        eq: (_k1: string, _v1: string) => ({
+      select: () => {
+        const query: Record<string, unknown> = {};
+        query.eq = (_k1: string, _v1: string) => ({
           eq: (_k2: string, _v2: string) => ({
             lt: (_k3: string, _v3: string) => ({
               data: [
@@ -96,13 +97,22 @@ test("recoverStaleVideoRuns recovers abandoned running slots and leaves fresh sl
               ],
               error: null,
             }),
+            maybeSingle: async () => ({
+              data: { process_log: [{ stage: "create_run", status: "complete" }], warnings: [] },
+              error: null,
+            }),
           }),
-        }),
-        maybeSingle: async () => ({
+          maybeSingle: async () => ({
+            data: { process_log: [{ stage: "create_run", status: "complete" }], warnings: [] },
+            error: null,
+          }),
+        });
+        query.maybeSingle = async () => ({
           data: { process_log: [{ stage: "create_run", status: "complete" }], warnings: [] },
           error: null,
-        }),
-      }),
+        });
+        return query;
+      },
       update: (payload: unknown) => ({
         eq: (eqKey: string, eqVal: string) => {
           updates.push({ table, payload, eqKey, eqVal });
