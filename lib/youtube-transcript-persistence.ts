@@ -1,15 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { XwadaChannelKey, XwadaVideo } from "@/lib/youtube-reliability";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import type { XwadaChannelKey, XwadaVideo } from "./youtube-reliability.ts";
 import type {
   ReadyTranscriptCache,
   TranscriptDebtInput,
   TranscriptIntakeItem,
   TranscriptPipelineResult,
   TranscriptPipelineStore,
-} from "@/lib/transcript-pipeline";
-import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "@/lib/transcriptapi";
+} from "./transcript-pipeline.ts";
+import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "./transcriptapi.ts";
 
 export type VideoResearchSlot = "video_midnight" | "video_late_morning";
 
@@ -354,6 +354,11 @@ export async function createVideoIntakeRun(input: {
 }) {
   const client = input.client ?? createSupabaseAdminClient();
   const now = new Date().toISOString();
+  const initialLog = [
+    { stage: "create_run", status: "complete", timestamp: now },
+    { stage: "youtube_discovery_started", status: "running", timestamp: now },
+    { stage: "detect_new_videos", status: "running", timestamp: now },
+  ];
   const { data, error } = await client.from("research_runs").upsert({
     run_key: input.runKey,
     schedule_slot: input.slot,
@@ -366,7 +371,7 @@ export async function createVideoIntakeRun(input: {
     evidence_gate_passed: false,
     source_checks: [],
     warnings: [],
-    process_log: [{ stage: "detect_new_videos", status: "running" }],
+    process_log: initialLog,
     summary: "Required creator video discovery and transcript intake.",
     updated_at: now,
   }, { onConflict: "run_key" }).select("id").single<{ id: string }>();
@@ -385,11 +390,159 @@ export async function createVideoIntakeRun(input: {
     verification_status: "not_required",
     live_publication_status: "not_required",
     hybrid_handoff_status: "not_required",
-    stage_summary: { discovery: { status: "running" } },
+    stage_summary: { lastStage: "youtube_discovery_started", discovery: { status: "running" } },
     updated_at: now,
   }, { onConflict: "research_run_id" });
   throwIfError(slotError, "Could not create the video intake slot run");
   return { id: data.id, client };
+}
+
+export async function recordVideoIntakeStage(input: {
+  runId: string;
+  slot: VideoResearchSlot;
+  stage: string;
+  status: "running" | "complete" | "partial" | "failed" | "blocked";
+  detail?: Record<string, unknown>;
+  client?: SupabaseClient;
+}) {
+  const client = input.client ?? createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { data: run, error: runError } = await client
+    .from("research_runs")
+    .select("process_log")
+    .eq("id", input.runId)
+    .maybeSingle<{ process_log: Array<Record<string, unknown>> }>();
+  if (runError || !run) return;
+
+  const processLog = [...(run.process_log || [])];
+  const existingIndex = processLog.findIndex((entry) => entry.stage === input.stage);
+  const newEntry = {
+    stage: input.stage,
+    status: input.status,
+    timestamp: now,
+    ...(input.detail || {}),
+  };
+  if (existingIndex >= 0) {
+    processLog[existingIndex] = newEntry;
+  } else {
+    processLog.push(newEntry);
+  }
+
+  await client.from("research_runs").update({
+    process_log: processLog,
+    updated_at: now,
+  }).eq("id", input.runId);
+
+  await client.from("research_slot_runs").update({
+    last_heartbeat_at: now,
+    stage_summary: { lastStage: input.stage, lastStatus: input.status, timestamp: now, detail: input.detail },
+    updated_at: now,
+  }).eq("research_run_id", input.runId);
+}
+
+export async function persistDiscoveryResult(input: {
+  runId: string;
+  slot: VideoResearchSlot;
+  channelChecks: Array<{ source: string; status: string; itemCount: number; note?: string }>;
+  discoveryFailures: Array<{ source: string; detail: string }>;
+  videosDetected: number;
+  client?: SupabaseClient;
+}) {
+  const client = input.client ?? createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { data: run } = await client
+    .from("research_runs")
+    .select("process_log, warnings")
+    .eq("id", input.runId)
+    .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+
+  const warnings = [
+    ...(run?.warnings || []),
+    ...input.discoveryFailures.map((failure) => `${failure.source}: ${failure.detail}`),
+  ];
+
+  const processLog = [...(run?.process_log || [])];
+  const updateStage = (stageName: string, status: string, detail?: Record<string, unknown>) => {
+    const idx = processLog.findIndex((entry) => entry.stage === stageName);
+    const entry = { stage: stageName, status, timestamp: now, ...(detail || {}) };
+    if (idx >= 0) processLog[idx] = entry;
+    else processLog.push(entry);
+  };
+
+  updateStage("youtube_discovery_started", "complete");
+  updateStage("youtube_discovery_complete", input.discoveryFailures.length ? "partial" : "complete", {
+    videosDetected: input.videosDetected,
+    discoveryFailuresCount: input.discoveryFailures.length,
+  });
+  updateStage("detect_new_videos", input.discoveryFailures.length ? "partial" : "complete");
+
+  await client.from("research_runs").update({
+    source_checks: input.channelChecks,
+    videos_found: input.videosDetected,
+    warnings,
+    process_log: processLog,
+    updated_at: now,
+  }).eq("id", input.runId);
+
+  await client.from("research_slot_runs").update({
+    last_heartbeat_at: now,
+    ingestion_status: input.discoveryFailures.length ? "partial" : "complete",
+    videos_detected: input.videosDetected,
+    stage_summary: {
+      lastStage: "youtube_discovery_complete",
+      discovery: { status: input.discoveryFailures.length ? "partial" : "complete", videosDetected: input.videosDetected },
+    },
+    warnings,
+    updated_at: now,
+  }).eq("research_run_id", input.runId);
+}
+
+export async function failVideoIntakeRun(input: {
+  runId: string;
+  slot: VideoResearchSlot;
+  stage: string;
+  error: unknown;
+  client?: SupabaseClient;
+}) {
+  const client = input.client ?? createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const errorMessage = input.error instanceof Error ? input.error.message : String(input.error);
+  const errorSummary = `Execution failed at stage '${input.stage}': ${errorMessage.slice(0, 500)}`;
+
+  const { data: run } = await client
+    .from("research_runs")
+    .select("process_log, warnings")
+    .eq("id", input.runId)
+    .maybeSingle<{ process_log: Array<Record<string, unknown>>; warnings: string[] }>();
+
+  const processLog = [...(run?.process_log || [])];
+  const idx = processLog.findIndex((entry) => entry.stage === input.stage);
+  const failureEntry = { stage: input.stage, status: "failed", error: errorMessage, timestamp: now };
+  if (idx >= 0) processLog[idx] = failureEntry;
+  else processLog.push(failureEntry);
+
+  const warnings = [...(run?.warnings || []), errorSummary];
+
+  await client.from("research_runs").update({
+    completed_at: now,
+    status: "failed",
+    summary: errorSummary,
+    process_log: processLog,
+    warnings,
+    updated_at: now,
+  }).eq("id", input.runId);
+
+  await client.from("research_slot_runs").update({
+    completed_at: now,
+    last_heartbeat_at: now,
+    status: "failed",
+    health_state: "failed",
+    ingestion_status: "failed",
+    transcript_status: "failed",
+    stage_summary: { lastStage: input.stage, lastStatus: "failed", error: errorMessage },
+    warnings,
+    updated_at: now,
+  }).eq("research_run_id", input.runId);
 }
 
 export async function ensureVideoIntakeItem(input: {

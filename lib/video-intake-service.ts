@@ -15,7 +15,10 @@ import { SupadataTranscriptStore } from "@/lib/supadata-transcript-store";
 import {
   createVideoIntakeRun,
   ensureVideoIntakeItem,
+  failVideoIntakeRun,
   finalizeVideoIntakeRun,
+  persistDiscoveryResult,
+  recordVideoIntakeStage,
   type VideoResearchSlot,
 } from "@/lib/youtube-transcript-persistence";
 import {
@@ -100,110 +103,228 @@ export async function runScheduledVideoIntake(input: {
     runKey: input.runKey,
     scheduledFor: input.scheduledFor,
   });
-  const store = new SupadataTranscriptStore(run.client);
-  const channels = await discoverXwadaVideoChannels(startedAt);
-  const results: TranscriptPipelineResult[] = [];
-  const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
-  const deferredVideoIds: string[] = [];
-  const selectedChannels = channels.filter((channel) => isSupadataTranscriptChannel(channel.channelKey));
-  const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
-    channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
-  ));
-  const skippedShortIds = selectedChannels.flatMap((channel) => (
-    channel.videos.filter((video) => video.isShort === true).map((video) => video.videoId)
-  ));
-  const orderedChannels = selectedSupadataTranscriptChannels(channels);
-  let providerAttempts = 0;
 
-  // Process one upload from each selected channel before spending a second
-  // Supadata credit on another upload from the same creator.
-  const longestChannel = Math.max(0, ...orderedChannels.map((channel) => channel.videos.length));
-  for (let videoIndex = 0; videoIndex < longestChannel; videoIndex += 1) {
-    for (const channel of orderedChannels) {
-      const video = channel.videos[videoIndex];
-      if (!video) continue;
-      const item = await ensureVideoIntakeItem({
-        runId: run.id,
-        channelKey: channel.channelKey,
-        video,
-        client: run.client,
-      });
+  let currentStage = "youtube_discovery_started";
+  try {
+    await recordVideoIntakeStage({
+      runId: run.id,
+      slot: input.slot,
+      stage: "youtube_discovery_started",
+      status: "running",
+      client: run.client,
+    });
 
-      let suppressUnavailable = isKnownPermanentTranscriptUnavailable(item);
-      if (!suppressUnavailable && isRevalidatableTranscriptUnavailable(item)) {
-        const nextCheckAt = await revalidationNextCheckAt(run.client, video.videoId);
-        suppressUnavailable = !isTranscriptRevalidationDue(item, nextCheckAt, startedAt);
-      }
+    const store = new SupadataTranscriptStore(run.client);
+    const channels = await discoverXwadaVideoChannels(startedAt);
+    const totalDetected = channels.reduce((sum, ch) => sum + ch.videos.length, 0);
 
-      // Structural failures remain suppressed. Changeable non-retryable states
-      // stay visible as research debt but receive one bounded revalidation when
-      // their persisted next_check_at becomes due. Legacy rows with no
-      // next_check_at are revalidated once, then acquire the new 24-hour clock.
-      if (suppressUnavailable) {
-        knownUnavailableVideos.push({
-          videoId: video.videoId,
-          errorCode: item.transcriptErrorCode || null,
-          errorMessage: item.transcriptErrorMessage || null,
-          httpStatus: item.transcriptHttpStatus ?? null,
+    const discoveryFailures = channels
+      .filter((channel) => !["checked", "no_recent_videos"].includes(channel.status))
+      .map((channel) => ({
+        source: channel.channelName,
+        detail: channel.detail || channel.status,
+      }));
+
+    currentStage = "youtube_discovery_complete";
+    // Crucial requirement: commit YouTube discovery independently of transcript processing success
+    await persistDiscoveryResult({
+      runId: run.id,
+      slot: input.slot,
+      channelChecks: channels.map((channel) => ({
+        source: channel.channelName,
+        status: channel.status,
+        itemCount: channel.videos.length,
+        note: channel.detail,
+      })),
+      discoveryFailures,
+      videosDetected: totalDetected,
+      client: run.client,
+    });
+
+    const results: TranscriptPipelineResult[] = [];
+    const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
+    const deferredVideoIds: string[] = [];
+    const selectedChannels = channels.filter((channel) => isSupadataTranscriptChannel(channel.channelKey));
+    const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
+      channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
+    ));
+    const skippedShortIds = selectedChannels.flatMap((channel) => (
+      channel.videos.filter((video) => video.isShort === true).map((video) => video.videoId)
+    ));
+    const orderedChannels = selectedSupadataTranscriptChannels(channels);
+    let providerAttempts = 0;
+
+    // Process one upload from each selected channel before spending a second
+    // Supadata credit on another upload from the same creator.
+    const longestChannel = Math.max(0, ...orderedChannels.map((channel) => channel.videos.length));
+    for (let videoIndex = 0; videoIndex < longestChannel; videoIndex += 1) {
+      for (const channel of orderedChannels) {
+        const video = channel.videos[videoIndex];
+        if (!video) continue;
+
+        currentStage = "video_item_persisted";
+        const item = await ensureVideoIntakeItem({
+          runId: run.id,
+          channelKey: channel.channelKey,
+          video,
+          client: run.client,
         });
-        continue;
+
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "video_item_persisted",
+          status: "complete",
+          detail: { videoId: video.videoId, channelKey: channel.channelKey },
+          client: run.client,
+        });
+
+        let suppressUnavailable = isKnownPermanentTranscriptUnavailable(item);
+        if (!suppressUnavailable && isRevalidatableTranscriptUnavailable(item)) {
+          const nextCheckAt = await revalidationNextCheckAt(run.client, video.videoId);
+          suppressUnavailable = !isTranscriptRevalidationDue(item, nextCheckAt, startedAt);
+        }
+
+        if (suppressUnavailable) {
+          knownUnavailableVideos.push({
+            videoId: video.videoId,
+            errorCode: item.transcriptErrorCode || null,
+            errorMessage: item.transcriptErrorMessage || null,
+            httpStatus: item.transcriptHttpStatus ?? null,
+          });
+          continue;
+        }
+
+        currentStage = "transcript_cache_checked";
+        const cached = await store.findReadyTranscript(video.videoId);
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "transcript_cache_checked",
+          status: cached ? "complete" : "partial",
+          detail: { videoId: video.videoId, cacheHit: Boolean(cached) },
+          client: run.client,
+        });
+
+        if (!cached && providerAttempts >= maxTranscriptAttempts) {
+          deferredVideoIds.push(video.videoId);
+          continue;
+        }
+
+        currentStage = "supadata_request_started";
+        if (!cached) {
+          await recordVideoIntakeStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "supadata_request_started",
+            status: "running",
+            detail: { videoId: video.videoId },
+            client: run.client,
+          });
+        }
+
+        const result = await processVideo(video.videoId, store);
+        results.push(result);
+
+        currentStage = "supadata_response_received";
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "supadata_response_received",
+          status: result.status === "ready" ? "complete" : "failed",
+          detail: { videoId: video.videoId, status: result.status, provider: result.provider, cacheHit: result.cacheHit },
+          client: run.client,
+        });
+
+        currentStage = "transcript_persisted";
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "transcript_persisted",
+          status: result.status === "ready" ? "complete" : "failed",
+          detail: { videoId: video.videoId, status: result.status },
+          client: run.client,
+        });
+
+        currentStage = "transcript_state_updated";
+        await recordVideoIntakeStage({
+          runId: run.id,
+          slot: input.slot,
+          stage: "transcript_state_updated",
+          status: "complete",
+          detail: { videoId: video.videoId },
+          client: run.client,
+        });
+
+        if (!result.cacheHit && result.status !== "not_found") providerAttempts += 1;
       }
-      // Cached transcripts should not consume the provider budget, otherwise a
-      // run full of old uploads can defer a fresh selected-channel video.
-      const cached = await store.findReadyTranscript(video.videoId);
-      if (!cached && providerAttempts >= maxTranscriptAttempts) {
-        deferredVideoIds.push(video.videoId);
-        continue;
-      }
-      const result = await processVideo(video.videoId, store);
-      results.push(result);
-      if (!result.cacheHit && result.status !== "not_found") providerAttempts += 1;
     }
+
+    currentStage = "source_checks_finalized";
+    await recordVideoIntakeStage({
+      runId: run.id,
+      slot: input.slot,
+      stage: "source_checks_finalized",
+      status: "complete",
+      client: run.client,
+    });
+
+    await finalizeVideoIntakeRun({
+      runId: run.id,
+      slot: input.slot,
+      channelChecks: channels.map((channel) => ({
+        source: channel.channelName,
+        status: channel.status,
+        itemCount: channel.videos.length,
+        note: channel.detail,
+      })),
+      results,
+      knownUnavailableVideos,
+      deferredVideoIds,
+      discoveryFailures,
+      client: run.client,
+    });
+
+    currentStage = "run_completed";
+    await recordVideoIntakeStage({
+      runId: run.id,
+      slot: input.slot,
+      stage: "run_completed",
+      status: "complete",
+      client: run.client,
+    });
+
+    const failedTranscripts = results.filter((result) => result.status === "failed");
+    return {
+      runId: run.id,
+      runKey: input.runKey,
+      generatedAt: new Date().toISOString(),
+      status: discoveryFailures.length || failedTranscripts.length || knownUnavailableVideos.length || deferredVideoIds.length ? "attention" : "healthy",
+      summary: {
+        ...xwadaDiscoverySummary(channels),
+        transcriptsReady: results.filter((result) => result.status === "ready").length,
+        transcriptFailures: failedTranscripts.length,
+        transcriptsUnavailable: knownUnavailableVideos.length,
+        cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
+        transcriptsDeferred: deferredVideoIds.length,
+        livestreamsSkipped: skippedLivestreamIds.length,
+        shortsSkipped: skippedShortIds.length,
+      },
+      channels,
+      transcripts: results,
+      knownUnavailableVideos,
+      deferredVideoIds,
+      skippedLivestreamIds,
+      skippedShortIds,
+    };
+  } catch (error) {
+    await failVideoIntakeRun({
+      runId: run.id,
+      slot: input.slot,
+      stage: currentStage,
+      error,
+      client: run.client,
+    });
+    throw error;
   }
-
-  const discoveryFailures = channels
-    .filter((channel) => !["checked", "no_recent_videos"].includes(channel.status))
-    .map((channel) => ({
-      source: channel.channelName,
-      detail: channel.detail || channel.status,
-    }));
-  await finalizeVideoIntakeRun({
-    runId: run.id,
-    slot: input.slot,
-    channelChecks: channels.map((channel) => ({
-      source: channel.channelName,
-      status: channel.status,
-      itemCount: channel.videos.length,
-      note: channel.detail,
-    })),
-    results,
-    knownUnavailableVideos,
-    deferredVideoIds,
-    discoveryFailures,
-    client: run.client,
-  });
-
-  const failedTranscripts = results.filter((result) => result.status === "failed");
-  return {
-    runId: run.id,
-    runKey: input.runKey,
-    generatedAt: new Date().toISOString(),
-    status: discoveryFailures.length || failedTranscripts.length || knownUnavailableVideos.length || deferredVideoIds.length ? "attention" : "healthy",
-    summary: {
-      ...xwadaDiscoverySummary(channels),
-      transcriptsReady: results.filter((result) => result.status === "ready").length,
-      transcriptFailures: failedTranscripts.length,
-      transcriptsUnavailable: knownUnavailableVideos.length,
-      cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
-      transcriptsDeferred: deferredVideoIds.length,
-      livestreamsSkipped: skippedLivestreamIds.length,
-      shortsSkipped: skippedShortIds.length,
-    },
-    channels,
-    transcripts: results,
-    knownUnavailableVideos,
-    deferredVideoIds,
-    skippedLivestreamIds,
-    skippedShortIds,
-  };
 }
