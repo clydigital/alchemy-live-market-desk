@@ -27,7 +27,6 @@ export type ManualLiveTriggerAuthorization =
       actor: string;
       githubRunId: string;
       workflowSha: string;
-      eventName?: TrustedLiveTriggerEvent;
     }
   | { authorized: false };
 
@@ -97,7 +96,6 @@ async function verifyGitHubActionsLiveTrigger(
       actor: stringClaim(payload, "actor"),
       githubRunId: stringClaim(payload, "run_id"),
       workflowSha: stringClaim(payload, "workflow_sha"),
-      eventName,
     };
   } catch {
     return { authorized: false };
