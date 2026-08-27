@@ -1,6 +1,15 @@
 name: Run Live Research Now
 
 on:
+  schedule:
+    # Primary orchestrators start off the top of the hour, then align video to
+    # 09:00 / 21:00 MYT and research to at least 15 minutes later.
+    - cron: "45 0 * * *"
+    - cron: "45 12 * * *"
+    # Independent rescue passes preserve the before-10 SLA if the primary
+    # GitHub schedule is delayed or a provider invocation fails.
+    - cron: "30 1 * * *"
+    - cron: "30 13 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -39,15 +48,168 @@ permissions:
   contents: read
   id-token: write
 
-concurrency:
-  group: production-live-research
-  cancel-in-progress: false
-
 jobs:
+  run-scheduled-production:
+    if: ${{ github.event_name == 'schedule' }}
+    name: Scheduled canonical Live production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PROD_URL: https://alchemy-live-market-desk.vercel.app
+      SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
+      OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
+    steps:
+      - name: Resolve canonical slot and orchestration mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SCHEDULE_EXPRESSION" in
+            "45 0 * * *")
+              SLOT="morning"
+              ORCHESTRATION_MODE="primary"
+              VIDEO_HOUR_UTC="01"
+              RESEARCH_HOUR_UTC="01"
+              RESEARCH_MINUTE_UTC="15"
+              ;;
+            "30 1 * * *")
+              SLOT="morning"
+              ORCHESTRATION_MODE="rescue"
+              ;;
+            "45 12 * * *")
+              SLOT="evening"
+              ORCHESTRATION_MODE="primary"
+              VIDEO_HOUR_UTC="13"
+              RESEARCH_HOUR_UTC="13"
+              RESEARCH_MINUTE_UTC="15"
+              ;;
+            "30 13 * * *")
+              SLOT="evening"
+              ORCHESTRATION_MODE="rescue"
+              ;;
+            *)
+              echo "Unsupported scheduled expression: $SCHEDULE_EXPRESSION" >&2
+              exit 1
+              ;;
+          esac
+          echo "SLOT=$SLOT" >> "$GITHUB_ENV"
+          echo "ORCHESTRATION_MODE=$ORCHESTRATION_MODE" >> "$GITHUB_ENV"
+          if [[ "$ORCHESTRATION_MODE" == "primary" ]]; then
+            echo "VIDEO_HOUR_UTC=$VIDEO_HOUR_UTC" >> "$GITHUB_ENV"
+            echo "RESEARCH_HOUR_UTC=$RESEARCH_HOUR_UTC" >> "$GITHUB_ENV"
+            echo "RESEARCH_MINUTE_UTC=$RESEARCH_MINUTE_UTC" >> "$GITHUB_ENV"
+          fi
+          echo "Scheduled Live orchestration: slot=$SLOT mode=$ORCHESTRATION_MODE"
+
+      - name: Run canonical scheduled pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          request_oidc_token() {
+            local encoded_audience response
+            encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+            response="$(curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+            OIDC_TOKEN="$(jq -er '.value' <<<"$response")"
+            echo "::add-mask::$OIDC_TOKEN"
+          }
+
+          invoke_scheduled_stage() {
+            local stage="$1" body http_status
+            request_oidc_token
+            body="$(jq -cn --arg slot "$SLOT" --arg stage "$stage" '{slot:$slot,stage:$stage}')"
+            http_status="$(curl --silent --show-error --max-time 305 \
+              -o "$RESPONSE_FILE" -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$body" \
+              "$PROD_URL/api/admin/research/scheduled-run")" || return 1
+            jq -c '{status,slot,runKey,runId,scheduledFor,updatesPublished,message,intelligenceStatus:.intelligence.status,mode,summary}' "$RESPONSE_FILE" || true
+            if [[ ! "$http_status" =~ ^2 ]]; then
+              echo "Scheduled Live $stage invocation returned HTTP $http_status." >&2
+              return 1
+            fi
+          }
+
+          wait_until_epoch() {
+            local target_epoch="$1" now_epoch delay
+            now_epoch="$(date +%s)"
+            delay=$((target_epoch - now_epoch))
+            if (( delay > 0 )); then
+              echo "Waiting ${delay}s for canonical phase alignment."
+              sleep "$delay"
+            fi
+          }
+
+          if [[ "$ORCHESTRATION_MODE" == "primary" ]]; then
+            today_utc="$(date -u +%F)"
+            nominal_video_epoch="$(date -u -d "${today_utc}T${VIDEO_HOUR_UTC}:00:00Z" +%s)"
+            nominal_research_epoch="$(date -u -d "${today_utc}T${RESEARCH_HOUR_UTC}:${RESEARCH_MINUTE_UTC}:00Z" +%s)"
+
+            wait_until_epoch "$nominal_video_epoch"
+            video_started_at="$(date +%s)"
+            if ! invoke_scheduled_stage video; then
+              echo "::warning::Dedicated video preflight failed or timed out; canonical research will continue with explicit video coverage diagnostics."
+            fi
+
+            # Preserve at least a 15-minute start-to-start lead for video. If the
+            # scheduler itself was delayed, research moves later rather than
+            # pretending the video preflight happened on time.
+            video_lead_epoch=$((video_started_at + 900))
+            research_start_epoch="$nominal_research_epoch"
+            if (( video_lead_epoch > research_start_epoch )); then
+              research_start_epoch="$video_lead_epoch"
+            fi
+            wait_until_epoch "$research_start_epoch"
+          else
+            echo "Rescue mode: preserve the publication SLA. Do not wait for a new video preflight; acquisition will consume any persisted dedicated video checkpoint and state missing coverage explicitly."
+          fi
+
+          if ! invoke_scheduled_stage acquisition; then
+            echo "Canonical scheduled acquisition failed." >&2
+            exit 1
+          fi
+
+          for attempt in {1..10}; do
+            echo "Canonical intelligence continuation attempt $attempt"
+            if ! invoke_scheduled_stage intelligence; then
+              echo "Canonical scheduled intelligence invocation failed." >&2
+              exit 1
+            fi
+            state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+            case "$state" in
+              completed)
+                echo "Canonical $SLOT Journey completed."
+                exit 0
+                ;;
+              partial|intelligence_running|acquisition_pending)
+                sleep 15
+                ;;
+              blocked|failed|terminal|missing)
+                echo "Canonical intelligence ended in state: $state" >&2
+                exit 1
+                ;;
+              *)
+                echo "Unexpected canonical intelligence state: ${state:-missing}" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Canonical intelligence did not complete within ten continuations." >&2
+          exit 1
+
   run-production-cron:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Run ${{ inputs.mode }} production action
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    concurrency:
+      group: production-live-research-manual
+      cancel-in-progress: false
     env:
       PROD_URL: https://alchemy-live-market-desk.vercel.app
       SLOT: ${{ inputs.slot }}
