@@ -237,7 +237,7 @@ export async function runScheduledVideoIntake(input: {
           client: run.client,
         });
 
-        const result = await processVideo(video.videoId, store);
+        const result = await processVideo(video.videoId, store, run.id);
         results.push(result);
 
         currentStage = "supadata_response_received";
@@ -284,15 +284,6 @@ export async function runScheduledVideoIntake(input: {
       }
     }
 
-    currentStage = "source_checks_finalized";
-    await recordVideoIntakeStage({
-      runId: run.id,
-      slot: input.slot,
-      stage: "source_checks_finalized",
-      status: "complete",
-      client: run.client,
-    });
-
     await finalizeVideoIntakeRun({
       runId: run.id,
       slot: input.slot,
@@ -306,6 +297,15 @@ export async function runScheduledVideoIntake(input: {
       knownUnavailableVideos,
       deferredVideoIds,
       discoveryFailures,
+      client: run.client,
+    });
+
+    currentStage = "source_checks_finalized";
+    await recordVideoIntakeStage({
+      runId: run.id,
+      slot: input.slot,
+      stage: "source_checks_finalized",
+      status: "complete",
       client: run.client,
     });
 
