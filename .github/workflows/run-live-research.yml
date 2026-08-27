@@ -2,10 +2,11 @@ name: Run Live Research Now
 
 on:
   schedule:
-    # Primary orchestrators start off the top of the hour, then align video to
-    # 09:00 / 21:00 MYT and research to at least 15 minutes later.
-    - cron: "45 0 * * *"
-    - cron: "45 12 * * *"
+    # Start five minutes before the video preflight, away from the top-of-hour
+    # congestion window. The job aligns video to 09:00 / 21:00 MYT and research
+    # to at least 15 minutes later.
+    - cron: "55 0 * * *"
+    - cron: "55 12 * * *"
     # Independent rescue passes preserve the before-10 SLA if the primary
     # GitHub schedule is delayed or a provider invocation fails.
     - cron: "30 1 * * *"
@@ -64,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCHEDULE_EXPRESSION" in
-            "45 0 * * *")
+            "55 0 * * *")
               SLOT="morning"
               ORCHESTRATION_MODE="primary"
               VIDEO_HOUR_UTC="01"
@@ -75,7 +76,7 @@ jobs:
               SLOT="morning"
               ORCHESTRATION_MODE="rescue"
               ;;
-            "45 12 * * *")
+            "55 12 * * *")
               SLOT="evening"
               ORCHESTRATION_MODE="primary"
               VIDEO_HOUR_UTC="13"
