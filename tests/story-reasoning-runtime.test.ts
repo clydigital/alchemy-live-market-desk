@@ -35,12 +35,12 @@ test("runtime builds reasoning from persisted stage-owned records", () => {
   assert.doesNotMatch(reasoningBuilder, /(?:causalMechanism|nextCatalysts|bullCase|bearCase|tailCase):/);
 });
 
-test("Story Synthesis provenance is required and rejected unless canonical", () => {
+test("Story Synthesis keeps decisive lineage strict while isolating optional annotation ID errors", () => {
   assert.match(schemas, /required: \[[^\]]*"acceptedExplanationEvidenceIds"[^\]]*"overlookedVariableEvidenceIds"/);
   assert.match(schemas, /acceptedExplanationEvidenceIds: stringArray/);
   assert.match(schemas, /overlookedVariableEvidenceIds: stringArray/);
-  assert.match(runtime, /acceptedExplanationEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.acceptedExplanationEvidenceIds/);
-  assert.match(runtime, /overlookedVariableEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.overlookedVariableEvidenceIds/);
+  assert.match(runtime, /acceptedExplanationEvidenceIds = onlyKnownIds\([\s\S]*candidate\.acceptedExplanationEvidenceIds/);
+  assert.match(runtime, /overlookedVariableEvidenceIds = onlyKnownIds\([\s\S]*candidate\.overlookedVariableEvidenceIds/);
   assert.match(runtime, /decisiveEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.decisiveEvidenceIds/);
   assert.match(runtime, /Hypothesis \$\{hypothesis\.divergenceId\} causal edge \$\{ordinal\}/);
   assert.match(runtime, /Challenger assessment \$\{assessment\.hypothesisId\} conflicting evidence/);

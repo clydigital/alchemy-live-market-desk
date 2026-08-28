@@ -2196,15 +2196,16 @@ export async function runIntelligenceEngine({
         knownEvidenceIds,
         `Story Synthesis candidate ${candidate.primaryHypothesisId} decisive evidence`,
       );
-      const acceptedExplanationEvidenceIds = requireKnownEvidenceIds(
+      // Optional Story Synthesis annotations may not abort the whole edition when
+      // the model returns an evidence ID outside the canonical pack. Drop unknown
+      // references here; decisive thesis evidence remains strict above.
+      const acceptedExplanationEvidenceIds = onlyKnownIds(
         candidate.acceptedExplanationEvidenceIds,
         knownEvidenceIds,
-        `Story Synthesis candidate ${candidate.primaryHypothesisId} accepted explanation`,
       );
-      const overlookedVariableEvidenceIds = requireKnownEvidenceIds(
+      const overlookedVariableEvidenceIds = onlyKnownIds(
         candidate.overlookedVariableEvidenceIds,
         knownEvidenceIds,
-        `Story Synthesis candidate ${candidate.primaryHypothesisId} overlooked variable`,
       );
       const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
       const normalized: CandidateWorking = {
