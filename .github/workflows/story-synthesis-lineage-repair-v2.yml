@@ -1,0 +1,93 @@
+name: one-off story synthesis lineage repair v2
+
+on:
+  push:
+    branches:
+      - fix/story-synthesis-optional-evidence-lineage-20260828
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/story-synthesis-optional-evidence-lineage-20260828
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - name: Apply narrow runtime and regression-test patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          runtime_path = Path('lib/intelligence/runtime.ts')
+          runtime = runtime_path.read_text()
+          pattern = re.compile(
+              r'''      const acceptedExplanationEvidenceIds = requireKnownEvidenceIds\(\n'''
+              r'''        candidate\.acceptedExplanationEvidenceIds,\n'''
+              r'''        knownEvidenceIds,\n'''
+              r'''        `Story Synthesis candidate \$\{candidate\.primaryHypothesisId\} accepted explanation`,\n'''
+              r'''      \);\n'''
+              r'''      const overlookedVariableEvidenceIds = requireKnownEvidenceIds\(\n'''
+              r'''        candidate\.overlookedVariableEvidenceIds,\n'''
+              r'''        knownEvidenceIds,\n'''
+              r'''        `Story Synthesis candidate \$\{candidate\.primaryHypothesisId\} overlooked variable`,\n'''
+              r'''      \);'''
+          )
+          replacement = '''      // Optional Story Synthesis annotations may not abort the whole edition when
+                // the model returns an evidence ID outside the canonical pack. Drop unknown
+                // references here; decisive thesis evidence remains strict above.
+                const acceptedExplanationEvidenceIds = onlyKnownIds(
+                  candidate.acceptedExplanationEvidenceIds,
+                  knownEvidenceIds,
+                );
+                const overlookedVariableEvidenceIds = onlyKnownIds(
+                  candidate.overlookedVariableEvidenceIds,
+                  knownEvidenceIds,
+                );'''
+          runtime, count = pattern.subn(replacement, runtime, count=1)
+          if count != 1:
+              raise SystemExit(f'expected one Story Synthesis evidence-validation block, found {count}')
+          runtime_path.write_text(runtime)
+
+          test_path = Path('tests/story-reasoning-runtime.test.ts')
+          test_text = test_path.read_text()
+          test_text = test_text.replace(
+              'test("Story Synthesis provenance is required and rejected unless canonical", () => {',
+              'test("Story Synthesis keeps decisive lineage strict while isolating optional annotation ID errors", () => {',
+              1,
+          )
+          test_text = test_text.replace(
+              'assert.match(runtime, /acceptedExplanationEvidenceIds = requireKnownEvidenceIds\\([\\s\\S]*candidate\\.acceptedExplanationEvidenceIds/);',
+              'assert.match(runtime, /acceptedExplanationEvidenceIds = onlyKnownIds\\([\\s\\S]*candidate\\.acceptedExplanationEvidenceIds/);',
+              1,
+          )
+          test_text = test_text.replace(
+              'assert.match(runtime, /overlookedVariableEvidenceIds = requireKnownEvidenceIds\\([\\s\\S]*candidate\\.overlookedVariableEvidenceIds/);',
+              'assert.match(runtime, /overlookedVariableEvidenceIds = onlyKnownIds\\([\\s\\S]*candidate\\.overlookedVariableEvidenceIds/);',
+              1,
+          )
+          test_path.write_text(test_text)
+
+          regression = Path('tests/story-synthesis-optional-lineage.test.ts')
+          regression.write_text('''import assert from "node:assert/strict";\nimport test from "node:test";\n\nimport { buildCanonicalStoryReasoningSnapshotV1 } from "../lib/intelligence/story-reasoning.ts";\n\nconst evidenceById = new Map([["ev:known", { id: "ev:known", claim: "Known canonical fact" }]]);\n\nfunction baseInput() {\n  return {\n    synthesis: {\n      lifecycleStatus: "developing" as const,\n      thesis: "Test thesis",\n      whatChanged: "Something changed",\n      previousState: null,\n      currentState: "Current state",\n      marketReaction: "Observed move",\n      acceptedExplanation: "Accepted explanation",\n      acceptedExplanationEvidenceIds: ["ev:known", "ev:hallucinated"],\n      overlookedVariable: "Optional overlooked variable",\n      overlookedVariableEvidenceStatus: "observed" as const,\n      overlookedVariableEvidenceIds: ["ev:hallucinated-a", "ev:hallucinated-b"],\n      marketMayBeRight: null,\n      decisiveEvidenceIds: ["ev:known"],\n    },\n    hypothesis: {\n      id: "hyp:1",\n      evidenceForIds: ["ev:known"],\n      causalChain: [{\n        from: "A",\n        relationship: "drives",\n        to: "B",\n        evidenceState: "observed" as const,\n        evidenceIds: ["ev:known"],\n      }],\n      confirmationCriteria: ["Confirm"],\n      invalidationCriteria: ["Invalidate"],\n    },\n    challenger: { strongestCountercase: null, conflictingEvidenceIds: [], weakestLink: null },\n    scenarios: [],\n    evidenceById,\n  };\n}\n\ntest("optional synthesis evidence hallucinations are isolated without entering canonical lineage", () => {\n  const snapshot = buildCanonicalStoryReasoningSnapshotV1(baseInput());\n  const interpretation = snapshot.claims.find((claim) => claim.type === "interpretation");\n  assert.deepEqual(interpretation?.evidenceIds, ["ev:known"]);\n  assert.deepEqual(snapshot.overlookedVariable.evidenceIds, []);\n  assert.equal(snapshot.overlookedVariable.evidenceState, "speculative");\n});\n\ntest("decisive evidence remains fail-closed", () => {\n  const input = baseInput();\n  input.synthesis.decisiveEvidenceIds = ["ev:hallucinated"];\n  assert.throws(\n    () => buildCanonicalStoryReasoningSnapshotV1(input),\n    /Decisive evidence references unknown canonical evidence ID/,\n  );\n});\n''')
+          PY
+      - name: Focused tests
+        run: node --test --experimental-strip-types tests/story-reasoning-runtime.test.ts tests/story-synthesis-optional-lineage.test.ts
+      - name: Full suite and build
+        run: npm test && npm run build
+      - name: Commit verified repair and remove one-off workflows
+        run: |
+          git config user.name "alchemy-repair-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/story-synthesis-lineage-repair.yml .github/workflows/story-synthesis-lineage-repair-v2.yml
+          git add lib/intelligence/runtime.ts lib/intelligence/story-reasoning.ts tests/story-reasoning-runtime.test.ts tests/story-synthesis-optional-lineage.test.ts
+          git commit -m "fix(intelligence): isolate optional synthesis evidence lineage errors"
+          git push origin HEAD:fix/story-synthesis-optional-evidence-lineage-20260828
