@@ -6,6 +6,7 @@ import { generateKeyPair, SignJWT } from "jose";
 import {
   MANUAL_LIVE_TRIGGER_AUDIENCE,
   verifyGitHubActionsManualLiveTrigger,
+  verifyGitHubActionsScheduledLiveTrigger,
 } from "../lib/manual-live-trigger-auth.ts";
 
 const issuer = "https://token.actions.githubusercontent.com";
@@ -43,14 +44,27 @@ async function signedRequest(overrides: Record<string, string> = {}) {
   };
 }
 
-test("a signed token from the exact main workflow is authorised", async () => {
+const expectedAuthorization = {
+  authorized: true,
+  actor: "production-operator",
+  githubRunId: "123456",
+  workflowSha: "abc123",
+};
+
+test("a signed manual token from the exact main workflow is authorised", async () => {
   const { request, publicKey } = await signedRequest();
-  assert.deepEqual(await verifyGitHubActionsManualLiveTrigger(request, publicKey), {
-    authorized: true,
-    actor: "production-operator",
-    githubRunId: "123456",
-    workflowSha: "abc123",
-  });
+  assert.deepEqual(await verifyGitHubActionsManualLiveTrigger(request, publicKey), expectedAuthorization);
+});
+
+test("a signed schedule token from the exact main workflow is authorised only on the scheduled boundary", async () => {
+  const { request, publicKey } = await signedRequest({ event_name: "schedule" });
+  assert.deepEqual(await verifyGitHubActionsScheduledLiveTrigger(request, publicKey), expectedAuthorization);
+  assert.deepEqual(await verifyGitHubActionsManualLiveTrigger(request, publicKey), { authorized: false });
+});
+
+test("a manual token is rejected by the scheduled boundary", async () => {
+  const { request, publicKey } = await signedRequest();
+  assert.deepEqual(await verifyGitHubActionsScheduledLiveTrigger(request, publicKey), { authorized: false });
 });
 
 test("a valid GitHub token from any other workflow is rejected", async () => {

@@ -266,25 +266,48 @@ export function marketEventFromEarningsCallRow(row: EarningsCallMarketEventRow):
   });
 }
 
+function precisionRank(value: MarketEventTimePrecision) {
+  switch (value) {
+    case "exact": return 3;
+    case "date": return 2;
+    case "window": return 1;
+    case "tbc": return 0;
+  }
+}
+
 export function dedupeMarketEvents(events: MarketEventV1[]) {
   const byKey = new Map<string, MarketEventV1>();
   for (const event of events) {
     const key = marketEventSignature(event);
     const current = byKey.get(key);
-    if (!current || Date.parse(event.updatedAt) >= Date.parse(current.updatedAt)) {
-      byKey.set(key, current ? {
-        ...current,
-        ...event,
-        participants: list([...current.participants, ...event.participants]),
-        geography: list([...current.geography, ...event.geography]),
-        affectedAssets: list([...current.affectedAssets, ...event.affectedAssets]),
-        linkedStoryIds: list([...current.linkedStoryIds, ...event.linkedStoryIds]),
-        linkedStorySlugs: list([...current.linkedStorySlugs, ...event.linkedStorySlugs]),
-        sourceUrls: list([...current.sourceUrls, ...event.sourceUrls, current.sourceUrl, event.sourceUrl]),
-        sourceRecordRefs: list([...current.sourceRecordRefs, ...event.sourceRecordRefs]),
-        firstSeenAt: Date.parse(current.firstSeenAt) <= Date.parse(event.firstSeenAt) ? current.firstSeenAt : event.firstSeenAt,
-      } : event);
+    if (!current) {
+      byKey.set(key, event);
+      continue;
     }
+
+    const eventIsNewer = Date.parse(event.updatedAt) >= Date.parse(current.updatedAt);
+    const latest = eventIsNewer ? event : current;
+    const other = eventIsNewer ? current : event;
+    const morePreciseTiming = precisionRank(other.timePrecision) > precisionRank(latest.timePrecision)
+      ? other
+      : latest;
+
+    byKey.set(key, {
+      ...other,
+      ...latest,
+      startAt: morePreciseTiming.startAt,
+      endAt: morePreciseTiming.endAt,
+      timeLabel: morePreciseTiming.timeLabel,
+      timePrecision: morePreciseTiming.timePrecision,
+      participants: list([...current.participants, ...event.participants]),
+      geography: list([...current.geography, ...event.geography]),
+      affectedAssets: list([...current.affectedAssets, ...event.affectedAssets]),
+      linkedStoryIds: list([...current.linkedStoryIds, ...event.linkedStoryIds]),
+      linkedStorySlugs: list([...current.linkedStorySlugs, ...event.linkedStorySlugs]),
+      sourceUrls: list([...current.sourceUrls, ...event.sourceUrls, current.sourceUrl, event.sourceUrl]),
+      sourceRecordRefs: list([...current.sourceRecordRefs, ...event.sourceRecordRefs]),
+      firstSeenAt: Date.parse(current.firstSeenAt) <= Date.parse(event.firstSeenAt) ? current.firstSeenAt : event.firstSeenAt,
+    });
   }
   return [...byKey.values()].sort((a, b) => (a.startAt || "9999").localeCompare(b.startAt || "9999"));
 }

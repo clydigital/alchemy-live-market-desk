@@ -19,6 +19,7 @@ const TRUSTED_WORKFLOW_REF =
   `${TRUSTED_REPOSITORY}/.github/workflows/run-live-research.yml@${TRUSTED_REF}`;
 
 type VerificationKey = Parameters<typeof jwtVerify>[1];
+type TrustedLiveTriggerEvent = "workflow_dispatch" | "schedule";
 
 export type ManualLiveTriggerAuthorization =
   | {
@@ -34,19 +35,28 @@ function stringClaim(payload: JWTPayload, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-export function acceptsManualLiveTriggerClaims(payload: JWTPayload) {
+function acceptsLiveTriggerClaims(payload: JWTPayload, eventName: TrustedLiveTriggerEvent) {
   return payload.sub === TRUSTED_SUBJECT
     && stringClaim(payload, "repository") === TRUSTED_REPOSITORY
     && stringClaim(payload, "repository_id") === TRUSTED_REPOSITORY_ID
     && stringClaim(payload, "workflow_ref") === TRUSTED_WORKFLOW_REF
-    && stringClaim(payload, "event_name") === "workflow_dispatch"
+    && stringClaim(payload, "event_name") === eventName
     && stringClaim(payload, "ref") === TRUSTED_REF
     && stringClaim(payload, "ref_type") === "branch";
 }
 
-export async function verifyGitHubActionsManualLiveTrigger(
+export function acceptsManualLiveTriggerClaims(payload: JWTPayload) {
+  return acceptsLiveTriggerClaims(payload, "workflow_dispatch");
+}
+
+export function acceptsScheduledLiveTriggerClaims(payload: JWTPayload) {
+  return acceptsLiveTriggerClaims(payload, "schedule");
+}
+
+async function verifyGitHubActionsLiveTrigger(
   request: Request,
-  verificationKey: VerificationKey = GITHUB_ACTIONS_JWKS,
+  eventName: TrustedLiveTriggerEvent,
+  verificationKey: VerificationKey,
 ): Promise<ManualLiveTriggerAuthorization> {
   const authorization = request.headers.get("authorization") || "";
   const match = authorization.match(/^Bearer\s+([^\s]+)$/i);
@@ -77,7 +87,7 @@ export async function verifyGitHubActionsManualLiveTrigger(
         "run_id",
       ],
     });
-    if (protectedHeader.typ !== "JWT" || !acceptsManualLiveTriggerClaims(payload)) {
+    if (protectedHeader.typ !== "JWT" || !acceptsLiveTriggerClaims(payload, eventName)) {
       return { authorized: false };
     }
 
@@ -90,4 +100,18 @@ export async function verifyGitHubActionsManualLiveTrigger(
   } catch {
     return { authorized: false };
   }
+}
+
+export async function verifyGitHubActionsManualLiveTrigger(
+  request: Request,
+  verificationKey: VerificationKey = GITHUB_ACTIONS_JWKS,
+) {
+  return verifyGitHubActionsLiveTrigger(request, "workflow_dispatch", verificationKey);
+}
+
+export async function verifyGitHubActionsScheduledLiveTrigger(
+  request: Request,
+  verificationKey: VerificationKey = GITHUB_ACTIONS_JWKS,
+) {
+  return verifyGitHubActionsLiveTrigger(request, "schedule", verificationKey);
 }

@@ -2,10 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/video/midnight",
-      "schedule": "0 1 * * *"
-    },
-    {
       "path": "/api/cron/research/morning",
       "schedule": "15 1 * * *"
     },
@@ -44,10 +40,6 @@
     {
       "path": "/api/cron/research/morning-intelligence-watchdog",
       "schedule": "21 2 * * *"
-    },
-    {
-      "path": "/api/cron/video/late-morning",
-      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/research/evening",

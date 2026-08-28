@@ -268,7 +268,6 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
     "/api/cron/research/morning-intelligence-watchdog 5 2 * * *",
     "/api/cron/research/morning-intelligence-watchdog 57 1 * * *",
     "/api/cron/research/morning-watchdog 20 1 * * *",
-    "/api/cron/video/late-morning 0 13 * * *",
-    "/api/cron/video/midnight 0 1 * * *",
   ]);
+  assert.equal(vercelConfig.crons.some((cron) => cron.path.startsWith("/api/cron/video/")), false);
 });
