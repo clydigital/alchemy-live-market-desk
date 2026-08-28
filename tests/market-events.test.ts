@@ -179,6 +179,7 @@ test("keeps one canonical occurrence when TBC becomes dated", () => {
     timePrecision: "tbc",
     sourceName: "Diplomatic briefing",
     sourceUrl: "https://www.state.gov/",
+    updatedAt: "2026-08-26T00:00:00.000Z",
   })!;
   const dated = normaliseMarketEvent({
     occurrenceKey: "iran-policy-discussion:2026-09",
