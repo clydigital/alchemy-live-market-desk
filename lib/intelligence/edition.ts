@@ -1,6 +1,7 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import type { MarketEventV1 } from "@/lib/market-events";
+import { composeDossierBriefing, type DossierBriefingV1 } from "./dossier-briefing.ts";
 import { composeJourneyBriefing, type JourneyBriefingV1, type JourneyStorySource } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
@@ -168,6 +169,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  dossier?: DossierBriefingV1;
   journey?: JourneyBriefingV1;
   diagnostics?: EditionDiagnostics;
   finalBoard: {
@@ -346,6 +348,15 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    dossier: composeDossierBriefing({
+      generatedAt,
+      stories,
+      changes,
+      storySources: journeyStorySources,
+      marketTape,
+      upcoming: normalisedUpcoming,
+      diagnostics,
+    }),
     journey: composeJourneyBriefing({
       generatedAt,
       stories,
@@ -360,4 +371,3 @@ export function composeAlchemyEdition({
     finalBoard,
   };
 }
-
