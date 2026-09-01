@@ -123,6 +123,81 @@ function source(): JourneyStorySource {
   };
 }
 
+function variantStory({
+  id,
+  confidence,
+  lifecycleStatus = "developing",
+  affectedAssets,
+  themes,
+  changeKinds = [],
+  currentState,
+  whatChanged,
+}: {
+  id: string;
+  confidence: number;
+  lifecycleStatus?: EditionStory["lifecycleStatus"];
+  affectedAssets: string[];
+  themes: string[];
+  changeKinds?: EditionStory["changeKinds"];
+  currentState: string;
+  whatChanged: string;
+}): EditionStory {
+  return {
+    ...story(),
+    id,
+    parentStoryId: id,
+    lifecycleStatus,
+    title: id,
+    centralQuestion: `What is happening with ${id}?`,
+    confidence,
+    affectedAssets,
+    themes,
+    changeKinds,
+    currentState,
+    whatChanged,
+  };
+}
+
+function variantSource({
+  id,
+  position,
+  confidence,
+  lifecycle = "developing",
+  asset,
+  currentState,
+  whatChanged,
+}: {
+  id: string;
+  position: number;
+  confidence: number;
+  lifecycle?: CanonicalStoryReasoningV1["lifecycle"];
+  asset: string;
+  currentState: string;
+  whatChanged: string;
+}): JourneyStorySource {
+  const base = source();
+  const versionId = `${id}-version`;
+  return {
+    ...base,
+    position,
+    publicationSnapshotId: `${id}-snapshot`,
+    storyId: id,
+    thesisVersionId: versionId,
+    reasoning: {
+      ...base.reasoning,
+      storyId: id,
+      storyVersionId: versionId,
+      title: id,
+      centralQuestion: `What is happening with ${id}?`,
+      lifecycle,
+      confidence,
+      whatChanged,
+      currentState,
+      assetImplications: base.reasoning.assetImplications.map((impact) => ({ ...impact, asset })),
+    },
+  };
+}
+
 test("composes a question-led Dossier from immutable canonical Story reasoning", () => {
   const result = composeDossierBriefing({
     generatedAt: "2026-09-01T09:00:00Z",
@@ -175,4 +250,96 @@ test("does not manufacture lessons when immutable reasoning is missing", () => {
 
   assert.equal(result.lessons.length, 0);
   assert.ok(result.diagnostics.warnings.some((warning) => warning.includes("exact immutable Canonical Story Reasoning")));
+});
+
+test("includes active persistent Stories and lets current tape relevance outrank a weak new delta", () => {
+  const changed = variantStory({
+    id: "story-calendar",
+    confidence: 1,
+    affectedAssets: ["NZDUSD"],
+    themes: ["Calendar"],
+    changeKinds: ["catalyst"],
+    currentState: "The RBNZ schedule is now known.",
+    whatChanged: "The RBNZ schedule was published.",
+  });
+  const persistent = variantStory({
+    id: "story-fed-oil",
+    confidence: 92,
+    affectedAssets: ["US02Y", "DXY", "XAUUSD"],
+    themes: ["Oil", "Fed", "Bonds"],
+    currentState: "Oil and front-end yields remain linked through inflation repricing.",
+    whatChanged: "This relationship was established in an earlier run.",
+  });
+  const result = composeDossierBriefing({
+    generatedAt: "2026-09-02T01:00:00Z",
+    stories: [changed, persistent],
+    changes: [{ id: changed.id }],
+    storySources: [
+      variantSource({
+        id: changed.id,
+        position: 1,
+        confidence: 1,
+        asset: "NZDUSD",
+        currentState: changed.currentState,
+        whatChanged: changed.whatChanged,
+      }),
+      variantSource({
+        id: persistent.id,
+        position: 2,
+        confidence: 92,
+        asset: "US02Y",
+        currentState: persistent.currentState,
+        whatChanged: persistent.whatChanged,
+      }),
+    ],
+    marketTape: {
+      regimeSummary: "Oil inflation and higher front-end yields are driving the cross-asset tape.",
+      assets: [{ symbol: "US02Y", move: "+10bp", state: "higher", whyRelevant: "Fed repricing" }],
+    },
+    upcoming: { economicCalendar: [], earnings: [], geopoliticalClock: [] },
+    diagnostics: { warnings: [], eventHorizonCoverage: [] },
+  });
+
+  assert.equal(result.lessons.length, 2);
+  assert.equal(result.lessons[0].storyId, persistent.id);
+  assert.equal(result.lessons[0].body[0], persistent.currentState);
+  assert.ok(result.lessons.some((lesson) => lesson.storyId === changed.id));
+  assert.ok(result.opening.topicChips.includes("Oil"));
+});
+
+test("drops stale invalidated persistent Stories but still explains a changed invalidation", () => {
+  const stale = variantStory({
+    id: "story-stale",
+    confidence: 99,
+    lifecycleStatus: "invalidated",
+    affectedAssets: ["US02Y"],
+    themes: ["Old thesis"],
+    currentState: "This thesis is invalidated.",
+    whatChanged: "It was invalidated in an earlier run.",
+  });
+  const changedInvalidation = variantStory({
+    id: "story-just-invalidated",
+    confidence: 80,
+    lifecycleStatus: "invalidated",
+    affectedAssets: ["DXY"],
+    themes: ["Fed"],
+    changeKinds: ["evidence"],
+    currentState: "The prior thesis no longer holds.",
+    whatChanged: "New evidence invalidated the prior thesis.",
+  });
+  const result = composeDossierBriefing({
+    generatedAt: "2026-09-02T01:00:00Z",
+    stories: [stale, changedInvalidation],
+    changes: [{ id: changedInvalidation.id }],
+    storySources: [
+      variantSource({ id: stale.id, position: 1, confidence: 99, lifecycle: "invalidated", asset: "US02Y", currentState: stale.currentState, whatChanged: stale.whatChanged }),
+      variantSource({ id: changedInvalidation.id, position: 2, confidence: 80, lifecycle: "invalidated", asset: "DXY", currentState: changedInvalidation.currentState, whatChanged: changedInvalidation.whatChanged }),
+    ],
+    marketTape: { regimeSummary: "Dollar repricing", assets: [{ symbol: "DXY", move: "-1%", state: "lower", whyRelevant: "Fed repricing" }] },
+    upcoming: { economicCalendar: [], earnings: [], geopoliticalClock: [] },
+    diagnostics: { warnings: [], eventHorizonCoverage: [] },
+  });
+
+  assert.deepEqual(result.lessons.map((lesson) => lesson.storyId), [changedInvalidation.id]);
+  assert.equal(result.lessons[0].body[0], changedInvalidation.whatChanged);
 });
