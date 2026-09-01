@@ -1,9 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { persistCanonicalJourneyEditionForResearchRun } from "@/lib/intelligence/canonical-journey-edition";
-import { runWithIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
+import {
+  composeCanonicalDossierEditionForResearchRun,
+  persistCanonicalJourneyEditionForResearchRun,
+} from "@/lib/intelligence/canonical-journey-edition";
+import {
+  runWithIntelligenceInvocation,
+  shouldDeferStageClaim,
+} from "@/lib/intelligence/invocation-context";
+import { OpenAIStageError, openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { runIntelligenceEngine } from "@/lib/intelligence/runtime";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -126,10 +132,11 @@ function handoffWarnings(
 }
 
 /**
- * Scheduled intelligence now gives one model stage to one durable invocation.
- * Completed checkpoints are replayed from the same engine run, and a later
- * stage is not even claimed after a model call has already been made. This
- * avoids the historical cognitive-stage stopwatch / cascading-timeout design.
+ * Scheduled intelligence gives one model stage to one durable invocation.
+ * Completed checkpoints are replayed from the same engine run. After research
+ * completes, the immutable base edition is persisted without model work. The
+ * Dossier storyline composer is then deferred into its own fresh invocation,
+ * preserving the same one-model-stage rule for edition-level composition.
  */
 export async function handleScheduledResearchIntelligence(
   request: Request,
@@ -188,15 +195,51 @@ export async function handleScheduledResearchIntelligence(
     }
     claimedWarnings = claim.warnings;
 
-    const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, () => runIntelligenceEngine({
-      researchRunId: run.id,
-      triggerKind: "new_evidence",
-      runKey: `research:${runKey}`,
-      dryRun: run.accuracy_gate === "blocked",
-      stageMaxAttempts: 1,
-    }));
-    const intelligence = invocation.value;
-    const warnings = handoffWarnings(
+    const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, async () => {
+      const intelligence = await runIntelligenceEngine({
+        researchRunId: run.id,
+        triggerKind: "new_evidence",
+        runKey: `research:${runKey}`,
+        dryRun: run.accuracy_gate === "blocked",
+        stageMaxAttempts: 1,
+      });
+      const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
+      if (intelligence.status === "partial" || finalStatus !== "completed") {
+        return { intelligence, dossierComposition: null, dossierCompositionError: null };
+      }
+
+      await persistCanonicalJourneyEditionForResearchRun({
+        researchRunId: run.id,
+        runKey,
+        publicSummary: run.summary,
+      });
+
+      if (shouldDeferStageClaim("dossier_storyline_composer")) {
+        return { intelligence, dossierComposition: null, dossierCompositionError: null };
+      }
+
+      try {
+        const dossierComposition = await composeCanonicalDossierEditionForResearchRun({
+          researchRunId: run.id,
+        });
+        return { intelligence, dossierComposition, dossierCompositionError: null };
+      } catch (error) {
+        if (error instanceof OpenAIStageError) {
+          return {
+            intelligence,
+            dossierComposition: null,
+            dossierCompositionError: {
+              message: error.message,
+              retryable: error.retryable,
+              code: error.code,
+            },
+          };
+        }
+        throw error;
+      }
+    });
+    const intelligence = invocation.value.intelligence;
+    let warnings = handoffWarnings(
       mergeScheduledWarnings(claimedWarnings, intelligence.warnings),
       invocation.summary.invokedModelStage,
       invocation.summary.deferredStage,
@@ -224,15 +267,62 @@ export async function handleScheduledResearchIntelligence(
         warnings: resumableWarnings,
       }, 202);
     }
+
     const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
     const updatesPublished = intelligence.storiesPublished || 0;
 
-    if (finalStatus === "completed") {
-      await persistCanonicalJourneyEditionForResearchRun({
-        researchRunId: run.id,
+    if (finalStatus === "completed" && invocation.summary.deferredStage === "dossier_storyline_composer") {
+      const resumableWarnings = mergeScheduledWarnings(
+        warnings,
+        [intelligenceContinuationReleaseWarning()],
+      );
+      await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
+      return response({
+        status: "partial",
+        continuation: "COMPOSE_DOSSIER",
+        completedStage: invocation.summary.invokedModelStage,
+        nextStage: "dossier_storyline_composer",
+        slot,
         runKey,
-        publicSummary: run.summary,
-      });
+        runId: run.id,
+        scheduledFor,
+        updatesPublished,
+        intelligence,
+        warnings: resumableWarnings,
+        message: "Canonical research and the immutable base edition are complete. Continue with Dossier causal composition in a fresh invocation.",
+      }, 202);
+    }
+
+    const compositionError = invocation.value.dossierCompositionError;
+    if (finalStatus === "completed" && compositionError?.retryable) {
+      const resumableWarnings = mergeScheduledWarnings(warnings, [
+        `Dossier storyline composer will retry: ${compositionError.message}`,
+        intelligenceContinuationReleaseWarning(),
+      ]);
+      await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
+      return response({
+        status: "partial",
+        continuation: "RETRY_DOSSIER_COMPOSER",
+        completedStage: invocation.summary.invokedModelStage,
+        nextStage: "dossier_storyline_composer",
+        slot,
+        runKey,
+        runId: run.id,
+        scheduledFor,
+        updatesPublished,
+        intelligence,
+        warnings: resumableWarnings,
+        message: "The canonical base edition is safe; retry the Dossier storyline composer without rerunning completed research stages.",
+      }, 202);
+    }
+
+    if (finalStatus === "completed" && compositionError) {
+      warnings = mergeScheduledWarnings(warnings, [
+        `Dossier storyline composition degraded to the persisted base edition: ${compositionError.message}`,
+      ]);
+    }
+    if (invocation.value.dossierComposition?.warnings?.length) {
+      warnings = mergeScheduledWarnings(warnings, invocation.value.dossierComposition.warnings);
     }
 
     await persistFinalRun({
@@ -257,6 +347,7 @@ export async function handleScheduledResearchIntelligence(
       scheduledFor,
       updatesPublished,
       intelligence,
+      dossierComposition: invocation.value.dossierComposition,
       warnings,
     }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
   } catch (error) {

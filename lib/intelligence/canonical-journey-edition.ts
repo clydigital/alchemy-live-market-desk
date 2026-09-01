@@ -2,6 +2,10 @@ import "server-only";
 
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
+import {
+  composePersistedDossierStorylines,
+  DOSSIER_STORYLINE_COMPOSITION_V1,
+} from "@/lib/intelligence/dossier-storyline-composer";
 import { composeAlchemyEdition, type AlchemyEdition } from "@/lib/intelligence/edition";
 import { JOURNEY_BRIEFING_V1, type JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import {
@@ -21,7 +25,14 @@ type StorySnapshotRow = {
 
 type DailyBriefRow = {
   id: string;
+  research_run_id: string | null;
+  slot_run_id: string | null;
+  supersedes_snapshot_id: string | null;
   payload: Record<string, unknown>;
+  public_summary: string;
+  source_record_refs: Record<string, unknown>[];
+  redaction_log?: unknown[];
+  confidence: number;
   published_at: string;
 };
 
@@ -38,6 +49,27 @@ function hasPersistedJourney(payload: Record<string, unknown> | undefined) {
     && typeof journey === "object"
     && !Array.isArray(journey)
     && (journey as { contractVersion?: unknown }).contractVersion === JOURNEY_BRIEFING_V1,
+  );
+}
+
+function hasComposedDossier(payload: Record<string, unknown> | undefined) {
+  const dossier = payload?.dossier;
+  return Boolean(
+    dossier
+    && typeof dossier === "object"
+    && !Array.isArray(dossier)
+    && (dossier as { compositionVersion?: unknown }).compositionVersion === DOSSIER_STORYLINE_COMPOSITION_V1,
+  );
+}
+
+function currentDailyBrief(rows: DailyBriefRow[]) {
+  const supersededIds = new Set(rows.flatMap((row) => row.supersedes_snapshot_id ? [row.supersedes_snapshot_id] : []));
+  return rows.find((row) => !supersededIds.has(row.id)) || rows[0] || null;
+}
+
+async function dailyBriefsForResearchRun(researchRunId: string) {
+  return intelligenceRest<DailyBriefRow[]>(
+    `hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=published_at.desc,id.desc&limit=20`,
   );
 }
 
@@ -147,11 +179,10 @@ async function persistCanonicalStoryManifest({
 }
 
 /**
- * Ensure every completed research run owns one immutable canonical edition.
- * The normal intelligence runtime already persists the edition when at least
- * one Story changes; that row is returned unchanged. Only the legitimate
- * zero-change case reaches the fallback below, where the same deterministic
- * composeAlchemyEdition contract produces an explicitly sparse Journey.
+ * Ensure every completed research run owns at least one immutable canonical
+ * edition. The normal intelligence runtime already persists the base edition
+ * when at least one Story changes. The legitimate zero-change case reaches the
+ * fallback below and receives the same canonical edition contract.
  */
 export async function persistCanonicalJourneyEditionForResearchRun({
   researchRunId,
@@ -162,10 +193,9 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   runKey: string;
   publicSummary?: string | null;
 }) {
-  const existing = await intelligenceRest<DailyBriefRow[]>(
-    `hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&research_run_id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
-  );
-  if (existing[0]) return existing[0].id;
+  const existingRows = await dailyBriefsForResearchRun(researchRunId);
+  const existing = currentDailyBrief(existingRows);
+  if (existing) return existing.id;
 
   const generatedAt = new Date().toISOString();
   const researchRun = (await intelligenceRest<Array<{
@@ -183,7 +213,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     publishedAt: generatedAt,
   });
   const prior = await intelligenceRest<DailyBriefRow[]>(
-    "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
+    "hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   // A zero-change edition must not attach current Story IDs to forward events.
@@ -245,4 +275,78 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   });
   if (!rows[0]?.id) throw new Error("Unable to persist zero-change canonical Journey edition snapshot.");
   return rows[0].id;
+}
+
+/**
+ * Final Live-owned edition-composition phase. It never mutates an existing
+ * edition. Instead it reads the exact persisted base edition + Story manifest,
+ * composes 1-3 causal storylines, and writes a superseding immutable daily
+ * brief. Edition replay already removes superseded rows from the current index.
+ */
+export async function composeCanonicalDossierEditionForResearchRun({
+  researchRunId,
+}: {
+  researchRunId: string;
+}) {
+  const rows = await dailyBriefsForResearchRun(researchRunId);
+  const base = currentDailyBrief(rows);
+  if (!base) throw new Error("Canonical base edition is unavailable for Dossier storyline composition.");
+  if (hasComposedDossier(base.payload)) {
+    return {
+      editionId: base.id,
+      status: "already_composed" as const,
+      warnings: [] as string[],
+      model: null,
+    };
+  }
+  if (!Array.isArray(base.payload.canonicalStoryManifest)) {
+    throw new Error("Canonical Story manifest is unavailable for Dossier storyline composition.");
+  }
+
+  const composed = await composePersistedDossierStorylines({ editionPayload: base.payload });
+  if (!composed.dossier || !composed.composition) {
+    return {
+      editionId: base.id,
+      status: "skipped" as const,
+      warnings: composed.warnings,
+      model: composed.model,
+    };
+  }
+
+  const publishedAt = new Date().toISOString();
+  const payload = {
+    ...base.payload,
+    dossier: composed.dossier,
+    dossierComposition: {
+      contractVersion: DOSSIER_STORYLINE_COMPOSITION_V1,
+      parentEditionId: base.id,
+      composedAt: publishedAt,
+      model: composed.model,
+    },
+  };
+  const inserted = await intelligenceRest<Array<{ id: string }>>("hybrid_publication_snapshots", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      research_run_id: researchRunId,
+      slot_run_id: base.slot_run_id,
+      story_id: null,
+      story_thesis_version_id: null,
+      supersedes_snapshot_id: base.id,
+      snapshot_type: "daily_brief",
+      public_summary: base.public_summary,
+      payload,
+      source_record_refs: Array.isArray(base.source_record_refs) ? base.source_record_refs : [],
+      redaction_log: Array.isArray(base.redaction_log) ? base.redaction_log : [],
+      confidence: base.confidence,
+      published_at: publishedAt,
+    }),
+  });
+  if (!inserted[0]?.id) throw new Error("Unable to persist composed canonical Dossier edition snapshot.");
+  return {
+    editionId: inserted[0].id,
+    status: "composed" as const,
+    warnings: composed.warnings,
+    model: composed.model,
+  };
 }
