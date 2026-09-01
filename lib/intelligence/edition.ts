@@ -1,7 +1,11 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import type { MarketEventV1 } from "@/lib/market-events";
-import { composeDossierBriefing, type DossierBriefingV1 } from "./dossier-briefing.ts";
+import {
+  composeDossierBriefing,
+  type DossierBriefingV1,
+  type DossierStoryContext,
+} from "./dossier-briefing.ts";
 import { composeJourneyBriefing, type JourneyBriefingV1, type JourneyStorySource } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
@@ -275,6 +279,35 @@ function emptyUpcoming(): EditionUpcoming {
   return { economicCalendar: [], earnings: [], geopoliticalClock: [] };
 }
 
+function priorDossierStoryContext(previousEdition: AlchemyEdition | null): DossierStoryContext[] {
+  if (!previousEdition) return [];
+  const manifest = (previousEdition as unknown as { canonicalStoryManifest?: unknown }).canonicalStoryManifest;
+  if (!Array.isArray(manifest)) return [];
+
+  const seen = new Set<string>();
+  return manifest.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const candidate = entry as { storyId?: unknown; state?: unknown };
+    if (!candidate.state || typeof candidate.state !== "object" || Array.isArray(candidate.state)) return [];
+    const state = candidate.state as Record<string, unknown>;
+    const id = typeof candidate.storyId === "string"
+      ? candidate.storyId
+      : typeof state.id === "string" ? state.id : null;
+    const confidence = state.confidence;
+    if (!id || seen.has(id) || typeof confidence !== "number" || !Number.isFinite(confidence)) return [];
+    seen.add(id);
+    const assets = Array.isArray(state.assets)
+      ? state.assets.filter((asset): asset is string => typeof asset === "string")
+      : Array.isArray(state.affectedAssets)
+        ? state.affectedAssets.filter((asset): asset is string => typeof asset === "string")
+        : [];
+    const themes = Array.isArray(state.themes)
+      ? state.themes.filter((theme): theme is string => typeof theme === "string")
+      : [];
+    return [{ id, confidence, affectedAssets: [...assets], themes: [...themes] }];
+  });
+}
+
 export function composeAlchemyEdition({
   generatedAt,
   comparisonWindowStart,
@@ -353,6 +386,7 @@ export function composeAlchemyEdition({
       stories,
       changes,
       storySources: journeyStorySources,
+      storyContext: priorDossierStoryContext(previousEdition),
       marketTape,
       upcoming: normalisedUpcoming,
       diagnostics,
