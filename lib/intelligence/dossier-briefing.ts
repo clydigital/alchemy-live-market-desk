@@ -54,6 +54,13 @@ export type DossierStorylineLink = {
   evidenceRefs: string[];
 };
 
+export type DossierStoryContext = {
+  id: string;
+  confidence: number;
+  affectedAssets: string[];
+  themes: string[];
+};
+
 export type DossierLesson = {
   number: number;
   storyId: string;
@@ -120,7 +127,9 @@ type MaterialChange = Pick<EditionStory, "id">;
 type RankedSource = {
   source: JourneyStorySource;
   story: EditionStory | undefined;
+  context: DossierStoryContext | undefined;
   changed: boolean;
+  confidence: number;
   score: number;
 };
 
@@ -165,8 +174,12 @@ function evidenceRefs(reasoning: CanonicalStoryReasoningV1) {
   ]);
 }
 
-function iconFor(story: EditionStory | undefined, reasoning: CanonicalStoryReasoningV1): DossierIcon {
-  const text = `${reasoning.title} ${reasoning.centralQuestion || ""} ${(story?.themes || []).join(" ")} ${(story?.affectedAssets || []).join(" ")}`.toLowerCase();
+function iconFor(
+  story: EditionStory | undefined,
+  reasoning: CanonicalStoryReasoningV1,
+  context: DossierStoryContext | undefined,
+): DossierIcon {
+  const text = `${reasoning.title} ${reasoning.centralQuestion || ""} ${(story?.themes || context?.themes || []).join(" ")} ${(story?.affectedAssets || context?.affectedAssets || []).join(" ")}`.toLowerCase();
   if (/oil|crude|brent|wti|energy|diesel|gasoline|lng|hormuz|refin/.test(text)) return "energy";
   if (/fed|fomc|central bank|rate decision|policy|warsh|powell|ecb|boe/.test(text)) return "policy";
   if (/treasury|yield|bond|duration|term premium|curve|jgb/.test(text)) return "bonds";
@@ -204,15 +217,24 @@ function callouts(story: EditionStory | undefined, reasoning: CanonicalStoryReas
   return output;
 }
 
-function canonicalConfidence(story: EditionStory | undefined, reasoning: CanonicalStoryReasoningV1) {
-  return Number.isFinite(reasoning.confidence) ? reasoning.confidence : (story?.confidence ?? 0);
+function canonicalConfidence(
+  story: EditionStory | undefined,
+  context: DossierStoryContext | undefined,
+  reasoning: CanonicalStoryReasoningV1,
+) {
+  if (Number.isFinite(reasoning.confidence)) return reasoning.confidence;
+  if (story && Number.isFinite(story.confidence)) return story.confidence;
+  if (context && Number.isFinite(context.confidence)) return context.confidence;
+  return null;
 }
 
 function lessonFromSource(
   source: JourneyStorySource,
   number: number,
   story: EditionStory | undefined,
+  context: DossierStoryContext | undefined,
   changed: boolean,
+  confidence: number,
 ): DossierLesson {
   const reasoning = source.reasoning;
   const body = unique(changed
@@ -235,7 +257,7 @@ function lessonFromSource(
     storyId: source.storyId,
     publicationSnapshotId: source.publicationSnapshotId,
     thesisVersionId: source.thesisVersionId,
-    icon: iconFor(story, reasoning),
+    icon: iconFor(story, reasoning, context),
     title: reasoning.centralQuestion || reasoning.title,
     question: reasoning.centralQuestion,
     body,
@@ -249,7 +271,7 @@ function lessonFromSource(
     callouts: callouts(story, reasoning),
     watchItems,
     evidenceRefs: evidenceRefs(reasoning),
-    confidence: canonicalConfidence(story, reasoning),
+    confidence,
   };
 }
 
@@ -299,13 +321,15 @@ function sourceIsActive(story: EditionStory | undefined, reasoning: CanonicalSto
 function sourceScore({
   source,
   story,
+  context,
   changed,
+  confidence,
   marketTape,
 }: Omit<RankedSource, "score"> & { marketTape: MarketTape }) {
   const reasoning = source.reasoning;
   const tapeAssets = new Set(marketTape.assets.map((asset) => normaliseAsset(asset.symbol)));
   const storyAssets = unique([
-    ...(story?.affectedAssets || []),
+    ...(story?.affectedAssets || context?.affectedAssets || []),
     ...reasoning.assetImplications.map((impact) => impact.asset),
   ]).map(normaliseAsset);
   const assetOverlap = storyAssets.filter((asset) => tapeAssets.has(asset)).length;
@@ -320,12 +344,12 @@ function sourceScore({
     reasoning.currentState,
     reasoning.acceptedExplanation,
     reasoning.overlookedVariable.text,
-    ...(story?.themes || []),
-    ...(story?.affectedAssets || []),
+    ...(story?.themes || context?.themes || []),
+    ...(story?.affectedAssets || context?.affectedAssets || []),
   ].join(" "));
   const textOverlap = [...storyText].filter((word) => tapeText.has(word)).length;
 
-  return canonicalConfidence(story, reasoning)
+  return confidence
     + (changed ? 30 : 0)
     + lifecycleScore(story, reasoning)
     + Math.max(0, 20 - Math.max(0, source.position - 1) * 3)
@@ -337,17 +361,20 @@ function selectDossierSources({
   stories,
   changes,
   storySources,
+  storyContext,
   marketTape,
   warnings,
 }: {
   stories: EditionStory[];
   changes: MaterialChange[];
   storySources: JourneyStorySource[];
+  storyContext: DossierStoryContext[];
   marketTape: MarketTape;
   warnings: string[];
 }) {
   const changedIds = new Set(changes.map((change) => change.id));
   const storyById = new Map(stories.map((story) => [story.id, story]));
+  const contextById = new Map(storyContext.map((story) => [story.id, story]));
   const validSources = storySources.filter(validSource);
   const validIds = new Set(validSources.map((source) => source.storyId));
 
@@ -357,19 +384,25 @@ function selectDossierSources({
     }
   }
 
-  const ranked = validSources
-    .filter((source) => changedIds.has(source.storyId) || sourceIsActive(storyById.get(source.storyId), source.reasoning))
-    .map((source) => {
-      const story = storyById.get(source.storyId);
-      const changed = changedIds.has(source.storyId);
-      return {
-        source,
-        story,
-        changed,
-        score: sourceScore({ source, story, changed, marketTape }),
-      } satisfies RankedSource;
-    })
-    .sort((left, right) => right.score - left.score || left.source.position - right.source.position || left.source.storyId.localeCompare(right.source.storyId));
+  const ranked = validSources.flatMap((source) => {
+    const story = storyById.get(source.storyId);
+    const context = contextById.get(source.storyId);
+    const changed = changedIds.has(source.storyId);
+    if (!changed && !sourceIsActive(story, source.reasoning)) return [];
+    const confidence = canonicalConfidence(story, context, source.reasoning);
+    if (confidence === null) {
+      warnings.push(`Dossier omitted Story ${source.storyId}: canonical confidence is unavailable in both Story reasoning and immutable prior Story context.`);
+      return [];
+    }
+    return [{
+      source,
+      story,
+      context,
+      changed,
+      confidence,
+      score: sourceScore({ source, story, context, changed, confidence, marketTape }),
+    } satisfies RankedSource];
+  }).sort((left, right) => right.score - left.score || left.source.position - right.source.position || left.source.storyId.localeCompare(right.source.storyId));
 
   const selected = ranked.slice(0, MAX_DOSSIER_LESSONS);
   const selectedIds = new Set(selected.map((item) => item.source.storyId));
@@ -391,12 +424,11 @@ function selectDossierSources({
     .sort((left, right) => right.score - left.score || left.source.position - right.source.position || left.source.storyId.localeCompare(right.source.storyId));
 }
 
-function topicChips(stories: EditionStory[], selectedStoryIds: string[]) {
-  const selected = new Set(selectedStoryIds);
-  return unique(stories
-    .filter((story) => selected.has(story.id))
-    .flatMap((story) => [...story.themes, ...story.affectedAssets]))
-    .slice(0, 7);
+function topicChips(selected: RankedSource[]) {
+  return unique(selected.flatMap((item) => [
+    ...(item.story?.themes || item.context?.themes || []),
+    ...(item.story?.affectedAssets || item.context?.affectedAssets || []),
+  ])).slice(0, 7);
 }
 
 function watchNow(lessons: DossierLesson[], marketTape: MarketTape) {
@@ -422,6 +454,7 @@ export function composeDossierBriefing({
   stories,
   changes,
   storySources,
+  storyContext = [],
   marketTape,
   upcoming,
   diagnostics,
@@ -430,13 +463,21 @@ export function composeDossierBriefing({
   stories: EditionStory[];
   changes: MaterialChange[];
   storySources: JourneyStorySource[];
+  storyContext?: DossierStoryContext[];
   marketTape: MarketTape;
   upcoming: EditionUpcoming;
   diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage">;
 }): DossierBriefingV1 {
   const warnings = [...new Set(diagnostics.warnings)];
-  const rankedSources = selectDossierSources({ stories, changes, storySources, marketTape, warnings });
-  const lessons = rankedSources.map((item, index) => lessonFromSource(item.source, index + 1, item.story, item.changed));
+  const rankedSources = selectDossierSources({ stories, changes, storySources, storyContext, marketTape, warnings });
+  const lessons = rankedSources.map((item, index) => lessonFromSource(
+    item.source,
+    index + 1,
+    item.story,
+    item.context,
+    item.changed,
+    item.confidence,
+  ));
   const lead = lessons[0] || null;
   const quickSummary = lessons.slice(0, 5).map((lesson, index) => ({
     rank: index + 1,
@@ -450,7 +491,7 @@ export function composeDossierBriefing({
       headline: lead?.title || "No supported active Story context is available for this edition.",
       summary: lead?.body[0] || "The canonical Live edition contains no active Story reasoning to explain.",
       marketState: marketTape.regimeSummary,
-      topicChips: topicChips(stories, lessons.map((lesson) => lesson.storyId)),
+      topicChips: topicChips(rankedSources),
     },
     quickSummary,
     primaryStoryline: storyline(lessons),
@@ -469,6 +510,7 @@ export function composeDossierBriefing({
       interpretationNotes: [
         "Dossier content is derived from canonical Live Story reasoning and may simplify wording without changing evidence status, confidence, confirmation or invalidation.",
         "Active persistent Stories may remain in the Dossier when they still help explain the current market state, even if they did not materially change in this run.",
+        "Legacy Story reasoning may recover confidence and asset context only from the prior immutable canonical Story manifest; no current mutable Story table is used for that fallback.",
         "Commentary and creator material remain research leads unless independently verified in canonical evidence.",
       ],
     },
