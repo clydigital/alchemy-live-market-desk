@@ -1,10 +1,41 @@
 import assert from "node:assert/strict";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
-import {
-  buildDossierComposerCandidates,
-  composePersistedDossierStorylines,
-} from "../lib/intelligence/dossier-storyline-composer.ts";
+let composerPromise: Promise<any> | null = null;
+
+async function composerModule() {
+  if (!composerPromise) {
+    const source = readFileSync(new URL("../lib/intelligence/dossier-storyline-composer.ts", import.meta.url), "utf8")
+      .replace('import "server-only";\n\n', "")
+      .replace(
+        'import { runStructuredStage, type OpenAIStageResult } from "./openai.ts";',
+        `const runStructuredStage = async () => { throw new Error("OpenAI is not available in the pure composer test harness."); };
+         type OpenAIStageResult<T> = {
+           data: T;
+           requestId: string | null;
+           responseId: string | null;
+           model: string;
+           inputTokens: number | null;
+           outputTokens: number | null;
+           totalTokens: number | null;
+         };`,
+      );
+    const path = join(tmpdir(), `alchemy-dossier-composer-${process.pid}-${Date.now()}.ts`);
+    writeFileSync(path, source, "utf8");
+    composerPromise = import(`${pathToFileURL(path).href}?v=${Date.now()}`).finally(() => {
+      try {
+        unlinkSync(path);
+      } catch {
+        // The imported module is already loaded; cleanup is best-effort only.
+      }
+    });
+  }
+  return composerPromise;
+}
 
 function story({
   id,
@@ -63,7 +94,8 @@ function baseDossier() {
   };
 }
 
-test("candidate selection keeps a weak current change while prioritising tape-relevant persistent context", () => {
+test("candidate selection keeps a weak current change while prioritising tape-relevant persistent context", async () => {
+  const { buildDossierComposerCandidates } = await composerModule();
   const manifest = [
     story({ id: "rates", position: 1, confidence: 96, assets: ["US02Y"], title: "Fed repricing lifts front-end yields" }),
     story({ id: "oil", position: 2, confidence: 94, assets: ["USOIL"], title: "Fuel inflation remains sticky" }),
@@ -87,7 +119,7 @@ test("candidate selection keeps a weak current change while prioritising tape-re
   };
 
   const selected = buildDossierComposerCandidates(payload);
-  const ids = selected.map((item) => item.storyId);
+  const ids = selected.map((item: { storyId: string }) => item.storyId);
 
   assert.equal(selected.length, 8);
   assert.equal(ids[0], "rates");
@@ -96,6 +128,7 @@ test("candidate selection keeps a weak current change while prioritising tape-re
 });
 
 test("model output is sanitised to canonical node types, endpoint lineage, Story IDs and evidence", async () => {
+  const { composePersistedDossierStorylines } = await composerModule();
   const payload = {
     dossier: baseDossier(),
     canonicalStoryManifest: [
@@ -161,18 +194,19 @@ test("model output is sanitised to canonical node types, endpoint lineage, Story
   const storyline = result.composition.storylines[0];
 
   assert.deepEqual(storyline.storyIds, ["oil", "rates"]);
-  assert.deepEqual(storyline.nodes.map((node) => [node.id, node.type]), [["fuel", "commodity"], ["rates", "rates"]]);
+  assert.deepEqual(storyline.nodes.map((node: { id: string; type: string }) => [node.id, node.type]), [["fuel", "commodity"], ["rates", "rates"]]);
   assert.equal(storyline.links.length, 1);
   assert.equal(storyline.links[0].evidenceStatus, "inferred");
   assert.deepEqual(storyline.links[0].evidenceRefs, []);
   assert.deepEqual(storyline.links[0].supportingStoryIds, ["oil", "rates"]);
-  assert.ok(result.warnings.some((warning) => warning.includes("downgraded to inferred")));
+  assert.ok(result.warnings.some((warning: string) => warning.includes("downgraded to inferred")));
   assert.deepEqual(result.composition.lessonOrder.slice(0, 2), ["rates", "oil"]);
   assert.equal(result.dossier?.lessons?.[0]?.confidence, 96);
   assert.equal(result.dossier?.lessons?.[1]?.confidence, 94);
 });
 
 test("missing market tape remains visible as composition debt", async () => {
+  const { composePersistedDossierStorylines } = await composerModule();
   const payload = {
     dossier: baseDossier(),
     canonicalStoryManifest: [story({ id: "oil", position: 1, confidence: 94, assets: ["USOIL"] })],
@@ -203,6 +237,6 @@ test("missing market tape remains visible as composition debt", async () => {
   });
 
   const result = await composePersistedDossierStorylines({ editionPayload: payload, modelRunner: fakeRunner });
-  assert.ok(result.warnings.some((warning) => warning.includes("without persisted market tape")));
+  assert.ok(result.warnings.some((warning: string) => warning.includes("without persisted market tape")));
   assert.ok(result.dossier?.diagnostics?.warnings?.some((warning: string) => warning.includes("without persisted market tape")));
 });
