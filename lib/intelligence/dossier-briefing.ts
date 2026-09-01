@@ -204,6 +204,10 @@ function callouts(story: EditionStory | undefined, reasoning: CanonicalStoryReas
   return output;
 }
 
+function canonicalConfidence(story: EditionStory | undefined, reasoning: CanonicalStoryReasoningV1) {
+  return Number.isFinite(reasoning.confidence) ? reasoning.confidence : (story?.confidence ?? 0);
+}
+
 function lessonFromSource(
   source: JourneyStorySource,
   number: number,
@@ -245,7 +249,7 @@ function lessonFromSource(
     callouts: callouts(story, reasoning),
     watchItems,
     evidenceRefs: evidenceRefs(reasoning),
-    confidence: reasoning.confidence,
+    confidence: canonicalConfidence(story, reasoning),
   };
 }
 
@@ -321,7 +325,7 @@ function sourceScore({
   ].join(" "));
   const textOverlap = [...storyText].filter((word) => tapeText.has(word)).length;
 
-  return reasoning.confidence
+  return canonicalConfidence(story, reasoning)
     + (changed ? 30 : 0)
     + lifecycleScore(story, reasoning)
     + Math.max(0, 20 - Math.max(0, source.position - 1) * 3)
