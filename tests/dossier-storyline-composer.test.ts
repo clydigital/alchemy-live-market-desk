@@ -11,16 +11,16 @@ test("Dossier causal composer is bounded to one to three canonical storylines", 
 
   assert.match(composer, /MAX_COMPOSER_CANDIDATES = 8/);
   assert.match(composer, /MAX_STORYLINES = 3/);
-  assert.match(composer, /rawStorylines\.slice\(0, MAX_STORYLINES\)/);
+  assert.match(composer, /data\.storylines\.slice\(0, MAX_STORYLINES\)/);
   assert.match(composer, /Do not force unrelated Stories together/);
-  assert.match(composer, /lessonOrder should put the explanation in teaching order/);
+  assert.match(composer, /Put lessonOrder in teaching order/);
 });
 
 test("composer never upgrades unsupported cross-Story causality", () => {
   const composer = source("../lib/intelligence/dossier-storyline-composer.ts");
 
   assert.match(composer, /allowedEvidence = new Set\(supportingStoryIds\.flatMap/);
-  assert.match(composer, /evidenceRefs = strings\(link\.evidenceRefs\)\.filter\(\(id\) => allowedEvidence\.has\(id\)\)/);
+  assert.match(composer, /evidenceRefs = strings\(link\.evidenceRefs\)\.filter\(\(evidenceId\) => allowedEvidence\.has\(evidenceId\)\)/);
   assert.match(composer, /status = "inferred"/);
   assert.match(composer, /no exact pre-existing canonical causal edge supports the stronger label/);
   assert.match(composer, /Legacy Stories without itemised evidence IDs may support inferred cross-Story links/);
@@ -29,7 +29,7 @@ test("composer never upgrades unsupported cross-Story causality", () => {
 test("legacy immutable Story state remains usable without fabricated confidence or evidence", () => {
   const composer = source("../lib/intelligence/dossier-storyline-composer.ts");
 
-  assert.match(composer, /const confidence = number\(state\.confidence\)/);
+  assert.match(composer, /const confidence = finiteNumber\(state\.confidence\)/);
   assert.match(composer, /if \(confidence === null \|\| !title\) return null/);
   assert.match(composer, /publicationSnapshotId: candidate\.snapshotId/);
   assert.match(composer, /thesisVersionId: candidate\.thesisVersionId/);
@@ -42,7 +42,7 @@ test("material current changes cannot disappear behind stronger persistent Stori
   const composer = source("../lib/intelligence/dossier-storyline-composer.ts");
 
   assert.match(composer, /ranked\.filter\(\(item\) => item\.candidate\.isCurrentChange/);
-  assert.match(composer, /if \(!selected\[index\]\.candidate\.isCurrentChange\)/);
+  assert.match(composer, /!item\.candidate\.isCurrentChange/);
   assert.match(composer, /const currentChanges = candidates\.filter\(\(candidate\) => candidate\.isCurrentChange\)/);
   assert.match(composer, /\.\.\.currentChanges/);
 });
