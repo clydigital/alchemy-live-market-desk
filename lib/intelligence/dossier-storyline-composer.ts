@@ -6,8 +6,10 @@ export const DOSSIER_STORYLINE_COMPOSITION_V1 = "dossier-storyline-composition/v
 const MAX_COMPOSER_CANDIDATES = 8;
 const MAX_STORYLINES = 3;
 const MAX_DOSSIER_LESSONS = 8;
+const STORYLINE_NODE_TYPES = ["event", "macro", "policy", "rates", "fx", "commodity", "equity", "credit", "positioning"] as const;
 
 export type StorylineEvidenceState = "observed" | "strongly_supported" | "inferred" | "speculative";
+export type StorylineNodeType = typeof STORYLINE_NODE_TYPES[number];
 type JsonRecord = Record<string, unknown>;
 
 type ExistingLesson = JsonRecord & { storyId: string; evidenceRefs: string[] };
@@ -56,7 +58,7 @@ export type DossierStorylineComposition = {
     centralQuestion: string;
     summary: string;
     storyIds: string[];
-    nodes: Array<{ id: string; label: string; storyIds: string[] }>;
+    nodes: Array<{ id: string; label: string; type: StorylineNodeType; storyIds: string[] }>;
     links: Array<{
       from: string;
       to: string;
@@ -110,10 +112,11 @@ const COMPOSER_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["id", "label", "storyIds"],
+              required: ["id", "label", "type", "storyIds"],
               properties: {
                 id: { type: "string" },
                 label: { type: "string" },
+                type: { type: "string", enum: ["event", "macro", "policy", "rates", "fx", "commodity", "equity", "credit", "positioning"] },
                 storyIds: { type: "array", items: { type: "string" } },
               },
             },
@@ -152,6 +155,7 @@ Hard rules:
 - Group Stories only where supplied text supports a causal, transmission or conditional relationship.
 - Preserve countercases and break conditions. Do not turn correlation into causation.
 - Every Story reference must exactly match a candidate storyId.
+- Every node.type must be exactly one of event, macro, policy, rates, fx, commodity, equity, credit, or positioning.
 - Every evidenceRefs value must be copied from evidenceRefs supplied for supporting Stories.
 - Legacy Story snapshots may support inferred or speculative cross-Story links even when itemised evidence IDs are unavailable.
 - observed or strongly_supported is allowed only when an existing supplied causal edge directly supports the same arrow.
@@ -181,6 +185,11 @@ function evidenceState(value: unknown): StorylineEvidenceState {
   return ["observed", "strongly_supported", "inferred", "speculative"].includes(String(value))
     ? value as StorylineEvidenceState
     : "inferred";
+}
+
+function storylineNodeType(value: unknown): StorylineNodeType | null {
+  const candidate = String(value);
+  return (STORYLINE_NODE_TYPES as readonly string[]).includes(candidate) ? candidate as StorylineNodeType : null;
 }
 
 function normaliseAsset(value: string) {
@@ -355,6 +364,19 @@ export function buildDossierComposerCandidates(payload: JsonRecord) {
   return selected.sort((left, right) => right.score - left.score || left.candidate.position - right.candidate.position).map((item) => item.candidate);
 }
 
+function candidateNodeType(candidate: DossierComposerCandidate): StorylineNodeType {
+  const value = `${candidate.title} ${candidate.question || ""} ${candidate.thesis} ${candidate.assets.join(" ")}`.toLowerCase();
+  if (/oil|crude|brent|wti|energy|diesel|gasoline|refin|commodity|hormuz/.test(value)) return "commodity";
+  if (/fed|fomc|central bank|policy|warsh|powell|ecb|boe|boj/.test(value)) return "policy";
+  if (/treasury|yield|bond|duration|term premium|curve|jgb|rates?/.test(value)) return "rates";
+  if (/usd|eur|gbp|aud|nzd|cad|chf|jpy|yen|currency|fx/.test(value)) return "fx";
+  if (/credit|spread|funding|financ|leverage/.test(value)) return "credit";
+  if (/position|flow|crowd|short|long positioning|carry trade/.test(value)) return "positioning";
+  if (/equity|stock|software|semiconductor|tech|earnings|nasdaq|s&p|spx|nvda|mag7/.test(value)) return "equity";
+  if (/war|attack|sanction|election|geopolit|meeting|announcement/.test(value)) return "event";
+  return "macro";
+}
+
 function exactExistingEdge(
   fromLabel: string,
   toLabel: string,
@@ -394,11 +416,17 @@ function sanitiseModelOutput(data: ModelOutput, candidates: DossierComposerCandi
       if (!object(node)) return [];
       const nodeId = text(node.id) || `${id}:node:${nodeIndex + 1}`;
       const label = text(node.label);
+      const type = storylineNodeType(node.type);
       const nodeStories = strings(node.storyIds).filter((storyId) => storyIds.includes(storyId));
-      if (!label || !nodeStories.length || nodeIds.has(nodeId)) return [];
+      if (!label || !type || !nodeStories.length || nodeIds.has(nodeId)) return [];
       nodeIds.add(nodeId);
-      return [{ id: nodeId, label, storyIds: nodeStories }];
+      return [{ id: nodeId, label, type, storyIds: nodeStories }];
     });
+    if (!nodes.length) {
+      storyIds.forEach((storyId) => usedStoryIds.delete(storyId));
+      continue;
+    }
+    const nodesById = new Map(nodes.map((node) => [node.id, node]));
     const nodeLabels = new Map(nodes.map((node) => [node.id, node.label]));
 
     const links = (Array.isArray(raw.links) ? raw.links : []).flatMap((link) => {
@@ -408,6 +436,10 @@ function sanitiseModelOutput(data: ModelOutput, candidates: DossierComposerCandi
       const relationship = text(link.relationship);
       const supportingStoryIds = strings(link.supportingStoryIds).filter((storyId) => storyIds.includes(storyId));
       if (!from || !to || !relationship || !nodeIds.has(from) || !nodeIds.has(to) || !supportingStoryIds.length) return [];
+      const fromStories = nodesById.get(from)?.storyIds || [];
+      const toStories = nodesById.get(to)?.storyIds || [];
+      if (!supportingStoryIds.some((storyId) => fromStories.includes(storyId))
+        || !supportingStoryIds.some((storyId) => toStories.includes(storyId))) return [];
 
       const allowedEvidence = new Set(supportingStoryIds.flatMap((storyId) => [...(evidenceByStory.get(storyId) || [])]));
       const evidenceRefs = strings(link.evidenceRefs).filter((evidenceId) => allowedEvidence.has(evidenceId));
@@ -449,7 +481,7 @@ function sanitiseModelOutput(data: ModelOutput, candidates: DossierComposerCandi
       centralQuestion: candidate.question || candidate.title,
       summary: candidate.explanation || candidate.thesis,
       storyIds: [candidate.storyId],
-      nodes: [{ id: `story:${candidate.storyId}`, label: candidate.title, storyIds: [candidate.storyId] }],
+      nodes: [{ id: `story:${candidate.storyId}`, label: candidate.title, type: candidateNodeType(candidate), storyIds: [candidate.storyId] }],
       links: [],
       strongestBreakCondition: candidate.invalidation,
     });
@@ -524,7 +556,7 @@ function primaryStoryline(composition: DossierStorylineComposition) {
   if (!storyline) return null;
   return {
     title: storyline.title,
-    nodes: storyline.nodes.map((node) => ({ id: node.id, label: node.label })),
+    nodes: storyline.nodes.map((node) => ({ id: node.id, label: node.label, type: node.type })),
     links: storyline.links.map((link) => ({
       from: link.from,
       to: link.to,
@@ -607,11 +639,15 @@ export async function composePersistedDossierStorylines({
     };
   }
 
+  const marketTape = object(editionPayload.marketTape) ? editionPayload.marketTape : null;
+  const inputWarnings = marketTape ? [] : [
+    "Dossier storyline composition ran without persisted market tape. Story grouping can use canonical Story state, but claims about today's price action remain limited until tape is available.",
+  ];
   const result = await modelRunner<ModelOutput>({
     stageKey: "dossier_storyline_composer",
     instructions: COMPOSER_INSTRUCTIONS,
     input: {
-      marketTape: object(editionPayload.marketTape) ? editionPayload.marketTape : null,
+      marketTape,
       candidates: candidates.map(({ existingLesson: _existingLesson, ...candidate }) => candidate),
     },
     schema: COMPOSER_SCHEMA as unknown as Record<string, unknown>,
@@ -620,10 +656,11 @@ export async function composePersistedDossierStorylines({
     maxAttempts: 2,
   });
   const sanitised = sanitiseModelOutput(result.data, candidates);
+  const warnings = [...inputWarnings, ...sanitised.warnings];
   return {
-    dossier: applyDossierStorylineComposition(editionPayload, candidates, sanitised.composition, sanitised.warnings),
+    dossier: applyDossierStorylineComposition(editionPayload, candidates, sanitised.composition, warnings),
     composition: sanitised.composition,
-    warnings: sanitised.warnings,
+    warnings,
     model: {
       model: result.model,
       requestId: result.requestId,
