@@ -42,6 +42,18 @@ function eventMateriality(event: EconomicCalendarEvent) {
   return 88;
 }
 
+function scheduledRelevance(event: EconomicCalendarEvent) {
+  if (TOP_TIER_RELEASE.test(event.event)) return 82;
+  if (event.category === "Central bank") return 78;
+  return 72;
+}
+
+function scheduledMateriality(event: EconomicCalendarEvent) {
+  if (TOP_TIER_RELEASE.test(event.event)) return 84;
+  if (event.category === "Central bank") return 80;
+  return 74;
+}
+
 export function buildHighImpactCalendarIntake(
   events: EconomicCalendarEvent[],
   anchor = new Date(),
@@ -67,10 +79,13 @@ export function buildHighImpactCalendarIntake(
         summary: releaseSummary(event),
         affectedStorySlugs: [],
         sourceQuality: event.sourceKind === "desk-record" ? 92 : 100,
-        relevance: TOP_TIER_RELEASE.test(event.event) ? 100 : 94,
-        novelty: released ? 94 : 76,
-        materiality: eventMateriality(event),
-        recommendedAction: released ? "collect_evidence" as const : "monitor" as const,
+        relevance: released ? (TOP_TIER_RELEASE.test(event.event) ? 100 : 94) : scheduledRelevance(event),
+        novelty: released ? 94 : 20,
+        materiality: released ? eventMateriality(event) : scheduledMateriality(event),
+        // Unreleased calendar entries belong to Event Horizon/Ahead. Marking them
+        // ignore here prevents a known schedule from masquerading as fresh
+        // canonical evidence or becoming a current Story before anything happened.
+        recommendedAction: released ? "collect_evidence" as const : "ignore" as const,
         statsSignal: [
           `${event.event}: ${event.status}`,
           `Actual ${event.actual || "awaiting"}`,
@@ -93,7 +108,7 @@ export function buildHighImpactCalendarIntake(
         }],
         reviewReason: released
           ? "Check the headline, revisions, components and cross-asset reaction before updating an existing Story or opening a new one."
-          : "Prepare the pre-release decision tree, affected assets, confirmation and invalidation before the release time.",
+          : "Ahead only: prepare the pre-release decision tree and affected assets, but do not create current canonical evidence until the release or a material pre-event repricing occurs.",
       };
     });
 }
