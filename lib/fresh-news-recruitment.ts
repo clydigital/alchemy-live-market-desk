@@ -78,7 +78,7 @@ export function recruitFreshNews(item: RecruitableNews, now = new Date()) {
   const causal = CAUSAL_SIGNAL.test(text);
   const categoryBreadth = Math.min(18, Math.max(0, categories.length - 1) * 4);
 
-  const relevance = clamp(55 + categoryBreadth + (marketLinked ? 14 : 0) + (systemic ? 12 : 0));
+  const relevance = clamp(55 + categoryBreadth + (marketLinked ? 14 : 0) + (systemic ? 14 : 0));
   const materiality = clamp(50 + categoryBreadth + (marketLinked ? 14 : 0) + (systemic ? 18 : 0) + (causal ? 6 : 0));
   const novelty = clamp(freshness + (systemic ? 4 : 0));
 
