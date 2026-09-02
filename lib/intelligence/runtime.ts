@@ -1986,6 +1986,7 @@ export async function persistCanonicalEditionForResearchRun({
       story_thesis_version_id: null,
       supersedes_snapshot_id: null,
       snapshot_type: "daily_brief",
+      edition_phase: "base",
       public_summary: publicSummary || `${researchRun?.schedule_slot || "manual"} research edition completed`,
       payload: {
         contractVersion: 2,
@@ -2091,6 +2092,7 @@ async function persistDailyBrief({
       story_thesis_version_id: null,
       supersedes_snapshot_id: prior[0]?.id || null,
       snapshot_type: "daily_brief",
+      edition_phase: "base",
       public_summary: edition.finalBoard.highestConvictionChange,
       payload: {
         ...edition,

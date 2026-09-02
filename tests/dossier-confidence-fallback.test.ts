@@ -162,3 +162,28 @@ test("persistent Story is omitted rather than assigned a fabricated confidence w
   assert.ok(!result.lessons.some((lesson) => lesson.storyId === persistentId));
   assert.ok(result.diagnostics.warnings.some((warning) => warning.includes("canonical confidence is unavailable")));
 });
+
+test("stale confidence alone cannot recruit a persistent Story into today's Dossier", () => {
+  const persistentId = "old-high-confidence";
+  const persistentSource = source(persistentId, 1, 99);
+  persistentSource.reasoning.effectiveAt = "2026-08-01T00:00:00Z";
+  const result = composeDossierBriefing({
+    generatedAt: "2026-09-02T00:00:00Z",
+    stories: [],
+    changes: [],
+    storySources: [persistentSource],
+    storyContext: [{
+      id: persistentId,
+      confidence: 99,
+      affectedAssets: ["NVDA"],
+      themes: ["AI"],
+      recencyAt: "2026-08-01T00:00:00Z",
+    }],
+    marketTape: { regimeSummary: "No canonical tape", assets: [] },
+    upcoming: { economicCalendar: [], earnings: [], geopoliticalClock: [] },
+    diagnostics: { warnings: [], eventHorizonCoverage: [] },
+  });
+
+  assert.equal(result.lessons.length, 0);
+  assert.equal(result.diagnostics.noMaterialNews, true);
+});
