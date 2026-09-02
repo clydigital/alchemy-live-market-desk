@@ -2152,6 +2152,7 @@ async function persistEarlyEngineCompletion(input: {
       stories_published: 0,
       warnings: input.warnings,
       metadata: {
+        frozenInputs: currentIntelligenceInvocation()?.frozenInputs ?? null,
         runtime: "openai-responses-v1",
         evidenceConsidered: input.recruitment.eligibleCount,
         hypothesesGenerated: input.hypothesesGenerated,
@@ -2582,6 +2583,7 @@ export async function runIntelligenceEngine({
         warnings,
         completed_at: new Date().toISOString(),
         metadata: {
+          frozenInputs: currentIntelligenceInvocation()?.frozenInputs ?? null,
           dryRun,
           runtime: "openai-responses-v1",
           evidenceConsidered: reasoningEvidence.length,

@@ -56,8 +56,9 @@ comment on column public.intelligence_market_beliefs.materiality_score is
   'Current decision relevance inherited from recruited evidence; intentionally distinct from Story confidence.';
 
 update public.intelligence_prompt_versions
-set active = false
-where stage_key = 'market_belief' and active;
+set is_active = false,
+    retired_at = coalesce(retired_at, now())
+where stage_key = 'market_belief' and is_active;
 
 insert into public.intelligence_prompt_versions (
   stage_key,
@@ -65,7 +66,7 @@ insert into public.intelligence_prompt_versions (
   prompt_text,
   output_schema,
   model_hint,
-  active
+  is_active
 )
 values (
   'market_belief',

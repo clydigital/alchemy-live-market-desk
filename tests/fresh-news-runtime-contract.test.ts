@@ -48,6 +48,9 @@ test("database migration records clusters and permits exactly one base plus one 
   assert.match(recruitment, /create table if not exists public\.intelligence_recruitment_clusters/);
   assert.match(recruitment, /revoke all privileges[\s\S]*anon, authenticated/);
   assert.match(recruitment, /grant select, insert, update, delete[\s\S]*service_role/);
+  assert.match(recruitment, /set is_active = false/);
+  assert.match(recruitment, /stage_key,\s*version,\s*prompt_text,\s*output_schema,\s*model_hint,\s*is_active/);
+  assert.doesNotMatch(recruitment, /\bactive\b\s*=|\bactive\b\s*\)/);
   assert.match(composition, /edition_phase in \('base', 'composed'\)/);
   assert.match(composition, /unique index if not exists hybrid_daily_brief_run_phase_unique/);
 });
