@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { recruitFreshNews } from "@/lib/fresh-news-recruitment";
+import { routeFreshNewsToPersistentStories } from "@/lib/persistent-story-routing";
 import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
@@ -43,24 +44,9 @@ type FeedAcquisition = {
 };
 
 const DIRECT_FEEDS: DirectFeedSource[] = [
-  {
-    source: "zerohedge",
-    publisher: "ZeroHedge",
-    urls: ["https://feeds.feedburner.com/zerohedge/feed"],
-    sourceQuality: 64,
-  },
-  {
-    source: "axios",
-    publisher: "Axios",
-    urls: ["https://www.axios.com/feeds/feed.rss"],
-    sourceQuality: 76,
-  },
-  {
-    source: "investing-com",
-    publisher: "Investing.com",
-    urls: ["https://www.investing.com/rss/news_25.rss"],
-    sourceQuality: 70,
-  },
+  { source: "zerohedge", publisher: "ZeroHedge", urls: ["https://feeds.feedburner.com/zerohedge/feed"], sourceQuality: 64 },
+  { source: "axios", publisher: "Axios", urls: ["https://www.axios.com/feeds/feed.rss"], sourceQuality: 76 },
+  { source: "investing-com", publisher: "Investing.com", urls: ["https://www.investing.com/rss/news_25.rss"], sourceQuality: 70 },
   {
     source: "fxstreet",
     publisher: "FXStreet",
@@ -148,7 +134,7 @@ function itemKey(source: string, url: string) {
   return `feed:${source}:${createHash("sha256").update(url).digest("hex").slice(0, 24)}`;
 }
 
-export function directFeedItem(source: DirectFeedSource, entry: FeedEntry, now = new Date()): IntakeItemInput {
+function directFeedItem(source: DirectFeedSource, entry: FeedEntry, now = new Date()): IntakeItemInput {
   const summary = entry.summary || entry.title;
   const recruited = recruitFreshNews({ title: entry.title, summary, publishedAt: entry.publishedAt }, now);
   return {
@@ -318,11 +304,6 @@ async function acquireAlchemy(windowStart: number, now: number): Promise<FeedAcq
   };
 }
 
-/**
- * Builds the complete, auditable input for Live's existing research publisher.
- * It performs acquisition only; canonical Story reasoning remains exclusively
- * in the publisher's runIntelligenceEngine call.
- */
 export async function buildScheduledResearchInput(
   slot: CanonicalResearchSlot,
   options: { now?: Date; runKey?: string } = {},
@@ -348,14 +329,14 @@ export async function buildScheduledResearchInput(
     fxstreet.check,
     alchemy.check,
   ];
-  const items = [
+  const items = await routeFreshNewsToPersistentStories([
     ...zerohedge.items,
     ...axios.items,
     ...investing.items,
     ...fxstreet.items,
     ...alchemy.items,
     ...powerStack.items,
-  ];
+  ], now);
   const blocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
   return {
     runKey: options.runKey || scheduledRunKey(slot, now),
