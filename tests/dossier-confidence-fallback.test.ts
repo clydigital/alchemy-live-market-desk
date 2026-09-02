@@ -92,7 +92,7 @@ function emptyEdition(stories: EditionStory[] = []): AlchemyEdition {
   });
 }
 
-test("persistent reasoning recovers canonical confidence only from immutable Story context", () => {
+test("persistent reasoning keeps immutable confidence as context without outranking a current delta", () => {
   const weakDelta = story("weak-calendar-delta", 1, true);
   const persistentId = "persistent-ai";
   const result = composeDossierBriefing({
@@ -109,13 +109,13 @@ test("persistent reasoning recovers canonical confidence only from immutable Sto
     diagnostics: { warnings: [], eventHorizonCoverage: [] },
   });
 
-  assert.equal(result.lessons[0].storyId, persistentId);
-  assert.equal(result.lessons[0].confidence, 95);
-  assert.ok(result.lessons.some((lesson) => lesson.storyId === weakDelta.id));
+  assert.equal(result.lessons[0].storyId, weakDelta.id);
+  assert.equal(result.lessons.find((lesson) => lesson.storyId === persistentId)?.confidence, 95);
+  assert.ok(result.lessons.some((lesson) => lesson.storyId === persistentId));
   assert.ok(result.opening.topicChips.includes("NVDA"));
 });
 
-test("edition composition reads persistent confidence from the prior immutable canonical manifest", () => {
+test("edition composition reads persistent confidence from the prior immutable manifest as secondary context", () => {
   const persistent = story("persistent-ai", 95);
   const weakDelta = story("weak-calendar-delta", 1, true);
   const previous = emptyEdition() as AlchemyEdition & {
@@ -138,9 +138,9 @@ test("edition composition reads persistent confidence from the prior immutable c
     marketTape: { regimeSummary: "No canonical tape", assets: [] },
   });
 
-  assert.equal(current.dossier?.lessons[0].storyId, persistent.id);
-  assert.equal(current.dossier?.lessons[0].confidence, 95);
-  assert.ok(current.dossier?.lessons.some((lesson) => lesson.storyId === weakDelta.id));
+  assert.equal(current.dossier?.lessons[0].storyId, weakDelta.id);
+  assert.equal(current.dossier?.lessons.find((lesson) => lesson.storyId === persistent.id)?.confidence, 95);
+  assert.ok(current.dossier?.lessons.some((lesson) => lesson.storyId === persistent.id));
 });
 
 test("persistent Story is omitted rather than assigned a fabricated confidence when immutable context is unavailable", () => {

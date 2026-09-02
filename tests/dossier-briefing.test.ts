@@ -252,7 +252,7 @@ test("does not manufacture lessons when immutable reasoning is missing", () => {
   assert.ok(result.diagnostics.warnings.some((warning) => warning.includes("exact immutable Canonical Story Reasoning")));
 });
 
-test("includes active persistent Stories and lets current tape relevance outrank a weak new delta", () => {
+test("a material current delta outranks persistent confidence while recent tape-linked context remains available", () => {
   const changed = variantStory({
     id: "story-calendar",
     confidence: 1,
@@ -301,9 +301,10 @@ test("includes active persistent Stories and lets current tape relevance outrank
   });
 
   assert.equal(result.lessons.length, 2);
-  assert.equal(result.lessons[0].storyId, persistent.id);
-  assert.equal(result.lessons[0].body[0], persistent.currentState);
-  assert.ok(result.lessons.some((lesson) => lesson.storyId === changed.id));
+  assert.equal(result.lessons[0].storyId, changed.id);
+  assert.equal(result.lessons[0].currentAttention.state, "fresh_change");
+  assert.ok(result.lessons.some((lesson) => lesson.storyId === persistent.id));
+  assert.ok(result.lessons.find((lesson) => lesson.storyId === persistent.id)?.callouts.some((callout) => callout.label.includes("NO MATERIAL CHANGE")));
   assert.ok(result.opening.topicChips.includes("Oil"));
 });
 

@@ -59,6 +59,18 @@ export type DossierStoryContext = {
   confidence: number;
   affectedAssets: string[];
   themes: string[];
+  recencyAt?: string | null;
+};
+
+export type DossierCurrentAttention = {
+  state: "fresh_change" | "recent_context" | "stale_context";
+  freshness: number;
+  materiality: number;
+  momentum: number;
+  breadth: number;
+  urgency: number;
+  primaryCategory: string;
+  assessedAt: string;
 };
 
 export type DossierLesson = {
@@ -81,6 +93,7 @@ export type DossierLesson = {
   watchItems: Array<{ variable: string; why: string }>;
   evidenceRefs: string[];
   confidence: number;
+  currentAttention: DossierCurrentAttention;
 };
 
 export type DossierBriefingV1 = {
@@ -119,6 +132,8 @@ export type DossierBriefingV1 = {
   diagnostics: {
     warnings: string[];
     eventHorizonCoverage: EventHorizonCoverage[];
+    noMaterialNews: boolean;
+    recruitedClusterCount: number;
   };
 };
 
@@ -130,7 +145,8 @@ type RankedSource = {
   context: DossierStoryContext | undefined;
   changed: boolean;
   confidence: number;
-  score: number;
+  attention: DossierCurrentAttention;
+  currentMatch: number;
 };
 
 function unique(values: Array<string | null | undefined>) {
@@ -235,6 +251,7 @@ function lessonFromSource(
   context: DossierStoryContext | undefined,
   changed: boolean,
   confidence: number,
+  attention: DossierCurrentAttention,
 ): DossierLesson {
   const reasoning = source.reasoning;
   const body = unique(changed
@@ -252,6 +269,16 @@ function lessonFromSource(
   const watchItems = reasoning.nextTest?.label
     ? [{ variable: reasoning.nextTest.label, why: "This is the next canonical test attached to the Story." }]
     : [];
+  const lessonCallouts = callouts(story, reasoning);
+  if (!changed) {
+    lessonCallouts.unshift({
+      type: "commentary_context",
+      label: attention.state === "recent_context" ? "RECENT CONTEXT — NO MATERIAL CHANGE" : "STALE CONTEXT",
+      text: attention.state === "recent_context"
+        ? "This persistent Story helps frame the current desk, but this run did not produce a material update to it."
+        : "This Story is retained only as background. It must not be read as a fresh signal.",
+    });
+  }
   return {
     number,
     storyId: source.storyId,
@@ -268,10 +295,11 @@ function lessonFromSource(
       evidenceStatus: edge.evidenceState,
       evidenceRefs: [...edge.evidenceIds],
     })),
-    callouts: callouts(story, reasoning),
+    callouts: lessonCallouts,
     watchItems,
     evidenceRefs: evidenceRefs(reasoning),
     confidence,
+    currentAttention: attention,
   };
 }
 
@@ -318,14 +346,12 @@ function sourceIsActive(story: EditionStory | undefined, reasoning: CanonicalSto
   return lifecycle !== "invalidated" && lifecycle !== "archived";
 }
 
-function sourceScore({
-  source,
-  story,
-  context,
-  changed,
-  confidence,
-  marketTape,
-}: Omit<RankedSource, "score"> & { marketTape: MarketTape }) {
+function overlapWithCurrentMarket(
+  source: JourneyStorySource,
+  story: EditionStory | undefined,
+  context: DossierStoryContext | undefined,
+  marketTape: MarketTape,
+) {
   const reasoning = source.reasoning;
   const tapeAssets = new Set(marketTape.assets.map((asset) => normaliseAsset(asset.symbol)));
   const storyAssets = unique([
@@ -348,13 +374,68 @@ function sourceScore({
     ...(story?.affectedAssets || context?.affectedAssets || []),
   ].join(" "));
   const textOverlap = [...storyText].filter((word) => tapeText.has(word)).length;
+  return assetOverlap * 10 + textOverlap;
+}
 
-  return confidence
-    + (changed ? 30 : 0)
-    + lifecycleScore(story, reasoning)
-    + Math.max(0, 20 - Math.max(0, source.position - 1) * 3)
-    + Math.min(60, assetOverlap * 20)
-    + Math.min(20, textOverlap * 4);
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function recencyFreshness(value: string | null | undefined, generatedAt: string) {
+  const at = value ? Date.parse(value) : Number.NaN;
+  const now = Date.parse(generatedAt);
+  if (!Number.isFinite(at) || !Number.isFinite(now) || at > now + 3_600_000) return 0;
+  const ageHours = Math.max(0, (now - at) / 3_600_000);
+  return clamp(100 * (1 - (ageHours / 120)));
+}
+
+function sourceAttention(
+  source: JourneyStorySource,
+  story: EditionStory | undefined,
+  context: DossierStoryContext | undefined,
+  changed: boolean,
+  generatedAt: string,
+): DossierCurrentAttention {
+  if (changed) {
+    const current = story?.currentAttention;
+    const assessedAt = current?.assessedAt || story?.eventAt || source.reasoning.effectiveAt;
+    return {
+      state: "fresh_change",
+      freshness: current ? clamp(current.freshness) : recencyFreshness(assessedAt, generatedAt),
+      materiality: clamp(current?.materiality || 0),
+      momentum: clamp(current?.momentum || 0),
+      breadth: clamp(current?.breadth || 0),
+      urgency: clamp(current?.urgency || 0),
+      primaryCategory: current?.primaryCategory || "uncategorised",
+      assessedAt,
+    };
+  }
+  const assessedAt = story?.eventAt || context?.recencyAt || source.reasoning.effectiveAt;
+  const freshness = recencyFreshness(assessedAt, generatedAt);
+  return {
+    state: freshness > 0 ? "recent_context" : "stale_context",
+    freshness,
+    materiality: 0,
+    momentum: 0,
+    breadth: 0,
+    urgency: 0,
+    primaryCategory: "persistent_story_context",
+    assessedAt,
+  };
+}
+
+/** Current-attention fields are ordered explicitly; no opaque blended score is used. */
+function compareRanked(left: RankedSource, right: RankedSource) {
+  return Number(right.changed) - Number(left.changed)
+    || right.attention.materiality - left.attention.materiality
+    || right.attention.freshness - left.attention.freshness
+    || right.attention.urgency - left.attention.urgency
+    || right.attention.breadth - left.attention.breadth
+    || right.attention.momentum - left.attention.momentum
+    || right.currentMatch - left.currentMatch
+    || right.confidence - left.confidence
+    || left.source.position - right.source.position
+    || left.source.storyId.localeCompare(right.source.storyId);
 }
 
 function selectDossierSources({
@@ -363,6 +444,7 @@ function selectDossierSources({
   storySources,
   storyContext,
   marketTape,
+  generatedAt,
   warnings,
 }: {
   stories: EditionStory[];
@@ -370,6 +452,7 @@ function selectDossierSources({
   storySources: JourneyStorySource[];
   storyContext: DossierStoryContext[];
   marketTape: MarketTape;
+  generatedAt: string;
   warnings: string[];
 }) {
   const changedIds = new Set(changes.map((change) => change.id));
@@ -394,15 +477,24 @@ function selectDossierSources({
       warnings.push(`Dossier omitted Story ${source.storyId}: canonical confidence is unavailable in both Story reasoning and immutable prior Story context.`);
       return [];
     }
+    const attention = sourceAttention(source, story, context, changed, generatedAt);
+    const currentMatch = overlapWithCurrentMarket(source, story, context, marketTape);
+    const scheduledOnlyContext = !changed && /\bschedul(?:e|ed|ing)|decision date|economic calendar\b/i.test([
+      source.reasoning.title,
+      source.reasoning.currentState || "",
+      source.reasoning.whatChanged || "",
+    ].join(" "));
+    if (!changed && (attention.state === "stale_context" || scheduledOnlyContext) && currentMatch === 0) return [];
     return [{
       source,
       story,
       context,
       changed,
       confidence,
-      score: sourceScore({ source, story, context, changed, confidence, marketTape }),
+      attention,
+      currentMatch,
     } satisfies RankedSource];
-  }).sort((left, right) => right.score - left.score || left.source.position - right.source.position || left.source.storyId.localeCompare(right.source.storyId));
+  }).sort(compareRanked);
 
   const selected = ranked.slice(0, MAX_DOSSIER_LESSONS);
   const selectedIds = new Set(selected.map((item) => item.source.storyId));
@@ -421,7 +513,7 @@ function selectDossierSources({
   }
 
   return selected
-    .sort((left, right) => right.score - left.score || left.source.position - right.source.position || left.source.storyId.localeCompare(right.source.storyId));
+    .sort(compareRanked);
 }
 
 function topicChips(selected: RankedSource[]) {
@@ -466,10 +558,10 @@ export function composeDossierBriefing({
   storyContext?: DossierStoryContext[];
   marketTape: MarketTape;
   upcoming: EditionUpcoming;
-  diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage">;
+  diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage" | "recruitment">;
 }): DossierBriefingV1 {
   const warnings = [...new Set(diagnostics.warnings)];
-  const rankedSources = selectDossierSources({ stories, changes, storySources, storyContext, marketTape, warnings });
+  const rankedSources = selectDossierSources({ generatedAt, stories, changes, storySources, storyContext, marketTape, warnings });
   const lessons = rankedSources.map((item, index) => lessonFromSource(
     item.source,
     index + 1,
@@ -477,6 +569,7 @@ export function composeDossierBriefing({
     item.context,
     item.changed,
     item.confidence,
+    item.attention,
   ));
   const lead = lessons[0] || null;
   const quickSummary = lessons.slice(0, 5).map((lesson, index) => ({
@@ -518,6 +611,8 @@ export function composeDossierBriefing({
     diagnostics: {
       warnings: [...new Set(warnings)],
       eventHorizonCoverage: (diagnostics.eventHorizonCoverage || []).map((item) => ({ ...item })),
+      noMaterialNews: changes.length === 0,
+      recruitedClusterCount: diagnostics.recruitment?.recruitedClusterCount || 0,
     },
   };
 }

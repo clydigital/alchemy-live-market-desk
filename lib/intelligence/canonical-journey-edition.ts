@@ -25,6 +25,31 @@ type DailyBriefRow = {
   published_at: string;
 };
 
+function recruitmentDiagnostics(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  const number = (key: string) => Number.isFinite(candidate[key]) ? Number(candidate[key]) : 0;
+  return {
+    asOf: typeof candidate.asOf === "string" ? candidate.asOf : new Date(0).toISOString(),
+    evidenceCount: number("evidenceCount"),
+    eligibleCount: number("eligibleCount"),
+    scheduledOnlyCount: number("scheduledOnlyCount"),
+    staleCount: number("staleCount"),
+    futureTimestampCount: number("futureTimestampCount"),
+    duplicateCount: number("duplicateCount"),
+    recruitedClusterCount: number("recruitedClusterCount"),
+    contextClusterCount: number("contextClusterCount"),
+    deferredClusterCount: number("deferredClusterCount"),
+  };
+}
+
+async function recruitmentForResearchRun(researchRunId: string) {
+  const rows = await intelligenceRest<Array<{ metadata: Record<string, unknown> | null }>>(
+    `intelligence_engine_runs?select=metadata&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=started_at.desc&limit=1`,
+  ).catch(() => []);
+  return recruitmentDiagnostics(rows[0]?.metadata?.recruitment);
+}
+
 function asPreviousEdition(payload: Record<string, unknown> | undefined): AlchemyEdition | null {
   return payload?.methodologyVersion === "alchemy-mixed-research-voice-v1"
     ? payload as unknown as AlchemyEdition
@@ -189,6 +214,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
   const eventHorizon = await buildEditionEventHorizon([]);
+  const recruitment = await recruitmentForResearchRun(researchRunId);
 
   const edition = composeAlchemyEdition({
     generatedAt,
@@ -203,6 +229,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     diagnostics: {
       warnings: eventHorizon.warnings,
       eventHorizonCoverage: eventHorizon.coverage,
+      recruitment,
     },
   });
   if (!hasPersistedJourney(edition as unknown as Record<string, unknown>)) {

@@ -31,6 +31,18 @@ export type MechanismStep = {
   evidenceStatus: EvidenceStatus;
 };
 
+export type CurrentAttention = {
+  assessedAt: string;
+  primaryCategory: string;
+  themes: string[];
+  evidenceIds: string[];
+  freshness: number;
+  materiality: number;
+  momentum: number;
+  breadth: number;
+  urgency: number;
+};
+
 export type EditionStory = {
   id: string;
   parentStoryId: string;
@@ -55,6 +67,7 @@ export type EditionStory = {
   confirmation: string;
   invalidation: string;
   confidence: number;
+  currentAttention?: CurrentAttention;
   prohibitedClaims: string[];
   changeKinds: MaterialChangeKind[];
   eventAt: string;
@@ -147,6 +160,18 @@ export type EditionUpcoming = {
 export type EditionDiagnostics = {
   warnings: string[];
   eventHorizonCoverage?: EventHorizonCoverage[];
+  recruitment?: {
+    asOf: string;
+    evidenceCount: number;
+    eligibleCount: number;
+    scheduledOnlyCount: number;
+    staleCount: number;
+    futureTimestampCount: number;
+    duplicateCount: number;
+    recruitedClusterCount: number;
+    contextClusterCount: number;
+    deferredClusterCount: number;
+  };
 };
 
 export type AlchemyEdition = {
@@ -253,6 +278,16 @@ export function selectMaterialChanges(stories: EditionStory[], previousEdition?:
     if (prior && materialSignature(prior) === materialSignature(story)) return false;
     seenParents.add(story.parentStoryId);
     return true;
+  }).sort((left, right) => {
+    const leftAttention = left.currentAttention;
+    const rightAttention = right.currentAttention;
+    return (rightAttention?.materiality || 0) - (leftAttention?.materiality || 0)
+      || (rightAttention?.freshness || 0) - (leftAttention?.freshness || 0)
+      || (rightAttention?.urgency || 0) - (leftAttention?.urgency || 0)
+      || (rightAttention?.breadth || 0) - (leftAttention?.breadth || 0)
+      || (rightAttention?.momentum || 0) - (leftAttention?.momentum || 0)
+      || right.confidence - left.confidence
+      || left.id.localeCompare(right.id);
   }).slice(0, MAX_EDITION_CHANGES);
 }
 
@@ -304,7 +339,13 @@ function priorDossierStoryContext(previousEdition: AlchemyEdition | null): Dossi
     const themes = Array.isArray(state.themes)
       ? state.themes.filter((theme): theme is string => typeof theme === "string")
       : [];
-    return [{ id, confidence, affectedAssets: [...assets], themes: [...themes] }];
+    const recencyAt = typeof state.recencyAt === "string"
+      ? state.recencyAt
+      : state.intelligence && typeof state.intelligence === "object" && !Array.isArray(state.intelligence)
+        && typeof (state.intelligence as Record<string, unknown>).recencyAt === "string"
+        ? (state.intelligence as Record<string, unknown>).recencyAt as string
+        : null;
+    return [{ id, confidence, affectedAssets: [...assets], themes: [...themes], recencyAt }];
   });
 }
 
@@ -343,7 +384,7 @@ export function composeAlchemyEdition({
     ...upcoming,
     geopoliticalClock: scheduledGeopoliticalEvents(upcoming.geopoliticalClock),
   };
-  const lead = [...changes].sort((left, right) => right.confidence - left.confidence)[0] ?? null;
+  const lead = changes[0] ?? null;
   const contradiction = stories.find((story) => story.contradiction.trim())?.contradiction || "No evidence-backed contradiction cleared the edition gate.";
   const macroTest = normalisedUpcoming.economicCalendar[0]?.event || "No scheduled macro test is available in canonical evidence.";
   const geopoliticalTest = normalisedUpcoming.geopoliticalClock[0]?.event || "No scheduled geopolitical event is available in canonical evidence.";
@@ -401,7 +442,11 @@ export function composeAlchemyEdition({
       diagnostics,
       finalBoard,
     }),
-    diagnostics: { warnings: [...new Set(diagnostics.warnings)], eventHorizonCoverage: diagnostics.eventHorizonCoverage },
+    diagnostics: {
+      warnings: [...new Set(diagnostics.warnings)],
+      eventHorizonCoverage: diagnostics.eventHorizonCoverage,
+      recruitment: diagnostics.recruitment,
+    },
     finalBoard,
   };
 }
