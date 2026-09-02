@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
+import { recruitFreshNews } from "@/lib/fresh-news-recruitment";
 import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
@@ -63,8 +64,6 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
   {
     source: "fxstreet",
     publisher: "FXStreet",
-    // The root official feed and the news alias carry the same direct FXStreet
-    // coverage, but can be served by different CDN paths.
     urls: ["https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
   },
@@ -149,8 +148,9 @@ function itemKey(source: string, url: string) {
   return `feed:${source}:${createHash("sha256").update(url).digest("hex").slice(0, 24)}`;
 }
 
-function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
+export function directFeedItem(source: DirectFeedSource, entry: FeedEntry, now = new Date()): IntakeItemInput {
   const summary = entry.summary || entry.title;
+  const recruited = recruitFreshNews({ title: entry.title, summary, publishedAt: entry.publishedAt }, now);
   return {
     itemKey: itemKey(source.source, entry.url),
     itemType: "news",
@@ -161,11 +161,11 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
     publishedAt: entry.publishedAt,
     summary,
     sourceQuality: source.sourceQuality,
-    relevance: 68,
-    novelty: 72,
-    materiality: 64,
-    recommendedAction: "collect_evidence",
-    newsSignal: `Direct ${source.publisher} feed acquisition.`,
+    relevance: recruited.relevance,
+    novelty: recruited.novelty,
+    materiality: recruited.materiality,
+    recommendedAction: recruited.marketLinked || recruited.systemic ? "collect_evidence" : "monitor",
+    newsSignal: `Direct ${source.publisher} feed acquisition · categories ${recruited.categories.join(", ") || "uncategorised"} · routed assets ${recruited.affectedAssets.join(", ") || "none"} · freshness ${recruited.freshness}.`,
     divergenceKind: "none",
     evidence: [{
       title: entry.title,
@@ -174,7 +174,7 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
       publishedAt: entry.publishedAt,
       claim: summary.slice(0, 1_000),
     }],
-    reviewReason: "Automatically acquired from the publisher's direct feed; the canonical runtime must verify and contextualise the claim.",
+    reviewReason: "Automatically acquired from the publisher's direct feed; fresh-news recruitment scores market relevance from the article content, while canonical Story reasoning still owns interpretation and Story mutation.",
   };
 }
 
@@ -217,7 +217,7 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
           itemCount: unique.length,
           note: `Direct feed acquired from ${new URL(url).hostname}.`,
         },
-        items: unique.map((entry) => feedItem(source, entry)),
+        items: unique.map((entry) => directFeedItem(source, entry, new Date(now))),
       };
     } catch (error) {
       failures.push(error instanceof Error ? error.message : "Unknown acquisition failure.");
