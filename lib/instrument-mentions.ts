@@ -30,6 +30,8 @@ export const EXPLICIT_INSTRUMENTS: readonly InstrumentSpec[] = [
   { instrument: "USDCAD", aliases: ["USDCAD", "USD/CAD"] },
   { instrument: "US10Y", aliases: ["US10Y", "US 10-YEAR", "10-YEAR YIELD", "10 YEAR YIELD"] },
   { instrument: "US30Y", aliases: ["US30Y", "US 30-YEAR", "30-YEAR YIELD", "30 YEAR YIELD"] },
+  { instrument: "GLOBAL_BONDS", aliases: ["GLOBAL BONDS", "GLOBAL BOND YIELDS", "BOND YIELDS", "HIGHER INTEREST RATES", "LOWER INTEREST RATES"] },
+  { instrument: "CRUDE_OIL", aliases: ["CRUDE OIL", "OIL PRICES", "GLOBAL OIL"] },
   { instrument: "BTCUSD", aliases: ["BTCUSD", "BTC/USD", "BITCOIN"] },
 ];
 

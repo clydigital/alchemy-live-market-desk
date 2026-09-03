@@ -17,7 +17,8 @@ const macroPage = fs.readFileSync(path.join(root, "app", "data", "macro", "page.
 test("existing Story maintenance piggybacks on the one Market Belief call", () => {
   assert.equal((runtime.match(/modelStage<MarketBeliefOutput>/g) || []).length, 1);
   assert.match(runtime, /stageKey: "market_belief"/);
-  assert.match(runtime, /input: \{[^\n]*evidence, storyReviewTargets \}/);
+  assert.match(runtime, /freshEvidenceCandidates:[\s\S]*storyReviewTargets/);
+  assert.match(runtime, /buildFreshNewsRecruitment\(evidence, analysisAsOf\)/);
   assert.doesNotMatch(runtime, /stageKey: "story_(?:review|maintenance)"/);
   assert.doesNotMatch(checkpoints, /"story_(?:review|maintenance)"/);
   assert.match(schema, /storyAssessments:[\s\S]*maxItems: 4/);

@@ -74,15 +74,29 @@ export function buildCanonicalEditionIndex(
   const runById = new Map(researchRuns.map((run) => [run.id, run]));
   const terminal = dailyBriefs
     .filter((snapshot) => !supersededIds.has(snapshot.id))
-    .sort((left, right) => right.published_at.localeCompare(left.published_at) || right.id.localeCompare(left.id));
+    .map((snapshot) => {
+      const run = snapshot.research_run_id ? runById.get(snapshot.research_run_id) : null;
+      const scheduledFor = payloadString(snapshot.payload, "scheduledFor") || run?.scheduled_for || null;
+      return {
+        snapshot,
+        run,
+        scheduledFor,
+        canonicalOrderAt: scheduledFor && Number.isFinite(Date.parse(scheduledFor)) ? scheduledFor : snapshot.published_at,
+      };
+    })
+    // Canonical schedule identity outranks wall-clock publication time. A late
+    // retry of an older slot may supersede its own lineage, but it cannot take
+    // the current pointer from a newer completed slot.
+    .sort((left, right) => right.canonicalOrderAt.localeCompare(left.canonicalOrderAt)
+      || right.snapshot.published_at.localeCompare(left.snapshot.published_at)
+      || right.snapshot.id.localeCompare(left.snapshot.id));
 
-  return terminal.map((snapshot, index) => {
-    const run = snapshot.research_run_id ? runById.get(snapshot.research_run_id) : null;
+  return terminal.map(({ snapshot, run, scheduledFor }, index) => {
     return {
       snapshotId: snapshot.id,
       publishedAt: snapshot.published_at,
       slot: payloadString(snapshot.payload, "scheduleSlot") || run?.schedule_slot || null,
-      scheduledFor: payloadString(snapshot.payload, "scheduledFor") || run?.scheduled_for || null,
+      scheduledFor,
       researchRunId: snapshot.research_run_id,
       runKey: payloadString(snapshot.payload, "runKey") || run?.run_key || null,
       supersedesSnapshotId: snapshot.supersedes_snapshot_id,

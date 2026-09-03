@@ -13,9 +13,13 @@ export type EvidencePackItem = {
   supportDirection: string;
   eventAt: string | null;
   publishedAt: string | null;
+  availableAt: string | null;
+  receivedAt: string | null;
+  freshnessStatus: string;
   affectedAssets: string[];
   affectedTopics: string[];
   provenanceUrls: string[];
+  structuredPayload: Record<string, unknown>;
 };
 
 export type ExistingStoryPackItem = {
@@ -81,12 +85,28 @@ export type StoryAssessmentOutput = {
 };
 
 export type MarketBeliefOutput = {
+  recruitmentClusters: Array<{
+    clusterKey: string;
+    title: string;
+    summary: string;
+    primaryCategory: string;
+    themes: string[];
+    affectedAssets: string[];
+    evidenceIds: string[];
+    materiality: number;
+    momentum: number;
+    breadth: number;
+    urgency: number;
+    verdict: "recruit" | "context" | "defer";
+    rationale: string;
+  }>;
   beliefs: Array<{
     statement: string;
     pricedState: string | null;
     consensusStrength: number;
     affectedAssets: string[];
     evidenceIds: string[];
+    recruitmentClusterKeys: string[];
   }>;
   storyAssessments: StoryAssessmentOutput[];
 };
@@ -267,21 +287,60 @@ const requirementIdArray = {
 export const MARKET_BELIEF_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["beliefs", "storyAssessments"],
+  required: ["recruitmentClusters", "beliefs", "storyAssessments"],
   properties: {
+    recruitmentClusters: {
+      type: "array",
+      maxItems: 12,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "clusterKey",
+          "title",
+          "summary",
+          "primaryCategory",
+          "themes",
+          "affectedAssets",
+          "evidenceIds",
+          "materiality",
+          "momentum",
+          "breadth",
+          "urgency",
+          "verdict",
+          "rationale",
+        ],
+        properties: {
+          clusterKey: { type: "string" },
+          title: { type: "string" },
+          summary: { type: "string" },
+          primaryCategory: { type: "string" },
+          themes: stringArray,
+          affectedAssets: stringArray,
+          evidenceIds: stringArray,
+          materiality: { type: "number", minimum: 0, maximum: 100 },
+          momentum: { type: "number", minimum: 0, maximum: 100 },
+          breadth: { type: "number", minimum: 0, maximum: 100 },
+          urgency: { type: "number", minimum: 0, maximum: 100 },
+          verdict: { type: "string", enum: ["recruit", "context", "defer"] },
+          rationale: { type: "string" },
+        },
+      },
+    },
     beliefs: {
       type: "array",
       maxItems: 8,
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["statement", "pricedState", "consensusStrength", "affectedAssets", "evidenceIds"],
+        required: ["statement", "pricedState", "consensusStrength", "affectedAssets", "evidenceIds", "recruitmentClusterKeys"],
         properties: {
           statement: { type: "string" },
           pricedState: nullableString,
           consensusStrength: { type: "number", minimum: 0, maximum: 100 },
           affectedAssets: stringArray,
           evidenceIds: stringArray,
+          recruitmentClusterKeys: stringArray,
         },
       },
     },

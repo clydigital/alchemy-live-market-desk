@@ -6,6 +6,7 @@ import {
   applyExplanationPass,
   composeAlchemyEdition,
   type AlchemyEdition,
+  type CurrentAttention,
   type EditionStory,
   type ThemeWatch,
   type WatchlistItem,
@@ -66,7 +67,8 @@ import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalizatio
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
-import { explicitlyMentionedAssets, normaliseInstrument } from "@/lib/instrument-mentions";
+import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
+import { buildFreshNewsRecruitment, type FreshNewsRecruitment } from "@/lib/intelligence/fresh-news-recruitment";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -177,9 +179,13 @@ type CanonicalEvidenceRow = {
   support_direction: string;
   event_at: string | null;
   published_at: string | null;
+  available_at: string | null;
+  received_at: string | null;
+  freshness_status: string;
   affected_assets: string[];
   affected_topics: string[];
   provenance_urls: string[];
+  structured_payload: Record<string, unknown> | null;
   source?: CanonicalSource | CanonicalSource[] | null;
 };
 
@@ -191,6 +197,29 @@ type BeliefRow = {
   consensus_strength: number;
   affected_assets: string[];
   evidence_ids: string[];
+  recruitment_cluster_ids: string[];
+  primary_category: string;
+  themes: string[];
+  freshness_score: number;
+  materiality_score: number;
+  momentum_score: number;
+  breadth_score: number;
+  urgency_score: number;
+};
+
+type RecruitmentClusterRow = {
+  id: string;
+  model_cluster_key: string;
+  evidence_ids: string[];
+  affected_assets: string[];
+  primary_category: string;
+  themes: string[];
+  freshness_score: number;
+  materiality_score: number;
+  momentum_score: number;
+  breadth_score: number;
+  urgency_score: number;
+  verdict: "recruit" | "context" | "defer";
 };
 
 type DivergenceRow = {
@@ -255,11 +284,12 @@ type StoryReasoningContext = {
 type CandidateWorking = StorySynthesisWithPlanOutputV1["candidates"][number] & {
   candidateKey: string;
   noveltyFingerprint: string;
+  currentAttention: CurrentAttention;
 };
 
 type CandidatePersisted = { id: string; candidateKey: string; primaryHypothesisId: string };
 
-const MAX_EVIDENCE = 72;
+const MAX_EVIDENCE = 180;
 const LOOKBACK_DAYS = 90;
 
 
@@ -287,8 +317,11 @@ These are canonical public.research_story_requirements.requirement_key values. N
 Do not invent or infer requirement IDs from prose. Use missingEvidence only for a human-readable explanation. Missing research informs state and priority; it never decides publication.
 Return an empty missingRequirementIds array when the scoped requirements are satisfied or the hypothesis has no scoped requirements.`;
 
-const MARKET_BELIEF_STORY_REVIEW_RULES = `For stage "market_belief", produce normal market beliefs and exactly one existing-Story assessment for every supplied storyReviewTargets item.
-Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
+const MARKET_BELIEF_STORY_REVIEW_RULES = `For stage "market_belief", work in this exact order.
+First inspect freshEvidenceCandidates without looking at existing Story titles. Cluster semantically related evidence around the same event, policy signal, causal driver or cross-asset implication. Similar wording alone is not a cluster. Use every supplied evidence ID at most once as primary cluster evidence. Keep the category vocabulary open: primaryCategory and themes are descriptive strings, not a fixed taxonomy.
+For every cluster, score current materiality, momentum, cross-source or cross-asset breadth, and time urgency separately from confidence. Use verdict "recruit" when a current cluster deserves causal research now, "context" when it helps interpret recruited news, and "defer" when it is not presently decision-relevant. Scheduled-only calendar entries are not in this packet and must never be reconstructed.
+Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
+Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
 An unchanged assessment advances freshness only. It must not rewrite the thesis or manufacture a recalibration.
 Creator/video transcript evidence may create a lead or test, but cannot by itself materially change thesis, lifecycle or confidence.
 Do not omit a supplied Story. Return an empty storyAssessments array only when storyReviewTargets is empty.`;
@@ -415,9 +448,13 @@ function evidencePack(rows: CanonicalEvidenceRow[]): EvidencePackItem[] {
       supportDirection: row.support_direction,
       eventAt: row.event_at,
       publishedAt: row.published_at,
+      availableAt: row.available_at,
+      receivedAt: row.received_at,
+      freshnessStatus: row.freshness_status,
       affectedAssets: row.affected_assets ?? [],
       affectedTopics: row.affected_topics ?? [],
       provenanceUrls: row.provenance_urls ?? [],
+      structuredPayload: row.structured_payload ?? {},
     };
   });
 }
@@ -537,7 +574,9 @@ async function modelStage<T>({
   }
   const prompt = await loadPrompt(stageKey);
   const inputRefs = {
-    evidenceCount: Array.isArray((input as { evidence?: unknown[] })?.evidence) ? (input as { evidence: unknown[] }).evidence.length : undefined,
+    evidenceCount: Array.isArray((input as { freshEvidenceCandidates?: unknown[] })?.freshEvidenceCandidates)
+      ? (input as { freshEvidenceCandidates: unknown[] }).freshEvidenceCandidates.length
+      : Array.isArray((input as { evidence?: unknown[] })?.evidence) ? (input as { evidence: unknown[] }).evidence.length : undefined,
     storyCount: Array.isArray((input as { existingStories?: unknown[] })?.existingStories) ? (input as { existingStories: unknown[] }).existingStories.length : undefined,
     storyReviewTargetCount: Array.isArray((input as { storyReviewTargets?: unknown[] })?.storyReviewTargets) ? (input as { storyReviewTargets: unknown[] }).storyReviewTargets.length : undefined,
     storyReviewTargetIds: Array.isArray((input as { storyReviewTargets?: Array<{ story?: { id?: string } }> })?.storyReviewTargets)
@@ -731,13 +770,19 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     const domain = canonicalDomain(item.url);
     const source = sourceByExternal.get(`${domain}|${slugPart(item.publisher)}`);
     if (!source) return [];
+    const evidenceText = `${item.title}\n${item.summary}\n${item.divergence_note || ""}`;
     const routedAssets = unique((item.affected_story_slugs ?? []).flatMap((slug) => storyAssets.get(slug) ?? []));
-    const affectedAssets = explicitlyMentionedAssets(`${item.title}\n${item.summary}\n${item.divergence_note || ""}`, routedAssets);
+    const affectedAssets = unique([
+      ...explicitlyMentionedAssets(evidenceText, routedAssets),
+      ...explicitlyMentionedInstrumentSpecs(evidenceText).map((spec) => spec.instrument),
+    ]);
+    const calendarItem = item.item_key.startsWith("calendar:");
+    const calendarReleased = calendarItem && /\breleased\b/i.test(`${item.title} ${item.summary}`);
     return [{
       source_id: source.id,
       research_run_id: item.run_id,
       external_evidence_id: `research-intake:${item.id}`,
-      evidence_class: evidenceClass(item),
+      evidence_class: calendarItem && !calendarReleased ? "other" : evidenceClass(item),
       support_direction: supportDirection(item),
       claim_text: item.summary.trim(),
       summary: item.divergence_note?.trim() || null,
@@ -753,6 +798,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       structured_payload: {
         itemKey: item.item_key,
         title: item.title,
+        evidenceNature: calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
         candidateScore: item.candidate_score,
         relevance: item.relevance,
         novelty: item.novelty,
@@ -779,7 +825,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
 
 async function loadEvidence() {
   const rows = await intelligenceRest<CanonicalEvidenceRow[]>(
-    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,affected_assets,affected_topics,provenance_urls,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id)&freshness_status=neq.superseded&order=event_at.desc.nullslast,received_at.desc&limit=${MAX_EVIDENCE}`,
+    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
   );
   return evidencePack(rows);
 }
@@ -989,10 +1035,69 @@ async function persistStoryAssessments(input: {
   }
 }
 
-async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<string, EvidencePackItem>) {
+async function persistRecruitmentClusters(input: {
+  engineRunId: string;
+  stageRunId: string;
+  output: MarketBeliefOutput;
+  recruitment: FreshNewsRecruitment;
+}) {
+  const candidateById = new Map(input.recruitment.candidates.map((candidate) => [candidate.evidence.id, candidate]));
+  const seenModelKeys = new Set<string>();
+  const rawClusters = Array.isArray(input.output.recruitmentClusters) ? input.output.recruitmentClusters : [];
+  const specs = rawClusters.flatMap((cluster) => {
+    const modelClusterKey = cluster.clusterKey.trim();
+    if (!modelClusterKey || seenModelKeys.has(modelClusterKey)) return [];
+    const evidenceIds = unique(cluster.evidenceIds).filter((id) => candidateById.has(id));
+    if (!evidenceIds.length) return [];
+    seenModelKeys.add(modelClusterKey);
+    const candidates = evidenceIds.map((id) => candidateById.get(id)!);
+    const allowedAssets = unique(candidates.flatMap((candidate) => candidate.evidence.affectedAssets));
+    const freshness = Math.round(candidates.reduce((sum, candidate) => sum + candidate.freshnessScore, 0) / candidates.length);
+    return [{
+      engine_run_id: input.engineRunId,
+      stage_run_id: input.stageRunId,
+      cluster_key: stableKey("recruitment", input.engineRunId, [...evidenceIds].sort()),
+      model_cluster_key: modelClusterKey.slice(0, 120),
+      title: cluster.title.trim().slice(0, 240),
+      summary: cluster.summary.trim(),
+      primary_category: cluster.primaryCategory.trim().slice(0, 120) || "uncategorised",
+      themes: unique(cluster.themes.map((theme) => theme.trim()).filter(Boolean)).slice(0, 12),
+      affected_assets: onlyExplicitAssets(cluster.affectedAssets, allowedAssets),
+      evidence_ids: evidenceIds,
+      freshness_score: clamp(freshness),
+      materiality_score: clamp(cluster.materiality),
+      momentum_score: clamp(cluster.momentum),
+      breadth_score: clamp(cluster.breadth),
+      urgency_score: clamp(cluster.urgency),
+      verdict: cluster.verdict,
+      rationale: cluster.rationale.trim(),
+    }];
+  });
+  if (!specs.length) return [];
+  return intelligenceRest<RecruitmentClusterRow[]>("intelligence_recruitment_clusters?on_conflict=engine_run_id,cluster_key", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify(specs),
+  });
+}
+
+function average(values: number[]) {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length) : 0;
+}
+
+async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<string, EvidencePackItem>,
+  recruitmentClusters: RecruitmentClusterRow[],
+) {
   const knownEvidence = new Set(evidenceById.keys());
+  const clusterByModelKey = new Map(recruitmentClusters.map((cluster) => [cluster.model_cluster_key, cluster]));
   const specs = output.beliefs.flatMap((belief) => {
-    const evidenceIds = onlyKnownIds(belief.evidenceIds, knownEvidence);
+    const clusters = unique(belief.recruitmentClusterKeys ?? [])
+      .map((key) => clusterByModelKey.get(key))
+      .filter((cluster): cluster is RecruitmentClusterRow => Boolean(cluster && cluster.verdict === "recruit"));
+    if (!clusters.length) return [];
+    const clusterEvidence = new Set(clusters.flatMap((cluster) => cluster.evidence_ids));
+    const evidenceIds = onlyKnownIds(belief.evidenceIds, knownEvidence).filter((id) => clusterEvidence.has(id));
+    if (!evidenceIds.length) return [];
     const allowedAssets = unique(evidenceIds.flatMap((id) => evidenceById.get(id)?.affectedAssets ?? []));
     if (!belief.statement.trim()) return [];
     const beliefKey = stableKey("belief", belief.statement.trim().toLowerCase(), [...belief.affectedAssets].sort());
@@ -1003,6 +1108,14 @@ async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<stri
       consensus_strength: clamp(belief.consensusStrength),
       affected_assets: onlyExplicitAssets(belief.affectedAssets, allowedAssets),
       evidence_ids: evidenceIds,
+      recruitment_cluster_ids: clusters.map((cluster) => cluster.id),
+      primary_category: clusters[0].primary_category,
+      themes: unique(clusters.flatMap((cluster) => cluster.themes)),
+      freshness_score: average(clusters.map((cluster) => cluster.freshness_score)),
+      materiality_score: average(clusters.map((cluster) => cluster.materiality_score)),
+      momentum_score: average(clusters.map((cluster) => cluster.momentum_score)),
+      breadth_score: average(clusters.map((cluster) => cluster.breadth_score)),
+      urgency_score: average(clusters.map((cluster) => cluster.urgency_score)),
       observed_at: new Date().toISOString(),
       status: "active",
       updated_at: new Date().toISOString(),
@@ -1014,6 +1127,27 @@ async function persistBeliefs(output: MarketBeliefOutput, evidenceById: Map<stri
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(specs),
   });
+}
+
+function currentAttentionForHypothesis(
+  hypothesis: HypothesisRow,
+  divergences: DivergenceRow[],
+  beliefs: BeliefRow[],
+  assessedAt: string,
+): CurrentAttention {
+  const divergence = divergences.find((row) => row.id === hypothesis.divergence_id);
+  const belief = beliefs.find((row) => row.id === divergence?.market_belief_id);
+  return {
+    assessedAt,
+    primaryCategory: belief?.primary_category || "uncategorised",
+    themes: [...(belief?.themes || [])],
+    evidenceIds: [...(belief?.evidence_ids || [])],
+    freshness: clamp(Number(belief?.freshness_score || 0)),
+    materiality: clamp(Number(belief?.materiality_score || 0)),
+    momentum: clamp(Number(belief?.momentum_score || 0)),
+    breadth: clamp(Number(belief?.breadth_score || 0)),
+    urgency: clamp(Number(belief?.urgency_score || 0)),
+  };
 }
 
 async function persistDivergences(output: DivergenceOutput, beliefs: BeliefRow[], knownEvidence: Set<string>) {
@@ -1675,6 +1809,11 @@ function editionStory(
     confirmation: locked.confirmation,
     invalidation: locked.invalidation,
     confidence: locked.confidence,
+    currentAttention: {
+      ...candidate.currentAttention,
+      themes: [...candidate.currentAttention.themes],
+      evidenceIds: [...candidate.currentAttention.evidenceIds],
+    },
     prohibitedClaims: locked.prohibitedClaims,
     changeKinds: candidate.changeKinds,
     eventAt: new Date().toISOString(),
@@ -1847,6 +1986,7 @@ export async function persistCanonicalEditionForResearchRun({
       story_thesis_version_id: null,
       supersedes_snapshot_id: null,
       snapshot_type: "daily_brief",
+      edition_phase: "base",
       public_summary: publicSummary || `${researchRun?.schedule_slot || "manual"} research edition completed`,
       payload: {
         contractVersion: 2,
@@ -1873,12 +2013,16 @@ async function persistDailyBrief({
   runKey,
   stories,
   evidence,
+  recruitment,
+  recruitmentClusters,
 }: {
   engineRunId: string;
   researchRunId: string | null;
   runKey: string | undefined;
   stories: EditionStory[];
   evidence: EvidencePackItem[];
+  recruitment: FreshNewsRecruitment;
+  recruitmentClusters: RecruitmentClusterRow[];
 }) {
   if (!stories.length) return [];
   const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
@@ -1921,7 +2065,22 @@ async function persistDailyBrief({
     upcoming: eventHorizon.upcoming,
     journeyStorySources: journeySources,
     marketEvents: eventHorizon.events,
-    diagnostics: { warnings: eventHorizon.warnings, eventHorizonCoverage: eventHorizon.coverage },
+    diagnostics: {
+      warnings: eventHorizon.warnings,
+      eventHorizonCoverage: eventHorizon.coverage,
+      recruitment: {
+        asOf: recruitment.asOf,
+        evidenceCount: recruitment.evidenceCount,
+        eligibleCount: recruitment.eligibleCount,
+        scheduledOnlyCount: recruitment.scheduledOnlyCount,
+        staleCount: recruitment.staleCount,
+        futureTimestampCount: recruitment.futureTimestampCount,
+        duplicateCount: recruitment.duplicateCount,
+        recruitedClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "recruit").length,
+        contextClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "context").length,
+        deferredClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "defer").length,
+      },
+    },
   });
   await intelligenceRest("hybrid_publication_snapshots", {
     method: "POST",
@@ -1933,6 +2092,7 @@ async function persistDailyBrief({
       story_thesis_version_id: null,
       supersedes_snapshot_id: prior[0]?.id || null,
       snapshot_type: "daily_brief",
+      edition_phase: "base",
       public_summary: edition.finalBoard.highestConvictionChange,
       payload: {
         ...edition,
@@ -1952,6 +2112,56 @@ async function persistDailyBrief({
     }),
   });
   return eventHorizon.warnings;
+}
+
+function recruitmentRunMetadata(
+  recruitment: FreshNewsRecruitment,
+  clusters: RecruitmentClusterRow[] = [],
+) {
+  return {
+    asOf: recruitment.asOf,
+    evidenceCount: recruitment.evidenceCount,
+    eligibleCount: recruitment.eligibleCount,
+    scheduledOnlyCount: recruitment.scheduledOnlyCount,
+    staleCount: recruitment.staleCount,
+    futureTimestampCount: recruitment.futureTimestampCount,
+    duplicateCount: recruitment.duplicateCount,
+    recruitedClusterCount: clusters.filter((cluster) => cluster.verdict === "recruit").length,
+    contextClusterCount: clusters.filter((cluster) => cluster.verdict === "context").length,
+    deferredClusterCount: clusters.filter((cluster) => cluster.verdict === "defer").length,
+  };
+}
+
+async function persistEarlyEngineCompletion(input: {
+  engineRunId: string;
+  status?: "completed" | "blocked";
+  warnings: string[];
+  storiesConsidered: number;
+  hypothesesGenerated: number;
+  hypothesesPromoted: number;
+  recruitment: FreshNewsRecruitment;
+  recruitmentClusters?: RecruitmentClusterRow[];
+}) {
+  await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(input.engineRunId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      status: input.status || "completed",
+      completed_at: new Date().toISOString(),
+      stories_considered: input.storiesConsidered,
+      stories_published: 0,
+      warnings: input.warnings,
+      metadata: {
+        frozenInputs: currentIntelligenceInvocation()?.frozenInputs ?? null,
+        runtime: "openai-responses-v1",
+        evidenceConsidered: input.recruitment.eligibleCount,
+        hypothesesGenerated: input.hypothesesGenerated,
+        hypothesesPromoted: input.hypothesesPromoted,
+        recruitment: recruitmentRunMetadata(input.recruitment, input.recruitmentClusters),
+      },
+      failure_detail: null,
+    }),
+  });
 }
 
 export async function runIntelligenceEngine({
@@ -2025,21 +2235,21 @@ export async function runIntelligenceEngine({
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     await canonicaliseIntake(stories);
     const evidence = await loadEvidence();
-    evidenceConsidered = evidence.length;
+    const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
+    const recruitment = buildFreshNewsRecruitment(evidence, analysisAsOf);
+    const reasoningEvidence = recruitment.candidates.map((candidate) => candidate.evidence);
+    evidenceConsidered = reasoningEvidence.length;
+    warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
     if (!evidence.length) {
       warnings.push("No canonical evidence is available for intelligence reasoning.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "blocked", completed_at: new Date().toISOString(), warnings }),
-      });
+      await persistEarlyEngineCompletion({ engineRunId, status: "blocked", warnings, storiesConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment });
       return { enabled: true, engineRunId, status: "blocked", evidenceConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const evidenceById = new Map(evidence.map((item) => [item.id, item]));
+    const evidenceById = new Map(reasoningEvidence.map((item) => [item.id, item]));
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
-    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, evidence, researchDebt);
+    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, reasoningEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
@@ -2050,19 +2260,31 @@ export async function runIntelligenceEngine({
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
-      input: { asOf: currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString(), evidence, storyReviewTargets },
-      maxOutputTokens: 2_800,
+      input: {
+        asOf: analysisAsOf,
+        freshEvidenceCandidates: recruitment.candidates.map((candidate) => ({
+          ...candidate.evidence,
+          evidenceNature: candidate.nature,
+          ageHours: candidate.ageHours,
+          freshnessScore: candidate.freshnessScore,
+          upstreamMateriality: candidate.upstreamMateriality,
+        })),
+        storyReviewTargets,
+      },
+      maxOutputTokens: 4_500,
     });
     await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
-    const beliefs = await persistBeliefs(beliefStage.data, evidenceById);
+    const recruitmentClusters = await persistRecruitmentClusters({
+      engineRunId,
+      stageRunId: beliefStage.stageRunId,
+      output: beliefStage.data,
+      recruitment,
+    });
+    const beliefs = await persistBeliefs(beliefStage.data, evidenceById, recruitmentClusters);
     if (!beliefs.length) {
       warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const divergenceStage = await modelStage<DivergenceOutput>({
@@ -2071,32 +2293,24 @@ export async function runIntelligenceEngine({
       stageKey: "divergence",
       modelKind: "fast",
       schema: DIVERGENCE_SCHEMA,
-      input: { beliefs, evidence },
+      input: { beliefs, evidence: reasoningEvidence },
       maxOutputTokens: 2_800,
     });
     const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
     if (!divergences.length) {
       warnings.push("No material evidence-versus-belief divergence survived the divergence stage.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, evidence);
+    const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, reasoningEvidence);
     const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
     const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
 
     if (hypothesisEvidence.length === 0) {
       warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const hypothesisStage = await modelStage<HypothesisOutput>({
@@ -2118,12 +2332,8 @@ export async function runIntelligenceEngine({
     hypothesesGenerated = hypotheses.length;
     if (!hypotheses.length) {
       warnings.push("No testable hypotheses survived evidence-ID validation.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
@@ -2138,7 +2348,7 @@ export async function runIntelligenceEngine({
       stageKey: "challenger",
       modelKind: "complex",
       schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence, existingStories: storiesPack, researchDebt, requirementScopes },
+      input: { hypotheses, evidence: reasoningEvidence, existingStories: storiesPack, researchDebt, requirementScopes },
       maxOutputTokens: 5_000,
     });
     const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
@@ -2149,12 +2359,8 @@ export async function runIntelligenceEngine({
     hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
     if (!reviewed.length) {
       warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const reviewedIds = new Set(reviewed.map((item) => item.id));
@@ -2164,7 +2370,7 @@ export async function runIntelligenceEngine({
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
-      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence },
+      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence: reasoningEvidence },
       maxOutputTokens: 5_500,
     });
     const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
@@ -2180,7 +2386,7 @@ export async function runIntelligenceEngine({
         hypotheses: reviewed,
         challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
-        evidence,
+        evidence: reasoningEvidence,
         existingStories: storiesPack,
         storyPlanCandidates,
         researchStatePolicy: { states: ["SUPPORTED", "DEVELOPING", "CONTESTED", "EARLY"], allStatesMayPublish: true, completenessIsDescriptive: true },
@@ -2208,12 +2414,15 @@ export async function runIntelligenceEngine({
         knownEvidenceIds,
       );
       const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
+      const sourceHypothesis = reviewedById.get(candidate.primaryHypothesisId);
+      if (!sourceHypothesis) return [];
       const normalized: CandidateWorking = {
         ...candidate,
         decisiveEvidenceIds,
         acceptedExplanationEvidenceIds,
         overlookedVariableEvidenceIds,
         affectedAssets,
+        currentAttention: currentAttentionForHypothesis(sourceHypothesis, divergences, beliefs, analysisAsOf),
         candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
         noveltyFingerprint: hash(JSON.stringify({
           event: candidate.eventSignature.toLowerCase(),
@@ -2231,12 +2440,8 @@ export async function runIntelligenceEngine({
     storiesConsidered += candidates.length;
     if (!candidates.length) {
       warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
-      await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "completed", completed_at: new Date().toISOString(), warnings }),
-      });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: evidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted, recruitment, recruitmentClusters });
+      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
     const dedupeStage = await modelStage<DeduplicationOutput>({
@@ -2267,7 +2472,7 @@ export async function runIntelligenceEngine({
         candidates: candidates.map((candidate) => ({ candidateKey: candidate.candidateKey, lifecycleStatus: candidate.lifecycleStatus, thesis: candidate.thesis, confidence: candidate.confidence })),
         deduplication: [...dedupeByCandidate.values()],
         existingStories: storiesPack,
-        evidence,
+        evidence: reasoningEvidence,
       },
       maxOutputTokens: 2_800,
     });
@@ -2334,6 +2539,7 @@ export async function runIntelligenceEngine({
           strongest_support: candidate.strongestSupport,
           strongest_contradiction: candidate.strongestContradiction,
           novelty_rationale: `${decision.rationale} Similarity ${Math.round(decision.similarityScore)}%.`,
+          current_attention: candidate.currentAttention,
           updated_at: new Date().toISOString(),
         }),
       });
@@ -2363,7 +2569,7 @@ export async function runIntelligenceEngine({
     }
 
     if (!dryRun && editionStories.length) {
-      const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence });
+      const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence: reasoningEvidence, recruitment, recruitmentClusters });
       warnings.push(...eventHorizonWarnings.map((warning) => `Event Horizon: ${warning}`));
     }
 
@@ -2377,9 +2583,22 @@ export async function runIntelligenceEngine({
         warnings,
         completed_at: new Date().toISOString(),
         metadata: {
+          frozenInputs: currentIntelligenceInvocation()?.frozenInputs ?? null,
           dryRun,
           runtime: "openai-responses-v1",
-          evidenceConsidered: evidence.length,
+          evidenceConsidered: reasoningEvidence.length,
+          recruitment: {
+            asOf: recruitment.asOf,
+            evidenceCount: recruitment.evidenceCount,
+            eligibleCount: recruitment.eligibleCount,
+            scheduledOnlyCount: recruitment.scheduledOnlyCount,
+            staleCount: recruitment.staleCount,
+            futureTimestampCount: recruitment.futureTimestampCount,
+            duplicateCount: recruitment.duplicateCount,
+            recruitedClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "recruit").length,
+            contextClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "context").length,
+            deferredClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "defer").length,
+          },
           hypothesesGenerated,
           hypothesesPromoted,
           candidateRows: candidateRows.map((row) => row.id),
@@ -2392,7 +2611,7 @@ export async function runIntelligenceEngine({
       enabled: true,
       engineRunId,
       status: "completed",
-      evidenceConsidered: evidence.length,
+      evidenceConsidered: reasoningEvidence.length,
       hypothesesGenerated,
       hypothesesPromoted,
       storiesConsidered,
