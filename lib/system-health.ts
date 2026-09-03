@@ -69,7 +69,7 @@ export async function getSystemHealth() {
   const rbnzCoverage = calendar.filter((release) => release.country === "New Zealand");
   const structuredMetrics = data.macroReleaseMetrics;
   const overdueMissingActuals = calendar.filter((release) => (
-    release.lifecycle?.phase === "released_pending_ingestion" || release.lifecycle?.phase === "stale_error"
+    ["ingestion_pending", "released_pending_ingestion", "stale_error"].includes(release.status)
   ) && !release.actual);
 
   return {
