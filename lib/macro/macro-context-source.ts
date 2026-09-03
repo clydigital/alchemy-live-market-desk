@@ -36,25 +36,37 @@ export function macroContextText(value: string) {
   return /<html|<body|<main|<div/i.test(value) ? visibleText(value) : value.replace(/\s+/g, " ").trim();
 }
 
+function datedMacroSignals(text: string) {
+  const hasDate = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+20\d{2}|20\d{2}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/20\d{2}/i.test(text);
+  const signals = [
+    /Growth[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
+    /Inflation[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
+    /Labou?r[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
+    /Liquidity[^0-9+\-]{0,100}[+\-]?\d+(?:\.\d+)?/i,
+    /Treasury[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
+    /CPI[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
+    /unemployment[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
+    /yield[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
+    /PMI[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
+  ].filter((pattern) => pattern.test(text)).length;
+  return { hasDate, signals };
+}
+
 export function macroContextBlockReason(source: MacroContextSource, value: string) {
   const text = macroContextText(value);
   if (!text) return "empty_response";
   if (/security verification|verify (?:that )?you are human|checking your browser|just a moment|cf-chl-/i.test(text)) {
     return "security_verification";
   }
+  const { hasDate, signals } = datedMacroSignals(text);
   if (source.key === DAILY_INVESTMENT_BRIEF_SOURCE.key) {
     const placeholders = (text.match(/Analyzing\.\.\.|(?:^|\s)--(?:\s|$)/gi) || []).length;
-    const populatedSignals = [
-      /Growth[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
-      /Inflation[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
-      /Labou?r[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?/i,
-      /Liquidity[^0-9+\-]{0,100}[+\-]?\d+(?:\.\d+)?/i,
-      /Treasury[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
-      /CPI[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
-      /unemployment[^0-9+\-]{0,80}[+\-]?\d+(?:\.\d+)?%?/i,
-    ].filter((pattern) => pattern.test(text)).length;
-    if (placeholders >= 2 && populatedSignals < 2) return "client_placeholders";
-    if (populatedSignals < 2) return "insufficient_dated_readings";
+    if (placeholders >= 2 && signals < 2) return "client_placeholders";
+    if (signals < 2) return "insufficient_dated_readings";
+    return null;
+  }
+  if (source.key === MACROMICRO_SOURCE.key) {
+    if (!hasDate || signals < 1) return "insufficient_dated_readings";
   }
   return null;
 }
