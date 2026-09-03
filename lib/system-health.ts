@@ -1,10 +1,10 @@
 import { getHybridDeskData } from "@/lib/data";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { firecrawlConfigured } from "@/lib/firecrawl";
-import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
 import { getPrimaryMacroContextHealth } from "@/lib/macro/macro-context-capture-supabase";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function configured(value: string | undefined) {
   return Boolean(value?.trim());
@@ -15,13 +15,72 @@ function state(enabled: boolean, healthy: boolean) {
   return healthy ? "healthy" : "configured_unverified";
 }
 
+type PublicationHealthSummary = {
+  available: boolean;
+  snapshots: number;
+  latestSnapshotAt: string | null;
+  publishedStories: number;
+  storyStates: number;
+  error: string | null;
+};
+
+/**
+ * Health must not load the full immutable publication archive. The normal
+ * publication loader intentionally reconstructs replay history and can span
+ * many paginated queries; health only needs counts plus the latest daily brief.
+ */
+async function getPublicationHealthSummary(): Promise<PublicationHealthSummary> {
+  try {
+    const client = createSupabaseAdminClient();
+    const [snapshotCount, latestSnapshot, publishedStoryCount, storyStateCount] = await Promise.all([
+      client.from("hybrid_publication_snapshots")
+        .select("id", { count: "exact", head: true })
+        .eq("snapshot_type", "daily_brief")
+        .abortSignal(AbortSignal.timeout(3_000)),
+      client.from("hybrid_publication_snapshots")
+        .select("id,published_at")
+        .eq("snapshot_type", "daily_brief")
+        .order("published_at", { ascending: false })
+        .limit(1)
+        .abortSignal(AbortSignal.timeout(3_000))
+        .maybeSingle<{ id: string; published_at: string }>(),
+      client.from("intelligence_story_states")
+        .select("story_id", { count: "exact", head: true })
+        .eq("publication_eligible", true)
+        .abortSignal(AbortSignal.timeout(3_000)),
+      client.from("intelligence_story_states")
+        .select("story_id", { count: "exact", head: true })
+        .abortSignal(AbortSignal.timeout(3_000)),
+    ]);
+    const errors = [snapshotCount.error, latestSnapshot.error, publishedStoryCount.error, storyStateCount.error].filter(Boolean);
+    if (errors.length) throw errors[0];
+    return {
+      available: true,
+      snapshots: snapshotCount.count ?? 0,
+      latestSnapshotAt: latestSnapshot.data?.published_at ?? null,
+      publishedStories: publishedStoryCount.count ?? 0,
+      storyStates: storyStateCount.count ?? 0,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      snapshots: 0,
+      latestSnapshotAt: null,
+      publishedStories: 0,
+      storyStates: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function getSystemHealth() {
   const generatedAt = new Date().toISOString();
   const [data, publication, calendar, macroSource] = await Promise.all([
     // Operational health must reflect the current scheduler run and provider
     // state, rather than the desk's normal short-lived display cache.
     getHybridDeskData({ fresh: true }),
-    getHybridPublicationRecords({ fresh: true }),
+    getPublicationHealthSummary(),
     getEconomicCalendar(),
     getPrimaryMacroContextHealth(),
   ]);
@@ -74,6 +133,14 @@ export async function getSystemHealth() {
 
   return {
     generatedAt,
+    deployment: {
+      environment: process.env.VERCEL_ENV || process.env.NODE_ENV || null,
+      gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      gitCommitRef: process.env.VERCEL_GIT_COMMIT_REF || null,
+      deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
+      deploymentUrl: process.env.VERCEL_URL || null,
+      productionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL || null,
+    },
     overall: {
       state: "degraded",
       reason: latestIntelligenceRun
@@ -86,6 +153,8 @@ export async function getSystemHealth() {
       cronConfigured,
       expectedSlots: ["09:15 Asia/Kuala_Lumpur", "21:15 Asia/Kuala_Lumpur"],
       latestResearchRunAt: latestResearchRun?.completed_at || latestResearchRun?.updated_at || null,
+      latestResearchRunStatus: latestResearchRun?.status || null,
+      latestResearchRunKey: latestResearchRun?.run_key || null,
       note: scheduleEnabled
         ? cronConfigured
           ? "The two Live-owned Vercel Cron routes are enabled; each requires CRON_SECRET and publishes only through the canonical Live runtime."
@@ -168,16 +237,18 @@ export async function getSystemHealth() {
       fieldPolicy: "previous, revised previous, consensus, Alchemy expectation and actual are stored separately; released official Actuals are ingested independently from dashboard capture",
     },
     canonicalStories: {
-      state: data.intelligenceRuns.length ? "healthy" : "awaiting_first_runtime_run",
-      publishedStories: publication.intelligenceStates.filter((row) => row.publication_eligible).length,
-      storyStates: publication.intelligenceStates.length,
-      snapshots: publication.snapshots.length,
+      state: publication.available ? (publication.storyStates ? "healthy" : "awaiting_first_runtime_run") : "unavailable",
+      publishedStories: publication.publishedStories,
+      storyStates: publication.storyStates,
+      snapshots: publication.snapshots,
+      error: publication.error,
     },
     hybridPublication: {
-      state: publication.snapshots.length ? "healthy" : "degraded",
+      state: publication.available ? (publication.latestSnapshotAt ? "healthy" : "degraded") : "unavailable",
       mode: "read_only_canonical_consumer",
-      snapshots: publication.snapshots.length,
-      latestSnapshotAt: publication.snapshots[0]?.published_at || null,
+      snapshots: publication.snapshots,
+      latestSnapshotAt: publication.latestSnapshotAt,
+      error: publication.error,
     },
     researchDebt: {
       state: openDebt.length ? "attention_required" : "healthy",
