@@ -9,12 +9,18 @@ export async function buildScheduledResearchInputWithFirecrawl(
 ) {
   const now = options.now ?? new Date();
   const input = await buildScheduledResearchInput(slot, options);
-  const recovered = await applyFirecrawlResearchFallback(input, now);
+
+  // Preserve the desk's source hierarchy:
+  // 1) deterministic first-party/direct acquisition,
+  // 2) bounded normal-web discovery for current alternative sources,
+  // 3) Firecrawl only for direct sources that are still blocked.
+  // Search providers remain lead generators and never become evidence authorities.
+  const discoveryInput = input as Parameters<typeof applyResearchDiscoveryProviders>[0];
+  const discovered = await applyResearchDiscoveryProviders(discoveryInput, slot, { now });
 
   // Firecrawl intentionally owns a structurally duplicated transport type so its
-  // Node tests do not depend on Next path aliases. It only passes recalibrations
-  // through unchanged from the canonical scheduled input, so bridge that known
-  // transport boundary here rather than weakening the canonical discovery type.
-  const discoveryInput = recovered as Parameters<typeof applyResearchDiscoveryProviders>[0];
-  return applyResearchDiscoveryProviders(discoveryInput, slot, { now });
+  // Node tests do not depend on Next path aliases. It only recovers supported
+  // blocked public sources and preserves the original publisher/article provenance.
+  const fallbackInput = discovered as Parameters<typeof applyFirecrawlResearchFallback>[0];
+  return applyFirecrawlResearchFallback(fallbackInput, now);
 }
