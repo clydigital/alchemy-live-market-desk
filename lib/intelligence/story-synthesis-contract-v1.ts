@@ -219,6 +219,10 @@ export const STORY_SYNTHESIS_WITH_PLAN_SCHEMA: JsonSchema = {
         required: [...candidate.required, "nextTestSelection", "visualPlan"],
         properties: {
           ...candidate.properties,
+          title: {
+            ...candidate.properties.title,
+            description: "Durable persistent Story identity, not the latest event headline. Name the continuing market theme or question broadly enough to accept future developments. Put the newest event-specific wording in whatChanged and the append-only Story event instead.",
+          },
           nextTestSelection: {
             anyOf: [
               {
