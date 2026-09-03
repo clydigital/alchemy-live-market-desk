@@ -4,7 +4,7 @@ import { firecrawlConfigured } from "@/lib/firecrawl";
 import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
-import { getMacroSourceSnapshotHealth } from "@/lib/macro/macro-capture-supabase";
+import { getPrimaryMacroContextHealth } from "@/lib/macro/macro-context-capture-supabase";
 
 function configured(value: string | undefined) {
   return Boolean(value?.trim());
@@ -23,14 +23,12 @@ export async function getSystemHealth() {
     getHybridDeskData({ fresh: true }),
     getHybridPublicationRecords({ fresh: true }),
     getEconomicCalendar(),
-    getMacroSourceSnapshotHealth(),
+    getPrimaryMacroContextHealth(),
   ]);
   const orderedRuns = [...data.researchRuns].sort((left, right) => (
     Date.parse(right.scheduled_for) - Date.parse(left.scheduled_for)
     || Date.parse(right.updated_at) - Date.parse(left.updated_at)
   ));
-  // Video intake is a child of the desk cycle, not the cycle itself. Keep its
-  // health distinct so it cannot hide a blocked or failed full-desk run.
   const latestResearchRun = orderedRuns.find((run) => run.schedule_slot === "morning" || run.schedule_slot === "evening") || null;
   const latestVideoRun = orderedRuns.find((run) => run.schedule_slot === "video_midnight" || run.schedule_slot === "video_late_morning") || null;
   const latestIntelligenceRun = data.intelligenceRuns[0] || null;
@@ -70,6 +68,9 @@ export async function getSystemHealth() {
   const rbaCoverage = calendar.filter((release) => release.country === "Australia");
   const rbnzCoverage = calendar.filter((release) => release.country === "New Zealand");
   const structuredMetrics = data.macroReleaseMetrics;
+  const overdueMissingActuals = calendar.filter((release) => (
+    ["ingestion_pending", "released_pending_ingestion", "stale_error"].includes(release.status)
+  ) && !release.actual);
 
   return {
     generatedAt,
@@ -151,17 +152,20 @@ export async function getSystemHealth() {
     macroSource: {
       state: macroSource.retainedPriorComplete ? "degraded_retaining_complete" : macroSource.latestAttemptStatus || "unavailable",
       ...macroSource,
+      hierarchy: "Daily Investment Brief primary → MacroMicro supplemental → authoritative/official source validation; retired Macro Indicators dashboard excluded from scheduled capture.",
       note: macroSource.retainedPriorComplete
-        ? "The latest Macro source attempt degraded; the prior COMPLETE snapshot remains canonical."
-        : "Only a COMPLETE Macro source snapshot becomes canonical.",
+        ? "The latest Daily Investment Brief attempt degraded; the prior COMPLETE Daily Investment Brief snapshot remains pinned. MacroMicro never silently replaces the primary source."
+        : "Only a usable Daily Investment Brief primary snapshot is marked COMPLETE. Placeholder/security-verification responses stay degraded or unavailable.",
     },
     economicCalendar: {
-      state: rbaCoverage.length && rbnzCoverage.length && structuredMetrics.length ? "healthy" : "degraded",
+      state: rbaCoverage.length && rbnzCoverage.length && structuredMetrics.length && !overdueMissingActuals.length ? "healthy" : "degraded",
       releases: calendar.length,
       structuredMetrics: structuredMetrics.length,
       rbaReleases: rbaCoverage.length,
       rbnzReleases: rbnzCoverage.length,
-      fieldPolicy: "previous, revised previous, consensus, Alchemy expectation and actual are stored separately",
+      overdueMissingActuals: overdueMissingActuals.length,
+      overdueReleaseIds: overdueMissingActuals.map((release) => release.id),
+      fieldPolicy: "previous, revised previous, consensus, Alchemy expectation and actual are stored separately; released official Actuals are ingested independently from dashboard capture",
     },
     canonicalStories: {
       state: data.intelligenceRuns.length ? "healthy" : "awaiting_first_runtime_run",
