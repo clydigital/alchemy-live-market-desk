@@ -6,6 +6,7 @@ import {
   attachMacroCaptureToResearchRun,
   captureMacroIndicatorsSnapshot,
 } from "@/lib/macro/macro-capture-supabase";
+import { ingestOfficialMacroActuals } from "@/lib/macro/official-actuals";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
@@ -26,6 +27,7 @@ type ScheduledResearchHandlerDependencies = {
   claimRun?: (slot: CanonicalResearchSlot, runKey: string, scheduledFor: string) => Promise<ClaimResult>;
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
   captureMacroIndicators?: typeof captureMacroIndicatorsSnapshot;
+  ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
   attachMacroCapture?: typeof attachMacroCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
@@ -202,15 +204,16 @@ export async function handleScheduledResearchWithDependencies(
       claimOutcome: claim.state,
       runId: claim.run.id,
     });
-    // Macro Indicators capture is an independent deterministic collector. Run it
-    // in parallel with news/transcript acquisition so it cannot serially consume
-    // the research route's reasoning budget.
-    const [input, macroCapture] = await Promise.all([
+    // Independent deterministic collectors run beside news/transcript intake so
+    // official data repair does not consume the reasoning budget or block valid
+    // unrelated evidence when one provider is unavailable.
+    const [input, macroCapture, officialActuals] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
       }),
       (dependencies.captureMacroIndicators ?? captureMacroIndicatorsSnapshot)(),
+      (dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals)({ now }),
     ]);
 
     let macroLineagePersisted = false;
@@ -219,7 +222,7 @@ export async function handleScheduledResearchWithDependencies(
       await (dependencies.attachMacroCapture ?? attachMacroCaptureToResearchRun)(claim.run.id, macroCapture);
       macroLineagePersisted = true;
     } catch (error) {
-      macroLineageNote = error instanceof Error ? error.message : "Could not attach Macro Indicators lineage to the run.";
+      macroLineageNote = error instanceof Error ? error.message : "Could not attach macro-source lineage to the run.";
     }
 
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
@@ -266,6 +269,7 @@ export async function handleScheduledResearchWithDependencies(
       acquisition: {
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
+        officialActuals,
         macro: {
           ...macroCapture,
           runLineagePersisted: macroLineagePersisted,
