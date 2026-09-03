@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAdminClient } from "../supabase/admin.ts";
 
 export type OfficialMacroRelease = {
   id: string;
