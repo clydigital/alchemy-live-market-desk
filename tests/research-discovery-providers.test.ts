@@ -29,13 +29,15 @@ test("provider calls use their official service endpoints and GDELT stays keyles
   assert.match(providerSource, /if \(provider === "gdelt"\) return true/);
 });
 
-test("discovery is ordered after deterministic acquisition and Firecrawl recovery", () => {
+test("discovery is ordered after deterministic acquisition and before Firecrawl recovery", () => {
   const directIndex = scheduledSource.indexOf("buildScheduledResearchInput(slot, options)");
-  const firecrawlIndex = scheduledSource.indexOf("applyFirecrawlResearchFallback(input, now)");
-  const discoveryIndex = scheduledSource.lastIndexOf("applyResearchDiscoveryProviders(");
+  const discoveryIndex = scheduledSource.indexOf("await applyResearchDiscoveryProviders(");
+  const highImpactIndex = scheduledSource.indexOf("await applyHighImpactMarketDiscovery(");
+  const firecrawlIndex = scheduledSource.indexOf("return applyFirecrawlResearchFallback(");
   assert.ok(directIndex >= 0);
-  assert.ok(firecrawlIndex > directIndex);
-  assert.ok(discoveryIndex > firecrawlIndex);
+  assert.ok(discoveryIndex > directIndex);
+  assert.ok(highImpactIndex > discoveryIndex);
+  assert.ok(firecrawlIndex > highImpactIndex);
 });
 
 test("discovery providers preserve underlying publisher provenance and deduplicate URLs", () => {
