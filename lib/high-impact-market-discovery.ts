@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "@/lib/firecrawl";
-import type { CanonicalResearchSlot } from "@/lib/research-schedule-health";
-import type { IntakeItemInput, ResearchRunInput } from "@/lib/research-update";
+import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
+import type { CanonicalResearchSlot } from "./research-schedule-health.ts";
+import type { IntakeItemInput, ResearchRunInput } from "./research-update.ts";
 
 const GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc";
 const LOOKBACK_MS = 36 * 60 * 60 * 1_000;
