@@ -220,62 +220,68 @@ export async function attachMacroContextCaptureToResearchRun(
   if (error) throw new Error(`Could not attach primary macro-context lineage to research run: ${error.message}`);
 }
 
+type MacroContextHealthRow = {
+  id: string;
+  status: string;
+  capture_completed_at: string;
+  transport_status: number | null;
+  transport_error_code: string | null;
+  transport_error_message: string | null;
+  authentication_mode: string | null;
+};
+
+function unavailableMacroContextHealth(probeError: string | null = null) {
+  return {
+    sourceName: DAILY_INVESTMENT_BRIEF_SOURCE.name,
+    sourceUrl: DAILY_INVESTMENT_BRIEF_SOURCE.url,
+    supplementalSourceName: MACROMICRO_SOURCE.name,
+    supplementalSourceUrl: MACROMICRO_SOURCE.url,
+    latestCompleteSnapshotTimestamp: null,
+    latestCaptureAttemptTimestamp: null,
+    latestAttemptStatus: null,
+    transportStatus: null,
+    transportErrorCode: null,
+    transportErrorMessage: null,
+    authenticationMode: null,
+    retainedPriorComplete: false,
+    probeError,
+  };
+}
+
 export async function getPrimaryMacroContextHealth() {
   try {
     const client = createSupabaseAdminClient();
-    const [complete, attempt] = await Promise.all([
-      client.from("macro_source_snapshots")
-        .select("id,capture_completed_at")
-        .eq("source_key", DAILY_INVESTMENT_BRIEF_SOURCE.key)
-        .eq("status", "complete")
-        .order("capture_completed_at", { ascending: false })
-        .limit(1)
-        .maybeSingle<{ id: string; capture_completed_at: string }>(),
-      client.from("macro_source_snapshots")
-        .select("id,status,capture_completed_at,transport_status,transport_error_code,transport_error_message,authentication_mode")
-        .eq("source_key", DAILY_INVESTMENT_BRIEF_SOURCE.key)
-        .order("capture_completed_at", { ascending: false })
-        .limit(1)
-        .maybeSingle<{
-          id: string;
-          status: string;
-          capture_completed_at: string;
-          transport_status: number | null;
-          transport_error_code: string | null;
-          transport_error_message: string | null;
-          authentication_mode: string | null;
-        }>(),
-    ]);
-    if (complete.error) throw complete.error;
-    if (attempt.error) throw attempt.error;
+    // Health is a persisted-state read, never a provider acquisition. One
+    // bounded query is enough to identify the latest attempt and prior usable
+    // primary snapshot without opening parallel Supabase requests.
+    const { data, error } = await client.from("macro_source_snapshots")
+      .select("id,status,capture_completed_at,transport_status,transport_error_code,transport_error_message,authentication_mode")
+      .eq("source_key", DAILY_INVESTMENT_BRIEF_SOURCE.key)
+      .order("capture_completed_at", { ascending: false })
+      .limit(50)
+      .abortSignal(AbortSignal.timeout(2_500))
+      .returns<MacroContextHealthRow[]>();
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const attempt = rows[0] ?? null;
+    const complete = rows.find((row) => row.status === "complete") ?? null;
     return {
       sourceName: DAILY_INVESTMENT_BRIEF_SOURCE.name,
       sourceUrl: DAILY_INVESTMENT_BRIEF_SOURCE.url,
       supplementalSourceName: MACROMICRO_SOURCE.name,
       supplementalSourceUrl: MACROMICRO_SOURCE.url,
-      latestCompleteSnapshotTimestamp: complete.data?.capture_completed_at ?? null,
-      latestCaptureAttemptTimestamp: attempt.data?.capture_completed_at ?? null,
-      latestAttemptStatus: attempt.data?.status ?? null,
-      transportStatus: attempt.data?.transport_status ?? null,
-      transportErrorCode: attempt.data?.transport_error_code ?? null,
-      transportErrorMessage: attempt.data?.transport_error_message ?? null,
-      authenticationMode: attempt.data?.authentication_mode ?? null,
-      retainedPriorComplete: Boolean(complete.data?.id && attempt.data?.id && complete.data.id !== attempt.data.id && attempt.data.status !== "complete"),
+      latestCompleteSnapshotTimestamp: complete?.capture_completed_at ?? null,
+      latestCaptureAttemptTimestamp: attempt?.capture_completed_at ?? null,
+      latestAttemptStatus: attempt?.status ?? null,
+      transportStatus: attempt?.transport_status ?? null,
+      transportErrorCode: attempt?.transport_error_code ?? null,
+      transportErrorMessage: attempt?.transport_error_message ?? null,
+      authenticationMode: attempt?.authentication_mode ?? null,
+      retainedPriorComplete: Boolean(complete?.id && attempt?.id && complete.id !== attempt.id && attempt.status !== "complete"),
+      probeError: null,
     };
-  } catch {
-    return {
-      sourceName: DAILY_INVESTMENT_BRIEF_SOURCE.name,
-      sourceUrl: DAILY_INVESTMENT_BRIEF_SOURCE.url,
-      supplementalSourceName: MACROMICRO_SOURCE.name,
-      supplementalSourceUrl: MACROMICRO_SOURCE.url,
-      latestCompleteSnapshotTimestamp: null,
-      latestCaptureAttemptTimestamp: null,
-      latestAttemptStatus: null,
-      transportStatus: null,
-      transportErrorCode: null,
-      transportErrorMessage: null,
-      authenticationMode: null,
-      retainedPriorComplete: false,
-    };
+  } catch (error) {
+    return unavailableMacroContextHealth(error instanceof Error ? error.message : String(error));
   }
 }
