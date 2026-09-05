@@ -162,7 +162,17 @@ Hard rules:
 - observed or strongly_supported is allowed only when an existing supplied causal edge directly supports the same arrow.
 - Use short, plain British English.
 - Put lessonOrder in teaching order, not confidence order. Keep genuinely material current-change Stories.
-- Do not add trade instructions.`;
+- Do not add trade instructions.
+
+Reader-facing composition (opening and storyline summaries):
+- Start with the supplied event, change or current market condition and explain why it matters. When nothing new is supplied, describe the continuing condition without presenting it as today's news.
+- Follow the reader's next question: what happened, how does the mechanism work, what comparison helps explain it, and what condition could change the interpretation? Use this as a reasoning sequence, not a mandatory set of headings or repeated questions.
+- Explain one supported causal step at a time in connected prose. Include numbers only where they answer that question; preserve their supplied comparator, timeframe and uncertainty. Never manufacture a missing comparator.
+- Where supplied evidence supports alternatives, explain them with clear if/then conditions and keep the strongest countercase visible. Do not turn a conditional outcome into a prediction or an automatic asset-direction rule.
+- A difference between the expected mechanism and observed price reaction may lead the explanation only when both are supplied. Without market tape, do not claim that markets rallied, sold off, absorbed news or refused to break.
+- Use direct, ordinary language. Avoid suspense, hype, rhetorical questions, artificial contrasts, repeated punchlines and fragments such as "That matters", "The interesting part?" or "So far, it hasn't". State the actual implication instead.
+- Keep each sentence useful to a reader. Do not discuss the Brain, Cranium, candidate selection, scoring, pipeline, prompts or the writing process in reader-facing prose.
+- Preserve the supplied thesis, evidence qualifications and break conditions while improving explanation. Do not copy an example market narrative into an unrelated edition.`;
 
 function object(value: unknown): value is JsonRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
