@@ -7,13 +7,17 @@ Live Desk remains the only canonical research and Story owner. The providers in 
 The scheduled path is:
 
 1. first-party/direct API and publisher RSS/Atom acquisition,
-2. Firecrawl recovery for supported direct sources when deterministic acquisition is blocked,
-3. bounded discovery enrichment,
-4. URL/provenance deduplication,
-5. existing Live research intake persistence,
-6. existing market-intelligence / Challenger / Story pipeline,
-7. canonical Live snapshot,
-8. Hybrid read-only consumption.
+2. bounded normal-web discovery,
+3. targeted high-impact macro / FX discovery for release and intervention-sensitive topics,
+4. direct retrieval of the underlying publisher page,
+5. Firecrawl recovery only for a specific needed page or supported direct source after normal direct access is blocked,
+6. URL/provenance deduplication,
+7. existing Live research intake persistence,
+8. existing market-intelligence / Challenger / Story pipeline,
+9. canonical Live snapshot,
+10. Hybrid read-only consumption.
+
+Official or first-party sources remain authoritative for the underlying data point when they exist. Reuters, Trading Economics, TradingView, Investing.com and similar current-market sources may supply discovery, corroboration, interpretation or market reaction; they do not replace BLS, ISM, the Federal Reserve, BOJ, MOF or another relevant primary publisher for an official release.
 
 ## Providers
 
@@ -39,7 +43,14 @@ Configuration: `TAVILY_API_KEY`.
 
 Role: free global event/news discovery, especially useful for geopolitics, energy, sanctions, central banks and narrative acceleration.
 
-Configuration: none. GDELT is enabled by default and may be disabled with `RESEARCH_GDELT_ENABLED=false`.
+GDELT also powers a narrow high-impact search lane for two categories that should not depend on a generic six-result query:
+
+- US macro releases and reactions: CPI, PPI, ISM/PMI, payrolls and JOLTS;
+- Japan / yen: USDJPY, BOJ, Ministry of Finance and FX-intervention developments.
+
+The lane retains the underlying publisher URL, not the GDELT index, as canonical provenance. It first tries the publisher page directly. If the page is blocked, at most a small bounded number of top results may use Firecrawl recovery. A result whose article body still cannot be verified is retained as a `monitor` lead only and cannot by itself materially recalibrate a Story.
+
+Configuration: none. GDELT is enabled by default and may be disabled with `RESEARCH_GDELT_ENABLED=false` for the general provider fan-out. The targeted high-impact lane is part of the scheduled research path and remains bounded independently.
 
 ### Apify
 
@@ -53,11 +64,13 @@ No second implementation was added. Live already has a dedicated YouTube discove
 
 ### Firecrawl
 
-Firecrawl remains a fallback, not a general discovery engine. It is invoked only after supported deterministic direct acquisition fails. Discovery providers run after that fallback stage.
+Firecrawl is a blocked-page recovery transport, not the first search step and not a general discovery engine.
+
+The runtime must first try deterministic direct acquisition and normal web discovery. For a discovered article, it must try the underlying publisher page directly before invoking Firecrawl. Firecrawl may then recover a bounded specific page or a supported direct feed that is still blocked. The recovered publisher/article URL remains the provenance; Firecrawl itself does not become the evidence authority.
 
 ### Jina Reader
 
-Jina Reader is **not** part of the general discovery-provider fan-out. It is a validated deterministic extraction transport, initially for the Macro Indicators dashboard. The reusable adapter and Macro parsing/snapshot contracts may live in the codebase without being activated in scheduled canonical acquisition.
+Jina Reader is **not** part of the general discovery-provider fan-out. It is a validated deterministic extraction transport for sources where a source-specific reader adapter has been tested. Reusable adapters may live in the codebase without being treated as a universal web fallback.
 
 Configuration: server-only `JINA_API_KEY`.
 
@@ -77,17 +90,28 @@ Missing credentials cause a keyed provider not to be attempted. This prevents em
 
 ## Evidence rules
 
-Search providers are not evidence authorities. The returned article URL is normalized and the underlying hostname is retained as the publisher identity. Provider snippets are only retained when the result has a usable recent timestamp or the underlying source page can be read directly to recover publication metadata.
+Search providers are not evidence authorities. The returned article URL is normalised and the underlying hostname is retained as the publisher identity. Provider snippets are lead material only. A normal search hit becomes usable article evidence only when the underlying publisher page can be read directly or recovered through the bounded blocked-page fallback.
 
-A result outside the 36-hour window, without verifiable publication time, without a usable summary, using a non-HTTPS/local URL, or duplicating an article already collected by a higher-priority path is discarded.
+If the article body remains unavailable, a recent result may be retained as a monitoring lead, but it must not materially recalibrate a Story without stronger evidence.
+
+A result outside the 36-hour window, without verifiable publication time, using a non-HTTPS/local URL, or duplicating an article already collected by a higher-priority path is discarded or downgraded according to the acquisition contract.
 
 Cross-provider duplicates count once. For example, if Brave, Exa and GDELT all discover the same Reuters URL, that is one evidence item, not three confirmations.
+
+For official data, keep the layers distinct:
+
+- **official Actual / component:** primary agency or publisher;
+- **consensus / market reaction:** reputable current-market source when needed;
+- **interpretation:** Live reasoning over traceable evidence;
+- **search provider:** discovery only.
 
 ## Budget controls
 
 The scheduled research cadence is two desk runs per day. Each enabled general discovery provider receives one bounded query per run. Tavily is pinned to the one-credit `basic` search path. Results are capped before they enter the existing 250-item research-run ceiling.
 
-Apify is intentionally task-based and narrow because platform usage depends on the selected Actor/task. It should be reserved for sources where direct HTTP/RSS/API and Firecrawl do not already solve the acquisition problem.
+The high-impact macro / yen lane runs two narrow GDELT searches, retains at most four unique leads per query, and permits at most two blocked-page Firecrawl recoveries per scheduled run.
+
+Apify is intentionally task-based and narrow because platform usage depends on the selected Actor/task. It should be reserved for sources where direct HTTP/RSS/API and the normal search / blocked-page recovery path do not already solve the acquisition problem.
 
 ## Deliberate exclusions
 
