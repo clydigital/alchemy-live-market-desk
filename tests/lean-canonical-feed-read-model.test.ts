@@ -103,7 +103,8 @@ test("reader queries exclude known multi-megabyte operational blobs", () => {
   const source = readFileSync(new URL("../lib/intelligence/publication-feed-data.ts", import.meta.url), "utf8");
 
   assert.doesNotMatch(source, /intelligence_engine_runs[\s\S]{0,400}metadata/);
-  assert.doesNotMatch(source, /hybrid_publication_snapshots[\s\S]{0,250}select=\*/);
+  assert.doesNotMatch(source, /select=\*&snapshot_type=eq\.daily_brief&order=published_at/);
+  assert.match(source, /select=\*&id=eq\.\$\{encodeURIComponent\(snapshotId\)\}&snapshot_type=eq\.daily_brief&limit=1/);
   assert.match(source, /manifest_story_id:payload->canonicalStoryManifest->0->state->>id/);
   assert.match(source, /select=id,research_run_id,slot_run_id,story_id,story_thesis_version_id,supersedes_snapshot_id,snapshot_type,public_summary,confidence,published_at,expires_at/);
 });
