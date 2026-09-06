@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getEconomicCalendar } from "@/lib/calendar";
-import { getDeskData, getHybridDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
-import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
+import { buildHybridPublicationContract } from "@/lib/hybrid-publication";
 import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
 import { buildLiveDeskPulse } from "@/lib/live-desk-pulse";
 import type { MarketMonitor } from "@/lib/market-monitor";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getHybridFeedData, getHybridPublicationFeedRecords } from "@/lib/intelligence/publication-feed-data";
 import { researchScheduleHealth } from "@/lib/research-update";
 import { getStoryHeaderImages } from "@/lib/story-images";
 
@@ -18,7 +17,7 @@ type OptionalResult<T> = {
   warning: string | null;
 };
 
-function liveMarketState(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
+function liveMarketState(data: Awaited<ReturnType<typeof getHybridFeedData>>) {
   const storySlugById = new Map(data.stories.map((story) => [story.id, story.slug]));
   return data.marketStateRecords.map((record) => ({
     id: record.id,
@@ -47,7 +46,7 @@ function liveMarketState(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
 }
 
 function liveCalendar(
-  data: Awaited<ReturnType<typeof getHybridDeskData>>,
+  data: Awaited<ReturnType<typeof getHybridFeedData>>,
   calendar: Awaited<ReturnType<typeof getEconomicCalendar>>,
 ) {
   const metricsByRelease = new Map<string, typeof data.macroReleaseMetrics>();
@@ -96,7 +95,7 @@ function liveCalendar(
   }));
 }
 
-function liveEarnings(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
+function liveEarnings(data: Awaited<ReturnType<typeof getHybridFeedData>>) {
   return data.calls.map((call) => {
     const guidance = data.guidance.find((item) => item.ticker === call.ticker);
     const story = data.stories.find((item) => item.assets?.includes(call.ticker));
@@ -149,14 +148,6 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const generatedAt = new Date().toISOString();
   const startedAt = Date.now();
 
-  // Only canonical persisted publication data is allowed to block the feed.
-  // Live provider/calendar enrichments are bounded so Hybrid can always consume
-  // the latest canonical state even when an upstream source is slow.
-  const [data, records] = await Promise.all([
-    getHybridDeskData(),
-    getHybridPublicationRecords({ editionId }),
-  ]);
-
   const emptyMarketMonitor: MarketMonitor = {
     updatedAt: generatedAt,
     rows: [],
@@ -175,30 +166,45 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const emptyCaseMonitors: Awaited<ReturnType<typeof buildCaseMonitorBoards>> = [];
   const emptyCalendar: Awaited<ReturnType<typeof getEconomicCalendar>> = [];
 
-  const [calendarResult, marketResult, flowResult, imageResult, baseMonitorResult] = await Promise.all([
-    optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar),
-    optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor),
-    optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor),
+  // Provider work is supplemental. Start independent provider reads in parallel
+  // with canonical storage so they never add a second serial timeout window.
+  const calendarPromise = optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar, 1_500);
+  const marketPromise = optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor, 1_500);
+  const flowPromise = optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor, 1_500);
+
+  // Only persisted Live publication/state reads may determine canonical state.
+  // They use the lean reader projection, never the broad internal desk loader.
+  const [data, records, calendarResult, marketResult, flowResult] = await Promise.all([
+    getHybridFeedData(),
+    getHybridPublicationFeedRecords({ editionId }),
+    calendarPromise,
+    marketPromise,
+    flowPromise,
+  ]);
+
+  // These enrichments depend on canonical rows, but remain bounded and
+  // non-authoritative. Case monitors reuse the already fetched lean data rather
+  // than triggering a second full Supabase desk load in the background.
+  const [imageResult, baseMonitorResult] = await Promise.all([
     optionalWithin(
       "Story image enrichment",
       () => getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
       emptyStoryImages,
+      1_200,
     ),
     optionalWithin(
       "Case monitor construction",
-      async () => buildCaseMonitorBoards(await getDeskData()),
+      () => buildCaseMonitorBoards({
+        stories: data.stories,
+        macroObservations: data.macroObservations,
+        marketObservations: data.marketObservations,
+        statements: data.statements,
+        researchIntake: data.monitorResearchIntake,
+      }),
       emptyCaseMonitors,
+      1_600,
     ),
   ]);
-
-  const overlayResult = baseMonitorResult.value.length
-    ? await optionalWithin(
-        "Case monitor overlays",
-        () => enrichCaseMonitorBoards(baseMonitorResult.value),
-        baseMonitorResult.value,
-        1_000,
-      )
-    : { value: baseMonitorResult.value, warning: null };
 
   const providerWarnings = [
     calendarResult.warning,
@@ -206,7 +212,6 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     flowResult.warning,
     imageResult.warning,
     baseMonitorResult.warning,
-    overlayResult.warning,
   ].filter((warning): warning is string => Boolean(warning));
 
   const contract = buildHybridPublicationContract({
@@ -235,6 +240,12 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const marketState = liveMarketState(data);
   const liveDeskPulse = buildLiveDeskPulse(data.marketStateRecords, latestRun);
   const openResearchDebt = data.researchDebt.filter((item) => item.status === "open");
+  const validatedVideos = data.researchIntake.slice(0, 20);
+  // Hybrid's research dashboard consumes explicit persisted divergence notes.
+  // Do not manufacture a divergence by comparing the stats/news signals here.
+  const persistedDivergences = data.monitorResearchIntake
+    .filter((item) => Boolean(item.divergence_note))
+    .slice(0, 20);
   const elapsedMs = Date.now() - startedAt;
 
   return NextResponse.json({
@@ -246,7 +257,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       ...contract.canonical,
       editionHealth,
       liveDeskPulse,
-      caseMonitors: overlayResult.value,
+      caseMonitors: baseMonitorResult.value,
       marketMonitor: marketResult.value,
       flowMonitors: flowResult.value,
       providerWarnings,
@@ -269,6 +280,12 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       latestRun,
       marketTriggers,
       marketCoverageGaps: [...flowResult.value.coverageGaps, ...providerWarnings],
+      // Compatibility surface consumed by Hybrid Wire. It is the same
+      // persisted transcript-cleared intake exposed below, not a second source.
+      videos: validatedVideos,
+      // Compatibility surface consumed by Hybrid Research. These rows already
+      // carry persisted divergence_note and affected_story_slugs from Live.
+      divergences: persistedDivergences,
       debt: {
         open: openResearchDebt.length,
         highPriority: openResearchDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
@@ -277,10 +294,10 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       intelligence: {
         latestRun: data.intelligenceRuns[0] || null,
         latestStages: data.intelligenceStages.slice(0, 20),
-        acquisitionFailures: data.acquisitionFailures.filter((failure) => !failure.resolved_at).slice(0, 20),
+        acquisitionFailures: data.acquisitionFailures.slice(0, 20),
       },
       intake: {
-        videos: data.researchIntake.filter((item) => item.item_type === "video").slice(0, 20),
+        videos: validatedVideos,
       },
     },
   }, {
