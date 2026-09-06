@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getEconomicCalendar } from "@/lib/calendar";
-import { getDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import { buildHybridPublicationContract } from "@/lib/hybrid-publication";
 import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
@@ -150,14 +148,6 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const generatedAt = new Date().toISOString();
   const startedAt = Date.now();
 
-  // Only canonical persisted publication data is allowed to block the feed.
-  // The feed-specific read model keeps those canonical reads lean while Live
-  // remains the sole owner of persisted Story/edition state.
-  const [data, records] = await Promise.all([
-    getHybridFeedData(),
-    getHybridPublicationFeedRecords({ editionId }),
-  ]);
-
   const emptyMarketMonitor: MarketMonitor = {
     updatedAt: generatedAt,
     rows: [],
@@ -176,30 +166,45 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const emptyCaseMonitors: Awaited<ReturnType<typeof buildCaseMonitorBoards>> = [];
   const emptyCalendar: Awaited<ReturnType<typeof getEconomicCalendar>> = [];
 
-  const [calendarResult, marketResult, flowResult, imageResult, baseMonitorResult] = await Promise.all([
-    optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar),
-    optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor),
-    optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor),
+  // Provider work is supplemental. Start independent provider reads in parallel
+  // with canonical storage so they never add a second serial timeout window.
+  const calendarPromise = optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar, 1_500);
+  const marketPromise = optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor, 1_500);
+  const flowPromise = optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor, 1_500);
+
+  // Only persisted Live publication/state reads may determine canonical state.
+  // They use the lean reader projection, never the broad internal desk loader.
+  const [data, records, calendarResult, marketResult, flowResult] = await Promise.all([
+    getHybridFeedData(),
+    getHybridPublicationFeedRecords({ editionId }),
+    calendarPromise,
+    marketPromise,
+    flowPromise,
+  ]);
+
+  // These enrichments depend on canonical rows, but remain bounded and
+  // non-authoritative. Case monitors reuse the already fetched lean data rather
+  // than triggering a second full Supabase desk load in the background.
+  const [imageResult, baseMonitorResult] = await Promise.all([
     optionalWithin(
       "Story image enrichment",
       () => getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
       emptyStoryImages,
+      1_200,
     ),
     optionalWithin(
       "Case monitor construction",
-      async () => buildCaseMonitorBoards(await getDeskData()),
+      () => buildCaseMonitorBoards({
+        stories: data.stories,
+        macroObservations: data.macroObservations,
+        marketObservations: data.marketObservations,
+        statements: data.statements,
+        researchIntake: data.monitorResearchIntake,
+      }),
       emptyCaseMonitors,
+      1_600,
     ),
   ]);
-
-  const overlayResult = baseMonitorResult.value.length
-    ? await optionalWithin(
-        "Case monitor overlays",
-        () => enrichCaseMonitorBoards(baseMonitorResult.value),
-        baseMonitorResult.value,
-        1_000,
-      )
-    : { value: baseMonitorResult.value, warning: null };
 
   const providerWarnings = [
     calendarResult.warning,
@@ -207,7 +212,6 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     flowResult.warning,
     imageResult.warning,
     baseMonitorResult.warning,
-    overlayResult.warning,
   ].filter((warning): warning is string => Boolean(warning));
 
   const contract = buildHybridPublicationContract({
@@ -248,7 +252,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       ...contract.canonical,
       editionHealth,
       liveDeskPulse,
-      caseMonitors: overlayResult.value,
+      caseMonitors: baseMonitorResult.value,
       marketMonitor: marketResult.value,
       flowMonitors: flowResult.value,
       providerWarnings,
