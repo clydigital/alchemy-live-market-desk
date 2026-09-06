@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { enrichCaseMonitorBoards } from "@/lib/case-monitor-overlays";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getEconomicCalendar } from "@/lib/calendar";
-import { getDeskData, getHybridDeskData } from "@/lib/data";
+import { getDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
-import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
+import { buildHybridPublicationContract } from "@/lib/hybrid-publication";
 import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
 import { buildLiveDeskPulse } from "@/lib/live-desk-pulse";
 import type { MarketMonitor } from "@/lib/market-monitor";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getHybridFeedData, getHybridPublicationFeedRecords } from "@/lib/intelligence/publication-feed-data";
 import { researchScheduleHealth } from "@/lib/research-update";
 import { getStoryHeaderImages } from "@/lib/story-images";
 
@@ -18,7 +19,7 @@ type OptionalResult<T> = {
   warning: string | null;
 };
 
-function liveMarketState(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
+function liveMarketState(data: Awaited<ReturnType<typeof getHybridFeedData>>) {
   const storySlugById = new Map(data.stories.map((story) => [story.id, story.slug]));
   return data.marketStateRecords.map((record) => ({
     id: record.id,
@@ -47,7 +48,7 @@ function liveMarketState(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
 }
 
 function liveCalendar(
-  data: Awaited<ReturnType<typeof getHybridDeskData>>,
+  data: Awaited<ReturnType<typeof getHybridFeedData>>,
   calendar: Awaited<ReturnType<typeof getEconomicCalendar>>,
 ) {
   const metricsByRelease = new Map<string, typeof data.macroReleaseMetrics>();
@@ -96,7 +97,7 @@ function liveCalendar(
   }));
 }
 
-function liveEarnings(data: Awaited<ReturnType<typeof getHybridDeskData>>) {
+function liveEarnings(data: Awaited<ReturnType<typeof getHybridFeedData>>) {
   return data.calls.map((call) => {
     const guidance = data.guidance.find((item) => item.ticker === call.ticker);
     const story = data.stories.find((item) => item.assets?.includes(call.ticker));
@@ -150,11 +151,11 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const startedAt = Date.now();
 
   // Only canonical persisted publication data is allowed to block the feed.
-  // Live provider/calendar enrichments are bounded so Hybrid can always consume
-  // the latest canonical state even when an upstream source is slow.
+  // The feed-specific read model keeps those canonical reads lean while Live
+  // remains the sole owner of persisted Story/edition state.
   const [data, records] = await Promise.all([
-    getHybridDeskData(),
-    getHybridPublicationRecords({ editionId }),
+    getHybridFeedData(),
+    getHybridPublicationFeedRecords({ editionId }),
   ]);
 
   const emptyMarketMonitor: MarketMonitor = {
@@ -277,10 +278,10 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       intelligence: {
         latestRun: data.intelligenceRuns[0] || null,
         latestStages: data.intelligenceStages.slice(0, 20),
-        acquisitionFailures: data.acquisitionFailures.filter((failure) => !failure.resolved_at).slice(0, 20),
+        acquisitionFailures: data.acquisitionFailures.slice(0, 20),
       },
       intake: {
-        videos: data.researchIntake.filter((item) => item.item_type === "video").slice(0, 20),
+        videos: data.researchIntake.slice(0, 20),
       },
     },
   }, {
