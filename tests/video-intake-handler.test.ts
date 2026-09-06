@@ -116,71 +116,37 @@ function targetRequest(videoId = VIDEO_ID) {
   });
 }
 
-test("authenticated targeted canary reaches Supadata once, persists provenance, and replays from cache", async () => {
+test("authenticated targeted video request returns manual-transcript guidance without calling a paid provider", async () => {
   const store = new TargetStore();
-  let providerCalls = 0;
   const dependencies = {
     authenticate: () => true,
     createStore: () => store,
-    retrieveTranscript: async (videoId: string, _apiKey: string, options?: { timeoutMs?: number }) => {
-      providerCalls += 1;
-      assert.equal(videoId, VIDEO_ID);
-      assert.equal(options?.timeoutMs, 8_000);
-      return retrieval;
-    },
   };
 
-  const firstResponse = await handleVideoIntakeRequest(targetRequest(), undefined, dependencies);
-  const first = await firstResponse.json() as {
+  const response = await handleVideoIntakeRequest(targetRequest(), undefined, dependencies);
+  const body = await response.json() as {
     engine: string;
     mode: string;
-    result: {
-      status: string;
-      videoId: string;
-      provider: string;
-      cacheHit: boolean;
-      segmentCount: number;
-      retrievedAt: string;
-    };
-  };
-  const replayResponse = await handleVideoIntakeRequest(targetRequest(), undefined, dependencies);
-  const replay = await replayResponse.json() as {
-    result: { status: string; videoId: string; provider: string; cacheHit: boolean; retrievedAt: string };
+    videoId: string;
+    transcriptStatus: string;
+    detail: string;
   };
 
-  assert.equal(firstResponse.status, 200);
-  assert.equal(first.engine, "XWADA");
-  assert.equal(first.mode, "targeted_transcript_retry");
-  assert.equal(first.result.status, "ready");
-  assert.equal(first.result.videoId, VIDEO_ID);
-  assert.equal(first.result.provider, "supadata");
-  assert.equal(first.result.cacheHit, false);
-  assert.equal(first.result.segmentCount, 1);
-  assert.equal(store.item?.transcriptStatus, "ready");
-  assert.equal(store.item?.transcriptProvider, "supadata");
-  assert.equal(store.item?.attemptCount, 1);
-  assert.deepEqual(store.cache?.transcript.segments, retrieval.transcript.segments);
-  assert.deepEqual(store.recalculatedRunIds, ["video-run", "video-run"]);
-  assert.equal(providerCalls, 1);
-  assert.equal(replay.result.status, "ready");
-  assert.equal(replay.result.videoId, VIDEO_ID);
-  assert.equal(replay.result.provider, "supadata");
-  assert.equal(replay.result.cacheHit, true);
-  assert.equal(replay.result.retrievedAt, first.result.retrievedAt);
+  assert.equal(response.status, 409);
+  assert.equal(body.engine, "XWADA");
+  assert.equal(body.mode, "manual_transcript_guidance");
+  assert.equal(body.videoId, VIDEO_ID);
+  assert.equal(body.transcriptStatus, "missing");
+  assert.match(body.detail, /paid transcript retrieval is disabled/i);
+  assert.equal(store.item?.attemptCount, 0);
 });
 
 test("targeted canary verifies canonical intake state before any provider request", async () => {
   const store = new TargetStore();
   store.item = null;
-  let providerCalls = 0;
-
   const response = await handleVideoIntakeRequest(targetRequest(), undefined, {
     authenticate: () => true,
     createStore: () => store,
-    retrieveTranscript: async () => {
-      providerCalls += 1;
-      return retrieval;
-    },
   });
   const body = await response.json() as { status: string; videoId: string; detail: string };
 
@@ -188,5 +154,4 @@ test("targeted canary verifies canonical intake state before any provider reques
   assert.equal(body.status, "not_found");
   assert.equal(body.videoId, VIDEO_ID);
   assert.match(body.detail, /already exist in research_intake_items/);
-  assert.equal(providerCalls, 0);
 });

@@ -48,17 +48,18 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   assert.match(vercelConfig, /"\/api\/cron\/video\/late-morning"[\s\S]*"0 13 \* \* \*"/);
 });
 
-test("targeted transcript retries and advertised policy stay on Supadata native captions", () => {
+test("targeted video requests give manual guidance and scheduled policy never advertises a paid transcript fallback", () => {
   const videoHandler = readFileSync(new URL("../lib/video-intake-handler.ts", import.meta.url), "utf8");
   const supadataStore = readFileSync(new URL("../lib/supadata-transcript-store.ts", import.meta.url), "utf8");
 
-  assert.match(videoHandler, /retrieveSupadataVideo/);
   assert.match(videoHandler, /new SupadataTranscriptStore\(\)/);
-  assert.match(videoHandler, /provider:\s*"supadata"/);
-  assert.match(videoHandler, /transcriptProvider:\s*"Supadata native captions"/);
-  assert.match(videoHandler, /transcriptMode:\s*"native"/);
+  assert.match(videoHandler, /mode:\s*"manual_transcript_guidance"/);
+  assert.match(videoHandler, /Automated paid transcript retrieval is disabled/);
+  assert.match(videoHandler, /transcriptProvider:\s*"Chrome \/ YouTubeToTranscript when configured; otherwise manual transcript intake"/);
+  assert.match(videoHandler, /transcriptMode:\s*"manual-or-browser"/);
   assert.match(videoHandler, /transcriptFormat:\s*"timestamped"/);
   assert.match(videoHandler, /generatedTranscriptFallback:\s*false/);
+  assert.doesNotMatch(videoHandler, /retrieveSupadataVideo/);
   assert.doesNotMatch(videoHandler, /retrieveTranscriptApiVideo/);
   assert.doesNotMatch(videoHandler, /TRANSCRIPT_API_KEY/);
 

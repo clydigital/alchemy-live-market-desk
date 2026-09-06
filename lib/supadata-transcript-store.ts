@@ -16,7 +16,9 @@ function throwIfError(error: { message: string } | null, context: string) {
 }
 
 function providerLabel(provider: TranscriptProvider) {
-  return provider === "supadata" ? "Supadata" : "TranscriptAPI";
+  if (provider === "supadata") return "Supadata";
+  if (provider === "youtubetotranscript.com") return "YouTubeToTranscript via Chrome";
+  return "TranscriptAPI";
 }
 
 /**
@@ -42,7 +44,11 @@ export class SupadataTranscriptStore implements TranscriptPipelineStore {
       .eq("id", cached.itemId)
       .maybeSingle<{ transcript_provider: string | null }>();
     throwIfError(error, "Could not read transcript provider provenance");
-    const provider: TranscriptProvider = data?.transcript_provider === "supadata" ? "supadata" : "transcriptapi";
+    const provider: TranscriptProvider = data?.transcript_provider === "supadata"
+      ? "supadata"
+      : data?.transcript_provider === "youtubetotranscript.com"
+        ? "youtubetotranscript.com"
+        : "transcriptapi";
     return { ...cached, provider };
   }
 

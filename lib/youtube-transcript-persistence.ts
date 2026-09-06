@@ -741,7 +741,7 @@ export async function finalizeVideoIntakeRun(input: {
       `${video.videoId}: prior transcript provider ${video.errorCode || "unavailable"}${video.httpStatus ? ` (HTTP ${video.httpStatus})` : ""}; retryable=false; skipped without a provider request.`
     )),
     ...(deferredVideoIds.length
-      ? [`${deferredVideoIds.length} discovered video(s) were persisted but deferred to a later cycle to stay within the scheduled intake budget.`]
+      ? [`${deferredVideoIds.length} discovered video(s) were persisted and await a browser or verified manual transcript; no paid fallback was used.`]
       : []),
   ].filter(Boolean);
   const blocked = Boolean(input.discoveryFailures.length || failures.length || knownUnavailableVideos.length);
@@ -785,7 +785,7 @@ export async function finalizeVideoIntakeRun(input: {
     summary: blocked
       ? "Video discovery completed with unresolved transcript requirements recorded as research debt."
       : deferredVideoIds.length
-        ? "Video discovery completed; bounded transcript intake deferred remaining videos to a later cycle."
+        ? "Video discovery completed; remaining videos await a browser or verified manual transcript."
         : "Video discovery and transcript persistence completed.",
     updated_at: completedAt,
   }).eq("id", input.runId);
