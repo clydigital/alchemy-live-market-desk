@@ -241,6 +241,11 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const liveDeskPulse = buildLiveDeskPulse(data.marketStateRecords, latestRun);
   const openResearchDebt = data.researchDebt.filter((item) => item.status === "open");
   const validatedVideos = data.researchIntake.slice(0, 20);
+  // Hybrid's research dashboard consumes explicit persisted divergence notes.
+  // Do not manufacture a divergence by comparing the stats/news signals here.
+  const persistedDivergences = data.monitorResearchIntake
+    .filter((item) => Boolean(item.divergence_note))
+    .slice(0, 20);
   const elapsedMs = Date.now() - startedAt;
 
   return NextResponse.json({
@@ -278,6 +283,9 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       // Compatibility surface consumed by Hybrid Wire. It is the same
       // persisted transcript-cleared intake exposed below, not a second source.
       videos: validatedVideos,
+      // Compatibility surface consumed by Hybrid Research. These rows already
+      // carry persisted divergence_note and affected_story_slugs from Live.
+      divergences: persistedDivergences,
       debt: {
         open: openResearchDebt.length,
         highPriority: openResearchDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
