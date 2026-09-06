@@ -1,6 +1,6 @@
 # Rates and capital sensitivity — research lens v1
 
-Status: reviewed and integrated behind an off-by-default switch in Live's existing reasoning stages. This is a method, not current market evidence or a new scoring system.
+Status: automatically attempted for relevant validated intake and applied conditionally inside Live's existing reasoning stages. This is a method, not current market evidence or a new scoring system.
 
 ## Purpose and provenance
 
@@ -48,9 +48,13 @@ Bonds: duration, yield and credit spread. Gold: real yields, FX, flows and safe-
 
 ## Runtime integration boundary
 
-Activation requires `ALCHEMY_RATES_RESEARCH_LENS_ENABLED=true`. With the switch absent or any other value, existing stage instructions are unchanged. Keep it off in production until comparative model-output evaluation establishes that relevance and evidence quality are preserved. Run that evaluation in an isolated non-publishing environment; do not replay research into canonical production data. Existing completed checkpoints are not rewritten on activation. Disable the switch to revert future invocations; already published findings still require ordinary review.
+The automatic attempt supersedes the earlier off-by-default activation rule at the user's explicit request. Relevant company earnings/funding or macro catalysts trigger bounded best-effort acquisition in the validated research publisher, including manual transcripts. No environment flag is required. Provider failures and missing fields produce diagnostics and cannot block base publication. Existing completed checkpoints and immutable editions are preserved.
 
-Live's model stages currently reason over supplied evidence without browsing tools. This release embeds the compact rules below into Hypothesis and Scenario; Story Synthesis receives a preservation instruction. It adds no acquisition call, filing crawler, database field, timer, model stage or mandatory publication requirement. Existing evidence references and output schemas remain authoritative. Missing inputs stay explicit. This release does not claim to implement a refreshed macro cache or company-profile service.
+The SEC adapter supplies available dated financial observations when SEC_USER_AGENT is configured. Targeted discovery uses the first configured Brave, Tavily or Exa provider, otherwise GDELT. Search results only locate documents: an allowlisted publisher body and publication date are required. Retrieval is bounded to four concurrent targets and 24 seconds; targets beyond the deadline are explicitly unresolved. This does not guarantee complete coverage or establish that a retrieved document is the latest available disclosure.
+
+Company financing, earnings/guidance, customer demand/capex and valuation are sought alongside a shared rates/yields/spreads backdrop and the triggering macro release or statement. Core names include Micron and SpaceX and explicitly supplied non-Mag7 tickers. Bitcoin prompts a light MSTR check; central MSTR prompts capital-stack research. Exact STRC/STRK/STRF/STRD/STRE identity and terms must be established from evidence, and ambiguous STR remains unresolved. SpaceX is not assumed to be publicly traded.
+
+Retrieved documents become canonical, dated supporting context linked to triggering intake keys. They cannot recruit fresh Stories, bypass ancestry or evidence-ID validation, or make old reports current. Context is attached only to recruited triggers and the hypothesis scope derived from those triggers; the original belief/divergence scope helper stays intact. Challenger, Scenario and Story Synthesis receive canonical evidence and keep their existing roles. No new model stage, publication gate, database column or Hybrid schema is introduced.
 
 Hybrid receives supported conclusions through the existing canonical Story publication path. Its presenter must not invent a second analysis or fill missing company data. Cranium or other chat consumers only gain the lens when their actual instruction path loads it; this release does not claim to install instructions into an unverified chat integration.
 

@@ -1,6 +1,10 @@
 type InstrumentSpec = { instrument: string; aliases: readonly string[] };
 
 export const EXPLICIT_INSTRUMENTS: readonly InstrumentSpec[] = [
+  { instrument: "MU", aliases: ["MU", "MICRON"] },
+  { instrument: "SPACEX", aliases: ["SPACEX", "SPACE X"] },
+  { instrument: "MSTR", aliases: ["MSTR", "MICROSTRATEGY", "STRATEGY INC"] },
+  ...["STRC", "STRK", "STRF", "STRD", "STRE"].map((instrument) => ({ instrument, aliases: [instrument] })),
   { instrument: "GOOGL", aliases: ["GOOGL", "ALPHABET", "GOOGLE"] },
   { instrument: "MSFT", aliases: ["MSFT", "MICROSOFT"] },
   { instrument: "META", aliases: ["META", "META PLATFORMS"] },

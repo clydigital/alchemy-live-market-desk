@@ -1,3 +1,6 @@
+import { parseRatesContext } from "../rates-research-plan.ts";
+import { ratesSourceClass } from "../rates-research-acquisition.ts";
+import { attachRatesContext, isRatesContext } from "./rates-context.ts";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -301,6 +304,7 @@ const LOOKBACK_DAYS = 90;
 
 
 const CORE_RULES = `You are the reasoning layer inside the Alchemy Markets Live Desk. The Live Desk is the canonical research brain.
+Dated ratesContext records are supporting context tied to triggerItemKeys, never a fresh catalyst. Cross-check their periods and currency against current evidence; retrieval time is not observation time. Missing rates inputs never block an otherwise publishable Story.
 Use only the evidence, Stories, hypotheses and scenario records supplied in this request. Never invent a source, fact, market move, consensus view, evidence ID or Story ID.
 This is not a news summarisation task. Synthesize across independent evidence, distinguish the accepted market view from the overlooked variable, build explicit causal mechanisms, test the strongest countercase and preserve uncertainty.
 Creator/video commentary is research-lead material, not proof unless independently verified. Source depth and corroboration inform research state, confidence and follow-up priority; they do not decide publication.
@@ -394,6 +398,7 @@ function slugPart(value: string) {
 function sourceTier(item: IntakeRow) {
   const domain = canonicalDomain(item.url);
   const publisher = item.publisher.toLowerCase();
+  if (parseRatesContext(item.divergence_note) && ratesSourceClass(item.url) !== "news_report") return 1;
   if (domain.endsWith(".gov") || domain.includes("federalreserve.gov") || domain.includes("ecb.europa.eu") || domain.includes("boj.or.jp") || domain.includes("bankofengland.co.uk") || domain.includes("rba.gov.au") || domain.includes("bis.org")) return 1;
   if (publisher.includes("tradingview") || publisher.includes("cme") || publisher.includes("ice") || publisher.includes("exchange")) return 2;
   if (item.item_type === "video") return 5;
@@ -402,6 +407,7 @@ function sourceTier(item: IntakeRow) {
 }
 
 function evidenceClass(item: IntakeRow) {
+  if (parseRatesContext(item.divergence_note)) return ratesSourceClass(item.url);
   const tier = sourceTier(item);
   const domain = canonicalDomain(item.url);
   if (tier === 1) return "official_release";
@@ -611,7 +617,7 @@ async function modelStage<T>({
       instructions: withRatesResearchLens(
         `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
         stageKey,
-        process.env.ALCHEMY_RATES_RESEARCH_LENS_ENABLED === "true",
+        true,
       ),
       input,
       schema,
@@ -723,7 +729,7 @@ function scopeRequirementsByHypothesis(
 async function canonicaliseIntake(stories: StoryRow[]) {
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
   const rows = await intelligenceRest<IntakeRow[]>(
-    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&published_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=180`,
+    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&or=(published_at.gte.${encodeURIComponent(since)},and(item_key.like.rates-context:*,updated_at.gte.${encodeURIComponent(since)}))&order=updated_at.desc&limit=180`,
   );
   const usable = rows.filter((item) => {
     if (!item.summary?.trim() || !item.url?.startsWith("https://")) return false;
@@ -787,6 +793,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       ...explicitlyMentionedAssets(evidenceText, routedAssets),
       ...explicitlyMentionedInstrumentSpecs(evidenceText).map((spec) => spec.instrument),
     ]);
+    const ratesContext = parseRatesContext(item.divergence_note);
     const calendarItem = item.item_key.startsWith("calendar:");
     const calendarReleased = calendarItem && /\breleased\b/i.test(`${item.title} ${item.summary}`);
     return [{
@@ -800,7 +807,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       event_at: item.published_at,
       published_at: item.published_at,
       available_at: item.published_at,
-      affected_assets: affectedAssets,
+      affected_assets: unique([...affectedAssets, ...(ratesContext?.assets || [])]),
       affected_topics: item.affected_story_slugs ?? [],
       confidence: clamp((item.source_quality * 0.55) + (item.materiality * 0.25) + (item.relevance * 0.2)),
       freshness_status: "current",
@@ -808,8 +815,9 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       provenance_urls: unique([item.url, ...validUrlList(item.evidence_links)]),
       structured_payload: {
         itemKey: item.item_key,
+        ...(ratesContext ? { ratesContext } : {}),
         title: item.title,
-        evidenceNature: calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
+        evidenceNature: ratesContext ? "research_context" : calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
         candidateScore: item.candidate_score,
         relevance: item.relevance,
         novelty: item.novelty,
@@ -2253,8 +2261,8 @@ export async function runIntelligenceEngine({
     await canonicaliseIntake(stories);
     const evidence = await loadEvidence();
     const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
-    const recruitment = buildFreshNewsRecruitment(evidence, analysisAsOf);
-    const reasoningEvidence = recruitment.candidates.map((candidate) => candidate.evidence);
+    const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
+    const reasoningEvidence = attachRatesContext(recruitment.candidates.map((candidate) => candidate.evidence), evidence, analysisAsOf);
     evidenceConsidered = reasoningEvidence.length;
     warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
     if (!evidence.length) {
@@ -2320,7 +2328,7 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const hypothesisEvidence = buildHypothesisEvidencePack(beliefs, divergences, reasoningEvidence);
+    const hypothesisEvidence = attachRatesContext(buildHypothesisEvidencePack(beliefs, divergences, reasoningEvidence), reasoningEvidence, analysisAsOf);
     const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
     const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
 

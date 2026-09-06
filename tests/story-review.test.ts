@@ -45,6 +45,7 @@ function evidence(id: string, topic: string, input: Partial<EvidencePackItem> = 
     sourceName: "Official source",
     sourceTier: 1,
     reliabilityScore: 95,
+    availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {},
     ancestryGroupId: id,
     supportDirection: "context",
     eventAt: "2026-08-21T11:30:00.000Z",
