@@ -218,10 +218,14 @@ export function buildCanonicalEditionResponseContract({
     return replay;
   };
   // The current Live edition remains available even if it predates manifests.
-  // Historical index rows may carry a lightweight positive replayability hint;
-  // exact immutable replay is still validated whenever that edition is loaded.
+  // Historical index rows may carry a lightweight positive replayability hint,
+  // but an explicitly requested edition must prove exact immutable replay from
+  // its loaded payload. A transport failure therefore falls back to current.
   const editionIndex = terminalIndex.filter((edition) => {
     if (edition.snapshotId === currentSnapshotId) return true;
+    if (editionId && edition.snapshotId === editionId) {
+      return !replayFor(edition.snapshotId)?.limitation;
+    }
     const snapshot = snapshotById.get(edition.snapshotId);
     return snapshot?.replayable_hint === true || !replayFor(edition.snapshotId)?.limitation;
   });
