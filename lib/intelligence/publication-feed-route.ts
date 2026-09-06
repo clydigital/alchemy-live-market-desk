@@ -236,6 +236,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
   const marketState = liveMarketState(data);
   const liveDeskPulse = buildLiveDeskPulse(data.marketStateRecords, latestRun);
   const openResearchDebt = data.researchDebt.filter((item) => item.status === "open");
+  const validatedVideos = data.researchIntake.slice(0, 20);
   const elapsedMs = Date.now() - startedAt;
 
   return NextResponse.json({
@@ -270,6 +271,9 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       latestRun,
       marketTriggers,
       marketCoverageGaps: [...flowResult.value.coverageGaps, ...providerWarnings],
+      // Compatibility surface consumed by Hybrid Wire. It is the same
+      // persisted transcript-cleared intake exposed below, not a second source.
+      videos: validatedVideos,
       debt: {
         open: openResearchDebt.length,
         highPriority: openResearchDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
@@ -281,7 +285,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
         acquisitionFailures: data.acquisitionFailures.slice(0, 20),
       },
       intake: {
-        videos: data.researchIntake.slice(0, 20),
+        videos: validatedVideos,
       },
     },
   }, {
