@@ -63,6 +63,12 @@ import {
   buildHypothesisEvidencePack,
   buildHypothesisStoryPack,
 } from "./hypothesis-core.ts";
+import {
+  candidateOmissionDiagnostic,
+  isRecoverableStoryContractFailure,
+  normalizeStorySynthesisCandidate,
+  type CandidateContractDiagnostic,
+} from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
@@ -2015,6 +2021,7 @@ async function persistDailyBrief({
   evidence,
   recruitment,
   recruitmentClusters,
+  contractDiagnostics,
 }: {
   engineRunId: string;
   researchRunId: string | null;
@@ -2023,6 +2030,7 @@ async function persistDailyBrief({
   evidence: EvidencePackItem[];
   recruitment: FreshNewsRecruitment;
   recruitmentClusters: RecruitmentClusterRow[];
+  contractDiagnostics: CandidateContractDiagnostic[];
 }) {
   if (!stories.length) return [];
   const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
@@ -2080,6 +2088,7 @@ async function persistDailyBrief({
         contextClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "context").length,
         deferredClusterCount: recruitmentClusters.filter((cluster) => cluster.verdict === "defer").length,
       },
+      contractDiagnostics,
     },
   });
   await intelligenceRest("hybrid_publication_snapshots", {
@@ -2141,6 +2150,7 @@ async function persistEarlyEngineCompletion(input: {
   hypothesesPromoted: number;
   recruitment: FreshNewsRecruitment;
   recruitmentClusters?: RecruitmentClusterRow[];
+  contractDiagnostics?: CandidateContractDiagnostic[];
 }) {
   await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(input.engineRunId)}`, {
     method: "PATCH",
@@ -2158,6 +2168,7 @@ async function persistEarlyEngineCompletion(input: {
         hypothesesGenerated: input.hypothesesGenerated,
         hypothesesPromoted: input.hypothesesPromoted,
         recruitment: recruitmentRunMetadata(input.recruitment, input.recruitmentClusters),
+        contractDiagnostics: input.contractDiagnostics || [],
       },
       failure_detail: null,
     }),
@@ -2184,6 +2195,7 @@ export async function runIntelligenceEngine({
   scheduledExecutionStartedAtMs?: number;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
+  const contractDiagnostics: CandidateContractDiagnostic[] = [];
   if (!intelligenceDatabaseConfigured()) {
     return { enabled: false, engineRunId: null, status: "blocked", evidenceConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings: ["Intelligence database credentials are not configured."] };
   }
@@ -2395,52 +2407,59 @@ export async function runIntelligenceEngine({
     });
 
     const reviewedById = new Map(reviewed.map((hypothesis) => [hypothesis.id, hypothesis]));
-    const candidates: CandidateWorking[] = synthesisStage.data.candidates.flatMap((candidate) => {
-      if (!reviewedIds.has(candidate.primaryHypothesisId)) return [];
-      const decisiveEvidenceIds = requireKnownEvidenceIds(
-        candidate.decisiveEvidenceIds,
-        knownEvidenceIds,
-        `Story Synthesis candidate ${candidate.primaryHypothesisId} decisive evidence`,
-      );
-      // Optional Story Synthesis annotations may not abort the whole edition when
-      // the model returns an evidence ID outside the canonical pack. Drop unknown
-      // references here; decisive thesis evidence remains strict above.
-      const acceptedExplanationEvidenceIds = onlyKnownIds(
-        candidate.acceptedExplanationEvidenceIds,
-        knownEvidenceIds,
-      );
-      const overlookedVariableEvidenceIds = onlyKnownIds(
-        candidate.overlookedVariableEvidenceIds,
-        knownEvidenceIds,
-      );
-      const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
-      const sourceHypothesis = reviewedById.get(candidate.primaryHypothesisId);
-      if (!sourceHypothesis) return [];
-      const normalized: CandidateWorking = {
-        ...candidate,
-        decisiveEvidenceIds,
-        acceptedExplanationEvidenceIds,
-        overlookedVariableEvidenceIds,
-        affectedAssets,
-        currentAttention: currentAttentionForHypothesis(sourceHypothesis, divergences, beliefs, analysisAsOf),
-        candidateKey: stableKey("candidate", candidate.primaryHypothesisId, candidate.eventSignature, candidate.thesis),
-        noveltyFingerprint: hash(JSON.stringify({
-          event: candidate.eventSignature.toLowerCase(),
-          thesis: candidate.thesis.toLowerCase(),
-          mechanism: candidate.causalMechanism.toLowerCase(),
-          assets: [...affectedAssets].sort(),
-          decisiveEvidenceIds: [...decisiveEvidenceIds].sort(),
-          confirmation: [...candidate.confirmationCriteria].sort(),
-          invalidation: [...candidate.invalidationCriteria].sort(),
-        }), 64),
-      };
-      if (normalized.bias === "unscored") normalized.conviction = null;
-      return [normalized];
-    });
-    storiesConsidered += candidates.length;
+    const candidates: CandidateWorking[] = [];
+    for (const rawCandidate of synthesisStage.data.candidates) {
+      if (!reviewedIds.has(rawCandidate.primaryHypothesisId)) continue;
+      const candidateKey = stableKey("candidate", rawCandidate.primaryHypothesisId, rawCandidate.eventSignature, rawCandidate.thesis);
+      try {
+        const contract = normalizeStorySynthesisCandidate({ ...rawCandidate, candidateKey }, knownEvidenceIds);
+        const candidate = contract.candidate;
+        contractDiagnostics.push(...contract.diagnostics);
+        const decisiveEvidenceIds = candidate.decisiveEvidenceIds;
+        // Optional Story Synthesis annotations may not abort the whole edition when
+        // the model returns an evidence ID outside the canonical pack. Drop unknown
+        // references here; decisive thesis evidence remains strict above.
+        const acceptedExplanationEvidenceIds = onlyKnownIds(
+          candidate.acceptedExplanationEvidenceIds,
+          knownEvidenceIds,
+        );
+        const overlookedVariableEvidenceIds = onlyKnownIds(
+          candidate.overlookedVariableEvidenceIds,
+          knownEvidenceIds,
+        );
+        const affectedAssets = onlyExplicitAssets(candidate.affectedAssets, reviewedById.get(candidate.primaryHypothesisId)?.affected_assets ?? []);
+        const sourceHypothesis = reviewedById.get(candidate.primaryHypothesisId);
+        if (!sourceHypothesis) continue;
+        const normalized: CandidateWorking = {
+          ...candidate,
+          decisiveEvidenceIds,
+          acceptedExplanationEvidenceIds,
+          overlookedVariableEvidenceIds,
+          affectedAssets,
+          currentAttention: currentAttentionForHypothesis(sourceHypothesis, divergences, beliefs, analysisAsOf),
+          candidateKey,
+          noveltyFingerprint: hash(JSON.stringify({
+            event: candidate.eventSignature.toLowerCase(),
+            thesis: candidate.thesis.toLowerCase(),
+            mechanism: candidate.causalMechanism.toLowerCase(),
+            assets: [...affectedAssets].sort(),
+            decisiveEvidenceIds: [...decisiveEvidenceIds].sort(),
+            confirmation: [...candidate.confirmationCriteria].sort(),
+            invalidation: [...candidate.invalidationCriteria].sort(),
+          }), 64),
+        };
+        if (normalized.bias === "unscored") normalized.conviction = null;
+        candidates.push(normalized);
+      } catch (error) {
+        const diagnostics = candidateOmissionDiagnostic({ ...rawCandidate, candidateKey }, error);
+        contractDiagnostics.push(...diagnostics);
+        warnings.push(...diagnostics.map((diagnostic) => `${diagnostic.code}: ${diagnostic.title || diagnostic.candidateKey}. ${diagnostic.detail}`));
+      }
+    }
+    storiesConsidered += synthesisStage.data.candidates.length;
     if (!candidates.length) {
       warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted, recruitment, recruitmentClusters, contractDiagnostics });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2551,7 +2570,9 @@ export async function runIntelligenceEngine({
       if (!primaryHypothesis || !primaryChallenger) {
         throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
       }
-      const promotedStory = await promoteCandidate({
+      let promotedStory: StoryRow | null = null;
+      try {
+        promotedStory = await promoteCandidate({
         candidate,
         candidateRowId: rows[0].id,
         decision,
@@ -2563,13 +2584,25 @@ export async function runIntelligenceEngine({
         challenger: primaryChallenger,
         scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });
+      } catch (error) {
+        if (!isRecoverableStoryContractFailure(error)) throw error;
+        const diagnostics = candidateOmissionDiagnostic(candidate, error);
+        contractDiagnostics.push(...diagnostics);
+        warnings.push(...diagnostics.map((diagnostic) => diagnostic.code + ": " + (diagnostic.title || diagnostic.candidateKey) + ". " + diagnostic.detail));
+        await intelligenceRest("intelligence_story_candidates?id=eq." + encodeURIComponent(rows[0].id), {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ candidate_status: "rejected", publication_eligible: false, updated_at: new Date().toISOString() }),
+        });
+      }
+      if (!promotedStory) continue;
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
     }
 
     if (!dryRun && editionStories.length) {
-      const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence: reasoningEvidence, recruitment, recruitmentClusters });
+      const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence: reasoningEvidence, recruitment, recruitmentClusters, contractDiagnostics });
       warnings.push(...eventHorizonWarnings.map((warning) => `Event Horizon: ${warning}`));
     }
 
@@ -2601,6 +2634,7 @@ export async function runIntelligenceEngine({
           },
           hypothesesGenerated,
           hypothesesPromoted,
+          contractDiagnostics,
           candidateRows: candidateRows.map((row) => row.id),
         },
         failure_detail: null,

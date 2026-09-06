@@ -275,6 +275,25 @@ test("missing exact reasoning degrades visibly instead of blocking the edition o
   assert.match(result.journey?.diagnostics.warnings[0] || "", /exact immutable Canonical Story Reasoning V1 snapshot is unavailable/i);
 });
 
+test("every fresh Dossier lesson is present in Journey or explicitly excluded", () => {
+  const result = board([story("parity")], [source("parity", 1)]);
+  const journeyIds = new Set(result.journey?.bigStories.map((item) => item.storyId));
+  const exclusions = new Set(result.diagnostics?.journeyExclusions?.map((item) => item.storyId));
+  for (const lesson of result.dossier?.lessons || []) {
+    if (lesson.currentAttention.state === "fresh_change") {
+      assert.equal(journeyIds.has(lesson.storyId) || exclusions.has(lesson.storyId), true);
+    }
+  }
+});
+
+test("a changed Story without immutable Journey reasoning is explicitly excluded", () => {
+  const result = board([story("no-reasoning")], []);
+  assert.deepEqual(result.diagnostics?.journeyExclusions, [{
+    storyId: "no-reasoning",
+    reason: "no_valid_immutable_journey_reasoning",
+  }]);
+});
+
 test("all completed-run entry points use the canonical Journey fallback publisher", () => {
   const cron = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
