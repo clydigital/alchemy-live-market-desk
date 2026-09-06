@@ -154,6 +154,8 @@ class ScheduledMemoryStore implements TranscriptPipelineStore {
 function scheduledHarness(options: {
   store?: ScheduledMemoryStore;
   retrieve?: ScheduledVideoIntakeDependencies["retrieveTranscript"];
+  retrieveBrowser?: ScheduledVideoIntakeDependencies["retrieveBrowserTranscript"];
+  browserConfigured?: boolean;
   ensureError?: Error;
   finalizeError?: Error;
 } = {}) {
@@ -186,6 +188,10 @@ function scheduledHarness(options: {
     },
     discoverChannels: async () => [channel("stockedup", [video("stockedup", "KHacM8aduWM")])],
     createStore: () => store,
+    browserTranscriptConfigured: () => options.browserConfigured === true,
+    retrieveBrowserTranscript: async (videoId) => options.retrieveBrowser
+      ? options.retrieveBrowser(videoId)
+      : scheduledRetrieval,
     retrieveTranscript: async (...args) => {
       providerCalls += 1;
       return options.retrieve ? options.retrieve(...args) : scheduledRetrieval;
@@ -215,6 +221,8 @@ test("only selected creators' long-form non-live videos enter the Supadata provi
       video("stockedup", "stock-live", { isLive: true }),
       video("stockedup", "stock-short", { isShort: true }),
     ]),
+    channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
+    channel("traders-reality", [video("traders-reality", "reality-upload")]),
     channel("kevin-gerrity", [video("kevin-gerrity", "kevin-upload")]),
     channel("clearvalue-tax", [
       video("clearvalue-tax", "clear-upload"),
@@ -227,12 +235,16 @@ test("only selected creators' long-form non-live videos enter the Supadata provi
   const workList = selectedSupadataTranscriptChannels(channels);
   assert.deepEqual(workList.map((entry) => entry.channelKey), [
     "stockedup",
+    "wall-street-truth-bombs",
+    "traders-reality",
     "kevin-gerrity",
     "clearvalue-tax",
     "fx-evolution",
   ]);
   assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
     "stock-upload",
+    "truth-upload",
+    "reality-upload",
     "kevin-upload",
     "clear-upload",
     "fx-upload",
@@ -241,6 +253,8 @@ test("only selected creators' long-form non-live videos enter the Supadata provi
   assert.equal(isSupadataTranscriptChannel("kevin-gerrity"), true);
   assert.equal(isSupadataTranscriptChannel("clearvalue-tax"), true);
   assert.equal(isSupadataTranscriptChannel("fx-evolution"), true);
+  assert.equal(isSupadataTranscriptChannel("wall-street-truth-bombs"), true);
+  assert.equal(isSupadataTranscriptChannel("traders-reality"), true);
   assert.equal(isSupadataTranscriptChannel("tradernick"), false);
 });
 
@@ -402,6 +416,40 @@ test("scheduled StockedUp intake reaches Supadata, persists timestamps, and repl
   assert.ok(!replayStages.some((entry) => entry.stage.startsWith("supadata_")));
   assert.ok(replayStages.some((entry) => entry.stage === "transcript_state_updated" && entry.detail?.cacheHit === true));
   assert.ok(harness.store.recalculatedRunIds.every((runId) => runId === "active-video-run"));
+});
+
+test("a configured Chrome operator is preferred after API discovery and avoids Supadata spend", async () => {
+  const browserRetrieval: TranscriptApiRetrieval = {
+    ...scheduledRetrieval,
+    transcript: {
+      ...scheduledRetrieval.transcript,
+      metadata: {
+        retrievalProvider: "chrome_operator",
+        transcriptSource: "youtubetotranscript.com",
+        browserVerifiedYouTubePage: true,
+      },
+    },
+  };
+  const harness = scheduledHarness({
+    browserConfigured: true,
+    retrieveBrowser: async () => browserRetrieval,
+  });
+
+  const result = await runScheduledVideoIntake({
+    slot: "video_midnight",
+    runKey: "video_midnight-2026-08-27",
+    scheduledFor: "2026-08-27T00:40:00+08:00",
+    now: new Date("2026-08-27T00:40:00+08:00"),
+  }, harness.dependencies);
+
+  assert.equal(result.status, "healthy");
+  assert.equal(result.transcripts[0]?.status, "ready");
+  assert.equal(result.transcripts[0]?.provider, "youtubetotranscript.com");
+  assert.equal(harness.store.item.transcriptProvider, "youtubetotranscript.com");
+  assert.equal(harness.providerCalls(), 0, "a Chrome transcript must not spend a Supadata attempt");
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_request_started" && entry.status === "complete"));
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_response_received" && entry.status === "complete"));
+  assert.ok(!harness.stages.some((entry) => entry.stage === "supadata_request_started"));
 });
 
 test("scheduled Supadata failure persists exact provider debt and finalizes discovery independently", async () => {

@@ -5,6 +5,10 @@ import {
   isTranscriptRevalidationDue,
   retrieveAndPersistTranscript,
 } from "./transcript-pipeline.ts";
+import {
+  isChromeTranscriptOperatorConfigured,
+  retrieveChromeYouTubeToTranscript,
+} from "./chrome-transcript-operator.ts";
 import { retrieveSupadataVideo } from "./supadata.ts";
 import {
   isSupadataTranscriptChannel,
@@ -69,6 +73,8 @@ export type ScheduledVideoIntakeDependencies = {
   discoverChannels: typeof discoverXwadaVideoChannels;
   createStore: (client: VideoIntakeClient) => TranscriptPipelineStore;
   retrieveTranscript: typeof retrieveSupadataVideo;
+  browserTranscriptConfigured: () => boolean;
+  retrieveBrowserTranscript: typeof retrieveChromeYouTubeToTranscript;
 };
 
 const defaultDependencies: ScheduledVideoIntakeDependencies = {
@@ -81,9 +87,11 @@ const defaultDependencies: ScheduledVideoIntakeDependencies = {
   discoverChannels: discoverXwadaVideoChannels,
   createStore: (client) => new SupadataTranscriptStore(client),
   retrieveTranscript: retrieveSupadataVideo,
+  browserTranscriptConfigured: isChromeTranscriptOperatorConfigured,
+  retrieveBrowserTranscript: retrieveChromeYouTubeToTranscript,
 };
 
-async function processVideo(
+async function processSupadataVideo(
   videoId: string,
   store: TranscriptPipelineStore,
   activeRunId: string,
@@ -102,6 +110,21 @@ async function processVideo(
   });
 }
 
+async function processBrowserVideo(
+  videoId: string,
+  store: TranscriptPipelineStore,
+  activeRunId: string,
+  retrieveTranscript: typeof retrieveChromeYouTubeToTranscript,
+) {
+  return retrieveAndPersistTranscript({
+    videoId,
+    store,
+    activeRunId,
+    provider: "youtubetotranscript.com",
+    retrieve: retrieveTranscript,
+  });
+}
+
 async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoIntakeItem>[0]["client"], videoId: string) {
   if (!runClient) return null;
   const { data, error } = await runClient
@@ -117,9 +140,11 @@ async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoI
 
 /**
  * The shared Live-only YouTube intake step. Discovery remains broad, while
- * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity,
- * ClearValue Tax and FX Evolution. Livestreams and short-form uploads are
- * classified upstream and never enter the transcript provider path.
+ * A configured Chrome operator is preferred after API discovery: it verifies
+ * the public YouTube watch page and then retrieves the timestamped transcript
+ * from YouTubeToTranscript. Supadata native captions remain the bounded,
+ * server-side fallback when the browser operator is unavailable or blocked.
+ * Livestreams and short-form uploads never enter either transcript path.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
@@ -240,7 +265,7 @@ export async function runScheduledVideoIntake(input: {
         });
 
         if (cached) {
-          const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
+          const result = await processSupadataVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
           results.push(result);
           currentStage = "transcript_persisted";
           await dependencies.recordStage({
@@ -268,47 +293,93 @@ export async function runScheduledVideoIntake(input: {
           continue;
         }
 
-        currentStage = "supadata_request_started";
-        await dependencies.recordStage({
-          runId: run.id,
-          slot: input.slot,
-          stage: "supadata_request_started",
-          status: "running",
-          detail: { videoId: video.videoId },
-          client: run.client,
-        });
+        let result: TranscriptPipelineResult | null = null;
+        let supadataRequested = false;
+        if (dependencies.browserTranscriptConfigured()) {
+          currentStage = "chrome_transcript_request_started";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "chrome_transcript_request_started",
+            status: "running",
+            detail: { videoId: video.videoId, provider: "youtubetotranscript.com" },
+            client: run.client,
+          });
+          result = await processBrowserVideo(video.videoId, store, run.id, dependencies.retrieveBrowserTranscript);
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "chrome_transcript_request_started",
+            status: "complete",
+            detail: { videoId: video.videoId, providerResult: result.status },
+            client: run.client,
+          });
+          currentStage = "chrome_transcript_response_received";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "chrome_transcript_response_received",
+            status: result.status === "ready" ? "complete" : "failed",
+            detail: {
+              videoId: video.videoId,
+              status: result.status,
+              provider: result.provider,
+              errorCode: result.status === "failed" ? result.errorCode : undefined,
+              errorMessage: result.status === "failed" ? result.errorMessage : undefined,
+              httpStatus: result.status === "failed" ? result.httpStatus : undefined,
+              retryable: result.status === "failed" ? result.retryable : undefined,
+            },
+            client: run.client,
+          });
+        }
 
-        const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
+        // The Chrome path is intentionally operational rather than assumed:
+        // a Cloudflare challenge, local browser outage, or empty extraction is
+        // a recorded browser result followed by the existing native-caption
+        // fallback. A browser-ready transcript does not spend a Supadata call.
+        if (!result || result.status !== "ready") {
+          supadataRequested = true;
+          currentStage = "supadata_request_started";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "supadata_request_started",
+            status: "running",
+            detail: { videoId: video.videoId },
+            client: run.client,
+          });
+          result = await processSupadataVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "supadata_request_started",
+            status: "complete",
+            detail: { videoId: video.videoId, providerResult: result.status },
+            client: run.client,
+          });
+
+          currentStage = "supadata_response_received";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "supadata_response_received",
+            status: result.status === "ready" ? "complete" : "failed",
+            detail: {
+              videoId: video.videoId,
+              status: result.status,
+              provider: result.provider,
+              cacheHit: false,
+              errorCode: result.status === "failed" ? result.errorCode : undefined,
+              errorMessage: result.status === "failed" ? result.errorMessage : undefined,
+              httpStatus: result.status === "failed" ? result.httpStatus : undefined,
+              retryable: result.status === "failed" ? result.retryable : undefined,
+              nextCheckAt: result.status === "failed" ? result.nextCheckAt : undefined,
+            },
+            client: run.client,
+          });
+        }
+
         results.push(result);
-
-        await dependencies.recordStage({
-          runId: run.id,
-          slot: input.slot,
-          stage: "supadata_request_started",
-          status: "complete",
-          detail: { videoId: video.videoId, providerResult: result.status },
-          client: run.client,
-        });
-
-        currentStage = "supadata_response_received";
-        await dependencies.recordStage({
-          runId: run.id,
-          slot: input.slot,
-          stage: "supadata_response_received",
-          status: result.status === "ready" ? "complete" : "failed",
-          detail: {
-            videoId: video.videoId,
-            status: result.status,
-            provider: result.provider,
-            cacheHit: false,
-            errorCode: result.status === "failed" ? result.errorCode : undefined,
-            errorMessage: result.status === "failed" ? result.errorMessage : undefined,
-            httpStatus: result.status === "failed" ? result.httpStatus : undefined,
-            retryable: result.status === "failed" ? result.retryable : undefined,
-            nextCheckAt: result.status === "failed" ? result.nextCheckAt : undefined,
-          },
-          client: run.client,
-        });
 
         currentStage = "transcript_persisted";
         await dependencies.recordStage({
@@ -330,7 +401,7 @@ export async function runScheduledVideoIntake(input: {
           client: run.client,
         });
 
-        if (!result.cacheHit && result.status !== "not_found") providerAttempts += 1;
+        if (supadataRequested && !result.cacheHit && result.status !== "not_found") providerAttempts += 1;
       }
     }
 

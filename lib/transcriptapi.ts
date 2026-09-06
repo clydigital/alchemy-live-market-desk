@@ -11,6 +11,8 @@ export type TranscriptErrorCode =
   | "provider_payment_required"
   | "provider_rate_limit"
   | "provider_server_error"
+  | "browser_operator_unavailable"
+  | "browser_verification_required"
   | "network_error"
   | "timeout"
   | "malformed_provider_response"

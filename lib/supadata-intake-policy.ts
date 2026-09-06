@@ -1,4 +1,15 @@
-export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = ["stockedup", "kevin-gerrity", "clearvalue-tax", "fx-evolution"] as const;
+// The first three are the channels the research handoff explicitly requires.
+// Keeping them at the head of the fixed six-video budget guarantees that a
+// healthy dedicated intake can satisfy that contract without increasing the
+// number of paid Supadata attempts per run.
+export const SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY = [
+  "stockedup",
+  "wall-street-truth-bombs",
+  "traders-reality",
+  "kevin-gerrity",
+  "clearvalue-tax",
+  "fx-evolution",
+] as const;
 
 const SUPADATA_TRANSCRIPT_CHANNEL_KEYS = new Set<string>(SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY);
 

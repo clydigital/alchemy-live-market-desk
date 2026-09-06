@@ -1,3 +1,8 @@
+import {
+  discoverYouTubeChannelWithChrome,
+  isChromeTranscriptOperatorConfigured,
+} from "./chrome-transcript-operator.ts";
+
 export const XWADA_VIDEO_CHANNELS = [
   { key: "fx-evolution", name: "FX Evolution", handle: "@FXEvolution", env: "YOUTUBE_CHANNEL_ID_FX_EVOLUTION" },
   { key: "kevin-gerrity", name: "Kevin Gerrity", handle: "@Kevin.Gerrity", env: "YOUTUBE_CHANNEL_ID_KEVIN_GERRITY" },
@@ -213,10 +218,77 @@ function statusFromError(error: unknown, fallback: XwadaCheckStatus): XwadaCheck
   return fallback;
 }
 
-export async function discoverXwadaVideoChannels(now = new Date()): Promise<XwadaChannelResult[]> {
-  const youtubeApiKey = process.env.YOUTUBE_DATA_API_KEY?.trim();
-  if (!youtubeApiKey) {
-    return XWADA_VIDEO_CHANNELS.map((channel) => ({
+function browserFallbackAllowed(result: XwadaChannelResult) {
+  return result.status === "youtube_auth_error"
+    || result.status === "youtube_quota_error"
+    || result.status === "youtube_rate_limited"
+    || result.status === "youtube_request_failed"
+    || result.status === "configuration_error" && result.detail === "Missing YOUTUBE_DATA_API_KEY.";
+}
+
+export type YouTubeDiscoveryDependencies = {
+  youtubeApiKey?: string;
+  browserTranscriptConfigured: typeof isChromeTranscriptOperatorConfigured;
+  discoverWithChrome: typeof discoverYouTubeChannelWithChrome;
+};
+
+const defaultDiscoveryDependencies: YouTubeDiscoveryDependencies = {
+  browserTranscriptConfigured: isChromeTranscriptOperatorConfigured,
+  discoverWithChrome: discoverYouTubeChannelWithChrome,
+};
+
+async function recoverDiscoveryWithChrome(
+  channel: typeof XWADA_VIDEO_CHANNELS[number],
+  result: XwadaChannelResult,
+  now: Date,
+  cutoff: number,
+  dependencies: YouTubeDiscoveryDependencies,
+): Promise<XwadaChannelResult> {
+  if (!browserFallbackAllowed(result) || !dependencies.browserTranscriptConfigured()) return result;
+  const fallback = await dependencies.discoverWithChrome({
+    channelKey: channel.key,
+    channelName: channel.name,
+    handle: channel.handle,
+    cutoff: new Date(cutoff),
+    now,
+  }).catch((error): Awaited<ReturnType<typeof discoverYouTubeChannelWithChrome>> => ({
+    status: "unavailable",
+    code: "browser_operator_error",
+    detail: error instanceof Error ? error.message : "Chrome discovery fallback failed.",
+  }));
+  if (fallback.status !== "ready") {
+    return {
+      ...result,
+      detail: `${result.detail || result.status} Chrome discovery fallback was unavailable: ${fallback.detail}`,
+    };
+  }
+  const videos = fallback.videos.map((video) => ({
+    channelKey: channel.key,
+    channelName: channel.name,
+    channelId: fallback.channelId || `browser:${channel.key}`,
+    ...video,
+  }));
+  return {
+    channelKey: channel.key,
+    channelName: channel.name,
+    channelId: fallback.channelId,
+    status: videos.length ? "checked" : "no_recent_videos",
+    scannedCount: fallback.scannedCount,
+    recentCount: videos.length,
+    videos,
+    detail: `${fallback.detail} Original YouTube Data API status: ${result.status}.`,
+  };
+}
+
+export async function discoverXwadaVideoChannels(
+  now = new Date(),
+  dependencyOverrides: Partial<YouTubeDiscoveryDependencies> = {},
+): Promise<XwadaChannelResult[]> {
+  const dependencies = { ...defaultDiscoveryDependencies, ...dependencyOverrides };
+  const youtubeApiKey = dependencyOverrides.youtubeApiKey?.trim() ?? process.env.YOUTUBE_DATA_API_KEY?.trim();
+  const cutoff = now.getTime() - LOOKBACK_MS;
+  const apiResults = !youtubeApiKey
+    ? XWADA_VIDEO_CHANNELS.map((channel): XwadaChannelResult => ({
       channelKey: channel.key,
       channelName: channel.name,
       status: "configuration_error",
@@ -224,11 +296,8 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
       recentCount: 0,
       videos: [],
       detail: "Missing YOUTUBE_DATA_API_KEY.",
-    }));
-  }
-
-  const cutoff = now.getTime() - LOOKBACK_MS;
-  return Promise.all(XWADA_VIDEO_CHANNELS.map(async (channel): Promise<XwadaChannelResult> => {
+    }))
+    : await Promise.all(XWADA_VIDEO_CHANNELS.map(async (channel): Promise<XwadaChannelResult> => {
     try {
       const channelId = await resolveChannelId(channel, youtubeApiKey);
       const playlistId = await uploadsPlaylist(channelId, youtubeApiKey);
@@ -282,7 +351,17 @@ export async function discoverXwadaVideoChannels(now = new Date()): Promise<Xwad
         detail: error instanceof Error ? error.message : "Unknown YouTube discovery failure.",
       };
     }
-  }));
+    }));
+
+  // A Chrome operator is intentionally a recovery layer, not an alternate
+  // silent source. It is consulted only after a YouTube Data API failure and
+  // checks channels sequentially so one operator browser is never raced by a
+  // burst of scheduled requests.
+  const recovered: XwadaChannelResult[] = [];
+  for (const [index, result] of apiResults.entries()) {
+    recovered.push(await recoverDiscoveryWithChrome(XWADA_VIDEO_CHANNELS[index], result, now, cutoff, dependencies));
+  }
+  return recovered;
 }
 
 export function xwadaDiscoverySummary(results: XwadaChannelResult[]) {
