@@ -37,6 +37,7 @@ function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
     sourceName: "Official source",
     sourceTier: 1,
     reliabilityScore: 95,
+    availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {},
     ancestryGroupId: "official:one",
     supportDirection: "supporting",
     eventAt: "2026-08-24T01:00:00.000Z",
@@ -161,9 +162,9 @@ test("database freezes the full proposal object from the persisted Market Belief
   assert.match(migration, /jsonb_array_length\(matching_assessments\) <> 1/);
   assert.match(migration, /'title', nullif\(btrim\(stage_assessment ->> 'proposedTitle'\)/);
   assert.match(migration, /'marketQuestion', nullif\(btrim\(stage_assessment ->> 'proposedMarketQuestion'\)/);
-  assert.match(migration, /'confirmation'.*proposed_confirmation/s);
-  assert.match(migration, /'invalidation'.*proposed_invalidation/s);
-  assert.match(migration, /'nextCatalyst'.*proposed_next_catalyst/s);
+  assert.match(migration, /'confirmation'[\s\S]*proposed_confirmation/);
+  assert.match(migration, /'invalidation'[\s\S]*proposed_invalidation/);
+  assert.match(migration, /'nextCatalyst'[\s\S]*proposed_next_catalyst/);
 });
 
 test("server-side disposition matrix owns all six maintenance categories", () => {

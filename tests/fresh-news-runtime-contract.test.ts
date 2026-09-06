@@ -11,7 +11,7 @@ test("fresh-news recruitment remains inside the existing resumable Market Belief
   const schema = source("../lib/intelligence/schemas.ts");
 
   assert.equal((runtime.match(/modelStage<MarketBeliefOutput>/g) || []).length, 1);
-  assert.match(runtime, /buildFreshNewsRecruitment\(evidence, analysisAsOf\)/);
+  assert.match(runtime, /buildFreshNewsRecruitment\(evidence\.filter\(\(item\) => !isRatesContext\(item\)\), analysisAsOf\)/);
   assert.match(runtime, /freshEvidenceCandidates:/);
   assert.match(runtime, /persistRecruitmentClusters/);
   assert.match(runtime, /cluster\.verdict === "recruit"/);
@@ -36,7 +36,7 @@ test("calendar-only evidence and late slot retries fail closed at their canonica
   const runtime = source("../lib/intelligence/runtime.ts");
   const replay = source("../lib/edition-replay.ts");
 
-  assert.match(runtime, /evidenceNature: calendarItem \? \(calendarReleased \? "event_outcome" : "scheduled_event"\)/);
+  assert.match(runtime, /evidenceNature: ratesContext \? "research_context" : calendarItem \? \(calendarReleased \? "event_outcome" : "scheduled_event"\)/);
   assert.match(replay, /Canonical schedule identity outranks wall-clock publication time/);
   assert.match(replay, /canonicalOrderAt/);
 });

@@ -64,6 +64,7 @@ test("FINRA memory proof returns append-only persistence counters without exposi
           rawRecordInserted: true,
           observationsInserted: 12,
           observationsUnchanged: 0,
+          changeEvents: [],
         },
         note: null,
       }),

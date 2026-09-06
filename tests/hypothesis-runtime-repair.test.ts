@@ -263,9 +263,9 @@ test("Hypothesis Input Scope Invariant 10-14: buildHypothesisEvidencePack strict
   const beliefs = [{ evidence_ids: ["ev_cited_1"], affected_assets: ["US10Y"] }];
   const divergences = [{ decisive_evidence_ids: ["ev_cited_2"] }];
   const mockEvidence = [
-    { id: "ev_cited_1", claim: "Fed cut rates", summary: null, evidenceClass: "official_release", sourceName: "Fed", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
-    { id: "ev_cited_2", claim: "CPI drop", summary: null, evidenceClass: "official_release", sourceName: "BLS", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
-    { id: "ev_unrelated", claim: "Unrelated news", summary: null, evidenceClass: "news_report", sourceName: "News", sourceTier: 3, reliabilityScore: 70, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, affectedAssets: ["AUDUSD"], affectedTopics: [], provenanceUrls: [] },
+    { id: "ev_cited_1", claim: "Fed cut rates", summary: null, evidenceClass: "official_release", sourceName: "Fed", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {}, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
+    { id: "ev_cited_2", claim: "CPI drop", summary: null, evidenceClass: "official_release", sourceName: "BLS", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {}, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
+    { id: "ev_unrelated", claim: "Unrelated news", summary: null, evidenceClass: "news_report", sourceName: "News", sourceTier: 3, reliabilityScore: 70, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {}, affectedAssets: ["AUDUSD"], affectedTopics: [], provenanceUrls: [] },
   ];
 
   const filtered = buildHypothesisEvidencePack(beliefs, divergences, mockEvidence);
@@ -279,7 +279,7 @@ test("Hypothesis Input Scope Invariant 10-14: buildHypothesisEvidencePack strict
 test("Hypothesis Input Scope Invariant: buildHypothesisStoryPack filtering behavior", () => {
   const beliefs = [{ evidence_ids: ["ev_1"], affected_assets: ["US10Y", "OIL"] }];
   const hypothesisEvidence = [
-    { id: "ev_1", claim: "Fed cut rates", summary: null, evidenceClass: "official_release", sourceName: "Fed", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
+    { id: "ev_1", claim: "Fed cut rates", summary: null, evidenceClass: "official_release", sourceName: "Fed", sourceTier: 1, reliabilityScore: 90, ancestryGroupId: null, supportDirection: "context", eventAt: null, publishedAt: null, availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {}, affectedAssets: ["US10Y"], affectedTopics: [], provenanceUrls: [] },
   ];
   const mockStories = [
     { id: "story_1", slug: "us10y-rates", title: "US10Y Yield Move", thesis: "Yields rising", status: "develop", confidence: 80, marketQuestion: null, dominantNarrative: null, strongestSupport: null, strongestContradiction: null, confirmationTrigger: null, invalidationTrigger: null, nextCatalyst: null, assets: ["US10Y"] },

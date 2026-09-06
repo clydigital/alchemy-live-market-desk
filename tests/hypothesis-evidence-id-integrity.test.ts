@@ -43,7 +43,6 @@ test("Hypothesis evidence integrity: one-character UUID mutation is removed with
   assert.equal(result.droppedHypothesisCount, 0);
   assert.equal(result.output.hypotheses.length, 1);
   assert.deepEqual(result.output.hypotheses[0].causalChain[0].evidenceIds, []);
-  assert.ok(!result.output.hypotheses[0].causalChain[0].evidenceIds.includes(REAL_EVIDENCE_ID));
 });
 
 test("Hypothesis evidence integrity: unsupported strong causal edge drops only the poisoned hypothesis", () => {

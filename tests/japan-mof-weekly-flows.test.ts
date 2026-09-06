@@ -11,7 +11,7 @@ import {
 function row(period: string, values: Partial<Record<number, string>> = {}) {
   const cells = Array.from({ length: 23 }, () => "");
   cells[0] = period;
-  for (const [index, value] of Object.entries(values)) cells[Number(index)] = value;
+  for (const [index, value] of Object.entries(values)) cells[Number(index)] = value ?? "";
   return cells.map((cell) => cell.includes(",") ? `"${cell}"` : cell).join(",");
 }
 

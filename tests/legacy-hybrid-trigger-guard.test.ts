@@ -6,7 +6,7 @@ const migrationPath = new URL(
   "../supabase/migrations/20260906140500_guard_legacy_hybrid_snapshot_trigger.sql",
   import.meta.url,
 );
-const sql = readFileSync(migrationPath, "utf8");
+const sql = readFileSync(migrationPath, "utf8").replace(/\r\n/g, "\n");
 
 function position(fragment: string) {
   const index = sql.indexOf(fragment);
