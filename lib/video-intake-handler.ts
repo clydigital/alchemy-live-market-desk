@@ -126,7 +126,7 @@ async function runDiscovery(
       discovery: "YouTube Data API uploads playlist",
       uploadsPerChannel: 10,
       backfillHours: 72,
-      transcriptProvider: "Supadata native captions",
+      transcriptProvider: "Chrome / YouTubeToTranscript when configured; Supadata native-caption fallback",
       transcriptMode: "native",
       transcriptFormat: "timestamped",
       generatedTranscriptFallback: false,
