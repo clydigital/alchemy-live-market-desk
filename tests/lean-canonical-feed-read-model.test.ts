@@ -108,3 +108,13 @@ test("reader queries exclude known multi-megabyte operational blobs", () => {
   assert.match(source, /manifest_story_id:payload->canonicalStoryManifest->0->state->>id/);
   assert.match(source, /select=id,research_run_id,slot_run_id,story_id,story_thesis_version_id,supersedes_snapshot_id,snapshot_type,public_summary,confidence,published_at,expires_at/);
 });
+
+test("canonical feed never reloads the broad internal desk model", () => {
+  const route = readFileSync(new URL("../lib/intelligence/publication-feed-route.ts", import.meta.url), "utf8");
+  const data = readFileSync(new URL("../lib/intelligence/publication-feed-data.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(route, /getDeskData/);
+  assert.match(route, /buildCaseMonitorBoards\(\{[\s\S]*macroObservations: data\.macroObservations/);
+  assert.doesNotMatch(data, /research_intake_queue[\s\S]{0,200}select=\*/);
+  assert.match(data, /monitorResearchIntake/);
+});
