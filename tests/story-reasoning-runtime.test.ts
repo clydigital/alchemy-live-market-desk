@@ -41,7 +41,9 @@ test("Story Synthesis keeps decisive lineage strict while isolating optional ann
   assert.match(schemas, /overlookedVariableEvidenceIds: stringArray/);
   assert.match(runtime, /acceptedExplanationEvidenceIds = onlyKnownIds\([\s\S]*candidate\.acceptedExplanationEvidenceIds/);
   assert.match(runtime, /overlookedVariableEvidenceIds = onlyKnownIds\([\s\S]*candidate\.overlookedVariableEvidenceIds/);
-  assert.match(runtime, /decisiveEvidenceIds = requireKnownEvidenceIds\([\s\S]*candidate\.decisiveEvidenceIds/);
+  assert.match(runtime, /normalizeStorySynthesisCandidate\(\{ \.\.\.rawCandidate, candidateKey \}, knownEvidenceIds\)/);
+  assert.match(runtime, /for \(const rawCandidate of synthesisStage\.data\.candidates\)/);
+  assert.match(runtime, /candidateOmissionDiagnostic\(\{ \.\.\.rawCandidate, candidateKey \}, error\)/);
   assert.match(runtime, /Hypothesis \$\{hypothesis\.divergenceId\} causal edge \$\{ordinal\}/);
   assert.match(runtime, /Challenger assessment \$\{assessment\.hypothesisId\} conflicting evidence/);
   assert.match(runtime, /Scenario \$\{scenario\.hypothesisId\}\/\$\{scenario\.asset\} explanatory evidence/);

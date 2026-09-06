@@ -6,6 +6,7 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData, getHybridDeskData } from "@/lib/data";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import { buildHybridPublicationContract, getHybridPublicationRecords } from "@/lib/hybrid-publication";
+import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
 import { buildLiveDeskPulse } from "@/lib/live-desk-pulse";
 import type { MarketMonitor } from "@/lib/market-monitor";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -219,6 +220,13 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     editionId,
   });
 
+  const editionHealth = buildCanonicalEditionHealth({
+    researchRuns: data.researchRuns,
+    editions: contract.publication.editionIndex,
+    intelligenceRuns: data.intelligenceRuns,
+    intelligenceStages: data.intelligenceStages,
+  });
+
   const marketTriggers = [
     ...marketResult.value.researchTriggers,
     ...flowResult.value.researchTriggers,
@@ -236,6 +244,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     ...contract,
     canonical: {
       ...contract.canonical,
+      editionHealth,
       liveDeskPulse,
       caseMonitors: overlayResult.value,
       marketMonitor: marketResult.value,
@@ -256,6 +265,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     } : null,
     research: {
       health: researchScheduleHealth(data.researchRuns),
+      editionHealth,
       latestRun,
       marketTriggers,
       marketCoverageGaps: [...flowResult.value.coverageGaps, ...providerWarnings],

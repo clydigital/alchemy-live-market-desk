@@ -7,6 +7,7 @@ import {
   DOSSIER_STORYLINE_COMPOSITION_V1,
 } from "@/lib/intelligence/dossier-storyline-composer";
 import { composeAlchemyEdition, type AlchemyEdition } from "@/lib/intelligence/edition";
+import type { CandidateContractDiagnostic } from "@/lib/intelligence/candidate-evidence-contract";
 import { JOURNEY_BRIEFING_V1, type JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import {
   CANONICAL_STORY_REASONING_V1,
@@ -60,6 +61,37 @@ async function recruitmentForResearchRun(researchRunId: string) {
     `intelligence_engine_runs?select=metadata&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=started_at.desc&limit=1`,
   ).catch(() => []);
   return recruitmentDiagnostics(rows[0]?.metadata?.recruitment);
+}
+
+function contractDiagnostics(value: unknown): CandidateContractDiagnostic[] {
+  if (!Array.isArray(value)) return [];
+  const validCodes = new Set<CandidateContractDiagnostic["code"]>([
+    "repaired_contract_format",
+    "rejected_unknown_evidence",
+    "rejected_missing_required_evidence",
+    "story_omitted_after_contract_failure",
+  ]);
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.code !== "string" || typeof candidate.candidateKey !== "string" || typeof candidate.detail !== "string") return [];
+    const code = candidate.code as CandidateContractDiagnostic["code"];
+    if (!validCodes.has(code)) return [];
+    return [{
+      code,
+      candidateKey: candidate.candidateKey,
+      primaryHypothesisId: typeof candidate.primaryHypothesisId === "string" ? candidate.primaryHypothesisId : null,
+      title: typeof candidate.title === "string" ? candidate.title : null,
+      detail: candidate.detail,
+    }];
+  });
+}
+
+async function contractDiagnosticsForResearchRun(researchRunId: string) {
+  const rows = await intelligenceRest<Array<{ metadata: Record<string, unknown> | null }>>(
+    `intelligence_engine_runs?select=metadata&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=started_at.desc&limit=1`,
+  ).catch(() => []);
+  return contractDiagnostics(rows[0]?.metadata?.contractDiagnostics);
 }
 
 function asPreviousEdition(payload: Record<string, unknown> | undefined): AlchemyEdition | null {
@@ -245,7 +277,10 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
   const eventHorizon = await buildEditionEventHorizon([]);
-  const recruitment = await recruitmentForResearchRun(researchRunId);
+  const [recruitment, contractDiagnostics] = await Promise.all([
+    recruitmentForResearchRun(researchRunId),
+    contractDiagnosticsForResearchRun(researchRunId),
+  ]);
 
   const edition = composeAlchemyEdition({
     generatedAt,
@@ -261,6 +296,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
       warnings: eventHorizon.warnings,
       eventHorizonCoverage: eventHorizon.coverage,
       recruitment,
+      contractDiagnostics,
     },
   });
   if (!hasPersistedJourney(edition as unknown as Record<string, unknown>)) {

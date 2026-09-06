@@ -172,6 +172,8 @@ export type EditionDiagnostics = {
     contextClusterCount: number;
     deferredClusterCount: number;
   };
+  contractDiagnostics?: Array<{ code: string; candidateKey: string; primaryHypothesisId: string | null; title: string | null; detail: string }>;
+  journeyExclusions?: Array<{ storyId: string; reason: "no_valid_immutable_journey_reasoning" }>;
 };
 
 export type AlchemyEdition = {
@@ -398,6 +400,11 @@ export function composeAlchemyEdition({
     riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
   };
 
+  const journeySourceStoryIds = new Set(journeyStorySources.map((source) => source.storyId));
+  const computedJourneyExclusions = changes
+    .filter((change) => !journeySourceStoryIds.has(change.id))
+    .map((change) => ({ storyId: change.id, reason: "no_valid_immutable_journey_reasoning" as const }));
+
   return {
     methodologyVersion: ALCHEMY_MIXED_METHOD_VERSION,
     generatedAt,
@@ -446,6 +453,8 @@ export function composeAlchemyEdition({
       warnings: [...new Set(diagnostics.warnings)],
       eventHorizonCoverage: diagnostics.eventHorizonCoverage,
       recruitment: diagnostics.recruitment,
+      contractDiagnostics: diagnostics.contractDiagnostics,
+      journeyExclusions: [...(diagnostics.journeyExclusions || []), ...computedJourneyExclusions],
     },
     finalBoard,
   };
