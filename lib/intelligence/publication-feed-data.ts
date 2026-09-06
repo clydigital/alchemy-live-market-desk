@@ -5,7 +5,10 @@ import type {
   GuidanceItem,
   MacroRelease,
   MacroReleaseMetric,
+  MacroSeriesObservation,
+  MarketSeriesObservation,
   MarketStateRecord,
+  PublicStatement,
   ResearchIntakeQueueItem,
   ResearchRunStatus,
   ResearchSource,
@@ -14,7 +17,6 @@ import type {
 } from "@/lib/data";
 import type { HistoricalToneVersion } from "@/lib/desk-memory";
 import type { PublicationSnapshot } from "@/lib/hybrid-publication";
-import type { getHybridDeskData } from "@/lib/data";
 import type { getHybridPublicationRecords } from "@/lib/hybrid-publication";
 import { withMacroReleaseLifecycle } from "@/lib/macro-release-lifecycle";
 
@@ -71,7 +73,7 @@ async function privateQuery<T>(table: string, params = "", options: QueryOptions
 /**
  * Reader-specific projection of persisted Live state.
  *
- * The canonical feed used to reuse getHybridDeskData(), which also carries
+ * The canonical feed used to reuse the broad Live desk loader, which carries
  * operational/debug blobs that are useful inside Live but expensive and
  * unnecessary for Hybrid. Keep this projection deterministic and read-only:
  * it changes transport shape only, never Story ownership or reasoning.
@@ -88,6 +90,10 @@ export async function getHybridFeedData(options: QueryOptions = {}) {
     macroReleaseRows,
     macroReleaseMetrics,
     researchIntake,
+    monitorResearchIntake,
+    statements,
+    macroObservations,
+    marketObservations,
     researchDebt,
     intelligenceRuns,
     intelligenceStages,
@@ -105,6 +111,26 @@ export async function getHybridFeedData(options: QueryOptions = {}) {
     privateQuery<ResearchIntakeQueueItem>(
       "research_intake_queue",
       "select=id,run_id,item_key,item_type,publisher,title,url,published_at,article_position,transcript_status,transcript_provider,video_review_status,transcript_word_count,transcript_language,transcript_retrieved_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempted_at,transcript_attempt_count,transcript_duration_seconds,transcript_segment_count,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,stats_signal,news_signal,divergence_kind,divergence_note,review_reason,updated_at&item_type=eq.video&order=published_at.desc&limit=20",
+      options,
+    ),
+    privateQuery<ResearchIntakeQueueItem>(
+      "research_intake_queue",
+      "select=id,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,candidate_score,status,stats_signal,news_signal,divergence_note&order=candidate_score.desc.nullslast,published_at.desc&limit=120",
+      options,
+    ),
+    query<PublicStatement>(
+      "public_statements",
+      "select=id,speaker,statement_group,channel,statement_date,quote_excerpt,topic,market_interpretation,affected_assets,source_url,verification_status,follow_up&order=statement_date.desc&limit=30",
+      options,
+    ),
+    query<MacroSeriesObservation>(
+      "macro_series_observations",
+      "select=id,series_key,series_id,series_name,agency,observation_date,value,mom_change,yoy_change,unit,frequency,source_url,is_preliminary,notes&order=observation_date.asc&limit=500",
+      options,
+    ),
+    query<MarketSeriesObservation>(
+      "market_series_observations",
+      "select=id,series_key,symbol,series_name,provider,observation_date,close,currency,frequency,source_url&order=observation_date.asc&limit=800",
       options,
     ),
     privateQuery<Record<string, unknown>>(
@@ -144,11 +170,15 @@ export async function getHybridFeedData(options: QueryOptions = {}) {
     macroReleases,
     macroReleaseMetrics: structuredMacroReleaseMetrics,
     researchIntake,
+    monitorResearchIntake,
+    statements,
+    macroObservations,
+    marketObservations,
     researchDebt,
     intelligenceRuns,
     intelligenceStages,
     acquisitionFailures,
-  } as Awaited<ReturnType<typeof getHybridDeskData>>;
+  };
 }
 
 type EditionIndexRow = {
