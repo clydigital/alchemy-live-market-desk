@@ -126,7 +126,11 @@ function storyRecency(story: DeskReadStory) {
     ?? 0;
 }
 
-function storyScore(story: DeskReadStory, now: number) {
+function storyScore(
+  story: DeskReadStory,
+  now: number,
+  context: { edgeCount?: number; impactAssetCount?: number } = {},
+) {
   const confidence = clamp(Number(story.confidence ?? story.intelligence?.conviction ?? 0));
   const qualification = clamp(Number(story.intelligence?.qualificationScore ?? confidence));
   const featuredBoost = story.featuredRank != null ? Math.max(0, 24 - (Number(story.featuredRank) - 1) * 5) : 0;
@@ -135,7 +139,12 @@ function storyScore(story: DeskReadStory, now: number) {
   const recencyBoost = ageHours <= 12 ? 18 : ageHours <= 36 ? 11 : ageHours <= 72 ? 5 : 0;
   const lifecycle = String(story.intelligence?.lifecycleStatus || story.status || "").toLowerCase();
   const lifecycleBoost = lifecycle.includes("confirm") ? 8 : lifecycle.includes("develop") ? 5 : lifecycle.includes("weaken") ? -8 : lifecycle.includes("invalid") || lifecycle.includes("archive") ? -30 : 0;
-  return confidence * 0.42 + qualification * 0.32 + featuredBoost + rankBoost + recencyBoost + lifecycleBoost;
+  const statedAssetBreadth = new Set((story.intelligence?.affectedAssets || []).map((asset) => String(asset || "").trim()).filter(Boolean)).size;
+  const breadth = Math.max(statedAssetBreadth, Number(context.impactAssetCount || 0));
+  const breadthBoost = breadth >= 4 ? 32 : breadth >= 2 ? 20 : breadth === 1 ? -10 : -4;
+  const causalBoost = Math.min(18, Math.max(0, Number(context.edgeCount || 0)) * 6);
+  const impactBoost = Math.min(12, Math.max(0, Number(context.impactAssetCount || 0)) * 3);
+  return confidence * 0.42 + qualification * 0.32 + featuredBoost + rankBoost + recencyBoost + lifecycleBoost + breadthBoost + causalBoost + impactBoost;
 }
 
 function explanationFor(story: DeskReadStory | null) {
@@ -247,9 +256,27 @@ export function buildDeskRead({
   historical?: boolean;
 }) {
   const now = stamp(generatedAt) || Date.now();
+  const edgeCountByStory = new Map<string, number>();
+  for (const edge of causalEdges) {
+    if (!edge.story_id) continue;
+    edgeCountByStory.set(edge.story_id, (edgeCountByStory.get(edge.story_id) || 0) + 1);
+  }
+  const impactAssetsByStory = new Map<string, Set<string>>();
+  for (const impact of assetImpacts) {
+    if (!impact.story_id || !impact.asset_key) continue;
+    const assets = impactAssetsByStory.get(impact.story_id) || new Set<string>();
+    assets.add(String(impact.asset_key));
+    impactAssetsByStory.set(impact.story_id, assets);
+  }
   const ranked = [...(stories || [])]
     .filter((story) => story?.id && !/invalid|archive/i.test(String(story.intelligence?.lifecycleStatus || story.status || "")))
-    .sort((a, b) => storyScore(b, now) - storyScore(a, now));
+    .sort((a, b) => storyScore(b, now, {
+      edgeCount: edgeCountByStory.get(b.id) || 0,
+      impactAssetCount: impactAssetsByStory.get(b.id)?.size || 0,
+    }) - storyScore(a, now, {
+      edgeCount: edgeCountByStory.get(a.id) || 0,
+      impactAssetCount: impactAssetsByStory.get(a.id)?.size || 0,
+    }));
   const dominant = ranked[0] || null;
   const secondaries = ranked.slice(1, 4);
   const relevantStoryIds = new Set([dominant?.id, ...secondaries.map((story) => story.id)].filter(Boolean));
@@ -265,8 +292,15 @@ export function buildDeskRead({
     : mechanism
       ? "canonical_story_thesis"
       : "insufficient_canonical_evidence";
-  const unresolved = !dominant || !mechanism || confidence.label === "low";
-  const status = !dominant || !mechanism ? "unresolved" : confidence.label === "low" ? "partial" : "explained";
+  const hasCanonicalSupport = Boolean(
+    dominantEdges.length
+      || dominant?.intelligence?.strongestSupport
+      || dominant?.strongestSupport
+      || (dominant && assetImpacts.some((impact) => impact.story_id === dominant.id)),
+  );
+  const unsupportedThesis = basis === "canonical_story_thesis" && !hasCanonicalSupport;
+  const unresolved = !dominant || !mechanism || confidence.label === "low" || unsupportedThesis;
+  const status = !dominant || !mechanism ? "unresolved" : unresolved ? "partial" : "explained";
 
   const supportingEvidence = unique([
     dominant?.intelligence?.strongestSupport,
