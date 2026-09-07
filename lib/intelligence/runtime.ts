@@ -471,6 +471,9 @@ function evidencePack(rows: CanonicalEvidenceRow[]): EvidencePackItem[] {
       affectedAssets: row.affected_assets ?? [],
       affectedTopics: row.affected_topics ?? [],
       provenanceUrls: row.provenance_urls ?? [],
+      providerKey: source?.provider_key ?? null,
+      sourceVerificationRole: source?.metadata?.verificationRole
+        ?? sourceVerificationRole({ sourceName: source?.source_name, providerKey: source?.provider_key, provenanceUrls: row.provenance_urls }),
       structuredPayload: row.structured_payload ?? {},
     };
   });
@@ -851,7 +854,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
 
 async function loadEvidence() {
   const rows = await intelligenceRest<CanonicalEvidenceRow[]>(
-    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
+    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
   );
   return evidencePack(rows);
 }

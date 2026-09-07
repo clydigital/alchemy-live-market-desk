@@ -68,3 +68,17 @@ test("ZeroHedge is discovery-only and has zero canonical verification weight", (
   assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [lead.id], target), false);
   assert.match(migration, /verificationRole','discovery_only/);
 });
+
+
+test("ZeroHedge Reads members on independent domains remain discovery-only", () => {
+  for (const source of [
+    { sourceName: "BullionStar", provenanceUrls: ["https://www.bullionstar.us/"] },
+    { sourceName: "ForexLive", provenanceUrls: ["https://www.forexlive.com/"] },
+    { sourceName: "Mises Institute", provenanceUrls: ["https://mises.org/"] },
+    { sourceName: "Capitalist Exploits", provenanceUrls: ["https://www.capitalistexploits.at/"] },
+  ]) {
+    assert.equal(sourceVerificationRole(source), "discovery_only");
+    assert.equal(sourceVerificationWeight(evidence({ sourceName: source.sourceName, provenanceUrls: source.provenanceUrls, sourceVerificationRole: sourceVerificationRole(source) })), 0);
+  }
+  assert.match(migration, /ZeroHedge Reads is a discovery ecosystem/);
+});

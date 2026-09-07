@@ -77,6 +77,17 @@ set metadata = coalesce(metadata,'{}'::jsonb) || jsonb_build_object('verificatio
 where lower(source_name) like '%zerohedge%'
    or lower(coalesce(source_url,'')) like '%zerohedge%';
 
+
+
+-- ZeroHedge Reads is a discovery ecosystem, not only the zerohedge.com domain.
+-- Keep every requested member available for lead generation while preventing it
+-- from independently proving a canonical fact or Story mutation.
+update public.intelligence_evidence_sources
+set metadata = coalesce(metadata,'{}'::jsonb) || jsonb_build_object('verificationRole','discovery_only'),
+    updated_at=now()
+where lower(coalesce(source_name,'')) ~ '(alt[- ]?market|antiwar|bitcoin[ ]*magazine|bombthrower|bullionstar|capitalist[ ]*exploits|christophe[ ]*barraud|dollar[ ]*collapse|dr\.?[ ]*housing[ ]*bubble|financial[ ]*revolutionist|forex[ ]*live|forum[ ]*geopolitica|gains[ ]*pains|gefira|gmg[ ]*research|gold[ ]*core|implode[- ]?explode|insider[ ]*paper|libertarian[ ]*institute|liberty[ ]*blitzkrieg|max[ ]*keiser|mises[ ]*institute|mish[ ]*talk|monetary[ ]*metals)'
+   or lower(coalesce(source_url,'')) ~ '(alt-market\.us|antiwar\.com|bitcoinmagazine\.com|bombthrower\.com|bullionstar|capitalistexploits|christophe-barraud|dollarcollapse|doctorhousingbubble|financialrevolutionist|forexlive|forumgeopolitica|gainspains|gefira|gmgresearch|goldcore|implode-explode|insiderpaper|libertarianinstitute|libertyblitzkrieg|maxkeiser|mises\.org|mishtalk|monetary-metals)';
+
 -- Seed the requested priority questions as explicitly unverified, non-public
 -- monitoring hypotheses. These contain no evidence links and cannot be treated
 -- as canonical facts or publication-ready Stories until the normal engine adds
