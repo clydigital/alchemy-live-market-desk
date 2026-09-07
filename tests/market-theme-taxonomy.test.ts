@@ -10,6 +10,7 @@ import type { EvidencePackItem } from "../lib/intelligence/schemas.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const migration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260907110000_persistent_market_theme_taxonomy.sql"), "utf8");
+const repairMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260907123000_repair_persistent_market_theme_materialization.sql"), "utf8");
 
 function evidence(input: Partial<EvidencePackItem> = {}): EvidencePackItem {
   return {
@@ -32,6 +33,18 @@ test("taxonomy persists all requested families and uses a many-to-many Story lin
   assert.match(migration, /'alchemy_research_engine'[\s\S]*'theme_seed_unverified'/);
   assert.match(migration, /iran-oil-inflation-rates/);
   assert.match(migration, /fiscal-dominance/);
+});
+
+test("forward repair materialises parent, version, state and theme links without rewriting seed history", () => {
+  assert.match(repairMigration, /update public\.intelligence_themes child[\s\S]*parent_theme_id=parent\.id/);
+  assert.match(repairMigration, /update public\.stories story[\s\S]*current_thesis_version_id=version\.id/);
+  assert.match(repairMigration, /version\.snapshot->>'origin'='market_theme_taxonomy_seed'/);
+  assert.match(repairMigration, /insert into public\.intelligence_story_states/);
+  assert.match(repairMigration, /publication_eligible[\s\S]*source_verification_state[\s\S]*source_verification_score/);
+  assert.match(repairMigration, /insert into public\.intelligence_story_theme_links/);
+  assert.match(repairMigration, /on conflict\(story_id,theme_id\) do nothing/);
+  assert.doesNotMatch(repairMigration, /insert into public\.story_events/);
+  assert.doesNotMatch(repairMigration, /insert into public\.story_thesis_versions/);
 });
 
 test("one Story deterministically receives multiple theme assignments", () => {
