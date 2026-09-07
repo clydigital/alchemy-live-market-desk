@@ -96,3 +96,15 @@ old = "Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters 
 new = "Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters or another licensed news feed, and approved X presentation embedding. Live-owned monitored X discovery intake is active upstream; social posts establish that a statement was made, not that the underlying claim is true."
 if old in text:
     p.write_text(text.replace(old, new, 1))
+
+# The repo targets pre-ES2020 JavaScript, so avoid BigInt literals in the snowflake fallback.
+replace(
+    "lib/x-social-acquisition.ts",
+    'const TWITTER_EPOCH_MS = 1_288_834_974_657n;',
+    'const TWITTER_EPOCH_MS = 1_288_834_974_657;\nconst TWITTER_SNOWFLAKE_SEQUENCE = 4_194_304;',
+)
+replace(
+    "lib/x-social-acquisition.ts",
+    '  try {\n    const value = BigInt(postId);\n    const timestamp = Number((value >> 22n) + TWITTER_EPOCH_MS);\n    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;\n  } catch {\n    return null;\n  }',
+    '  const value = Number(postId);\n  if (!Number.isFinite(value)) return null;\n  const timestamp = Math.floor(value / TWITTER_SNOWFLAKE_SEQUENCE) + TWITTER_EPOCH_MS;\n  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;',
+)
