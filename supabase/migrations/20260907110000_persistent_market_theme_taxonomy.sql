@@ -106,7 +106,7 @@ with seed(slug,title,thesis,assets,theme_keys) as (
  ('fiscal-dominance','Fiscal dominance','Fiscal financing needs could constrain perceived policy independence or term-premium dynamics; this remains a testable hypothesis, not an asserted regime.',array['US10Y','US30Y','XAUUSD'],array['fiscal-sovereign-risk','rates-monetary-policy','political-institutional-risk'])
 ), inserted as (
  insert into public.stories(slug,title,thesis,status,confidence,assets,created_by,source_quality,novelty,persistence,trader_relevance,article_potential,article_verdict,updated_at)
- select slug,title,thesis,'develop',25,assets,'market_theme_seed',0,0,80,60,0,'theme_seed_unverified',now() from seed
+ select slug,title,thesis,'develop',25,assets,'alchemy_research_engine',0,0,80,60,0,'theme_seed_unverified',now() from seed
  on conflict(slug) do nothing
  returning id,slug,title,thesis,status,confidence,assets
 ), events as (
