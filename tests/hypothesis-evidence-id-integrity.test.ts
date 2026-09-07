@@ -36,7 +36,7 @@ test("Hypothesis evidence integrity: one-character UUID mutation is removed with
       evidenceState: "inferred",
       evidenceIds: [TYPO_EVIDENCE_ID],
     }),
-    new Set<string>([REAL_EVIDENCE_ID]),
+    new Set([REAL_EVIDENCE_ID]),
   );
 
   assert.equal(result.removedReferenceCount, 1);
@@ -54,7 +54,7 @@ test("Hypothesis evidence integrity: unsupported strong causal edge drops only t
       evidenceState: "strongly_supported",
       evidenceIds: [TYPO_EVIDENCE_ID],
     }),
-    new Set<string>([REAL_EVIDENCE_ID]),
+    new Set([REAL_EVIDENCE_ID]),
   );
 
   assert.equal(result.removedReferenceCount, 1);
