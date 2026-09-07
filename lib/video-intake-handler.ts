@@ -2,9 +2,8 @@ import { NextResponse } from "next/server.js";
 
 import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { scheduledVideoRunIdentity, type ScheduledVideoSlot } from "./scheduled-video-identity.ts";
-import { retrieveSupadataVideo } from "./supadata.ts";
 import { SupadataTranscriptStore } from "./supadata-transcript-store.ts";
-import { retrieveAndPersistTranscript, type TranscriptPipelineStore } from "./transcript-pipeline.ts";
+import type { TranscriptPipelineStore } from "./transcript-pipeline.ts";
 import { runScheduledVideoIntake } from "./video-intake-service.ts";
 import type { VideoResearchSlot } from "./youtube-transcript-persistence.ts";
 
@@ -20,7 +19,6 @@ export type VideoIntakeHandlerDependencies = {
   authenticate: (request: Request) => boolean;
   now: () => Date;
   createStore: () => TranscriptPipelineStore;
-  retrieveTranscript: typeof retrieveSupadataVideo;
   runScheduled: typeof runScheduledVideoIntake;
 };
 
@@ -28,7 +26,6 @@ const defaultDependencies: VideoIntakeHandlerDependencies = {
   authenticate: authenticated,
   now: () => new Date(),
   createStore: () => new SupadataTranscriptStore(),
-  retrieveTranscript: retrieveSupadataVideo,
   runScheduled: runScheduledVideoIntake,
 };
 
@@ -71,26 +68,12 @@ async function targetFromRequest(request: Request) {
   return typeof body?.videoId === "string" ? body.videoId.trim() : null;
 }
 
-async function processVideo(
-  videoId: string,
-  store: TranscriptPipelineStore,
-  retrieveTranscript: typeof retrieveSupadataVideo,
-) {
-  const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
-  return retrieveAndPersistTranscript({
-    videoId,
-    store,
-    provider: "supadata",
-    retrieve: (id) => retrieveTranscript(id, supadataApiKey, { timeoutMs: 8_000 }),
-  });
-}
-
 async function runTarget(videoId: string, dependencies: VideoIntakeHandlerDependencies) {
   if (!validVideoId(videoId)) {
     return response({ status: "failed", videoId, errorCode: "invalid_video_url" }, 400);
   }
-  const result = await processVideo(videoId, dependencies.createStore(), dependencies.retrieveTranscript);
-  if (result.status === "not_found") {
+  const item = await dependencies.createStore().findVideoItem(videoId);
+  if (!item) {
     return response({
       status: "not_found",
       videoId,
@@ -99,10 +82,12 @@ async function runTarget(videoId: string, dependencies: VideoIntakeHandlerDepend
   }
   return response({
     engine: "XWADA",
-    mode: "targeted_transcript_retry",
+    mode: "manual_transcript_guidance",
     generatedAt: new Date().toISOString(),
-    result,
-  }, result.status === "ready" ? 200 : 502);
+    videoId,
+    transcriptStatus: item.transcriptStatus,
+    detail: "Automated paid transcript retrieval is disabled. Add a verified manual transcript before using this video as research evidence.",
+  }, 409);
 }
 
 async function runDiscovery(
@@ -126,12 +111,12 @@ async function runDiscovery(
       discovery: "YouTube Data API uploads playlist",
       uploadsPerChannel: 10,
       backfillHours: 72,
-      transcriptProvider: "Supadata native captions",
-      transcriptMode: "native",
+      transcriptProvider: "Chrome / YouTubeToTranscript when configured; otherwise manual transcript intake",
+      transcriptMode: "manual-or-browser",
       transcriptFormat: "timestamped",
       generatedTranscriptFallback: false,
       cache: "Database-first; completed transcripts are never fetched twice.",
-      failureRule: "Required transcript failures stay blocked and create idempotent research debt; overflow is deferred to the next scheduled intake window.",
+      failureRule: "Videos without a browser transcript stay blocked for manual intake and create idempotent research debt; no paid fallback is attempted.",
     },
     status: intake.status,
     summary: intake.summary,

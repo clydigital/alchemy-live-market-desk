@@ -102,7 +102,7 @@ test("FINRA capture fetches the complete official file then persists only select
         rawRecordInserted: true,
         observationsInserted: input.observations.length,
         observationsUnchanged: 0,
-        changeEvents: [],
+          changeEvents: [],
       };
     },
   });

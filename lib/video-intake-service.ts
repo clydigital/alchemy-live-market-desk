@@ -5,12 +5,15 @@ import {
   isTranscriptRevalidationDue,
   retrieveAndPersistTranscript,
 } from "./transcript-pipeline.ts";
-import { retrieveSupadataVideo } from "./supadata.ts";
 import {
-  isSupadataTranscriptChannel,
-  selectedSupadataTranscriptChannels,
-  SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY,
-} from "./supadata-intake-policy.ts";
+  isChromeTranscriptOperatorConfigured,
+  retrieveChromeYouTubeToTranscript,
+} from "./chrome-transcript-operator.ts";
+import {
+  isTranscriptChannel,
+  selectedTranscriptChannels,
+  TRANSCRIPT_CHANNEL_PRIORITY,
+} from "./video-intake-policy.ts";
 import { SupadataTranscriptStore } from "./supadata-transcript-store.ts";
 import {
   createVideoIntakeRun,
@@ -28,7 +31,7 @@ import {
 } from "./youtube-reliability.ts";
 
 const DEFAULT_MAX_TRANSCRIPT_ATTEMPTS = 6;
-export { isSupadataTranscriptChannel, selectedSupadataTranscriptChannels, SUPADATA_TRANSCRIPT_CHANNEL_PRIORITY };
+export { isTranscriptChannel, selectedTranscriptChannels, TRANSCRIPT_CHANNEL_PRIORITY };
 
 export type ScheduledVideoIntakeResult = {
   runId: string;
@@ -68,7 +71,8 @@ export type ScheduledVideoIntakeDependencies = {
   failRun: typeof failVideoIntakeRun;
   discoverChannels: typeof discoverXwadaVideoChannels;
   createStore: (client: VideoIntakeClient) => TranscriptPipelineStore;
-  retrieveTranscript: typeof retrieveSupadataVideo;
+  browserTranscriptConfigured: () => boolean;
+  retrieveBrowserTranscript: typeof retrieveChromeYouTubeToTranscript;
 };
 
 const defaultDependencies: ScheduledVideoIntakeDependencies = {
@@ -80,25 +84,22 @@ const defaultDependencies: ScheduledVideoIntakeDependencies = {
   failRun: failVideoIntakeRun,
   discoverChannels: discoverXwadaVideoChannels,
   createStore: (client) => new SupadataTranscriptStore(client),
-  retrieveTranscript: retrieveSupadataVideo,
+  browserTranscriptConfigured: isChromeTranscriptOperatorConfigured,
+  retrieveBrowserTranscript: retrieveChromeYouTubeToTranscript,
 };
 
-async function processVideo(
+async function processBrowserVideo(
   videoId: string,
   store: TranscriptPipelineStore,
   activeRunId: string,
-  retrieveTranscript: typeof retrieveSupadataVideo,
+  retrieveTranscript: typeof retrieveChromeYouTubeToTranscript,
 ) {
-  const supadataApiKey = process.env.SUPADATA_API_KEY?.trim() || "";
   return retrieveAndPersistTranscript({
     videoId,
     store,
     activeRunId,
-    provider: "supadata",
-    // Scheduled work uses a single bounded attempt. Retryable failures are
-    // persisted as debt and are picked up by a later cadence rather than
-    // holding the full research cycle for minutes.
-    retrieve: (id) => retrieveTranscript(id, supadataApiKey, { timeoutMs: 8_000 }),
+    provider: "youtubetotranscript.com",
+    retrieve: retrieveTranscript,
   });
 }
 
@@ -117,9 +118,12 @@ async function revalidationNextCheckAt(runClient: Parameters<typeof ensureVideoI
 
 /**
  * The shared Live-only YouTube intake step. Discovery remains broad, while
- * Supadata credit spend is intentionally limited to StockedUp, Kevin Gerrity,
- * ClearValue Tax and FX Evolution. Livestreams and short-form uploads are
- * classified upstream and never enter the transcript provider path.
+ * A configured Chrome operator is the only automated transcript path after
+ * API discovery: it verifies the public YouTube watch page and then retrieves
+ * a timestamped transcript from YouTubeToTranscript. When the operator is
+ * unavailable or challenged, the video remains pending for manual research;
+ * scheduled intake never uses a paid fallback. Livestreams and short-form
+ * uploads never enter the transcript path.
  */
 export async function runScheduledVideoIntake(input: {
   slot: VideoResearchSlot;
@@ -177,18 +181,18 @@ export async function runScheduledVideoIntake(input: {
     const results: TranscriptPipelineResult[] = [];
     const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
     const deferredVideoIds: string[] = [];
-    const selectedChannels = channels.filter((channel) => isSupadataTranscriptChannel(channel.channelKey));
+    const selectedChannels = channels.filter((channel) => isTranscriptChannel(channel.channelKey));
     const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
       channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
     ));
     const skippedShortIds = selectedChannels.flatMap((channel) => (
       channel.videos.filter((video) => video.isShort === true).map((video) => video.videoId)
     ));
-    const orderedChannels = selectedSupadataTranscriptChannels(channels);
-    let providerAttempts = 0;
+    const orderedChannels = selectedTranscriptChannels(channels);
+    let transcriptAttempts = 0;
 
-    // Process one upload from each selected channel before spending a second
-    // Supadata credit on another upload from the same creator.
+    // Process one upload from each selected channel before asking Chrome for
+    // a second transcript from the same creator.
     const longestChannel = Math.max(0, ...orderedChannels.map((channel) => channel.videos.length));
     for (let videoIndex = 0; videoIndex < longestChannel; videoIndex += 1) {
       for (const channel of orderedChannels) {
@@ -240,7 +244,7 @@ export async function runScheduledVideoIntake(input: {
         });
 
         if (cached) {
-          const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
+          const result = await processBrowserVideo(video.videoId, store, run.id, dependencies.retrieveBrowserTranscript);
           results.push(result);
           currentStage = "transcript_persisted";
           await dependencies.recordStage({
@@ -263,52 +267,65 @@ export async function runScheduledVideoIntake(input: {
           continue;
         }
 
-        if (providerAttempts >= maxTranscriptAttempts) {
+        if (transcriptAttempts >= maxTranscriptAttempts) {
           deferredVideoIds.push(video.videoId);
           continue;
         }
 
-        currentStage = "supadata_request_started";
+        if (!dependencies.browserTranscriptConfigured()) {
+          deferredVideoIds.push(video.videoId);
+          currentStage = "manual_transcript_required";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "manual_transcript_required",
+            status: "blocked",
+            detail: {
+              videoId: video.videoId,
+              reason: "Chrome transcript operator is not configured; no paid transcript fallback is enabled.",
+            },
+            client: run.client,
+          });
+          continue;
+        }
+
+        currentStage = "chrome_transcript_request_started";
         await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
-          stage: "supadata_request_started",
+          stage: "chrome_transcript_request_started",
           status: "running",
-          detail: { videoId: video.videoId },
+          detail: { videoId: video.videoId, provider: "youtubetotranscript.com" },
           client: run.client,
         });
-
-        const result = await processVideo(video.videoId, store, run.id, dependencies.retrieveTranscript);
-        results.push(result);
-
+        const result = await processBrowserVideo(video.videoId, store, run.id, dependencies.retrieveBrowserTranscript);
         await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
-          stage: "supadata_request_started",
+          stage: "chrome_transcript_request_started",
           status: "complete",
           detail: { videoId: video.videoId, providerResult: result.status },
           client: run.client,
         });
-
-        currentStage = "supadata_response_received";
+        currentStage = "chrome_transcript_response_received";
         await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
-          stage: "supadata_response_received",
+          stage: "chrome_transcript_response_received",
           status: result.status === "ready" ? "complete" : "failed",
           detail: {
             videoId: video.videoId,
             status: result.status,
             provider: result.provider,
-            cacheHit: false,
             errorCode: result.status === "failed" ? result.errorCode : undefined,
             errorMessage: result.status === "failed" ? result.errorMessage : undefined,
             httpStatus: result.status === "failed" ? result.httpStatus : undefined,
             retryable: result.status === "failed" ? result.retryable : undefined,
-            nextCheckAt: result.status === "failed" ? result.nextCheckAt : undefined,
           },
           client: run.client,
         });
+
+        results.push(result);
 
         currentStage = "transcript_persisted";
         await dependencies.recordStage({
@@ -330,7 +347,7 @@ export async function runScheduledVideoIntake(input: {
           client: run.client,
         });
 
-        if (!result.cacheHit && result.status !== "not_found") providerAttempts += 1;
+        if (!result.cacheHit && result.status !== "not_found") transcriptAttempts += 1;
       }
     }
 

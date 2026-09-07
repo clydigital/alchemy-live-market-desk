@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { POST as publishResearchUpdate } from "@/app/api/research-update/route";
 import { buildScheduledResearchInputWithFirecrawl } from "@/lib/firecrawl-scheduled-research";
 import {
-  attachMacroCaptureToResearchRun,
-  captureMacroIndicatorsSnapshot,
-} from "@/lib/macro/macro-capture-supabase";
+  attachMacroContextCaptureToResearchRun,
+  captureMacroContextSnapshot,
+} from "@/lib/macro/macro-context-capture-supabase";
+import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
@@ -25,8 +26,9 @@ type ScheduledResearchHandlerDependencies = {
   now?: () => Date;
   claimRun?: (slot: CanonicalResearchSlot, runKey: string, scheduledFor: string) => Promise<ClaimResult>;
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
-  captureMacroIndicators?: typeof captureMacroIndicatorsSnapshot;
-  attachMacroCapture?: typeof attachMacroCaptureToResearchRun;
+  captureMacroContext?: typeof captureMacroContextSnapshot;
+  ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
+  attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
   logger?: (event: ScheduledResearchLogEvent) => void;
@@ -105,6 +107,25 @@ async function markClaimFailed(id: string, message: string) {
 
 function logScheduledResearchEvent(event: ScheduledResearchLogEvent) {
   console.info(JSON.stringify(event));
+}
+
+async function safeOfficialActualIngestion(
+  ingest: typeof ingestOfficialMacroActuals,
+  now: Date,
+): Promise<OfficialActualIngestionResult> {
+  try {
+    return await ingest({ now });
+  } catch (error) {
+    return {
+      attempted: 0,
+      completed: 0,
+      failed: 0,
+      skipped: 0,
+      completedReleaseIds: [],
+      failedReleaseIds: [],
+      note: `Official Actual ingestion collector is degraded: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 /**
@@ -202,24 +223,26 @@ export async function handleScheduledResearchWithDependencies(
       claimOutcome: claim.state,
       runId: claim.run.id,
     });
-    // Macro Indicators capture is an independent deterministic collector. Run it
-    // in parallel with news/transcript acquisition so it cannot serially consume
-    // the research route's reasoning budget.
-    const [input, macroCapture] = await Promise.all([
+    // Independent deterministic collectors run beside news/transcript intake.
+    // Daily Investment Brief is the primary dashboard layer. MacroMicro remains
+    // supplemental and an unavailable macro provider never suppresses unrelated
+    // evidence or canonical Story work.
+    const [input, macroCapture, officialActuals] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
       }),
-      (dependencies.captureMacroIndicators ?? captureMacroIndicatorsSnapshot)(),
+      (dependencies.captureMacroContext ?? captureMacroContextSnapshot)({ now }),
+      safeOfficialActualIngestion(dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals, now),
     ]);
 
     let macroLineagePersisted = false;
     let macroLineageNote: string | null = null;
     try {
-      await (dependencies.attachMacroCapture ?? attachMacroCaptureToResearchRun)(claim.run.id, macroCapture);
+      await (dependencies.attachMacroContext ?? attachMacroContextCaptureToResearchRun)(claim.run.id, macroCapture);
       macroLineagePersisted = true;
     } catch (error) {
-      macroLineageNote = error instanceof Error ? error.message : "Could not attach Macro Indicators lineage to the run.";
+      macroLineageNote = error instanceof Error ? error.message : "Could not attach macro-source lineage to the run.";
     }
 
     const internalRequest = new Request("https://live-internal.invalid/api/research-update", {
@@ -266,6 +289,7 @@ export async function handleScheduledResearchWithDependencies(
       acquisition: {
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
+        officialActuals,
         macro: {
           ...macroCapture,
           runLineagePersisted: macroLineagePersisted,

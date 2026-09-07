@@ -5,7 +5,7 @@ import {
   type TranscriptApiTranscript,
 } from "./transcriptapi.ts";
 
-export type TranscriptProvider = "transcriptapi" | "supadata";
+export type TranscriptProvider = "transcriptapi" | "supadata" | "youtubetotranscript.com";
 
 export type TranscriptIntakeItem = {
   id: string;
@@ -110,17 +110,23 @@ const STRUCTURAL_UNAVAILABLE_CODES = new Set([
 ]);
 
 function providerLabel(provider: TranscriptProvider) {
-  return provider === "supadata" ? "Supadata" : "TranscriptAPI";
+  if (provider === "supadata") return "Supadata";
+  if (provider === "youtubetotranscript.com") return "YouTubeToTranscript via Chrome";
+  return "TranscriptAPI";
 }
 
 function nextAction(error: TranscriptApiError, provider: TranscriptProvider) {
   switch (error.code) {
     case "provider_auth_error": return provider === "supadata"
       ? "Verify the server-side SUPADATA_API_KEY and redeploy; scheduled intake will revalidate after the 24-hour cooldown."
+      : provider === "youtubetotranscript.com"
+        ? "Verify the Chrome transcript operator URL and token, then revalidate after the 24-hour cooldown."
       : "Verify the server-side TRANSCRIPT_API_KEY and redeploy; scheduled intake will revalidate after the 24-hour cooldown.";
     case "provider_payment_required": return `Restore ${providerLabel(provider)} credits or plan access; scheduled intake will revalidate after the 24-hour cooldown.`;
     case "provider_rate_limit": return "Retry after the provider cooldown.";
     case "provider_server_error": return "Retry after bounded backoff; escalate if the provider remains unavailable.";
+    case "browser_operator_unavailable": return "Restore the controlled Chrome operator and its private connection, then revalidate after the cooldown.";
+    case "browser_verification_required": return "Keep creator claims blocked; a browser verification challenge was detected and no bypass was attempted. Revalidate after the cooldown.";
     case "network_error":
     case "timeout": return "Retry after the network/provider cooldown.";
     case "language_unavailable": return "Keep creator claims blocked and revalidate caption-language availability after the 24-hour cooldown.";

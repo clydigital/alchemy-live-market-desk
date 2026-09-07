@@ -250,6 +250,10 @@ function assertKnownEvidenceIds(ids: string[], knownEvidenceIds: ReadonlySet<str
   return normalized;
 }
 
+function keepKnownEvidenceIds(ids: string[], knownEvidenceIds: ReadonlySet<string>) {
+  return unique(ids).filter((id) => knownEvidenceIds.has(id));
+}
+
 export function canonicalCausalEdgeId(
   hypothesisId: string,
   ordinal: number,
@@ -315,10 +319,13 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     evidenceIds: thesisEvidenceIds,
   });
 
-  const interpretationEvidenceIds = assertKnownEvidenceIds(
+  // These are optional explanatory annotations produced by Story Synthesis.
+  // Unknown IDs are dropped at the field boundary so a hallucinated optional
+  // reference cannot abort an otherwise valid canonical Story. Decisive,
+  // hypothesis, causal, countercase and scenario lineage remains strict below.
+  const interpretationEvidenceIds = keepKnownEvidenceIds(
     input.synthesis.acceptedExplanationEvidenceIds,
     knownEvidenceIds,
-    "Accepted explanation",
   );
   if (input.synthesis.acceptedExplanation && interpretationEvidenceIds.length) {
     claims.push({
@@ -343,11 +350,15 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     knownEvidenceIds,
     "Countercase",
   );
-  const overlookedVariableEvidenceIds = assertKnownEvidenceIds(
+  const overlookedVariableEvidenceIds = keepKnownEvidenceIds(
     input.synthesis.overlookedVariableEvidenceIds,
     knownEvidenceIds,
-    "Overlooked variable",
   );
+  const overlookedVariableEvidenceState = input.synthesis.overlookedVariable
+    ? overlookedVariableEvidenceIds.length
+      ? input.synthesis.overlookedVariableEvidenceStatus
+      : "speculative"
+    : null;
 
   const assetImplications = input.scenarios.map((scenario) => ({
     asset: scenario.asset,
@@ -377,7 +388,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     },
     overlookedVariable: {
       text: input.synthesis.overlookedVariable,
-      evidenceState: input.synthesis.overlookedVariable ? input.synthesis.overlookedVariableEvidenceStatus : null,
+      evidenceState: overlookedVariableEvidenceState,
       evidenceIds: overlookedVariableEvidenceIds,
     },
     assetImplications,

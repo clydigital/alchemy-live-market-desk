@@ -27,9 +27,26 @@ function safeDate(value: string | null | undefined) {
   return value && Number.isFinite(Date.parse(value)) ? value : null;
 }
 
+function currentDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isUpcomingDate(value: string | null | undefined) {
+  if (!value) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value >= currentDateKey();
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp >= Date.now();
+}
+
+function isUpcomingEvent(event: MarketEventV1) {
+  if (event.status === "cancelled" || event.status === "completed") return false;
+  if (event.timePrecision === "tbc" && !event.startAt) return true;
+  return isUpcomingDate(event.startAt);
+}
+
 function calendarItem(event: Awaited<ReturnType<typeof getEconomicCalendar>>[number]): EconomicCalendarItem {
   return {
-    time: event.timeLabel ? `${event.date} · ${event.timeLabel}` : event.date,
+    time: event.date,
     event: event.event,
     consensus: event.consensus,
     prior: event.revisedPrevious || event.previous,
@@ -39,11 +56,8 @@ function calendarItem(event: Awaited<ReturnType<typeof getEconomicCalendar>>[num
 }
 
 function marketEventCalendarItem(event: MarketEventV1): EconomicCalendarItem {
-  const time = event.startAt
-    ? `${event.startAt}${event.timeLabel ? ` · ${event.timeLabel}` : ""}`
-    : event.timeLabel || "Time TBC";
   return {
-    time,
+    time: event.startAt || "Time TBC",
     event: event.title,
     consensus: null,
     prior: null,
@@ -55,7 +69,7 @@ function marketEventCalendarItem(event: MarketEventV1): EconomicCalendarItem {
 function earningsItem(call: EarningsCallRow, linkedStory?: { title?: string; assets?: string[] }) : EarningsItem {
   return {
     company: call.company_name,
-    time: call.call_date ? `${call.call_date}${call.event_time_label ? ` · ${call.event_time_label}` : ""}` : "TBC",
+    time: call.call_date || "TBC",
     decisiveVariable: call.relevance_reason || "What changes in demand, guidance or cash conversion?",
     linkedTheme: linkedStory?.title || call.ticker,
     confirmationCase: call.guidance || "Guidance and demand remain consistent with the current view.",
@@ -139,19 +153,22 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
   const linkedStoryByTicker = new Map(stories.flatMap((story) => story.assets.map((asset) => [asset, story] as const)));
   const earnings = earningsCalls
     .map((call) => ({ item: earningsItem(call, linkedStoryByTicker.get(call.ticker)), callDate: call.call_date }))
-    .filter(({ callDate }) => Boolean(safeDate(callDate)))
+    .filter(({ callDate }) => Boolean(safeDate(callDate)) && isUpcomingDate(callDate))
     .map(({ item }) => item);
   const policyCalendar = allEvents
     .filter((event) => eventHorizonUpcomingLane(event.eventType) === "economicCalendar")
-    .filter((event) => event.status !== "cancelled")
+    .filter(isUpcomingEvent)
     .map(marketEventCalendarItem);
   const geopolitical = allEvents
     .filter((event) => eventHorizonUpcomingLane(event.eventType) === "geopoliticalClock")
-    .filter((event) => event.status !== "cancelled")
+    .filter(isUpcomingEvent)
     .map(geopoliticalClockItem);
+  const scheduledCalendar = calendar
+    .filter((event) => event.status === "Scheduled" && isUpcomingDate(event.date))
+    .map(calendarItem);
   return {
     upcoming: {
-      economicCalendar: [...calendar.map(calendarItem), ...policyCalendar],
+      economicCalendar: [...scheduledCalendar, ...policyCalendar],
       earnings,
       geopoliticalClock: geopolitical,
     },

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  isSupadataTranscriptChannel,
-  selectedSupadataTranscriptChannels,
-} from "../lib/supadata-intake-policy.ts";
+  isTranscriptChannel,
+  selectedTranscriptChannels,
+} from "../lib/video-intake-policy.ts";
 import {
   runScheduledVideoIntake,
   type ScheduledVideoIntakeDependencies,
@@ -153,7 +153,8 @@ class ScheduledMemoryStore implements TranscriptPipelineStore {
 
 function scheduledHarness(options: {
   store?: ScheduledMemoryStore;
-  retrieve?: ScheduledVideoIntakeDependencies["retrieveTranscript"];
+  retrieveBrowser?: ScheduledVideoIntakeDependencies["retrieveBrowserTranscript"];
+  browserConfigured?: boolean;
   ensureError?: Error;
   finalizeError?: Error;
 } = {}) {
@@ -186,10 +187,10 @@ function scheduledHarness(options: {
     },
     discoverChannels: async () => [channel("stockedup", [video("stockedup", "KHacM8aduWM")])],
     createStore: () => store,
-    retrieveTranscript: async (...args) => {
-      providerCalls += 1;
-      return options.retrieve ? options.retrieve(...args) : scheduledRetrieval;
-    },
+    browserTranscriptConfigured: () => options.browserConfigured === true,
+    retrieveBrowserTranscript: async (videoId) => options.retrieveBrowser
+      ? options.retrieveBrowser(videoId)
+      : scheduledRetrieval,
   };
 
   return {
@@ -203,7 +204,7 @@ function scheduledHarness(options: {
   };
 }
 
-test("only selected creators' long-form non-live videos enter the Supadata provider work list", () => {
+test("only selected creators' long-form non-live videos enter the browser/manual work list", () => {
   const channels = [
     channel("fx-evolution", [
       video("fx-evolution", "fx-upload"),
@@ -215,6 +216,8 @@ test("only selected creators' long-form non-live videos enter the Supadata provi
       video("stockedup", "stock-live", { isLive: true }),
       video("stockedup", "stock-short", { isShort: true }),
     ]),
+    channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
+    channel("traders-reality", [video("traders-reality", "reality-upload")]),
     channel("kevin-gerrity", [video("kevin-gerrity", "kevin-upload")]),
     channel("clearvalue-tax", [
       video("clearvalue-tax", "clear-upload"),
@@ -224,24 +227,30 @@ test("only selected creators' long-form non-live videos enter the Supadata provi
     channel("tradernick", [video("tradernick", "nick-upload")]),
   ];
 
-  const workList = selectedSupadataTranscriptChannels(channels);
+  const workList = selectedTranscriptChannels(channels);
   assert.deepEqual(workList.map((entry) => entry.channelKey), [
     "stockedup",
+    "wall-street-truth-bombs",
+    "traders-reality",
     "kevin-gerrity",
     "clearvalue-tax",
     "fx-evolution",
   ]);
   assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
     "stock-upload",
+    "truth-upload",
+    "reality-upload",
     "kevin-upload",
     "clear-upload",
     "fx-upload",
   ]);
-  assert.equal(isSupadataTranscriptChannel("stockedup"), true);
-  assert.equal(isSupadataTranscriptChannel("kevin-gerrity"), true);
-  assert.equal(isSupadataTranscriptChannel("clearvalue-tax"), true);
-  assert.equal(isSupadataTranscriptChannel("fx-evolution"), true);
-  assert.equal(isSupadataTranscriptChannel("tradernick"), false);
+  assert.equal(isTranscriptChannel("stockedup"), true);
+  assert.equal(isTranscriptChannel("kevin-gerrity"), true);
+  assert.equal(isTranscriptChannel("clearvalue-tax"), true);
+  assert.equal(isTranscriptChannel("fx-evolution"), true);
+  assert.equal(isTranscriptChannel("wall-street-truth-bombs"), true);
+  assert.equal(isTranscriptChannel("traders-reality"), true);
+  assert.equal(isTranscriptChannel("tradernick"), false);
 });
 
 test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {
@@ -367,8 +376,8 @@ test("recoverStaleVideoRuns retries a partial recovery without duplicate log or 
   assert.equal(harness.run.warnings.filter((warning) => warning.includes("Stale video run abandoned")).length, 1);
 });
 
-test("scheduled StockedUp intake reaches Supadata, persists timestamps, and replays from cache", async () => {
-  const harness = scheduledHarness();
+test("scheduled StockedUp intake reaches Chrome, persists timestamps, and replays from cache", async () => {
+  const harness = scheduledHarness({ browserConfigured: true });
   const input = {
     slot: "video_midnight" as const,
     runKey: "video_midnight-2026-08-27",
@@ -383,35 +392,35 @@ test("scheduled StockedUp intake reaches Supadata, persists timestamps, and repl
 
   assert.equal(first.status, "healthy");
   assert.equal(first.transcripts[0]?.status, "ready");
-  assert.equal(first.transcripts[0]?.provider, "supadata");
+  assert.equal(first.transcripts[0]?.provider, "youtubetotranscript.com");
   assert.equal(first.transcripts[0]?.cacheHit, false);
   assert.equal(harness.store.item.transcriptStatus, "ready");
-  assert.equal(harness.store.item.transcriptProvider, "supadata");
+  assert.equal(harness.store.item.transcriptProvider, "youtubetotranscript.com");
   assert.equal(harness.store.item.attemptCount, 1);
   assert.deepEqual(harness.store.cache?.transcript.segments, scheduledRetrieval.transcript.segments);
-  assert.equal(harness.providerCalls(), 1);
-  assert.ok(harness.stages.some((entry) => entry.stage === "supadata_request_started" && entry.status === "complete"));
-  assert.ok(harness.stages.some((entry) => entry.stage === "supadata_response_received" && entry.status === "complete"));
+  assert.equal(harness.providerCalls(), 0);
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_request_started" && entry.status === "complete"));
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_response_received" && entry.status === "complete"));
   assert.equal(harness.discoveryPersisted(), 2);
   assert.equal(harness.finalized.length, 2);
 
   assert.equal(replay.transcripts[0]?.status, "ready");
   assert.equal(replay.transcripts[0]?.cacheHit, true);
   assert.equal(replay.summary.cacheHits, 1);
-  assert.equal(harness.providerCalls(), 1, "a replayed ready transcript must not spend another provider request");
+  assert.equal(harness.providerCalls(), 0, "a replayed ready transcript must not spend a paid provider request");
   assert.ok(!replayStages.some((entry) => entry.stage.startsWith("supadata_")));
   assert.ok(replayStages.some((entry) => entry.stage === "transcript_state_updated" && entry.detail?.cacheHit === true));
   assert.ok(harness.store.recalculatedRunIds.every((runId) => runId === "active-video-run"));
 });
 
-test("scheduled Supadata failure persists exact provider debt and finalizes discovery independently", async () => {
+test("a configured Chrome operator records its own failure without a paid fallback", async () => {
   const harness = scheduledHarness({
-    retrieve: async () => {
-      throw new TranscriptApiError("Supadata rate limit", {
-        code: "provider_rate_limit",
-        httpStatus: 429,
+    browserConfigured: true,
+    retrieveBrowser: async () => {
+      throw new TranscriptApiError("Browser transcript challenge", {
+        code: "browser_verification_required",
+        httpStatus: null,
         retryable: true,
-        retryAfterSeconds: 120,
       });
     },
   });
@@ -425,26 +434,39 @@ test("scheduled Supadata failure persists exact provider debt and finalizes disc
 
   assert.equal(result.status, "attention");
   assert.equal(result.transcripts[0]?.status, "failed");
-  if (result.transcripts[0]?.status !== "failed") assert.fail("Expected a failed Supadata transcript result");
-  assert.equal(result.transcripts[0].provider, "supadata");
-  assert.equal(result.transcripts[0].errorCode, "provider_rate_limit");
-  assert.equal(result.transcripts[0].httpStatus, 429);
-  assert.equal(result.transcripts[0].retryable, true);
-  assert.equal(harness.store.item.transcriptProvider, "supadata");
-  assert.equal(harness.store.item.transcriptErrorCode, "provider_rate_limit");
-  assert.equal(harness.store.item.transcriptHttpStatus, 429);
-  assert.equal(harness.store.item.attemptCount, 1);
-  assert.deepEqual(harness.store.debtRunIds, ["active-video-run"]);
+  assert.equal(result.transcripts[0]?.provider, "youtubetotranscript.com");
+  assert.equal(harness.store.item.transcriptProvider, "youtubetotranscript.com");
+  assert.equal(harness.providerCalls(), 0, "a Chrome transcript must not spend a paid-provider attempt");
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_request_started" && entry.status === "complete"));
+  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_response_received" && entry.status === "failed"));
+  assert.ok(!harness.stages.some((entry) => entry.stage === "paid_transcript_request_started"));
+});
+
+test("an unconfigured Chrome operator leaves the detected video visibly pending for manual intake", async () => {
+  const harness = scheduledHarness();
+
+  const result = await runScheduledVideoIntake({
+    slot: "video_midnight",
+    runKey: "video_midnight-2026-08-27",
+    scheduledFor: "2026-08-27T00:40:00+08:00",
+    now: new Date("2026-08-27T00:40:00+08:00"),
+  }, harness.dependencies);
+
+  assert.equal(result.status, "attention");
+  assert.deepEqual(result.transcripts, []);
+  assert.deepEqual(result.deferredVideoIds, ["KHacM8aduWM"]);
+  assert.equal(harness.store.item.transcriptProvider, null);
+  assert.equal(harness.store.item.attemptCount, 0);
+  assert.deepEqual(harness.store.debtRunIds, []);
+  assert.equal(harness.providerCalls(), 0);
   assert.equal(harness.discoveryPersisted(), 1);
   assert.equal(harness.finalized.length, 1);
   assert.equal(harness.failed.length, 0);
-  const responseStage = harness.stages.find((entry) => entry.stage === "supadata_response_received");
-  assert.equal(responseStage?.status, "failed");
-  assert.equal(responseStage?.detail?.errorCode, "provider_rate_limit");
-  assert.equal(responseStage?.detail?.httpStatus, 429);
+  const manualStage = harness.stages.find((entry) => entry.stage === "manual_transcript_required");
+  assert.equal(manualStage?.status, "blocked");
 });
 
-test("scheduled intake reads a legacy TranscriptAPI cache without false Supadata provenance or spend", async () => {
+test("scheduled intake reads a legacy TranscriptAPI cache without changing its provenance", async () => {
   const store = new ScheduledMemoryStore();
   store.item = { ...store.item, transcriptStatus: "ready", transcriptProvider: "transcriptapi", attemptCount: 3 };
   store.cache = {
@@ -468,7 +490,7 @@ test("scheduled intake reads a legacy TranscriptAPI cache without false Supadata
   assert.equal(result.transcripts[0]?.cacheHit, true);
   assert.equal(harness.providerCalls(), 0);
   assert.equal(harness.store.savedProvider, null);
-  assert.ok(!harness.stages.some((entry) => entry.stage.startsWith("supadata_")));
+  assert.ok(!harness.stages.some((entry) => entry.stage.startsWith("paid_")));
   assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
 });
 
@@ -650,7 +672,7 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
   await failVideoIntakeRun({
     runId: "test-run-id",
     slot: "video_midnight",
-    stage: "supadata_request_started",
+    stage: "chrome_transcript_request_started",
     error: new Error("Provider timeout"),
     client: mockClient,
   });
@@ -658,7 +680,7 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
   assert.equal(updates.length, 2);
   const runUpdate = updates[0].payload as { status: string; summary: string };
   assert.equal(runUpdate.status, "failed");
-  assert.match(runUpdate.summary, /Execution failed at stage 'supadata_request_started': Provider timeout/);
+  assert.match(runUpdate.summary, /Execution failed at stage 'chrome_transcript_request_started': Provider timeout/);
 
   const slotUpdate = updates[1].payload as { status: string; health_state: string };
   assert.equal(slotUpdate.status, "failed");

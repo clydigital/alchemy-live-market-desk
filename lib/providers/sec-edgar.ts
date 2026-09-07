@@ -10,6 +10,11 @@ export const SEC_XBRL_CONCEPTS = {
   cash: ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
   assets: ["Assets"],
   liabilities: ["Liabilities"],
+  currentLongTermDebt: ["LongTermDebtCurrent"],
+  longTermDebt: ["LongTermDebt"],
+  longTermDebtNoncurrent: ["LongTermDebtNoncurrent"],
+  shortTermBorrowings: ["ShortTermBorrowings"],
+  interestExpense: ["InterestExpenseNonOperating", "InterestAndDebtExpense"],
   equity: ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
 } as const;
 

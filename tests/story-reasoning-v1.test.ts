@@ -230,15 +230,13 @@ test("Story Synthesis provenance supplies accepted-explanation and overlooked-va
   assert.deepEqual(snapshot.overlookedVariable.evidenceIds, ["ev-1"]);
 });
 
-test("unknown Story Synthesis provenance IDs fail closed", () => {
-  assert.throws(
-    () => buildSnapshot({ acceptedExplanationEvidenceIds: ["missing-accepted-evidence"] }),
-    /Accepted explanation references unknown canonical evidence ID/,
-  );
-  assert.throws(
-    () => buildSnapshot({ overlookedVariableEvidenceIds: ["missing-overlooked-evidence"] }),
-    /Overlooked variable references unknown canonical evidence ID/,
-  );
+test("unknown optional Story Synthesis provenance is discarded without entering canonical lineage", () => {
+  const accepted = buildSnapshot({ acceptedExplanationEvidenceIds: ["missing-accepted-evidence"] });
+  assert.equal(accepted.claims.some((claim) => claim.type === "interpretation"), false);
+
+  const overlooked = buildSnapshot({ overlookedVariableEvidenceIds: ["missing-overlooked-evidence"] });
+  assert.deepEqual(overlooked.overlookedVariable.evidenceIds, []);
+  assert.equal(overlooked.overlookedVariable.evidenceState, "speculative");
 });
 
 test("unknown decisive and stage-owned provenance IDs fail closed", () => {

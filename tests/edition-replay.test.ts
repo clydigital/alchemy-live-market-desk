@@ -83,6 +83,16 @@ test("morning and evening slot identity stays persisted on the edition index", (
   ]);
 });
 
+test("a late retry of an older slot cannot overtake a newer canonical schedule", () => {
+  const index = buildCanonicalEditionIndex([
+    daily("evening-current", "2026-09-03T13:20:00.000Z", { scheduleSlot: "evening", scheduledFor: "2026-09-03T13:15:00.000Z" }),
+    daily("morning-late-retry", "2026-09-03T14:00:00.000Z", { scheduleSlot: "morning", scheduledFor: "2026-09-03T01:15:00.000Z" }),
+  ]);
+
+  assert.deepEqual(index.map((edition) => edition.snapshotId), ["evening-current", "morning-late-retry"]);
+  assert.equal(index[0]?.freshness, "current");
+});
+
 test("invalid edition IDs safely fall back to the current edition without synthesising history", () => {
   const index = buildCanonicalEditionIndex([daily("current", "2026-08-16T13:15:00.000Z")]);
   const selection = selectCanonicalEdition(index, "missing");

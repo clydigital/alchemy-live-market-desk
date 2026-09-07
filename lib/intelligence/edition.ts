@@ -1,6 +1,11 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import type { MarketEventV1 } from "@/lib/market-events";
+import {
+  composeDossierBriefing,
+  type DossierBriefingV1,
+  type DossierStoryContext,
+} from "./dossier-briefing.ts";
 import { composeJourneyBriefing, type JourneyBriefingV1, type JourneyStorySource } from "./journey-briefing.ts";
 
 export const ALCHEMY_MIXED_METHOD_VERSION = "alchemy-mixed-research-voice-v1";
@@ -24,6 +29,18 @@ export type MechanismStep = {
   step: number;
   text: string;
   evidenceStatus: EvidenceStatus;
+};
+
+export type CurrentAttention = {
+  assessedAt: string;
+  primaryCategory: string;
+  themes: string[];
+  evidenceIds: string[];
+  freshness: number;
+  materiality: number;
+  momentum: number;
+  breadth: number;
+  urgency: number;
 };
 
 export type EditionStory = {
@@ -50,6 +67,7 @@ export type EditionStory = {
   confirmation: string;
   invalidation: string;
   confidence: number;
+  currentAttention?: CurrentAttention;
   prohibitedClaims: string[];
   changeKinds: MaterialChangeKind[];
   eventAt: string;
@@ -142,6 +160,20 @@ export type EditionUpcoming = {
 export type EditionDiagnostics = {
   warnings: string[];
   eventHorizonCoverage?: EventHorizonCoverage[];
+  recruitment?: {
+    asOf: string;
+    evidenceCount: number;
+    eligibleCount: number;
+    scheduledOnlyCount: number;
+    staleCount: number;
+    futureTimestampCount: number;
+    duplicateCount: number;
+    recruitedClusterCount: number;
+    contextClusterCount: number;
+    deferredClusterCount: number;
+  };
+  contractDiagnostics?: Array<{ code: string; candidateKey: string; primaryHypothesisId: string | null; title: string | null; detail: string }>;
+  journeyExclusions?: Array<{ storyId: string; reason: "no_valid_immutable_journey_reasoning" }>;
 };
 
 export type AlchemyEdition = {
@@ -168,6 +200,7 @@ export type AlchemyEdition = {
   watchlist: WatchlistItem[];
   positioningAnomaly: PositioningAnomaly | null;
   upcoming: EditionUpcoming;
+  dossier?: DossierBriefingV1;
   journey?: JourneyBriefingV1;
   diagnostics?: EditionDiagnostics;
   finalBoard: {
@@ -247,6 +280,16 @@ export function selectMaterialChanges(stories: EditionStory[], previousEdition?:
     if (prior && materialSignature(prior) === materialSignature(story)) return false;
     seenParents.add(story.parentStoryId);
     return true;
+  }).sort((left, right) => {
+    const leftAttention = left.currentAttention;
+    const rightAttention = right.currentAttention;
+    return (rightAttention?.materiality || 0) - (leftAttention?.materiality || 0)
+      || (rightAttention?.freshness || 0) - (leftAttention?.freshness || 0)
+      || (rightAttention?.urgency || 0) - (leftAttention?.urgency || 0)
+      || (rightAttention?.breadth || 0) - (leftAttention?.breadth || 0)
+      || (rightAttention?.momentum || 0) - (leftAttention?.momentum || 0)
+      || right.confidence - left.confidence
+      || left.id.localeCompare(right.id);
   }).slice(0, MAX_EDITION_CHANGES);
 }
 
@@ -271,6 +314,41 @@ export function scheduledGeopoliticalEvents(items: GeopoliticalClockItem[]) {
 
 function emptyUpcoming(): EditionUpcoming {
   return { economicCalendar: [], earnings: [], geopoliticalClock: [] };
+}
+
+function priorDossierStoryContext(previousEdition: AlchemyEdition | null): DossierStoryContext[] {
+  if (!previousEdition) return [];
+  const manifest = (previousEdition as unknown as { canonicalStoryManifest?: unknown }).canonicalStoryManifest;
+  if (!Array.isArray(manifest)) return [];
+
+  const seen = new Set<string>();
+  return manifest.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const candidate = entry as { storyId?: unknown; state?: unknown };
+    if (!candidate.state || typeof candidate.state !== "object" || Array.isArray(candidate.state)) return [];
+    const state = candidate.state as Record<string, unknown>;
+    const id = typeof candidate.storyId === "string"
+      ? candidate.storyId
+      : typeof state.id === "string" ? state.id : null;
+    const confidence = state.confidence;
+    if (!id || seen.has(id) || typeof confidence !== "number" || !Number.isFinite(confidence)) return [];
+    seen.add(id);
+    const assets = Array.isArray(state.assets)
+      ? state.assets.filter((asset): asset is string => typeof asset === "string")
+      : Array.isArray(state.affectedAssets)
+        ? state.affectedAssets.filter((asset): asset is string => typeof asset === "string")
+        : [];
+    const themes = Array.isArray(state.themes)
+      ? state.themes.filter((theme): theme is string => typeof theme === "string")
+      : [];
+    const recencyAt = typeof state.recencyAt === "string"
+      ? state.recencyAt
+      : state.intelligence && typeof state.intelligence === "object" && !Array.isArray(state.intelligence)
+        && typeof (state.intelligence as Record<string, unknown>).recencyAt === "string"
+        ? (state.intelligence as Record<string, unknown>).recencyAt as string
+        : null;
+    return [{ id, confidence, affectedAssets: [...assets], themes: [...themes], recencyAt }];
+  });
 }
 
 export function composeAlchemyEdition({
@@ -308,7 +386,7 @@ export function composeAlchemyEdition({
     ...upcoming,
     geopoliticalClock: scheduledGeopoliticalEvents(upcoming.geopoliticalClock),
   };
-  const lead = [...changes].sort((left, right) => right.confidence - left.confidence)[0] ?? null;
+  const lead = changes[0] ?? null;
   const contradiction = stories.find((story) => story.contradiction.trim())?.contradiction || "No evidence-backed contradiction cleared the edition gate.";
   const macroTest = normalisedUpcoming.economicCalendar[0]?.event || "No scheduled macro test is available in canonical evidence.";
   const geopoliticalTest = normalisedUpcoming.geopoliticalClock[0]?.event || "No scheduled geopolitical event is available in canonical evidence.";
@@ -321,6 +399,11 @@ export function composeAlchemyEdition({
     strongestTheme,
     riskToRespect: lead?.invalidation || "No canonical invalidation condition is available.",
   };
+
+  const journeySourceStoryIds = new Set(journeyStorySources.map((source) => source.storyId));
+  const computedJourneyExclusions = changes
+    .filter((change) => !journeySourceStoryIds.has(change.id))
+    .map((change) => ({ storyId: change.id, reason: "no_valid_immutable_journey_reasoning" as const }));
 
   return {
     methodologyVersion: ALCHEMY_MIXED_METHOD_VERSION,
@@ -346,6 +429,16 @@ export function composeAlchemyEdition({
     watchlist: normalisedWatchlist,
     positioningAnomaly: positioningAnomaly?.present ? { ...positioningAnomaly, label: "Signal, not thesis." } : null,
     upcoming: normalisedUpcoming,
+    dossier: composeDossierBriefing({
+      generatedAt,
+      stories,
+      changes,
+      storySources: journeyStorySources,
+      storyContext: priorDossierStoryContext(previousEdition),
+      marketTape,
+      upcoming: normalisedUpcoming,
+      diagnostics,
+    }),
     journey: composeJourneyBriefing({
       generatedAt,
       stories,
@@ -356,8 +449,13 @@ export function composeAlchemyEdition({
       diagnostics,
       finalBoard,
     }),
-    diagnostics: { warnings: [...new Set(diagnostics.warnings)], eventHorizonCoverage: diagnostics.eventHorizonCoverage },
+    diagnostics: {
+      warnings: [...new Set(diagnostics.warnings)],
+      eventHorizonCoverage: diagnostics.eventHorizonCoverage,
+      recruitment: diagnostics.recruitment,
+      contractDiagnostics: diagnostics.contractDiagnostics,
+      journeyExclusions: [...(diagnostics.journeyExclusions || []), ...computedJourneyExclusions],
+    },
     finalBoard,
   };
 }
-

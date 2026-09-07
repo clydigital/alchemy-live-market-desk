@@ -37,6 +37,7 @@ function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
     sourceName: "Official source",
     sourceTier: 1,
     reliabilityScore: 95,
+    availableAt: null, receivedAt: null, freshnessStatus: "current", structuredPayload: {},
     ancestryGroupId: "official:one",
     supportDirection: "supporting",
     eventAt: "2026-08-24T01:00:00.000Z",

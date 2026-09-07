@@ -5,6 +5,7 @@ import { dashboardAuthRequired } from "@/lib/supabase/config";
 import { dataRoutes, deskRoutes, type LiveDeskRoute } from "@/lib/live-desk/routes";
 
 import DisplaySettings from "./DisplaySettings";
+import VideoResearchStatus from "./VideoResearchStatus";
 import styles from "./live-desk-shell.module.css";
 
 type Props = {
@@ -53,6 +54,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
           </div>
           <div className={styles.actions}>
             <span className={styles.status}>Research core online</span>
+            <VideoResearchStatus />
             <DisplaySettings />
             <Link className={styles.primaryButton} href="/hybrid-output">Hybrid output</Link>
             {authRequired && (

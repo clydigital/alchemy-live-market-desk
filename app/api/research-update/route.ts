@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { acquireRatesResearch } from "@/lib/rates-research-acquisition";
 import { runAccuracyCheck } from "@/lib/accuracy";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getDeskData } from "@/lib/data";
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
   const validationInput: ResearchRunInput = intelligenceEnabled
     ? { ...input, recalibrations: [] }
     : input;
-  const validation = validateResearchRun(validationInput);
+  let validation = validateResearchRun(validationInput);
   if (validation.errors.length) {
     return response({
       error: "Research run validation failed.",
@@ -174,12 +175,29 @@ export async function POST(request: Request) {
     }, 422);
   }
 
+  const ratesDiagnostics: string[] = [];
+  try {
+    // Leave time for the base ledger/publication work even when upstream acquisition was slow.
+    const budgetMs = Number.isFinite(scheduledExecutionStartedAtMs)
+      ? Math.max(0, Math.min(24000, 300000 - (Date.now() - scheduledExecutionStartedAtMs) - 45000))
+      : 24000;
+    const rates = await acquireRatesResearch(validationInput, { budgetMs });
+    const enriched = validateResearchRun(rates.input);
+    ratesDiagnostics.push(...rates.diagnostics);
+    if (!enriched.errors.length) {
+      input = { ...input, items: rates.input.items };
+      validation = enriched;
+    } else ratesDiagnostics.push("Rates context failed validation; base research retained.");
+  } catch {
+    ratesDiagnostics.push("Rates retrieval unavailable; base research continues with unknown inputs.");
+  }
+
   const accuracy = runAccuracyCheck(await getMarketData());
   const macroLifecycle = await persistMacroReleaseLifecycle();
   // Only a structurally blocked canonical market-data check prevents writes.
   // Provider coverage and research completeness remain descriptive diagnostics.
   const runtimePublicationReady = accuracy.updateGate !== "blocked";
-  const warnings = [...validation.warnings];
+  const warnings = [...validation.warnings, ...ratesDiagnostics];
   if (!macroLifecycle.available) warnings.push(`Macro release lifecycle persistence is unavailable: ${macroLifecycle.reason}`);
   if (intelligenceEnabled && callerRecalibrationCount) {
     warnings.push(`${callerRecalibrationCount} caller-supplied Story recalibration(s) were ignored because the OpenAI intelligence engine owns Story reasoning.`);
