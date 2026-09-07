@@ -27,6 +27,7 @@ test("taxonomy persists all requested families and uses a many-to-many Story lin
     assert.match(migration, new RegExp(label.replace(/[&]/g, "\\&")));
   }
   assert.match(migration, /create table if not exists public\.intelligence_story_theme_links/);
+  assert.match(migration, /alter table public\.intelligence_story_theme_links enable row level security/);
   assert.match(migration, /primary key \(story_id, theme_id\)/);
   assert.match(migration, /iran-oil-inflation-rates/);
   assert.match(migration, /fiscal-dominance/);
