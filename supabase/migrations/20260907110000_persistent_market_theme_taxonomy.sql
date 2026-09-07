@@ -21,6 +21,7 @@ create table if not exists public.intelligence_story_theme_links (
   updated_at timestamptz not null default now(),
   primary key (story_id, theme_id)
 );
+alter table public.intelligence_story_theme_links enable row level security;
 create index if not exists intelligence_story_theme_links_theme_idx
   on public.intelligence_story_theme_links(theme_id, story_id);
 
@@ -76,8 +77,6 @@ set metadata = coalesce(metadata,'{}'::jsonb) || jsonb_build_object('verificatio
     updated_at=now()
 where lower(source_name) like '%zerohedge%'
    or lower(coalesce(source_url,'')) like '%zerohedge%';
-
-
 
 -- ZeroHedge Reads is a discovery ecosystem, not only the zerohedge.com domain.
 -- Keep every requested member available for lead generation while preventing it
