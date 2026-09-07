@@ -97,6 +97,13 @@ new = "Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters 
 if old in text:
     p.write_text(text.replace(old, new, 1))
 
+# Keep this module importable by both Next.js and the repository's raw Node test runner.
+replace(
+    "lib/x-social-acquisition.ts",
+    'import { type IntakeItemInput, type SourceCheckInput } from "@/lib/research-update";\nimport { createSupabaseAdminClient } from "@/lib/supabase/admin";',
+    'import { type IntakeItemInput, type SourceCheckInput } from "./research-update.ts";\nimport { createSupabaseAdminClient } from "./supabase/admin.ts";',
+)
+
 # The repo targets pre-ES2020 JavaScript, so avoid BigInt literals in the snowflake fallback.
 replace(
     "lib/x-social-acquisition.ts",
