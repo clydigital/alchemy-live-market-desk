@@ -19,6 +19,9 @@ export type EvidencePackItem = {
   affectedAssets: string[];
   affectedTopics: string[];
   provenanceUrls: string[];
+  providerKey?: string | null;
+  /** Discovery-only sources may surface leads but are excluded from canonical proof. */
+  sourceVerificationRole?: "canonical" | "discovery_only";
   structuredPayload: Record<string, unknown>;
 };
 

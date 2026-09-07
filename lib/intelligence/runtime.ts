@@ -74,6 +74,8 @@ import {
   type CandidateContractDiagnostic,
 } from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
+import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
+import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
@@ -178,6 +180,8 @@ type CanonicalSource = {
   source_tier: number;
   reliability_score: number;
   ancestry_group_id: string | null;
+  provider_key: string;
+  metadata?: { verificationRole?: "canonical" | "discovery_only" } | null;
 };
 
 type CanonicalEvidenceRow = {
@@ -467,6 +471,9 @@ function evidencePack(rows: CanonicalEvidenceRow[]): EvidencePackItem[] {
       affectedAssets: row.affected_assets ?? [],
       affectedTopics: row.affected_topics ?? [],
       provenanceUrls: row.provenance_urls ?? [],
+      providerKey: source?.provider_key ?? null,
+      sourceVerificationRole: source?.metadata?.verificationRole
+        ?? sourceVerificationRole({ sourceName: source?.source_name, providerKey: source?.provider_key, provenanceUrls: row.provenance_urls }),
       structuredPayload: row.structured_payload ?? {},
     };
   });
@@ -767,7 +774,10 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       source_tier: sourceTier(item),
       reliability_score: clamp(item.source_quality),
       methodology_notes: "Normalized from the validated Alchemy research-intake ledger.",
-      metadata: { domain },
+      metadata: {
+        domain,
+        verificationRole: sourceVerificationRole({ sourceName: item.publisher, provenanceUrls: [item.url], providerKey: "research_intake" }),
+      },
       last_seen_at: item.published_at,
       updated_at: new Date().toISOString(),
     });
@@ -844,7 +854,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
 
 async function loadEvidence() {
   const rows = await intelligenceRest<CanonicalEvidenceRow[]>(
-    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
+    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
   );
   return evidencePack(rows);
 }
@@ -1584,6 +1594,26 @@ async function persistCanonicalStoryReasoning({
   return result;
 }
 
+async function persistDerivedStoryThemes(storyId: string, input: { title: string; thesis: string; causalMechanism: string; assets: string[] }) {
+  const themeKeys = deriveMarketThemeKeys(input);
+  if (!themeKeys.length) return;
+  const encoded = themeKeys.map(encodeURIComponent).join(",");
+  const themes = await intelligenceRest<Array<{ id: string; theme_key: string }>>(
+    `intelligence_themes?select=id,theme_key&theme_key=in.(${encoded})`,
+  );
+  if (!themes.length) return;
+  await intelligenceRest("intelligence_story_theme_links?on_conflict=story_id,theme_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(themes.map((theme) => ({
+      story_id: storyId,
+      theme_id: theme.id,
+      assignment_origin: "deterministic_runtime",
+      confidence: 70,
+    }))),
+  });
+}
+
 async function promoteCandidate({
   candidate,
   candidateRowId,
@@ -1683,6 +1713,14 @@ async function promoteCandidate({
     new Set(evidenceById.keys()),
     `Story candidate ${candidate.candidateKey} decisive evidence`,
   );
+  const decisiveEvidence = decisive.map((id) => evidenceById.get(id)).filter((item): item is EvidencePackItem => Boolean(item));
+  const corroboratingGroups = new Set(decisiveEvidence
+    .filter((item) => sourceVerificationWeight(item) > 0)
+    .map((item) => item.ancestryGroupId || item.sourceName));
+  const verificationScore = clamp(Math.max(0, ...decisiveEvidence.map((item) => sourceVerificationWeight(item) * 100)));
+  const verificationState = decisiveEvidence.some((item) => item.sourceTier <= 2 && sourceVerificationWeight(item) > 0)
+    ? "corroborated"
+    : corroboratingGroups.size ? "partially_corroborated" : "unverified";
   const ancestry = unique(decisive.map((id) => evidenceById.get(id)?.ancestryGroupId).filter((id): id is string => Boolean(id)));
   const stateRows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_states?on_conflict=story_id", {
     method: "POST",
@@ -1709,6 +1747,10 @@ async function promoteCandidate({
       research_synthesis: candidate.researchSynthesis,
       last_evidence_at: new Date().toISOString(),
       last_evaluated_at: new Date().toISOString(),
+      last_material_update_at: mutationAt,
+      momentum: momentumForTransition(matched?.status, lifecycleStatus),
+      source_verification_state: verificationState,
+      source_verification_score: verificationScore,
       story_candidate_id: candidateRowId,
       bias: candidate.bias,
       conviction: candidate.bias === "unscored" ? null : candidate.conviction,
@@ -1771,6 +1813,13 @@ async function promoteCandidate({
       }))),
     });
   }
+
+  await persistDerivedStoryThemes(story.id, {
+    title: candidate.title,
+    thesis: candidate.thesis,
+    causalMechanism: hypothesis.causal_mechanism,
+    assets: candidate.affectedAssets,
+  });
 
   await intelligenceRest(`intelligence_story_candidates?id=eq.${encodeURIComponent(candidateRowId)}`, {
     method: "PATCH",
@@ -2529,8 +2578,16 @@ export async function runIntelligenceEngine({
         decisiveEvidenceCount: researchContext.decisive.length,
         noveltyClass: decision.noveltyClass,
       });
-      const structurallyPublishable = integrity.publishable;
+      // ZeroHedge Reads is allowed to surface a lead into this pack, but no
+      // Story may become canonical until an independent primary/market source
+      // corroborates the decisive claim.
+      const hasPrimaryCorroboration = candidate.decisiveEvidenceIds.some((id) => {
+        const item = evidenceById.get(id);
+        return item?.sourceVerificationRole !== "discovery_only" && (item?.sourceTier ?? 5) <= 2;
+      });
+      const structurallyPublishable = integrity.publishable && hasPrimaryCorroboration;
       if (!integrity.publishable) warnings.push(`${candidate.title}: not published for structural reason: ${integrity.structuralReasons.join(", ")}.`);
+      if (!hasPrimaryCorroboration) warnings.push(`${candidate.title}: not published because decisive claims lack primary or direct-market corroboration.`);
       for (const warning of researchContext.research.warnings) warnings.push(`${candidate.title}: ${warning}.`);
 
       const rows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
