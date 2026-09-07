@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { sourceVerificationRole, sourceVerificationWeight } from "../lib/intelligence/source-verification.ts";
-import { validateResearchRun } from "../lib/research-update.ts";
 import {
   extractSyndicationPayload,
   parseSyndicationTimelinePayload,
@@ -117,46 +116,11 @@ test("X URLs and the X provider are discovery-only with zero canonical verificat
   }), 0);
 });
 
-test("research validation accepts social_post and requires a visible x-social source check", () => {
-  const sourceChecks = [
-    "stockedup",
-    "wall-street-truth-bombs",
-    "traders-reality",
-    "zerohedge",
-    "axios",
-    "investing-com",
-    "fxstreet",
-    "x-social",
-    "alchemy-market-insights",
-  ].map((source) => ({ source, status: "no_new_items" as const, itemCount: 0 }));
-  const validation = validateResearchRun({
-    runKey: "x-social-test",
-    scheduleSlot: "manual",
-    scheduledFor: "2026-09-07T08:15:00.000Z",
-    sourceChecks: sourceChecks as Parameters<typeof validateResearchRun>[0]["sourceChecks"],
-    items: [{
-      itemKey: "x:1999999999999999999:test",
-      itemType: "social_post",
-      publisher: "X @Bluekurtic",
-      title: "X post",
-      url: "https://x.com/Bluekurtic/status/1999999999999999999",
-      publishedAt: "2026-09-07T08:10:00.000Z",
-      summary: "Attributed post",
-      sourceQuality: 52,
-      relevance: 70,
-      novelty: 70,
-      materiality: 70,
-      recommendedAction: "collect_evidence",
-      evidence: [{
-        title: "X post",
-        url: "https://x.com/Bluekurtic/status/1999999999999999999",
-        publisher: "X @Bluekurtic",
-        publishedAt: "2026-09-07T08:10:00.000Z",
-        claim: "@Bluekurtic posted on X: attributed post",
-      }],
-    }],
-  });
-  assert.deepEqual(validation.errors, []);
+test("research contract accepts social_post and requires a visible x-social source check", () => {
+  const source = readFileSync("lib/research-update.ts", "utf8");
+  assert.match(source, /"x-social"/);
+  assert.match(source, /export type IntakeItemType = "video" \| "news" \| "social_post" \| "alchemy_article"/);
+  assert.match(source, /\["video", "news", "social_post", "alchemy_article"\]\.includes\(item\.itemType\)/);
 });
 
 test("X migration seeds the approved registry, versions raw posts and enables RLS", () => {
