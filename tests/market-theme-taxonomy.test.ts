@@ -16,7 +16,9 @@ function evidence(input: Partial<EvidencePackItem> = {}): EvidencePackItem {
     id: "evidence-1", claim: "Direct market observation", summary: null, evidenceClass: "market_observation",
     sourceName: "Exchange", sourceTier: 2, reliabilityScore: 90, ancestryGroupId: "exchange",
     supportDirection: "supporting", eventAt: "2026-09-07T01:00:00Z", publishedAt: "2026-09-07T01:00:00Z",
-    affectedAssets: ["BRENT"], affectedTopics: ["iran-oil-inflation-rates"], provenanceUrls: ["https://example.test"], ...input,
+    availableAt: "2026-09-07T01:00:00Z", receivedAt: "2026-09-07T01:00:00Z", freshnessStatus: "current",
+    affectedAssets: ["BRENT"], affectedTopics: ["iran-oil-inflation-rates"], provenanceUrls: ["https://example.test"],
+    structuredPayload: {}, ...input,
   };
 }
 
@@ -68,7 +70,6 @@ test("ZeroHedge is discovery-only and has zero canonical verification weight", (
   assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [lead.id], target), false);
   assert.match(migration, /verificationRole','discovery_only/);
 });
-
 
 test("ZeroHedge Reads members on independent domains remain discovery-only", () => {
   for (const source of [
