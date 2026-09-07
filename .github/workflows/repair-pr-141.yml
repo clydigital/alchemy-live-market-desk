@@ -35,7 +35,7 @@ jobs:
       - name: Validate repaired branch
         run: |
           set -euo pipefail
-          npm ci
+          npm install --no-package-lock
           npx tsc --noEmit
           npm test
           npm run build
