@@ -34,16 +34,35 @@ jobs:
 
       - name: Validate repaired branch
         run: |
-          set -euo pipefail
-          npm install --no-package-lock
-          npx tsc --noEmit
-          npm test
-          npm run build
+          set +e
+          LOG=.repair-pr-141-validation.log
+          : > "$LOG"
+          npm install --no-package-lock >> "$LOG" 2>&1
+          INSTALL=$?
+          npx tsc --noEmit >> "$LOG" 2>&1
+          TSC=$?
+          npm test >> "$LOG" 2>&1
+          TEST=$?
+          npm run build >> "$LOG" 2>&1
+          BUILD=$?
+          echo "install=$INSTALL tsc=$TSC test=$TEST build=$BUILD" >> "$LOG"
+          if [ "$INSTALL" -eq 0 ] && [ "$TSC" -eq 0 ] && [ "$TEST" -eq 0 ] && [ "$BUILD" -eq 0 ]; then
+            echo "VALIDATION_STATUS=0" >> "$GITHUB_ENV"
+          else
+            echo "VALIDATION_STATUS=1" >> "$GITHUB_ENV"
+          fi
+          exit 0
 
-      - name: Commit repaired branch
+      - name: Push repaired branch state
         run: |
           set -euo pipefail
-          rm -f .github/workflows/repair-pr-141.yml scripts/repair-pr-141.py
+          if [ "${VALIDATION_STATUS}" = "0" ]; then
+            rm -f .repair-pr-141-validation.log .github/workflows/repair-pr-141.yml scripts/repair-pr-141.py
+          fi
           git add -A
           git commit -m "repair: rebase PR 141 and harden discovery-only sources"
           git push origin HEAD:codex/market-theme-taxonomy-20260907
+
+      - name: Fail run when validation failed
+        if: ${{ env.VALIDATION_STATUS != '0' }}
+        run: exit 1
