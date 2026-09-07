@@ -1,0 +1,37 @@
+name: Validate PR 141
+
+on:
+  push:
+    branches:
+      - codex/market-theme-taxonomy-20260907
+    paths:
+      - .github/workflows/validate-pr-141.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/market-theme-taxonomy-20260907
+      - name: Full release gate
+        run: |
+          set -euo pipefail
+          npm install --no-package-lock
+          npx tsc --noEmit
+          npm test
+          npm run build
+      - name: Remove temporary validator
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/validate-pr-141.yml
+          git add -A
+          git commit -m "chore: remove temporary PR 141 validator"
+          git push origin HEAD:codex/market-theme-taxonomy-20260907
