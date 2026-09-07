@@ -1,3 +1,4 @@
+# Rerun after replacing ES2018 dotAll regex with a target-safe equivalent.
 name: Validate PR 141
 
 on:
