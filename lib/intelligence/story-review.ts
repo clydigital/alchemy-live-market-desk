@@ -1,4 +1,5 @@
 import type { EvidencePackItem, ExistingStoryPackItem, StoryReviewTargetPackItem } from "./schemas.ts";
+import { isCanonicalEligibleEvidence } from "./source-verification.ts";
 
 export const MAX_STORY_REVIEW_TARGETS = 4;
 export const MAX_STORY_REVIEW_EVIDENCE = 10;
@@ -194,10 +195,6 @@ export function selectStoryReviewTargets(input: {
     .map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
-function creatorOnly(item: EvidencePackItem) {
-  return item.evidenceClass === "transcript" || item.evidenceClass === "research_analysis";
-}
-
 function independentGroup(item: EvidencePackItem) {
   return item.ancestryGroupId || `source:${item.sourceName.trim().toLowerCase()}`;
 }
@@ -215,8 +212,7 @@ export function materialAssessmentHasEligibleEvidence(
   if (disposition === "unchanged") return true;
   const selected = new Set(evidenceIds);
   const credible = target.relevantEvidence.filter((item) => selected.has(item.id)
-    && !creatorOnly(item)
-    && item.sourceTier <= 4);
+    && isCanonicalEligibleEvidence(item));
   if (!credible.length) return false;
   if (disposition !== "invalidated") return true;
   if (credible.some((item) => item.sourceTier <= 2)) return true;
