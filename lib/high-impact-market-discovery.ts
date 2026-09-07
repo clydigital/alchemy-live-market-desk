@@ -26,7 +26,51 @@ const TARGETS = [
     materiality: 90,
     signal: "Japan yen, BOJ or FX-intervention development",
   },
+  {
+    key: "japan-equities",
+    query: '(Nikkei OR TOPIX OR "Japan stocks") AND (earnings OR markets OR semiconductor OR exports)',
+    relevance: 90, materiality: 88,
+    signal: "Required Asian coverage: Japan equities, earnings and export transmission",
+  },
+  {
+    key: "korea",
+    query: '(KOSPI OR KOSDAQ OR "Korea stocks" OR "SK Hynix") AND (markets OR semiconductor OR exports OR won)',
+    relevance: 90, materiality: 88,
+    signal: "Required Asian coverage: Korea KOSPI/KOSDAQ, memory chips, exports and KRW",
+  },
+  {
+    key: "china-mainland",
+    query: '("CSI 300" OR "Shanghai Composite" OR "Shenzhen stocks" OR PBOC) AND (markets OR stimulus OR yuan OR economy)',
+    relevance: 90, materiality: 88,
+    signal: "Required Asian coverage: mainland China equities, policy, demand and CNY",
+  },
+  {
+    key: "hong-kong",
+    query: '("Hang Seng" OR "Hong Kong stocks" OR "Hang Seng Tech") AND (markets OR earnings OR technology OR China)',
+    relevance: 90, materiality: 88,
+    signal: "Required Asian coverage: Hong Kong equities and China technology transmission",
+  },
+  {
+    key: "taiwan",
+    query: '(TAIEX OR TSMC OR "Taiwan stocks") AND (markets OR semiconductor OR exports OR earnings)',
+    relevance: 90, materiality: 88,
+    signal: "Required Asian coverage: Taiwan equities and semiconductor supply chain",
+  },
+  {
+    key: "india",
+    query: '(Nifty OR Sensex OR "India stocks") AND (markets OR rupee OR earnings OR rates)',
+    relevance: 86, materiality: 84,
+    signal: "Required Asian coverage: India equities, rates and INR",
+  },
+  {
+    key: "southeast-asia",
+    query: '("Straits Times Index" OR "Bursa Malaysia" OR "Jakarta Composite" OR "Thailand stocks") AND (markets OR currency OR earnings OR rates)',
+    relevance: 86, materiality: 84,
+    signal: "Required Asian coverage: Southeast Asian equities and regional FX",
+  },
 ] as const;
+
+export const REQUIRED_ASIAN_MARKET_TARGETS = TARGETS.filter((target) => target.key !== "us-macro").map((target) => target.key);
 
 type Target = (typeof TARGETS)[number];
 
@@ -44,6 +88,8 @@ type SearchLead = {
   publishedAt: string;
   publisher: string;
 };
+
+type SearchResult = { leads: SearchLead[]; state: "leads_found" | "no_recent_leads" | "blocked" | "rate_limited" | "unavailable" | "invalid_response" };
 
 type PageRead = {
   summary: string;
@@ -137,7 +183,7 @@ function sourceQuality(url: string) {
   return 68;
 }
 
-async function searchTarget(target: Target, now: Date, fetchImpl: typeof fetch) {
+async function searchTarget(target: Target, now: Date, fetchImpl: typeof fetch): Promise<SearchResult> {
   const params = new URLSearchParams({
     query: target.query,
     mode: "ArtList",
@@ -152,17 +198,19 @@ async function searchTarget(target: Target, now: Date, fetchImpl: typeof fetch) 
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });
-    if (!response.ok) return [] as SearchLead[];
+    if (!response.ok) return { leads: [], state: response.status === 429 ? "rate_limited" : [401,403].includes(response.status) ? "blocked" : "unavailable" };
     const payload = await response.json().catch(() => null) as { articles?: GdeltArticle[] } | null;
-    return (payload?.articles || []).flatMap((article): SearchLead[] => {
+    if (!Array.isArray(payload?.articles)) return { leads: [], state: "invalid_response" };
+    const leads = payload.articles.flatMap((article): SearchLead[] => {
       const title = cleanText(article.title, 500);
       const url = safeUrl(article.url);
       const publishedAt = parseGdeltDate(article.seendate);
       if (!title || !url || !publishedAt || !withinWindow(publishedAt, now)) return [];
       return [{ target, title, url, publishedAt, publisher: publisher(url) }];
     });
+    return { leads, state: leads.length ? "leads_found" : "no_recent_leads" };
   } catch {
-    return [] as SearchLead[];
+    return { leads: [], state: "unavailable" };
   }
 }
 
@@ -251,13 +299,18 @@ export async function applyHighImpactMarketDiscovery(
   const retained: IntakeItemInput[] = [];
   let firecrawlBudget = FIRECRAWL_RECOVERY_LIMIT;
   let firecrawlRecovered = 0;
+  const coverage: string[] = [];
 
   for (const target of TARGETS) {
-    const leads = await searchTarget(target, now, fetchImpl);
+    // Preserve existing US macro / yen depth; bound each added regional check.
+    const retainedLimit = ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
+    const search = await searchTarget(target, now, fetchImpl);
+    const leads = search.leads;
+    let pagesRead = 0;
     const seen = new Set<string>();
     let targetCount = 0;
     for (const lead of leads) {
-      if (targetCount >= MAX_RETAINED_PER_QUERY) break;
+      if (targetCount >= retainedLimit) break;
       if (existingUrls.has(lead.url) || seen.has(lead.url)) continue;
       seen.add(lead.url);
       const read = await readPage(lead, fetchImpl, firecrawlBudget > 0);
@@ -266,14 +319,15 @@ export async function applyHighImpactMarketDiscovery(
         firecrawlRecovered += 1;
       }
       const item = asIntake(lead, read);
+      if (item.evidence?.length) pagesRead += 1;
       retained.push(item);
       existingUrls.add(lead.url);
       targetCount += 1;
     }
+    coverage.push(`${target.key}=${search.state} (${leads.length} discovery leads; ${targetCount} new retained; ${pagesRead} readable publisher pages)`);
   }
 
-  if (!retained.length) return input;
-  const suffix = `High-impact ${slot} discovery retained ${retained.length} macro/FX lead(s); ${firecrawlRecovered} required blocked-page Firecrawl recovery after direct access failed.`;
+  const suffix = `High-impact ${slot} discovery retained ${retained.length} market lead(s); ${firecrawlRecovered} required blocked-page Firecrawl recovery after direct access failed. Required regional discovery checked at ${now.toISOString()}: ${coverage.join("; ")}. Discovery coverage is not verified index-price coverage or evidence of unchanged markets.`;
   return {
     ...input,
     items: [...input.items, ...retained],
