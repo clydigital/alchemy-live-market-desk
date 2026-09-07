@@ -45,3 +45,5 @@ jobs:
           git add lib tests docs supabase
           git commit -m "feat: wire X social discovery into Live intake"
           git push origin HEAD:feat/x-social-intake-20260907
+
+# Validation marker: committed-state release gate.
