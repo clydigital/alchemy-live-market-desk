@@ -4,10 +4,17 @@ from pathlib import Path
 def replace(path: str, old: str, new: str, count: int = 1):
     p = Path(path)
     text = p.read_text()
-    actual = text.count(old)
-    if actual != count:
-        raise SystemExit(f"{path}: expected {count} occurrence(s), found {actual}: {old[:100]!r}")
-    p.write_text(text.replace(old, new, count))
+    old_count = text.count(old)
+    new_count = text.count(new)
+    if old_count == count:
+        p.write_text(text.replace(old, new, count))
+        return
+    if old_count == 0 and new_count >= count:
+        return
+    raise SystemExit(
+        f"{path}: expected {count} old occurrence(s) or an already-applied replacement; "
+        f"found old={old_count}, new={new_count}: {old[:100]!r}"
+    )
 
 
 # Make X a visible required source check but keep it outside the canonical direct-feed gate.
@@ -96,12 +103,15 @@ old = "Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters 
 new = "Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters or another licensed news feed, and approved X presentation embedding. Live-owned monitored X discovery intake is active upstream; social posts establish that a statement was made, not that the underlying claim is true."
 if old in text:
     p.write_text(text.replace(old, new, 1))
+elif new not in text:
+    raise SystemExit("docs/RESEARCH_ROLLOUT.md: X rollout sentence was neither old nor already updated")
 
 # Keep this module importable by both Next.js and the repository's raw Node test runner.
+local_types = '''import { createSupabaseAdminClient } from "./supabase/admin.ts";\n\ntype SourceCheckInput = {\n  source: "x-social";\n  status: "checked" | "no_new_items" | "blocked";\n  itemCount: number;\n  retryable?: boolean;\n  note?: string;\n};\n\ntype IntakeItemInput = {\n  itemKey: string;\n  itemType: "social_post";\n  publisher: string;\n  externalId?: string;\n  title: string;\n  url: string;\n  publishedAt: string;\n  summary: string;\n  sourceQuality: number;\n  relevance: number;\n  novelty: number;\n  materiality: number;\n  recommendedAction: "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";\n  newsSignal?: string;\n  divergenceKind?: "none" | "stats_lead" | "news_lead" | "contradiction";\n  divergenceNote?: string;\n  evidence?: Array<{ title: string; url: string; publisher: string; publishedAt: string; claim: string }>;\n  reviewReason?: string;\n};'''
 replace(
     "lib/x-social-acquisition.ts",
     'import { type IntakeItemInput, type SourceCheckInput } from "@/lib/research-update";\nimport { createSupabaseAdminClient } from "@/lib/supabase/admin";',
-    'import { type IntakeItemInput, type SourceCheckInput } from "./research-update.ts";\nimport { createSupabaseAdminClient } from "./supabase/admin.ts";',
+    local_types,
 )
 
 # The repo targets pre-ES2020 JavaScript, so avoid BigInt literals in the snowflake fallback.
