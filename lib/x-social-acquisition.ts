@@ -1,7 +1,35 @@
 import { createHash } from "node:crypto";
 
-import { type IntakeItemInput, type SourceCheckInput } from "@/lib/research-update";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
+
+type SourceCheckInput = {
+  source: "x-social";
+  status: "checked" | "no_new_items" | "blocked";
+  itemCount: number;
+  retryable?: boolean;
+  note?: string;
+};
+
+type IntakeItemInput = {
+  itemKey: string;
+  itemType: "social_post";
+  publisher: string;
+  externalId?: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  summary: string;
+  sourceQuality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  recommendedAction: "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
+  newsSignal?: string;
+  divergenceKind?: "none" | "stats_lead" | "news_lead" | "contradiction";
+  divergenceNote?: string;
+  evidence?: Array<{ title: string; url: string; publisher: string; publishedAt: string; claim: string }>;
+  reviewReason?: string;
+};
 
 const PROVIDER = "x_syndication_embed";
 const WINDOW_MS = 36 * 60 * 60 * 1_000;
@@ -9,7 +37,8 @@ const FUTURE_TOLERANCE_MS = 5 * 60 * 1_000;
 const REQUEST_TIMEOUT_MS = 8_000;
 const MAX_POSTS_PER_ACCOUNT = 8;
 const MAX_CONCURRENCY = 2;
-const TWITTER_EPOCH_MS = 1_288_834_974_657n;
+const TWITTER_EPOCH_MS = 1_288_834_974_657;
+const TWITTER_SNOWFLAKE_SEQUENCE = 4_194_304;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -97,13 +126,10 @@ export function extractSyndicationPayload(body: string): unknown {
 }
 
 function snowflakeDate(postId: string): string | null {
-  try {
-    const value = BigInt(postId);
-    const timestamp = Number((value >> 22n) + TWITTER_EPOCH_MS);
-    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
-  } catch {
-    return null;
-  }
+  const value = Number(postId);
+  if (!Number.isFinite(value)) return null;
+  const timestamp = Math.floor(value / TWITTER_SNOWFLAKE_SEQUENCE) + TWITTER_EPOCH_MS;
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
 function authorFromNode(node: JsonRecord) {

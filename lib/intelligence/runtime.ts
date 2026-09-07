@@ -115,7 +115,7 @@ type IntakeRow = {
   id: string;
   run_id: string;
   item_key: string;
-  item_type: "video" | "news" | "alchemy_article";
+  item_type: "video" | "news" | "social_post" | "alchemy_article";
   publisher: string;
   title: string;
   url: string;
@@ -405,6 +405,7 @@ function sourceTier(item: IntakeRow) {
   if (parseRatesContext(item.divergence_note) && ratesSourceClass(item.url) !== "news_report") return 1;
   if (domain.endsWith(".gov") || domain.includes("federalreserve.gov") || domain.includes("ecb.europa.eu") || domain.includes("boj.or.jp") || domain.includes("bankofengland.co.uk") || domain.includes("rba.gov.au") || domain.includes("bis.org")) return 1;
   if (publisher.includes("tradingview") || publisher.includes("cme") || publisher.includes("ice") || publisher.includes("exchange")) return 2;
+  if (item.item_type === "social_post") return 4;
   if (item.item_type === "video") return 5;
   if (item.item_type === "alchemy_article") return 4;
   return 3;
@@ -827,7 +828,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
         itemKey: item.item_key,
         ...(ratesContext ? { ratesContext } : {}),
         title: item.title,
-        evidenceNature: ratesContext ? "research_context" : calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
+        evidenceNature: ratesContext ? "research_context" : calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "social_post" ? "social_statement" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
         candidateScore: item.candidate_score,
         relevance: item.relevance,
         novelty: item.novelty,

@@ -12,6 +12,7 @@ import {
 } from "@/lib/research-update";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { scheduledVideoRunIdentity, scheduledVideoSlotForDesk } from "@/lib/scheduled-video-identity";
+import { acquireXSocialPosts } from "@/lib/x-social-acquisition";
 import {
   blockedVideoSourceChecks,
   videoSourceChecksFromDedicatedRun,
@@ -331,12 +332,13 @@ export async function buildScheduledResearchInput(
   const scheduledFor = scheduledForMalaysiaSlot(slot, now);
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
-  const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy, powerStack] = await Promise.all([
+  const [videoChecks, zerohedge, axios, investing, fxstreet, xSocial, alchemy, powerStack] = await Promise.all([
     loadDedicatedVideoSourceChecks(slot, now),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[3], windowStart, windowEnd),
+    acquireXSocialPosts({ now }),
     acquireAlchemy(windowStart, windowEnd),
     acquirePowerStackThemes(now),
   ]);
@@ -346,6 +348,7 @@ export async function buildScheduledResearchInput(
     axios.check,
     investing.check,
     fxstreet.check,
+    xSocial.check,
     alchemy.check,
   ];
   const items = [
@@ -353,6 +356,7 @@ export async function buildScheduledResearchInput(
     ...axios.items,
     ...investing.items,
     ...fxstreet.items,
+    ...xSocial.items,
     ...alchemy.items,
     ...powerStack.items,
   ];

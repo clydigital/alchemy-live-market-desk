@@ -375,7 +375,7 @@ export type ResearchIntakeQueueItem = {
   id: string;
   run_id: string;
   item_key: string;
-  item_type: "video" | "news" | "alchemy_article";
+  item_type: "video" | "news" | "social_post" | "alchemy_article";
   publisher: string;
   title: string;
   url: string;

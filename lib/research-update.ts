@@ -8,13 +8,14 @@ export const REQUIRED_RESEARCH_SOURCES = [
   "axios",
   "investing-com",
   "fxstreet",
+  "x-social",
   "alchemy-market-insights",
 ] as const;
 
 export type ResearchSourceKey = typeof REQUIRED_RESEARCH_SOURCES[number];
 export type ResearchScheduleSlot = "video_midnight" | "morning" | "video_late_morning" | "evening" | "manual";
 export type SourceCheckStatus = "checked" | "no_new_items" | "blocked";
-export type IntakeItemType = "video" | "news" | "alchemy_article";
+export type IntakeItemType = "video" | "news" | "social_post" | "alchemy_article";
 export type RecommendedAction = "ignore" | "monitor" | "collect_evidence" | "review_article" | "recalibrate_story";
 export type DivergenceKind = "none" | "stats_lead" | "news_lead" | "contradiction";
 export type QuestionImpact = "confirming" | "contradicting" | "unresolved";
@@ -193,7 +194,7 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     const prefix = `items[${index}]`;
     if (!item.itemKey || itemKeys.has(item.itemKey)) errors.push(`${prefix}.itemKey is missing or duplicated.`);
     itemKeys.add(item.itemKey);
-    if (!["video", "news", "alchemy_article"].includes(item.itemType)) errors.push(`${prefix}.itemType is invalid.`);
+    if (!["video", "news", "social_post", "alchemy_article"].includes(item.itemType)) errors.push(`${prefix}.itemType is invalid.`);
     if (!item.publisher?.trim()) errors.push(`${prefix}.publisher is required.`);
     if (!item.title?.trim()) errors.push(`${prefix}.title is required.`);
     if (!validUrl(item.url)) errors.push(`${prefix}.url must be HTTPS.`);

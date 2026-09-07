@@ -61,7 +61,7 @@ Consume verified state for guided journeys, World story pages, decision snapshot
 
 ### Phase 3: expanded official and licensed feeds
 
-Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters or another licensed news feed, and approved X embedding. Social posts may establish that a statement was made, not that it is true.
+Add company IR feeds, OPEC extraction, Treasury and Census data, Reuters or another licensed news feed, and approved X presentation embedding. Live-owned monitored X discovery intake is active upstream; social posts establish that a statement was made, not that the underlying claim is true.
 
 ### Phase 4: licensed physical intelligence
 

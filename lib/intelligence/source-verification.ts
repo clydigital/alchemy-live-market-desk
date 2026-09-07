@@ -30,9 +30,15 @@ const ZEROHEDGE_READS_PATTERNS = [
   /monetary\s*metals|monetary-metals|monetarymetals/i,
 ] as const;
 
+const SOCIAL_DISCOVERY_PATTERNS = [
+  /(?:^|[\s/])(?:x\.com|twitter\.com|syndication\.twitter\.com)(?:[\s/]|$)/i,
+  /\bx[_-]?syndication[_-]?embed\b/i,
+  /\bx-social\b/i,
+] as const;
+
 export function sourceVerificationRole(input: { sourceName?: string | null; provenanceUrls?: string[] | null; providerKey?: string | null }): SourceVerificationRole {
   const value = [input.sourceName, input.providerKey, ...(input.provenanceUrls ?? [])].filter(Boolean).join(" ");
-  return ZEROHEDGE_READS_PATTERNS.some((pattern) => pattern.test(value)) ? "discovery_only" : "canonical";
+  return [...ZEROHEDGE_READS_PATTERNS, ...SOCIAL_DISCOVERY_PATTERNS].some((pattern) => pattern.test(value)) ? "discovery_only" : "canonical";
 }
 
 /** Discovery sources can create leads and review debt, never prove a canonical fact or mutation. */
