@@ -16,8 +16,8 @@ function candidate(input: Partial<DeskReadStory>): DeskReadStory {
     rank: input.rank ?? null,
     featuredRank: input.featuredRank ?? null,
     status: input.status || "confirmed",
-    bestExplanation: input.bestExplanation || "Canonical explanation.",
-    strongestSupport: input.strongestSupport || "Canonical supporting evidence.",
+    bestExplanation: "bestExplanation" in input ? input.bestExplanation : "Canonical explanation.",
+    strongestSupport: "strongestSupport" in input ? input.strongestSupport : "Canonical supporting evidence.",
     recencyAt: input.recencyAt || "2026-09-07T08:45:00Z",
     intelligence: input.intelligence || {
       lifecycleStatus: "confirmed",
