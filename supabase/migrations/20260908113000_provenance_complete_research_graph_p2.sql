@@ -260,7 +260,7 @@ begin
       methodology_version
     ) values (
       v_raw_id,
-      case when v_previous_observation_id = v_observation_id then null else v_previous_observation_id end,
+      v_previous_observation_id,
       'research_intake_claim',
       'research_intake_item',
       v_item.item_key,
@@ -377,8 +377,9 @@ where evidence.id = resolved.evidence_id
   );
 
 -- Server-side guard used by every writer, not only the current canonicaliser.
--- Research-intake Evidence is auto-linked from its stable external ID. Other
--- Evidence writers must supply either a direct observation or a derived metric.
+-- Research-intake Evidence with no existing lineage is auto-linked from its
+-- stable external ID. Once linked, later upserts validate but never re-point an
+-- older Evidence row to a newer intake snapshot.
 create or replace function public.enforce_intelligence_evidence_provenance()
 returns trigger
 language plpgsql
@@ -392,7 +393,9 @@ declare
   v_observation_raw_id uuid;
   v_metric_inputs uuid[];
 begin
-  if new.external_evidence_id like 'research-intake:%' then
+  if new.external_evidence_id like 'research-intake:%'
+    and new.raw_source_record_id is null
+    and new.normalised_observation_id is null then
     begin
       v_intake_item_id := split_part(new.external_evidence_id, ':', 2)::uuid;
     exception when invalid_text_representation then
