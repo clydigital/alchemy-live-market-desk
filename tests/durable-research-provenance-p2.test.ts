@@ -4,10 +4,15 @@ import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
-const migration = readFileSync(
+const provenanceMigration = readFileSync(
   path.join(root, "supabase", "migrations", "20260908113000_provenance_complete_research_graph_p2.sql"),
   "utf8",
 );
+const entityMigration = readFileSync(
+  path.join(root, "supabase", "migrations", "20260908114500_provenance_canonical_entities_p2.sql"),
+  "utf8",
+);
+const migration = `${provenanceMigration}\n${entityMigration}`;
 const runtime = readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
 
 test("MRU P2 captures research intake into immutable raw and normalised memory", () => {
@@ -28,7 +33,23 @@ test("MRU P2 makes canonical Evidence provenance mandatory", () => {
     migration,
     /normalised_observation_id is not null[\s\S]*or derived_metric_version_id is not null/,
   );
-  assert.match(migration, /input_observation_ids/);
+});
+
+test("MRU P2 requires derived metrics to resolve to real canonical observations", () => {
+  assert.match(migration, /validate_derived_metric_observation_lineage/);
+  assert.match(migration, /derived_metric_versions_validate_inputs/);
+  assert.match(migration, /derived_metric_versions_inputs_required/);
+  assert.match(migration, /cardinality\(new\.input_observation_ids\) = 0/);
+  assert.match(migration, /from public\.normalised_observations observation/);
+});
+
+test("MRU P2 activates the existing canonical entity/evidence graph deterministically", () => {
+  assert.match(migration, /sync_intelligence_evidence_entities/);
+  assert.match(migration, /public\.intelligence_entities/);
+  assert.match(migration, /public\.intelligence_evidence_entities/);
+  assert.match(migration, /'affected_asset'/);
+  assert.match(migration, /'affected_topic'/);
+  assert.doesNotMatch(entityMigration, /free-text NER|LLM inference is introduced/i);
 });
 
 test("MRU P2 exposes the complete deterministic provenance graph without a new reasoning stage", () => {
@@ -40,10 +61,9 @@ test("MRU P2 exposes the complete deterministic provenance graph without a new r
     "normalised_observation",
     "derived_metric_version",
     "intelligence_evidence",
+    "canonical_entity",
     "story_claim",
     "story_thesis_version",
-    "asset_entity",
-    "topic_entity",
   ]) {
     assert.match(migration, new RegExp(`'${node}'`));
   }
