@@ -24,3 +24,18 @@ test("P3 scorecard lowers urgency without a recorded catalyst and invalidated mo
   assert.equal(scorecard.urgency, 30);
   assert.ok(scorecard.priority < 30);
 });
+
+test("P3 lifecycle scoring only rewards canonical confirmed status", () => {
+  const confirmed = deriveStoryScorecard({
+    confidence: 50, sourceQuality: 50, novelty: 50, persistence: 50,
+    traderRelevance: 50, status: "confirmed", nextCatalyst: null,
+  });
+  const unconfirmed = deriveStoryScorecard({
+    confidence: 50, sourceQuality: 50, novelty: 50, persistence: 50,
+    traderRelevance: 50, status: "unconfirmed", nextCatalyst: null,
+  });
+
+  assert.equal(confirmed.momentum, 75);
+  assert.equal(unconfirmed.momentum, 45);
+  assert.ok(confirmed.priority > unconfirmed.priority);
+});
