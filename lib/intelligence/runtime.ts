@@ -41,6 +41,7 @@ import {
   SCENARIO_SCHEMA,
   type ChallengerOutput,
   type DeduplicationOutput,
+  type DeduplicationStageOutput,
   type DivergenceOutput,
   type EvidencePackItem,
   type ExistingStoryPackItem,
@@ -50,6 +51,10 @@ import {
   type ScenarioOutput,
   type StoryReviewTargetPackItem,
 } from "@/lib/intelligence/schemas";
+import {
+  buildFrozenStoryReferenceSet,
+  resolveDeduplicationStoryReferences,
+} from "@/lib/intelligence/story-references";
 import {
   STORY_SYNTHESIS_WITH_PLAN_SCHEMA,
   type StorySynthesisWithPlanOutputV1,
@@ -359,6 +364,11 @@ For nextTestSelection, choose exactly one {label,catalystRef} pair from the matc
 For visualPlan, choose presentation form only. Every edge ID, claim ID, series ID, entity ID and analytical relationship must already exist in the matching storyPlanCandidates entry or supplied canonical evidence. If a candidate list is empty, do not invent a replacement. Use [] when no valid visual form can be expressed from the supplied references.
 Visual IDs are non-authoritative placeholders and will be replaced deterministically. Do not use title, slug, theme, asset name or general market knowledge to manufacture a series, geography, entity, causal edge or expected relationship.`;
 
+const SEMANTIC_DEDUPLICATION_REFERENCE_RULES = `For stage "semantic_deduplication", existingStories contains run-local storyRef values rather than canonical database IDs.
+For noveltyClass "duplicate" or "existing_story_update", return exactly one storyRef supplied in existingStories as matchedStoryRef.
+For every other noveltyClass, return matchedStoryRef as null.
+Never invent, alter or reconstruct a Story UUID. If no supplied storyRef is an exact semantic match, fail closed rather than guessing.`;
+
 export { buildHypothesisEvidencePack, buildHypothesisStoryPack };
 
 function hash(value: string, length = 32) {
@@ -631,7 +641,7 @@ async function modelStage<T>({
     const result = await runStructuredStage<T>({
       stageKey,
       instructions: withRatesResearchLens(
-        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}`,
+        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}${stageKey === "semantic_deduplication" ? `\n\n${SEMANTIC_DEDUPLICATION_REFERENCE_RULES}` : ""}`,
         stageKey,
         true,
       ),
@@ -2413,6 +2423,7 @@ export async function runIntelligenceEngine({
     const evidenceById = new Map(reasoningEvidence.map((item) => [item.id, item]));
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
+    const frozenStoryReferences = buildFrozenStoryReferenceSet(storiesPack);
     const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
@@ -2615,23 +2626,21 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const dedupeStage = await modelStage<DeduplicationOutput>({
+    const dedupeStage = await modelStage<DeduplicationStageOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "semantic_deduplication",
       modelKind: "fast",
       schema: DEDUPLICATION_SCHEMA,
-      input: { candidates: candidates.map((item) => ({ ...item, candidateKey: item.candidateKey })), existingStories: storiesPack },
+      input: { candidates: candidates.map((item) => ({ ...item, candidateKey: item.candidateKey })), existingStories: frozenStoryReferences.modelStories },
       maxOutputTokens: 3_500,
     });
-    const validStoryIds = new Set(stories.map((story) => story.id));
-    const dedupeByCandidate = new Map(dedupeStage.data.decisions.map((decision) => {
-      let normalized = decision;
-      if ((decision.noveltyClass === "duplicate" || decision.noveltyClass === "existing_story_update") && (!decision.matchedStoryId || !validStoryIds.has(decision.matchedStoryId))) {
-        normalized = { ...decision, noveltyClass: "insufficient_novelty" as const, matchedStoryId: null, rationale: `${decision.rationale} Matching Story ID was invalid, so publication is blocked.` };
-      }
-      return [decision.candidateKey, normalized];
-    }));
+    const resolvedDedupe = resolveDeduplicationStoryReferences(
+      dedupeStage.data,
+      frozenStoryReferences,
+      { allowLegacyStoryIds: dedupeStage.reused },
+    );
+    const dedupeByCandidate = new Map(resolvedDedupe.decisions.map((decision) => [decision.candidateKey, decision]));
 
     const lifecycleStage = await modelStage<LifecycleOutput>({
       engineRunId,
