@@ -64,6 +64,7 @@ export type StoryReviewTargetPackItem = {
     catalystCandidates: Array<{
       label: string;
       catalystRef: string | null;
+      evidenceNature?: "scheduled_event";
     }>;
   };
 };

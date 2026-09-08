@@ -75,12 +75,13 @@ import {
 } from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
-import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { isScheduledEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import { buildFreshNewsRecruitment, type FreshNewsRecruitment } from "@/lib/intelligence/fresh-news-recruitment";
+import { recruitCanonicalStories, type CanonicalStoryForRecruitment } from "@/lib/intelligence/story-recruitment";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -132,6 +133,9 @@ type IntakeRow = {
   status: string;
   divergence_kind: string | null;
   divergence_note: string | null;
+  stats_signal: string | null;
+  news_signal: string | null;
+  review_reason: string | null;
   evidence_links: unknown;
 };
 
@@ -157,6 +161,11 @@ type StoryRequirementRow = {
   story_id: string;
   requirement_key: string;
   label: string;
+};
+
+type StoryThemeLinkRow = {
+  story_id: string;
+  theme: { theme_key: string; status: string } | Array<{ theme_key: string; status: string }> | null;
 };
 
 type PromptVersion = {
@@ -736,7 +745,7 @@ function scopeRequirementsByHypothesis(
 async function canonicaliseIntake(stories: StoryRow[]) {
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
   const rows = await intelligenceRest<IntakeRow[]>(
-    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,evidence_links&or=(published_at.gte.${encodeURIComponent(since)},and(item_key.like.rates-context:*,updated_at.gte.${encodeURIComponent(since)}))&order=updated_at.desc&limit=180`,
+    `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,stats_signal,news_signal,review_reason,evidence_links&or=(published_at.gte.${encodeURIComponent(since)},and(item_key.like.rates-context:*,updated_at.gte.${encodeURIComponent(since)}))&order=updated_at.desc&limit=180`,
   );
   const usable = rows.filter((item) => {
     if (!item.summary?.trim() || !item.url?.startsWith("https://")) return false;
@@ -748,6 +757,25 @@ async function canonicaliseIntake(stories: StoryRow[]) {
   if (!usable.length) return [];
 
   const storyAssets = new Map(stories.map((story) => [story.slug, story.assets ?? []]));
+  const storyIds = stories.map((story) => story.id).join(",");
+  const themeLinks = storyIds
+    ? await intelligenceRest<StoryThemeLinkRow[]>(
+      `intelligence_story_theme_links?select=story_id,theme:intelligence_themes(theme_key,status)&story_id=in.(${storyIds})`,
+    ).catch(() => [])
+    : [];
+  const themeKeysByStory = new Map<string, string[]>();
+  for (const link of themeLinks) {
+    const themes = Array.isArray(link.theme) ? link.theme : link.theme ? [link.theme] : [];
+    const keys = themeKeysByStory.get(link.story_id) ?? [];
+    keys.push(...themes.filter((theme) => theme.status === "active").map((theme) => theme.theme_key));
+    themeKeysByStory.set(link.story_id, unique(keys));
+  }
+  const recruitableStories: CanonicalStoryForRecruitment[] = stories.map((story) => ({
+    id: story.id,
+    slug: story.slug,
+    assets: story.assets ?? [],
+    themeKeys: themeKeysByStory.get(story.id) ?? [],
+  }));
   const ancestrySpecs = buildAncestryUpsertSpecs(usable);
 
   const ancestryRows = await intelligenceRest<Array<{ id: string; ancestry_key: string }>>(
@@ -797,7 +825,14 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     const domain = canonicalDomain(item.url);
     const source = sourceByExternal.get(`${domain}|${slugPart(item.publisher)}`);
     if (!source) return [];
-    const evidenceText = `${item.title}\n${item.summary}\n${item.divergence_note || ""}`;
+    const evidenceText = [
+      item.title,
+      item.summary,
+      item.divergence_note,
+      item.stats_signal,
+      item.news_signal,
+      item.review_reason,
+    ].filter(Boolean).join("\n");
     const routedAssets = unique((item.affected_story_slugs ?? []).flatMap((slug) => storyAssets.get(slug) ?? []));
     const affectedAssets = unique([
       ...explicitlyMentionedAssets(evidenceText, routedAssets),
@@ -834,6 +869,9 @@ async function canonicaliseIntake(stories: StoryRow[]) {
         materiality: item.materiality,
         recommendedAction: item.recommended_action,
         divergenceKind: item.divergence_kind,
+        statsSignal: item.stats_signal,
+        newsSignal: item.news_signal,
+        reviewReason: item.review_reason,
       },
       raw_payload: {},
       normalizer_version: "research-intake-v1",
@@ -842,7 +880,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
   });
 
   if (!evidenceSpecs.length) return [];
-  return intelligenceRest<CanonicalEvidenceRow[]>(
+  const canonicalEvidence = await intelligenceRest<CanonicalEvidenceRow[]>(
     "intelligence_evidence?on_conflict=source_id,content_hash",
     {
       method: "POST",
@@ -850,6 +888,49 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       body: JSON.stringify(evidenceSpecs),
     },
   );
+
+  const intakeByKey = new Map(usable.map((item) => [item.item_key, item]));
+  const proposedLinks = canonicalEvidence.flatMap((evidence) => {
+    const itemKey = typeof evidence.structured_payload?.itemKey === "string"
+      ? evidence.structured_payload.itemKey
+      : "";
+    const item = intakeByKey.get(itemKey);
+    if (!item) return [];
+    const routes = recruitCanonicalStories({
+      affectedStorySlugs: item.affected_story_slugs ?? [],
+      affectedAssets: evidence.affected_assets ?? [],
+      allowAssetRecruitment: (item.affected_story_slugs?.length ?? 0) === 0
+        && ["accepted", "published"].includes(item.status)
+        && item.materiality >= 70,
+    }, recruitableStories);
+    return routes.map((route) => ({
+      story_id: route.storyId,
+      evidence_id: evidence.id,
+      evidence_role: route.evidenceRole,
+      weight: route.weight,
+      rationale: route.reason === "explicit_story_slug"
+        ? `Deterministic recruitment from explicit intake Story slug ${route.storySlug}.`
+        : `Deterministic recruitment from canonical asset overlap: ${route.matchedAssets.join(", ")}.`,
+    }));
+  });
+
+  if (proposedLinks.length) {
+    const evidenceIds = unique(proposedLinks.map((link) => link.evidence_id));
+    const existingLinks = await intelligenceRest<Array<{ story_id: string; evidence_id: string }>>(
+      `intelligence_story_evidence?select=story_id,evidence_id&evidence_id=in.(${evidenceIds.join(",")})`,
+    );
+    const existing = new Set(existingLinks.map((link) => `${link.story_id}:${link.evidence_id}`));
+    const missingLinks = proposedLinks.filter((link) => !existing.has(`${link.story_id}:${link.evidence_id}`));
+    if (missingLinks.length) {
+      await intelligenceRest("intelligence_story_evidence?on_conflict=story_id,evidence_id,evidence_role", {
+        method: "POST",
+        headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(missingLinks),
+      });
+    }
+  }
+
+  return canonicalEvidence;
 }
 
 async function loadEvidence() {
@@ -1019,6 +1100,7 @@ async function persistStoryAssessments(input: {
     const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
     const evidenceTimes = evidenceIds
+      .filter((id) => !isScheduledEvidence(allowedEvidence.get(id)!))
       .map((id) => allowedEvidence.get(id)?.eventAt ?? allowedEvidence.get(id)?.publishedAt ?? null)
       .filter((value): value is string => Boolean(value))
       .sort((left, right) => Date.parse(right) - Date.parse(left));
@@ -1056,7 +1138,7 @@ async function persistStoryAssessments(input: {
     }
     const row = rows[0];
     if (!row || row.applied_at) continue;
-    await intelligenceRest("rpc/apply_intelligence_story_assessment", {
+    await intelligenceRest("rpc/apply_intelligence_story_assessment_v2", {
       method: "POST",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({ p_assessment_id: row.id }),
@@ -2312,6 +2394,10 @@ export async function runIntelligenceEngine({
     const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
     const reasoningEvidence = attachRatesContext(recruitment.candidates.map((candidate) => candidate.evidence), evidence, analysisAsOf);
+    const storyReviewEvidence = unique([
+      ...reasoningEvidence,
+      ...recruitment.diagnostics.filter((candidate) => candidate.nature === "scheduled_event").map((candidate) => candidate.evidence),
+    ]);
     evidenceConsidered = reasoningEvidence.length;
     warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
     if (!evidence.length) {
@@ -2323,7 +2409,7 @@ export async function runIntelligenceEngine({
     const evidenceById = new Map(reasoningEvidence.map((item) => [item.id, item]));
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
-    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, reasoningEvidence, researchDebt);
+    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };

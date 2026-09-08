@@ -182,6 +182,48 @@ test("creator-only evidence cannot materially mutate a Story", () => {
   assert.equal(materialAssessmentHasEligibleEvidence("invalidated", ["house-research"], target), false);
 });
 
+test("a linked scheduled event becomes a catalyst candidate but cannot materially mutate the thesis", () => {
+  const scheduled = evidence("fomc-scheduled", "", {
+    claim: "Official schedule for the upcoming FOMC decision.",
+    evidenceClass: "other",
+    sourceTier: 1,
+    eventAt: "2026-08-28T18:00:00.000Z",
+    publishedAt: "2026-08-28T18:00:00.000Z",
+    affectedAssets: ["US02Y", "SPX"],
+    affectedTopics: [],
+    structuredPayload: {
+      title: "FOMC decision and projections · Scheduled",
+      evidenceNature: "scheduled_event",
+      materiality: 100,
+    },
+  });
+  const selected = selectStoryReviewTargets({
+    stories: [story("fed", { assets: ["US02Y", "DXY", "SPX"] })],
+    evidence: [scheduled],
+    evidenceLinks: [{ storyId: "fed", evidenceId: scheduled.id, evidenceRole: "context", linkedAt: now.toISOString() }],
+    queue: [{
+      id: "queue-fomc",
+      storyId: "fed",
+      status: "pending",
+      reason: "new_linked_evidence",
+      priority: 70,
+      availableAt: "2026-08-21T11:00:00.000Z",
+      createdAt: "2026-08-21T11:00:00.000Z",
+    }],
+    debt: [],
+    now,
+  });
+
+  assert.equal(selected.length, 1);
+  assert.deepEqual(selected[0]?.reviewContext?.catalystCandidates, [{
+    label: "FOMC decision and projections · Scheduled · 2026-08-28",
+    catalystRef: "fomc-scheduled",
+    evidenceNature: "scheduled_event",
+  }]);
+  assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [scheduled.id], selected[0]!), false);
+  assert.equal(materialAssessmentHasEligibleEvidence("unchanged", [scheduled.id], selected[0]!), true);
+});
+
 test("invalidation requires Tier 1-2 evidence or two independent credible sources", () => {
   const oneNews = evidence("news-a", "strict", {
     evidenceClass: "news_report", sourceTier: 3, sourceName: "News A", ancestryGroupId: "group-a", supportDirection: "contradicting",
