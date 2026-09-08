@@ -42,3 +42,43 @@ jobs:
 
       - name: Production build
         run: npx next build
+
+  database-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Supabase CLI
+        run: npm install --no-save --no-audit --no-fund supabase
+
+      - name: Initialize local Supabase config
+        run: npx supabase init --force
+
+      - name: Start database-only Supabase stack and apply migrations
+        run: >-
+          npx supabase start
+          -x gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Verify MRU P1 database contract
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/durable_research_memory_p1.sql
+
+      - name: Verify MRU P2 database contract
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/tests/provenance_complete_research_graph_p2.sql
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: npx supabase stop --no-backup || true
