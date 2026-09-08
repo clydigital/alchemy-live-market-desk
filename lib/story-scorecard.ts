@@ -23,11 +23,21 @@ function score(value: number) {
 }
 
 function lifecycleMomentum(status: string) {
-  if (/invalid|archiv/i.test(status)) return 10;
-  if (/weaken/i.test(status)) return 30;
-  if (/confirm|publish/i.test(status)) return 75;
-  if (/develop|monitor/i.test(status)) return 60;
-  return 45;
+  switch (status.trim().toLowerCase()) {
+    case "invalidated":
+    case "archived":
+      return 10;
+    case "weakening":
+      return 30;
+    case "confirmed":
+      return 75;
+    case "developing":
+      return 60;
+    case "detected":
+      return 45;
+    default:
+      return 45;
+  }
 }
 
 /**
