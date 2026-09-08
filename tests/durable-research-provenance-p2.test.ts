@@ -49,7 +49,7 @@ test("MRU P2 activates the existing canonical entity/evidence graph deterministi
   assert.match(migration, /public\.intelligence_evidence_entities/);
   assert.match(migration, /'affected_asset'/);
   assert.match(migration, /'affected_topic'/);
-  assert.doesNotMatch(entityMigration, /free-text NER|LLM inference is introduced/i);
+  assert.match(entityMigration, /no free-text NER or LLM inference is introduced/i);
 });
 
 test("MRU P2 exposes the complete deterministic provenance graph without a new reasoning stage", () => {
