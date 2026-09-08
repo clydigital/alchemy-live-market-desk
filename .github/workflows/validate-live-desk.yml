@@ -1,0 +1,112 @@
+name: Validate Live Desk
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-live-desk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npx next build
+
+  database-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Bootstrap Supabase-compatible roles and extensions
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then
+              create role anon nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+              create role authenticated nologin;
+            end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then
+              create role service_role nologin;
+            end if;
+          end
+          $$;
+          create schema if not exists extensions;
+          create extension if not exists pgcrypto with schema extensions;
+          SQL
+
+      - name: Load representative pre-MRU schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/mru_pre_p1_schema_fixture.sql
+
+      - name: Apply MRU P1 migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260908101500_durable_research_memory_p1.sql
+
+      - name: Verify MRU P1 database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/durable_research_memory_p1.sql
+
+      - name: Apply MRU P2 provenance migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260908113000_provenance_complete_research_graph_p2.sql
+
+      - name: Apply MRU P2 canonical-entity migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260908114500_provenance_canonical_entities_p2.sql
+
+      - name: Verify MRU P2 database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provenance_complete_research_graph_p2.sql
