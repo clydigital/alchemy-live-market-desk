@@ -80,12 +80,16 @@ import {
 } from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
-import { isScheduledEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
-import { buildFreshNewsRecruitment, type FreshNewsRecruitment } from "@/lib/intelligence/fresh-news-recruitment";
+import {
+  buildFreshNewsRecruitment,
+  latestStoryEvidenceTimestamp,
+  type FreshNewsRecruitment,
+} from "@/lib/intelligence/fresh-news-recruitment";
 import { recruitCanonicalStories, type CanonicalStoryForRecruitment } from "@/lib/intelligence/story-recruitment";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
@@ -1113,11 +1117,9 @@ async function persistStoryAssessments(input: {
     const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
     const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
-    const evidenceTimes = evidenceIds
-      .filter((id) => !isScheduledEvidence(allowedEvidence.get(id)!))
-      .map((id) => allowedEvidence.get(id)?.eventAt ?? allowedEvidence.get(id)?.publishedAt ?? null)
-      .filter((value): value is string => Boolean(value))
-      .sort((left, right) => Date.parse(right) - Date.parse(left));
+    const lastEvidenceAt = latestStoryEvidenceTimestamp(
+      evidenceIds.map((id) => allowedEvidence.get(id)).filter((item): item is EvidencePackItem => Boolean(item)),
+    );
     const payload = {
       engine_run_id: input.engineRunId,
       market_belief_stage_run_id: input.stageRunId,
@@ -1132,7 +1134,7 @@ async function persistStoryAssessments(input: {
       proposed_thesis: assessment.proposedThesis?.trim() || null,
       evidence_ids: evidenceIds,
       eligible_evidence_ids: eligibleEvidenceIds,
-      last_evidence_at: evidenceTimes[0] ?? null,
+      last_evidence_at: lastEvidenceAt,
       selected_reason: target.reason,
       selected_at: target.selectedAt,
     };
@@ -1818,6 +1820,13 @@ async function promoteCandidate({
     ? "corroborated"
     : corroboratingGroups.size ? "partially_corroborated" : "unverified";
   const ancestry = unique(decisive.map((id) => evidenceById.get(id)?.ancestryGroupId).filter((id): id is string => Boolean(id)));
+  const existingStateRows = await intelligenceRest<Array<{ last_evidence_at: string | null }>>(
+    "intelligence_story_states?select=last_evidence_at&story_id=eq." + encodeURIComponent(story.id) + "&limit=1",
+  );
+  const lastEvidenceAt = latestStoryEvidenceTimestamp(
+    decisiveEvidence,
+    existingStateRows[0]?.last_evidence_at ?? null,
+  );
   const stateRows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_states?on_conflict=story_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -1841,8 +1850,8 @@ async function promoteCandidate({
       duplicate_of_story_id: null,
       canonical_external_url: null,
       research_synthesis: candidate.researchSynthesis,
-      last_evidence_at: new Date().toISOString(),
-      last_evaluated_at: new Date().toISOString(),
+      last_evidence_at: lastEvidenceAt,
+      last_evaluated_at: mutationAt,
       last_material_update_at: mutationAt,
       momentum: momentumForTransition(matched?.status, lifecycleStatus),
       source_verification_state: verificationState,
@@ -1858,7 +1867,7 @@ async function promoteCandidate({
       divergence_summary: candidate.divergenceSummary,
       strongest_support: candidate.strongestSupport,
       strongest_contradiction: candidate.strongestContradiction,
-      updated_at: new Date().toISOString(),
+      updated_at: mutationAt,
     }),
   });
   const stateId = stateRows[0]?.id;
