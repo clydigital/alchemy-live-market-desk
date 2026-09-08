@@ -1,11 +1,98 @@
--- MRU P2 canonical entity activation.
+-- MRU P2 canonical entity activation and derived-lineage hardening.
 --
 -- The intelligence entity tables already exist but production currently has no
 -- entities, relationships or Evidence links. Populate only deterministic entity
 -- identities already present on canonical Evidence (affected_assets/topics).
 -- Do not infer companies, people or causal relationships from free text here.
+--
+-- P1 also creates derived_metric_versions with explicit input_observation_ids.
+-- P2 makes those inputs mandatory and real before a metric may participate in
+-- the durable provenance graph.
 
 begin;
+
+create or replace function public.validate_derived_metric_observation_lineage()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_distinct_count integer;
+  v_existing_count integer;
+begin
+  if cardinality(new.input_observation_ids) = 0 then
+    raise exception 'Derived metric version % requires at least one canonical input observation', new.metric_key
+      using errcode = '23514';
+  end if;
+
+  select count(distinct input_id)
+  into v_distinct_count
+  from unnest(new.input_observation_ids) input_id;
+
+  if v_distinct_count <> cardinality(new.input_observation_ids) then
+    raise exception 'Derived metric version % contains duplicate input observations', new.metric_key
+      using errcode = '23514';
+  end if;
+
+  select count(*)
+  into v_existing_count
+  from public.normalised_observations observation
+  where observation.id = any(new.input_observation_ids);
+
+  if v_existing_count <> cardinality(new.input_observation_ids) then
+    raise exception 'Derived metric version % references unknown canonical observations', new.metric_key
+      using errcode = '23503';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.validate_derived_metric_observation_lineage() from public, anon, authenticated;
+
+do $$
+declare
+  v_invalid bigint;
+begin
+  select count(*)
+  into v_invalid
+  from public.derived_metric_versions metric
+  where cardinality(metric.input_observation_ids) = 0
+     or cardinality(metric.input_observation_ids) <> (
+       select count(distinct input_id)
+       from unnest(metric.input_observation_ids) input_id
+     )
+     or cardinality(metric.input_observation_ids) <> (
+       select count(*)
+       from public.normalised_observations observation
+       where observation.id = any(metric.input_observation_ids)
+     );
+
+  if v_invalid <> 0 then
+    raise exception 'MRU P2 cannot activate: % derived metric versions have incomplete observation lineage', v_invalid;
+  end if;
+end
+$$;
+
+drop trigger if exists derived_metric_versions_validate_inputs on public.derived_metric_versions;
+create trigger derived_metric_versions_validate_inputs
+before insert on public.derived_metric_versions
+for each row execute function public.validate_derived_metric_observation_lineage();
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'derived_metric_versions_inputs_required'
+      and conrelid = 'public.derived_metric_versions'::regclass
+  ) then
+    alter table public.derived_metric_versions
+      add constraint derived_metric_versions_inputs_required
+      check (cardinality(input_observation_ids) > 0);
+  end if;
+end
+$$;
 
 create or replace function public.sync_intelligence_evidence_entities(
   p_evidence_id uuid
@@ -30,6 +117,13 @@ begin
     raise exception 'Unknown intelligence Evidence %', p_evidence_id
       using errcode = '23503';
   end if;
+
+  -- These two roles are deterministic projections of the current canonical
+  -- Evidence arrays. Clear only our own links before recreating them so stale
+  -- affected-asset/topic links cannot survive a legitimate Evidence update.
+  delete from public.intelligence_evidence_entities
+  where evidence_id = v_evidence.id
+    and relationship_role in ('affected_asset', 'affected_topic');
 
   foreach v_value in array coalesce(v_evidence.affected_assets, '{}'::text[]) loop
     v_value := btrim(v_value);
@@ -322,5 +416,7 @@ grant select on table public.research_provenance_edges_v1 to service_role;
 
 comment on function public.sync_intelligence_evidence_entities(uuid) is
   'Deterministically maps explicit intelligence Evidence affected_assets/topics onto the canonical intelligence entity graph; performs no free-text inference.';
+comment on function public.validate_derived_metric_observation_lineage() is
+  'Rejects derived metric versions whose canonical input_observation_ids are empty, duplicated or missing from normalised_observations.';
 
 commit;
