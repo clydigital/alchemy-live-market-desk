@@ -754,7 +754,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     if (item.item_type === "video" && item.transcript_status !== "ready") return false;
     return true;
   });
-  if (!usable.length) return [];
+  if (!usable.length) return [] as string[];
 
   const storyAssets = new Map(stories.map((story) => [story.slug, story.assets ?? []]));
   const storyIds = stories.map((story) => story.id).join(",");
@@ -879,7 +879,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     }];
   });
 
-  if (!evidenceSpecs.length) return [];
+  if (!evidenceSpecs.length) return [] as string[];
   const canonicalEvidence = await intelligenceRest<CanonicalEvidenceRow[]>(
     "intelligence_evidence?on_conflict=source_id,content_hash",
     {
@@ -930,12 +930,16 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     }
   }
 
-  return canonicalEvidence;
+  return canonicalEvidence.map((evidence) => evidence.id);
 }
 
-async function loadEvidence() {
+async function loadEvidence(includeIds: string[] = []) {
+  // Canonicalisation may just have repaired an older intake row whose Evidence
+  // is outside the normal recency window. Fetch enough extra rows to retain the
+  // bounded latest set while deterministically including every returned ID.
+  const boundedLimit = MAX_EVIDENCE + unique(includeIds).length;
   const rows = await intelligenceRest<CanonicalEvidenceRow[]>(
-    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
+    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${boundedLimit}`,
   );
   return evidencePack(rows);
 }
@@ -2389,8 +2393,8 @@ export async function runIntelligenceEngine({
     const researchRequirements = await loadStoryRequirements(stories);
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
-    await canonicaliseIntake(stories);
-    const evidence = await loadEvidence();
+    const canonicalisedEvidenceIds = await canonicaliseIntake(stories);
+    const evidence = await loadEvidence(canonicalisedEvidenceIds);
     const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
     const reasoningEvidence = attachRatesContext(recruitment.candidates.map((candidate) => candidate.evidence), evidence, analysisAsOf);

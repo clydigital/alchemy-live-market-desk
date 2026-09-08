@@ -25,6 +25,9 @@ test("canonical intake keeps exact asset metadata needed for deterministic Story
   assert.match(runtime, /item\.stats_signal,[\s\S]*item\.news_signal,[\s\S]*item\.review_reason/);
   assert.match(runtime, /intelligence_story_evidence\?on_conflict=story_id,evidence_id,evidence_role/);
   assert.match(runtime, /resolution=ignore-duplicates/);
+  assert.match(runtime, /canonicalisedEvidenceIds = await canonicaliseIntake\(stories\)/);
+  assert.match(runtime, /loadEvidence\(canonicalisedEvidenceIds\)/);
+  assert.match(runtime, /const boundedLimit = MAX_EVIDENCE \+ unique\(includeIds\)\.length/);
 });
 
 test("Story assessment application uses the transactional v2 repair boundary", () => {
