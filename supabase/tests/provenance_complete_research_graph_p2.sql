@@ -1,5 +1,5 @@
 -- Read-only verification for MRU P2 provenance-complete research graph.
--- Run after P1 and 20260908113000_provenance_complete_research_graph_p2.sql.
+-- Run after P1 and both 2026090811* P2 migrations in a safe database.
 
 begin read only;
 
@@ -11,7 +11,10 @@ declare
   v_untraceable_evidence bigint;
   v_bad_research_evidence bigint;
   v_bad_observation_raw bigint;
+  v_bad_derived_metric bigint;
   v_bad_derived_evidence bigint;
+  v_missing_asset_links bigint;
+  v_missing_topic_links bigint;
   v_viewdef text;
 begin
   if to_regclass('public.derived_metric_versions') is null then
@@ -49,12 +52,37 @@ begin
   end if;
 
   if not exists (
+    select 1 from pg_trigger
+    where tgname = 'derived_metric_versions_validate_inputs'
+      and not tgisinternal
+  ) then
+    raise exception 'derived metric observation-lineage trigger is missing';
+  end if;
+
+  if not exists (
+    select 1 from pg_trigger
+    where tgname = 'intelligence_evidence_sync_entities'
+      and not tgisinternal
+  ) then
+    raise exception 'canonical Evidence/entity sync trigger is missing';
+  end if;
+
+  if not exists (
     select 1 from pg_constraint
     where conname = 'intelligence_evidence_provenance_required'
       and conrelid = 'public.intelligence_evidence'::regclass
       and convalidated
   ) then
     raise exception 'intelligence_evidence provenance check is missing or unvalidated';
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'derived_metric_versions_inputs_required'
+      and conrelid = 'public.derived_metric_versions'::regclass
+      and convalidated
+  ) then
+    raise exception 'derived_metric_versions input-observation check is missing or unvalidated';
   end if;
 
   if to_regclass('public.research_provenance_edges_v1') is null
@@ -129,18 +157,68 @@ begin
     raise exception '% Evidence rows have direct observations owned by a different raw record', v_bad_observation_raw;
   end if;
 
+  select count(*) into v_bad_derived_metric
+  from public.derived_metric_versions metric
+  where cardinality(metric.input_observation_ids) = 0
+     or cardinality(metric.input_observation_ids) <> (
+       select count(distinct input_id)
+       from unnest(metric.input_observation_ids) input_id
+     )
+     or cardinality(metric.input_observation_ids) <> (
+       select count(*)
+       from public.normalised_observations observation
+       where observation.id = any(metric.input_observation_ids)
+     );
+
+  if v_bad_derived_metric <> 0 then
+    raise exception '% derived metric versions have incomplete canonical observation inputs', v_bad_derived_metric;
+  end if;
+
   select count(*) into v_bad_derived_evidence
   from public.intelligence_evidence evidence
   join public.derived_metric_versions metric
     on metric.id = evidence.derived_metric_version_id
-  where cardinality(metric.input_observation_ids) = 0
-     or (
-       evidence.normalised_observation_id is not null
-       and not (evidence.normalised_observation_id = any(metric.input_observation_ids))
-     );
+  where evidence.normalised_observation_id is not null
+    and not (evidence.normalised_observation_id = any(metric.input_observation_ids));
 
   if v_bad_derived_evidence <> 0 then
-    raise exception '% derived Evidence rows have incomplete or inconsistent observation lineage', v_bad_derived_evidence;
+    raise exception '% derived Evidence rows have inconsistent direct observation lineage', v_bad_derived_evidence;
+  end if;
+
+  select count(*) into v_missing_asset_links
+  from public.intelligence_evidence evidence
+  cross join lateral unnest(evidence.affected_assets) asset
+  where btrim(asset) <> ''
+    and not exists (
+      select 1
+      from public.intelligence_evidence_entities link
+      join public.intelligence_entities entity on entity.id = link.entity_id
+      where link.evidence_id = evidence.id
+        and link.relationship_role = 'affected_asset'
+        and entity.canonical_key = 'asset:' || lower(btrim(asset))
+        and entity.entity_type = 'asset'
+    );
+
+  if v_missing_asset_links <> 0 then
+    raise exception '% explicit affected-asset Evidence references lack canonical entity links', v_missing_asset_links;
+  end if;
+
+  select count(*) into v_missing_topic_links
+  from public.intelligence_evidence evidence
+  cross join lateral unnest(evidence.affected_topics) topic
+  where btrim(topic) <> ''
+    and not exists (
+      select 1
+      from public.intelligence_evidence_entities link
+      join public.intelligence_entities entity on entity.id = link.entity_id
+      where link.evidence_id = evidence.id
+        and link.relationship_role = 'affected_topic'
+        and entity.canonical_key = 'theme:' || lower(btrim(topic))
+        and entity.entity_type = 'theme'
+    );
+
+  if v_missing_topic_links <> 0 then
+    raise exception '% explicit affected-topic Evidence references lack canonical entity links', v_missing_topic_links;
   end if;
 
   select pg_get_viewdef('public.research_provenance_edges_v1'::regclass, true)
@@ -151,9 +229,9 @@ begin
     or v_viewdef not like '%normalised_observation%'
     or v_viewdef not like '%derived_metric_version%'
     or v_viewdef not like '%intelligence_evidence%'
-    or v_viewdef not like '%story_thesis_version%'
-    or v_viewdef not like '%asset_entity%'
-    or v_viewdef not like '%topic_entity%' then
+    or v_viewdef not like '%canonical_entity%'
+    or v_viewdef not like '%story_claim%'
+    or v_viewdef not like '%story_thesis_version%' then
     raise exception 'research_provenance_edges_v1 does not expose the complete P2 graph';
   end if;
 
@@ -175,7 +253,9 @@ select
   (select count(*) from public.normalised_observations where methodology_version = 'research-intake-provenance-v1') as research_intake_observation_versions,
   (select count(*) from public.intelligence_evidence) as intelligence_evidence,
   (select count(*) from public.intelligence_evidence where normalised_observation_id is not null) as evidence_with_direct_observation,
-  (select count(*) from public.intelligence_evidence where derived_metric_version_id is not null) as evidence_with_derived_metric;
+  (select count(*) from public.intelligence_evidence where derived_metric_version_id is not null) as evidence_with_derived_metric,
+  (select count(*) from public.intelligence_entities) as canonical_entities,
+  (select count(*) from public.intelligence_evidence_entities) as evidence_entity_links;
 
 select relationship, count(*) as edge_count
 from public.research_provenance_edges_v1
