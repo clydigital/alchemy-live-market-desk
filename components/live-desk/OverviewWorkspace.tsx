@@ -7,6 +7,7 @@ import { storyTagTone, type StoryTag } from "@/lib/story-tags";
 import EconomicReleaseReminder, { type OverviewEconomicRelease, type OverviewReleaseStoryLink } from "./EconomicReleaseReminder";
 import StoryHeaderImage from "./StoryHeaderImage";
 import styles from "./overview-workspace.module.css";
+import type { StoryScorecard } from "@/lib/story-scorecard";
 
 export type OverviewStory = {
   id: string;
@@ -15,6 +16,7 @@ export type OverviewStory = {
   thesis: string;
   status: string;
   confidence: number;
+  scorecard: StoryScorecard;
   assets: string[];
   tags: StoryTag[];
   imageUrl: string | null;
@@ -195,7 +197,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
               <Link className={styles.storyCore} href={`/stories/${activeStory.slug}`}>
                 <small>Selected Story</small>
                 <strong>{activeStory.title}</strong>
-                <span>{activeStory.confidence}% confidence</span>
+                <span>P{activeStory.scorecard.priority} · {activeStory.confidence}% confidence</span>
               </Link>
               {mapStories.map((story, index) => (
                 <button
@@ -214,7 +216,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
                   <span>{activeStory.status}</span>
                   <h3>{activeStory.title}</h3>
                 </div>
-                <strong>{activeStory.confidence}</strong>
+                <strong>{activeStory.scorecard.priority}</strong>
               </div>
 
               <StoryHeaderImage
@@ -229,6 +231,13 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
               />
 
               <p>{activeStory.thesis}</p>
+              <div className={styles.tagRow} aria-label="Deterministic Story scorecard">
+                <span>Materiality {activeStory.scorecard.materiality}</span>
+                <span>Verification {activeStory.scorecard.verification}</span>
+                <span>Momentum {activeStory.scorecard.momentum}</span>
+                <span>Urgency {activeStory.scorecard.urgency}</span>
+                <span>Evidence health {activeStory.scorecard.evidenceHealth}</span>
+              </div>
               <div className={styles.tagRow}>
                 {activeStory.tags.map((tag) => <span key={tag} data-tone={storyTagTone(tag)}>{tag}</span>)}
               </div>

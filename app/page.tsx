@@ -16,6 +16,7 @@ import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
+import { deriveStoryScorecard } from "@/lib/story-scorecard";
 
 export const dynamic = "force-dynamic";
 
@@ -245,6 +246,15 @@ export default async function Page({ searchParams }: PageProps) {
       thesis: story.thesis,
       status: story.article_verdict || story.status,
       confidence: story.confidence,
+      scorecard: deriveStoryScorecard({
+        confidence: story.confidence,
+        sourceQuality: story.source_quality,
+        novelty: story.novelty,
+        persistence: story.persistence,
+        traderRelevance: story.trader_relevance,
+        status: story.status,
+        nextCatalyst: story.next_catalyst,
+      }),
       assets: story.assets || [],
       tags: deriveStoryTags(story, 6),
       imageUrl: image?.imageUrl || fallback.dataUri,
@@ -254,7 +264,7 @@ export default async function Page({ searchParams }: PageProps) {
       imageSourceTitle: image?.articleTitle || null,
       imagePublisher: image?.publisher || null,
     };
-  });
+  }).sort((left, right) => right.scorecard.priority - left.scorecard.priority || right.confidence - left.confidence);
 
   const changes = recordLayer.available
     ? recordLayer.events.slice(0, 6).map((event) => {
