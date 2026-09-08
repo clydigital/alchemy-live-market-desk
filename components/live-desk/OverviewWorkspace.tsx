@@ -197,7 +197,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
               <Link className={styles.storyCore} href={`/stories/${activeStory.slug}`}>
                 <small>Selected Story</small>
                 <strong>{activeStory.title}</strong>
-                <span>P{activeStory.scorecard.priority} · {activeStory.confidence}% confidence</span>
+                <span>Priority {activeStory.scorecard.priority} · {activeStory.confidence}% confidence</span>
               </Link>
               {mapStories.map((story, index) => (
                 <button
@@ -216,7 +216,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
                   <span>{activeStory.status}</span>
                   <h3>{activeStory.title}</h3>
                 </div>
-                <strong>{activeStory.scorecard.priority}</strong>
+                <strong aria-label={`Priority ${activeStory.scorecard.priority}`} title="Priority score">{activeStory.scorecard.priority}</strong>
               </div>
 
               <StoryHeaderImage
