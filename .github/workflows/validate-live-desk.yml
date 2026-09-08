@@ -110,3 +110,12 @@ jobs:
 
       - name: Verify MRU P2 database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provenance_complete_research_graph_p2.sql
+
+      - name: Load material Story propagation fixture
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/material_story_propagation_fixture.sql
+
+      - name: Apply material Story propagation repair
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260908142909_repair_material_story_propagation.sql
+
+      - name: Verify material Story propagation contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/material_story_propagation_contract.sql

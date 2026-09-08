@@ -1,5 +1,5 @@
 import type { EvidencePackItem, ExistingStoryPackItem, StoryReviewTargetPackItem } from "./schemas.ts";
-import { isCanonicalEligibleEvidence } from "./source-verification.ts";
+import { isCanonicalEligibleEvidence, isScheduledEvidence } from "./source-verification.ts";
 
 export const MAX_STORY_REVIEW_TARGETS = 4;
 export const MAX_STORY_REVIEW_EVIDENCE = 10;
@@ -60,6 +60,7 @@ export type StoryReviewContext = {
   catalystCandidates: Array<{
     label: string;
     catalystRef: string | null;
+    evidenceNature?: "scheduled_event";
   }>;
 };
 
@@ -97,6 +98,23 @@ function reviewAgeHours(status: string) {
 function catalystTime(value: string) {
   const iso = value.match(/\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?\b/)?.[0];
   return milliseconds(iso ?? null);
+}
+
+function scheduledCatalystCandidate(item: EvidencePackItem) {
+  if (!isScheduledEvidence(item)) return null;
+  const title = typeof item.structuredPayload?.title === "string"
+    ? item.structuredPayload.title.trim()
+    : "";
+  const eventDate = item.eventAt && Number.isFinite(Date.parse(item.eventAt))
+    ? item.eventAt.slice(0, 10)
+    : "";
+  const baseLabel = title || item.claim.trim();
+  if (!baseLabel) return null;
+  return {
+    label: eventDate && !baseLabel.includes(eventDate) ? `${baseLabel} · ${eventDate}` : baseLabel,
+    catalystRef: item.id,
+    evidenceNature: "scheduled_event" as const,
+  };
 }
 
 function relevantEvidenceForStory(
@@ -145,8 +163,14 @@ export function selectStoryReviewTargets(input: {
       const due = catalystTime(catalyst);
       return due !== null && due <= nowMs && due > lastEvaluated;
     });
-    const catalystCandidates = [...new Set(story.nextCatalysts.map((value) => value.trim()).filter(Boolean))]
-      .map((label) => ({ label, catalystRef: null }));
+    const catalystCandidates = [
+      ...[...new Set(story.nextCatalysts.map((value) => value.trim()).filter(Boolean))]
+        .map((label) => ({ label, catalystRef: null })),
+      ...relevantEvidence.flatMap((item) => {
+        const candidate = scheduledCatalystCandidate(item);
+        return candidate ? [candidate] : [];
+      }),
+    ];
     const reasons: StoryReviewReason[] = [];
     if (availableQueue.length) reasons.push("explicit_queue");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");

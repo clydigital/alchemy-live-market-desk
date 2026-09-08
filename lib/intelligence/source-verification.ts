@@ -35,10 +35,15 @@ export function sourceVerificationRole(input: { sourceName?: string | null; prov
   return ZEROHEDGE_READS_PATTERNS.some((pattern) => pattern.test(value)) ? "discovery_only" : "canonical";
 }
 
+export function isScheduledEvidence(item: Pick<EvidencePackItem, "structuredPayload">) {
+  return item.structuredPayload?.evidenceNature === "scheduled_event";
+}
+
 /** Discovery sources can create leads and review debt, never prove a canonical fact or mutation. */
 export function isCanonicalEligibleEvidence(item: EvidencePackItem) {
   return item.sourceVerificationRole !== "discovery_only"
     && sourceVerificationRole({ sourceName: item.sourceName, providerKey: item.providerKey, provenanceUrls: item.provenanceUrls }) !== "discovery_only"
+    && !isScheduledEvidence(item)
     && item.evidenceClass !== "transcript"
     && item.evidenceClass !== "research_analysis"
     && item.sourceTier <= 4;
