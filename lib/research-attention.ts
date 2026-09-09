@@ -1,9 +1,30 @@
 import { createHash } from "node:crypto";
 
-import { candidateScore, type IntakeItemInput } from "./research-update.ts";
-
 export const RESEARCH_ATTENTION_SHADOW_V1 = "research-attention-shadow/v1" as const;
 export const DEFAULT_RESEARCH_ATTENTION_SLOTS = 8;
+
+/**
+ * Deliberately structural and dependency-free. Scheduled canonical intake can be
+ * projected into this shape without importing the canonical research runtime.
+ * Keeping the shadow allocator pure prevents observability-only code from
+ * pulling production aliases, persistence, model routing, or other side effects
+ * into lightweight tests or future shadow consumers.
+ */
+export type ResearchAttentionInput = {
+  itemKey: string;
+  publisher: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  summary: string;
+  sourceQuality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  recommendedAction: string;
+  divergenceKind?: string;
+  affectedStorySlugs?: string[];
+};
 
 export type AttentionReservationLane = "contradiction" | "current_delta" | "emerging" | "open";
 
@@ -47,7 +68,7 @@ export type ResearchAttentionPacket = {
 };
 
 type MutableCluster = {
-  items: IntakeItemInput[];
+  items: ResearchAttentionInput[];
   terms: Set<string>;
   storySlugs: Set<string>;
 };
@@ -67,6 +88,20 @@ function unique(values: string[]) {
   return [...new Set(values.filter((value) => Boolean(value?.trim())).map((value) => value.trim()))];
 }
 
+/**
+ * Mirrors the existing intake candidate-score weights without importing the
+ * canonical runtime. This number is used only to rank shadow attention; it is
+ * never persisted as Story confidence or a publication threshold.
+ */
+function attentionBaseScore(item: ResearchAttentionInput) {
+  return Math.round(
+    item.sourceQuality * 0.25
+    + item.relevance * 0.30
+    + item.novelty * 0.20
+    + item.materiality * 0.25,
+  );
+}
+
 function terms(value: string) {
   return new Set(
     value
@@ -77,11 +112,11 @@ function terms(value: string) {
   );
 }
 
-function itemTerms(item: IntakeItemInput) {
+function itemTerms(item: ResearchAttentionInput) {
   return terms(`${item.title} ${item.summary} ${(item.affectedStorySlugs || []).join(" ")}`);
 }
 
-function ancestry(item: IntakeItemInput) {
+function ancestry(item: ResearchAttentionInput) {
   try {
     const hostname = new URL(item.url).hostname.toLowerCase().replace(/^www\./, "");
     return hostname || item.publisher.toLowerCase();
@@ -103,13 +138,18 @@ function sharesStory(left: Set<string>, right: Set<string>) {
   return false;
 }
 
-function addToCluster(cluster: MutableCluster, item: IntakeItemInput, itemTermSet: Set<string>, itemStorySlugs: Set<string>) {
+function addToCluster(
+  cluster: MutableCluster,
+  item: ResearchAttentionInput,
+  itemTermSet: Set<string>,
+  itemStorySlugs: Set<string>,
+) {
   cluster.items.push(item);
   itemTermSet.forEach((term) => cluster.terms.add(term));
   itemStorySlugs.forEach((slug) => cluster.storySlugs.add(slug));
 }
 
-function clusterItems(items: IntakeItemInput[]) {
+function clusterItems(items: ResearchAttentionInput[]) {
   const clusters: MutableCluster[] = [];
   const sorted = [...items].sort((left, right) => {
     const time = Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
@@ -129,16 +169,16 @@ function clusterItems(items: IntakeItemInput[]) {
   return clusters;
 }
 
-function clusterId(items: IntakeItemInput[]) {
+function clusterId(items: ResearchAttentionInput[]) {
   const key = [...items].map((item) => item.itemKey).sort().join("|");
   return `attention:${createHash("sha256").update(key).digest("hex").slice(0, 16)}`;
 }
 
-function representative(items: IntakeItemInput[]) {
+function representative(items: ResearchAttentionInput[]) {
   return [...items].sort((left, right) => {
     const actionWeight = Number(right.recommendedAction !== "ignore") - Number(left.recommendedAction !== "ignore");
     if (actionWeight) return actionWeight;
-    const scoreWeight = candidateScore(right) - candidateScore(left);
+    const scoreWeight = attentionBaseScore(right) - attentionBaseScore(left);
     if (scoreWeight) return scoreWeight;
     return Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
   })[0];
@@ -149,7 +189,7 @@ function buildCandidate(cluster: MutableCluster): ResearchAttentionCandidate {
   const discoveryOnly = cluster.items.filter((item) => item.recommendedAction === "ignore");
   const scoringItems = eligible.length ? eligible : cluster.items;
   const sourceAncestries = unique(eligible.map(ancestry));
-  const maxCandidateScore = Math.max(...scoringItems.map(candidateScore));
+  const maxCandidateScore = Math.max(...scoringItems.map(attentionBaseScore));
   const maxMateriality = Math.max(...scoringItems.map((item) => item.materiality));
   const maxNovelty = Math.max(...scoringItems.map((item) => item.novelty));
   const storySlugs = unique(cluster.items.flatMap((item) => item.affectedStorySlugs || []));
@@ -214,12 +254,12 @@ function reserve(
   selected: ResearchAttentionCandidate[],
   selectedIds: Set<string>,
   candidates: ResearchAttentionCandidate[],
-  count: number,
+  targetSelectionCount: number,
   lane: AttentionReservationLane,
 ) {
-  if (count <= 0) return;
+  if (targetSelectionCount <= 0) return;
   for (const candidate of rank(candidates)) {
-    if (selected.length >= count || selectedIds.has(candidate.id)) continue;
+    if (selected.length >= targetSelectionCount || selectedIds.has(candidate.id)) continue;
     selected.push({ ...candidate, reservationLane: lane });
     selectedIds.add(candidate.id);
   }
@@ -231,7 +271,7 @@ function reserve(
  * Discovery-only rows may enrich a cluster but can never qualify it by themselves.
  */
 export function buildResearchAttentionPacket(
-  items: IntakeItemInput[],
+  items: ResearchAttentionInput[],
   options: { generatedAt?: string; maxSlots?: number } = {},
 ): ResearchAttentionPacket {
   const generatedAt = options.generatedAt || new Date().toISOString();
@@ -244,14 +284,29 @@ export function buildResearchAttentionPacket(
   const selected: ResearchAttentionCandidate[] = [];
   const selectedIds = new Set<string>();
 
-  const contradictionPool = eligible.filter((candidate) => candidate.contradiction);
-  reserve(selected, selectedIds, contradictionPool, reservations.contradiction, "contradiction");
+  reserve(
+    selected,
+    selectedIds,
+    eligible.filter((candidate) => candidate.contradiction),
+    reservations.contradiction,
+    "contradiction",
+  );
 
-  const currentStart = selected.length;
-  reserve(selected, selectedIds, eligible.filter((candidate) => candidate.currentDelta), currentStart + reservations.currentDelta, "current_delta");
+  reserve(
+    selected,
+    selectedIds,
+    eligible.filter((candidate) => candidate.currentDelta),
+    selected.length + reservations.currentDelta,
+    "current_delta",
+  );
 
-  const emergingStart = selected.length;
-  reserve(selected, selectedIds, eligible.filter((candidate) => candidate.emerging), emergingStart + reservations.emerging, "emerging");
+  reserve(
+    selected,
+    selectedIds,
+    eligible.filter((candidate) => candidate.emerging),
+    selected.length + reservations.emerging,
+    "emerging",
+  );
 
   // Unused reserved capacity automatically spills into the open pool. This is
   // deliberate: reservations protect scarce research functions without wasting
