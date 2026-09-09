@@ -5,36 +5,27 @@ import {
   buildResearchAttentionPacket,
   calculateAttentionReservations,
   RESEARCH_ATTENTION_SHADOW_V1,
+  type ResearchAttentionInput,
 } from "../lib/research-attention.ts";
-import type { IntakeItemInput } from "../lib/research-update.ts";
 
 function item(
   key: string,
   title: string,
-  overrides: Partial<IntakeItemInput> = {},
-): IntakeItemInput {
+  overrides: Partial<ResearchAttentionInput> = {},
+): ResearchAttentionInput {
   return {
     itemKey: key,
-    itemType: "news",
     publisher: `Publisher ${key}`,
-    externalId: `https://example-${key}.com/${key}`,
     title,
     url: `https://example-${key}.com/${key}`,
     publishedAt: "2026-09-10T00:00:00.000Z",
-    summary: `${title} independent detail mechanism signal`,
+    summary: title,
     sourceQuality: 75,
     relevance: 75,
     novelty: 70,
     materiality: 70,
     recommendedAction: "collect_evidence",
     divergenceKind: "none",
-    evidence: [{
-      title,
-      url: `https://example-${key}.com/${key}`,
-      publisher: `Publisher ${key}`,
-      publishedAt: "2026-09-10T00:00:00.000Z",
-      claim: title,
-    }],
     ...overrides,
   };
 }
@@ -58,7 +49,6 @@ test("discovery-only watch inputs stay visible but cannot consume a research slo
       relevance: 35,
       novelty: 30,
       materiality: 30,
-      evidence: [],
     }),
   ], { generatedAt: "2026-09-10T00:00:00.000Z" });
 
@@ -94,11 +84,16 @@ test("reservations protect contradiction, current-delta and emerging work before
 });
 
 test("unused reservations spill into open capacity rather than wasting research slots", () => {
-  const inputs = Array.from({ length: 8 }, (_, index) => item(
-    `open-${index}`,
-    `Distinct neutral research mechanism ${index} sector ${String.fromCharCode(97 + index)}`,
-    { materiality: 66, novelty: 65 },
-  ));
+  const inputs = [
+    item("open-0", "Copper warehouse availability tightens", { materiality: 66, novelty: 65 }),
+    item("open-1", "Korean memory export receipts accelerate", { materiality: 66, novelty: 65 }),
+    item("open-2", "China household credit appetite stays weak", { materiality: 66, novelty: 65 }),
+    item("open-3", "Shipping insurance premia rise on rerouting", { materiality: 66, novelty: 65 }),
+    item("open-4", "Uranium term contracting activity broadens", { materiality: 66, novelty: 65 }),
+    item("open-5", "Grid transformer lead times extend", { materiality: 66, novelty: 65 }),
+    item("open-6", "Fertilizer feedstock spread widens", { materiality: 66, novelty: 65 }),
+    item("open-7", "Cloud software renewal cycles improve", { materiality: 66, novelty: 65 }),
+  ];
 
   const packet = buildResearchAttentionPacket(inputs, {
     generatedAt: "2026-09-10T00:00:00.000Z",
