@@ -1,5 +1,5 @@
 import { buildDeskRead, type DeskReadStory } from "@/lib/desk-read";
-import { getCanonicalPublicationResponse } from "@/lib/intelligence/publication-feed-route";
+import { getCanonicalPublicationPayload } from "@/lib/intelligence/publication-feed-route";
 
 type CanonicalFeedShape = {
   generatedAt?: string | null;
@@ -20,12 +20,13 @@ type CanonicalFeedShape = {
 
 /**
  * Add the Desk Read as a deterministic projection of the already-canonical
- * publication response. Hybrid receives the result; it never constructs a
- * competing market explanation locally.
+ * publication payload. Hybrid receives the result; it never constructs a
+ * competing market explanation locally. The canonical payload stays in memory
+ * until this final response is serialized, avoiding a parse/serialize round trip.
  */
 export async function getCanonicalPublicationResponseWithDeskRead(editionId: string | null = null) {
-  const response = await getCanonicalPublicationResponse(editionId);
-  const body = await response.json() as CanonicalFeedShape;
+  const publication = await getCanonicalPublicationPayload(editionId);
+  const body = publication.body as CanonicalFeedShape;
   const generatedAt = body.edition?.generatedAt || body.generatedAt || new Date().toISOString();
   const historical = body.edition?.mode === "immutable_replay";
 
@@ -39,7 +40,7 @@ export async function getCanonicalPublicationResponseWithDeskRead(editionId: str
     historical,
   });
 
-  const headers = new Headers(response.headers);
+  const headers = new Headers(publication.headers);
   headers.delete("content-length");
   headers.set("X-Alchemy-Desk-Read", deskRead.status);
 
@@ -51,7 +52,7 @@ export async function getCanonicalPublicationResponseWithDeskRead(editionId: str
       deskRead,
     },
   }, {
-    status: response.status,
+    status: publication.status,
     headers,
   });
 }
