@@ -17,6 +17,12 @@ type OptionalResult<T> = {
   warning: string | null;
 };
 
+export type CanonicalPublicationPayload = {
+  body: Record<string, unknown>;
+  headers: Record<string, string>;
+  status: number;
+};
+
 function liveMarketState(data: Awaited<ReturnType<typeof getHybridFeedData>>) {
   const storySlugById = new Map(data.stories.map((story) => [story.id, story.slug]));
   return data.marketStateRecords.map((record) => ({
@@ -144,7 +150,14 @@ async function optionalWithin<T>(
   }
 }
 
-export async function getCanonicalPublicationResponse(editionId: string | null = null) {
+/**
+ * Assemble the canonical feed exactly once before transport serialization.
+ * Route-level projections such as Desk Read can extend this in-memory payload
+ * without parsing and serializing an intermediate Response.
+ */
+export async function getCanonicalPublicationPayload(
+  editionId: string | null = null,
+): Promise<CanonicalPublicationPayload> {
   const generatedAt = new Date().toISOString();
   const startedAt = Date.now();
 
@@ -248,7 +261,7 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
     .slice(0, 20);
   const elapsedMs = Date.now() - startedAt;
 
-  return NextResponse.json({
+  const body = {
     version: 2,
     source: "alchemy-live-market-desk",
     generatedAt,
@@ -300,7 +313,11 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
         videos: validatedVideos,
       },
     },
-  }, {
+  };
+
+  return {
+    body,
+    status: 200,
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
@@ -308,5 +325,13 @@ export async function getCanonicalPublicationResponse(editionId: string | null =
       "X-Alchemy-Feed-Duration-Ms": String(elapsedMs),
       "X-Alchemy-Provider-Warnings": String(providerWarnings.length),
     },
+  };
+}
+
+export async function getCanonicalPublicationResponse(editionId: string | null = null) {
+  const publication = await getCanonicalPublicationPayload(editionId);
+  return NextResponse.json(publication.body, {
+    status: publication.status,
+    headers: publication.headers,
   });
 }
