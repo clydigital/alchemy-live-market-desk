@@ -64,6 +64,40 @@ function evidenceNature(item: EvidencePackItem): EvidenceNature {
   return "fresh_news";
 }
 
+/**
+ * Returns the Evidence time that is allowed to advance Story freshness.
+ *
+ * Event outcomes are anchored to when the event happened. Other observed
+ * evidence is anchored to publication/availability. Scheduled events are not
+ * observations, and receipt time is deliberately excluded so replay cannot
+ * manufacture freshness.
+ */
+export function canonicalStoryEvidenceTimestamp(item: EvidencePackItem): string | null {
+  const nature = evidenceNature(item);
+  if (nature === "scheduled_event") return null;
+  const candidates = nature === "event_outcome"
+    ? [item.eventAt, item.publishedAt, item.availableAt]
+    : [item.publishedAt, item.availableAt, item.eventAt];
+  return candidates.find((value): value is string => timestamp(value) !== null) ?? null;
+}
+
+export function latestStoryEvidenceTimestamp(
+  evidence: EvidencePackItem[],
+  currentLastEvidenceAt: string | null = null,
+): string | null {
+  let latest = timestamp(currentLastEvidenceAt) === null ? null : currentLastEvidenceAt;
+  let latestMs = timestamp(latest);
+  for (const item of evidence) {
+    const candidate = canonicalStoryEvidenceTimestamp(item);
+    const candidateMs = timestamp(candidate);
+    if (candidateMs !== null && (latestMs === null || candidateMs > latestMs)) {
+      latest = candidate;
+      latestMs = candidateMs;
+    }
+  }
+  return latest;
+}
+
 function freshnessWindowHours(item: EvidencePackItem, nature: EvidenceNature) {
   if (nature === "event_outcome") return 120;
   if (item.evidenceClass === "market_observation" || item.evidenceClass === "derived_metric") return 36;
@@ -74,9 +108,7 @@ function freshnessWindowHours(item: EvidencePackItem, nature: EvidenceNature) {
 }
 
 function ageHours(item: EvidencePackItem, nature: EvidenceNature, asOfMs: number) {
-  const reference = nature === "event_outcome"
-    ? timestamp(item.eventAt) ?? timestamp(item.publishedAt) ?? timestamp(item.availableAt)
-    : timestamp(item.publishedAt) ?? timestamp(item.availableAt) ?? timestamp(item.eventAt);
+  const reference = timestamp(canonicalStoryEvidenceTimestamp(item));
   return reference === null ? null : (asOfMs - reference) / 3_600_000;
 }
 
