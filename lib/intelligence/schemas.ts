@@ -251,6 +251,23 @@ export type DeduplicationOutput = {
   }>;
 };
 
+/** Model output uses a run-local reference; canonical Story IDs remain server-owned. */
+export type DeduplicationStageOutput = {
+  decisions: Array<{
+    candidateKey: string;
+    noveltyClass: "new_story" | "existing_story_update" | "duplicate" | "related_distinct" | "insufficient_novelty";
+    matchedStoryRef: string | null;
+    similarityScore: number;
+    rationale: string;
+    exceptionProof: {
+      distinctEvent: boolean;
+      distinctMechanism: boolean;
+      distinctDecisiveEvidence: boolean;
+      distinctCatalyst: boolean;
+    };
+  }>;
+};
+
 export type LifecycleOutput = {
   decisions: Array<{
     candidateKey: string;
@@ -618,11 +635,11 @@ export const DEDUPLICATION_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["candidateKey", "noveltyClass", "matchedStoryId", "similarityScore", "rationale", "exceptionProof"],
+        required: ["candidateKey", "noveltyClass", "matchedStoryRef", "similarityScore", "rationale", "exceptionProof"],
         properties: {
           candidateKey: { type: "string" },
           noveltyClass: { type: "string", enum: ["new_story", "existing_story_update", "duplicate", "related_distinct", "insufficient_novelty"] },
-          matchedStoryId: nullableString,
+          matchedStoryRef: nullableString,
           similarityScore: { type: "number", minimum: 0, maximum: 100 },
           rationale: { type: "string" },
           exceptionProof: {
