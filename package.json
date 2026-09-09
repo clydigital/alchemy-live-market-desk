@@ -8,7 +8,8 @@
     "start": "next start",
     "research:publish": "node scripts/publish-research-update.mjs",
     "chrome:transcript-operator": "node scripts/chrome-transcript-operator.mjs",
-    "test": "node --test --experimental-strip-types tests/*.test.ts"
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:persistence": "node --conditions=react-server --experimental-strip-types --experimental-loader ./tests/runtime-test-loader.mjs --test tests/canonicalise-intake-persistence.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

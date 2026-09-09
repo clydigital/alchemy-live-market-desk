@@ -90,7 +90,11 @@ import {
   latestStoryEvidenceTimestamp,
   type FreshNewsRecruitment,
 } from "@/lib/intelligence/fresh-news-recruitment";
-import { recruitCanonicalStories, type CanonicalStoryForRecruitment } from "@/lib/intelligence/story-recruitment";
+import {
+  evaluateCanonicalStoryRecruitment,
+  type CanonicalStoryForRecruitment,
+  type StoryRecruitmentDecision,
+} from "@/lib/intelligence/story-recruitment";
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -164,6 +168,7 @@ type StoryRow = {
   next_catalyst: string | null;
   assets: string[];
   created_by?: string;
+  article_verdict?: string | null;
 };
 
 type StoryRequirementRow = {
@@ -707,7 +712,7 @@ async function modelStage<T>({
 
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict&status=neq.archived&status=neq.discarded&order=updated_at.desc",
   );
 }
 
@@ -756,12 +761,13 @@ function scopeRequirementsByHypothesis(
   });
 }
 
-async function canonicaliseIntake(stories: StoryRow[]) {
+export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: ReadonlySet<string>) {
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
   const rows = await intelligenceRest<IntakeRow[]>(
     `research_intake_items?select=id,run_id,item_key,item_type,publisher,title,url,published_at,transcript_status,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,status,divergence_kind,divergence_note,stats_signal,news_signal,review_reason,evidence_links&or=(published_at.gte.${encodeURIComponent(since)},and(item_key.like.rates-context:*,updated_at.gte.${encodeURIComponent(since)}))&order=updated_at.desc&limit=180`,
   );
   const usable = rows.filter((item) => {
+    if (itemKeys && !itemKeys.has(item.item_key)) return false;
     if (!item.summary?.trim() || !item.url?.startsWith("https://")) return false;
     if (item.status === "rejected" || item.status === "blocked") return false;
     if (item.recommended_action === "ignore") return false;
@@ -789,6 +795,14 @@ async function canonicaliseIntake(stories: StoryRow[]) {
     slug: story.slug,
     assets: story.assets ?? [],
     themeKeys: themeKeysByStory.get(story.id) ?? [],
+    title: story.title,
+    thesis: story.thesis,
+    marketQuestion: story.market_question,
+    dominantNarrative: story.dominant_narrative,
+    confirmationTrigger: story.confirmation_trigger,
+    invalidationTrigger: story.invalidation_trigger,
+    nextCatalyst: story.next_catalyst,
+    articleVerdict: story.article_verdict,
   }));
   const ancestrySpecs = buildAncestryUpsertSpecs(usable);
 
@@ -835,6 +849,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
   );
   const sourceByExternal = new Map(sourceRows.map((row) => [row.external_source_id, row]));
 
+  const routingByItemKey = new Map<string, StoryRecruitmentDecision>();
   const evidenceSpecs = usable.flatMap((item) => {
     const domain = canonicalDomain(item.url);
     const source = sourceByExternal.get(`${domain}|${slugPart(item.publisher)}`);
@@ -853,8 +868,18 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       ...explicitlyMentionedInstrumentSpecs(evidenceText).map((spec) => spec.instrument),
     ]);
     const ratesContext = parseRatesContext(item.divergence_note);
+    const canonicalAffectedAssets = unique([...affectedAssets, ...(ratesContext?.assets || [])]);
     const calendarItem = item.item_key.startsWith("calendar:");
     const calendarReleased = calendarItem && /\breleased\b/i.test(`${item.title} ${item.summary}`);
+    const routing = evaluateCanonicalStoryRecruitment({
+      affectedStorySlugs: item.affected_story_slugs ?? [],
+      affectedAssets: canonicalAffectedAssets,
+      allowAssetRecruitment: (item.affected_story_slugs?.length ?? 0) === 0
+        && ["accepted", "published"].includes(item.status),
+      acquisitionMateriality: item.materiality,
+      evidenceText,
+    }, recruitableStories);
+    routingByItemKey.set(item.item_key, routing);
     return [{
       source_id: source.id,
       research_run_id: item.run_id,
@@ -866,7 +891,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       event_at: item.published_at,
       published_at: item.published_at,
       available_at: item.published_at,
-      affected_assets: unique([...affectedAssets, ...(ratesContext?.assets || [])]),
+      affected_assets: canonicalAffectedAssets,
       affected_topics: item.affected_story_slugs ?? [],
       confidence: clamp((item.source_quality * 0.55) + (item.materiality * 0.25) + (item.relevance * 0.2)),
       freshness_status: "current",
@@ -886,6 +911,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
         statsSignal: item.stats_signal,
         newsSignal: item.news_signal,
         reviewReason: item.review_reason,
+        storyRouting: routing.diagnostic,
       },
       raw_payload: {},
       normalizer_version: "research-intake-v1",
@@ -910,13 +936,7 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       : "";
     const item = intakeByKey.get(itemKey);
     if (!item) return [];
-    const routes = recruitCanonicalStories({
-      affectedStorySlugs: item.affected_story_slugs ?? [],
-      affectedAssets: evidence.affected_assets ?? [],
-      allowAssetRecruitment: (item.affected_story_slugs?.length ?? 0) === 0
-        && ["accepted", "published"].includes(item.status)
-        && item.materiality >= 70,
-    }, recruitableStories);
+    const routes = routingByItemKey.get(itemKey)?.routes ?? [];
     return routes.map((route) => ({
       story_id: route.storyId,
       evidence_id: evidence.id,
@@ -924,7 +944,9 @@ async function canonicaliseIntake(stories: StoryRow[]) {
       weight: route.weight,
       rationale: route.reason === "explicit_story_slug"
         ? `Deterministic recruitment from explicit intake Story slug ${route.storySlug}.`
-        : `Deterministic recruitment from canonical asset overlap: ${route.matchedAssets.join(", ")}.`,
+        : route.reason === "canonical_story_local_match"
+          ? `Deterministic Story-local recruitment from canonical assets ${route.matchedAssets.join(", ")} and terms ${route.matchedStoryTerms.join(", ")}.`
+          : `Deterministic recruitment from canonical asset overlap: ${route.matchedAssets.join(", ")}.`,
     }));
   });
 
