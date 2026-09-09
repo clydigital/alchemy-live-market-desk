@@ -63,6 +63,35 @@ function boundedInteger(value: number | undefined, fallback: number, minimum: nu
   return Math.max(minimum, Math.min(maximum, Math.floor(value!)));
 }
 
+/**
+ * Output headroom is intentionally stage-shaped rather than one huge global
+ * allowance. Synthesis stages need enough room to finish strict JSON without
+ * truncation, while low-output classification stages should not inherit that
+ * larger ceiling accidentally.
+ */
+export function intelligenceStageOutputBudget(stageKey: string) {
+  switch (stageKey) {
+    case "semantic_deduplication": return 1_800;
+    case "divergence": return 2_800;
+    case "market_belief": return 7_000;
+    case "scenario": return 5_000;
+    case "hypothesis": return 7_000;
+    case "story_synthesis": return 7_500;
+    case "dossier_storyline_composer": return 8_000;
+    default: return 6_000;
+  }
+}
+
+function minimumStageOutputBudget(stageKey: string) {
+  switch (stageKey) {
+    case "market_belief": return 7_000;
+    case "hypothesis": return 7_000;
+    case "story_synthesis": return 7_500;
+    case "dossier_storyline_composer": return 8_000;
+    default: return 0;
+  }
+}
+
 function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageResult<T> | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const record = input as Record<string, unknown>;
@@ -189,7 +218,7 @@ export async function runStructuredStage<T>({
   input,
   schema,
   modelKind = "complex",
-  maxOutputTokens = 4_000,
+  maxOutputTokens,
   requestTimeoutMs,
   maxAttempts,
 }: {
@@ -218,12 +247,8 @@ export async function runStructuredStage<T>({
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const modelInput = canonicalStageInput(stageKey, input);
-  // Market Belief now carries the bounded existing-Story maintenance output in
-  // the same provider call. Give strict JSON enough headroom to finish instead
-  // of forcing a truncation/retry loop. This does not add another model call.
-  const effectiveMaxOutputTokens = stageKey === "market_belief"
-    ? Math.max(maxOutputTokens, 4_500)
-    : maxOutputTokens;
+  const configuredOutputTokens = maxOutputTokens ?? intelligenceStageOutputBudget(stageKey);
+  const effectiveMaxOutputTokens = Math.max(configuredOutputTokens, minimumStageOutputBudget(stageKey));
   const body = {
     model,
     instructions,

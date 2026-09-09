@@ -22,7 +22,8 @@ test("existing Story maintenance piggybacks on the one Market Belief call", () =
   assert.doesNotMatch(runtime, /stageKey: "story_(?:review|maintenance)"/);
   assert.doesNotMatch(checkpoints, /"story_(?:review|maintenance)"/);
   assert.match(schema, /storyAssessments:[\s\S]*maxItems: 4/);
-  assert.match(openai, /stageKey === "market_belief"[\s\S]*Math\.max\(maxOutputTokens, 4_500\)/);
+  assert.match(openai, /case "market_belief": return 7_000/);
+  assert.match(openai, /Math\.max\(configuredOutputTokens, minimumStageOutputBudget\(stageKey\)\)/);
   assert.match(openai, /max_output_tokens: effectiveMaxOutputTokens/);
 });
 

@@ -284,37 +284,78 @@ export type FreshAlchemyArticlesResult = {
 };
 
 /**
- * Strict live acquisition for the research scheduler. Unlike getAlchemyArticles,
- * this function never substitutes the local article fallback when the live site
- * cannot be reached or does not yield dated articles.
+ * Strict live acquisition for the research scheduler. RSS remains the primary
+ * source, but live category pages provide a direct-source recovery path when
+ * WordPress publication and RSS propagation are briefly out of sync. The
+ * scheduler never substitutes local fallbackArticles.
  */
-export async function getFreshAlchemyArticles(limit = 30): Promise<FreshAlchemyArticlesResult> {
+export async function getFreshAlchemyArticles(
+  limit = 30,
+  fetcher: typeof fetch = fetch,
+): Promise<FreshAlchemyArticlesResult> {
+  const diagnostics: string[] = [];
+  const fetchLiveText = async (url: string) => {
+    const response = await fetcher(url, {
+      headers: { "user-agent": "Alchemy Live Desk scheduled research" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`${new URL(url).pathname || "/"} returned HTTP ${response.status}.`);
+    return response.text();
+  };
+
+  let feedArticles: AlchemyArticle[] = [];
   try {
-    const fetchLiveText = async (url: string) => {
-      const response = await fetch(url, {
-        headers: { "user-agent": "Alchemy Live Desk scheduled research" },
-        cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) throw new Error(`${new URL(url).pathname || "/"} returned HTTP ${response.status}.`);
-      return response.text();
-    };
-    const articles = parseAlchemyMarketInsightsFeed(await fetchLiveText(MARKET_INSIGHTS_FEED), limit);
-    if (!articles.length) {
-      return { status: "blocked", articles: [], note: "The official Alchemy Market Insights feed returned no dated articles." };
-    }
-    return {
-      status: "checked",
-      articles,
-      note: "Direct Alchemy Market Insights RSS feed acquired.",
-    };
+    feedArticles = parseAlchemyMarketInsightsFeed(await fetchLiveText(MARKET_INSIGHTS_FEED), limit);
+    if (!feedArticles.length) diagnostics.push("The official Alchemy Market Insights feed returned no dated articles.");
   } catch (error) {
+    diagnostics.push(error instanceof Error
+      ? `Alchemy Market Insights RSS failed: ${error.message}`
+      : "Alchemy Market Insights RSS failed.");
+  }
+
+  const feedUrls = new Set(feedArticles.map((article) => article.url));
+  const categoryResults = await Promise.allSettled(CATEGORY_PAGES.map(fetchLiveText));
+  const categoryUrls = [...new Set(categoryResults.flatMap((result) => (
+    result.status === "fulfilled" ? extractArticleUrls(result.value) : []
+  )))];
+  const directCandidates = categoryUrls
+    .filter((url) => !feedUrls.has(url))
+    .slice(0, Math.min(Math.max(limit, 1), 12));
+
+  if (!categoryUrls.length && categoryResults.every((result) => result.status === "rejected")) {
+    diagnostics.push("Live Alchemy Market Insights category pages could not be acquired.");
+  }
+
+  const directResults = await Promise.allSettled(directCandidates.map(async (url) => (
+    parseArticle(url, await fetchLiveText(url))
+  )));
+  const directArticles = directResults
+    .flatMap((result) => result.status === "fulfilled" ? [result.value] : [])
+    .filter((article) => Boolean(article.publishedAt && Number.isFinite(Date.parse(article.publishedAt))));
+
+  const articles = [...new Map([...feedArticles, ...directArticles].map((article) => [article.url, article])).values()]
+    .sort((a, b) => Date.parse(b.publishedAt || "") - Date.parse(a.publishedAt || ""))
+    .slice(0, limit);
+
+  if (!articles.length) {
     return {
       status: "blocked",
       articles: [],
-      note: error instanceof Error ? `Live Alchemy acquisition failed: ${error.message}` : "Live Alchemy acquisition failed.",
+      note: diagnostics.length
+        ? `Live Alchemy acquisition failed: ${diagnostics.join(" ")}`
+        : "Live Alchemy acquisition failed: no dated direct articles were found.",
     };
   }
+
+  const sourceSummary = `${feedArticles.length} RSS article${feedArticles.length === 1 ? "" : "s"}; ${directArticles.length} direct category article${directArticles.length === 1 ? "" : "s"}`;
+  return {
+    status: "checked",
+    articles,
+    note: diagnostics.length
+      ? `Direct Alchemy Market Insights acquired (${sourceSummary}). ${diagnostics.join(" ")}`
+      : `Direct Alchemy Market Insights acquired (${sourceSummary}).`,
+  };
 }
 
 export async function getAlchemyArticles(limit = 18): Promise<AlchemyArticle[]> {
