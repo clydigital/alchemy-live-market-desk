@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
 import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
+import { buildResearchAttentionPacket, safeResearchAttentionLog } from "@/lib/research-attention";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { scheduledForMalaysiaSlot, scheduledRunKey } from "@/lib/scheduled-research-identity";
 import {
@@ -356,6 +357,21 @@ export async function buildScheduledResearchInput(
     ...alchemy.items,
     ...powerStack.items,
   ];
+
+  // Phase A only: compose a deterministic attention packet after acquisition,
+  // then emit it as structured observability. It is deliberately fail-open and
+  // never changes the canonical ResearchRunInput returned below.
+  try {
+    const attention = buildResearchAttentionPacket(items, { generatedAt: now.toISOString() });
+    console.info(JSON.stringify(safeResearchAttentionLog(attention)));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown attention-composition failure";
+    console.warn(JSON.stringify({
+      event: "research_attention_shadow_failed",
+      detail: detail.slice(0, 400),
+    }));
+  }
+
   const blocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
   return {
     runKey: options.runKey || scheduledRunKey(slot, now),
