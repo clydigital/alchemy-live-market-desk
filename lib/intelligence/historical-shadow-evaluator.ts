@@ -43,7 +43,8 @@ function evidencePack(value: unknown): EvidencePackItem[] {
       requireValue(row[key] === null || validTime(row[key]), 'invalid_frozen_evidence_timestamp');
     }
     for (const key of ['affected_assets','affected_topics','provenance_urls']) requireValue(strings(row[key]), 'incomplete_frozen_evidence_arrays');
-    requireValue(object(row.structured_payload), 'missing_frozen_structured_payload');
+    const structuredPayload = row.structured_payload === null ? {} : row.structured_payload;
+    requireValue(object(structuredPayload), 'missing_frozen_structured_payload');
     requireValue(Object.hasOwn(row, 'source'), 'missing_frozen_source');
     requireValue(!Array.isArray(row.source) || row.source.length <= 1, 'ambiguous_frozen_source');
     const source = Array.isArray(row.source) ? row.source[0] : row.source;
@@ -56,7 +57,7 @@ function evidencePack(value: unknown): EvidencePackItem[] {
       supportDirection: row.support_direction, eventAt: row.event_at, publishedAt: row.published_at,
       availableAt: row.available_at, receivedAt: row.received_at, freshnessStatus: row.freshness_status,
       affectedAssets: row.affected_assets, affectedTopics: row.affected_topics, provenanceUrls: row.provenance_urls,
-      providerKey: source?.provider_key ?? null, structuredPayload: row.structured_payload,
+      providerKey: source?.provider_key ?? null, structuredPayload,
     };
   });
 }
