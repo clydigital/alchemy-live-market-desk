@@ -2,7 +2,8 @@ import "server-only";
 
 import { markModelStageInvoked } from "./invocation-context.ts";
 import { sanitizeHypothesisOutputEvidenceIds } from "./hypothesis-core.ts";
-import type { HypothesisOutput } from "./schemas.ts";
+import { buildResearchDeltaDigest } from "./research-delta-digest.ts";
+import type { EvidencePackItem, HypothesisOutput } from "./schemas.ts";
 import {
   OpenAIStageError,
   executeProviderWithRetry,
@@ -177,13 +178,43 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
 /**
  * Transitional runtime compatibility can still construct a `challenger` field.
  * Scenario and Story Synthesis must never receive it as canonical model input.
+ * Their evidence is also reduced deterministically to the persisted upstream
+ * research delta rather than repeatedly serialising the full evidence universe.
  */
 export function canonicalStageInput(stageKey: string, input: unknown) {
   if ((stageKey !== "scenario" && stageKey !== "story_synthesis") || !input || typeof input !== "object" || Array.isArray(input)) {
     return input;
   }
   const { challenger: _criticCompatibilityOnly, ...canonical } = input as Record<string, unknown>;
-  return canonical;
+  if (!Array.isArray(canonical.evidence)) return canonical;
+
+  const hypotheses = (Array.isArray(canonical.hypotheses) ? canonical.hypotheses : []) as Array<{
+    evidence_for_ids?: string[];
+    evidence_against_ids?: string[];
+    affected_assets?: string[];
+    causal_chain?: unknown;
+  }>;
+  const scenarios = (Array.isArray(canonical.scenarios) ? canonical.scenarios : []) as Array<{
+    explanatory_evidence_ids?: string[];
+  }>;
+  const digest = buildResearchDeltaDigest({
+    evidence: canonical.evidence as EvidencePackItem[],
+    hypotheses,
+    scenarios,
+  });
+
+  if (digest.selectedEvidenceCount < digest.sourceEvidenceCount) {
+    console.info(JSON.stringify({
+      event: "research_delta_digest",
+      version: digest.version,
+      stageKey,
+      sourceEvidenceCount: digest.sourceEvidenceCount,
+      referencedEvidenceCount: digest.referencedEvidenceCount,
+      selectedEvidenceCount: digest.selectedEvidenceCount,
+    }));
+  }
+
+  return { ...canonical, evidence: digest.evidence };
 }
 
 function canonicalStageOutput<T>(stageKey: string, input: unknown, data: T): T {
