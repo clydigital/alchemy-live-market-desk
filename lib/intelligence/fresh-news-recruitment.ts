@@ -1,4 +1,5 @@
 import type { EvidencePackItem } from "./schemas.ts";
+import { buildRecruitmentCapShadow } from "./recruitment-cap-shadow.ts";
 
 export const MAX_FRESH_RECRUITMENT_CANDIDATES = 48;
 
@@ -208,7 +209,7 @@ export function buildFreshNewsRecruitment(
     candidate.exclusionReason = "capacity";
   }
 
-  return {
+  const recruitment: FreshNewsRecruitment = {
     asOf,
     evidenceCount: evidence.length,
     eligibleCount: selectedIds.size,
@@ -219,4 +220,14 @@ export function buildFreshNewsRecruitment(
     candidates,
     diagnostics,
   };
+
+  if (maximum === MAX_FRESH_RECRUITMENT_CANDIDATES) {
+    const shadow = buildRecruitmentCapShadow(recruitment);
+    console.info(JSON.stringify({
+      event: "market_belief_recruitment_cap_shadow",
+      ...shadow,
+    }));
+  }
+
+  return recruitment;
 }
