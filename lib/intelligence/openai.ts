@@ -9,6 +9,11 @@ import {
   observeDivergenceStageAdmissionShadow,
   type StageAdmissionShadowDecision,
 } from "./stage-admission-shadow.ts";
+import {
+  buildMarketBeliefAdmissionShadow,
+  observeMarketBeliefAdmissionShadow,
+  type MarketBeliefAdmissionShadowDecision,
+} from "./market-belief-stage-admission-shadow.ts";
 import type { EvidencePackItem, HypothesisOutput } from "./schemas.ts";
 import {
   OpenAIStageError,
@@ -284,6 +289,15 @@ function divergenceAdmissionShadow(stageKey: string, input: unknown): StageAdmis
   });
 }
 
+function marketBeliefAdmissionShadow(stageKey: string, input: unknown): MarketBeliefAdmissionShadowDecision | null {
+  if (stageKey !== "market_belief" || !input || typeof input !== "object" || Array.isArray(input)) return null;
+  const record = input as Record<string, unknown>;
+  return buildMarketBeliefAdmissionShadow({
+    freshEvidenceCandidates: Array.isArray(record.freshEvidenceCandidates) ? record.freshEvidenceCandidates : [],
+    storyReviewTargets: Array.isArray(record.storyReviewTargets) ? record.storyReviewTargets : [],
+  });
+}
+
 export async function runStructuredStage<T>({
   stageKey,
   instructions,
@@ -319,7 +333,9 @@ export async function runStructuredStage<T>({
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const modelInput = canonicalStageInput(stageKey, input);
-  const admissionShadow = divergenceAdmissionShadow(stageKey, modelInput);
+  const divergenceShadow = divergenceAdmissionShadow(stageKey, modelInput);
+  const marketBeliefShadow = marketBeliefAdmissionShadow(stageKey, modelInput);
+  const admissionShadow = divergenceShadow || marketBeliefShadow;
   if (admissionShadow) {
     console.info(JSON.stringify({
       event: "stage_admission_shadow_decision",
@@ -379,10 +395,15 @@ export async function runStructuredStage<T>({
       await sleep(retryDelay(attempt, retryAfter));
     },
   });
-  if (admissionShadow) {
+  const admissionResult = divergenceShadow
+    ? observeDivergenceStageAdmissionShadow(divergenceShadow, result.data)
+    : marketBeliefShadow
+      ? observeMarketBeliefAdmissionShadow(marketBeliefShadow, result.data)
+      : null;
+  if (admissionResult) {
     console.info(JSON.stringify({
       event: "stage_admission_shadow_result",
-      ...observeDivergenceStageAdmissionShadow(admissionShadow, result.data),
+      ...admissionResult,
     }));
   }
   return {
