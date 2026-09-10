@@ -27,6 +27,8 @@ const FEED_REVALIDATE = 60;
 const EDITION_INDEX_PAGE_SIZE = 250;
 const LEGACY_STORY_RUN_BATCH_SIZE = 100;
 const LEGACY_STORY_PAGE_SIZE = 250;
+const CASE_MONITOR_MACRO_SERIES = "nfp,cpi_core,cpi_all";
+const CASE_MONITOR_MARKET_SERIES = "uso,us2y,uup,qqq,us10y,spy,usdjpy,tlt";
 
 type QueryOptions = {
   fresh?: boolean;
@@ -125,12 +127,12 @@ export async function getHybridFeedData(options: QueryOptions = {}) {
     ),
     query<MacroSeriesObservation>(
       "macro_series_observations",
-      "select=id,series_key,series_id,series_name,agency,observation_date,value,mom_change,yoy_change,unit,frequency,source_url,is_preliminary,notes&order=observation_date.asc&limit=500",
+      `select=id,series_key,series_id,series_name,agency,observation_date,value,mom_change,yoy_change,unit,frequency,source_url,is_preliminary,notes&series_key=in.(${CASE_MONITOR_MACRO_SERIES})&order=observation_date.desc&limit=500`,
       options,
     ),
     query<MarketSeriesObservation>(
       "market_series_observations",
-      "select=id,series_key,symbol,series_name,provider,observation_date,close,currency,frequency,source_url&order=observation_date.asc&limit=800",
+      `select=id,series_key,symbol,series_name,provider,observation_date,close,currency,frequency,source_url&series_key=in.(${CASE_MONITOR_MARKET_SERIES})&order=observation_date.desc&limit=800`,
       options,
     ),
     privateQuery<Record<string, unknown>>(
