@@ -2,6 +2,7 @@ import "server-only";
 
 import { markModelStageInvoked } from "./invocation-context.ts";
 import { sanitizeHypothesisOutputEvidenceIds } from "./hypothesis-core.ts";
+import { buildDivergenceDigestShadow } from "./divergence-digest-shadow.ts";
 import { buildResearchDeltaDigest } from "./research-delta-digest.ts";
 import type { EvidencePackItem, HypothesisOutput } from "./schemas.ts";
 import {
@@ -176,15 +177,40 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
 }
 
 /**
- * Transitional runtime compatibility can still construct a `challenger` field.
- * Scenario and Story Synthesis must never receive it as canonical model input.
- * Their evidence is also reduced deterministically to the persisted upstream
- * research delta rather than repeatedly serialising the full evidence universe.
+ * Provider-boundary context shaping.
+ *
+ * Divergence currently remains full-context. We compute a shadow digest only
+ * for measurement and return the original input untouched. Scenario and Story
+ * Synthesis use the already-validated ResearchDeltaDigest to reduce repeated
+ * evidence serialisation.
  */
 export function canonicalStageInput(stageKey: string, input: unknown) {
-  if ((stageKey !== "scenario" && stageKey !== "story_synthesis") || !input || typeof input !== "object" || Array.isArray(input)) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+
+  if (stageKey === "divergence") {
+    const canonical = input as Record<string, unknown>;
+    if (Array.isArray(canonical.evidence) && Array.isArray(canonical.beliefs)) {
+      const shadow = buildDivergenceDigestShadow({
+        evidence: canonical.evidence as EvidencePackItem[],
+        beliefs: canonical.beliefs as Array<{ evidence_ids?: string[]; affected_assets?: string[] }>,
+      });
+      console.info(JSON.stringify({
+        event: "divergence_digest_shadow",
+        version: shadow.version,
+        stageKey,
+        sourceEvidenceCount: shadow.sourceEvidenceCount,
+        anchorEvidenceCount: shadow.anchorEvidenceCount,
+        assetContextCount: shadow.assetContextCount,
+        topicContextCount: shadow.topicContextCount,
+        ratesContextCount: shadow.ratesContextCount,
+        candidateEvidenceCount: shadow.candidateEvidenceCount,
+      }));
+    }
     return input;
   }
+
+  if (stageKey !== "scenario" && stageKey !== "story_synthesis") return input;
+
   const { challenger: _criticCompatibilityOnly, ...canonical } = input as Record<string, unknown>;
   if (!Array.isArray(canonical.evidence)) return canonical;
 
