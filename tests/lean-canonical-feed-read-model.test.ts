@@ -118,3 +118,14 @@ test("canonical feed never reloads the broad internal desk model", () => {
   assert.doesNotMatch(data, /research_intake_queue[\s\S]{0,200}select=\*/);
   assert.match(data, /monitorResearchIntake/);
 });
+
+test("case-monitor series reads stay scoped to deciding series and newest observations", () => {
+  const source = readFileSync(new URL("../lib/intelligence/publication-feed-data.ts", import.meta.url), "utf8");
+
+  assert.match(source, /CASE_MONITOR_MACRO_SERIES = "nfp,cpi_core,cpi_all"/);
+  assert.match(source, /CASE_MONITOR_MARKET_SERIES = "uso,us2y,uup,qqq,us10y,spy,usdjpy,tlt"/);
+  assert.match(source, /series_key=in\.\(\$\{CASE_MONITOR_MACRO_SERIES\}\)&order=observation_date\.desc&limit=500/);
+  assert.match(source, /series_key=in\.\(\$\{CASE_MONITOR_MARKET_SERIES\}\)&order=observation_date\.desc&limit=800/);
+  assert.doesNotMatch(source, /macro_series_observations[\s\S]{0,400}order=observation_date\.asc/);
+  assert.doesNotMatch(source, /market_series_observations[\s\S]{0,400}order=observation_date\.asc/);
+});
