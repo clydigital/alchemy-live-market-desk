@@ -4,6 +4,11 @@ import { markModelStageInvoked } from "./invocation-context.ts";
 import { sanitizeHypothesisOutputEvidenceIds } from "./hypothesis-core.ts";
 import { buildDivergenceDigestShadow } from "./divergence-digest-shadow.ts";
 import { buildResearchDeltaDigest } from "./research-delta-digest.ts";
+import {
+  buildDivergenceStageAdmissionShadow,
+  observeDivergenceStageAdmissionShadow,
+  type StageAdmissionShadowDecision,
+} from "./stage-admission-shadow.ts";
 import type { EvidencePackItem, HypothesisOutput } from "./schemas.ts";
 import {
   OpenAIStageError,
@@ -269,6 +274,16 @@ function canonicalStageOutput<T>(stageKey: string, input: unknown, data: T): T {
   return sanitized.output as T;
 }
 
+function divergenceAdmissionShadow(stageKey: string, input: unknown): StageAdmissionShadowDecision | null {
+  if (stageKey !== "divergence" || !input || typeof input !== "object" || Array.isArray(input)) return null;
+  const record = input as Record<string, unknown>;
+  if (!Array.isArray(record.beliefs) || !Array.isArray(record.evidence)) return null;
+  return buildDivergenceStageAdmissionShadow({
+    beliefs: record.beliefs as Array<{ evidence_ids?: string[]; affected_assets?: string[] }>,
+    evidence: record.evidence as EvidencePackItem[],
+  });
+}
+
 export async function runStructuredStage<T>({
   stageKey,
   instructions,
@@ -304,6 +319,13 @@ export async function runStructuredStage<T>({
   const timeoutMs = boundedInteger(requestTimeoutMs, MAX_STAGE_REQUEST_TIMEOUT_MS, 1_000, MAX_STAGE_REQUEST_TIMEOUT_MS);
   const attemptLimit = boundedInteger(maxAttempts, 3, 1, 3);
   const modelInput = canonicalStageInput(stageKey, input);
+  const admissionShadow = divergenceAdmissionShadow(stageKey, modelInput);
+  if (admissionShadow) {
+    console.info(JSON.stringify({
+      event: "stage_admission_shadow_decision",
+      ...admissionShadow,
+    }));
+  }
   const configuredOutputTokens = maxOutputTokens ?? intelligenceStageOutputBudget(stageKey);
   const effectiveMaxOutputTokens = Math.max(configuredOutputTokens, minimumStageOutputBudget(stageKey));
   const body = {
@@ -357,6 +379,12 @@ export async function runStructuredStage<T>({
       await sleep(retryDelay(attempt, retryAfter));
     },
   });
+  if (admissionShadow) {
+    console.info(JSON.stringify({
+      event: "stage_admission_shadow_result",
+      ...observeDivergenceStageAdmissionShadow(admissionShadow, result.data),
+    }));
+  }
   return {
     ...result,
     data: canonicalStageOutput(stageKey, modelInput, result.data),
