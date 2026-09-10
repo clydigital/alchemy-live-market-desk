@@ -51,6 +51,17 @@ test('missing frozen state and mismatched packet counts fail closed',()=>{
   const f=fresh(); delete f.engine_runs[0].metadata.frozenInputs.evidence; assert.equal(div(f).reason,'missing_frozen_evidence');
   const g=fresh(); g.stage_runs[1].input_refs.evidenceCount=99; assert.equal(div(g).reason,'divergence_evidence_count_mismatch');
 });
+test('null frozen structured payload matches production empty-object normalisation',()=>{
+  const nullPayload=fresh();nullPayload.engine_runs[0].metadata.frozenInputs.evidence[0].structured_payload=null;
+  const emptyObject=fresh();emptyObject.engine_runs[0].metadata.frozenInputs.evidence[0].structured_payload={};
+  assert.deepEqual(div(nullPayload),div(emptyObject));
+  assert.equal(div(nullPayload).status,'evaluated');
+  assert.equal(nullPayload.engine_runs[0].metadata.frozenInputs.evidence[0].structured_payload,null);
+});
+test('malformed frozen structured payload remains unevaluable',()=>{
+  for(const value of [[],42,'invalid']){const f=fresh();f.engine_runs[0].metadata.frozenInputs.evidence[0].structured_payload=value;
+    assert.equal(div(f).reason,'missing_frozen_structured_payload');}
+});
 test('malformed output is not silently observed as empty',()=>{
   const f=fresh(); f.stage_runs[1].output_payload={}; assert.equal(div(f).status,'unevaluable');
   const g=fresh(); delete g.stage_runs[0].output_payload.storyAssessments; assert.equal(mb(g).status,'unevaluable');
