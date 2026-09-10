@@ -1,0 +1,128 @@
+{
+  "engine_runs": [
+    {
+      "id": "run-1",
+      "status": "completed",
+      "started_at": "2026-09-10T00:00:00Z",
+      "completed_at": "2026-09-10T00:10:00Z",
+      "metadata": {
+        "frozenInputs": {
+          "analysisAsOf": "2026-09-10T00:00:00Z",
+          "macroSnapshotId": null,
+          "stories": [],
+          "researchDebt": [],
+          "storyReviewTargets": [],
+          "evidence": [
+            {
+              "id": "e-1",
+              "source_id": "source-1",
+              "claim_text": "Central bank lowers policy interest rate",
+              "summary": null,
+              "evidence_class": "official_release",
+              "support_direction": "supports",
+              "event_at": "2026-09-09T23:00:00Z",
+              "published_at": "2026-09-09T23:00:00Z",
+              "available_at": "2026-09-09T23:00:00Z",
+              "received_at": "2026-09-09T23:01:00Z",
+              "freshness_status": "fresh",
+              "affected_assets": [
+                "SPX"
+              ],
+              "affected_topics": [
+                "rates"
+              ],
+              "provenance_urls": [
+                "https://example.com/release"
+              ],
+              "structured_payload": {
+                "itemKey": "release:1"
+              },
+              "source": {
+                "id": "source-1",
+                "source_name": "Central bank",
+                "source_tier": 1,
+                "reliability_score": 95,
+                "ancestry_group_id": null,
+                "provider_key": null,
+                "metadata": {}
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "stage_runs": [
+    {
+      "id": "mb-1",
+      "engine_run_id": "run-1",
+      "stage_key": "market_belief",
+      "status": "completed",
+      "started_at": "2026-09-10T00:01:00Z",
+      "completed_at": "2026-09-10T00:02:00Z",
+      "provider_request_id": "request-mb",
+      "input_refs": {
+        "evidenceCount": 1,
+        "storyReviewTargetCount": 0,
+        "storyReviewTargetIds": []
+      },
+      "output_payload": {
+        "beliefs": [
+          {
+            "statement": "Policy easing supports equities",
+            "pricedState": null,
+            "consensusStrength": 60,
+            "affectedAssets": [
+              "SPX"
+            ],
+            "evidenceIds": [
+              "e-1"
+            ],
+            "recruitmentClusterKeys": [
+              "cluster-1"
+            ]
+          }
+        ],
+        "recruitmentClusters": [
+          {
+            "clusterKey": "cluster-1",
+            "title": "Policy easing",
+            "summary": "Rates lowered",
+            "primaryCategory": "rates",
+            "themes": [
+              "monetary policy"
+            ],
+            "affectedAssets": [
+              "SPX"
+            ],
+            "evidenceIds": [
+              "e-1"
+            ],
+            "materiality": 70,
+            "momentum": 50,
+            "breadth": 40,
+            "urgency": 60,
+            "verdict": "recruit",
+            "rationale": "Official policy change"
+          }
+        ],
+        "storyAssessments": []
+      }
+    },
+    {
+      "id": "div-1",
+      "engine_run_id": "run-1",
+      "stage_key": "divergence",
+      "status": "completed",
+      "started_at": "2026-09-10T00:03:00Z",
+      "completed_at": "2026-09-10T00:04:00Z",
+      "provider_request_id": "request-div",
+      "input_refs": {
+        "evidenceCount": 1
+      },
+      "output_payload": {
+        "divergences": []
+      }
+    }
+  ]
+}
