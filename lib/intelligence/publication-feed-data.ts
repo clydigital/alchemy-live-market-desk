@@ -101,13 +101,13 @@ export async function getHybridFeedData(options: QueryOptions = {}) {
     intelligenceStages,
     acquisitionFailures,
   ] = await Promise.all([
-    query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
-    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40", options),
-    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240", options),
+    query<Story>("stories", "select=id,slug,title,thesis,status,confidence,rank,market_question,dominant_narrative,best_explanation,strongest_support,strongest_contradiction,priced_assessment,confirmation_trigger,invalidation_trigger,next_catalyst,article_angle,provisional_title,article_verdict,assets,source_quality,novelty,persistence,trader_relevance,article_potential&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
+    query<Update>("story_updates", "select=id,story_id,update_type,headline,detail,observed_at,created_at&order=created_at.desc&limit=40", options),
+    query<ResearchSource>("sources", "select=id,story_id,publisher,source_type,title,url,publication_date,observation_date,reliability_score&order=observation_date.desc.nullslast,created_at.desc&limit=240", options),
     query<MarketStateRecord>("market_state_ledger", "select=*&order=sector.asc,sub_industry.asc&limit=120", options),
     privateQuery<ResearchRunStatus>("research_run_status", "select=*&order=scheduled_for.desc&limit=20", options),
-    query<EarningsCall>("earnings_calls", "select=*&order=call_date.desc.nullslast&limit=24", options),
-    query<GuidanceItem>("guidance_items", "select=*&order=published_at.desc.nullslast,updated_at.desc&limit=80", options),
+    query<EarningsCall>("earnings_calls", "select=id,ticker,company_name,fiscal_period,call_date,transcript_status,relevance_reason,summary,guidance,capex,demand,prior_quarter_change&order=call_date.desc.nullslast&limit=24", options),
+    query<GuidanceItem>("guidance_items", "select=id,entity,ticker,category,period,guidance_type,metric,current_view,prior_view,wording_change,market_interpretation,source_url,source_classification,published_at,assets&order=published_at.desc.nullslast,updated_at.desc&limit=80", options),
     query<MacroRelease>("macro_releases", "select=*&order=release_date.asc&limit=160", options),
     query<MacroReleaseMetric>("macro_release_metrics", "select=*&order=release_id.asc,metric_key.asc&limit=320", options),
     privateQuery<ResearchIntakeQueueItem>(
