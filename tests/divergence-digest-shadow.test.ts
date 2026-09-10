@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { buildDivergenceDigestShadow } from "../lib/intelligence/divergence-digest-shadow.ts";
@@ -103,4 +104,17 @@ test("divergence digest shadow bounds contextual expansion but never anchor evid
   assert.equal(shadow.assetContextCount, 48);
   assert.equal(shadow.topicContextCount, 32);
   assert.equal(shadow.candidateEvidenceCount, 140);
+});
+
+test("provider boundary keeps Divergence full-context while logging the shadow digest", () => {
+  const source = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
+  const divergenceStart = source.indexOf('if (stageKey === "divergence")');
+  const downstreamStart = source.indexOf('if (stageKey !== "scenario" && stageKey !== "story_synthesis")', divergenceStart);
+  const divergenceBlock = source.slice(divergenceStart, downstreamStart);
+
+  assert.ok(divergenceStart >= 0);
+  assert.match(divergenceBlock, /buildDivergenceDigestShadow/);
+  assert.match(divergenceBlock, /event: "divergence_digest_shadow"/);
+  assert.match(divergenceBlock, /return input;/);
+  assert.doesNotMatch(divergenceBlock, /evidence:\s*shadow\.evidence/);
 });
