@@ -8,6 +8,8 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 
+const PRODUCTION_AUTOMATION_PAUSED = true;
+
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
@@ -37,9 +39,23 @@ function apiFailure(status: number, error: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (PRODUCTION_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/")) {
+    return NextResponse.json(
+      {
+        status: "paused",
+        detail: "Automated production cron runs are temporarily paused.",
+      },
+      {
+        status: 200,
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
+  }
+
   if (!dashboardAuthRequired()) return NextResponse.next();
 
-  const pathname = request.nextUrl.pathname;
   if (startsWithAny(pathname, MACHINE_AUTH_PATHS)) return NextResponse.next();
   if (startsWithAny(pathname, PUBLIC_AUTH_PATHS)) return NextResponse.next();
 
