@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -90,4 +91,15 @@ test("admission result compares shadow decision against actual Divergence output
   assert.equal(none.actualOutputCount, 0);
   assert.equal(material.actualMaterialResult, true);
   assert.equal(material.actualOutputCount, 1);
+});
+
+test("provider records admission telemetry but never branches around the model call", () => {
+  const source = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
+  const structuredStage = source.slice(source.indexOf("export async function runStructuredStage"));
+
+  assert.match(structuredStage, /stage_admission_shadow_decision/);
+  assert.match(structuredStage, /executeProviderWithRetry<T>/);
+  assert.match(structuredStage, /stage_admission_shadow_result/);
+  assert.doesNotMatch(structuredStage, /admissionShadow[\s\S]{0,160}decision\s*===\s*["']would_skip["'][\s\S]{0,160}return/);
+  assert.doesNotMatch(structuredStage, /admissionShadow[\s\S]{0,160}decision\s*===\s*["']would_skip["'][\s\S]{0,160}throw/);
 });
