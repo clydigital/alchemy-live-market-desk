@@ -1,7 +1,14 @@
 # Temporary production automation pause
 
-Automated production cron execution is temporarily paused by a Vercel rewrite that routes every `/api/cron/*` request to `/api/automation-paused`.
+Automated production **research** cron execution is temporarily paused. Both Vercel routing and application middleware intercept `/api/cron/research/*` while preserving the declared research schedules for later review.
 
-The original cron schedule remains declared in `vercel.json` so schedule contracts and handler code are preserved. Manual non-cron research endpoints are unaffected.
+The two lightweight creator-video detector crons are intentionally excluded from this pause:
 
-To resume automated production runs, remove the `/api/cron/:path*` rewrite and this temporary pause endpoint/test in one reviewed change, then verify the production deployment is READY before relying on the next scheduled slot.
+- `/api/cron/video/midnight` at 09:00 Asia/Kuala_Lumpur
+- `/api/cron/video/late-morning` at 21:00 Asia/Kuala_Lumpur
+
+Those video routes run in discovery/queue-only mode. They may discover monitored YouTube uploads and persist pending transcript items, but they do not invoke the legacy external Chrome transcript operator and they do not resume Live Desk reasoning, publication, or intelligence stages.
+
+The intended transcript worker is a separately scheduled ChatGPT cloud-browser task. It consumes pending video rows, retrieves genuine timestamped transcripts when available, and persists them through the connected research data plane. Missing or browser-blocked transcripts remain pending/retryable; no generated or paid transcript fallback is allowed.
+
+To resume full automated production research, remove the `/api/cron/research/:path*` Vercel rewrite and the corresponding research-only middleware pause in one reviewed change, then verify the production deployment before relying on the next scheduled research slot.
