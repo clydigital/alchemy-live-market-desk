@@ -41,11 +41,11 @@ function apiFailure(status: number, error: string) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  if (PRODUCTION_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/")) {
+  if (PRODUCTION_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
     return NextResponse.json(
       {
         status: "paused",
-        detail: "Automated production cron runs are temporarily paused.",
+        detail: "Automated production research cron runs are temporarily paused.",
       },
       {
         status: 200,

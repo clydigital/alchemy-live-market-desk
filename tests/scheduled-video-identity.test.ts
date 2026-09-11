@@ -40,6 +40,7 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   const vercelConfig = readFileSync(new URL("../vercel.json", import.meta.url), "utf8");
 
   assert.match(videoHandler, /scheduledVideoRunIdentity\(slot, startedAt\)/);
+  assert.match(videoHandler, /browserTranscriptConfigured:\s*\(\) => false/);
   assert.match(deskInput, /scheduledVideoSlotForDesk\(slot\)/);
   assert.match(deskInput, /scheduledVideoRunIdentity\(videoSlot, now\)/);
   assert.match(midnightRoute, /handleVideoIntakeRequest\(request, "video_midnight"\)/);
@@ -48,15 +49,15 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   assert.match(vercelConfig, /"\/api\/cron\/video\/late-morning"[\s\S]*"0 13 \* \* \*"/);
 });
 
-test("targeted video requests give manual guidance and scheduled policy never advertises a paid transcript fallback", () => {
+test("targeted video requests give manual guidance and scheduled policy advertises the cloud-browser queue without paid fallback", () => {
   const videoHandler = readFileSync(new URL("../lib/video-intake-handler.ts", import.meta.url), "utf8");
   const supadataStore = readFileSync(new URL("../lib/supadata-transcript-store.ts", import.meta.url), "utf8");
 
   assert.match(videoHandler, /new SupadataTranscriptStore\(\)/);
   assert.match(videoHandler, /mode:\s*"manual_transcript_guidance"/);
   assert.match(videoHandler, /Automated paid transcript retrieval is disabled/);
-  assert.match(videoHandler, /transcriptProvider:\s*"Chrome \/ YouTubeToTranscript when configured; otherwise manual transcript intake"/);
-  assert.match(videoHandler, /transcriptMode:\s*"manual-or-browser"/);
+  assert.match(videoHandler, /transcriptProvider:\s*"ChatGPT Cloud Browser \/ YouTubeToTranscript after queued discovery"/);
+  assert.match(videoHandler, /transcriptMode:\s*"cloud-browser-queue"/);
   assert.match(videoHandler, /transcriptFormat:\s*"timestamped"/);
   assert.match(videoHandler, /generatedTranscriptFallback:\s*false/);
   assert.doesNotMatch(videoHandler, /retrieveSupadataVideo/);

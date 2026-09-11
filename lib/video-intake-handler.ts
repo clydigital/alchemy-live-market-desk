@@ -22,11 +22,17 @@ export type VideoIntakeHandlerDependencies = {
   runScheduled: typeof runScheduledVideoIntake;
 };
 
+const runScheduledQueueOnly: typeof runScheduledVideoIntake = (input) => (
+  runScheduledVideoIntake(input, {
+    browserTranscriptConfigured: () => false,
+  })
+);
+
 const defaultDependencies: VideoIntakeHandlerDependencies = {
   authenticate: authenticated,
   now: () => new Date(),
   createStore: () => new SupadataTranscriptStore(),
-  runScheduled: runScheduledVideoIntake,
+  runScheduled: runScheduledQueueOnly,
 };
 
 function response(body: unknown, status = 200) {
@@ -111,12 +117,12 @@ async function runDiscovery(
       discovery: "YouTube Data API uploads playlist",
       uploadsPerChannel: 10,
       backfillHours: 72,
-      transcriptProvider: "Chrome / YouTubeToTranscript when configured; otherwise manual transcript intake",
-      transcriptMode: "manual-or-browser",
+      transcriptProvider: "ChatGPT Cloud Browser / YouTubeToTranscript after queued discovery",
+      transcriptMode: "cloud-browser-queue",
       transcriptFormat: "timestamped",
       generatedTranscriptFallback: false,
       cache: "Database-first; completed transcripts are never fetched twice.",
-      failureRule: "Videos without a browser transcript stay blocked for manual intake and create idempotent research debt; no paid fallback is attempted.",
+      failureRule: "Videos without a cloud-browser transcript stay pending for retry or verified manual intake; no paid fallback is attempted.",
     },
     status: intake.status,
     summary: intake.summary,
@@ -133,7 +139,7 @@ async function runDiscovery(
   }, intake.status === "attention" ? 207 : 200);
 }
 
-/** Shared public and Vercel-cron handler; a forced slot never relies on a query string. */
+/** Shared public and Vercel-cron handler; scheduled discovery only queues transcript work. */
 export async function handleVideoIntakeRequest(
   request: Request,
   forcedSlot?: ScheduledVideoSlot,
