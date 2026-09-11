@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/api/cron/:path*",
+      "source": "/api/cron/research/:path*",
       "destination": "/api/automation-paused"
     }
   ],
