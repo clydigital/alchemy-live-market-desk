@@ -42,8 +42,10 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   assert.match(videoHandler, /scheduledVideoRunIdentity\(slot, startedAt\)/);
   assert.match(deskInput, /scheduledVideoSlotForDesk\(slot\)/);
   assert.match(deskInput, /scheduledVideoRunIdentity\(videoSlot, now\)/);
-  assert.match(midnightRoute, /handleVideoIntakeRequest\(request, "video_midnight"\)/);
-  assert.match(lateMorningRoute, /handleVideoIntakeRequest\(request, "video_late_morning"\)/);
+  assert.match(midnightRoute, /handleVideoIntakeRequest\(request, "video_midnight", \{/);
+  assert.match(lateMorningRoute, /handleVideoIntakeRequest\(request, "video_late_morning", \{/);
+  assert.match(midnightRoute, /browserTranscriptConfigured:\s*\(\) => false/);
+  assert.match(lateMorningRoute, /browserTranscriptConfigured:\s*\(\) => false/);
   assert.match(vercelConfig, /"\/api\/cron\/video\/midnight"[\s\S]*"0 1 \* \* \*"/);
   assert.match(vercelConfig, /"\/api\/cron\/video\/late-morning"[\s\S]*"0 13 \* \* \*"/);
 });
