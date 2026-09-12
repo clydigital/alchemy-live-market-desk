@@ -268,7 +268,7 @@ test("video slot health states match the persisted database check constraint", (
     new URL("../supabase/migrations/20260807013000_research_claims_fiscal_and_hybrid_pipeline.sql", import.meta.url),
     "utf8",
   );
-  const constraint = migration.match(/health_state text[^;]*?check \(health_state in \(([^)]+)\)\)/s);
+  const constraint = migration.match(/health_state text[\s\S]*?check \(health_state in \(([^)]+)\)\)/);
   assert.ok(constraint, "research_slot_runs health-state constraint must remain discoverable");
   const databaseValues = [...constraint[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
   assert.deepEqual([...RESEARCH_SLOT_HEALTH_STATES], databaseValues);
