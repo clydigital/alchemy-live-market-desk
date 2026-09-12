@@ -52,6 +52,47 @@ test("completed and terminal research runs never restart model work", () => {
   );
 });
 
+test("durable completed-engine artifacts override a lossy failed outer status", () => {
+  const completedEngine = {
+    engineStatus: "completed",
+    storySnapshotCount: 0,
+    baseEditionId: null,
+    composedEditionId: null,
+  };
+  assert.equal(
+    evaluateScheduledIntelligenceContinuation(run({ status: "failed" }), NOW, completedEngine).state,
+    "publication_pending",
+  );
+  assert.equal(
+    evaluateScheduledIntelligenceContinuation(run({ status: "failed" }), NOW, {
+      ...completedEngine,
+      storySnapshotCount: 3,
+      baseEditionId: "base-1",
+    }).state,
+    "composition_pending",
+  );
+  assert.equal(
+    evaluateScheduledIntelligenceContinuation(run({ status: "running" }), NOW, {
+      ...completedEngine,
+      baseEditionId: "base-1",
+      composedEditionId: "composed-1",
+    }).state,
+    "publication_complete",
+  );
+});
+
+test("failed research without a completed engine remains terminal", () => {
+  assert.equal(
+    evaluateScheduledIntelligenceContinuation(run({ status: "failed" }), NOW, {
+      engineStatus: "failed",
+      storySnapshotCount: 0,
+      baseEditionId: null,
+      composedEditionId: null,
+    }).state,
+    "terminal",
+  );
+});
+
 test("a fresh continuation claim suppresses a racing watchdog and a stale claim can recover", () => {
   const freshClaim = intelligenceContinuationClaimWarning(new Date(NOW.getTime() - 60_000));
   const staleClaim = intelligenceContinuationClaimWarning(

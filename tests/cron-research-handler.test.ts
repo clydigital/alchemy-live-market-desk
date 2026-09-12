@@ -272,3 +272,18 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
     "/api/cron/video/midnight 0 1 * * *",
   ]);
 });
+
+test("post-engine publication failure remains resumable and bypasses engine replay", () => {
+  const continuationHandler = readFileSync(
+    new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(continuationHandler, /readPublicationCheckpoint/);
+  assert.match(continuationHandler, /decision\.state === "publication_pending"/);
+  assert.match(continuationHandler, /resumePublicationAfterCompletedEngine/);
+  assert.match(continuationHandler, /markPublicationFailureResumable/);
+  assert.match(continuationHandler, /publicationFailureDisposition\(completedEngineWork\)/);
+  assert.match(continuationHandler, /continuation: "RETRY_PUBLICATION"/);
+  assert.match(continuationHandler, /\.eq\("status", run\.status\)/);
+});

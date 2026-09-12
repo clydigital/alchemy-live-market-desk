@@ -14,8 +14,18 @@ export type ScheduledContinuationState =
   | "acquisition_pending"
   | "ready"
   | "intelligence_running"
+  | "publication_pending"
+  | "composition_pending"
+  | "publication_complete"
   | "completed"
   | "terminal";
+
+export type ScheduledPublicationCheckpoint = {
+  engineStatus: string | null;
+  storySnapshotCount: number;
+  baseEditionId: string | null;
+  composedEditionId: string | null;
+};
 
 export type ScheduledContinuationDecision = {
   state: ScheduledContinuationState;
@@ -60,6 +70,7 @@ function latestIntelligenceContinuationReleaseAt(warnings: string[] | null | und
 export function evaluateScheduledIntelligenceContinuation(
   run: ScheduledContinuationRun | null,
   now = new Date(),
+  publication: ScheduledPublicationCheckpoint | null = null,
 ): ScheduledContinuationDecision {
   if (!run) {
     return { state: "missing", reason: "The canonical research run has not been claimed yet." };
@@ -67,17 +78,11 @@ export function evaluateScheduledIntelligenceContinuation(
   if (run.status === "completed") {
     return { state: "completed", reason: "The canonical research run is already completed." };
   }
-  if (run.status === "blocked" || run.status === "failed") {
+  if (run.status === "blocked") {
     return { state: "terminal", reason: `The canonical research run is already ${run.status}.` };
   }
-  if (run.status !== "running") {
+  if (run.status !== "running" && run.status !== "failed") {
     return { state: "terminal", reason: `The canonical research run has unsupported status ${run.status}.` };
-  }
-  if (!nonEmptySourceChecks(run.source_checks)) {
-    return {
-      state: "acquisition_pending",
-      reason: "The scheduled acquisition hand-off has not persisted source checks yet.",
-    };
   }
 
   const claimedAt = latestIntelligenceContinuationClaimAt(run.warnings);
@@ -90,6 +95,40 @@ export function evaluateScheduledIntelligenceContinuation(
     return {
       state: "intelligence_running",
       reason: "A recent intelligence continuation claim is already active.",
+    };
+  }
+
+  // Once the engine is durable, artifact presence—not the lossy outer status—
+  // determines the next safe step. A blocked accuracy gate is intentionally
+  // excluded: completed dry-run engine work must not become a publication.
+  if (publication?.engineStatus === "completed" && run.accuracy_gate !== "blocked") {
+    if (publication.composedEditionId) {
+      return {
+        state: "publication_complete",
+        reason: "The completed engine and composed canonical edition are durable; only outer finalisation remains.",
+      };
+    }
+    if (publication.baseEditionId) {
+      return {
+        state: "composition_pending",
+        reason: "The canonical base edition is durable; only Dossier composition remains.",
+      };
+    }
+    return {
+      state: "publication_pending",
+      reason: publication.storySnapshotCount
+        ? "The completed engine has partial Story snapshots; Story freeze and base publication must resume."
+        : "The intelligence engine is complete; Story freeze and base publication must resume.",
+    };
+  }
+
+  if (run.status === "failed") {
+    return { state: "terminal", reason: "The canonical research run failed before engine completion." };
+  }
+  if (!nonEmptySourceChecks(run.source_checks)) {
+    return {
+      state: "acquisition_pending",
+      reason: "The scheduled acquisition hand-off has not persisted source checks yet.",
     };
   }
   return { state: "ready", reason: "Persisted acquisition is ready for canonical intelligence." };

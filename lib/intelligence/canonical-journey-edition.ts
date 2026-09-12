@@ -8,6 +8,7 @@ import {
 } from "@/lib/intelligence/dossier-storyline-composer";
 import { composeAlchemyEdition, type AlchemyEdition } from "@/lib/intelligence/edition";
 import type { CandidateContractDiagnostic } from "@/lib/intelligence/candidate-evidence-contract";
+import { persistOrReuseCanonicalArtifact } from "@/lib/intelligence/canonical-publication-idempotency";
 import { JOURNEY_BRIEFING_V1, type JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import {
   CANONICAL_STORY_REASONING_V1,
@@ -120,14 +121,28 @@ function hasComposedDossier(payload: Record<string, unknown> | undefined) {
   );
 }
 
-function currentDailyBrief(rows: DailyBriefRow[]) {
-  const supersededIds = new Set(rows.flatMap((row) => row.supersedes_snapshot_id ? [row.supersedes_snapshot_id] : []));
-  return rows.find((row) => !supersededIds.has(row.id)) || rows[0] || null;
+function dailyBriefForPhase(rows: DailyBriefRow[], phase: DailyBriefRow["edition_phase"]) {
+  return rows.find((row) => row.edition_phase === phase) || null;
+}
+
+function isCanonicalBaseEdition(row: DailyBriefRow | null): row is DailyBriefRow {
+  return Boolean(
+    row
+    && row.edition_phase === "base"
+    && Array.isArray(row.payload.canonicalStoryManifest)
+    && hasPersistedJourney(row.payload),
+  );
 }
 
 async function dailyBriefsForResearchRun(researchRunId: string) {
   return intelligenceRest<DailyBriefRow[]>(
     `hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=published_at.desc,id.desc&limit=20`,
+  );
+}
+
+async function storySnapshotsForResearchRun(researchRunId: string) {
+  return intelligenceRest<StorySnapshotRow[]>(
+    `hybrid_publication_snapshots?select=id,story_id,story_thesis_version_id,payload&snapshot_type=eq.story&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=published_at.asc,id.asc`,
   );
 }
 
@@ -158,13 +173,22 @@ async function persistCanonicalStoryManifest({
   canonicalStoryStates: Awaited<ReturnType<typeof captureCanonicalStoryStates>>;
   publishedAt: string;
 }) {
-  const existingRows = await intelligenceRest<StorySnapshotRow[]>(
-    `hybrid_publication_snapshots?select=id,story_id,story_thesis_version_id,payload&snapshot_type=eq.story&research_run_id=eq.${encodeURIComponent(researchRunId)}&order=published_at.asc,id.asc`,
-  );
+  const existingRows = await storySnapshotsForResearchRun(researchRunId);
   const existingStoryIds = new Set(existingRows.map((row) => row.story_id).filter(Boolean));
   const missingStates = canonicalStoryStates.filter((story) => !existingStoryIds.has(story.id));
-  const insertedRows = missingStates.length
-    ? await intelligenceRest<StorySnapshotRow[]>("hybrid_publication_snapshots", {
+  const expectedStoryIds = new Set(canonicalStoryStates.map((story) => story.id));
+  const complete = (rows: StorySnapshotRow[]) => {
+    const persistedStoryIds = new Set(rows.map((row) => row.story_id).filter(Boolean));
+    return [...expectedStoryIds].every((storyId) => persistedStoryIds.has(storyId));
+  };
+  const { value: persistedRows } = await persistOrReuseCanonicalArtifact({
+    readExisting: async () => {
+      const rows = await storySnapshotsForResearchRun(researchRunId);
+      return complete(rows) ? rows : null;
+    },
+    insert: async () => {
+      if (!missingStates.length) return existingRows;
+      const insertedRows = await intelligenceRest<StorySnapshotRow[]>("hybrid_publication_snapshots", {
         method: "POST",
         headers: { Prefer: "return=representation" },
         body: JSON.stringify(missingStates.map((story) => ({
@@ -181,11 +205,15 @@ async function persistCanonicalStoryManifest({
           confidence: story.confidence,
           published_at: publishedAt,
         }))),
-      })
-    : [];
+      });
+      return [...existingRows, ...insertedRows];
+    },
+    isValid: complete,
+    missingMessage: "Unable to persist the complete immutable Story snapshot manifest.",
+  });
 
   const snapshotByStoryId = new Map(
-    [...existingRows, ...insertedRows]
+    persistedRows
       .filter((row) => row.story_id)
       .map((row) => [row.story_id as string, row]),
   );
@@ -252,8 +280,8 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   publicSummary?: string | null;
 }) {
   const existingRows = await dailyBriefsForResearchRun(researchRunId);
-  const existing = currentDailyBrief(existingRows);
-  if (existing) return existing.id;
+  const existing = dailyBriefForPhase(existingRows, "base");
+  if (isCanonicalBaseEdition(existing)) return existing.id;
 
   const generatedAt = new Date().toISOString();
   const researchRun = (await intelligenceRest<Array<{
@@ -303,43 +331,54 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     throw new Error("Zero-change canonical edition did not compose journey-briefing/v1.");
   }
 
-  const rows = await intelligenceRest<Array<{ id: string }>>("hybrid_publication_snapshots", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      research_run_id: researchRunId,
-      slot_run_id: null,
-      story_id: null,
-      story_thesis_version_id: null,
-      supersedes_snapshot_id: prior[0]?.id || null,
-      snapshot_type: "daily_brief",
-      edition_phase: "base",
-      public_summary: publicSummary || edition.finalBoard.highestConvictionChange,
-      payload: {
-        ...edition,
-        contractVersion: 2,
-        scheduleSlot: researchRun?.schedule_slot || null,
-        scheduledFor: researchRun?.scheduled_for || null,
-        runKey: researchRun?.run_key || runKey,
-        canonicalStoryManifest,
-      },
-      source_record_refs: canonicalStoryManifest.map((entry) => ({
-        type: "story",
-        id: entry.storyId,
-        snapshotId: entry.snapshotId,
-      })),
-      redaction_log: [],
-      confidence: canonicalStoryManifest.length
-        ? Math.round(canonicalStoryManifest.reduce(
-            (sum, entry) => sum + Number((entry.state as { confidence?: number }).confidence || 0),
-            0,
-          ) / canonicalStoryManifest.length)
-        : 50,
-      published_at: generatedAt,
-    }),
+  const { value: canonicalBase } = await persistOrReuseCanonicalArtifact({
+    readExisting: async () => {
+      const row = dailyBriefForPhase(await dailyBriefsForResearchRun(researchRunId), "base");
+      return isCanonicalBaseEdition(row) ? row : null;
+    },
+    insert: async () => {
+      const rows = await intelligenceRest<DailyBriefRow[]>("hybrid_publication_snapshots", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          research_run_id: researchRunId,
+          slot_run_id: null,
+          story_id: null,
+          story_thesis_version_id: null,
+          supersedes_snapshot_id: prior[0]?.id || null,
+          snapshot_type: "daily_brief",
+          edition_phase: "base",
+          public_summary: publicSummary || edition.finalBoard.highestConvictionChange,
+          payload: {
+            ...edition,
+            contractVersion: 2,
+            scheduleSlot: researchRun?.schedule_slot || null,
+            scheduledFor: researchRun?.scheduled_for || null,
+            runKey: researchRun?.run_key || runKey,
+            canonicalStoryManifest,
+          },
+          source_record_refs: canonicalStoryManifest.map((entry) => ({
+            type: "story",
+            id: entry.storyId,
+            snapshotId: entry.snapshotId,
+          })),
+          redaction_log: [],
+          confidence: canonicalStoryManifest.length
+            ? Math.round(canonicalStoryManifest.reduce(
+                (sum, entry) => sum + Number((entry.state as { confidence?: number }).confidence || 0),
+                0,
+              ) / canonicalStoryManifest.length)
+            : 50,
+          published_at: generatedAt,
+        }),
+      });
+      if (!rows[0]) throw new Error("Unable to persist zero-change canonical Journey edition snapshot.");
+      return rows[0];
+    },
+    isValid: isCanonicalBaseEdition,
+    missingMessage: "Unable to persist zero-change canonical Journey edition snapshot.",
   });
-  if (!rows[0]?.id) throw new Error("Unable to persist zero-change canonical Journey edition snapshot.");
-  return rows[0].id;
+  return canonicalBase.id;
 }
 
 /**
@@ -354,16 +393,17 @@ export async function composeCanonicalDossierEditionForResearchRun({
   researchRunId: string;
 }) {
   const rows = await dailyBriefsForResearchRun(researchRunId);
-  const base = currentDailyBrief(rows);
-  if (!base) throw new Error("Canonical base edition is unavailable for Dossier storyline composition.");
-  if (hasComposedDossier(base.payload)) {
+  const existingComposition = dailyBriefForPhase(rows, "composed");
+  if (existingComposition && hasComposedDossier(existingComposition.payload)) {
     return {
-      editionId: base.id,
+      editionId: existingComposition.id,
       status: "already_composed" as const,
       warnings: [] as string[],
       model: null,
     };
   }
+  const base = dailyBriefForPhase(rows, "base");
+  if (!base) throw new Error("Canonical base edition is unavailable for Dossier storyline composition.");
   if (!Array.isArray(base.payload.canonicalStoryManifest)) {
     throw new Error("Canonical Story manifest is unavailable for Dossier storyline composition.");
   }
@@ -389,29 +429,40 @@ export async function composeCanonicalDossierEditionForResearchRun({
       model: composed.model,
     },
   };
-  const inserted = await intelligenceRest<Array<{ id: string }>>("hybrid_publication_snapshots", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      research_run_id: researchRunId,
-      slot_run_id: base.slot_run_id,
-      story_id: null,
-      story_thesis_version_id: null,
-      supersedes_snapshot_id: base.id,
-      snapshot_type: "daily_brief",
-      edition_phase: "composed",
-      public_summary: base.public_summary,
-      payload,
-      source_record_refs: Array.isArray(base.source_record_refs) ? base.source_record_refs : [],
-      redaction_log: Array.isArray(base.redaction_log) ? base.redaction_log : [],
-      confidence: base.confidence,
-      published_at: publishedAt,
-    }),
+  const { value: canonicalComposition, reused } = await persistOrReuseCanonicalArtifact({
+    readExisting: async () => {
+      const row = dailyBriefForPhase(await dailyBriefsForResearchRun(researchRunId), "composed");
+      return row && hasComposedDossier(row.payload) ? row : null;
+    },
+    insert: async () => {
+      const inserted = await intelligenceRest<DailyBriefRow[]>("hybrid_publication_snapshots", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          research_run_id: researchRunId,
+          slot_run_id: base.slot_run_id,
+          story_id: null,
+          story_thesis_version_id: null,
+          supersedes_snapshot_id: base.id,
+          snapshot_type: "daily_brief",
+          edition_phase: "composed",
+          public_summary: base.public_summary,
+          payload,
+          source_record_refs: Array.isArray(base.source_record_refs) ? base.source_record_refs : [],
+          redaction_log: Array.isArray(base.redaction_log) ? base.redaction_log : [],
+          confidence: base.confidence,
+          published_at: publishedAt,
+        }),
+      });
+      if (!inserted[0]) throw new Error("Unable to persist composed canonical Dossier edition snapshot.");
+      return inserted[0];
+    },
+    isValid: (row) => Boolean(row.id && row.edition_phase === "composed" && hasComposedDossier(row.payload)),
+    missingMessage: "Unable to persist composed canonical Dossier edition snapshot.",
   });
-  if (!inserted[0]?.id) throw new Error("Unable to persist composed canonical Dossier edition snapshot.");
   return {
-    editionId: inserted[0].id,
-    status: "composed" as const,
+    editionId: canonicalComposition.id,
+    status: reused ? "already_composed" as const : "composed" as const,
     warnings: composed.warnings,
     model: composed.model,
   };

@@ -52,7 +52,8 @@ test("edition composition supersedes rather than mutates the immutable base edit
   const migration = source("../supabase/migrations/20260903093000_dossier_composition_phase.sql");
 
   assert.match(edition, /composeCanonicalDossierEditionForResearchRun/);
-  assert.match(edition, /const base = currentDailyBrief\(rows\)/);
+  assert.match(edition, /const base = dailyBriefForPhase\(rows, "base"\)/);
+  assert.match(edition, /const existingComposition = dailyBriefForPhase\(rows, "composed"\)/);
   assert.match(edition, /supersedes_snapshot_id: base\.id/);
   assert.match(edition, /snapshot_type: "daily_brief"/);
   assert.match(edition, /parentEditionId: base\.id/);

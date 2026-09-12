@@ -1,6 +1,7 @@
 import "server-only";
 
 import { enrichDailyBriefSnapshotWrite } from "@/lib/power-stack-ratings";
+import { IntelligenceDatabaseError } from "./database-error.ts";
 import {
   currentIntelligenceInvocation,
   frozenRead,
@@ -31,7 +32,7 @@ async function rawIntelligenceRest<T>(path: string, init: RequestInit = {}): Pro
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Intelligence database request failed (${response.status}): ${detail.slice(0, 800)}`);
+    throw new IntelligenceDatabaseError(response.status, detail);
   }
   if (response.status === 204) return undefined as T;
   const text = await response.text();

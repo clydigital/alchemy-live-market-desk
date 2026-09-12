@@ -180,7 +180,8 @@ export type ResearchScheduleSlot = {
 };
 
 export type ResearchRunStatus = "scheduled" | "running" | "completed" | "partial" | "failed" | "blocked" | "skipped";
-export type ResearchHealthState = "healthy" | "degraded" | "blocked" | "unknown";
+export const RESEARCH_SLOT_HEALTH_STATES = ["healthy", "degraded", "blocked", "unknown"] as const;
+export type ResearchHealthState = typeof RESEARCH_SLOT_HEALTH_STATES[number];
 export type ResearchStageStatus = "pending" | "running" | "complete" | "partial" | "failed" | "blocked" | "not_required";
 
 export type ResearchSlotRun = {

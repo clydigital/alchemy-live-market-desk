@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ResearchHealthState } from "./persistence/contracts.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { XwadaChannelKey, XwadaVideo } from "./youtube-reliability.ts";
 import type {
@@ -12,6 +13,8 @@ import type {
 import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "./transcriptapi.ts";
 
 export type VideoResearchSlot = "video_midnight" | "video_late_morning";
+
+const VIDEO_FAILURE_HEALTH_STATE = "blocked" satisfies ResearchHealthState;
 
 type IntakeRow = {
   id: string;
@@ -410,7 +413,7 @@ export async function recoverStaleVideoRuns(input: {
       completed_at: now.toISOString(),
       last_heartbeat_at: now.toISOString(),
       status: "failed",
-      health_state: "failed",
+      health_state: VIDEO_FAILURE_HEALTH_STATE,
       ingestion_status: "failed",
       transcript_status: "failed",
       stage_summary: { lastStage: "stale_run_recovery", lastStatus: "failed", reason: "abandoned_timeout" },
@@ -638,7 +641,7 @@ export async function failVideoIntakeRun(input: {
     completed_at: now,
     last_heartbeat_at: now,
     status: "failed",
-    health_state: "failed",
+    health_state: VIDEO_FAILURE_HEALTH_STATE,
     ingestion_status: "failed",
     transcript_status: "failed",
     stage_summary: { lastStage: input.stage, lastStatus: "failed", error: errorMessage },

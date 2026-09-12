@@ -10,6 +10,11 @@ import {
   shouldDeferStageClaim,
 } from "@/lib/intelligence/invocation-context";
 import { OpenAIStageError, openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
+import {
+  publicationFailureDisposition,
+  resumePublicationAfterCompletedEngine,
+  type CompletedEnginePublicationCheckpoint,
+} from "@/lib/intelligence/publication-recovery";
 import { runIntelligenceEngine } from "@/lib/intelligence/runtime";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -50,15 +55,58 @@ async function readRun(runKey: string) {
   return data;
 }
 
+async function readPublicationCheckpoint(researchRunId: string): Promise<CompletedEnginePublicationCheckpoint> {
+  const client = createSupabaseAdminClient();
+  const [engineResult, publicationResult] = await Promise.all([
+    client
+      .from("intelligence_engine_runs")
+      .select("id,status,stories_published,warnings")
+      .eq("research_run_id", researchRunId)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string; status: string; stories_published: number | null; warnings: string[] | null }>(),
+    client
+      .from("hybrid_publication_snapshots")
+      .select("id,snapshot_type,edition_phase,story_id")
+      .eq("research_run_id", researchRunId)
+      .limit(2_000),
+  ]);
+  if (engineResult.error) {
+    throw new Error(`Could not inspect completed intelligence engine state: ${engineResult.error.message}`);
+  }
+  if (publicationResult.error) {
+    throw new Error(`Could not inspect canonical publication state: ${publicationResult.error.message}`);
+  }
+
+  const engine = engineResult.data;
+  const publications = (publicationResult.data ?? []) as Array<{
+    id: string;
+    snapshot_type: string;
+    edition_phase: string | null;
+    story_id: string | null;
+  }>;
+  const dailyBriefs = publications.filter((row) => row.snapshot_type === "daily_brief");
+  return {
+    engineRunId: engine?.id ?? null,
+    engineStatus: engine?.status ?? null,
+    storiesPublished: Number(engine?.stories_published ?? 0),
+    engineWarnings: engine?.warnings ?? [],
+    storySnapshotCount: publications.filter((row) => row.snapshot_type === "story" && row.story_id).length,
+    baseEditionId: dailyBriefs.find((row) => row.edition_phase === "base")?.id ?? null,
+    composedEditionId: dailyBriefs.find((row) => row.edition_phase === "composed")?.id ?? null,
+  };
+}
+
 async function claimContinuation(run: ScheduledContinuationRun, now: Date) {
   const client = createSupabaseAdminClient();
   const claimWarning = intelligenceContinuationClaimWarning(now);
   const warnings = mergeScheduledWarnings(run.warnings, [claimWarning]);
   const { data, error } = await client
     .from("research_runs")
-    .update({ warnings, updated_at: now.toISOString() })
+    .update({ status: "running", completed_at: null, warnings, updated_at: now.toISOString() })
     .eq("id", run.id)
-    .eq("status", "running")
+    .eq("status", run.status)
     .eq("updated_at", run.updated_at)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -119,6 +167,21 @@ async function markUnexpectedFailure(runId: string, warnings: string[], message:
   }
 }
 
+async function markPublicationFailureResumable(runId: string, warnings: string[], message: string) {
+  try {
+    await persistResumableRun({
+      runId,
+      warnings: mergeScheduledWarnings(warnings, [
+        `[publication] Recovery remains pending after failure: ${message}`,
+        intelligenceContinuationReleaseWarning(),
+      ]),
+    });
+  } catch {
+    // The run was claimed as running before publication. Preserve the original
+    // error even if the observability update itself is unavailable.
+  }
+}
+
 function handoffWarnings(
   warnings: string[],
   invokedStage: string | null,
@@ -167,8 +230,18 @@ export async function handleScheduledResearchIntelligence(
     return response({ error: error instanceof Error ? error.message : "Could not read scheduled research run." }, 503);
   }
 
-  const decision = evaluateScheduledIntelligenceContinuation(run, now);
-  if (decision.state !== "ready" || !run) {
+  let publicationCheckpoint: CompletedEnginePublicationCheckpoint | null = null;
+  if (run) {
+    try {
+      publicationCheckpoint = await readPublicationCheckpoint(run.id);
+    } catch (error) {
+      return response({ error: error instanceof Error ? error.message : "Could not inspect publication recovery state." }, 503);
+    }
+  }
+
+  const decision = evaluateScheduledIntelligenceContinuation(run, now, publicationCheckpoint);
+  const runnableStates = new Set(["ready", "publication_pending", "composition_pending", "publication_complete"]);
+  if (!runnableStates.has(decision.state) || !run) {
     const status = decision.state === "completed" || decision.state === "terminal" ? 200 : 202;
     return response({
       status: decision.state,
@@ -181,6 +254,7 @@ export async function handleScheduledResearchIntelligence(
   }
 
   let claimedWarnings = run.warnings ?? [];
+  let completedEngineWork = publicationCheckpoint?.engineStatus === "completed" && run.accuracy_gate !== "blocked";
   try {
     const claim = await claimContinuation(run, now);
     if (!claim.claimed) {
@@ -195,6 +269,130 @@ export async function handleScheduledResearchIntelligence(
     }
     claimedWarnings = claim.warnings;
 
+    if (decision.state !== "ready") {
+      if (!publicationCheckpoint || publicationCheckpoint.engineStatus !== "completed") {
+        throw new Error("Publication recovery lost its completed-engine checkpoint.");
+      }
+      const recoveredIntelligence = {
+        engineRunId: publicationCheckpoint.engineRunId,
+        status: "completed" as const,
+        storiesPublished: publicationCheckpoint.storiesPublished,
+        warnings: publicationCheckpoint.engineWarnings,
+        recoveredPublication: true,
+      };
+
+      if (decision.state === "publication_pending") {
+        const recovery = await resumePublicationAfterCompletedEngine({
+          checkpoint: publicationCheckpoint,
+          freezeAndPublishBase: () => persistCanonicalJourneyEditionForResearchRun({
+            researchRunId: run.id,
+            runKey,
+            publicSummary: run.summary,
+          }),
+          compose: async () => {
+            throw new Error("Composition cannot run in the base-publication recovery invocation.");
+          },
+        });
+        const warnings = mergeScheduledWarnings(
+          claimedWarnings,
+          publicationCheckpoint.engineWarnings,
+          [
+            `Publication recovery persisted canonical base edition ${recovery.baseEditionId}.`,
+            intelligenceContinuationReleaseWarning(),
+          ],
+        );
+        await persistResumableRun({ runId: run.id, warnings });
+        return response({
+          status: "partial",
+          continuation: "COMPOSE_DOSSIER",
+          completedStage: "canonical_base_publication",
+          nextStage: "dossier_storyline_composer",
+          slot,
+          runKey,
+          runId: run.id,
+          scheduledFor,
+          updatesPublished: publicationCheckpoint.storiesPublished,
+          intelligence: recoveredIntelligence,
+          warnings,
+          message: "Completed intelligence was reused and the canonical base edition is durable. Continue with Dossier composition in a fresh invocation.",
+        }, 202);
+      }
+
+      const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, async () => {
+        try {
+          const recovery = await resumePublicationAfterCompletedEngine({
+            checkpoint: publicationCheckpoint as CompletedEnginePublicationCheckpoint,
+            freezeAndPublishBase: async () => {
+              throw new Error("Base publication is already complete for this recovery checkpoint.");
+            },
+            compose: () => composeCanonicalDossierEditionForResearchRun({ researchRunId: run.id }),
+          });
+          return { recovery, compositionError: null };
+        } catch (error) {
+          if (error instanceof OpenAIStageError) {
+            return {
+              recovery: null,
+              compositionError: { message: error.message, retryable: error.retryable, code: error.code },
+            };
+          }
+          throw error;
+        }
+      });
+      const compositionError = invocation.value.compositionError;
+      let warnings = mergeScheduledWarnings(claimedWarnings, publicationCheckpoint.engineWarnings);
+      if (compositionError?.retryable) {
+        const resumableWarnings = mergeScheduledWarnings(warnings, [
+          `Dossier storyline composer will retry: ${compositionError.message}`,
+          intelligenceContinuationReleaseWarning(),
+        ]);
+        await persistResumableRun({ runId: run.id, warnings: resumableWarnings });
+        return response({
+          status: "partial",
+          continuation: "RETRY_DOSSIER_COMPOSER",
+          nextStage: "dossier_storyline_composer",
+          slot,
+          runKey,
+          runId: run.id,
+          scheduledFor,
+          updatesPublished: publicationCheckpoint.storiesPublished,
+          intelligence: recoveredIntelligence,
+          warnings: resumableWarnings,
+          message: "The canonical base edition remains published; retry only Dossier composition.",
+        }, 202);
+      }
+      if (compositionError) {
+        warnings = mergeScheduledWarnings(warnings, [
+          `Dossier storyline composition degraded to the persisted base edition: ${compositionError.message}`,
+        ]);
+      }
+      if (invocation.value.recovery?.composition && "warnings" in invocation.value.recovery.composition) {
+        const compositionWarnings = (invocation.value.recovery.composition as { warnings?: string[] }).warnings;
+        warnings = mergeScheduledWarnings(warnings, compositionWarnings);
+      }
+      await persistFinalRun({
+        runId: run.id,
+        status: "completed",
+        updatesPublished: publicationCheckpoint.storiesPublished,
+        warnings,
+      });
+      revalidatePath("/");
+      revalidatePath("/stories");
+      revalidatePath("/api/hybrid-feed");
+      revalidatePath("/api/hybrid-feed-v2");
+      return response({
+        status: "completed",
+        continuation: "COMPLETED",
+        slot,
+        runKey,
+        runId: run.id,
+        scheduledFor,
+        updatesPublished: publicationCheckpoint.storiesPublished,
+        intelligence: recoveredIntelligence,
+        dossierComposition: invocation.value.recovery?.composition ?? null,
+        warnings,
+      });
+    }
+
     const invocation = await runWithIntelligenceInvocation({ oneModelStage: true }, async () => {
       const intelligence = await runIntelligenceEngine({
         researchRunId: run.id,
@@ -203,6 +401,7 @@ export async function handleScheduledResearchIntelligence(
         dryRun: run.accuracy_gate === "blocked",
         stageMaxAttempts: 1,
       });
+      completedEngineWork = intelligence.status === "completed" && run.accuracy_gate !== "blocked";
       const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
       if (intelligence.status === "partial" || finalStatus !== "completed") {
         return { intelligence, dossierComposition: null, dossierCompositionError: null };
@@ -352,6 +551,26 @@ export async function handleScheduledResearchIntelligence(
     }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Scheduled intelligence continuation failed.";
+    if (!completedEngineWork) {
+      try {
+        completedEngineWork = (await readPublicationCheckpoint(run.id)).engineStatus === "completed"
+          && run.accuracy_gate !== "blocked";
+      } catch {
+        // Fall back to the in-invocation engine result when durable inspection is unavailable.
+      }
+    }
+    if (publicationFailureDisposition(completedEngineWork) === "resumable") {
+      await markPublicationFailureResumable(run.id, claimedWarnings, message);
+      return response({
+        error: message,
+        continuation: "RETRY_PUBLICATION",
+        slot,
+        runKey,
+        runId: run.id,
+        scheduledFor,
+        message: "Completed intelligence remains durable; retry will resume from publication state.",
+      }, 503);
+    }
     await markUnexpectedFailure(run.id, claimedWarnings, message);
     return response({ error: message, continuation: "TERMINAL_FAILURE", slot, runKey, runId: run.id, scheduledFor }, 500);
   }

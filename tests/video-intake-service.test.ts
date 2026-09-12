@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 import {
   isTranscriptChannel,
   selectedTranscriptChannels,
 } from "../lib/video-intake-policy.ts";
+import { RESEARCH_SLOT_HEALTH_STATES } from "../lib/persistence/contracts.ts";
 import {
   runScheduledVideoIntake,
   type ScheduledVideoIntakeDependencies,
@@ -261,6 +263,18 @@ test("YouTube ISO durations support the conservative three-minute Shorts guard",
   assert.equal(youtubeDurationSeconds("not-a-duration"), null);
 });
 
+test("video slot health states match the persisted database check constraint", () => {
+  const migration = readFileSync(
+    new URL("../supabase/migrations/20260807013000_research_claims_fiscal_and_hybrid_pipeline.sql", import.meta.url),
+    "utf8",
+  );
+  const constraint = migration.match(/health_state text[^;]*?check \(health_state in \(([^)]+)\)\)/s);
+  assert.ok(constraint, "research_slot_runs health-state constraint must remain discoverable");
+  const databaseValues = [...constraint[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  assert.deepEqual([...RESEARCH_SLOT_HEALTH_STATES], databaseValues);
+  assert.ok(!RESEARCH_SLOT_HEALTH_STATES.includes("failed" as never));
+});
+
 function recoveryHarness(options: {
   noStaleRows?: boolean;
   queryError?: string;
@@ -274,6 +288,7 @@ function recoveryHarness(options: {
     status: "running",
   };
   let slotStatus = "running";
+  let slotHealthState = "unknown";
   let runUpdateFailures = options.runUpdateFailures ?? 0;
   let slotUpdateFailures = options.slotUpdateFailures ?? 0;
   const updates: Array<{ table: string; payload: Record<string, unknown> }> = [];
@@ -317,14 +332,150 @@ function recoveryHarness(options: {
             return { error: { message: "slot update failed" } };
           }
           if (table === "research_runs") Object.assign(run, payload);
+          if (table === "research_slot_runs" && typeof payload.health_state === "string"
+            && !(RESEARCH_SLOT_HEALTH_STATES as readonly string[]).includes(payload.health_state)) {
+            return { error: { message: `research_slot_runs_health_state_check rejected ${payload.health_state}` } };
+          }
           if (table === "research_slot_runs" && typeof payload.status === "string") slotStatus = payload.status;
+          if (table === "research_slot_runs" && typeof payload.health_state === "string") slotHealthState = payload.health_state;
           return { error: null };
         },
       }),
     }),
   } as unknown as Parameters<typeof import("../lib/youtube-transcript-persistence.ts").recoverStaleVideoRuns>[0]["client"];
 
-  return { client, run, updates, slotStatus: () => slotStatus };
+  return { client, run, updates, slotStatus: () => slotStatus, slotHealthState: () => slotHealthState };
+}
+
+function videoLifecycleContractHarness() {
+  const runs = new Map<string, Record<string, unknown>>([
+    ["stale-run-1", {
+      id: "stale-run-1",
+      run_key: "video_midnight-2026-08-26",
+      schedule_slot: "video_midnight",
+      scheduled_for: "2026-08-26T01:00:00.000Z",
+      started_at: "2026-08-26T01:00:00.000Z",
+      completed_at: null,
+      status: "running",
+      process_log: [{ stage: "create_run", status: "complete" }],
+      warnings: [],
+    }],
+  ]);
+  const slots = new Map<string, Record<string, unknown>>([
+    ["stale-run-1", {
+      research_run_id: "stale-run-1",
+      slot_key: "video_midnight",
+      status: "running",
+      health_state: "unknown",
+      last_heartbeat_at: "2026-08-26T01:00:00.000Z",
+    }],
+  ]);
+  const items = new Map<string, Record<string, unknown>>();
+  let runSequence = 0;
+  let itemSequence = 0;
+
+  function slotHealthError(payload: Record<string, unknown>) {
+    return typeof payload.health_state === "string"
+      && !(RESEARCH_SLOT_HEALTH_STATES as readonly string[]).includes(payload.health_state)
+      ? { message: `research_slot_runs_health_state_check rejected ${payload.health_state}` }
+      : null;
+  }
+
+  function selectedRow(table: string, filters: Map<string, unknown>) {
+    if (table === "research_runs") {
+      const id = filters.get("id");
+      return typeof id === "string" ? runs.get(id) ?? null : null;
+    }
+    if (table === "research_intake_items") {
+      const itemKey = filters.get("item_key");
+      return typeof itemKey === "string" ? items.get(itemKey) ?? null : null;
+    }
+    return null;
+  }
+
+  const client = {
+    from: (table: string) => ({
+      select: (_columns?: string) => {
+        const filters = new Map<string, unknown>();
+        const query = {
+          eq: (column: string, value: unknown) => {
+            filters.set(column, value);
+            return query;
+          },
+          lt: async (column: string, value: string) => ({
+            data: table === "research_slot_runs"
+              ? [...slots.values()].filter((row) => (
+                  [...filters].every(([key, expected]) => row[key] === expected)
+                  && typeof row[column] === "string"
+                  && row[column] < value
+                )).map((row) => ({
+                  research_run_id: row.research_run_id,
+                  slot_key: row.slot_key,
+                  last_heartbeat_at: row.last_heartbeat_at,
+                }))
+              : [],
+            error: null,
+          }),
+          maybeSingle: async () => ({ data: selectedRow(table, filters), error: null }),
+        };
+        return query;
+      },
+      update: (payload: Record<string, unknown>) => ({
+        eq: async (column: string, value: unknown) => {
+          if (table === "research_slot_runs") {
+            const error = slotHealthError(payload);
+            if (error) return { error };
+          }
+          if (table === "research_runs" && column === "id" && typeof value === "string") {
+            const row = runs.get(value);
+            if (row) Object.assign(row, payload);
+          }
+          if (table === "research_slot_runs" && column === "research_run_id" && typeof value === "string") {
+            const row = slots.get(value);
+            if (row) Object.assign(row, payload);
+          }
+          if (table === "research_intake_items" && column === "id") {
+            const row = [...items.values()].find((candidate) => candidate.id === value);
+            if (row) Object.assign(row, payload);
+          }
+          return { error: null };
+        },
+      }),
+      upsert: (payload: Record<string, unknown>) => {
+        if (table === "research_runs") {
+          const existing = [...runs.values()].find((row) => row.run_key === payload.run_key);
+          const row = existing ?? { id: `fresh-run-${++runSequence}` };
+          Object.assign(row, payload);
+          runs.set(row.id as string, row);
+          return {
+            select: () => ({
+              single: async () => ({ data: { id: row.id }, error: null }),
+            }),
+          };
+        }
+        const error = slotHealthError(payload);
+        if (!error && table === "research_slot_runs") {
+          const runId = payload.research_run_id as string;
+          const row = slots.get(runId) ?? {};
+          Object.assign(row, payload);
+          slots.set(runId, row);
+        }
+        return { error };
+      },
+      insert: (payload: Record<string, unknown>) => ({
+        select: () => ({
+          single: async () => {
+            if (table !== "research_intake_items") return { data: null, error: { message: "unsupported insert" } };
+            const row = { id: `video-item-${++itemSequence}`, ...payload };
+            items.set(payload.item_key as string, row);
+            return { data: row, error: null };
+          },
+        }),
+      }),
+    }),
+  } as unknown as Parameters<typeof import("../lib/youtube-transcript-persistence.ts").createVideoIntakeRun>[0]["client"];
+
+  return { client, runs, slots, items };
 }
 
 test("recoverStaleVideoRuns returns zero when no stale rows exist", async () => {
@@ -372,8 +523,48 @@ test("recoverStaleVideoRuns retries a partial recovery without duplicate log or 
   assert.deepEqual(recovered, { recoveredCount: 1 });
   assert.deepEqual(replay, { recoveredCount: 0 });
   assert.equal(harness.slotStatus(), "failed");
+  assert.equal(harness.slotHealthState(), "blocked");
   assert.equal(harness.run.process_log.filter((entry) => entry.stage === "stale_run_recovery").length, 1);
   assert.equal(harness.run.warnings.filter((warning) => warning.includes("Stale video run abandoned")).length, 1);
+});
+
+test("stale video recovery permits one date-correct queued intake run and idempotent replay", async () => {
+  const { createVideoIntakeRun, ensureVideoIntakeItem } = await import("../lib/youtube-transcript-persistence.ts");
+  const harness = videoLifecycleContractHarness();
+  const runInput = {
+    slot: "video_midnight" as const,
+    runKey: "video_midnight-2026-09-12",
+    scheduledFor: "2026-09-12T01:00:00.000Z",
+    client: harness.client,
+  };
+
+  const firstRun = await createVideoIntakeRun(runInput);
+  const firstItem = await ensureVideoIntakeItem({
+    runId: firstRun.id,
+    channelKey: "stockedup",
+    video: video("stockedup", "KHacM8aduWM"),
+    client: harness.client,
+  });
+  const replayedRun = await createVideoIntakeRun(runInput);
+  const replayedItem = await ensureVideoIntakeItem({
+    runId: replayedRun.id,
+    channelKey: "stockedup",
+    video: video("stockedup", "KHacM8aduWM"),
+    client: harness.client,
+  });
+
+  assert.equal(harness.runs.get("stale-run-1")?.status, "failed");
+  assert.equal(harness.slots.get("stale-run-1")?.status, "failed");
+  assert.equal(harness.slots.get("stale-run-1")?.health_state, "blocked");
+  assert.equal(firstRun.id, replayedRun.id);
+  assert.equal(harness.runs.get(firstRun.id)?.run_key, runInput.runKey);
+  assert.equal(harness.runs.get(firstRun.id)?.scheduled_for, runInput.scheduledFor);
+  assert.equal(harness.slots.get(firstRun.id)?.health_state, "unknown");
+  assert.equal(firstItem.transcriptStatus, "missing");
+  assert.equal(replayedItem.id, firstItem.id);
+  assert.equal(harness.runs.size, 2, "replay must not duplicate the stale or fresh run");
+  assert.equal(harness.slots.size, 2, "replay must not duplicate the fresh slot");
+  assert.equal(harness.items.size, 1, "replay must not duplicate pending transcript work");
 });
 
 test("scheduled StockedUp intake reaches Chrome, persists timestamps, and replays from cache", async () => {
@@ -684,5 +875,5 @@ test("failVideoIntakeRun transitions run to terminal failed state on error", asy
 
   const slotUpdate = updates[1].payload as { status: string; health_state: string };
   assert.equal(slotUpdate.status, "failed");
-  assert.equal(slotUpdate.health_state, "failed");
+  assert.equal(slotUpdate.health_state, "blocked");
 });
