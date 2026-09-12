@@ -1,0 +1,1 @@
+export const PRODUCTION_RESEARCH_AUTOMATION_PAUSED = true;

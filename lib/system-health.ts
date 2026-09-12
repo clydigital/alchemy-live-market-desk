@@ -2,6 +2,7 @@ import { getHybridDeskData } from "@/lib/data";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { firecrawlConfigured } from "@/lib/firecrawl";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
+import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
 import { getPrimaryMacroContextHealth } from "@/lib/macro/macro-context-capture-supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -153,7 +154,8 @@ export async function getSystemHealth() {
     ...scheduledProviderFailures,
   ];
   const openDebt = researchDebt.filter((row) => row.status === "open");
-  const scheduleEnabled = process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED === "true";
+  const scheduleFlagEnabled = process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED === "true";
+  const scheduleEnabled = scheduleFlagEnabled && !PRODUCTION_RESEARCH_AUTOMATION_PAUSED;
   const cronConfigured = configured(process.env.CRON_SECRET);
   const openAIConfigured = configured(process.env.OPENAI_API_KEY) && openAIIntelligenceEnabled();
   const youtubeConfigured = configured(process.env.YOUTUBE_DATA_API_KEY);
@@ -190,18 +192,26 @@ export async function getSystemHealth() {
           : "The canonical OpenAI runtime is configured but has not recorded an intelligence run.",
     },
     scheduling: {
-      state: scheduleEnabled && cronConfigured ? "enabled" : scheduleEnabled ? "blocked_missing_cron_secret" : "intentionally_disabled",
+      state: PRODUCTION_RESEARCH_AUTOMATION_PAUSED
+        ? "paused_by_routing"
+        : scheduleEnabled && cronConfigured
+          ? "enabled"
+          : scheduleEnabled
+            ? "blocked_missing_cron_secret"
+            : "intentionally_disabled",
       configured: scheduleEnabled && cronConfigured,
       cronConfigured,
       expectedSlots: ["09:15 Asia/Kuala_Lumpur", "21:15 Asia/Kuala_Lumpur"],
       latestResearchRunAt: latestResearchRun?.completed_at || latestResearchRun?.updated_at || null,
       latestResearchRunStatus: latestResearchRun?.status || null,
       latestResearchRunKey: latestResearchRun?.run_key || null,
-      note: scheduleEnabled
-        ? cronConfigured
-          ? "The two Live-owned Vercel Cron routes are enabled; each requires CRON_SECRET and publishes only through the canonical Live runtime."
-          : "The schedule flag is on but CRON_SECRET is missing, so unattended execution remains blocked."
-        : "Cron is intentionally off during coding and is not classified as a fault.",
+      note: PRODUCTION_RESEARCH_AUTOMATION_PAUSED
+        ? "The schedule flag and cron registrations may be present, but production routing currently intercepts research cron requests."
+        : scheduleEnabled
+          ? cronConfigured
+            ? "The two Live-owned Vercel Cron routes are enabled; each requires CRON_SECRET and publishes only through the canonical Live runtime."
+            : "The schedule flag is on but CRON_SECRET is missing, so unattended execution remains blocked."
+          : "Cron is intentionally off during coding and is not classified as a fault.",
     },
     supabase: {
       state: state(configured(process.env.NEXT_PUBLIC_SUPABASE_URL) && configured(process.env.SUPABASE_SERVICE_ROLE_KEY), Boolean(latestResearchRun)),

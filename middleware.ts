@@ -7,8 +7,7 @@ import {
   dashboardAuthRequired,
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
-
-const PRODUCTION_AUTOMATION_PAUSED = true;
+import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -41,7 +40,7 @@ function apiFailure(status: number, error: string) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  if (PRODUCTION_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
+  if (PRODUCTION_RESEARCH_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
     return NextResponse.json(
       {
         status: "paused",
