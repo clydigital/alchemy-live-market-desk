@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/cron/research/:path*",
+      "destination": "/api/automation-paused"
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/video/midnight",
