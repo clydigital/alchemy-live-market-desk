@@ -4,7 +4,13 @@ import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { retrieveSupadataVideo } from "./supadata.ts";
 import { SupabaseTranscriptWorkerStore } from "./supabase-transcript-worker-store.ts";
 import { reviewCreatorTranscript } from "./transcript-research-review.ts";
-import { runTranscriptWorker } from "./transcript-worker.ts";
+import {
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_CLAIM_HEADROOM_MS,
+  DEFAULT_SOFT_DEADLINE_MS,
+  MAX_CONCURRENCY,
+  runTranscriptWorker,
+} from "./transcript-worker.ts";
 
 export type TranscriptWorkerHandlerDependencies = {
   authenticate: (request: Request) => boolean;
@@ -38,7 +44,10 @@ export async function handleTranscriptWorkerRequest(
   try {
     const result = await dependencies.run({
       store: dependencies.createStore(),
-      batchSize: 1,
+      batchSize: DEFAULT_BATCH_SIZE,
+      maxConcurrency: MAX_CONCURRENCY,
+      softDeadlineMs: DEFAULT_SOFT_DEADLINE_MS,
+      claimHeadroomMs: DEFAULT_CLAIM_HEADROOM_MS,
       leaseSeconds: 300,
       maxAttempts: 6,
       extract: (videoId) => dependencies.extract(videoId, apiKey, { timeoutMs: 12_000 }),
