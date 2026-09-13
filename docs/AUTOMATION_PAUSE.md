@@ -7,8 +7,8 @@ The two lightweight creator-video detector crons are intentionally excluded from
 - `/api/cron/video/midnight` at 09:00 Asia/Kuala_Lumpur
 - `/api/cron/video/late-morning` at 21:00 Asia/Kuala_Lumpur
 
-Those video routes run in discovery/queue-only mode. They may discover monitored YouTube uploads and persist pending transcript items, but they do not invoke the legacy external Chrome transcript operator and they do not resume Live Desk reasoning, publication, or intelligence stages.
+Those video routes run independently from the main research scheduler. Discovery preserves monitored uploads for the bounded transcript worker; the worker may claim, transcribe, interpret and persist creator-lead evidence, but it cannot launch the main research engine, publish a Story, or hand anything to Hybrid.
 
-The intended transcript worker is a separately scheduled ChatGPT cloud-browser task. It consumes pending video rows, retrieves genuine timestamped transcripts when available, and persists them through the connected research data plane. Missing or browser-blocked transcripts remain pending/retryable; no generated or paid transcript fallback is allowed.
+The authenticated Vercel transcript worker runs every 30 minutes with a one-video batch. It uses the existing Supadata native-caption path, durable leases and checkpointed interpretation/evidence persistence. The research rewrite and middleware pause do not match `/api/cron/video/*`, so video processing remains autonomous while research stays paused.
 
 To resume full automated production research, remove the `/api/cron/research/:path*` Vercel rewrite and the corresponding research-only middleware pause in one reviewed change, then verify the production deployment before relying on the next scheduled research slot.

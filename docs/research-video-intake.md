@@ -28,8 +28,8 @@ fixed maximum of six long-form uploads per run, in this order:
 6. FX Evolution
 
 The first three are the creator channels the desk handoff explicitly requires.
-The limit keeps browser and manual work bounded; scheduled intake does not call
-a paid transcript provider.
+Discovery remains queue-only. A separate leased worker processes one retained
+video per invocation through the configured Supadata native-caption provider.
 
 Only long-form, non-live uploads from those channels enter an automated
 transcript path. Current, upcoming and archived livestreams are classified from
@@ -90,11 +90,12 @@ For every video admitted to transcript intake:
 
 1. Discover the video from the channel's official uploads feed and record the channel, video ID, URL and publication time.
 2. Classify whether it is a livestream or short-form upload. Livestreams and uploads at or below the 180-second guard do not enter the automated transcript path.
-3. Obtain the full existing caption transcript before using the video as evidence. A configured Chrome operator is the only automated path. Otherwise, add a verified manual transcript before advancing the item; scheduled intake does not trigger an AI-generated or paid transcript fallback.
+3. Obtain the full existing caption transcript before using the video as evidence. The leased worker uses Supadata native-caption mode and never requests generated transcription. The optional Chrome operator remains available for controlled manual recovery but is not required by the production worker.
 4. `transcriptStatus: "ready"` is valid only when `transcriptText` contains genuine transcript text. A title, description, chapter list, thumbnail text, comments or search-result summary is not a transcript.
 5. If a native transcript cannot be retrieved, mark it `missing` or `unavailable`. The video may be logged for awareness but must not affect a Story or recalibration until a transcript is ready.
 6. Treat creator reasoning as a hypothesis. Independently verify material claims against primary data, filings, official releases and directly verified market data before changing canonical research state.
 7. Research unfamiliar jargon or mechanisms raised by a creator before evaluating the claim.
 8. Deduplicate by channel identity plus YouTube video ID across research runs.
+9. Persist transcript, structured creator review and canonical Evidence as separate checkpoints so a retry resumes at the first missing durable boundary.
 
 The research-update validator enforces the transcript gate: retained video evidence without a ready transcript is blocked from Story recalibration.

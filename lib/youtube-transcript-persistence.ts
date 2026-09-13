@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ResearchHealthState } from "./persistence/contracts.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import { isLegacyClaimableTranscriptPlaceholder, type TranscriptJobStatus } from "./transcript-job-state.ts";
 import type { XwadaChannelKey, XwadaVideo } from "./youtube-reliability.ts";
 import type {
   ReadyTranscriptCache,
@@ -36,6 +37,10 @@ type IntakeRow = {
   transcript_http_status?: number | null;
   transcript_retryable?: boolean | null;
   transcript_attempt_count?: number | null;
+  status?: string;
+  summary?: string;
+  video_review_status?: string | null;
+  transcript_job_status?: TranscriptJobStatus | null;
 };
 
 type RunRow = {
@@ -665,7 +670,7 @@ export async function ensureVideoIntakeItem(input: {
 }) {
   const client = input.client ?? createSupabaseAdminClient();
   const itemKey = `youtube:${input.channelKey}:${input.video.videoId}`;
-  const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempted_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempt_count";
+  const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempted_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempt_count,status,summary,video_review_status,transcript_job_status";
   const { data: existing, error: readError } = await client
     .from("research_intake_items")
     .select(select)
@@ -673,11 +678,28 @@ export async function ensureVideoIntakeItem(input: {
     .maybeSingle<IntakeRow>();
   throwIfError(readError, "Could not read the canonical video intake item");
   if (existing) {
+    const makeClaimable = isLegacyClaimableTranscriptPlaceholder({
+      status: existing.status || "",
+      publisher: existing.publisher,
+      url: existing.url,
+      external_id: existing.external_id,
+      summary: existing.summary || "",
+      transcript_status: existing.transcript_status,
+      transcript_error_code: existing.transcript_error_code,
+      transcript_attempt_count: existing.transcript_attempt_count,
+      video_review_status: existing.video_review_status,
+      transcript_job_status: existing.transcript_job_status,
+    });
     const { error } = await client.from("research_intake_items").update({
       run_id: input.runId,
       title: input.video.title,
       url: input.video.url,
       published_at: input.video.publishedAt,
+      ...(makeClaimable ? {
+        transcript_job_status: "pending",
+        transcript_job_last_error: null,
+        transcript_next_attempt_at: null,
+      } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", existing.id);
     throwIfError(error, "Could not refresh video intake metadata");
@@ -694,6 +716,7 @@ export async function ensureVideoIntakeItem(input: {
     published_at: input.video.publishedAt,
     transcript_status: "missing",
     transcript_provider: null,
+    transcript_job_status: "pending",
     summary: "New monitored creator video discovered; transcript collection and claim verification are pending.",
     affected_story_slugs: [],
     source_quality: 80,

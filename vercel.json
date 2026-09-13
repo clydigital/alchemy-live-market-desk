@@ -12,6 +12,10 @@
       "schedule": "0 1 * * *"
     },
     {
+      "path": "/api/cron/video/transcript-worker",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron/research/morning",
       "schedule": "15 1 * * *"
     },
