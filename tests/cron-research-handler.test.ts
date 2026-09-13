@@ -270,7 +270,7 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
     "/api/cron/research/morning-watchdog 20 1 * * *",
     "/api/cron/video/late-morning 0 13 * * *",
     "/api/cron/video/midnight 0 1 * * *",
-    "/api/cron/video/transcript-worker */30 * * * *",
+    "/api/cron/video/transcript-worker 30 1 * * *",
   ]);
 });
 

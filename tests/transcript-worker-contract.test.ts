@@ -42,7 +42,7 @@ test("the worker is authenticated, bounded, scheduled and separate from paused r
   assert.match(handler, /retrieveSupadataVideo/);
   assert.match(store, /canonicaliseIntake[\s\S]*new Set\(\[job\.itemKey\]\)/);
   assert.equal(
-    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "*/30 * * * *"),
+    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "30 1 * * *"),
     true,
   );
   assert.equal(

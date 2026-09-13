@@ -13,7 +13,7 @@
     },
     {
       "path": "/api/cron/video/transcript-worker",
-      "schedule": "*/30 * * * *"
+      "schedule": "30 1 * * *"
     },
     {
       "path": "/api/cron/research/morning",
