@@ -10,6 +10,7 @@ const migration = fs.readFileSync(
 );
 const handler = fs.readFileSync(path.join(root, "lib", "transcript-worker-handler.ts"), "utf8");
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
+const authConfig = fs.readFileSync(path.join(root, "lib", "supabase", "config.ts"), "utf8");
 const vercel = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8")) as {
   crons: Array<{ path: string; schedule: string }>;
   rewrites?: Array<{ source: string; destination: string }>;
@@ -35,6 +36,7 @@ test("only the exact retained placeholder state receives legacy claimability", (
 
 test("the worker is authenticated, bounded, scheduled and separate from paused research", () => {
   assert.match(handler, /acceptsResearchAuthorization/);
+  assert.match(authConfig, /MACHINE_AUTH_PATHS[\s\S]*"\/api\/cron\/video\/transcript-worker"/);
   assert.match(handler, /batchSize: 1/);
   assert.match(handler, /leaseSeconds: 300/);
   assert.match(handler, /maxAttempts: 6/);

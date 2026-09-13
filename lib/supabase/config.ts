@@ -19,6 +19,7 @@ export function dashboardAuthRequired() {
 export const MACHINE_AUTH_PATHS = [
   "/api/research-update",
   "/api/video-intake",
+  "/api/cron/video/transcript-worker",
 ] as const;
 
 export const PUBLIC_AUTH_PATHS = [
