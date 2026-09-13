@@ -35,15 +35,18 @@ function job(index: number): ClaimedTranscriptJob {
 
 class ThroughputStore implements TranscriptWorkerStore {
   readonly claimSizes: number[] = [];
+  readonly queue: ClaimedTranscriptJob[];
+  readonly onEvidence: (() => void) | undefined;
+  readonly evidenceDelayMs: number;
   active = 0;
   maxActive = 0;
   completed = 0;
 
-  constructor(
-    private readonly queue: ClaimedTranscriptJob[],
-    private readonly onEvidence?: () => void,
-    private readonly evidenceDelayMs = 0,
-  ) {}
+  constructor(queue: ClaimedTranscriptJob[], onEvidence?: () => void, evidenceDelayMs = 0) {
+    this.queue = queue;
+    this.onEvidence = onEvidence;
+    this.evidenceDelayMs = evidenceDelayMs;
+  }
 
   async claim(input: { workerId: string; batchSize: number; leaseSeconds: number }) {
     void input.workerId;
