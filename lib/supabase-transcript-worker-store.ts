@@ -61,7 +61,11 @@ function toJob(row: ClaimedRow): ClaimedTranscriptJob {
 }
 
 export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
-  constructor(private readonly client: SupabaseClient = createSupabaseAdminClient()) {}
+  private readonly client: SupabaseClient;
+
+  constructor(client: SupabaseClient = createSupabaseAdminClient()) {
+    this.client = client;
+  }
 
   async claim(input: { workerId: string; batchSize: number; leaseSeconds: number }) {
     const { data, error } = await this.client.rpc("claim_transcript_jobs", {
@@ -74,14 +78,12 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
   }
 
   async ownedUpdate(job: ClaimedTranscriptJob, values: Record<string, unknown>, context: string) {
-    const checkedAt = new Date().toISOString();
     const { data, error } = await this.client
       .from("research_intake_items")
       .update(values)
       .eq("id", job.id)
       .eq("transcript_job_status", "running")
       .eq("transcript_claim_token", job.claimToken)
-      .gt("transcript_lease_expires_at", checkedAt)
       .select("id")
       .maybeSingle<{ id: string }>();
     message(error, context);
@@ -97,7 +99,6 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
       .eq("id", job.id)
       .eq("transcript_job_status", "running")
       .eq("transcript_claim_token", job.claimToken)
-      .gt("transcript_lease_expires_at", now.toISOString())
       .select("id")
       .maybeSingle<{ id: string }>();
     message(error, "Could not renew transcript job lease");
