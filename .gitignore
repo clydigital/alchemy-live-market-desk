@@ -3,3 +3,7 @@ node_modules
 .env*
 !.env.example
 .vercel
+# gemini-cli settings
+.gemini/
+# GitHub App credentials
+gha-creds-*.json
