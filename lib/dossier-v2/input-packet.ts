@@ -35,6 +35,7 @@ export interface ObservedEvidence {
   occurrence_time?: string;
   metrics?: Record<string, unknown>;
   conflict_group_id?: string;
+  superseded_evidence_ids?: string[];
   provenance: ProvenanceRef[];
   rank?: number;
 }
@@ -214,6 +215,7 @@ const MAX_THESIS_LEDGER_ENTRIES = 12;
 const MAX_RESEARCH_GAPS = 12;
 const MAX_PROVENANCE_PER_ITEM = 5;
 const MAX_CANONICAL_BYTES = 200000;
+const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 const VALID_THESIS_STATES = new Set<ThesisState>([
   "confirmed",
@@ -221,6 +223,38 @@ const VALID_THESIS_STATES = new Set<ThesisState>([
   "invalidated",
   "unresolved",
   "evolved",
+]);
+
+const FORBIDDEN_EVIDENCE_SOURCES = new Set([
+  "TRANSCRIPT",
+  "CREATOR",
+  "CREATOR_TRANSCRIPT",
+  "YOUTUBE",
+  "PODCAST",
+  "ANALYSIS",
+  "RESEARCH_ANALYSIS",
+  "SYNTHESIS",
+  "OPINION",
+  "DISCOVERY",
+  "NEWS_DISCOVERY",
+  "FEED_DISCOVERY",
+  "SCHEDULED_EVENT",
+  "CALENDAR_EVENT",
+  "UPCOMING_EVENT",
+]);
+
+const APPROVED_FACTUAL_SOURCES = new Set([
+  "SEC_FILING",
+  "EXCHANGE_FEED",
+  "PRESS_RELEASE",
+  "STATISTICAL_AGENCY",
+  "FACT",
+  "PRICING_FEED",
+  "REGULATORY_FILING",
+  "NEWS_WIRE",
+  "OFFICIAL_DATA",
+  "COMPANY_FILING",
+  "MARKET_DATA",
 ]);
 
 function hashString(text: string): string {
@@ -258,7 +292,8 @@ function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
     if (!isPlainObject(p)) continue;
     const sourceType = String(p.source_type ?? "UNKNOWN");
     const sourceId = String(p.source_id ?? "UNKNOWN");
-    const key = `${sourceType}:${sourceId}:${p.url ?? ""}`;
+    const url = p.url ? String(p.url) : "";
+    const key = `${sourceType}:${sourceId}:${url}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -266,17 +301,23 @@ function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
       source_type: sourceType,
       source_id: sourceId,
     };
-    if (p.url) ref.url = String(p.url);
+    if (url) ref.url = url;
     if (p.published_at) ref.published_at = String(p.published_at);
     if (p.publisher) ref.publisher = String(p.publisher);
     if (p.title) ref.title = String(p.title);
     if (p.locator) ref.locator = String(p.locator);
 
     result.push(ref);
-    if (result.length >= MAX_PROVENANCE_PER_ITEM) break;
   }
 
-  return result;
+  // Sort provenance deterministically
+  result.sort((a, b) => {
+    const s1 = `${a.source_type}:${a.source_id}:${a.url ?? ""}`;
+    const s2 = `${b.source_type}:${b.source_id}:${b.url ?? ""}`;
+    return s1.localeCompare(s2);
+  });
+
+  return result.slice(0, MAX_PROVENANCE_PER_ITEM);
 }
 
 function mergeProvenance(a: ProvenanceRef[], b: ProvenanceRef[]): ProvenanceRef[] {
@@ -341,25 +382,52 @@ function validateThesisLedger(ledger: unknown): ThesisLedger {
     };
 
     if (Array.isArray(e.arguments)) {
-      entry.arguments = e.arguments.map((arg, argIdx) => {
+      const args: ThesisArgument[] = [];
+      for (let argIdx = 0; argIdx < e.arguments.length; argIdx++) {
+        const arg = e.arguments[argIdx];
         if (!isPlainObject(arg) || typeof arg.arg_id !== "string" || typeof arg.text !== "string" || (arg.type !== "supporting" && arg.type !== "counter")) {
           throw new Error(`Invalid thesis argument at entry ${idx}, arg ${argIdx}.`);
         }
-        return {
+        args.push({
           arg_id: arg.arg_id,
           type: arg.type,
           text: arg.text,
-        };
-      });
+        });
+      }
+      args.sort((a, b) => a.arg_id.localeCompare(b.arg_id));
+      entry.arguments = args;
     }
 
     return entry;
   });
 
+  validatedEntries.sort((a, b) => a.thesis_id.localeCompare(b.thesis_id));
+
   return {
     contract_version: contractVersion as string,
     entries: validatedEntries,
   };
+}
+
+function isAdmissibleEvidence(raw: Record<string, unknown>): boolean {
+  const prov = sanitizeProvenance(raw.provenance);
+  if (prov.length === 0) return false;
+
+  const sourceType = String(raw.source_type ?? "").trim().toUpperCase();
+  const category = String(raw.category ?? "").trim().toUpperCase();
+
+  if (FORBIDDEN_EVIDENCE_SOURCES.has(sourceType) || FORBIDDEN_EVIDENCE_SOURCES.has(category)) {
+    return false;
+  }
+
+  if (raw.is_admitted_fact === false) return false;
+  if (raw.is_admitted_fact === true) return true;
+
+  if (APPROVED_FACTUAL_SOURCES.has(sourceType) || APPROVED_FACTUAL_SOURCES.has(category)) {
+    return true;
+  }
+
+  return false;
 }
 
 export function assembleDossierV2InputPacket(
@@ -384,14 +452,33 @@ export function assembleDossierV2InputPacket(
     throw new Error(`Invalid as_of timestamp: expected ISO string, got "${String(request.as_of)}".`);
   }
 
+  const asOf = request.as_of;
+  const asOfMs = Date.parse(asOf);
+  const windowStartMs = asOfMs - 24 * 60 * 60 * 1000;
+
   const previousDossierId = request.previous_dossier_id ?? null;
   if (previousDossierId !== null && !isValidUuid(previousDossierId)) {
     throw new Error(`Invalid previous_dossier_id: expected UUID string or null, got "${String(previousDossierId)}".`);
   }
 
-  const asOf = request.as_of;
-  const asOfMs = Date.parse(asOf);
-  const windowStartMs = asOfMs - 24 * 60 * 60 * 1000;
+  // GAP 1: Enforce explicit prior-dossier identity & timestamp validation
+  if (previousDossierId === null) {
+    if (request.previous_dossier) {
+      throw new Error("Invalid request: previous_dossier state supplied when previous_dossier_id is null.");
+    }
+  } else {
+    if (request.previous_dossier && isPlainObject(request.previous_dossier)) {
+      if (request.previous_dossier.id !== previousDossierId) {
+        throw new Error(`Invalid request: previous_dossier.id "${request.previous_dossier.id}" does not match previous_dossier_id "${previousDossierId}".`);
+      }
+      if (!isValidIsoTimestamp(request.previous_dossier.as_of)) {
+        throw new Error(`Invalid prior dossier: as_of timestamp is invalid.`);
+      }
+      if (Date.parse(request.previous_dossier.as_of) > asOfMs) {
+        throw new Error(`Invalid prior dossier: as_of "${request.previous_dossier.as_of}" is future-dated relative to request as_of "${asOf}".`);
+      }
+    }
+  }
 
   const notes: string[] = [];
   const freshnessWarnings: FreshnessWarning[] = [];
@@ -484,9 +571,14 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // 1. Process candidate observed evidence
+  // GAP 4 & GAP 2: Process candidate observed evidence with strengthened admission & supersession
   const candidateEvidence = Array.isArray(snapshot.observed_evidence) ? snapshot.observed_evidence : [];
-  const rawAdmittedEvidence: Array<ObservedEvidence & { grouping_key: string }> = [];
+  const candidateLeadsList = Array.isArray(snapshot.research_leads) ? [...snapshot.research_leads] : [];
+
+  const eligibleCandidateEvidence: Array<{
+    raw: Record<string, unknown>;
+    ev: ObservedEvidence & { grouping_key: string; conflict_key?: string; supersedes_id?: string };
+  }> = [];
 
   for (const raw of candidateEvidence) {
     if (!isPlainObject(raw)) continue;
@@ -498,30 +590,76 @@ export function assembleDossierV2InputPacket(
       continue;
     }
 
-    const claimText = String(raw.claim_or_fact ?? "").trim();
+    const claimText = String(raw.claim_or_fact ?? raw.text ?? "").trim();
     if (!claimText) continue;
+
+    // GAP 4: Check strict evidence admission rules
+    if (!isAdmissibleEvidence(raw)) {
+      // Demote to research lead if question/lead or omit
+      if (raw.claim_or_question || raw.is_lead) {
+        candidateLeadsList.push({
+          ...raw,
+          claim_or_question: String(raw.claim_or_question ?? claimText),
+        });
+      } else {
+        omittedEvidenceCount++;
+        notes.push(`Candidate item "${claimText.slice(0, 30)}..." omitted from observed_evidence due to strict admission rules.`);
+      }
+      continue;
+    }
 
     const groupingKey = computeGroupingKey(raw);
     const evId = typeof raw.evidence_id === "string" && raw.evidence_id ? raw.evidence_id : `ev:${hashString(`${groupingKey}:${claimText}`)}`;
+    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? raw.conflict_key.trim() : (typeof raw.comparable_observation_key === "string" && raw.comparable_observation_key.trim() ? raw.comparable_observation_key.trim() : undefined);
+    const supersedesId = typeof raw.supersedes_evidence_id === "string" && raw.supersedes_evidence_id ? raw.supersedes_evidence_id : (typeof raw.supersedes_id === "string" && raw.supersedes_id ? raw.supersedes_id : undefined);
 
-    rawAdmittedEvidence.push({
-      evidence_id: evId,
-      epistemic_label: "OBSERVED",
-      claim_or_fact: claimText,
-      category: String(raw.category ?? "GENERAL"),
-      source_type: String(raw.source_type ?? "FACT"),
-      available_at: raw.available_at as string,
-      occurrence_time: typeof raw.occurrence_time === "string" ? raw.occurrence_time : undefined,
-      metrics: isPlainObject(raw.metrics) ? (JSON.parse(JSON.stringify(raw.metrics)) as Record<string, unknown>) : undefined,
-      provenance: sanitizeProvenance(raw.provenance),
-      rank: typeof raw.rank === "number" ? raw.rank : undefined,
-      grouping_key: groupingKey,
+    eligibleCandidateEvidence.push({
+      raw,
+      ev: {
+        evidence_id: evId,
+        epistemic_label: "OBSERVED",
+        claim_or_fact: claimText,
+        category: String(raw.category ?? "GENERAL"),
+        source_type: String(raw.source_type ?? "FACT"),
+        available_at: raw.available_at as string,
+        occurrence_time: typeof raw.occurrence_time === "string" ? raw.occurrence_time : undefined,
+        metrics: isPlainObject(raw.metrics) ? (JSON.parse(JSON.stringify(raw.metrics)) as Record<string, unknown>) : undefined,
+        provenance: sanitizeProvenance(raw.provenance),
+        rank: typeof raw.rank === "number" ? raw.rank : undefined,
+        grouping_key: groupingKey,
+        conflict_key: conflictKey,
+        supersedes_id: supersedesId,
+      },
     });
   }
 
-  // Deduplicate and detect conflicts for evidence by grouping_key
-  const evidenceByGroup = new Map<string, Array<ObservedEvidence & { grouping_key: string }>>();
-  for (const ev of rawAdmittedEvidence) {
+  // GAP 2: Real Deterministic Supersession
+  const suppressedIds = new Set<string>();
+  const supersessionMap = new Map<string, string[]>(); // winner_id -> list of superseded ids
+
+  for (const { ev } of eligibleCandidateEvidence) {
+    if (ev.supersedes_id) {
+      suppressedIds.add(ev.supersedes_id);
+      const chain = supersessionMap.get(ev.evidence_id) ?? [];
+      chain.push(ev.supersedes_id);
+      supersessionMap.set(ev.evidence_id, chain);
+    }
+  }
+
+  const activeAdmittedEvidence = eligibleCandidateEvidence
+    .map(({ ev }) => ev)
+    .filter((ev) => !suppressedIds.has(ev.evidence_id));
+
+  for (const ev of activeAdmittedEvidence) {
+    const superseded = supersessionMap.get(ev.evidence_id);
+    if (superseded && superseded.length > 0) {
+      ev.superseded_evidence_ids = Array.from(new Set(superseded)).sort();
+    }
+  }
+
+  // Deduplicate and process conflicts by grouping_key and explicit conflict_key
+  const evidenceByGroup = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
+  for (const ev of activeAdmittedEvidence) {
     const list = evidenceByGroup.get(ev.grouping_key) ?? [];
     list.push(ev);
     evidenceByGroup.set(ev.grouping_key, list);
@@ -530,7 +668,7 @@ export function assembleDossierV2InputPacket(
   const processedEvidenceByGroup = new Map<string, ObservedEvidence[]>();
   for (const [gKey, evList] of evidenceByGroup.entries()) {
     // Exact text dedupe
-    const textMap = new Map<string, ObservedEvidence & { grouping_key: string }>();
+    const textMap = new Map<string, ObservedEvidence & { grouping_key: string; conflict_key?: string }>();
     for (const item of evList) {
       const normText = item.claim_or_fact.trim().toLowerCase();
       const existing = textMap.get(normText);
@@ -542,15 +680,29 @@ export function assembleDossierV2InputPacket(
     }
 
     const uniqueFacts = Array.from(textMap.values());
-    if (uniqueFacts.length > 1) {
-      const conflictGroupId = `conflict:${hashString(gKey)}`;
-      for (const f of uniqueFacts) {
-        f.conflict_group_id = conflictGroupId;
+
+    // GAP 3: Do NOT infer conflicts from grouping membership.
+    // Require explicit conflict_key / conflict_group_id to mark conflict group.
+    const conflictKeyMap = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
+    for (const f of uniqueFacts) {
+      if (f.conflict_key) {
+        const list = conflictKeyMap.get(f.conflict_key) ?? [];
+        list.push(f);
+        conflictKeyMap.set(f.conflict_key, list);
+      }
+    }
+
+    for (const [cKey, confList] of conflictKeyMap.entries()) {
+      if (confList.length > 1) {
+        const conflictGroupId = `conflict:${hashString(`${gKey}:${cKey}`)}`;
+        for (const f of confList) {
+          f.conflict_group_id = conflictGroupId;
+        }
       }
     }
 
     const cleanFacts: ObservedEvidence[] = uniqueFacts.map((uf) => {
-      const { grouping_key: _, ...rest } = uf;
+      const { grouping_key: _, conflict_key: __, supersedes_id: ___, ...rest } = uf as ObservedEvidence & { grouping_key?: unknown; conflict_key?: unknown; supersedes_id?: unknown };
       return rest;
     });
 
@@ -558,10 +710,9 @@ export function assembleDossierV2InputPacket(
   }
 
   // 2. Process candidate research leads
-  const candidateLeads = Array.isArray(snapshot.research_leads) ? snapshot.research_leads : [];
-  const rawAdmittedLeads: Array<ResearchLead & { grouping_key: string }> = [];
+  const rawAdmittedLeads: Array<ResearchLead & { grouping_key: string; conflict_key?: string }> = [];
 
-  for (const raw of candidateLeads) {
+  for (const raw of candidateLeadsList) {
     if (!isPlainObject(raw)) continue;
     if (!isValidIsoTimestamp(raw.available_at)) continue;
 
@@ -576,6 +727,7 @@ export function assembleDossierV2InputPacket(
 
     const groupingKey = computeGroupingKey(raw);
     const leadId = typeof raw.lead_id === "string" && raw.lead_id ? raw.lead_id : `lead:${hashString(`${groupingKey}:${questionText}`)}`;
+    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? raw.conflict_key.trim() : undefined;
 
     rawAdmittedLeads.push({
       lead_id: leadId,
@@ -586,11 +738,12 @@ export function assembleDossierV2InputPacket(
       provenance: sanitizeProvenance(raw.provenance),
       rank: typeof raw.rank === "number" ? raw.rank : undefined,
       grouping_key: groupingKey,
+      conflict_key: conflictKey,
     });
   }
 
   // Deduplicate and conflict detect research leads
-  const leadsByGroup = new Map<string, Array<ResearchLead & { grouping_key: string }>>();
+  const leadsByGroup = new Map<string, Array<ResearchLead & { grouping_key: string; conflict_key?: string }>>();
   for (const ld of rawAdmittedLeads) {
     const list = leadsByGroup.get(ld.grouping_key) ?? [];
     list.push(ld);
@@ -599,7 +752,7 @@ export function assembleDossierV2InputPacket(
 
   const processedLeadsByGroup = new Map<string, ResearchLead[]>();
   for (const [gKey, ldList] of leadsByGroup.entries()) {
-    const textMap = new Map<string, ResearchLead & { grouping_key: string }>();
+    const textMap = new Map<string, ResearchLead & { grouping_key: string; conflict_key?: string }>();
     for (const item of ldList) {
       const normText = item.claim_or_question.trim().toLowerCase();
       const existing = textMap.get(normText);
@@ -611,15 +764,27 @@ export function assembleDossierV2InputPacket(
     }
 
     const uniqueLeads = Array.from(textMap.values());
-    if (uniqueLeads.length > 1) {
-      const conflictGroupId = `conflict:${hashString(gKey)}`;
-      for (const l of uniqueLeads) {
-        l.conflict_group_id = conflictGroupId;
+
+    const conflictKeyMap = new Map<string, Array<ResearchLead & { grouping_key: string; conflict_key?: string }>>();
+    for (const l of uniqueLeads) {
+      if (l.conflict_key) {
+        const list = conflictKeyMap.get(l.conflict_key) ?? [];
+        list.push(l);
+        conflictKeyMap.set(l.conflict_key, list);
+      }
+    }
+
+    for (const [cKey, confList] of conflictKeyMap.entries()) {
+      if (confList.length > 1) {
+        const conflictGroupId = `conflict:${hashString(`${gKey}:${cKey}`)}`;
+        for (const l of confList) {
+          l.conflict_group_id = conflictGroupId;
+        }
       }
     }
 
     const cleanLeads: ResearchLead[] = uniqueLeads.map((ul) => {
-      const { grouping_key: _, ...rest } = ul;
+      const { grouping_key: _, conflict_key: __, ...rest } = ul as ResearchLead & { grouping_key?: unknown; conflict_key?: unknown };
       return rest;
     });
 
@@ -809,15 +974,33 @@ export function assembleDossierV2InputPacket(
     creatorThemes = creatorThemes.slice(0, MAX_CREATOR_THEMES);
   }
 
-  // 5. Process Catalysts
+  // GAP 5: Separate fresh-development and catalyst time windows (Forward Horizon 14 days)
   const rawCatalysts = Array.isArray(snapshot.catalysts) ? snapshot.catalysts : [];
   const validCatalysts: CatalystItem[] = [];
 
   for (const cat of rawCatalysts) {
     if (!isPlainObject(cat)) continue;
     if (!isValidIsoTimestamp(cat.available_at)) continue;
+
     const availMs = Date.parse(cat.available_at as string);
-    if (availMs > asOfMs || availMs < windowStartMs) {
+    // require available_at <= as_of
+    if (availMs > asOfMs) {
+      omittedCatalystsCount++;
+      continue;
+    }
+
+    // Require valid event_time (do NOT fallback to available_at if event_time is missing/invalid)
+    if (!isValidIsoTimestamp(cat.event_time)) {
+      omittedCatalystsCount++;
+      notes.push(`Catalyst "${String(cat.title ?? "").slice(0, 30)}..." omitted due to missing or invalid event_time.`);
+      continue;
+    }
+
+    const eventTimeStr = cat.event_time as string;
+    const eventTimeMs = Date.parse(eventTimeStr);
+
+    // Forward horizon check: event_time >= as_of && event_time <= as_of + 14 days
+    if (eventTimeMs < asOfMs || eventTimeMs > asOfMs + CATALYST_FORWARD_HORIZON_MS) {
       omittedCatalystsCount++;
       continue;
     }
@@ -826,12 +1009,11 @@ export function assembleDossierV2InputPacket(
     if (!titleText) continue;
 
     const catId = typeof cat.catalyst_id === "string" && cat.catalyst_id ? cat.catalyst_id : `cat:${hashString(titleText)}`;
-    const eventTime = isValidIsoTimestamp(cat.event_time) ? (cat.event_time as string) : (cat.available_at as string);
 
     validCatalysts.push({
       catalyst_id: catId,
       title: titleText,
-      event_time: eventTime,
+      event_time: eventTimeStr,
       available_at: cat.available_at as string,
       impact_level: cat.impact_level === "HIGH" || cat.impact_level === "MEDIUM" || cat.impact_level === "LOW" ? cat.impact_level : "MEDIUM",
       provenance: sanitizeProvenance(cat.provenance),
@@ -839,12 +1021,13 @@ export function assembleDossierV2InputPacket(
     });
   }
 
+  // Order upcoming events ascending by event_time (earlier upcoming events first)
   validCatalysts.sort((a, b) => {
+    const eComp = a.event_time.localeCompare(b.event_time);
+    if (eComp !== 0) return eComp;
     const rankA = a.rank ?? 999;
     const rankB = b.rank ?? 999;
     if (rankA !== rankB) return rankA - rankB;
-    const eComp = b.event_time.localeCompare(a.event_time);
-    if (eComp !== 0) return eComp;
     return a.catalyst_id.localeCompare(b.catalyst_id);
   });
 
@@ -868,6 +1051,13 @@ export function assembleDossierV2InputPacket(
         const claimText = String(pc.claim_text ?? "").trim();
         if (!claimText) continue;
 
+        // Filter out future-dated prior claims relative to as_of
+        const claimAsOf = isValidIsoTimestamp(pc.as_of) ? (pc.as_of as string) : (prevDossierAsOf ?? asOf);
+        if (Date.parse(claimAsOf) > asOfMs) {
+          omittedPriorClaimsCount++;
+          continue;
+        }
+
         const epistemicLabel = pc.epistemic_label;
         if (epistemicLabel !== "OBSERVED" && epistemicLabel !== "SUPPORTED" && epistemicLabel !== "INFERRED" && epistemicLabel !== "SPECULATIVE") {
           continue;
@@ -878,7 +1068,7 @@ export function assembleDossierV2InputPacket(
           epistemic_label: epistemicLabel,
           claim_text: claimText,
           dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? pc.dossier_id : (previousDossierId ?? "prior"),
-          as_of: isValidIsoTimestamp(pc.as_of) ? (pc.as_of as string) : (prevDossierAsOf ?? asOf),
+          as_of: claimAsOf,
           provenance: sanitizeProvenance(pc.provenance),
         });
       }
@@ -958,14 +1148,14 @@ export function assembleDossierV2InputPacket(
     diagnostics: initialDiagnostics,
   };
 
-  // Enforce UTF-8 byte limit (<= 200,000 bytes)
+  // GAP 6: Canonical determinism and strict byte ceiling enforcement
   let canonicalJson = toCanonicalJson(packetWithoutId);
   let byteSize = Buffer.byteLength(canonicalJson, "utf8");
 
   if (byteSize > MAX_CANONICAL_BYTES) {
     packetWithoutId.diagnostics.byte_limit_truncation_applied = true;
 
-    // First reduction pass: remove lowest-ranked research leads
+    // Pass 1: Remove research leads
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.research_leads.length > 0) {
       const removed = packetWithoutId.research_leads.pop();
       if (removed) {
@@ -978,7 +1168,29 @@ export function assembleDossierV2InputPacket(
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Second reduction pass if still over limit: remove lowest-ranked evidence/clusters
+    // Pass 2: Remove creator theme claims
+    while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.creator_themes.length > 0) {
+      const lastTheme = packetWithoutId.creator_themes[packetWithoutId.creator_themes.length - 1];
+      if (lastTheme.claims.length > 0) {
+        lastTheme.claims.pop();
+        packetWithoutId.diagnostics.omitted_creator_claims_count++;
+      } else {
+        packetWithoutId.creator_themes.pop();
+        packetWithoutId.diagnostics.omitted_creator_themes_count++;
+      }
+      canonicalJson = toCanonicalJson(packetWithoutId);
+      byteSize = Buffer.byteLength(canonicalJson, "utf8");
+    }
+
+    // Pass 3: Remove catalysts
+    while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.catalysts.length > 0) {
+      packetWithoutId.catalysts.pop();
+      packetWithoutId.diagnostics.omitted_catalysts_count++;
+      canonicalJson = toCanonicalJson(packetWithoutId);
+      byteSize = Buffer.byteLength(canonicalJson, "utf8");
+    }
+
+    // Pass 4: Remove development clusters and evidence
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.development_clusters.length > 1) {
       const removedCluster = packetWithoutId.development_clusters.pop();
       if (removedCluster) {
@@ -992,6 +1204,27 @@ export function assembleDossierV2InputPacket(
       canonicalJson = toCanonicalJson(packetWithoutId);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
+
+    // Pass 5: Truncate long text strings in remaining evidence / prior claims if necessary
+    if (byteSize > MAX_CANONICAL_BYTES) {
+      for (const ev of packetWithoutId.observed_evidence) {
+        if (ev.claim_or_fact.length > 200) {
+          ev.claim_or_fact = `${ev.claim_or_fact.slice(0, 197)}...`;
+        }
+      }
+      for (const pc of packetWithoutId.prior_analytical_state.prior_claims) {
+        if (pc.claim_text.length > 200) {
+          pc.claim_text = `${pc.claim_text.slice(0, 197)}...`;
+        }
+      }
+      canonicalJson = toCanonicalJson(packetWithoutId);
+      byteSize = Buffer.byteLength(canonicalJson, "utf8");
+    }
+  }
+
+  // Explicit hard size check before returning
+  if (byteSize > MAX_CANONICAL_BYTES) {
+    throw new Error(`Canonical packet JSON size (${byteSize} bytes) exceeds limit of ${MAX_CANONICAL_BYTES} UTF-8 bytes after all truncation passes.`);
   }
 
   const packetId = createHash("sha256").update(canonicalJson, "utf8").digest("hex");
