@@ -1,6 +1,6 @@
--- Read-only SQL contract test for Market Dossiers V2 schema invariants.
+-- Read-only SQL contract test for Market Dossiers V2 schema invariants and behavioral assertions.
 
-begin read only;
+begin;
 
 do $$
 declare
@@ -9,6 +9,12 @@ declare
   legacy_fk_count integer;
   rls_enabled boolean;
   trigger_count integer;
+  client_write_policy_count integer;
+  dossier_1_id uuid := gen_random_uuid();
+  dossier_2_id uuid := gen_random_uuid();
+  update_failed_as_expected boolean := false;
+  delete_failed_as_expected boolean := false;
+  predecessor_delete_failed_as_expected boolean := false;
 begin
   -- 1. Table existence
   if to_regclass('public.market_dossiers_v2') is null then
@@ -87,7 +93,105 @@ begin
     raise exception 'Row Level Security (RLS) is not enabled on public.market_dossiers_v2';
   end if;
 
+  -- 7. Database security: ensure no client write policies exist for anon / authenticated roles
+  select count(*)
+  into client_write_policy_count
+  from pg_policies
+  where schemaname = 'public'
+    and tablename = 'market_dossiers_v2'
+    and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+    and (roles @> array['anon']::name[] or roles @> array['authenticated']::name[] or roles @> array['public']::name[]);
+
+  if client_write_policy_count > 0 then
+    raise exception 'Unintended client write policy detected on market_dossiers_v2 (count: %)', client_write_policy_count;
+  end if;
+
+  -- 8. Behavioral Behavioral Proof: Insert initial dossier in privileged server context
+  insert into public.market_dossiers_v2 (
+    id,
+    contract_version,
+    previous_dossier_id,
+    as_of,
+    freshness,
+    research_gaps,
+    payload
+  ) values (
+    dossier_1_id,
+    'market-dossier-v2/1',
+    null,
+    now(),
+    '{"cutoff": "2026-09-15T00:00:00Z"}'::jsonb,
+    '[]'::jsonb,
+    '{"regime": "disinflationary_growth"}'::jsonb
+  );
+
+  -- 9. Prove UPDATE of persisted dossier is rejected
+  begin
+    update public.market_dossiers_v2
+    set payload = '{"mutated": true}'::jsonb
+    where id = dossier_1_id;
+  exception
+    when sqlstate '55000' or others then
+      update_failed_as_expected := true;
+  end;
+
+  if not update_failed_as_expected then
+    raise exception 'UPDATE on market_dossiers_v2 was NOT rejected by append-only protection';
+  end if;
+
+  -- 10. Prove DELETE of persisted dossier is rejected
+  begin
+    delete from public.market_dossiers_v2
+    where id = dossier_1_id;
+  exception
+    when sqlstate '55000' or others then
+      delete_failed_as_expected := true;
+  end;
+
+  if not delete_failed_as_expected then
+    raise exception 'DELETE on market_dossiers_v2 was NOT rejected by append-only protection';
+  end if;
+
+  -- 11. Prove a successor can reference a previous dossier
+  insert into public.market_dossiers_v2 (
+    id,
+    contract_version,
+    previous_dossier_id,
+    as_of,
+    freshness,
+    research_gaps,
+    payload
+  ) values (
+    dossier_2_id,
+    'market-dossier-v2/1',
+    dossier_1_id,
+    now(),
+    '{"cutoff": "2026-09-15T12:00:00Z"}'::jsonb,
+    '[]'::jsonb,
+    '{"regime": "disinflationary_growth", "successor": true}'::jsonb
+  );
+
+  if not exists (
+    select 1 from public.market_dossiers_v2
+    where id = dossier_2_id and previous_dossier_id = dossier_1_id
+  ) then
+    raise exception 'Successor dossier was not properly persisted with previous_dossier_id link';
+  end if;
+
+  -- 12. Prove deleting a referenced predecessor is rejected and lineage preserved
+  begin
+    delete from public.market_dossiers_v2
+    where id = dossier_1_id;
+  exception
+    when sqlstate '55000' or sqlstate '23503' or others then
+      predecessor_delete_failed_as_expected := true;
+  end;
+
+  if not predecessor_delete_failed_as_expected then
+    raise exception 'Deleting referenced predecessor dossier was NOT rejected';
+  end if;
+
 end
 $$;
 
-commit;
+rollback;

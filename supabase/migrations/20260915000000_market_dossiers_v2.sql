@@ -22,6 +22,17 @@ create index if not exists market_dossiers_v2_previous_dossier_id_idx
   on public.market_dossiers_v2 (previous_dossier_id)
   where previous_dossier_id is not null;
 
+-- Append-only trigger function (ensure present)
+create or replace function public.prevent_immutable_research_mutation()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception '% is append-only; add a superseding record or revision instead', tg_table_name
+    using errcode = '55000';
+end;
+$$;
+
 -- Append-only protection
 drop trigger if exists market_dossiers_v2_append_only on public.market_dossiers_v2;
 create trigger market_dossiers_v2_append_only
