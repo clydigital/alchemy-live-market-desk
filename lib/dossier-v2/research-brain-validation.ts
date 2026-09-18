@@ -164,7 +164,7 @@ export function validateResearchBrainInput(input: unknown): ResearchBrainInputV1
     throw new Error("Invalid packet: expected plain object DossierV2InputPacket.");
   }
 
-  const packet = input.packet as DossierV2InputPacket;
+  const packet = (input.packet as unknown) as DossierV2InputPacket;
   if (packet.contract_version !== "dossier-v2-input/1") {
     throw new Error(`Invalid packet contract_version: expected "dossier-v2-input/1", got "${String(packet.contract_version)}".`);
   }
