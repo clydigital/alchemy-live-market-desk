@@ -6,8 +6,8 @@ Live Market Desk is the only canonical acquisition, research and reasoning owner
 
 1. Authenticated research intake is validated and persisted by `/api/research-update`.
 2. The canonical runtime in `lib/intelligence/runtime.ts` normalizes usable intake into provenance-linked evidence.
-3. Versioned OpenAI stages run in order: Market Belief, Divergence, Hypothesis, Challenger, Scenario, Story Synthesis, semantic deduplication and lifecycle.
-4. The runtime derives a descriptive `SUPPORTED`, `DEVELOPING`, `CONTESTED` or `EARLY` research state. Completeness, missing requirements, source depth, confidence and Challenger verdict guide follow-up work but never decide publication. Only unusable evidence or no material new state suppresses a candidate.
+3. The canonical required reasoning chain is Market Belief → Divergence → Hypothesis → Scenario → Story Synthesis → semantic deduplication → lifecycle. Challenger may remain as a compatibility checkpoint, but downstream reasoning must not depend on it.
+4. The runtime derives a descriptive `SUPPORTED`, `DEVELOPING`, `CONTESTED` or `EARLY` research state. Completeness, missing requirements, source depth and confidence guide follow-up work but never decide publication. Only unusable evidence or no material new state suppresses a candidate.
 5. A material update revises the matched canonical Story and appends a Story event plus thesis version. A genuinely distinct thesis creates one new Story.
 6. The run key is idempotent. Replaying a completed run reuses its result instead of creating another Story version.
 7. `/api/intelligence-feed`, `/api/hybrid-feed-v2` and the legacy compatibility alias all publish the same persisted canonical contract.
@@ -17,8 +17,14 @@ Live Market Desk is the only canonical acquisition, research and reasoning owner
 
 The governing specification is [Alchemy_Mixed_Research_Voice_Method.md](./Alchemy_Mixed_Research_Voice_Method.md).
 
-- The existing Hypothesis, Challenger, Scenario and Story Synthesis stages remain the only reasoning path.
+The expectation-versus-reaction and presenter-divergence supplement is [LIVE_DESK_PRESENTER_REASONING_DIVERGENCE_METHOD.md](./LIVE_DESK_PRESENTER_REASONING_DIVERGENCE_METHOD.md).
+
+- The existing Market Belief, Divergence, Hypothesis, Scenario and Story Synthesis path remains the canonical reasoning path.
+- Do not build a second divergence or presenter reasoning engine.
+- Divergence owns expected-versus-observed mismatch detection.
+- Hypothesis owns causal formation for a material divergence.
 - Story Synthesis records the accepted explanation, contradiction, overlooked variable, evidence-labelled mechanism steps, market-may-be-right case and material change state.
+- Mechanisms such as priced-in expectations, real-yield transmission, short covering, dealer/options mechanics or physical-market stress are hypotheses until supplied evidence supports them.
 - A deterministic composer packages promoted canonical Stories into the existing append-only `daily_brief` snapshot payload.
 - The composer cannot change thesis, confidence, confirmation, invalidation or prohibited-claim locks.
 - The minimum-four rule is a target, not padding. Updates sharing one parent Story count once, and unchanged recurring Stories do not count.
@@ -27,6 +33,8 @@ The governing specification is [Alchemy_Mixed_Research_Voice_Method.md](./Alchem
 ## Runtime boundaries
 
 - `/api/intelligence-run` and `lib/intelligence/runtime.ts` are the only OpenAI reasoning entry point.
+- Durable automated reasoning rules belong in Git/runtime or the versioned prompt registry, not only in a ChatGPT conversation.
+- Manual ChatGPT / Work research should read the canonical Git method rather than maintain an independent long-form reasoning prompt.
 - `public.stories`, Story history, intelligence state and Hybrid snapshots remain the durable record.
 - Hybrid receives canonical story state, featured order, material deltas, Live Desk Pulse, calendar, earnings, provider warnings and research debt.
 - The model defaults to `gpt-5-mini` when no supported model override is configured.
