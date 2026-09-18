@@ -897,3 +897,129 @@ test("21. source inspection confirms no forbidden runtime/model/Hybrid/Story/sch
     assert.equal(regex.test(content), false, `Forbidden import found in source file: ${term}`);
   }
 });
+
+test("22. graceful non-fatal 200,000-byte reduction for oversized nested metrics object > 200 KB and oversized Thesis lineage/arguments with insertion-order independence", () => {
+  const request: DossierV2InputRequest = {
+    as_of: TEST_AS_OF,
+    previous_dossier_id: null,
+  };
+
+  // Build a huge nested metrics object with 35 keys (>20 keys)
+  const hugeMetricsKeys: Array<[string, unknown]> = [];
+  for (let i = 0; i < 35; i++) {
+    const k = `key_large_metric_${String(i).padStart(2, "0")}_` + "K".repeat(100);
+    hugeMetricsKeys.push([
+      k,
+      {
+        nested_array: Array.from({ length: 30 }, (_, idx) => "V".repeat(500) + idx),
+        nested_string: "S".repeat(5000),
+      },
+    ]);
+  }
+
+  const hugeMetricsObj1: Record<string, unknown> = {};
+  for (const [k, v] of hugeMetricsKeys) {
+    hugeMetricsObj1[k] = v;
+  }
+
+  // Reverse insertion order for snapshot2 to test key-sorting determinism
+  const hugeMetricsObj2: Record<string, unknown> = {};
+  for (const [k, v] of [...hugeMetricsKeys].reverse()) {
+    hugeMetricsObj2[k] = v;
+  }
+
+  // Oversized Thesis lineage (50 items) and arguments (30 items)
+  const argsList1 = Array.from({ length: 30 }, (_, i) => ({
+    arg_id: `arg:${String(i).padStart(2, "0")}`,
+    type: i % 2 === 0 ? ("supporting" as const) : ("counter" as const),
+    text: `Arg text ${i}: ` + "A".repeat(2000),
+  }));
+
+  // Reverse arguments list for snapshot2 to test arguments sorting prior to capping
+  const argsList2 = [...argsList1].reverse();
+
+  const ledger1: ThesisLedger = {
+    contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+    entries: [
+      {
+        thesis_id: "thesis:collection-test",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Collection Test Thesis",
+        statement: "Valid statement for collection test.",
+        state: "confirmed",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: Array.from({ length: 50 }, (_, i) => `lin:${i}:` + "L".repeat(200)),
+        arguments: argsList1,
+      },
+    ],
+  };
+
+  const ledger2: ThesisLedger = {
+    contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+    entries: [
+      {
+        thesis_id: "thesis:collection-test",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Collection Test Thesis",
+        statement: "Valid statement for collection test.",
+        state: "confirmed",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: Array.from({ length: 50 }, (_, i) => `lin:${i}:` + "L".repeat(200)),
+        arguments: argsList2,
+      },
+    ],
+  };
+
+  const snapshot1: CandidateSnapshot = {
+    thesis_ledger: ledger1,
+    observed_evidence: [
+      {
+        claim_or_fact: "Valid admitted evidence with huge metrics",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "huge-metrics-grp",
+        source_type: "SEC_FILING",
+        metrics: hugeMetricsObj1,
+        provenance: [{ source_type: "SEC", source_id: "m1" }],
+      },
+    ],
+  };
+
+  const snapshot2: CandidateSnapshot = {
+    thesis_ledger: ledger2,
+    observed_evidence: [
+      {
+        claim_or_fact: "Valid admitted evidence with huge metrics",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "huge-metrics-grp",
+        source_type: "SEC_FILING",
+        metrics: hugeMetricsObj2,
+        provenance: [{ source_type: "SEC", source_id: "m1" }],
+      },
+    ],
+  };
+
+  // 1. Assembly does not throw
+  const packet1 = assembleDossierV2InputPacket(request, snapshot1);
+  const packet2 = assembleDossierV2InputPacket(request, snapshot2);
+
+  // 2. Complete returned packet is <= 200,000 UTF-8 bytes
+  const finalJsonStr1 = toCanonicalJson(packet1);
+  const finalByteSize1 = Buffer.byteLength(finalJsonStr1, "utf8");
+  assert.ok(finalByteSize1 <= 200000, `Expected packet size <= 200000, got ${finalByteSize1}`);
+
+  // 3. Metadata remains valid structured JSON
+  assert.ok(packet1.observed_evidence[0].metrics);
+  assert.equal(typeof packet1.observed_evidence[0].metrics, "object");
+  assert.ok(!Array.isArray(packet1.observed_evidence[0].metrics));
+
+  // 4. Truncation and retained metrics subset is identical across reverse/shuffled insertion orders producing identical packet_id
+  assert.equal(packet1.packet_id, packet2.packet_id);
+  assert.equal(toCanonicalJson(packet1), toCanonicalJson(packet2));
+
+  // 5. byte_limit_truncation_applied is true
+  assert.equal(packet1.diagnostics.byte_limit_truncation_applied, true);
+});
