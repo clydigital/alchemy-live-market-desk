@@ -217,6 +217,12 @@ const MAX_PROVENANCE_PER_ITEM = 5;
 const MAX_CANONICAL_BYTES = 200000;
 const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
+// Sensible initial string bounds to prevent huge source strings from blowing up initial memory
+const LIMIT_CLAIM_TEXT = 1000;
+const LIMIT_TITLE_TEXT = 300;
+const LIMIT_URL_TEXT = 500;
+const LIMIT_GENERAL_TEXT = 500;
+
 const VALID_THESIS_STATES = new Set<ThesisState>([
   "confirmed",
   "weakened",
@@ -260,6 +266,12 @@ function hashString(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
 }
 
+function truncateString(str: string, maxLen: number, onTruncate?: () => void): string {
+  if (str.length <= maxLen) return str;
+  if (onTruncate) onTruncate();
+  return `${str.slice(0, maxLen - 3)}...`;
+}
+
 function sortObjectKeys(obj: unknown): unknown {
   if (obj === null || typeof obj !== "object") {
     return obj;
@@ -282,16 +294,16 @@ export function toCanonicalJson(obj: unknown): string {
   return JSON.stringify(sortObjectKeys(obj));
 }
 
-function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
+function sanitizeProvenance(rawProv?: unknown, onTruncate?: () => void): ProvenanceRef[] {
   if (!Array.isArray(rawProv)) return [];
   const seen = new Set<string>();
   const result: ProvenanceRef[] = [];
 
   for (const p of rawProv) {
     if (!isPlainObject(p)) continue;
-    const sourceType = String(p.source_type ?? "UNKNOWN");
-    const sourceId = String(p.source_id ?? "UNKNOWN");
-    const url = p.url ? String(p.url) : "";
+    const sourceType = truncateString(String(p.source_type ?? "UNKNOWN"), 100, onTruncate);
+    const sourceId = truncateString(String(p.source_id ?? "UNKNOWN"), 100, onTruncate);
+    const url = p.url ? truncateString(String(p.url), LIMIT_URL_TEXT, onTruncate) : "";
     const key = `${sourceType}:${sourceId}:${url}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -301,10 +313,10 @@ function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
       source_id: sourceId,
     };
     if (url) ref.url = url;
-    if (p.published_at) ref.published_at = String(p.published_at);
-    if (p.publisher) ref.publisher = String(p.publisher);
-    if (p.title) ref.title = String(p.title);
-    if (p.locator) ref.locator = String(p.locator);
+    if (p.published_at) ref.published_at = truncateString(String(p.published_at), 100, onTruncate);
+    if (p.publisher) ref.publisher = truncateString(String(p.publisher), LIMIT_GENERAL_TEXT, onTruncate);
+    if (p.title) ref.title = truncateString(String(p.title), LIMIT_TITLE_TEXT, onTruncate);
+    if (p.locator) ref.locator = truncateString(String(p.locator), LIMIT_GENERAL_TEXT, onTruncate);
 
     result.push(ref);
   }
@@ -319,21 +331,21 @@ function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
   return result.slice(0, MAX_PROVENANCE_PER_ITEM);
 }
 
-function mergeProvenance(a: ProvenanceRef[], b: ProvenanceRef[]): ProvenanceRef[] {
-  return sanitizeProvenance([...a, ...b]);
+function mergeProvenance(a: ProvenanceRef[], b: ProvenanceRef[], onTruncate?: () => void): ProvenanceRef[] {
+  return sanitizeProvenance([...a, ...b], onTruncate);
 }
 
-function computeGroupingKey(item: Record<string, unknown>): string {
-  if (typeof item.grouping_key === "string" && item.grouping_key.trim()) return item.grouping_key.trim();
-  if (typeof item.event_occurrence_key === "string" && item.event_occurrence_key.trim()) return item.event_occurrence_key.trim();
-  if (typeof item.macro_release_id === "string" && item.macro_release_id.trim()) return item.macro_release_id.trim();
-  if (typeof item.ticker_date_key === "string" && item.ticker_date_key.trim()) return item.ticker_date_key.trim();
-  if (typeof item.subject_date_key === "string" && item.subject_date_key.trim()) return item.subject_date_key.trim();
+function computeGroupingKey(item: Record<string, unknown>, onTruncate?: () => void): string {
+  if (typeof item.grouping_key === "string" && item.grouping_key.trim()) return truncateString(item.grouping_key.trim(), 200, onTruncate);
+  if (typeof item.event_occurrence_key === "string" && item.event_occurrence_key.trim()) return truncateString(item.event_occurrence_key.trim(), 200, onTruncate);
+  if (typeof item.macro_release_id === "string" && item.macro_release_id.trim()) return truncateString(item.macro_release_id.trim(), 200, onTruncate);
+  if (typeof item.ticker_date_key === "string" && item.ticker_date_key.trim()) return truncateString(item.ticker_date_key.trim(), 200, onTruncate);
+  if (typeof item.subject_date_key === "string" && item.subject_date_key.trim()) return truncateString(item.subject_date_key.trim(), 200, onTruncate);
   const text = String(item.claim_or_fact ?? item.claim_or_question ?? "");
   return `hash:${hashString(text.trim().toLowerCase())}`;
 }
 
-function validateThesisLedger(ledger: unknown): ThesisLedger {
+function validateThesisLedger(ledger: unknown, onTruncate?: () => void): ThesisLedger {
   if (!isPlainObject(ledger)) {
     throw new Error("Invalid thesis_ledger: expected plain object.");
   }
@@ -369,15 +381,15 @@ function validateThesisLedger(ledger: unknown): ThesisLedger {
     }
 
     const entry: ThesisLedgerEntry = {
-      thesis_id: e.thesis_id as string,
+      thesis_id: truncateString(e.thesis_id as string, 100, onTruncate),
       contract_version: (e.contract_version as string) ?? THESIS_LEDGER_CONTRACT_VERSION,
-      title: e.title as string,
-      statement: e.statement as string,
+      title: truncateString(e.title as string, LIMIT_TITLE_TEXT, onTruncate),
+      statement: truncateString(e.statement as string, LIMIT_CLAIM_TEXT, onTruncate),
       state: e.state as ThesisState,
       version: e.version as number,
       created_at: e.created_at as string,
       updated_at: e.updated_at as string,
-      lineage: (e.lineage as string[]).map(String),
+      lineage: (e.lineage as string[]).map((lin) => truncateString(String(lin), 100, onTruncate)),
     };
 
     if (Array.isArray(e.arguments)) {
@@ -388,9 +400,9 @@ function validateThesisLedger(ledger: unknown): ThesisLedger {
           throw new Error(`Invalid thesis argument at entry ${idx}, arg ${argIdx}.`);
         }
         args.push({
-          arg_id: arg.arg_id,
+          arg_id: truncateString(arg.arg_id, 100, onTruncate),
           type: arg.type,
-          text: arg.text,
+          text: truncateString(arg.text, LIMIT_CLAIM_TEXT, onTruncate),
         });
       }
       args.sort((a, b) => a.arg_id.localeCompare(b.arg_id) || a.type.localeCompare(b.type) || a.text.localeCompare(b.text));
@@ -486,6 +498,11 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  let truncationOccurred = false;
+  const markTruncated = () => {
+    truncationOccurred = true;
+  };
+
   const notes: string[] = [];
   const freshnessWarnings: FreshnessWarning[] = [];
   const researchGaps: ResearchGap[] = [];
@@ -555,9 +572,9 @@ export function assembleDossierV2InputPacket(
     for (const [srcName, statusObj] of Object.entries(snapshot.sources_status)) {
       if (statusObj && (statusObj.status === "STALE" || statusObj.status === "WARNING")) {
         freshnessWarnings.push({
-          source_name: srcName,
+          source_name: truncateString(srcName, 100, markTruncated),
           last_available_at: statusObj.available_at,
-          message: statusObj.message ?? `Source ${srcName} reported status ${statusObj.status}.`,
+          message: truncateString(statusObj.message ?? `Source ${srcName} reported status ${statusObj.status}.`, LIMIT_GENERAL_TEXT, markTruncated),
         });
       }
     }
@@ -577,7 +594,7 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // GAP 4 & GAP 2: Process candidate observed evidence with strengthened admission & transitive supersession
+  // Process candidate observed evidence with initial string bounds
   const candidateEvidence = Array.isArray(snapshot.observed_evidence) ? snapshot.observed_evidence : [];
   const candidateLeadsList = Array.isArray(snapshot.research_leads) ? [...snapshot.research_leads] : [];
 
@@ -596,10 +613,9 @@ export function assembleDossierV2InputPacket(
       continue;
     }
 
-    const claimText = String(raw.claim_or_fact ?? raw.text ?? "").trim();
+    const claimText = truncateString(String(raw.claim_or_fact ?? raw.text ?? "").trim(), LIMIT_CLAIM_TEXT, markTruncated);
     if (!claimText) continue;
 
-    // GAP 4 & Requirement 1: Check strict evidence admission rules
     if (!isAdmissibleEvidence(raw)) {
       if (raw.claim_or_question || raw.is_lead) {
         candidateLeadsList.push({
@@ -613,10 +629,10 @@ export function assembleDossierV2InputPacket(
       continue;
     }
 
-    const groupingKey = computeGroupingKey(raw);
-    const evId = typeof raw.evidence_id === "string" && raw.evidence_id ? raw.evidence_id : `ev:${hashString(`${groupingKey}:${claimText}`)}`;
-    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? raw.conflict_key.trim() : (typeof raw.comparable_observation_key === "string" && raw.comparable_observation_key.trim() ? raw.comparable_observation_key.trim() : undefined);
-    const supersedesId = typeof raw.supersedes_evidence_id === "string" && raw.supersedes_evidence_id ? raw.supersedes_evidence_id : (typeof raw.supersedes_id === "string" && raw.supersedes_id ? raw.supersedes_id : undefined);
+    const groupingKey = computeGroupingKey(raw, markTruncated);
+    const evId = typeof raw.evidence_id === "string" && raw.evidence_id ? truncateString(raw.evidence_id, 100, markTruncated) : `ev:${hashString(`${groupingKey}:${claimText}`)}`;
+    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? truncateString(raw.conflict_key.trim(), 100, markTruncated) : (typeof raw.comparable_observation_key === "string" && raw.comparable_observation_key.trim() ? truncateString(raw.comparable_observation_key.trim(), 100, markTruncated) : undefined);
+    const supersedesId = typeof raw.supersedes_evidence_id === "string" && raw.supersedes_evidence_id ? truncateString(raw.supersedes_evidence_id, 100, markTruncated) : (typeof raw.supersedes_id === "string" && raw.supersedes_id ? truncateString(raw.supersedes_id, 100, markTruncated) : undefined);
 
     eligibleCandidateEvidence.push({
       raw,
@@ -624,12 +640,12 @@ export function assembleDossierV2InputPacket(
         evidence_id: evId,
         epistemic_label: "OBSERVED",
         claim_or_fact: claimText,
-        category: String(raw.category ?? "GENERAL"),
-        source_type: String(raw.source_type ?? "FACT"),
+        category: truncateString(String(raw.category ?? "GENERAL"), 100, markTruncated),
+        source_type: truncateString(String(raw.source_type ?? "FACT"), 100, markTruncated),
         available_at: raw.available_at as string,
         occurrence_time: typeof raw.occurrence_time === "string" ? raw.occurrence_time : undefined,
         metrics: isPlainObject(raw.metrics) ? (JSON.parse(JSON.stringify(raw.metrics)) as Record<string, unknown>) : undefined,
-        provenance: sanitizeProvenance(raw.provenance),
+        provenance: sanitizeProvenance(raw.provenance, markTruncated),
         rank: typeof raw.rank === "number" ? raw.rank : undefined,
         grouping_key: groupingKey,
         conflict_key: conflictKey,
@@ -638,8 +654,8 @@ export function assembleDossierV2InputPacket(
     });
   }
 
-  // GAP 2 & Requirement 2: Transitive Supersession & Cycle Detection
-  const directSupersedesMap = new Map<string, string>(); // child_id -> parent_id (child supersedes parent)
+  // Transitive Supersession & Cycle Detection
+  const directSupersedesMap = new Map<string, string>();
   for (const { ev } of eligibleCandidateEvidence) {
     if (ev.supersedes_id) {
       if (ev.supersedes_id === ev.evidence_id) {
@@ -650,8 +666,7 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // Detect cycle for each node
-  const validSupersedesMap = new Map<string, string>(); // child_id -> parent_id (verified acyclic)
+  const validSupersedesMap = new Map<string, string>();
   for (const [childId, parentId] of directSupersedesMap.entries()) {
     let curr: string | undefined = parentId;
     const visited = new Set<string>([childId]);
@@ -673,9 +688,8 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // Compute suppressed set & transitive ancestry
   const suppressedIds = new Set<string>();
-  const transitiveAncestryMap = new Map<string, string[]>(); // winner_id -> sorted list of all suppressed ancestor ids
+  const transitiveAncestryMap = new Map<string, string[]>();
 
   for (const [childId] of validSupersedesMap.entries()) {
     const ancestors: string[] = [];
@@ -709,13 +723,12 @@ export function assembleDossierV2InputPacket(
 
   const processedEvidenceByGroup = new Map<string, ObservedEvidence[]>();
   for (const [gKey, evList] of evidenceByGroup.entries()) {
-    // Exact text dedupe
     const textMap = new Map<string, ObservedEvidence & { grouping_key: string; conflict_key?: string }>();
     for (const item of evList) {
       const normText = item.claim_or_fact.trim().toLowerCase();
       const existing = textMap.get(normText);
       if (existing) {
-        existing.provenance = mergeProvenance(existing.provenance, item.provenance);
+        existing.provenance = mergeProvenance(existing.provenance, item.provenance, markTruncated);
       } else {
         textMap.set(normText, { ...item });
       }
@@ -723,7 +736,6 @@ export function assembleDossierV2InputPacket(
 
     const uniqueFacts = Array.from(textMap.values());
 
-    // Explicit conflict_key / conflict_group_id check
     const conflictKeyMap = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
     for (const f of uniqueFacts) {
       if (f.conflict_key) {
@@ -750,7 +762,7 @@ export function assembleDossierV2InputPacket(
     processedEvidenceByGroup.set(gKey, cleanFacts);
   }
 
-  // 2. Process candidate research leads
+  // Process candidate research leads
   const rawAdmittedLeads: Array<ResearchLead & { grouping_key: string; conflict_key?: string }> = [];
 
   for (const raw of candidateLeadsList) {
@@ -763,27 +775,26 @@ export function assembleDossierV2InputPacket(
       continue;
     }
 
-    const questionText = String(raw.claim_or_question ?? "").trim();
+    const questionText = truncateString(String(raw.claim_or_question ?? "").trim(), LIMIT_CLAIM_TEXT, markTruncated);
     if (!questionText) continue;
 
-    const groupingKey = computeGroupingKey(raw);
-    const leadId = typeof raw.lead_id === "string" && raw.lead_id ? raw.lead_id : `lead:${hashString(`${groupingKey}:${questionText}`)}`;
-    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? raw.conflict_key.trim() : undefined;
+    const groupingKey = computeGroupingKey(raw, markTruncated);
+    const leadId = typeof raw.lead_id === "string" && raw.lead_id ? truncateString(raw.lead_id, 100, markTruncated) : `lead:${hashString(`${groupingKey}:${questionText}`)}`;
+    const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? truncateString(raw.conflict_key.trim(), 100, markTruncated) : undefined;
 
     rawAdmittedLeads.push({
       lead_id: leadId,
       claim_or_question: questionText,
-      source_type: String(raw.source_type ?? "LEAD"),
+      source_type: truncateString(String(raw.source_type ?? "LEAD"), 100, markTruncated),
       available_at: raw.available_at as string,
       urgency: raw.urgency === "HIGH" || raw.urgency === "MEDIUM" || raw.urgency === "LOW" ? raw.urgency : "MEDIUM",
-      provenance: sanitizeProvenance(raw.provenance),
+      provenance: sanitizeProvenance(raw.provenance, markTruncated),
       rank: typeof raw.rank === "number" ? raw.rank : undefined,
       grouping_key: groupingKey,
       conflict_key: conflictKey,
     });
   }
 
-  // Deduplicate and conflict detect research leads
   const leadsByGroup = new Map<string, Array<ResearchLead & { grouping_key: string; conflict_key?: string }>>();
   for (const ld of rawAdmittedLeads) {
     const list = leadsByGroup.get(ld.grouping_key) ?? [];
@@ -798,7 +809,7 @@ export function assembleDossierV2InputPacket(
       const normText = item.claim_or_question.trim().toLowerCase();
       const existing = textMap.get(normText);
       if (existing) {
-        existing.provenance = mergeProvenance(existing.provenance, item.provenance);
+        existing.provenance = mergeProvenance(existing.provenance, item.provenance, markTruncated);
       } else {
         textMap.set(normText, { ...item });
       }
@@ -832,14 +843,13 @@ export function assembleDossierV2InputPacket(
     processedLeadsByGroup.set(gKey, cleanLeads);
   }
 
-  // 3. Form Development Clusters
+  // Form Development Clusters
   const allGroupingKeys = Array.from(new Set([...processedEvidenceByGroup.keys(), ...processedLeadsByGroup.keys()])).sort();
 
   const candidateClusters: DevelopmentCluster[] = allGroupingKeys.map((gKey) => {
     let evList = processedEvidenceByGroup.get(gKey) ?? [];
     let ldList = processedLeadsByGroup.get(gKey) ?? [];
 
-    // Sort cluster items deterministically before capping
     evList = evList.sort((a, b) => {
       const rankA = a.rank ?? 999;
       const rankB = b.rank ?? 999;
@@ -868,7 +878,7 @@ export function assembleDossierV2InputPacket(
       ldList = ldList.slice(0, MAX_LEADS_PER_CLUSTER);
     }
 
-    const clusterTitle = evList[0]?.claim_or_fact ?? ldList[0]?.claim_or_question ?? `Cluster ${gKey}`;
+    const clusterTitle = truncateString(evList[0]?.claim_or_fact ?? ldList[0]?.claim_or_question ?? `Cluster ${gKey}`, LIMIT_TITLE_TEXT, markTruncated);
     const conflictId = evList.find((e) => e.conflict_group_id)?.conflict_group_id ?? ldList.find((l) => l.conflict_group_id)?.conflict_group_id;
 
     return {
@@ -881,7 +891,6 @@ export function assembleDossierV2InputPacket(
     };
   });
 
-  // Sort clusters deterministically
   candidateClusters.sort((a, b) => {
     const minRankA = Math.min(...a.evidence.map((e) => e.rank ?? 999), ...a.leads.map((l) => l.rank ?? 999), 999);
     const minRankB = Math.min(...b.evidence.map((e) => e.rank ?? 999), ...b.leads.map((l) => l.rank ?? 999), 999);
@@ -906,7 +915,6 @@ export function assembleDossierV2InputPacket(
     developmentClusters = developmentClusters.slice(0, MAX_DEVELOPMENT_CLUSTERS);
   }
 
-  // Gather overall evidence and leads arrays from retained clusters
   let observedEvidence: ObservedEvidence[] = [];
   let researchLeads: ResearchLead[] = [];
 
@@ -915,7 +923,6 @@ export function assembleDossierV2InputPacket(
     researchLeads.push(...c.leads);
   }
 
-  // Deduplicate and cap total observed evidence
   observedEvidence = Array.from(new Map(observedEvidence.map((e) => [e.evidence_id, e])).values()).sort((a, b) => {
     const rankA = a.rank ?? 999;
     const rankB = b.rank ?? 999;
@@ -939,13 +946,13 @@ export function assembleDossierV2InputPacket(
     return a.lead_id.localeCompare(b.lead_id);
   });
 
-  // 4. Process Creator Themes
+  // Process Creator Themes
   const rawThemes = Array.isArray(snapshot.creator_themes) ? snapshot.creator_themes : [];
   const processedThemes: CreatorTheme[] = [];
 
   for (const t of rawThemes) {
     if (!isPlainObject(t)) continue;
-    const themeName = String(t.theme_name ?? "").trim();
+    const themeName = truncateString(String(t.theme_name ?? "").trim(), LIMIT_TITLE_TEXT, markTruncated);
     if (!themeName) continue;
 
     const rawClaims = Array.isArray(t.claims) ? t.claims : [];
@@ -960,20 +967,19 @@ export function assembleDossierV2InputPacket(
         continue;
       }
 
-      const claimText = String(c.text ?? "").trim();
+      const claimText = truncateString(String(c.text ?? "").trim(), LIMIT_CLAIM_TEXT, markTruncated);
       if (!claimText) continue;
 
-      const claimId = typeof c.claim_id === "string" && c.claim_id ? c.claim_id : `claim:${hashString(`${themeName}:${claimText}`)}`;
+      const claimId = typeof c.claim_id === "string" && c.claim_id ? truncateString(c.claim_id, 100, markTruncated) : `claim:${hashString(`${themeName}:${claimText}`)}`;
       validClaims.push({
         claim_id: claimId,
         text: claimText,
-        creator_id: c.creator_id ? String(c.creator_id) : undefined,
+        creator_id: c.creator_id ? truncateString(String(c.creator_id), 100, markTruncated) : undefined,
         available_at: c.available_at as string,
-        provenance: sanitizeProvenance(c.provenance),
+        provenance: sanitizeProvenance(c.provenance, markTruncated),
       });
     }
 
-    // Stable tie-break sorting for creator theme claims
     validClaims.sort((a, b) => b.available_at.localeCompare(a.available_at) || a.claim_id.localeCompare(b.claim_id) || a.text.localeCompare(b.text));
 
     let themeClaims = validClaims;
@@ -983,17 +989,15 @@ export function assembleDossierV2InputPacket(
     }
 
     processedThemes.push({
-      theme_id: typeof t.theme_id === "string" && t.theme_id ? t.theme_id : `theme:${hashString(themeName)}`,
+      theme_id: typeof t.theme_id === "string" && t.theme_id ? truncateString(t.theme_id, 100, markTruncated) : `theme:${hashString(themeName)}`,
       theme_name: themeName,
       expand_later: Boolean(t.expand_later),
       claims: themeClaims,
     });
   }
 
-  // Sort themes deterministically with stable tie-breaks
   processedThemes.sort((a, b) => a.theme_name.localeCompare(b.theme_name) || a.theme_id.localeCompare(b.theme_id));
 
-  // Enforce max 2 expand_later
   let expandLaterCount = 0;
   for (const th of processedThemes) {
     if (th.expand_later) {
@@ -1016,7 +1020,7 @@ export function assembleDossierV2InputPacket(
     creatorThemes = creatorThemes.slice(0, MAX_CREATOR_THEMES);
   }
 
-  // GAP 5: Separate fresh-development and catalyst time windows (Forward Horizon 14 days)
+  // Process Catalysts
   const rawCatalysts = Array.isArray(snapshot.catalysts) ? snapshot.catalysts : [];
   const validCatalysts: CatalystItem[] = [];
 
@@ -1044,10 +1048,10 @@ export function assembleDossierV2InputPacket(
       continue;
     }
 
-    const titleText = String(cat.title ?? "").trim();
+    const titleText = truncateString(String(cat.title ?? "").trim(), LIMIT_TITLE_TEXT, markTruncated);
     if (!titleText) continue;
 
-    const catId = typeof cat.catalyst_id === "string" && cat.catalyst_id ? cat.catalyst_id : `cat:${hashString(titleText)}`;
+    const catId = typeof cat.catalyst_id === "string" && cat.catalyst_id ? truncateString(cat.catalyst_id, 100, markTruncated) : `cat:${hashString(titleText)}`;
 
     validCatalysts.push({
       catalyst_id: catId,
@@ -1055,7 +1059,7 @@ export function assembleDossierV2InputPacket(
       event_time: eventTimeStr,
       available_at: cat.available_at as string,
       impact_level: cat.impact_level === "HIGH" || cat.impact_level === "MEDIUM" || cat.impact_level === "LOW" ? cat.impact_level : "MEDIUM",
-      provenance: sanitizeProvenance(cat.provenance),
+      provenance: sanitizeProvenance(cat.provenance, markTruncated),
       rank: typeof cat.rank === "number" ? cat.rank : undefined,
     });
   }
@@ -1075,7 +1079,7 @@ export function assembleDossierV2InputPacket(
     catalysts = catalysts.slice(0, MAX_CATALYSTS);
   }
 
-  // 6. Process Prior Analytical State & Thesis Ledger
+  // Process Prior Analytical State & Thesis Ledger
   let priorClaims: PriorAnalyticalClaim[] = [];
   let prevDossierAsOf: string | null = null;
   let activeThesisLedger: ThesisLedger | null = null;
@@ -1086,7 +1090,7 @@ export function assembleDossierV2InputPacket(
     if (Array.isArray(request.previous_dossier.prior_claims)) {
       for (const pc of request.previous_dossier.prior_claims) {
         if (!isPlainObject(pc)) continue;
-        const claimText = String(pc.claim_text ?? "").trim();
+        const claimText = truncateString(String(pc.claim_text ?? "").trim(), LIMIT_CLAIM_TEXT, markTruncated);
         if (!claimText) continue;
 
         const claimAsOf = isValidIsoTimestamp(pc.as_of) ? (pc.as_of as string) : (prevDossierAsOf ?? asOf);
@@ -1101,33 +1105,31 @@ export function assembleDossierV2InputPacket(
         }
 
         priorClaims.push({
-          claim_id: typeof pc.claim_id === "string" && pc.claim_id ? pc.claim_id : `pc:${hashString(claimText)}`,
+          claim_id: typeof pc.claim_id === "string" && pc.claim_id ? truncateString(pc.claim_id, 100, markTruncated) : `pc:${hashString(claimText)}`,
           epistemic_label: epistemicLabel,
           claim_text: claimText,
-          dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? pc.dossier_id : (previousDossierId ?? "prior"),
+          dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? truncateString(pc.dossier_id, 100, markTruncated) : (previousDossierId ?? "prior"),
           as_of: claimAsOf,
-          provenance: sanitizeProvenance(pc.provenance),
+          provenance: sanitizeProvenance(pc.provenance, markTruncated),
         });
       }
     }
 
     if (request.previous_dossier.thesis_ledger) {
-      activeThesisLedger = validateThesisLedger(request.previous_dossier.thesis_ledger);
+      activeThesisLedger = validateThesisLedger(request.previous_dossier.thesis_ledger, markTruncated);
     }
   }
 
   if (!activeThesisLedger && snapshot.thesis_ledger) {
-    activeThesisLedger = validateThesisLedger(snapshot.thesis_ledger);
+    activeThesisLedger = validateThesisLedger(snapshot.thesis_ledger, markTruncated);
   }
 
-  // Sort prior claims deterministically with stable tie-breaks
   priorClaims.sort((a, b) => a.claim_text.localeCompare(b.claim_text) || a.claim_id.localeCompare(b.claim_id));
   if (priorClaims.length > MAX_PRIOR_CLAIMS) {
     omittedPriorClaimsCount += priorClaims.length - MAX_PRIOR_CLAIMS;
     priorClaims = priorClaims.slice(0, MAX_PRIOR_CLAIMS);
   }
 
-  // Deep-copy and cap Thesis Ledger without modifying any state
   if (activeThesisLedger) {
     activeThesisLedger = JSON.parse(JSON.stringify(activeThesisLedger)) as ThesisLedger;
     if (activeThesisLedger.entries.length > MAX_THESIS_LEDGER_ENTRIES) {
@@ -1136,7 +1138,11 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // Sort and cap research gaps
+  for (const gap of researchGaps) {
+    gap.category = truncateString(gap.category, 100, markTruncated);
+    gap.description = truncateString(gap.description, LIMIT_GENERAL_TEXT, markTruncated);
+  }
+
   researchGaps.sort((a, b) => a.gap_id.localeCompare(b.gap_id));
   let finalResearchGaps = researchGaps;
   if (finalResearchGaps.length > MAX_RESEARCH_GAPS) {
@@ -1144,7 +1150,6 @@ export function assembleDossierV2InputPacket(
     finalResearchGaps = finalResearchGaps.slice(0, MAX_RESEARCH_GAPS);
   }
 
-  // Sort freshness warnings deterministically
   freshnessWarnings.sort((a, b) => a.source_name.localeCompare(b.source_name));
 
   const initialDiagnostics: OmissionDiagnostics = {
@@ -1157,7 +1162,7 @@ export function assembleDossierV2InputPacket(
     omitted_prior_claims_count: omittedPriorClaimsCount,
     omitted_thesis_entries_count: omittedThesisEntriesCount,
     omitted_research_gaps_count: omittedResearchGapsCount,
-    byte_limit_truncation_applied: false,
+    byte_limit_truncation_applied: truncationOccurred,
     notes,
   };
 
@@ -1185,7 +1190,7 @@ export function assembleDossierV2InputPacket(
     diagnostics: initialDiagnostics,
   };
 
-  // GAP 6 & Requirement 3: Ensure 200,000-byte limit applies to the COMPLETE returned packet including packet_id
+  // MULTI-PASS GRACEFUL REDUCTION LOOP (Ensures 200,000-byte ceiling is graceful, NOT fatal)
   const dummyPacketForSizeCheck: DossierV2InputPacket = {
     packet_id: "0".repeat(64), // 64 hex chars for SHA-256
     ...packetWithoutId,
@@ -1236,7 +1241,7 @@ export function assembleDossierV2InputPacket(
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Truncation Pass 4: Remove development clusters and evidence
+    // Truncation Pass 4: Remove development clusters and evidence (leave at least 1 cluster)
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.development_clusters.length > 1) {
       const removedCluster = packetWithoutId.development_clusters.pop();
       if (removedCluster) {
@@ -1253,41 +1258,58 @@ export function assembleDossierV2InputPacket(
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Truncation Pass 5: Truncate long text strings in evidence, prior claims, and Thesis Ledger arguments
+    // Truncation Pass 5: Progressively reduce long text strings in remaining evidence, prior claims, thesis ledger, research gaps, warnings, and notes
     if (byteSize > MAX_CANONICAL_BYTES) {
-      for (const ev of packetWithoutId.observed_evidence) {
-        if (ev.claim_or_fact.length > 200) {
-          ev.claim_or_fact = `${ev.claim_or_fact.slice(0, 197)}...`;
+      const stringLimits = [150, 100, 60, 30];
+      for (const maxTextLen of stringLimits) {
+        if (byteSize <= MAX_CANONICAL_BYTES) break;
+
+        for (const ev of packetWithoutId.observed_evidence) {
+          ev.claim_or_fact = truncateString(ev.claim_or_fact, maxTextLen);
         }
-      }
-      for (const pc of packetWithoutId.prior_analytical_state.prior_claims) {
-        if (pc.claim_text.length > 200) {
-          pc.claim_text = `${pc.claim_text.slice(0, 197)}...`;
-        }
-      }
-      if (packetWithoutId.thesis_ledger) {
-        for (const entry of packetWithoutId.thesis_ledger.entries) {
-          if (entry.statement.length > 300) {
-            entry.statement = `${entry.statement.slice(0, 297)}...`;
+        for (const c of packetWithoutId.development_clusters) {
+          c.title = truncateString(c.title, maxTextLen);
+          for (const ev of c.evidence) {
+            ev.claim_or_fact = truncateString(ev.claim_or_fact, maxTextLen);
           }
-          if (entry.arguments) {
-            for (const arg of entry.arguments) {
-              if (arg.text.length > 200) {
-                arg.text = `${arg.text.slice(0, 197)}...`;
+        }
+        for (const pc of packetWithoutId.prior_analytical_state.prior_claims) {
+          pc.claim_text = truncateString(pc.claim_text, maxTextLen);
+        }
+        if (packetWithoutId.thesis_ledger) {
+          for (const entry of packetWithoutId.thesis_ledger.entries) {
+            entry.title = truncateString(entry.title, maxTextLen);
+            entry.statement = truncateString(entry.statement, maxTextLen);
+            if (entry.arguments) {
+              for (const arg of entry.arguments) {
+                arg.text = truncateString(arg.text, maxTextLen);
               }
             }
           }
         }
+        for (const gap of packetWithoutId.research_gaps) {
+          gap.description = truncateString(gap.description, maxTextLen);
+        }
+        for (const warn of packetWithoutId.freshness_warnings) {
+          warn.message = truncateString(warn.message, maxTextLen);
+        }
+        packetWithoutId.diagnostics.notes = packetWithoutId.diagnostics.notes.map((n) => truncateString(n, maxTextLen));
+
+        dummyPacketForSizeCheck.observed_evidence = packetWithoutId.observed_evidence;
+        dummyPacketForSizeCheck.development_clusters = packetWithoutId.development_clusters;
+        dummyPacketForSizeCheck.prior_analytical_state = packetWithoutId.prior_analytical_state;
+        dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;
+        dummyPacketForSizeCheck.research_gaps = packetWithoutId.research_gaps;
+        dummyPacketForSizeCheck.freshness_warnings = packetWithoutId.freshness_warnings;
+        dummyPacketForSizeCheck.diagnostics = packetWithoutId.diagnostics;
+
+        canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
+        byteSize = Buffer.byteLength(canonicalJson, "utf8");
       }
-      dummyPacketForSizeCheck.observed_evidence = packetWithoutId.observed_evidence;
-      dummyPacketForSizeCheck.prior_analytical_state = packetWithoutId.prior_analytical_state;
-      dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;
-      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
-      byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
   }
 
-  // Calculate packet_id from canonical JSON of packetWithoutId
+  // Compute packet_id from canonical JSON of packetWithoutId
   const canonicalWithoutId = toCanonicalJson(packetWithoutId);
   const packetId = createHash("sha256").update(canonicalWithoutId, "utf8").digest("hex");
 
@@ -1296,12 +1318,12 @@ export function assembleDossierV2InputPacket(
     ...packetWithoutId,
   };
 
-  // Final verification of complete returned packet size
+  // Final defensive check
   const finalCanonicalJson = toCanonicalJson(finalPacket);
   const finalByteSize = Buffer.byteLength(finalCanonicalJson, "utf8");
 
   if (finalByteSize > MAX_CANONICAL_BYTES) {
-    throw new Error(`Complete returned packet JSON size (${finalByteSize} bytes) exceeds limit of ${MAX_CANONICAL_BYTES} UTF-8 bytes.`);
+    throw new Error(`Unreachable defensive assertion: Complete returned packet JSON size (${finalByteSize} bytes) exceeds limit of ${MAX_CANONICAL_BYTES} UTF-8 bytes after all reduction passes.`);
   }
 
   return finalPacket;

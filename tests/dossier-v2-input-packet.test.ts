@@ -476,7 +476,6 @@ test("12. transitive supersession lineage chains and cycle detection", () => {
     previous_dossier_id: null,
   };
 
-  // Test 12a: Three-version transitive chain (A <- B <- C)
   const snapshotChain: CandidateSnapshot = {
     observed_evidence: [
       {
@@ -512,10 +511,8 @@ test("12. transitive supersession lineage chains and cycle detection", () => {
   assert.equal(packetChain.observed_evidence.length, 1);
   const surviving = packetChain.observed_evidence[0];
   assert.equal(surviving.evidence_id, "ev:version-C");
-  // Full transitive lineage contains both version-A and version-B
   assert.deepEqual(surviving.superseded_evidence_ids, ["ev:version-A", "ev:version-B"]);
 
-  // Test 12b: Cycles (self cycle & 2-node cycle) must be safely ignored without hiding valid items
   const snapshotCycles: CandidateSnapshot = {
     observed_evidence: [
       {
@@ -549,7 +546,6 @@ test("12. transitive supersession lineage chains and cycle detection", () => {
   };
 
   const packetCycles = assembleDossierV2InputPacket(request, snapshotCycles);
-  // All three survive because cycle links are safely ignored
   assert.equal(packetCycles.observed_evidence.length, 3);
 });
 
@@ -713,46 +709,63 @@ test("17. forward-looking catalyst window & missing event_time rejection", () =>
   assert.equal(packet.catalysts[1].title, "FOMC Rate Decision");
 });
 
-test("18. complete returned packet including packet_id respects strict 200,000 UTF-8 byte ceiling under oversized evidence and Thesis Ledger text", () => {
+test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, oversized provenance URL/title/locator, and oversized research-gap/freshness text", () => {
   const request: DossierV2InputRequest = {
     as_of: TEST_AS_OF,
     previous_dossier_id: null,
   };
 
-  // Oversized Thesis Ledger and Evidence text
   const hugeLedger: ThesisLedger = {
     contract_version: THESIS_LEDGER_CONTRACT_VERSION,
     entries: [
       {
         thesis_id: "thesis:huge-1",
         contract_version: THESIS_LEDGER_CONTRACT_VERSION,
-        title: "Huge Thesis Title",
-        statement: "S".repeat(150000), // Very large statement text
+        title: "Huge Thesis Title ".repeat(1000), // Oversized title
+        statement: "S".repeat(150000), // Oversized statement
         state: "confirmed",
         version: 1,
         created_at: "2026-03-01T00:00:00.000Z",
         updated_at: "2026-03-01T00:00:00.000Z",
         lineage: [],
         arguments: [
-          { arg_id: "arg:huge-1", type: "supporting", text: "A".repeat(50000) },
+          { arg_id: "arg:huge-1", type: "supporting", text: "A".repeat(50000) }, // Oversized argument
         ],
       },
     ],
   };
 
+  const hugeProvenance = [
+    {
+      source_type: "SEC_FILING",
+      source_id: "sec-001",
+      url: "https://example.com/oversized-url/" + "U".repeat(10000),
+      title: "Oversized Provenance Title " + "T".repeat(10000),
+      locator: "Oversized Locator " + "L".repeat(10000),
+    },
+  ];
+
   const snapshot: CandidateSnapshot = {
     thesis_ledger: hugeLedger,
     observed_evidence: [
       {
-        claim_or_fact: "E".repeat(50000), // Huge evidence text
+        claim_or_fact: "E".repeat(50000), // Oversized evidence text
         available_at: IN_WINDOW_TIME,
         grouping_key: "huge-ev-grp",
         source_type: "SEC_FILING",
-        provenance: [{ source_type: "SEC", source_id: "h1" }],
+        provenance: hugeProvenance,
       },
     ],
+    sources_status: {
+      huge_source: {
+        status: "STALE",
+        message: "Oversized warning message " + "W".repeat(10000),
+        available_at: IN_WINDOW_TIME,
+      },
+    },
   };
 
+  // Assembly must succeed gracefully without throwing
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
   // Complete returned packet including packet_id must strictly be <= 200,000 UTF-8 bytes
