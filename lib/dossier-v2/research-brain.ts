@@ -243,6 +243,7 @@ export function produceDegradedOutput(
     defaultLenses[lName] = {
       lens_name: lName,
       observed_reaction: null,
+      observed_reaction_evidence_refs: [],
       interpretation: "Unobserved / degraded mode.",
       contradiction_references: [],
       unresolved_signals: [],
@@ -254,6 +255,7 @@ export function produceDegradedOutput(
     packet_id: packet.packet_id,
     as_of: packet.as_of,
     main_thread: {
+      thread_id: "thread:degraded_fallback",
       headline: "Research Brain Operating in Degraded Fallback Mode",
       answer: "Primary reasoning pass was unavailable or failed validation.",
       regime_implication: "UNRESOLVED",
@@ -344,7 +346,7 @@ export async function executeResearchBrain(
   // Step 7: At most ONE repair retry if invalid
   if (allowRepair) {
     console.info(`Research Brain primary output failed validation (${firstVal.errors.length} errors). Attempting single repair pass.`);
-    const repairPrompt = buildResearchBrainRepairPrompt(firstPassData, firstVal.errors);
+    const repairPrompt = buildResearchBrainRepairPrompt(firstPassData, firstVal.errors, packet);
 
     try {
       const repairRes = await runner({

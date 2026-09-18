@@ -27,6 +27,7 @@ export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolv
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 
 export interface MainThread {
+  thread_id: string;
   headline: string;
   answer: string;
   regime_implication: string;
@@ -83,6 +84,7 @@ export interface ChartInvestigationQueue {
 export interface MarketLens {
   lens_name: "US_RATES" | "BONDS" | "TECH_AI" | "OIL_WAR_INFLATION" | "USD" | "GOLD" | "CREDIT" | "BREADTH" | string;
   observed_reaction: string | null;
+  observed_reaction_evidence_refs: string[];
   interpretation: string;
   contradiction_references: string[];
   unresolved_signals: string[];

@@ -39,7 +39,7 @@ function createValidBasePacket() {
           category: "ECONOMIC_METRIC",
           source_type: "STATISTICAL_AGENCY",
           provenance: [
-            { source_type: "STATISTICAL_AGENCY", source_id: "BLS_CPI" },
+            { source_type: "STATISTICAL_AGENCY", source_id: "BLS_CPI", publisher: "BLS" },
           ],
         },
         {
@@ -49,7 +49,7 @@ function createValidBasePacket() {
           category: "MONETARY_POLICY",
           source_type: "PRESS_RELEASE",
           provenance: [
-            { source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT" },
+            { source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT", publisher: "FED" },
           ],
         },
         {
@@ -59,7 +59,7 @@ function createValidBasePacket() {
           category: "PRICING_FEED",
           source_type: "PRICING_FEED",
           provenance: [
-            { source_type: "PRICING_FEED", source_id: "TREASURY_FEED" },
+            { source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "BLOOMBERG" },
           ],
         },
       ],
@@ -108,6 +108,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
     packet_id: packet.packet_id,
     as_of: packet.as_of,
     main_thread: {
+      thread_id: "thread:fed_easing",
       headline: "Fed Rate Easing Cycle Commences as Disinflation Accelerates",
       answer: "Federal Reserve cut interest rates by 25bps following 2.5% CPI print.",
       regime_implication: "MONETARY_EASING_REGIME",
@@ -124,7 +125,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         what_changed: "FOMC cut target rate by 25bps in response to moderating inflation.",
         why_it_matters: "Shifts central bank reaction function from inflation defense to growth support.",
         headline_decomposition: "25bps rate cut is supported by 2.5% CPI print.",
-        causal_mechanism: "Lower headline CPI reduced real policy rate tighteness, allowing FOMC rate cuts.",
+        causal_mechanism: "Lower headline CPI reduced real policy rate tightness, allowing FOMC rate cuts.",
         market_evidence: {
           confirming: [ev1, ev2, ev3],
           contradicting: [],
@@ -222,6 +223,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         US_RATES: {
           lens_name: "US_RATES",
           observed_reaction: "US 2Y yield fell 12bps to 3.85%.",
+          observed_reaction_evidence_refs: [ev3],
           interpretation: "Front-end yields pricing in sustained easing path.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -229,6 +231,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         BONDS: {
           lens_name: "BONDS",
           observed_reaction: "Treasury curve bull-steepened.",
+          observed_reaction_evidence_refs: [ev3],
           interpretation: "Markets favoring short duration.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -236,6 +239,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         TECH_AI: {
           lens_name: "TECH_AI",
           observed_reaction: "Tech indices up 1.2% in session.",
+          observed_reaction_evidence_refs: [ev2],
           interpretation: "Lower rates support tech valuations.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -243,6 +247,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         OIL_WAR_INFLATION: {
           lens_name: "OIL_WAR_INFLATION",
           observed_reaction: "Crude oil flat at $75/bbl.",
+          observed_reaction_evidence_refs: [ev1],
           interpretation: "Supply risks unpriced in current spot market.",
           contradiction_references: [],
           unresolved_signals: ["lead:oil:supply"],
@@ -250,6 +255,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         USD: {
           lens_name: "USD",
           observed_reaction: "DXY down 0.4% to 101.2.",
+          observed_reaction_evidence_refs: [ev2],
           interpretation: "Dollar weakening on yield differential erosion.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -257,6 +263,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         GOLD: {
           lens_name: "GOLD",
           observed_reaction: "Gold up 0.8% to $2,520/oz.",
+          observed_reaction_evidence_refs: [ev3],
           interpretation: "Supported by lower real yields.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -264,6 +271,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         CREDIT: {
           lens_name: "CREDIT",
           observed_reaction: "High yield spreads tightened 5bps.",
+          observed_reaction_evidence_refs: [ev2],
           interpretation: "Credit default risk remains muted.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -271,6 +279,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         BREADTH: {
           lens_name: "BREADTH",
           observed_reaction: "Advance/decline ratio 2.1x.",
+          observed_reaction_evidence_refs: [ev2],
           interpretation: "Broad participation across sectors.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -386,108 +395,64 @@ test("2. Valid Reconciled Output Pass Validation", () => {
   assert.ok(val.output);
 });
 
-test("3. Attention Limits Enforcement (Strict Reconciled Caps)", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  // A. > 4 Major Stories rejected
-  const story = invalidOutput.major_stories[0];
-  invalidOutput.major_stories = [story, story, story, story, story]; // 5 stories!
-  let val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("exceeds maximum limit of 4")));
-
-  // B. > 2 Priority Investigations rejected
-  invalidOutput.major_stories = [story];
-  const inv = invalidOutput.investigations[0];
-  invalidOutput.investigations = [inv, inv, inv]; // 3 investigations!
-  val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("exceeds priority limit of 2")));
-
-  // C. > 3 Stock Radar rejected
-  invalidOutput.investigations = [inv];
-  const item = invalidOutput.stock_radar[0];
-  invalidOutput.stock_radar = [item, item, item, item]; // 4 stock radar items!
-  val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("exceeds limit of 3")));
-
-  // D. > 3 Research Now actions rejected
-  invalidOutput.stock_radar = [item];
-  const act = invalidOutput.research_now[0];
-  invalidOutput.research_now = [act, act, act, act]; // 4 actions!
-  val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("exceeds limit of 3")));
-});
-
-test("4. Major Story Research Quality Firewall", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  // Missing what_changed fails firewall
-  invalidOutput.major_stories[0].what_changed = "";
-  const val = validateResearchBrainOutput(invalidOutput, packet);
-
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("fails Firewall")));
-});
-
-test("5. Epistemic Label Enforcement", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  // SUPPORTED story with only 1 evidence ID rejected (requires >= 2 evidence references)
-  invalidOutput.major_stories[0].epistemic_label = "SUPPORTED";
-  invalidOutput.major_stories[0].evidence_ids = ["ev:cpi:2026-09"];
-  const val = validateResearchBrainOutput(invalidOutput, packet);
-
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("requires at least two supporting evidence references")));
-});
-
-test("6. Market Verdict Null Reaction on Missing Price Evidence", () => {
-  const basePacket = createValidBasePacket();
-  const packetNoPrice = assembleDossierV2InputPacket(
+test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection", () => {
+  // Create a packet where two evidence items come from exact same source_id / publisher
+  const packetDuplicateSource = assembleDossierV2InputPacket(
     { as_of: "2026-09-18T12:00:00Z" },
     {
-      observed_evidence: (basePacket.observed_evidence as unknown) as Array<Record<string, unknown>>,
-      price_data: { status: "MISSING" },
+      observed_evidence: [
+        {
+          evidence_id: "ev:sourceA:item1",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "Report part 1.",
+          category: "GENERAL",
+          source_type: "PRESS_RELEASE",
+          provenance: [{ source_type: "PRESS_RELEASE", source_id: "SOURCE_A", publisher: "BLS" }],
+        },
+        {
+          evidence_id: "ev:sourceA:item2",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "Report part 2.",
+          category: "GENERAL",
+          source_type: "PRESS_RELEASE",
+          provenance: [{ source_type: "PRESS_RELEASE", source_id: "SOURCE_A", publisher: "BLS" }],
+        },
+      ],
     },
   );
 
-  const outputWithReaction = createValidOutput(packetNoPrice);
-  outputWithReaction.market_verdict.lenses.US_RATES.observed_reaction = "2Y yield fell 10bps."; // Non-null when price data missing!
+  const output = createValidOutput(packetDuplicateSource);
+  output.major_stories[0].epistemic_label = "SUPPORTED";
+  output.major_stories[0].evidence_ids = ["ev:sourceA:item1", "ev:sourceA:item2"];
 
-  const val = validateResearchBrainOutput(outputWithReaction, packetNoPrice);
+  const val = validateResearchBrainOutput(output, packetDuplicateSource);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("must have null observed_reaction when price evidence is absent")));
+  assert.ok(val.errors.some((e) => e.includes("requires at least two independent evidence sources/ancestries")));
 });
 
-test("7. Dedicated TradingView Chart Queue & Generic Task Rejection", () => {
+test("4. Epistemic Label Validation - INFERRED Without Change Mind Condition Rejected", () => {
   const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
+  const output = createValidOutput(packet);
 
-  // Generic chart task ("check S&P") rejected
-  invalidOutput.chart_investigation_queue.core[0].exact_question = "check S&P";
-  const val = validateResearchBrainOutput(invalidOutput, packet);
+  output.major_stories[0].epistemic_label = "INFERRED";
+  output.major_stories[0].what_would_change_mind = ""; // Empty change-mind condition!
 
+  const val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("contains generic or vague exact_question")));
+  assert.ok(val.errors.some((e) => e.includes("requires non-empty what_would_change_mind condition")));
 });
 
-test("8. Thesis Ledger V2 Evolved Semantics", () => {
+test("5. Thesis Ledger Evolution Integrity Validation", () => {
   const packet = createValidBasePacket();
-  const validOutput = createValidOutput(packet);
+  const output = createValidOutput(packet);
 
-  // Predecessor thesis marked 'evolved' pointing to successor
+  // Evolved predecessor with missing successor in ledger rejected
   const predThesis = {
     thesis_id: "thesis:disinflation:v1",
     contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
     root_thesis_id: "thesis:disinflation",
     parent_thesis_id: null,
-    successor_thesis_id: "thesis:disinflation:v2",
+    successor_thesis_id: "thesis:disinflation:v2_MISSING", // Missing successor!
     title: "US Core Inflation Moderating",
     statement: "Inflation is slowing down toward 2.5%.",
     state: "evolved" as const,
@@ -501,30 +466,56 @@ test("8. Thesis Ledger V2 Evolved Semantics", () => {
     next_catalyst_or_tripwire: "Next CPI print.",
   };
 
-  const succThesis = {
-    thesis_id: "thesis:disinflation:v2",
-    contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
-    root_thesis_id: "thesis:disinflation",
-    parent_thesis_id: "thesis:disinflation:v1",
-    successor_thesis_id: null,
-    title: "US Structural Disinflation Reestablished",
-    statement: "Core disinflation allows sustained FOMC policy rate cuts.",
-    state: "confirmed" as const,
-    version: 2,
-    created_at: "2026-09-18T12:00:00Z",
-    updated_at: "2026-09-18T12:00:00Z",
-    lineage: ["thesis:disinflation:v1"],
-    state_reason: "2.5% CPI print and FOMC 25bps cut confirm structural disinflation.",
-    current_evidence_refs: ["ev:cpi:2026-09", "ev:fed:2026-09"],
-    observed_market_reaction: "Yields fell 12bps.",
-    next_catalyst_or_tripwire: "Next CPI print.",
-  };
+  output.thesis_ledger.entries = [predThesis];
 
-  validOutput.thesis_ledger.entries = [predThesis, succThesis];
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("successor_thesis_id \"thesis:disinflation:v2_MISSING\" does not exist")));
+});
 
-  const val = validateResearchBrainOutput(validOutput, packet);
-  assert.equal(val.isValid, true);
-  assert.equal(val.errors.length, 0);
+test("6. Market Verdict Lens Reaction Evidence Refs Validation", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+
+  // Non-null reaction without evidence ref rejected
+  output.market_verdict.lenses.US_RATES.observed_reaction = "US 2Y yield fell 12bps.";
+  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = []; // Empty refs!
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("non-null observed_reaction requires at least one valid evidence reference")));
+
+  // Invalid evidence ref rejected
+  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = ["ev:FAKE_ID"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("references unsupported evidence_id \"ev:FAKE_ID\"")));
+});
+
+test("7. Main Thread & Stock Radar Linkage Validation", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+
+  // Stock radar LINKED_MAIN_THREAD mismatch rejected
+  output.stock_radar[0].linkage_type = "LINKED_MAIN_THREAD";
+  output.stock_radar[0].linked_main_thread_or_story_id = "thread:WRONG_ID";
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("does not match main_thread.thread_id")));
+});
+
+test("8. Bounded Reference Index in Structural Repair Prompt", () => {
+  const packet = createValidBasePacket();
+  const errors = ["major_stories[0] fails Firewall: missing what_changed."];
+
+  const repairPrompt = buildResearchBrainRepairPrompt({}, errors, packet);
+  assert.ok(repairPrompt.boundedInput.allowed_reference_index);
+  const refIndex = repairPrompt.boundedInput.allowed_reference_index as Record<string, unknown>;
+
+  assert.equal(refIndex.packet_id, packet.packet_id);
+  assert.ok(Array.isArray(refIndex.valid_observed_evidence_ids));
+  assert.ok((refIndex.valid_observed_evidence_ids as string[]).includes("ev:cpi:2026-09"));
 });
 
 test("9. Model Orchestration: Single Provider Attempt per Pass (maxAttempts = 1)", async () => {

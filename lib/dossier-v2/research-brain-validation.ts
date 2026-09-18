@@ -27,6 +27,13 @@ import type {
   ResearchBrainOutputV1,
 } from "./research-brain-contracts.ts";
 
+export interface EvidenceSourceInfo {
+  source_type: string;
+  source_id: string;
+  publisher?: string;
+  category: string;
+}
+
 export interface ValidationIndexes {
   validEvidenceIds: Set<string>;
   validLeadIds: Set<string>;
@@ -34,6 +41,7 @@ export interface ValidationIndexes {
   validCreatorClaimIds: Set<string>;
   validConflictGroupIds: Set<string>;
   validPriorThesisIds: Set<string>;
+  evidenceSourceMap: Map<string, EvidenceSourceInfo>;
   priorThesisMap: Map<
     string,
     {
@@ -68,6 +76,16 @@ const REQUIRED_VERDICT_LENSES = [
   "BREADTH",
 ];
 
+const MARKET_SOURCE_CATEGORIES = new Set([
+  "PRICING_FEED",
+  "MARKET_DATA",
+  "EXCHANGE_FEED",
+  "TRADING_VIEW",
+  "RATES",
+  "FX",
+  "YIELD",
+]);
+
 export function buildValidationIndexes(packet: DossierV2InputPacket): ValidationIndexes {
   const validEvidenceIds = new Set<string>();
   const validLeadIds = new Set<string>();
@@ -75,6 +93,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
   const validCreatorClaimIds = new Set<string>();
   const validConflictGroupIds = new Set<string>();
   const validPriorThesisIds = new Set<string>();
+  const evidenceSourceMap = new Map<string, EvidenceSourceInfo>();
   const priorThesisMap = new Map<
     string,
     {
@@ -90,6 +109,13 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     for (const ev of packet.observed_evidence) {
       if (ev && typeof ev.evidence_id === "string") {
         validEvidenceIds.add(ev.evidence_id);
+        const prov = Array.isArray(ev.provenance) && ev.provenance[0] ? ev.provenance[0] : null;
+        evidenceSourceMap.set(ev.evidence_id, {
+          source_type: ev.source_type ?? "UNKNOWN",
+          source_id: prov?.source_id ?? ev.evidence_id,
+          publisher: prov?.publisher,
+          category: ev.category ?? "GENERAL",
+        });
       }
       if (ev && typeof ev.conflict_group_id === "string") {
         validConflictGroupIds.add(ev.conflict_group_id);
@@ -162,9 +188,35 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     validCreatorClaimIds,
     validConflictGroupIds,
     validPriorThesisIds,
+    evidenceSourceMap,
     priorThesisMap,
     priceDataAvailable,
   };
+}
+
+function hasIndependentCorroboration(
+  evIds: string[],
+  indexes: ValidationIndexes,
+): boolean {
+  if (evIds.length < 2) return false;
+
+  const sources = evIds
+    .map((id) => indexes.evidenceSourceMap.get(id))
+    .filter((s): s is EvidenceSourceInfo => Boolean(s));
+
+  if (sources.length < 2) return false;
+
+  // Check 1: Two distinct source_ids or publishers
+  const distinctKeys = new Set(sources.map((s) => `${s.publisher ?? ""}:${s.source_id}`));
+  if (distinctKeys.size >= 2) return true;
+
+  // Check 2: Direct fact + independent market observation
+  const hasMarketObs = sources.some(
+    (s) => MARKET_SOURCE_CATEGORIES.has(s.source_type) || MARKET_SOURCE_CATEGORIES.has(s.category),
+  );
+  if (hasMarketObs && sources.length >= 2) return true;
+
+  return false;
 }
 
 export function validateResearchBrainInput(input: unknown): ResearchBrainInputV1 {
@@ -241,7 +293,7 @@ export function validateResearchBrainOutput(
 
   const indexes = buildValidationIndexes(packet);
 
-  // Collect valid Major Story IDs and Chart Task IDs for cross-referencing
+  // Collect valid Major Story IDs for cross-referencing
   const majorStories = Array.isArray(brainOutput.major_stories) ? brainOutput.major_stories : [];
   const validStoryIds = new Set<string>();
   for (const story of majorStories) {
@@ -253,42 +305,34 @@ export function validateResearchBrainOutput(
   const chartQueue = isPlainObject(brainOutput.chart_investigation_queue) ? (brainOutput.chart_investigation_queue as Record<string, unknown>) : {};
   const coreCharts = Array.isArray(chartQueue.core) ? chartQueue.core : [];
   const optionalCharts = Array.isArray(chartQueue.optional) ? chartQueue.optional : [];
-  const validChartTaskIds = new Set<string>();
-  for (const ct of [...coreCharts, ...optionalCharts]) {
-    if (isPlainObject(ct) && typeof ct.chart_id === "string") {
-      validChartTaskIds.add(ct.chart_id);
-    }
-  }
 
   const investigations = Array.isArray(brainOutput.investigations) ? brainOutput.investigations : [];
-  const validInvestigationIds = new Set<string>();
-  for (const inv of investigations) {
-    if (isPlainObject(inv) && typeof inv.investigation_id === "string") {
-      validInvestigationIds.add(inv.investigation_id);
-    }
-  }
 
   const thesisLedgerObj = isPlainObject(brainOutput.thesis_ledger) ? (brainOutput.thesis_ledger as Record<string, unknown>) : {};
   const thesisEntries = Array.isArray(thesisLedgerObj.entries) ? thesisLedgerObj.entries : [];
-  const validThesisIds = new Set<string>();
-  for (const te of thesisEntries) {
-    if (isPlainObject(te) && typeof te.thesis_id === "string") {
-      validThesisIds.add(te.thesis_id);
-    }
-  }
 
   // 1. Main Thread Validation
+  let mainThreadId = "";
   if (!isPlainObject(brainOutput.main_thread)) {
     errors.push("main_thread is missing or null in non-degraded output.");
   } else {
     const mt = brainOutput.main_thread as Record<string, unknown>;
+    mainThreadId = typeof mt.thread_id === "string" ? mt.thread_id.trim() : "";
     const headline = typeof mt.headline === "string" ? mt.headline.trim() : "";
     const answer = typeof mt.answer === "string" ? mt.answer.trim() : "";
     const regime = typeof mt.regime_implication === "string" ? mt.regime_implication.trim() : "";
     const changeMind = typeof mt.what_would_change_mind === "string" ? mt.what_would_change_mind.trim() : "";
+    const epistemic = mt.epistemic_label as EpistemicLabel;
 
+    if (!mainThreadId) {
+      errors.push("main_thread missing required thread_id.");
+    }
     if (!headline || !answer || !regime || !changeMind) {
       errors.push("main_thread missing required headline, answer, regime_implication, or what_would_change_mind.");
+    }
+
+    if (epistemic === "SPECULATIVE") {
+      errors.push("main_thread epistemic_label cannot be SPECULATIVE in non-degraded output.");
     }
 
     if (PROBABILITY_CLAIM_REGEX.test(headline) || PROBABILITY_CLAIM_REGEX.test(answer)) {
@@ -352,7 +396,7 @@ export function validateResearchBrainOutput(
     errors.push(`research_gaps count (${researchGaps.length}) exceeds limit of ${MAX_RESEARCH_GAPS}.`);
   }
 
-  // 3. Major Story Quality Firewall Validation
+  // 3. Major Story Quality Firewall & Epistemic Validation
   for (let sIdx = 0; sIdx < majorStories.length; sIdx++) {
     const story = majorStories[sIdx];
     if (!isPlainObject(story)) {
@@ -414,22 +458,36 @@ export function validateResearchBrainOutput(
     if (storyEvIds.length === 0) {
       errors.push(`major_stories[${sIdx}] (${storyId}) evidence_ids must not be empty.`);
     }
+
     for (const evId of storyEvIds) {
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
         errors.push(`major_stories[${sIdx}] (${storyId}) references unsupported evidence_id "${String(evId)}".`);
       }
     }
 
-    // Epistemic label rules:
+    // Strict Epistemic Label Rules
     if (epistemicLabel === "OBSERVED") {
       for (const evId of storyEvIds) {
-        if (indexes.validLeadIds.has(evId) || indexes.validPriorClaimIds.has(evId)) {
-          errors.push(`major_stories[${sIdx}] OBSERVED story cannot be based on research lead or prior claim "${evId}".`);
+        if (indexes.validLeadIds.has(evId) || indexes.validPriorClaimIds.has(evId) || indexes.validCreatorClaimIds.has(evId)) {
+          errors.push(`major_stories[${sIdx}] OBSERVED story cannot be based on research lead, prior claim, or creator claim "${evId}".`);
         }
       }
     } else if (epistemicLabel === "SUPPORTED") {
-      if (storyEvIds.length < 2) {
-        errors.push(`major_stories[${sIdx}] SUPPORTED story requires at least two supporting evidence references.`);
+      if (!hasIndependentCorroboration(storyEvIds, indexes)) {
+        errors.push(`major_stories[${sIdx}] SUPPORTED story requires at least two independent evidence sources/ancestries or direct fact + market observation.`);
+      }
+    } else if (epistemicLabel === "INFERRED") {
+      if (storyEvIds.length === 0) {
+        errors.push(`major_stories[${sIdx}] INFERRED story requires at least one current observed evidence reference.`);
+      }
+      if (!whatWouldChangeMind) {
+        errors.push(`major_stories[${sIdx}] INFERRED story requires non-empty what_would_change_mind condition.`);
+      }
+    } else if (epistemicLabel === "SPECULATIVE") {
+      const me = isPlainObject(story.market_evidence) ? (story.market_evidence as Record<string, unknown>) : {};
+      const unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
+      if (unresolved.length === 0) {
+        errors.push(`major_stories[${sIdx}] SPECULATIVE story must expose missing/unresolved evidence in market_evidence.unresolved.`);
       }
     }
   }
@@ -474,12 +532,15 @@ export function validateResearchBrainOutput(
     }
   }
 
-  // 5. Market Verdict Lenses Validation
+  // 5. Market Verdict Lenses & Reaction Evidence Refs Validation
   if (!isPlainObject(brainOutput.market_verdict)) {
     errors.push("market_verdict is missing or not a plain object.");
   } else {
     const mv = brainOutput.market_verdict as Record<string, unknown>;
     const lenses = isPlainObject(mv.lenses) ? (mv.lenses as Record<string, Record<string, unknown>>) : {};
+
+    const diagnosticsObj = isPlainObject(brainOutput.diagnostics) ? (brainOutput.diagnostics as Record<string, unknown>) : null;
+    const isDegraded = Boolean(diagnosticsObj?.degraded);
 
     for (const lensName of REQUIRED_VERDICT_LENSES) {
       const lens = lenses[lensName];
@@ -488,13 +549,34 @@ export function validateResearchBrainOutput(
         continue;
       }
 
-      if (!indexes.priceDataAvailable && lens.observed_reaction !== null) {
-        errors.push(`market_verdict lens "${lensName}" must have null observed_reaction when price evidence is absent.`);
+      const reaction = typeof lens.observed_reaction === "string" ? lens.observed_reaction.trim() : null;
+      const rxEvRefs = Array.isArray(lens.observed_reaction_evidence_refs) ? lens.observed_reaction_evidence_refs : [];
+
+      if (!indexes.priceDataAvailable) {
+        if (reaction !== null) {
+          errors.push(`market_verdict lens "${lensName}" must have null observed_reaction when price evidence is absent.`);
+        }
+        if (rxEvRefs.length > 0) {
+          errors.push(`market_verdict lens "${lensName}" must have empty observed_reaction_evidence_refs when price evidence is absent.`);
+        }
+      } else if (reaction !== null) {
+        if (rxEvRefs.length === 0) {
+          errors.push(`market_verdict lens "${lensName}" non-null observed_reaction requires at least one valid evidence reference in observed_reaction_evidence_refs.`);
+        }
+        for (const evId of rxEvRefs) {
+          if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
+            errors.push(`market_verdict lens "${lensName}" observed_reaction_evidence_refs references unsupported evidence_id "${String(evId)}".`);
+          }
+        }
       }
     }
 
     if (typeof mv.cross_asset_readthrough !== "string" || !(mv.cross_asset_readthrough as string).trim()) {
       errors.push("market_verdict missing required cross_asset_readthrough.");
+    }
+
+    if (mv.epistemic_label === "SPECULATIVE" && !isDegraded) {
+      errors.push("market_verdict epistemic_label cannot be SPECULATIVE in non-degraded output.");
     }
   }
 
@@ -542,10 +624,16 @@ export function validateResearchBrainOutput(
       errors.push(`stock_radar[${rIdx}] missing symbol or company_name.`);
     }
 
-    if (linkageType !== "LINKED_MAIN_THREAD" && linkageType !== "LINKED_MAJOR_STORY") {
+    if (linkageType === "LINKED_MAIN_THREAD") {
+      if (!mainThreadId || linkedId !== mainThreadId) {
+        errors.push(`stock_radar[${rIdx}] (${symbol}) LINKED_MAIN_THREAD linked_main_thread_or_story_id "${linkedId}" does not match main_thread.thread_id "${mainThreadId}".`);
+      }
+    } else if (linkageType === "LINKED_MAJOR_STORY") {
+      if (!validStoryIds.has(linkedId)) {
+        errors.push(`stock_radar[${rIdx}] (${symbol}) LINKED_MAJOR_STORY linked_main_thread_or_story_id "${linkedId}" does not exist in major_stories.`);
+      }
+    } else {
       errors.push(`stock_radar[${rIdx}] (${symbol}) invalid linkage_type "${String(linkageType)}".`);
-    } else if (linkageType === "LINKED_MAJOR_STORY" && !validStoryIds.has(linkedId)) {
-      errors.push(`stock_radar[${rIdx}] (${symbol}) linked_main_thread_or_story_id "${linkedId}" does not exist in major_stories.`);
     }
 
     // Check forbidden automatic trading fields
@@ -561,7 +649,7 @@ export function validateResearchBrainOutput(
     }
   }
 
-  // 8. Thesis Ledger V2 Evolution Semantics Validation
+  // 8. Thesis Ledger V2 Evolution Integrity Validation
   if (!isPlainObject(brainOutput.thesis_ledger)) {
     errors.push("thesis_ledger is missing or not a plain object.");
   } else {
@@ -600,21 +688,22 @@ export function validateResearchBrainOutput(
       const parentId = typeof entry.parent_thesis_id === "string" && entry.parent_thesis_id.trim() ? entry.parent_thesis_id.trim() : null;
       const successorId = typeof entry.successor_thesis_id === "string" && entry.successor_thesis_id.trim() ? entry.successor_thesis_id.trim() : null;
 
-      // Reconciled EVOLVED semantics checks:
+      // Evolution Integrity Rules:
       if (entry.state === "evolved") {
         if (!successorId) {
           errors.push(`thesis_ledger evolved entry (${thesisId}) must specify successor_thesis_id.`);
+        } else if (successorId === thesisId) {
+          errors.push(`thesis_ledger evolved entry (${thesisId}) successor_thesis_id cannot be itself; evolved thesis requires a NEW successor thesis ID.`);
         } else {
-          if (successorId === thesisId) {
-            errors.push(`thesis_ledger evolved entry (${thesisId}) successor_thesis_id cannot be itself; evolved thesis requires a NEW successor thesis ID.`);
-          }
           const successorEntry = entryMap.get(successorId);
-          if (successorEntry) {
+          if (!successorEntry) {
+            errors.push(`thesis_ledger evolved entry (${thesisId}) successor_thesis_id "${successorId}" does not exist in ledger.`);
+          } else {
             if (successorEntry.parent_thesis_id !== thesisId) {
-              errors.push(`thesis_ledger evolved successor (${successorId}) parent_thesis_id must point back to predecessor (${thesisId}).`);
+              errors.push(`thesis_ledger evolved successor (${successorId}) parent_thesis_id "${String(successorEntry.parent_thesis_id)}" must point back to predecessor (${thesisId}).`);
             }
             if (successorEntry.root_thesis_id !== rootThesisId) {
-              errors.push(`thesis_ledger evolved successor (${successorId}) root_thesis_id must match predecessor root_thesis_id (${rootThesisId}).`);
+              errors.push(`thesis_ledger evolved successor (${successorId}) root_thesis_id "${String(successorEntry.root_thesis_id)}" must match predecessor root_thesis_id (${rootThesisId}).`);
             }
             const predecessorVer = typeof entry.version === "number" ? entry.version : 1;
             const successorVer = typeof successorEntry.version === "number" ? successorEntry.version : 1;
@@ -625,8 +714,19 @@ export function validateResearchBrainOutput(
         }
       }
 
-      if (parentId === thesisId) {
-        errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id cannot be itself.`);
+      if (parentId) {
+        if (parentId === thesisId) {
+          errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id cannot be itself.`);
+        } else {
+          const parentEntry = entryMap.get(parentId);
+          if (parentEntry) {
+            if (parentEntry.successor_thesis_id !== thesisId) {
+              errors.push(`thesis_ledger parent entry (${parentId}) successor_thesis_id "${String(parentEntry.successor_thesis_id)}" must point to child (${thesisId}).`);
+            }
+          } else if (!indexes.validPriorThesisIds.has(parentId)) {
+            errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id "${parentId}" does not exist in current or prior ledger.`);
+          }
+        }
       }
 
       const evRefs = Array.isArray(entry.current_evidence_refs) ? entry.current_evidence_refs : [];

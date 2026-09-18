@@ -22,13 +22,13 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
 3. Prior analytical claims and prior Thesis Ledger entries are historical state, NOT current facts.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence.
-5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL.
+5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
 7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
 8. Stock Radar is a research/watch surface (max ${MAX_STOCK_RADAR_ITEMS}) linked to Main Thread or Major Story. Do not include position sizing or trade commands.
 9. Chart tasks in chart_investigation_queue (core: exactly ${EXACT_CORE_CHARTS} if 3 valid questions exist, optional: max ${MAX_OPTIONAL_CHARTS}) MUST specify concrete TradingView instruments, timeframes, questions, and confirmation/contradiction conditions. Never use generic prompts like "check S&P" or "look at yields".
 10. Respect all attention budget limits:
-    - main_thread: exactly 1 headline/answer
+    - main_thread: exactly 1 headline/answer with thread_id
     - major_stories: max ${MAX_MAJOR_STORIES} (normally 2-3)
     - priority investigations: max ${MAX_PRIORITY_INVESTIGATIONS}
     - research_now actions: max ${MAX_RESEARCH_NOW_ACTIONS}
@@ -77,23 +77,52 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
 export function buildResearchBrainRepairPrompt(
   invalidOutput: unknown,
   validationErrors: string[],
+  packet: DossierV2InputPacket,
 ): {
   instructions: string;
   boundedInput: Record<string, unknown>;
 } {
+  const allowedReferenceIndex = {
+    packet_id: packet.packet_id,
+    as_of: packet.as_of,
+    valid_observed_evidence_ids: Array.isArray(packet.observed_evidence)
+      ? packet.observed_evidence.map((e) => e.evidence_id)
+      : [],
+    valid_research_lead_ids: Array.isArray(packet.research_leads)
+      ? packet.research_leads.map((l) => l.lead_id)
+      : [],
+    valid_prior_claim_ids: Array.isArray(packet.prior_analytical_state?.prior_claims)
+      ? packet.prior_analytical_state.prior_claims.map((pc) => pc.claim_id)
+      : [],
+    valid_thesis_ids: Array.isArray(packet.thesis_ledger?.entries)
+      ? packet.thesis_ledger!.entries.map((te) => te.thesis_id)
+      : Array.isArray(packet.prior_analytical_state?.thesis_ledger?.entries)
+        ? packet.prior_analytical_state.thesis_ledger!.entries.map((te) => te.thesis_id)
+        : [],
+    valid_creator_claim_ids: Array.isArray(packet.creator_themes)
+      ? packet.creator_themes.flatMap((t) => (Array.isArray(t.claims) ? t.claims.map((c) => c.claim_id) : []))
+      : [],
+    valid_catalyst_ids: Array.isArray(packet.catalysts) ? packet.catalysts.map((c) => c.catalyst_id) : [],
+    valid_conflict_group_ids: Array.isArray(packet.observed_evidence)
+      ? Array.from(new Set(packet.observed_evidence.map((e) => e.conflict_group_id).filter(Boolean) as string[]))
+      : [],
+  };
+
   const repairInstructions = `${buildResearchBrainSystemInstructions()}
 
 REPAIR TASK (STRUCTURAL ONLY):
 Your previous output failed deterministic validation with the following ${validationErrors.length} error(s):
 ${validationErrors.map((err, idx) => `${idx + 1}. ${err}`).join("\n")}
 
-Perform STRUCTURAL REPAIR ONLY on the existing output to fix all listed validation errors. Do NOT perform a second independent market analysis and do NOT invent new evidence. Maintain existing valid analysis where possible.`;
+Perform STRUCTURAL REPAIR ONLY on the existing output to fix all listed validation errors.
+Use ONLY IDs from the provided allowed_reference_index. Do NOT create new evidence IDs, do NOT reinterpret the market, and do NOT add new analytical claims unless required solely to make existing structure valid.`;
 
   return {
     instructions: repairInstructions,
     boundedInput: {
       invalid_previous_output: invalidOutput,
       validation_errors: validationErrors,
+      allowed_reference_index: allowedReferenceIndex,
     },
   };
 }
@@ -108,6 +137,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       main_thread: {
         type: "object",
         properties: {
+          thread_id: { type: "string" },
           headline: { type: "string" },
           answer: { type: "string" },
           regime_implication: { type: "string" },
@@ -121,6 +151,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           what_would_change_mind: { type: "string" },
         },
         required: [
+          "thread_id",
           "headline",
           "answer",
           "regime_implication",
@@ -312,11 +343,19 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
               properties: {
                 lens_name: { type: "string" },
                 observed_reaction: { type: ["string", "null"] },
+                observed_reaction_evidence_refs: { type: "array", items: { type: "string" } },
                 interpretation: { type: "string" },
                 contradiction_references: { type: "array", items: { type: "string" } },
                 unresolved_signals: { type: "array", items: { type: "string" } },
               },
-              required: ["lens_name", "observed_reaction", "interpretation", "contradiction_references", "unresolved_signals"],
+              required: [
+                "lens_name",
+                "observed_reaction",
+                "observed_reaction_evidence_refs",
+                "interpretation",
+                "contradiction_references",
+                "unresolved_signals",
+              ],
               additionalProperties: false,
             },
           },
