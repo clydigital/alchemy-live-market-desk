@@ -1,14 +1,14 @@
 import type { DossierV2InputPacket } from "./input-packet.ts";
 import {
-  MAX_CAUSAL_LINKS_PER_STORY,
-  MAX_CHART_TASKS_PER_INVESTIGATION,
-  MAX_CLAIMS_PER_STORY,
+  EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
   MAX_CREATOR_EXPANSIONS,
   MAX_DEVELOPING_THEMES,
-  MAX_INVESTIGATIONS,
   MAX_MAJOR_STORIES,
+  MAX_OPTIONAL_CHARTS,
+  MAX_PRIORITY_INVESTIGATIONS,
   MAX_RESEARCH_GAPS,
+  MAX_RESEARCH_NOW_ACTIONS,
   MAX_STOCK_RADAR_ITEMS,
   RESEARCH_BRAIN_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
@@ -19,22 +19,21 @@ export function buildResearchBrainSystemInstructions(): string {
 
 EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 1. Current facts come ONLY from packet.observed_evidence.
-2. Research leads (packet.research_leads) are questions/leads, NOT facts. You must NOT treat research leads or questions as facts or convert them directly to OBSERVED evidence without corresponding observed_evidence IDs.
-3. Prior analytical claims (packet.prior_analytical_state.prior_claims) and prior Thesis Ledger entries are historical analytical state, NOT current facts.
-4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or prior_claim_ids from packet.prior_analytical_state.
-5. Missing market reactions or asset price moves must NOT be invented. If price data is absent or stale, state that market reaction is unobserved/unverified.
-6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected. Do not silently suppress or resolve conflicts without new evidence.
-7. NO numerical probability claims (e.g. "75% probability", "80% chance", "p=0.05"). Express uncertainty using epistemic labels (OBSERVED, SUPPORTED, INFERRED, SPECULATIVE) or qualitative terms.
-8. Stock radar items MUST link to supporting claim IDs or evidence IDs.
-9. Chart tasks in investigations MUST specify concrete instruments, timeframes, metrics, and testable hypotheses. Never use vague placeholders like "TBD", "chart", "N/A", or "TODO".
+2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
+3. Prior analytical claims and prior Thesis Ledger entries are historical state, NOT current facts.
+4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence.
+5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL.
+6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
+7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
+8. Stock Radar is a research/watch surface (max ${MAX_STOCK_RADAR_ITEMS}) linked to Main Thread or Major Story. Do not include position sizing or trade commands.
+9. Chart tasks in chart_investigation_queue (core: exactly ${EXACT_CORE_CHARTS} if 3 valid questions exist, optional: max ${MAX_OPTIONAL_CHARTS}) MUST specify concrete TradingView instruments, timeframes, questions, and confirmation/contradiction conditions. Never use generic prompts like "check S&P" or "look at yields".
 10. Respect all attention budget limits:
-    - major_stories: max ${MAX_MAJOR_STORIES}
-    - core_claims per story: max ${MAX_CLAIMS_PER_STORY}
-    - causal_links per story: max ${MAX_CAUSAL_LINKS_PER_STORY}
-    - investigations: max ${MAX_INVESTIGATIONS}
-    - chart_tasks per investigation: max ${MAX_CHART_TASKS_PER_INVESTIGATION}
+    - main_thread: exactly 1 headline/answer
+    - major_stories: max ${MAX_MAJOR_STORIES} (normally 2-3)
+    - priority investigations: max ${MAX_PRIORITY_INVESTIGATIONS}
+    - research_now actions: max ${MAX_RESEARCH_NOW_ACTIONS}
     - stock_radar items: max ${MAX_STOCK_RADAR_ITEMS}
-    - developing_themes: max ${MAX_DEVELOPING_THEMES}
+    - developing_themes: 3 to ${MAX_DEVELOPING_THEMES}
     - creator_theme_expansions: max ${MAX_CREATOR_EXPANSIONS}
     - contradictions_detected: max ${MAX_CONTRADICTIONS}
     - research_gaps: max ${MAX_RESEARCH_GAPS}`;
@@ -47,6 +46,7 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
   const packet = input.packet;
 
   const boundedContext = {
+    packet_id: packet.packet_id,
     as_of: packet.as_of,
     previous_dossier_id: packet.previous_dossier_id,
     observed_evidence: packet.observed_evidence,
@@ -83,11 +83,11 @@ export function buildResearchBrainRepairPrompt(
 } {
   const repairInstructions = `${buildResearchBrainSystemInstructions()}
 
-REPAIR TASK:
+REPAIR TASK (STRUCTURAL ONLY):
 Your previous output failed deterministic validation with the following ${validationErrors.length} error(s):
 ${validationErrors.map((err, idx) => `${idx + 1}. ${err}`).join("\n")}
 
-Repair the existing JSON output to fix ALL validation errors listed above. Maintain the existing analysis where valid, but fix all ID references, epistemic labels, attention caps, or missing fields as instructed. DO NOT perform a second independent analysis; repair the provided output.`;
+Perform STRUCTURAL REPAIR ONLY on the existing output to fix all listed validation errors. Do NOT perform a second independent market analysis and do NOT invent new evidence. Maintain existing valid analysis where possible.`;
 
   return {
     instructions: repairInstructions,
@@ -103,19 +103,33 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
     type: "object",
     properties: {
       contract_version: { type: "string" },
+      packet_id: { type: "string" },
       as_of: { type: "string" },
-      is_degraded: { type: "boolean" },
-      degraded_reason: { type: "string" },
       main_thread: {
-        type: ["object", "null"],
+        type: "object",
         properties: {
-          thread_id: { type: "string" },
-          title: { type: "string" },
-          summary: { type: "string" },
-          primary_story_ids: { type: "array", items: { type: "string" } },
-          dominant_macro_driver: { type: "string" },
+          headline: { type: "string" },
+          answer: { type: "string" },
+          regime_implication: { type: "string" },
+          epistemic_label: {
+            type: "string",
+            enum: ["OBSERVED", "SUPPORTED", "INFERRED", "SPECULATIVE"],
+          },
+          evidence_references: { type: "array", items: { type: "string" } },
+          supporting_story_ids: { type: "array", items: { type: "string" } },
+          contradiction_references: { type: "array", items: { type: "string" } },
+          what_would_change_mind: { type: "string" },
         },
-        required: ["thread_id", "title", "summary", "primary_story_ids"],
+        required: [
+          "headline",
+          "answer",
+          "regime_implication",
+          "epistemic_label",
+          "evidence_references",
+          "supporting_story_ids",
+          "contradiction_references",
+          "what_would_change_mind",
+        ],
         additionalProperties: false,
       },
       major_stories: {
@@ -125,49 +139,124 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           properties: {
             story_id: { type: "string" },
             title: { type: "string" },
-            summary: { type: "string" },
-            confidence_score: { type: "number" },
+            what_changed: { type: "string" },
+            why_it_matters: { type: "string" },
+            headline_decomposition: { type: "string" },
+            causal_mechanism: { type: "string" },
+            market_evidence: {
+              type: "object",
+              properties: {
+                confirming: { type: "array", items: { type: "string" } },
+                contradicting: { type: "array", items: { type: "string" } },
+                unresolved: { type: "array", items: { type: "string" } },
+              },
+              required: ["confirming", "contradicting", "unresolved"],
+              additionalProperties: false,
+            },
+            conclusion: { type: "string" },
+            what_would_change_mind: { type: "string" },
+            linked_thesis_ids: { type: "array", items: { type: "string" } },
+            linked_investigation_ids: { type: "array", items: { type: "string" } },
+            linked_chart_task_ids: { type: "array", items: { type: "string" } },
+            epistemic_label: {
+              type: "string",
+              enum: ["OBSERVED", "SUPPORTED", "INFERRED", "SPECULATIVE"],
+            },
             evidence_ids: { type: "array", items: { type: "string" } },
-            catalysts: { type: "array", items: { type: "string" } },
-            tripwires: { type: "array", items: { type: "string" } },
-            core_claims: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  claim_id: { type: "string" },
-                  epistemic_label: {
-                    type: "string",
-                    enum: ["OBSERVED", "SUPPORTED", "INFERRED", "SPECULATIVE"],
-                  },
-                  claim_text: { type: "string" },
-                  evidence_ids: { type: "array", items: { type: "string" } },
-                  prior_claim_ids: { type: "array", items: { type: "string" } },
-                  reasoning_summary: { type: "string" },
-                },
-                required: ["claim_id", "epistemic_label", "claim_text", "evidence_ids"],
-                additionalProperties: false,
-              },
-            },
-            causal_links: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  link_id: { type: "string" },
-                  cause_claim_id: { type: "string" },
-                  effect_claim_id: { type: "string" },
-                  mechanism_summary: { type: "string" },
-                  evidence_ids: { type: "array", items: { type: "string" } },
-                },
-                required: ["link_id", "cause_claim_id", "effect_claim_id", "mechanism_summary", "evidence_ids"],
-                additionalProperties: false,
-              },
-            },
           },
-          required: ["story_id", "title", "summary", "evidence_ids", "core_claims", "causal_links"],
+          required: [
+            "story_id",
+            "title",
+            "what_changed",
+            "why_it_matters",
+            "headline_decomposition",
+            "causal_mechanism",
+            "market_evidence",
+            "conclusion",
+            "what_would_change_mind",
+            "linked_thesis_ids",
+            "linked_investigation_ids",
+            "linked_chart_task_ids",
+            "epistemic_label",
+            "evidence_ids",
+          ],
           additionalProperties: false,
         },
+      },
+      chart_investigation_queue: {
+        type: "object",
+        properties: {
+          core: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                chart_id: { type: "string" },
+                priority: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+                is_required: { type: "boolean" },
+                ticker_or_instrument: { type: "string" },
+                instrument_type: { type: "string" },
+                timeframe: { type: "string" },
+                exact_question: { type: "string" },
+                overlay_or_comparison: { type: "string" },
+                confirmation_condition: { type: "string" },
+                contradiction_condition: { type: "string" },
+                linked_story_ids: { type: "array", items: { type: "string" } },
+                linked_investigation_ids: { type: "array", items: { type: "string" } },
+              },
+              required: [
+                "chart_id",
+                "priority",
+                "is_required",
+                "ticker_or_instrument",
+                "instrument_type",
+                "timeframe",
+                "exact_question",
+                "confirmation_condition",
+                "contradiction_condition",
+                "linked_story_ids",
+                "linked_investigation_ids",
+              ],
+              additionalProperties: false,
+            },
+          },
+          optional: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                chart_id: { type: "string" },
+                priority: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+                is_required: { type: "boolean" },
+                ticker_or_instrument: { type: "string" },
+                instrument_type: { type: "string" },
+                timeframe: { type: "string" },
+                exact_question: { type: "string" },
+                overlay_or_comparison: { type: "string" },
+                confirmation_condition: { type: "string" },
+                contradiction_condition: { type: "string" },
+                linked_story_ids: { type: "array", items: { type: "string" } },
+                linked_investigation_ids: { type: "array", items: { type: "string" } },
+              },
+              required: [
+                "chart_id",
+                "priority",
+                "is_required",
+                "ticker_or_instrument",
+                "instrument_type",
+                "timeframe",
+                "exact_question",
+                "confirmation_condition",
+                "contradiction_condition",
+                "linked_story_ids",
+                "linked_investigation_ids",
+              ],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["core", "optional"],
+        additionalProperties: false,
       },
       investigations: {
         type: "array",
@@ -175,28 +264,40 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           type: "object",
           properties: {
             investigation_id: { type: "string" },
-            title: { type: "string" },
-            trigger_reason: { type: "string" },
-            key_questions: { type: "array", items: { type: "string" } },
-            evidence_ids: { type: "array", items: { type: "string" } },
-            leads_referenced: { type: "array", items: { type: "string" } },
-            chart_tasks: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  chart_id: { type: "string" },
-                  symbol_or_instrument: { type: "string" },
-                  timeframe: { type: "string" },
-                  metric_or_relationship: { type: "string" },
-                  hypothesis_to_test: { type: "string" },
-                },
-                required: ["chart_id", "symbol_or_instrument", "timeframe", "metric_or_relationship", "hypothesis_to_test"],
-                additionalProperties: false,
-              },
+            question: { type: "string" },
+            why_it_matters: { type: "string" },
+            current_explanation: { type: "string" },
+            competing_explanations: { type: "array", items: { type: "string" } },
+            observed_evidence: { type: "array", items: { type: "string" } },
+            missing_evidence: { type: "array", items: { type: "string" } },
+            research_next: { type: "string" },
+            chart_task_links: { type: "array", items: { type: "string" } },
+            confirmation_condition: { type: "string" },
+            invalidation_condition: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["open", "strengthened", "weakened", "resolved", "parked"],
             },
+            linked_story_ids: { type: "array", items: { type: "string" } },
+            linked_thesis_ids: { type: "array", items: { type: "string" } },
+            leads_referenced: { type: "array", items: { type: "string" } },
           },
-          required: ["investigation_id", "title", "trigger_reason", "key_questions", "evidence_ids"],
+          required: [
+            "investigation_id",
+            "question",
+            "why_it_matters",
+            "current_explanation",
+            "competing_explanations",
+            "observed_evidence",
+            "missing_evidence",
+            "research_next",
+            "chart_task_links",
+            "confirmation_condition",
+            "invalidation_condition",
+            "status",
+            "linked_story_ids",
+            "linked_thesis_ids",
+          ],
           additionalProperties: false,
         },
       },
@@ -204,22 +305,63 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
         type: "object",
         properties: {
           verdict_id: { type: "string" },
-          regime_summary: { type: "string" },
-          dominant_drivers: { type: "array", items: { type: "string" } },
-          key_risks: { type: "array", items: { type: "string" } },
+          lenses: {
+            type: "object",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                lens_name: { type: "string" },
+                observed_reaction: { type: ["string", "null"] },
+                interpretation: { type: "string" },
+                contradiction_references: { type: "array", items: { type: "string" } },
+                unresolved_signals: { type: "array", items: { type: "string" } },
+              },
+              required: ["lens_name", "observed_reaction", "interpretation", "contradiction_references", "unresolved_signals"],
+              additionalProperties: false,
+            },
+          },
+          cross_asset_readthrough: { type: "string" },
+          epistemic_label: {
+            type: "string",
+            enum: ["OBSERVED", "SUPPORTED", "INFERRED", "SPECULATIVE"],
+          },
+          dominant_confirmation: { type: "string" },
+          dominant_contradiction: { type: "string" },
         },
-        required: ["verdict_id", "regime_summary", "dominant_drivers", "key_risks"],
+        required: [
+          "verdict_id",
+          "lenses",
+          "cross_asset_readthrough",
+          "epistemic_label",
+          "dominant_confirmation",
+          "dominant_contradiction",
+        ],
         additionalProperties: false,
       },
       research_now: {
-        type: "object",
-        properties: {
-          summary_now: { type: "string" },
-          actionable_takeaways: { type: "array", items: { type: "string" } },
-          immediate_catalysts: { type: "array", items: { type: "string" } },
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            rank: { type: "number" },
+            action: { type: "string" },
+            reason: { type: "string" },
+            expected_information_gain: { type: "string" },
+            linked_investigations: { type: "array", items: { type: "string" } },
+            linked_stories: { type: "array", items: { type: "string" } },
+            blocking_evidence: { type: "array", items: { type: "string" } },
+          },
+          required: [
+            "rank",
+            "action",
+            "reason",
+            "expected_information_gain",
+            "linked_investigations",
+            "linked_stories",
+            "blocking_evidence",
+          ],
+          additionalProperties: false,
         },
-        required: ["summary_now", "actionable_takeaways", "immediate_catalysts"],
-        additionalProperties: false,
       },
       stock_radar: {
         type: "array",
@@ -227,13 +369,29 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           type: "object",
           properties: {
             symbol: { type: "string" },
-            company_or_asset: { type: "string" },
-            radar_type: { type: "string" },
-            thesis_summary: { type: "string" },
-            supporting_claim_ids: { type: "array", items: { type: "string" } },
-            evidence_ids: { type: "array", items: { type: "string" } },
+            company_name: { type: "string" },
+            why_relevant: { type: "string" },
+            research_question: { type: "string" },
+            linkage_type: {
+              type: "string",
+              enum: ["LINKED_MAIN_THREAD", "LINKED_MAJOR_STORY"],
+            },
+            linked_main_thread_or_story_id: { type: "string" },
+            confirming_signal: { type: "string" },
+            invalidating_signal: { type: "string" },
+            evidence_references: { type: "array", items: { type: "string" } },
           },
-          required: ["symbol", "company_or_asset", "radar_type", "thesis_summary", "supporting_claim_ids", "evidence_ids"],
+          required: [
+            "symbol",
+            "company_name",
+            "why_relevant",
+            "research_question",
+            "linkage_type",
+            "linked_main_thread_or_story_id",
+            "confirming_signal",
+            "invalidating_signal",
+            "evidence_references",
+          ],
           additionalProperties: false,
         },
       },
@@ -276,6 +434,9 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
               properties: {
                 thesis_id: { type: "string" },
                 contract_version: { type: "string" },
+                root_thesis_id: { type: "string" },
+                parent_thesis_id: { type: ["string", "null"] },
+                successor_thesis_id: { type: ["string", "null"] },
                 title: { type: "string" },
                 statement: { type: "string" },
                 state: {
@@ -286,12 +447,17 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
                 created_at: { type: "string" },
                 updated_at: { type: "string" },
                 lineage: { type: "array", items: { type: "string" } },
-                supporting_claim_ids: { type: "array", items: { type: "string" } },
-                counter_claim_ids: { type: "array", items: { type: "string" } },
+                state_reason: { type: "string" },
+                current_evidence_refs: { type: "array", items: { type: "string" } },
+                observed_market_reaction: { type: ["string", "null"] },
+                next_catalyst_or_tripwire: { type: "string" },
               },
               required: [
                 "thesis_id",
                 "contract_version",
+                "root_thesis_id",
+                "parent_thesis_id",
+                "successor_thesis_id",
                 "title",
                 "statement",
                 "state",
@@ -299,8 +465,10 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
                 "created_at",
                 "updated_at",
                 "lineage",
-                "supporting_claim_ids",
-                "counter_claim_ids",
+                "state_reason",
+                "current_evidence_refs",
+                "observed_market_reaction",
+                "next_catalyst_or_tripwire",
               ],
               additionalProperties: false,
             },
@@ -336,12 +504,34 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           additionalProperties: false,
         },
       },
+      diagnostics: {
+        type: "object",
+        properties: {
+          degraded: { type: "boolean" },
+          degradation_reasons: { type: "array", items: { type: "string" } },
+          omitted_or_demoted_items: { type: "array", items: { type: "string" } },
+          missing_input_categories: { type: "array", items: { type: "string" } },
+          model_repair_used: { type: "boolean" },
+          notes: { type: "array", items: { type: "string" } },
+        },
+        required: [
+          "degraded",
+          "degradation_reasons",
+          "omitted_or_demoted_items",
+          "missing_input_categories",
+          "model_repair_used",
+          "notes",
+        ],
+        additionalProperties: false,
+      },
     },
     required: [
       "contract_version",
+      "packet_id",
       "as_of",
       "main_thread",
       "major_stories",
+      "chart_investigation_queue",
       "investigations",
       "market_verdict",
       "research_now",
@@ -351,6 +541,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       "thesis_ledger",
       "contradictions_detected",
       "research_gaps",
+      "diagnostics",
     ],
     additionalProperties: false,
   };

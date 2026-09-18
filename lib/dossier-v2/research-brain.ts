@@ -3,6 +3,7 @@ import type { DossierV2InputPacket, ThesisLedger } from "./input-packet.ts";
 import type {
   ContradictionDetected,
   Investigation,
+  MarketLens,
   ResearchBrainInputV1,
   ResearchBrainOutputV1,
   ThesisLedgerEntryV2,
@@ -110,11 +111,12 @@ async function defaultModelRunner(
     };
   };
 
+  // Section 12 Requirement: maxAttempts: 1 per pass for Research Brain
   const result = await executeProviderWithRetry<unknown>({
     fetcher,
     fallbackModel: model,
     maxOutputTokens,
-    maxAttempts: 2,
+    maxAttempts: 1,
   });
 
   return { data: result.data };
@@ -123,6 +125,7 @@ async function defaultModelRunner(
 export function produceDegradedOutput(
   packet: DossierV2InputPacket,
   errorInfo?: string | string[] | Error,
+  modelRepairUsed = false,
 ): ResearchBrainOutputV1 {
   let reasonText = "Model pass failed or produced invalid analysis.";
   if (typeof errorInfo === "string") {
@@ -141,18 +144,24 @@ export function produceDegradedOutput(
   if (priorLedger && Array.isArray(priorLedger.entries)) {
     for (const e of priorLedger.entries) {
       if (!e || typeof e.thesis_id !== "string") continue;
+      const tId = e.thesis_id;
       degradedEntries.push({
-        thesis_id: e.thesis_id,
+        thesis_id: tId,
         contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+        root_thesis_id: (e as { root_thesis_id?: string }).root_thesis_id ?? tId,
+        parent_thesis_id: (e as { parent_thesis_id?: string | null }).parent_thesis_id ?? null,
+        successor_thesis_id: (e as { successor_thesis_id?: string | null }).successor_thesis_id ?? null,
         title: e.title ?? "Prior Thesis",
         statement: e.statement ?? "",
-        state: e.state ?? "unresolved",
+        state: (e.state as "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved") ?? "unresolved",
         version: e.version ?? 1,
         created_at: e.created_at ?? packet.as_of,
         updated_at: packet.as_of,
-        lineage: Array.isArray(e.lineage) ? e.lineage.filter((l) => l !== e.thesis_id) : [],
-        supporting_claim_ids: [],
-        counter_claim_ids: [],
+        lineage: Array.isArray(e.lineage) ? e.lineage.filter((l) => l !== tId) : [],
+        state_reason: "Preserved prior thesis state during degraded execution.",
+        current_evidence_refs: [],
+        observed_market_reaction: null,
+        next_catalyst_or_tripwire: "Re-assess on next cycle.",
         arguments: Array.isArray(e.arguments) ? e.arguments : [],
       });
     }
@@ -163,20 +172,28 @@ export function produceDegradedOutput(
     entries: degradedEntries,
   };
 
-  // Preserve unresolved research leads as investigations
+  // Preserve unresolved research leads as investigations (max 2)
   const degradedInvestigations: Investigation[] = [];
   if (Array.isArray(packet.research_leads)) {
-    for (let idx = 0; idx < Math.min(packet.research_leads.length, 8); idx++) {
+    for (let idx = 0; idx < Math.min(packet.research_leads.length, 2); idx++) {
       const lead = packet.research_leads[idx];
       if (!lead || !lead.lead_id) continue;
       degradedInvestigations.push({
         investigation_id: `inv:degraded:${lead.lead_id}`,
-        title: `Unresolved Lead: ${lead.claim_or_question.slice(0, 100)}`,
-        trigger_reason: "Research Brain degraded; preserving research lead for future resolution.",
-        key_questions: [lead.claim_or_question],
-        evidence_ids: [],
+        question: lead.claim_or_question,
+        why_it_matters: "Preserved research lead during degraded run.",
+        current_explanation: "Unresolved lead carried forward.",
+        competing_explanations: [],
+        observed_evidence: [],
+        missing_evidence: [lead.claim_or_question],
+        research_next: "Avert fabrication and await primary model pass.",
+        chart_task_links: [],
+        confirmation_condition: "Corroborating primary market evidence.",
+        invalidation_condition: "Contradictory primary market evidence.",
+        status: "open",
+        linked_story_ids: [],
+        linked_thesis_ids: [],
         leads_referenced: [lead.lead_id],
-        chart_tasks: [],
       });
     }
   }
@@ -211,35 +228,70 @@ export function produceDegradedOutput(
     severity: "MATERIAL",
   });
 
+  const defaultLenses: Record<string, MarketLens> = {};
+  const lensNames = [
+    "US_RATES",
+    "BONDS",
+    "TECH_AI",
+    "OIL_WAR_INFLATION",
+    "USD",
+    "GOLD",
+    "CREDIT",
+    "BREADTH",
+  ];
+  for (const lName of lensNames) {
+    defaultLenses[lName] = {
+      lens_name: lName,
+      observed_reaction: null,
+      interpretation: "Unobserved / degraded mode.",
+      contradiction_references: [],
+      unresolved_signals: [],
+    };
+  }
+
   return {
     contract_version: RESEARCH_BRAIN_CONTRACT_VERSION,
+    packet_id: packet.packet_id,
     as_of: packet.as_of,
-    is_degraded: true,
-    degraded_reason: reasonText,
-    main_thread: null,
+    main_thread: {
+      headline: "Research Brain Operating in Degraded Fallback Mode",
+      answer: "Primary reasoning pass was unavailable or failed validation.",
+      regime_implication: "UNRESOLVED",
+      epistemic_label: "SPECULATIVE",
+      evidence_references: [],
+      supporting_story_ids: [],
+      contradiction_references: [],
+      what_would_change_mind: "Successful execution of next Research Brain reasoning pass.",
+    },
     major_stories: [],
+    chart_investigation_queue: {
+      core: [],
+      optional: [],
+    },
     investigations: degradedInvestigations,
     market_verdict: {
       verdict_id: `verdict:degraded:${hashString(packet.as_of)}`,
-      regime_summary: "Market regime analysis degraded due to primary reasoning pass failure.",
-      dominant_drivers: [],
-      key_risks: degradedGaps.map((g) => g.description),
+      lenses: defaultLenses,
+      cross_asset_readthrough: "Market verdict degraded due to model pass failure or invalid output.",
+      epistemic_label: "SPECULATIVE",
+      dominant_confirmation: "None",
+      dominant_contradiction: "None",
     },
-    research_now: {
-      summary_now: "Research Brain operating in degraded fallback mode. Primary market synthesis is unavailable.",
-      actionable_takeaways: [
-        "Primary analytical pass degraded; exercise caution until next successful cycle.",
-      ],
-      immediate_catalysts: Array.isArray(packet.catalysts)
-        ? packet.catalysts.map((c) => c.title)
-        : [],
-    },
+    research_now: [],
     stock_radar: [],
     developing_themes: [],
     creator_theme_expansions: [],
     thesis_ledger: thesisLedgerV2,
     contradictions_detected: contradictionsDetected,
     research_gaps: degradedGaps,
+    diagnostics: {
+      degraded: true,
+      degradation_reasons: [reasonText],
+      omitted_or_demoted_items: ["Major Stories ungenerated due to model pass degradation."],
+      missing_input_categories: [],
+      model_repair_used: modelRepairUsed,
+      notes: ["Operating in safe degraded fallback mode."],
+    },
   };
 }
 
@@ -268,7 +320,7 @@ export async function executeResearchBrain(
     options.modelRunner ??
     ((inp) => defaultModelRunner(inp, options.requestTimeoutMs));
 
-  // Step 3: Perform ONE primary model pass
+  // Step 3: Perform ONE primary model pass (maxAttempts = 1 enforced in defaultModelRunner)
   let firstPassData: unknown = null;
   try {
     const res = await runner({
@@ -280,7 +332,7 @@ export async function executeResearchBrain(
     firstPassData = res.data;
   } catch (err) {
     console.warn("Research Brain primary model pass failed:", err);
-    return produceDegradedOutput(packet, err instanceof Error ? err : String(err));
+    return produceDegradedOutput(packet, err instanceof Error ? err : String(err), false);
   }
 
   // Step 5: Run deterministic validation
@@ -304,16 +356,21 @@ export async function executeResearchBrain(
 
       const repairVal = validateResearchBrainOutput(repairRes.data, packet);
       if (repairVal.isValid && repairVal.output) {
+        // Flag in diagnostics that repair was used
+        repairVal.output.diagnostics = {
+          ...repairVal.output.diagnostics,
+          model_repair_used: true,
+        };
         return repairVal.output;
       }
 
       console.warn(`Research Brain repair pass failed validation (${repairVal.errors.length} errors).`);
-      return produceDegradedOutput(packet, repairVal.errors);
+      return produceDegradedOutput(packet, repairVal.errors, true);
     } catch (repairErr) {
       console.warn("Research Brain repair model pass threw error:", repairErr);
-      return produceDegradedOutput(packet, repairErr instanceof Error ? repairErr : String(repairErr));
+      return produceDegradedOutput(packet, repairErr instanceof Error ? repairErr : String(repairErr), true);
     }
   }
 
-  return produceDegradedOutput(packet, firstVal.errors);
+  return produceDegradedOutput(packet, firstVal.errors, false);
 }

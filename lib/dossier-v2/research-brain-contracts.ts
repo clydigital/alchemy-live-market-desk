@@ -2,104 +2,129 @@ import type {
   DossierV2InputPacket,
   ResearchGap,
   ThesisArgument,
-  ThesisState,
 } from "./input-packet.ts";
 
 export const RESEARCH_BRAIN_CONTRACT_VERSION = "research-brain/1";
 export const RESEARCH_BRAIN_INPUT_CONTRACT_VERSION = "research-brain-input/1";
 export const THESIS_LEDGER_V2_CONTRACT_VERSION = "thesis-ledger/2";
 
-export const MAX_MAJOR_STORIES = 6;
-export const MAX_CLAIMS_PER_STORY = 10;
-export const MAX_CAUSAL_LINKS_PER_STORY = 8;
-export const MAX_INVESTIGATIONS = 8;
-export const MAX_CHART_TASKS_PER_INVESTIGATION = 5;
-export const MAX_STOCK_RADAR_ITEMS = 10;
-export const MAX_DEVELOPING_THEMES = 8;
-export const MAX_CREATOR_EXPANSIONS = 5;
+// Reconciled attention budget caps matching accepted Task 7 design
+export const MAX_MAJOR_STORIES = 4;
+export const MAX_PRIORITY_INVESTIGATIONS = 2;
+export const MAX_RESEARCH_NOW_ACTIONS = 3;
+export const EXACT_CORE_CHARTS = 3;
+export const MAX_OPTIONAL_CHARTS = 2;
+export const MAX_STOCK_RADAR_ITEMS = 3;
+export const MIN_DEVELOPING_THEMES = 3;
+export const MAX_DEVELOPING_THEMES = 5;
+export const MAX_CREATOR_EXPANSIONS = 2;
 export const MAX_CONTRADICTIONS = 10;
 export const MAX_RESEARCH_GAPS = 12;
-export const MAX_CLAIM_TEXT_LENGTH = 1000;
-export const MAX_SUMMARY_TEXT_LENGTH = 2000;
 export const MAX_OUTPUT_BYTES = 150000;
 
 export type EpistemicLabel = "OBSERVED" | "SUPPORTED" | "INFERRED" | "SPECULATIVE";
+export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved";
+export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 
-export interface AnalyticalClaim {
-  claim_id: string;
+export interface MainThread {
+  headline: string;
+  answer: string;
+  regime_implication: string;
   epistemic_label: EpistemicLabel;
-  claim_text: string;
-  evidence_ids: string[];
-  prior_claim_ids?: string[];
-  reasoning_summary?: string;
+  evidence_references: string[];
+  supporting_story_ids: string[];
+  contradiction_references: string[];
+  what_would_change_mind: string;
 }
 
-export interface CausalLink {
-  link_id: string;
-  cause_claim_id: string;
-  effect_claim_id: string;
-  mechanism_summary: string;
-  evidence_ids: string[];
+export interface MarketEvidenceDecomposition {
+  confirming: string[];
+  contradicting: string[];
+  unresolved: string[];
 }
 
 export interface MajorStory {
   story_id: string;
   title: string;
-  summary: string;
-  core_claims: AnalyticalClaim[];
-  causal_links: CausalLink[];
-  catalysts?: string[];
-  tripwires?: string[];
-  confidence_score?: number;
+  what_changed: string;
+  why_it_matters: string;
+  headline_decomposition: string;
+  causal_mechanism: string;
+  market_evidence: MarketEvidenceDecomposition;
+  conclusion: string;
+  what_would_change_mind: string;
+  linked_thesis_ids: string[];
+  linked_investigation_ids: string[];
+  linked_chart_task_ids: string[];
+  epistemic_label: EpistemicLabel;
   evidence_ids: string[];
 }
 
-export interface MainThread {
-  thread_id: string;
-  title: string;
-  summary: string;
-  primary_story_ids: string[];
-  dominant_macro_driver?: string;
-}
-
-export interface ChartInvestigation {
+export interface ChartTask {
   chart_id: string;
-  symbol_or_instrument: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  is_required: boolean;
+  ticker_or_instrument: string;
+  instrument_type: "EQUITY" | "BOND" | "COMMODITY" | "FX" | "CRYPTO" | "SPREAD" | "RATIO" | "YIELD" | string;
   timeframe: string;
-  metric_or_relationship: string;
-  hypothesis_to_test: string;
+  exact_question: string;
+  overlay_or_comparison?: string;
+  confirmation_condition: string;
+  contradiction_condition: string;
+  linked_story_ids: string[];
+  linked_investigation_ids: string[];
 }
 
-export interface Investigation {
-  investigation_id: string;
-  title: string;
-  trigger_reason: string;
-  key_questions: string[];
-  evidence_ids: string[];
-  leads_referenced?: string[];
-  chart_tasks?: ChartInvestigation[];
+export interface ChartInvestigationQueue {
+  core: ChartTask[];
+  optional: ChartTask[];
+}
+
+export interface MarketLens {
+  lens_name: "US_RATES" | "BONDS" | "TECH_AI" | "OIL_WAR_INFLATION" | "USD" | "GOLD" | "CREDIT" | "BREADTH" | string;
+  observed_reaction: string | null;
+  interpretation: string;
+  contradiction_references: string[];
+  unresolved_signals: string[];
 }
 
 export interface MarketVerdict {
   verdict_id: string;
-  regime_summary: string;
-  dominant_drivers: string[];
-  key_risks: string[];
+  lenses: Record<string, MarketLens>;
+  cross_asset_readthrough: string;
+  epistemic_label: EpistemicLabel;
+  dominant_confirmation: string;
+  dominant_contradiction: string;
 }
 
-export interface ResearchNow {
-  summary_now: string;
-  actionable_takeaways: string[];
-  immediate_catalysts: string[];
+export interface Investigation {
+  investigation_id: string;
+  question: string;
+  why_it_matters: string;
+  current_explanation: string;
+  competing_explanations: string[];
+  observed_evidence: string[];
+  missing_evidence: string[];
+  research_next: string;
+  chart_task_links: string[];
+  confirmation_condition: string;
+  invalidation_condition: string;
+  status: InvestigationStatus;
+  linked_story_ids: string[];
+  linked_thesis_ids: string[];
+  leads_referenced?: string[];
 }
 
 export interface StockRadarItem {
   symbol: string;
-  company_or_asset: string;
-  radar_type: "BULLISH" | "BEARISH" | "WATCH" | string;
-  thesis_summary: string;
-  supporting_claim_ids: string[];
-  evidence_ids: string[];
+  company_name: string;
+  why_relevant: string;
+  research_question: string;
+  linkage_type: "LINKED_MAIN_THREAD" | "LINKED_MAJOR_STORY";
+  linked_main_thread_or_story_id: string;
+  confirming_signal: string;
+  invalidating_signal: string;
+  evidence_references: string[];
 }
 
 export interface DevelopingTheme {
@@ -119,15 +144,20 @@ export interface CreatorThemeExpansion {
 export interface ThesisLedgerEntryV2 {
   thesis_id: string;
   contract_version: typeof THESIS_LEDGER_V2_CONTRACT_VERSION | string;
+  root_thesis_id: string;
+  parent_thesis_id: string | null;
+  successor_thesis_id: string | null;
   title: string;
   statement: string;
-  state: ThesisState;
+  state: ThesisStateV2;
   version: number;
   created_at: string;
   updated_at: string;
   lineage: string[];
-  supporting_claim_ids: string[];
-  counter_claim_ids: string[];
+  state_reason: string;
+  current_evidence_refs: string[];
+  observed_market_reaction: string | null;
+  next_catalyst_or_tripwire: string;
   arguments?: ThesisArgument[];
 }
 
@@ -142,22 +172,42 @@ export interface ContradictionDetected {
   conflicting_evidence_ids: string[];
 }
 
+export interface ResearchNowAction {
+  rank: number;
+  action: string;
+  reason: string;
+  expected_information_gain: string;
+  linked_investigations: string[];
+  linked_stories: string[];
+  blocking_evidence: string[];
+}
+
+export interface ResearchBrainDiagnostics {
+  degraded: boolean;
+  degradation_reasons: string[];
+  omitted_or_demoted_items: string[];
+  missing_input_categories: string[];
+  model_repair_used: boolean;
+  notes: string[];
+}
+
 export interface ResearchBrainOutputV1 {
   contract_version: typeof RESEARCH_BRAIN_CONTRACT_VERSION | string;
+  packet_id: string;
   as_of: string;
-  is_degraded?: boolean;
-  degraded_reason?: string;
-  main_thread: MainThread | null;
+  main_thread: MainThread;
   major_stories: MajorStory[];
+  chart_investigation_queue: ChartInvestigationQueue;
   investigations: Investigation[];
   market_verdict: MarketVerdict;
-  research_now: ResearchNow;
+  research_now: ResearchNowAction[];
   stock_radar: StockRadarItem[];
   developing_themes: DevelopingTheme[];
   creator_theme_expansions: CreatorThemeExpansion[];
   thesis_ledger: ThesisLedgerV2;
   contradictions_detected: ContradictionDetected[];
   research_gaps: ResearchGap[];
+  diagnostics: ResearchBrainDiagnostics;
 }
 
 export interface ResearchBrainInputV1 {

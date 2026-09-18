@@ -1,48 +1,30 @@
 import {
   isPlainObject,
   isValidIsoTimestamp,
-  isValidUuid,
 } from "./validation.ts";
 import type {
   DossierV2InputPacket,
-  ObservedEvidence,
-  ResearchLead,
-  ThesisState,
 } from "./input-packet.ts";
 import {
-  MAX_CAUSAL_LINKS_PER_STORY,
-  MAX_CHART_TASKS_PER_INVESTIGATION,
-  MAX_CLAIMS_PER_STORY,
+  EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
   MAX_CREATOR_EXPANSIONS,
   MAX_DEVELOPING_THEMES,
-  MAX_INVESTIGATIONS,
   MAX_MAJOR_STORIES,
+  MAX_OPTIONAL_CHARTS,
   MAX_OUTPUT_BYTES,
+  MAX_PRIORITY_INVESTIGATIONS,
   MAX_RESEARCH_GAPS,
+  MAX_RESEARCH_NOW_ACTIONS,
   MAX_STOCK_RADAR_ITEMS,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
 import type {
-  AnalyticalClaim,
-  CausalLink,
-  ChartInvestigation,
-  ContradictionDetected,
-  CreatorThemeExpansion,
-  DevelopingTheme,
   EpistemicLabel,
-  Investigation,
-  MainThread,
-  MajorStory,
-  MarketVerdict,
   ResearchBrainInputV1,
   ResearchBrainOutputV1,
-  ResearchNow,
-  StockRadarItem,
-  ThesisLedgerEntryV2,
-  ThesisLedgerV2,
 } from "./research-brain-contracts.ts";
 
 export interface ValidationIndexes {
@@ -52,7 +34,17 @@ export interface ValidationIndexes {
   validCreatorClaimIds: Set<string>;
   validConflictGroupIds: Set<string>;
   validPriorThesisIds: Set<string>;
-  priorThesisMap: Map<string, { version: number; state: string }>;
+  priorThesisMap: Map<
+    string,
+    {
+      version: number;
+      state: string;
+      root_thesis_id: string;
+      parent_thesis_id: string | null;
+      successor_thesis_id: string | null;
+    }
+  >;
+  priceDataAvailable: boolean;
 }
 
 export interface ValidationResult {
@@ -62,7 +54,19 @@ export interface ValidationResult {
 }
 
 const PROBABILITY_CLAIM_REGEX = /\b(\d+(\.\d+)?%?\s*probability|probability\s*(of|=|:)\s*\d+(\.\d+)?%?|\b\d{1,3}%\s*(chance|likelihood|probability)\b)/i;
+const GENERIC_CHART_TASK_REGEX = /^(check|look at|review|chart|see|watch)\s+(s&p|spx|yields|rates|gold|oil|btc|stocks|market|crypto|fx|dollar)$/i;
 const VAGUE_PLACEHOLDER_REGEX = /^(tbd|todo|n\/a|none|chart|unknown|placeholder|\?+)$/i;
+
+const REQUIRED_VERDICT_LENSES = [
+  "US_RATES",
+  "BONDS",
+  "TECH_AI",
+  "OIL_WAR_INFLATION",
+  "USD",
+  "GOLD",
+  "CREDIT",
+  "BREADTH",
+];
 
 export function buildValidationIndexes(packet: DossierV2InputPacket): ValidationIndexes {
   const validEvidenceIds = new Set<string>();
@@ -71,7 +75,16 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
   const validCreatorClaimIds = new Set<string>();
   const validConflictGroupIds = new Set<string>();
   const validPriorThesisIds = new Set<string>();
-  const priorThesisMap = new Map<string, { version: number; state: string }>();
+  const priorThesisMap = new Map<
+    string,
+    {
+      version: number;
+      state: string;
+      root_thesis_id: string;
+      parent_thesis_id: string | null;
+      successor_thesis_id: string | null;
+    }
+  >();
 
   if (Array.isArray(packet.observed_evidence)) {
     for (const ev of packet.observed_evidence) {
@@ -129,12 +142,18 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
       if (entry && typeof entry.thesis_id === "string") {
         validPriorThesisIds.add(entry.thesis_id);
         priorThesisMap.set(entry.thesis_id, {
-          version: entry.version,
-          state: entry.state,
+          version: entry.version ?? 1,
+          state: (entry as { state?: string }).state ?? "unresolved",
+          root_thesis_id: (entry as { root_thesis_id?: string }).root_thesis_id ?? entry.thesis_id,
+          parent_thesis_id: (entry as { parent_thesis_id?: string | null }).parent_thesis_id ?? null,
+          successor_thesis_id: (entry as { successor_thesis_id?: string | null }).successor_thesis_id ?? null,
         });
       }
     }
   }
+
+  const priceGap = Array.isArray(packet.research_gaps) && packet.research_gaps.some((g) => g.category === "PRICE_DATA");
+  const priceDataAvailable = !priceGap;
 
   return {
     validEvidenceIds,
@@ -144,6 +163,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     validConflictGroupIds,
     validPriorThesisIds,
     priorThesisMap,
+    priceDataAvailable,
   };
 }
 
@@ -191,68 +211,135 @@ export function validateResearchBrainOutput(
 
   const brainOutput = output as Record<string, unknown>;
 
-  // Check contract_version
+  // Contract version check
   if (brainOutput.contract_version !== RESEARCH_BRAIN_CONTRACT_VERSION) {
     errors.push(`Invalid contract_version: expected "${RESEARCH_BRAIN_CONTRACT_VERSION}", got "${String(brainOutput.contract_version)}".`);
   }
 
-  // Check as_of
+  // Traceability check
+  if (brainOutput.packet_id !== packet.packet_id) {
+    errors.push(`packet_id mismatch: expected "${packet.packet_id}", got "${String(brainOutput.packet_id)}".`);
+  }
+
+  // as_of check
   if (!isValidIsoTimestamp(brainOutput.as_of)) {
     errors.push(`Invalid as_of timestamp: "${String(brainOutput.as_of)}".`);
   } else if (packet.as_of && brainOutput.as_of !== packet.as_of) {
     errors.push(`as_of mismatch: output as_of "${String(brainOutput.as_of)}" does not match packet as_of "${packet.as_of}".`);
   }
 
-  // Check output byte cap
-  let jsonBytes = 0;
+  // Byte cap check
   try {
     const jsonStr = JSON.stringify(brainOutput);
-    jsonBytes = Buffer.byteLength(jsonStr, "utf8");
-    if (jsonBytes > MAX_OUTPUT_BYTES) {
-      errors.push(`Output JSON size (${jsonBytes} bytes) exceeds limit of ${MAX_OUTPUT_BYTES} bytes.`);
+    const bytes = Buffer.byteLength(jsonStr, "utf8");
+    if (bytes > MAX_OUTPUT_BYTES) {
+      errors.push(`Output JSON size (${bytes} bytes) exceeds limit of ${MAX_OUTPUT_BYTES} bytes.`);
     }
   } catch {
     errors.push("Output is not JSON serializable.");
   }
 
   const indexes = buildValidationIndexes(packet);
-  const outputClaimIds = new Set<string>();
 
-  // Collect all claim IDs in stories for cross-referencing
+  // Collect valid Major Story IDs and Chart Task IDs for cross-referencing
   const majorStories = Array.isArray(brainOutput.major_stories) ? brainOutput.major_stories : [];
+  const validStoryIds = new Set<string>();
   for (const story of majorStories) {
-    if (isPlainObject(story) && Array.isArray(story.core_claims)) {
-      for (const claim of story.core_claims) {
-        if (isPlainObject(claim) && typeof claim.claim_id === "string") {
-          outputClaimIds.add(claim.claim_id);
-        }
+    if (isPlainObject(story) && typeof story.story_id === "string") {
+      validStoryIds.add(story.story_id);
+    }
+  }
+
+  const chartQueue = isPlainObject(brainOutput.chart_investigation_queue) ? (brainOutput.chart_investigation_queue as Record<string, unknown>) : {};
+  const coreCharts = Array.isArray(chartQueue.core) ? chartQueue.core : [];
+  const optionalCharts = Array.isArray(chartQueue.optional) ? chartQueue.optional : [];
+  const validChartTaskIds = new Set<string>();
+  for (const ct of [...coreCharts, ...optionalCharts]) {
+    if (isPlainObject(ct) && typeof ct.chart_id === "string") {
+      validChartTaskIds.add(ct.chart_id);
+    }
+  }
+
+  const investigations = Array.isArray(brainOutput.investigations) ? brainOutput.investigations : [];
+  const validInvestigationIds = new Set<string>();
+  for (const inv of investigations) {
+    if (isPlainObject(inv) && typeof inv.investigation_id === "string") {
+      validInvestigationIds.add(inv.investigation_id);
+    }
+  }
+
+  const thesisLedgerObj = isPlainObject(brainOutput.thesis_ledger) ? (brainOutput.thesis_ledger as Record<string, unknown>) : {};
+  const thesisEntries = Array.isArray(thesisLedgerObj.entries) ? thesisLedgerObj.entries : [];
+  const validThesisIds = new Set<string>();
+  for (const te of thesisEntries) {
+    if (isPlainObject(te) && typeof te.thesis_id === "string") {
+      validThesisIds.add(te.thesis_id);
+    }
+  }
+
+  // 1. Main Thread Validation
+  if (!isPlainObject(brainOutput.main_thread)) {
+    errors.push("main_thread is missing or null in non-degraded output.");
+  } else {
+    const mt = brainOutput.main_thread as Record<string, unknown>;
+    const headline = typeof mt.headline === "string" ? mt.headline.trim() : "";
+    const answer = typeof mt.answer === "string" ? mt.answer.trim() : "";
+    const regime = typeof mt.regime_implication === "string" ? mt.regime_implication.trim() : "";
+    const changeMind = typeof mt.what_would_change_mind === "string" ? mt.what_would_change_mind.trim() : "";
+
+    if (!headline || !answer || !regime || !changeMind) {
+      errors.push("main_thread missing required headline, answer, regime_implication, or what_would_change_mind.");
+    }
+
+    if (PROBABILITY_CLAIM_REGEX.test(headline) || PROBABILITY_CLAIM_REGEX.test(answer)) {
+      errors.push("main_thread contains forbidden explicit numerical probability claim.");
+    }
+
+    const mtEvRefs = Array.isArray(mt.evidence_references) ? mt.evidence_references : [];
+    if (mtEvRefs.length === 0) {
+      errors.push("main_thread evidence_references must not be empty.");
+    }
+    for (const evId of mtEvRefs) {
+      if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
+        errors.push(`main_thread references unsupported evidence_id "${String(evId)}".`);
+      }
+    }
+
+    const suppStoryIds = Array.isArray(mt.supporting_story_ids) ? mt.supporting_story_ids : [];
+    for (const sId of suppStoryIds) {
+      if (typeof sId !== "string" || !validStoryIds.has(sId)) {
+        errors.push(`main_thread supporting_story_ids references unknown story_id "${String(sId)}".`);
       }
     }
   }
 
-  // Check 1: Attention Caps
+  // 2. Attention Caps Validation
   if (majorStories.length > MAX_MAJOR_STORIES) {
-    errors.push(`major_stories count (${majorStories.length}) exceeds attention limit of ${MAX_MAJOR_STORIES}.`);
+    errors.push(`major_stories count (${majorStories.length}) exceeds maximum limit of ${MAX_MAJOR_STORIES}.`);
   }
 
-  const investigations = Array.isArray(brainOutput.investigations) ? brainOutput.investigations : [];
-  if (investigations.length > MAX_INVESTIGATIONS) {
-    errors.push(`investigations count (${investigations.length}) exceeds attention limit of ${MAX_INVESTIGATIONS}.`);
+  if (investigations.length > MAX_PRIORITY_INVESTIGATIONS) {
+    errors.push(`investigations count (${investigations.length}) exceeds priority limit of ${MAX_PRIORITY_INVESTIGATIONS}.`);
+  }
+
+  const researchNow = Array.isArray(brainOutput.research_now) ? brainOutput.research_now : [];
+  if (researchNow.length > MAX_RESEARCH_NOW_ACTIONS) {
+    errors.push(`research_now count (${researchNow.length}) exceeds limit of ${MAX_RESEARCH_NOW_ACTIONS}.`);
   }
 
   const stockRadar = Array.isArray(brainOutput.stock_radar) ? brainOutput.stock_radar : [];
   if (stockRadar.length > MAX_STOCK_RADAR_ITEMS) {
-    errors.push(`stock_radar count (${stockRadar.length}) exceeds attention limit of ${MAX_STOCK_RADAR_ITEMS}.`);
+    errors.push(`stock_radar count (${stockRadar.length}) exceeds limit of ${MAX_STOCK_RADAR_ITEMS}.`);
   }
 
   const developingThemes = Array.isArray(brainOutput.developing_themes) ? brainOutput.developing_themes : [];
   if (developingThemes.length > MAX_DEVELOPING_THEMES) {
-    errors.push(`developing_themes count (${developingThemes.length}) exceeds attention limit of ${MAX_DEVELOPING_THEMES}.`);
+    errors.push(`developing_themes count (${developingThemes.length}) exceeds limit of ${MAX_DEVELOPING_THEMES}.`);
   }
 
   const creatorThemeExpansions = Array.isArray(brainOutput.creator_theme_expansions) ? brainOutput.creator_theme_expansions : [];
   if (creatorThemeExpansions.length > MAX_CREATOR_EXPANSIONS) {
-    errors.push(`creator_theme_expansions count (${creatorThemeExpansions.length}) exceeds attention limit of ${MAX_CREATOR_EXPANSIONS}.`);
+    errors.push(`creator_theme_expansions count (${creatorThemeExpansions.length}) exceeds limit of ${MAX_CREATOR_EXPANSIONS}.`);
   }
 
   const contradictions = Array.isArray(brainOutput.contradictions_detected) ? brainOutput.contradictions_detected : [];
@@ -265,7 +352,7 @@ export function validateResearchBrainOutput(
     errors.push(`research_gaps count (${researchGaps.length}) exceeds limit of ${MAX_RESEARCH_GAPS}.`);
   }
 
-  // Check 2: Major Stories & Claims Validation (Firewall + Epistemic Separation + Evidence Integrity)
+  // 3. Major Story Quality Firewall Validation
   for (let sIdx = 0; sIdx < majorStories.length; sIdx++) {
     const story = majorStories[sIdx];
     if (!isPlainObject(story)) {
@@ -273,123 +360,145 @@ export function validateResearchBrainOutput(
       continue;
     }
 
-    const storyTitle = typeof story.title === "string" ? story.title.trim() : "";
-    const storySummary = typeof story.summary === "string" ? story.summary.trim() : "";
     const storyId = typeof story.story_id === "string" ? story.story_id.trim() : `story-${sIdx}`;
 
-    if (!storyTitle) {
-      errors.push(`major_stories[${sIdx}] missing required title.`);
-    }
-    if (!storySummary) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) missing required summary.`);
+    // Explicit Firewall Checks
+    const title = typeof story.title === "string" ? story.title.trim() : "";
+    const whatChanged = typeof story.what_changed === "string" ? story.what_changed.trim() : "";
+    const whyItMatters = typeof story.why_it_matters === "string" ? story.why_it_matters.trim() : "";
+    const causalMechanism = typeof story.causal_mechanism === "string" ? story.causal_mechanism.trim() : "";
+    const conclusion = typeof story.conclusion === "string" ? story.conclusion.trim() : "";
+    const whatWouldChangeMind = typeof story.what_would_change_mind === "string" ? story.what_would_change_mind.trim() : "";
+
+    if (!title || !whatChanged || !whyItMatters || !causalMechanism || !conclusion || !whatWouldChangeMind) {
+      errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: missing required explicit fields (title, what_changed, why_it_matters, causal_mechanism, conclusion, or what_would_change_mind).`);
     }
 
-    if (PROBABILITY_CLAIM_REGEX.test(storyTitle) || PROBABILITY_CLAIM_REGEX.test(storySummary)) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) contains explicit numerical probability claim.`);
+    if (PROBABILITY_CLAIM_REGEX.test(title) || PROBABILITY_CLAIM_REGEX.test(whatChanged) || PROBABILITY_CLAIM_REGEX.test(causalMechanism)) {
+      errors.push(`major_stories[${sIdx}] (${storyId}) contains forbidden explicit numerical probability claim.`);
     }
 
-    const storyEvidenceIds = Array.isArray(story.evidence_ids) ? story.evidence_ids : [];
-    if (storyEvidenceIds.length === 0) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: no evidence_ids supplied.`);
+    // Check market evidence decomposition
+    if (!isPlainObject(story.market_evidence)) {
+      errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence is missing or not a plain object.`);
+    } else {
+      const me = story.market_evidence as Record<string, unknown>;
+      const confirming = Array.isArray(me.confirming) ? me.confirming : [];
+      const contradicting = Array.isArray(me.contradicting) ? me.contradicting : [];
+      const unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
+
+      if (confirming.length === 0) {
+        errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence.confirming must not be empty.`);
+      }
+
+      for (const evId of [...confirming, ...contradicting]) {
+        if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
+          errors.push(`major_stories[${sIdx}] (${storyId}) market_evidence references unsupported evidence_id "${String(evId)}".`);
+        }
+      }
+
+      for (const unresId of unresolved) {
+        if (typeof unresId !== "string" || (!indexes.validEvidenceIds.has(unresId) && !indexes.validLeadIds.has(unresId))) {
+          errors.push(`major_stories[${sIdx}] (${storyId}) market_evidence.unresolved references unsupported ID "${String(unresId)}".`);
+        }
+      }
     }
-    for (const evId of storyEvidenceIds) {
+
+    // Epistemic label check
+    const epistemicLabel = story.epistemic_label as EpistemicLabel;
+    if (epistemicLabel !== "OBSERVED" && epistemicLabel !== "SUPPORTED" && epistemicLabel !== "INFERRED" && epistemicLabel !== "SPECULATIVE") {
+      errors.push(`major_stories[${sIdx}] (${storyId}) invalid epistemic_label "${String(story.epistemic_label)}".`);
+    }
+
+    const storyEvIds = Array.isArray(story.evidence_ids) ? story.evidence_ids : [];
+    if (storyEvIds.length === 0) {
+      errors.push(`major_stories[${sIdx}] (${storyId}) evidence_ids must not be empty.`);
+    }
+    for (const evId of storyEvIds) {
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
         errors.push(`major_stories[${sIdx}] (${storyId}) references unsupported evidence_id "${String(evId)}".`);
       }
     }
 
-    const coreClaims = Array.isArray(story.core_claims) ? story.core_claims : [];
-    if (coreClaims.length === 0) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: no core_claims provided.`);
-    } else if (coreClaims.length > MAX_CLAIMS_PER_STORY) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) core_claims count (${coreClaims.length}) exceeds limit of ${MAX_CLAIMS_PER_STORY}.`);
-    }
-
-    const storyClaimIds = new Set<string>();
-
-    for (let cIdx = 0; cIdx < coreClaims.length; cIdx++) {
-      const claim = coreClaims[cIdx];
-      if (!isPlainObject(claim)) {
-        errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] is not a plain object.`);
-        continue;
-      }
-
-      const claimId = typeof claim.claim_id === "string" ? claim.claim_id.trim() : `claim-${cIdx}`;
-      storyClaimIds.add(claimId);
-
-      const claimText = typeof claim.claim_text === "string" ? claim.claim_text.trim() : "";
-      if (!claimText) {
-        errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) missing claim_text.`);
-      }
-
-      if (PROBABILITY_CLAIM_REGEX.test(claimText)) {
-        errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) contains forbidden numerical probability claim: "${claimText}".`);
-      }
-
-      const epistemicLabel = claim.epistemic_label as EpistemicLabel;
-      if (epistemicLabel !== "OBSERVED" && epistemicLabel !== "SUPPORTED" && epistemicLabel !== "INFERRED" && epistemicLabel !== "SPECULATIVE") {
-        errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) invalid epistemic_label "${String(claim.epistemic_label)}".`);
-      }
-
-      const claimEvIds = Array.isArray(claim.evidence_ids) ? claim.evidence_ids : [];
-      for (const evId of claimEvIds) {
-        if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-          errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) references unsupported evidence_id "${String(evId)}".`);
-        }
-        if (indexes.validLeadIds.has(evId as string)) {
-          errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) invalidly references research lead "${String(evId)}" in evidence_ids.`);
+    // Epistemic label rules:
+    if (epistemicLabel === "OBSERVED") {
+      for (const evId of storyEvIds) {
+        if (indexes.validLeadIds.has(evId) || indexes.validPriorClaimIds.has(evId)) {
+          errors.push(`major_stories[${sIdx}] OBSERVED story cannot be based on research lead or prior claim "${evId}".`);
         }
       }
-
-      const priorClaimIds = Array.isArray(claim.prior_claim_ids) ? claim.prior_claim_ids : [];
-      for (const pcId of priorClaimIds) {
-        if (typeof pcId !== "string" || !indexes.validPriorClaimIds.has(pcId)) {
-          errors.push(`major_stories[${sIdx}].core_claims[${cIdx}] (${claimId}) references unsupported prior_claim_id "${String(pcId)}".`);
-        }
-      }
-
-      // Epistemic separation rules:
-      if (epistemicLabel === "OBSERVED") {
-        if (claimEvIds.length === 0) {
-          errors.push(`OBSERVED claim (${claimId}) must cite at least one current observed evidence_id.`);
-        }
-        if (priorClaimIds.length > 0) {
-          errors.push(`OBSERVED claim (${claimId}) cannot cite prior_claim_ids; prior state is historical analytical state.`);
-        }
-      }
-    }
-
-    const causalLinks = Array.isArray(story.causal_links) ? story.causal_links : [];
-    if (causalLinks.length > MAX_CAUSAL_LINKS_PER_STORY) {
-      errors.push(`major_stories[${sIdx}] (${storyId}) causal_links count (${causalLinks.length}) exceeds limit of ${MAX_CAUSAL_LINKS_PER_STORY}.`);
-    }
-
-    for (let lIdx = 0; lIdx < causalLinks.length; lIdx++) {
-      const link = causalLinks[lIdx];
-      if (!isPlainObject(link)) {
-        errors.push(`major_stories[${sIdx}].causal_links[${lIdx}] is not a plain object.`);
-        continue;
-      }
-      const causeId = typeof link.cause_claim_id === "string" ? link.cause_claim_id : "";
-      const effectId = typeof link.effect_claim_id === "string" ? link.effect_claim_id : "";
-
-      if (!causeId || (!storyClaimIds.has(causeId) && !outputClaimIds.has(causeId))) {
-        errors.push(`major_stories[${sIdx}].causal_links[${lIdx}] references unknown cause_claim_id "${causeId}".`);
-      }
-      if (!effectId || (!storyClaimIds.has(effectId) && !outputClaimIds.has(effectId))) {
-        errors.push(`major_stories[${sIdx}].causal_links[${lIdx}] references unknown effect_claim_id "${effectId}".`);
-      }
-
-      const linkEvIds = Array.isArray(link.evidence_ids) ? link.evidence_ids : [];
-      for (const evId of linkEvIds) {
-        if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-          errors.push(`major_stories[${sIdx}].causal_links[${lIdx}] references unsupported evidence_id "${String(evId)}".`);
-        }
+    } else if (epistemicLabel === "SUPPORTED") {
+      if (storyEvIds.length < 2) {
+        errors.push(`major_stories[${sIdx}] SUPPORTED story requires at least two supporting evidence references.`);
       }
     }
   }
 
-  // Check 3: Investigations & Chart Task Specificity
+  // 4. Dedicated TradingView Chart Queue Validation
+  if (!isPlainObject(brainOutput.chart_investigation_queue)) {
+    errors.push("chart_investigation_queue is missing or not a plain object.");
+  } else {
+    const queue = brainOutput.chart_investigation_queue as Record<string, unknown>;
+    const core = Array.isArray(queue.core) ? queue.core : [];
+    const optional = Array.isArray(queue.optional) ? queue.optional : [];
+
+    if (core.length > EXACT_CORE_CHARTS) {
+      errors.push(`chart_investigation_queue.core count (${core.length}) exceeds limit of ${EXACT_CORE_CHARTS}.`);
+    }
+    if (optional.length > MAX_OPTIONAL_CHARTS) {
+      errors.push(`chart_investigation_queue.optional count (${optional.length}) exceeds limit of ${MAX_OPTIONAL_CHARTS}.`);
+    }
+
+    const allCharts = [...core, ...optional];
+    for (let cIdx = 0; cIdx < allCharts.length; cIdx++) {
+      const task = allCharts[cIdx];
+      if (!isPlainObject(task)) {
+        errors.push(`chart_investigation_queue task[${cIdx}] is not a plain object.`);
+        continue;
+      }
+
+      const ticker = typeof task.ticker_or_instrument === "string" ? task.ticker_or_instrument.trim() : "";
+      const question = typeof task.exact_question === "string" ? task.exact_question.trim() : "";
+      const confirmCond = typeof task.confirmation_condition === "string" ? task.confirmation_condition.trim() : "";
+      const contradictCond = typeof task.contradiction_condition === "string" ? task.contradiction_condition.trim() : "";
+
+      if (!ticker || VAGUE_PLACEHOLDER_REGEX.test(ticker)) {
+        errors.push(`chart task[${cIdx}] missing or vague ticker_or_instrument: "${ticker}".`);
+      }
+      if (!question || GENERIC_CHART_TASK_REGEX.test(question) || VAGUE_PLACEHOLDER_REGEX.test(question)) {
+        errors.push(`chart task[${cIdx}] contains generic or vague exact_question: "${question}".`);
+      }
+      if (!confirmCond || !contradictCond) {
+        errors.push(`chart task[${cIdx}] missing confirmation_condition or contradiction_condition.`);
+      }
+    }
+  }
+
+  // 5. Market Verdict Lenses Validation
+  if (!isPlainObject(brainOutput.market_verdict)) {
+    errors.push("market_verdict is missing or not a plain object.");
+  } else {
+    const mv = brainOutput.market_verdict as Record<string, unknown>;
+    const lenses = isPlainObject(mv.lenses) ? (mv.lenses as Record<string, Record<string, unknown>>) : {};
+
+    for (const lensName of REQUIRED_VERDICT_LENSES) {
+      const lens = lenses[lensName];
+      if (!lens || !isPlainObject(lens)) {
+        errors.push(`market_verdict missing required lens "${lensName}".`);
+        continue;
+      }
+
+      if (!indexes.priceDataAvailable && lens.observed_reaction !== null) {
+        errors.push(`market_verdict lens "${lensName}" must have null observed_reaction when price evidence is absent.`);
+      }
+    }
+
+    if (typeof mv.cross_asset_readthrough !== "string" || !(mv.cross_asset_readthrough as string).trim()) {
+      errors.push("market_verdict missing required cross_asset_readthrough.");
+    }
+  }
+
+  // 6. Priority Investigations Validation
   for (let iIdx = 0; iIdx < investigations.length; iIdx++) {
     const inv = investigations[iIdx];
     if (!isPlainObject(inv)) {
@@ -397,60 +506,26 @@ export function validateResearchBrainOutput(
       continue;
     }
 
-    const invTitle = typeof inv.title === "string" ? inv.title.trim() : "";
     const invId = typeof inv.investigation_id === "string" ? inv.investigation_id.trim() : `inv-${iIdx}`;
 
-    if (!invTitle) {
-      errors.push(`investigations[${iIdx}] missing required title.`);
+    const question = typeof inv.question === "string" ? inv.question.trim() : "";
+    const whyItMatters = typeof inv.why_it_matters === "string" ? inv.why_it_matters.trim() : "";
+    const currentExplanation = typeof inv.current_explanation === "string" ? inv.current_explanation.trim() : "";
+    const researchNext = typeof inv.research_next === "string" ? inv.research_next.trim() : "";
+
+    if (!question || !whyItMatters || !currentExplanation || !researchNext) {
+      errors.push(`investigations[${iIdx}] (${invId}) missing required question, why_it_matters, current_explanation, or research_next.`);
     }
 
-    const invEvIds = Array.isArray(inv.evidence_ids) ? inv.evidence_ids : [];
-    for (const evId of invEvIds) {
+    const obsEv = Array.isArray(inv.observed_evidence) ? inv.observed_evidence : [];
+    for (const evId of obsEv) {
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-        errors.push(`investigations[${iIdx}] (${invId}) references unsupported evidence_id "${String(evId)}".`);
-      }
-    }
-
-    const leadsRef = Array.isArray(inv.leads_referenced) ? inv.leads_referenced : [];
-    for (const lId of leadsRef) {
-      if (typeof lId !== "string" || !indexes.validLeadIds.has(lId)) {
-        errors.push(`investigations[${iIdx}] (${invId}) references unsupported lead_id "${String(lId)}".`);
-      }
-    }
-
-    const chartTasks = Array.isArray(inv.chart_tasks) ? inv.chart_tasks : [];
-    if (chartTasks.length > MAX_CHART_TASKS_PER_INVESTIGATION) {
-      errors.push(`investigations[${iIdx}] (${invId}) chart_tasks count (${chartTasks.length}) exceeds limit of ${MAX_CHART_TASKS_PER_INVESTIGATION}.`);
-    }
-
-    for (let ctIdx = 0; ctIdx < chartTasks.length; ctIdx++) {
-      const ct = chartTasks[ctIdx];
-      if (!isPlainObject(ct)) {
-        errors.push(`investigations[${iIdx}].chart_tasks[${ctIdx}] is not a plain object.`);
-        continue;
-      }
-
-      const symbol = typeof ct.symbol_or_instrument === "string" ? ct.symbol_or_instrument.trim() : "";
-      const timeframe = typeof ct.timeframe === "string" ? ct.timeframe.trim() : "";
-      const metric = typeof ct.metric_or_relationship === "string" ? ct.metric_or_relationship.trim() : "";
-      const hypothesis = typeof ct.hypothesis_to_test === "string" ? ct.hypothesis_to_test.trim() : "";
-
-      if (!symbol || VAGUE_PLACEHOLDER_REGEX.test(symbol)) {
-        errors.push(`investigations[${iIdx}] chart_task[${ctIdx}] has vague or missing symbol_or_instrument: "${symbol}".`);
-      }
-      if (!timeframe || VAGUE_PLACEHOLDER_REGEX.test(timeframe)) {
-        errors.push(`investigations[${iIdx}] chart_task[${ctIdx}] has vague or missing timeframe: "${timeframe}".`);
-      }
-      if (!metric || VAGUE_PLACEHOLDER_REGEX.test(metric)) {
-        errors.push(`investigations[${iIdx}] chart_task[${ctIdx}] has vague or missing metric_or_relationship: "${metric}".`);
-      }
-      if (!hypothesis || VAGUE_PLACEHOLDER_REGEX.test(hypothesis)) {
-        errors.push(`investigations[${iIdx}] chart_task[${ctIdx}] has vague or missing hypothesis_to_test: "${hypothesis}".`);
+        errors.push(`investigations[${iIdx}] (${invId}) references unsupported observed_evidence ID "${String(evId)}".`);
       }
     }
   }
 
-  // Check 4: Stock Radar Linkage
+  // 7. Stock Radar Semantics Validation
   for (let rIdx = 0; rIdx < stockRadar.length; rIdx++) {
     const item = stockRadar[rIdx];
     if (!isPlainObject(item)) {
@@ -459,92 +534,34 @@ export function validateResearchBrainOutput(
     }
 
     const symbol = typeof item.symbol === "string" ? item.symbol.trim() : "";
-    const company = typeof item.company_or_asset === "string" ? item.company_or_asset.trim() : "";
+    const company = typeof item.company_name === "string" ? item.company_name.trim() : "";
+    const linkedId = typeof item.linked_main_thread_or_story_id === "string" ? item.linked_main_thread_or_story_id.trim() : "";
+    const linkageType = item.linkage_type;
 
     if (!symbol || !company) {
-      errors.push(`stock_radar[${rIdx}] missing symbol or company_or_asset.`);
+      errors.push(`stock_radar[${rIdx}] missing symbol or company_name.`);
     }
 
-    const itemEvIds = Array.isArray(item.evidence_ids) ? item.evidence_ids : [];
-    const itemClaimIds = Array.isArray(item.supporting_claim_ids) ? item.supporting_claim_ids : [];
-
-    if (itemEvIds.length === 0 && itemClaimIds.length === 0) {
-      errors.push(`stock_radar[${rIdx}] (${symbol}) must link to at least one supporting_claim_id or evidence_id.`);
+    if (linkageType !== "LINKED_MAIN_THREAD" && linkageType !== "LINKED_MAJOR_STORY") {
+      errors.push(`stock_radar[${rIdx}] (${symbol}) invalid linkage_type "${String(linkageType)}".`);
+    } else if (linkageType === "LINKED_MAJOR_STORY" && !validStoryIds.has(linkedId)) {
+      errors.push(`stock_radar[${rIdx}] (${symbol}) linked_main_thread_or_story_id "${linkedId}" does not exist in major_stories.`);
     }
 
-    for (const evId of itemEvIds) {
+    // Check forbidden automatic trading fields
+    if ("position_size" in item || "entry_price" in item || "target_price" in item) {
+      errors.push(`stock_radar[${rIdx}] (${symbol}) contains forbidden automatic trade execution fields.`);
+    }
+
+    const radarEvRefs = Array.isArray(item.evidence_references) ? item.evidence_references : [];
+    for (const evId of radarEvRefs) {
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-        errors.push(`stock_radar[${rIdx}] (${symbol}) references unsupported evidence_id "${String(evId)}".`);
-      }
-    }
-
-    for (const cId of itemClaimIds) {
-      if (typeof cId !== "string" || !outputClaimIds.has(cId)) {
-        errors.push(`stock_radar[${rIdx}] (${symbol}) references unknown supporting_claim_id "${String(cId)}".`);
+        errors.push(`stock_radar[${rIdx}] (${symbol}) references unsupported evidence_reference ID "${String(evId)}".`);
       }
     }
   }
 
-  // Check 5: Developing Themes Validation
-  for (let tIdx = 0; tIdx < developingThemes.length; tIdx++) {
-    const theme = developingThemes[tIdx];
-    if (!isPlainObject(theme)) {
-      errors.push(`developing_themes[${tIdx}] is not a plain object.`);
-      continue;
-    }
-    const themeEvIds = Array.isArray(theme.supporting_evidence_ids) ? theme.supporting_evidence_ids : [];
-    for (const evId of themeEvIds) {
-      if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-        errors.push(`developing_themes[${tIdx}] references unsupported supporting_evidence_id "${String(evId)}".`);
-      }
-    }
-  }
-
-  // Check 6: Creator Theme Expansions Validation
-  for (let eIdx = 0; eIdx < creatorThemeExpansions.length; eIdx++) {
-    const exp = creatorThemeExpansions[eIdx];
-    if (!isPlainObject(exp)) {
-      errors.push(`creator_theme_expansions[${eIdx}] is not a plain object.`);
-      continue;
-    }
-    const claimsRef = Array.isArray(exp.creator_claims_referenced) ? exp.creator_claims_referenced : [];
-    for (const claimId of claimsRef) {
-      if (typeof claimId !== "string" || !indexes.validCreatorClaimIds.has(claimId)) {
-        errors.push(`creator_theme_expansions[${eIdx}] references unsupported creator_claim_id "${String(claimId)}".`);
-      }
-    }
-  }
-
-  // Check 7: Contradiction Preservation
-  for (let cIdx = 0; cIdx < contradictions.length; cIdx++) {
-    const contradiction = contradictions[cIdx];
-    if (!isPlainObject(contradiction)) {
-      errors.push(`contradictions_detected[${cIdx}] is not a plain object.`);
-      continue;
-    }
-    const confEvIds = Array.isArray(contradiction.conflicting_evidence_ids) ? contradiction.conflicting_evidence_ids : [];
-    for (const evId of confEvIds) {
-      if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-        errors.push(`contradictions_detected[${cIdx}] references unsupported conflicting_evidence_id "${String(evId)}".`);
-      }
-    }
-  }
-
-  // Verify that all input packet conflict groups are preserved / exposed
-  if (indexes.validConflictGroupIds.size > 0) {
-    const exposedConflictGroups = new Set(
-      contradictions
-        .map((c) => (isPlainObject(c) && typeof c.conflict_group_id === "string" ? c.conflict_group_id : ""))
-        .filter(Boolean),
-    );
-    for (const packetConflictGroup of indexes.validConflictGroupIds) {
-      if (!exposedConflictGroups.has(packetConflictGroup)) {
-        errors.push(`Input packet conflict group "${packetConflictGroup}" was not preserved in contradictions_detected.`);
-      }
-    }
-  }
-
-  // Check 8: Thesis Ledger V2 Lineage and Versioning
+  // 8. Thesis Ledger V2 Evolution Semantics Validation
   if (!isPlainObject(brainOutput.thesis_ledger)) {
     errors.push("thesis_ledger is missing or not a plain object.");
   } else {
@@ -554,7 +571,13 @@ export function validateResearchBrainOutput(
     }
 
     const entries = Array.isArray(ledger.entries) ? ledger.entries : [];
-    const ledgerThesisIds = new Set<string>();
+    const entryMap = new Map<string, Record<string, unknown>>();
+
+    for (const e of entries) {
+      if (isPlainObject(e) && typeof e.thesis_id === "string") {
+        entryMap.set(e.thesis_id, e);
+      }
+    }
 
     for (let eIdx = 0; eIdx < entries.length; eIdx++) {
       const entry = entries[eIdx];
@@ -568,63 +591,63 @@ export function validateResearchBrainOutput(
         errors.push(`thesis_ledger.entries[${eIdx}] missing required thesis_id.`);
         continue;
       }
-      ledgerThesisIds.add(thesisId);
 
-      const title = typeof entry.title === "string" ? entry.title.trim() : "";
-      const statement = typeof entry.statement === "string" ? entry.statement.trim() : "";
-
-      if (!title || !statement) {
-        errors.push(`thesis_ledger.entries[${eIdx}] (${thesisId}) missing title or statement.`);
+      const rootThesisId = typeof entry.root_thesis_id === "string" ? entry.root_thesis_id.trim() : "";
+      if (!rootThesisId) {
+        errors.push(`thesis_ledger entry (${thesisId}) missing required root_thesis_id.`);
       }
 
-      if (PROBABILITY_CLAIM_REGEX.test(title) || PROBABILITY_CLAIM_REGEX.test(statement)) {
-        errors.push(`thesis_ledger.entries[${eIdx}] (${thesisId}) contains explicit numerical probability claim.`);
-      }
+      const parentId = typeof entry.parent_thesis_id === "string" && entry.parent_thesis_id.trim() ? entry.parent_thesis_id.trim() : null;
+      const successorId = typeof entry.successor_thesis_id === "string" && entry.successor_thesis_id.trim() ? entry.successor_thesis_id.trim() : null;
 
-      const lineage = Array.isArray(entry.lineage) ? entry.lineage : [];
-
-      // Lineage check 1: Self-reference
-      if (lineage.includes(thesisId)) {
-        errors.push(`thesis_ledger entry (${thesisId}) contains self-reference in lineage.`);
-      }
-
-      // Lineage check 2: Cycle detection
-      const visited = new Set<string>([thesisId]);
-      for (const lin of lineage) {
-        if (typeof lin === "string" && visited.has(lin)) {
-          errors.push(`thesis_ledger entry (${thesisId}) contains cycle in lineage involving "${lin}".`);
+      // Reconciled EVOLVED semantics checks:
+      if (entry.state === "evolved") {
+        if (!successorId) {
+          errors.push(`thesis_ledger evolved entry (${thesisId}) must specify successor_thesis_id.`);
+        } else {
+          if (successorId === thesisId) {
+            errors.push(`thesis_ledger evolved entry (${thesisId}) successor_thesis_id cannot be itself; evolved thesis requires a NEW successor thesis ID.`);
+          }
+          const successorEntry = entryMap.get(successorId);
+          if (successorEntry) {
+            if (successorEntry.parent_thesis_id !== thesisId) {
+              errors.push(`thesis_ledger evolved successor (${successorId}) parent_thesis_id must point back to predecessor (${thesisId}).`);
+            }
+            if (successorEntry.root_thesis_id !== rootThesisId) {
+              errors.push(`thesis_ledger evolved successor (${successorId}) root_thesis_id must match predecessor root_thesis_id (${rootThesisId}).`);
+            }
+            const predecessorVer = typeof entry.version === "number" ? entry.version : 1;
+            const successorVer = typeof successorEntry.version === "number" ? successorEntry.version : 1;
+            if (successorVer <= predecessorVer) {
+              errors.push(`thesis_ledger evolved successor (${successorId}) version (${successorVer}) must be > predecessor version (${predecessorVer}).`);
+            }
+          }
         }
       }
 
-      // Versioning and Evolved state check
-      const version = typeof entry.version === "number" ? entry.version : 0;
-      if (version < 1) {
-        errors.push(`thesis_ledger entry (${thesisId}) version must be >= 1.`);
+      if (parentId === thesisId) {
+        errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id cannot be itself.`);
       }
 
-      const priorInfo = indexes.priorThesisMap.get(thesisId);
-      if (priorInfo) {
-        if (entry.state === "evolved" && version <= priorInfo.version) {
-          errors.push(`thesis_ledger entry (${thesisId}) evolved state requires version (${version}) > prior version (${priorInfo.version}).`);
-        }
-      } else if (entry.state === "evolved") {
-        if (lineage.length === 0) {
-          errors.push(`thesis_ledger evolved entry (${thesisId}) must reference parent thesis in lineage.`);
+      const evRefs = Array.isArray(entry.current_evidence_refs) ? entry.current_evidence_refs : [];
+      for (const evId of evRefs) {
+        if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
+          errors.push(`thesis_ledger entry (${thesisId}) references unsupported current_evidence_ref "${String(evId)}".`);
         }
       }
+    }
+  }
 
-      const supClaimIds = Array.isArray(entry.supporting_claim_ids) ? entry.supporting_claim_ids : [];
-      for (const cId of supClaimIds) {
-        if (typeof cId !== "string" || !outputClaimIds.has(cId)) {
-          errors.push(`thesis_ledger entry (${thesisId}) references unknown supporting_claim_id "${String(cId)}".`);
-        }
-      }
-
-      const countClaimIds = Array.isArray(entry.counter_claim_ids) ? entry.counter_claim_ids : [];
-      for (const cId of countClaimIds) {
-        if (typeof cId !== "string" || !outputClaimIds.has(cId)) {
-          errors.push(`thesis_ledger entry (${thesisId}) references unknown counter_claim_id "${String(cId)}".`);
-        }
+  // 9. Contradictions Preservation Check
+  if (indexes.validConflictGroupIds.size > 0) {
+    const exposedConflictGroups = new Set(
+      contradictions
+        .map((c) => (isPlainObject(c) && typeof c.conflict_group_id === "string" ? c.conflict_group_id : ""))
+        .filter(Boolean),
+    );
+    for (const packetConflictGroup of indexes.validConflictGroupIds) {
+      if (!exposedConflictGroups.has(packetConflictGroup)) {
+        errors.push(`Input packet conflict group "${packetConflictGroup}" was not preserved in contradictions_detected.`);
       }
     }
   }

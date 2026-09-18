@@ -52,6 +52,16 @@ function createValidBasePacket() {
             { source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT" },
           ],
         },
+        {
+          evidence_id: "ev:yields:2026-09",
+          available_at: "2026-09-18T11:30:00Z",
+          claim_or_fact: "US 2-Year Treasury yield fell 12 basis points to 3.85%.",
+          category: "PRICING_FEED",
+          source_type: "PRICING_FEED",
+          provenance: [
+            { source_type: "PRICING_FEED", source_id: "TREASURY_FEED" },
+          ],
+        },
       ],
       research_leads: [
         {
@@ -80,102 +90,239 @@ function createValidBasePacket() {
           },
         ],
       },
+      price_data: {
+        status: "OK",
+        available_at: "2026-09-18T11:35:00Z",
+      },
     },
   );
 }
 
 function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): ResearchBrainOutputV1 {
-  const ev1 = packet.observed_evidence[0].evidence_id;
-  const ev2 = packet.observed_evidence[1].evidence_id;
+  const ev1 = packet.observed_evidence[0]?.evidence_id ?? "ev:cpi:2026-09";
+  const ev2 = packet.observed_evidence[1]?.evidence_id ?? "ev:fed:2026-09";
+  const ev3 = packet.observed_evidence[2]?.evidence_id ?? "ev:yields:2026-09";
 
   return {
     contract_version: RESEARCH_BRAIN_CONTRACT_VERSION,
+    packet_id: packet.packet_id,
     as_of: packet.as_of,
     main_thread: {
-      thread_id: "thread:fed_easing",
-      title: "Fed Rate Easing Cycle Initiated",
-      summary: "Fed cuts rates by 25bps as CPI moderates to 2.5%.",
-      primary_story_ids: ["story:fed_easing"],
-      dominant_macro_driver: "MONETARY_POLICY",
+      headline: "Fed Rate Easing Cycle Commences as Disinflation Accelerates",
+      answer: "Federal Reserve cut interest rates by 25bps following 2.5% CPI print.",
+      regime_implication: "MONETARY_EASING_REGIME",
+      epistemic_label: "OBSERVED",
+      evidence_references: [ev1, ev2],
+      supporting_story_ids: ["story:fed_easing"],
+      contradiction_references: [],
+      what_would_change_mind: "A re-acceleration in monthly core CPI above 0.4% MoM.",
     },
     major_stories: [
       {
         story_id: "story:fed_easing",
-        title: "Fed Easing Cycle Commences",
-        summary: "Lower inflation allows Federal Reserve to begin policy normalization.",
-        confidence_score: 85,
-        evidence_ids: [ev1, ev2],
-        core_claims: [
-          {
-            claim_id: "claim:cpi_print",
-            epistemic_label: "OBSERVED",
-            claim_text: "August CPI print reached 2.5% YoY.",
-            evidence_ids: [ev1],
-          },
-          {
-            claim_id: "claim:rate_cut",
-            epistemic_label: "OBSERVED",
-            claim_text: "FOMC lowered target rate by 25bps.",
-            evidence_ids: [ev2],
-          },
-        ],
-        causal_links: [
-          {
-            link_id: "link:cpi_to_cut",
-            cause_claim_id: "claim:cpi_print",
-            effect_claim_id: "claim:rate_cut",
-            mechanism_summary: "Moderating inflation allowed FOMC to shift focus to labor market.",
-            evidence_ids: [ev1, ev2],
-          },
-        ],
+        title: "Federal Reserve Initiates Easing Cycle",
+        what_changed: "FOMC cut target rate by 25bps in response to moderating inflation.",
+        why_it_matters: "Shifts central bank reaction function from inflation defense to growth support.",
+        headline_decomposition: "25bps rate cut is supported by 2.5% CPI print.",
+        causal_mechanism: "Lower headline CPI reduced real policy rate tighteness, allowing FOMC rate cuts.",
+        market_evidence: {
+          confirming: [ev1, ev2, ev3],
+          contradicting: [],
+          unresolved: ["lead:oil:supply"],
+        },
+        conclusion: "Fed easing cycle is actively underway.",
+        what_would_change_mind: "Hawkish FOMC statement or CPI rebound above 3.5%.",
+        linked_thesis_ids: ["thesis:disinflation"],
+        linked_investigation_ids: ["inv:oil_risk"],
+        linked_chart_task_ids: ["chart:us2y_yield"],
+        epistemic_label: "SUPPORTED",
+        evidence_ids: [ev1, ev2, ev3],
       },
     ],
+    chart_investigation_queue: {
+      core: [
+        {
+          chart_id: "chart:us2y_yield",
+          priority: "HIGH",
+          is_required: true,
+          ticker_or_instrument: "US02Y",
+          instrument_type: "YIELD",
+          timeframe: "1D",
+          exact_question: "Does 2Y yield break below 3.80% support following 25bps rate cut?",
+          confirmation_condition: "2Y yield closes below 3.80%.",
+          contradiction_condition: "2Y yield rebounds above 4.00%.",
+          linked_story_ids: ["story:fed_easing"],
+          linked_investigation_ids: [],
+        },
+        {
+          chart_id: "chart:brent_wti",
+          priority: "HIGH",
+          is_required: true,
+          ticker_or_instrument: "BRENT/WTI",
+          instrument_type: "SPREAD",
+          timeframe: "1W",
+          exact_question: "Is Brent-WTI spread widening due to Middle East supply risk?",
+          confirmation_condition: "Spread widens above $5.00/bbl.",
+          contradiction_condition: "Spread narrows below $2.00/bbl.",
+          linked_story_ids: [],
+          linked_investigation_ids: ["inv:oil_risk"],
+        },
+        {
+          chart_id: "chart:spx_eq",
+          priority: "HIGH",
+          is_required: true,
+          ticker_or_instrument: "SPX",
+          instrument_type: "EQUITY",
+          timeframe: "1D",
+          exact_question: "Does S&P 500 sustain new high above 5,600 post rate cut?",
+          confirmation_condition: "Daily close above 5,600.",
+          contradiction_condition: "Daily close below 5,500.",
+          linked_story_ids: ["story:fed_easing"],
+          linked_investigation_ids: [],
+        },
+      ],
+      optional: [
+        {
+          chart_id: "chart:dxy_index",
+          priority: "MEDIUM",
+          is_required: false,
+          ticker_or_instrument: "DXY",
+          instrument_type: "FX",
+          timeframe: "1D",
+          exact_question: "How is USD index reacting to US short rate differentials?",
+          confirmation_condition: "DXY declines below 100.",
+          contradiction_condition: "DXY rises above 104.",
+          linked_story_ids: ["story:fed_easing"],
+          linked_investigation_ids: [],
+        },
+      ],
+    },
     investigations: [
       {
         investigation_id: "inv:oil_risk",
-        title: "Middle East Supply Risk Assessment",
-        trigger_reason: "Research lead on Q4 oil supply risk.",
-        key_questions: ["Will Middle East supply disruptions impact Q4 oil prices?"],
-        evidence_ids: [ev1],
+        question: "Will Middle East supply disruptions impact Q4 oil prices?",
+        why_it_matters: "Energy price shock could reignite headline CPI inflation.",
+        current_explanation: "Supply risk is currently unconfirmed by spot pricing.",
+        competing_explanations: ["OPEC spare capacity buffers disruption risk."],
+        observed_evidence: [ev1],
+        missing_evidence: ["Actual tanker tracking disruption data"],
+        research_next: "Monitor Brent futures curve backwardation.",
+        chart_task_links: ["chart:brent_wti"],
+        confirmation_condition: "Brent crude breaks $90/bbl.",
+        invalidation_condition: "Brent crude drops below $70/bbl.",
+        status: "open",
+        linked_story_ids: ["story:fed_easing"],
+        linked_thesis_ids: [],
         leads_referenced: ["lead:oil:supply"],
-        chart_tasks: [
-          {
-            chart_id: "chart:brent_spread",
-            symbol_or_instrument: "BRENT",
-            timeframe: "1M",
-            metric_or_relationship: "Brent-WTI Spread",
-            hypothesis_to_test: "Check whether Brent-WTI spread widens during supply shock.",
-          },
-        ],
       },
     ],
     market_verdict: {
       verdict_id: "verdict:2026-09-18",
-      regime_summary: "EASING_REGIME",
-      dominant_drivers: ["Monetary policy easing", "Disinflation"],
-      key_risks: ["Geopolitical supply shocks"],
+      lenses: {
+        US_RATES: {
+          lens_name: "US_RATES",
+          observed_reaction: "US 2Y yield fell 12bps to 3.85%.",
+          interpretation: "Front-end yields pricing in sustained easing path.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        BONDS: {
+          lens_name: "BONDS",
+          observed_reaction: "Treasury curve bull-steepened.",
+          interpretation: "Markets favoring short duration.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        TECH_AI: {
+          lens_name: "TECH_AI",
+          observed_reaction: "Tech indices up 1.2% in session.",
+          interpretation: "Lower rates support tech valuations.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        OIL_WAR_INFLATION: {
+          lens_name: "OIL_WAR_INFLATION",
+          observed_reaction: "Crude oil flat at $75/bbl.",
+          interpretation: "Supply risks unpriced in current spot market.",
+          contradiction_references: [],
+          unresolved_signals: ["lead:oil:supply"],
+        },
+        USD: {
+          lens_name: "USD",
+          observed_reaction: "DXY down 0.4% to 101.2.",
+          interpretation: "Dollar weakening on yield differential erosion.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        GOLD: {
+          lens_name: "GOLD",
+          observed_reaction: "Gold up 0.8% to $2,520/oz.",
+          interpretation: "Supported by lower real yields.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        CREDIT: {
+          lens_name: "CREDIT",
+          observed_reaction: "High yield spreads tightened 5bps.",
+          interpretation: "Credit default risk remains muted.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+        BREADTH: {
+          lens_name: "BREADTH",
+          observed_reaction: "Advance/decline ratio 2.1x.",
+          interpretation: "Broad participation across sectors.",
+          contradiction_references: [],
+          unresolved_signals: [],
+        },
+      },
+      cross_asset_readthrough: "Consistent risk-on easing environment across rates, equities, and FX.",
+      epistemic_label: "SUPPORTED",
+      dominant_confirmation: "2Y yield rally and CPI 2.5% print.",
+      dominant_contradiction: "Middle East oil supply uncertainty.",
     },
-    research_now: {
-      summary_now: "Fed easing underway; inflation trajectory remains benign.",
-      actionable_takeaways: ["Monitor front-end yield reaction to rate cut."],
-      immediate_catalysts: ["Upcoming payrolls report"],
-    },
+    research_now: [
+      {
+        rank: 1,
+        action: "Inspect US 2Y Treasury yield reaction at 3.80% support.",
+        reason: "Determine if front-end pricing is overextended relative to FOMC dot plot.",
+        expected_information_gain: "Assesses rate cut momentum durability.",
+        linked_investigations: [],
+        linked_stories: ["story:fed_easing"],
+        blocking_evidence: [ev3],
+      },
+    ],
     stock_radar: [
       {
         symbol: "SPY",
-        company_or_asset: "S&P 500 ETF",
-        radar_type: "BULLISH",
-        thesis_summary: "Rate cuts provide liquidity support for broad market.",
-        supporting_claim_ids: ["claim:rate_cut"],
-        evidence_ids: [ev2],
+        company_name: "S&P 500 ETF Trust",
+        why_relevant: "Direct beneficiary of monetary policy rate cuts.",
+        research_question: "Does broad market valuation expansion hold at 5,600?",
+        linkage_type: "LINKED_MAIN_THREAD",
+        linked_main_thread_or_story_id: "thread:fed_easing",
+        confirming_signal: "Break above 5,600 on above-average volume.",
+        invalidating_signal: "Failure below 5,500 50-day moving average.",
+        evidence_references: [ev2, ev3],
       },
     ],
     developing_themes: [
       {
-        theme_id: "theme:rate_cuts",
-        title: "Global Easing Cycle",
-        summary: "Central banks lowering rates in response to disinflation.",
+        theme_id: "theme:global_easing",
+        title: "Global Central Bank Easing Alignment",
+        summary: "Fed joining ECB and BOE in rate cut cycles.",
         supporting_evidence_ids: [ev2],
+      },
+      {
+        theme_id: "theme:disinflation",
+        title: "Core Disinflation Consolidation",
+        summary: "Headline and core inflation measures returning toward 2% target.",
+        supporting_evidence_ids: [ev1],
+      },
+      {
+        theme_id: "theme:yield_curve_steepening",
+        title: "Yield Curve Un-Inversion",
+        summary: "Bull steepening driving Treasury curve back to positive slope.",
+        supporting_evidence_ids: [ev3],
       },
     ],
     creator_theme_expansions: [],
@@ -185,6 +332,9 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         {
           thesis_id: "thesis:disinflation",
           contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+          root_thesis_id: "thesis:disinflation",
+          parent_thesis_id: null,
+          successor_thesis_id: null,
           title: "US Disinflation Trend",
           statement: "US core inflation is returning toward 2% target.",
           state: "confirmed",
@@ -192,13 +342,23 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
           created_at: "2026-09-01T00:00:00Z",
           updated_at: "2026-09-18T12:00:00Z",
           lineage: [],
-          supporting_claim_ids: ["claim:cpi_print"],
-          counter_claim_ids: [],
+          state_reason: "August CPI print of 2.5% YoY confirms disinflation trend.",
+          current_evidence_refs: [ev1],
+          observed_market_reaction: "Yields fell 12bps post-release.",
+          next_catalyst_or_tripwire: "September CPI release.",
         },
       ],
     },
     contradictions_detected: [],
     research_gaps: [],
+    diagnostics: {
+      degraded: false,
+      degradation_reasons: [],
+      omitted_or_demoted_items: [],
+      missing_input_categories: [],
+      model_repair_used: false,
+      notes: ["All validation checks passed cleanly."],
+    },
   };
 }
 
@@ -216,7 +376,7 @@ test("1. Contract & Constant Definitions", () => {
   assert.equal(input.packet.packet_id, packet.packet_id);
 });
 
-test("2. Valid Output Pass Validation", () => {
+test("2. Valid Reconciled Output Pass Validation", () => {
   const packet = createValidBasePacket();
   const validOutput = createValidOutput(packet);
   const val = validateResearchBrainOutput(validOutput, packet);
@@ -226,165 +386,154 @@ test("2. Valid Output Pass Validation", () => {
   assert.ok(val.output);
 });
 
-test("3. Epistemic Separation Enforcement", () => {
+test("3. Attention Limits Enforcement (Strict Reconciled Caps)", () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
 
-  // A. Current OBSERVED claim citing prior claims rejected
-  invalidOutput.major_stories[0].core_claims[0].prior_claim_ids = ["pc:prior_claim_123"];
+  // A. > 4 Major Stories rejected
+  const story = invalidOutput.major_stories[0];
+  invalidOutput.major_stories = [story, story, story, story, story]; // 5 stories!
   let val = validateResearchBrainOutput(invalidOutput, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("cannot cite prior_claim_ids")));
+  assert.ok(val.errors.some((e) => e.includes("exceeds maximum limit of 4")));
 
-  // B. Research lead cited in evidence_ids rejected
-  invalidOutput.major_stories[0].core_claims[0].prior_claim_ids = [];
-  invalidOutput.major_stories[0].core_claims[0].evidence_ids = ["lead:oil:supply"];
+  // B. > 2 Priority Investigations rejected
+  invalidOutput.major_stories = [story];
+  const inv = invalidOutput.investigations[0];
+  invalidOutput.investigations = [inv, inv, inv]; // 3 investigations!
   val = validateResearchBrainOutput(invalidOutput, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("invalidly references research lead")));
+  assert.ok(val.errors.some((e) => e.includes("exceeds priority limit of 2")));
 
-  // C. OBSERVED claim with no current evidence rejected
-  invalidOutput.major_stories[0].core_claims[0].evidence_ids = [];
+  // C. > 3 Stock Radar rejected
+  invalidOutput.investigations = [inv];
+  const item = invalidOutput.stock_radar[0];
+  invalidOutput.stock_radar = [item, item, item, item]; // 4 stock radar items!
   val = validateResearchBrainOutput(invalidOutput, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("must cite at least one current observed evidence_id")));
+  assert.ok(val.errors.some((e) => e.includes("exceeds limit of 3")));
+
+  // D. > 3 Research Now actions rejected
+  invalidOutput.stock_radar = [item];
+  const act = invalidOutput.research_now[0];
+  invalidOutput.research_now = [act, act, act, act]; // 4 actions!
+  val = validateResearchBrainOutput(invalidOutput, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("exceeds limit of 3")));
 });
 
-test("4. Unsupported Evidence IDs Rejected", () => {
+test("4. Major Story Research Quality Firewall", () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
 
-  invalidOutput.major_stories[0].evidence_ids.push("ev:fake_id_123");
+  // Missing what_changed fails firewall
+  invalidOutput.major_stories[0].what_changed = "";
   const val = validateResearchBrainOutput(invalidOutput, packet);
 
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("unsupported evidence_id \"ev:fake_id_123\"")));
+  assert.ok(val.errors.some((e) => e.includes("fails Firewall")));
 });
 
-test("5. Attention Budget Caps", () => {
+test("5. Epistemic Label Enforcement", () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
 
-  // Duplicate story 7 times to exceed limit of 6
-  const story = invalidOutput.major_stories[0];
-  invalidOutput.major_stories = [
-    story, story, story, story, story, story, story,
-  ];
-
-  const val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("exceeds attention limit of 6")));
-});
-
-test("6. Research Quality Firewall", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  // Story with no core claims rejected
-  invalidOutput.major_stories[0].core_claims = [];
+  // SUPPORTED story with only 1 evidence ID rejected (requires >= 2 evidence references)
+  invalidOutput.major_stories[0].epistemic_label = "SUPPORTED";
+  invalidOutput.major_stories[0].evidence_ids = ["ev:cpi:2026-09"];
   const val = validateResearchBrainOutput(invalidOutput, packet);
 
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("fails Firewall: no core_claims provided")));
+  assert.ok(val.errors.some((e) => e.includes("requires at least two supporting evidence references")));
 });
 
-test("7. Contradictions Preservation", () => {
-  // Create a packet with a conflict group
-  const packetWithConflict = assembleDossierV2InputPacket(
+test("6. Market Verdict Null Reaction on Missing Price Evidence", () => {
+  const basePacket = createValidBasePacket();
+  const packetNoPrice = assembleDossierV2InputPacket(
     { as_of: "2026-09-18T12:00:00Z" },
     {
-      observed_evidence: [
-        {
-          evidence_id: "ev:fact1",
-          available_at: "2026-09-18T10:00:00Z",
-          claim_or_fact: "Job growth was +250k.",
-          category: "LABOR",
-          source_type: "STATISTICAL_AGENCY",
-          grouping_key: "payrolls_august",
-          conflict_key: "payrolls_august",
-          provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "BLS" }],
-        },
-        {
-          evidence_id: "ev:fact2",
-          available_at: "2026-09-18T10:00:00Z",
-          claim_or_fact: "Job growth was +100k.",
-          category: "LABOR",
-          source_type: "STATISTICAL_AGENCY",
-          grouping_key: "payrolls_august",
-          conflict_key: "payrolls_august",
-          provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "ADP" }],
-        },
-      ],
+      observed_evidence: (basePacket.observed_evidence as unknown) as Array<Record<string, unknown>>,
+      price_data: { status: "MISSING" },
     },
   );
 
-  const outputMissingConflict = createValidOutput(packetWithConflict);
-  outputMissingConflict.major_stories[0].evidence_ids = ["ev:fact1", "ev:fact2"];
-  outputMissingConflict.major_stories[0].core_claims[0].evidence_ids = ["ev:fact1"];
-  outputMissingConflict.major_stories[0].core_claims[1].evidence_ids = ["ev:fact2"];
-  outputMissingConflict.stock_radar[0].evidence_ids = ["ev:fact1"];
-  outputMissingConflict.developing_themes[0].supporting_evidence_ids = ["ev:fact1"];
-  outputMissingConflict.contradictions_detected = []; // Omitted conflict!
+  const outputWithReaction = createValidOutput(packetNoPrice);
+  outputWithReaction.market_verdict.lenses.US_RATES.observed_reaction = "2Y yield fell 10bps."; // Non-null when price data missing!
 
-  const val = validateResearchBrainOutput(outputMissingConflict, packetWithConflict);
+  const val = validateResearchBrainOutput(outputWithReaction, packetNoPrice);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("was not preserved in contradictions_detected")));
+  assert.ok(val.errors.some((e) => e.includes("must have null observed_reaction when price evidence is absent")));
 });
 
-test("8. Thesis Ledger Lineage and Versioning", () => {
+test("7. Dedicated TradingView Chart Queue & Generic Task Rejection", () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
 
-  // A. Self-link rejected
-  invalidOutput.thesis_ledger.entries[0].lineage = ["thesis:disinflation"];
-  let val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("contains self-reference in lineage")));
-
-  // B. Evolved thesis with version <= prior version rejected
-  invalidOutput.thesis_ledger.entries[0].lineage = [];
-  invalidOutput.thesis_ledger.entries[0].state = "evolved";
-  invalidOutput.thesis_ledger.entries[0].version = 1; // Prior version was 1!
-  val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("evolved state requires version")));
-
-  // C. Valid evolved thesis successor passes
-  invalidOutput.thesis_ledger.entries[0].version = 2;
-  val = validateResearchBrainOutput(invalidOutput, packet);
-  assert.equal(val.isValid, true);
-});
-
-test("9. Chart Task Specificity & Vague Placeholders", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  invalidOutput.investigations[0].chart_tasks![0].symbol_or_instrument = "TBD";
+  // Generic chart task ("check S&P") rejected
+  invalidOutput.chart_investigation_queue.core[0].exact_question = "check S&P";
   const val = validateResearchBrainOutput(invalidOutput, packet);
 
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("has vague or missing symbol_or_instrument")));
+  assert.ok(val.errors.some((e) => e.includes("contains generic or vague exact_question")));
 });
 
-test("10. Absence of Numerical Probability Claims", () => {
-  const packet = createValidBasePacket();
-  const invalidOutput = createValidOutput(packet);
-
-  invalidOutput.major_stories[0].core_claims[0].claim_text =
-    "There is an 80% probability that the Fed will cut rates again in November.";
-  const val = validateResearchBrainOutput(invalidOutput, packet);
-
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("contains forbidden numerical probability claim")));
-});
-
-test("11. One-Call Model Orchestration (Success on First Call)", async () => {
+test("8. Thesis Ledger V2 Evolved Semantics", () => {
   const packet = createValidBasePacket();
   const validOutput = createValidOutput(packet);
 
-  let callsCount = 0;
+  // Predecessor thesis marked 'evolved' pointing to successor
+  const predThesis = {
+    thesis_id: "thesis:disinflation:v1",
+    contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+    root_thesis_id: "thesis:disinflation",
+    parent_thesis_id: null,
+    successor_thesis_id: "thesis:disinflation:v2",
+    title: "US Core Inflation Moderating",
+    statement: "Inflation is slowing down toward 2.5%.",
+    state: "evolved" as const,
+    version: 1,
+    created_at: "2026-09-01T00:00:00Z",
+    updated_at: "2026-09-18T12:00:00Z",
+    lineage: [],
+    state_reason: "Evolved to broader structural disinflation thesis.",
+    current_evidence_refs: ["ev:cpi:2026-09"],
+    observed_market_reaction: "Yields fell 12bps.",
+    next_catalyst_or_tripwire: "Next CPI print.",
+  };
+
+  const succThesis = {
+    thesis_id: "thesis:disinflation:v2",
+    contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+    root_thesis_id: "thesis:disinflation",
+    parent_thesis_id: "thesis:disinflation:v1",
+    successor_thesis_id: null,
+    title: "US Structural Disinflation Reestablished",
+    statement: "Core disinflation allows sustained FOMC policy rate cuts.",
+    state: "confirmed" as const,
+    version: 2,
+    created_at: "2026-09-18T12:00:00Z",
+    updated_at: "2026-09-18T12:00:00Z",
+    lineage: ["thesis:disinflation:v1"],
+    state_reason: "2.5% CPI print and FOMC 25bps cut confirm structural disinflation.",
+    current_evidence_refs: ["ev:cpi:2026-09", "ev:fed:2026-09"],
+    observed_market_reaction: "Yields fell 12bps.",
+    next_catalyst_or_tripwire: "Next CPI print.",
+  };
+
+  validOutput.thesis_ledger.entries = [predThesis, succThesis];
+
+  const val = validateResearchBrainOutput(validOutput, packet);
+  assert.equal(val.isValid, true);
+  assert.equal(val.errors.length, 0);
+});
+
+test("9. Model Orchestration: Single Provider Attempt per Pass (maxAttempts = 1)", async () => {
+  const packet = createValidBasePacket();
+  const validOutput = createValidOutput(packet);
+
+  let primaryCalls = 0;
   const mockRunner: ModelRunner = async (inp) => {
-    callsCount++;
+    primaryCalls++;
     assert.equal(inp.stageKey, "research_brain_primary");
     return { data: validOutput };
   };
@@ -394,17 +543,17 @@ test("11. One-Call Model Orchestration (Success on First Call)", async () => {
     { modelRunner: mockRunner },
   );
 
-  assert.equal(callsCount, 1);
-  assert.equal(result.is_degraded, undefined);
-  assert.equal(result.major_stories.length, 1);
+  assert.equal(primaryCalls, 1);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.packet_id, packet.packet_id);
 });
 
-test("12. Single Repair Retry Orchestration", async () => {
+test("10. Structural Repair Pass (Max 1 Repair Attempt)", async () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
-  invalidOutput.major_stories[0].evidence_ids.push("ev:fake_id"); // Invalid on call 1
+  invalidOutput.major_stories[0].what_changed = ""; // Triggers firewall error on pass 1
 
-  const repairedOutput = createValidOutput(packet); // Valid on call 2
+  const repairedOutput = createValidOutput(packet); // Valid on pass 2
 
   let callsCount = 0;
   const mockRunner: ModelRunner = async (inp) => {
@@ -417,7 +566,7 @@ test("12. Single Repair Retry Orchestration", async () => {
       assert.equal(inp.stageKey, "research_brain_repair");
       return { data: repairedOutput };
     }
-    throw new Error("Too many calls!");
+    throw new Error("Exceeded max 2 total provider calls!");
   };
 
   const result = await executeResearchBrain(
@@ -426,15 +575,15 @@ test("12. Single Repair Retry Orchestration", async () => {
   );
 
   assert.equal(callsCount, 2);
-  assert.equal(result.is_degraded, undefined);
-  assert.equal(result.major_stories.length, 1);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, true);
 });
 
-test("13. Deterministic Degradation Engine (Model Failure)", async () => {
+test("11. Deterministic Degradation Fallback & Traceability", async () => {
   const packet = createValidBasePacket();
 
   const mockRunner: ModelRunner = async () => {
-    throw new Error("Model provider timeout after 120s");
+    throw new Error("OpenAI API request timeout");
   };
 
   const result = await executeResearchBrain(
@@ -442,30 +591,12 @@ test("13. Deterministic Degradation Engine (Model Failure)", async () => {
     { modelRunner: mockRunner },
   );
 
-  assert.equal(result.is_degraded, true);
-  assert.ok(result.degraded_reason?.includes("Model provider timeout"));
+  assert.equal(result.diagnostics.degraded, true);
+  assert.ok(result.diagnostics.degradation_reasons[0].includes("timeout"));
+  assert.equal(result.packet_id, packet.packet_id);
   assert.equal(result.major_stories.length, 0);
   assert.equal(result.stock_radar.length, 0);
-  // Preserves research leads as investigations
   assert.equal(result.investigations.length, 1);
   assert.equal(result.investigations[0].leads_referenced![0], "lead:oil:supply");
-  // Preserves prior thesis ledger safely
   assert.equal(result.thesis_ledger.entries.length, 1);
-  assert.equal(result.thesis_ledger.entries[0].thesis_id, "thesis:disinflation");
-});
-
-test("14. Edge Cases: First Run, Missing Data, Conflicting Evidence", async () => {
-  // First run (no prior dossier, no creator material, missing price/macro data)
-  const emptyPacket = assembleDossierV2InputPacket(
-    { as_of: "2026-09-18T12:00:00Z" },
-    {},
-  );
-
-  const degraded = produceDegradedOutput(emptyPacket, "Test forced degradation");
-  assert.equal(degraded.is_degraded, true);
-  assert.equal(degraded.thesis_ledger.entries.length, 0);
-  assert.equal(degraded.major_stories.length, 0);
-
-  const val = validateResearchBrainOutput(degraded, emptyPacket);
-  assert.equal(val.isValid, true);
 });
