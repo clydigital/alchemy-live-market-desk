@@ -243,7 +243,7 @@ const FORBIDDEN_EVIDENCE_SOURCES = new Set([
   "UPCOMING_EVENT",
 ]);
 
-const APPROVED_FACTUAL_SOURCES = new Set([
+const PRIMARY_DIRECT_FACTUAL_SOURCES = new Set([
   "SEC_FILING",
   "EXCHANGE_FEED",
   "PRESS_RELEASE",
@@ -251,7 +251,6 @@ const APPROVED_FACTUAL_SOURCES = new Set([
   "FACT",
   "PRICING_FEED",
   "REGULATORY_FILING",
-  "NEWS_WIRE",
   "OFFICIAL_DATA",
   "COMPANY_FILING",
   "MARKET_DATA",
@@ -310,10 +309,10 @@ function sanitizeProvenance(rawProv?: unknown): ProvenanceRef[] {
     result.push(ref);
   }
 
-  // Sort provenance deterministically
+  // Sort provenance deterministically with stable tie-breaks
   result.sort((a, b) => {
-    const s1 = `${a.source_type}:${a.source_id}:${a.url ?? ""}`;
-    const s2 = `${b.source_type}:${b.source_id}:${b.url ?? ""}`;
+    const s1 = `${a.source_type}:${a.source_id}:${a.url ?? ""}:${a.title ?? ""}`;
+    const s2 = `${b.source_type}:${b.source_id}:${b.url ?? ""}:${b.title ?? ""}`;
     return s1.localeCompare(s2);
   });
 
@@ -394,14 +393,14 @@ function validateThesisLedger(ledger: unknown): ThesisLedger {
           text: arg.text,
         });
       }
-      args.sort((a, b) => a.arg_id.localeCompare(b.arg_id));
+      args.sort((a, b) => a.arg_id.localeCompare(b.arg_id) || a.type.localeCompare(b.type) || a.text.localeCompare(b.text));
       entry.arguments = args;
     }
 
     return entry;
   });
 
-  validatedEntries.sort((a, b) => a.thesis_id.localeCompare(b.thesis_id));
+  validatedEntries.sort((a, b) => a.thesis_id.localeCompare(b.thesis_id) || a.title.localeCompare(b.title));
 
   return {
     contract_version: contractVersion as string,
@@ -416,16 +415,23 @@ function isAdmissibleEvidence(raw: Record<string, unknown>): boolean {
   const sourceType = String(raw.source_type ?? "").trim().toUpperCase();
   const category = String(raw.category ?? "").trim().toUpperCase();
 
+  // Strict Firewall: forbidden source/category types NEVER admitted
   if (FORBIDDEN_EVIDENCE_SOURCES.has(sourceType) || FORBIDDEN_EVIDENCE_SOURCES.has(category)) {
     return false;
   }
 
   if (raw.is_admitted_fact === false) return false;
-  if (raw.is_admitted_fact === true) return true;
 
-  if (APPROVED_FACTUAL_SOURCES.has(sourceType) || APPROVED_FACTUAL_SOURCES.has(category)) {
+  // Primary/direct factual sources automatically admissible
+  if (PRIMARY_DIRECT_FACTUAL_SOURCES.has(sourceType) || PRIMARY_DIRECT_FACTUAL_SOURCES.has(category)) {
     return true;
   }
+
+  // Reported/wire material (e.g. NEWS_WIRE, REPORTED) requires explicit admission metadata
+  if (raw.is_admitted_fact === true) return true;
+
+  const ancestryCount = typeof raw.independent_ancestry_count === "number" ? raw.independent_ancestry_count : 0;
+  if (ancestryCount >= 2) return true;
 
   return false;
 }
@@ -571,7 +577,7 @@ export function assembleDossierV2InputPacket(
     }
   }
 
-  // GAP 4 & GAP 2: Process candidate observed evidence with strengthened admission & supersession
+  // GAP 4 & GAP 2: Process candidate observed evidence with strengthened admission & transitive supersession
   const candidateEvidence = Array.isArray(snapshot.observed_evidence) ? snapshot.observed_evidence : [];
   const candidateLeadsList = Array.isArray(snapshot.research_leads) ? [...snapshot.research_leads] : [];
 
@@ -593,9 +599,8 @@ export function assembleDossierV2InputPacket(
     const claimText = String(raw.claim_or_fact ?? raw.text ?? "").trim();
     if (!claimText) continue;
 
-    // GAP 4: Check strict evidence admission rules
+    // GAP 4 & Requirement 1: Check strict evidence admission rules
     if (!isAdmissibleEvidence(raw)) {
-      // Demote to research lead if question/lead or omit
       if (raw.claim_or_question || raw.is_lead) {
         candidateLeadsList.push({
           ...raw,
@@ -633,17 +638,54 @@ export function assembleDossierV2InputPacket(
     });
   }
 
-  // GAP 2: Real Deterministic Supersession
-  const suppressedIds = new Set<string>();
-  const supersessionMap = new Map<string, string[]>(); // winner_id -> list of superseded ids
-
+  // GAP 2 & Requirement 2: Transitive Supersession & Cycle Detection
+  const directSupersedesMap = new Map<string, string>(); // child_id -> parent_id (child supersedes parent)
   for (const { ev } of eligibleCandidateEvidence) {
     if (ev.supersedes_id) {
-      suppressedIds.add(ev.supersedes_id);
-      const chain = supersessionMap.get(ev.evidence_id) ?? [];
-      chain.push(ev.supersedes_id);
-      supersessionMap.set(ev.evidence_id, chain);
+      if (ev.supersedes_id === ev.evidence_id) {
+        notes.push(`Self-supersession detected for item "${ev.evidence_id}"; ignored.`);
+      } else {
+        directSupersedesMap.set(ev.evidence_id, ev.supersedes_id);
+      }
     }
+  }
+
+  // Detect cycle for each node
+  const validSupersedesMap = new Map<string, string>(); // child_id -> parent_id (verified acyclic)
+  for (const [childId, parentId] of directSupersedesMap.entries()) {
+    let curr: string | undefined = parentId;
+    const visited = new Set<string>([childId]);
+    let hasCycle = false;
+
+    while (curr) {
+      if (visited.has(curr)) {
+        hasCycle = true;
+        break;
+      }
+      visited.add(curr);
+      curr = directSupersedesMap.get(curr);
+    }
+
+    if (hasCycle) {
+      notes.push(`Supersession cycle detected involving "${childId}"; supersession link ignored.`);
+    } else {
+      validSupersedesMap.set(childId, parentId);
+    }
+  }
+
+  // Compute suppressed set & transitive ancestry
+  const suppressedIds = new Set<string>();
+  const transitiveAncestryMap = new Map<string, string[]>(); // winner_id -> sorted list of all suppressed ancestor ids
+
+  for (const [childId] of validSupersedesMap.entries()) {
+    const ancestors: string[] = [];
+    let curr: string | undefined = validSupersedesMap.get(childId);
+    while (curr) {
+      suppressedIds.add(curr);
+      ancestors.push(curr);
+      curr = validSupersedesMap.get(curr);
+    }
+    transitiveAncestryMap.set(childId, ancestors);
   }
 
   const activeAdmittedEvidence = eligibleCandidateEvidence
@@ -651,9 +693,9 @@ export function assembleDossierV2InputPacket(
     .filter((ev) => !suppressedIds.has(ev.evidence_id));
 
   for (const ev of activeAdmittedEvidence) {
-    const superseded = supersessionMap.get(ev.evidence_id);
-    if (superseded && superseded.length > 0) {
-      ev.superseded_evidence_ids = Array.from(new Set(superseded)).sort();
+    const ancestors = transitiveAncestryMap.get(ev.evidence_id);
+    if (ancestors && ancestors.length > 0) {
+      ev.superseded_evidence_ids = Array.from(new Set(ancestors)).sort();
     }
   }
 
@@ -681,8 +723,7 @@ export function assembleDossierV2InputPacket(
 
     const uniqueFacts = Array.from(textMap.values());
 
-    // GAP 3: Do NOT infer conflicts from grouping membership.
-    // Require explicit conflict_key / conflict_group_id to mark conflict group.
+    // Explicit conflict_key / conflict_group_id check
     const conflictKeyMap = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
     for (const f of uniqueFacts) {
       if (f.conflict_key) {
@@ -932,7 +973,8 @@ export function assembleDossierV2InputPacket(
       });
     }
 
-    validClaims.sort((a, b) => b.available_at.localeCompare(a.available_at) || a.claim_id.localeCompare(b.claim_id));
+    // Stable tie-break sorting for creator theme claims
+    validClaims.sort((a, b) => b.available_at.localeCompare(a.available_at) || a.claim_id.localeCompare(b.claim_id) || a.text.localeCompare(b.text));
 
     let themeClaims = validClaims;
     if (themeClaims.length > MAX_CREATOR_CLAIMS_PER_THEME) {
@@ -948,8 +990,8 @@ export function assembleDossierV2InputPacket(
     });
   }
 
-  // Sort themes deterministically
-  processedThemes.sort((a, b) => a.theme_name.localeCompare(b.theme_name));
+  // Sort themes deterministically with stable tie-breaks
+  processedThemes.sort((a, b) => a.theme_name.localeCompare(b.theme_name) || a.theme_id.localeCompare(b.theme_id));
 
   // Enforce max 2 expand_later
   let expandLaterCount = 0;
@@ -983,13 +1025,11 @@ export function assembleDossierV2InputPacket(
     if (!isValidIsoTimestamp(cat.available_at)) continue;
 
     const availMs = Date.parse(cat.available_at as string);
-    // require available_at <= as_of
     if (availMs > asOfMs) {
       omittedCatalystsCount++;
       continue;
     }
 
-    // Require valid event_time (do NOT fallback to available_at if event_time is missing/invalid)
     if (!isValidIsoTimestamp(cat.event_time)) {
       omittedCatalystsCount++;
       notes.push(`Catalyst "${String(cat.title ?? "").slice(0, 30)}..." omitted due to missing or invalid event_time.`);
@@ -999,7 +1039,6 @@ export function assembleDossierV2InputPacket(
     const eventTimeStr = cat.event_time as string;
     const eventTimeMs = Date.parse(eventTimeStr);
 
-    // Forward horizon check: event_time >= as_of && event_time <= as_of + 14 days
     if (eventTimeMs < asOfMs || eventTimeMs > asOfMs + CATALYST_FORWARD_HORIZON_MS) {
       omittedCatalystsCount++;
       continue;
@@ -1021,7 +1060,6 @@ export function assembleDossierV2InputPacket(
     });
   }
 
-  // Order upcoming events ascending by event_time (earlier upcoming events first)
   validCatalysts.sort((a, b) => {
     const eComp = a.event_time.localeCompare(b.event_time);
     if (eComp !== 0) return eComp;
@@ -1051,7 +1089,6 @@ export function assembleDossierV2InputPacket(
         const claimText = String(pc.claim_text ?? "").trim();
         if (!claimText) continue;
 
-        // Filter out future-dated prior claims relative to as_of
         const claimAsOf = isValidIsoTimestamp(pc.as_of) ? (pc.as_of as string) : (prevDossierAsOf ?? asOf);
         if (Date.parse(claimAsOf) > asOfMs) {
           omittedPriorClaimsCount++;
@@ -1083,8 +1120,8 @@ export function assembleDossierV2InputPacket(
     activeThesisLedger = validateThesisLedger(snapshot.thesis_ledger);
   }
 
-  // Sort and cap prior claims
-  priorClaims.sort((a, b) => a.claim_text.localeCompare(b.claim_text));
+  // Sort prior claims deterministically with stable tie-breaks
+  priorClaims.sort((a, b) => a.claim_text.localeCompare(b.claim_text) || a.claim_id.localeCompare(b.claim_id));
   if (priorClaims.length > MAX_PRIOR_CLAIMS) {
     omittedPriorClaimsCount += priorClaims.length - MAX_PRIOR_CLAIMS;
     priorClaims = priorClaims.slice(0, MAX_PRIOR_CLAIMS);
@@ -1148,14 +1185,19 @@ export function assembleDossierV2InputPacket(
     diagnostics: initialDiagnostics,
   };
 
-  // GAP 6: Canonical determinism and strict byte ceiling enforcement
-  let canonicalJson = toCanonicalJson(packetWithoutId);
+  // GAP 6 & Requirement 3: Ensure 200,000-byte limit applies to the COMPLETE returned packet including packet_id
+  const dummyPacketForSizeCheck: DossierV2InputPacket = {
+    packet_id: "0".repeat(64), // 64 hex chars for SHA-256
+    ...packetWithoutId,
+  };
+
+  let canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
   let byteSize = Buffer.byteLength(canonicalJson, "utf8");
 
   if (byteSize > MAX_CANONICAL_BYTES) {
     packetWithoutId.diagnostics.byte_limit_truncation_applied = true;
 
-    // Pass 1: Remove research leads
+    // Truncation Pass 1: Remove research leads
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.research_leads.length > 0) {
       const removed = packetWithoutId.research_leads.pop();
       if (removed) {
@@ -1164,11 +1206,13 @@ export function assembleDossierV2InputPacket(
           c.leads = c.leads.filter((l) => l.lead_id !== removed.lead_id);
         }
       }
-      canonicalJson = toCanonicalJson(packetWithoutId);
+      dummyPacketForSizeCheck.research_leads = packetWithoutId.research_leads;
+      dummyPacketForSizeCheck.development_clusters = packetWithoutId.development_clusters;
+      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Pass 2: Remove creator theme claims
+    // Truncation Pass 2: Remove creator theme claims & themes
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.creator_themes.length > 0) {
       const lastTheme = packetWithoutId.creator_themes[packetWithoutId.creator_themes.length - 1];
       if (lastTheme.claims.length > 0) {
@@ -1178,19 +1222,21 @@ export function assembleDossierV2InputPacket(
         packetWithoutId.creator_themes.pop();
         packetWithoutId.diagnostics.omitted_creator_themes_count++;
       }
-      canonicalJson = toCanonicalJson(packetWithoutId);
+      dummyPacketForSizeCheck.creator_themes = packetWithoutId.creator_themes;
+      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Pass 3: Remove catalysts
+    // Truncation Pass 3: Remove catalysts
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.catalysts.length > 0) {
       packetWithoutId.catalysts.pop();
       packetWithoutId.diagnostics.omitted_catalysts_count++;
-      canonicalJson = toCanonicalJson(packetWithoutId);
+      dummyPacketForSizeCheck.catalysts = packetWithoutId.catalysts;
+      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Pass 4: Remove development clusters and evidence
+    // Truncation Pass 4: Remove development clusters and evidence
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.development_clusters.length > 1) {
       const removedCluster = packetWithoutId.development_clusters.pop();
       if (removedCluster) {
@@ -1201,11 +1247,13 @@ export function assembleDossierV2InputPacket(
         const removedEvIds = new Set(removedCluster.evidence.map((e) => e.evidence_id));
         packetWithoutId.observed_evidence = packetWithoutId.observed_evidence.filter((e) => !removedEvIds.has(e.evidence_id));
       }
-      canonicalJson = toCanonicalJson(packetWithoutId);
+      dummyPacketForSizeCheck.development_clusters = packetWithoutId.development_clusters;
+      dummyPacketForSizeCheck.observed_evidence = packetWithoutId.observed_evidence;
+      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
 
-    // Pass 5: Truncate long text strings in remaining evidence / prior claims if necessary
+    // Truncation Pass 5: Truncate long text strings in evidence, prior claims, and Thesis Ledger arguments
     if (byteSize > MAX_CANONICAL_BYTES) {
       for (const ev of packetWithoutId.observed_evidence) {
         if (ev.claim_or_fact.length > 200) {
@@ -1217,20 +1265,44 @@ export function assembleDossierV2InputPacket(
           pc.claim_text = `${pc.claim_text.slice(0, 197)}...`;
         }
       }
-      canonicalJson = toCanonicalJson(packetWithoutId);
+      if (packetWithoutId.thesis_ledger) {
+        for (const entry of packetWithoutId.thesis_ledger.entries) {
+          if (entry.statement.length > 300) {
+            entry.statement = `${entry.statement.slice(0, 297)}...`;
+          }
+          if (entry.arguments) {
+            for (const arg of entry.arguments) {
+              if (arg.text.length > 200) {
+                arg.text = `${arg.text.slice(0, 197)}...`;
+              }
+            }
+          }
+        }
+      }
+      dummyPacketForSizeCheck.observed_evidence = packetWithoutId.observed_evidence;
+      dummyPacketForSizeCheck.prior_analytical_state = packetWithoutId.prior_analytical_state;
+      dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;
+      canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
       byteSize = Buffer.byteLength(canonicalJson, "utf8");
     }
   }
 
-  // Explicit hard size check before returning
-  if (byteSize > MAX_CANONICAL_BYTES) {
-    throw new Error(`Canonical packet JSON size (${byteSize} bytes) exceeds limit of ${MAX_CANONICAL_BYTES} UTF-8 bytes after all truncation passes.`);
-  }
+  // Calculate packet_id from canonical JSON of packetWithoutId
+  const canonicalWithoutId = toCanonicalJson(packetWithoutId);
+  const packetId = createHash("sha256").update(canonicalWithoutId, "utf8").digest("hex");
 
-  const packetId = createHash("sha256").update(canonicalJson, "utf8").digest("hex");
-
-  return {
+  const finalPacket: DossierV2InputPacket = {
     packet_id: packetId,
     ...packetWithoutId,
   };
+
+  // Final verification of complete returned packet size
+  const finalCanonicalJson = toCanonicalJson(finalPacket);
+  const finalByteSize = Buffer.byteLength(finalCanonicalJson, "utf8");
+
+  if (finalByteSize > MAX_CANONICAL_BYTES) {
+    throw new Error(`Complete returned packet JSON size (${finalByteSize} bytes) exceeds limit of ${MAX_CANONICAL_BYTES} UTF-8 bytes.`);
+  }
+
+  return finalPacket;
 }

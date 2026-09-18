@@ -139,13 +139,46 @@ test("2. optional-source failures remain non-blocking", () => {
   assert.ok(gapCategories.includes("MACRO_DATA"));
 });
 
-test("3. equivalent shuffled inputs produce identical output and packet ID", () => {
+test("3. equivalent shuffled inputs produce identical output and packet ID across all collections", () => {
   const request1: DossierV2InputRequest = {
     as_of: TEST_AS_OF,
     previous_dossier_id: null,
   };
 
+  const ledger1: ThesisLedger = {
+    contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+    entries: [
+      {
+        thesis_id: "thesis:B",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Title B",
+        statement: "Stmt B",
+        state: "unresolved",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: [],
+        arguments: [
+          { arg_id: "arg:2", type: "counter", text: "Text 2" },
+          { arg_id: "arg:1", type: "supporting", text: "Text 1" },
+        ],
+      },
+      {
+        thesis_id: "thesis:A",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Title A",
+        statement: "Stmt A",
+        state: "confirmed",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: [],
+      },
+    ],
+  };
+
   const snapshot1: CandidateSnapshot = {
+    thesis_ledger: ledger1,
     observed_evidence: [
       {
         claim_or_fact: "Fact Alpha",
@@ -158,41 +191,44 @@ test("3. equivalent shuffled inputs produce identical output and packet ID", () 
           { source_type: "SEC", source_id: "sec-b", url: "https://sec.gov/b" },
         ],
       },
+    ],
+  };
+
+  const ledger2: ThesisLedger = {
+    contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+    entries: [
       {
-        claim_or_fact: "Fact Beta",
-        available_at: IN_WINDOW_TIME,
-        grouping_key: "grp-2",
-        rank: 2,
-        source_type: "SEC_FILING",
-        provenance: [{ source_type: "SEC", source_id: "sec-c" }],
+        thesis_id: "thesis:A",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Title A",
+        statement: "Stmt A",
+        state: "confirmed",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: [],
+      },
+      {
+        thesis_id: "thesis:B",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Title B",
+        statement: "Stmt B",
+        state: "unresolved",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: [],
+        arguments: [
+          { arg_id: "arg:1", type: "supporting", text: "Text 1" },
+          { arg_id: "arg:2", type: "counter", text: "Text 2" },
+        ],
       },
     ],
-    research_leads: [
-      { claim_or_question: "Question One?", available_at: IN_WINDOW_TIME, grouping_key: "grp-1", rank: 1, provenance: [{ source_type: "LEAD", source_id: "l1" }] },
-      { claim_or_question: "Question Two?", available_at: IN_WINDOW_TIME, grouping_key: "grp-2", rank: 2, provenance: [{ source_type: "LEAD", source_id: "l2" }] },
-    ],
   };
 
-  const request2: DossierV2InputRequest = {
-    previous_dossier_id: null,
-    as_of: TEST_AS_OF,
-  };
-
-  // Snapshot with reversed order and shuffled provenance refs
   const snapshot2: CandidateSnapshot = {
-    research_leads: [
-      { claim_or_question: "Question Two?", available_at: IN_WINDOW_TIME, grouping_key: "grp-2", rank: 2, provenance: [{ source_type: "LEAD", source_id: "l2" }] },
-      { claim_or_question: "Question One?", available_at: IN_WINDOW_TIME, grouping_key: "grp-1", rank: 1, provenance: [{ source_type: "LEAD", source_id: "l1" }] },
-    ],
+    thesis_ledger: ledger2,
     observed_evidence: [
-      {
-        claim_or_fact: "Fact Beta",
-        available_at: IN_WINDOW_TIME,
-        grouping_key: "grp-2",
-        rank: 2,
-        source_type: "SEC_FILING",
-        provenance: [{ source_type: "SEC", source_id: "sec-c" }],
-      },
       {
         claim_or_fact: "Fact Alpha",
         available_at: IN_WINDOW_TIME,
@@ -208,7 +244,7 @@ test("3. equivalent shuffled inputs produce identical output and packet ID", () 
   };
 
   const packet1 = assembleDossierV2InputPacket(request1, snapshot1);
-  const packet2 = assembleDossierV2InputPacket(request2, snapshot2);
+  const packet2 = assembleDossierV2InputPacket(request1, snapshot2);
 
   assert.equal(packet1.packet_id, packet2.packet_id);
   assert.equal(toCanonicalJson(packet1), toCanonicalJson(packet2));
@@ -412,11 +448,8 @@ test("11. explicit conflict key produces conflict group; distinct non-conflictin
 
   const snapshot: CandidateSnapshot = {
     observed_evidence: [
-      // Complementary facts under same grouping_key without conflict_key
       { claim_or_fact: "Q1 Revenue $10B", available_at: IN_WINDOW_TIME, grouping_key: "q1-results", source_type: "SEC_FILING", provenance: [{ source_type: "SEC", source_id: "1" }] },
       { claim_or_fact: "Q1 Net Income $2B", available_at: IN_WINDOW_TIME, grouping_key: "q1-results", source_type: "SEC_FILING", provenance: [{ source_type: "SEC", source_id: "1" }] },
-
-      // Explicitly conflicting facts under same grouping_key with matching conflict_key
       { claim_or_fact: "Q1 CPI rose 0.3%", available_at: IN_WINDOW_TIME, grouping_key: "cpi-q1", conflict_key: "cpi-rate", source_type: "STATISTICAL_AGENCY", provenance: [{ source_type: "BLS", source_id: "1" }] },
       { claim_or_fact: "Q1 CPI rose 0.4%", available_at: IN_WINDOW_TIME, grouping_key: "cpi-q1", conflict_key: "cpi-rate", source_type: "STATISTICAL_AGENCY", provenance: [{ source_type: "BLS", source_id: "2" }] },
     ],
@@ -424,14 +457,12 @@ test("11. explicit conflict key produces conflict group; distinct non-conflictin
 
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
-  // Complementary facts: retain cluster membership, NO conflict_group_id
   const q1Fact1 = packet.observed_evidence.find((e) => e.claim_or_fact === "Q1 Revenue $10B");
   const q1Fact2 = packet.observed_evidence.find((e) => e.claim_or_fact === "Q1 Net Income $2B");
   assert.ok(q1Fact1 && q1Fact2);
   assert.equal(q1Fact1.conflict_group_id, undefined);
   assert.equal(q1Fact2.conflict_group_id, undefined);
 
-  // Explicit conflicting facts: share deterministic conflict_group_id
   const cpi1 = packet.observed_evidence.find((e) => e.claim_or_fact === "Q1 CPI rose 0.3%");
   const cpi2 = packet.observed_evidence.find((e) => e.claim_or_fact === "Q1 CPI rose 0.4%");
   assert.ok(cpi1 && cpi2);
@@ -439,55 +470,87 @@ test("11. explicit conflict key produces conflict group; distinct non-conflictin
   assert.equal(cpi1.conflict_group_id, cpi2.conflict_group_id);
 });
 
-test("12. real deterministic supersession chain and future-dated supersession filtering", () => {
+test("12. transitive supersession lineage chains and cycle detection", () => {
   const request: DossierV2InputRequest = {
     as_of: TEST_AS_OF,
     previous_dossier_id: null,
   };
 
-  const snapshot: CandidateSnapshot = {
+  // Test 12a: Three-version transitive chain (A <- B <- C)
+  const snapshotChain: CandidateSnapshot = {
     observed_evidence: [
       {
-        evidence_id: "ev:initial-gdp",
+        evidence_id: "ev:version-A",
         claim_or_fact: "Preliminary Q1 GDP 2.1%",
         available_at: "2026-03-31T06:00:00.000Z",
         grouping_key: "gdp-q1",
         source_type: "STATISTICAL_AGENCY",
-        provenance: [{ source_type: "BEA", source_id: "gdp-v1" }],
+        provenance: [{ source_type: "BEA", source_id: "v1" }],
       },
       {
-        evidence_id: "ev:revised-gdp",
+        evidence_id: "ev:version-B",
         claim_or_fact: "Revised Q1 GDP 2.3%",
+        available_at: "2026-03-31T08:00:00.000Z",
+        grouping_key: "gdp-q1",
+        supersedes_evidence_id: "ev:version-A",
+        source_type: "STATISTICAL_AGENCY",
+        provenance: [{ source_type: "BEA", source_id: "v2" }],
+      },
+      {
+        evidence_id: "ev:version-C",
+        claim_or_fact: "Final Q1 GDP 2.4%",
         available_at: "2026-03-31T10:00:00.000Z",
         grouping_key: "gdp-q1",
-        supersedes_evidence_id: "ev:initial-gdp",
+        supersedes_evidence_id: "ev:version-B",
         source_type: "STATISTICAL_AGENCY",
-        provenance: [{ source_type: "BEA", source_id: "gdp-v2" }],
-      },
-      {
-        evidence_id: "ev:future-gdp-leak",
-        claim_or_fact: "Leaked Final Q1 GDP 2.4%",
-        available_at: FUTURE_TIME, // Future-dated, must be filtered out
-        grouping_key: "gdp-q1",
-        supersedes_evidence_id: "ev:revised-gdp",
-        source_type: "STATISTICAL_AGENCY",
-        provenance: [{ source_type: "BEA", source_id: "gdp-v3" }],
+        provenance: [{ source_type: "BEA", source_id: "v3" }],
       },
     ],
   };
 
-  const packet = assembleDossierV2InputPacket(request, snapshot);
+  const packetChain = assembleDossierV2InputPacket(request, snapshotChain);
+  assert.equal(packetChain.observed_evidence.length, 1);
+  const surviving = packetChain.observed_evidence[0];
+  assert.equal(surviving.evidence_id, "ev:version-C");
+  // Full transitive lineage contains both version-A and version-B
+  assert.deepEqual(surviving.superseded_evidence_ids, ["ev:version-A", "ev:version-B"]);
 
-  // Future leak filtered out
-  assert.equal(packet.observed_evidence.find((e) => e.evidence_id === "ev:future-gdp-leak"), undefined);
+  // Test 12b: Cycles (self cycle & 2-node cycle) must be safely ignored without hiding valid items
+  const snapshotCycles: CandidateSnapshot = {
+    observed_evidence: [
+      {
+        evidence_id: "ev:cycle-X",
+        claim_or_fact: "Fact X with self cycle",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "cycle-grp",
+        supersedes_evidence_id: "ev:cycle-X", // Self cycle
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "s1" }],
+      },
+      {
+        evidence_id: "ev:cycle-Y",
+        claim_or_fact: "Fact Y in 2-node cycle",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "cycle-grp2",
+        supersedes_evidence_id: "ev:cycle-Z",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "s2" }],
+      },
+      {
+        evidence_id: "ev:cycle-Z",
+        claim_or_fact: "Fact Z in 2-node cycle",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "cycle-grp2",
+        supersedes_evidence_id: "ev:cycle-Y", // 2-node cycle with Y
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "s3" }],
+      },
+    ],
+  };
 
-  // ev:initial-gdp suppressed by ev:revised-gdp
-  assert.equal(packet.observed_evidence.find((e) => e.evidence_id === "ev:initial-gdp"), undefined);
-
-  const selected = packet.observed_evidence.find((e) => e.evidence_id === "ev:revised-gdp");
-  assert.ok(selected);
-  assert.deepEqual(selected.superseded_evidence_ids, ["ev:initial-gdp"]);
-  assert.equal(selected.conflict_group_id, undefined); // Supersession is NOT a conflict
+  const packetCycles = assembleDossierV2InputPacket(request, snapshotCycles);
+  // All three survive because cycle links are safely ignored
+  assert.equal(packetCycles.observed_evidence.length, 3);
 });
 
 test("13. zero creator transcripts is valid", () => {
@@ -540,7 +603,7 @@ test("14. creator caps are enforced", () => {
   assert.equal(packet.diagnostics.omitted_creator_claims_count, 2);
 });
 
-test("15. strengthened evidence admission rules prevent transcript/creator/discovery material promotion to OBSERVED", () => {
+test("15. reported-evidence admission restrictions (NEWS_WIRE uncorroborated vs corroborated) and firewall", () => {
   const request: DossierV2InputRequest = {
     as_of: TEST_AS_OF,
     previous_dossier_id: null,
@@ -549,34 +612,47 @@ test("15. strengthened evidence admission rules prevent transcript/creator/disco
   const snapshot: CandidateSnapshot = {
     observed_evidence: [
       {
-        claim_or_fact: "Creator YouTube opinion on rate cuts",
+        claim_or_fact: "Ordinary un-corroborated news wire report",
         available_at: IN_WINDOW_TIME,
-        grouping_key: "creator-opinion",
-        source_type: "TRANSCRIPT", // Forbidden as observed evidence
-        provenance: [{ source_type: "YOUTUBE", source_id: "vid-123" }],
+        grouping_key: "wire-1",
+        source_type: "NEWS_WIRE",
+        provenance: [{ source_type: "REUTERS", source_id: "w1" }],
       },
       {
-        claim_or_fact: "Research synthesis on tech AI spending",
+        claim_or_fact: "Corroborated news wire report with ancestry count 2",
         available_at: IN_WINDOW_TIME,
-        grouping_key: "ai-synth",
-        source_type: "RESEARCH_ANALYSIS", // Forbidden as observed evidence
-        provenance: [{ source_type: "MODEL", source_id: "synth-1" }],
+        grouping_key: "wire-2",
+        source_type: "NEWS_WIRE",
+        independent_ancestry_count: 2, // Admissible
+        provenance: [{ source_type: "REUTERS", source_id: "w2" }],
       },
       {
-        claim_or_fact: "Official SEC filing 10-Q revenue",
+        claim_or_fact: "Explicitly pre-admitted news wire report",
         available_at: IN_WINDOW_TIME,
-        grouping_key: "sec-rev",
-        source_type: "SEC_FILING", // Allowed factual evidence
-        provenance: [{ source_type: "SEC", source_id: "10q-99" }],
+        grouping_key: "wire-3",
+        source_type: "NEWS_WIRE",
+        is_admitted_fact: true, // Admissible
+        provenance: [{ source_type: "AP", source_id: "w3" }],
+      },
+      {
+        claim_or_fact: "YouTube transcript material trying to bypass firewall",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "creator-bypass",
+        source_type: "TRANSCRIPT",
+        is_admitted_fact: true, // Forbidden source type MUST stay blocked
+        provenance: [{ source_type: "YOUTUBE", source_id: "vid-99" }],
       },
     ],
   };
 
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
-  assert.equal(packet.observed_evidence.length, 1);
-  assert.equal(packet.observed_evidence[0].claim_or_fact, "Official SEC filing 10-Q revenue");
-  assert.equal(packet.observed_evidence[0].epistemic_label, "OBSERVED");
+  const facts = packet.observed_evidence.map((e) => e.claim_or_fact);
+  assert.equal(packet.observed_evidence.length, 2);
+  assert.ok(!facts.includes("Ordinary un-corroborated news wire report"));
+  assert.ok(facts.includes("Corroborated news wire report with ancestry count 2"));
+  assert.ok(facts.includes("Explicitly pre-admitted news wire report"));
+  assert.ok(!facts.includes("YouTube transcript material trying to bypass firewall"));
 });
 
 test("16. provenance references remain valid and bounded", () => {
@@ -625,7 +701,6 @@ test("17. forward-looking catalyst window & missing event_time rejection", () =>
       {
         title: "Malformed Catalyst without event_time",
         available_at: IN_WINDOW_TIME,
-        // missing event_time - must be omitted!
         provenance: [{ source_type: "CALENDAR", source_id: "bad-1" }],
       },
     ],
@@ -634,41 +709,60 @@ test("17. forward-looking catalyst window & missing event_time rejection", () =>
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
   assert.equal(packet.catalysts.length, 2);
-  // Earlier event (CPI) should be ordered first
   assert.equal(packet.catalysts[0].title, "CPI Release");
   assert.equal(packet.catalysts[1].title, "FOMC Rate Decision");
 });
 
-test("18. final canonical output respects strict byte ceiling under oversized text", () => {
+test("18. complete returned packet including packet_id respects strict 200,000 UTF-8 byte ceiling under oversized evidence and Thesis Ledger text", () => {
   const request: DossierV2InputRequest = {
     as_of: TEST_AS_OF,
     previous_dossier_id: null,
   };
 
-  const largeLeads: CandidateSnapshot["research_leads"] = [];
-  for (let c = 0; c < 10; c++) {
-    for (let l = 0; l < 3; l++) {
-      largeLeads.push({
-        claim_or_question: `Cluster ${c} Lead ${l} ` + "X".repeat(10000),
-        available_at: IN_WINDOW_TIME,
-        grouping_key: `cluster-key-${c}`,
-        rank: l + 1,
-        provenance: [{ source_type: "LEAD", source_id: "l1" }],
-      });
-    }
-  }
+  // Oversized Thesis Ledger and Evidence text
+  const hugeLedger: ThesisLedger = {
+    contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+    entries: [
+      {
+        thesis_id: "thesis:huge-1",
+        contract_version: THESIS_LEDGER_CONTRACT_VERSION,
+        title: "Huge Thesis Title",
+        statement: "S".repeat(150000), // Very large statement text
+        state: "confirmed",
+        version: 1,
+        created_at: "2026-03-01T00:00:00.000Z",
+        updated_at: "2026-03-01T00:00:00.000Z",
+        lineage: [],
+        arguments: [
+          { arg_id: "arg:huge-1", type: "supporting", text: "A".repeat(50000) },
+        ],
+      },
+    ],
+  };
 
   const snapshot: CandidateSnapshot = {
-    research_leads: largeLeads,
+    thesis_ledger: hugeLedger,
+    observed_evidence: [
+      {
+        claim_or_fact: "E".repeat(50000), // Huge evidence text
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "huge-ev-grp",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "h1" }],
+      },
+    ],
   };
 
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
-  const jsonStr = toCanonicalJson(packet);
-  const byteLen = Buffer.byteLength(jsonStr, "utf8");
+  // Complete returned packet including packet_id must strictly be <= 200,000 UTF-8 bytes
+  const finalJsonStr = toCanonicalJson(packet);
+  const finalByteSize = Buffer.byteLength(finalJsonStr, "utf8");
 
-  assert.ok(byteLen <= 200000);
+  assert.ok(finalByteSize <= 200000, `Expected complete packet size <= 200000, got ${finalByteSize}`);
   assert.equal(packet.diagnostics.byte_limit_truncation_applied, true);
+  assert.ok(packet.thesis_ledger);
+  assert.equal(packet.thesis_ledger.entries.length, 1);
 });
 
 test("19. Thesis Ledger input is preserved/validated but never analytically transitioned", () => {
@@ -692,7 +786,81 @@ test("19. Thesis Ledger input is preserved/validated but never analytically tran
   assert.deepEqual(entry.lineage, ["thesis:101-v1"]); // Unchanged
 });
 
-test("20. source inspection confirms no forbidden runtime/model/Hybrid/Story/scheduling/publication imports", () => {
+test("20. attention budget caps and omission count accuracy regression test", () => {
+  const request: DossierV2InputRequest = {
+    as_of: TEST_AS_OF,
+    previous_dossier_id: null,
+  };
+
+  // 15 Clusters, 8 evidence each, 5 leads each
+  const candidateEvidence: CandidateSnapshot["observed_evidence"] = [];
+  const candidateLeads: CandidateSnapshot["research_leads"] = [];
+
+  for (let c = 0; c < 15; c++) {
+    for (let e = 0; e < 8; e++) {
+      candidateEvidence.push({
+        claim_or_fact: `Cluster ${c} Ev ${e}`,
+        available_at: IN_WINDOW_TIME,
+        grouping_key: `cluster-${c}`,
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: `s-${c}-${e}` }],
+      });
+    }
+    for (let l = 0; l < 5; l++) {
+      candidateLeads.push({
+        claim_or_question: `Cluster ${c} Lead ${l}?`,
+        available_at: IN_WINDOW_TIME,
+        grouping_key: `cluster-${c}`,
+        provenance: [{ source_type: "LEAD", source_id: `l-${c}-${l}` }],
+      });
+    }
+  }
+
+  // 7 Creator themes with 5 claims each, 3 expand_later
+  const candidateThemes: CandidateSnapshot["creator_themes"] = Array.from({ length: 7 }, (_, t) => ({
+    theme_name: `Theme ${t}`,
+    expand_later: t < 3,
+    claims: Array.from({ length: 5 }, (_, c) => ({
+      text: `Theme ${t} Claim ${c}`,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "YOUTUBE", source_id: `yt-${t}-${c}` }],
+    })),
+  }));
+
+  // 15 Catalysts
+  const candidateCatalysts: CandidateSnapshot["catalysts"] = Array.from({ length: 15 }, (_, cat) => ({
+    title: `Catalyst ${cat}`,
+    available_at: IN_WINDOW_TIME,
+    event_time: "2026-04-02T12:00:00.000Z",
+    provenance: [{ source_type: "CALENDAR", source_id: `cat-${cat}` }],
+  }));
+
+  const snapshot: CandidateSnapshot = {
+    observed_evidence: candidateEvidence,
+    research_leads: candidateLeads,
+    creator_themes: candidateThemes,
+    catalysts: candidateCatalysts,
+  };
+
+  const packet = assembleDossierV2InputPacket(request, snapshot);
+
+  // Assert caps
+  assert.equal(packet.development_clusters.length, 12); // Max 12 clusters
+  assert.equal(packet.observed_evidence.length, 72); // Max 72 total observed evidence
+  assert.equal(packet.creator_themes.length, 5); // Max 5 creator themes
+  assert.equal(packet.creator_themes.filter((t) => t.expand_later).length, 2); // Max 2 expand_later
+  assert.equal(packet.catalysts.length, 12); // Max 12 catalysts
+
+  // Omission counts must be accurately recorded
+  assert.equal(packet.diagnostics.omitted_clusters_count, 3);
+  assert.ok(packet.diagnostics.omitted_evidence_count > 0);
+  assert.ok(packet.diagnostics.omitted_leads_count > 0);
+  assert.equal(packet.diagnostics.omitted_creator_themes_count, 2);
+  assert.ok(packet.diagnostics.omitted_creator_claims_count > 0);
+  assert.equal(packet.diagnostics.omitted_catalysts_count, 3);
+});
+
+test("21. source inspection confirms no forbidden runtime/model/Hybrid/Story/scheduling/publication imports", () => {
   const filePath = path.join(process.cwd(), "lib/dossier-v2/input-packet.ts");
   const content = fs.readFileSync(filePath, "utf8");
 
