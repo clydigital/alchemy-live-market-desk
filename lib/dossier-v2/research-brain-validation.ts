@@ -207,21 +207,19 @@ function hasIndependentCorroboration(
 
   if (sources.length < 2) return false;
 
-  // Check 1: Two distinct source_ids or publishers
-  const distinctKeys = new Set(sources.map((s) => `${s.publisher ?? ""}:${s.source_id}`));
-  if (distinctKeys.size >= 2) return true;
-
-  // Check 2: Direct fact + independent market observation
-  const hasMarketObs = sources.some(
-    (s) =>
-      MARKET_SOURCE_CATEGORIES.has(s.source_type) ||
-      MARKET_SOURCE_CATEGORIES.has(s.category) ||
-      s.source_type.includes("PRICING") ||
-      s.category.includes("PRICING"),
+  // Derive stable provenance ancestry keys (e.g. "BLOOMBERG:TREASURY_FEED")
+  const ancestryKeys = sources.map(
+    (s) => `${(s.publisher ?? "").trim().toUpperCase()}:${s.source_id.trim().toUpperCase()}`
   );
-  if (hasMarketObs && sources.length >= 2) return true;
+  const distinctAncestries = new Set(ancestryKeys);
 
-  return false;
+  // Independent corroboration strictly requires at least two distinct provenance ancestries
+  if (distinctAncestries.size < 2) {
+    return false;
+  }
+
+  // Path A / Path B: At least two independent evidence ancestries exist
+  return true;
 }
 
 function hasActualMarketPricingEvidence(

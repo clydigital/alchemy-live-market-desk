@@ -430,6 +430,150 @@ test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection"
   assert.ok(val.errors.some((e) => e.includes("requires at least two independent evidence sources/ancestries")));
 });
 
+test("3A. Test A - same pricing feed duplicate rejected", () => {
+  const packetPricingDuplicate = assembleDossierV2InputPacket(
+    { as_of: "2026-09-18T12:00:00Z" },
+    {
+      observed_evidence: [
+        {
+          evidence_id: "ev:pfeed:item1",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "US 2Y yield is 3.85%.",
+          category: "PRICING_FEED",
+          source_type: "PRICING_FEED",
+          provenance: [{ source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "Bloomberg" }],
+        },
+        {
+          evidence_id: "ev:pfeed:item2",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "US 10Y yield is 4.10%.",
+          category: "PRICING_FEED",
+          source_type: "PRICING_FEED",
+          provenance: [{ source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "Bloomberg" }],
+        },
+      ],
+    },
+  );
+
+  const output = createValidOutput(packetPricingDuplicate);
+  output.major_stories[0].epistemic_label = "SUPPORTED";
+  output.major_stories[0].evidence_ids = ["ev:pfeed:item1", "ev:pfeed:item2"];
+
+  const val = validateResearchBrainOutput(output, packetPricingDuplicate);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("requires at least two independent evidence sources/ancestries")));
+});
+
+test("3B. Test B - independent fundamental + market evidence accepted", () => {
+  const packetFundaMarket = assembleDossierV2InputPacket(
+    { as_of: "2026-09-18T12:00:00Z" },
+    {
+      observed_evidence: [
+        {
+          evidence_id: "ev:fomc:stmt",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "FOMC statement cut rates 25bps.",
+          category: "MONETARY_POLICY",
+          source_type: "PRESS_RELEASE",
+          provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT", publisher: "Federal Reserve" }],
+        },
+        {
+          evidence_id: "ev:market:yield",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "2Y yield fell 12bps.",
+          category: "PRICING_FEED",
+          source_type: "PRICING_FEED",
+          provenance: [{ source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "Bloomberg" }],
+        },
+      ],
+    },
+  );
+
+  const evFomc = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("fomc"))!.evidence_id;
+  const evYield = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("market"))!.evidence_id;
+
+  const output = createValidOutput(packetFundaMarket);
+  output.major_stories[0].epistemic_label = "SUPPORTED";
+  output.major_stories[0].evidence_ids = [evFomc, evYield];
+  output.major_stories[0].market_evidence.confirming = [evFomc, evYield];
+  output.major_stories[0].market_evidence.unresolved = [];
+
+  const val = validateResearchBrainOutput(output, packetFundaMarket);
+  assert.equal(val.isValid, true);
+});
+
+test("3C. Test C - two independent factual sources accepted", () => {
+  const packetTwoFactual = assembleDossierV2InputPacket(
+    { as_of: "2026-09-18T12:00:00Z" },
+    {
+      observed_evidence: [
+        {
+          evidence_id: "ev:bls:cpi",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "CPI print was 2.5%.",
+          category: "ECONOMIC_METRIC",
+          source_type: "STATISTICAL_AGENCY",
+          provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "BLS_CPI", publisher: "BLS" }],
+        },
+        {
+          evidence_id: "ev:fed:stmt",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "Fed rate cut 25bps.",
+          category: "MONETARY_POLICY",
+          source_type: "PRESS_RELEASE",
+          provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT", publisher: "Federal Reserve" }],
+        },
+      ],
+    },
+  );
+
+  const evCpi = packetTwoFactual.observed_evidence.find((e) => e.evidence_id.includes("cpi"))!.evidence_id;
+  const evFed = packetTwoFactual.observed_evidence.find((e) => e.evidence_id.includes("fed"))!.evidence_id;
+
+  const output = createValidOutput(packetTwoFactual);
+  output.major_stories[0].epistemic_label = "SUPPORTED";
+  output.major_stories[0].evidence_ids = [evCpi, evFed];
+  output.major_stories[0].market_evidence.confirming = [evCpi, evFed];
+  output.major_stories[0].market_evidence.unresolved = [];
+
+  const val = validateResearchBrainOutput(output, packetTwoFactual);
+  assert.equal(val.isValid, true);
+});
+
+test("3D. Test D - duplicate same-source IDs remain rejected", () => {
+  const packetSameSource = assembleDossierV2InputPacket(
+    { as_of: "2026-09-18T12:00:00Z" },
+    {
+      observed_evidence: [
+        {
+          evidence_id: "ev:sec:filing1",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "Filing item A.",
+          category: "GENERAL",
+          source_type: "SEC_FILING",
+          provenance: [{ source_type: "SEC_FILING", source_id: "10Q_FILING", publisher: "SEC_EDGAR" }],
+        },
+        {
+          evidence_id: "ev:sec:filing2",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "Filing item B.",
+          category: "GENERAL",
+          source_type: "SEC_FILING",
+          provenance: [{ source_type: "SEC_FILING", source_id: "10Q_FILING", publisher: "SEC_EDGAR" }],
+        },
+      ],
+    },
+  );
+
+  const output = createValidOutput(packetSameSource);
+  output.major_stories[0].epistemic_label = "SUPPORTED";
+  output.major_stories[0].evidence_ids = ["ev:sec:filing1", "ev:sec:filing2"];
+
+  const val = validateResearchBrainOutput(output, packetSameSource);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("requires at least two independent evidence sources/ancestries")));
+});
+
 test("4. Epistemic Label Validation - INFERRED Uncertainty Signal Required", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
