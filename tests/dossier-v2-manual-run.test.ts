@@ -135,10 +135,18 @@ test("Task 9 adapter separates direct evidence, creator leads, and future cataly
 
   const observed = result.snapshot.observed_evidence ?? [];
   assert.equal(observed.length, 2);
-  assert.equal(observed[0]?.source_type, "OFFICIAL_DATA");
-  assert.equal(observed[1]?.source_type, "MARKET_DATA");
 
-  const officialProv = observed[0]?.provenance as Array<Record<string, unknown>>;
+  const officialObserved = observed.find(
+    (item) => item.evidence_id === "ev:official",
+  );
+  const marketObserved = observed.find(
+    (item) => item.evidence_id === "ev:market",
+  );
+
+  assert.equal(officialObserved?.source_type, "OFFICIAL_DATA");
+  assert.equal(marketObserved?.source_type, "MARKET_DATA");
+
+  const officialProv = officialObserved?.provenance as Array<Record<string, unknown>>;
   assert.equal(officialProv[0]?.source_id, "fed-ancestry");
 
   const leads = result.snapshot.research_leads ?? [];
