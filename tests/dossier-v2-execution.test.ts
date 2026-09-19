@@ -236,7 +236,7 @@ function createValidBrainOutput(
 test("Task 8 bridge executes Research Brain and persists one immutable MarketDossierV2", async () => {
   const previousDossierId = randomUUID();
   const packet = createPacket(previousDossierId);
-  const packetSnapshot = JSON.parse(JSON.stringify(packet));
+  const packetSnapshot = structuredClone(packet);
   const { client, store } = createMockDossierStore();
 
   const validOutput = createValidBrainOutput(packet);
