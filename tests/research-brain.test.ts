@@ -9,6 +9,7 @@ import {
 import type {
   ResearchBrainInputV1,
   ResearchBrainOutputV1,
+  ThesisLedgerEntryV2,
 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import {
   buildResearchBrainPrompt,
@@ -447,7 +448,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
   const output = createValidOutput(packet);
 
   // A. Two-node cycle (A -> B -> A) rejected
-  const entryA = {
+  const entryA: ThesisLedgerEntryV2 = {
     thesis_id: "thesis:A",
     contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
     root_thesis_id: "thesis:A",
@@ -455,7 +456,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
     successor_thesis_id: "thesis:B",
     title: "Thesis A",
     statement: "Statement A",
-    state: "evolved" as const,
+    state: "evolved",
     version: 1,
     created_at: "2026-09-01T00:00:00Z",
     updated_at: "2026-09-18T12:00:00Z",
@@ -466,7 +467,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
     next_catalyst_or_tripwire: "Catalyst A",
   };
 
-  const entryB = {
+  const entryB: ThesisLedgerEntryV2 = {
     thesis_id: "thesis:B",
     contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
     root_thesis_id: "thesis:A",
@@ -474,7 +475,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
     successor_thesis_id: "thesis:A",
     title: "Thesis B",
     statement: "Statement B",
-    state: "evolved" as const,
+    state: "evolved",
     version: 2,
     created_at: "2026-09-18T12:00:00Z",
     updated_at: "2026-09-18T12:00:00Z",
@@ -491,7 +492,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
   assert.ok(val.errors.some((e) => e.includes("contains cycle in successor lineage")));
 
   // B. Three-node cycle (A -> B -> C -> A) rejected
-  const entryC = {
+  const entryC: ThesisLedgerEntryV2 = {
     thesis_id: "thesis:C",
     contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
     root_thesis_id: "thesis:A",
@@ -499,7 +500,7 @@ test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
     successor_thesis_id: "thesis:A",
     title: "Thesis C",
     statement: "Statement C",
-    state: "confirmed" as const,
+    state: "confirmed",
     version: 3,
     created_at: "2026-09-18T12:00:00Z",
     updated_at: "2026-09-18T12:00:00Z",
