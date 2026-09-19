@@ -10,6 +10,7 @@ on:
         default: research
         options:
           - research
+          - dossier_v2_dry_run
           - finra_sensor
       slot:
         description: Production research slot to run (research mode)
@@ -29,6 +30,21 @@ on:
         required: false
         type: string
         default: ""
+      dossier_as_of:
+        description: Optional ISO as-of timestamp (dossier_v2_dry_run mode; blank uses server time)
+        required: false
+        type: string
+        default: ""
+      dossier_lookback_hours:
+        description: Canonical evidence lookback hours, 1-720
+        required: false
+        type: string
+        default: "168"
+      dossier_evidence_limit:
+        description: Canonical evidence row cap, 1-500
+        required: false
+        type: string
+        default: "180"
       finra_symbols:
         description: Comma-separated FINRA symbols, max 20 (finra_sensor mode)
         required: false
@@ -54,6 +70,9 @@ jobs:
       RETRY_KEY: ${{ inputs.retry_key }}
       FINRA_TRADE_DATE: ${{ inputs.finra_trade_date }}
       FINRA_SYMBOLS: ${{ inputs.finra_symbols }}
+      DOSSIER_AS_OF: ${{ inputs.dossier_as_of }}
+      DOSSIER_LOOKBACK_HOURS: ${{ inputs.dossier_lookback_hours }}
+      DOSSIER_EVIDENCE_LIMIT: ${{ inputs.dossier_evidence_limit }}
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
       - name: Resolve audited manual identity
@@ -135,6 +154,82 @@ jobs:
 
           echo "Canonical intelligence did not complete within eight continuations." >&2
           exit 1
+
+      - name: Run Dossier V2 production dry-run
+        if: ${{ inputs.mode == 'dossier_v2_dry_run' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/dossier-v2-dry-run.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          if [[ ! "$DOSSIER_LOOKBACK_HOURS" =~ ^[0-9]+$ ]] || (( DOSSIER_LOOKBACK_HOURS < 1 || DOSSIER_LOOKBACK_HOURS > 720 )); then
+            echo "dossier_lookback_hours must be an integer from 1 to 720." >&2
+            exit 1
+          fi
+          if [[ ! "$DOSSIER_EVIDENCE_LIMIT" =~ ^[0-9]+$ ]] || (( DOSSIER_EVIDENCE_LIMIT < 1 || DOSSIER_EVIDENCE_LIMIT > 500 )); then
+            echo "dossier_evidence_limit must be an integer from 1 to 500." >&2
+            exit 1
+          fi
+
+          if [[ -n "$DOSSIER_AS_OF" ]]; then
+            body="$(jq -cn \
+              --arg asOf "$DOSSIER_AS_OF" \
+              --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
+              --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
+              '{asOf:$asOf,lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
+          else
+            body="$(jq -cn \
+              --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
+              --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
+              '{lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
+          fi
+
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$PROD_URL/api/admin/dossier-v2/dry-run")"
+
+          jq -c '{
+            status,
+            mode,
+            persistenceAvailable,
+            previousDossierId,
+            snapshotDiagnostics,
+            packetSummary: {
+              packetId: .packetSummary.packetId,
+              asOf: .packetSummary.asOf,
+              observedEvidence: .packetSummary.observedEvidence,
+              researchLeads: .packetSummary.researchLeads,
+              catalysts: .packetSummary.catalysts,
+              freshnessWarnings: .packetSummary.freshnessWarnings,
+              researchGaps: .packetSummary.researchGaps
+            },
+            mainThread: .analyticalOutput.main_thread,
+            diagnostics: .analyticalOutput.diagnostics
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Dossier V2 dry-run returned HTTP $http_status." >&2
+            exit 1
+          fi
+
+      - name: Upload Dossier V2 dry-run artifact
+        if: ${{ inputs.mode == 'dossier_v2_dry_run' && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dossier-v2-dry-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dossier-v2-dry-run.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run FINRA sensor-memory production proof
         if: ${{ inputs.mode == 'finra_sensor' }}
