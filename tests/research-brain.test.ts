@@ -470,7 +470,15 @@ test("3B. Test B - independent fundamental + market evidence accepted", () => {
     {
       observed_evidence: [
         {
-          evidence_id: "ev:fomc:stmt",
+          evidence_id: "ev:cpi:report",
+          available_at: "2026-09-18T09:00:00Z",
+          claim_or_fact: "US CPI inflation print was 2.5% YoY in August 2026.",
+          category: "ECONOMIC_METRIC",
+          source_type: "STATISTICAL_AGENCY",
+          provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "BLS_CPI", publisher: "BLS" }],
+        },
+        {
+          evidence_id: "ev:fed:stmt",
           available_at: "2026-09-18T10:00:00Z",
           claim_or_fact: "FOMC statement cut rates 25bps.",
           category: "MONETARY_POLICY",
@@ -478,7 +486,7 @@ test("3B. Test B - independent fundamental + market evidence accepted", () => {
           provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT", publisher: "Federal Reserve" }],
         },
         {
-          evidence_id: "ev:market:yield",
+          evidence_id: "ev:yields:market",
           available_at: "2026-09-18T10:05:00Z",
           claim_or_fact: "2Y yield fell 12bps.",
           category: "PRICING_FEED",
@@ -486,16 +494,17 @@ test("3B. Test B - independent fundamental + market evidence accepted", () => {
           provenance: [{ source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "Bloomberg" }],
         },
       ],
+      price_data: { status: "OK", available_at: "2026-09-18T10:05:00Z" },
     },
   );
 
-  const evFomc = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("fomc"))!.evidence_id;
-  const evYield = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("market"))!.evidence_id;
+  const evFed = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("fed"))!.evidence_id;
+  const evYield = packetFundaMarket.observed_evidence.find((e) => e.evidence_id.includes("yields"))!.evidence_id;
 
   const output = createValidOutput(packetFundaMarket);
   output.major_stories[0].epistemic_label = "SUPPORTED";
-  output.major_stories[0].evidence_ids = [evFomc, evYield];
-  output.major_stories[0].market_evidence.confirming = [evFomc, evYield];
+  output.major_stories[0].evidence_ids = [evFed, evYield];
+  output.major_stories[0].market_evidence.confirming = [evFed, evYield];
   output.major_stories[0].market_evidence.unresolved = [];
 
   const val = validateResearchBrainOutput(output, packetFundaMarket);
@@ -508,22 +517,31 @@ test("3C. Test C - two independent factual sources accepted", () => {
     {
       observed_evidence: [
         {
-          evidence_id: "ev:bls:cpi",
-          available_at: "2026-09-18T10:00:00Z",
-          claim_or_fact: "CPI print was 2.5%.",
+          evidence_id: "ev:cpi:report",
+          available_at: "2026-09-18T09:00:00Z",
+          claim_or_fact: "US CPI inflation print was 2.5% YoY in August 2026.",
           category: "ECONOMIC_METRIC",
           source_type: "STATISTICAL_AGENCY",
           provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "BLS_CPI", publisher: "BLS" }],
         },
         {
           evidence_id: "ev:fed:stmt",
-          available_at: "2026-09-18T10:05:00Z",
-          claim_or_fact: "Fed rate cut 25bps.",
+          available_at: "2026-09-18T10:00:00Z",
+          claim_or_fact: "FOMC statement cut rates 25bps.",
           category: "MONETARY_POLICY",
           source_type: "PRESS_RELEASE",
           provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_STATEMENT", publisher: "Federal Reserve" }],
         },
+        {
+          evidence_id: "ev:yields:market",
+          available_at: "2026-09-18T10:05:00Z",
+          claim_or_fact: "2Y yield fell 12bps.",
+          category: "PRICING_FEED",
+          source_type: "PRICING_FEED",
+          provenance: [{ source_type: "PRICING_FEED", source_id: "TREASURY_FEED", publisher: "Bloomberg" }],
+        },
       ],
+      price_data: { status: "OK", available_at: "2026-09-18T10:05:00Z" },
     },
   );
 
