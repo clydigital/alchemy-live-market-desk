@@ -84,6 +84,7 @@ const MARKET_SOURCE_CATEGORIES = new Set([
   "RATES",
   "FX",
   "YIELD",
+  "PRICING",
 ]);
 
 export function buildValidationIndexes(packet: DossierV2InputPacket): ValidationIndexes {
@@ -111,10 +112,10 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
         validEvidenceIds.add(ev.evidence_id);
         const prov = Array.isArray(ev.provenance) && ev.provenance[0] ? ev.provenance[0] : null;
         evidenceSourceMap.set(ev.evidence_id, {
-          source_type: ev.source_type ?? "UNKNOWN",
+          source_type: String(ev.source_type ?? "UNKNOWN").toUpperCase(),
           source_id: prov?.source_id ?? ev.evidence_id,
           publisher: prov?.publisher,
-          category: ev.category ?? "GENERAL",
+          category: String(ev.category ?? "GENERAL").toUpperCase(),
         });
       }
       if (ev && typeof ev.conflict_group_id === "string") {
@@ -212,10 +213,34 @@ function hasIndependentCorroboration(
 
   // Check 2: Direct fact + independent market observation
   const hasMarketObs = sources.some(
-    (s) => MARKET_SOURCE_CATEGORIES.has(s.source_type) || MARKET_SOURCE_CATEGORIES.has(s.category),
+    (s) =>
+      MARKET_SOURCE_CATEGORIES.has(s.source_type) ||
+      MARKET_SOURCE_CATEGORIES.has(s.category) ||
+      s.source_type.includes("PRICING") ||
+      s.category.includes("PRICING"),
   );
   if (hasMarketObs && sources.length >= 2) return true;
 
+  return false;
+}
+
+function hasActualMarketPricingEvidence(
+  evIds: string[],
+  indexes: ValidationIndexes,
+): boolean {
+  for (const id of evIds) {
+    const src = indexes.evidenceSourceMap.get(id);
+    if (src) {
+      if (
+        MARKET_SOURCE_CATEGORIES.has(src.source_type) ||
+        MARKET_SOURCE_CATEGORIES.has(src.category) ||
+        src.source_type.includes("PRICING") ||
+        src.category.includes("PRICING")
+      ) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 
@@ -423,13 +448,17 @@ export function validateResearchBrainOutput(
     }
 
     // Check market evidence decomposition
+    let confirming: string[] = [];
+    let contradicting: string[] = [];
+    let unresolved: string[] = [];
+
     if (!isPlainObject(story.market_evidence)) {
       errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence is missing or not a plain object.`);
     } else {
       const me = story.market_evidence as Record<string, unknown>;
-      const confirming = Array.isArray(me.confirming) ? me.confirming : [];
-      const contradicting = Array.isArray(me.contradicting) ? me.contradicting : [];
-      const unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
+      confirming = Array.isArray(me.confirming) ? me.confirming : [];
+      contradicting = Array.isArray(me.contradicting) ? me.contradicting : [];
+      unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
 
       if (confirming.length === 0) {
         errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence.confirming must not be empty.`);
@@ -483,9 +512,10 @@ export function validateResearchBrainOutput(
       if (!whatWouldChangeMind) {
         errors.push(`major_stories[${sIdx}] INFERRED story requires non-empty what_would_change_mind condition.`);
       }
+      if (unresolved.length === 0 && contradicting.length === 0) {
+        errors.push(`major_stories[${sIdx}] (${storyId}) INFERRED story requires explicit uncertainty/alternative signals in market_evidence.unresolved or market_evidence.contradicting.`);
+      }
     } else if (epistemicLabel === "SPECULATIVE") {
-      const me = isPlainObject(story.market_evidence) ? (story.market_evidence as Record<string, unknown>) : {};
-      const unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
       if (unresolved.length === 0) {
         errors.push(`major_stories[${sIdx}] SPECULATIVE story must expose missing/unresolved evidence in market_evidence.unresolved.`);
       }
@@ -562,10 +592,17 @@ export function validateResearchBrainOutput(
       } else if (reaction !== null) {
         if (rxEvRefs.length === 0) {
           errors.push(`market_verdict lens "${lensName}" non-null observed_reaction requires at least one valid evidence reference in observed_reaction_evidence_refs.`);
-        }
-        for (const evId of rxEvRefs) {
-          if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
-            errors.push(`market_verdict lens "${lensName}" observed_reaction_evidence_refs references unsupported evidence_id "${String(evId)}".`);
+        } else {
+          let hasMarketSource = false;
+          for (const evId of rxEvRefs) {
+            if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
+              errors.push(`market_verdict lens "${lensName}" observed_reaction_evidence_refs references unsupported evidence_id "${String(evId)}".`);
+            } else if (hasActualMarketPricingEvidence([evId], indexes)) {
+              hasMarketSource = true;
+            }
+          }
+          if (!hasMarketSource) {
+            errors.push(`market_verdict lens "${lensName}" non-null observed_reaction requires at least one market/pricing evidence reference (e.g., PRICING_FEED, MARKET_DATA, YIELD).`);
           }
         }
       }
@@ -649,7 +686,7 @@ export function validateResearchBrainOutput(
     }
   }
 
-  // 8. Thesis Ledger V2 Evolution Integrity Validation
+  // 8. Thesis Ledger V2 Evolution Integrity & Graph Cycle Detection Validation
   if (!isPlainObject(brainOutput.thesis_ledger)) {
     errors.push("thesis_ledger is missing or not a plain object.");
   } else {
@@ -664,6 +701,36 @@ export function validateResearchBrainOutput(
     for (const e of entries) {
       if (isPlainObject(e) && typeof e.thesis_id === "string") {
         entryMap.set(e.thesis_id, e);
+      }
+    }
+
+    // Graph Cycle Detection on successor_thesis_id pointers
+    for (const [startId] of entryMap.entries()) {
+      const activePath = new Set<string>();
+      let currId: string | null = startId;
+      while (currId) {
+        if (activePath.has(currId)) {
+          errors.push(`thesis_ledger entry (${startId}) contains cycle in successor lineage involving "${currId}".`);
+          break;
+        }
+        activePath.add(currId);
+        const currEntry = entryMap.get(currId);
+        currId = currEntry && typeof currEntry.successor_thesis_id === "string" ? currEntry.successor_thesis_id : null;
+      }
+    }
+
+    // Graph Cycle Detection on parent_thesis_id pointers
+    for (const [startId] of entryMap.entries()) {
+      const activePath = new Set<string>();
+      let currId: string | null = startId;
+      while (currId) {
+        if (activePath.has(currId)) {
+          errors.push(`thesis_ledger entry (${startId}) contains cycle in parent lineage involving "${currId}".`);
+          break;
+        }
+        activePath.add(currId);
+        const currEntry = entryMap.get(currId);
+        currId = currEntry && typeof currEntry.parent_thesis_id === "string" ? currEntry.parent_thesis_id : null;
       }
     }
 
@@ -688,7 +755,15 @@ export function validateResearchBrainOutput(
       const parentId = typeof entry.parent_thesis_id === "string" && entry.parent_thesis_id.trim() ? entry.parent_thesis_id.trim() : null;
       const successorId = typeof entry.successor_thesis_id === "string" && entry.successor_thesis_id.trim() ? entry.successor_thesis_id.trim() : null;
 
-      // Evolution Integrity Rules:
+      // Self-link checks
+      if (parentId === thesisId) {
+        errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id cannot be itself.`);
+      }
+      if (successorId === thesisId) {
+        errors.push(`thesis_ledger entry (${thesisId}) successor_thesis_id cannot be itself.`);
+      }
+
+      // Reconciled EVOLVED semantics checks:
       if (entry.state === "evolved") {
         if (!successorId) {
           errors.push(`thesis_ledger evolved entry (${thesisId}) must specify successor_thesis_id.`);
@@ -715,17 +790,13 @@ export function validateResearchBrainOutput(
       }
 
       if (parentId) {
-        if (parentId === thesisId) {
-          errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id cannot be itself.`);
-        } else {
-          const parentEntry = entryMap.get(parentId);
-          if (parentEntry) {
-            if (parentEntry.successor_thesis_id !== thesisId) {
-              errors.push(`thesis_ledger parent entry (${parentId}) successor_thesis_id "${String(parentEntry.successor_thesis_id)}" must point to child (${thesisId}).`);
-            }
-          } else if (!indexes.validPriorThesisIds.has(parentId)) {
-            errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id "${parentId}" does not exist in current or prior ledger.`);
+        const parentEntry = entryMap.get(parentId);
+        if (parentEntry) {
+          if (parentEntry.successor_thesis_id !== thesisId) {
+            errors.push(`thesis_ledger parent entry (${parentId}) successor_thesis_id "${String(parentEntry.successor_thesis_id)}" must point to child (${thesisId}).`);
           }
+        } else if (!indexes.validPriorThesisIds.has(parentId)) {
+          errors.push(`thesis_ledger entry (${thesisId}) parent_thesis_id "${parentId}" does not exist in current or prior ledger.`);
         }
       }
 

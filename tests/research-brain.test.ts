@@ -99,9 +99,9 @@ function createValidBasePacket() {
 }
 
 function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): ResearchBrainOutputV1 {
-  const ev1 = packet.observed_evidence[0]?.evidence_id ?? "ev:cpi:2026-09";
-  const ev2 = packet.observed_evidence[1]?.evidence_id ?? "ev:fed:2026-09";
-  const ev3 = packet.observed_evidence[2]?.evidence_id ?? "ev:yields:2026-09";
+  const evCpi = packet.observed_evidence.find((e) => e.evidence_id.includes("cpi"))?.evidence_id ?? "ev:cpi:2026-09";
+  const evFed = packet.observed_evidence.find((e) => e.evidence_id.includes("fed"))?.evidence_id ?? "ev:fed:2026-09";
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
 
   return {
     contract_version: RESEARCH_BRAIN_CONTRACT_VERSION,
@@ -113,7 +113,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
       answer: "Federal Reserve cut interest rates by 25bps following 2.5% CPI print.",
       regime_implication: "MONETARY_EASING_REGIME",
       epistemic_label: "OBSERVED",
-      evidence_references: [ev1, ev2],
+      evidence_references: [evCpi, evFed],
       supporting_story_ids: ["story:fed_easing"],
       contradiction_references: [],
       what_would_change_mind: "A re-acceleration in monthly core CPI above 0.4% MoM.",
@@ -127,7 +127,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         headline_decomposition: "25bps rate cut is supported by 2.5% CPI print.",
         causal_mechanism: "Lower headline CPI reduced real policy rate tightness, allowing FOMC rate cuts.",
         market_evidence: {
-          confirming: [ev1, ev2, ev3],
+          confirming: [evCpi, evFed, evYields],
           contradicting: [],
           unresolved: ["lead:oil:supply"],
         },
@@ -137,7 +137,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         linked_investigation_ids: ["inv:oil_risk"],
         linked_chart_task_ids: ["chart:us2y_yield"],
         epistemic_label: "SUPPORTED",
-        evidence_ids: [ev1, ev2, ev3],
+        evidence_ids: [evCpi, evFed, evYields],
       },
     ],
     chart_investigation_queue: {
@@ -205,7 +205,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         why_it_matters: "Energy price shock could reignite headline CPI inflation.",
         current_explanation: "Supply risk is currently unconfirmed by spot pricing.",
         competing_explanations: ["OPEC spare capacity buffers disruption risk."],
-        observed_evidence: [ev1],
+        observed_evidence: [evCpi],
         missing_evidence: ["Actual tanker tracking disruption data"],
         research_next: "Monitor Brent futures curve backwardation.",
         chart_task_links: ["chart:brent_wti"],
@@ -223,7 +223,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         US_RATES: {
           lens_name: "US_RATES",
           observed_reaction: "US 2Y yield fell 12bps to 3.85%.",
-          observed_reaction_evidence_refs: [ev3],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Front-end yields pricing in sustained easing path.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -231,7 +231,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         BONDS: {
           lens_name: "BONDS",
           observed_reaction: "Treasury curve bull-steepened.",
-          observed_reaction_evidence_refs: [ev3],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Markets favoring short duration.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -239,7 +239,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         TECH_AI: {
           lens_name: "TECH_AI",
           observed_reaction: "Tech indices up 1.2% in session.",
-          observed_reaction_evidence_refs: [ev2],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Lower rates support tech valuations.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -247,7 +247,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         OIL_WAR_INFLATION: {
           lens_name: "OIL_WAR_INFLATION",
           observed_reaction: "Crude oil flat at $75/bbl.",
-          observed_reaction_evidence_refs: [ev1],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Supply risks unpriced in current spot market.",
           contradiction_references: [],
           unresolved_signals: ["lead:oil:supply"],
@@ -255,7 +255,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         USD: {
           lens_name: "USD",
           observed_reaction: "DXY down 0.4% to 101.2.",
-          observed_reaction_evidence_refs: [ev2],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Dollar weakening on yield differential erosion.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -263,7 +263,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         GOLD: {
           lens_name: "GOLD",
           observed_reaction: "Gold up 0.8% to $2,520/oz.",
-          observed_reaction_evidence_refs: [ev3],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Supported by lower real yields.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -271,7 +271,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         CREDIT: {
           lens_name: "CREDIT",
           observed_reaction: "High yield spreads tightened 5bps.",
-          observed_reaction_evidence_refs: [ev2],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Credit default risk remains muted.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -279,7 +279,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         BREADTH: {
           lens_name: "BREADTH",
           observed_reaction: "Advance/decline ratio 2.1x.",
-          observed_reaction_evidence_refs: [ev2],
+          observed_reaction_evidence_refs: [evYields],
           interpretation: "Broad participation across sectors.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -298,7 +298,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         expected_information_gain: "Assesses rate cut momentum durability.",
         linked_investigations: [],
         linked_stories: ["story:fed_easing"],
-        blocking_evidence: [ev3],
+        blocking_evidence: [evYields],
       },
     ],
     stock_radar: [
@@ -311,7 +311,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         linked_main_thread_or_story_id: "thread:fed_easing",
         confirming_signal: "Break above 5,600 on above-average volume.",
         invalidating_signal: "Failure below 5,500 50-day moving average.",
-        evidence_references: [ev2, ev3],
+        evidence_references: [evFed, evYields],
       },
     ],
     developing_themes: [
@@ -319,19 +319,19 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         theme_id: "theme:global_easing",
         title: "Global Central Bank Easing Alignment",
         summary: "Fed joining ECB and BOE in rate cut cycles.",
-        supporting_evidence_ids: [ev2],
+        supporting_evidence_ids: [evFed],
       },
       {
         theme_id: "theme:disinflation",
         title: "Core Disinflation Consolidation",
         summary: "Headline and core inflation measures returning toward 2% target.",
-        supporting_evidence_ids: [ev1],
+        supporting_evidence_ids: [evCpi],
       },
       {
         theme_id: "theme:yield_curve_steepening",
         title: "Yield Curve Un-Inversion",
         summary: "Bull steepening driving Treasury curve back to positive slope.",
-        supporting_evidence_ids: [ev3],
+        supporting_evidence_ids: [evYields],
       },
     ],
     creator_theme_expansions: [],
@@ -352,7 +352,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
           updated_at: "2026-09-18T12:00:00Z",
           lineage: [],
           state_reason: "August CPI print of 2.5% YoY confirms disinflation trend.",
-          current_evidence_refs: [ev1],
+          current_evidence_refs: [evCpi],
           observed_market_reaction: "Yields fell 12bps post-release.",
           next_catalyst_or_tripwire: "September CPI release.",
         },
@@ -396,7 +396,6 @@ test("2. Valid Reconciled Output Pass Validation", () => {
 });
 
 test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection", () => {
-  // Create a packet where two evidence items come from exact same source_id / publisher
   const packetDuplicateSource = assembleDossierV2InputPacket(
     { as_of: "2026-09-18T12:00:00Z" },
     {
@@ -430,66 +429,125 @@ test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection"
   assert.ok(val.errors.some((e) => e.includes("requires at least two independent evidence sources/ancestries")));
 });
 
-test("4. Epistemic Label Validation - INFERRED Without Change Mind Condition Rejected", () => {
+test("4. Epistemic Label Validation - INFERRED Uncertainty Signal Required", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
 
   output.major_stories[0].epistemic_label = "INFERRED";
-  output.major_stories[0].what_would_change_mind = ""; // Empty change-mind condition!
+  output.major_stories[0].market_evidence.unresolved = [];
+  output.major_stories[0].market_evidence.contradicting = [];
 
   const val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("requires non-empty what_would_change_mind condition")));
+  assert.ok(val.errors.some((e) => e.includes("INFERRED story requires explicit uncertainty/alternative signals")));
 });
 
-test("5. Thesis Ledger Evolution Integrity Validation", () => {
+test("5. Thesis Ledger Evolution Integrity & Cycle Detection", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
 
-  // Evolved predecessor with missing successor in ledger rejected
-  const predThesis = {
-    thesis_id: "thesis:disinflation:v1",
+  // A. Two-node cycle (A -> B -> A) rejected
+  const entryA = {
+    thesis_id: "thesis:A",
     contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
-    root_thesis_id: "thesis:disinflation",
-    parent_thesis_id: null,
-    successor_thesis_id: "thesis:disinflation:v2_MISSING", // Missing successor!
-    title: "US Core Inflation Moderating",
-    statement: "Inflation is slowing down toward 2.5%.",
+    root_thesis_id: "thesis:A",
+    parent_thesis_id: "thesis:B",
+    successor_thesis_id: "thesis:B",
+    title: "Thesis A",
+    statement: "Statement A",
     state: "evolved" as const,
     version: 1,
     created_at: "2026-09-01T00:00:00Z",
     updated_at: "2026-09-18T12:00:00Z",
     lineage: [],
-    state_reason: "Evolved to broader structural disinflation thesis.",
+    state_reason: "Reason A",
     current_evidence_refs: ["ev:cpi:2026-09"],
-    observed_market_reaction: "Yields fell 12bps.",
-    next_catalyst_or_tripwire: "Next CPI print.",
+    observed_market_reaction: null,
+    next_catalyst_or_tripwire: "Catalyst A",
   };
 
-  output.thesis_ledger.entries = [predThesis];
+  const entryB = {
+    thesis_id: "thesis:B",
+    contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+    root_thesis_id: "thesis:A",
+    parent_thesis_id: "thesis:A",
+    successor_thesis_id: "thesis:A",
+    title: "Thesis B",
+    statement: "Statement B",
+    state: "evolved" as const,
+    version: 2,
+    created_at: "2026-09-18T12:00:00Z",
+    updated_at: "2026-09-18T12:00:00Z",
+    lineage: ["thesis:A"],
+    state_reason: "Reason B",
+    current_evidence_refs: ["ev:cpi:2026-09"],
+    observed_market_reaction: null,
+    next_catalyst_or_tripwire: "Catalyst B",
+  };
 
-  const val = validateResearchBrainOutput(output, packet);
+  output.thesis_ledger.entries = [entryA, entryB];
+  let val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("successor_thesis_id \"thesis:disinflation:v2_MISSING\" does not exist")));
+  assert.ok(val.errors.some((e) => e.includes("contains cycle in successor lineage")));
+
+  // B. Three-node cycle (A -> B -> C -> A) rejected
+  const entryC = {
+    thesis_id: "thesis:C",
+    contract_version: THESIS_LEDGER_V2_CONTRACT_VERSION,
+    root_thesis_id: "thesis:A",
+    parent_thesis_id: "thesis:B",
+    successor_thesis_id: "thesis:A",
+    title: "Thesis C",
+    statement: "Statement C",
+    state: "confirmed" as const,
+    version: 3,
+    created_at: "2026-09-18T12:00:00Z",
+    updated_at: "2026-09-18T12:00:00Z",
+    lineage: ["thesis:A", "thesis:B"],
+    state_reason: "Reason C",
+    current_evidence_refs: ["ev:cpi:2026-09"],
+    observed_market_reaction: null,
+    next_catalyst_or_tripwire: "Catalyst C",
+  };
+
+  entryB.successor_thesis_id = "thesis:C";
+  output.thesis_ledger.entries = [entryA, entryB, entryC];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("contains cycle in successor lineage")));
+
+  // C. Valid 3-node chain (A -> B -> C) accepted
+  entryA.parent_thesis_id = null;
+  entryA.successor_thesis_id = "thesis:B";
+  entryB.parent_thesis_id = "thesis:A";
+  entryB.successor_thesis_id = "thesis:C";
+  entryC.parent_thesis_id = "thesis:B";
+  entryC.successor_thesis_id = null;
+
+  output.thesis_ledger.entries = [entryA, entryB, entryC];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true);
 });
 
-test("6. Market Verdict Lens Reaction Evidence Refs Validation", () => {
+test("6. Market Verdict Observed Reaction Market Evidence Requirement", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
 
-  // Non-null reaction without evidence ref rejected
-  output.market_verdict.lenses.US_RATES.observed_reaction = "US 2Y yield fell 12bps.";
-  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = []; // Empty refs!
+  const evFed = packet.observed_evidence.find((e) => e.evidence_id.includes("fed"))?.evidence_id ?? "ev:fed:2026-09";
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  // Reaction supported ONLY by FOMC press release (non-market factual evidence) rejected
+  output.market_verdict.lenses.US_RATES.observed_reaction = "2Y yield fell 12bps.";
+  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = [evFed]; // FOMC_STATEMENT!
 
   let val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("non-null observed_reaction requires at least one valid evidence reference")));
+  assert.ok(val.errors.some((e) => e.includes("requires at least one market/pricing evidence reference")));
 
-  // Invalid evidence ref rejected
-  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = ["ev:FAKE_ID"];
+  // Reaction supported by TREASURY_FEED pricing feed accepted
+  output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = [evYields];
   val = validateResearchBrainOutput(output, packet);
-  assert.equal(val.isValid, false);
-  assert.ok(val.errors.some((e) => e.includes("references unsupported evidence_id \"ev:FAKE_ID\"")));
+  assert.equal(val.isValid, true);
 });
 
 test("7. Main Thread & Stock Radar Linkage Validation", () => {
