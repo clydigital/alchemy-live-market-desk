@@ -13,13 +13,19 @@ function auditStrictObjectSchemas(
   }
 
   const schema = node as Record<string, unknown>;
-  if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
-    const propertyKeys = Object.keys(schema.properties as Record<string, unknown>).sort();
-    const required = Array.isArray(schema.required)
-      ? schema.required.filter((item): item is string => typeof item === "string").sort()
-      : [];
+  if (schema.type === "object") {
+    if (schema.additionalProperties !== false) {
+      failures.push(
+        `${path}: strict object schema must set additionalProperties to false.`,
+      );
+    }
 
-    if (schema.additionalProperties === false) {
+    if (schema.properties && typeof schema.properties === "object") {
+      const propertyKeys = Object.keys(schema.properties as Record<string, unknown>).sort();
+      const required = Array.isArray(schema.required)
+        ? schema.required.filter((item): item is string => typeof item === "string").sort()
+        : [];
+
       const missing = propertyKeys.filter((key) => !required.includes(key));
       const unknownRequired = required.filter((key) => !propertyKeys.includes(key));
 
@@ -67,4 +73,23 @@ test("Research Brain strict schema requires previously optional chart and lead f
   assert.ok(coreRequired.includes("overlay_or_comparison"));
   assert.ok(optionalRequired.includes("overlay_or_comparison"));
   assert.ok(investigationRequired.includes("leads_referenced"));
+});
+
+test("Research Brain Market Verdict schema fixes the eight lens keys explicitly", () => {
+  const schema = getResearchBrainJsonSchema() as any;
+  const lenses = schema.properties.market_verdict.properties.lenses;
+  const expected = [
+    "US_RATES",
+    "BONDS",
+    "TECH_AI",
+    "OIL_WAR_INFLATION",
+    "USD",
+    "GOLD",
+    "CREDIT",
+    "BREADTH",
+  ].sort();
+
+  assert.deepEqual(Object.keys(lenses.properties).sort(), expected);
+  assert.deepEqual([...lenses.required].sort(), expected);
+  assert.equal(lenses.additionalProperties, false);
 });

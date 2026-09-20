@@ -128,6 +128,42 @@ Use ONLY IDs from the provided allowed_reference_index. Do NOT create new eviden
 }
 
 export function getResearchBrainJsonSchema(): Record<string, unknown> {
+  const marketLensSchema = {
+    type: "object",
+    properties: {
+      lens_name: { type: "string" },
+      observed_reaction: { type: ["string", "null"] },
+      observed_reaction_evidence_refs: { type: "array", items: { type: "string" } },
+      interpretation: { type: "string" },
+      contradiction_references: { type: "array", items: { type: "string" } },
+      unresolved_signals: { type: "array", items: { type: "string" } },
+    },
+    required: [
+      "lens_name",
+      "observed_reaction",
+      "observed_reaction_evidence_refs",
+      "interpretation",
+      "contradiction_references",
+      "unresolved_signals",
+    ],
+    additionalProperties: false,
+  };
+
+  const marketLensNames = [
+    "US_RATES",
+    "BONDS",
+    "TECH_AI",
+    "OIL_WAR_INFLATION",
+    "USD",
+    "GOLD",
+    "CREDIT",
+    "BREADTH",
+  ];
+
+  const marketLensProperties = Object.fromEntries(
+    marketLensNames.map((lensName) => [lensName, marketLensSchema]),
+  );
+
   return {
     type: "object",
     properties: {
@@ -341,26 +377,9 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           verdict_id: { type: "string" },
           lenses: {
             type: "object",
-            additionalProperties: {
-              type: "object",
-              properties: {
-                lens_name: { type: "string" },
-                observed_reaction: { type: ["string", "null"] },
-                observed_reaction_evidence_refs: { type: "array", items: { type: "string" } },
-                interpretation: { type: "string" },
-                contradiction_references: { type: "array", items: { type: "string" } },
-                unresolved_signals: { type: "array", items: { type: "string" } },
-              },
-              required: [
-                "lens_name",
-                "observed_reaction",
-                "observed_reaction_evidence_refs",
-                "interpretation",
-                "contradiction_references",
-                "unresolved_signals",
-              ],
-              additionalProperties: false,
-            },
+            properties: marketLensProperties,
+            required: marketLensNames,
+            additionalProperties: false,
           },
           cross_asset_readthrough: { type: "string" },
           epistemic_label: {
