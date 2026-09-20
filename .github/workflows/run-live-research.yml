@@ -11,6 +11,7 @@ on:
         options:
           - research
           - dossier_v2_dry_run
+          - dossier_v2_persist
           - finra_sensor
       slot:
         description: Production research slot to run (research mode)
