@@ -113,7 +113,6 @@ test("stale review age creates a target using lifecycle-specific thresholds", ()
   assert.equal(selected[0]?.reason, "review_age");
 });
 
-
 test("overdue high Story debt wakes a review like production research obligations", () => {
   const selected = selectStoryReviewTargets({
     stories: [story("oil", { lastEvaluatedAt: "2026-08-21T11:59:00Z" })],

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { loadPersistentStoriesForCreatorRouting } from "./creator-story-routing.ts";
 import { runStructuredStage } from "./intelligence/openai.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import {
@@ -27,31 +28,12 @@ export type TranscriptReviewVideo = {
   transcriptText: string;
 };
 
-type ReviewStory = {
-  id: string;
-  slug: string;
-  title: string;
-  thesis: string;
-  market_question: string | null;
-  dominant_narrative: string | null;
-  confirmation_trigger: string | null;
-  invalidation_trigger: string | null;
-  next_catalyst: string | null;
-  assets: string[];
-};
-
 export async function reviewCreatorTranscript(input: {
   video: TranscriptReviewVideo;
   client?: SupabaseClient;
 }): Promise<TranscriptResearchReview> {
   const client = input.client ?? createSupabaseAdminClient();
-  const { data, error } = await client
-    .from("stories")
-    .select("id,slug,title,thesis,market_question,dominant_narrative,confirmation_trigger,invalidation_trigger,next_catalyst,assets")
-    .neq("status", "discarded")
-    .order("updated_at", { ascending: false });
-  if (error) throw new Error(`Could not load Story registry for transcript review: ${error.message}`);
-  const stories = (data ?? []) as ReviewStory[];
+  const stories = await loadPersistentStoriesForCreatorRouting(client);
   const allowedStorySlugs = new Set(stories.map((story) => story.slug));
   const result = await runStructuredStage<TranscriptResearchReview>({
     stageKey: "creator_transcript_review",

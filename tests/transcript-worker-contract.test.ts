@@ -75,11 +75,16 @@ test("the worker is authenticated, scheduled and separate from paused research",
 });
 
 
-test("creator routing keeps archived persistent Stories available while excluding discarded rows", () => {
-  assert.doesNotMatch(transcriptReview, /\.neq\("status",\s*"archived"\)/);
-  assert.doesNotMatch(store, /\.neq\("status",\s*"archived"\)/);
-  assert.match(transcriptReview, /\.neq\("status",\s*"discarded"\)/);
-  assert.match(store, /\.neq\("status",\s*"discarded"\)/);
+test("creator routing uses one dedicated archived-capable Story loader", () => {
+  const routingPath = path.join(root, "lib", "creator-story-routing.ts");
+  assert.equal(fs.existsSync(routingPath), true, "creator-only Story loader must exist");
+  const routing = fs.readFileSync(routingPath, "utf8");
+  assert.match(transcriptReview, /loadPersistentStoriesForCreatorRouting/);
+  assert.match(store, /loadPersistentStoriesForCreatorRouting/);
+  assert.match(routing, /\.neq\("status",\s*"discarded"\)/);
+  assert.doesNotMatch(routing, /\.neq\("status",\s*"archived"\)/);
+  assert.doesNotMatch(transcriptReview, /\.from\("stories"\)/);
+  assert.doesNotMatch(store, /\.from\("stories"\)/);
 });
 
 test("canonical intelligence excludes archived and discarded Stories from the shared runtime", () => {
