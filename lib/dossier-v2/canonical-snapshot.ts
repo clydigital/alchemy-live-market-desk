@@ -98,6 +98,66 @@ const ARTICLE_SOURCE_TYPES = new Set([
   "news_report",
 ]);
 
+
+const DOSSIER_MARKET_MONITOR_CORE_IDS = [
+  "us2y",
+  "us10y",
+  "spx",
+  "smh",
+  "dxy",
+  "usdjpy",
+  "nikkei",
+  "kospi",
+  "hang-seng",
+  "gold",
+  "wti",
+  "distillate",
+  "crack-distillate",
+  "hyg",
+] as const;
+
+function selectMarketMonitorRows(rows: MarketMonitorLike["rows"]) {
+  const eligible = rows
+    .filter((row) => row.last !== null && row.asOf);
+
+  const byId = new Map(eligible.map((row) => [row.id, row]));
+  const selected: MarketMonitorLike["rows"] = [];
+  const selectedIds = new Set<string>();
+
+  for (const id of DOSSIER_MARKET_MONITOR_CORE_IDS) {
+    const row = byId.get(id);
+    if (!row) continue;
+    selected.push(row);
+    selectedIds.add(row.id);
+  }
+
+  const typePriority = (row: MarketMonitorLike["rows"][number]) =>
+    row.sourceName === "Federal Reserve Economic Data" ? 0 :
+    row.type === "Rates" ? 1 :
+    row.type === "Major Index" ? 2 :
+    row.type === "AI / Semis" ? 3 :
+    row.type === "Energy" ? 4 :
+    row.type === "FX" ? 5 :
+    row.type === "Metal" ? 6 :
+    row.type === "Credit / Risk" ? 7 : 8;
+
+  const remainder = eligible
+    .filter((row) => !selectedIds.has(row.id))
+    .sort((left, right) => {
+      const attentionDelta = (right.attentionScore ?? 0) - (left.attentionScore ?? 0);
+      if (attentionDelta !== 0) return attentionDelta;
+      return typePriority(left) - typePriority(right) || left.id.localeCompare(right.id);
+    });
+
+  for (const row of remainder) {
+    if (selected.length >= 28) break;
+    selected.push(row);
+    selectedIds.add(row.id);
+  }
+
+  return selected.slice(0, 28);
+}
+
 type MarketMonitorLike = {
   updatedAt: string;
   rows: Array<{
@@ -112,6 +172,8 @@ type MarketMonitorLike = {
     frequency: "daily" | "monthly";
     sourceName: string;
     sourceUrl: string;
+    attentionScore?: number;
+    hot?: boolean;
   }>;
   limitations?: string[];
 };
@@ -472,23 +534,13 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   const observed = [...(result.snapshot.observed_evidence ?? [])];
   let fredSeen = false;
 
-  const rows = monitor.rows
-    .filter((row) => row.last !== null && row.asOf)
-    .filter((row) => {
+  const rows = selectMarketMonitorRows(
+    monitor.rows.filter((row) => {
+      if (row.last === null || !row.asOf) return false;
       const occurrenceMs = Date.parse(`${row.asOf}T00:00:00.000Z`);
       return Number.isFinite(occurrenceMs) && occurrenceMs <= asOfMs;
-    })
-    .sort((left, right) => {
-      const priority = (row: MarketMonitorLike["rows"][number]) =>
-        row.sourceName === "Federal Reserve Economic Data" ? 0 :
-        row.type === "Rates" ? 1 :
-        row.type === "Major Index" ? 2 :
-        row.type === "Energy" ? 3 :
-        row.type === "FX" ? 4 :
-        row.type === "Metal" ? 5 : 6;
-      return priority(left) - priority(right) || left.id.localeCompare(right.id);
-    })
-    .slice(0, 28);
+    }),
+  );
 
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
