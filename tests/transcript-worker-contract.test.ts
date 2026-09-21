@@ -12,6 +12,10 @@ const capacityMigration = fs.readFileSync(
   path.join(root, "supabase", "migrations", "20260914033000_transcript_worker_capacity.sql"),
   "utf8",
 );
+const creatorLinkBackfillMigration = fs.readFileSync(
+  path.join(root, "supabase", "migrations", "20260921134000_backfill_creator_story_evidence_links.sql"),
+  "utf8",
+);
 const handler = fs.readFileSync(path.join(root, "lib", "transcript-worker-handler.ts"), "utf8");
 const worker = fs.readFileSync(path.join(root, "lib", "transcript-worker.ts"), "utf8");
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
@@ -114,6 +118,17 @@ test("targeted archived Story and Evidence reads bypass broad frozen snapshots",
     intelligenceRuntime,
     /stories\?select=\$\{STORY_REGISTRY_FIELDS\}&id=in\.\(\$\{targetIds\.join\(","\)\}\)&status=eq\.archived/,
   );
+});
+
+test("historical creator leads are backfilled into archived Story links through explicit slugs", () => {
+  assert.match(creatorLinkBackfillMigration, /intelligence_story_evidence/);
+  assert.match(creatorLinkBackfillMigration, /evidence\.structured_payload ->> 'evidenceNature' = 'creator_lead'/);
+  assert.match(creatorLinkBackfillMigration, /evidence\.evidence_class = 'transcript'/);
+  assert.match(creatorLinkBackfillMigration, /story\.slug = topic\.slug/);
+  assert.match(creatorLinkBackfillMigration, /story\.status = 'archived'/);
+  assert.match(creatorLinkBackfillMigration, /'context'/);
+  assert.match(creatorLinkBackfillMigration, /100/);
+  assert.match(creatorLinkBackfillMigration, /on conflict \(story_id, evidence_id, evidence_role\) do nothing/);
 });
 
 test("queued archived review pins its trigger Evidence even when normal recruitment capacity would drop it", () => {
