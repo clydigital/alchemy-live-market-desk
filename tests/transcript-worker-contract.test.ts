@@ -17,6 +17,7 @@ const worker = fs.readFileSync(path.join(root, "lib", "transcript-worker.ts"), "
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
 const transcriptReview = fs.readFileSync(path.join(root, "lib", "transcript-research-review.ts"), "utf8");
 const intelligenceRuntime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
+const intelligenceSupabase = fs.readFileSync(path.join(root, "lib", "intelligence", "supabase.ts"), "utf8");
 const authConfig = fs.readFileSync(path.join(root, "lib", "supabase", "config.ts"), "utf8");
 const route = fs.readFileSync(path.join(root, "app", "api", "cron", "video", "transcript-worker", "route.ts"), "utf8");
 const vercel = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8")) as {
@@ -104,6 +105,16 @@ test("canonical intelligence keeps archived Stories out of normal reasoning but 
     /loadOrCreateStoryReviewTargets\(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt\)/,
   );
   assert.match(intelligenceRuntime, /const storiesPack = existingStoryPack\(stories\)/);
+});
+
+test("targeted archived Story and Evidence reads bypass broad frozen snapshots", () => {
+  assert.match(intelligenceSupabase, /function hasTargetedIdentityFilter\(path: string\)/);
+  assert.match(intelligenceSupabase, /\(\?:\\\?\|&\)id=\(\?:eq\\\.\|in\\\.\\\(\)/);
+  assert.match(intelligenceSupabase, /if \(hasTargetedIdentityFilter\(path\)\) return null/);
+  assert.match(
+    intelligenceRuntime,
+    /stories\?select=\$\{STORY_REGISTRY_FIELDS\}&id=in\.\(\$\{targetIds\.join\(","\)\}\)&status=eq\.archived/,
+  );
 });
 
 test("queued archived review pins its trigger Evidence even when normal recruitment capacity would drop it", () => {
