@@ -1,0 +1,114 @@
+name: Start Jules Live Market session
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Instruction for Jules (manual, plan approval required)"
+        required: true
+        type: string
+        default: "Inspect the Live Desk architecture and identify where a presenter divergence card could fit. Return a plan only; do not modify code or production data."
+      title:
+        description: "Short session title"
+        required: true
+        type: string
+        default: "Live Market: presenter divergence review"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-jules-live-market
+  cancel-in-progress: false
+
+jobs:
+  start-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      JULES_TASK: ${{ inputs.task }}
+      JULES_TITLE: ${{ inputs.title }}
+    steps:
+      - name: Check secret and inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$JULES_API_KEY" ]]; then
+            echo "Add JULES_API_KEY to repository Actions secrets before dispatching." >&2
+            exit 1
+          fi
+          if [[ -z "${JULES_TASK//[[:space:]]/}" || -z "${JULES_TITLE//[[:space:]]/}" ]]; then
+            echo "Task and title must contain text." >&2
+            exit 1
+          fi
+
+      - name: Confirm Jules can access this repository
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_name=""
+          page_token=""
+          for page in {1..20}; do
+            url="https://jules.googleapis.com/v1alpha/sources?pageSize=100"
+            if [[ -n "$page_token" ]]; then
+              url="$url&pageToken=$(jq -rn --arg value "$page_token" '$value|@uri')"
+            fi
+            response="$(curl --fail --silent --show-error --retry 2 \
+              -H "X-Goog-Api-Key: $JULES_API_KEY" "$url")"
+            source_name="$(jq -r --arg owner "$GITHUB_REPOSITORY_OWNER" \
+              --arg repo "${GITHUB_REPOSITORY#*/}" \
+              '.sources[]? | select(.githubRepo.owner == $owner and .githubRepo.repo == $repo) | .name' \
+              <<<"$response" | head -n 1)"
+            if [[ -n "$source_name" ]]; then
+              break
+            fi
+            page_token="$(jq -r '.nextPageToken // empty' <<<"$response")"
+            if [[ -z "$page_token" ]]; then
+              break
+            fi
+          done
+          if [[ -z "$source_name" ]]; then
+            echo "This repository is not available as a Jules source. Connect it in Jules first." >&2
+            exit 1
+          fi
+          echo "name=$source_name" >> "$GITHUB_OUTPUT"
+
+      - name: Create approval-gated Jules session
+        shell: bash
+        env:
+          JULES_SOURCE: ${{ steps.source.outputs.name }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn \
+            --arg prompt "$JULES_TASK" \
+            --arg title "$JULES_TITLE" \
+            --arg source "$JULES_SOURCE" \
+            --arg branch "$GITHUB_REF_NAME" \
+            '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:true}')"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error --retry 2 \
+            -o "$response_file" -w '%{http_code}' \
+            -X POST "https://jules.googleapis.com/v1alpha/sessions" \
+            -H "X-Goog-Api-Key: $JULES_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$payload")"
+          if [[ ! "$status" =~ ^2 ]]; then
+            echo "Jules session creation failed (HTTP $status)." >&2
+            jq -r '.error.message // "No error detail returned"' "$response_file" >&2 || true
+            exit 1
+          fi
+          session_name="$(jq -r '.name // empty' "$response_file")"
+          if [[ ! "$session_name" =~ ^sessions/[A-Za-z0-9_-]+$ ]]; then
+            echo "Jules returned an unexpected session identifier." >&2
+            exit 1
+          fi
+          echo "Created Jules $session_name (plan approval required)."
+          {
+            echo "### Jules Live Market"
+            echo "Session: \`$session_name\`"
+            echo "Source: \`$JULES_SOURCE\`"
+            echo "Plan approval is required before Jules executes the task."
+          } >> "$GITHUB_STEP_SUMMARY"
