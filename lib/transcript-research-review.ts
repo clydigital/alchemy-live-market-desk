@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { loadPersistentStoriesForCreatorRouting } from "./creator-story-routing.ts";
+import { loadPersistentStoriesForCreatorReview } from "./creator-story-routing.ts";
 import { runStructuredStage } from "./intelligence/openai.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import {
@@ -33,7 +33,7 @@ export async function reviewCreatorTranscript(input: {
   client?: SupabaseClient;
 }): Promise<TranscriptResearchReview> {
   const client = input.client ?? createSupabaseAdminClient();
-  const stories = await loadPersistentStoriesForCreatorRouting(client);
+  const stories = await loadPersistentStoriesForCreatorReview(client);
   const allowedStorySlugs = new Set(stories.map((story) => story.slug));
   const result = await runStructuredStage<TranscriptResearchReview>({
     stageKey: "creator_transcript_review",
