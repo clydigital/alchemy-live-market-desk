@@ -1076,7 +1076,8 @@ async function loadOrCreateStoryReviewTargets(
       priority: number;
       available_at: string;
       created_at: string;
-    }>>("intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()"),
+      requested_by_evidence_id: string | null;
+    }>>("intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at,requested_by_evidence_id&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()"),
   ]);
   const stateByStory = new Map(states.map((state) => [state.story_id, state]));
   const packedById = new Map(existingStoryPack(stories).map((story) => [story.id, story]));
@@ -1098,6 +1099,7 @@ async function loadOrCreateStoryReviewTargets(
     priority: item.priority,
     availableAt: item.available_at,
     createdAt: item.created_at,
+    requestedEvidenceId: item.requested_by_evidence_id,
   }));
   const evidenceLinks: StoryEvidenceLink[] = links.map((link) => ({
     storyId: link.story_id,
