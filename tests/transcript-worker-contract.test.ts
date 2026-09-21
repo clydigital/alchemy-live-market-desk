@@ -82,12 +82,8 @@ test("creator routing keeps archived persistent Stories available while excludin
   assert.match(store, /\.neq\("status",\s*"discarded"\)/);
 });
 
-test("canonical intelligence can consume queued archived Stories without admitting discarded Stories", () => {
+test("canonical intelligence excludes archived and discarded Stories from the shared runtime", () => {
   assert.match(
-    intelligenceRuntime,
-    /stories\?select=[^"\n]+&status=neq\.discarded&order=updated_at\.desc/,
-  );
-  assert.doesNotMatch(
     intelligenceRuntime,
     /stories\?select=[^"\n]+&status=neq\.archived&status=neq\.discarded&order=updated_at\.desc/,
   );
