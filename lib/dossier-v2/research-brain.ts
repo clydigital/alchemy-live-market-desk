@@ -42,6 +42,54 @@ export interface ResearchBrainOptions {
   requestTimeoutMs?: number;
 }
 
+
+type ResearchBrainReasoningEffort = "none" | "low" | "medium" | "high";
+
+const RESEARCH_BRAIN_PRIMARY_OUTPUT_TOKENS = 16_000;
+const RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS = 10_000;
+const RESEARCH_BRAIN_REQUEST_TIMEOUT_MS = 240_000;
+const VALID_RESEARCH_BRAIN_EFFORT = new Set<ResearchBrainReasoningEffort>(["none", "low", "medium", "high"]);
+
+function boundedEnvInteger(
+  raw: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+) {
+  const parsed = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(minimum, Math.min(maximum, Math.floor(parsed)));
+}
+
+export function researchBrainStageRuntime(
+  stageKey: string,
+  requestTimeoutMs?: number,
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const repair = stageKey === "research_brain_repair";
+  const maxOutputTokens = boundedEnvInteger(
+    repair
+      ? env.OPENAI_RESEARCH_BRAIN_REPAIR_MAX_OUTPUT_TOKENS
+      : env.OPENAI_RESEARCH_BRAIN_MAX_OUTPUT_TOKENS,
+    repair ? RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS : RESEARCH_BRAIN_PRIMARY_OUTPUT_TOKENS,
+    4_000,
+    32_000,
+  );
+  const configuredEffort = (repair
+    ? env.OPENAI_RESEARCH_BRAIN_REPAIR_REASONING_EFFORT
+    : env.OPENAI_RESEARCH_BRAIN_REASONING_EFFORT)?.trim() as ResearchBrainReasoningEffort | undefined;
+  const reasoningEffort = configuredEffort && VALID_RESEARCH_BRAIN_EFFORT.has(configuredEffort)
+    ? configuredEffort
+    : repair
+      ? "low"
+      : "medium";
+  const timeoutMs = requestTimeoutMs === undefined
+    ? RESEARCH_BRAIN_REQUEST_TIMEOUT_MS
+    : Math.max(1_000, Math.min(RESEARCH_BRAIN_REQUEST_TIMEOUT_MS, Math.floor(requestTimeoutMs)));
+
+  return { maxOutputTokens, reasoningEffort, timeoutMs };
+}
+
 function hashString(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
 }
@@ -67,14 +115,27 @@ async function defaultModelRunner(
   }
 
   const model = intelligenceModel("complex");
-  const timeoutMs = requestTimeoutMs ?? 120_000;
-  const maxOutputTokens = 8_000;
+  const { maxOutputTokens, reasoningEffort, timeoutMs } =
+    researchBrainStageRuntime(input.stageKey, requestTimeoutMs);
+  const serializedInput = JSON.stringify(input.boundedInput);
+  const serializedSchema = JSON.stringify(input.schema);
+
+  console.info(JSON.stringify({
+    event: "research_brain_provider_start",
+    stageKey: input.stageKey,
+    model,
+    reasoningEffort,
+    maxOutputTokens,
+    timeoutMs,
+    inputBytes: Buffer.byteLength(serializedInput, "utf8"),
+    schemaBytes: Buffer.byteLength(serializedSchema, "utf8"),
+  }));
 
   const body = {
     model,
     instructions: input.instructions,
-    input: JSON.stringify(input.boundedInput),
-    reasoning: { effort: "medium" },
+    input: serializedInput,
+    reasoning: { effort: reasoningEffort },
     text: {
       verbosity: "low",
       format: {
@@ -111,15 +172,45 @@ async function defaultModelRunner(
     };
   };
 
-  // Section 12 Requirement: maxAttempts: 1 per pass for Research Brain
-  const result = await executeProviderWithRetry<unknown>({
-    fetcher,
-    fallbackModel: model,
-    maxOutputTokens,
-    maxAttempts: 1,
-  });
+  // One provider attempt per pass: primary and structural repair remain explicit stages.
+  try {
+    const result = await executeProviderWithRetry<unknown>({
+      fetcher,
+      fallbackModel: model,
+      maxOutputTokens,
+      maxAttempts: 1,
+    });
 
-  return { data: result.data };
+    console.info(JSON.stringify({
+      event: "research_brain_provider_success",
+      stageKey: input.stageKey,
+      model: result.model,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      totalTokens: result.totalTokens,
+      maxOutputTokens,
+    }));
+
+    return { data: result.data };
+  } catch (error) {
+    const stageError = error instanceof OpenAIStageError ? error : null;
+    console.warn(JSON.stringify({
+      event: "research_brain_provider_failure",
+      stageKey: input.stageKey,
+      model,
+      code: stageError?.code ?? "unknown",
+      providerStatus: stageError?.providerStatus ?? null,
+      incompleteReason: stageError?.incompleteReason ?? null,
+      inputTokens: stageError?.inputTokens ?? null,
+      outputTokens: stageError?.outputTokens ?? null,
+      totalTokens: stageError?.totalTokens ?? null,
+      maxOutputTokens,
+      requestId: stageError?.requestId ?? null,
+      responseId: stageError?.responseId ?? null,
+      message: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+    }));
+    throw error;
+  }
 }
 
 export function produceDegradedOutput(
