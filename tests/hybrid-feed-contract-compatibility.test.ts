@@ -13,6 +13,11 @@ const dataSource = fs.readFileSync(
   "utf8",
 );
 
+const dossierRouteSource = fs.readFileSync(
+  path.join(process.cwd(), "app/api/dossier-v2/route.ts"),
+  "utf8",
+);
+
 test("Hybrid research receives only explicitly persisted divergence rows", () => {
   assert.match(routeSource, /const persistedDivergences = data\.monitorResearchIntake/);
   assert.match(routeSource, /\.filter\(\(item\) => Boolean\(item\.divergence_note\)\)/);
@@ -28,17 +33,20 @@ test("feed route does not infer divergence by comparing stats and news signals",
   assert.doesNotMatch(routeSource, /stats_signal\s*[!=]==?\s*.*news_signal|news_signal\s*[!=]==?\s*.*stats_signal/);
 });
 
-test("Hybrid feed exposes the exact shared Dossier V2 selection under canonical state", () => {
-  assert.match(routeSource, /getDossierV2PresentationSelection/);
-  assert.match(routeSource, /dossierPromise = editionId/);
-  assert.match(routeSource, /Dossier V2 presentation/);
-  assert.match(routeSource, /dossierV2: dossierResult\.value/);
+test("current Dossier V2 is isolated from the heavy Hybrid intelligence feed", () => {
+  assert.doesNotMatch(routeSource, /getDossierV2PresentationSelection/);
+  assert.doesNotMatch(routeSource, /DossierPresentationSelection/);
+  assert.doesNotMatch(routeSource, /dossierPromise|dossierResult|dossierV2:/);
 
-  // Feed assembly must not invoke a second model/reasoning path for Hybrid.
+  assert.match(dossierRouteSource, /getDossierV2PresentationSelection/);
+  assert.match(dossierRouteSource, /s-maxage=30/);
+
+  // Neither transport may invoke a second model/reasoning path.
   assert.doesNotMatch(routeSource, /executeResearchBrain|runIntelligenceEngine|dossier-storyline-composer/);
+  assert.doesNotMatch(dossierRouteSource, /executeResearchBrain|runIntelligenceEngine|dossier-storyline-composer/);
 });
 
-test("explicit immutable edition replay does not receive the current-state Dossier V2", () => {
-  assert.match(routeSource, /editionId[\s\S]*Promise\.resolve\(\{ value: replayDossierSelection/);
-  assert.match(routeSource, /Dossier V2 is current-state research and is not attached to explicit immutable Journey edition replay/);
+test("historical intelligence-feed replay remains free of current-state Dossier V2", () => {
+  assert.match(routeSource, /getHybridPublicationFeedRecords\(\{ editionId \}\)/);
+  assert.doesNotMatch(routeSource, /dossierV2/);
 });
