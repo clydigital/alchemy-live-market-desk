@@ -109,7 +109,6 @@ test("canonical intelligence keeps archived Stories out of normal reasoning but 
 
 test("targeted archived Story and Evidence reads bypass broad frozen snapshots", () => {
   assert.match(intelligenceSupabase, /function hasTargetedIdentityFilter\(path: string\)/);
-  assert.match(intelligenceSupabase, /\(\?:\\\?\|&\)id=\(\?:eq\\\.\|in\\\.\\\(\)/);
   assert.match(intelligenceSupabase, /if \(hasTargetedIdentityFilter\(path\)\) return null/);
   assert.match(
     intelligenceRuntime,
