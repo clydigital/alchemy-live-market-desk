@@ -409,6 +409,16 @@ export async function executeResearchBrain(
   const prompt = buildResearchBrainPrompt(validatedInput);
   const jsonSchema = getResearchBrainJsonSchema();
 
+  const system1Candidates = Array.isArray(prompt.boundedInput.system1_divergence_candidates)
+    ? prompt.boundedInput.system1_divergence_candidates
+    : [];
+  console.info(JSON.stringify({
+    event: "research_brain_system1_screen",
+    packetId: packet.packet_id,
+    candidateCount: system1Candidates.length,
+    candidates: system1Candidates,
+  }));
+
   const runner: ModelRunner =
     options.modelRunner ??
     ((inp) => defaultModelRunner(inp, options.requestTimeoutMs));
@@ -436,6 +446,12 @@ export async function executeResearchBrain(
 
   // Step 7: At most ONE repair retry if invalid
   if (allowRepair) {
+    console.info(JSON.stringify({
+      event: "research_brain_primary_validation_failed",
+      packetId: packet.packet_id,
+      errorCount: firstVal.errors.length,
+      errors: firstVal.errors.slice(0, 12),
+    }));
     console.info(`Research Brain primary output failed validation (${firstVal.errors.length} errors). Attempting single repair pass.`);
     const repairPrompt = buildResearchBrainRepairPrompt(firstPassData, firstVal.errors, packet);
 
@@ -457,6 +473,12 @@ export async function executeResearchBrain(
         return repairVal.output;
       }
 
+      console.warn(JSON.stringify({
+        event: "research_brain_repair_validation_failed",
+        packetId: packet.packet_id,
+        errorCount: repairVal.errors.length,
+        errors: repairVal.errors.slice(0, 12),
+      }));
       console.warn(`Research Brain repair pass failed validation (${repairVal.errors.length} errors).`);
       return produceDegradedOutput(packet, repairVal.errors, true);
     } catch (repairErr) {
