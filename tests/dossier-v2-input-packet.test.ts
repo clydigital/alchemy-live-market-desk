@@ -858,19 +858,85 @@ test("20. attention budget caps and omission count accuracy regression test", ()
   const packet = assembleDossierV2InputPacket(request, snapshot);
 
   // Assert caps
-  assert.equal(packet.development_clusters.length, 12); // Max 12 clusters
+  assert.equal(packet.development_clusters.length, 15); // All 15 fit under the 24-cluster budget
   assert.equal(packet.observed_evidence.length, 72); // Max 72 total observed evidence
   assert.equal(packet.creator_themes.length, 5); // Max 5 creator themes
   assert.equal(packet.creator_themes.filter((t) => t.expand_later).length, 2); // Max 2 expand_later
   assert.equal(packet.catalysts.length, 12); // Max 12 catalysts
 
   // Omission counts must be accurately recorded
-  assert.equal(packet.diagnostics.omitted_clusters_count, 3);
+  assert.equal(packet.diagnostics.omitted_clusters_count, 0);
   assert.ok(packet.diagnostics.omitted_evidence_count > 0);
   assert.ok(packet.diagnostics.omitted_leads_count > 0);
   assert.equal(packet.diagnostics.omitted_creator_themes_count, 2);
   assert.ok(packet.diagnostics.omitted_creator_claims_count > 0);
   assert.equal(packet.diagnostics.omitted_catalysts_count, 3);
+});
+
+test("20b. balanced cluster selection preserves macro spine and fresh non-monitor research", () => {
+  const request: DossierV2InputRequest = {
+    as_of: TEST_AS_OF,
+    previous_dossier_id: null,
+  };
+
+  const macroSpine = [
+    "us2y",
+    "us10y",
+    "spx",
+    "smh",
+    "dxy",
+    "usdjpy",
+    "nikkei",
+    "kospi",
+    "hang-seng",
+    "gold",
+    "wti",
+    "distillate",
+    "crack-distillate",
+    "hyg",
+  ];
+
+  const observed: CandidateSnapshot["observed_evidence"] = [
+    ...macroSpine.map((id) => ({
+      evidence_id: `market-monitor:${id}:2026-03-31`,
+      claim_or_fact: `Market monitor ${id}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `market-monitor:${id}`,
+      source_type: "MARKET_DATA",
+      provenance: [{ source_type: "MARKET_DATA", source_id: `market-monitor:${id}` }],
+    })),
+    ...Array.from({ length: 8 }, (_, index) => ({
+      evidence_id: `market-monitor:filler-${index}:2026-03-31`,
+      claim_or_fact: `Market monitor filler ${index}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `market-monitor:filler-${index}`,
+      source_type: "MARKET_DATA",
+      provenance: [{ source_type: "MARKET_DATA", source_id: `market-monitor:filler-${index}` }],
+    })),
+    ...Array.from({ length: 15 }, (_, index) => ({
+      evidence_id: `research-evidence-${index}`,
+      claim_or_fact: `Fresh research fact ${index}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `research-cluster-${String(index).padStart(2, "0")}`,
+      source_type: "SEC_FILING",
+      provenance: [{ source_type: "SEC_FILING", source_id: `research-source-${index}` }],
+    })),
+  ];
+
+  const packet = assembleDossierV2InputPacket(request, { observed_evidence: observed });
+  const groupingKeys = new Set(packet.development_clusters.map((cluster) => cluster.grouping_key));
+  const marketClusterCount = packet.development_clusters.filter((cluster) =>
+    cluster.grouping_key.startsWith("market-monitor:"),
+  ).length;
+  const researchClusterCount = packet.development_clusters.length - marketClusterCount;
+
+  assert.equal(packet.development_clusters.length, 24);
+  assert.equal(marketClusterCount, 14);
+  assert.equal(researchClusterCount, 10);
+  for (const id of macroSpine) {
+    assert.ok(groupingKeys.has(`market-monitor:${id}`), `missing macro spine cluster ${id}`);
+  }
+  assert.match(packet.diagnostics.notes.join("\n"), /Balanced cluster selection retained 14 market-monitor clusters and 10 non-monitor research clusters/);
 });
 
 test("21. source inspection confirms no forbidden runtime/model/Hybrid/Story/scheduling/publication imports", () => {

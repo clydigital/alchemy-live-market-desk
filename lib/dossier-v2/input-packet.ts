@@ -202,7 +202,9 @@ export interface DossierV2InputPacket {
   diagnostics: OmissionDiagnostics;
 }
 
-const MAX_DEVELOPMENT_CLUSTERS = 12;
+const MAX_DEVELOPMENT_CLUSTERS = 24;
+const MAX_MARKET_MONITOR_CLUSTERS = 14;
+const TARGET_NON_MONITOR_CLUSTERS = 10;
 const MAX_EVIDENCE_PER_CLUSTER = 6;
 const MAX_LEADS_PER_CLUSTER = 3;
 const MAX_TOTAL_OBSERVED_EVIDENCE = 72;
@@ -218,6 +220,71 @@ const MAX_RESEARCH_GAPS = 12;
 const MAX_PROVENANCE_PER_ITEM = 5;
 const MAX_CANONICAL_BYTES = 200000;
 const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+
+const MACRO_SPINE_GROUPING_KEYS = [
+  "market-monitor:us2y",
+  "market-monitor:us10y",
+  "market-monitor:spx",
+  "market-monitor:smh",
+  "market-monitor:dxy",
+  "market-monitor:usdjpy",
+  "market-monitor:nikkei",
+  "market-monitor:kospi",
+  "market-monitor:hang-seng",
+  "market-monitor:gold",
+  "market-monitor:wti",
+  "market-monitor:distillate",
+  "market-monitor:crack-distillate",
+  "market-monitor:hyg",
+] as const;
+
+function isMarketMonitorCluster(cluster: DevelopmentCluster) {
+  return cluster.grouping_key.startsWith("market-monitor:");
+}
+
+function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
+  if (candidateClusters.length <= MAX_DEVELOPMENT_CLUSTERS) {
+    return candidateClusters;
+  }
+
+  const byGroupingKey = new Map(candidateClusters.map((cluster) => [cluster.grouping_key, cluster]));
+  const selected: DevelopmentCluster[] = [];
+  const selectedIds = new Set<string>();
+
+  const add = (cluster: DevelopmentCluster | undefined) => {
+    if (!cluster || selectedIds.has(cluster.cluster_id) || selected.length >= MAX_DEVELOPMENT_CLUSTERS) return;
+    selected.push(cluster);
+    selectedIds.add(cluster.cluster_id);
+  };
+
+  for (const groupingKey of MACRO_SPINE_GROUPING_KEYS) {
+    add(byGroupingKey.get(groupingKey));
+  }
+
+  const nonMonitor = candidateClusters.filter((cluster) => !isMarketMonitorCluster(cluster));
+  for (const cluster of nonMonitor.slice(0, TARGET_NON_MONITOR_CLUSTERS)) {
+    add(cluster);
+  }
+
+  let selectedMonitorCount = selected.filter(isMarketMonitorCluster).length;
+  for (const cluster of candidateClusters) {
+    if (selected.length >= MAX_DEVELOPMENT_CLUSTERS) break;
+    if (selectedIds.has(cluster.cluster_id)) continue;
+    if (isMarketMonitorCluster(cluster)) {
+      if (selectedMonitorCount >= MAX_MARKET_MONITOR_CLUSTERS) continue;
+      add(cluster);
+      selectedMonitorCount += 1;
+    }
+  }
+
+  for (const cluster of candidateClusters) {
+    if (selected.length >= MAX_DEVELOPMENT_CLUSTERS) break;
+    add(cluster);
+  }
+
+  return selected;
+}
 
 // Metrics Sanitizer Bounds
 const METRICS_MAX_DEPTH = 4;
@@ -1024,13 +1091,17 @@ export function assembleDossierV2InputPacket(
 
   let developmentClusters = candidateClusters;
   if (developmentClusters.length > MAX_DEVELOPMENT_CLUSTERS) {
-    omittedClustersCount += developmentClusters.length - MAX_DEVELOPMENT_CLUSTERS;
-    const omittedClusters = developmentClusters.slice(MAX_DEVELOPMENT_CLUSTERS);
-    for (const c of omittedClusters) {
-      omittedEvidenceCount += c.evidence.length;
-      omittedLeadsCount += c.leads.length;
+    developmentClusters = selectBalancedDevelopmentClusters(candidateClusters);
+    const selectedClusterIds = new Set(developmentClusters.map((cluster) => cluster.cluster_id));
+    const omittedClusters = candidateClusters.filter((cluster) => !selectedClusterIds.has(cluster.cluster_id));
+    omittedClustersCount += omittedClusters.length;
+    for (const omittedCluster of omittedClusters) {
+      omittedEvidenceCount += omittedCluster.evidence.length;
+      omittedLeadsCount += omittedCluster.leads.length;
     }
-    developmentClusters = developmentClusters.slice(0, MAX_DEVELOPMENT_CLUSTERS);
+    notes.push(
+      `Balanced cluster selection retained ${developmentClusters.filter(isMarketMonitorCluster).length} market-monitor clusters and ${developmentClusters.filter((cluster) => !isMarketMonitorCluster(cluster)).length} non-monitor research clusters.`,
+    );
   }
 
   let observedEvidence: ObservedEvidence[] = [];

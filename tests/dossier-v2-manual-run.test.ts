@@ -293,6 +293,77 @@ test("Task 9 adapter admits existing Live market monitor rows and marks FRED mac
   );
 });
 
+test("Task 9 market monitor admission preserves the cross-asset macro spine before the 28-row cap", () => {
+  const base = buildCandidateSnapshotFromCanonicalEvidence([], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const core = [
+    ["us2y", "DGS2", "US 2Y Yield", "Rates"],
+    ["us10y", "^TNX", "US 10Y Yield", "Rates"],
+    ["spx", "^GSPC", "S&P 500", "Major Index"],
+    ["smh", "SMH", "SMH Semiconductors", "AI / Semis"],
+    ["dxy", "UUP", "US Dollar", "FX"],
+    ["usdjpy", "JPY=X", "USDJPY", "FX"],
+    ["nikkei", "EWJ", "Japan Equities", "Major Index"],
+    ["kospi", "EWY", "Korea Equities", "Major Index"],
+    ["hang-seng", "EWH", "Hong Kong Equities", "Major Index"],
+    ["gold", "GLD", "Gold proxy", "Metal"],
+    ["wti", "CL=F", "WTI", "Energy"],
+    ["distillate", "HO=F", "ULSD / heating oil", "Energy"],
+    ["crack-distillate", "distillate", "Distillate crack", "Energy"],
+    ["hyg", "HYG", "High Yield Credit", "Credit / Risk"],
+  ] as const;
+
+  const rows = [
+    ...Array.from({ length: 30 }, (_, index) => ({
+      id: `filler-${String(index).padStart(2, "0")}`,
+      symbol: `FILL${index}`,
+      label: `Filler ${index}`,
+      type: "Major Index",
+      last: 100 + index,
+      dayChange: 0,
+      change5d: 0,
+      asOf: "2026-09-19",
+      frequency: "daily" as const,
+      sourceName: "Nasdaq official index history",
+      sourceUrl: "https://www.nasdaq.com/",
+      attentionScore: 99 - index,
+    })),
+    ...core.map(([id, symbol, label, type]) => ({
+      id,
+      symbol,
+      label,
+      type,
+      last: 100,
+      dayChange: 0,
+      change5d: 0,
+      asOf: "2026-09-19",
+      frequency: "daily" as const,
+      sourceName: id === "us2y" ? "Federal Reserve Economic Data" : "Canonical market source",
+      sourceUrl: "https://example.com/market",
+      attentionScore: 0,
+    })),
+  ];
+
+  const result = augmentCandidateSnapshotWithMarketMonitor(
+    base,
+    {
+      updatedAt: AS_OF,
+      rows,
+      limitations: [],
+    },
+    { asOf: AS_OF, lookbackHours: 168 },
+  );
+
+  const ids = new Set(result.snapshot.observed_evidence?.map((item) => item.evidence_id));
+  assert.equal(result.snapshot.observed_evidence?.length, 28);
+  for (const [id] of core) {
+    assert.ok(ids.has(`market-monitor:${id}:2026-09-19`), `missing macro monitor row ${id}`);
+  }
+});
+
 test("Task 9 adapter surfaces unusable MacroMicro capture without promoting it to factual macro evidence", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,
