@@ -42,6 +42,45 @@ test("FINRA memory proof validates date and a bounded unique symbol list", async
   assert.equal(response.status, 400);
 });
 
+test("FINRA memory proof defaults to the macro proxy basket when symbols are omitted", async () => {
+  let captured: string[] = [];
+  const response = await handleManualFinraSensorRunWithDependencies(
+    new Request("https://example.test/api/admin/sensors/finra/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tradeDate: "2026-08-19" }),
+    }),
+    {
+      authorize: authorized,
+      capture: async (tradeDate, symbols) => {
+        captured = symbols;
+        return {
+          state: "ready",
+          tradeDate,
+          sourceUrl: "https://cdn.finra.org/equity/regsho/daily/CNMSshvol20260819.txt",
+          rowsFetched: 12345,
+          selectedSymbols: symbols,
+          memory: {
+            rawRecordId: "raw-default",
+            rawRecordInserted: true,
+            observationsInserted: symbols.length,
+            observationsUnchanged: 0,
+            changeEvents: [],
+          },
+          note: null,
+        };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  for (const expected of ["FXY", "EWJ", "EWY", "EWH", "GLD", "SMH", "USL", "CRAK"]) {
+    assert.ok(captured.includes(expected), `missing default macro FINRA proxy ${expected}`);
+  }
+  assert.ok(!captured.includes("USO"));
+  assert.ok(!captured.includes("UHN"));
+});
+
 test("FINRA memory proof returns append-only persistence counters without exposing raw payloads", async () => {
   const events: Record<string, unknown>[] = [];
   const response = await handleManualFinraSensorRunWithDependencies(
