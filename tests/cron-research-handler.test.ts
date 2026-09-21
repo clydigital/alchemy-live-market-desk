@@ -220,6 +220,7 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   const lateMorningVideo = readFileSync(new URL("../app/api/cron/video/late-morning/route.ts", import.meta.url), "utf8");
   const acquisitionWrapper = readFileSync(new URL("../lib/cron-research-acquisition-handler.ts", import.meta.url), "utf8");
   const continuationHandler = readFileSync(new URL("../lib/cron-research-intelligence-handler.ts", import.meta.url), "utf8");
+  const canonicalJourneyEdition = readFileSync(new URL("../lib/intelligence/canonical-journey-edition.ts", import.meta.url), "utf8");
   const publisher = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
   const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")) as {
     crons: Array<{ path: string; schedule: string }>;
@@ -238,10 +239,16 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(acquisitionWrapper, /x-alchemy-defer-intelligence/);
   assert.match(publisher, /deferScheduledIntelligence/);
   assert.match(publisher, /status: "intelligence_pending"/);
+  assert.match(publisher, /storiesPublished: totalUpdatesPublished/);
   assert.match(continuationHandler, /runWithIntelligenceInvocation\(\{ oneModelStage: true \}/);
   assert.match(continuationHandler, /stageMaxAttempts:\s*1/);
   assert.doesNotMatch(continuationHandler, /scheduledExecutionStartedAtMs:/);
   assert.match(continuationHandler, /persistCanonicalJourneyEditionForResearchRun/);
+  assert.match(continuationHandler, /storiesPublished: publicationCheckpoint\.storiesPublished/);
+  assert.match(continuationHandler, /storiesPublished: intelligence\.storiesPublished/);
+  assert.match(canonicalJourneyEdition, /storiesPublished\?: number \| null/);
+  assert.match(canonicalJourneyEdition, /if \(storiesPublished !== 0\)/);
+  assert.match(canonicalJourneyEdition, /captureCanonicalStoryStates\(\)/);
   assert.doesNotMatch(continuationHandler, /persistCanonicalEditionForResearchRun/);
 
   const schedules = vercelConfig.crons

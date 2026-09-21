@@ -274,10 +274,12 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   researchRunId,
   runKey,
   publicSummary = null,
+  storiesPublished = null,
 }: {
   researchRunId: string;
   runKey: string;
   publicSummary?: string | null;
+  storiesPublished?: number | null;
 }) {
   const existingRows = await dailyBriefsForResearchRun(researchRunId);
   const existing = dailyBriefForPhase(existingRows, "base");
@@ -292,12 +294,24 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
   ))[0] || null;
 
-  const canonicalStoryStates = await captureCanonicalStoryStates();
-  const { manifest: canonicalStoryManifest, journeySources } = await persistCanonicalStoryManifest({
-    researchRunId,
-    canonicalStoryStates,
-    publishedAt: generatedAt,
-  });
+  // A zero-change run has no changed Story to replay. Avoid rebuilding the
+  // entire mutable desk projection (including publication archive and images)
+  // just to persist an empty immutable manifest. This keeps completed-engine
+  // publication recovery bounded and leaves the full freeze path unchanged
+  // whenever the engine actually published one or more Stories.
+  let canonicalStoryManifest: Awaited<ReturnType<typeof persistCanonicalStoryManifest>>["manifest"] = [];
+  let journeySources: JourneyStorySource[] = [];
+  if (storiesPublished !== 0) {
+    const canonicalStoryStates = await captureCanonicalStoryStates();
+    const persistedStories = await persistCanonicalStoryManifest({
+      researchRunId,
+      canonicalStoryStates,
+      publishedAt: generatedAt,
+    });
+    canonicalStoryManifest = persistedStories.manifest;
+    journeySources = persistedStories.journeySources;
+  }
+
   const prior = await intelligenceRest<DailyBriefRow[]>(
     "hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );

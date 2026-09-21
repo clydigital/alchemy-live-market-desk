@@ -288,6 +288,7 @@ export async function handleScheduledResearchIntelligence(
             researchRunId: run.id,
             runKey,
             publicSummary: run.summary,
+            storiesPublished: publicationCheckpoint.storiesPublished,
           }),
           compose: async () => {
             throw new Error("Composition cannot run in the base-publication recovery invocation.");
@@ -411,6 +412,7 @@ export async function handleScheduledResearchIntelligence(
         researchRunId: run.id,
         runKey,
         publicSummary: run.summary,
+        storiesPublished: intelligence.storiesPublished,
       });
 
       if (shouldDeferStageClaim("dossier_storyline_composer")) {
