@@ -55,7 +55,7 @@ test("Research Brain runtime allows bounded production overrides", () => {
     {
       OPENAI_RESEARCH_BRAIN_MAX_OUTPUT_TOKENS: "22000",
       OPENAI_RESEARCH_BRAIN_REASONING_EFFORT: "low",
-    } as NodeJS.ProcessEnv,
+    } as unknown as NodeJS.ProcessEnv,
   );
 
   assert.equal(runtime.maxOutputTokens, 22_000);
