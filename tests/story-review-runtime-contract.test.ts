@@ -27,6 +27,18 @@ test("existing Story maintenance piggybacks on the one Market Belief call", () =
   assert.match(openai, /max_output_tokens: effectiveMaxOutputTokens/);
 });
 
+test("maintenance-only engine stops after canonical Story assessment without downstream reasoning or publication", () => {
+  assert.match(runtime, /maintenanceOnly = false/);
+  assert.match(runtime, /maintenanceOnly\?: boolean/);
+  assert.match(runtime, /if \(maintenanceOnly && !storyReviewTargets\.length\)/);
+  assert.match(
+    runtime,
+    /persistStoryAssessments\([\s\S]*if \(maintenanceOnly\)[\s\S]*persistEarlyEngineCompletion/,
+  );
+  const maintenanceBlock = runtime.match(/if \(maintenanceOnly\) \{[\s\S]*?return \{[\s\S]*?warnings,[\s\S]*?\};[\s\S]*?\}/)?.[0] ?? "";
+  assert.doesNotMatch(maintenanceBlock, /stageKey: "divergence"|stageKey: "hypothesis"|persistDailyBrief/);
+});
+
 test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
   assert.match(runtime, /freezeStoryReviewTargets\(selected\)/);
   assert.match(hardeningMigration, /freeze_intelligence_story_review_targets/);
