@@ -15,6 +15,8 @@ const capacityMigration = fs.readFileSync(
 const handler = fs.readFileSync(path.join(root, "lib", "transcript-worker-handler.ts"), "utf8");
 const worker = fs.readFileSync(path.join(root, "lib", "transcript-worker.ts"), "utf8");
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
+const transcriptReview = fs.readFileSync(path.join(root, "lib", "transcript-research-review.ts"), "utf8");
+const intelligenceRuntime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
 const authConfig = fs.readFileSync(path.join(root, "lib", "supabase", "config.ts"), "utf8");
 const route = fs.readFileSync(path.join(root, "app", "api", "cron", "video", "transcript-worker", "route.ts"), "utf8");
 const vercel = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8")) as {
@@ -69,5 +71,24 @@ test("the worker is authenticated, scheduled and separate from paused research",
   assert.equal(
     vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*" && rewrite.destination === "/api/automation-paused"),
     true,
+  );
+});
+
+
+test("creator routing keeps archived persistent Stories available while excluding discarded rows", () => {
+  assert.doesNotMatch(transcriptReview, /\.neq\("status",\s*"archived"\)/);
+  assert.doesNotMatch(store, /\.neq\("status",\s*"archived"\)/);
+  assert.match(transcriptReview, /\.neq\("status",\s*"discarded"\)/);
+  assert.match(store, /\.neq\("status",\s*"discarded"\)/);
+});
+
+test("canonical intelligence can consume queued archived Stories without admitting discarded Stories", () => {
+  assert.match(
+    intelligenceRuntime,
+    /stories\?select=[^"\n]+&status=neq\.discarded&order=updated_at\.desc/,
+  );
+  assert.doesNotMatch(
+    intelligenceRuntime,
+    /stories\?select=[^"\n]+&status=neq\.archived&status=neq\.discarded&order=updated_at\.desc/,
   );
 });
