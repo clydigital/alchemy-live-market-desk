@@ -1,301 +1,152 @@
 import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 
-export type System1Direction = "UP" | "DOWN";
-export type System1CheckStatus =
-  | "CONFIRMED"
-  | "DIVERGED"
-  | "INSUFFICIENT_DATA";
+type Direction = "UP" | "DOWN";
 
-export type System1Severity = "LOW" | "MEDIUM" | "HIGH";
+type Rule = {
+  id: string;
+  pattern: RegExp;
+  opposite?: string;
+  expectations: Array<[monitorId: string, instrument: string, direction: Direction]>;
+};
 
-export interface System1RelationshipCheck {
-  check_id: string;
-  rule_id: string;
-  rule_label: string;
-  trigger_evidence_id: string;
-  trigger_summary: string;
-  instrument: string;
-  expected_direction: System1Direction;
-  observed_direction: System1Direction | null;
-  observed_change_pct: number | null;
-  market_evidence_id: string | null;
-  status: System1CheckStatus;
-  severity: System1Severity;
-}
-
-export interface System1DivergenceCandidate {
+export type System1DivergenceCandidate = {
   check_id: string;
   rule_id: string;
   trigger_evidence_id: string;
   market_evidence_id: string;
   instrument: string;
-  expected_direction: System1Direction;
-  observed_direction: System1Direction;
+  expected_direction: Direction;
+  observed_direction: Direction;
   observed_change_pct: number;
-  severity: Exclude<System1Severity, "LOW">;
-}
-
-type RelationshipExpectation = {
-  monitorId: string;
-  instrument: string;
-  direction: System1Direction;
+  severity: "MEDIUM" | "HIGH";
 };
 
-type RelationshipRule = {
-  id: string;
-  label: string;
-  patterns: RegExp[];
-  expectations: RelationshipExpectation[];
-  oppositeRuleId?: string;
-};
+const MIN_MATERIAL_MOVE_PCT = 0.25;
+const MAX_CANDIDATES = 5;
 
-const MIN_ABS_MOVE_PCT = 0.05;
-const MAX_DIVERGENCE_CANDIDATES = 5;
-
-const RELATIONSHIP_RULES: RelationshipRule[] = [
+const RULES: Rule[] = [
   {
     id: "HAWKISH_MONETARY_POLICY",
-    label: "Hawkish monetary-policy signal",
-    patterns: [
-      /\bhawkish\b/i,
-      /\brate hike\b/i,
-      /\bhiked (?:the )?(?:policy )?rate/i,
-      /\braised (?:the )?(?:policy )?rate/i,
-      /\bhigher for longer\b/i,
-      /\btightening bias\b/i,
-    ],
+    pattern: /\b(?:hawkish|rate hike|hiked (?:the )?(?:policy )?rate|raised (?:the )?(?:policy )?rate|higher for longer|tightening bias)\b/i,
+    opposite: "DOVISH_MONETARY_POLICY",
     expectations: [
-      { monitorId: "us2y", instrument: "US02Y", direction: "UP" },
-      { monitorId: "dxy", instrument: "DXY", direction: "UP" },
-      { monitorId: "gold", instrument: "XAUUSD", direction: "DOWN" },
-      { monitorId: "smh", instrument: "SMH", direction: "DOWN" },
+      ["us2y", "US02Y", "UP"],
+      ["dxy", "DXY", "UP"],
+      ["gold", "XAUUSD", "DOWN"],
+      ["smh", "SMH", "DOWN"],
     ],
-    oppositeRuleId: "DOVISH_MONETARY_POLICY",
   },
   {
     id: "DOVISH_MONETARY_POLICY",
-    label: "Dovish monetary-policy signal",
-    patterns: [
-      /\bdovish\b/i,
-      /\brate cut\b/i,
-      /\bcut (?:the )?(?:policy )?rate/i,
-      /\beasing bias\b/i,
-      /\blower rates\b/i,
-    ],
+    pattern: /\b(?:dovish|rate cut|cut (?:the )?(?:policy )?rate|easing bias|lower rates)\b/i,
+    opposite: "HAWKISH_MONETARY_POLICY",
     expectations: [
-      { monitorId: "us2y", instrument: "US02Y", direction: "DOWN" },
-      { monitorId: "dxy", instrument: "DXY", direction: "DOWN" },
-      { monitorId: "gold", instrument: "XAUUSD", direction: "UP" },
-      { monitorId: "smh", instrument: "SMH", direction: "UP" },
+      ["us2y", "US02Y", "DOWN"],
+      ["dxy", "DXY", "DOWN"],
+      ["gold", "XAUUSD", "UP"],
+      ["smh", "SMH", "UP"],
     ],
-    oppositeRuleId: "HAWKISH_MONETARY_POLICY",
   },
   {
     id: "HOT_INFLATION_SURPRISE",
-    label: "Hot inflation signal",
-    patterns: [
-      /\b(?:cpi|ppi|inflation)\b.{0,80}\b(?:above|hotter than|higher than) (?:consensus|forecast|expected|expectations)\b/i,
-      /\bhotter than expected\b/i,
-      /\binflation (?:re-)?accelerat(?:ed|es|ing)\b/i,
-    ],
+    pattern: /\b(?:hotter than expected|inflation (?:re-)?accelerat(?:ed|es|ing)|(?:cpi|ppi|inflation).{0,80}(?:above|higher than) (?:consensus|forecast|expected|expectations))\b/i,
+    opposite: "SOFT_INFLATION_SURPRISE",
     expectations: [
-      { monitorId: "us2y", instrument: "US02Y", direction: "UP" },
-      { monitorId: "dxy", instrument: "DXY", direction: "UP" },
-      { monitorId: "gold", instrument: "XAUUSD", direction: "DOWN" },
-      { monitorId: "smh", instrument: "SMH", direction: "DOWN" },
+      ["us2y", "US02Y", "UP"],
+      ["dxy", "DXY", "UP"],
+      ["gold", "XAUUSD", "DOWN"],
+      ["smh", "SMH", "DOWN"],
     ],
-    oppositeRuleId: "SOFT_INFLATION_SURPRISE",
   },
   {
     id: "SOFT_INFLATION_SURPRISE",
-    label: "Soft inflation signal",
-    patterns: [
-      /\b(?:cpi|ppi|inflation)\b.{0,80}\b(?:below|cooler than|lower than) (?:consensus|forecast|expected|expectations)\b/i,
-      /\bcooler than expected\b/i,
-      /\bdisinflation\b/i,
-      /\binflation (?:eased|cooled|decelerated)\b/i,
-    ],
+    pattern: /\b(?:cooler than expected|disinflation|inflation (?:eased|cooled|decelerated)|(?:cpi|ppi|inflation).{0,80}(?:below|lower than) (?:consensus|forecast|expected|expectations))\b/i,
+    opposite: "HOT_INFLATION_SURPRISE",
     expectations: [
-      { monitorId: "us2y", instrument: "US02Y", direction: "DOWN" },
-      { monitorId: "dxy", instrument: "DXY", direction: "DOWN" },
-      { monitorId: "gold", instrument: "XAUUSD", direction: "UP" },
-      { monitorId: "smh", instrument: "SMH", direction: "UP" },
+      ["us2y", "US02Y", "DOWN"],
+      ["dxy", "DXY", "DOWN"],
+      ["gold", "XAUUSD", "UP"],
+      ["smh", "SMH", "UP"],
     ],
-    oppositeRuleId: "HOT_INFLATION_SURPRISE",
   },
   {
     id: "ENERGY_SUPPLY_STRESS",
-    label: "Energy supply-stress signal",
-    patterns: [
-      /\boil supply disruption\b/i,
-      /\bshipping disruption\b/i,
-      /\brefinery outage\b/i,
-      /\bstrait of hormuz\b/i,
-      /\bred sea\b.{0,80}\b(?:shipping|tanker|oil|energy)\b/i,
-      /\b(?:oil|energy)\b.{0,80}\bgeopolitical escalation\b/i,
-    ],
+    pattern: /\b(?:oil supply disruption|shipping disruption|refinery outage|strait of hormuz|red sea.{0,80}(?:shipping|tanker|oil|energy)|(?:oil|energy).{0,80}geopolitical escalation)\b/i,
     expectations: [
-      { monitorId: "wti", instrument: "WTI", direction: "UP" },
-      { monitorId: "distillate", instrument: "ULSD", direction: "UP" },
-      { monitorId: "crack-distillate", instrument: "ULSD_CRACK", direction: "UP" },
+      ["wti", "WTI", "UP"],
+      ["distillate", "ULSD", "UP"],
+      ["crack-distillate", "ULSD_CRACK", "UP"],
     ],
   },
 ];
 
-function numberMetric(
-  evidence: ObservedEvidence | undefined,
-  key: string,
-): number | null {
-  const raw = evidence?.metrics?.[key];
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+function metric(evidence: ObservedEvidence | undefined, key: string): number | null {
+  const value = evidence?.metrics?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function severityForMove(absMovePct: number): System1Severity {
-  if (absMovePct >= 1) return "HIGH";
-  if (absMovePct >= 0.25) return "MEDIUM";
-  return "LOW";
+function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
+  return packet.observed_evidence
+    .filter((item) => item.source_type !== "MARKET_DATA" && rule.pattern.test(item.claim_or_fact))
+    .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
-function directionForMove(changePct: number | null): System1Direction | null {
-  if (changePct === null || Math.abs(changePct) < MIN_ABS_MOVE_PCT) return null;
-  return changePct > 0 ? "UP" : "DOWN";
-}
-
-function triggerEvidenceForRule(
-  packet: DossierV2InputPacket,
-  rule: RelationshipRule,
-): ObservedEvidence | null {
-  const matches = packet.observed_evidence
-    .filter((evidence) => evidence.source_type !== "MARKET_DATA")
-    .filter((evidence) =>
-      rule.patterns.some((pattern) => pattern.test(evidence.claim_or_fact)),
-    )
-    .sort(
-      (a, b) =>
-        b.available_at.localeCompare(a.available_at) ||
-        a.evidence_id.localeCompare(b.evidence_id),
-    );
-
-  return matches[0] ?? null;
-}
-
-function marketEvidenceForMonitor(
+function marketMove(
   packet: DossierV2InputPacket,
   monitorId: string,
-): ObservedEvidence | null {
+): { evidence: ObservedEvidence; change: number } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
   );
-  if (!cluster) return null;
-
-  const candidates = cluster.evidence
-    .filter((evidence) => evidence.source_type === "MARKET_DATA")
-    .filter((evidence) => numberMetric(evidence, "day_change_pct") !== null)
-    .sort(
-      (a, b) =>
-        b.available_at.localeCompare(a.available_at) ||
-        a.evidence_id.localeCompare(b.evidence_id),
-    );
-
-  return candidates[0] ?? null;
-}
-
-function activeRuleTriggers(packet: DossierV2InputPacket) {
-  return new Map(
-    RELATIONSHIP_RULES.flatMap((rule) => {
-      const evidence = triggerEvidenceForRule(packet, rule);
-      return evidence ? [[rule.id, evidence] as const] : [];
-    }),
+  const evidence = cluster?.evidence.find(
+    (item) => item.source_type === "MARKET_DATA" && metric(item, "day_change_pct") !== null,
   );
-}
-
-export function runSystem1RelationshipChecks(
-  packet: DossierV2InputPacket,
-): System1RelationshipCheck[] {
-  const triggers = activeRuleTriggers(packet);
-  const checks: System1RelationshipCheck[] = [];
-
-  for (const rule of RELATIONSHIP_RULES) {
-    const trigger = triggers.get(rule.id);
-    if (!trigger) continue;
-
-    // If the same packet contains an explicit opposing policy/surprise signal,
-    // System 1 does not force a directional baseline. System 2 can interpret it.
-    if (rule.oppositeRuleId && triggers.has(rule.oppositeRuleId)) {
-      continue;
-    }
-
-    for (const expectation of rule.expectations) {
-      const marketEvidence = marketEvidenceForMonitor(packet, expectation.monitorId);
-      const observedChangePct = numberMetric(marketEvidence ?? undefined, "day_change_pct");
-      const observedDirection = directionForMove(observedChangePct);
-      const status: System1CheckStatus =
-        observedDirection === null
-          ? "INSUFFICIENT_DATA"
-          : observedDirection === expectation.direction
-            ? "CONFIRMED"
-            : "DIVERGED";
-      const severity =
-        observedChangePct === null
-          ? "LOW"
-          : severityForMove(Math.abs(observedChangePct));
-
-      checks.push({
-        check_id: `system1:${rule.id.toLowerCase()}:${expectation.monitorId}`,
-        rule_id: rule.id,
-        rule_label: rule.label,
-        trigger_evidence_id: trigger.evidence_id,
-        trigger_summary: trigger.claim_or_fact.slice(0, 240),
-        instrument: expectation.instrument,
-        expected_direction: expectation.direction,
-        observed_direction: observedDirection,
-        observed_change_pct: observedChangePct,
-        market_evidence_id: marketEvidence?.evidence_id ?? null,
-        status,
-        severity,
-      });
-    }
-  }
-
-  return checks.sort(
-    (a, b) =>
-      a.rule_id.localeCompare(b.rule_id) ||
-      a.instrument.localeCompare(b.instrument),
-  );
+  const change = metric(evidence, "day_change_pct");
+  return evidence && change !== null ? { evidence, change } : null;
 }
 
 export function buildSystem1DivergenceCandidates(
   packet: DossierV2InputPacket,
 ): System1DivergenceCandidate[] {
-  return runSystem1RelationshipChecks(packet)
-    .filter(
-      (check): check is System1RelationshipCheck & {
-        observed_direction: System1Direction;
-        observed_change_pct: number;
-        market_evidence_id: string;
-        severity: Exclude<System1Severity, "LOW">;
-      } =>
-        check.status === "DIVERGED" &&
-        check.observed_direction !== null &&
-        check.observed_change_pct !== null &&
-        check.market_evidence_id !== null &&
-        check.severity !== "LOW",
-    )
+  const active = new Map(
+    RULES.flatMap((rule) => {
+      const trigger = triggerFor(packet, rule);
+      return trigger ? [[rule.id, trigger] as const] : [];
+    }),
+  );
+
+  const candidates: System1DivergenceCandidate[] = [];
+
+  for (const rule of RULES) {
+    const trigger = active.get(rule.id);
+    if (!trigger || (rule.opposite && active.has(rule.opposite))) continue;
+
+    for (const [monitorId, instrument, expected] of rule.expectations) {
+      const move = marketMove(packet, monitorId);
+      if (!move || Math.abs(move.change) < MIN_MATERIAL_MOVE_PCT) continue;
+
+      const observed: Direction = move.change > 0 ? "UP" : "DOWN";
+      if (observed === expected) continue;
+
+      candidates.push({
+        check_id: `system1:${rule.id.toLowerCase()}:${monitorId}`,
+        rule_id: rule.id,
+        trigger_evidence_id: trigger.evidence_id,
+        market_evidence_id: move.evidence.evidence_id,
+        instrument,
+        expected_direction: expected,
+        observed_direction: observed,
+        observed_change_pct: move.change,
+        severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",
+      });
+    }
+  }
+
+  return candidates
     .sort(
       (a, b) =>
         Math.abs(b.observed_change_pct) - Math.abs(a.observed_change_pct) ||
         a.check_id.localeCompare(b.check_id),
     )
-    .slice(0, MAX_DIVERGENCE_CANDIDATES)
-    .map((check) => ({
-      check_id: check.check_id,
-      rule_id: check.rule_id,
-      trigger_evidence_id: check.trigger_evidence_id,
-      market_evidence_id: check.market_evidence_id,
-      instrument: check.instrument,
-      expected_direction: check.expected_direction,
-      observed_direction: check.observed_direction,
-      observed_change_pct: check.observed_change_pct,
-      severity: check.severity,
-    }));
+    .slice(0, MAX_CANDIDATES);
 }
