@@ -75,6 +75,40 @@ test("an authorised intelligence invocation preserves the same retry identity", 
   assert.match(canonicalUrl, /morning\?retry=live-e2e-20260817-1904$/);
 });
 
+test("an authorised maintenance invocation uses only the maintenance handler", async () => {
+  let maintenanceCalled = false;
+  let acquisitionCalled = false;
+  let intelligenceCalled = false;
+  const response = await handleManualLiveTriggerWithDependencies(request({
+    slot: "evening",
+    stage: "maintenance",
+    retryKey: "story-maintenance-1",
+  }), {
+    authorize: authorized,
+    cronSecret: () => "internal-cron-secret",
+    acquisition: async () => {
+      acquisitionCalled = true;
+      return Response.json({});
+    },
+    intelligence: async () => {
+      intelligenceCalled = true;
+      return Response.json({});
+    },
+    maintenance: async (canonicalRequest, slot) => {
+      maintenanceCalled = true;
+      assert.equal(slot, "evening");
+      assert.match(canonicalRequest.url, /evening\?retry=story-maintenance-1$/);
+      return Response.json({ status: "completed" });
+    },
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(maintenanceCalled, true);
+  assert.equal(acquisitionCalled, false);
+  assert.equal(intelligenceCalled, false);
+});
+
 test("unauthorised public requests are rejected before credentials or handlers are used", async () => {
   let cronSecretRead = false;
   let handlerCalled = false;
@@ -146,18 +180,26 @@ test("the production route and workflow keep the canonical handlers and OIDC bou
   assert.match(route, /handleManualLiveTriggerWithDependencies/);
   assert.match(route, /handleScheduledResearchAcquisition/);
   assert.match(route, /handleScheduledResearchIntelligence/);
+  assert.match(route, /handleManualStoryMaintenance/);
   assert.match(handler, /live-internal\.invalid\/api\/cron\/research/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /api\/admin\/research\/run/);
   assert.match(workflow, /- intelligence_only/);
+  assert.match(workflow, /- story_maintenance/);
   assert.match(workflow, /inputs\.mode == 'research' \|\| inputs\.mode == 'intelligence_only'/);
   assert.match(workflow, /Run canonical intelligence only/);
+  assert.match(workflow, /Run Story maintenance only/);
+  assert.match(workflow, /stage:"maintenance"/);
   assert.match(workflow, /stage:"intelligence"/);
   assert.match(workflow, /if: \$\{\{ inputs\.mode == 'research' \}\}[\s\S]*invoke_stage acquisition/);
   assert.match(workflow, /if: \$\{\{ inputs\.mode == 'intelligence_only' \}\}[\s\S]*invoke_intelligence/);
   assert.doesNotMatch(
     workflow.match(/- name: Run canonical intelligence only[\s\S]*?- name: Run Dossier V2 production dry-run/)?.[0] ?? "",
     /invoke_stage acquisition/,
+  );
+  assert.doesNotMatch(
+    workflow.match(/- name: Run Story maintenance only[\s\S]*?- name: Run Dossier V2 production dry-run/)?.[0] ?? "",
+    /invoke_stage acquisition|invoke_intelligence/,
   );
   assert.doesNotMatch(workflow, /RESEARCH_UPDATE_TOKEN/);
   assert.doesNotMatch(workflow, /CRON_SECRET/);
