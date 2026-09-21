@@ -4,6 +4,8 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  augmentCandidateSnapshotWithMacroContext,
+  augmentCandidateSnapshotWithMarketMonitor,
   buildCandidateSnapshotFromCanonicalEvidence,
   type CanonicalEvidenceRow,
   type CanonicalSnapshotResult,
@@ -188,6 +190,132 @@ test("Task 9 adapter never promotes news reports or creator transcripts to obser
   assert.equal(result.snapshot.research_leads?.length, 2);
   assert.equal(result.diagnostics.price_data_status, "MISSING");
   assert.equal(result.diagnostics.macro_data_status, "MISSING");
+});
+
+
+test("Task 9 adapter admits explicit numerical market observations from reliable articles", () => {
+  const rows: CanonicalEvidenceRow[] = [
+    baseRow({
+      id: "article-market",
+      external_evidence_id: "ev:article-market",
+      evidence_class: "news_report",
+      claim_text:
+        "The 10-year Treasury yield rose to 4.97% while the S&P 500 fell 1.2%.",
+      affected_assets: ["US10Y", "SPX"],
+      source: source({
+        source_type: "news",
+        source_name: "Axios",
+        source_tier: 3,
+        reliability_score: 76,
+      }),
+    }),
+    baseRow({
+      id: "article-narrative",
+      external_evidence_id: "lead:article",
+      evidence_class: "news_report",
+      claim_text: "Investors are debating the outlook for growth.",
+      source: source({
+        source_type: "news",
+        source_name: "Axios",
+        source_tier: 3,
+        reliability_score: 76,
+      }),
+    }),
+  ];
+
+  const result = buildCandidateSnapshotFromCanonicalEvidence(rows, {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  assert.equal(result.diagnostics.observed_count, 1);
+  assert.equal(result.diagnostics.lead_count, 1);
+  assert.equal(result.diagnostics.price_data_status, "OK");
+
+  const observed = result.snapshot.observed_evidence?.[0];
+  assert.equal(observed?.evidence_id, "ev:article-market");
+  assert.equal(observed?.source_type, "NEWS_MARKET_CONTEXT");
+  assert.equal(observed?.is_admitted_fact, true);
+});
+
+test("Task 9 adapter admits existing Live market monitor rows and marks FRED macro coverage", () => {
+  const base = buildCandidateSnapshotFromCanonicalEvidence([], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const result = augmentCandidateSnapshotWithMarketMonitor(
+    base,
+    {
+      updatedAt: AS_OF,
+      rows: [
+        {
+          id: "us2y",
+          symbol: "DGS2",
+          label: "US 2Y Yield",
+          type: "Rates",
+          last: 5.12,
+          dayChange: 0.8,
+          change5d: 3.2,
+          asOf: "2026-09-19",
+          frequency: "daily",
+          sourceName: "Federal Reserve Economic Data",
+          sourceUrl: "https://fred.stlouisfed.org/series/DGS2",
+        },
+        {
+          id: "spx",
+          symbol: "^GSPC",
+          label: "S&P 500",
+          type: "Major Index",
+          last: 7025,
+          dayChange: -0.6,
+          change5d: 1.1,
+          asOf: "2026-09-19",
+          frequency: "daily",
+          sourceName: "Nasdaq official index history",
+          sourceUrl: "https://www.nasdaq.com/",
+        },
+      ],
+      limitations: [],
+    },
+    { asOf: AS_OF, lookbackHours: 168 },
+  );
+
+  assert.equal(result.diagnostics.price_data_status, "OK");
+  assert.equal(result.diagnostics.macro_data_status, "OK");
+  assert.equal(result.snapshot.price_data?.status, "OK");
+  assert.equal(result.snapshot.macro_data?.status, "OK");
+  assert.equal(result.snapshot.observed_evidence?.length, 2);
+  assert.ok(
+    result.snapshot.observed_evidence?.some(
+      (item) => item.evidence_id === "market-monitor:us2y:2026-09-19",
+    ),
+  );
+});
+
+test("Task 9 adapter surfaces unusable MacroMicro capture without promoting it to factual macro evidence", () => {
+  const base = buildCandidateSnapshotFromCanonicalEvidence([], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const result = augmentCandidateSnapshotWithMacroContext(base, {
+    id: "macro-snapshot-1",
+    source_key: "macromicro_supplemental",
+    source_url: "https://en.macromicro.me/",
+    status: "partial",
+    capture_completed_at: "2026-09-19T22:00:00.000Z",
+    transport_error_code: "insufficient_dated_readings",
+    raw_markdown: "MacroMicro landing page without dated macro readings.",
+  });
+
+  assert.equal(result.snapshot.research_leads?.length, 0);
+  assert.equal(result.snapshot.macro_data?.status, "MISSING");
+  assert.equal(result.snapshot.sources_status?.macromicro?.status, "WARNING");
+  assert.match(
+    result.snapshot.sources_status?.macromicro?.message ?? "",
+    /not usable as dated macro context/i,
+  );
 });
 
 test("Task 9 adapter excludes evidence that was not available by as_of", () => {
