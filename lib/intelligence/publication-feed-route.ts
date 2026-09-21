@@ -3,10 +3,6 @@ import { NextResponse } from "next/server";
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
-import {
-  getDossierV2PresentationSelection,
-  type DossierPresentationSelection,
-} from "@/lib/dossier-v2/presentation-reader";
 import { buildHybridPublicationContract } from "@/lib/hybrid-publication";
 import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
 import { buildLiveDeskPulse } from "@/lib/live-desk-pulse";
@@ -182,52 +178,23 @@ export async function getCanonicalPublicationPayload(
   const emptyStoryImages: Awaited<ReturnType<typeof getStoryHeaderImages>> = new Map();
   const emptyCaseMonitors: Awaited<ReturnType<typeof buildCaseMonitorBoards>> = [];
   const emptyCalendar: Awaited<ReturnType<typeof getEconomicCalendar>> = [];
-  const emptyDossierSelection: DossierPresentationSelection = {
-    status: "unavailable",
-    presentation: null,
-    latestDossierId: null,
-    selectedDossierId: null,
-    latestAsOf: null,
-    selectedAsOf: null,
-    usingFallback: false,
-    notice: {
-      tone: "error",
-      label: "Dossier unavailable",
-      detail: "The canonical Dossier V2 presentation could not be loaded for this feed refresh.",
-    },
-  };
-  const replayDossierSelection: DossierPresentationSelection = {
-    ...emptyDossierSelection,
-    notice: {
-      tone: "warn",
-      label: "Dossier not replayed",
-      detail: "Dossier V2 is current-state research and is not attached to explicit immutable Journey edition replay.",
-    },
-  };
+
 
   // Provider work is supplemental. Start independent provider reads in parallel
   // with canonical storage so they never add a second serial timeout window.
   const calendarPromise = optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar, 1_500);
   const marketPromise = optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor, 1_500);
   const flowPromise = optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor, 1_500);
-  const dossierPromise = editionId
-    ? Promise.resolve({ value: replayDossierSelection, warning: null })
-    : optionalWithin(
-        "Dossier V2 presentation",
-        getDossierV2PresentationSelection,
-        emptyDossierSelection,
-        1_800,
-      );
+
 
   // Only persisted Live publication/state reads may determine canonical state.
   // They use the lean reader projection, never the broad internal desk loader.
-  const [data, records, calendarResult, marketResult, flowResult, dossierResult] = await Promise.all([
+  const [data, records, calendarResult, marketResult, flowResult] = await Promise.all([
     getHybridFeedData(),
     getHybridPublicationFeedRecords({ editionId }),
     calendarPromise,
     marketPromise,
     flowPromise,
-    dossierPromise,
   ]);
 
   // These enrichments depend on canonical rows, but remain bounded and
@@ -260,7 +227,6 @@ export async function getCanonicalPublicationPayload(
     flowResult.warning,
     imageResult.warning,
     baseMonitorResult.warning,
-    dossierResult.warning,
   ].filter((warning): warning is string => Boolean(warning));
 
   const contract = buildHybridPublicationContract({
@@ -309,7 +275,6 @@ export async function getCanonicalPublicationPayload(
       caseMonitors: baseMonitorResult.value,
       marketMonitor: marketResult.value,
       flowMonitors: flowResult.value,
-      dossierV2: dossierResult.value,
       providerWarnings,
     },
     liveDeskPulse,
