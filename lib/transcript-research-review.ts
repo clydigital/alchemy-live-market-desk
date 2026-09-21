@@ -48,7 +48,6 @@ export async function reviewCreatorTranscript(input: {
   const { data, error } = await client
     .from("stories")
     .select("id,slug,title,thesis,market_question,dominant_narrative,confirmation_trigger,invalidation_trigger,next_catalyst,assets")
-    .neq("status", "archived")
     .neq("status", "discarded")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Could not load Story registry for transcript review: ${error.message}`);
