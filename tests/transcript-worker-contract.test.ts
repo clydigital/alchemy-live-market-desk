@@ -15,6 +15,8 @@ const capacityMigration = fs.readFileSync(
 const handler = fs.readFileSync(path.join(root, "lib", "transcript-worker-handler.ts"), "utf8");
 const worker = fs.readFileSync(path.join(root, "lib", "transcript-worker.ts"), "utf8");
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
+const transcriptReview = fs.readFileSync(path.join(root, "lib", "transcript-research-review.ts"), "utf8");
+const intelligenceRuntime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
 const authConfig = fs.readFileSync(path.join(root, "lib", "supabase", "config.ts"), "utf8");
 const route = fs.readFileSync(path.join(root, "app", "api", "cron", "video", "transcript-worker", "route.ts"), "utf8");
 const vercel = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8")) as {
@@ -69,5 +71,52 @@ test("the worker is authenticated, scheduled and separate from paused research",
   assert.equal(
     vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*" && rewrite.destination === "/api/automation-paused"),
     true,
+  );
+});
+
+
+test("creator review is bounded while evidence routing remains archived-capable", () => {
+  const routingPath = path.join(root, "lib", "creator-story-routing.ts");
+  assert.equal(fs.existsSync(routingPath), true, "creator-only Story loader must exist");
+  const routing = fs.readFileSync(routingPath, "utf8");
+  assert.match(transcriptReview, /loadPersistentStoriesForCreatorReview/);
+  assert.match(store, /loadPersistentStoriesForCreatorRouting/);
+  assert.match(routing, /CREATOR_REVIEW_STORY_LIMIT = 40/);
+  assert.match(routing, /loadPersistentStoriesForCreatorReview[\s\S]*\.limit\(CREATOR_REVIEW_STORY_LIMIT\)/);
+  assert.match(routing, /loadPersistentStoriesForCreatorRouting[\s\S]*\.neq\("status",\s*"discarded"\)/);
+  assert.doesNotMatch(routing.match(/loadPersistentStoriesForCreatorRouting[\s\S]*?\n\}/)?.[0] ?? "", /\.neq\("status",\s*"archived"\)/);
+  assert.doesNotMatch(transcriptReview, /\.from\("stories"\)/);
+  assert.doesNotMatch(store, /\.from\("stories"\)/);
+});
+
+test("canonical intelligence keeps archived Stories out of normal reasoning but admits explicitly queued archived maintenance targets", () => {
+  assert.match(
+    intelligenceRuntime,
+    /STORY_REGISTRY_FIELDS[\s\S]*status=neq\.archived&status=neq\.discarded&order=updated_at\.desc/,
+  );
+  assert.match(
+    intelligenceRuntime,
+    /loadExplicitlyQueuedArchivedReviewContext[\s\S]*intelligence_reevaluation_queue\?select=target_id,requested_by_evidence_id[\s\S]*status=in\.\(pending,retryable\)[\s\S]*status=eq\.archived/,
+  );
+  assert.match(intelligenceRuntime, /storyReviewStories = \[[\s\S]*queuedArchivedStories/);
+  assert.match(
+    intelligenceRuntime,
+    /loadOrCreateStoryReviewTargets\(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt\)/,
+  );
+  assert.match(intelligenceRuntime, /const storiesPack = existingStoryPack\(stories\)/);
+});
+
+test("queued archived review pins its trigger Evidence even when normal recruitment capacity would drop it", () => {
+  assert.match(
+    intelligenceRuntime,
+    /requiredEvidenceIds = unique\(\[[\s\S]*canonicalisedEvidenceIds[\s\S]*queuedArchivedReview\.triggerEvidenceIds/,
+  );
+  assert.match(
+    intelligenceRuntime,
+    /intelligence_evidence\?select=\$\{EVIDENCE_PACK_FIELDS\}&id=in\.\(\$\{requiredIds\.join\(","\)\}\)/,
+  );
+  assert.match(
+    intelligenceRuntime,
+    /storyReviewEvidence = unique\(\[[\s\S]*evidence\.filter\(\(item\) => queuedTriggerEvidenceIds\.has\(item\.id\)\)/,
   );
 });

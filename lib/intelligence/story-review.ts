@@ -150,6 +150,8 @@ export function selectStoryReviewTargets(input: {
     const availableQueue = input.queue.filter((item) => item.storyId === story.id
       && ["pending", "retryable"].includes(item.status)
       && (milliseconds(item.availableAt) ?? 0) <= nowMs);
+    const dormant = ["archived", "invalidated", "discarded"].includes(story.status.toLowerCase());
+    if (dormant && !availableQueue.length) return [];
     const linkRoles = new Map(input.evidenceLinks.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link.evidenceRole]));
     const lastEvaluated = milliseconds(story.lastEvaluatedAt) ?? 0;
     const relevantEvidence = relevantEvidenceForStory(story, input.evidence, input.evidenceLinks);

@@ -710,10 +710,30 @@ async function modelStage<T>({
   }
 }
 
+const STORY_REGISTRY_FIELDS =
+  "id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict";
+
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    `stories?select=${STORY_REGISTRY_FIELDS}&status=neq.archived&status=neq.discarded&order=updated_at.desc`,
   );
+}
+
+async function loadExplicitlyQueuedArchivedReviewContext() {
+  const queued = await intelligenceRest<Array<{ target_id: string; requested_by_evidence_id: string | null }>>(
+    "intelligence_reevaluation_queue?select=target_id,requested_by_evidence_id&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()",
+  );
+  const targetIds = unique(queued.map((item) => item.target_id).filter(Boolean));
+  if (!targetIds.length) return { stories: [] as StoryRow[], triggerEvidenceIds: [] as string[] };
+  const stories = await intelligenceRest<StoryRow[]>(
+    `stories?select=${STORY_REGISTRY_FIELDS}&id=in.(${targetIds.join(",")})&status=eq.archived&order=updated_at.desc`,
+  );
+  const archivedStoryIds = new Set(stories.map((story) => story.id));
+  const triggerEvidenceIds = unique(queued
+    .filter((item) => archivedStoryIds.has(item.target_id))
+    .map((item) => item.requested_by_evidence_id)
+    .filter((id): id is string => Boolean(id)));
+  return { stories, triggerEvidenceIds };
 }
 
 async function loadStoryRequirements(stories: StoryRow[]) {
@@ -969,15 +989,22 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
   return canonicalEvidence.map((evidence) => evidence.id);
 }
 
+const EVIDENCE_PACK_FIELDS =
+  "id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)";
+
 async function loadEvidence(includeIds: string[] = []) {
-  // Canonicalisation may just have repaired an older intake row whose Evidence
-  // is outside the normal recency window. Fetch enough extra rows to retain the
-  // bounded latest set while deterministically including every returned ID.
-  const boundedLimit = MAX_EVIDENCE + unique(includeIds).length;
-  const rows = await intelligenceRest<CanonicalEvidenceRow[]>(
-    `intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${boundedLimit}`,
+  const latestRows = await intelligenceRest<CanonicalEvidenceRow[]>(
+    `intelligence_evidence?select=${EVIDENCE_PACK_FIELDS}&freshness_status=neq.superseded&order=received_at.desc,event_at.desc.nullslast&limit=${MAX_EVIDENCE}`,
   );
-  return evidencePack(rows);
+  const requiredIds = unique(includeIds);
+  const requiredRows = requiredIds.length
+    ? await intelligenceRest<CanonicalEvidenceRow[]>(
+      `intelligence_evidence?select=${EVIDENCE_PACK_FIELDS}&id=in.(${requiredIds.join(",")})&freshness_status=neq.superseded`,
+    )
+    : [];
+  const rowsById = new Map(latestRows.map((row) => [row.id, row]));
+  for (const row of requiredRows) rowsById.set(row.id, row);
+  return evidencePack([...rowsById.values()]);
 }
 
 type ResearchDebtRow = {
@@ -2435,13 +2462,20 @@ export async function runIntelligenceEngine({
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     const canonicalisedEvidenceIds = await canonicaliseIntake(stories);
-    const evidence = await loadEvidence(canonicalisedEvidenceIds);
+    const queuedArchivedReview = await loadExplicitlyQueuedArchivedReviewContext();
+    const requiredEvidenceIds = unique([
+      ...canonicalisedEvidenceIds,
+      ...queuedArchivedReview.triggerEvidenceIds,
+    ]);
+    const evidence = await loadEvidence(requiredEvidenceIds);
     const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
     const reasoningEvidence = attachRatesContext(recruitment.candidates.map((candidate) => candidate.evidence), evidence, analysisAsOf);
+    const queuedTriggerEvidenceIds = new Set(queuedArchivedReview.triggerEvidenceIds);
     const storyReviewEvidence = unique([
       ...reasoningEvidence,
       ...recruitment.diagnostics.filter((candidate) => candidate.nature === "scheduled_event").map((candidate) => candidate.evidence),
+      ...evidence.filter((item) => queuedTriggerEvidenceIds.has(item.id)),
     ]);
     evidenceConsidered = reasoningEvidence.length;
     warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
@@ -2455,7 +2489,16 @@ export async function runIntelligenceEngine({
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
     const frozenStoryReferences = buildFrozenStoryReferenceSet(storiesPack);
-    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, storyReviewEvidence, researchDebt);
+    const queuedArchivedStories = queuedArchivedReview.stories;
+    const activeStoryIds = new Set(stories.map((story) => story.id));
+    const storyReviewStories = [
+      ...stories,
+      ...queuedArchivedStories.filter((story) => !activeStoryIds.has(story.id)),
+    ];
+    if (queuedArchivedStories.length) {
+      warnings.push(`${queuedArchivedStories.length} archived Story(s) entered targeted maintenance review from an explicit reevaluation queue with ${queuedArchivedReview.triggerEvidenceIds.length} pinned trigger Evidence record(s).`);
+    }
+    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };

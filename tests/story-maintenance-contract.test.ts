@@ -49,7 +49,7 @@ function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
   };
 }
 
-function story(): StoryReviewStory {
+function story(overrides: Partial<StoryReviewStory> = {}): StoryReviewStory {
   return {
     id: "story-1",
     slug: "ai-capex",
@@ -71,6 +71,7 @@ function story(): StoryReviewStory {
       "2026-08-23 Earnings call",
       "2026-08-28 PCE release",
     ],
+    ...overrides,
   };
 }
 
@@ -118,6 +119,58 @@ test("Story review freezes deterministic catalyst candidates for server validati
     { label: "2026-08-28 PCE release", catalystRef: null },
   ]);
   assert.deepEqual(targets[0].reviewContext?.dueCatalysts, ["2026-08-23 Earnings call"]);
+});
+
+test("archived Stories require an explicit queue and creator-only wake remains non-material", () => {
+  const archived = story({ status: "archived" });
+  const now = new Date("2026-09-21T12:00:00.000Z");
+
+  const dormant = selectStoryReviewTargets({
+    stories: [archived],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [],
+    debt: [],
+    now,
+  });
+  assert.equal(dormant.length, 0, "archived Story must not wake from age, debt or due catalysts alone");
+
+  const creatorEvidence = evidence({
+    id: "creator-wake-1",
+    evidenceClass: "transcript",
+    sourceName: "Creator",
+    sourceTier: 5,
+    ancestryGroupId: "creator:archived-wake",
+    eventAt: "2026-09-21T10:00:00.000Z",
+    publishedAt: "2026-09-21T10:00:00.000Z",
+  });
+  const queued = selectStoryReviewTargets({
+    stories: [archived],
+    evidence: [creatorEvidence],
+    evidenceLinks: [{
+      storyId: archived.id,
+      evidenceId: creatorEvidence.id,
+      evidenceRole: "supporting",
+      linkedAt: "2026-09-21T10:01:00.000Z",
+    }],
+    queue: [{
+      id: "queue-archived-1",
+      storyId: archived.id,
+      status: "pending",
+      reason: "new_linked_evidence",
+      priority: 70,
+      availableAt: "2026-09-21T10:01:00.000Z",
+      createdAt: "2026-09-21T10:01:00.000Z",
+    }],
+    debt: [],
+    now,
+  });
+
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0]?.reason, "explicit_queue");
+  assert.deepEqual(queued[0]?.queueIds, ["queue-archived-1"]);
+  assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [creatorEvidence.id], queued[0]!), false);
+  assert.equal(materialAssessmentHasEligibleEvidence("invalidated", [creatorEvidence.id], queued[0]!), false);
 });
 
 test("creator-only evidence still cannot authorise a material Story mutation", () => {

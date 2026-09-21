@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { loadPersistentStoriesForCreatorRouting } from "./creator-story-routing.ts";
 import { canonicaliseIntake } from "./intelligence/runtime.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
@@ -192,15 +193,9 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
   }
 
   async persistEvidence(job: ClaimedTranscriptJob) {
-    const { data, error } = await this.client
-      .from("stories")
-      .select("id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict")
-      .neq("status", "archived")
-      .neq("status", "discarded")
-      .order("updated_at", { ascending: false });
-    message(error, "Could not load Stories for transcript evidence routing");
+    const stories = await loadPersistentStoriesForCreatorRouting(this.client);
     const evidenceIds = await canonicaliseIntake(
-      (data ?? []) as Parameters<typeof canonicaliseIntake>[0],
+      stories,
       new Set([job.itemKey]),
     );
     const evidenceId = evidenceIds[0] ?? await this.findEvidence(job);
