@@ -27,3 +27,18 @@ test("Hybrid research receives only explicitly persisted divergence rows", () =>
 test("feed route does not infer divergence by comparing stats and news signals", () => {
   assert.doesNotMatch(routeSource, /stats_signal\s*[!=]==?\s*.*news_signal|news_signal\s*[!=]==?\s*.*stats_signal/);
 });
+
+test("Hybrid feed exposes the exact shared Dossier V2 selection under canonical state", () => {
+  assert.match(routeSource, /getDossierV2PresentationSelection/);
+  assert.match(routeSource, /dossierPromise = editionId/);
+  assert.match(routeSource, /Dossier V2 presentation/);
+  assert.match(routeSource, /dossierV2: dossierResult\.value/);
+
+  // Feed assembly must not invoke a second model/reasoning path for Hybrid.
+  assert.doesNotMatch(routeSource, /executeResearchBrain|runIntelligenceEngine|dossier-storyline-composer/);
+});
+
+test("explicit immutable edition replay does not receive the current-state Dossier V2", () => {
+  assert.match(routeSource, /editionId[\s\S]*Promise\.resolve\(\{ value: replayDossierSelection/);
+  assert.match(routeSource, /Dossier V2 is current-state research and is not attached to explicit immutable Journey edition replay/);
+});
