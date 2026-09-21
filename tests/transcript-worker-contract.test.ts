@@ -96,7 +96,7 @@ test("canonical intelligence keeps archived Stories out of normal reasoning but 
   );
   assert.match(
     intelligenceRuntime,
-    /loadExplicitlyQueuedArchivedStories[\s\S]*intelligence_reevaluation_queue\?select=target_id[\s\S]*status=in\.\(pending,retryable\)[\s\S]*status=eq\.archived/,
+    /loadExplicitlyQueuedArchivedReviewContext[\s\S]*intelligence_reevaluation_queue\?select=target_id,requested_by_evidence_id[\s\S]*status=in\.\(pending,retryable\)[\s\S]*status=eq\.archived/,
   );
   assert.match(intelligenceRuntime, /storyReviewStories = \[[\s\S]*queuedArchivedStories/);
   assert.match(
@@ -104,4 +104,19 @@ test("canonical intelligence keeps archived Stories out of normal reasoning but 
     /loadOrCreateStoryReviewTargets\(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt\)/,
   );
   assert.match(intelligenceRuntime, /const storiesPack = existingStoryPack\(stories\)/);
+});
+
+test("queued archived review pins its trigger Evidence even when normal recruitment capacity would drop it", () => {
+  assert.match(
+    intelligenceRuntime,
+    /requiredEvidenceIds = unique\(\[[\s\S]*canonicalisedEvidenceIds[\s\S]*queuedArchivedReview\.triggerEvidenceIds/,
+  );
+  assert.match(
+    intelligenceRuntime,
+    /intelligence_evidence\?select=\$\{EVIDENCE_PACK_FIELDS\}&id=in\.\(\$\{requiredIds\.join\(","\)\}\)/,
+  );
+  assert.match(
+    intelligenceRuntime,
+    /storyReviewEvidence = unique\(\[[\s\S]*evidence\.filter\(\(item\) => queuedTriggerEvidenceIds\.has\(item\.id\)\)/,
+  );
 });
