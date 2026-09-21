@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { MarketDossierV2 } from "./contracts.ts";
-import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
+import type { DossierV2InputPacket } from "./input-packet.ts";
 import type { ResearchBrainOutputV1 } from "./research-brain-contracts.ts";
 import { isValidUuid } from "./validation.ts";
 
@@ -16,9 +16,13 @@ type StoryRow = {
 
 type EvidenceRow = {
   id: string;
+  claim_text: string;
+  summary: string | null;
   affected_topics: string[] | null;
   affected_assets: string[] | null;
   evidence_class: string;
+  received_at?: string | null;
+  event_at?: string | null;
 };
 
 type StoryEvidenceLinkRow = {
@@ -121,12 +125,12 @@ function explicitEvidenceReferences(output: ResearchBrainOutputV1) {
 }
 
 function evidenceAttentionScore(
-  evidence: ObservedEvidence,
+  evidence: EvidenceRow,
   explicitRefs: Set<string>,
   attentionTerms: Set<string>,
 ) {
-  if (explicitRefs.has(evidence.evidence_id)) return 100;
-  const evidenceTerms = new Set(words(`${evidence.claim_or_fact} ${evidence.category}`));
+  if (explicitRefs.has(evidence.id)) return 100;
+  const evidenceTerms = new Set(words(`${evidence.claim_text} ${evidence.summary ?? ""} ${evidence.evidence_class}`));
   let overlap = 0;
   for (const term of evidenceTerms) {
     if (attentionTerms.has(term)) overlap += 1;
@@ -145,18 +149,17 @@ export function buildDossierStoryRefreshAgenda(input: {
 }): DossierStoryRefreshAgendaItem[] {
   const explicitRefs = explicitEvidenceReferences(input.analyticalOutput);
   const attentionTerms = new Set(words(attentionText(input.analyticalOutput)));
-  const packetEvidenceById = new Map(
-    input.packet.observed_evidence
-      .filter((item) => isValidUuid(item.evidence_id))
-      .map((item) => [item.evidence_id, item]),
+  const evidenceById = new Map(
+    input.evidenceRows
+      .filter((row) => isValidUuid(row.id))
+      .map((row) => [row.id, row]),
   );
   const storyById = new Map(input.stories.map((story) => [story.id, story]));
   const storyBySlug = new Map(input.stories.map((story) => [story.slug, story]));
-  const evidenceById = new Map(input.evidenceRows.map((row) => [row.id, row]));
   const linkedStoriesByEvidence = new Map<string, Set<string>>();
 
   for (const link of input.storyEvidenceLinks) {
-    if (!storyById.has(link.story_id) || !packetEvidenceById.has(link.evidence_id)) continue;
+    if (!storyById.has(link.story_id) || !evidenceById.has(link.evidence_id)) continue;
     const ids = linkedStoriesByEvidence.get(link.evidence_id) ?? new Set<string>();
     ids.add(link.story_id);
     linkedStoriesByEvidence.set(link.evidence_id, ids);
@@ -164,11 +167,9 @@ export function buildDossierStoryRefreshAgenda(input: {
 
   const bestByStory = new Map<string, DossierStoryRefreshAgendaItem>();
 
-  for (const [evidenceId, packetEvidence] of packetEvidenceById) {
-    const attentionScore = evidenceAttentionScore(packetEvidence, explicitRefs, attentionTerms);
+  for (const [evidenceId, evidenceRow] of evidenceById) {
+    const attentionScore = evidenceAttentionScore(evidenceRow, explicitRefs, attentionTerms);
     if (attentionScore === 0) continue;
-    const evidenceRow = evidenceById.get(evidenceId);
-    if (!evidenceRow) continue;
 
     const mapped = new Map<string, DossierStoryRefreshAgendaItem["match_basis"]>();
     for (const storyId of linkedStoriesByEvidence.get(evidenceId) ?? []) {
@@ -218,11 +219,32 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
   analyticalOutput: ResearchBrainOutputV1;
 }): Promise<DossierStoryRefreshAgendaResult> {
   try {
-    const evidenceIds = unique(
-      input.packet.observed_evidence
-        .map((item) => item.evidence_id)
-        .filter((id) => isValidUuid(id)),
-    );
+    const asOfMs = Date.parse(input.packet.as_of);
+    if (!Number.isFinite(asOfMs)) {
+      throw new Error("Dossier Story refresh agenda received an invalid packet as_of.");
+    }
+    const since = new Date(asOfMs - 168 * 60 * 60 * 1_000).toISOString();
+
+    const [{ data: stories, error: storyError }, { data: evidenceRows, error: evidenceError }] = await Promise.all([
+      input.client
+        .from("stories")
+        .select("id,slug,title,status")
+        .neq("status", "discarded"),
+      input.client
+        .from("intelligence_evidence")
+        .select("id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .gte("received_at", since)
+        .lte("received_at", input.packet.as_of)
+        .in("freshness_status", ["current", "aging"])
+        .order("received_at", { ascending: false })
+        .limit(180),
+    ]);
+
+    if (storyError) throw new Error(`Failed to load Story registry: ${storyError.message}`);
+    if (evidenceError) throw new Error(`Failed to load bounded canonical Story-refresh evidence: ${evidenceError.message}`);
+
+    const boundedEvidenceRows = (evidenceRows ?? []) as EvidenceRow[];
+    const evidenceIds = unique(boundedEvidenceRows.map((row) => row.id).filter((id) => isValidUuid(id)));
     if (!evidenceIds.length) {
       return {
         dossier_id: input.dossier.id,
@@ -234,23 +256,11 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
       };
     }
 
-    const [{ data: stories, error: storyError }, { data: evidenceRows, error: evidenceError }, { data: links, error: linkError }] = await Promise.all([
-      input.client
-        .from("stories")
-        .select("id,slug,title,status")
-        .neq("status", "discarded"),
-      input.client
-        .from("intelligence_evidence")
-        .select("id,affected_topics,affected_assets,evidence_class")
-        .in("id", evidenceIds),
-      input.client
-        .from("intelligence_story_evidence")
-        .select("story_id,evidence_id")
-        .in("evidence_id", evidenceIds),
-    ]);
+    const { data: links, error: linkError } = await input.client
+      .from("intelligence_story_evidence")
+      .select("story_id,evidence_id")
+      .in("evidence_id", evidenceIds);
 
-    if (storyError) throw new Error(`Failed to load Story registry: ${storyError.message}`);
-    if (evidenceError) throw new Error(`Failed to load Dossier evidence metadata: ${evidenceError.message}`);
     if (linkError) throw new Error(`Failed to load Story evidence links: ${linkError.message}`);
 
     const items = buildDossierStoryRefreshAgenda({
@@ -258,7 +268,7 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
       packet: input.packet,
       analyticalOutput: input.analyticalOutput,
       stories: (stories ?? []) as StoryRow[],
-      evidenceRows: (evidenceRows ?? []) as EvidenceRow[],
+      evidenceRows: boundedEvidenceRows,
       storyEvidenceLinks: (links ?? []) as StoryEvidenceLinkRow[],
     });
 
