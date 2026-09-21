@@ -378,6 +378,7 @@ export async function POST(request: Request) {
         researchRunId: runId,
         runKey: input.runKey,
         publicSummary: input.summary || null,
+        storiesPublished: totalUpdatesPublished,
       });
     }
     await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
