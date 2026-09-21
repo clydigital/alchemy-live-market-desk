@@ -999,7 +999,7 @@ async function loadEvidence(includeIds: string[] = []) {
   const requiredIds = unique(includeIds);
   const requiredRows = requiredIds.length
     ? await intelligenceRest<CanonicalEvidenceRow[]>(
-      `intelligence_evidence?select=${EVIDENCE_PACK_FIELDS}&id=in.(${requiredIds.join(",")})&freshness_status=neq.superseded`,
+      `intelligence_evidence?id=in.(${requiredIds.join(",")})&select=${EVIDENCE_PACK_FIELDS}&freshness_status=neq.superseded`,
     )
     : [];
   const rowsById = new Map(latestRows.map((row) => [row.id, row]));
