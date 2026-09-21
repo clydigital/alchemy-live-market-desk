@@ -710,9 +710,23 @@ async function modelStage<T>({
   }
 }
 
+const STORY_REGISTRY_FIELDS =
+  "id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict";
+
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    `stories?select=${STORY_REGISTRY_FIELDS}&status=neq.archived&status=neq.discarded&order=updated_at.desc`,
+  );
+}
+
+async function loadExplicitlyQueuedArchivedStories() {
+  const queued = await intelligenceRest<Array<{ target_id: string }>>(
+    "intelligence_reevaluation_queue?select=target_id&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()",
+  );
+  const targetIds = unique(queued.map((item) => item.target_id).filter(Boolean));
+  if (!targetIds.length) return [] as StoryRow[];
+  return intelligenceRest<StoryRow[]>(
+    `stories?select=${STORY_REGISTRY_FIELDS}&id=in.(${targetIds.join(",")})&status=eq.archived&order=updated_at.desc`,
   );
 }
 
@@ -2455,7 +2469,16 @@ export async function runIntelligenceEngine({
     const knownEvidenceIds = new Set(evidenceById.keys());
     const storiesPack = existingStoryPack(stories);
     const frozenStoryReferences = buildFrozenStoryReferenceSet(storiesPack);
-    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, stories, storyReviewEvidence, researchDebt);
+    const queuedArchivedStories = await loadExplicitlyQueuedArchivedStories();
+    const activeStoryIds = new Set(stories.map((story) => story.id));
+    const storyReviewStories = [
+      ...stories,
+      ...queuedArchivedStories.filter((story) => !activeStoryIds.has(story.id)),
+    ];
+    if (queuedArchivedStories.length) {
+      warnings.push(`${queuedArchivedStories.length} archived Story(s) entered targeted maintenance review from an explicit reevaluation queue.`);
+    }
+    const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
