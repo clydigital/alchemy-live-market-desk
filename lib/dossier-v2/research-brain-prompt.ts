@@ -13,6 +13,7 @@ import {
   RESEARCH_BRAIN_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
 import type { ResearchBrainInputV1 } from "./research-brain-contracts.ts";
+import { PRIMARY_MACRO_INSTRUMENT_GUIDANCE } from "../macro-market-universe.ts";
 
 export function buildResearchBrainSystemInstructions(): string {
   return `You are the Dossier V2 Research Brain for the Live Market Desk. Your job is to analyze the input packet and produce a structured, validated market dossier analysis matching contract version "${RESEARCH_BRAIN_CONTRACT_VERSION}".
@@ -27,7 +28,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
 8. Stock Radar is a research/watch surface (max ${MAX_STOCK_RADAR_ITEMS}) linked to Main Thread or Major Story. Do not include position sizing or trade commands.
 9. Chart tasks in chart_investigation_queue (core: exactly ${EXACT_CORE_CHARTS} if 3 valid questions exist, optional: max ${MAX_OPTIONAL_CHARTS}) MUST specify concrete TradingView instruments, timeframes, questions, and confirmation/contradiction conditions. Never use generic prompts like "check S&P" or "look at yields".
-10. Respect all attention budget limits:
+10. Canonical macro chart vocabulary: ${PRIMARY_MACRO_INSTRUMENT_GUIDANCE}. Use these actual market instruments when the related macro theme is being investigated. Do not substitute FINRA ETF proxies for the primary chart. In particular: gold is XAUUSD; Japan is NIKKEI; Korea is KOSPI; Hong Kong is HSI; crude is WTI; refined-fuel/distillate stress is ULSD; semiconductors are SMH. FINRA proxies such as GLD, FXY, EWJ, EWY, EWH, USL and CRAK may only be described as positioning/anomaly proxies.
+11. Respect all attention budget limits:
     - main_thread: exactly 1 headline/answer with thread_id
     - major_stories: max ${MAX_MAJOR_STORIES} (normally 2-3)
     - priority investigations: max ${MAX_PRIORITY_INVESTIGATIONS}
