@@ -11,6 +11,7 @@ on:
         options:
           - research
           - intelligence_only
+          - story_maintenance
           - dossier_v2_dry_run
           - dossier_v2_persist
           - finra_sensor
@@ -78,7 +79,7 @@ jobs:
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
       - name: Resolve audited manual identity
-        if: ${{ inputs.mode == 'research' || inputs.mode == 'intelligence_only' }}
+        if: ${{ inputs.mode == 'research' || inputs.mode == 'intelligence_only' || inputs.mode == 'story_maintenance' }}
         shell: bash
         run: |
           if [[ -z "$RETRY_KEY" ]]; then
@@ -219,6 +220,43 @@ jobs:
 
           echo "Canonical intelligence did not complete within eight continuations." >&2
           exit 1
+
+      - name: Run Story maintenance only
+        if: ${{ inputs.mode == 'story_maintenance' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          body="$(jq -cn \
+            --arg slot "$SLOT" \
+            --arg retryKey "$RETRY_KEY" \
+            '{slot:$slot,stage:"maintenance",retryKey:$retryKey}')"
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$PROD_URL/api/admin/research/run")"
+
+          jq -c '{status,slot,runKey,engineRunId,storiesConsidered,storiesPublished,warnings}' "$RESPONSE_FILE"
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Story maintenance invocation returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          if [[ "$state" != "completed" ]]; then
+            echo "Story maintenance ended in state: ${state:-missing}" >&2
+            exit 1
+          fi
 
       - name: Run Dossier V2 production dry-run
         if: ${{ inputs.mode == 'dossier_v2_dry_run' }}
