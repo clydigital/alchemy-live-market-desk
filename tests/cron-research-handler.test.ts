@@ -239,6 +239,7 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(acquisitionWrapper, /x-alchemy-defer-intelligence/);
   assert.match(publisher, /deferScheduledIntelligence/);
   assert.match(publisher, /status: "intelligence_pending"/);
+  assert.match(publisher, /storiesPublished: totalUpdatesPublished/);
   assert.match(continuationHandler, /runWithIntelligenceInvocation\(\{ oneModelStage: true \}/);
   assert.match(continuationHandler, /stageMaxAttempts:\s*1/);
   assert.doesNotMatch(continuationHandler, /scheduledExecutionStartedAtMs:/);
