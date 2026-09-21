@@ -39,7 +39,16 @@ async function rawIntelligenceRest<T>(path: string, init: RequestInit = {}): Pro
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+function hasTargetedIdentityFilter(path: string) {
+  return /(?:\?|&)id=(?:eq\.|in\.\()/.test(path);
+}
+
 function frozenReadKind(path: string): "stories" | "evidence" | "researchDebt" | null {
+  // Frozen reads represent the canonical broad snapshot for one engine run.
+  // Targeted identity lookups (for example an explicitly queued archived Story
+  // or its trigger Evidence) must hit the database rather than being replaced
+  // by the already-frozen broad Story/Evidence arrays.
+  if (hasTargetedIdentityFilter(path)) return null;
   if (path.startsWith("stories?select=id,slug,title,thesis,status,confidence,market_question")) return "stories";
   if (path.startsWith("intelligence_evidence?select=id,source_id,claim_text,summary,evidence_class")) return "evidence";
   if (path.startsWith("research_debt?select=debt_key,severity,reason,next_action,next_check_at")) return "researchDebt";
