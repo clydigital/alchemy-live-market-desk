@@ -195,7 +195,6 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
     const { data, error } = await this.client
       .from("stories")
       .select("id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict")
-      .neq("status", "archived")
       .neq("status", "discarded")
       .order("updated_at", { ascending: false });
     message(error, "Could not load Stories for transcript evidence routing");
