@@ -6,11 +6,11 @@ import styles from "./dossier.module.css";
 
 export const dynamic = "force-dynamic";
 
-function noticeTone(tone: "ready" | "warn" | "error") {
+function noticeTone(tone: "ready" | "warn" | "error"): "ready" | "warn" | "risk" {
   return tone === "ready" ? "ready" : tone === "error" ? "risk" : "warn";
 }
 
-function severityTone(severity: string) {
+function severityTone(severity: string): "default" | "warn" | "risk" {
   const value = severity.toLowerCase();
   if (value === "critical" || value === "material" || value === "high") return "risk";
   if (value === "medium" || value === "warning") return "warn";
