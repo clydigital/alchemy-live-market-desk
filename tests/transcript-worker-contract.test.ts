@@ -113,7 +113,7 @@ test("queued archived review pins its trigger Evidence even when normal recruitm
   );
   assert.match(
     intelligenceRuntime,
-    /intelligence_evidence\?select=\$\{EVIDENCE_PACK_FIELDS\}&id=in\.\(\$\{requiredIds\.join\(","\)\}\)/,
+    /intelligence_evidence\?id=in\.\(\$\{requiredIds\.join\(","\)\}\)&select=\$\{EVIDENCE_PACK_FIELDS\}/,
   );
   assert.match(
     intelligenceRuntime,
