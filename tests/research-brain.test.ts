@@ -23,8 +23,45 @@ import {
 import {
   executeResearchBrain,
   produceDegradedOutput,
+  researchBrainStageRuntime,
 } from "../lib/dossier-v2/research-brain.ts";
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
+
+
+test("Research Brain runtime gives primary synthesis enough output headroom without inflating repair", () => {
+  const primary = researchBrainStageRuntime(
+    "research_brain_primary",
+    undefined,
+    {} as NodeJS.ProcessEnv,
+  );
+  const repair = researchBrainStageRuntime(
+    "research_brain_repair",
+    undefined,
+    {} as NodeJS.ProcessEnv,
+  );
+
+  assert.equal(primary.maxOutputTokens, 16_000);
+  assert.equal(primary.reasoningEffort, "medium");
+  assert.equal(primary.timeoutMs, 240_000);
+  assert.equal(repair.maxOutputTokens, 10_000);
+  assert.equal(repair.reasoningEffort, "low");
+  assert.equal(repair.timeoutMs, 240_000);
+});
+
+test("Research Brain runtime allows bounded production overrides", () => {
+  const runtime = researchBrainStageRuntime(
+    "research_brain_primary",
+    999_999,
+    {
+      OPENAI_RESEARCH_BRAIN_MAX_OUTPUT_TOKENS: "22000",
+      OPENAI_RESEARCH_BRAIN_REASONING_EFFORT: "low",
+    } as unknown as NodeJS.ProcessEnv,
+  );
+
+  assert.equal(runtime.maxOutputTokens, 22_000);
+  assert.equal(runtime.reasoningEffort, "low");
+  assert.equal(runtime.timeoutMs, 240_000);
+});
 
 function createValidBasePacket() {
   return assembleDossierV2InputPacket(
@@ -98,6 +135,23 @@ function createValidBasePacket() {
     },
   );
 }
+
+
+test("Research Brain prompt keeps evidence identity but strips redundant source URLs", () => {
+  const packet = createValidBasePacket();
+  packet.observed_evidence[0].provenance[0].url = "https://example.test/very-long-source-url";
+  const prompt = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+
+  const serialized = JSON.stringify(prompt.boundedInput);
+  assert.match(serialized, /ev:cpi:2026-09/);
+  assert.match(serialized, /BLS_CPI/);
+  assert.doesNotMatch(serialized, /very-long-source-url/);
+  assert.match(prompt.instructions, /OUTPUT DISCIPLINE/);
+});
 
 function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): ResearchBrainOutputV1 {
   const evCpi = packet.observed_evidence.find((e) => e.evidence_id.includes("cpi"))?.evidence_id ?? "ev:cpi:2026-09";
