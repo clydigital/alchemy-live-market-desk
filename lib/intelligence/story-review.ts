@@ -95,6 +95,10 @@ function reviewAgeHours(status: string) {
   return 72;
 }
 
+function ageReviewEligible(status: string) {
+  return !["archived", "invalidated", "discarded"].includes(status.toLowerCase());
+}
+
 function catalystTime(value: string) {
   const iso = value.match(/\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?\b/)?.[0];
   return milliseconds(iso ?? null);
@@ -178,7 +182,7 @@ export function selectStoryReviewTargets(input: {
     if (fresh.some((item) => item.supportDirection === "contradicting" || linkRoles.get(item.id) === "contradicting")) reasons.push("contradictory_evidence");
     if (fresh.some((item) => item.supportDirection === "supporting" || ["supporting", "decisive"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("supporting_evidence");
     if (dueCatalysts.length) reasons.push("catalyst_due");
-    if (nowMs - lastEvaluated >= reviewAgeHours(story.status) * 60 * 60 * 1_000) reasons.push("review_age");
+    if (ageReviewEligible(story.status) && nowMs - lastEvaluated >= reviewAgeHours(story.status) * 60 * 60 * 1_000) reasons.push("review_age");
     if (!reasons.length) return [];
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
