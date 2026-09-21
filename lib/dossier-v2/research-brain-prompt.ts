@@ -14,6 +14,7 @@ import {
 } from "./research-brain-contracts.ts";
 import type { ResearchBrainInputV1 } from "./research-brain-contracts.ts";
 import { PRIMARY_MACRO_INSTRUMENT_GUIDANCE } from "../macro-market-universe.ts";
+import { buildSystem1DivergenceCandidates } from "./system1-divergence.ts";
 
 
 function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
@@ -91,7 +92,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
     - creator_theme_expansions: max ${MAX_CREATOR_EXPANSIONS}
     - contradictions_detected: max ${MAX_CONTRADICTIONS}
     - research_gaps: max ${MAX_RESEARCH_GAPS}
-12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Reuse evidence IDs instead of restating source details. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.`;
+12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Reuse evidence IDs instead of restating source details. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.\n13. SYSTEM 1 DIVERGENCE SCREEN: system1_divergence_candidates are deterministic triage signals derived from simple expected-vs-observed relationships. They are NOT independent facts, causal conclusions or proof of mispricing. Use them only to prioritise investigation when both referenced evidence IDs support the setup. Do not force an explanation; UNKNOWN or unresolved remains valid. An absent candidate does not mean the relationship was confirmed.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -105,6 +106,7 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     as_of: packet.as_of,
     previous_dossier_id: packet.previous_dossier_id,
     observed_evidence: compactObservedEvidence(packet),
+    system1_divergence_candidates: buildSystem1DivergenceCandidates(packet),
     research_leads: compactResearchLeads(packet),
     prior_analytical_state: compactPriorState(packet),
     development_clusters: packet.development_clusters.map((c) => ({
