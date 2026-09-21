@@ -75,21 +75,33 @@ test("the worker is authenticated, scheduled and separate from paused research",
 });
 
 
-test("creator routing uses one dedicated archived-capable Story loader", () => {
+test("creator review is bounded while evidence routing remains archived-capable", () => {
   const routingPath = path.join(root, "lib", "creator-story-routing.ts");
   assert.equal(fs.existsSync(routingPath), true, "creator-only Story loader must exist");
   const routing = fs.readFileSync(routingPath, "utf8");
-  assert.match(transcriptReview, /loadPersistentStoriesForCreatorRouting/);
+  assert.match(transcriptReview, /loadPersistentStoriesForCreatorReview/);
   assert.match(store, /loadPersistentStoriesForCreatorRouting/);
-  assert.match(routing, /\.neq\("status",\s*"discarded"\)/);
-  assert.doesNotMatch(routing, /\.neq\("status",\s*"archived"\)/);
+  assert.match(routing, /CREATOR_REVIEW_STORY_LIMIT = 40/);
+  assert.match(routing, /loadPersistentStoriesForCreatorReview[\s\S]*\.limit\(CREATOR_REVIEW_STORY_LIMIT\)/);
+  assert.match(routing, /loadPersistentStoriesForCreatorRouting[\s\S]*\.neq\("status",\s*"discarded"\)/);
+  assert.doesNotMatch(routing.match(/loadPersistentStoriesForCreatorRouting[\s\S]*?\n\}/)?.[0] ?? "", /\.neq\("status",\s*"archived"\)/);
   assert.doesNotMatch(transcriptReview, /\.from\("stories"\)/);
   assert.doesNotMatch(store, /\.from\("stories"\)/);
 });
 
-test("canonical intelligence excludes archived and discarded Stories from the shared runtime", () => {
+test("canonical intelligence keeps archived Stories out of normal reasoning but admits explicitly queued archived maintenance targets", () => {
   assert.match(
     intelligenceRuntime,
-    /stories\?select=[^"\n]+&status=neq\.archived&status=neq\.discarded&order=updated_at\.desc/,
+    /STORY_REGISTRY_FIELDS[\s\S]*status=neq\.archived&status=neq\.discarded&order=updated_at\.desc/,
   );
+  assert.match(
+    intelligenceRuntime,
+    /loadExplicitlyQueuedArchivedStories[\s\S]*intelligence_reevaluation_queue\?select=target_id[\s\S]*status=in\.\(pending,retryable\)[\s\S]*status=eq\.archived/,
+  );
+  assert.match(intelligenceRuntime, /storyReviewStories = \[[\s\S]*queuedArchivedStories/);
+  assert.match(
+    intelligenceRuntime,
+    /loadOrCreateStoryReviewTargets\(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt\)/,
+  );
+  assert.match(intelligenceRuntime, /const storiesPack = existingStoryPack\(stories\)/);
 });
