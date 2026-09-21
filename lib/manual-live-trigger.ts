@@ -4,7 +4,7 @@ import {
 } from "./manual-live-trigger-auth.ts";
 
 type CanonicalResearchSlot = "morning" | "evening";
-type ManualLiveTriggerStage = "acquisition" | "intelligence";
+type ManualLiveTriggerStage = "acquisition" | "intelligence" | "maintenance";
 type ScheduledHandler = (request: Request, slot: CanonicalResearchSlot) => Promise<Response>;
 
 type ManualLiveTriggerDependencies = {
@@ -12,6 +12,7 @@ type ManualLiveTriggerDependencies = {
   cronSecret?: () => string | undefined;
   acquisition?: ScheduledHandler;
   intelligence?: ScheduledHandler;
+  maintenance?: ScheduledHandler;
   logger?: (event: Record<string, unknown>) => void;
 };
 
@@ -33,7 +34,7 @@ function validSlot(value: unknown): value is CanonicalResearchSlot {
 }
 
 function validStage(value: unknown): value is ManualLiveTriggerStage {
-  return value === "acquisition" || value === "intelligence";
+  return value === "acquisition" || value === "intelligence" || value === "maintenance";
 }
 
 function validRetryKey(value: unknown): value is string {
@@ -96,7 +97,9 @@ export async function handleManualLiveTriggerWithDependencies(
   );
   const handler = input.stage === "acquisition"
     ? dependencies.acquisition
-    : dependencies.intelligence;
+    : input.stage === "intelligence"
+      ? dependencies.intelligence
+      : dependencies.maintenance;
   if (!handler) {
     return json({ error: "The canonical scheduled handler is unavailable." }, 503);
   }

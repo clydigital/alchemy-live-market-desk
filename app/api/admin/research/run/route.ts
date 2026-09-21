@@ -1,6 +1,7 @@
 import { handleScheduledResearchAcquisition } from "@/lib/cron-research-acquisition-handler";
 import { handleScheduledResearchIntelligence } from "@/lib/cron-research-intelligence-handler";
 import { handleManualLiveTriggerWithDependencies } from "@/lib/manual-live-trigger";
+import { handleManualStoryMaintenance } from "@/lib/manual-story-maintenance-handler";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,5 +11,6 @@ export async function POST(request: Request) {
   return handleManualLiveTriggerWithDependencies(request, {
     acquisition: handleScheduledResearchAcquisition,
     intelligence: handleScheduledResearchIntelligence,
+    maintenance: handleManualStoryMaintenance,
   });
 }

@@ -2396,6 +2396,7 @@ export async function runIntelligenceEngine({
   triggerKind = "new_evidence",
   runKey,
   dryRun = false,
+  maintenanceOnly = false,
   stageRequestTimeoutMs,
   stageMaxAttempts,
   scheduledExecutionStartedAtMs,
@@ -2404,6 +2405,12 @@ export async function runIntelligenceEngine({
   triggerKind?: IntelligenceTriggerKind;
   runKey?: string;
   dryRun?: boolean;
+  /**
+   * Run only the canonical Market Belief stage needed for Story maintenance,
+   * apply/fail-safe the selected Story assessments, then terminate the engine.
+   * This reuses the normal Story-review path and never enters synthesis/publication.
+   */
+  maintenanceOnly?: boolean;
   /** Optional bounded-stage controls for a serverless scheduled run. */
   stageRequestTimeoutMs?: number;
   stageMaxAttempts?: number;
@@ -2500,6 +2507,29 @@ export async function runIntelligenceEngine({
     }
     const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
+    if (maintenanceOnly && !storyReviewTargets.length) {
+      warnings.push("Story maintenance-only run found no eligible reevaluation targets.");
+      await persistEarlyEngineCompletion({
+        engineRunId,
+        warnings,
+        storiesConsidered: 0,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        recruitment,
+      });
+      return {
+        enabled: true,
+        engineRunId,
+        status: "completed",
+        evidenceConsidered: reasoningEvidence.length,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        storiesConsidered: 0,
+        storiesPublished: 0,
+        storyIds: [],
+        warnings,
+      };
+    }
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
@@ -2523,6 +2553,29 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 4_500,
     });
     await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
+    if (maintenanceOnly) {
+      warnings.push(`Story maintenance-only run completed after Market Belief for ${storyReviewTargets.length} target(s); downstream reasoning and publication were intentionally skipped.`);
+      await persistEarlyEngineCompletion({
+        engineRunId,
+        warnings,
+        storiesConsidered,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        recruitment,
+      });
+      return {
+        enabled: true,
+        engineRunId,
+        status: "completed",
+        evidenceConsidered: reasoningEvidence.length,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        storiesConsidered,
+        storiesPublished: 0,
+        storyIds: [],
+        warnings,
+      };
+    }
     const recruitmentClusters = await persistRecruitmentClusters({
       engineRunId,
       stageRunId: beliefStage.stageRunId,
