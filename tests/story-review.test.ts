@@ -105,6 +105,36 @@ test("selector consumes queue, debt and evidence triggers in deterministic prior
   }]);
 });
 
+test("explicit queue evidence is Story-relevant even before a durable Story-evidence link exists", () => {
+  const requested = evidence("queued-news", "unrelated-topic", {
+    evidenceClass: "news_report",
+    sourceTier: 3,
+    claim: "Refinery disruption keeps diesel supply tight.",
+  });
+  const selected = selectStoryReviewTargets({
+    stories: [story("refining-crack-spread-stress", { status: "archived" })],
+    evidence: [requested],
+    evidenceLinks: [],
+    queue: [{
+      id: "queue-news",
+      storyId: "refining-crack-spread-stress",
+      status: "pending",
+      reason: "dossier_refresh:test:dossier_story_match",
+      priority: 90,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: requested.id,
+    }],
+    debt: [],
+    now,
+  });
+
+  assert.equal(selected.length, 1);
+  assert.deepEqual(selected[0]?.relevantEvidence.map((item) => item.id), [requested.id]);
+  assert.ok(selected[0]?.reviewContext?.triggerEvidenceIds.includes(requested.id));
+  assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [requested.id], selected[0]!), true);
+});
+
 test("stale review age creates a target using lifecycle-specific thresholds", () => {
   const selected = selectStoryReviewTargets({
     stories: [story("confirmed", { status: "confirmed", lastEvaluatedAt: "2026-08-20T11:59:59Z" })],
