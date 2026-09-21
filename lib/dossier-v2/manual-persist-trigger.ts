@@ -164,6 +164,7 @@ export async function handleDossierV2PersistRunWithDependencies(
         createdAt: result.dossier.created_at,
       },
       snapshotDiagnostics: result.snapshot_diagnostics,
+      storyRefreshAgenda: result.story_refresh_agenda ?? null,
       packetSummary: {
         packetId: result.packet.packet_id,
         asOf: result.packet.as_of,

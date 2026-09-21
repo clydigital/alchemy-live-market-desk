@@ -17,6 +17,10 @@ import {
   executeResearchBrain,
   type ResearchBrainOptions,
 } from "./research-brain.ts";
+import {
+  enqueueDossierStoryRefreshAgenda,
+  type DossierStoryRefreshAgendaResult,
+} from "./story-refresh-agenda.ts";
 
 export interface DossierV2ExecutionOptions {
   client?: SupabaseClient;
@@ -28,6 +32,7 @@ export interface DossierV2ExecutionResult {
   analytical_output: ResearchBrainOutputV1;
   dossier_input: MarketDossierV2Input;
   dossier: MarketDossierV2;
+  story_refresh_agenda: DossierStoryRefreshAgendaResult;
 }
 
 function cloneJson<T>(value: T): T {
@@ -142,11 +147,27 @@ export async function executeAndPersistDossierV2(
   );
 
   const dossier = await persistMarketDossierV2(dossierInput, options.client);
+  const storyRefreshAgenda = options.client
+    ? await enqueueDossierStoryRefreshAgenda({
+        client: options.client,
+        dossier,
+        packet,
+        analyticalOutput,
+      })
+    : {
+        dossier_id: dossier.id,
+        status: "empty" as const,
+        candidates: 0,
+        enqueued: 0,
+        skipped_existing: 0,
+        items: [],
+      };
 
   return {
     packet_id: packet.packet_id,
     analytical_output: analyticalOutput,
     dossier_input: dossierInput,
     dossier,
+    story_refresh_agenda: storyRefreshAgenda,
   };
 }
