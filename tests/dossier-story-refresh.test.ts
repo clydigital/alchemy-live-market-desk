@@ -153,9 +153,9 @@ test("Dossier attention wakes matching archived Stories through canonical eviden
     packet: inputPacket,
     analyticalOutput: output(inputPacket),
     stories: [
-      { id: "story-fed", slug: "fed-rate-repricing", title: "Fed rate repricing", status: "archived" },
-      { id: "story-oil", slug: "refining-crack-spread-stress", title: "Refining crack spread stress", status: "archived" },
-      { id: "story-noise", slug: "software-refresh", title: "Software refresh", status: "archived" },
+      { id: "story-fed", slug: "fed-rate-repricing", title: "Fed rate repricing", thesis: "Front-end yields reprice as policy expectations change.", market_question: null, assets: ["US02Y"], status: "archived" },
+      { id: "story-oil", slug: "refining-crack-spread-stress", title: "Refining crack spread stress", thesis: "Diesel and distillate supply tightness can keep refining cracks elevated.", market_question: null, assets: ["ULSD"], status: "archived" },
+      { id: "story-noise", slug: "software-refresh", title: "Software refresh", thesis: "Routine software product updates.", market_question: null, assets: ["SOFT"], status: "archived" },
     ],
     evidenceRows: [
       { id: FED_EVIDENCE_ID, claim_text: "The Federal Reserve delivered a hawkish rate hike while front-end Treasury yields repriced higher.", summary: null, affected_topics: ["fed-rate-repricing"], affected_assets: ["US02Y"], evidence_class: "news_report" },
@@ -181,7 +181,7 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
     packet: inputPacket,
     analyticalOutput,
     stories: [
-      { id: "story-linked", slug: "linked-story", title: "Linked Story", status: "archived" },
+      { id: "story-linked", slug: "linked-story", title: "Linked Story", thesis: "Unrelated canonical thesis.", market_question: null, assets: [], status: "archived" },
     ],
     evidenceRows: [
       { id: NOISE_EVIDENCE_ID, claim_text: "A software company announced a routine product refresh.", summary: null, affected_topics: [], affected_assets: [], evidence_class: "news_report" },
@@ -196,6 +196,41 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
   assert.equal(agenda[0]?.match_basis, "existing_story_evidence");
 });
 
+test("Dossier can pair an untagged credible news item with an archived Story when both match the current regime", () => {
+  const inputPacket = packet();
+  const agenda = buildDossierStoryRefreshAgenda({
+    dossierId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    packet: inputPacket,
+    analyticalOutput: output(inputPacket),
+    stories: [
+      {
+        id: "story-diesel",
+        slug: "refining-crack-spread-stress",
+        title: "Diesel remains tight as refining cracks stay elevated",
+        thesis: "Distillate supply tightness and refinery constraints can keep diesel prices elevated.",
+        market_question: "Can tight diesel supply sustain fuel-cost pressure?",
+        assets: ["ULSD", "DIESEL_CRACK"],
+        status: "archived",
+      },
+    ],
+    evidenceRows: [
+      {
+        id: OIL_EVIDENCE_ID,
+        claim_text: "Refinery attacks and tight diesel supply are keeping distillate markets under pressure.",
+        summary: null,
+        affected_topics: [],
+        affected_assets: ["ULSD"],
+        evidence_class: "news_report",
+      },
+    ],
+    storyEvidenceLinks: [],
+  });
+
+  assert.equal(agenda.length, 1);
+  assert.equal(agenda[0]?.story_id, "story-diesel");
+  assert.equal(agenda[0]?.match_basis, "dossier_story_match");
+});
+
 test("Dossier Story refresh agenda is bounded to the existing Story-review budget", () => {
   const inputPacket = packet();
   const analyticalOutput = output(inputPacket);
@@ -205,6 +240,9 @@ test("Dossier Story refresh agenda is bounded to the existing Story-review budge
     id: `story-${index}`,
     slug: `fed-story-${index}`,
     title: `Fed Story ${index}`,
+    thesis: "Federal Reserve rate policy and Treasury yield repricing.",
+    market_question: null,
+    assets: ["US02Y"],
     status: "archived",
   }));
   const agenda = buildDossierStoryRefreshAgenda({
