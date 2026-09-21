@@ -6,6 +6,7 @@ export type LiveDeskRoute = {
 
 export const deskRoutes: LiveDeskRoute[] = [
   { label: "Overview", href: "/", description: "Research status and current desk state" },
+  { label: "Dossier", href: "/dossier", description: "Canonical Dossier V2: what matters now, what to watch and what to research next" },
   { label: "What’s New", href: "/whats-new", description: "Material deltas, statements and intake" },
   { label: "Stories", href: "/stories", description: "Persistent theses and event history" },
   { label: "Articles", href: "/articles", description: "Published coverage and article memory" },
