@@ -158,9 +158,9 @@ test("Dossier attention wakes matching archived Stories through canonical eviden
       { id: "story-noise", slug: "software-refresh", title: "Software refresh", status: "archived" },
     ],
     evidenceRows: [
-      { id: FED_EVIDENCE_ID, affected_topics: ["fed-rate-repricing"], affected_assets: ["US02Y"], evidence_class: "news_report" },
-      { id: OIL_EVIDENCE_ID, affected_topics: ["refining-crack-spread-stress"], affected_assets: ["WTI", "ULSD"], evidence_class: "news_report" },
-      { id: NOISE_EVIDENCE_ID, affected_topics: ["software-refresh"], affected_assets: ["SOFT"], evidence_class: "news_report" },
+      { id: FED_EVIDENCE_ID, claim_text: "The Federal Reserve delivered a hawkish rate hike while front-end Treasury yields repriced higher.", summary: null, affected_topics: ["fed-rate-repricing"], affected_assets: ["US02Y"], evidence_class: "news_report" },
+      { id: OIL_EVIDENCE_ID, claim_text: "Oil and diesel remain tight as refinery and shipping constraints keep distillate cracks elevated.", summary: null, affected_topics: ["refining-crack-spread-stress"], affected_assets: ["WTI", "ULSD"], evidence_class: "news_report" },
+      { id: NOISE_EVIDENCE_ID, claim_text: "A software company announced a routine product refresh.", summary: null, affected_topics: ["software-refresh"], affected_assets: ["SOFT"], evidence_class: "news_report" },
     ],
     storyEvidenceLinks: [],
   });
@@ -184,7 +184,7 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
       { id: "story-linked", slug: "linked-story", title: "Linked Story", status: "archived" },
     ],
     evidenceRows: [
-      { id: NOISE_EVIDENCE_ID, affected_topics: [], affected_assets: [], evidence_class: "news_report" },
+      { id: NOISE_EVIDENCE_ID, claim_text: "A software company announced a routine product refresh.", summary: null, affected_topics: [], affected_assets: [], evidence_class: "news_report" },
     ],
     storyEvidenceLinks: [
       { story_id: "story-linked", evidence_id: NOISE_EVIDENCE_ID },
@@ -213,7 +213,7 @@ test("Dossier Story refresh agenda is bounded to the existing Story-review budge
     analyticalOutput,
     stories,
     evidenceRows: [
-      { id: FED_EVIDENCE_ID, affected_topics: stories.map((story) => story.slug), affected_assets: ["US02Y"], evidence_class: "news_report" },
+      { id: FED_EVIDENCE_ID, claim_text: "The Federal Reserve delivered a hawkish rate hike while front-end Treasury yields repriced higher.", summary: null, affected_topics: stories.map((story) => story.slug), affected_assets: ["US02Y"], evidence_class: "news_report" },
     ],
     storyEvidenceLinks: [],
   });
