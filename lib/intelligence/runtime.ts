@@ -712,7 +712,7 @@ async function modelStage<T>({
 
 async function loadStories() {
   return intelligenceRest<StoryRow[]>(
-    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict&status=neq.archived&status=neq.discarded&order=updated_at.desc",
+    "stories?select=id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict&status=neq.discarded&order=updated_at.desc",
   );
 }
 
