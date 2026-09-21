@@ -113,6 +113,48 @@ test("stale review age creates a target using lifecycle-specific thresholds", ()
   assert.equal(selected[0]?.reason, "review_age");
 });
 
+
+test("archived Stories do not churn from review age alone", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("archived", { status: "archived", lastEvaluatedAt: "2026-08-01T00:00:00Z" })],
+    evidence: [], evidenceLinks: [], queue: [], debt: [], now,
+  });
+  assert.deepEqual(selected, []);
+});
+
+test("new linked creator evidence can wake an archived Story without authorising a material mutation", () => {
+  const creatorLead = evidence("creator-lead", "archived", {
+    evidenceClass: "transcript",
+    sourceTier: 5,
+    sourceName: "Creator",
+    supportDirection: "context",
+  });
+  const selected = selectStoryReviewTargets({
+    stories: [story("archived", { status: "archived", lastEvaluatedAt: "2026-08-01T00:00:00Z" })],
+    evidence: [creatorLead],
+    evidenceLinks: [{
+      storyId: "archived",
+      evidenceId: creatorLead.id,
+      evidenceRole: "context",
+      linkedAt: creatorLead.eventAt!,
+    }],
+    queue: [{
+      id: "creator-wake",
+      storyId: "archived",
+      status: "pending",
+      reason: "new_linked_evidence",
+      priority: 70,
+      availableAt: "2026-08-21T11:00:00.000Z",
+      createdAt: "2026-08-21T11:00:00.000Z",
+    }],
+    debt: [],
+    now,
+  });
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.reason, "explicit_queue");
+  assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [creatorLead.id], selected[0]!), false);
+});
+
 test("overdue high Story debt wakes a review like production research obligations", () => {
   const selected = selectStoryReviewTargets({
     stories: [story("oil", { lastEvaluatedAt: "2026-08-21T11:59:00Z" })],
