@@ -27,6 +27,7 @@ export type StoryReviewQueueItem = {
   priority: number;
   availableAt: string;
   createdAt: string;
+  requestedEvidenceId?: string | null;
 };
 
 export type StoryReviewDebt = {
@@ -121,10 +122,13 @@ function relevantEvidenceForStory(
   story: StoryReviewStory,
   evidence: EvidencePackItem[],
   links: StoryEvidenceLink[],
+  requestedEvidenceIds: Set<string>,
 ) {
   const linkByEvidence = new Map(links.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link]));
   return evidence
-    .filter((item) => linkByEvidence.has(item.id) || item.affectedTopics.includes(story.slug))
+    .filter((item) => requestedEvidenceIds.has(item.id)
+      || linkByEvidence.has(item.id)
+      || item.affectedTopics.includes(story.slug))
     .sort((left, right) => {
       const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
       const rightRole = linkByEvidence.get(right.id)?.evidenceRole ?? "context";
@@ -153,8 +157,18 @@ export function selectStoryReviewTargets(input: {
     const dormant = ["archived", "invalidated", "discarded"].includes(story.status.toLowerCase());
     if (dormant && !availableQueue.length) return [];
     const linkRoles = new Map(input.evidenceLinks.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link.evidenceRole]));
+    const requestedEvidenceIds = new Set(
+      availableQueue
+        .map((item) => item.requestedEvidenceId)
+        .filter((id): id is string => Boolean(id)),
+    );
     const lastEvaluated = milliseconds(story.lastEvaluatedAt) ?? 0;
-    const relevantEvidence = relevantEvidenceForStory(story, input.evidence, input.evidenceLinks);
+    const relevantEvidence = relevantEvidenceForStory(
+      story,
+      input.evidence,
+      input.evidenceLinks,
+      requestedEvidenceIds,
+    );
     const fresh = relevantEvidence.filter((item) => (milliseconds(item.eventAt ?? item.publishedAt) ?? 0) > lastEvaluated);
     const relevantDebt = input.debt.filter((debt) => debt.storyId === story.id && debt.status === "open");
     // Production obligations historically use both high and critical severity.
@@ -194,7 +208,10 @@ export function selectStoryReviewTargets(input: {
         nextCheckAt: debt.nextCheckAt,
       })),
       dueCatalysts,
-      triggerEvidenceIds: fresh.map((item) => item.id),
+      triggerEvidenceIds: [...new Set([
+        ...fresh.map((item) => item.id),
+        ...requestedEvidenceIds,
+      ])],
       catalystCandidates,
     };
     return [{
