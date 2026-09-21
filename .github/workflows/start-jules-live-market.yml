@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      JULES_API_KEY: ${{ secrets.JULES_LYC }}
       JULES_TASK: ${{ inputs.task }}
       JULES_TITLE: ${{ inputs.title }}
     steps:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$JULES_API_KEY" ]]; then
-            echo "Add JULES_API_KEY to repository Actions secrets before dispatching." >&2
+            echo "Add JULES_LYC to repository Actions secrets before dispatching." >&2
             exit 1
           fi
           if [[ -z "${JULES_TASK//[[:space:]]/}" || -z "${JULES_TITLE//[[:space:]]/}" ]]; then
@@ -108,7 +108,7 @@ jobs:
           echo "Created Jules $session_name (plan approval required)."
           {
             echo "### Jules Live Market"
-            echo "Session: \`$session_name\`"
-            echo "Source: \`$JULES_SOURCE\`"
+            echo "Session: `$session_name`"
+            echo "Source: `$JULES_SOURCE`"
             echo "Plan approval is required before Jules executes the task."
           } >> "$GITHUB_STEP_SUMMARY"
