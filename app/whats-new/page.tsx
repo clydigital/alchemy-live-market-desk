@@ -42,10 +42,10 @@ function classifyTopic(primary: string, secondary = "", assetText = ""): WhatsNe
 
   const assets = assetText.toUpperCase();
   if (/\b(?:BTCUSD|ETHUSD|BTC|ETH|COIN|MSTR)\b/.test(assets)) return "Crypto";
-  if (/\b(?:USOIL|UKOIL|WTI|BRENT|XAUUSD|XAGUSD|XAU|XAG|GOLD|SILVER|DIESEL_CRACK|GASOLINE_CRACK|LNG)\b/.test(assets)) return "Commodities";
+  if (/\b(?:USOIL|UKOIL|WTI|BRENT|ULSD|XAUUSD|XAGUSD|XAU|XAG|GOLD|SILVER|DIESEL_CRACK|GASOLINE_CRACK|LNG)\b/.test(assets)) return "Commodities";
   if (/\b(?:DXY|USDJPY|GBPJPY|AUDJPY|EURUSD|GBPUSD|USDCHF|USDCAD|EURJPY|[A-Z]{3}JPY)\b/.test(assets)) return "FX";
   if (/\b(?:US02Y|US05Y|US10Y|US30Y|TLT|IEF|SHY)\b/.test(assets)) return "Macro";
-  if (/\b(?:SPX|NASDAQ|NDX|QQQ|RSP|SOXX|SMH|NIKKEI|KOSPI|AAPL|MSFT|AMZN|GOOGL|META|NVDA|AMD|TSLA|BABA|MU|WDC|SNDK)\b/.test(assets)) return "Stocks";
+  if (/\b(?:SPX|NASDAQ|NDX|QQQ|RSP|SOXX|SMH|NIKKEI|KOSPI|HSI|AAPL|MSFT|AMZN|GOOGL|META|NVDA|AMD|TSLA|BABA|MU|WDC|SNDK)\b/.test(assets)) return "Stocks";
 
   for (const [topic, pattern] of TOPIC_PATTERNS) {
     if (pattern.test(secondary)) return topic;
