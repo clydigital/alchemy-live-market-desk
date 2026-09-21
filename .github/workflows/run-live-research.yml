@@ -10,6 +10,7 @@ on:
         default: research
         options:
           - research
+          - intelligence_only
           - dossier_v2_dry_run
           - dossier_v2_persist
           - finra_sensor
@@ -77,7 +78,7 @@ jobs:
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
       - name: Resolve audited manual identity
-        if: ${{ inputs.mode == 'research' }}
+        if: ${{ inputs.mode == 'research' || inputs.mode == 'intelligence_only' }}
         shell: bash
         run: |
           if [[ -z "$RETRY_KEY" ]]; then
@@ -134,6 +135,69 @@ jobs:
           for attempt in {1..8}; do
             echo "Intelligence continuation attempt $attempt"
             invoke_stage intelligence
+            state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+            case "$state" in
+              completed)
+                exit 0
+                ;;
+              partial|intelligence_running|acquisition_pending)
+                sleep 15
+                ;;
+              blocked|failed|terminal|missing)
+                echo "Canonical intelligence ended in state: $state" >&2
+                exit 1
+                ;;
+              *)
+                echo "Unexpected canonical intelligence state: ${state:-missing}" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "Canonical intelligence did not complete within eight continuations." >&2
+          exit 1
+
+      - name: Run canonical intelligence only
+        if: ${{ inputs.mode == 'intelligence_only' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          request_oidc_token() {
+            local encoded_audience response
+            encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+            response="$(curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+            OIDC_TOKEN="$(jq -er '.value' <<<"$response")"
+            echo "::add-mask::$OIDC_TOKEN"
+          }
+
+          invoke_intelligence() {
+            local body http_status
+            request_oidc_token
+            body="$(jq -cn \
+              --arg slot "$SLOT" \
+              --arg retryKey "$RETRY_KEY" \
+              '{slot:$slot,stage:"intelligence",retryKey:$retryKey}')"
+            http_status="$(curl --silent --show-error --max-time 305 \
+              -o "$RESPONSE_FILE" -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$body" \
+              "$PROD_URL/api/admin/research/run")"
+            jq -c '{status,slot,runKey,runId,scheduledFor,updatesPublished,message,intelligenceStatus:.intelligence.status}' "$RESPONSE_FILE"
+            if [[ ! "$http_status" =~ ^2 ]]; then
+              echo "Manual Live intelligence invocation returned HTTP $http_status." >&2
+              exit 1
+            fi
+          }
+
+          for attempt in {1..8}; do
+            echo "Intelligence-only continuation attempt $attempt"
+            invoke_intelligence
             state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
             case "$state" in
               completed)

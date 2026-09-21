@@ -149,6 +149,16 @@ test("the production route and workflow keep the canonical handlers and OIDC bou
   assert.match(handler, /live-internal\.invalid\/api\/cron\/research/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /api\/admin\/research\/run/);
+  assert.match(workflow, /- intelligence_only/);
+  assert.match(workflow, /inputs\.mode == 'research' \|\| inputs\.mode == 'intelligence_only'/);
+  assert.match(workflow, /Run canonical intelligence only/);
+  assert.match(workflow, /stage:"intelligence"/);
+  assert.match(workflow, /if: \$\{\{ inputs\.mode == 'research' \}\}[\s\S]*invoke_stage acquisition/);
+  assert.match(workflow, /if: \$\{\{ inputs\.mode == 'intelligence_only' \}\}[\s\S]*invoke_intelligence/);
+  assert.doesNotMatch(
+    workflow.match(/- name: Run canonical intelligence only[\s\S]*?- name: Run Dossier V2 production dry-run/)?.[0] ?? "",
+    /invoke_stage acquisition/,
+  );
   assert.doesNotMatch(workflow, /RESEARCH_UPDATE_TOKEN/);
   assert.doesNotMatch(workflow, /CRON_SECRET/);
 });
