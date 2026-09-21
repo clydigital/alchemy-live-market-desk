@@ -15,6 +15,58 @@ import {
 import type { ResearchBrainInputV1 } from "./research-brain-contracts.ts";
 import { PRIMARY_MACRO_INSTRUMENT_GUIDANCE } from "../macro-market-universe.ts";
 
+
+function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
+  return (refs ?? []).map((ref) => ({
+    source_type: ref.source_type,
+    source_id: ref.source_id,
+    publisher: ref.publisher,
+  }));
+}
+
+function compactObservedEvidence(packet: DossierV2InputPacket) {
+  return packet.observed_evidence.map((e) => ({
+    evidence_id: e.evidence_id,
+    claim_or_fact: e.claim_or_fact,
+    category: e.category,
+    source_type: e.source_type,
+    available_at: e.available_at,
+    occurrence_time: e.occurrence_time,
+    metrics: e.metrics,
+    conflict_group_id: e.conflict_group_id,
+    rank: e.rank,
+    provenance: compactProvenance(e.provenance as unknown as Array<Record<string, unknown>>),
+  }));
+}
+
+function compactResearchLeads(packet: DossierV2InputPacket) {
+  return packet.research_leads.map((lead) => ({
+    lead_id: lead.lead_id,
+    claim_or_question: lead.claim_or_question,
+    source_type: lead.source_type,
+    available_at: lead.available_at,
+    urgency: lead.urgency,
+    conflict_group_id: lead.conflict_group_id,
+    rank: lead.rank,
+    provenance: compactProvenance(lead.provenance as unknown as Array<Record<string, unknown>>),
+  }));
+}
+
+function compactPriorState(packet: DossierV2InputPacket) {
+  return {
+    previous_dossier_id: packet.prior_analytical_state.previous_dossier_id,
+    as_of: packet.prior_analytical_state.as_of,
+    prior_claims: packet.prior_analytical_state.prior_claims.map((claim) => ({
+      claim_id: claim.claim_id,
+      epistemic_label: claim.epistemic_label,
+      claim_text: claim.claim_text,
+      dossier_id: claim.dossier_id,
+      as_of: claim.as_of,
+    })),
+    thesis_ledger: packet.prior_analytical_state.thesis_ledger,
+  };
+}
+
 export function buildResearchBrainSystemInstructions(): string {
   return `You are the Dossier V2 Research Brain for the Live Market Desk. Your job is to analyze the input packet and produce a structured, validated market dossier analysis matching contract version "${RESEARCH_BRAIN_CONTRACT_VERSION}".
 
@@ -38,7 +90,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
     - developing_themes: 3 to ${MAX_DEVELOPING_THEMES}
     - creator_theme_expansions: max ${MAX_CREATOR_EXPANSIONS}
     - contradictions_detected: max ${MAX_CONTRADICTIONS}
-    - research_gaps: max ${MAX_RESEARCH_GAPS}`;
+    - research_gaps: max ${MAX_RESEARCH_GAPS}
+12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Reuse evidence IDs instead of restating source details. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -51,9 +104,9 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     packet_id: packet.packet_id,
     as_of: packet.as_of,
     previous_dossier_id: packet.previous_dossier_id,
-    observed_evidence: packet.observed_evidence,
-    research_leads: packet.research_leads,
-    prior_analytical_state: packet.prior_analytical_state,
+    observed_evidence: compactObservedEvidence(packet),
+    research_leads: compactResearchLeads(packet),
+    prior_analytical_state: compactPriorState(packet),
     development_clusters: packet.development_clusters.map((c) => ({
       cluster_id: c.cluster_id,
       grouping_key: c.grouping_key,
@@ -63,8 +116,27 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
       lead_ids: c.leads.map((l) => l.lead_id),
       conflict_group_id: c.conflict_group_id,
     })),
-    creator_themes: packet.creator_themes,
-    catalysts: packet.catalysts,
+    creator_themes: packet.creator_themes.map((theme) => ({
+      theme_id: theme.theme_id,
+      theme_name: theme.theme_name,
+      expand_later: theme.expand_later,
+      claims: theme.claims.map((claim) => ({
+        claim_id: claim.claim_id,
+        text: claim.text,
+        creator_id: claim.creator_id,
+        available_at: claim.available_at,
+        provenance: compactProvenance(claim.provenance as unknown as Array<Record<string, unknown>>),
+      })),
+    })),
+    catalysts: packet.catalysts.map((catalyst) => ({
+      catalyst_id: catalyst.catalyst_id,
+      title: catalyst.title,
+      event_time: catalyst.event_time,
+      available_at: catalyst.available_at,
+      impact_level: catalyst.impact_level,
+      rank: catalyst.rank,
+      provenance: compactProvenance(catalyst.provenance as unknown as Array<Record<string, unknown>>),
+    })),
     thesis_ledger: packet.thesis_ledger,
     freshness_warnings: packet.freshness_warnings,
     research_gaps: packet.research_gaps,
