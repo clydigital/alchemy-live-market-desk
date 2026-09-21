@@ -91,6 +91,41 @@ const MACRO_SOURCE_TYPES = new Set([
   "REGULATORY_FILING",
 ]);
 
+const ARTICLE_SOURCE_TYPES = new Set([
+  "news",
+  "article",
+  "wire",
+  "news_report",
+]);
+
+type MarketMonitorLike = {
+  updatedAt: string;
+  rows: Array<{
+    id: string;
+    symbol: string;
+    label: string;
+    type: string;
+    last: number | null;
+    dayChange: number | null;
+    change5d: number | null;
+    asOf: string | null;
+    frequency: "daily" | "monthly";
+    sourceName: string;
+    sourceUrl: string;
+  }>;
+  limitations?: string[];
+};
+
+export type MacroContextSnapshotRow = {
+  id: string;
+  source_key: string;
+  source_url: string;
+  status: string;
+  capture_completed_at: string;
+  transport_error_code?: string | null;
+  raw_markdown?: string | null;
+};
+
 function parseTimestamp(value: unknown): number | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const parsed = Date.parse(value);
@@ -193,6 +228,34 @@ function isCreatorLead(row: CanonicalEvidenceRow): boolean {
 
 function isScheduledEvent(row: CanonicalEvidenceRow): boolean {
   return structuredString(row.structured_payload, "evidenceNature") === "scheduled_event";
+}
+
+function visibleText(value: string): string {
+  return value
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isArticleMarketObservation(row: CanonicalEvidenceRow): boolean {
+  if (row.evidence_class !== "news_report" || isCreatorLead(row)) return false;
+  const source = sourceFromRow(row);
+  const sourceType = String(source?.source_type ?? "").trim().toLowerCase();
+  const reliability = reliabilityScore(source);
+  if (!ARTICLE_SOURCE_TYPES.has(sourceType) || (reliability !== null && reliability < 70)) {
+    return false;
+  }
+
+  const statsSignal = structuredString(row.structured_payload, "statsSignal");
+  const text = visibleText([row.claim_text, row.summary, statsSignal].filter(Boolean).join(" "));
+  const hasMarketSubject = /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text);
+  const hasMetric = /(?:[$€£¥]\s?\d|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:%|percent|bp|bps|basis points?|points?|dollars?|barrel|gallon)\b|\b(?:yield|price|index)\b.{0,48}\b\d+(?:\.\d+)?)/i.test(text);
+  const hasMoveOrLevel = /\b(?:rose|fell|rall(?:y|ied|ying)|surged|jumped|gained|climbed|slid|dropped|declined|lost|up|down|steady|hit|reached|traded|closed|opened|topped|support|resistance|high|low)\b/i.test(text);
+  return Boolean(statsSignal) || (hasMarketSubject && hasMetric && hasMoveOrLevel);
 }
 
 function mappedDirectSourceType(row: CanonicalEvidenceRow): string | null {
@@ -306,7 +369,10 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
       continue;
     }
 
-    const directSourceType = mappedDirectSourceType(row);
+    const articleMarketObservation = isArticleMarketObservation(row);
+    const directSourceType =
+      mappedDirectSourceType(row) ??
+      (articleMarketObservation ? "NEWS_MARKET_CONTEXT" : null);
 
     if (directSourceType && !isCreatorLead(row)) {
       const source = sourceFromRow(row);
@@ -318,6 +384,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         available_at: availableAt,
         occurrence_time: row.event_at ?? row.published_at ?? undefined,
         grouping_key: groupingKeyForRow(row),
+        ...(articleMarketObservation ? { is_admitted_fact: true } : {}),
         metrics: {
           support_direction: row.support_direction ?? "neutral",
           affected_assets: row.affected_assets ?? [],
@@ -329,7 +396,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
       });
 
       if (!latestObservedAvailableAt) latestObservedAvailableAt = availableAt;
-      if (PRICE_SOURCE_TYPES.has(directSourceType) && !latestPriceAvailableAt) {
+      if ((PRICE_SOURCE_TYPES.has(directSourceType) || articleMarketObservation) && !latestPriceAvailableAt) {
         latestPriceAvailableAt = availableAt;
       }
       if (MACRO_SOURCE_TYPES.has(directSourceType) && !latestMacroAvailableAt) {
@@ -392,6 +459,160 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
   };
 }
 
+
+export function augmentCandidateSnapshotWithMarketMonitor(
+  result: CanonicalSnapshotResult,
+  monitor: MarketMonitorLike | null | undefined,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  if (!monitor?.rows?.length) return result;
+  const asOfMs = parseTimestamp(options.asOf);
+  if (asOfMs === null) return result;
+
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+  let fredSeen = false;
+
+  const rows = monitor.rows
+    .filter((row) => row.last !== null && row.asOf)
+    .filter((row) => {
+      const occurrenceMs = Date.parse(`${row.asOf}T00:00:00.000Z`);
+      return Number.isFinite(occurrenceMs) && occurrenceMs <= asOfMs;
+    })
+    .sort((left, right) => {
+      const priority = (row: MarketMonitorLike["rows"][number]) =>
+        row.sourceName === "Federal Reserve Economic Data" ? 0 :
+        row.type === "Rates" ? 1 :
+        row.type === "Major Index" ? 2 :
+        row.type === "Energy" ? 3 :
+        row.type === "FX" ? 4 :
+        row.type === "Metal" ? 5 : 6;
+      return priority(left) - priority(right) || left.id.localeCompare(right.id);
+    })
+    .slice(0, 28);
+
+  for (const row of rows) {
+    const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
+    const isFred = row.sourceName === "Federal Reserve Economic Data";
+    fredSeen ||= isFred;
+    const moves = [
+      row.dayChange !== null ? `1D ${row.dayChange >= 0 ? "+" : ""}${row.dayChange.toFixed(2)}%` : null,
+      row.change5d !== null ? `5D ${row.change5d >= 0 ? "+" : ""}${row.change5d.toFixed(2)}%` : null,
+    ].filter(Boolean).join("; ");
+    observed.push({
+      evidence_id: `market-monitor:${row.id}:${row.asOf}`,
+      claim_or_fact: `${row.label} was ${row.last} as of ${row.asOf}${moves ? ` (${moves})` : ""}.`,
+      category: row.type,
+      source_type: "MARKET_DATA",
+      available_at: options.asOf,
+      occurrence_time: occurrenceTime,
+      grouping_key: `market-monitor:${row.id}`,
+      metrics: {
+        symbol: row.symbol,
+        last: row.last,
+        day_change_pct: row.dayChange,
+        change_5d_pct: row.change5d,
+        frequency: row.frequency,
+        provider: row.sourceName,
+      },
+      provenance: [{
+        source_type: isFred ? "FRED" : "MARKET_DATA",
+        source_id: `market-monitor:${row.id}`,
+        url: row.sourceUrl,
+        publisher: row.sourceName,
+      }],
+    });
+  }
+
+  if (!rows.length) return result;
+
+  const sourcesStatus = {
+    ...(result.snapshot.sources_status ?? {}),
+    market_monitor: {
+      status: "OK",
+      available_at: options.asOf,
+      message: `${rows.length} existing Live market-monitor observations admitted into Dossier V2.`,
+    },
+  };
+
+  const macroData = fredSeen
+    ? { status: "OK", available_at: options.asOf }
+    : result.snapshot.macro_data;
+  const priceData = { status: "OK", available_at: options.asOf };
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      price_data: priceData,
+      macro_data: macroData,
+      sources_status: sourcesStatus,
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+      latest_available_at: options.asOf,
+      price_data_status: "OK",
+      macro_data_status: fredSeen
+        ? "OK"
+        : String(result.snapshot.macro_data?.status ?? result.diagnostics.macro_data_status),
+    },
+  };
+}
+
+export function augmentCandidateSnapshotWithMacroContext(
+  result: CanonicalSnapshotResult,
+  row: MacroContextSnapshotRow | null | undefined,
+): CanonicalSnapshotResult {
+  if (!row) return result;
+  const sourcesStatus = { ...(result.snapshot.sources_status ?? {}) };
+  const usable = row.status === "complete" && Boolean(row.raw_markdown?.trim());
+  sourcesStatus.macromicro = {
+    status: usable ? "OK" : "WARNING",
+    available_at: row.capture_completed_at,
+    message: usable
+      ? "Latest persisted MacroMicro supplemental scan is usable as macro research context."
+      : `Latest MacroMicro scan is not usable as dated macro context (${row.transport_error_code || row.status}).`,
+  };
+
+  if (!usable) {
+    return {
+      ...result,
+      snapshot: { ...result.snapshot, sources_status: sourcesStatus },
+    };
+  }
+
+  const excerpt = visibleText(row.raw_markdown ?? "").slice(0, 1800);
+  const leads = [...(result.snapshot.research_leads ?? [])];
+  leads.push({
+    lead_id: `macro-context:${row.id}`,
+    claim_or_question: excerpt,
+    source_type: "MACRO_CONTEXT",
+    available_at: row.capture_completed_at,
+    urgency: "MEDIUM",
+    grouping_key: "macro-context:macromicro",
+    provenance: [{
+      source_type: "MACROMICRO",
+      source_id: row.id,
+      url: row.source_url,
+      publisher: "MacroMicro",
+    }],
+  });
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      research_leads: leads,
+      macro_data: { status: "OK", available_at: row.capture_completed_at },
+      sources_status: sourcesStatus,
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      lead_count: leads.length,
+      macro_data_status: "OK",
+    },
+  };
+}
+
 export async function loadCanonicalCandidateSnapshot(
   client: SupabaseClient,
   options: LoadCanonicalSnapshotOptions,
@@ -437,8 +658,48 @@ export async function loadCanonicalCandidateSnapshot(
     throw new Error(`Failed to load canonical evidence for Dossier V2: ${error.message}`);
   }
 
-  return buildCandidateSnapshotFromCanonicalEvidence(
+  let result = buildCandidateSnapshotFromCanonicalEvidence(
     (data ?? []) as unknown as CanonicalEvidenceRow[],
     options,
   );
+
+  try {
+    const { getMarketMonitor } = await import("../market-monitor.ts");
+    result = augmentCandidateSnapshotWithMarketMonitor(
+      result,
+      await getMarketMonitor(),
+      options,
+    );
+  } catch (error) {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      market_monitor: {
+        status: "WARNING",
+        message: `Existing Live market monitor was unavailable to Dossier V2: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    };
+  }
+
+  try {
+    const { data: macroRows, error: macroError } = await client
+      .from("macro_source_snapshots")
+      .select("id,source_key,source_url,status,capture_completed_at,transport_error_code,raw_markdown")
+      .eq("source_key", "macromicro_supplemental")
+      .lte("capture_completed_at", options.asOf)
+      .order("capture_completed_at", { ascending: false })
+      .limit(1)
+      .returns<MacroContextSnapshotRow[]>();
+    if (macroError) throw macroError;
+    result = augmentCandidateSnapshotWithMacroContext(result, macroRows?.[0] ?? null);
+  } catch (error) {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      macromicro: {
+        status: "WARNING",
+        message: `Persisted MacroMicro context was unavailable to Dossier V2: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    };
+  }
+
+  return result;
 }
