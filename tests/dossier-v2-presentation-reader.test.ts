@@ -5,6 +5,7 @@ import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import type { ResearchBrainOutputV1 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import {
   selectDossierV2Presentation,
+  selectExactDossierV2Presentation,
 } from "../lib/dossier-v2/presentation-reader.ts";
 
 function brain({
@@ -232,4 +233,59 @@ test("selected healthy presentation receives its prior Dossier for thesis diffs"
   assert.equal(result.presentation?.thesisChanges[0].change, "state_changed");
   assert.equal(result.presentation?.thesisChanges[0].previousState, "unresolved");
   assert.equal(result.presentation?.thesisChanges[0].state, "confirmed");
+});
+
+
+test("exact historical replay never falls forward to a newer healthy Dossier", () => {
+  const degradedHistorical = dossier({
+    id: DEGRADED_ID,
+    asOf: "2026-09-21T11:00:00Z",
+    previousDossierId: OLDER_ID,
+    output: brain({ degraded: true }),
+  });
+  const newerHealthy = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+  });
+
+  const currentSelection = selectDossierV2Presentation([newerHealthy, degradedHistorical]);
+  const historicalSelection = selectExactDossierV2Presentation(degradedHistorical, null, DEGRADED_ID);
+
+  assert.equal(currentSelection.selectedDossierId, HEALTHY_ID);
+  assert.equal(historicalSelection.status, "historical_exact");
+  assert.equal(historicalSelection.requestedDossierId, DEGRADED_ID);
+  assert.equal(historicalSelection.selectedDossierId, DEGRADED_ID);
+  assert.equal(historicalSelection.presentation?.health.degraded, true);
+  assert.equal(historicalSelection.usingFallback, false);
+  assert.match(historicalSelection.notice.detail, /exact immutable historical Dossier/i);
+});
+
+test("exact historical replay uses the historical predecessor for thesis diffs", () => {
+  const previous = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    output: brain({ state: "unresolved", version: 1 }),
+  });
+  const exact = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: OLDER_ID,
+    output: brain({ state: "confirmed", version: 2 }),
+  });
+
+  const result = selectExactDossierV2Presentation(exact, previous, HEALTHY_ID);
+
+  assert.equal(result.status, "historical_exact");
+  assert.equal(result.presentation?.thesisChanges.length, 1);
+  assert.equal(result.presentation?.thesisChanges[0].previousState, "unresolved");
+  assert.equal(result.presentation?.thesisChanges[0].state, "confirmed");
+});
+
+test("missing exact historical Dossier fails closed instead of substituting current state", () => {
+  const result = selectExactDossierV2Presentation(null, null, DEGRADED_ID);
+
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.requestedDossierId, DEGRADED_ID);
+  assert.equal(result.presentation, null);
+  assert.equal(result.usingFallback, false);
 });

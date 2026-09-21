@@ -7,7 +7,7 @@ const config = JSON.parse(
 );
 
 test("Vercel auto-deploys only main and explicit preview branches", () => {
-  assert.equal(config.git?.deploymentEnabled?.["*"], false);
+  assert.equal(config.git?.deploymentEnabled?.["**"], false);
   assert.equal(config.git?.deploymentEnabled?.main, true);
   assert.equal(config.git?.deploymentEnabled?.["preview-*"], true);
 });
