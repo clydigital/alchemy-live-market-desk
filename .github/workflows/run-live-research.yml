@@ -47,10 +47,10 @@ on:
         type: string
         default: "180"
       finra_symbols:
-        description: Comma-separated FINRA symbols, max 20 (finra_sensor mode)
+        description: Macro FINRA proxy basket, max 20 (finra_sensor mode)
         required: false
         type: string
-        default: "AAPL,NVDA,SPY"
+        default: "SPY,QQQ,IWM,TLT,IEF,HYG,LQD,UUP,FXY,EWJ,EWY,EWH,GLD,SMH,USL,CRAK,XLE,KRE,XLF,EEM"
 
 permissions:
   contents: read
