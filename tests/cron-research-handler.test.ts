@@ -224,6 +224,7 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   const publisher = readFileSync(new URL("../app/api/research-update/route.ts", import.meta.url), "utf8");
   const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")) as {
     crons: Array<{ path: string; schedule: string }>;
+    rewrites?: Array<{ source: string; destination: string }>;
   };
 
   assert.match(morningPrimary, /handleScheduledResearchAcquisition\(request, "morning"\)/);
@@ -255,30 +256,19 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
     .map((cron) => `${cron.path} ${cron.schedule}`)
     .sort();
   assert.deepEqual(schedules, [
-    "/api/cron/research/evening 15 13 * * *",
-    "/api/cron/research/evening-intelligence 25 13 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 13 14 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 21 14 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 33 13 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 41 13 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 49 13 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 5 14 * * *",
-    "/api/cron/research/evening-intelligence-watchdog 57 13 * * *",
-    "/api/cron/research/evening-watchdog 20 13 * * *",
-    "/api/cron/research/morning 15 1 * * *",
-    "/api/cron/research/morning-intelligence 25 1 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 13 2 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 21 2 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 33 1 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 41 1 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 49 1 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 5 2 * * *",
-    "/api/cron/research/morning-intelligence-watchdog 57 1 * * *",
-    "/api/cron/research/morning-watchdog 20 1 * * *",
     "/api/cron/video/late-morning 0 13 * * *",
     "/api/cron/video/midnight 0 1 * * *",
     "/api/cron/video/transcript-worker 30 1 * * *",
   ]);
+  assert.ok(vercelConfig.crons.every((cron) => !cron.path.startsWith("/api/cron/research/")));
+  assert.equal(
+    vercelConfig.rewrites?.some(
+      (entry) =>
+        entry.source === "/api/cron/research/:path*" &&
+        entry.destination === "/api/automation-paused",
+    ),
+    true,
+  );
 });
 
 test("post-engine publication failure remains resumable and bypasses engine replay", () => {
