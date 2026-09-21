@@ -116,7 +116,7 @@ type MarketMonitorLike = {
   limitations?: string[];
 };
 
-type MacroContextSnapshotRow = {
+export type MacroContextSnapshotRow = {
   id: string;
   source_key: string;
   source_url: string;
@@ -471,7 +471,6 @@ export function augmentCandidateSnapshotWithMarketMonitor(
 
   const observed = [...(result.snapshot.observed_evidence ?? [])];
   let fredSeen = false;
-  let latestOccurrenceMs = 0;
 
   const rows = monitor.rows
     .filter((row) => row.last !== null && row.asOf)
@@ -493,8 +492,6 @@ export function augmentCandidateSnapshotWithMarketMonitor(
 
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
-    const occurrenceMs = Date.parse(occurrenceTime);
-    latestOccurrenceMs = Math.max(latestOccurrenceMs, occurrenceMs);
     const isFred = row.sourceName === "Federal Reserve Economic Data";
     fredSeen ||= isFred;
     const moves = [
@@ -565,7 +562,6 @@ export function augmentCandidateSnapshotWithMarketMonitor(
 export function augmentCandidateSnapshotWithMacroContext(
   result: CanonicalSnapshotResult,
   row: MacroContextSnapshotRow | null | undefined,
-  options: LoadCanonicalSnapshotOptions,
 ): CanonicalSnapshotResult {
   if (!row) return result;
   const sourcesStatus = { ...(result.snapshot.sources_status ?? {}) };
@@ -694,7 +690,7 @@ export async function loadCanonicalCandidateSnapshot(
       .limit(1)
       .returns<MacroContextSnapshotRow[]>();
     if (macroError) throw macroError;
-    result = augmentCandidateSnapshotWithMacroContext(result, macroRows?.[0] ?? null, options);
+    result = augmentCandidateSnapshotWithMacroContext(result, macroRows?.[0] ?? null);
   } catch (error) {
     result.snapshot.sources_status = {
       ...(result.snapshot.sources_status ?? {}),
