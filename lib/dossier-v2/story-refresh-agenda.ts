@@ -11,6 +11,9 @@ type StoryRow = {
   id: string;
   slug: string;
   title: string;
+  thesis: string;
+  market_question: string | null;
+  assets: string[] | null;
   status: string;
 };
 
@@ -37,7 +40,7 @@ export type DossierStoryRefreshAgendaItem = {
   evidence_id: string;
   score: number;
   priority: number;
-  match_basis: "existing_story_evidence" | "affected_story_slug";
+  match_basis: "existing_story_evidence" | "affected_story_slug" | "dossier_story_match";
   reason: string;
 };
 
@@ -69,6 +72,69 @@ function words(value: string) {
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+}
+
+function termOverlap(left: Set<string>, right: Set<string>) {
+  let overlap = 0;
+  for (const term of left) {
+    if (right.has(term)) overlap += 1;
+  }
+  return overlap;
+}
+
+function normaliseAsset(value: string) {
+  const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (["USOIL", "CL", "CL1", "CRUDEOIL"].includes(raw)) return "WTI";
+  if (["UKOIL", "BRN", "BRENT1"].includes(raw)) return "BRENT";
+  if (["ULSD", "DIESELCRACK"].includes(raw)) return "ULSD";
+  if (["SPX", "GSPC", "SPY"].includes(raw)) return "SPX";
+  if (["SMH", "SOXX"].includes(raw)) return "SEMIS";
+  if (["US02Y", "US2Y", "DGS2"].includes(raw)) return "US2Y";
+  if (["US10Y", "TNX", "DGS10"].includes(raw)) return "US10Y";
+  return raw;
+}
+
+function storyTerms(story: StoryRow) {
+  return new Set(words([
+    story.slug.replace(/-/g, " "),
+    story.title,
+    story.thesis,
+    story.market_question ?? "",
+    ...(story.assets ?? []),
+  ].join(" ")));
+}
+
+function evidenceTerms(evidence: EvidenceRow) {
+  return new Set(words([
+    evidence.claim_text,
+    evidence.summary ?? "",
+    ...(evidence.affected_assets ?? []),
+  ].join(" ")));
+}
+
+function assetOverlap(story: StoryRow, evidence: EvidenceRow) {
+  const storyAssets = new Set((story.assets ?? []).map(normaliseAsset).filter(Boolean));
+  return (evidence.affected_assets ?? []).some((asset) => storyAssets.has(normaliseAsset(asset)));
+}
+
+function dossierStoryMatchBonus(
+  story: StoryRow,
+  evidence: EvidenceRow,
+  attentionTerms: Set<string>,
+) {
+  const sTerms = storyTerms(story);
+  const dossierOverlap = termOverlap(sTerms, attentionTerms);
+  if (dossierOverlap < 2) return 0;
+
+  const evidenceOverlap = termOverlap(sTerms, evidenceTerms(evidence));
+  const hasAssetOverlap = assetOverlap(story, evidence);
+  if (evidenceOverlap < 2 && !(hasAssetOverlap && evidenceOverlap >= 1)) return 0;
+
+  return Math.min(18, 6 + dossierOverlap + evidenceOverlap + (hasAssetOverlap ? 3 : 0));
+}
+
+function evidenceQualityBonus(evidence: EvidenceRow) {
+  return ["transcript", "research_analysis"].includes(evidence.evidence_class) ? 0 : 8;
 }
 
 function attentionText(output: ResearchBrainOutputV1) {
@@ -171,21 +237,34 @@ export function buildDossierStoryRefreshAgenda(input: {
     const attentionScore = evidenceAttentionScore(evidenceRow, explicitRefs, attentionTerms);
     if (attentionScore === 0) continue;
 
-    const mapped = new Map<string, DossierStoryRefreshAgendaItem["match_basis"]>();
+    const mapped = new Map<string, {
+      basis: DossierStoryRefreshAgendaItem["match_basis"];
+      bonus: number;
+    }>();
     for (const storyId of linkedStoriesByEvidence.get(evidenceId) ?? []) {
-      mapped.set(storyId, "existing_story_evidence");
+      mapped.set(storyId, { basis: "existing_story_evidence", bonus: 20 });
     }
     for (const slug of evidenceRow.affected_topics ?? []) {
       const story = storyBySlug.get(slug);
-      if (story && !mapped.has(story.id)) mapped.set(story.id, "affected_story_slug");
+      if (story && !mapped.has(story.id)) {
+        mapped.set(story.id, { basis: "affected_story_slug", bonus: 15 });
+      }
+    }
+    for (const story of input.stories) {
+      if (story.status === "discarded" || mapped.has(story.id)) continue;
+      const bonus = dossierStoryMatchBonus(story, evidenceRow, attentionTerms);
+      if (bonus > 0) mapped.set(story.id, { basis: "dossier_story_match", bonus });
     }
 
-    for (const [storyId, matchBasis] of mapped) {
+    for (const [storyId, mapping] of mapped) {
       const story = storyById.get(storyId);
       if (!story || story.status === "discarded") continue;
-      const mappingBonus = matchBasis === "existing_story_evidence" ? 20 : 15;
+      const matchBasis = mapping.basis;
       const archiveBonus = story.status === "archived" ? 5 : 0;
-      const score = Math.min(125, attentionScore + mappingBonus + archiveBonus);
+      const score = Math.min(
+        140,
+        attentionScore + mapping.bonus + archiveBonus + evidenceQualityBonus(evidenceRow),
+      );
       const priority = Math.max(70, Math.min(95, Math.round(60 + score / 3)));
       const candidate: DossierStoryRefreshAgendaItem = {
         story_id: story.id,
@@ -228,7 +307,7 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
     const [{ data: stories, error: storyError }, { data: evidenceRows, error: evidenceError }] = await Promise.all([
       input.client
         .from("stories")
-        .select("id,slug,title,status")
+        .select("id,slug,title,thesis,market_question,assets,status")
         .neq("status", "discarded"),
       input.client
         .from("intelligence_evidence")
