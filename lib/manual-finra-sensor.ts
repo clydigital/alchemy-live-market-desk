@@ -6,6 +6,7 @@ import {
   type FinraSensorMemoryCaptureResult,
 } from "./providers/finra-sensor-memory.ts";
 import { formatFinraTradeDate } from "./providers/finra-short-volume.ts";
+import { DEFAULT_FINRA_MACRO_SYMBOLS } from "./macro-market-universe.ts";
 
 type ManualFinraSensorInput = {
   tradeDate?: unknown;
@@ -76,7 +77,9 @@ export async function handleManualFinraSensorRunWithDependencies(
   } catch {
     return json({ error: "tradeDate must be a valid YYYY-MM-DD date." }, 400);
   }
-  const symbols = normaliseRequestedSymbols(input.symbols);
+  const symbols = input.symbols === undefined
+    ? [...DEFAULT_FINRA_MACRO_SYMBOLS].sort()
+    : normaliseRequestedSymbols(input.symbols);
   if (!symbols) {
     return json({ error: "symbols must contain 1-20 unique valid FINRA symbols." }, 400);
   }
