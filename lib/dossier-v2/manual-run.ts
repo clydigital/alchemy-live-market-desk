@@ -18,6 +18,7 @@ import {
   executeAndPersistDossierV2,
   type DossierV2ExecutionResult,
 } from "./execution.ts";
+import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
 import {
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type EpistemicLabel,
@@ -47,6 +48,7 @@ export interface ManualDossierV2RunResult {
   packet: DossierV2InputPacket;
   analytical_output: ResearchBrainOutputV1;
   dossier?: MarketDossierV2;
+  story_refresh_agenda?: DossierStoryRefreshAgendaResult;
 }
 
 interface PreviousDossierResolution {
@@ -342,6 +344,7 @@ export async function runManualDossierV2(
       packet,
       analytical_output: result.analytical_output,
       dossier: result.dossier,
+      story_refresh_agenda: result.story_refresh_agenda,
     };
   }
 
