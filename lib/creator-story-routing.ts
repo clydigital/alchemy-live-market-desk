@@ -24,6 +24,8 @@ export type PersistentStoryForCreatorRouting = {
 const CREATOR_ROUTING_STORY_FIELDS =
   "id,slug,title,thesis,status,confidence,market_question,dominant_narrative,strongest_support,strongest_contradiction,confirmation_trigger,invalidation_trigger,next_catalyst,assets,created_by,article_verdict";
 
+export const CREATOR_REVIEW_STORY_LIMIT = 40;
+
 export async function loadPersistentStoriesForCreatorRouting(
   client: SupabaseClient,
 ): Promise<PersistentStoryForCreatorRouting[]> {
@@ -33,5 +35,19 @@ export async function loadPersistentStoriesForCreatorRouting(
     .neq("status", "discarded")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(`Could not load persistent Stories for creator routing: ${error.message}`);
+  return (data ?? []) as PersistentStoryForCreatorRouting[];
+}
+
+
+export async function loadPersistentStoriesForCreatorReview(
+  client: SupabaseClient,
+): Promise<PersistentStoryForCreatorRouting[]> {
+  const { data, error } = await client
+    .from("stories")
+    .select(CREATOR_ROUTING_STORY_FIELDS)
+    .neq("status", "discarded")
+    .order("updated_at", { ascending: false })
+    .limit(CREATOR_REVIEW_STORY_LIMIT);
+  if (error) throw new Error(`Could not load bounded Story registry for creator review: ${error.message}`);
   return (data ?? []) as PersistentStoryForCreatorRouting[];
 }
