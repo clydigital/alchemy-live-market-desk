@@ -3,6 +3,14 @@ name: Start Jules Live Market session
 on:
   workflow_dispatch:
     inputs:
+      jules_account:
+        description: "Which Jules account should handle this session?"
+        required: true
+        default: "AMLYC"
+        type: choice
+        options:
+          - AMLYC
+          - LYC
       task:
         description: "Instruction for Jules (manual, plan approval required)"
         required: true
@@ -26,22 +34,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      JULES_API_KEY: ${{ secrets.JULES_LYC }}
+      JULES_ACCOUNT: ${{ inputs.jules_account }}
+      JULES_AMLYC: ${{ secrets.JULES_AMLYC }}
+      JULES_LYC: ${{ secrets.JULES_LYC }}
       JULES_TASK: ${{ inputs.task }}
       JULES_TITLE: ${{ inputs.title }}
     steps:
-      - name: Check secret and inputs
+      - name: Select Jules account and validate inputs
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$JULES_API_KEY" ]]; then
-            echo "Add JULES_LYC to repository Actions secrets before dispatching." >&2
+          case "$JULES_ACCOUNT" in
+            AMLYC)
+              selected_key="$JULES_AMLYC"
+              ;;
+            LYC)
+              selected_key="$JULES_LYC"
+              ;;
+            *)
+              echo "Unsupported Jules account: $JULES_ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "$selected_key" ]]; then
+            echo "The selected Jules account secret is not configured." >&2
             exit 1
           fi
           if [[ -z "${JULES_TASK//[[:space:]]/}" || -z "${JULES_TITLE//[[:space:]]/}" ]]; then
             echo "Task and title must contain text." >&2
             exit 1
           fi
+
+          echo "::add-mask::$selected_key"
+          echo "JULES_API_KEY=$selected_key" >> "$GITHUB_ENV"
+          echo "Using Jules account label: $JULES_ACCOUNT"
 
       - name: Confirm Jules can access this repository
         id: source
@@ -70,7 +97,7 @@ jobs:
             fi
           done
           if [[ -z "$source_name" ]]; then
-            echo "This repository is not available as a Jules source. Connect it in Jules first." >&2
+            echo "This repository is not available as a Jules source for account $JULES_ACCOUNT." >&2
             exit 1
           fi
           echo "name=$source_name" >> "$GITHUB_OUTPUT"
@@ -108,6 +135,7 @@ jobs:
           echo "Created Jules $session_name (plan approval required)."
           {
             echo "### Jules Live Market"
+            echo "Account: `$JULES_ACCOUNT`"
             echo "Session: `$session_name`"
             echo "Source: `$JULES_SOURCE`"
             echo "Plan approval is required before Jules executes the task."
