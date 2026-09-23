@@ -172,7 +172,10 @@ export async function persistVerifiedMacroSignal(signal: VerifiedMacroSignal, av
     contentText: signal.claim,
     publishedAt: signal.availableAt ?? availableAt,
     observedAt: availableAt,
-    sourceId: sourceRow.id,
+    // raw_source_records.source_id references public.sources, not
+    // intelligence_evidence_sources. Verified macro provenance is retained
+    // through provider/sourceUrl here and the canonical Evidence source below.
+    sourceId: null,
     ingestionKey: `verified-macro:${signal.key}:${signal.eventAt}`,
     observations: [{
       observationType: signal.kind,
