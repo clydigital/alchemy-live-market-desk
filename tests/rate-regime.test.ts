@@ -17,13 +17,13 @@ function fred(
   change5d: number | null,
 ): Record<string, unknown> {
   return {
-    evidence_id: \`market-monitor:\${id}:2026-09-24\`,
-    claim_or_fact: \`\${id} was \${last}.\`,
+    evidence_id: `market-monitor:${id}:2026-09-24`,
+    claim_or_fact: `${id} was ${last}.`,
     category: "Rates",
     source_type: "MARKET_DATA",
     available_at: AVAILABLE_AT,
     occurrence_time: "2026-09-24T00:00:00.000Z",
-    grouping_key: \`market-monitor:\${id}\`,
+    grouping_key: `market-monitor:${id}`,
     metrics: {
       last,
       change_5d_pct: change5d,
@@ -32,8 +32,8 @@ function fred(
     },
     provenance: [{
       source_type: "FRED",
-      source_id: \`market-monitor:\${id}\`,
-      url: \`https://fred.stlouisfed.org/series/\${id}\`,
+      source_id: `market-monitor:${id}`,
+      url: `https://fred.stlouisfed.org/series/${id}`,
       publisher: "Federal Reserve Economic Data",
     }],
   };
