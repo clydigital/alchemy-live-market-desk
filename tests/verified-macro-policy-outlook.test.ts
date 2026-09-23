@@ -42,8 +42,12 @@ test("provenance-backed verified macro data is admitted and creates the determin
     },
   }], { asOf, lookbackHours: 24 });
 
-  assert.equal(snapshot.snapshot.observed_evidence?.[0]?.source_type, "VERIFIED_MACRO_DATA");
-  assert.equal(snapshot.snapshot.observed_evidence?.[0]?.metrics?.observed_value, 57);
+  const firstEvidence = snapshot.snapshot.observed_evidence?.[0] as {
+    source_type?: string;
+    metrics?: Record<string, unknown>;
+  } | undefined;
+  assert.equal(firstEvidence?.source_type, "VERIFIED_MACRO_DATA");
+  assert.equal(firstEvidence?.metrics?.observed_value, 57);
 
   const packet = assembleDossierV2InputPacket({ as_of: asOf }, snapshot.snapshot);
   assert.equal(packet.observed_evidence.length, 1);
