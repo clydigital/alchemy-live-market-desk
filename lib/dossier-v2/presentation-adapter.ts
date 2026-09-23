@@ -40,6 +40,20 @@ export type DossierPresentationLens = {
   unresolvedSignals: string[];
 };
 
+export type DossierRateRegime = {
+  state: "HAWKISH" | "DOVISH" | "MIXED" | "UNRESOLVED";
+  nextMeetingRateOutlook: "MORE_HAWKISH" | "MORE_DOVISH" | null;
+  fedWatchExpectedDirection: "HIKE_ODDS_UP" | "HIKE_ODDS_DOWN" | null;
+  trigger: string | null;
+  observedRatePricing: string | null;
+  observedConfirmation: string | null;
+  usRatesReaction: string | null;
+  usRatesInterpretation: string | null;
+  fredBacked: boolean;
+  evidenceRefs: string[];
+  gaps: string[];
+};
+
 export type DossierPresentationStory = {
   id: string;
   title: string;
@@ -112,6 +126,7 @@ export type DossierPresentationV1 = {
 
   regimeStrip: DossierPresentationLens[];
   policyOutlook: DossierPolicyOutlookItem[];
+  rateRegime: DossierRateRegime;
 
   whatMattersNow: {
     leadThreadId: string;
@@ -190,6 +205,48 @@ function policyOutlook(dossier: MarketDossierV2): DossierPolicyOutlookItem[] {
     if (!isObject(item) || typeof item.id !== "string" || typeof item.trigger !== "string") return [];
     return [item as unknown as DossierPolicyOutlookItem];
   }).slice(0, 3);
+}
+
+function rateRegime(
+  outlook: DossierPolicyOutlookItem[],
+  lenses: DossierPresentationLens[],
+): DossierRateRegime {
+  const ratesLens = lenses.find((lens) => lens.key === "US_RATES") ?? null;
+  const primary = outlook[0] ?? null;
+  const impulses = new Set(outlook.map((item) => item.policyImpulse));
+  const state: DossierRateRegime["state"] = impulses.size === 0
+    ? "UNRESOLVED"
+    : impulses.size === 1
+      ? ([...impulses][0] as "HAWKISH" | "DOVISH")
+      : "MIXED";
+
+  const evidenceRefs = [...new Set([
+    ...(ratesLens?.evidenceRefs ?? []),
+    ...(primary ? [
+      primary.triggerEvidenceRef,
+      primary.observedRatePricingEvidenceRef,
+      primary.observedConfirmationEvidenceRef,
+    ] : []),
+  ].filter((value): value is string => typeof value === "string" && Boolean(value)))];
+
+  const gaps = [...new Set([
+    ...(primary?.gaps ?? []),
+    ...(ratesLens?.unresolvedSignals ?? []),
+  ].filter((value) => Boolean(value)))];
+
+  return {
+    state,
+    nextMeetingRateOutlook: primary?.nextMeetingRateOutlook ?? null,
+    fedWatchExpectedDirection: primary?.fedWatchExpectedDirection ?? null,
+    trigger: primary?.trigger ?? null,
+    observedRatePricing: primary?.observedRatePricing ?? null,
+    observedConfirmation: primary?.observedConfirmation ?? null,
+    usRatesReaction: ratesLens?.reaction ?? null,
+    usRatesInterpretation: ratesLens?.interpretation ?? null,
+    fredBacked: evidenceRefs.some((id) => /^market-monitor:us2y(?::|$)/i.test(id)),
+    evidenceRefs,
+    gaps,
+  };
 }
 
 function researchGaps(dossier: MarketDossierV2) {
@@ -372,6 +429,8 @@ export function buildDossierV2Presentation(
   const warnings = freshnessWarnings(dossier);
   const gaps = researchGaps(dossier);
   const degraded = Boolean(output.diagnostics.degraded);
+  const lenses = lensEntries(output);
+  const outlook = policyOutlook(dossier);
 
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
@@ -397,8 +456,9 @@ export function buildDossierV2Presentation(
       whatWouldChangeMind: output.main_thread.what_would_change_mind,
     },
 
-    regimeStrip: lensEntries(output),
-    policyOutlook: policyOutlook(dossier),
+    regimeStrip: lenses,
+    policyOutlook: outlook,
+    rateRegime: rateRegime(outlook, lenses),
 
     whatMattersNow: {
       leadThreadId: output.main_thread.thread_id,
