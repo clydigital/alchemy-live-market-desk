@@ -41,10 +41,10 @@ test("Research Brain runtime gives primary synthesis enough output headroom with
     {} as NodeJS.ProcessEnv,
   );
 
-  assert.equal(primary.maxOutputTokens, 16_000);
+  assert.equal(primary.maxOutputTokens, 26_000);
   assert.equal(primary.reasoningEffort, "medium");
   assert.equal(primary.timeoutMs, 240_000);
-  assert.equal(repair.maxOutputTokens, 10_000);
+  assert.equal(repair.maxOutputTokens, 16_000);
   assert.equal(repair.reasoningEffort, "low");
   assert.equal(repair.timeoutMs, 240_000);
 });
@@ -62,6 +62,25 @@ test("Research Brain runtime allows bounded production overrides", () => {
   assert.equal(runtime.maxOutputTokens, 22_000);
   assert.equal(runtime.reasoningEffort, "low");
   assert.equal(runtime.timeoutMs, 240_000);
+});
+
+test("Research Brain schema enforces Dossier attention budgets before generation", () => {
+  const schema = getResearchBrainJsonSchema();
+  const properties = schema.properties as Record<string, Record<string, unknown>>;
+  const chartQueue = properties.chart_investigation_queue.properties as Record<string, Record<string, unknown>>;
+  const thesisLedger = properties.thesis_ledger.properties as Record<string, Record<string, unknown>>;
+
+  assert.equal(properties.major_stories.maxItems, 4);
+  assert.equal(chartQueue.core.maxItems, 3);
+  assert.equal(chartQueue.optional.maxItems, 2);
+  assert.equal(properties.investigations.maxItems, 2);
+  assert.equal(properties.research_now.maxItems, 3);
+  assert.equal(properties.stock_radar.maxItems, 3);
+  assert.equal(properties.developing_themes.maxItems, 5);
+  assert.equal(properties.creator_theme_expansions.maxItems, 2);
+  assert.equal(thesisLedger.entries.maxItems, 12);
+  assert.equal(properties.contradictions_detected.maxItems, 10);
+  assert.equal(properties.research_gaps.maxItems, 12);
 });
 
 function createValidBasePacket() {
