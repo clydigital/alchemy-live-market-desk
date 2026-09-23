@@ -135,6 +135,7 @@ export function normalizeResearchBrainOutputReferences(
       const investigation = item as Record<string, unknown>;
       const divergence = investigation.divergence;
       if (divergence === "UNRESOLVED" || typeof divergence !== "string") continue;
+      if (!["NONE", "PARTIAL", "MATERIAL"].includes(divergence)) continue;
 
       const observedIds = new Set(
         Array.isArray(investigation.observed_evidence)
@@ -144,11 +145,14 @@ export function normalizeResearchBrainOutputReferences(
       const hasDeterministicMismatch = system1EvidencePairs.some(
         ({ triggerId, marketId }) => observedIds.has(triggerId) && observedIds.has(marketId),
       );
+      const isSupportedMismatch = (divergence === "PARTIAL" || divergence === "MATERIAL") &&
+        hasDeterministicMismatch;
 
-      // V1 is deliberately conservative: only a measured System 1 mismatch may
-      // promote a model-authored Investigation divergence. General research
-      // questions, missing confirmation, or level comparisons stay unresolved.
-      if (!hasDeterministicMismatch) {
+      // V1 is deliberately conservative: System 1 only emits mismatches, so it
+      // can support PARTIAL/MATERIAL but can never prove alignment (NONE).
+      // General research questions, missing confirmation, level comparisons,
+      // and model-authored NONE labels all stay unresolved.
+      if (!isSupportedMismatch) {
         investigation.divergence = "UNRESOLVED";
         normalizedCount++;
       }
