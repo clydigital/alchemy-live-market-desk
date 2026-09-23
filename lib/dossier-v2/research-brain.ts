@@ -98,7 +98,10 @@ export function openAIResearchBrainEnabled(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim()) && process.env.OPENAI_INTELLIGENCE_ENABLED !== "false";
 }
 
-export function normalizeResearchBrainOutputReferences(output: unknown): unknown {
+export function normalizeResearchBrainOutputReferences(
+  output: unknown,
+  system1Candidates: unknown[] = [],
+): unknown {
   if (!output || typeof output !== "object" || Array.isArray(output)) return output;
 
   const root = output as Record<string, unknown>;
@@ -117,7 +120,45 @@ export function normalizeResearchBrainOutputReferences(output: unknown): unknown
     }
   }
 
+  const system1EvidencePairs = system1Candidates.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+    const item = candidate as Record<string, unknown>;
+    const triggerId = typeof item.trigger_evidence_id === "string" ? item.trigger_evidence_id : null;
+    const marketId = typeof item.market_evidence_id === "string" ? item.market_evidence_id : null;
+    return triggerId && marketId ? [{ triggerId, marketId }] : [];
+  });
+
   let normalizedCount = 0;
+  if (Array.isArray(root.investigations)) {
+    for (const item of root.investigations) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const investigation = item as Record<string, unknown>;
+      const divergence = investigation.divergence;
+      if (divergence === "UNRESOLVED" || typeof divergence !== "string") continue;
+      if (!["NONE", "PARTIAL", "MATERIAL"].includes(divergence)) continue;
+
+      const observedIds = new Set(
+        Array.isArray(investigation.observed_evidence)
+          ? investigation.observed_evidence.filter((id): id is string => typeof id === "string")
+          : [],
+      );
+      const hasDeterministicMismatch = system1EvidencePairs.some(
+        ({ triggerId, marketId }) => observedIds.has(triggerId) && observedIds.has(marketId),
+      );
+      const isSupportedMismatch = (divergence === "PARTIAL" || divergence === "MATERIAL") &&
+        hasDeterministicMismatch;
+
+      // V1 is deliberately conservative: System 1 only emits mismatches, so it
+      // can support PARTIAL/MATERIAL but can never prove alignment (NONE).
+      // General research questions, missing confirmation, level comparisons,
+      // and model-authored NONE labels all stay unresolved.
+      if (!isSupportedMismatch) {
+        investigation.divergence = "UNRESOLVED";
+        normalizedCount++;
+      }
+    }
+  }
+
   if (Array.isArray(root.stock_radar)) {
     for (const item of root.stock_radar) {
       if (!item || typeof item !== "object" || Array.isArray(item)) continue;
@@ -140,7 +181,7 @@ export function normalizeResearchBrainOutputReferences(output: unknown): unknown
   if (normalizedCount > 0) {
     console.info(JSON.stringify({
       event: "research_brain_structural_normalization",
-      kind: "stock_radar_linkage_type",
+      kind: "bounded_reference_and_divergence_normalization",
       normalizedCount,
     }));
   }
@@ -493,7 +534,7 @@ export async function executeResearchBrain(
 
   // Step 5: Apply safe clerical normalization, then run deterministic validation.
   // This never changes analytical content or referenced IDs.
-  firstPassData = normalizeResearchBrainOutputReferences(firstPassData);
+  firstPassData = normalizeResearchBrainOutputReferences(firstPassData, system1Candidates);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
@@ -518,7 +559,7 @@ export async function executeResearchBrain(
         schema: jsonSchema,
       });
 
-      const normalizedRepairData = normalizeResearchBrainOutputReferences(repairRes.data);
+      const normalizedRepairData = normalizeResearchBrainOutputReferences(repairRes.data, system1Candidates);
       const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
