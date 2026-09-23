@@ -294,6 +294,11 @@ test("Task 8 bridge executes Research Brain and persists one immutable MarketDos
   assert.equal(policyOutlook[0]?.policyImpulse, "HAWKISH");
   assert.equal(policyOutlook[0]?.fedWatchExpectedDirection, "HIKE_ODDS_UP");
 
+  const rateRegime = result.dossier.payload.system1_rate_regime as Record<string, unknown>;
+  assert.equal(rateRegime.contractVersion, "rate-regime/1");
+  assert.equal(rateRegime.state, "HAWKISH");
+  assert.equal(typeof rateRegime.score, "number");
+
   const analyticalOutput = result.dossier.payload
     .analytical_output as ResearchBrainOutputV1;
   assert.equal(analyticalOutput.packet_id, packet.packet_id);
