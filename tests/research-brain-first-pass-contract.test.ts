@@ -49,6 +49,8 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
   const investigation = schema.properties.investigations.items;
 
   assert.match(instructions, /DIVERGENCE V1 LIVES ONLY INSIDE PRIORITY INVESTIGATIONS/);
+  assert.match(instructions, /DIRECTIONAL OR SEQUENCED expected-vs-observed mismatch/);
+  assert.match(instructions, /Missing confirmation, missing breadth, stale\/non-comparable observations, or missing timing are NOT divergences/);
   assert.match(instructions, /A System 1 candidate may prioritise the investigation but must not force a divergence label or causal explanation/);
   assert.deepEqual(investigation.properties.divergence.enum, [
     "NONE",
