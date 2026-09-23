@@ -1089,3 +1089,49 @@ test("22. graceful non-fatal 200,000-byte reduction for oversized nested metrics
   // 5. byte_limit_truncation_applied is true
   assert.equal(packet1.diagnostics.byte_limit_truncation_applied, true);
 });
+
+
+test("rate context survives development-cluster budget pressure without expanding the research cluster cap", () => {
+  const observed = [
+    ...Array.from({ length: 30 }, (_, index) => ({
+      evidence_id: \`ev:filler:\${index}\`,
+      claim_or_fact: \`Filler observed fact \${index}.\`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: \`filler:\${String(index).padStart(2, "0")}\`,
+      rank: index + 1,
+      category: "GENERAL",
+      source_type: "OFFICIAL_DATA",
+      provenance: [{ source_type: "OFFICIAL_DATA", source_id: \`filler-\${index}\` }],
+    })),
+    {
+      evidence_id: "market-monitor:us10y-real:2026-03-31",
+      claim_or_fact: "US 10Y real yield was 2.1%.",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "market-monitor:us10y-real",
+      rank: 999,
+      category: "Rates",
+      source_type: "MARKET_DATA",
+      metrics: {
+        last: 2.1,
+        change_5d_pct: 1.2,
+        provider: "Federal Reserve Economic Data",
+      },
+      provenance: [{
+        source_type: "FRED",
+        source_id: "market-monitor:us10y-real",
+      }],
+    },
+  ];
+
+  const packet = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    { observed_evidence: observed },
+  );
+
+  assert.ok(packet.development_clusters.length <= 24);
+  assert.ok(
+    packet.rate_context?.evidence.some(
+      (item) => item.evidence_id === "market-monitor:us10y-real:2026-03-31",
+    ),
+  );
+});
