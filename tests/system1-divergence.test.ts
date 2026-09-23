@@ -6,7 +6,10 @@ import {
   type CandidateSnapshot,
 } from "../lib/dossier-v2/input-packet.ts";
 import { buildResearchBrainPrompt } from "../lib/dossier-v2/research-brain-prompt.ts";
-import { buildSystem1DivergenceCandidates } from "../lib/dossier-v2/system1-divergence.ts";
+import {
+  buildSystem1DivergenceCandidates,
+  buildSystem1PolicyExpectationChecks,
+} from "../lib/dossier-v2/system1-divergence.ts";
 
 const AS_OF = "2026-09-22T12:00:00Z";
 const AVAILABLE_AT = "2026-09-22T11:30:00Z";
@@ -118,7 +121,7 @@ test("Tiny or missing moves add no prompt noise", () => {
 
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
   assert.deepEqual(prompt.boundedInput.system1_divergence_candidates, []);
-  assert.match(prompt.instructions, /SYSTEM 1 DIVERGENCE SCREEN/);
+  assert.match(prompt.instructions, /SYSTEM 1 POLICY \+ DIVERGENCE SCREEN/);
   assert.match(prompt.instructions, /NOT independent facts/);
 });
 
@@ -147,4 +150,55 @@ test("Research Brain gets compact energy divergence candidates only", () => {
   assert.ok(candidates.every((item) => item.expected_direction === "UP"));
   assert.ok(candidates.every((item) => item.observed_direction === "DOWN"));
   assert.ok(JSON.stringify(candidates).length < 2_000);
+});
+
+test("Strong Flash PMI creates a hawkish policy outlook even when market reactions align", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:strong",
+      claim_or_fact: "Flash manufacturing PMI came in higher than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "STATISTICAL_AGENCY",
+      available_at: "2026-09-22T10:00:00Z",
+      provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "FLASH_PMI" }],
+    }],
+    [
+      marketMonitor("us2y", 0.4),
+      marketMonitor("dxy", 0.5),
+      marketMonitor("gold", -0.6),
+      marketMonitor("smh", -0.7),
+    ],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.rule_id, "STRONG_ACTIVITY_SURPRISE");
+  assert.equal(outlook[0]?.policy_impulse, "HAWKISH");
+  assert.equal(outlook[0]?.next_meeting_rate_outlook, "MORE_HAWKISH");
+  assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_UP");
+  assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+});
+
+test("Policy outlook never fabricates a numeric FedWatch probability", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:weak",
+      claim_or_fact: "Flash services PMI was weaker than expected and below forecast.",
+      category: "ECONOMIC_METRIC",
+      source_type: "STATISTICAL_AGENCY",
+      available_at: "2026-09-22T10:00:00Z",
+      provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "FLASH_PMI" }],
+    }],
+    [],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.policy_impulse, "DOVISH");
+  assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_DOWN");
+  assert.equal(JSON.stringify(outlook).includes("%"), false);
+
+  const prompt = buildResearchBrainPrompt({ as_of: packet.as_of, packet });
+  assert.deepEqual(prompt.boundedInput.system1_policy_expectation_checks, outlook);
+  assert.match(prompt.instructions, /Never invent or quote a FedWatch percentage/);
 });

@@ -90,7 +90,7 @@ const seriesSpecs: Record<string, SeriesSpec[]> = {
     { key: "us2y", label: "US 2Y yield", kind: "market", question: "Is the front end validating a softer Fed path?", confirmation: "The 2Y yield remains below its pre-payroll level into CPI.", invalidation: "The 2Y yield reverses sharply higher as hike pricing rebuilds.", cadence: "Daily market close" },
     { key: "uup", label: "USD proxy · UUP", kind: "market", question: "Is the dollar confirming renewed policy restriction?", confirmation: "USD stays soft while front-end yields remain lower.", invalidation: "USD and front-end yields turn higher together.", cadence: "Daily market close" },
     { key: "nfp", label: "Nonfarm payroll change", kind: "macro", question: "Is labour soft enough to constrain another hike?", confirmation: "Payroll growth remains weak or negative after revisions.", invalidation: "Employment rebounds materially without a renewed inflation impulse.", cadence: "Monthly release" },
-    { key: "cpi_core", label: "Core CPI", kind: "macro", question: "Does inflation stay hot enough to override labour weakness?", confirmation: "Core inflation continues to cool or undershoots expectations.", invalidation: "A materially hot CPI rebuilds September hike odds.", cadence: "Monthly release" },
+    { key: "cpi_core", label: "Core CPI", kind: "macro", question: "Does inflation stay hot enough to override labour weakness?", confirmation: "Core inflation continues to cool or undershoots expectations.", invalidation: "A materially hot CPI rebuilds next-meeting hike odds.", cadence: "Monthly release" },
   ],
   "oil-physical-disruption": [
     { key: "uso", label: "Crude proxy · USO", kind: "market", question: "Is the market still removing war premium before physical reopening is verified?", confirmation: "Crude falls while Strait activity remains below normal.", invalidation: "Crude reprices higher as physical disruption worsens.", cadence: "Daily market close" },
@@ -136,7 +136,7 @@ const gapSpecs: Record<string, GapSpec[]> = {
     { label: "Refinery runs + product inventories", question: "Is physical product supply recovering?", sourceName: "EIA Weekly Petroleum Status Report", sourceUrl: "https://www.eia.gov/petroleum/supply/weekly/", cadence: "Weekly" },
   ],
   "fed-rate-repricing": [
-    { label: "September Fed probability", question: "Has hike probability rebuilt above the Story's invalidation threshold?", sourceName: "CME FedWatch / fed-funds futures", cadence: "Intraday" },
+    { label: "Next FOMC FedWatch probability", question: "Are next-meeting hike/hold odds repricing in the same direction as the latest macro surprise and front-end yields?", sourceName: "CME FedWatch / fed-funds futures", cadence: "Intraday" },
   ],
   "productivity-labor-share": [
     { label: "Productivity + unit labour costs", question: "Are margins improving because output rises faster than labour cost?", sourceName: "U.S. Bureau of Labor Statistics", sourceUrl: "https://www.bls.gov/productivity/", cadence: "Quarterly" },
@@ -509,7 +509,7 @@ function storySpecificSummary(story: Story, metrics: CaseMonitorMetric[], hormuz
     case "oil-physical-disruption":
       return hormuz?.summary || "The case remains a physical-flow question first: repeated commercial transits, insurance and incident frequency should confirm any diplomatic headline.";
     case "fed-rate-repricing":
-      return "The labour leg can weaken the hike case, but CPI and front-end yield repricing remain the deciding confirmation. A headline update alone should not change the Story.";
+      return "Read the policy path as a chain: macro surprise → FedWatch/fed-funds repricing → US 2Y and USD confirmation. If the probability feed is unavailable, keep it as a coverage gap rather than infer a percentage.";
     case "productivity-labor-share":
       return "Productivity is only bullish if household income and demand hold. Employment, real earnings and retail demand need to be read alongside productivity and labour costs.";
     case "ai-capex-cash-conversion":

@@ -1,12 +1,27 @@
 import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 
 type Direction = "UP" | "DOWN";
+type PolicyImpulse = "HAWKISH" | "DOVISH";
 
 type Rule = {
   id: string;
   pattern: RegExp;
   opposite?: string;
+  policyImpulse?: PolicyImpulse;
   expectations: Array<[monitorId: string, instrument: string, direction: Direction]>;
+};
+
+export type System1PolicyExpectationCheck = {
+  check_id: string;
+  rule_id: string;
+  trigger_evidence_id: string;
+  policy_impulse: PolicyImpulse;
+  next_meeting_rate_outlook: "MORE_HAWKISH" | "MORE_DOVISH";
+  fedwatch_expectation: "HIKE_ODDS_UP" | "HIKE_ODDS_DOWN";
+  expected_market_reactions: Array<{
+    instrument: string;
+    expected_direction: Direction;
+  }>;
 };
 
 export type System1DivergenceCandidate = {
@@ -23,12 +38,14 @@ export type System1DivergenceCandidate = {
 
 const MIN_MATERIAL_MOVE_PCT = 0.25;
 const MAX_CANDIDATES = 5;
+const MAX_POLICY_CHECKS = 3;
 
 const RULES: Rule[] = [
   {
     id: "HAWKISH_MONETARY_POLICY",
     pattern: /\b(?:hawkish|rate hike|hiked (?:the )?(?:policy )?rate|raised (?:the )?(?:policy )?rate|higher for longer|tightening bias)\b/i,
     opposite: "DOVISH_MONETARY_POLICY",
+    policyImpulse: "HAWKISH",
     expectations: [
       ["us2y", "US02Y", "UP"],
       ["dxy", "DXY", "UP"],
@@ -40,6 +57,7 @@ const RULES: Rule[] = [
     id: "DOVISH_MONETARY_POLICY",
     pattern: /\b(?:dovish|rate cut|cut (?:the )?(?:policy )?rate|easing bias|lower rates)\b/i,
     opposite: "HAWKISH_MONETARY_POLICY",
+    policyImpulse: "DOVISH",
     expectations: [
       ["us2y", "US02Y", "DOWN"],
       ["dxy", "DXY", "DOWN"],
@@ -51,6 +69,7 @@ const RULES: Rule[] = [
     id: "HOT_INFLATION_SURPRISE",
     pattern: /\b(?:hotter than expected|inflation (?:re-)?accelerat(?:ed|es|ing)|(?:cpi|ppi|inflation).{0,80}(?:above|higher than) (?:consensus|forecast|expected|expectations))\b/i,
     opposite: "SOFT_INFLATION_SURPRISE",
+    policyImpulse: "HAWKISH",
     expectations: [
       ["us2y", "US02Y", "UP"],
       ["dxy", "DXY", "UP"],
@@ -62,6 +81,31 @@ const RULES: Rule[] = [
     id: "SOFT_INFLATION_SURPRISE",
     pattern: /\b(?:cooler than expected|disinflation|inflation (?:eased|cooled|decelerated)|(?:cpi|ppi|inflation).{0,80}(?:below|lower than) (?:consensus|forecast|expected|expectations))\b/i,
     opposite: "HOT_INFLATION_SURPRISE",
+    policyImpulse: "DOVISH",
+    expectations: [
+      ["us2y", "US02Y", "DOWN"],
+      ["dxy", "DXY", "DOWN"],
+      ["gold", "XAUUSD", "UP"],
+      ["smh", "SMH", "UP"],
+    ],
+  },
+  {
+    id: "STRONG_ACTIVITY_SURPRISE",
+    pattern: /\b(?:(?:flash\s+)?(?:manufacturing|services|composite)\s+pmi|pmi|ism|gdp|retail sales)\b.{0,100}\b(?:above|higher than|stronger than|beat(?:s|ing)?)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b/i,
+    opposite: "WEAK_ACTIVITY_SURPRISE",
+    policyImpulse: "HAWKISH",
+    expectations: [
+      ["us2y", "US02Y", "UP"],
+      ["dxy", "DXY", "UP"],
+      ["gold", "XAUUSD", "DOWN"],
+      ["smh", "SMH", "DOWN"],
+    ],
+  },
+  {
+    id: "WEAK_ACTIVITY_SURPRISE",
+    pattern: /\b(?:(?:flash\s+)?(?:manufacturing|services|composite)\s+pmi|pmi|ism|gdp|retail sales)\b.{0,100}\b(?:below|lower than|weaker than|miss(?:es|ed|ing)?)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b/i,
+    opposite: "STRONG_ACTIVITY_SURPRISE",
+    policyImpulse: "DOVISH",
     expectations: [
       ["us2y", "US02Y", "DOWN"],
       ["dxy", "DXY", "DOWN"],
@@ -91,6 +135,15 @@ function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence 
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
+function activeTriggers(packet: DossierV2InputPacket) {
+  return new Map(
+    RULES.flatMap((rule) => {
+      const trigger = triggerFor(packet, rule);
+      return trigger ? [[rule.id, trigger] as const] : [];
+    }),
+  );
+}
+
 function marketMove(
   packet: DossierV2InputPacket,
   monitorId: string,
@@ -105,15 +158,38 @@ function marketMove(
   return evidence && change !== null ? { evidence, change } : null;
 }
 
+export function buildSystem1PolicyExpectationChecks(
+  packet: DossierV2InputPacket,
+): System1PolicyExpectationCheck[] {
+  const active = activeTriggers(packet);
+  const checks: System1PolicyExpectationCheck[] = [];
+
+  for (const rule of RULES) {
+    const trigger = active.get(rule.id);
+    if (!trigger || !rule.policyImpulse || (rule.opposite && active.has(rule.opposite))) continue;
+
+    const hawkish = rule.policyImpulse === "HAWKISH";
+    checks.push({
+      check_id: `system1:policy:${rule.id.toLowerCase()}`,
+      rule_id: rule.id,
+      trigger_evidence_id: trigger.evidence_id,
+      policy_impulse: rule.policyImpulse,
+      next_meeting_rate_outlook: hawkish ? "MORE_HAWKISH" : "MORE_DOVISH",
+      fedwatch_expectation: hawkish ? "HIKE_ODDS_UP" : "HIKE_ODDS_DOWN",
+      expected_market_reactions: rule.expectations.map(([, instrument, expectedDirection]) => ({
+        instrument,
+        expected_direction: expectedDirection,
+      })),
+    });
+  }
+
+  return checks.slice(0, MAX_POLICY_CHECKS);
+}
+
 export function buildSystem1DivergenceCandidates(
   packet: DossierV2InputPacket,
 ): System1DivergenceCandidate[] {
-  const active = new Map(
-    RULES.flatMap((rule) => {
-      const trigger = triggerFor(packet, rule);
-      return trigger ? [[rule.id, trigger] as const] : [];
-    }),
-  );
+  const active = activeTriggers(packet);
 
   const candidates: System1DivergenceCandidate[] = [];
 
