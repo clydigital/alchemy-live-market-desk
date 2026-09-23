@@ -98,6 +98,56 @@ export function openAIResearchBrainEnabled(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim()) && process.env.OPENAI_INTELLIGENCE_ENABLED !== "false";
 }
 
+export function normalizeResearchBrainOutputReferences(output: unknown): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+
+  const root = output as Record<string, unknown>;
+  const mainThread = root.main_thread && typeof root.main_thread === "object" && !Array.isArray(root.main_thread)
+    ? root.main_thread as Record<string, unknown>
+    : null;
+  const mainThreadId = typeof mainThread?.thread_id === "string" ? mainThread.thread_id : null;
+
+  const majorStoryIds = new Set<string>();
+  if (Array.isArray(root.major_stories)) {
+    for (const story of root.major_stories) {
+      if (story && typeof story === "object" && !Array.isArray(story)) {
+        const storyId = (story as Record<string, unknown>).story_id;
+        if (typeof storyId === "string" && storyId) majorStoryIds.add(storyId);
+      }
+    }
+  }
+
+  let normalizedCount = 0;
+  if (Array.isArray(root.stock_radar)) {
+    for (const item of root.stock_radar) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const radar = item as Record<string, unknown>;
+      const linkedId = typeof radar.linked_main_thread_or_story_id === "string"
+        ? radar.linked_main_thread_or_story_id
+        : null;
+      if (!linkedId) continue;
+
+      if (mainThreadId && linkedId === mainThreadId && radar.linkage_type !== "LINKED_MAIN_THREAD") {
+        radar.linkage_type = "LINKED_MAIN_THREAD";
+        normalizedCount++;
+      } else if (majorStoryIds.has(linkedId) && radar.linkage_type !== "LINKED_MAJOR_STORY") {
+        radar.linkage_type = "LINKED_MAJOR_STORY";
+        normalizedCount++;
+      }
+    }
+  }
+
+  if (normalizedCount > 0) {
+    console.info(JSON.stringify({
+      event: "research_brain_structural_normalization",
+      kind: "stock_radar_linkage_type",
+      normalizedCount,
+    }));
+  }
+
+  return output;
+}
+
 async function defaultModelRunner(
   input: {
     stageKey: string;
@@ -441,7 +491,9 @@ export async function executeResearchBrain(
     return produceDegradedOutput(packet, err instanceof Error ? err : String(err), false);
   }
 
-  // Step 5: Run deterministic validation
+  // Step 5: Apply safe clerical normalization, then run deterministic validation.
+  // This never changes analytical content or referenced IDs.
+  firstPassData = normalizeResearchBrainOutputReferences(firstPassData);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
@@ -466,7 +518,8 @@ export async function executeResearchBrain(
         schema: jsonSchema,
       });
 
-      const repairVal = validateResearchBrainOutput(repairRes.data, packet);
+      const normalizedRepairData = normalizeResearchBrainOutputReferences(repairRes.data);
+      const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
         repairVal.output.diagnostics = {
