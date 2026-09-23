@@ -179,6 +179,44 @@ test("Strong Flash PMI creates a hawkish policy outlook even when market reactio
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
 });
 
+test("FedWatch repricing is confirming evidence, not a second monetary-policy trigger", () => {
+  const packet = packetWith(
+    [
+      {
+        evidence_id: "ev:pmi:strong",
+        claim_or_fact: "Flash manufacturing PMI was higher than expected and above consensus.",
+        category: "ECONOMIC_METRIC",
+        source_type: "VERIFIED_MACRO_DATA",
+        available_at: "2026-09-22T10:00:00Z",
+        metrics: {
+          signal_kind: "economic_release",
+          signal_context: "STRONG_ACTIVITY_SURPRISE",
+        },
+        provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+      },
+      {
+        evidence_id: "ev:fedwatch:repricing",
+        claim_or_fact: "FedWatch showed a 55.4% probability of a rate hike, up from 53.1%.",
+        category: "RATE_EXPECTATIONS",
+        source_type: "VERIFIED_MACRO_DATA",
+        available_at: "2026-09-22T10:05:00Z",
+        metrics: {
+          signal_kind: "rate_expectation",
+          signal_context: "STRONG_ACTIVITY_SURPRISE",
+          observed_value: 55.4,
+          previous_value: 53.1,
+        },
+        provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FEDWATCH" }],
+      },
+    ],
+    [],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.deepEqual(outlook.map((item) => item.rule_id), ["STRONG_ACTIVITY_SURPRISE"]);
+  assert.equal(outlook[0]?.trigger_evidence_id, "ev:pmi:strong");
+});
+
 test("Policy outlook never fabricates a numeric FedWatch probability", () => {
   const packet = packetWith(
     [{
