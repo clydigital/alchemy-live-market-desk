@@ -296,8 +296,9 @@ test("Task 8 bridge executes Research Brain and persists one immutable MarketDos
 
   const rateRegime = result.dossier.payload.system1_rate_regime as Record<string, unknown>;
   assert.equal(rateRegime.contractVersion, "rate-regime/1");
-  assert.equal(rateRegime.state, "HAWKISH");
+  assert.equal(rateRegime.state, "UNRESOLVED");
   assert.equal(typeof rateRegime.score, "number");
+  assert.ok(Array.isArray(rateRegime.signals));
 
   const analyticalOutput = result.dossier.payload
     .analytical_output as ResearchBrainOutputV1;
