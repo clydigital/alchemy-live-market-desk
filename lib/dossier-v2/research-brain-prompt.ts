@@ -1,4 +1,4 @@
-import type { DossierV2InputPacket } from "./input-packet.ts";
+import { MAX_THESIS_LEDGER_ENTRIES, type DossierV2InputPacket } from "./input-packet.ts";
 import {
   EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
@@ -282,6 +282,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       major_stories: {
         type: "array",
+        maxItems: MAX_MAJOR_STORIES,
         items: {
           type: "object",
           properties: {
@@ -348,6 +349,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
         properties: {
           core: {
             type: "array",
+            maxItems: EXACT_CORE_CHARTS,
             items: {
               type: "object",
               properties: {
@@ -383,6 +385,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           },
           optional: {
             type: "array",
+            maxItems: MAX_OPTIONAL_CHARTS,
             items: {
               type: "object",
               properties: {
@@ -422,6 +425,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       investigations: {
         type: "array",
+        maxItems: MAX_PRIORITY_INVESTIGATIONS,
         items: {
           type: "object",
           properties: {
@@ -503,6 +507,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       research_now: {
         type: "array",
+        maxItems: MAX_RESEARCH_NOW_ACTIONS,
         items: {
           type: "object",
           properties: {
@@ -528,6 +533,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       stock_radar: {
         type: "array",
+        maxItems: MAX_STOCK_RADAR_ITEMS,
         items: {
           type: "object",
           properties: {
@@ -560,6 +566,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       developing_themes: {
         type: "array",
+        maxItems: MAX_DEVELOPING_THEMES,
         items: {
           type: "object",
           properties: {
@@ -574,6 +581,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       creator_theme_expansions: {
         type: "array",
+        maxItems: MAX_CREATOR_EXPANSIONS,
         items: {
           type: "object",
           properties: {
@@ -595,6 +603,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           },
           entries: {
             type: "array",
+            maxItems: MAX_THESIS_LEDGER_ENTRIES,
             items: {
               type: "object",
               properties: {
@@ -648,6 +657,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       contradictions_detected: {
         type: "array",
+        maxItems: MAX_CONTRADICTIONS,
         items: {
           type: "object",
           properties: {
@@ -661,6 +671,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       },
       research_gaps: {
         type: "array",
+        maxItems: MAX_RESEARCH_GAPS,
         items: {
           type: "object",
           properties: {
