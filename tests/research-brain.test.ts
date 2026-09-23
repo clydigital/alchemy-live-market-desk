@@ -22,6 +22,7 @@ import {
 } from "../lib/dossier-v2/research-brain-validation.ts";
 import {
   executeResearchBrain,
+  normalizeResearchBrainOutputReferences,
   produceDegradedOutput,
   researchBrainStageRuntime,
 } from "../lib/dossier-v2/research-brain.ts";
@@ -815,6 +816,35 @@ test("7. Main Thread & Stock Radar Linkage Validation", () => {
   output.stock_radar[0].linked_main_thread_or_story_id = "thread:WRONG_ID";
 
   const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("does not match main_thread.thread_id")));
+});
+
+test("7A. Deterministic Stock Radar linkage normalization fixes clerical type mismatch", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+
+  output.stock_radar[0].linkage_type = "LINKED_MAIN_THREAD";
+  output.stock_radar[0].linked_main_thread_or_story_id = output.major_stories[0].story_id;
+
+  const normalized = normalizeResearchBrainOutputReferences(output) as ResearchBrainOutputV1;
+  assert.equal(normalized.stock_radar[0].linkage_type, "LINKED_MAJOR_STORY");
+
+  const val = validateResearchBrainOutput(normalized, packet);
+  assert.equal(val.isValid, true);
+});
+
+test("7B. Deterministic Stock Radar normalization does not hide unknown IDs", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+
+  output.stock_radar[0].linkage_type = "LINKED_MAIN_THREAD";
+  output.stock_radar[0].linked_main_thread_or_story_id = "story:unknown";
+
+  const normalized = normalizeResearchBrainOutputReferences(output) as ResearchBrainOutputV1;
+  assert.equal(normalized.stock_radar[0].linkage_type, "LINKED_MAIN_THREAD");
+
+  const val = validateResearchBrainOutput(normalized, packet);
   assert.equal(val.isValid, false);
   assert.ok(val.errors.some((e) => e.includes("does not match main_thread.thread_id")));
 });
