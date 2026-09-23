@@ -1094,14 +1094,14 @@ test("22. graceful non-fatal 200,000-byte reduction for oversized nested metrics
 test("rate context survives development-cluster budget pressure without expanding the research cluster cap", () => {
   const observed = [
     ...Array.from({ length: 30 }, (_, index) => ({
-      evidence_id: \`ev:filler:\${index}\`,
-      claim_or_fact: \`Filler observed fact \${index}.\`,
+      evidence_id: `ev:filler:${index}`,
+      claim_or_fact: `Filler observed fact ${index}.`,
       available_at: IN_WINDOW_TIME,
-      grouping_key: \`filler:\${String(index).padStart(2, "0")}\`,
+      grouping_key: `filler:${String(index).padStart(2, "0")}`,
       rank: index + 1,
       category: "GENERAL",
       source_type: "OFFICIAL_DATA",
-      provenance: [{ source_type: "OFFICIAL_DATA", source_id: \`filler-\${index}\` }],
+      provenance: [{ source_type: "OFFICIAL_DATA", source_id: `filler-${index}` }],
     })),
     {
       evidence_id: "market-monitor:us10y-real:2026-03-31",
