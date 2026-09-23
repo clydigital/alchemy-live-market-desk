@@ -33,6 +33,10 @@ export interface CanonicalEvidenceRow {
   affected_topics?: string[] | null;
   provenance_urls?: string[] | null;
   structured_payload?: Record<string, unknown> | null;
+  measurement_unit?: string | null;
+  observed_value?: number | null;
+  expected_value?: number | null;
+  previous_value?: number | null;
   source?:
     | CanonicalEvidenceSourceRow
     | CanonicalEvidenceSourceRow[]
@@ -86,6 +90,7 @@ const PRICE_SOURCE_TYPES = new Set([
 ]);
 
 const MACRO_SOURCE_TYPES = new Set([
+  "VERIFIED_MACRO_DATA",
   "OFFICIAL_DATA",
   "STATISTICAL_AGENCY",
   "REGULATORY_FILING",
@@ -432,8 +437,11 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
     }
 
     const articleMarketObservation = isArticleMarketObservation(row);
+    const verifiedMacroObservation =
+      structuredString(row.structured_payload, "evidenceNature") === "verified_macro_data";
     const directSourceType =
       mappedDirectSourceType(row) ??
+      (verifiedMacroObservation ? "VERIFIED_MACRO_DATA" : null) ??
       (articleMarketObservation ? "NEWS_MARKET_CONTEXT" : null);
 
     if (directSourceType && !isCreatorLead(row)) {
@@ -453,6 +461,14 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
           affected_topics: row.affected_topics ?? [],
           source_tier: sourceTier(source),
           reliability_score: reliabilityScore(source),
+          ...(verifiedMacroObservation ? {
+            signal_kind: structuredString(row.structured_payload, "signalKind"),
+            signal_context: structuredString(row.structured_payload, "signalContext"),
+            observed_value: row.observed_value ?? null,
+            expected_value: row.expected_value ?? null,
+            previous_value: row.previous_value ?? null,
+            measurement_unit: row.measurement_unit ?? null,
+          } : {}),
         },
         provenance: provenanceForRow(row, directSourceType),
       });
@@ -697,6 +713,10 @@ export async function loadCanonicalCandidateSnapshot(
         "affected_topics",
         "provenance_urls",
         "structured_payload",
+        "measurement_unit",
+        "observed_value",
+        "expected_value",
+        "previous_value",
         "source:intelligence_evidence_sources!inner(id,ancestry_group_id,external_source_id,source_name,source_type,source_url,source_tier,reliability_score,provider_key)",
       ].join(","),
     )
