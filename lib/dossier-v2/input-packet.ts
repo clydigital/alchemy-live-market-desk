@@ -166,6 +166,10 @@ export interface SourceDataStatus {
   items?: unknown[];
 }
 
+export interface RateContextSnapshot {
+  evidence: ObservedEvidence[];
+}
+
 export interface CandidateSnapshot {
   observed_evidence?: Array<Record<string, unknown>>;
   research_leads?: Array<Record<string, unknown>>;
@@ -196,6 +200,7 @@ export interface DossierV2InputPacket {
   creator_themes: CreatorTheme[];
   catalysts: CatalystItem[];
   thesis_ledger: ThesisLedger | null;
+  rate_context?: RateContextSnapshot;
 
   freshness_warnings: FreshnessWarning[];
   research_gaps: ResearchGap[];
@@ -238,6 +243,30 @@ const MACRO_SPINE_GROUPING_KEYS = [
   "market-monitor:crack-distillate",
   "market-monitor:hyg",
 ] as const;
+
+const RATE_CONTEXT_GROUPING_KEYS = new Set([
+  "market-monitor:us2y",
+  "market-monitor:us10y",
+  "market-monitor:us10y-fred",
+  "market-monitor:us10y-real",
+  "market-monitor:us10y-breakeven",
+  "market-monitor:fed-funds-effective",
+]);
+
+const RATE_CONTEXT_FACT_PATTERN = /\b(?:fomc|federal reserve|fed funds|rate hike|rate cut|hawkish|dovish|cpi|ppi|pce|inflation|pmi|ism|gdp|retail sales|payroll|employment|unemployment|average hourly|wage growth)\b/i;
+
+function isRateContextEvidence(
+  item: ObservedEvidence & { grouping_key?: string },
+) {
+  if (item.grouping_key && RATE_CONTEXT_GROUPING_KEYS.has(item.grouping_key)) return true;
+  const signalKind = typeof item.metrics?.signal_kind === "string"
+    ? item.metrics.signal_kind
+    : null;
+  if (["economic_release", "rate_expectation", "market_reaction"].includes(signalKind ?? "")) {
+    return true;
+  }
+  return item.source_type !== "MARKET_DATA" && RATE_CONTEXT_FACT_PATTERN.test(item.claim_or_fact);
+}
 
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
   return cluster.grouping_key.startsWith("market-monitor:");
@@ -902,6 +931,26 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  const rateContextEvidence = activeAdmittedEvidence
+    .filter((item) => isRateContextEvidence(item))
+    .sort((left, right) =>
+      right.available_at.localeCompare(left.available_at) ||
+      left.evidence_id.localeCompare(right.evidence_id))
+    .slice(0, 24)
+    .map((item) => {
+      const {
+        grouping_key: _groupingKey,
+        conflict_key: _conflictKey,
+        supersedes_id: _supersedesId,
+        ...rest
+      } = item as ObservedEvidence & {
+        grouping_key?: unknown;
+        conflict_key?: unknown;
+        supersedes_id?: unknown;
+      };
+      return rest;
+    });
+
   const evidenceByGroup = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
   for (const ev of activeAdmittedEvidence) {
     const list = evidenceByGroup.get(ev.grouping_key) ?? [];
@@ -1371,6 +1420,7 @@ export function assembleDossierV2InputPacket(
     creator_themes: creatorThemes,
     catalysts,
     thesis_ledger: activeThesisLedger,
+    rate_context: { evidence: rateContextEvidence },
 
     freshness_warnings: freshnessWarnings,
     research_gaps: finalResearchGaps,
@@ -1457,6 +1507,12 @@ export function assembleDossierV2InputPacket(
             ev.metrics = truncateMetricsStrings(ev.metrics, maxTextLen);
           }
         }
+        for (const ev of packetWithoutId.rate_context?.evidence ?? []) {
+          ev.claim_or_fact = truncateString(ev.claim_or_fact, maxTextLen);
+          if (ev.metrics) {
+            ev.metrics = truncateMetricsStrings(ev.metrics, maxTextLen);
+          }
+        }
         for (const c of packetWithoutId.development_clusters) {
           c.title = truncateString(c.title, maxTextLen);
           for (const ev of c.evidence) {
@@ -1489,6 +1545,7 @@ export function assembleDossierV2InputPacket(
         packetWithoutId.diagnostics.notes = packetWithoutId.diagnostics.notes.map((n) => truncateString(n, maxTextLen));
 
         dummyPacketForSizeCheck.observed_evidence = packetWithoutId.observed_evidence;
+        dummyPacketForSizeCheck.rate_context = packetWithoutId.rate_context;
         dummyPacketForSizeCheck.development_clusters = packetWithoutId.development_clusters;
         dummyPacketForSizeCheck.prior_analytical_state = packetWithoutId.prior_analytical_state;
         dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;

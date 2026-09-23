@@ -41,7 +41,12 @@ export type DossierPresentationLens = {
 };
 
 export type DossierRateRegime = {
-  state: "HAWKISH" | "DOVISH" | "MIXED" | "UNRESOLVED";
+  contractVersion?: string;
+  asOf?: string;
+  state: "HAWKISH" | "DOVISH" | "NEUTRAL" | "MIXED" | "UNRESOLVED";
+  score?: number;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | "UNRESOLVED";
+  summary?: string;
   nextMeetingRateOutlook: "MORE_HAWKISH" | "MORE_DOVISH" | null;
   fedWatchExpectedDirection: "HIKE_ODDS_UP" | "HIKE_ODDS_DOWN" | null;
   trigger: string | null;
@@ -50,6 +55,27 @@ export type DossierRateRegime = {
   usRatesReaction: string | null;
   usRatesInterpretation: string | null;
   fredBacked: boolean;
+  curve?: {
+    spreadBps: number | null;
+    state: "INVERTED" | "FLAT" | "POSITIVE" | "UNRESOLVED";
+    detail: string;
+    evidenceRefs: string[];
+  };
+  signals?: Array<{
+    key: string;
+    label: string;
+    state: "HAWKISH" | "DOVISH" | "NEUTRAL" | "MIXED" | "UNRESOLVED";
+    score: number;
+    detail: string;
+    evidenceRefs: string[];
+  }>;
+  drivers?: string[];
+  contradictions?: string[];
+  coverage?: {
+    present: number;
+    total: number;
+    missing: string[];
+  };
   evidenceRefs: string[];
   gaps: string[];
 };
@@ -208,9 +234,20 @@ function policyOutlook(dossier: MarketDossierV2): DossierPolicyOutlookItem[] {
 }
 
 function rateRegime(
+  dossier: MarketDossierV2,
   outlook: DossierPolicyOutlookItem[],
   lenses: DossierPresentationLens[],
 ): DossierRateRegime {
+  const stored = dossier.payload.system1_rate_regime;
+  if (
+    isObject(stored) &&
+    typeof stored.state === "string" &&
+    Array.isArray(stored.evidenceRefs) &&
+    Array.isArray(stored.gaps)
+  ) {
+    return stored as unknown as DossierRateRegime;
+  }
+
   const ratesLens = lenses.find((lens) => lens.key === "US_RATES") ?? null;
   const primary = outlook[0] ?? null;
   const impulses = new Set(outlook.map((item) => item.policyImpulse));
@@ -458,7 +495,7 @@ export function buildDossierV2Presentation(
 
     regimeStrip: lenses,
     policyOutlook: outlook,
-    rateRegime: rateRegime(outlook, lenses),
+    rateRegime: rateRegime(dossier, outlook, lenses),
 
     whatMattersNow: {
       leadThreadId: output.main_thread.thread_id,

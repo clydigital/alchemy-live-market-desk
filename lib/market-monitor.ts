@@ -104,8 +104,22 @@ type RawSeries = {
   frequency: "daily" | "monthly";
 };
 
+type FredSpec = {
+  id: string;
+  seriesId: string;
+  label: string;
+};
+
 const HISTORY_DAYS = 470;
 const EXTRA_REVALIDATE = 60 * 60;
+
+const FRED_RATE_SPECS: FredSpec[] = [
+  { id: "us2y", seriesId: "DGS2", label: "US 2Y Yield" },
+  { id: "us10y-fred", seriesId: "DGS10", label: "US 10Y Yield · FRED" },
+  { id: "us10y-real", seriesId: "DFII10", label: "US 10Y Real Yield" },
+  { id: "us10y-breakeven", seriesId: "T10YIE", label: "US 10Y Breakeven Inflation" },
+  { id: "fed-funds-effective", seriesId: "DFF", label: "Effective Federal Funds Rate" },
+];
 
 const BASE_SPECS: BaseSpec[] = [
   { id: "spx", sourceSymbol: "^GSPC", label: "S&P 500", type: "Major Index" },
@@ -263,10 +277,10 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
   };
 }
 
-async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
-  const endpoint = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(id)}`;
+async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
+  const endpoint = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(spec.seriesId)}`;
   const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" } });
-  if (!response.ok) throw new Error(`FRED ${id} ${response.status}`);
+  if (!response.ok) throw new Error(`FRED ${spec.seriesId} ${response.status}`);
   const lines = (await response.text()).split(/\r?\n/).slice(1);
   const points = lines.flatMap((line) => {
     const [date, raw] = line.split(",");
@@ -275,15 +289,15 @@ async function fetchFredSeries(id: string, label: string): Promise<RawSeries> {
     return close == null || !Number.isFinite(time) ? [] : [{ time, close }];
   }).slice(-300);
   return {
-    id: id === "DGS2" ? "us2y" : id === "IRLTLT01EZM156N" ? "eur10y" : "jp10y",
-    symbol: id,
-    label,
+    id: spec.id,
+    symbol: spec.seriesId,
+    label: spec.label,
     type: "Rates",
     benchmark: null,
     points,
     sourceName: "Federal Reserve Economic Data",
-    sourceUrl: `https://fred.stlouisfed.org/series/${id}`,
-    frequency: id === "DGS2" ? "daily" : "monthly",
+    sourceUrl: `https://fred.stlouisfed.org/series/${spec.seriesId}`,
+    frequency: "daily",
   };
 }
 
@@ -291,13 +305,19 @@ export const loadExtras = unstable_cache(async () => {
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
-  const rateRows = await Promise.all([
-    fetchFredSeries("DGS2", "US 2Y Yield").catch(() => null),
-    fetchFredSeries("IRLTLT01EZM156N", "Euro Area 10Y Yield · monthly").catch(() => null),
-    fetchFredSeries("IRLTLT01JPM156N", "Japan 10Y Yield · monthly").catch(() => null),
+  const rateRows = await Promise.all(
+    FRED_RATE_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
+  );
+  const globalRateRows = await Promise.all([
+    fetchFredSeries({ id: "eur10y", seriesId: "IRLTLT01EZM156N", label: "Euro Area 10Y Yield · monthly" })
+      .then((row) => ({ ...row, frequency: "monthly" as const }))
+      .catch(() => null),
+    fetchFredSeries({ id: "jp10y", seriesId: "IRLTLT01JPM156N", label: "Japan 10Y Yield · monthly" })
+      .then((row) => ({ ...row, frequency: "monthly" as const }))
+      .catch(() => null),
   ]);
-  return [...extraRows, ...rateRows].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v1"], { revalidate: EXTRA_REVALIDATE });
+  return [...extraRows, ...rateRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-extras-v2"], { revalidate: EXTRA_REVALIDATE });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {

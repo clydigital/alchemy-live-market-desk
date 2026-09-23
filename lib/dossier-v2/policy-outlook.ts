@@ -33,13 +33,21 @@ function metricNumber(item: ObservedEvidence | undefined, key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
+  const merged = [
+    ...(packet.rate_context?.evidence ?? []),
+    ...packet.observed_evidence,
+  ];
+  return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
+}
+
 function matchingEvidence(
   packet: DossierV2InputPacket,
   kind: "rate_expectation" | "market_reaction",
   context: string,
   trigger: ObservedEvidence,
 ) {
-  return packet.observed_evidence
+  return policyEvidence(packet)
     .filter((item) =>
       item.evidence_id !== trigger.evidence_id &&
       metricString(item, "signal_kind") === kind &&
@@ -49,7 +57,7 @@ function matchingEvidence(
 }
 
 export function buildDossierPolicyOutlook(packet: DossierV2InputPacket): DossierPolicyOutlookItem[] {
-  const evidence = new Map(packet.observed_evidence.map((item) => [item.evidence_id, item]));
+  const evidence = new Map(policyEvidence(packet).map((item) => [item.evidence_id, item]));
 
   return buildSystem1PolicyExpectationChecks(packet).flatMap((check) => {
     const trigger = evidence.get(check.trigger_evidence_id);

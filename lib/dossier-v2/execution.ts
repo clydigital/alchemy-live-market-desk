@@ -10,6 +10,7 @@ import {
 import type { DossierV2InputPacket, ResearchGap } from "./input-packet.ts";
 import { persistMarketDossierV2 } from "./persistence.ts";
 import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
+import { buildDossierRateRegime } from "./rate-regime.ts";
 import {
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type ResearchBrainOutputV1,
@@ -111,6 +112,9 @@ export function buildMarketDossierV2InputFromResearchBrain(
     );
   }
 
+  const policyOutlook = buildDossierPolicyOutlook(packet);
+  const rateRegime = buildDossierRateRegime(packet, policyOutlook);
+
   return {
     contract_version: MARKET_DOSSIER_V2_CONTRACT_VERSION,
     previous_dossier_id: packet.previous_dossier_id,
@@ -124,7 +128,8 @@ export function buildMarketDossierV2InputFromResearchBrain(
     payload: {
       contract_version: analyticalOutput.contract_version,
       packet_id: packet.packet_id,
-      system1_policy_outlook: cloneJson(buildDossierPolicyOutlook(packet)),
+      system1_policy_outlook: cloneJson(policyOutlook),
+      system1_rate_regime: cloneJson(rateRegime),
       analytical_output: cloneJson(analyticalOutput),
     },
   };
