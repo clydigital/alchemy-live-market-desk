@@ -50,7 +50,9 @@ export default function RateRegimeOverview({
               </div>
             </div>
             <Badge tone={regime.fredBacked ? "ready" : "warn"}>
-              {regime.fredBacked ? "FRED RATE STACK" : "RATES GAP"}
+              {regime.contractVersion === "rate-regime/1"
+                ? (regime.fredBacked ? "FRED RATE STACK" : "RATES GAP")
+                : (regime.fredBacked ? "FRED / DGS2 LEGACY" : "RATES GAP")}
             </Badge>
           </div>
         </article>
