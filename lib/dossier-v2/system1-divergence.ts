@@ -130,8 +130,27 @@ function metric(evidence: ObservedEvidence | undefined, key: string): number | n
 }
 
 function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
+  const monetaryPolicyRule =
+    rule.id === "HAWKISH_MONETARY_POLICY" || rule.id === "DOVISH_MONETARY_POLICY";
+
   return packet.observed_evidence
-    .filter((item) => item.source_type !== "MARKET_DATA" && rule.pattern.test(item.claim_or_fact))
+    .filter((item) => {
+      if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
+
+      // A probability repricing or post-event market reaction is evidence about
+      // the policy outlook, not a new monetary-policy event. Without this gate,
+      // phrases such as "probability of a rate hike" can recursively trigger a
+      // second policy expectation check.
+      const signalKind = typeof item.metrics?.signal_kind === "string"
+        ? item.metrics.signal_kind
+        : null;
+      if (
+        monetaryPolicyRule &&
+        (signalKind === "rate_expectation" || signalKind === "market_reaction")
+      ) return false;
+
+      return true;
+    })
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
