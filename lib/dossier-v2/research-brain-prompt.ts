@@ -11,6 +11,7 @@ import {
   MAX_RESEARCH_NOW_ACTIONS,
   MAX_STOCK_RADAR_ITEMS,
   RESEARCH_BRAIN_CONTRACT_VERSION,
+  THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
 import type { ResearchBrainInputV1 } from "./research-brain-contracts.ts";
 import { PRIMARY_MACRO_INSTRUMENT_GUIDANCE } from "../macro-market-universe.ts";
@@ -92,7 +93,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
     - creator_theme_expansions: max ${MAX_CREATOR_EXPANSIONS}
     - contradictions_detected: max ${MAX_CONTRADICTIONS}
     - research_gaps: max ${MAX_RESEARCH_GAPS}
-12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Reuse evidence IDs instead of restating source details. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.\n13. SYSTEM 1 DIVERGENCE SCREEN: system1_divergence_candidates are deterministic triage signals derived from simple expected-vs-observed relationships. They are NOT independent facts, causal conclusions or proof of mispricing. Use them only to prioritise investigation when both referenced evidence IDs support the setup. Do not force an explanation; UNKNOWN or unresolved remains valid. An absent candidate does not mean the relationship was confirmed.`;
+12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Reuse evidence IDs instead of restating source details. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.\n13. SYSTEM 1 DIVERGENCE SCREEN: system1_divergence_candidates are deterministic triage signals derived from simple expected-vs-observed relationships. They are NOT independent facts, causal conclusions or proof of mispricing. Use them only to prioritise investigation when both referenced evidence IDs support the setup. Do not force an explanation; UNKNOWN or unresolved remains valid. An absent candidate does not mean the relationship was confirmed.\n14. REFERENCE FIELDS ARE ID-ONLY: major_stories[*].market_evidence.confirming and .contradicting may contain ONLY IDs copied verbatim from packet.observed_evidence.evidence_id. major_stories[*].market_evidence.unresolved may contain ONLY supplied packet.observed_evidence.evidence_id values or packet.research_leads.lead_id values. Never place prose, missing-data descriptions, chart questions, or invented IDs in those arrays. Put missing-data prose in investigations[*].missing_evidence, research_now, or research_gaps instead.\n15. THESIS LEDGER V2: output thesis_ledger.contract_version and every thesis_ledger.entries[*].contract_version MUST equal "${THESIS_LEDGER_V2_CONTRACT_VERSION}", even when prior packet state uses thesis-ledger/1. Use state "evolved" ONLY when both predecessor and successor entries are present in the output ledger, predecessor.successor_thesis_id points to the successor, successor.parent_thesis_id points back to the predecessor, both share root_thesis_id, and successor.version is greater than predecessor.version. Otherwise do not use "evolved"; use the evidence-supported non-evolved state and keep successor_thesis_id null.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -289,9 +290,21 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
             market_evidence: {
               type: "object",
               properties: {
-                confirming: { type: "array", items: { type: "string" } },
-                contradicting: { type: "array", items: { type: "string" } },
-                unresolved: { type: "array", items: { type: "string" } },
+                confirming: {
+                  type: "array",
+                  description: "Observed evidence IDs only; copy packet.observed_evidence.evidence_id values verbatim.",
+                  items: { type: "string" },
+                },
+                contradicting: {
+                  type: "array",
+                  description: "Observed evidence IDs only; copy packet.observed_evidence.evidence_id values verbatim.",
+                  items: { type: "string" },
+                },
+                unresolved: {
+                  type: "array",
+                  description: "Only supplied observed evidence IDs or research lead IDs. Never prose or invented missing-data IDs.",
+                  items: { type: "string" },
+                },
               },
               required: ["confirming", "contradicting", "unresolved"],
               additionalProperties: false,
@@ -563,14 +576,20 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       thesis_ledger: {
         type: "object",
         properties: {
-          contract_version: { type: "string" },
+          contract_version: {
+            type: "string",
+            enum: [THESIS_LEDGER_V2_CONTRACT_VERSION],
+          },
           entries: {
             type: "array",
             items: {
               type: "object",
               properties: {
                 thesis_id: { type: "string" },
-                contract_version: { type: "string" },
+                contract_version: {
+                  type: "string",
+                  enum: [THESIS_LEDGER_V2_CONTRACT_VERSION],
+                },
                 root_thesis_id: { type: "string" },
                 parent_thesis_id: { type: ["string", "null"] },
                 successor_thesis_id: { type: ["string", "null"] },
