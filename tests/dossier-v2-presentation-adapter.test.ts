@@ -330,3 +330,54 @@ test("malformed persisted Dossier payload fails closed", () => {
     /has no analytical_output payload/,
   );
 });
+
+
+test("presentation prefers the persisted multi-signal rate regime over event-only fallback", () => {
+  const current = dossier(
+    "afd9bb75-ffdc-4f51-8f5c-28131d3d2495",
+    output(),
+  );
+  current.payload.system1_rate_regime = {
+    contractVersion: "rate-regime/1",
+    asOf: "2026-09-21T12:45:41.378Z",
+    state: "MIXED",
+    score: 0,
+    confidence: "HIGH",
+    summary: "Rates conditions are internally mixed.",
+    nextMeetingRateOutlook: "MORE_HAWKISH",
+    fedWatchExpectedDirection: "HIKE_ODDS_UP",
+    trigger: "Strong PMI.",
+    observedRatePricing: "55.4% hike odds.",
+    observedConfirmation: "2Y rose after PMI.",
+    usRatesReaction: "US 2Y 5D -4.0 bp",
+    usRatesInterpretation: "Front end eased while breakevens rose.",
+    fredBacked: true,
+    curve: {
+      spreadBps: 20,
+      state: "POSITIVE",
+      detail: "10Y minus 2Y is +20.0 bp.",
+      evidenceRefs: ["market-monitor:us2y:2026-09-21", "market-monitor:us10y-fred:2026-09-21"],
+    },
+    signals: [{
+      key: "FRONT_END",
+      label: "Front-end pricing",
+      state: "DOVISH",
+      score: -1,
+      detail: "US 2Y eased.",
+      evidenceRefs: ["market-monitor:us2y:2026-09-21"],
+    }],
+    drivers: ["Front-end pricing: dovish."],
+    contradictions: ["Hawkish signals: Policy.", "Dovish signals: Front-end pricing."],
+    evidenceRefs: ["market-monitor:us2y:2026-09-21"],
+    coverage: { present: 5, total: 5, missing: [] },
+    gaps: [],
+  };
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.equal(result.rateRegime.state, "MIXED");
+  assert.equal(result.rateRegime.score, 0);
+  assert.equal(result.rateRegime.confidence, "HIGH");
+  assert.equal(result.rateRegime.curve?.state, "POSITIVE");
+  assert.equal(result.rateRegime.signals?.[0]?.state, "DOVISH");
+});
