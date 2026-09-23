@@ -9,6 +9,7 @@ import {
 } from "./contracts.ts";
 import type { DossierV2InputPacket, ResearchGap } from "./input-packet.ts";
 import { persistMarketDossierV2 } from "./persistence.ts";
+import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
 import {
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type ResearchBrainOutputV1,
@@ -123,6 +124,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
     payload: {
       contract_version: analyticalOutput.contract_version,
       packet_id: packet.packet_id,
+      system1_policy_outlook: cloneJson(buildDossierPolicyOutlook(packet)),
       analytical_output: cloneJson(analyticalOutput),
     },
   };
