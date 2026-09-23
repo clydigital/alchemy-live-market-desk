@@ -240,3 +240,28 @@ test("Policy outlook never fabricates a numeric FedWatch probability", () => {
   assert.deepEqual(prompt.boundedInput.system1_policy_expectation_checks, outlook);
   assert.match(prompt.instructions, /Never invent or quote a FedWatch percentage/);
 });
+
+
+test("Strong labour surprise creates a hawkish policy outlook", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:nfp:strong",
+      claim_or_fact: "Nonfarm payrolls were stronger than expected and above consensus.",
+      category: "US_LABOUR",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_LABOUR_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "BLS_NFP" }],
+    }],
+    [],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.rule_id, "STRONG_LABOUR_SURPRISE");
+  assert.equal(outlook[0]?.policy_impulse, "HAWKISH");
+  assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_UP");
+});
