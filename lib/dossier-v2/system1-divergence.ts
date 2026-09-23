@@ -114,6 +114,30 @@ const RULES: Rule[] = [
     ],
   },
   {
+    id: "STRONG_LABOUR_SURPRISE",
+    pattern: /\b(?:(?:nonfarm\s+)?payrolls?|employment|average hourly earnings|wage growth)\b.{0,100}\b(?:above|higher than|stronger than|beat(?:s|ing)?)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b|\bunemployment\b.{0,100}\b(?:below|lower than)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b/i,
+    opposite: "WEAK_LABOUR_SURPRISE",
+    policyImpulse: "HAWKISH",
+    expectations: [
+      ["us2y", "US02Y", "UP"],
+      ["dxy", "DXY", "UP"],
+      ["gold", "XAUUSD", "DOWN"],
+      ["smh", "SMH", "DOWN"],
+    ],
+  },
+  {
+    id: "WEAK_LABOUR_SURPRISE",
+    pattern: /\b(?:(?:nonfarm\s+)?payrolls?|employment|average hourly earnings|wage growth)\b.{0,100}\b(?:below|lower than|weaker than|miss(?:es|ed|ing)?)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b|\bunemployment\b.{0,100}\b(?:above|higher than)\b.{0,40}\b(?:consensus|forecast|expected|expectations)\b/i,
+    opposite: "STRONG_LABOUR_SURPRISE",
+    policyImpulse: "DOVISH",
+    expectations: [
+      ["us2y", "US02Y", "DOWN"],
+      ["dxy", "DXY", "DOWN"],
+      ["gold", "XAUUSD", "UP"],
+      ["smh", "SMH", "UP"],
+    ],
+  },
+  {
     id: "ENERGY_SUPPLY_STRESS",
     pattern: /\b(?:oil supply disruption|shipping disruption|refinery outage|strait of hormuz|red sea.{0,80}(?:shipping|tanker|oil|energy)|(?:oil|energy).{0,80}geopolitical escalation)\b/i,
     expectations: [
