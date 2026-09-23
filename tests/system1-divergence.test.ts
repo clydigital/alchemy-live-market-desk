@@ -121,7 +121,7 @@ test("Tiny or missing moves add no prompt noise", () => {
 
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
   assert.deepEqual(prompt.boundedInput.system1_divergence_candidates, []);
-  assert.match(prompt.instructions, /SYSTEM 1 DIVERGENCE SCREEN/);
+  assert.match(prompt.instructions, /SYSTEM 1 POLICY \+ DIVERGENCE SCREEN/);
   assert.match(prompt.instructions, /NOT independent facts/);
 });
 
