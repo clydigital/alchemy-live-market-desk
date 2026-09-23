@@ -4,9 +4,11 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
+import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
 import { getDeskData, type MacroRelease } from "@/lib/data";
+import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
@@ -220,11 +222,12 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, recordLayer, calendar] = await Promise.all([
+  const [data, market, recordLayer, calendar, dossierSelection] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getStoryRecordLayer(),
     getEconomicCalendar(),
+    getDossierV2PresentationSelection(),
   ]);
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
@@ -338,6 +341,7 @@ export default async function Page({ searchParams }: PageProps) {
     >
       <div style={{ display: "grid", gap: 24 }}>
         <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
+        <RateRegimeOverview selection={dossierSelection} />
         <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
         <OverviewWorkspace
           stories={stories}
