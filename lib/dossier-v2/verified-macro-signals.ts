@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import { verifyGitHubActionsManualLiveTrigger } from "../manual-live-trigger-auth.ts";
-import { persistSensorMemory } from "../providers/sensor-memory-supabase.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 
 const MAX_SIGNALS = 6;
@@ -163,6 +162,7 @@ export async function persistVerifiedMacroSignal(signal: VerifiedMacroSignal, av
     .single<{ id: string }>();
   if (sourceError || !sourceRow?.id) throw new Error(`Could not persist verified macro source: ${sourceError?.message || "missing source"}`);
 
+  const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
   const memory = await persistSensorMemory({
     provider: PROVIDER_KEY,
     sourceUrl: signal.sourceUrl,
