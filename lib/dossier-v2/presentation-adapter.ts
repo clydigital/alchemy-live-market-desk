@@ -1,4 +1,5 @@
 import type { MarketDossierV2 } from "./contracts.ts";
+import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -110,6 +111,7 @@ export type DossierPresentationV1 = {
   };
 
   regimeStrip: DossierPresentationLens[];
+  policyOutlook: DossierPolicyOutlookItem[];
 
   whatMattersNow: {
     leadThreadId: string;
@@ -179,6 +181,15 @@ function freshnessWarnings(dossier: MarketDossierV2): string[] {
     const message = typeof warning.message === "string" ? warning.message.trim() : "";
     return message ? [message] : [];
   });
+}
+
+function policyOutlook(dossier: MarketDossierV2): DossierPolicyOutlookItem[] {
+  const value = dossier.payload.system1_policy_outlook;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isObject(item) || typeof item.id !== "string" || typeof item.trigger !== "string") return [];
+    return [item as unknown as DossierPolicyOutlookItem];
+  }).slice(0, 3);
 }
 
 function researchGaps(dossier: MarketDossierV2) {
@@ -387,6 +398,7 @@ export function buildDossierV2Presentation(
     },
 
     regimeStrip: lensEntries(output),
+    policyOutlook: policyOutlook(dossier),
 
     whatMattersNow: {
       leadThreadId: output.main_thread.thread_id,

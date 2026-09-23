@@ -107,6 +107,58 @@ export default async function DossierPage() {
           </div>
         </section>
 
+        {dossier.policyOutlook.length ? (
+          <section className={styles.primarySection}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span>SYSTEM 1 / POLICY OUTLOOK</span>
+                <h3>Macro surprise → rate path → market confirmation</h3>
+              </div>
+              <small>{dossier.policyOutlook.length} active deterministic check{dossier.policyOutlook.length === 1 ? "" : "s"}</small>
+            </div>
+            <div className={styles.investigationList}>
+              {dossier.policyOutlook.map((item) => (
+                <article className={styles.investigation} key={item.id}>
+                  <header>
+                    <Badge tone={item.policyImpulse === "HAWKISH" ? "warn" : "ready"}>{item.policyImpulse}</Badge>
+                    <h4>{item.trigger}</h4>
+                  </header>
+                  <div className={styles.investigationGrid}>
+                    <div>
+                      <small>NEXT-MEETING OUTLOOK</small>
+                      <p>{item.nextMeetingRateOutlook.replaceAll("_", " ")}</p>
+                    </div>
+                    <div>
+                      <small>FEDWATCH EXPECTATION</small>
+                      <p>{item.fedWatchExpectedDirection.replaceAll("_", " ")}</p>
+                    </div>
+                    <div>
+                      <small>EXPECTED TAPE</small>
+                      <p>{item.expectedMarketReactions.map((reaction) => `${reaction.instrument} ${reaction.direction === "UP" ? "↑" : "↓"}`).join(" · ")}</p>
+                    </div>
+                    <div>
+                      <small>OBSERVED RATE PRICING</small>
+                      <p>{item.observedRatePricing || "Current post-trigger probability not yet captured."}</p>
+                    </div>
+                  </div>
+                  {item.observedConfirmation ? (
+                    <div className={styles.mechanism}>
+                      <small>OBSERVED CONFIRMATION</small>
+                      <p>{item.observedConfirmation}</p>
+                    </div>
+                  ) : null}
+                  {item.gaps.length ? (
+                    <div className={styles.competing}>
+                      <small>STILL MISSING</small>
+                      <span>{item.gaps.join(" · ")}</span>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
             <div>

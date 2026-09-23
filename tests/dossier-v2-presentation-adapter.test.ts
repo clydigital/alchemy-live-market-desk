@@ -189,6 +189,22 @@ function dossier(
     payload: {
       contract_version: analytical.contract_version,
       packet_id: analytical.packet_id,
+      system1_policy_outlook: [{
+        id: "system1:policy:strong_activity_surprise",
+        ruleId: "STRONG_ACTIVITY_SURPRISE",
+        trigger: "US Flash Manufacturing PMI was 57.0 versus 53.6 expected.",
+        triggerEvidenceRef: "verified-macro:us-flash-pmi",
+        triggerMetrics: { observed: 57, expected: 53.6, previous: 53.9, unit: "index" },
+        policyImpulse: "HAWKISH",
+        nextMeetingRateOutlook: "MORE_HAWKISH",
+        fedWatchExpectedDirection: "HIKE_ODDS_UP",
+        observedRatePricing: null,
+        observedRatePricingEvidenceRef: null,
+        expectedMarketReactions: [{ instrument: "US02Y", direction: "UP" }],
+        observedConfirmation: "US 2Y yield rose after the PMI release.",
+        observedConfirmationEvidenceRef: "verified-macro:pmi-reaction",
+        gaps: ["Post-trigger FedWatch probability is not yet present in canonical evidence."],
+      }],
       analytical_output: analytical,
     },
     created_at: "2026-09-21T12:48:06.522Z",
@@ -215,6 +231,9 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.charts.core[0].lane, "core");
   assert.equal(result.stockRadar[0].symbol, "SMH");
   assert.equal(result.themes[0].theme_id, "theme-1");
+  assert.equal(result.policyOutlook.length, 1);
+  assert.equal(result.policyOutlook[0].policyImpulse, "HAWKISH");
+  assert.equal(result.policyOutlook[0].observedConfirmation, "US 2Y yield rose after the PMI release.");
 
   assert.deepEqual(
     result.regimeStrip.map((lens) => lens.key),
