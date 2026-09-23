@@ -41,3 +41,22 @@ test("Research Brain JSON schema pins thesis ledger contract versions to V2", ()
     [THESIS_LEDGER_V2_CONTRACT_VERSION],
   );
 });
+
+
+test("Research Brain Divergence V1 stays inside priority investigations", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+  const schema = getResearchBrainJsonSchema() as any;
+  const investigation = schema.properties.investigations.items;
+
+  assert.match(instructions, /DIVERGENCE V1 LIVES ONLY INSIDE PRIORITY INVESTIGATIONS/);
+  assert.match(instructions, /A System 1 candidate may prioritise the investigation but must not force a divergence label or causal explanation/);
+  assert.deepEqual(investigation.properties.divergence.enum, [
+    "NONE",
+    "PARTIAL",
+    "MATERIAL",
+    "UNRESOLVED",
+  ]);
+  assert.ok(investigation.required.includes("expected_reaction"));
+  assert.ok(investigation.required.includes("observed_reaction"));
+  assert.ok(investigation.required.includes("divergence"));
+});
