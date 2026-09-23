@@ -153,11 +153,19 @@ function metric(evidence: ObservedEvidence | undefined, key: string): number | n
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
+  const merged = [
+    ...(packet.rate_context?.evidence ?? []),
+    ...packet.observed_evidence,
+  ];
+  return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
+}
+
 function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
   const monetaryPolicyRule =
     rule.id === "HAWKISH_MONETARY_POLICY" || rule.id === "DOVISH_MONETARY_POLICY";
 
-  return packet.observed_evidence
+  return policyEvidence(packet)
     .filter((item) => {
       if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
 
