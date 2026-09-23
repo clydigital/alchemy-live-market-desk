@@ -128,6 +128,27 @@ function createPacket(previousDossierId: string | null = null) {
           ],
         },
         {
+          evidence_id: "verified-macro:us-flash-pmi",
+          available_at: "2026-09-20T00:32:00.000Z",
+          claim_or_fact: "US Flash Manufacturing PMI was 57.0, above the 53.6 expected reading and 53.9 prior.",
+          category: "US_ACTIVITY",
+          source_type: "VERIFIED_MACRO_DATA",
+          grouping_key: "US_ACTIVITY",
+          metrics: {
+            signal_kind: "economic_release",
+            signal_context: "STRONG_ACTIVITY_SURPRISE",
+            observed_value: 57,
+            expected_value: 53.6,
+            previous_value: 53.9,
+            measurement_unit: "index",
+          },
+          provenance: [{
+            source_type: "VERIFIED_MACRO_DATA",
+            source_id: "verified-pmi",
+            publisher: "Calendar",
+          }],
+        },
+        {
           evidence_id: "ev:yields:task8",
           available_at: "2026-09-20T00:35:00.000Z",
           claim_or_fact: "US 2-year Treasury yield moved after the policy decision.",
@@ -267,6 +288,11 @@ test("Task 8 bridge executes Research Brain and persists one immutable MarketDos
     result.dossier.payload.contract_version,
     RESEARCH_BRAIN_CONTRACT_VERSION,
   );
+
+  const policyOutlook = result.dossier.payload.system1_policy_outlook as Array<Record<string, unknown>>;
+  assert.equal(policyOutlook.length, 1);
+  assert.equal(policyOutlook[0]?.policyImpulse, "HAWKISH");
+  assert.equal(policyOutlook[0]?.fedWatchExpectedDirection, "HIKE_ODDS_UP");
 
   const analyticalOutput = result.dossier.payload
     .analytical_output as ResearchBrainOutputV1;
