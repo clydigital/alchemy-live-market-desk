@@ -86,7 +86,7 @@ function output(overrides: Partial<ResearchBrainOutputV1> = {}): ResearchBrainOu
         US_RATES: {
           lens_name: "US_RATES",
           observed_reaction: "10Y elevated",
-          observed_reaction_evidence_refs: ["ev-us10y"],
+          observed_reaction_evidence_refs: ["market-monitor:us2y:2026-09-21", "ev-us10y"],
           interpretation: "Rates remain restrictive.",
           contradiction_references: [],
           unresolved_signals: [],
@@ -234,6 +234,11 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.policyOutlook.length, 1);
   assert.equal(result.policyOutlook[0].policyImpulse, "HAWKISH");
   assert.equal(result.policyOutlook[0].observedConfirmation, "US 2Y yield rose after the PMI release.");
+  assert.equal(result.rateRegime.state, "HAWKISH");
+  assert.equal(result.rateRegime.nextMeetingRateOutlook, "MORE_HAWKISH");
+  assert.equal(result.rateRegime.fedWatchExpectedDirection, "HIKE_ODDS_UP");
+  assert.equal(result.rateRegime.fredBacked, true);
+  assert.ok(result.rateRegime.evidenceRefs.includes("market-monitor:us2y:2026-09-21"));
 
   assert.deepEqual(
     result.regimeStrip.map((lens) => lens.key),
