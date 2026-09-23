@@ -259,6 +259,9 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
         question: "Will Middle East supply disruptions impact Q4 oil prices?",
         why_it_matters: "Energy price shock could reignite headline CPI inflation.",
         current_explanation: "Supply risk is currently unconfirmed by spot pricing.",
+        expected_reaction: null,
+        observed_reaction: null,
+        divergence: "UNRESOLVED",
         competing_explanations: ["OPEC spare capacity buffers disruption risk."],
         observed_evidence: [evCpi],
         missing_evidence: ["Actual tanker tracking disruption data"],
@@ -764,6 +767,42 @@ test("6. Market Verdict Observed Reaction Market Evidence Requirement", () => {
   // Reaction supported by TREASURY_FEED pricing feed accepted
   output.market_verdict.lenses.US_RATES.observed_reaction_evidence_refs = [evYields];
   val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true);
+});
+
+test("6A. Investigation divergence requires observed market/pricing evidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  const evFed = packet.observed_evidence.find((e) => e.evidence_id.includes("fed"))?.evidence_id ?? "ev:fed:2026-09";
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.expected_reaction = "A rate cut should pull the front end lower.";
+  inv.observed_reaction = "US 2Y yield fell after the decision.";
+  inv.divergence = "NONE";
+  inv.observed_evidence = [evFed];
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("requires observed market/pricing evidence")));
+  assert.ok(val.errors.some((e) => e.includes("observed_reaction requires at least one market/pricing")));
+
+  inv.observed_evidence = [evYields];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true);
+});
+
+test("6B. Investigation divergence stays unresolved when reaction evidence is missing", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  inv.expected_reaction = "A supply disruption would normally lift crude and refined products.";
+  inv.observed_reaction = null;
+  inv.divergence = "UNRESOLVED";
+
+  const val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, true);
 });
 
