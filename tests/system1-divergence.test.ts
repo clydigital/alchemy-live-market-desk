@@ -152,7 +152,6 @@ test("Research Brain gets compact energy divergence candidates only", () => {
   assert.ok(JSON.stringify(candidates).length < 2_000);
 });
 
-
 test("Strong Flash PMI creates a hawkish policy outlook even when market reactions align", () => {
   const packet = packetWith(
     [{
@@ -160,7 +159,7 @@ test("Strong Flash PMI creates a hawkish policy outlook even when market reactio
       claim_or_fact: "Flash manufacturing PMI came in higher than expected and above consensus.",
       category: "ECONOMIC_METRIC",
       source_type: "STATISTICAL_AGENCY",
-      available_at: "2026-09-23T13:45:00Z",
+      available_at: "2026-09-22T10:00:00Z",
       provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "FLASH_PMI" }],
     }],
     [
@@ -187,7 +186,7 @@ test("Policy outlook never fabricates a numeric FedWatch probability", () => {
       claim_or_fact: "Flash services PMI was weaker than expected and below forecast.",
       category: "ECONOMIC_METRIC",
       source_type: "STATISTICAL_AGENCY",
-      available_at: "2026-09-23T13:45:00Z",
+      available_at: "2026-09-22T10:00:00Z",
       provenance: [{ source_type: "STATISTICAL_AGENCY", source_id: "FLASH_PMI" }],
     }],
     [],
