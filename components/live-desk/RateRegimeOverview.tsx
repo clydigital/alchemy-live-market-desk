@@ -44,9 +44,9 @@ export default function RateRegimeOverview({
               <h3>{regime.summary || regime.trigger || "Persistent rate state is available."}</h3>
               <div className={styles.meta}>
                 Dossier as of {formatDeskDate(dossier.asOf)}
-                {typeof regime.score === "number" ? \` · score \${regime.score >= 0 ? "+" : ""}\${regime.score}\` : ""}
-                {regime.confidence ? \` · \${regime.confidence.toLowerCase()} confidence\` : ""}
-                {regime.coverage ? \` · \${regime.coverage.present}/\${regime.coverage.total} rate inputs\` : ""}
+                {typeof regime.score === "number" ? ` · score ${regime.score >= 0 ? "+" : ""}${regime.score}` : ""}
+                {regime.confidence ? ` · ${regime.confidence.toLowerCase()} confidence` : ""}
+                {regime.coverage ? ` · ${regime.coverage.present}/${regime.coverage.total} rate inputs` : ""}
               </div>
             </div>
             <Badge tone={regime.fredBacked ? "ready" : "warn"}>
