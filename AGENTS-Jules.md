@@ -94,6 +94,17 @@ Hybrid is an edutainment/presentation layer over the canonical Live Desk state.
 
 It may simplify, sequence and present approved research differently, but it must not independently research, alter factual status, recalculate releases, or create a competing market thesis.
 
+
+## Reader-facing prose and provenance
+
+Traceability and readability are separate requirements.
+
+- Keep raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles and provenance tokens in structured reference/audit fields only.
+- Never insert strings such as `ASDA-file...`, database IDs, evidence-key lists or source-key dumps into Story titles, theses, explanations, contradictions, article wording, Dossier prose, Overview copy or Hybrid narrative.
+- Do not end a readable sentence with parenthetical internal identifiers. The UI should show publisher/source metadata separately and link to the exact record when needed.
+- Live is responsible for clean canonical prose before handoff. Hybrid may simplify that prose but must not expose internal reference keys as narrative content.
+- Technical references may remain available behind explicit evidence/audit controls; they are not the reading experience.
+
 ## Safety and non-regression
 
 Do not:

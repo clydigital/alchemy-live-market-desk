@@ -13,6 +13,9 @@ test("Research Brain first-pass instructions keep reference arrays ID-only", () 
   assert.match(instructions, /market_evidence\.unresolved may contain ONLY supplied packet\.observed_evidence\.evidence_id values or packet\.research_leads\.lead_id values/);
   assert.match(instructions, /Never place prose, missing-data descriptions, chart questions, or invented IDs in those arrays/);
   assert.match(instructions, /Put missing-data prose in investigations\[\*\]\.missing_evidence, research_now, or research_gaps instead/);
+  assert.match(instructions, /NEVER write raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles/);
+  assert.match(instructions, /ASDA-file/);
+  assert.match(instructions, /provenance is rendered separately by Live\/Hybrid/);
 });
 
 test("Research Brain first-pass instructions enforce valid evolved thesis lineage", () => {
