@@ -628,6 +628,13 @@ export function validateResearchBrainOutput(
     const question = typeof inv.question === "string" ? inv.question.trim() : "";
     const whyItMatters = typeof inv.why_it_matters === "string" ? inv.why_it_matters.trim() : "";
     const currentExplanation = typeof inv.current_explanation === "string" ? inv.current_explanation.trim() : "";
+    const expectedReaction = typeof inv.expected_reaction === "string" && inv.expected_reaction.trim()
+      ? inv.expected_reaction.trim()
+      : null;
+    const observedReaction = typeof inv.observed_reaction === "string" && inv.observed_reaction.trim()
+      ? inv.observed_reaction.trim()
+      : null;
+    const divergence = inv.divergence;
     const researchNext = typeof inv.research_next === "string" ? inv.research_next.trim() : "";
 
     if (!question || !whyItMatters || !currentExplanation || !researchNext) {
@@ -639,6 +646,22 @@ export function validateResearchBrainOutput(
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
         errors.push(`investigations[${iIdx}] (${invId}) references unsupported observed_evidence ID "${String(evId)}".`);
       }
+    }
+
+    const validDivergences = new Set(["NONE", "PARTIAL", "MATERIAL", "UNRESOLVED"]);
+    if (typeof divergence !== "string" || !validDivergences.has(divergence)) {
+      errors.push(`investigations[${iIdx}] (${invId}) invalid divergence "${String(divergence)}".`);
+    } else if (divergence !== "UNRESOLVED") {
+      if (!expectedReaction || !observedReaction) {
+        errors.push(`investigations[${iIdx}] (${invId}) divergence ${divergence} requires both expected_reaction and observed_reaction.`);
+      }
+      if (!indexes.priceDataAvailable || !hasActualMarketPricingEvidence(obsEv, indexes)) {
+        errors.push(`investigations[${iIdx}] (${invId}) divergence ${divergence} requires observed market/pricing evidence.`);
+      }
+    }
+
+    if (observedReaction && !hasActualMarketPricingEvidence(obsEv, indexes)) {
+      errors.push(`investigations[${iIdx}] (${invId}) observed_reaction requires at least one market/pricing observed_evidence reference.`);
     }
   }
 

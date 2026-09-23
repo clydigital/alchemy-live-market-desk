@@ -25,6 +25,7 @@ export const MAX_OUTPUT_BYTES = 150000;
 export type EpistemicLabel = "OBSERVED" | "SUPPORTED" | "INFERRED" | "SPECULATIVE";
 export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved";
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
+export type InvestigationDivergence = "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
 
 export interface MainThread {
   thread_id: string;
@@ -104,6 +105,9 @@ export interface Investigation {
   question: string;
   why_it_matters: string;
   current_explanation: string;
+  expected_reaction: string | null;
+  observed_reaction: string | null;
+  divergence: InvestigationDivergence;
   competing_explanations: string[];
   observed_evidence: string[];
   missing_evidence: string[];
