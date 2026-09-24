@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 
-import { getMarketData, type MarketSeries, type PricePoint } from "@/lib/market";
+import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
 
 export type MarketMonitorType =
   | "Major Index"
@@ -69,6 +69,7 @@ export type MarketResearchTrigger = {
 export type MarketMonitor = {
   updatedAt: string;
   rows: MarketMonitorRow[];
+  breadth: BreadthSnapshot[];
   contradictions: MarketContradiction[];
   researchTriggers: MarketResearchTrigger[];
   limitations: string[];
@@ -613,6 +614,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   return {
     updatedAt: new Date().toISOString(),
     rows,
+    breadth: market?.breadth ?? [],
     contradictions,
     researchTriggers: buildResearchTriggers(rows, contradictions),
     limitations: allLimitations,
