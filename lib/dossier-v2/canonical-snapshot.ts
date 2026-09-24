@@ -207,6 +207,18 @@ function sourceFromRow(row: CanonicalEvidenceRow): CanonicalEvidenceSourceRow | 
   return row.source ?? null;
 }
 
+function isRetiredMacroMicroEvidence(row: CanonicalEvidenceRow): boolean {
+  const source = sourceFromRow(row);
+  const sourceName = String(source?.source_name ?? "").toLowerCase();
+  const sourceUrl = String(source?.source_url ?? "").toLowerCase();
+  const externalSourceId = String(source?.external_source_id ?? "").toLowerCase();
+  return (
+    sourceName.includes("macromicro") ||
+    sourceUrl.includes("macromicro.me") ||
+    externalSourceId.includes("macromicro")
+  );
+}
+
 function effectiveAvailableAt(row: CanonicalEvidenceRow): string | null {
   return row.available_at ?? row.published_at ?? row.received_at ?? null;
 }
@@ -396,6 +408,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
   let latestMacroAvailableAt: string | null = null;
 
   const eligibleRows = rows
+    .filter((row) => !isRetiredMacroMicroEvidence(row))
     .filter((row) => {
       const availableAt = effectiveAvailableAt(row);
       const availableMs = parseTimestamp(availableAt);
