@@ -51,7 +51,7 @@ export function macroContextBlockReason(source: MacroContextSource, value: strin
   if (/security verification|verify (?:that )?you are human|checking your browser|just a moment|cf-chl-/i.test(text)) {
     return "security_verification";
   }
-  const { hasDate, signals } = datedMacroSignals(text);
+  const { signals } = datedMacroSignals(text);
   if (source.key === DAILY_INVESTMENT_BRIEF_SOURCE.key) {
     const placeholders = (text.match(/Analyzing\.\.\.|(?:^|\s)--(?:\s|$)/gi) || []).length;
     if (placeholders >= 2 && signals < 2) return "client_placeholders";
