@@ -333,7 +333,7 @@ const scheduledEvents: EconomicCalendarEvent[] = [
     actual: null,
     consensus: null,
     previous: null,
-    decidingQuestion: "Has incoming inflation or labour evidence materially changed the September policy path?",
+    decidingQuestion: "Do incoming inflation, labour and activity data support another move at the October meeting after September’s 25bp increase?",
     affectedAssets: ["USD", "US02Y", "SPX", "GOLD"],
     sourceName: "Federal Reserve",
     sourceUrl: FED_CALENDAR,
