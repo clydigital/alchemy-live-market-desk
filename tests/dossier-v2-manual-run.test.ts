@@ -341,7 +341,8 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
     ["wti", "CL=F", "WTI", "Energy"],
     ["distillate", "HO=F", "ULSD / heating oil", "Energy"],
     ["crack-distillate", "distillate", "Distillate crack", "Energy"],
-    ["hyg", "HYG", "High Yield Credit", "Credit / Risk"],
+    ["hy-oas", "BAMLH0A0HYM2", "US High Yield OAS", "Credit / Risk"],
+    ["ig-oas", "BAMLC0A0CM", "US Investment Grade OAS", "Credit / Risk"],
   ] as const;
 
   const rows = [
@@ -369,8 +370,8 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
       change5d: 0,
       asOf: "2026-09-19",
       frequency: "daily" as const,
-      sourceName: id === "us2y" ? "Federal Reserve Economic Data" : "Canonical market source",
-      sourceUrl: "https://example.com/market",
+      sourceName: id === "us2y" || id === "hy-oas" || id === "ig-oas" ? "Federal Reserve Economic Data" : "Canonical market source",
+      sourceUrl: id === "hy-oas" || id === "ig-oas" ? `https://fred.stlouisfed.org/series/${symbol}` : "https://example.com/market",
       attentionScore: 0,
     })),
   ];
@@ -390,6 +391,13 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
   for (const [id] of core) {
     assert.ok(ids.has(`market-monitor:${id}:2026-09-19`), `missing macro monitor row ${id}`);
   }
+  const creditRows = result.snapshot.observed_evidence?.filter(
+    (item) => item.grouping_key === "market-monitor:credit-oas",
+  ) ?? [];
+  assert.equal(creditRows.length, 2);
+  assert.ok(creditRows.every((item) => item.category === "Credit / Risk"));
+  assert.ok(creditRows.every((item) => item.provenance?.[0]?.source_type === "FRED"));
+  assert.match(String(creditRows.find((item) => item.evidence_id?.includes("hy-oas"))?.claim_or_fact), /US High Yield OAS was 100%/);
 });
 
 test("Task 9 adapter admits official EIA weekly energy evidence without making it a health dependency", () => {
