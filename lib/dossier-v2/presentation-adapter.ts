@@ -8,6 +8,7 @@ import type {
   Investigation,
   MajorStory,
   MarketLens,
+  RegimeFamily,
   ResearchBrainOutputV1,
   ResearchNowAction,
   StockRadarItem,
@@ -146,6 +147,7 @@ export type DossierPresentationV1 = {
     headline: string;
     answer: string;
     regimeImplication: string;
+    regimeFamily: RegimeFamily;
     epistemicLabel: EpistemicLabel;
     whatWouldChangeMind: string;
   };
@@ -494,6 +496,7 @@ export function buildDossierV2Presentation(
       headline: output.main_thread.headline,
       answer: output.main_thread.answer,
       regimeImplication: output.main_thread.regime_implication,
+      regimeFamily: output.main_thread.regime_family,
       epistemicLabel: output.main_thread.epistemic_label,
       whatWouldChangeMind: output.main_thread.what_would_change_mind,
     },

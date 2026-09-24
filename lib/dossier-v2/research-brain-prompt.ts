@@ -110,13 +110,15 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 19. BALANCED ASSET LENSES: For each material market lens, state both the evidence-supported force that could sustain the move and the strongest supplied counter-force or invalidation condition. Keep this fundamental and causal; do not manufacture technical levels, trade commands or directional certainty when the packet does not support them.
 20. POLICY EVENT ROLLOVER: Once supplied evidence establishes that a scheduled central-bank decision has occurred, never continue to frame that completed meeting as a future unresolved catalyst. Roll the policy question forward to the next scheduled meeting or next decision-relevant data, using current next-meeting pricing when supplied. Historical policy expectations may remain only as labelled prior context, not as the live thesis.
 21. STREAM-READY SYNTHESIS: The reader-facing sequence should be usable as a briefing: regime → what changed → dominant drivers → strongest countercase/relief valve → what confirms or breaks the regime → asset implications. Preserve uncertainty and competing mechanisms rather than collapsing every development into one narrative.
-22. TOP-LEVEL RESEARCH GAP DISCIPLINE: research_gaps is reserved ONLY for missing input that materially blocks, invalidates, or makes unsafe a current regime conclusion, Major Story conclusion, or required desk-health claim. Every analytical research_gaps item MUST use severity "MATERIAL". Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail, higher-frequency decomposition, or other evidence that would only refine mechanism, durability, timing, or confidence is NOT a top-level research gap when the current conclusion is already evidence-supported. Put those refinement needs in investigations[*].missing_evidence and/or research_now instead. Do not duplicate the same missing input in research_gaps and an Investigation. If no conclusion-blocking gap exists, return research_gaps: [].
+22. TOP-LEVEL RESEARCH GAP DISCIPLINE: research_gaps is reserved ONLY for missing input that materially blocks, invalidates, or makes unsafe a current regime conclusion, Major Story conclusion, or required desk-health claim. Classify each emitted item as gap_class BLOCKER or REFINEMENT. A BLOCKER must use severity MATERIAL and blocking_refs must name at least one exact canonical target: MAIN_THREAD, REGIME:CURRENT, or STORY:<story_id>. A REFINEMENT must use severity INFORMATIONAL and blocking_refs must be empty. Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail, higher-frequency decomposition, or other evidence that would only refine mechanism, durability, timing, or confidence is NOT a blocker when the current conclusion is already evidence-supported. Put every refinement in investigations[*].missing_evidence and/or research_now as well. If no conclusion-blocking gap exists, return research_gaps: [].
 23. DURATION-STRESS DECOMPOSITION: When supplied evidence shows pressure extending from the front end into 10Y/30Y yields, do not explain the move only with the next Fed meeting. Separate the policy-path channel from long-end real-yield, inflation-compensation, term-premium/fiscal-supply and global-sovereign channels. A 30Y breakout is first-class evidence that duration pressure has broadened, but do not claim a specific decomposition unless the packet supplies it.
 24. GLOBAL LABEL DISCIPLINE: Use "global duration shock" only when supplied non-US sovereign evidence confirms comparable long-end pressure. With strong US evidence but incomplete foreign sovereign confirmation, prefer "US-led duration stress", "duration stress broadening", or similarly bounded language. Put JGB/Bund/gilt confirmation in research_now rather than research_gaps unless the global label itself is required for a material conclusion.
 25. CREDIT-BREADTH-VOL CONFIRMATION: Do not equate a Treasury sell-off with systemic risk-off. Test whether credit spreads/proxies, breadth and equity volatility confirm transmission. High MOVE alongside contained VIX and still-tight credit is evidence of a rates-volatility shock with incomplete transmission, not proof of a credit event. Treat surviving AI/semiconductor leadership as a counterweight when supplied evidence supports it.
 26. ENERGY-INFLATION TRANSMISSION: When crude and refined-product stress coexist, distinguish geopolitical crude premium from physical product tightness using supplied cracks, curve/backwardation, inventories, refinery utilisation and freight/flow evidence. Rising crude plus product stress can reinforce the inflation/rates channel; do not infer physical scarcity from crude price alone.
 27. GOLD-USD CROSS-CHECK: When same-session evidence shows geopolitical risk elevated while gold weakens and USD/real yields strengthen, treat that as evidence that rates/USD are dominating safe-haven demand at that moment. Do not generalise beyond the supplied observation window.
-28. RESEARCH-NOW PRIORITY: If the current regime is already defensible, unresolved yield decomposition, MOVE/VIX divergence, HY/IG confirmation, breadth, global sovereign confirmation, oil curve/cracks and summit implementation details belong in investigations[*].missing_evidence and/or research_now, not top-level research_gaps.`;
+28. RESEARCH-NOW PRIORITY: If the current regime is already defensible, unresolved yield decomposition, MOVE/VIX divergence, HY/IG confirmation, breadth, global sovereign confirmation, oil curve/cracks and summit implementation details belong in investigations[*].missing_evidence and/or research_now, not top-level research_gaps.
+29. REGIME FAMILY: main_thread.regime_family is the canonical teaching state for downstream Hybrid. Use RATES_LED_TIGHTENING when rising long/real yields and bond volatility dominate while credit/VIX transmission is incomplete; GROWTH_SCARE_RISK_OFF when falling long yields accompany credit stress, weak breadth and defensive leadership; MIXED_TRANSITION when the evidence is moving between or materially combines those patterns; otherwise UNRESOLVED. This field is Live-owned and must match the prose regime implication.
+30. BUNDLED INVESTIGATION AGENDA: One investigation equals one market question, not one dataset. When relevant, use no more than two bundled investigations: (1) whether duration stress is broadening or beginning to transmit, checked with 30Y/curve/real yields, MOVE/VIX, credit, breadth, gold/USD and foreign sovereigns; (2) whether energy keeps the inflation/rates impulse alive, checked with crude curves, cracks, inventories/utilisation, physical stress and verified high-impact event implementation. Use the three Research Now slots for (1) policy-path versus real-yield/inflation/term-premium decomposition, (2) credit/breadth/volatility transmission, and (3) energy structure plus event implementation. Do not publish unverified political outcomes as facts.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -280,6 +282,10 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           headline: { type: "string" },
           answer: { type: "string" },
           regime_implication: { type: "string" },
+          regime_family: {
+            type: "string",
+            enum: ["RATES_LED_TIGHTENING", "GROWTH_SCARE_RISK_OFF", "MIXED_TRANSITION", "UNRESOLVED"],
+          },
           epistemic_label: {
             type: "string",
             enum: ["OBSERVED", "SUPPORTED", "INFERRED", "SPECULATIVE"],
@@ -294,6 +300,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           "headline",
           "answer",
           "regime_implication",
+          "regime_family",
           "epistemic_label",
           "evidence_references",
           "supporting_story_ids",
@@ -700,9 +707,11 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
             gap_id: { type: "string" },
             category: { type: "string" },
             description: { type: "string" },
-            severity: { type: "string", enum: ["MATERIAL"] },
+            severity: { type: "string", enum: ["MATERIAL", "INFORMATIONAL"] },
+            gap_class: { type: "string", enum: ["BLOCKER", "REFINEMENT"] },
+            blocking_refs: { type: "array", items: { type: "string" } },
           },
-          required: ["gap_id", "category", "description", "severity"],
+          required: ["gap_id", "category", "description", "severity", "gap_class", "blocking_refs"],
           additionalProperties: false,
         },
       },

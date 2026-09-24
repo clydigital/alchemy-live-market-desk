@@ -12,6 +12,7 @@ import { persistMarketDossierV2 } from "./persistence.ts";
 import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
 import { buildDossierRateRegime } from "./rate-regime.ts";
 import {
+  MAX_RESEARCH_NOW_ACTIONS,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type ResearchBrainOutputV1,
 } from "./research-brain-contracts.ts";
@@ -55,9 +56,97 @@ function gapKey(gap: unknown, index: number): string {
   return `json:${index}:${JSON.stringify(gap)}`;
 }
 
+function validCanonicalBlockerRefs(
+  analyticalOutput: ResearchBrainOutputV1,
+): Set<string> {
+  return new Set([
+    "MAIN_THREAD",
+    "REGIME:CURRENT",
+    ...analyticalOutput.major_stories.map((story) => `STORY:${story.story_id}`),
+  ]);
+}
+
+function researchNowRouteIndex(
+  analyticalOutput: ResearchBrainOutputV1,
+  gap: ResearchGap,
+): number {
+  if (analyticalOutput.research_now.length === 0) return -1;
+  const subject = `${gap.category} ${gap.description}`.toLowerCase();
+  const routeTerms = /energy|oil|crack|refiner|padd|inventory|summit|tariff|trade|event/
+    .test(subject)
+    ? /energy|oil|crack|physical|event|summit|implementation/
+    : /credit|breadth|move|vix|volatility|gold|usd|transmission/.test(subject)
+      ? /credit|breadth|volatility|move|vix|transmission|cross-asset/
+      : /policy|yield|curve|duration|real-yield|term-premium|decomposition|global/;
+
+  const matched = analyticalOutput.research_now.findIndex((item) =>
+    routeTerms.test(`${item.action} ${item.reason}`.toLowerCase())
+  );
+  return matched >= 0 ? matched : analyticalOutput.research_now.length - 1;
+}
+
+function routeDemotedGap(
+  analyticalOutput: ResearchBrainOutputV1,
+  gap: ResearchGap,
+): void {
+  const description = gap.description.trim();
+  if (!description) return;
+
+  if (analyticalOutput.research_now.length < MAX_RESEARCH_NOW_ACTIONS) {
+    analyticalOutput.research_now.push({
+      rank: analyticalOutput.research_now.length + 1,
+      action: `Investigate refinement: ${description}`,
+      reason: "Useful mechanism or durability evidence that does not block the canonical conclusion.",
+      expected_information_gain: "Medium",
+      linked_investigations: [],
+      linked_stories: [],
+      blocking_evidence: [description],
+    });
+  } else {
+    const routeIndex = researchNowRouteIndex(analyticalOutput, gap);
+    if (routeIndex >= 0) {
+      const target = analyticalOutput.research_now[routeIndex];
+      if (!target.blocking_evidence.includes(description)) {
+        target.blocking_evidence.push(description);
+      }
+    }
+  }
+
+  const auditEntry = `${gap.gap_id} demoted to Research Now: ${description}`;
+  if (!analyticalOutput.diagnostics.omitted_or_demoted_items.includes(auditEntry)) {
+    analyticalOutput.diagnostics.omitted_or_demoted_items.push(auditEntry);
+  }
+}
+
+function applyAnalyticalGapPolicy(
+  analyticalOutput: ResearchBrainOutputV1,
+): { analyticalOutput: ResearchBrainOutputV1; topLevelGaps: ResearchGap[] } {
+  const normalized = cloneJson(analyticalOutput);
+  const validRefs = validCanonicalBlockerRefs(normalized);
+  const topLevelGaps: ResearchGap[] = [];
+
+  for (const gap of normalized.research_gaps) {
+    const blockingRefs = Array.isArray(gap.blocking_refs) ? gap.blocking_refs : [];
+    const hasValidCanonicalRef = blockingRefs.some((ref) => validRefs.has(ref));
+    const admitted = gap.severity === "MATERIAL"
+      && gap.gap_class === "BLOCKER"
+      && hasValidCanonicalRef;
+
+    if (admitted) {
+      topLevelGaps.push(gap);
+    } else {
+      routeDemotedGap(normalized, gap);
+    }
+  }
+
+  normalized.research_gaps = cloneJson(topLevelGaps);
+  return { analyticalOutput: normalized, topLevelGaps };
+}
+
 function mergeResearchGaps(
   packetGaps: ResearchGap[],
-  analyticalOutput: ResearchBrainOutputV1,
+  analyticalGaps: ResearchGap[],
+  diagnostics: ResearchBrainOutputV1["diagnostics"],
 ): unknown[] {
   const merged = new Map<string, unknown>();
   let fallbackIndex = 0;
@@ -74,8 +163,7 @@ function mergeResearchGaps(
     }
   }
 
-  for (const gap of analyticalOutput.research_gaps) {
-    if (gap.severity !== "MATERIAL") continue;
+  for (const gap of analyticalGaps) {
     const clonedGap = cloneJson(gap);
     const key = gapKey(clonedGap, fallbackIndex++);
     if (!merged.has(key)) {
@@ -84,8 +172,8 @@ function mergeResearchGaps(
   }
 
   if (
-    analyticalOutput.diagnostics.degraded &&
-    analyticalOutput.diagnostics.degradation_reasons.length > 0
+    diagnostics.degraded &&
+    diagnostics.degradation_reasons.length > 0
   ) {
     const hasDegradedGap = Array.from(merged.values()).some((gap) => {
       if (!gap || typeof gap !== "object" || Array.isArray(gap)) return false;
@@ -93,7 +181,7 @@ function mergeResearchGaps(
     });
 
     if (!hasDegradedGap) {
-      for (const reason of analyticalOutput.diagnostics.degradation_reasons) {
+      for (const reason of diagnostics.degradation_reasons) {
         const description = String(reason).slice(0, 500);
         const syntheticGap = {
           gap_id: `gap:research_brain_degraded:${hashText(description)}`,
@@ -127,6 +215,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
 
   const policyOutlook = buildDossierPolicyOutlook(packet);
   const rateRegime = buildDossierRateRegime(packet, policyOutlook);
+  const normalized = applyAnalyticalGapPolicy(analyticalOutput);
 
   return {
     contract_version: MARKET_DOSSIER_V2_CONTRACT_VERSION,
@@ -137,13 +226,17 @@ export function buildMarketDossierV2InputFromResearchBrain(
       warnings: cloneJson(packet.freshness_warnings),
       input_diagnostics: cloneJson(packet.diagnostics),
     },
-    research_gaps: mergeResearchGaps(packet.research_gaps, analyticalOutput),
+    research_gaps: mergeResearchGaps(
+      packet.research_gaps,
+      normalized.topLevelGaps,
+      normalized.analyticalOutput.diagnostics,
+    ),
     payload: {
-      contract_version: analyticalOutput.contract_version,
+      contract_version: normalized.analyticalOutput.contract_version,
       packet_id: packet.packet_id,
       system1_policy_outlook: cloneJson(policyOutlook),
       system1_rate_regime: cloneJson(rateRegime),
-      analytical_output: cloneJson(analyticalOutput),
+      analytical_output: cloneJson(normalized.analyticalOutput),
     },
   };
 }

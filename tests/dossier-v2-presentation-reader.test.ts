@@ -25,6 +25,7 @@ function brain({
       headline: degraded ? "Research Brain degraded" : "Energy, rates and semis define the current regime.",
       answer: degraded ? "Primary reasoning unavailable." : "Cross-asset state is supported.",
       regime_implication: degraded ? "UNRESOLVED" : "Energy and rates remain the main constraints.",
+      regime_family: degraded ? "UNRESOLVED" : "RATES_LED_TIGHTENING",
       epistemic_label: degraded ? "SPECULATIVE" : "SUPPORTED",
       evidence_references: degraded ? [] : ["ev-1"],
       supporting_story_ids: degraded ? [] : ["story-1"],

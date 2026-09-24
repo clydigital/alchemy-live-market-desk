@@ -23,6 +23,7 @@ export const MAX_RESEARCH_GAPS = 12;
 export const MAX_OUTPUT_BYTES = 150000;
 
 export type EpistemicLabel = "OBSERVED" | "SUPPORTED" | "INFERRED" | "SPECULATIVE";
+export type RegimeFamily = "RATES_LED_TIGHTENING" | "GROWTH_SCARE_RISK_OFF" | "MIXED_TRANSITION" | "UNRESOLVED";
 export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved";
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 export type InvestigationDivergence = "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
@@ -32,6 +33,7 @@ export interface MainThread {
   headline: string;
   answer: string;
   regime_implication: string;
+  regime_family: RegimeFamily;
   epistemic_label: EpistemicLabel;
   evidence_references: string[];
   supporting_story_ids: string[];

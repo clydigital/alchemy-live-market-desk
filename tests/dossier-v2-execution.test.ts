@@ -212,6 +212,7 @@ function createValidBrainOutput(
       answer: "The official policy release changed the policy rate.",
       regime_implication:
         "The policy change is observed; cross-asset interpretation remains separate.",
+      regime_family: "UNRESOLVED",
       epistemic_label: "OBSERVED",
       evidence_references: [observedEvidenceId],
       supporting_story_ids: [],
@@ -402,24 +403,62 @@ test("Task 8 bridge propagates persistence failure and never reports false succe
 });
 
 
-test("Task 8 mapper keeps only material analytical blockers in top-level research gaps", () => {
+test("Task 8 mapper demotes model-labelled refinements and keeps only structured canonical blockers", () => {
   const packet = createPacket();
   const output = createValidBrainOutput(packet);
 
+  output.research_now = [
+    {
+      rank: 1,
+      action: "Separate policy-path from real-yield, inflation and term-premium contributions.",
+      reason: "Determine what is driving duration stress.",
+      linked_stories: [],
+      blocking_evidence: [],
+      linked_investigations: [],
+      expected_information_gain: "High",
+    },
+    {
+      rank: 2,
+      action: "Test credit, breadth and volatility transmission.",
+      reason: "Distinguish rates stress from systemic risk-off.",
+      linked_stories: [],
+      blocking_evidence: [],
+      linked_investigations: [],
+      expected_information_gain: "High",
+    },
+    {
+      rank: 3,
+      action: "Test energy structure and event implementation.",
+      reason: "Check whether the inflation impulse remains active.",
+      linked_stories: [],
+      blocking_evidence: [],
+      linked_investigations: [],
+      expected_information_gain: "High",
+    },
+  ];
+
   output.research_gaps = [
     {
-      gap_id: "gap:refinement-only",
-      category: "market-flow",
-      description: "Need intraday dealer positioning to refine the durability assessment.",
-      severity: "INFORMATIONAL",
+      gap_id: "gap:term-premium-global-confirm",
+      category: "rates",
+      description: "Lack of term-premium decomposition and foreign-sovereign confirmation refines the US-led duration label.",
+      severity: "MATERIAL",
+    },
+    {
+      gap_id: "gap:padd2-flow-details",
+      category: "energy",
+      description: "Missing PADD2 outage schedules and intraregional flow detail refine the durability assessment.",
+      severity: "MATERIAL",
     },
     {
       gap_id: "gap:material-blocker",
       category: "PRICE_DATA",
       description: "Required current price evidence is unavailable for a material conclusion.",
       severity: "MATERIAL",
+      gap_class: "BLOCKER",
+      blocking_refs: ["MAIN_THREAD"],
     },
-  ];
+  ] as typeof output.research_gaps;
 
   const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
   const ids = dossierInput.research_gaps.flatMap((gap) =>
@@ -429,5 +468,52 @@ test("Task 8 mapper keeps only material analytical blockers in top-level researc
   );
 
   assert.ok(ids.includes("gap:material-blocker"));
-  assert.ok(!ids.includes("gap:refinement-only"));
+  assert.ok(!ids.includes("gap:term-premium-global-confirm"));
+  assert.ok(!ids.includes("gap:padd2-flow-details"));
+
+  const persistedOutput = dossierInput.payload.analytical_output as ResearchBrainOutputV1;
+  const routedEvidence = persistedOutput.research_now.flatMap((item) => item.blocking_evidence);
+  assert.ok(routedEvidence.some((item) => /term-premium decomposition/i.test(item)));
+  assert.ok(routedEvidence.some((item) => /PADD2 outage schedules/i.test(item)));
+  assert.ok(persistedOutput.diagnostics.omitted_or_demoted_items.some((item) => /gap:term-premium-global-confirm/.test(item)));
+  assert.equal(persistedOutput.research_now.length, 3);
+});
+
+test("Task 8 mapper rejects blocker references that do not resolve to a canonical conclusion", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.research_gaps = [{
+    gap_id: "gap:orphan-blocker",
+    category: "rates",
+    description: "An unlinked blocker must not make the Dossier unhealthy.",
+    severity: "MATERIAL",
+    gap_class: "BLOCKER",
+    blocking_refs: ["STORY:missing"],
+  }] as typeof output.research_gaps;
+
+  const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  assert.equal(dossierInput.research_gaps.length, 0);
+
+  const persistedOutput = dossierInput.payload.analytical_output as ResearchBrainOutputV1;
+  assert.ok(persistedOutput.research_now.some((item) =>
+    item.blocking_evidence.some((evidence) => /unlinked blocker/i.test(evidence))
+  ));
+});
+
+test("Task 8 mapper preserves an explicit global-duration blocker linked to the canonical Main Thread", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.headline = "Global duration shock is the active regime";
+  output.research_gaps = [{
+    gap_id: "gap:global-duration-confirmation",
+    category: "rates",
+    description: "Non-US sovereign long-end evidence is required for the explicit global claim.",
+    severity: "MATERIAL",
+    gap_class: "BLOCKER",
+    blocking_refs: ["MAIN_THREAD"],
+  }] as typeof output.research_gaps;
+
+  const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const ids = dossierInput.research_gaps.map((gap) => (gap as { gap_id: string }).gap_id);
+  assert.deepEqual(ids, ["gap:global-duration-confirmation"]);
 });

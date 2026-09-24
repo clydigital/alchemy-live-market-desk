@@ -65,6 +65,7 @@ function dryRunResult(): ManualDossierV2RunResult {
       headline: "Insufficient direct evidence",
       answer: "The desk remains unresolved.",
       regime_implication: "No regime claim.",
+      regime_family: "UNRESOLVED",
       epistemic_label: "SPECULATIVE",
       evidence_references: [],
       supporting_story_ids: [],
