@@ -905,6 +905,24 @@ test("20b. balanced cluster selection preserves macro spine and fresh non-monito
       source_type: "MARKET_DATA",
       provenance: [{ source_type: "MARKET_DATA", source_id: `market-monitor:${id}` }],
     })),
+    {
+      evidence_id: "market-breadth:large-cap:2026-03-31",
+      claim_or_fact: "US large-cap breadth 58% above 50D.",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "market-breadth:large-cap",
+      source_type: "MARKET_DATA",
+      rank: 15,
+      provenance: [{ source_type: "NASDAQ", source_id: "market-breadth:large-cap" }],
+    },
+    {
+      evidence_id: "market-breadth:ai-basket:2026-03-31",
+      claim_or_fact: "AI basket breadth 64% above 50D.",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "market-breadth:ai-basket",
+      source_type: "MARKET_DATA",
+      rank: 17,
+      provenance: [{ source_type: "NASDAQ", source_id: "market-breadth:ai-basket" }],
+    },
     ...Array.from({ length: 8 }, (_, index) => ({
       evidence_id: `market-monitor:filler-${index}:2026-03-31`,
       claim_or_fact: `Market monitor filler ${index}`,
@@ -936,6 +954,8 @@ test("20b. balanced cluster selection preserves macro spine and fresh non-monito
   for (const id of macroSpine) {
     assert.ok(groupingKeys.has(`market-monitor:${id}`), `missing macro spine cluster ${id}`);
   }
+  assert.ok(groupingKeys.has("market-breadth:large-cap"), "missing large-cap breadth cluster");
+  assert.ok(groupingKeys.has("market-breadth:ai-basket"), "missing AI breadth cluster");
   assert.match(packet.diagnostics.notes.join("\n"), /Balanced cluster selection retained 14 market-monitor clusters and 10 non-monitor research clusters/);
 });
 
