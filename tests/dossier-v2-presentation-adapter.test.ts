@@ -381,3 +381,30 @@ test("presentation prefers the persisted multi-signal rate regime over event-onl
   assert.equal(result.rateRegime.curve?.state, "POSITIVE");
   assert.equal(result.rateRegime.signals?.[0]?.state, "DOVISH");
 });
+
+
+test("presentation hides non-material refinement gaps and keeps material blockers", () => {
+  const current = dossier(
+    "afd9bb75-ffdc-4f51-8f5c-28131d3d2495",
+    output(),
+  );
+  current.research_gaps = [
+    {
+      gap_id: "gap-refinement",
+      category: "market-flow",
+      severity: "high",
+      description: "Need intraday dealer flow to refine the explanation.",
+    },
+    {
+      gap_id: "gap-blocker",
+      category: "PRICE_DATA",
+      severity: "MATERIAL",
+      description: "Required current price evidence is unavailable.",
+    },
+  ];
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.deepEqual(result.health.researchGaps.map((gap) => gap.id), ["gap-blocker"]);
+  assert.equal(result.health.researchGaps[0]?.severity, "MATERIAL");
+});

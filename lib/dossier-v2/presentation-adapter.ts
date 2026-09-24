@@ -289,12 +289,17 @@ function rateRegime(
 function researchGaps(dossier: MarketDossierV2) {
   return dossier.research_gaps.flatMap((gap, index) => {
     if (!isObject(gap)) return [];
+    const severity = typeof gap.severity === "string" ? gap.severity.trim().toUpperCase() : "";
+    // Edition-level health is reserved for conclusion-blocking MATERIAL gaps.
+    // Older nonblocking refinement gaps remain available in the persisted audit
+    // record but are not promoted into the reader-facing Live/Hybrid count.
+    if (severity !== "MATERIAL") return [];
     const description = typeof gap.description === "string" ? gap.description.trim() : "";
     if (!description) return [];
     return [{
       id: typeof gap.gap_id === "string" && gap.gap_id.trim() ? gap.gap_id : `gap-${index + 1}`,
       category: typeof gap.category === "string" ? gap.category : "Uncategorised",
-      severity: typeof gap.severity === "string" ? gap.severity : "unknown",
+      severity,
       description,
     }];
   });
