@@ -242,6 +242,8 @@ const MACRO_SPINE_GROUPING_KEYS = [
   "market-monitor:distillate",
   "market-monitor:crack-distillate",
   "market-monitor:hyg",
+  "market-breadth:large-cap",
+  "market-breadth:ai-basket",
 ] as const;
 
 const RATE_CONTEXT_GROUPING_KEYS = new Set([

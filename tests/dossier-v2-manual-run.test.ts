@@ -279,6 +279,24 @@ test("Task 9 adapter admits existing Live market monitor rows and marks FRED mac
           sourceUrl: "https://www.nasdaq.com/",
         },
       ],
+      breadth: [{
+        id: "large-cap",
+        label: "US large-cap proxy",
+        sourceName: "Nasdaq official daily histories",
+        sampleSize: 96,
+        targetSize: 100,
+        current: {
+          asOf: "2026-09-19",
+          sampleSize: 96,
+          above20: 61,
+          above50: 58,
+          above200: 64,
+          newHighs20: 12,
+          newLows20: 4,
+        },
+        weekAgo: { asOf: "2026-09-12", above50: 54, above200: 62 },
+        monthAgo: { asOf: "2026-08-20", above50: 49, above200: 60 },
+      }],
       limitations: [],
     },
     { asOf: AS_OF, lookbackHours: 168 },
@@ -288,12 +306,19 @@ test("Task 9 adapter admits existing Live market monitor rows and marks FRED mac
   assert.equal(result.diagnostics.macro_data_status, "OK");
   assert.equal(result.snapshot.price_data?.status, "OK");
   assert.equal(result.snapshot.macro_data?.status, "OK");
-  assert.equal(result.snapshot.observed_evidence?.length, 2);
+  assert.equal(result.snapshot.observed_evidence?.length, 3);
   assert.ok(
     result.snapshot.observed_evidence?.some(
       (item) => item.evidence_id === "market-monitor:us2y:2026-09-19",
     ),
   );
+  const breadth = result.snapshot.observed_evidence?.find(
+    (item) => item.evidence_id === "market-breadth:large-cap:2026-09-19",
+  );
+  assert.equal(breadth?.source_type, "MARKET_DATA");
+  assert.equal(breadth?.category, "BREADTH");
+  assert.equal(breadth?.grouping_key, "market-breadth:large-cap");
+  assert.match(String(breadth?.claim_or_fact), /58% above the 50-day average/);
 });
 
 test("Task 9 market monitor admission preserves the cross-asset macro spine before the 28-row cap", () => {
