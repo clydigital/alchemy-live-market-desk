@@ -98,7 +98,14 @@ function reviewAgeHours(status: string) {
 
 function catalystTime(value: string) {
   const iso = value.match(/\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?\b/)?.[0];
-  return milliseconds(iso ?? null);
+  if (iso) return milliseconds(iso);
+
+  const natural = value.match(
+    /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i,
+  );
+  if (!natural) return null;
+  const parsed = Date.parse(`${natural[2]} ${natural[1]}, ${natural[3]} 12:00:00 UTC`);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function scheduledCatalystCandidate(item: EvidencePackItem) {
@@ -229,13 +236,24 @@ export function selectStoryReviewTargets(input: {
     } as StoryReviewTargetPackItem & { reviewContext: StoryReviewContext; queuePriority: number; dueAt: number }];
   });
 
-  return candidates
-    .sort((left, right) => left.reasonRank - right.reasonRank
-      || right.queuePriority - left.queuePriority
-      || left.dueAt - right.dueAt
-      || left.story.id.localeCompare(right.story.id))
-    .slice(0, Math.max(0, Math.min(MAX_STORY_REVIEW_TARGETS, input.maxTargets ?? MAX_STORY_REVIEW_TARGETS)))
-    .map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
+  const maxTargets = Math.max(0, Math.min(MAX_STORY_REVIEW_TARGETS, input.maxTargets ?? MAX_STORY_REVIEW_TARGETS));
+  const sorted = candidates.sort((left, right) => left.reasonRank - right.reasonRank
+    || right.queuePriority - left.queuePriority
+    || left.dueAt - right.dueAt
+    || left.story.id.localeCompare(right.story.id));
+
+  let selected = sorted.slice(0, maxTargets);
+  if (maxTargets > 0) {
+    const overduePublished = sorted.find((target) =>
+      ["publish", "published", "confirmed"].includes(target.story.status.toLowerCase())
+      && target.reasons.includes("catalyst_due"),
+    );
+    if (overduePublished && !selected.some((target) => target.story.id === overduePublished.story.id)) {
+      selected = [...selected.slice(0, Math.max(0, maxTargets - 1)), overduePublished];
+    }
+  }
+
+  return selected.map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
 function independentGroup(item: EvidencePackItem) {
