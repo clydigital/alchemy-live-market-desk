@@ -106,21 +106,23 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     }
   >();
 
-  if (Array.isArray(packet.observed_evidence)) {
-    for (const ev of packet.observed_evidence) {
-      if (ev && typeof ev.evidence_id === "string") {
-        validEvidenceIds.add(ev.evidence_id);
-        const prov = Array.isArray(ev.provenance) && ev.provenance[0] ? ev.provenance[0] : null;
-        evidenceSourceMap.set(ev.evidence_id, {
-          source_type: String(ev.source_type ?? "UNKNOWN").toUpperCase(),
-          source_id: prov?.source_id ?? ev.evidence_id,
-          publisher: prov?.publisher,
-          category: String(ev.category ?? "GENERAL").toUpperCase(),
-        });
-      }
-      if (ev && typeof ev.conflict_group_id === "string") {
-        validConflictGroupIds.add(ev.conflict_group_id);
-      }
+  const evidencePools = [
+    ...(Array.isArray(packet.observed_evidence) ? packet.observed_evidence : []),
+    ...(Array.isArray(packet.rate_context?.evidence) ? packet.rate_context.evidence : []),
+  ];
+  for (const ev of evidencePools) {
+    if (ev && typeof ev.evidence_id === "string") {
+      validEvidenceIds.add(ev.evidence_id);
+      const prov = Array.isArray(ev.provenance) && ev.provenance[0] ? ev.provenance[0] : null;
+      evidenceSourceMap.set(ev.evidence_id, {
+        source_type: String(ev.source_type ?? "UNKNOWN").toUpperCase(),
+        source_id: prov?.source_id ?? ev.evidence_id,
+        publisher: prov?.publisher,
+        category: String(ev.category ?? "GENERAL").toUpperCase(),
+      });
+    }
+    if (ev && typeof ev.conflict_group_id === "string") {
+      validConflictGroupIds.add(ev.conflict_group_id);
     }
   }
 
