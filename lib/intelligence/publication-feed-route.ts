@@ -164,6 +164,7 @@ export async function getCanonicalPublicationPayload(
   const emptyMarketMonitor: MarketMonitor = {
     updatedAt: generatedAt,
     rows: [],
+    breadth: [],
     contradictions: [],
     researchTriggers: [],
     limitations: ["Market monitor provider unavailable for this refresh."],
