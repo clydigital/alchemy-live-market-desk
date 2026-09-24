@@ -197,3 +197,39 @@ test("persistent next-meeting pricing can turn dovish without fabricating a trig
   assert.equal(regime.fedWatchExpectedDirection, "HIKE_ODDS_DOWN");
   assert.equal(regime.trigger, null);
 });
+
+
+test("verified 30Y evidence is promoted into the deterministic long-end signal", () => {
+  const input = packet([
+    {
+      evidence_id: "verified-macro:us30y-sep24-2026",
+      claim_or_fact: "The US 30Y Treasury yield reached 5.415%, its highest level since 2004.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T12:00:00.000Z",
+      occurrence_time: "2026-09-24T11:00:00.000Z",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "us30y",
+        observed_value: 5.415,
+        measurement_unit: "percent",
+      },
+      provenance: [{
+        source_type: "VERIFIED_MACRO_DATA",
+        source_id: "US30Y_SEP24",
+      }],
+    },
+    fred("us2y", 4.8, 1.5),
+    fred("us10y-fred", 5.05, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const longEnd = regime.signals.find((item) => item.key === "LONG_END");
+
+  assert.equal(longEnd?.label, "Long-end nominal yields");
+  assert.match(longEnd?.detail ?? "", /verified US 30Y 5\.42%/);
+  assert.ok(longEnd?.evidenceRefs.includes("verified-macro:us30y-sep24-2026"));
+});
