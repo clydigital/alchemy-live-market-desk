@@ -29,8 +29,8 @@ function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
   }));
 }
 
-function compactObservedEvidence(packet: DossierV2InputPacket) {
-  return packet.observed_evidence.map((e) => ({
+function compactEvidenceItems(items: DossierV2InputPacket["observed_evidence"]) {
+  return items.map((e) => ({
     evidence_id: e.evidence_id,
     claim_or_fact: e.claim_or_fact,
     category: e.category,
@@ -42,6 +42,14 @@ function compactObservedEvidence(packet: DossierV2InputPacket) {
     rank: e.rank,
     provenance: compactProvenance(e.provenance as unknown as Array<Record<string, unknown>>),
   }));
+}
+
+function compactObservedEvidence(packet: DossierV2InputPacket) {
+  return compactEvidenceItems(packet.observed_evidence);
+}
+
+function compactRateContext(packet: DossierV2InputPacket) {
+  return compactEvidenceItems(packet.rate_context?.evidence ?? []);
 }
 
 function compactResearchLeads(packet: DossierV2InputPacket) {
@@ -76,10 +84,10 @@ export function buildResearchBrainSystemInstructions(): string {
   return `You are the Dossier V2 Research Brain for the Live Market Desk. Your job is to analyze the input packet and produce a structured, validated market dossier analysis matching contract version "${RESEARCH_BRAIN_CONTRACT_VERSION}".
 
 EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
-1. Current facts come ONLY from packet.observed_evidence.
+1. Current facts come ONLY from packet.observed_evidence and packet.rate_context.evidence. rate_context is a bounded protected OBSERVED subset for rates/policy continuity when cluster caps would otherwise omit those facts.
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
 3. Prior analytical claims and prior Thesis Ledger entries are historical state, NOT current facts.
-4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence.
+4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
 7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
@@ -96,7 +104,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
     - creator_theme_expansions: max ${MAX_CREATOR_EXPANSIONS}
     - contradictions_detected: max ${MAX_CONTRADICTIONS}
     - research_gaps: max ${MAX_RESEARCH_GAPS}
-12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Evidence/source IDs belong ONLY in dedicated reference arrays and audit metadata. NEVER write raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles, or strings such as "ASDA-file..." into reader-facing prose fields. Do not add parenthetical source-key dumps after sentences. Write the analytical point in normal language; provenance is rendered separately by Live/Hybrid. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.\n13. SYSTEM 1 POLICY + DIVERGENCE SCREEN: system1_policy_expectation_checks are deterministic directional priors for how a verified policy, inflation, or activity surprise would conventionally reprice the next meeting and major rate-sensitive assets. The fedwatch_expectation field states only the EXPECTED DIRECTION of FedWatch/fed-funds-futures repricing; it is NOT an observed CME probability. Never invent or quote a FedWatch percentage unless packet.observed_evidence supplies one. system1_divergence_candidates are deterministic triage signals derived from simple expected-vs-observed relationships. They are NOT independent facts, causal conclusions or proof of mispricing. Use them only to prioritise investigation when both referenced evidence IDs support the setup. Do not force an explanation; UNKNOWN or unresolved remains valid. An absent candidate does not mean the relationship was confirmed.\n14. REFERENCE FIELDS ARE ID-ONLY: major_stories[*].market_evidence.confirming and .contradicting may contain ONLY IDs copied verbatim from packet.observed_evidence.evidence_id. major_stories[*].market_evidence.unresolved may contain ONLY supplied packet.observed_evidence.evidence_id values or packet.research_leads.lead_id values. Never place prose, missing-data descriptions, chart questions, or invented IDs in those arrays. Put missing-data prose in investigations[*].missing_evidence, research_now, or research_gaps instead.\n15. THESIS LEDGER V2: output thesis_ledger.contract_version and every thesis_ledger.entries[*].contract_version MUST equal "${THESIS_LEDGER_V2_CONTRACT_VERSION}", even when prior packet state uses thesis-ledger/1. Use state "evolved" ONLY when both predecessor and successor entries are present in the output ledger, predecessor.successor_thesis_id points to the successor, successor.parent_thesis_id points back to the predecessor, both share root_thesis_id, and successor.version is greater than predecessor.version. Otherwise do not use "evolved"; use the evidence-supported non-evolved state and keep successor_thesis_id null.\n16. DIVERGENCE V1 LIVES ONLY INSIDE PRIORITY INVESTIGATIONS: expected_reaction is the conventional or packet-supported market reaction being tested, not an observed fact. observed_reaction must describe only supplied market/pricing evidence and must be NULL when such evidence is unavailable. A divergence is a DIRECTIONAL OR SEQUENCED expected-vs-observed mismatch, not the coexistence of elevated/depressed levels. Missing confirmation, missing breadth, stale/non-comparable observations, or missing timing are NOT divergences; use UNRESOLVED. MATERIAL requires an explicit material opposite reaction or persistent mismatch; PARTIAL requires an explicit mixed/partial reaction with enough observed data to establish the mismatch; NONE requires both expectation and observed reaction to be present and materially aligned. If the packet cannot establish the before/after or directional comparison, use UNRESOLVED even when the underlying research question is important. For V1, set PARTIAL or MATERIAL only when a relevant system1_divergence_candidate exists and the Investigation includes both that candidate's trigger_evidence_id and market_evidence_id in observed_evidence. If no such candidate exists, use UNRESOLVED. Do not use NONE in V1 unless a future deterministic aligned-reaction check explicitly supports it. A System 1 candidate may prioritise the investigation but must not force a causal explanation.`;
+12. OUTPUT DISCIPLINE: this is a bounded decision dossier, not a transcript. Keep prose compact and non-repetitive. Most narrative fields should be one or two sentences. Evidence/source IDs belong ONLY in dedicated reference arrays and audit metadata. NEVER write raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles, or strings such as "ASDA-file..." into reader-facing prose fields. Do not add parenthetical source-key dumps after sentences. Write the analytical point in normal language; provenance is rendered separately by Live/Hybrid. Do not repeat the same causal explanation across main_thread, major_stories, market_verdict, investigations and developing_themes unless the field requires a distinct conclusion.\n13. SYSTEM 1 POLICY + DIVERGENCE SCREEN: system1_policy_expectation_checks are deterministic directional priors for how a verified policy, inflation, or activity surprise would conventionally reprice the next meeting and major rate-sensitive assets. The fedwatch_expectation field states only the EXPECTED DIRECTION of FedWatch/fed-funds-futures repricing; it is NOT an observed CME probability. Never invent or quote a FedWatch percentage unless packet.observed_evidence or packet.rate_context.evidence supplies one. system1_divergence_candidates are deterministic triage signals derived from simple expected-vs-observed relationships. They are NOT independent facts, causal conclusions or proof of mispricing. Use them only to prioritise investigation when both referenced evidence IDs support the setup. Do not force an explanation; UNKNOWN or unresolved remains valid. An absent candidate does not mean the relationship was confirmed.\n14. REFERENCE FIELDS ARE ID-ONLY: major_stories[*].market_evidence.confirming and .contradicting may contain ONLY IDs copied verbatim from packet.observed_evidence.evidence_id or packet.rate_context.evidence.evidence_id. major_stories[*].market_evidence.unresolved may contain ONLY supplied packet.observed_evidence.evidence_id values or packet.research_leads.lead_id values. Never place prose, missing-data descriptions, chart questions, or invented IDs in those arrays. Put missing-data prose in investigations[*].missing_evidence, research_now, or research_gaps instead.\n15. THESIS LEDGER V2: output thesis_ledger.contract_version and every thesis_ledger.entries[*].contract_version MUST equal "${THESIS_LEDGER_V2_CONTRACT_VERSION}", even when prior packet state uses thesis-ledger/1. Use state "evolved" ONLY when both predecessor and successor entries are present in the output ledger, predecessor.successor_thesis_id points to the successor, successor.parent_thesis_id points back to the predecessor, both share root_thesis_id, and successor.version is greater than predecessor.version. Otherwise do not use "evolved"; use the evidence-supported non-evolved state and keep successor_thesis_id null.\n16. DIVERGENCE V1 LIVES ONLY INSIDE PRIORITY INVESTIGATIONS: expected_reaction is the conventional or packet-supported market reaction being tested, not an observed fact. observed_reaction must describe only supplied market/pricing evidence and must be NULL when such evidence is unavailable. A divergence is a DIRECTIONAL OR SEQUENCED expected-vs-observed mismatch, not the coexistence of elevated/depressed levels. Missing confirmation, missing breadth, stale/non-comparable observations, or missing timing are NOT divergences; use UNRESOLVED. MATERIAL requires an explicit material opposite reaction or persistent mismatch; PARTIAL requires an explicit mixed/partial reaction with enough observed data to establish the mismatch; NONE requires both expectation and observed reaction to be present and materially aligned. If the packet cannot establish the before/after or directional comparison, use UNRESOLVED even when the underlying research question is important. For V1, set PARTIAL or MATERIAL only when a relevant system1_divergence_candidate exists and the Investigation includes both that candidate's trigger_evidence_id and market_evidence_id in observed_evidence. If no such candidate exists, use UNRESOLVED. Do not use NONE in V1 unless a future deterministic aligned-reaction check explicitly supports it. A System 1 candidate may prioritise the investigation but must not force a causal explanation.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -110,6 +118,7 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     as_of: packet.as_of,
     previous_dossier_id: packet.previous_dossier_id,
     observed_evidence: compactObservedEvidence(packet),
+    rate_context: { evidence: compactRateContext(packet) },
     system1_policy_expectation_checks: buildSystem1PolicyExpectationChecks(packet),
     system1_divergence_candidates: buildSystem1DivergenceCandidates(packet),
     research_leads: compactResearchLeads(packet),
@@ -166,9 +175,10 @@ export function buildResearchBrainRepairPrompt(
   const allowedReferenceIndex = {
     packet_id: packet.packet_id,
     as_of: packet.as_of,
-    valid_observed_evidence_ids: Array.isArray(packet.observed_evidence)
-      ? packet.observed_evidence.map((e) => e.evidence_id)
-      : [],
+    valid_observed_evidence_ids: Array.from(new Set([
+      ...(Array.isArray(packet.observed_evidence) ? packet.observed_evidence.map((e) => e.evidence_id) : []),
+      ...(Array.isArray(packet.rate_context?.evidence) ? packet.rate_context.evidence.map((e) => e.evidence_id) : []),
+    ])),
     valid_research_lead_ids: Array.isArray(packet.research_leads)
       ? packet.research_leads.map((l) => l.lead_id)
       : [],
