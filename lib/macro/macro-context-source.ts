@@ -5,13 +5,6 @@ export const DAILY_INVESTMENT_BRIEF_SOURCE = {
   role: "primary",
 } as const;
 
-export const MACROMICRO_SOURCE = {
-  key: "macromicro_supplemental",
-  name: "MacroMicro",
-  url: "https://en.macromicro.me/",
-  role: "supplemental",
-} as const;
-
 export const LEGACY_MACRO_INDICATORS_SOURCE = {
   key: "macro_indicators_legacy",
   name: "Retired Macro Indicators dashboard",
@@ -19,7 +12,7 @@ export const LEGACY_MACRO_INDICATORS_SOURCE = {
   role: "retired",
 } as const;
 
-export type MacroContextSource = typeof DAILY_INVESTMENT_BRIEF_SOURCE | typeof MACROMICRO_SOURCE;
+export type MacroContextSource = typeof DAILY_INVESTMENT_BRIEF_SOURCE;
 
 function visibleText(value: string) {
   return value
@@ -64,9 +57,6 @@ export function macroContextBlockReason(source: MacroContextSource, value: strin
     if (placeholders >= 2 && signals < 2) return "client_placeholders";
     if (signals < 2) return "insufficient_dated_readings";
     return null;
-  }
-  if (source.key === MACROMICRO_SOURCE.key) {
-    if (!hasDate || signals < 1) return "insufficient_dated_readings";
   }
   return null;
 }
