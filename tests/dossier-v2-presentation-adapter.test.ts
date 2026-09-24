@@ -178,7 +178,7 @@ function dossier(
     previous_dossier_id: previousDossierId,
     as_of: analytical.as_of,
     freshness: {
-      warnings: [{ message: "MacroMicro context is partial." }],
+      warnings: [{ message: "Optional macro enrichment is partial." }],
     },
     research_gaps: [{
       gap_id: "gap-1",
@@ -223,7 +223,7 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.contractVersion, DOSSIER_PRESENTATION_V1);
   assert.equal(result.health.state, "healthy");
   assert.equal(result.health.repairUsed, true);
-  assert.deepEqual(result.health.freshnessWarnings, ["MacroMicro context is partial."]);
+  assert.deepEqual(result.health.freshnessWarnings, ["Optional macro enrichment is partial."]);
   assert.equal(result.header.headline, "Energy, rates and semis define the current regime.");
   assert.equal(result.whatMattersNow.stories[0].id, "story-1");
   assert.equal(result.watchNext[0].id, "inv-1");
