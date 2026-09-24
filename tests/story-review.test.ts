@@ -105,6 +105,48 @@ test("selector consumes queue, debt and evidence triggers in deterministic prior
   }]);
 });
 
+test("an overdue dated catalyst on a published Story cannot be starved by the four-target budget", () => {
+  const stories = [
+    story("queue-1"),
+    story("queue-2"),
+    story("queue-3"),
+    story("queue-4"),
+    story("fed-rate-repricing", {
+      status: "publish",
+      lastEvaluatedAt: null,
+      nextCatalyst: "U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August.",
+      nextCatalysts: ["U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August."],
+    }),
+  ];
+  const queue = ["queue-1", "queue-2", "queue-3", "queue-4"].map((storyId, index) => ({
+    id: `queue-${index + 1}`,
+    storyId,
+    status: "pending",
+    reason: "Routine explicit queue",
+    priority: 90 - index,
+    availableAt: "2026-08-21T10:00:00Z",
+    createdAt: "2026-08-21T10:00:00Z",
+  }));
+
+  const selected = selectStoryReviewTargets({
+    stories,
+    evidence: [],
+    evidenceLinks: [],
+    queue,
+    debt: [],
+    now,
+  });
+
+  assert.equal(selected.length, 4);
+  assert.ok(selected.some((target) => target.story.id === "fed-rate-repricing"));
+  const fed = selected.find((target) => target.story.id === "fed-rate-repricing");
+  assert.equal(fed?.reason, "catalyst_due");
+  assert.deepEqual(
+    fed?.reviewContext?.dueCatalysts,
+    ["U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August."],
+  );
+});
+
 test("explicit queue evidence is Story-relevant even before a durable Story-evidence link exists", () => {
   const requested = evidence("queued-news", "unrelated-topic", {
     evidenceClass: "news_report",
