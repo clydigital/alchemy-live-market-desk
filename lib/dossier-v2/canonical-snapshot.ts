@@ -1,5 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  fetchEiaWeeklyPetroleumSnapshot,
+  type EiaWeeklyMetricKey,
+  type EiaWeeklyPetroleumSnapshot,
+} from "../providers/eia-v2.ts";
+import {
+  fetchTradingEconomicsUsCalendarSnapshot,
+  type TradingEconomicsUsCalendarSnapshot,
+} from "../providers/trading-economics-calendar.ts";
 import type {
   CandidateSnapshot,
   SourceDataStatus,
@@ -187,16 +196,6 @@ type MarketMonitorLike = {
   limitations?: string[];
 };
 
-export type MacroContextSnapshotRow = {
-  id: string;
-  source_key: string;
-  source_url: string;
-  status: string;
-  capture_completed_at: string;
-  transport_error_code?: string | null;
-  raw_markdown?: string | null;
-};
-
 function parseTimestamp(value: unknown): number | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const parsed = Date.parse(value);
@@ -206,6 +205,18 @@ function parseTimestamp(value: unknown): number | null {
 function sourceFromRow(row: CanonicalEvidenceRow): CanonicalEvidenceSourceRow | null {
   if (Array.isArray(row.source)) return row.source[0] ?? null;
   return row.source ?? null;
+}
+
+function isRetiredMacroMicroEvidence(row: CanonicalEvidenceRow): boolean {
+  const source = sourceFromRow(row);
+  const sourceName = String(source?.source_name ?? "").toLowerCase();
+  const sourceUrl = String(source?.source_url ?? "").toLowerCase();
+  const externalSourceId = String(source?.external_source_id ?? "").toLowerCase();
+  return (
+    sourceName.includes("macromicro") ||
+    sourceUrl.includes("macromicro.me") ||
+    externalSourceId.includes("macromicro")
+  );
 }
 
 function effectiveAvailableAt(row: CanonicalEvidenceRow): string | null {
@@ -397,6 +408,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
   let latestMacroAvailableAt: string | null = null;
 
   const eligibleRows = rows
+    .filter((row) => !isRetiredMacroMicroEvidence(row))
     .filter((row) => {
       const availableAt = effectiveAvailableAt(row);
       const availableMs = parseTimestamp(availableAt);
@@ -631,56 +643,189 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   };
 }
 
-export function augmentCandidateSnapshotWithMacroContext(
-  result: CanonicalSnapshotResult,
-  row: MacroContextSnapshotRow | null | undefined,
-): CanonicalSnapshotResult {
-  if (!row) return result;
-  const sourcesStatus = { ...(result.snapshot.sources_status ?? {}) };
-  const usable = row.status === "complete" && Boolean(row.raw_markdown?.trim());
-  sourcesStatus.macromicro = {
-    status: usable ? "OK" : "WARNING",
-    available_at: row.capture_completed_at,
-    message: usable
-      ? "Latest persisted MacroMicro supplemental scan is usable as macro research context."
-      : `Latest MacroMicro scan is not usable as dated macro context (${row.transport_error_code || row.status}).`,
-  };
+const EIA_GROUPING_KEY_BY_METRIC: Record<EiaWeeklyMetricKey, string> = {
+  crudeStocksExSpr: "eia:inventories",
+  gasolineStocks: "eia:inventories",
+  distillateStocks: "eia:inventories",
+  sprStocks: "eia:inventories",
+  refineryUtilisation: "eia:refining",
+  refineryCrudeInputs: "eia:refining",
+  crudeProduction: "eia:supply-demand",
+  gasolineProductSupplied: "eia:supply-demand",
+};
 
-  if (!usable) {
-    return {
-      ...result,
-      snapshot: { ...result.snapshot, sources_status: sourcesStatus },
-    };
+function formatObservedMetric(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function optionalProviderState(
+  state: "ready" | "unconfigured" | "unavailable",
+): "OK" | "OPTIONAL_UNCONFIGURED" | "OPTIONAL_UNAVAILABLE" {
+  if (state === "ready") return "OK";
+  return state === "unconfigured" ? "OPTIONAL_UNCONFIGURED" : "OPTIONAL_UNAVAILABLE";
+}
+
+export function augmentCandidateSnapshotWithEia(
+  result: CanonicalSnapshotResult,
+  eia: EiaWeeklyPetroleumSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+  let added = 0;
+
+  if (eia.state === "ready") {
+    for (const [rawKey, metric] of Object.entries(eia.metrics)) {
+      if (!metric) continue;
+      const key = rawKey as EiaWeeklyMetricKey;
+      const latest = metric.latest;
+      const previous = metric.previous;
+      const delta = previous ? latest.value - previous.value : null;
+      const unit = latest.units ?? metric.canonicalUnit;
+
+      const comparison = previous
+        ? `, versus ${formatObservedMetric(previous.value)} ${previous.units ?? metric.canonicalUnit} the prior week${delta === null ? "" : ` (change ${delta >= 0 ? "+" : ""}${formatObservedMetric(delta)} ${unit})`}`
+        : "";
+
+      observed.push({
+        evidence_id: `eia:${metric.seriesId}:${latest.period}`,
+        claim_or_fact: `${metric.label} was ${formatObservedMetric(latest.value)} ${unit} for the week ending ${latest.period}${comparison}.`,
+        category: "Energy",
+        source_type: "OFFICIAL_DATA",
+        available_at: options.asOf,
+        occurrence_time: `${latest.period}T00:00:00.000Z`,
+        grouping_key: EIA_GROUPING_KEY_BY_METRIC[key],
+        rank: 30 + added,
+        metrics: {
+          series_id: metric.seriesId,
+          period: latest.period,
+          latest_value: latest.value,
+          previous_value: previous?.value ?? null,
+          delta,
+          unit,
+          provider: eia.sourceName,
+        },
+        provenance: [{
+          source_type: "EIA",
+          source_id: metric.seriesId,
+          url: eia.sourceUrl,
+          publisher: eia.sourceName,
+        }],
+      });
+      added += 1;
+    }
   }
 
-  const excerpt = visibleText(row.raw_markdown ?? "").slice(0, 1800);
-  const leads = [...(result.snapshot.research_leads ?? [])];
-  leads.push({
-    lead_id: `macro-context:${row.id}`,
-    claim_or_question: excerpt,
-    source_type: "MACRO_CONTEXT",
-    available_at: row.capture_completed_at,
-    urgency: "MEDIUM",
-    grouping_key: "macro-context:macromicro",
-    provenance: [{
-      source_type: "MACROMICRO",
-      source_id: row.id,
-      url: row.source_url,
-      publisher: "MacroMicro",
-    }],
-  });
+  const sourcesStatus = {
+    ...(result.snapshot.sources_status ?? {}),
+    eia_weekly_petroleum: {
+      status: optionalProviderState(eia.state),
+      available_at: eia.retrievedAt ?? undefined,
+      message:
+        eia.state === "ready"
+          ? `${added} official EIA weekly petroleum observations admitted as optional energy evidence.`
+          : eia.note ?? "Optional EIA weekly petroleum enrichment was skipped.",
+    },
+  };
 
   return {
     snapshot: {
       ...result.snapshot,
-      research_leads: leads,
-      macro_data: { status: "OK", available_at: row.capture_completed_at },
+      observed_evidence: observed,
       sources_status: sourcesStatus,
     },
     diagnostics: {
       ...result.diagnostics,
-      lead_count: leads.length,
-      macro_data_status: "OK",
+      observed_count: observed.length,
+    },
+  };
+}
+
+export function augmentCandidateSnapshotWithTradingEconomics(
+  result: CanonicalSnapshotResult,
+  calendar: TradingEconomicsUsCalendarSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+  const asOfMs = parseTimestamp(options.asOf);
+  let added = 0;
+
+  if (calendar.state === "ready" && asOfMs !== null) {
+    for (const event of calendar.events) {
+      const eventMs = parseTimestamp(event.date);
+      if (eventMs === null || eventMs > asOfMs || !event.actual) continue;
+
+      const consensusText = event.consensus ? ` vs consensus ${event.consensus}` : "";
+      const previousText = event.previous ? `; previous ${event.previous}` : "";
+
+      const provenance: Array<Record<string, unknown>> = [{
+        source_type: "ECONOMIC_CALENDAR",
+        source_id: `trading-economics:${event.calendarId}`,
+        url: calendar.sourceUrl,
+        publisher: calendar.sourceName,
+      }];
+      if (event.sourceUrl) {
+        provenance.push({
+          source_type: "OFFICIAL_SOURCE",
+          source_id: `trading-economics-source:${event.calendarId}`,
+          url: event.sourceUrl,
+          publisher: event.source ?? undefined,
+        });
+      }
+
+      observed.push({
+        evidence_id: `trading-economics:${event.calendarId}:${event.date.slice(0, 10)}`,
+        claim_or_fact: `${event.event}: actual ${event.actual}${consensusText}${previousText}.`,
+        category: event.category,
+        source_type: "ECONOMIC_CALENDAR",
+        is_admitted_fact: true,
+        available_at: options.asOf,
+        occurrence_time: event.date,
+        grouping_key: "macro-surprise:us",
+        rank: 20 + added,
+        metrics: {
+          calendar_id: event.calendarId,
+          reference: event.reference,
+          actual: event.actual,
+          consensus: event.consensus,
+          previous: event.previous,
+          te_forecast: event.teForecast,
+          parsed_actual: event.parsedActual,
+          parsed_consensus: event.parsedConsensus,
+          parsed_previous: event.parsedPrevious,
+          surprise: event.surprise,
+          importance: event.importance,
+          reported_source: event.source,
+        },
+        provenance,
+      });
+      added += 1;
+      if (added >= 6) break;
+    }
+  }
+
+  const sourcesStatus = {
+    ...(result.snapshot.sources_status ?? {}),
+    trading_economics_us_calendar: {
+      status: optionalProviderState(calendar.state),
+      available_at: calendar.retrievedAt ?? undefined,
+      message:
+        calendar.state === "ready"
+          ? `${added} realized high-importance U.S. calendar events admitted as optional actual/consensus/previous evidence.`
+          : calendar.note ?? "Optional Trading Economics event-surprise enrichment was skipped.",
+    },
+  };
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: sourcesStatus,
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
     },
   };
 }
@@ -739,40 +884,59 @@ export async function loadCanonicalCandidateSnapshot(
     options,
   );
 
-  try {
-    const { getMarketMonitor } = await import("../market-monitor.ts");
+  const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
+  const calendarTo = new Date(asOfMs);
+
+  const [marketMonitorResult, eiaResult, tradingEconomicsResult] =
+    await Promise.allSettled([
+      import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
+      fetchEiaWeeklyPetroleumSnapshot(),
+      fetchTradingEconomicsUsCalendarSnapshot({
+        from: calendarFrom,
+        to: calendarTo,
+      }),
+    ]);
+
+  if (marketMonitorResult.status === "fulfilled") {
     result = augmentCandidateSnapshotWithMarketMonitor(
       result,
-      await getMarketMonitor(),
+      marketMonitorResult.value,
       options,
     );
-  } catch (error) {
+  } else {
     result.snapshot.sources_status = {
       ...(result.snapshot.sources_status ?? {}),
       market_monitor: {
         status: "WARNING",
-        message: `Existing Live market monitor was unavailable to Dossier V2: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Existing Live market monitor was unavailable to Dossier V2: ${marketMonitorResult.reason instanceof Error ? marketMonitorResult.reason.message : String(marketMonitorResult.reason)}`,
       },
     };
   }
 
-  try {
-    const { data: macroRows, error: macroError } = await client
-      .from("macro_source_snapshots")
-      .select("id,source_key,source_url,status,capture_completed_at,transport_error_code,raw_markdown")
-      .eq("source_key", "macromicro_supplemental")
-      .lte("capture_completed_at", options.asOf)
-      .order("capture_completed_at", { ascending: false })
-      .limit(1)
-      .returns<MacroContextSnapshotRow[]>();
-    if (macroError) throw macroError;
-    result = augmentCandidateSnapshotWithMacroContext(result, macroRows?.[0] ?? null);
-  } catch (error) {
+  if (eiaResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithEia(result, eiaResult.value, options);
+  } else {
     result.snapshot.sources_status = {
       ...(result.snapshot.sources_status ?? {}),
-      macromicro: {
-        status: "WARNING",
-        message: `Persisted MacroMicro context was unavailable to Dossier V2: ${error instanceof Error ? error.message : String(error)}`,
+      eia_weekly_petroleum: {
+        status: "OPTIONAL_UNAVAILABLE",
+        message: `Optional EIA enrichment failed closed: ${eiaResult.reason instanceof Error ? eiaResult.reason.message : String(eiaResult.reason)}`,
+      },
+    };
+  }
+
+  if (tradingEconomicsResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithTradingEconomics(
+      result,
+      tradingEconomicsResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      trading_economics_us_calendar: {
+        status: "OPTIONAL_UNAVAILABLE",
+        message: `Optional Trading Economics enrichment failed closed: ${tradingEconomicsResult.reason instanceof Error ? tradingEconomicsResult.reason.message : String(tradingEconomicsResult.reason)}`,
       },
     };
   }

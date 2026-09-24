@@ -275,10 +275,10 @@ export async function getSystemHealth() {
       state: macroSource?.retainedPriorComplete ? "degraded_retaining_complete" : macroSource?.latestAttemptStatus || "unavailable",
       ...(macroSource || {}),
       probeError: macroSourceProbe.error,
-      hierarchy: "Daily Investment Brief primary → MacroMicro supplemental → authoritative/official source validation; retired Macro Indicators dashboard excluded from scheduled capture.",
+      hierarchy: "FRED and official providers are canonical for Dossier macro state. Daily Investment Brief remains separate research context; retired Macro Indicators and MacroMicro are excluded from the Dossier path.",
       note: macroSource?.retainedPriorComplete
-        ? "The latest Daily Investment Brief attempt degraded; the prior COMPLETE Daily Investment Brief snapshot remains pinned. MacroMicro never silently replaces the primary source."
-        : "Only a usable Daily Investment Brief primary snapshot is marked COMPLETE. Placeholder/security-verification responses stay degraded or unavailable.",
+        ? "The latest Daily Investment Brief attempt degraded; the prior COMPLETE Daily Investment Brief snapshot remains pinned. This context collector does not gate Dossier health."
+        : "Only a usable Daily Investment Brief context snapshot is marked COMPLETE. FRED and official provider state remain independent of this collector.",
     },
     economicCalendar: {
       state: rbaCoverage.length && rbnzCoverage.length && structuredMetrics.length && !overdueMissingActuals.length ? "healthy" : "degraded",

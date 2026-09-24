@@ -5,16 +5,19 @@ import test from "node:test";
 import {
   DAILY_INVESTMENT_BRIEF_SOURCE,
   LEGACY_MACRO_INDICATORS_SOURCE,
-  MACROMICRO_SOURCE,
   macroContextBlockReason,
 } from "../lib/macro/macro-context-source.ts";
 
-test("Daily Investment Brief is primary, MacroMicro supplemental, legacy dashboard retired", () => {
+test("Daily Investment Brief remains separate context and MacroMicro is removed", () => {
   assert.equal(DAILY_INVESTMENT_BRIEF_SOURCE.role, "primary");
   assert.equal(DAILY_INVESTMENT_BRIEF_SOURCE.url, "https://dailyinvestmentbrief.com/macroeconomic-dashboard/");
-  assert.equal(MACROMICRO_SOURCE.role, "supplemental");
-  assert.equal(MACROMICRO_SOURCE.url, "https://en.macromicro.me/");
   assert.equal(LEGACY_MACRO_INDICATORS_SOURCE.role, "retired");
+
+  const sourceFile = readFileSync(
+    new URL("../lib/macro/macro-context-source.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(sourceFile, /macromicro/i);
 });
 
 test("client-side placeholders never become a usable Daily Investment Brief reading", () => {
@@ -27,16 +30,18 @@ test("populated Daily Investment Brief readings can clear the deterministic sour
   assert.equal(macroContextBlockReason(DAILY_INVESTMENT_BRIEF_SOURCE, populated), null);
 });
 
-test("MacroMicro remains unavailable when only a landing page or security verification is accessible", () => {
-  assert.equal(macroContextBlockReason(MACROMICRO_SOURCE, "Security Verification Checking your browser"), "security_verification");
-  assert.equal(macroContextBlockReason(MACROMICRO_SOURCE, "MacroMicro economic insight and charts"), "insufficient_dated_readings");
-  assert.equal(macroContextBlockReason(MACROMICRO_SOURCE, "Sep 3, 2026 US 10Y Treasury yield 4.78%"), null);
+test("security verification never becomes usable macro context", () => {
+  assert.equal(
+    macroContextBlockReason(DAILY_INVESTMENT_BRIEF_SOURCE, "Security Verification Checking your browser"),
+    "security_verification",
+  );
 });
 
-test("scheduled research calls the new macro-context collector, not the retired dashboard collector", () => {
+test("scheduled research calls the macro-context collector, not the retired dashboard collector", () => {
   const handler = readFileSync(new URL("../lib/cron-research-handler.ts", import.meta.url), "utf8");
   assert.match(handler, /captureMacroContextSnapshot/);
   assert.match(handler, /attachMacroContextCaptureToResearchRun/);
   assert.doesNotMatch(handler, /captureMacroIndicatorsSnapshot/);
   assert.doesNotMatch(handler, /attachMacroCaptureToResearchRun/);
+  assert.doesNotMatch(handler, /MacroMicro/);
 });
