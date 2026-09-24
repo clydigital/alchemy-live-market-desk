@@ -108,3 +108,18 @@ test("Research Brain reserves top-level gaps for material blockers", () => {
   assert.match(instructions, /If no conclusion-blocking gap exists, return research_gaps: \[\]/);
   assert.deepEqual(gap.properties.severity.enum, ["MATERIAL"]);
 });
+
+
+test("Research Brain distinguishes duration stress from systemic risk-off", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /DURATION-STRESS DECOMPOSITION/);
+  assert.match(instructions, /30Y breakout is first-class evidence/);
+  assert.match(instructions, /GLOBAL LABEL DISCIPLINE/);
+  assert.match(instructions, /Use "global duration shock" only when supplied non-US sovereign evidence confirms/);
+  assert.match(instructions, /CREDIT-BREADTH-VOL CONFIRMATION/);
+  assert.match(instructions, /High MOVE alongside contained VIX and still-tight credit/);
+  assert.match(instructions, /ENERGY-INFLATION TRANSMISSION/);
+  assert.match(instructions, /GOLD-USD CROSS-CHECK/);
+  assert.match(instructions, /RESEARCH-NOW PRIORITY/);
+});
