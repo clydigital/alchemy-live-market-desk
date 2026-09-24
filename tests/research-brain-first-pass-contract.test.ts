@@ -64,3 +64,33 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
   assert.ok(investigation.required.includes("observed_reaction"));
   assert.ok(investigation.required.includes("divergence"));
 });
+
+
+test("Research Brain frames the dossier around regime before asset calls", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /REGIME-FIRST MARKET FRAME/);
+  assert.match(instructions, /Do not infer risk-on or risk-off from SPX\/NDX alone/);
+  assert.match(instructions, /rates-led\/inflationary tightening/);
+  assert.match(instructions, /mixed\/selective leadership/);
+  assert.match(instructions, /FUNDAMENTAL STORY ORDER/);
+  assert.match(instructions, /Rank Major Stories by their ability to change the current regime/);
+  assert.match(instructions, /BALANCED ASSET LENSES/);
+});
+
+test("Research Brain rolls completed policy meetings to the next live decision", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /POLICY EVENT ROLLOVER/);
+  assert.match(instructions, /never continue to frame that completed meeting as a future unresolved catalyst/);
+  assert.match(instructions, /Roll the policy question forward to the next scheduled meeting/);
+  assert.match(instructions, /Historical policy expectations may remain only as labelled prior context/);
+});
+
+test("Research Brain keeps diplomacy and geopolitics conditional on observed evidence", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /trade, diplomatic or geopolitical developments as potential transmission or relief-valve branches only when observed evidence supports them/);
+  assert.match(instructions, /never assume an announced meeting, negotiation or threat produced a market effect without reaction evidence/);
+  assert.match(instructions, /STREAM-READY SYNTHESIS/);
+});
