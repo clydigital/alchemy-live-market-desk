@@ -67,7 +67,7 @@ Preferred inputs:
 - FRED broad IG/HY option-adjusted spreads for the market baseline;
 - issuer/project spread and TRACE-style data when available under an authorised feed;
 - hyperscaler debt issuance calendars and pricing;
-- MacroMicro AI Supply Chain, Artificial Intelligence, Semiconductor and CDS/Bonds modules as supplemental context when accessible.
+- authorised sector/credit datasets plus TradingView or Koyfin for manual chart discovery; neither is a runtime dependency.
 
 Key charts:
 
@@ -88,7 +88,7 @@ Preferred inputs:
 - Treasury refunding, auction and borrowing data;
 - fed-funds / SOFR futures when an authorised market-data source is available;
 - corporate issuance calendar and concessions;
-- MacroMicro Bonds and US Real Interest Rate pages as supplemental chart context.
+- FRED real-yield/breakeven series, Treasury data and authorised futures feeds; TradingView/Koyfin may be used manually for chart discovery.
 
 Key charts:
 
@@ -112,7 +112,7 @@ Preferred inputs:
 - pipeline and official operator notices where available;
 - shipping, tanker, insurance and physical-flow reporting from Reuters;
 - Kpler or S&P Commodity Insights when licensed;
-- MacroMicro Energy and Shipping modules as supplemental context.
+- EIA Open Data v2 for weekly petroleum state, plus authorised shipping/physical-flow sources when available.
 
 Key charts:
 
@@ -135,7 +135,7 @@ Preferred inputs:
 - IG/HY spreads;
 - private-credit redemption / liquidity reporting;
 - company filings and product announcements for adviser-agent integrations;
-- MacroMicro US Financials, Bonds and Sovereign Debt Default / CDS modules where relevant.
+- FRED/SLOOS plus authorised credit/CDS and bank-funding data where available.
 
 Key comparison:
 
@@ -154,7 +154,7 @@ Preferred inputs:
 - 52-week highs minus lows;
 - percentage above 20-day and 50-day averages;
 - sector relative strength;
-- MacroMicro Stocks and Volatility modules as supplemental context.
+- authorised breadth/volatility feeds; TradingView may be used manually for chart inspection.
 
 Never collapse all breadth measures into one score without preserving their time horizon.
 
@@ -170,7 +170,7 @@ Preferred inputs:
 - GDX / GLD relative strength;
 - ETF flows;
 - central-bank purchase data where current and attributable;
-- MacroMicro real-rate / bonds context when accessible.
+- FRED real yields and breakevens plus authorised ETF-flow data when available.
 
 ### 7. Positioning / market structure
 
@@ -179,24 +179,24 @@ Preferred inputs:
 - CFTC COT official data;
 - options gamma / open interest / skew from authorised feeds;
 - futures positioning where licensed;
-- MacroMicro Global COT Flow;
+- CFTC COT official data and authorised futures-positioning feeds;
 - creator positioning claims only as leads until reproduced.
 
 Historical creator statistics must include sample dates, sample size and forward-return distribution before they affect a Story conclusion.
 
-## MacroMicro operational rule
+## Optional third-party website rule
 
-MacroMicro is supplemental, not a required canonical dependency.
+Public chart websites are not canonical runtime dependencies.
 
-As of 23 September 2026, the existing collector can be blocked by Cloudflare security verification and can return a partial home-page capture without usable dated observations.
+The Dossier data path should prefer stable machine-readable sources: FRED and official agencies for macro/rates, EIA Open Data v2 for energy, and Trading Economics only through its authenticated API for optional U.S. event-surprise enrichment.
 
 Therefore:
 
-- require a successful timestamped reading before treating MacroMicro data as current;
-- preserve `partial`, `security_verification` and `insufficient_dated_readings` states;
-- never convert a blocked or undated page into a current market fact;
-- fall back to primary/public APIs or licensed sources rather than trying to bypass site protections;
-- use MacroMicro mainly for cross-checking, chart discovery and supplemental cycle context until the acquisition path is reliably dated.
+- never require browser scraping, anti-bot workarounds or authenticated browser sessions for Dossier health;
+- treat Trading Economics and EIA enrichment as optional: unavailable or unconfigured providers must not degrade an otherwise healthy Dossier;
+- preserve the source's raw actual, consensus, previous and timestamp fields before deriving surprise values;
+- keep TradingView/Koyfin as human investigation and chart-discovery tools rather than unattended backend dependencies;
+- prefer official APIs or authorised feeds whenever a source becomes fragile or blocked.
 
 ## Publication check
 
