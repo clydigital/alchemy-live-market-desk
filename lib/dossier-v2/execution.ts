@@ -66,6 +66,90 @@ function validCanonicalBlockerRefs(
   ]);
 }
 
+const RATES_LED_RESEARCH_BUNDLES = [
+  {
+    action:
+      "Decompose 2Y, 10Y and 30Y moves into policy-path, real-yield, inflation-compensation and term-premium drivers; confirm any global-duration label with Bund, gilt and JGB long ends and cross-check gold, real-yield and USD behavior.",
+    reason:
+      "Separates the Fed path from persistent long-end pressure and tests whether the rates/USD channel is dominating safe-haven demand.",
+  },
+  {
+    action:
+      "Test rates-shock transmission through HY/IG credit, market breadth and MOVE/VIX volatility, while tracking whether narrow AI/semiconductor leadership survives.",
+    reason:
+      "Distinguishes rates-led tightening with incomplete transmission from classic growth-scare risk-off.",
+  },
+  {
+    action:
+      "Test the energy-inflation channel with the crude curve, backwardation, refined-product cracks, inventories, utilisation and physical flows; use only verified Trump–Xi outcomes and implementation evidence.",
+    reason:
+      "Determines whether energy structure is sustaining the inflation impulse without hard-coding an unverified market or political claim.",
+  },
+] as const;
+
+function appendResearchDetail(current: string, detail: string): string {
+  return current.toLowerCase().includes(detail.toLowerCase())
+    ? current
+    : `${current.trim().replace(/[.\s]+$/, "")}. ${detail}`;
+}
+
+function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1): void {
+  if (
+    analyticalOutput.main_thread.regime_family !== "RATES_LED_TIGHTENING"
+    && analyticalOutput.main_thread.regime_family !== "MIXED_TRANSITION"
+  ) {
+    return;
+  }
+
+  analyticalOutput.research_now = RATES_LED_RESEARCH_BUNDLES.map((bundle, index) => {
+    const existing = analyticalOutput.research_now[index];
+    return {
+      rank: index + 1,
+      action: bundle.action,
+      reason: bundle.reason,
+      expected_information_gain: existing?.expected_information_gain ?? "High",
+      linked_investigations: cloneJson(existing?.linked_investigations ?? []),
+      linked_stories: cloneJson(existing?.linked_stories ?? []),
+      blocking_evidence: cloneJson(existing?.blocking_evidence ?? []),
+    };
+  });
+
+  const durationInvestigation = analyticalOutput.investigations.find((item) =>
+    /duration|yield|credit|breadth|volatility|transmission/i.test(
+      `${item.investigation_id} ${item.question}`,
+    )
+  );
+  if (durationInvestigation) {
+    durationInvestigation.missing_evidence = [
+      ...durationInvestigation.missing_evidence,
+      "Bund, gilt and JGB long-end confirmation for any global-duration label",
+      "gold versus real-yield and USD cross-check",
+      "HY/IG credit, breadth and MOVE/VIX transmission confirmation",
+    ].filter((item, index, items) => items.indexOf(item) === index);
+    durationInvestigation.research_next = appendResearchDetail(
+      durationInvestigation.research_next,
+      "Confirm global duration with Bund, gilt and JGB long ends; cross-check gold versus real yields and USD; compare HY/IG, breadth and MOVE/VIX",
+    );
+  }
+
+  const energyInvestigation = analyticalOutput.investigations.find((item) =>
+    /energy|oil|crude|refin|distillate|inflation/i.test(
+      `${item.investigation_id} ${item.question}`,
+    )
+  );
+  if (energyInvestigation) {
+    energyInvestigation.missing_evidence = [
+      ...energyInvestigation.missing_evidence,
+      "crude curve, backwardation and refined-product cracks",
+      "verified Trump–Xi outcome and implementation evidence before any political claim",
+    ].filter((item, index, items) => items.indexOf(item) === index);
+    energyInvestigation.research_next = appendResearchDetail(
+      energyInvestigation.research_next,
+      "Check the crude curve, backwardation and refined-product cracks; verify Trump–Xi outcomes and implementation before using them as facts",
+    );
+  }
+}
+
 function researchNowRouteIndex(
   analyticalOutput: ResearchBrainOutputV1,
   gap: ResearchGap,
@@ -122,6 +206,7 @@ function applyAnalyticalGapPolicy(
   analyticalOutput: ResearchBrainOutputV1,
 ): { analyticalOutput: ResearchBrainOutputV1; topLevelGaps: ResearchGap[] } {
   const normalized = cloneJson(analyticalOutput);
+  applyRatesLedResearchAgenda(normalized);
   const validRefs = validCanonicalBlockerRefs(normalized);
   const topLevelGaps: ResearchGap[] = [];
 
