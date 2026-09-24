@@ -265,3 +265,36 @@ test("Strong labour surprise creates a hawkish policy outlook", () => {
   assert.equal(outlook[0]?.policy_impulse, "HAWKISH");
   assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_UP");
 });
+
+
+test("System 1 never compares a prior-day market snapshot with a newer macro trigger", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:next-day",
+      claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T10:00:00Z",
+      occurrence_time: "2026-09-22T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+    }],
+    [{
+      evidence_id: "market-monitor:us2y:2026-09-21",
+      claim_or_fact: "US 2Y moved lower on September 21.",
+      available_at: "2026-09-21T22:00:00Z",
+      occurrence_time: "2026-09-21T20:00:00Z",
+      grouping_key: "market-monitor:us2y",
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      metrics: { day_change_pct: -0.4 },
+      provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:us2y" }],
+    }],
+  );
+
+  assert.equal(buildSystem1PolicyExpectationChecks(packet)[0]?.rule_id, "STRONG_ACTIVITY_SURPRISE");
+  assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+});
