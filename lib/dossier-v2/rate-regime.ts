@@ -59,6 +59,61 @@ function metricNumber(item: ObservedEvidence | null | undefined, key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function metricString(item: ObservedEvidence | null | undefined, key: string) {
+  const value = item?.metrics?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+const GENERIC_RATE_PRICING_CONTEXTS = new Set([
+  "fedwatch",
+  "fed_watch",
+  "fed-funds",
+  "fed_funds",
+  "fed-funds-futures",
+  "fed_funds_futures",
+  "rate_pricing",
+  "policy_pricing",
+]);
+
+type PersistentRatePricing = {
+  evidence: ObservedEvidence;
+  direction: "MORE_HAWKISH" | "MORE_DOVISH" | null;
+  fedWatchDirection: "HIKE_ODDS_UP" | "HIKE_ODDS_DOWN" | null;
+  detail: string;
+};
+
+function latestPersistentRatePricing(evidence: ObservedEvidence[]): PersistentRatePricing | null {
+  const item = evidence
+    .filter((candidate) => {
+      if (metricString(candidate, "signal_kind") !== "rate_expectation") return false;
+      const context = metricString(candidate, "signal_context");
+      return Boolean(context && GENERIC_RATE_PRICING_CONTEXTS.has(context.toLowerCase()));
+    })
+    .sort((left, right) => right.available_at.localeCompare(left.available_at))[0] ?? null;
+
+  if (!item) return null;
+
+  const observed = metricNumber(item, "observed_value");
+  const previous = metricNumber(item, "previous_value");
+  const unit = metricString(item, "measurement_unit");
+  const suffix = unit === "percent" ? "%" : unit ? ` ${unit}` : "";
+  const detail = observed !== null
+    ? `${observed}${suffix} — ${item.claim_or_fact}`
+    : item.claim_or_fact;
+
+  if (observed === null || previous === null || observed === previous) {
+    return { evidence: item, direction: null, fedWatchDirection: null, detail };
+  }
+
+  const hawkish = observed > previous;
+  return {
+    evidence: item,
+    direction: hawkish ? "MORE_HAWKISH" : "MORE_DOVISH",
+    fedWatchDirection: hawkish ? "HIKE_ODDS_UP" : "HIKE_ODDS_DOWN",
+    detail,
+  };
+}
+
 function rateEvidence(packet: DossierV2InputPacket) {
   const merged = [
     ...(packet.rate_context?.evidence ?? []),
@@ -109,15 +164,30 @@ function formatBp(value: number | null) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)} bp`;
 }
 
-function makePolicySignal(outlook: DossierPolicyOutlookItem[]): RateRegimeSignal {
+function makePolicySignal(
+  outlook: DossierPolicyOutlookItem[],
+  persistentPricing: PersistentRatePricing | null,
+): RateRegimeSignal {
   if (!outlook.length) {
+    if (persistentPricing?.direction) {
+      const hawkish = persistentPricing.direction === "MORE_HAWKISH";
+      return {
+        key: "POLICY",
+        label: "Next-meeting policy pricing",
+        state: hawkish ? "HAWKISH" : "DOVISH",
+        score: hawkish ? 1 : -1,
+        detail: persistentPricing.detail,
+        evidenceRefs: [persistentPricing.evidence.evidence_id],
+      };
+    }
+
     return {
       key: "POLICY",
       label: "Policy / macro impulse",
       state: "UNRESOLVED",
       score: 0,
-      detail: "No current deterministic policy impulse is present in the bounded rate context.",
-      evidenceRefs: [],
+      detail: "No current deterministic policy impulse or directional next-meeting repricing is present in the bounded rate context.",
+      evidenceRefs: persistentPricing ? [persistentPricing.evidence.evidence_id] : [],
     };
   }
 
@@ -171,7 +241,8 @@ export function buildDossierRateRegime(
   const real10y5dBp = bpChange(real10y);
   const breakeven5dBp = bpChange(breakeven10y);
 
-  const policySignal = makePolicySignal(policyOutlook);
+  const persistentRatePricing = latestPersistentRatePricing(evidence);
+  const policySignal = makePolicySignal(policyOutlook, persistentRatePricing);
 
   let frontEndScore = 0;
   if (us2y5dBp !== null) {
@@ -306,6 +377,15 @@ export function buildDossierRateRegime(
     .filter((value): value is string => Boolean(value));
 
   const primary = policyOutlook[0] ?? null;
+  const fallbackNextMeetingOutlook = primary?.nextMeetingRateOutlook
+    ?? persistentRatePricing?.direction
+    ?? null;
+  const fallbackFedWatchDirection = primary?.fedWatchExpectedDirection
+    ?? persistentRatePricing?.fedWatchDirection
+    ?? null;
+  const fallbackObservedRatePricing = primary?.observedRatePricing
+    ?? persistentRatePricing?.detail
+    ?? null;
   const evidenceRefs = [...new Set([
     ...signals.flatMap((item) => item.evidenceRefs),
     ...curveEvidenceRefs,
@@ -347,10 +427,10 @@ export function buildDossierRateRegime(
     score,
     confidence,
     summary,
-    nextMeetingRateOutlook: primary?.nextMeetingRateOutlook ?? null,
-    fedWatchExpectedDirection: primary?.fedWatchExpectedDirection ?? null,
+    nextMeetingRateOutlook: fallbackNextMeetingOutlook,
+    fedWatchExpectedDirection: fallbackFedWatchDirection,
     trigger: primary?.trigger ?? null,
-    observedRatePricing: primary?.observedRatePricing ?? null,
+    observedRatePricing: fallbackObservedRatePricing,
     observedConfirmation: primary?.observedConfirmation ?? null,
     usRatesReaction: frontEndResolved
       ? `US 2Y 5D ${formatBp(us2y5dBp)}`
