@@ -442,6 +442,52 @@ test("Task 9 adapter admits Trading Economics actual-consensus-previous as optio
   );
 });
 
+test("Task 9 adapter excludes legacy MacroMicro-backed evidence from new Dossier inputs", () => {
+  const rows: CanonicalEvidenceRow[] = [
+    baseRow({
+      id: "legacy-macromicro",
+      external_evidence_id: "verified-macro:legacy-fedwatch",
+      evidence_class: "other",
+      claim_text: "Legacy MacroMicro-derived FedWatch observation.",
+      structured_payload: {
+        evidenceNature: "verified_macro_data",
+        signalKind: "rate_expectation",
+        signalContext: "STRONG_ACTIVITY_SURPRISE",
+      },
+      source: source({
+        id: "legacy-macromicro-source",
+        ancestry_group_id: "legacy-macromicro-ancestry",
+        external_source_id: "macromicro.me|macromicro",
+        source_name: "MacroMicro",
+        source_url: "https://en.macromicro.me/",
+        source_type: "data_provider",
+      }),
+    }),
+    baseRow({
+      id: "official-fed",
+      external_evidence_id: "verified-macro:official-fed",
+      evidence_class: "official_release",
+      claim_text: "Official Federal Reserve evidence remains eligible.",
+      source: source({
+        id: "official-fed-source",
+        ancestry_group_id: "official-fed-ancestry",
+        source_name: "Federal Reserve",
+        source_url: "https://www.federalreserve.gov/",
+        source_type: "data_provider",
+      }),
+    }),
+  ];
+
+  const result = buildCandidateSnapshotFromCanonicalEvidence(rows, {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const ids = new Set(result.snapshot.observed_evidence?.map((item) => item.evidence_id));
+  assert.equal(ids.has("verified-macro:legacy-fedwatch"), false);
+  assert.equal(ids.has("verified-macro:official-fed"), true);
+});
+
 test("Task 9 adapter excludes evidence that was not available by as_of", () => {
   const rows: CanonicalEvidenceRow[] = [
     baseRow({
