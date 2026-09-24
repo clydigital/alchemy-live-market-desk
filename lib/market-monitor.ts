@@ -109,6 +109,7 @@ type FredSpec = {
   id: string;
   seriesId: string;
   label: string;
+  type?: MarketMonitorType;
 };
 
 const HISTORY_DAYS = 470;
@@ -120,6 +121,11 @@ const FRED_RATE_SPECS: FredSpec[] = [
   { id: "us10y-real", seriesId: "DFII10", label: "US 10Y Real Yield" },
   { id: "us10y-breakeven", seriesId: "T10YIE", label: "US 10Y Breakeven Inflation" },
   { id: "fed-funds-effective", seriesId: "DFF", label: "Effective Federal Funds Rate" },
+];
+
+const FRED_CREDIT_SPECS: FredSpec[] = [
+  { id: "hy-oas", seriesId: "BAMLH0A0HYM2", label: "US High Yield OAS", type: "Credit / Risk" },
+  { id: "ig-oas", seriesId: "BAMLC0A0CM", label: "US Investment Grade OAS", type: "Credit / Risk" },
 ];
 
 const BASE_SPECS: BaseSpec[] = [
@@ -293,7 +299,7 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
     id: spec.id,
     symbol: spec.seriesId,
     label: spec.label,
-    type: "Rates",
+    type: spec.type ?? "Rates",
     benchmark: null,
     points,
     sourceName: "Federal Reserve Economic Data",
@@ -309,6 +315,9 @@ export const loadExtras = unstable_cache(async () => {
   const rateRows = await Promise.all(
     FRED_RATE_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
   );
+  const creditRows = await Promise.all(
+    FRED_CREDIT_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
+  );
   const globalRateRows = await Promise.all([
     fetchFredSeries({ id: "eur10y", seriesId: "IRLTLT01EZM156N", label: "Euro Area 10Y Yield · monthly" })
       .then((row) => ({ ...row, frequency: "monthly" as const }))
@@ -317,8 +326,8 @@ export const loadExtras = unstable_cache(async () => {
       .then((row) => ({ ...row, frequency: "monthly" as const }))
       .catch(() => null),
   ]);
-  return [...extraRows, ...rateRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v2"], { revalidate: EXTRA_REVALIDATE });
+  return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-extras-v3"], { revalidate: EXTRA_REVALIDATE });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
