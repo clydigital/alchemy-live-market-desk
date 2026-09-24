@@ -2,7 +2,10 @@ import { getHybridDeskData } from "@/lib/data";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { firecrawlConfigured } from "@/lib/firecrawl";
 import { openAIIntelligenceEnabled, intelligenceModel } from "@/lib/intelligence/openai";
-import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
+import {
+  GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED,
+  PRODUCTION_RESEARCH_AUTOMATION_PAUSED,
+} from "@/lib/research-automation-routing";
 import { youtubeDiscoveryHealthState } from "@/lib/youtube-health";
 import { getPrimaryMacroContextHealth } from "@/lib/macro/macro-context-capture-supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -155,7 +158,8 @@ export async function getSystemHealth() {
   ];
   const openDebt = researchDebt.filter((row) => row.status === "open");
   const scheduleFlagEnabled = process.env.NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED === "true";
-  const scheduleEnabled = scheduleFlagEnabled && !PRODUCTION_RESEARCH_AUTOMATION_PAUSED;
+  const vercelResearchScheduleEnabled = scheduleFlagEnabled && !PRODUCTION_RESEARCH_AUTOMATION_PAUSED;
+  const scheduleEnabled = GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED || vercelResearchScheduleEnabled;
   const cronConfigured = configured(process.env.CRON_SECRET);
   const openAIConfigured = configured(process.env.OPENAI_API_KEY) && openAIIntelligenceEnabled();
   const youtubeConfigured = configured(process.env.YOUTUBE_DATA_API_KEY);
@@ -192,26 +196,32 @@ export async function getSystemHealth() {
           : "The canonical OpenAI runtime is configured but has not recorded an intelligence run.",
     },
     scheduling: {
-      state: PRODUCTION_RESEARCH_AUTOMATION_PAUSED
-        ? "paused_by_routing"
-        : scheduleEnabled && cronConfigured
-          ? "enabled"
-          : scheduleEnabled
-            ? "blocked_missing_cron_secret"
-            : "intentionally_disabled",
-      configured: scheduleEnabled && cronConfigured,
+      state: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
+        ? "enabled"
+        : PRODUCTION_RESEARCH_AUTOMATION_PAUSED
+          ? "paused_by_routing"
+          : vercelResearchScheduleEnabled && cronConfigured
+            ? "enabled"
+            : vercelResearchScheduleEnabled
+              ? "blocked_missing_cron_secret"
+              : "intentionally_disabled",
+      configured: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
+        || (vercelResearchScheduleEnabled && cronConfigured),
+      mode: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED ? "github_actions" : "vercel_cron",
       cronConfigured,
       expectedSlots: ["09:15 Asia/Kuala_Lumpur", "21:15 Asia/Kuala_Lumpur"],
       latestResearchRunAt: latestResearchRun?.completed_at || latestResearchRun?.updated_at || null,
       latestResearchRunStatus: latestResearchRun?.status || null,
       latestResearchRunKey: latestResearchRun?.run_key || null,
-      note: PRODUCTION_RESEARCH_AUTOMATION_PAUSED
-        ? "The schedule flag and cron registrations may be present, but production routing currently intercepts research cron requests."
-        : scheduleEnabled
-          ? cronConfigured
-            ? "The two Live-owned Vercel Cron routes are enabled; each requires CRON_SECRET and publishes only through the canonical Live runtime."
-            : "The schedule flag is on but CRON_SECRET is missing, so unattended execution remains blocked."
-          : "Cron is intentionally off during coding and is not classified as a fault.",
+      note: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
+        ? "The audited GitHub Actions workflow runs the full Live research pipeline at 09:15 and 21:15 Asia/Kuala_Lumpur. Legacy Vercel research cron routes remain paused to avoid duplicate execution."
+        : PRODUCTION_RESEARCH_AUTOMATION_PAUSED
+          ? "The schedule flag and cron registrations may be present, but production routing currently intercepts research cron requests."
+          : vercelResearchScheduleEnabled
+            ? cronConfigured
+              ? "The Live-owned Vercel research schedule is enabled and publishes only through the canonical Live runtime."
+              : "The schedule flag is on but CRON_SECRET is missing, so unattended execution remains blocked."
+            : "Research automation is intentionally disabled.",
     },
     supabase: {
       state: state(configured(process.env.NEXT_PUBLIC_SUPABASE_URL) && configured(process.env.SUPABASE_SERVICE_ROLE_KEY), Boolean(latestResearchRun)),
