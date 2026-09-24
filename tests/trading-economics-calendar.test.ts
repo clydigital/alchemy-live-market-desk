@@ -76,7 +76,7 @@ test("Trading Economics fetch is optional when no key is configured", async () =
 
 test("Trading Economics fetch sends credentials in Authorization header, not URL", async () => {
   let requestedUrl = "";
-  let requestedHeaders: Headers | null = null;
+  let requestedAuthorization: string | null = null;
 
   const result = await fetchTradingEconomicsUsCalendarSnapshot({
     apiKey: "secret-test-key",
@@ -84,7 +84,7 @@ test("Trading Economics fetch sends credentials in Authorization header, not URL
     to: new Date("2026-09-24T00:00:00.000Z"),
     fetcher: async (input, init) => {
       requestedUrl = String(input);
-      requestedHeaders = new Headers(init?.headers);
+      requestedAuthorization = new Headers(init?.headers).get("authorization");
       return new Response(JSON.stringify([]), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -94,5 +94,5 @@ test("Trading Economics fetch sends credentials in Authorization header, not URL
 
   assert.equal(result.state, "ready");
   assert.equal(requestedUrl.includes("secret-test-key"), false);
-  assert.equal(requestedHeaders?.get("authorization"), "secret-test-key");
+  assert.equal(requestedAuthorization, "secret-test-key");
 });
