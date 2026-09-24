@@ -6,23 +6,23 @@ import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts"
 
 const AS_OF = "2026-09-24T06:00:00.000Z";
 
-test("canonical snapshot ranks primary evidence ahead of newer secondary market context", () => {
+test("canonical snapshot ranks primary official evidence ahead of newer market observation", () => {
   const result = buildCandidateSnapshotFromCanonicalEvidence([
     {
       id: "news-1",
       external_evidence_id: "ev-news",
       claim_text: "US 10-year Treasury yields rose 12 bps to 5.10% in Thursday trading.",
       summary: "Treasury yields rose as markets repriced the rates outlook.",
-      evidence_class: "news_report",
+      evidence_class: "market_observation",
       published_at: "2026-09-24T05:30:00.000Z",
       available_at: "2026-09-24T05:31:00.000Z",
       affected_topics: ["rates"],
       affected_assets: ["US10Y"],
       source: {
         id: "src-news",
-        source_name: "High quality wire",
-        source_type: "article",
-        source_url: "https://example.com/news",
+        source_name: "Secondary market feed",
+        source_type: "pricing",
+        source_url: "https://example.com/market",
         source_tier: 2,
         reliability_score: 85,
       },
