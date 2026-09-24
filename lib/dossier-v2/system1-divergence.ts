@@ -198,13 +198,25 @@ function activeTriggers(packet: DossierV2InputPacket) {
 function marketMove(
   packet: DossierV2InputPacket,
   monitorId: string,
+  trigger: ObservedEvidence,
 ): { evidence: ObservedEvidence; change: number } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
   );
-  const evidence = cluster?.evidence.find(
-    (item) => item.source_type === "MARKET_DATA" && metric(item, "day_change_pct") !== null,
-  );
+  const triggerAvailableAt = Date.parse(trigger.available_at);
+  const evidence = cluster?.evidence.find((item) => {
+    if (item.source_type !== "MARKET_DATA" || metric(item, "day_change_pct") === null) {
+      return false;
+    }
+
+    // Divergence requires a market reaction observed after the trigger. A
+    // prior-day close paired with a newer macro release is context, not a
+    // reaction, and must never generate an expected-vs-observed mismatch.
+    const marketAvailableAt = Date.parse(item.available_at);
+    return Number.isFinite(triggerAvailableAt)
+      && Number.isFinite(marketAvailableAt)
+      && marketAvailableAt >= triggerAvailableAt;
+  });
   const change = metric(evidence, "day_change_pct");
   return evidence && change !== null ? { evidence, change } : null;
 }
@@ -249,7 +261,7 @@ export function buildSystem1DivergenceCandidates(
     if (!trigger || (rule.opposite && active.has(rule.opposite))) continue;
 
     for (const [monitorId, instrument, expected] of rule.expectations) {
-      const move = marketMove(packet, monitorId);
+      const move = marketMove(packet, monitorId, trigger);
       if (!move || Math.abs(move.change) < MIN_MATERIAL_MOVE_PCT) continue;
 
       const observed: Direction = move.change > 0 ? "UP" : "DOWN";
