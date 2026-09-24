@@ -444,6 +444,7 @@ export function produceDegradedOutput(
       headline: "Research Brain Operating in Degraded Fallback Mode",
       answer: "Primary reasoning pass was unavailable or failed validation.",
       regime_implication: "UNRESOLVED",
+      regime_family: "UNRESOLVED",
       epistemic_label: "SPECULATIVE",
       evidence_references: [],
       supporting_story_ids: [],

@@ -104,9 +104,11 @@ test("Research Brain reserves top-level gaps for material blockers", () => {
   assert.match(instructions, /TOP-LEVEL RESEARCH GAP DISCIPLINE/);
   assert.match(instructions, /ONLY for missing input that materially blocks, invalidates, or makes unsafe/);
   assert.match(instructions, /Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail/);
-  assert.match(instructions, /Put those refinement needs in investigations\[\*\]\.missing_evidence and\/or research_now instead/);
+  assert.match(instructions, /Put every refinement in investigations\[\*\]\.missing_evidence and\/or research_now as well/);
   assert.match(instructions, /If no conclusion-blocking gap exists, return research_gaps: \[\]/);
-  assert.deepEqual(gap.properties.severity.enum, ["MATERIAL"]);
+  assert.deepEqual(gap.properties.severity.enum, ["MATERIAL", "INFORMATIONAL"]);
+  assert.deepEqual(gap.properties.gap_class.enum, ["BLOCKER", "REFINEMENT"]);
+  assert.ok(gap.required.includes("blocking_refs"));
 });
 
 

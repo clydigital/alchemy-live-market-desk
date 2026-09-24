@@ -233,3 +233,29 @@ test("verified 30Y evidence is promoted into the deterministic long-end signal",
   assert.match(longEnd?.detail ?? "", /verified US 30Y 5\.42%/);
   assert.ok(longEnd?.evidenceRefs.includes("verified-macro:us30y-sep24-2026"));
 });
+
+test("verified 30Y broadens the long-end evidence but does not invent a regime without the 10Y stack", () => {
+  const input = packet([{
+    evidence_id: "verified-macro:us30y-only-2026",
+    claim_or_fact: "The US 30Y Treasury yield reached 5.44%.",
+    category: "Rates",
+    source_type: "VERIFIED_MACRO_DATA",
+    available_at: "2026-09-24T12:00:00.000Z",
+    occurrence_time: "2026-09-24T11:00:00.000Z",
+    metrics: {
+      signal_kind: "market_reaction",
+      signal_context: "us30y",
+      observed_value: 5.44,
+      measurement_unit: "percent",
+    },
+    provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "US30Y_ONLY" }],
+  }]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const longEnd = regime.signals.find((item) => item.key === "LONG_END");
+
+  assert.equal(longEnd?.state, "UNRESOLVED");
+  assert.match(longEnd?.detail ?? "", /Verified US 30Y 5\.44%/);
+  assert.equal(regime.state, "UNRESOLVED");
+  assert.equal(regime.score, 0);
+});

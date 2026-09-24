@@ -420,6 +420,47 @@ export function validateResearchBrainOutput(
   if (researchGaps.length > MAX_RESEARCH_GAPS) {
     errors.push(`research_gaps count (${researchGaps.length}) exceeds limit of ${MAX_RESEARCH_GAPS}.`);
   }
+  const validBlockingRefs = new Set([
+    "MAIN_THREAD",
+    "REGIME:CURRENT",
+    ...majorStories
+      .filter(isPlainObject)
+      .map((story) => typeof story.story_id === "string" ? `STORY:${story.story_id}` : "")
+      .filter(Boolean),
+  ]);
+  for (let gapIndex = 0; gapIndex < researchGaps.length; gapIndex++) {
+    const gap = researchGaps[gapIndex];
+    if (!isPlainObject(gap)) {
+      errors.push(`research_gaps[${gapIndex}] is not a plain object.`);
+      continue;
+    }
+    const gapId = typeof gap.gap_id === "string" ? gap.gap_id : `gap-${gapIndex}`;
+    const gapClass = gap.gap_class;
+    const blockingRefs = Array.isArray(gap.blocking_refs) ? gap.blocking_refs : [];
+
+    if (gapClass === "BLOCKER") {
+      if (gap.severity !== "MATERIAL") {
+        errors.push(`research_gaps[${gapIndex}] (${gapId}) BLOCKER must use MATERIAL severity.`);
+      }
+      if (blockingRefs.length === 0) {
+        errors.push(`research_gaps[${gapIndex}] (${gapId}) BLOCKER requires a canonical conclusion reference.`);
+      }
+      for (const ref of blockingRefs) {
+        if (typeof ref !== "string" || !validBlockingRefs.has(ref)) {
+          errors.push(`research_gaps[${gapIndex}] (${gapId}) references unknown canonical conclusion "${String(ref)}".`);
+        }
+      }
+    } else if (gapClass === "REFINEMENT") {
+      if (gap.severity !== "INFORMATIONAL") {
+        errors.push(`research_gaps[${gapIndex}] (${gapId}) REFINEMENT must use INFORMATIONAL severity.`);
+      }
+      if (blockingRefs.length > 0) {
+        errors.push(`research_gaps[${gapIndex}] (${gapId}) REFINEMENT must not block a canonical conclusion.`);
+      }
+    } else {
+      errors.push(`research_gaps[${gapIndex}] (${gapId}) has invalid gap_class "${String(gapClass)}".`);
+    }
+  }
 
   // 3. Major Story Quality Firewall & Epistemic Validation
   for (let sIdx = 0; sIdx < majorStories.length; sIdx++) {

@@ -125,6 +125,8 @@ export interface ResearchGap {
   category: string;
   description: string;
   severity: "MATERIAL" | "INFORMATIONAL";
+  gap_class?: "BLOCKER" | "REFINEMENT";
+  blocking_refs?: string[];
 }
 
 export interface FreshnessWarning {

@@ -233,6 +233,7 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
       headline: "Fed Rate Easing Cycle Commences as Disinflation Accelerates",
       answer: "Federal Reserve cut interest rates by 25bps following 2.5% CPI print.",
       regime_implication: "MONETARY_EASING_REGIME",
+      regime_family: "GROWTH_SCARE_RISK_OFF",
       epistemic_label: "OBSERVED",
       evidence_references: [evCpi, evFed],
       supporting_story_ids: ["story:fed_easing"],
@@ -973,6 +974,56 @@ test("7B. Deterministic Stock Radar normalization does not hide unknown IDs", ()
   const val = validateResearchBrainOutput(normalized, packet);
   assert.equal(val.isValid, false);
   assert.ok(val.errors.some((e) => e.includes("does not match main_thread.thread_id")));
+});
+
+test("7C. Research gap blocker relations must resolve to canonical conclusions", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [{
+    gap_id: "gap:orphan",
+    category: "rates",
+    description: "Missing evidence is claimed to block an unknown Story.",
+    severity: "MATERIAL",
+    gap_class: "BLOCKER",
+    blocking_refs: ["STORY:missing"],
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /unknown canonical conclusion/i.test(error)));
+});
+
+test("7D. Refinements cannot carry blocker references", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [{
+    gap_id: "gap:refinement",
+    category: "energy",
+    description: "PADD2 flow detail would refine durability.",
+    severity: "INFORMATIONAL",
+    gap_class: "REFINEMENT",
+    blocking_refs: ["MAIN_THREAD"],
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REFINEMENT must not block/i.test(error)));
+});
+
+test("7E. A structured material blocker linked to Main Thread is valid", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [{
+    gap_id: "gap:pricing",
+    category: "PRICE_DATA",
+    description: "Current pricing is unavailable for the Main Thread conclusion.",
+    severity: "MATERIAL",
+    gap_class: "BLOCKER",
+    blocking_refs: ["MAIN_THREAD"],
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
 });
 
 test("8. Bounded Reference Index in Structural Repair Prompt", () => {

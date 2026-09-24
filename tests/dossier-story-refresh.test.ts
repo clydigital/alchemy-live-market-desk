@@ -78,6 +78,7 @@ function output(inputPacket: ReturnType<typeof packet>): ResearchBrainOutputV1 {
       headline: "Energy tightness and front-end Fed repricing define the current regime",
       answer: "Oil and distillate strength are colliding with a hawkish Fed and higher front-end yields.",
       regime_implication: "Inflation pressure and policy repricing remain the dominant cross-asset tension.",
+      regime_family: "RATES_LED_TIGHTENING",
       epistemic_label: "SUPPORTED",
       evidence_references: [],
       supporting_story_ids: [],

@@ -18,6 +18,7 @@ function output(overrides: Partial<ResearchBrainOutputV1> = {}): ResearchBrainOu
       headline: "Energy, rates and semis define the current regime.",
       answer: "WTI is strong, yields are elevated and semiconductors are outperforming.",
       regime_implication: "Inflation pressure and narrow equity leadership remain the main transmission paths.",
+      regime_family: "RATES_LED_TIGHTENING",
       epistemic_label: "SUPPORTED",
       evidence_references: ["ev-wti", "ev-us10y", "ev-smh"],
       supporting_story_ids: ["story-1"],
@@ -225,6 +226,7 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.health.repairUsed, true);
   assert.deepEqual(result.health.freshnessWarnings, ["Optional macro enrichment is partial."]);
   assert.equal(result.header.headline, "Energy, rates and semis define the current regime.");
+  assert.equal(result.header.regimeFamily, "RATES_LED_TIGHTENING");
   assert.equal(result.whatMattersNow.stories[0].id, "story-1");
   assert.equal(result.watchNext[0].id, "inv-1");
   assert.equal(result.researchNow[0].rank, 1);
