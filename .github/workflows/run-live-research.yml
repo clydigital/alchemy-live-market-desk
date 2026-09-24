@@ -1,6 +1,9 @@
 name: Run Live Research Now
 
 on:
+  schedule:
+    - cron: "15 1 * * *"
+    - cron: "15 13 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -70,12 +73,13 @@ concurrency:
 
 jobs:
   run-production-cron:
-    name: Run ${{ inputs.mode }} production action
+    name: Run ${{ github.event_name == 'schedule' && 'research' || inputs.mode }} production action
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       PROD_URL: https://alchemy-live-market-desk.vercel.app
-      SLOT: ${{ inputs.slot }}
+      MODE: ${{ github.event_name == 'schedule' && 'research' || inputs.mode }}
+      SLOT: ${{ github.event_name == 'schedule' && github.event.schedule == '15 1 * * *' && 'morning' || github.event_name == 'schedule' && 'evening' || inputs.slot }}
       RETRY_KEY: ${{ inputs.retry_key }}
       FINRA_TRADE_DATE: ${{ inputs.finra_trade_date }}
       FINRA_SYMBOLS: ${{ inputs.finra_symbols }}
@@ -86,11 +90,15 @@ jobs:
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
       - name: Resolve audited manual identity
-        if: ${{ inputs.mode == 'research' || inputs.mode == 'intelligence_only' || inputs.mode == 'story_maintenance' }}
+        if: ${{ env.MODE == 'research' || env.MODE == 'intelligence_only' || env.MODE == 'story_maintenance' }}
         shell: bash
         run: |
           if [[ -z "$RETRY_KEY" ]]; then
-            RETRY_KEY="live-manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+              RETRY_KEY="live-auto-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            else
+              RETRY_KEY="live-manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            fi
           fi
           if [[ ! "$RETRY_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,40}$ ]]; then
             echo "retry_key must contain only letters, numbers, and hyphens and be at most 41 characters." >&2
@@ -100,7 +108,7 @@ jobs:
           echo "Manual research identity: $RETRY_KEY"
 
       - name: Run canonical production pipeline
-        if: ${{ inputs.mode == 'research' }}
+        if: ${{ env.MODE == 'research' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -166,7 +174,7 @@ jobs:
           exit 1
 
       - name: Run canonical intelligence only
-        if: ${{ inputs.mode == 'intelligence_only' }}
+        if: ${{ env.MODE == 'intelligence_only' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -229,7 +237,7 @@ jobs:
           exit 1
 
       - name: Run Story maintenance only
-        if: ${{ inputs.mode == 'story_maintenance' }}
+        if: ${{ env.MODE == 'story_maintenance' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -266,7 +274,7 @@ jobs:
           fi
 
       - name: Run Dossier V2 production dry-run
-        if: ${{ inputs.mode == 'dossier_v2_dry_run' }}
+        if: ${{ env.MODE == 'dossier_v2_dry_run' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -333,7 +341,7 @@ jobs:
           fi
 
       - name: Upload Dossier V2 dry-run artifact
-        if: ${{ inputs.mode == 'dossier_v2_dry_run' && always() }}
+        if: ${{ env.MODE == 'dossier_v2_dry_run' && always() }}
         uses: actions/upload-artifact@v4
         with:
           name: dossier-v2-dry-run-${{ github.run_id }}-${{ github.run_attempt }}
@@ -343,7 +351,7 @@ jobs:
 
 
       - name: Run Dossier V2 production persistence proof
-        if: ${{ inputs.mode == 'dossier_v2_persist' }}
+        if: ${{ env.MODE == 'dossier_v2_persist' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -411,7 +419,7 @@ jobs:
           fi
 
       - name: Upload Dossier V2 persistence artifact
-        if: ${{ inputs.mode == 'dossier_v2_persist' && always() }}
+        if: ${{ env.MODE == 'dossier_v2_persist' && always() }}
         uses: actions/upload-artifact@v4
         with:
           name: dossier-v2-persist-${{ github.run_id }}-${{ github.run_attempt }}
@@ -420,7 +428,7 @@ jobs:
           retention-days: 7
 
       - name: Ingest verified macro signals
-        if: ${{ inputs.mode == 'verified_macro_signals' }}
+        if: ${{ env.MODE == 'verified_macro_signals' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -445,7 +453,7 @@ jobs:
           fi
 
       - name: Run FINRA sensor-memory production proof
-        if: ${{ inputs.mode == 'finra_sensor' }}
+        if: ${{ env.MODE == 'finra_sensor' }}
         shell: bash
         run: |
           set -euo pipefail
