@@ -193,6 +193,32 @@ type MarketMonitorLike = {
     attentionScore?: number;
     hot?: boolean;
   }>;
+  breadth?: Array<{
+    id: string;
+    label: string;
+    sourceName: string;
+    sampleSize: number;
+    targetSize: number;
+    current: {
+      asOf: string | null;
+      sampleSize: number;
+      above20: number;
+      above50: number;
+      above200: number;
+      newHighs20: number;
+      newLows20: number;
+    };
+    weekAgo: {
+      asOf: string | null;
+      above50: number;
+      above200: number;
+    };
+    monthAgo: {
+      asOf: string | null;
+      above50: number;
+      above200: number;
+    };
+  }>;
   limitations?: string[];
 };
 
@@ -657,14 +683,54 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     });
   }
 
-  if (!rows.length) return result;
+  let breadthAdded = 0;
+  for (const [index, breadth] of (monitor.breadth ?? []).entries()) {
+    if (!breadth.current.asOf || breadth.current.sampleSize <= 0) continue;
+    const occurrenceMs = Date.parse(`${breadth.current.asOf}T00:00:00.000Z`);
+    if (!Number.isFinite(occurrenceMs) || occurrenceMs > asOfMs) continue;
+
+    const weekDelta50 = breadth.current.above50 - breadth.weekAgo.above50;
+    const monthDelta50 = breadth.current.above50 - breadth.monthAgo.above50;
+    observed.push({
+      evidence_id: `market-breadth:${breadth.id}:${breadth.current.asOf}`,
+      claim_or_fact: `${breadth.label} breadth was ${breadth.current.above50}% above the 50-day average and ${breadth.current.above200}% above the 200-day average as of ${breadth.current.asOf}; ${breadth.current.newHighs20} constituents were at 20-day highs versus ${breadth.current.newLows20} at 20-day lows across ${breadth.current.sampleSize}/${breadth.targetSize} eligible histories.`,
+      category: "BREADTH",
+      source_type: "MARKET_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${breadth.current.asOf}T00:00:00.000Z`,
+      grouping_key: `market-breadth:${breadth.id}`,
+      rank: 15 + index * 2,
+      metrics: {
+        basket: breadth.id,
+        sample_size: breadth.current.sampleSize,
+        target_size: breadth.targetSize,
+        above_20d_pct: breadth.current.above20,
+        above_50d_pct: breadth.current.above50,
+        above_200d_pct: breadth.current.above200,
+        new_highs_20d: breadth.current.newHighs20,
+        new_lows_20d: breadth.current.newLows20,
+        week_delta_above_50d_pts: weekDelta50,
+        month_delta_above_50d_pts: monthDelta50,
+        provider: breadth.sourceName,
+      },
+      provenance: [{
+        source_type: "NASDAQ",
+        source_id: `market-breadth:${breadth.id}`,
+        url: "https://www.nasdaq.com/market-activity",
+        publisher: breadth.sourceName,
+      }],
+    });
+    breadthAdded += 1;
+  }
+
+  if (!rows.length && breadthAdded === 0) return result;
 
   const sourcesStatus = {
     ...(result.snapshot.sources_status ?? {}),
     market_monitor: {
       status: "OK",
       available_at: options.asOf,
-      message: `${rows.length} existing Live market-monitor observations admitted into Dossier V2.`,
+      message: `${rows.length} existing Live market-monitor observations and ${breadthAdded} derived breadth snapshots admitted into Dossier V2.`,
     },
   };
 
