@@ -400,3 +400,34 @@ test("Task 8 bridge propagates persistence failure and never reports false succe
     /Failed to persist MarketDossierV2: forced persistence failure/,
   );
 });
+
+
+test("Task 8 mapper keeps only material analytical blockers in top-level research gaps", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+
+  output.research_gaps = [
+    {
+      gap_id: "gap:refinement-only",
+      category: "market-flow",
+      description: "Need intraday dealer positioning to refine the durability assessment.",
+      severity: "INFORMATIONAL",
+    },
+    {
+      gap_id: "gap:material-blocker",
+      category: "PRICE_DATA",
+      description: "Required current price evidence is unavailable for a material conclusion.",
+      severity: "MATERIAL",
+    },
+  ];
+
+  const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const ids = dossierInput.research_gaps.flatMap((gap) =>
+    gap && typeof gap === "object" && !Array.isArray(gap) && typeof (gap as { gap_id?: unknown }).gap_id === "string"
+      ? [(gap as { gap_id: string }).gap_id]
+      : [],
+  );
+
+  assert.ok(ids.includes("gap:material-blocker"));
+  assert.ok(!ids.includes("gap:refinement-only"));
+});

@@ -62,7 +62,20 @@ function mergeResearchGaps(
   const merged = new Map<string, unknown>();
   let fallbackIndex = 0;
 
-  for (const gap of [...packetGaps, ...analyticalOutput.research_gaps]) {
+  // Packet gaps represent deterministic source/health coverage and must be
+  // preserved even when informational. Analytical gaps are stricter: only a
+  // MATERIAL blocker belongs in the top-level Dossier health surface. Refining
+  // questions belong in investigations.missing_evidence or research_now.
+  for (const gap of packetGaps) {
+    const clonedGap = cloneJson(gap);
+    const key = gapKey(clonedGap, fallbackIndex++);
+    if (!merged.has(key)) {
+      merged.set(key, clonedGap);
+    }
+  }
+
+  for (const gap of analyticalOutput.research_gaps) {
+    if (gap.severity !== "MATERIAL") continue;
     const clonedGap = cloneJson(gap);
     const key = gapKey(clonedGap, fallbackIndex++);
     if (!merged.has(key)) {

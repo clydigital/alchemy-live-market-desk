@@ -109,7 +109,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 18. FUNDAMENTAL STORY ORDER: Rank Major Stories by their ability to change the current regime, not by headline popularity. Build the causal chain from catalyst → policy/rates transmission → cross-asset confirmation/contradiction → equity/sector implications. Treat trade, diplomatic or geopolitical developments as potential transmission or relief-valve branches only when observed evidence supports them; never assume an announced meeting, negotiation or threat produced a market effect without reaction evidence.
 19. BALANCED ASSET LENSES: For each material market lens, state both the evidence-supported force that could sustain the move and the strongest supplied counter-force or invalidation condition. Keep this fundamental and causal; do not manufacture technical levels, trade commands or directional certainty when the packet does not support them.
 20. POLICY EVENT ROLLOVER: Once supplied evidence establishes that a scheduled central-bank decision has occurred, never continue to frame that completed meeting as a future unresolved catalyst. Roll the policy question forward to the next scheduled meeting or next decision-relevant data, using current next-meeting pricing when supplied. Historical policy expectations may remain only as labelled prior context, not as the live thesis.
-21. STREAM-READY SYNTHESIS: The reader-facing sequence should be usable as a briefing: regime → what changed → dominant drivers → strongest countercase/relief valve → what confirms or breaks the regime → asset implications. Preserve uncertainty and competing mechanisms rather than collapsing every development into one narrative.`;
+21. STREAM-READY SYNTHESIS: The reader-facing sequence should be usable as a briefing: regime → what changed → dominant drivers → strongest countercase/relief valve → what confirms or breaks the regime → asset implications. Preserve uncertainty and competing mechanisms rather than collapsing every development into one narrative.
+22. TOP-LEVEL RESEARCH GAP DISCIPLINE: research_gaps is reserved ONLY for missing input that materially blocks, invalidates, or makes unsafe a current regime conclusion, Major Story conclusion, or required desk-health claim. Every analytical research_gaps item MUST use severity "MATERIAL". Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail, higher-frequency decomposition, or other evidence that would only refine mechanism, durability, timing, or confidence is NOT a top-level research gap when the current conclusion is already evidence-supported. Put those refinement needs in investigations[*].missing_evidence and/or research_now instead. Do not duplicate the same missing input in research_gaps and an Investigation. If no conclusion-blocking gap exists, return research_gaps: [].`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -693,7 +694,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
             gap_id: { type: "string" },
             category: { type: "string" },
             description: { type: "string" },
-            severity: { type: "string" },
+            severity: { type: "string", enum: ["MATERIAL"] },
           },
           required: ["gap_id", "category", "description", "severity"],
           additionalProperties: false,
