@@ -96,16 +96,17 @@ test("Research Brain keeps diplomacy and geopolitics conditional on observed evi
 });
 
 
-test("Research Brain reserves top-level gaps for material blockers", () => {
+test("Research Brain routes analytical missing-data work out of top-level health gaps", () => {
   const instructions = buildResearchBrainSystemInstructions();
   const schema = getResearchBrainJsonSchema() as any;
   const gap = schema.properties.research_gaps.items;
 
   assert.match(instructions, /TOP-LEVEL RESEARCH GAP DISCIPLINE/);
-  assert.match(instructions, /ONLY for missing input that materially blocks, invalidates, or makes unsafe/);
-  assert.match(instructions, /Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail/);
-  assert.match(instructions, /Put those refinement needs in investigations\[\*\]\.missing_evidence and\/or research_now instead/);
-  assert.match(instructions, /If no conclusion-blocking gap exists, return research_gaps: \[\]/);
+  assert.match(instructions, /Reader-facing Dossier health is assembled deterministically from packet\/source coverage/);
+  assert.match(instructions, /return research_gaps: \[\] for analytical missing-data questions/);
+  assert.match(instructions, /term-premium decomposition, global-sovereign confirmation/);
+  assert.match(instructions, /investigations\[\*\]\.missing_evidence and\/or research_now/);
+  assert.match(instructions, /must never inflate the Live\/Hybrid top-level health-gap count/);
   assert.deepEqual(gap.properties.severity.enum, ["MATERIAL"]);
 });
 
