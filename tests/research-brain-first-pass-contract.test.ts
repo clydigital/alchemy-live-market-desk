@@ -94,3 +94,17 @@ test("Research Brain keeps diplomacy and geopolitics conditional on observed evi
   assert.match(instructions, /never assume an announced meeting, negotiation or threat produced a market effect without reaction evidence/);
   assert.match(instructions, /STREAM-READY SYNTHESIS/);
 });
+
+
+test("Research Brain reserves top-level gaps for material blockers", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+  const schema = getResearchBrainJsonSchema() as any;
+  const gap = schema.properties.research_gaps.items;
+
+  assert.match(instructions, /TOP-LEVEL RESEARCH GAP DISCIPLINE/);
+  assert.match(instructions, /ONLY for missing input that materially blocks, invalidates, or makes unsafe/);
+  assert.match(instructions, /Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail/);
+  assert.match(instructions, /Put those refinement needs in investigations\[\*\]\.missing_evidence and\/or research_now instead/);
+  assert.match(instructions, /If no conclusion-blocking gap exists, return research_gaps: \[\]/);
+  assert.deepEqual(gap.properties.severity.enum, ["MATERIAL"]);
+});
