@@ -17,6 +17,7 @@ import {
   getResearchBrainJsonSchema,
 } from "../lib/dossier-v2/research-brain-prompt.ts";
 import {
+  buildValidationIndexes,
   validateResearchBrainInput,
   validateResearchBrainOutput,
 } from "../lib/dossier-v2/research-brain-validation.ts";
@@ -156,6 +157,50 @@ function createValidBasePacket() {
   );
 }
 
+
+test("Research Brain sees and validates protected rate-context evidence", () => {
+  const packet = createValidBasePacket();
+  packet.rate_context = {
+    evidence: [{
+      evidence_id: "verified-macro:pmi-reaction",
+      claim_or_fact: "US 2Y and 10Y yields rose after the PMI release.",
+      category: "RATES",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-18T11:45:00Z",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{
+        source_type: "VERIFIED_MACRO_DATA",
+        source_id: "pmi-reaction-source",
+        publisher: "Verified Market Source",
+      }],
+    }],
+  };
+
+  const prompt = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+  const bounded = prompt.boundedInput as {
+    rate_context?: { evidence?: Array<{ evidence_id?: string }> };
+  };
+
+  assert.equal(
+    bounded.rate_context?.evidence?.[0]?.evidence_id,
+    "verified-macro:pmi-reaction",
+  );
+  assert.match(prompt.instructions, /rate_context\.evidence/);
+
+  const indexes = buildValidationIndexes(packet);
+  assert.equal(indexes.validEvidenceIds.has("verified-macro:pmi-reaction"), true);
+  assert.equal(
+    indexes.evidenceSourceMap.get("verified-macro:pmi-reaction")?.source_type,
+    "VERIFIED_MACRO_DATA",
+  );
+});
 
 test("Research Brain prompt keeps evidence identity but strips redundant source URLs", () => {
   const packet = createValidBasePacket();
