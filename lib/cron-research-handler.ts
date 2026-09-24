@@ -224,9 +224,9 @@ export async function handleScheduledResearchWithDependencies(
       runId: claim.run.id,
     });
     // Independent deterministic collectors run beside news/transcript intake.
-    // Daily Investment Brief is the primary dashboard layer. MacroMicro remains
-    // supplemental and an unavailable macro provider never suppresses unrelated
-    // evidence or canonical Story work.
+    // Daily Investment Brief remains a separate research-context collector.
+    // Canonical Dossier macro/rates state comes from FRED and official providers,
+    // so this collector never gates unrelated evidence or Story work.
     const [input, macroCapture, officialActuals] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
