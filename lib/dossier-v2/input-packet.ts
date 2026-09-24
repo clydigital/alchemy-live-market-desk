@@ -241,7 +241,7 @@ const MACRO_SPINE_GROUPING_KEYS = [
   "market-monitor:wti",
   "market-monitor:distillate",
   "market-monitor:crack-distillate",
-  "market-monitor:hyg",
+  "market-monitor:credit-oas",
   "market-breadth:large-cap",
   "market-breadth:ai-basket",
 ] as const;

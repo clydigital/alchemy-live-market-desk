@@ -893,7 +893,7 @@ test("20b. balanced cluster selection preserves macro spine and fresh non-monito
     "wti",
     "distillate",
     "crack-distillate",
-    "hyg",
+    "credit-oas",
   ];
 
   const observed: CandidateSnapshot["observed_evidence"] = [
