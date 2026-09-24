@@ -122,6 +122,15 @@ function rateEvidence(packet: DossierV2InputPacket) {
   return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
 }
 
+function signalContextEvidence(
+  evidence: ObservedEvidence[],
+  context: string,
+): ObservedEvidence | null {
+  return evidence
+    .filter((item) => metricString(item, "signal_context")?.toLowerCase() === context.toLowerCase())
+    .sort((left, right) => right.available_at.localeCompare(left.available_at))[0] ?? null;
+}
+
 function monitorEvidence(
   evidence: ObservedEvidence[],
   id: string,
@@ -226,12 +235,14 @@ export function buildDossierRateRegime(
   const us10yFred = monitorEvidence(evidence, "us10y-fred");
   const us10yFallback = monitorEvidence(evidence, "us10y");
   const us10y = us10yFred ?? us10yFallback;
+  const us30y = signalContextEvidence(evidence, "us30y");
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
 
   const us2yLevel = metricNumber(us2y, "last");
   const us10yLevel = metricNumber(us10y, "last");
+  const us30yLevel = metricNumber(us30y, "observed_value");
   const real10yLevel = metricNumber(real10y, "last");
   const breakevenLevel = metricNumber(breakeven10y, "last");
   const effrLevel = metricNumber(effectiveFedFunds, "last");
@@ -319,13 +330,15 @@ export function buildDossierRateRegime(
   }
   const longEndSignal: RateRegimeSignal = {
     key: "LONG_END",
-    label: "10Y nominal yield",
+    label: "Long-end nominal yields",
     state: signalState(longEndScore, us10yLevel !== null),
     score: longEndScore,
     detail: us10yLevel !== null
-      ? `US 10Y ${formatPct(us10yLevel)}; 5D ${formatBp(us10y5dBp)}.`
-      : "US 10Y nominal-yield context is unavailable.",
-    evidenceRefs: [us10y?.evidence_id].filter((value): value is string => Boolean(value)),
+      ? `US 10Y ${formatPct(us10yLevel)}; 5D ${formatBp(us10y5dBp)}${us30yLevel === null ? "" : `; verified US 30Y ${formatPct(us30yLevel)}`}.`
+      : us30yLevel !== null
+        ? `Verified US 30Y ${formatPct(us30yLevel)}; US 10Y monitor unavailable.`
+        : "US long-end nominal-yield context is unavailable.",
+    evidenceRefs: [us10y?.evidence_id, us30y?.evidence_id].filter((value): value is string => Boolean(value)),
   };
 
   const signals = [
