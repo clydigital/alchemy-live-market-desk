@@ -4,14 +4,17 @@ import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  augmentCandidateSnapshotWithMacroContext,
+  augmentCandidateSnapshotWithEia,
   augmentCandidateSnapshotWithMarketMonitor,
+  augmentCandidateSnapshotWithTradingEconomics,
   buildCandidateSnapshotFromCanonicalEvidence,
   type CanonicalEvidenceRow,
   type CanonicalSnapshotResult,
 } from "../lib/dossier-v2/canonical-snapshot.ts";
 import { runManualDossierV2 } from "../lib/dossier-v2/manual-run.ts";
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
+import { parseEiaWeeklyPetroleumPayload } from "../lib/providers/eia-v2.ts";
+import { parseTradingEconomicsUsCalendarPayload } from "../lib/providers/trading-economics-calendar.ts";
 
 const AS_OF = "2026-09-20T00:00:00.000Z";
 
@@ -364,28 +367,78 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
   }
 });
 
-test("Task 9 adapter surfaces unusable MacroMicro capture without promoting it to factual macro evidence", () => {
+test("Task 9 adapter admits official EIA weekly energy evidence without making it a health dependency", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,
     lookbackHours: 168,
   });
 
-  const result = augmentCandidateSnapshotWithMacroContext(base, {
-    id: "macro-snapshot-1",
-    source_key: "macromicro_supplemental",
-    source_url: "https://en.macromicro.me/",
-    status: "partial",
-    capture_completed_at: "2026-09-19T22:00:00.000Z",
-    transport_error_code: "insufficient_dated_readings",
-    raw_markdown: "MacroMicro landing page without dated macro readings.",
+  const eia = parseEiaWeeklyPetroleumPayload(
+    {
+      response: {
+        data: [
+          { period: "2026-09-18", series: "WCESTUS1", value: 426398, units: "Thousand Barrels" },
+          { period: "2026-09-11", series: "WCESTUS1", value: 423429, units: "Thousand Barrels" },
+          { period: "2026-09-18", series: "WPULEUS3", value: 94.0, units: "Percent" },
+          { period: "2026-09-11", series: "WPULEUS3", value: 96.8, units: "Percent" },
+        ],
+      },
+    },
+    { retrievedAt: "2026-09-19T23:00:00.000Z" },
+  );
+
+  const result = augmentCandidateSnapshotWithEia(base, eia, {
+    asOf: AS_OF,
+    lookbackHours: 168,
   });
 
-  assert.equal(result.snapshot.research_leads?.length, 0);
-  assert.equal(result.snapshot.macro_data?.status, "MISSING");
-  assert.equal(result.snapshot.sources_status?.macromicro?.status, "WARNING");
+  assert.equal(result.snapshot.sources_status?.eia_weekly_petroleum?.status, "OK");
+  assert.equal(result.snapshot.observed_evidence?.length, 2);
+  assert.ok(
+    result.snapshot.observed_evidence?.every((item) => item.source_type === "OFFICIAL_DATA"),
+  );
   assert.match(
-    result.snapshot.sources_status?.macromicro?.message ?? "",
-    /not usable as dated macro context/i,
+    String(result.snapshot.observed_evidence?.[0]?.claim_or_fact ?? ""),
+    /prior week/i,
+  );
+});
+
+test("Task 9 adapter admits Trading Economics actual-consensus-previous as optional US surprise evidence", () => {
+  const base = buildCandidateSnapshotFromCanonicalEvidence([], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const calendar = parseTradingEconomicsUsCalendarPayload(
+    [{
+      CalendarId: "123",
+      Date: "2026-09-19T20:00:00Z",
+      Country: "United States",
+      Category: "Manufacturing PMI",
+      Event: "S&P Global Manufacturing PMI Flash",
+      Source: "S&P Global",
+      SourceURL: "https://www.spglobal.com/",
+      Actual: "57.0",
+      Previous: "53.9",
+      Forecast: "53.6",
+      TEForecast: "53.8",
+      Importance: 3,
+    }],
+    { retrievedAt: "2026-09-19T20:01:00.000Z" },
+  );
+
+  const result = augmentCandidateSnapshotWithTradingEconomics(base, calendar, {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  assert.equal(result.snapshot.sources_status?.trading_economics_us_calendar?.status, "OK");
+  assert.equal(result.snapshot.observed_evidence?.length, 1);
+  assert.equal(result.snapshot.observed_evidence?.[0]?.source_type, "ECONOMIC_CALENDAR");
+  assert.equal(result.snapshot.observed_evidence?.[0]?.is_admitted_fact, true);
+  assert.match(
+    String(result.snapshot.observed_evidence?.[0]?.claim_or_fact ?? ""),
+    /actual 57\.0 vs consensus 53\.6; previous 53\.9/i,
   );
 });
 
