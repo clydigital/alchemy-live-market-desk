@@ -131,7 +131,8 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "wti",
   "distillate",
   "crack-distillate",
-  "hyg",
+  "hy-oas",
+  "ig-oas",
 ] as const;
 
 function selectMarketMonitorRows(rows: MarketMonitorLike["rows"]) {
@@ -653,24 +654,31 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
     const isFred = row.sourceName === "Federal Reserve Economic Data";
+    const isCreditOas = row.id === "hy-oas" || row.id === "ig-oas";
+    const groupingKey = isCreditOas ? "market-monitor:credit-oas" : `market-monitor:${row.id}`;
     fredSeen ||= isFred;
-    const moves = [
+    const moves = isCreditOas ? "" : [
       row.dayChange !== null ? `1D ${row.dayChange >= 0 ? "+" : ""}${row.dayChange.toFixed(2)}%` : null,
       row.change5d !== null ? `5D ${row.change5d >= 0 ? "+" : ""}${row.change5d.toFixed(2)}%` : null,
     ].filter(Boolean).join("; ");
     observed.push({
       evidence_id: `market-monitor:${row.id}:${row.asOf}`,
-      claim_or_fact: `${row.label} was ${row.last} as of ${row.asOf}${moves ? ` (${moves})` : ""}.`,
+      claim_or_fact: isCreditOas
+        ? `${row.label} was ${row.last}% as of ${row.asOf}.`
+        : `${row.label} was ${row.last} as of ${row.asOf}${moves ? ` (${moves})` : ""}.`,
       category: row.type,
       source_type: "MARKET_DATA",
       available_at: options.asOf,
       occurrence_time: occurrenceTime,
-      grouping_key: `market-monitor:${row.id}`,
+      grouping_key: groupingKey,
+      rank: isCreditOas ? (row.id === "hy-oas" ? 18 : 19) : undefined,
       metrics: {
         symbol: row.symbol,
         last: row.last,
-        day_change_pct: row.dayChange,
-        change_5d_pct: row.change5d,
+        ...(isCreditOas ? { spread_level_pct: row.last } : {
+          day_change_pct: row.dayChange,
+          change_5d_pct: row.change5d,
+        }),
         frequency: row.frequency,
         provider: row.sourceName,
       },
