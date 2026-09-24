@@ -41,6 +41,28 @@ function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
   return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
 }
 
+const GENERIC_RATE_PRICING_CONTEXTS = new Set([
+  "fedwatch",
+  "fed_watch",
+  "fed-funds",
+  "fed_funds",
+  "fed-funds-futures",
+  "fed_funds_futures",
+  "rate_pricing",
+  "policy_pricing",
+]);
+
+function signalContextMatches(
+  item: ObservedEvidence,
+  kind: "rate_expectation" | "market_reaction",
+  ruleId: string,
+) {
+  const context = metricString(item, "signal_context");
+  if (!context) return false;
+  if (context === ruleId) return true;
+  return kind === "rate_expectation" && GENERIC_RATE_PRICING_CONTEXTS.has(context.toLowerCase());
+}
+
 function matchingEvidence(
   packet: DossierV2InputPacket,
   kind: "rate_expectation" | "market_reaction",
@@ -51,7 +73,7 @@ function matchingEvidence(
     .filter((item) =>
       item.evidence_id !== trigger.evidence_id &&
       metricString(item, "signal_kind") === kind &&
-      metricString(item, "signal_context") === context &&
+      signalContextMatches(item, kind, context) &&
       item.available_at >= trigger.available_at)
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }

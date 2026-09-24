@@ -6,6 +6,104 @@ import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts"
 import { buildDossierPolicyOutlook } from "../lib/dossier-v2/policy-outlook.ts";
 import { handleVerifiedMacroSignalsWithDependencies } from "../lib/dossier-v2/verified-macro-signals.ts";
 
+test("generic FedWatch rate-pricing context completes a rule-specific policy check", () => {
+  const asOf = "2026-09-24T01:00:00.000Z";
+  const rows = [
+    {
+      id: "row-pmi",
+      external_evidence_id: "verified-macro:us-flash-pmi",
+      claim_text: "US Flash Manufacturing PMI was 57.0, above the 53.6 expected reading.",
+      evidence_class: "other",
+      event_at: "2026-09-23T13:45:00.000Z",
+      available_at: "2026-09-23T13:46:00.000Z",
+      received_at: "2026-09-23T13:46:00.000Z",
+      freshness_status: "current",
+      affected_topics: ["US_ACTIVITY"],
+      structured_payload: {
+        evidenceNature: "verified_macro_data",
+        signalKind: "economic_release",
+        signalContext: "STRONG_ACTIVITY_SURPRISE",
+      },
+      measurement_unit: "index",
+      observed_value: 57,
+      expected_value: 53.6,
+      previous_value: 53.9,
+      source: {
+        id: "source-pmi",
+        source_name: "PMI Source",
+        source_type: "data_provider",
+        source_url: "https://example.com/pmi",
+        source_tier: 1,
+        reliability_score: 95,
+        provider_key: "verified_macro_signal",
+      },
+    },
+    {
+      id: "row-fedwatch",
+      external_evidence_id: "verified-macro:fedwatch-oct",
+      claim_text: "Fed-funds futures showed a 71.2% probability of the higher target range, up from 55.1% the prior day.",
+      evidence_class: "other",
+      event_at: "2026-09-24T00:15:00.000Z",
+      available_at: "2026-09-24T00:15:00.000Z",
+      received_at: "2026-09-24T00:15:00.000Z",
+      freshness_status: "current",
+      affected_topics: ["rates"],
+      structured_payload: {
+        evidenceNature: "verified_macro_data",
+        signalKind: "rate_expectation",
+        signalContext: "fedwatch",
+      },
+      measurement_unit: "percent",
+      observed_value: 71.2,
+      previous_value: 55.1,
+      source: {
+        id: "source-fedwatch",
+        source_name: "Fed Rate Monitor",
+        source_type: "market_report",
+        source_url: "https://example.com/fedwatch",
+        source_tier: 3,
+        reliability_score: 80,
+        provider_key: "verified_macro_signal",
+      },
+    },
+    {
+      id: "row-reaction",
+      external_evidence_id: "verified-macro:pmi-reaction",
+      claim_text: "US 2Y and 10Y yields rose after the PMI release.",
+      evidence_class: "other",
+      event_at: "2026-09-23T14:07:00.000Z",
+      available_at: "2026-09-23T14:08:00.000Z",
+      received_at: "2026-09-23T14:08:00.000Z",
+      freshness_status: "current",
+      affected_topics: ["rates"],
+      structured_payload: {
+        evidenceNature: "verified_macro_data",
+        signalKind: "market_reaction",
+        signalContext: "STRONG_ACTIVITY_SURPRISE",
+      },
+      source: {
+        id: "source-reaction",
+        source_name: "Reaction Source",
+        source_type: "market_report",
+        source_url: "https://example.com/reaction",
+        source_tier: 2,
+        reliability_score: 90,
+        provider_key: "verified_macro_signal",
+      },
+    },
+  ];
+
+  const snapshot = buildCandidateSnapshotFromCanonicalEvidence(rows, { asOf, lookbackHours: 24 });
+  const packet = assembleDossierV2InputPacket({ as_of: asOf }, snapshot.snapshot);
+  const outlook = buildDossierPolicyOutlook(packet);
+
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.observedRatePricingEvidenceRef, "verified-macro:fedwatch-oct");
+  assert.match(outlook[0]?.observedRatePricing ?? "", /71\.2%/);
+  assert.equal(outlook[0]?.observedConfirmationEvidenceRef, "verified-macro:pmi-reaction");
+  assert.deepEqual(outlook[0]?.gaps, []);
+});
+
 test("provenance-backed verified macro data is admitted and creates the deterministic policy outlook", () => {
   const asOf = "2026-09-23T14:15:00.000Z";
   const snapshot = buildCandidateSnapshotFromCanonicalEvidence([{
