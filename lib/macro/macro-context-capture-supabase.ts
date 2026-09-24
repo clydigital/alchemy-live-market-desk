@@ -3,7 +3,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { MacroCaptureResult } from "./macro-capture";
 import {
   DAILY_INVESTMENT_BRIEF_SOURCE,
-  MACROMICRO_SOURCE,
   macroContextBlockReason,
   macroContextFingerprint,
   macroContextText,
@@ -152,12 +151,13 @@ async function persistAttempt(source: MacroContextSource, transport: TransportRe
   return { source, snapshotId: data.id, status, blockReason, transport: transport.transport, note };
 }
 
-export async function captureMacroContextSnapshot(options: { now?: Date; fetcher?: typeof fetch } = {}): Promise<MacroCaptureResult & { supplemental: SourceAttempt | null }> {
+export async function captureMacroContextSnapshot(
+  options: { now?: Date; fetcher?: typeof fetch } = {},
+): Promise<MacroCaptureResult> {
   const now = options.now ?? new Date();
   const currentBefore = await latestCompleteSnapshotId(DAILY_INVESTMENT_BRIEF_SOURCE.key);
-  let primary: SourceAttempt;
-  let supplemental: SourceAttempt | null = null;
 
+  let primary: SourceAttempt;
   try {
     const acquired = await acquireSource(DAILY_INVESTMENT_BRIEF_SOURCE, {
       apiKey: process.env.JINA_API_KEY,
@@ -171,44 +171,31 @@ export async function captureMacroContextSnapshot(options: { now?: Date; fetcher
       currentSnapshotId: currentBefore,
       fingerprint: null,
       tableCount: 0,
-      note: `Daily Investment Brief primary macro capture is unavailable: ${error instanceof Error ? error.message : String(error)}`,
-      supplemental: null,
-    };
-  }
-
-  try {
-    const acquired = await acquireSource(MACROMICRO_SOURCE, {
-      apiKey: process.env.JINA_API_KEY,
-      fetcher: options.fetcher,
-    });
-    supplemental = await persistAttempt(MACROMICRO_SOURCE, acquired, now);
-  } catch (error) {
-    supplemental = {
-      source: MACROMICRO_SOURCE,
-      snapshotId: null,
-      status: "failed",
-      blockReason: "capture_unavailable",
-      transport: "direct_http",
-      note: `MacroMicro supplemental capture is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      note: `Daily Investment Brief macro-context capture is unavailable: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 
   const currentSnapshotId = primary.status === "complete" ? primary.snapshotId : currentBefore;
-  const status = primary.status === "complete" ? "COMPLETE" : primary.status === "partial" ? "PARTIAL" : "FAILED";
+  const status =
+    primary.status === "complete"
+      ? "COMPLETE"
+      : primary.status === "partial"
+        ? "PARTIAL"
+        : "FAILED";
+
   return {
     status,
     attemptSnapshotId: primary.snapshotId,
     currentSnapshotId,
     fingerprint: null,
     tableCount: 0,
-    note: `${primary.note} MacroMicro is supplemental only: ${supplemental.note}`,
-    supplemental,
+    note: primary.note,
   };
 }
 
 export async function attachMacroContextCaptureToResearchRun(
   researchRunId: string,
-  capture: MacroCaptureResult & { supplemental?: SourceAttempt | null },
+  capture: MacroCaptureResult,
 ) {
   const client = createSupabaseAdminClient();
   const { error } = await client.from("research_runs").update({
@@ -234,8 +221,6 @@ function unavailableMacroContextHealth(probeError: string | null = null) {
   return {
     sourceName: DAILY_INVESTMENT_BRIEF_SOURCE.name,
     sourceUrl: DAILY_INVESTMENT_BRIEF_SOURCE.url,
-    supplementalSourceName: MACROMICRO_SOURCE.name,
-    supplementalSourceUrl: MACROMICRO_SOURCE.url,
     latestCompleteSnapshotTimestamp: null,
     latestCaptureAttemptTimestamp: null,
     latestAttemptStatus: null,
@@ -269,8 +254,6 @@ export async function getPrimaryMacroContextHealth() {
     return {
       sourceName: DAILY_INVESTMENT_BRIEF_SOURCE.name,
       sourceUrl: DAILY_INVESTMENT_BRIEF_SOURCE.url,
-      supplementalSourceName: MACROMICRO_SOURCE.name,
-      supplementalSourceUrl: MACROMICRO_SOURCE.url,
       latestCompleteSnapshotTimestamp: complete?.capture_completed_at ?? null,
       latestCaptureAttemptTimestamp: attempt?.capture_completed_at ?? null,
       latestAttemptStatus: attempt?.status ?? null,
