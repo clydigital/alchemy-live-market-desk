@@ -402,21 +402,21 @@ test("Task 8 bridge propagates persistence failure and never reports false succe
 });
 
 
-test("Task 8 mapper keeps only material analytical blockers in top-level research gaps", () => {
+test("Task 8 mapper keeps analytical research wishes out of top-level health gaps", () => {
   const packet = createPacket();
   const output = createValidBrainOutput(packet);
 
   output.research_gaps = [
     {
-      gap_id: "gap:refinement-only",
-      category: "market-flow",
-      description: "Need intraday dealer positioning to refine the durability assessment.",
-      severity: "INFORMATIONAL",
+      gap_id: "gap:term-premium-global-confirm",
+      category: "rates",
+      description: "Need term-premium decomposition to refine global versus US-led duration labelling.",
+      severity: "MATERIAL",
     },
     {
-      gap_id: "gap:material-blocker",
-      category: "PRICE_DATA",
-      description: "Required current price evidence is unavailable for a material conclusion.",
+      gap_id: "gap:padd2-flow-details",
+      category: "energy",
+      description: "Need refinery outage and flow detail to refine durability of regional product tightness.",
       severity: "MATERIAL",
     },
   ];
@@ -428,6 +428,6 @@ test("Task 8 mapper keeps only material analytical blockers in top-level researc
       : [],
   );
 
-  assert.ok(ids.includes("gap:material-blocker"));
-  assert.ok(!ids.includes("gap:refinement-only"));
+  assert.ok(!ids.includes("gap:term-premium-global-confirm"));
+  assert.ok(!ids.includes("gap:padd2-flow-details"));
 });
