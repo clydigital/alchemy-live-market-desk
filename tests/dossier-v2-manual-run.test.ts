@@ -396,8 +396,15 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
   ) ?? [];
   assert.equal(creditRows.length, 2);
   assert.ok(creditRows.every((item) => item.category === "Credit / Risk"));
-  assert.ok(creditRows.every((item) => item.provenance?.[0]?.source_type === "FRED"));
-  assert.match(String(creditRows.find((item) => item.evidence_id?.includes("hy-oas"))?.claim_or_fact), /US High Yield OAS was 100%/);
+  assert.ok(creditRows.every((item) => {
+    const provenance = Array.isArray(item.provenance) ? item.provenance : [];
+    const first = provenance[0];
+    return Boolean(first && typeof first === "object" && !Array.isArray(first) && first.source_type === "FRED");
+  }));
+  assert.match(
+    String(creditRows.find((item) => String(item.evidence_id ?? "").includes("hy-oas"))?.claim_or_fact),
+    /US High Yield OAS was 100%/,
+  );
 });
 
 test("Task 9 adapter admits official EIA weekly energy evidence without making it a health dependency", () => {
