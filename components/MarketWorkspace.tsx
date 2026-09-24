@@ -192,13 +192,13 @@ const fallbackStories: DisplayStory[] = [
   {
     id: "fed-rate-repricing",
     slug: "fed-rate-repricing",
-    title: "Fed guidance and hike repricing",
-    thesis: "The hold matters less than whether inflation, dissents and front-end yields keep a September hike credible.",
-    confidence: 58,
-    support: "Three hike dissents and elevated energy inflation keep tightening risk alive.",
-    contradiction: "A softer labour path or oil normalisation can quickly reduce the need to tighten.",
-    marketQuestion: "Is the market interpreting the Fed more hawkishly than the data can sustain?",
-    next: "Payrolls, CPI, Jackson Hole and the US 2-year yield.",
+    title: "October Fed hike risk after September’s increase",
+    thesis: "September’s 25bp hike is now historical; the live question is whether inflation, activity and front-end pricing support another move at the October 27–28 meeting.",
+    confidence: 60,
+    support: "The September decision lifted the target range to 3.75%–4.00%, so next-meeting pricing and incoming data now define the tightening risk.",
+    contradiction: "Softer labour or inflation, or a reversal in front-end yields and fed-funds pricing, would reduce October tightening risk.",
+    marketQuestion: "Is October policy pricing consistent with the incoming data and front-end yield reaction?",
+    next: "Fed-funds futures, the US 2-year, inflation and labour data, and the October 27–28 FOMC meeting.",
     status: "monitor",
     assets: ["US02Y", "US10Y", "US30Y", "DXY", "NASDAQ"],
   },
@@ -274,7 +274,7 @@ const fallbackGuidance: GuidanceItem[] = [
   { id:"g-meta", entity:"Meta", ticker:"META", category:"company", period:"2026", guidance_type:"capex", metric:"Capex and expenses", current_view:"2026 capex raised to $125bn-$145bn; expenses expected at $162bn-$169bn.", prior_view:"Capex was previously $115bn-$135bn.", wording_change:"Higher component pricing and future data-centre capacity drove the increase.", market_interpretation:"Advertising growth must continue to fund a sharply larger infrastructure programme.", source_url:"https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-First-Quarter-2026-Results/", source_classification:"official_company", published_at:"2026-04-29", assets:["META","NDX"] },
   { id:"g-googl", entity:"Alphabet", ticker:"GOOGL", category:"company", period:"2026", guidance_type:"capex", metric:"Capex and Cloud demand", current_view:"Full-year capex expected at $175bn-$185bn with investment ramping through the year.", prior_view:"2025 capex was $91.4bn.", wording_change:"Management said AI infrastructure was already translating into growth while supply remained tight.", market_interpretation:"Cloud backlog and cash conversion must justify the step-up in depreciation and infrastructure cost.", source_url:"https://abc.xyz/investor/events/event-details/2026/2025-Q4-Earnings-Call-2026-Dr_C033hS6/default.aspx", source_classification:"official_company", published_at:"2026-02-04", assets:["GOOGL","NDX"] },
   { id:"g-tsla", entity:"Tesla", ticker:"TSLA", category:"company", period:"Q2 2026", guidance_type:"strategy", metric:"AI, autonomy and capital intensity", current_view:"Tesla reported Q2 results and continues to frame autonomy, robotics and AI as central to the outlook.", prior_view:"Q1 guidance already prioritised autonomy and physical AI.", wording_change:"Investors are increasingly testing execution and cash burn rather than accepting long-dated targets alone.", market_interpretation:"The key test is whether AI investment creates measurable subscriptions, deployments and margin improvement.", source_url:"https://ir.tesla.com/press-release/tesla-releases-second-quarter-2026-financial-results", source_classification:"official_company", published_at:"2026-07-22", assets:["TSLA"] },
-  { id:"g-fed", entity:"Federal Reserve", ticker:null, category:"fed", period:"July 2026", guidance_type:"policy", metric:"Policy rate and reaction function", current_view:"The Fed held at 3.50%-3.75%; three members preferred a 25bp hike.", prior_view:"June was a unanimous hold.", wording_change:"The dissents strengthened the hawkish tail even without an actual rate increase.", market_interpretation:"Payrolls, inflation and energy prices decide whether September hike risk survives.", source_url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm", source_classification:"official_central_bank", published_at:"2026-07-29", assets:["^FVX","^TNX","^TYX","DXY","NDX"] },
+  { id:"g-fed", entity:"Federal Reserve", ticker:null, category:"fed", period:"September–October 2026", guidance_type:"policy", metric:"Policy rate and reaction function", current_view:"The Fed raised the target range by 25bp to 3.75%-4.00% on 16 September.", prior_view:"The prior target range was 3.50%-3.75%.", wording_change:"The September hike is now historical; the decision focus rolls to 27–28 October and whether incoming data justify another move.", market_interpretation:"Track October next-meeting pricing, front-end yields, inflation, labour and activity; do not present September hike risk as unresolved.", source_url:"https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm", source_classification:"official_central_bank", published_at:"2026-09-16", assets:["^FVX","^TNX","^TYX","DXY","NDX"] },
 ];
 
 const fallbackStatements: PublicStatement[] = [

@@ -39,7 +39,7 @@ export function acceptsManualLiveTriggerClaims(payload: JWTPayload) {
     && stringClaim(payload, "repository") === TRUSTED_REPOSITORY
     && stringClaim(payload, "repository_id") === TRUSTED_REPOSITORY_ID
     && stringClaim(payload, "workflow_ref") === TRUSTED_WORKFLOW_REF
-    && stringClaim(payload, "event_name") === "workflow_dispatch"
+    && ["workflow_dispatch", "schedule"].includes(stringClaim(payload, "event_name"))
     && stringClaim(payload, "ref") === TRUSTED_REF
     && stringClaim(payload, "ref_type") === "branch";
 }

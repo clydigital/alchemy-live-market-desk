@@ -53,6 +53,23 @@ test("a signed token from the exact main workflow is authorised", async () => {
   });
 });
 
+test("a signed scheduled token from the exact main workflow is authorised", async () => {
+  const { request, publicKey } = await signedRequest({ event_name: "schedule" });
+  assert.deepEqual(await verifyGitHubActionsManualLiveTrigger(request, publicKey), {
+    authorized: true,
+    actor: "production-operator",
+    githubRunId: "123456",
+    workflowSha: "abc123",
+  });
+});
+
+test("an unrelated GitHub event from the exact workflow is rejected", async () => {
+  const { request, publicKey } = await signedRequest({ event_name: "push" });
+  assert.deepEqual(await verifyGitHubActionsManualLiveTrigger(request, publicKey), {
+    authorized: false,
+  });
+});
+
 test("a valid GitHub token from any other workflow is rejected", async () => {
   const { request, publicKey } = await signedRequest({
     workflow_ref: "clydigital/alchemy-live-market-desk/.github/workflows/other.yml@refs/heads/main",

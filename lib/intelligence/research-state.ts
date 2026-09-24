@@ -35,7 +35,7 @@ export const STABLE_REQUIREMENTS = {
   "next-test-recheck": { name: "Re-evaluate next deciding test", criticality: "important" },
   "front-end-yields": { name: "US front-end yield confirmation", criticality: "critical" },
   "july-cpi": { name: "July CPI actual vs forecast vs previous", criticality: "critical" },
-  "policy-pricing": { name: "September Fed policy pricing", criticality: "critical" },
+  "policy-pricing": { name: "Next-meeting Fed policy pricing", criticality: "critical" },
   "labour-confirmation": { name: "Labour deterioration confirmation", criticality: "important" },
   "attack-incidents": { name: "Tanker / commercial shipping attack incidence", criticality: "critical" },
   "carrier-resumptions": { name: "Major carrier resumptions / suspensions", criticality: "critical" },
