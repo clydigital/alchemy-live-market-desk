@@ -297,6 +297,55 @@ function reliabilityScore(source: CanonicalEvidenceSourceRow | null): number | n
   return Number.isFinite(value) ? value : null;
 }
 
+function observedEvidenceRank(
+  row: CanonicalEvidenceRow,
+  directSourceType: string,
+): number {
+  // Lower is stronger. This rank is consumed by the bounded Dossier packet
+  // before recency so primary/official evidence is not displaced by a newer
+  // secondary market-news observation in the same topic cluster.
+  const source = sourceFromRow(row);
+  const baseBySourceType: Record<string, number> = {
+    VERIFIED_MACRO_DATA: 8,
+    OFFICIAL_DATA: 10,
+    STATISTICAL_AGENCY: 10,
+    REGULATORY_FILING: 12,
+    SEC_FILING: 12,
+    COMPANY_FILING: 14,
+    PRESS_RELEASE: 16,
+    EXCHANGE_FEED: 18,
+    PRICING_FEED: 18,
+    MARKET_DATA: 20,
+    NEWS_MARKET_CONTEXT: 52,
+  };
+
+  let rank = baseBySourceType[directSourceType] ?? 60;
+
+  const tier = sourceTier(source);
+  if (tier !== null) {
+    // Tier 1 is strongest. Clamp so a malformed tier cannot overwhelm the
+    // source-class priority.
+    rank += Math.max(0, Math.min(16, (tier - 1) * 4));
+  }
+
+  const reliability = reliabilityScore(source);
+  if (reliability !== null) {
+    if (reliability >= 90) rank -= 4;
+    else if (reliability >= 80) rank -= 2;
+    else if (reliability < 70) rank += 8;
+  }
+
+  const materiality =
+    structuredNumber(row.structured_payload, "candidateScore") ??
+    structuredNumber(row.structured_payload, "materiality");
+  if (materiality !== null) {
+    if (materiality >= 90) rank -= 3;
+    else if (materiality >= 75) rank -= 1;
+  }
+
+  return Math.max(1, Math.round(rank));
+}
+
 function isCreatorLead(row: CanonicalEvidenceRow): boolean {
   const source = sourceFromRow(row);
   const sourceType = String(source?.source_type ?? "").trim().toLowerCase();
@@ -470,6 +519,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         available_at: availableAt,
         occurrence_time: row.event_at ?? row.published_at ?? undefined,
         grouping_key: groupingKeyForRow(row),
+        rank: observedEvidenceRank(row, directSourceType),
         ...(articleMarketObservation ? { is_admitted_fact: true } : {}),
         metrics: {
           support_direction: row.support_direction ?? "neutral",
