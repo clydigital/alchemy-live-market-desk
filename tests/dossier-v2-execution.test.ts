@@ -517,3 +517,100 @@ test("Task 8 mapper preserves an explicit global-duration blocker linked to the 
   const ids = dossierInput.research_gaps.map((gap) => (gap as { gap_id: string }).gap_id);
   assert.deepEqual(ids, ["gap:global-duration-confirmation"]);
 });
+
+test("Task 8 mapper completes the bounded rates-led research agenda without publishing unverified outcomes", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.research_now = [
+    {
+      rank: 1,
+      action: "Perform 10Y/30Y decomposition.",
+      reason: "Separate long-end drivers.",
+      expected_information_gain: "High",
+      linked_investigations: ["invest:duration-transmission"],
+      linked_stories: [],
+      blocking_evidence: [],
+    },
+    {
+      rank: 2,
+      action: "Check credit and breadth transmission.",
+      reason: "Test whether rates stress is spreading.",
+      expected_information_gain: "High",
+      linked_investigations: ["invest:duration-transmission"],
+      linked_stories: [],
+      blocking_evidence: [],
+    },
+    {
+      rank: 3,
+      action: "Map PADD2 refinery detail.",
+      reason: "Test product tightness.",
+      expected_information_gain: "High",
+      linked_investigations: ["invest:energy-inflation"],
+      linked_stories: [],
+      blocking_evidence: [],
+    },
+  ];
+  output.investigations = [
+    {
+      investigation_id: "invest:duration-transmission",
+      question: "Is duration stress transmitting into credit and breadth?",
+      why_it_matters: "Distinguishes rates-led tightening from growth-scare risk-off.",
+      current_explanation: "Transmission is incomplete.",
+      expected_reaction: null,
+      observed_reaction: null,
+      divergence: "UNRESOLVED",
+      competing_explanations: [],
+      observed_evidence: [],
+      missing_evidence: ["intraday credit reaction"],
+      research_next: "Check HY and breadth.",
+      chart_task_links: [],
+      confirmation_condition: "Credit and breadth weaken with rates volatility.",
+      invalidation_condition: "Credit remains contained while breadth improves.",
+      status: "open",
+      linked_story_ids: [],
+      linked_thesis_ids: [],
+    },
+    {
+      investigation_id: "invest:energy-inflation",
+      question: "Will product tightness sustain the inflation impulse?",
+      why_it_matters: "Energy can reinforce long-end pressure.",
+      current_explanation: "Regional product stress is visible.",
+      expected_reaction: null,
+      observed_reaction: null,
+      divergence: "UNRESOLVED",
+      competing_explanations: [],
+      observed_evidence: [],
+      missing_evidence: ["refinery restart timing"],
+      research_next: "Check PADD2 flows.",
+      chart_task_links: [],
+      confirmation_condition: "Product tightness persists.",
+      invalidation_condition: "Stocks rebuild and cracks weaken.",
+      status: "open",
+      linked_story_ids: [],
+      linked_thesis_ids: [],
+    },
+  ];
+
+  const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const persistedOutput = dossierInput.payload.analytical_output as ResearchBrainOutputV1;
+  const agenda = persistedOutput.research_now.map((item) => `${item.action} ${item.reason}`).join(" ");
+  assert.match(agenda, /2Y.*10Y.*30Y/i);
+  assert.match(agenda, /term.?premium/i);
+  assert.match(agenda, /Bund.*gilt.*JGB/i);
+  assert.match(agenda, /gold.*real.?yield.*USD/i);
+  assert.match(agenda, /HY.*IG.*MOVE.*VIX/i);
+  assert.match(agenda, /crude curve.*cracks/i);
+  assert.match(agenda, /verified Trump.*Xi/i);
+  assert.doesNotMatch(agenda, /Trump.*Xi (agreed|announced|signed)/i);
+
+  const watchNext = persistedOutput.investigations
+    .flatMap((item) => [item.research_next, ...item.missing_evidence])
+    .join(" ");
+  assert.match(watchNext, /Bund.*gilt.*JGB/i);
+  assert.match(watchNext, /gold.*real.?yield.*USD/i);
+  assert.match(watchNext, /crude curve.*cracks/i);
+  assert.match(watchNext, /verified Trump.*Xi/i);
+  assert.equal(persistedOutput.research_now.length, 3);
+  assert.equal(persistedOutput.investigations.length, 2);
+});
