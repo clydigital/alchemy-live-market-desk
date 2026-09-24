@@ -163,6 +163,7 @@ test("Research Brain sees and validates protected rate-context evidence", () => 
   packet.rate_context = {
     evidence: [{
       evidence_id: "verified-macro:pmi-reaction",
+      epistemic_label: "OBSERVED",
       claim_or_fact: "US 2Y and 10Y yields rose after the PMI release.",
       category: "RATES",
       source_type: "VERIFIED_MACRO_DATA",
