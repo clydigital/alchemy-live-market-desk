@@ -119,3 +119,81 @@ test("rate regime degrades explicitly when the rates stack is too sparse", () =>
   assert.equal(regime.gaps.length, 4);
   assert.equal(regime.fredBacked, false);
 });
+
+
+test("persistent next-meeting pricing survives when no fresh macro trigger is present", () => {
+  const input = packet([
+    {
+      evidence_id: "verified-macro:fedfunds-oct28-hike-odds-2026-09-23",
+      claim_or_fact: "Fed funds futures showed a 71.2% probability of a higher target range after the October meeting, up from 55.1% the previous day.",
+      category: "RATE_EXPECTATIONS",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T11:00:00.000Z",
+      occurrence_time: "2026-09-23T20:15:00.000Z",
+      metrics: {
+        signal_kind: "rate_expectation",
+        signal_context: "fedwatch",
+        observed_value: 71.2,
+        previous_value: 55.1,
+        measurement_unit: "percent",
+      },
+      provenance: [{
+        source_type: "VERIFIED_MACRO_DATA",
+        source_id: "FEDWATCH_OCT28",
+      }],
+    },
+    fred("us2y", 4.8, 1.5),
+    fred("us10y-fred", 5.05, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const outlook = buildDossierPolicyOutlook(input);
+  const regime = buildDossierRateRegime(input, outlook);
+
+  assert.equal(outlook.length, 0);
+  assert.equal(regime.nextMeetingRateOutlook, "MORE_HAWKISH");
+  assert.equal(regime.fedWatchExpectedDirection, "HIKE_ODDS_UP");
+  assert.match(regime.observedRatePricing ?? "", /71\.2%/);
+  assert.equal(regime.trigger, null);
+  assert.ok(regime.signals.some((item) =>
+    item.key === "POLICY"
+    && item.state === "HAWKISH"
+    && item.evidenceRefs.includes("verified-macro:fedfunds-oct28-hike-odds-2026-09-23")
+  ));
+});
+
+test("persistent next-meeting pricing can turn dovish without fabricating a trigger", () => {
+  const input = packet([
+    {
+      evidence_id: "verified-macro:fedfunds-next-meeting-lower-odds",
+      claim_or_fact: "Next-meeting hike pricing fell to 40.0% from 60.0%.",
+      category: "RATE_EXPECTATIONS",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T11:00:00.000Z",
+      metrics: {
+        signal_kind: "rate_expectation",
+        signal_context: "policy_pricing",
+        observed_value: 40,
+        previous_value: 60,
+        measurement_unit: "percent",
+      },
+      provenance: [{
+        source_type: "VERIFIED_MACRO_DATA",
+        source_id: "NEXT_MEETING_PRICING",
+      }],
+    },
+    fred("us2y", 4.5, 0),
+    fred("us10y-fred", 4.7, 0),
+    fred("us10y-real", 1.5, 0),
+    fred("us10y-breakeven", 2.3, 0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+
+  assert.equal(regime.nextMeetingRateOutlook, "MORE_DOVISH");
+  assert.equal(regime.fedWatchExpectedDirection, "HIKE_ODDS_DOWN");
+  assert.equal(regime.trigger, null);
+});
