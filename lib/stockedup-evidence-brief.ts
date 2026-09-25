@@ -66,7 +66,7 @@ function titleFor(id: string) {
   return "Verified StockedUp claim";
 }
 
-const PARTIAL: StockedUpEvidenceItem[] = [
+export const STOCKEDUP_PARTIAL_EVIDENCE: StockedUpEvidenceItem[] = [
   {
     id: "stockedup-partial-us-iran-terms",
     status: "PARTIAL",
@@ -91,7 +91,7 @@ const PARTIAL: StockedUpEvidenceItem[] = [
   },
 ];
 
-const CREATOR_ONLY: StockedUpEvidenceItem[] = [
+export const STOCKEDUP_CREATOR_ONLY_EVIDENCE: StockedUpEvidenceItem[] = [
   {
     id: "stockedup-creator-spy-levels",
     status: "CREATOR_ONLY",
@@ -194,7 +194,7 @@ export async function getStockedUpEvidenceBrief(): Promise<StockedUpEvidenceBrie
     summary:
       "Creator claims are split into canonical facts, partially verified context and creator-only setups. Only VERIFIED items may directly strengthen Live's canonical market interpretation.",
     verified,
-    partial: PARTIAL,
-    creatorOnly: CREATOR_ONLY,
+    partial: STOCKEDUP_PARTIAL_EVIDENCE,
+    creatorOnly: STOCKEDUP_CREATOR_ONLY_EVIDENCE,
   };
 }
