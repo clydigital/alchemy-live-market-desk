@@ -59,7 +59,6 @@ export default function StockedUpEvidenceBoard({
     <section className={styles.board} data-compact={compact ? "true" : "false"}>
       <header className={styles.boardHead}>
         <div>
-          <span>UNDER THE SURFACE · CREATOR VERIFICATION</span>
           <h2>{brief.reportLabel}</h2>
           <p>{brief.summary}</p>
         </div>
