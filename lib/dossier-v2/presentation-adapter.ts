@@ -159,8 +159,8 @@ export type DossierPresentationV1 = {
   regimeStrip: DossierPresentationLens[];
   policyOutlook: DossierPolicyOutlookItem[];
   rateRegime: DossierRateRegime;
-  dollarLiquidity: System1DollarLiquiditySnapshot | null;
-  policyLiquidityInteraction: PolicyLiquidityInteraction | null;
+  dollarLiquidity?: System1DollarLiquiditySnapshot | null;
+  policyLiquidityInteraction?: PolicyLiquidityInteraction | null;
 
   whatMattersNow: {
     leadThreadId: string;
