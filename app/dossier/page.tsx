@@ -1,11 +1,9 @@
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
-import StockedUpEvidenceBoard from "@/components/live-desk/StockedUpEvidenceBoard";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
-import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 import styles from "./dossier.module.css";
 
@@ -23,10 +21,9 @@ function severityTone(severity: string): "default" | "warn" | "risk" {
 }
 
 export default async function DossierPage() {
-  const [selection, monitor, stockedUpBrief] = await Promise.all([
+  const [selection, monitor] = await Promise.all([
     getDossierV2PresentationSelection(),
     getMarketMonitor(),
-    getStockedUpEvidenceBrief().catch(() => null),
   ]);
   const dossier = selection.presentation;
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossier });
@@ -69,7 +66,6 @@ export default async function DossierPage() {
           policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
           compact
         />
-        <StockedUpEvidenceBoard brief={stockedUpBrief} compact />
         <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>
             <span>DESK STATE</span>
