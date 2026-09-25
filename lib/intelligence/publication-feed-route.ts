@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { buildCaseMonitorBoards } from "@/lib/case-monitors";
+import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getGlobalFlowMonitor, type GlobalFlowMonitor } from "@/lib/global-flow-monitor";
+import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildHybridPublicationContract } from "@/lib/hybrid-publication";
 import { buildCanonicalEditionHealth } from "@/lib/canonical-edition-health";
 import { buildLiveDeskPulse } from "@/lib/live-desk-pulse";
@@ -186,16 +188,18 @@ export async function getCanonicalPublicationPayload(
   const calendarPromise = optionalWithin("Economic calendar", getEconomicCalendar, emptyCalendar, 1_500);
   const marketPromise = optionalWithin("Market monitor", getMarketMonitor, emptyMarketMonitor, 1_500);
   const flowPromise = optionalWithin("Global flow monitor", getGlobalFlowMonitor, emptyFlowMonitor, 1_500);
+  const dossierPromise = getDossierV2PresentationSelection().catch(() => null);
 
 
   // Only persisted Live publication/state reads may determine canonical state.
   // They use the lean reader projection, never the broad internal desk loader.
-  const [data, records, calendarResult, marketResult, flowResult] = await Promise.all([
+  const [data, records, calendarResult, marketResult, flowResult, dossierSelection] = await Promise.all([
     getHybridFeedData(),
     getHybridPublicationFeedRecords({ editionId }),
     calendarPromise,
     marketPromise,
     flowPromise,
+    dossierPromise,
   ]);
 
   // These enrichments depend on canonical rows, but remain bounded and
@@ -255,6 +259,10 @@ export async function getCanonicalPublicationPayload(
   const latestRun = data.researchRuns[0] || null;
   const marketState = liveMarketState(data);
   const liveDeskPulse = buildLiveDeskPulse(data.marketStateRecords, latestRun);
+  const dailyAssetState = buildDailyAssetState({
+    monitor: marketResult.value,
+    presentation: dossierSelection?.presentation ?? null,
+  });
   const openResearchDebt = data.researchDebt.filter((item) => item.status === "open");
   const validatedVideos = data.researchIntake.slice(0, 20);
   // Hybrid's research dashboard consumes explicit persisted divergence notes.
@@ -273,12 +281,14 @@ export async function getCanonicalPublicationPayload(
       ...contract.canonical,
       editionHealth,
       liveDeskPulse,
+      dailyAssetState,
       caseMonitors: baseMonitorResult.value,
       marketMonitor: marketResult.value,
       flowMonitors: flowResult.value,
       providerWarnings,
     },
     liveDeskPulse,
+    dailyAssetState,
     stories: contract.canonical.storyStates,
     marketState,
     calendar: liveCalendar(data, calendarResult.value),
