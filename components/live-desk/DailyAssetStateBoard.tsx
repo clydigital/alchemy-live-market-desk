@@ -77,6 +77,7 @@ export default function DailyAssetStateBoard({
               {card.confirmingSignal ? <span><b>Confirm</b>{card.confirmingSignal}</span> : null}
               {card.contradictingSignal ? <span><b>Contradict</b>{card.contradictingSignal}</span> : null}
               {card.invalidation ? <span><b>Change view</b>{card.invalidation}</span> : null}
+              {card.asOf ? <span><b>As of</b>{card.asOf}</span> : null}
               {card.sourceLabel ? <span><b>Price source</b>{card.sourceLabel}</span> : null}
             </footer>
           </article>

@@ -220,7 +220,7 @@ export function buildDailyAssetState(args: {
     }),
     card({
       key: "CRUDE",
-      label: "Crude oil",
+      label: "WTI spot",
       row: crude,
       lens: oilLens,
       bias: textBias(`${oilLens?.reaction ?? ""} ${oilLens?.interpretation ?? ""}`),
@@ -241,7 +241,7 @@ export function buildDailyAssetState(args: {
     }),
     card({
       key: "GOLD",
-      label: "Gold",
+      label: "Gold spot",
       row: gold,
       lens: goldLens,
       bias: textBias(`${goldLens?.reaction ?? ""} ${goldLens?.interpretation ?? ""}`),
@@ -250,7 +250,7 @@ export function buildDailyAssetState(args: {
     }),
     card({
       key: "BITCOIN",
-      label: "Bitcoin",
+      label: "Bitcoin spot",
       row: bitcoin,
       lens: null,
       bias: "UNRESOLVED",

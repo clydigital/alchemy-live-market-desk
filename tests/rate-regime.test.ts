@@ -259,3 +259,46 @@ test("verified 30Y broadens the long-end evidence but does not invent a regime w
   assert.equal(regime.state, "UNRESOLVED");
   assert.equal(regime.score, 0);
 });
+
+
+test("Rate System 1 prefers the direct Treasury 10Y cash yield over FRED fallback", () => {
+  const treasury10y = {
+    evidence_id: "market-monitor:us10y:2026-09-24",
+    claim_or_fact: "US 10Y Treasury cash yield was 5.18%.",
+    category: "Rates",
+    source_type: "MARKET_DATA",
+    available_at: AVAILABLE_AT,
+    occurrence_time: "2026-09-24T00:00:00.000Z",
+    grouping_key: "market-monitor:us10y",
+    metrics: {
+      last: 5.18,
+      change_5d_pct: 2.0,
+      frequency: "daily",
+      provider: "U.S. Treasury",
+    },
+    provenance: [{
+      source_type: "US_TREASURY",
+      source_id: "market-monitor:us10y",
+      url: "https://home.treasury.gov/",
+      publisher: "U.S. Department of the Treasury",
+    }],
+  };
+
+  const input = packet([
+    fred("us2y", 4.8, 1.5),
+    treasury10y,
+    fred("us10y-fred", 5.11, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const longEnd = regime.signals.find((item) => item.key === "LONG_END");
+
+  assert.match(longEnd?.detail ?? "", /US 10Y 5\.18%/);
+  assert.ok(longEnd?.evidenceRefs.includes("market-monitor:us10y:2026-09-24"));
+  assert.ok(!longEnd?.evidenceRefs.includes("market-monitor:us10y-fred:2026-09-24"));
+  assert.equal(regime.curve.spreadBps, 38);
+  assert.ok(regime.curve.evidenceRefs.includes("market-monitor:us10y:2026-09-24"));
+});

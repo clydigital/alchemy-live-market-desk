@@ -232,9 +232,9 @@ export function buildDossierRateRegime(
 ): DossierRateRegimeSnapshot {
   const evidence = rateEvidence(packet);
   const us2y = monitorEvidence(evidence, "us2y");
+  const us10yCash = monitorEvidence(evidence, "us10y");
   const us10yFred = monitorEvidence(evidence, "us10y-fred");
-  const us10yFallback = monitorEvidence(evidence, "us10y");
-  const us10y = us10yFred ?? us10yFallback;
+  const us10y = us10yCash ?? us10yFred;
   const us30y = signalContextEvidence(evidence, "us30y");
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
