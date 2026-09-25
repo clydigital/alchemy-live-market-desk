@@ -173,6 +173,53 @@ jobs:
           echo "Canonical intelligence did not complete within eight continuations." >&2
           exit 1
 
+      - name: Refresh Dossier V2 after canonical research
+        if: ${{ env.MODE == 'research' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            "$PROD_URL/api/admin/dossier-v2/run")"
+
+          jq -c '{
+            status,
+            mode,
+            persistedDossier,
+            previousDossierId,
+            snapshotDiagnostics,
+            packetSummary: {
+              asOf: .packetSummary.asOf,
+              observedEvidence: .packetSummary.observedEvidence,
+              researchLeads: .packetSummary.researchLeads,
+              developmentClusters: .packetSummary.developmentClusters,
+              researchGaps: .packetSummary.researchGaps
+            }
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Automatic Dossier V2 refresh returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          if [[ "$state" != "completed" ]]; then
+            echo "Automatic Dossier V2 refresh ended in state: ${state:-missing}" >&2
+            exit 1
+          fi
+
       - name: Run canonical intelligence only
         if: ${{ env.MODE == 'intelligence_only' }}
         shell: bash

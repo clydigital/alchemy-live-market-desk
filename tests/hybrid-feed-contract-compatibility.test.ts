@@ -39,7 +39,8 @@ test("current Dossier V2 is isolated from the heavy Hybrid intelligence feed", (
   assert.doesNotMatch(routeSource, /dossierPromise|dossierResult|dossierV2:/);
 
   assert.match(dossierRouteSource, /getDossierV2PresentationSelection/);
-  assert.match(dossierRouteSource, /s-maxage=30/);
+  assert.match(dossierRouteSource, /Cache-Control": "no-store"/);
+  assert.doesNotMatch(dossierRouteSource, /s-maxage|stale-while-revalidate/);
 
   // Neither transport may invoke a second model/reasoning path.
   assert.doesNotMatch(routeSource, /executeResearchBrain|runIntelligenceEngine|dossier-storyline-composer/);
