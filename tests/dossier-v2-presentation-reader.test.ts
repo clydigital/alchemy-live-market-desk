@@ -148,7 +148,7 @@ test("reader selects the latest healthy Dossier as current", () => {
   assert.equal(result.notice.tone, "ready");
 });
 
-test("reader falls back to the previous healthy Dossier when latest is degraded", () => {
+test("reader keeps the latest renderable Dossier when it has research gaps", () => {
   const healthy = dossier({
     id: HEALTHY_ID,
     asOf: "2026-09-21T12:45:00Z",
@@ -162,12 +162,12 @@ test("reader falls back to the previous healthy Dossier when latest is degraded"
 
   const result = selectDossierV2Presentation([healthy, degraded]);
 
-  assert.equal(result.status, "fallback_previous_healthy");
+  assert.equal(result.status, "degraded_latest");
   assert.equal(result.latestDossierId, DEGRADED_ID);
-  assert.equal(result.selectedDossierId, HEALTHY_ID);
-  assert.equal(result.usingFallback, true);
+  assert.equal(result.selectedDossierId, DEGRADED_ID);
+  assert.equal(result.usingFallback, false);
   assert.equal(result.notice.tone, "warn");
-  assert.match(result.notice.detail, /latest Dossier is degraded/i);
+  assert.match(result.notice.detail, /latest renderable Dossier/i);
 });
 
 test("reader falls back when latest analytical payload is malformed", () => {
