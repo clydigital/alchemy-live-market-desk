@@ -969,6 +969,13 @@ export function augmentCandidateSnapshotWithTradingEconomics(
   };
 }
 
+function dollarProviderDateAllowed(value: string | null, asOf: string) {
+  if (!value) return false;
+  const observation = Date.parse(`${value}T00:00:00.000Z`);
+  const cutoff = Date.parse(asOf);
+  return Number.isFinite(observation) && Number.isFinite(cutoff) && observation <= cutoff;
+}
+
 export function augmentCandidateSnapshotWithDollarPlumbing(
   result: CanonicalSnapshotResult,
   nyFed: NyFedReferenceRatesSnapshot,
@@ -989,7 +996,7 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
     ? (secured.reduce((sum, item) => sum + item.percentRate, 0) / secured.length - effr.percentRate) * 100
     : null;
 
-  if (nyFed.rates.length && nyFed.asOf) {
+  if (nyFed.rates.length && nyFed.asOf && dollarProviderDateAllowed(nyFed.asOf, options.asOf)) {
     observed.push({
       evidence_id: `system1-dollar:nyfed-rates:${nyFed.asOf}`,
       claim_or_fact: `NY Fed reference rates: EFFR ${effr?.percentRate ?? "n/a"}%; SOFR ${nyFed.rates.find((item) => item.type === "SOFR")?.percentRate ?? "n/a"}%; TGCR ${nyFed.rates.find((item) => item.type === "TGCR")?.percentRate ?? "n/a"}%; BGCR ${nyFed.rates.find((item) => item.type === "BGCR")?.percentRate ?? "n/a"}%.`,
@@ -1018,7 +1025,11 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
     });
   }
 
-  if (dealers.series.some((item) => item.valueMillions !== null) && dealers.asOf) {
+  if (
+    dealers.series.some((item) => item.valueMillions !== null)
+    && dealers.asOf
+    && dollarProviderDateAllowed(dealers.asOf, options.asOf)
+  ) {
     const position = dealers.series.find((item) => item.keyId === "PDPOSGST-TOT") ?? null;
     const failsDeliver = dealers.series.find((item) => item.keyId === "PDFTD-USTET") ?? null;
     const failsReceive = dealers.series.find((item) => item.keyId === "PDFTR-USTET") ?? null;
@@ -1048,7 +1059,11 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
     });
   }
 
-  if (treasuryBills.points.length && treasuryBills.asOf) {
+  if (
+    treasuryBills.points.length
+    && treasuryBills.asOf
+    && dollarProviderDateAllowed(treasuryBills.asOf, options.asOf)
+  ) {
     observed.push({
       evidence_id: `system1-dollar:treasury-bills:${treasuryBills.asOf}`,
       claim_or_fact: `Treasury bills: 3M ${treasuryBills.points.find((item) => item.tenor === "3M")?.yieldPercent ?? "n/a"}%; 6M ${treasuryBills.points.find((item) => item.tenor === "6M")?.yieldPercent ?? "n/a"}%.`,
