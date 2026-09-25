@@ -1,50 +1,49 @@
-export const POWER_STACK_RATING_SNAPSHOT_V1 = "power-stack-rating-snapshot/v1";
-export const POWER_STACK_RATING_IMPORT_V1 = "power-stack-rating-import/v1";
+export const POWER_STACK_FUNDAMENTALS_V1 = "power-stack-fundamentals/v1";
+export const POWER_STACK_FUNDAMENTALS_IMPORT_V1 = "power-stack-fundamentals-import/v1";
 
-export const DEFAULT_POWER_STACK_RATING_SNAPSHOT_URL =
-  "https://clydigital.github.io/power-stack/data/live-rating-snapshot.json";
+export const DEFAULT_POWER_STACK_FUNDAMENTALS_URL =
+  "https://clydigital.github.io/power-stack/data/live-fundamentals-snapshot.json";
 
-export type PowerStackIndustryMacroRisk = {
-  industry: string;
-  score: number;
-  label: string;
-  asOf: string;
-  pressures: string[];
-  offsets: string[];
+export type PowerStackQualityProfile = {
+  aiRisk: number | null;
+  themeDependency: number | null;
+  cyclicality: number | null;
+  speculation: number | null;
 };
 
-export type PowerStackRating = {
+export type PowerStackCompanyFundamental = {
   ticker: string;
   name: string;
-  themeGroup: string;
-  researchScore: number;
-  macroAdjustment: number;
-  adjustedScore: number;
-  industryMacroRisk: PowerStackIndustryMacroRisk | null;
-  industryRiskNote?: string;
+  market: string | null;
+  region: string | null;
+  themeGroup: string | null;
+  theme: string | null;
+  baseConviction: number;
+  status: string | null;
+  thesis: string | null;
+  catalysts: string | null;
+  risks: string | null;
+  qualityProfile: PowerStackQualityProfile;
+  lastUpdated: string | null;
 };
 
-export type PowerStackRatingSnapshot = {
-  contractVersion: typeof POWER_STACK_RATING_SNAPSHOT_V1;
+export type PowerStackFundamentalsSnapshot = {
+  contractVersion: typeof POWER_STACK_FUNDAMENTALS_V1;
   snapshotAt: string;
   sourceCommit: string;
-  macroContextGeneratedAt: string;
-  macroProfileUpdatedAt: string;
-  methodology: Record<string, unknown>;
-  ratings: PowerStackRating[];
+  companies: PowerStackCompanyFundamental[];
   sourceFiles: string[];
+  guardrails: string[];
 };
 
-export type FrozenPowerStackRatingImport = {
-  contractVersion: typeof POWER_STACK_RATING_IMPORT_V1;
+export type FrozenPowerStackFundamentalsImport = {
+  contractVersion: typeof POWER_STACK_FUNDAMENTALS_IMPORT_V1;
   importedAt: string;
   sourceSnapshotAt: string;
   sourceCommit: string;
-  macroContextGeneratedAt: string;
-  macroProfileUpdatedAt: string;
-  methodology: Record<string, unknown>;
-  ratings: PowerStackRating[];
+  companies: PowerStackCompanyFundamental[];
   sourceFiles: string[];
+  guardrails: string[];
   sourceUrl: string;
 };
 
@@ -64,89 +63,100 @@ function strings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function parseIndustryRisk(value: unknown): PowerStackIndustryMacroRisk | null | undefined {
+function nullableString(value: unknown): string | null | undefined {
   if (value === null) return null;
-  if (!object(value)) return undefined;
-  if (
-    typeof value.industry !== "string"
-    || !finite(value.score, 0, 100)
-    || typeof value.label !== "string"
-    || !iso(value.asOf)
-    || !strings(value.pressures)
-    || !strings(value.offsets)
-  ) return undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+function nullableRisk(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return finite(value, 0, 5) ? value : undefined;
+}
+
+function parseQualityProfile(value: unknown): PowerStackQualityProfile | null {
+  if (!object(value)) return null;
+  const aiRisk = nullableRisk(value.aiRisk);
+  const themeDependency = nullableRisk(value.themeDependency);
+  const cyclicality = nullableRisk(value.cyclicality);
+  const speculation = nullableRisk(value.speculation);
+  if ([aiRisk, themeDependency, cyclicality, speculation].some((item) => item === undefined)) return null;
   return {
-    industry: value.industry,
-    score: value.score,
-    label: value.label,
-    asOf: value.asOf,
-    pressures: [...value.pressures],
-    offsets: [...value.offsets],
+    aiRisk: aiRisk ?? null,
+    themeDependency: themeDependency ?? null,
+    cyclicality: cyclicality ?? null,
+    speculation: speculation ?? null,
   };
 }
 
-function parseRating(value: unknown): PowerStackRating | null {
+function parseCompany(value: unknown): PowerStackCompanyFundamental | null {
   if (!object(value)) return null;
   const ticker = typeof value.ticker === "string" ? value.ticker.trim().toUpperCase() : "";
-  const industryMacroRisk = parseIndustryRisk(value.industryMacroRisk);
+  const qualityProfile = parseQualityProfile(value.qualityProfile);
+  const market = nullableString(value.market);
+  const region = nullableString(value.region);
+  const themeGroup = nullableString(value.themeGroup);
+  const theme = nullableString(value.theme);
+  const status = nullableString(value.status);
+  const thesis = nullableString(value.thesis);
+  const catalysts = nullableString(value.catalysts);
+  const risks = nullableString(value.risks);
+  const lastUpdated = nullableString(value.lastUpdated);
   if (
     !/^[A-Z0-9.-]{1,12}$/.test(ticker)
     || typeof value.name !== "string"
-    || typeof value.themeGroup !== "string"
-    || !finite(value.researchScore, 0, 10)
-    || !finite(value.macroAdjustment, -1, 1)
-    || !finite(value.adjustedScore, 0, 10)
-    || industryMacroRisk === undefined
-    || (value.industryRiskNote !== undefined && typeof value.industryRiskNote !== "string")
+    || !finite(value.baseConviction, 0, 10)
+    || qualityProfile === null
+    || [market, region, themeGroup, theme, status, thesis, catalysts, risks, lastUpdated].some((item) => item === undefined)
   ) return null;
   return {
     ticker,
     name: value.name,
-    themeGroup: value.themeGroup,
-    researchScore: value.researchScore,
-    macroAdjustment: value.macroAdjustment,
-    adjustedScore: value.adjustedScore,
-    industryMacroRisk,
-    ...(typeof value.industryRiskNote === "string" ? { industryRiskNote: value.industryRiskNote } : {}),
+    market: market ?? null,
+    region: region ?? null,
+    themeGroup: themeGroup ?? null,
+    theme: theme ?? null,
+    baseConviction: value.baseConviction,
+    status: status ?? null,
+    thesis: thesis ?? null,
+    catalysts: catalysts ?? null,
+    risks: risks ?? null,
+    qualityProfile,
+    lastUpdated: lastUpdated ?? null,
   };
 }
 
-export function parsePowerStackRatingSnapshot(value: unknown): PowerStackRatingSnapshot | null {
+export function parsePowerStackFundamentalsSnapshot(value: unknown): PowerStackFundamentalsSnapshot | null {
   if (!object(value)) return null;
   if (
-    value.contractVersion !== POWER_STACK_RATING_SNAPSHOT_V1
+    value.contractVersion !== POWER_STACK_FUNDAMENTALS_V1
     || !iso(value.snapshotAt)
     || typeof value.sourceCommit !== "string"
     || !value.sourceCommit.trim()
-    || !iso(value.macroContextGeneratedAt)
-    || !iso(value.macroProfileUpdatedAt)
-    || !object(value.methodology)
-    || !Array.isArray(value.ratings)
+    || !Array.isArray(value.companies)
     || !strings(value.sourceFiles)
+    || !strings(value.guardrails)
   ) return null;
-  const ratings = value.ratings.map(parseRating);
-  if (ratings.some((rating) => rating === null)) return null;
-  const typedRatings = ratings as PowerStackRating[];
-  if (new Set(typedRatings.map((rating) => rating.ticker)).size !== typedRatings.length) return null;
+  const companies = value.companies.map(parseCompany);
+  if (companies.some((company) => company === null)) return null;
+  const typedCompanies = companies as PowerStackCompanyFundamental[];
+  if (new Set(typedCompanies.map((company) => company.ticker)).size !== typedCompanies.length) return null;
   return {
-    contractVersion: POWER_STACK_RATING_SNAPSHOT_V1,
+    contractVersion: POWER_STACK_FUNDAMENTALS_V1,
     snapshotAt: value.snapshotAt,
     sourceCommit: value.sourceCommit,
-    macroContextGeneratedAt: value.macroContextGeneratedAt,
-    macroProfileUpdatedAt: value.macroProfileUpdatedAt,
-    methodology: structuredClone(value.methodology),
-    ratings: typedRatings,
+    companies: typedCompanies,
     sourceFiles: [...value.sourceFiles],
+    guardrails: [...value.guardrails],
   };
 }
 
-export async function fetchPowerStackRatingImport({
-  sourceUrl = process.env.POWER_STACK_RATING_SNAPSHOT_URL || DEFAULT_POWER_STACK_RATING_SNAPSHOT_URL,
+export async function fetchPowerStackFundamentalsImport({
+  sourceUrl = process.env.POWER_STACK_FUNDAMENTALS_URL || DEFAULT_POWER_STACK_FUNDAMENTALS_URL,
   importedAt = new Date().toISOString(),
 }: {
   sourceUrl?: string;
   importedAt?: string;
-} = {}): Promise<FrozenPowerStackRatingImport | null> {
+} = {}): Promise<FrozenPowerStackFundamentalsImport | null> {
   try {
     const response = await fetch(sourceUrl, {
       cache: "no-store",
@@ -154,18 +164,16 @@ export async function fetchPowerStackRatingImport({
       headers: { Accept: "application/json" },
     });
     if (!response.ok) return null;
-    const snapshot = parsePowerStackRatingSnapshot(await response.json());
+    const snapshot = parsePowerStackFundamentalsSnapshot(await response.json());
     if (!snapshot) return null;
     return {
-      contractVersion: POWER_STACK_RATING_IMPORT_V1,
+      contractVersion: POWER_STACK_FUNDAMENTALS_IMPORT_V1,
       importedAt,
       sourceSnapshotAt: snapshot.snapshotAt,
       sourceCommit: snapshot.sourceCommit,
-      macroContextGeneratedAt: snapshot.macroContextGeneratedAt,
-      macroProfileUpdatedAt: snapshot.macroProfileUpdatedAt,
-      methodology: snapshot.methodology,
-      ratings: snapshot.ratings,
+      companies: snapshot.companies,
       sourceFiles: snapshot.sourceFiles,
+      guardrails: snapshot.guardrails,
       sourceUrl,
     };
   } catch {
@@ -176,7 +184,7 @@ export async function fetchPowerStackRatingImport({
 export async function enrichDailyBriefSnapshotWrite(
   path: string,
   init: RequestInit,
-  load: () => Promise<FrozenPowerStackRatingImport | null> = () => fetchPowerStackRatingImport(),
+  load: () => Promise<FrozenPowerStackFundamentalsImport | null> = () => fetchPowerStackFundamentalsImport(),
 ): Promise<RequestInit> {
   if (path !== "hybrid_publication_snapshots" || (init.method || "GET").toUpperCase() !== "POST" || typeof init.body !== "string") {
     return init;
@@ -191,18 +199,18 @@ export async function enrichDailyBriefSnapshotWrite(
   const needsImport = rows.some((row) => object(row)
     && row.snapshot_type === "daily_brief"
     && object(row.payload)
-    && !("powerStackRatings" in row.payload));
+    && !("powerStackFundamentals" in row.payload));
   if (!needsImport) return init;
 
   const imported = await load().catch(() => null);
   if (!imported) return init;
   const patched = rows.map((row) => {
-    if (!object(row) || row.snapshot_type !== "daily_brief" || !object(row.payload) || "powerStackRatings" in row.payload) return row;
+    if (!object(row) || row.snapshot_type !== "daily_brief" || !object(row.payload) || "powerStackFundamentals" in row.payload) return row;
     return {
       ...row,
       payload: {
         ...row.payload,
-        powerStackRatings: structuredClone(imported),
+        powerStackFundamentals: structuredClone(imported),
       },
     };
   });

@@ -116,6 +116,8 @@ const HISTORY_DAYS = 470;
 const EXTRA_REVALIDATE = 60 * 60;
 
 const FRED_RATE_SPECS: FredSpec[] = [
+  { id: "us3m-bill", seriesId: "DGS3MO", label: "US 3M Treasury Bill Yield" },
+  { id: "us6m-bill", seriesId: "DGS6MO", label: "US 6M Treasury Bill Yield" },
   { id: "us2y", seriesId: "DGS2", label: "US 2Y Yield" },
   { id: "us10y-fred", seriesId: "DGS10", label: "US 10Y Yield · FRED" },
   { id: "us10y-real", seriesId: "DFII10", label: "US 10Y Real Yield" },
@@ -327,7 +329,7 @@ export const loadExtras = unstable_cache(async () => {
       .catch(() => null),
   ]);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v3"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v4"], { revalidate: EXTRA_REVALIDATE });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
