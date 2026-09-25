@@ -2,6 +2,7 @@ import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts
 import type { MarketMonitor, MarketMonitorRow } from "./market-monitor.ts";
 import type { NyFedPrimaryDealerSnapshot } from "./providers/ny-fed-primary-dealers.ts";
 import type { NyFedReferenceRatesSnapshot } from "./providers/ny-fed-reference-rates.ts";
+import type { TreasuryBillSnapshot } from "./providers/treasury-bills.ts";
 
 export const MARKET_INTELLIGENCE_SNAPSHOT_V1 = "market-intelligence-snapshot/v1" as const;
 
@@ -80,6 +81,7 @@ export type MarketIntelligenceSnapshotV1 = {
     fredRates: "OK" | "PARTIAL";
     nyFedReferenceRates: NyFedReferenceRatesSnapshot["status"];
     nyFedPrimaryDealers: NyFedPrimaryDealerSnapshot["status"];
+    treasuryBills: TreasuryBillSnapshot["status"];
     treasurySupply: "UNRESOLVED";
   };
   contradictions: Array<{
@@ -205,15 +207,26 @@ function billsSignal(
   presentation: DossierPresentationV1,
   monitor: MarketMonitor,
   nyFed: NyFedReferenceRatesSnapshot,
+  treasuryBills: TreasuryBillSnapshot,
 ): MarketIntelligenceSignal {
-  const bill3m = row(monitor, "us3m-bill");
-  const bill6m = row(monitor, "us6m-bill");
+  const treasury3m = treasuryBills.points.find((item) => item.tenor === "3M") ?? null;
+  const treasury6m = treasuryBills.points.find((item) => item.tenor === "6M") ?? null;
+  const fred3m = row(monitor, "us3m-bill");
+  const fred6m = row(monitor, "us6m-bill");
+  const bill3m = treasury3m?.yieldPercent ?? fred3m?.last ?? null;
+  const bill6m = treasury6m?.yieldPercent ?? fred6m?.last ?? null;
   const effr = nyFedRate(nyFed, "EFFR")?.percentRate ?? row(monitor, "fed-funds-effective")?.last ?? null;
-  const values = [bill3m?.last, bill6m?.last].filter((value): value is number => typeof value === "number");
+  const values = [bill3m, bill6m].filter((value): value is number => typeof value === "number");
   const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const spread = average !== null && effr !== null ? (average - effr) * 100 : null;
   let direction: MonetarySignalDirection = "UNRESOLVED";
   if (spread !== null) direction = spread >= 10 ? "TIGHTER" : spread <= -10 ? "EASIER" : "NEUTRAL";
+  const sourceName = treasuryBills.points.length
+    ? treasuryBills.sourceName
+    : "Federal Reserve Economic Data";
+  const sourceUrl = treasuryBills.points.length
+    ? treasuryBills.sourceUrl
+    : fred3m?.sourceUrl ?? fred6m?.sourceUrl ?? null;
   return {
     key: "BILLS",
     label: "Treasury bills / front-end cash",
@@ -221,14 +234,16 @@ function billsSignal(
     confirmation: confirmation(presentation.rateRegime.state, direction),
     detail: average === null
       ? "3M/6M Treasury-bill yields are unavailable."
-      : `3M ${fmtPct(bill3m?.last ?? null)}; 6M ${fmtPct(bill6m?.last ?? null)}; average vs EFFR ${fmtBp(round(spread))}.`,
-    asOf: [bill3m?.asOf, bill6m?.asOf].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null,
-    sourceName: "Federal Reserve Economic Data",
-    sourceUrl: bill3m?.sourceUrl ?? bill6m?.sourceUrl ?? null,
+      : `3M ${fmtPct(bill3m)}; 6M ${fmtPct(bill6m)}; average vs EFFR ${fmtBp(round(spread))}.`,
+    asOf: treasuryBills.asOf
+      ?? [fred3m?.asOf, fred6m?.asOf].filter((value): value is string => Boolean(value)).sort().at(-1)
+      ?? null,
+    sourceName,
+    sourceUrl,
     evidenceRefs: [],
     metrics: {
-      bill3m: bill3m?.last ?? null,
-      bill6m: bill6m?.last ?? null,
+      bill3m,
+      bill6m,
       effectiveFedFunds: effr,
       billsVsEffrBps: round(spread),
     },
@@ -343,6 +358,7 @@ export function buildMarketIntelligenceSnapshot({
   monitor,
   nyFedReferenceRates,
   nyFedPrimaryDealers,
+  treasuryBills,
   dailyAssetState = null,
   creatorVerification = null,
   generatedAt = new Date().toISOString(),
@@ -352,6 +368,7 @@ export function buildMarketIntelligenceSnapshot({
   monitor: MarketMonitor;
   nyFedReferenceRates: NyFedReferenceRatesSnapshot;
   nyFedPrimaryDealers: NyFedPrimaryDealerSnapshot;
+  treasuryBills: TreasuryBillSnapshot;
   dailyAssetState?: unknown;
   creatorVerification?: unknown;
   generatedAt?: string;
@@ -359,7 +376,7 @@ export function buildMarketIntelligenceSnapshot({
   const signals = [
     ...(presentation.rateRegime.signals ?? []).map((item) => rateSignal(presentation, item)),
     fundingSignal(presentation, nyFedReferenceRates),
-    billsSignal(presentation, monitor, nyFedReferenceRates),
+    billsSignal(presentation, monitor, nyFedReferenceRates, treasuryBills),
     creditSignal(presentation, monitor),
     usdSignal(presentation, monitor),
     dealerSignal(presentation, nyFedPrimaryDealers),
@@ -398,6 +415,7 @@ export function buildMarketIntelligenceSnapshot({
     ...(presentation.rateRegime.gaps ?? []),
     ...nyFedReferenceRates.warnings,
     ...nyFedPrimaryDealers.warnings,
+    ...treasuryBills.warnings,
     "Treasury supply/auction state is not yet normalized into market-intelligence-snapshot/v1.",
   ];
 
@@ -442,6 +460,7 @@ export function buildMarketIntelligenceSnapshot({
       fredRates: presentation.rateRegime.fredBacked ? "OK" : "PARTIAL",
       nyFedReferenceRates: nyFedReferenceRates.status,
       nyFedPrimaryDealers: nyFedPrimaryDealers.status,
+      treasuryBills: treasuryBills.status,
       treasurySupply: "UNRESOLVED",
     },
     contradictions: [
