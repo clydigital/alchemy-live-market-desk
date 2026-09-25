@@ -190,7 +190,7 @@ export function buildDailyAssetState(args: {
   const goldLens = lensFor(presentation, "GOLD");
 
   const spx = rowFor(monitor, "spx");
-  const nasdaq = rowFor(monitor, "ndx", "nasdaq-comp");
+  const nasdaq = rowFor(monitor, "nasdaq-comp");
   const crude = rowFor(monitor, "wti");
   const rates = rowFor(monitor, "us10y-fred", "us10y");
   const gold = rowFor(monitor, "gold");
@@ -210,7 +210,7 @@ export function buildDailyAssetState(args: {
     }),
     card({
       key: "NASDAQ",
-      label: "Nasdaq",
+      label: "Nasdaq Composite",
       row: nasdaq,
       lens: techLens,
       bias: nasdaqBias(presentation),
@@ -264,7 +264,7 @@ export function buildDailyAssetState(args: {
   const limitations = [
     ...monitor.limitations,
     ...(missing.length ? [`Missing current market level for: ${missing.join(", ")}.`] : []),
-    "Gold and Bitcoin may use listed market proxies when direct spot series are unavailable; the source label remains visible.",
+    "Headline asset cards use direct cash/spot series only. If a direct cash/spot series is unavailable, the card fails closed instead of substituting an ETF proxy.",
     "Key levels remain null unless a verified canonical source supplies them; transcript-only support/resistance is not promoted automatically.",
   ];
 
