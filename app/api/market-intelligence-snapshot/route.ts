@@ -14,6 +14,21 @@ export const revalidate = 30;
 export async function GET() {
   try {
     const selection = await getDossierV2PresentationSelection();
+    if (!selection.presentation) {
+      return NextResponse.json({
+        contractVersion: "market-intelligence-snapshot/v1",
+        status: "unavailable",
+        detail: selection.notice?.detail || "No current Dossier presentation is available.",
+      }, {
+        status: 503,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-store",
+          "X-Alchemy-Market-Intelligence": "unavailable",
+        },
+      });
+    }
+
     const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, creatorVerification] = await Promise.all([
       getMarketMonitor(),
       fetchNyFedReferenceRates(),
