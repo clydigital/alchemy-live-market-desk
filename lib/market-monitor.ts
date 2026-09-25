@@ -322,34 +322,84 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
 }
 
 async function fetchGoldSpotSeries(): Promise<RawSeries> {
-  const end = new Date();
-  const start = new Date(end.getTime() - 28 * 86400000);
-  const endpoint = `https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${isoDate(start)}&to=${isoDate(end)}&limit=40`;
-  const response = await fetch(endpoint, {
+  const historyResponse = await fetch("https://xaus.com/api/v1/history", {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
-    next: { revalidate: 300 },
+    next: { revalidate: 60 * 60 * 6 },
   });
-  if (!response.ok) throw new Error(`goldprice.dev XAUUSD ${response.status}`);
-  const payload = await response.json();
-  const bars: Array<Record<string, unknown>> = Array.isArray(payload?.bars) ? payload.bars : [];
-  const points = bars.flatMap((bar) => {
-    const close = parseNumber(bar.close);
-    const open = parseNumber(bar.open);
-    const high = parseNumber(bar.high);
-    const low = parseNumber(bar.low);
-    const time = typeof bar.bar_start === "string" ? Date.parse(bar.bar_start) / 1000 : NaN;
-    return close == null || !Number.isFinite(time) ? [] : [{ time, close, open, high, low }];
-  }).sort((a, b) => a.time - b.time);
-  if (points.length < 2) throw new Error("goldprice.dev XAUUSD returned insufficient bars");
+  if (!historyResponse.ok) throw new Error(`XAUS XAUUSD history ${historyResponse.status}`);
+
+  const historyPayload = await historyResponse.json();
+  const historyRows: Array<Record<string, unknown>> = Array.isArray(historyPayload?.points)
+    ? historyPayload.points
+    : [];
+  const points: MarketMonitorPoint[] = historyRows.flatMap((row) => {
+    const close = parseNumber(row.c);
+    const high = parseNumber(row.h);
+    const low = parseNumber(row.l);
+    const time = typeof row.d === "string" ? Date.parse(`${row.d}T00:00:00Z`) / 1000 : NaN;
+    return close == null || !Number.isFinite(time) ? [] : [{ time, close, high, low }];
+  }).sort((a, b) => a.time - b.time).slice(-64);
+
+  // Overlay a current cash spot observation only when its own timestamp is fresh.
+  // XAUS documents the data_state/as_of contract and serves history separately,
+  // so an upstream spot outage can degrade to the latest cash close without
+  // ever substituting GLD.
+  try {
+    const freshnessBucket = Math.floor(Date.now() / (5 * 60 * 1000));
+    const spotResponse = await fetch(
+      `https://xaus.com/api/v1/spot?compact=1&fresh=${freshnessBucket}`,
+      {
+        headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
+        cache: "no-store",
+      },
+    );
+    if (spotResponse.ok) {
+      const spot = await spotResponse.json();
+      const price = parseNumber(spot?.spot_usd_oz);
+      const state = spot?.data_state && typeof spot.data_state === "object"
+        ? spot.data_state as Record<string, unknown>
+        : null;
+      const rawAsOf =
+        (typeof state?.as_of === "string" ? state.as_of : null)
+        ?? (typeof spot?.price_as_of === "string" ? spot.price_as_of : null)
+        ?? (typeof spot?.updated_at === "string" ? spot.updated_at : null);
+      const spotTime = rawAsOf ? Date.parse(rawAsOf) / 1000 : NaN;
+      const ageSeconds = Number.isFinite(spotTime) ? Date.now() / 1000 - spotTime : Infinity;
+      const status = typeof state?.status === "string" ? state.status : null;
+
+      if (
+        price != null
+        && Number.isFinite(spotTime)
+        && status !== "unavailable"
+        && ageSeconds >= -300
+        && ageSeconds <= 30 * 60
+      ) {
+        const spotDay = new Date(spotTime * 1000).toISOString().slice(0, 10);
+        const existingIndex = points.findIndex(
+          (point) => new Date(point.time * 1000).toISOString().slice(0, 10) === spotDay,
+        );
+        if (existingIndex >= 0) {
+          points[existingIndex] = { ...points[existingIndex], time: spotTime, close: price };
+        } else {
+          points.push({ time: spotTime, close: price });
+          points.sort((a, b) => a.time - b.time);
+        }
+      }
+    }
+  } catch {
+    // History remains a valid cash-market fallback. Do not replace it with GLD.
+  }
+
+  if (points.length < 2) throw new Error("XAUS XAUUSD returned insufficient cash history");
   return {
     id: "gold",
     symbol: "XAUUSD",
-    label: "Gold Spot · XAU/USD",
+    label: "Gold Cash · XAU/USD",
     type: "Metal",
     benchmark: null,
-    points,
-    sourceName: "goldprice.dev XAU/USD spot",
-    sourceUrl: "https://goldprice.dev/",
+    points: points.slice(-64),
+    sourceName: "XAUS XAU/USD cash",
+    sourceUrl: "https://xaus.com/api/",
     frequency: "daily",
   };
 }
@@ -415,7 +465,7 @@ export const loadCashAnchors = unstable_cache(async () => {
     fetchBitcoinSpotSeries().catch(() => null),
   ]);
   return rows.filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-cash-anchors-v1"], { revalidate: 300 });
+}, ["alchemy-market-monitor-cash-anchors-v2"], { revalidate: 300 });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
