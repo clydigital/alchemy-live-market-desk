@@ -19,6 +19,12 @@ import {
   buildSystem1DivergenceCandidates,
   buildSystem1PolicyExpectationChecks,
 } from "./system1-divergence.ts";
+import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
+import { buildDossierRateRegime } from "./rate-regime.ts";
+import {
+  buildPolicyLiquidityInteraction,
+  buildSystem1DollarLiquidity,
+} from "./system1-dollar-liquidity.ts";
 
 
 function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
