@@ -935,6 +935,14 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  const protectedDollarLiquidityEvidence = activeAdmittedEvidence
+    .filter((item) => item.grouping_key.startsWith("system1:"))
+    .sort((left, right) =>
+      (left.rank ?? 999) - (right.rank ?? 999)
+      || right.available_at.localeCompare(left.available_at)
+      || left.evidence_id.localeCompare(right.evidence_id))
+    .slice(0, 3);
+
   const rateContextEvidence = activeAdmittedEvidence
     .filter((item) => isRateContextEvidence(item))
     .sort((left, right) =>
@@ -957,6 +965,7 @@ export function assembleDossierV2InputPacket(
 
   const evidenceByGroup = new Map<string, Array<ObservedEvidence & { grouping_key: string; conflict_key?: string }>>();
   for (const ev of activeAdmittedEvidence) {
+    if (ev.grouping_key.startsWith("system1:")) continue;
     const list = evidenceByGroup.get(ev.grouping_key) ?? [];
     list.push(ev);
     evidenceByGroup.set(ev.grouping_key, list);
@@ -1165,6 +1174,22 @@ export function assembleDossierV2InputPacket(
     observedEvidence.push(...c.evidence);
     researchLeads.push(...c.leads);
   }
+
+  observedEvidence.push(
+    ...protectedDollarLiquidityEvidence.map((item) => {
+      const {
+        grouping_key: _groupingKey,
+        conflict_key: _conflictKey,
+        supersedes_id: _supersedesId,
+        ...rest
+      } = item as ObservedEvidence & {
+        grouping_key?: unknown;
+        conflict_key?: unknown;
+        supersedes_id?: unknown;
+      };
+      return rest;
+    }),
+  );
 
   observedEvidence = Array.from(new Map(observedEvidence.map((e) => [e.evidence_id, e])).values()).sort((a, b) => {
     const rankA = a.rank ?? 999;
@@ -1391,6 +1416,12 @@ export function assembleDossierV2InputPacket(
   }
 
   freshnessWarnings.sort((a, b) => a.source_name.localeCompare(b.source_name));
+
+  if (protectedDollarLiquidityEvidence.length) {
+    notes.push(
+      `Protected ${protectedDollarLiquidityEvidence.length} System 1 dollar-liquidity observations outside the 24-cluster investigation budget.`,
+    );
+  }
 
   const initialDiagnostics: OmissionDiagnostics = {
     omitted_clusters_count: omittedClustersCount,
