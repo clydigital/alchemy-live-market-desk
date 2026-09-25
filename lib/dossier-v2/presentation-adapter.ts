@@ -1,6 +1,10 @@
 import type { MarketDossierV2 } from "./contracts.ts";
 import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
 import type {
+  PolicyLiquidityInteraction,
+  System1DollarLiquiditySnapshot,
+} from "./system1-dollar-liquidity.ts";
+import type {
   ChartTask,
   CreatorThemeExpansion,
   DevelopingTheme,
@@ -155,6 +159,8 @@ export type DossierPresentationV1 = {
   regimeStrip: DossierPresentationLens[];
   policyOutlook: DossierPolicyOutlookItem[];
   rateRegime: DossierRateRegime;
+  dollarLiquidity?: System1DollarLiquiditySnapshot | null;
+  policyLiquidityInteraction?: PolicyLiquidityInteraction | null;
 
   whatMattersNow: {
     leadThreadId: string;
@@ -286,6 +292,28 @@ function rateRegime(
     evidenceRefs,
     gaps,
   };
+}
+
+function dollarLiquidity(dossier: MarketDossierV2): System1DollarLiquiditySnapshot | null {
+  const value = dossier.payload.system1_dollar_liquidity;
+  if (
+    !isObject(value)
+    || value.contractVersion !== "system1-dollar-liquidity/1"
+    || typeof value.state !== "string"
+    || !Array.isArray(value.components)
+  ) return null;
+  return value as unknown as System1DollarLiquiditySnapshot;
+}
+
+function policyLiquidityInteraction(dossier: MarketDossierV2): PolicyLiquidityInteraction | null {
+  const value = dossier.payload.system1_policy_liquidity_interaction;
+  if (
+    !isObject(value)
+    || typeof value.policyState !== "string"
+    || typeof value.liquidityState !== "string"
+    || typeof value.alignment !== "string"
+  ) return null;
+  return value as unknown as PolicyLiquidityInteraction;
 }
 
 function researchGaps(dossier: MarketDossierV2) {
@@ -504,6 +532,8 @@ export function buildDossierV2Presentation(
     regimeStrip: lenses,
     policyOutlook: outlook,
     rateRegime: rateRegime(dossier, outlook, lenses),
+    dollarLiquidity: dollarLiquidity(dossier),
+    policyLiquidityInteraction: policyLiquidityInteraction(dossier),
 
     whatMattersNow: {
       leadThreadId: output.main_thread.thread_id,

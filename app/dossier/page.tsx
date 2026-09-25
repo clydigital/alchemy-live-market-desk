@@ -63,7 +63,12 @@ export default async function DossierPage() {
       }
     >
       <div className={styles.workspace}>
-        <DailyAssetStateBoard state={dailyAssetState} compact />
+        <DailyAssetStateBoard
+          state={dailyAssetState}
+          dollarLiquidity={dossier.dollarLiquidity ?? null}
+          policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
+          compact
+        />
         <StockedUpEvidenceBoard brief={stockedUpBrief} compact />
         <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>

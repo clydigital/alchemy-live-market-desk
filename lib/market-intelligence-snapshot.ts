@@ -49,6 +49,8 @@ export type MarketIntelligenceSnapshotV1 = {
     whatWouldChangeMind: string;
     rateRegime: DossierPresentationV1["rateRegime"];
   };
+  dollarLiquidity: DossierPresentationV1["dollarLiquidity"];
+  policyLiquidityInteraction: DossierPresentationV1["policyLiquidityInteraction"];
   monetarySignals: {
     baseline: DossierPresentationV1["rateRegime"]["state"];
     signals: MarketIntelligenceSignal[];
@@ -437,6 +439,8 @@ export function buildMarketIntelligenceSnapshot({
       whatWouldChangeMind: presentation.header.whatWouldChangeMind,
       rateRegime: structuredClone(presentation.rateRegime),
     },
+    dollarLiquidity: structuredClone(presentation.dollarLiquidity ?? null),
+    policyLiquidityInteraction: structuredClone(presentation.policyLiquidityInteraction ?? null),
     monetarySignals: {
       baseline: presentation.rateRegime.state,
       signals,

@@ -9,6 +9,18 @@ import {
   fetchTradingEconomicsUsCalendarSnapshot,
   type TradingEconomicsUsCalendarSnapshot,
 } from "../providers/trading-economics-calendar.ts";
+import {
+  fetchNyFedReferenceRates,
+  type NyFedReferenceRatesSnapshot,
+} from "../providers/ny-fed-reference-rates.ts";
+import {
+  fetchNyFedPrimaryDealers,
+  type NyFedPrimaryDealerSnapshot,
+} from "../providers/ny-fed-primary-dealers.ts";
+import {
+  fetchTreasuryBills,
+  type TreasuryBillSnapshot,
+} from "../providers/treasury-bills.ts";
 import type {
   CandidateSnapshot,
   SourceDataStatus,
@@ -675,7 +687,10 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       metrics: {
         symbol: row.symbol,
         last: row.last,
-        ...(isCreditOas ? { spread_level_pct: row.last } : {
+        ...(isCreditOas ? {
+          spread_level_pct: row.last,
+          change_5d_pct: row.change5d,
+        } : {
           day_change_pct: row.dayChange,
           change_5d_pct: row.change5d,
         }),
@@ -954,6 +969,157 @@ export function augmentCandidateSnapshotWithTradingEconomics(
   };
 }
 
+function dollarProviderDateAllowed(value: string | null, asOf: string) {
+  if (!value) return false;
+  const observation = Date.parse(`${value}T00:00:00.000Z`);
+  const cutoff = Date.parse(asOf);
+  return Number.isFinite(observation) && Number.isFinite(cutoff) && observation <= cutoff;
+}
+
+export function augmentCandidateSnapshotWithDollarPlumbing(
+  result: CanonicalSnapshotResult,
+  nyFed: NyFedReferenceRatesSnapshot,
+  dealers: NyFedPrimaryDealerSnapshot,
+  treasuryBills: TreasuryBillSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+
+  const effr = nyFed.rates.find((item) => item.type === "EFFR") ?? null;
+  const secured = ["SOFR", "TGCR", "BGCR"]
+    .map((type) => nyFed.rates.find((item) => item.type === type))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const sameDate = effr && secured.length
+    ? secured.every((item) => item.effectiveDate === effr.effectiveDate)
+    : false;
+  const securedSpread = effr && sameDate
+    ? (secured.reduce((sum, item) => sum + item.percentRate, 0) / secured.length - effr.percentRate) * 100
+    : null;
+
+  if (nyFed.rates.length && nyFed.asOf && dollarProviderDateAllowed(nyFed.asOf, options.asOf)) {
+    observed.push({
+      evidence_id: `system1-dollar:nyfed-rates:${nyFed.asOf}`,
+      claim_or_fact: `NY Fed reference rates: EFFR ${effr?.percentRate ?? "n/a"}%; SOFR ${nyFed.rates.find((item) => item.type === "SOFR")?.percentRate ?? "n/a"}%; TGCR ${nyFed.rates.find((item) => item.type === "TGCR")?.percentRate ?? "n/a"}%; BGCR ${nyFed.rates.find((item) => item.type === "BGCR")?.percentRate ?? "n/a"}%.`,
+      category: "DOLLAR_LIQUIDITY",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${nyFed.asOf}T00:00:00.000Z`,
+      grouping_key: "system1:dollar-funding",
+      rank: 9,
+      metrics: {
+        effr_pct: effr?.percentRate ?? null,
+        sofr_pct: nyFed.rates.find((item) => item.type === "SOFR")?.percentRate ?? null,
+        tgcr_pct: nyFed.rates.find((item) => item.type === "TGCR")?.percentRate ?? null,
+        bgcr_pct: nyFed.rates.find((item) => item.type === "BGCR")?.percentRate ?? null,
+        secured_vs_effr_bps: securedSpread,
+        sofr_volume_billions: nyFed.rates.find((item) => item.type === "SOFR")?.volumeInBillions ?? null,
+        tgcr_volume_billions: nyFed.rates.find((item) => item.type === "TGCR")?.volumeInBillions ?? null,
+        bgcr_volume_billions: nyFed.rates.find((item) => item.type === "BGCR")?.volumeInBillions ?? null,
+        provider_status: nyFed.status,
+      },
+      provenance: [{
+        source_type: "NY_FED",
+        source_id: "reference-rates",
+        url: nyFed.sourceUrl,
+        publisher: nyFed.sourceName,
+      }],
+    });
+  }
+
+  if (
+    dealers.series.some((item) => item.valueMillions !== null)
+    && dealers.asOf
+    && dollarProviderDateAllowed(dealers.asOf, options.asOf)
+  ) {
+    const position = dealers.series.find((item) => item.keyId === "PDPOSGST-TOT") ?? null;
+    const failsDeliver = dealers.series.find((item) => item.keyId === "PDFTD-USTET") ?? null;
+    const failsReceive = dealers.series.find((item) => item.keyId === "PDFTR-USTET") ?? null;
+    observed.push({
+      evidence_id: `system1-dollar:dealer-balance-sheet:${dealers.asOf}`,
+      claim_or_fact: `NY Fed primary-dealer Treasury position and fails were updated for ${dealers.asOf}.`,
+      category: "DOLLAR_LIQUIDITY",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${dealers.asOf}T00:00:00.000Z`,
+      grouping_key: "system1:dealer-balance-sheet",
+      rank: 11,
+      metrics: {
+        treasury_net_position_millions: position?.valueMillions ?? null,
+        treasury_net_position_weekly_change_millions: position?.weeklyChangeMillions ?? null,
+        fails_deliver_millions: failsDeliver?.valueMillions ?? null,
+        fails_deliver_weekly_change_millions: failsDeliver?.weeklyChangeMillions ?? null,
+        fails_receive_millions: failsReceive?.valueMillions ?? null,
+        fails_receive_weekly_change_millions: failsReceive?.weeklyChangeMillions ?? null,
+        provider_status: dealers.status,
+      },
+      provenance: [{
+        source_type: "NY_FED",
+        source_id: "primary-dealers",
+        url: dealers.sourceUrl,
+        publisher: dealers.sourceName,
+      }],
+    });
+  }
+
+  if (
+    treasuryBills.points.length
+    && treasuryBills.asOf
+    && dollarProviderDateAllowed(treasuryBills.asOf, options.asOf)
+  ) {
+    observed.push({
+      evidence_id: `system1-dollar:treasury-bills:${treasuryBills.asOf}`,
+      claim_or_fact: `Treasury bills: 3M ${treasuryBills.points.find((item) => item.tenor === "3M")?.yieldPercent ?? "n/a"}%; 6M ${treasuryBills.points.find((item) => item.tenor === "6M")?.yieldPercent ?? "n/a"}%.`,
+      category: "DOLLAR_LIQUIDITY",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${treasuryBills.asOf}T00:00:00.000Z`,
+      grouping_key: "system1:treasury-bills",
+      rank: 10,
+      metrics: {
+        bill_3m_pct: treasuryBills.points.find((item) => item.tenor === "3M")?.yieldPercent ?? null,
+        bill_6m_pct: treasuryBills.points.find((item) => item.tenor === "6M")?.yieldPercent ?? null,
+        provider_status: treasuryBills.status,
+      },
+      provenance: [{
+        source_type: "US_TREASURY",
+        source_id: "daily-treasury-yield-curve",
+        url: treasuryBills.sourceUrl,
+        publisher: treasuryBills.sourceName,
+      }],
+    });
+  }
+
+  result.snapshot.sources_status = {
+    ...(result.snapshot.sources_status ?? {}),
+    ny_fed_reference_rates: {
+      status: nyFed.status,
+      available_at: nyFed.asOf ?? undefined,
+      message: nyFed.warnings.join(" ") || "NY Fed reference rates available for System 1 dollar-liquidity classification.",
+    },
+    ny_fed_primary_dealers: {
+      status: dealers.status,
+      available_at: dealers.asOf ?? undefined,
+      message: dealers.warnings.join(" ") || "NY Fed primary-dealer data available for System 1 dollar-liquidity context.",
+    },
+    treasury_bills: {
+      status: treasuryBills.status,
+      available_at: treasuryBills.asOf ?? undefined,
+      message: treasuryBills.warnings.join(" ") || "Treasury bill tenors available for System 1 dollar-liquidity classification.",
+    },
+  };
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 export async function loadCanonicalCandidateSnapshot(
   client: SupabaseClient,
   options: LoadCanonicalSnapshotOptions,
@@ -1011,7 +1177,7 @@ export async function loadCanonicalCandidateSnapshot(
   const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
   const calendarTo = new Date(asOfMs);
 
-  const [marketMonitorResult, eiaResult, tradingEconomicsResult] =
+  const [marketMonitorResult, eiaResult, tradingEconomicsResult, nyFedResult, dealerResult, treasuryBillsResult] =
     await Promise.allSettled([
       import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
       fetchEiaWeeklyPetroleumSnapshot(),
@@ -1019,6 +1185,9 @@ export async function loadCanonicalCandidateSnapshot(
         from: calendarFrom,
         to: calendarTo,
       }),
+      fetchNyFedReferenceRates(new Date(asOfMs)),
+      fetchNyFedPrimaryDealers(new Date(asOfMs)),
+      fetchTreasuryBills(new Date(asOfMs)),
     ]);
 
   if (marketMonitorResult.status === "fulfilled") {
@@ -1033,6 +1202,28 @@ export async function loadCanonicalCandidateSnapshot(
       market_monitor: {
         status: "WARNING",
         message: `Existing Live market monitor was unavailable to Dossier V2: ${marketMonitorResult.reason instanceof Error ? marketMonitorResult.reason.message : String(marketMonitorResult.reason)}`,
+      },
+    };
+  }
+
+  if (
+    nyFedResult.status === "fulfilled"
+    && dealerResult.status === "fulfilled"
+    && treasuryBillsResult.status === "fulfilled"
+  ) {
+    result = augmentCandidateSnapshotWithDollarPlumbing(
+      result,
+      nyFedResult.value,
+      dealerResult.value,
+      treasuryBillsResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      dollar_liquidity_system1: {
+        status: "WARNING",
+        message: "One or more System 1 dollar-liquidity providers were unavailable; the classifier will fail closed to unresolved where necessary.",
       },
     };
   }

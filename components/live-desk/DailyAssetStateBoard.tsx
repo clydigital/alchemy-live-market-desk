@@ -1,4 +1,8 @@
 import type { DailyAssetCard, DailyAssetStateV1, DailyStockRadarCard } from "@/lib/daily-asset-state";
+import type {
+  PolicyLiquidityInteraction,
+  System1DollarLiquiditySnapshot,
+} from "@/lib/dossier-v2/system1-dollar-liquidity";
 
 import styles from "./daily-asset-state-board.module.css";
 
@@ -26,9 +30,13 @@ function tone(bias: DailyAssetCard["bias"] | DailyStockRadarCard["bias"]) {
 
 export default function DailyAssetStateBoard({
   state,
+  dollarLiquidity = null,
+  policyLiquidityInteraction = null,
   compact = false,
 }: {
   state: DailyAssetStateV1 | null;
+  dollarLiquidity?: System1DollarLiquiditySnapshot | null;
+  policyLiquidityInteraction?: PolicyLiquidityInteraction | null;
   compact?: boolean;
 }) {
   if (!state) return null;
@@ -54,6 +62,15 @@ export default function DailyAssetStateBoard({
               <span data-tone={tone(card.bias)}>{card.bias.replaceAll("_", " ")}</span>
             </header>
             <div className={styles.change}>{formatChange(card)}</div>
+            {card.key === "US_RATES" && dollarLiquidity ? (
+              <div className={styles.liquidityLine}>
+                <b>$ liquidity</b>
+                <span>{dollarLiquidity.state.replaceAll("_", " ")}</span>
+                {policyLiquidityInteraction ? (
+                  <small>{policyLiquidityInteraction.alignment.replaceAll("_", " ")}</small>
+                ) : null}
+              </div>
+            ) : null}
             <p>{card.primaryDriver}</p>
             <footer>
               <span><b>Conviction</b>{card.conviction}</span>

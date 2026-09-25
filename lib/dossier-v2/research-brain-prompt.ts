@@ -19,6 +19,12 @@ import {
   buildSystem1DivergenceCandidates,
   buildSystem1PolicyExpectationChecks,
 } from "./system1-divergence.ts";
+import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
+import { buildDossierRateRegime } from "./rate-regime.ts";
+import {
+  buildPolicyLiquidityInteraction,
+  buildSystem1DollarLiquidity,
+} from "./system1-dollar-liquidity.ts";
 
 
 function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
@@ -118,7 +124,9 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 27. GOLD-USD CROSS-CHECK: When same-session evidence shows geopolitical risk elevated while gold weakens and USD/real yields strengthen, treat that as evidence that rates/USD are dominating safe-haven demand at that moment. Do not generalise beyond the supplied observation window.
 28. RESEARCH-NOW PRIORITY: If the current regime is already defensible, unresolved yield decomposition, MOVE/VIX divergence, HY/IG confirmation, breadth, global sovereign confirmation, oil curve/cracks and summit implementation details belong in investigations[*].missing_evidence and/or research_now, not top-level research_gaps.
 29. REGIME FAMILY: main_thread.regime_family is the canonical teaching state for downstream Hybrid. Use RATES_LED_TIGHTENING when rising long/real yields and bond volatility dominate while credit/VIX transmission is incomplete; GROWTH_SCARE_RISK_OFF when falling long yields accompany credit stress, weak breadth and defensive leadership; MIXED_TRANSITION when the evidence is moving between or materially combines those patterns; otherwise UNRESOLVED. This field is Live-owned and must match the prose regime implication.
-30. BUNDLED INVESTIGATION AGENDA: One investigation equals one market question, not one dataset. When relevant, use no more than two bundled investigations: (1) whether duration stress is broadening or beginning to transmit, checked with 30Y/curve/real yields, MOVE/VIX, credit, breadth, gold/USD and foreign sovereigns; (2) whether energy keeps the inflation/rates impulse alive, checked with crude curves, cracks, inventories/utilisation, physical stress and verified high-impact event implementation. Use the three Research Now slots for (1) policy-path versus real-yield/inflation/term-premium decomposition, (2) credit/breadth/volatility transmission, and (3) energy structure plus event implementation. Do not publish unverified political outcomes as facts.`;
+30. BUNDLED INVESTIGATION AGENDA: One investigation equals one market question, not one dataset. When relevant, use no more than two bundled investigations: (1) whether duration stress is broadening or beginning to transmit, checked with 30Y/curve/real yields, MOVE/VIX, credit, breadth, gold/USD and foreign sovereigns; (2) whether energy keeps the inflation/rates impulse alive, checked with crude curves, cracks, inventories/utilisation, physical stress and verified high-impact event implementation. Use the three Research Now slots for (1) policy-path versus real-yield/inflation/term-premium decomposition, (2) credit/breadth/volatility transmission, and (3) energy structure plus event implementation. Do not publish unverified political outcomes as facts.
+31. SYSTEM 1 DOLLAR LIQUIDITY: system1_rate_regime and system1_dollar_liquidity are independent deterministic compression layers. Treat them as triage/context, not standalone facts. Any material conclusion drawn from them must be supported by their supplied underlying evidence_refs. Compare policy/rates with dollar liquidity instead of assuming Fed policy and monetary conditions are identical. A hawkish rate regime plus tightening dollar liquidity is confirmation; a dovish rate regime plus tightening dollar liquidity is a policy/liquidity divergence and should be investigated. If credit remains neutral while rates/USD/funding tighten, describe transmission as incomplete rather than calling a systemic dollar shortage.
+32. LIQUIDITY ESCALATION DISCIPLINE: system1_policy_liquidity_interaction tells you whether the compressed state is worth System-2 attention. When escalateToBrain is false, do not create a Major Story or Investigation solely because plumbing data exists. When true, use the supplied question to focus causal reasoning and competing explanations. OFFSHORE_USD is explicitly unresolved until cross-currency-basis/FX-swap evidence exists; never label the current state a complete eurodollar-system measurement.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -126,6 +134,13 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
   boundedInput: Record<string, unknown>;
 } {
   const packet = input.packet;
+  const system1PolicyOutlook = buildDossierPolicyOutlook(packet);
+  const system1RateRegime = buildDossierRateRegime(packet, system1PolicyOutlook);
+  const system1DollarLiquidity = buildSystem1DollarLiquidity(packet);
+  const system1PolicyLiquidityInteraction = buildPolicyLiquidityInteraction(
+    system1RateRegime,
+    system1DollarLiquidity,
+  );
 
   const boundedContext = {
     packet_id: packet.packet_id,
@@ -135,6 +150,35 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     rate_context: { evidence: compactRateContext(packet) },
     system1_policy_expectation_checks: buildSystem1PolicyExpectationChecks(packet),
     system1_divergence_candidates: buildSystem1DivergenceCandidates(packet),
+    system1_rate_regime: {
+      state: system1RateRegime.state,
+      score: system1RateRegime.score,
+      confidence: system1RateRegime.confidence,
+      summary: system1RateRegime.summary,
+      curve: system1RateRegime.curve,
+      drivers: system1RateRegime.drivers.slice(0, 3),
+      contradictions: system1RateRegime.contradictions.slice(0, 2),
+      evidence_refs: system1RateRegime.evidenceRefs.slice(0, 8),
+    },
+    system1_dollar_liquidity: {
+      state: system1DollarLiquidity.state,
+      score: system1DollarLiquidity.score,
+      confidence: system1DollarLiquidity.confidence,
+      summary: system1DollarLiquidity.summary,
+      components: system1DollarLiquidity.components.map((item) => ({
+        key: item.key,
+        direction: item.direction,
+        score: item.score,
+        detail: item.detail,
+        evidence_refs: item.evidenceRefs,
+      })),
+      drivers: system1DollarLiquidity.drivers.slice(0, 3),
+      contradictions: system1DollarLiquidity.contradictions.slice(0, 2),
+      coverage: system1DollarLiquidity.coverage,
+      gaps: system1DollarLiquidity.gaps.slice(0, 2),
+      evidence_refs: system1DollarLiquidity.evidenceRefs.slice(0, 8),
+    },
+    system1_policy_liquidity_interaction: system1PolicyLiquidityInteraction,
     research_leads: compactResearchLeads(packet),
     prior_analytical_state: compactPriorState(packet),
     development_clusters: packet.development_clusters.map((c) => ({
