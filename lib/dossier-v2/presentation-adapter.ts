@@ -6,7 +6,6 @@ import type {
 } from "./system1-dollar-liquidity.ts";
 import type {
   ChartTask,
-  CreatorThemeExpansion,
   DevelopingTheme,
   EpistemicLabel,
   Investigation,
@@ -178,7 +177,6 @@ export type DossierPresentationV1 = {
 
   stockRadar: StockRadarItem[];
   themes: DevelopingTheme[];
-  creatorThemes: CreatorThemeExpansion[];
   thesisChanges: DossierPresentationThesisChange[];
 
   evidenceIndex: DossierPresentationEvidenceRef[];
@@ -575,11 +573,6 @@ export function buildDossierV2Presentation(
     themes: output.developing_themes.map((item) => ({
       ...item,
       supporting_evidence_ids: [...item.supporting_evidence_ids],
-    })),
-
-    creatorThemes: output.creator_theme_expansions.map((item) => ({
-      ...item,
-      creator_claims_referenced: [...item.creator_claims_referenced],
     })),
 
     thesisChanges: thesisChanges(output, previousOutput),
