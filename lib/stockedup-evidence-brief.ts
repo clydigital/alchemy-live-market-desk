@@ -46,7 +46,7 @@ function sourceFor(row: EvidenceRow) {
   const source = Array.isArray(row.source) ? row.source[0] : row.source;
   return {
     sourceName: source?.source_name ?? null,
-    sourceUrl: source?.source_url ?? row.provenance_urls?.[0] ?? null,
+    sourceUrl: row.provenance_urls?.[0] ?? source?.source_url ?? null,
   };
 }
 
