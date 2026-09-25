@@ -6,12 +6,12 @@ const config = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
 );
 
-test("Vercel auto-deploys only main and explicit preview branches", () => {
+test("Vercel auto-deploys only main", () => {
   assert.equal(config.git?.deploymentEnabled?.["*"], false);
   assert.equal(config.git?.deploymentEnabled?.main, true);
-  assert.equal(config.git?.deploymentEnabled?.["preview-*"], true);
+  assert.equal(config.git?.deploymentEnabled?.["preview-*"], undefined);
   assert.match(config.ignoreCommand || "", /VERCEL_GIT_COMMIT_REF/);
-  assert.match(config.ignoreCommand || "", /\^preview-/);
+  assert.doesNotMatch(config.ignoreCommand || "", /\^preview-/);
 });
 
 test("paused research automation has no scheduled Vercel cron invocations", () => {
