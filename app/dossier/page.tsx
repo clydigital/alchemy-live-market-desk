@@ -1,6 +1,9 @@
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
+import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
+import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
 
 import styles from "./dossier.module.css";
 
@@ -18,8 +21,12 @@ function severityTone(severity: string): "default" | "warn" | "risk" {
 }
 
 export default async function DossierPage() {
-  const selection = await getDossierV2PresentationSelection();
+  const [selection, monitor] = await Promise.all([
+    getDossierV2PresentationSelection(),
+    getMarketMonitor(),
+  ]);
   const dossier = selection.presentation;
+  const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossier });
 
   if (!dossier) {
     return (
@@ -53,6 +60,7 @@ export default async function DossierPage() {
       }
     >
       <div className={styles.workspace}>
+        <DailyAssetStateBoard state={dailyAssetState} compact />
         <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>
             <span>DESK STATE</span>

@@ -2,15 +2,18 @@ import { redirect } from "next/navigation";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
+import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
 import { getDeskData, type MacroRelease } from "@/lib/data";
+import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
@@ -222,9 +225,10 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, recordLayer, calendar, dossierSelection] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection] = await Promise.all([
     getDeskData(),
     getMarketData(),
+    getMarketMonitor(),
     getStoryRecordLayer(),
     getEconomicCalendar(),
     getDossierV2PresentationSelection(),
@@ -236,6 +240,7 @@ export default async function Page({ searchParams }: PageProps) {
   const immediateRelease = immediateEconomicRelease(data.macroReleases, calendar);
   const releaseStories = getRelatedStoriesForRelease(immediateRelease, data.stories, 3);
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
+  const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossierSelection.presentation });
 
   const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
@@ -340,6 +345,7 @@ export default async function Page({ searchParams }: PageProps) {
       )}
     >
       <div style={{ display: "grid", gap: 24 }}>
+        <DailyAssetStateBoard state={dailyAssetState} />
         <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
         <RateRegimeOverview selection={dossierSelection} />
         <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
