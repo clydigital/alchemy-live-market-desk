@@ -11,6 +11,7 @@ test("StockedUp brief admits only canonical verified-macro rows as verified evid
   assert.match(brief, /\.like\("external_evidence_id", "verified-macro:stockedup-%"\)/);
   assert.match(brief, /status: "VERIFIED"/);
   assert.match(brief, /Only VERIFIED items may directly strengthen Live's canonical market interpretation/);
+  assert.match(brief, /sourceUrl: row\.provenance_urls\?\.\[0\] \?\? source\?\.source_url/);
 });
 
 test("StockedUp creator claims that remain unverified stay outside canonical reasoning", () => {
