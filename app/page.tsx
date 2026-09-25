@@ -348,7 +348,11 @@ export default async function Page({ searchParams }: PageProps) {
       )}
     >
       <div style={{ display: "grid", gap: 24 }}>
-        <DailyAssetStateBoard\n          state={dailyAssetState}\n          dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}\n          policyLiquidityInteraction={dossierSelection.presentation?.policyLiquidityInteraction ?? null}\n        />
+        <DailyAssetStateBoard
+          state={dailyAssetState}
+          dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}
+          policyLiquidityInteraction={dossierSelection.presentation?.policyLiquidityInteraction ?? null}
+        />
         <StockedUpEvidenceBoard brief={stockedUpBrief} />
         <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
         <RateRegimeOverview selection={dossierSelection} />
