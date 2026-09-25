@@ -110,44 +110,24 @@ export function selectDossierV2Presentation(
   const latestCandidate = built.find((candidate) => candidate.dossier.id === latest.id) ?? null;
   const healthy = built.find((candidate) => presentationIsHealthy(candidate.presentation)) ?? null;
 
-  if (healthy?.dossier.id === latest.id) {
-    return {
-      status: "current",
-      presentation: healthy.presentation,
-      latestDossierId: latest.id,
-      selectedDossierId: healthy.dossier.id,
-      latestAsOf: latest.as_of,
-      selectedAsOf: healthy.dossier.as_of,
-      usingFallback: false,
-      notice: {
-        tone: "ready",
-        label: "Current Dossier",
-        detail: "Showing the latest healthy persisted Dossier V2.",
-      },
-    };
-  }
-
-  if (healthy) {
-    const latestReason = latestCandidate
-      ? "The latest Dossier is degraded."
-      : "The latest Dossier payload could not be rendered safely.";
-    return {
-      status: "fallback_previous_healthy",
-      presentation: healthy.presentation,
-      latestDossierId: latest.id,
-      selectedDossierId: healthy.dossier.id,
-      latestAsOf: latest.as_of,
-      selectedAsOf: healthy.dossier.as_of,
-      usingFallback: true,
-      notice: {
-        tone: "warn",
-        label: "Using prior healthy Dossier",
-        detail: `${latestReason} Showing the most recent healthy persisted Dossier instead.`,
-      },
-    };
-  }
-
   if (latestCandidate) {
+    if (presentationIsHealthy(latestCandidate.presentation)) {
+      return {
+        status: "current",
+        presentation: latestCandidate.presentation,
+        latestDossierId: latest.id,
+        selectedDossierId: latest.id,
+        latestAsOf: latest.as_of,
+        selectedAsOf: latest.as_of,
+        usingFallback: false,
+        notice: {
+          tone: "ready",
+          label: "Current Dossier",
+          detail: "Showing the latest persisted Dossier V2.",
+        },
+      };
+    }
+
     return {
       status: "degraded_latest",
       presentation: latestCandidate.presentation,
@@ -158,8 +138,25 @@ export function selectDossierV2Presentation(
       usingFallback: false,
       notice: {
         tone: "warn",
-        label: "Degraded Dossier",
-        detail: "No prior healthy Dossier is available, so the latest degraded Dossier is shown with its gaps intact.",
+        label: "Current Dossier · research gaps",
+        detail: "Showing the latest renderable Dossier with its research gaps intact. Fresh state is not replaced by an older healthy Dossier.",
+      },
+    };
+  }
+
+  if (healthy) {
+    return {
+      status: "fallback_previous_healthy",
+      presentation: healthy.presentation,
+      latestDossierId: latest.id,
+      selectedDossierId: healthy.dossier.id,
+      latestAsOf: latest.as_of,
+      selectedAsOf: healthy.dossier.as_of,
+      usingFallback: true,
+      notice: {
+        tone: "warn",
+        label: "Using prior renderable Dossier",
+        detail: "The latest Dossier payload could not be rendered safely. Showing the most recent healthy persisted Dossier instead.",
       },
     };
   }
