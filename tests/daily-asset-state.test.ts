@@ -3,7 +3,14 @@ import test from "node:test";
 
 import { buildDailyAssetState } from "../lib/daily-asset-state.ts";
 
-function row(id: string, last: number, previousClose: number, dayChange: number, symbol = id.toUpperCase()) {
+function row(
+  id: string,
+  last: number,
+  previousClose: number,
+  dayChange: number,
+  symbol = id.toUpperCase(),
+  sourceName = "Market data",
+) {
   return {
     id,
     symbol,
@@ -27,7 +34,7 @@ function row(id: string, last: number, previousClose: number, dayChange: number,
     tags: [],
     asOf: "2026-09-25",
     frequency: "daily",
-    sourceName: id === "gold" ? "GLD proxy" : id === "btc" ? "IBIT proxy" : "Market data",
+    sourceName,
     sourceUrl: "https://example.com",
     points: [],
   };
@@ -37,12 +44,16 @@ function monitor() {
   return {
     updatedAt: "2026-09-25T12:00:00Z",
     rows: [
-      row("spx", 7700, 7670, 0.39, "^GSPC"),
-      row("ndx", 26000, 25800, 0.78, "QQQ"),
-      row("wti", 101, 103, -1.94, "CL=F"),
-      row("us10y-fred", 5.18, 5.10, 1.57, "DGS10"),
-      row("gold", 360, 358, 0.56, "GLD"),
-      row("btc", 72, 71, 1.41, "IBIT"),
+      row("spx", 7700, 7670, 0.39, "SP500", "S&P Dow Jones Indices via FRED"),
+      row("spx-proxy", 767.18, 766.9, 0.04, "SPY", "Nasdaq official ETF history"),
+      row("ndx", 741.1, 740.9, 0.03, "QQQ", "Nasdaq official ETF history"),
+      row("nasdaq-comp", 26939.37, 26929.58, 0.04, "COMP", "Nasdaq official index history"),
+      row("wti", 101, 103, -1.94, "CL=F", "U.S. Energy Information Administration"),
+      row("us10y-fred", 5.18, 5.10, 1.57, "DGS10", "Federal Reserve Economic Data"),
+      row("gold", 4528.39, 4519.38, 0.20, "XAUUSD", "goldprice.dev XAU/USD spot"),
+      row("gold-proxy", 391.69, 392.87, -0.30, "GLD", "Nasdaq official ETF history"),
+      row("btc", 104300, 103100, 1.16, "BTCUSD", "Coinbase Exchange BTC-USD spot"),
+      row("btc-proxy", 47.81, 47.88, -0.15, "IBIT", "Nasdaq official ETF history"),
     ],
     breadth: [],
     contradictions: [],
@@ -112,6 +123,14 @@ test("daily asset state publishes six fixed anchors and rates change in basis po
   const state = buildDailyAssetState({ monitor: monitor(), presentation: presentation() });
   assert.equal(state.contractVersion, "daily-asset-state/1");
   assert.deepEqual(state.assets.map((item) => item.key), ["SPX", "NASDAQ", "CRUDE", "US_RATES", "GOLD", "BITCOIN"]);
+  assert.equal(state.assets.find((item) => item.key === "SPX")?.last, 7700);
+  assert.equal(state.assets.find((item) => item.key === "SPX")?.symbol, "SP500");
+  assert.equal(state.assets.find((item) => item.key === "NASDAQ")?.last, 26939.37);
+  assert.equal(state.assets.find((item) => item.key === "NASDAQ")?.symbol, "COMP");
+  assert.equal(state.assets.find((item) => item.key === "GOLD")?.last, 4528.39);
+  assert.equal(state.assets.find((item) => item.key === "GOLD")?.symbol, "XAUUSD");
+  assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.last, 104300);
+  assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.symbol, "BTCUSD");
   const rates = state.assets.find((item) => item.key === "US_RATES");
   assert.equal(rates?.dailyChangeUnit, "bps");
   assert.equal(rates?.dailyChange, 8);
@@ -133,4 +152,17 @@ test("stock radar remains bounded and carries confirmation/invalidation", () => 
   assert.equal(state.stockRadar[0].symbol, "NBIS");
   assert.match(state.stockRadar[0].confirmingSignal, /outperformance/i);
   assert.match(state.stockRadar[1].invalidatingSignal, /resistance/i);
+});
+
+test("daily asset state fails closed instead of substituting ETF proxies", () => {
+  const proxyOnly = monitor();
+  proxyOnly.rows = proxyOnly.rows.filter((item: any) =>
+    ["spx-proxy", "ndx", "gold-proxy", "btc-proxy", "wti", "us10y-fred"].includes(item.id),
+  );
+  const state = buildDailyAssetState({ monitor: proxyOnly, presentation: presentation() });
+  assert.equal(state.assets.find((item) => item.key === "SPX")?.last, null);
+  assert.equal(state.assets.find((item) => item.key === "NASDAQ")?.last, null);
+  assert.equal(state.assets.find((item) => item.key === "GOLD")?.last, null);
+  assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.last, null);
+  assert.match(state.limitations.join(" "), /fails closed/i);
 });

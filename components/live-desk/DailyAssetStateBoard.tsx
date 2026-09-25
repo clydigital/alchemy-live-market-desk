@@ -17,8 +17,8 @@ function formatChange(card: DailyAssetCard) {
   if (card.dailyChange == null || !Number.isFinite(card.dailyChange)) return "Change unavailable";
   const sign = card.dailyChange > 0 ? "+" : "";
   return card.dailyChangeUnit === "bps"
-    ? `${sign}${card.dailyChange.toFixed(1)}bp today`
-    : `${sign}${card.dailyChange.toFixed(2)}% today`;
+    ? `${sign}${card.dailyChange.toFixed(1)}bp latest`
+    : `${sign}${card.dailyChange.toFixed(2)}% latest`;
 }
 
 function tone(bias: DailyAssetCard["bias"] | DailyStockRadarCard["bias"]) {

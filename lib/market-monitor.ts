@@ -110,6 +110,7 @@ type FredSpec = {
   seriesId: string;
   label: string;
   type?: MarketMonitorType;
+  sourceName?: string;
 };
 
 const HISTORY_DAYS = 470;
@@ -130,8 +131,18 @@ const FRED_CREDIT_SPECS: FredSpec[] = [
   { id: "ig-oas", seriesId: "BAMLC0A0CM", label: "US Investment Grade OAS", type: "Credit / Risk" },
 ];
 
+const FRED_CASH_SPECS: FredSpec[] = [
+  {
+    id: "spx",
+    seriesId: "SP500",
+    label: "S&P 500 Cash",
+    type: "Major Index",
+    sourceName: "S&P Dow Jones Indices via FRED",
+  },
+];
+
 const BASE_SPECS: BaseSpec[] = [
-  { id: "spx", sourceSymbol: "^GSPC", label: "S&P 500", type: "Major Index" },
+  { id: "spx-proxy", sourceSymbol: "^GSPC", label: "S&P 500 · SPY proxy", type: "Major Index" },
   { id: "rsp", sourceSymbol: "RSP", label: "S&P 500 Equal Weight", type: "Major Index", benchmark: "spx" },
   { id: "nasdaq-comp", sourceSymbol: "^IXIC", label: "Nasdaq Composite", type: "Major Index", benchmark: "spx" },
   { id: "soxx", sourceSymbol: "SOXX", label: "SOXX Semiconductors", type: "AI / Semis", benchmark: "ndx" },
@@ -143,7 +154,7 @@ const BASE_SPECS: BaseSpec[] = [
   { id: "meta", sourceSymbol: "META", label: "Meta", type: "MAG7", benchmark: "ndx" },
   { id: "nvda", sourceSymbol: "NVDA", label: "Nvidia", type: "MAG7", benchmark: "ndx" },
   { id: "tsla", sourceSymbol: "TSLA", label: "Tesla", type: "MAG7", benchmark: "ndx" },
-  { id: "gold", sourceSymbol: "GLD", label: "Gold · GLD proxy", type: "Metal" },
+  { id: "gold-proxy", sourceSymbol: "GLD", label: "Gold · GLD proxy", type: "Metal" },
   { id: "silver", sourceSymbol: "SLV", label: "Silver · SLV proxy", type: "Metal", benchmark: "gold" },
   { id: "copper", sourceSymbol: "CPER", label: "Copper · CPER proxy", type: "Metal" },
   { id: "gdx", sourceSymbol: "GDX", label: "Gold Miners · GDX", type: "Metal", benchmark: "gold" },
@@ -216,7 +227,7 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "chf", providerSymbol: "FXF", assetClass: "etf", label: "Swiss Franc · FXF proxy", type: "FX" },
   { id: "cnh", providerSymbol: "CYB", assetClass: "etf", label: "Chinese Yuan · CYB proxy", type: "FX" },
 
-  { id: "btc", providerSymbol: "IBIT", assetClass: "etf", label: "Bitcoin · IBIT proxy", type: "Crypto", benchmark: "spx" },
+  { id: "btc-proxy", providerSymbol: "IBIT", assetClass: "etf", label: "Bitcoin · IBIT proxy", type: "Crypto", benchmark: "spx" },
   { id: "eth", providerSymbol: "ETHA", assetClass: "etf", label: "Ether · ETHA proxy", type: "Crypto", benchmark: "spx" },
 ];
 
@@ -304,8 +315,74 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
     type: spec.type ?? "Rates",
     benchmark: null,
     points,
-    sourceName: "Federal Reserve Economic Data",
+    sourceName: spec.sourceName ?? "Federal Reserve Economic Data",
     sourceUrl: `https://fred.stlouisfed.org/series/${spec.seriesId}`,
+    frequency: "daily",
+  };
+}
+
+async function fetchGoldSpotSeries(): Promise<RawSeries> {
+  const end = new Date();
+  const start = new Date(end.getTime() - 35 * 86400000);
+  const endpoint = `https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${isoDate(start)}&to=${isoDate(end)}&limit=40`;
+  const response = await fetch(endpoint, {
+    headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
+    next: { revalidate: 300 },
+  });
+  if (!response.ok) throw new Error(`goldprice.dev XAUUSD ${response.status}`);
+  const payload = await response.json();
+  const bars: Array<Record<string, unknown>> = Array.isArray(payload?.bars) ? payload.bars : [];
+  const points = bars.flatMap((bar) => {
+    const close = parseNumber(bar.close);
+    const open = parseNumber(bar.open);
+    const high = parseNumber(bar.high);
+    const low = parseNumber(bar.low);
+    const time = typeof bar.bar_start === "string" ? Date.parse(bar.bar_start) / 1000 : NaN;
+    return close == null || !Number.isFinite(time) ? [] : [{ time, close, open, high, low }];
+  }).sort((a, b) => a.time - b.time);
+  if (points.length < 2) throw new Error("goldprice.dev XAUUSD returned insufficient bars");
+  return {
+    id: "gold",
+    symbol: "XAUUSD",
+    label: "Gold Spot · XAU/USD",
+    type: "Metal",
+    benchmark: null,
+    points,
+    sourceName: "goldprice.dev XAU/USD spot",
+    sourceUrl: "https://goldprice.dev/",
+    frequency: "daily",
+  };
+}
+
+async function fetchBitcoinSpotSeries(): Promise<RawSeries> {
+  const end = Math.floor(Date.now() / 1000);
+  const start = end - 35 * 86400;
+  const endpoint = `https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=86400&start=${new Date(start * 1000).toISOString()}&end=${new Date(end * 1000).toISOString()}`;
+  const response = await fetch(endpoint, {
+    headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
+    next: { revalidate: 300 },
+  });
+  if (!response.ok) throw new Error(`Coinbase BTC-USD ${response.status}`);
+  const rows = await response.json();
+  const points: MarketMonitorPoint[] = Array.isArray(rows) ? rows.flatMap((row: unknown) => {
+    if (!Array.isArray(row) || row.length < 5) return [];
+    const time = parseNumber(row[0]);
+    const low = parseNumber(row[1]);
+    const high = parseNumber(row[2]);
+    const open = parseNumber(row[3]);
+    const close = parseNumber(row[4]);
+    return time == null || close == null ? [] : [{ time, close, open, high, low }];
+  }).sort((a: MarketMonitorPoint, b: MarketMonitorPoint) => a.time - b.time) : [];
+  if (points.length < 2) throw new Error("Coinbase BTC-USD returned insufficient candles");
+  return {
+    id: "btc",
+    symbol: "BTCUSD",
+    label: "Bitcoin Spot · BTC/USD",
+    type: "Crypto",
+    benchmark: "spx",
+    points,
+    sourceName: "Coinbase Exchange BTC-USD spot",
+    sourceUrl: "https://exchange.coinbase.com/trade/BTC-USD",
     frequency: "daily",
   };
 }
@@ -329,7 +406,16 @@ export const loadExtras = unstable_cache(async () => {
       .catch(() => null),
   ]);
   return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v4"], { revalidate: EXTRA_REVALIDATE });
+}, ["alchemy-market-monitor-extras-v5"], { revalidate: EXTRA_REVALIDATE });
+
+export const loadCashAnchors = unstable_cache(async () => {
+  const rows = await Promise.all([
+    ...FRED_CASH_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
+    fetchGoldSpotSeries().catch(() => null),
+    fetchBitcoinSpotSeries().catch(() => null),
+  ]);
+  return rows.filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-cash-anchors-v1"], { revalidate: 300 });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
@@ -504,7 +590,7 @@ function buildContradictions(rows: MarketMonitorRow[]) {
   const spx = by.get("spx");
   const rsp = by.get("rsp");
   if (spx && rsp && Math.abs(move(spx, "change5d") - move(rsp, "change5d")) >= 1.5) {
-    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX proxy ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 68, researchQuestion: "Is the rally concentrated in mega-cap or broad-based?" });
+    add({ id: "spx-rsp", title: "Headline index and equal weight are separating", detail: `SPX cash ${move(spx, "change5d").toFixed(1)}% over 5D vs RSP ${move(rsp, "change5d").toFixed(1)}%.`, assets: ["spx", "rsp"], priority: 68, researchQuestion: "Is the rally concentrated in mega-cap or broad-based?" });
   }
   const copper = by.get("copper");
   const china = by.get("csi300");
@@ -515,7 +601,7 @@ function buildContradictions(rows: MarketMonitorRow[]) {
   const gold = by.get("gold");
   const us10y = by.get("us10y");
   if (gold && us10y && move(gold, "change5d") > 1 && move(us10y, "change5d") > 2) {
-    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold proxy ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 62, researchQuestion: "What is overpowering the usual rate headwind for gold: sovereign demand, risk hedging, inflation or dollar weakness?" });
+    add({ id: "gold-yields", title: "Gold is rising with US yields", detail: `Gold spot ${move(gold, "change5d").toFixed(1)}% while the US 10Y yield level is also higher over 5D.`, assets: ["gold", "us10y"], priority: 62, researchQuestion: "What is overpowering the usual rate headwind for gold: sovereign demand, risk hedging, inflation or dollar weakness?" });
   }
   return output.sort((a, b) => b.priority - a.priority);
 }
@@ -541,16 +627,19 @@ function buildResearchTriggers(rows: MarketMonitorRow[], contradictions: MarketC
 }
 
 async function loadMarketMonitor(): Promise<MarketMonitor> {
-  // Degrade independently: fetch both getMarketData and loadExtras.
-  // Use Promise.allSettled() so one failure doesn't block the entire monitor.
-  const results = await Promise.allSettled([getMarketData(), loadExtras()]);
+  // Degrade independently: core market data, broad extras and cash anchors.
+  // Cash anchors stay on their own short cache so headline prices can refresh
+  // without re-fetching the full extras universe.
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
+  const cashResult = results[2];
   
   // Extract data or use empty fallbacks
   const market = marketResult.status === "fulfilled" ? marketResult.value : null;
   const extras = extrasResult.status === "fulfilled" ? extrasResult.value : [];
+  const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
   
   // Collect coverage gaps from failed branches
   const coverageGaps: string[] = [];
@@ -566,6 +655,9 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // If loadExtras failed, record extras gap
   if (extrasResult.status === "rejected") {
     coverageGaps.push("Additional market series (Nasdaq extras, FRED rates) are temporarily unavailable.");
+  }
+  if (cashResult.status === "rejected") {
+    coverageGaps.push("Direct cash/spot headline anchors are temporarily unavailable; headline cards will fail closed rather than use ETF proxies.");
   }
   
   // Build base rows from getMarketData if available
@@ -597,7 +689,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
-  let rows = makeRows([...base, ...extras]);
+  let rows = makeRows([...base, ...extras, ...cashAnchors]);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
   rows = rows.map((row) => {
@@ -619,7 +711,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
     "Nasdaq/ETF rows are verified daily-history readings, not streaming quotes. Last can therefore represent the latest completed session rather than an intraday price.",
     "Daily open/gap is shown only when the upstream history exposes an opening price.",
     "Euro-area and Japan long-yield fallbacks are monthly until a reliable daily official structured feed is connected; daily momentum fields remain unavailable for those rows.",
-    "MOVE and direct spot crypto are not substituted with unrelated instruments; VIXY, IBIT and ETHA are explicitly labelled proxies.",
+    "Daily headline anchors use direct cash/spot series where available. ETF rows such as SPY, GLD and IBIT remain separate proxies for secondary positioning/market-structure analysis.",
   ].filter((item): item is string => Boolean(item));
   
   return {
