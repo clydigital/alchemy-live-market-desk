@@ -110,6 +110,16 @@ function packet() {
 
 test("System 1 classifies dollar tightening independently from the rate regime", () => {
   const input = packet();
+  assert.equal(
+    input.development_clusters.some((item) => item.grouping_key.startsWith("system1:")),
+    false,
+    "plumbing evidence must not consume development-cluster budget",
+  );
+  assert.equal(
+    input.observed_evidence.filter((item) => item.evidence_id.startsWith("system1-dollar:")).length,
+    3,
+    "protected plumbing evidence must remain available to System 1 and the Brain",
+  );
   const liquidity = buildSystem1DollarLiquidity(input);
   const rateRegime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
   const interaction = buildPolicyLiquidityInteraction(rateRegime, liquidity);
