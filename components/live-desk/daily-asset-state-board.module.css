@@ -107,6 +107,43 @@
   font-weight: 800;
 }
 
+.liquidityLine {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 7px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid rgba(178,169,255,.1);
+  border-radius: 9px;
+  background: rgba(255,255,255,.025);
+}
+
+.liquidityLine b,
+.liquidityLine span {
+  color: #c9c5d9;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.liquidityLine b {
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.liquidityLine span {
+  color: #bc9cff;
+  font-weight: 900;
+  text-align: right;
+}
+
+.liquidityLine small {
+  grid-column: 1 / -1;
+  color: #777489;
+  font-size: 7px;
+  line-height: 1.25;
+  text-transform: lowercase;
+}
+
 .card > p {
   min-height: 62px;
   margin: 12px 0;
