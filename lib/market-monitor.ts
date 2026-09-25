@@ -323,7 +323,7 @@ async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
 
 async function fetchGoldSpotSeries(): Promise<RawSeries> {
   const end = new Date();
-  const start = new Date(end.getTime() - 35 * 86400000);
+  const start = new Date(end.getTime() - 28 * 86400000);
   const endpoint = `https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${isoDate(start)}&to=${isoDate(end)}&limit=40`;
   const response = await fetch(endpoint, {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
