@@ -5,7 +5,6 @@ import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
 
 export async function GET() {
   try {
@@ -19,7 +18,7 @@ export async function GET() {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+        "Cache-Control": "no-store",
         "X-Alchemy-Dossier-Selection": selection.status,
       },
     });
