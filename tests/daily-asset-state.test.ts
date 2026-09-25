@@ -49,7 +49,8 @@ function monitor() {
       row("ndx", 741.1, 740.9, 0.03, "QQQ", "Nasdaq official ETF history"),
       row("nasdaq-comp", 26939.37, 26929.58, 0.04, "COMP", "Nasdaq official index history"),
       row("wti", 101, 103, -1.94, "CL=F", "U.S. Energy Information Administration"),
-      row("us10y-fred", 5.18, 5.10, 1.57, "DGS10", "Federal Reserve Economic Data"),
+      row("us10y-fred", 5.11, 4.96, 3.02, "DGS10", "Federal Reserve Economic Data"),
+      row("us10y", 5.18, 5.12, 1.17, "^TNX", "U.S. Treasury"),
       row("gold", 4528.39, 4519.38, 0.20, "XAUUSD", "goldprice.dev XAU/USD spot"),
       row("gold-proxy", 391.69, 392.87, -0.30, "GLD", "Nasdaq official ETF history"),
       row("btc", 104300, 103100, 1.16, "BTCUSD", "Coinbase Exchange BTC-USD spot"),
@@ -133,7 +134,9 @@ test("daily asset state publishes six fixed anchors and rates change in basis po
   assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.symbol, "BTCUSD");
   const rates = state.assets.find((item) => item.key === "US_RATES");
   assert.equal(rates?.dailyChangeUnit, "bps");
-  assert.equal(rates?.dailyChange, 8);
+  assert.equal(rates?.last, 5.18);
+  assert.equal(rates?.sourceLabel, "U.S. Treasury");
+  assert.equal(rates?.dailyChange, 6);
   assert.equal(rates?.bias, "HAWKISH");
   assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.bias, "UNRESOLVED");
 });

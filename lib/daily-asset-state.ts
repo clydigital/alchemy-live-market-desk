@@ -192,7 +192,7 @@ export function buildDailyAssetState(args: {
   const spx = rowFor(monitor, "spx");
   const nasdaq = rowFor(monitor, "nasdaq-comp");
   const crude = rowFor(monitor, "wti");
-  const rates = rowFor(monitor, "us10y-fred", "us10y");
+  const rates = rowFor(monitor, "us10y", "us10y-fred");
   const gold = rowFor(monitor, "gold");
   const bitcoin = rowFor(monitor, "btc");
 
