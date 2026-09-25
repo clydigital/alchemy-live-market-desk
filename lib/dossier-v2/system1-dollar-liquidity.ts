@@ -79,6 +79,11 @@ function metricNumber(item: ObservedEvidence | null | undefined, key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function providerUsable(item: ObservedEvidence | null | undefined) {
+  const status = item?.metrics?.provider_status;
+  return status !== "STALE" && status !== "UNAVAILABLE";
+}
+
 function latestByPrefix(packet: DossierV2InputPacket, prefix: string) {
   return packet.observed_evidence
     .filter((item) => item.evidence_id.startsWith(prefix))
@@ -126,7 +131,7 @@ function component(
 function fundingComponent(packet: DossierV2InputPacket) {
   const item = latestByPrefix(packet, "system1-dollar:nyfed-rates:");
   const spread = metricNumber(item, "secured_vs_effr_bps");
-  if (spread === null) {
+  if (!providerUsable(item) || spread === null) {
     return component(
       "FUNDING",
       "Secured funding",
@@ -154,7 +159,10 @@ function frontEndComponent(packet: DossierV2InputPacket) {
   const bill3m = metricNumber(official, "bill_3m_pct") ?? metricNumber(monitor(packet, "us3m-bill"), "last");
   const bill6m = metricNumber(official, "bill_6m_pct") ?? metricNumber(monitor(packet, "us6m-bill"), "last");
   const effr = metricNumber(effrEvidence, "effr_pct") ?? metricNumber(effrEvidence, "last");
-  const values = [bill3m, bill6m].filter((value): value is number => value !== null);
+  const officialUsable = !official || providerUsable(official);
+  const values = officialUsable
+    ? [bill3m, bill6m].filter((value): value is number => value !== null)
+    : [];
   const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const spread = average !== null && effr !== null ? (average - effr) * 100 : null;
   if (spread === null) {
