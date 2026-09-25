@@ -465,7 +465,7 @@ export const loadCashAnchors = unstable_cache(async () => {
     fetchBitcoinSpotSeries().catch(() => null),
   ]);
   return rows.filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-cash-anchors-v1"], { revalidate: 300 });
+}, ["alchemy-market-monitor-cash-anchors-v2"], { revalidate: 300 });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
