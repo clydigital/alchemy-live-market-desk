@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
+import StockedUpEvidenceBoard from "@/components/live-desk/StockedUpEvidenceBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
@@ -22,6 +23,7 @@ import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 import { deriveStoryScorecard } from "@/lib/story-scorecard";
+import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
 
@@ -225,13 +227,14 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, monitor, recordLayer, calendar, dossierSelection] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection, stockedUpBrief] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getMarketMonitor(),
     getStoryRecordLayer(),
     getEconomicCalendar(),
     getDossierV2PresentationSelection(),
+    getStockedUpEvidenceBrief().catch(() => null),
   ]);
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
@@ -346,6 +349,7 @@ export default async function Page({ searchParams }: PageProps) {
     >
       <div style={{ display: "grid", gap: 24 }}>
         <DailyAssetStateBoard state={dailyAssetState} />
+        <StockedUpEvidenceBoard brief={stockedUpBrief} />
         <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
         <RateRegimeOverview selection={dossierSelection} />
         <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
