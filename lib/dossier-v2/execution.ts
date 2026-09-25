@@ -79,9 +79,9 @@ const RATES_LED_RESEARCH_BUNDLES = [
   },
   {
     action:
-      "Test rates-shock transmission through HY/IG credit, market breadth and MOVE/VIX volatility, while tracking whether narrow AI/semiconductor leadership survives.",
+      "Test rates-shock transmission through dollar-liquidity plumbing (secured funding, front-end bills, USD), HY/IG credit, market breadth and MOVE/VIX volatility, while tracking whether narrow AI/semiconductor leadership survives.",
     reason:
-      "Distinguishes rates-led tightening with incomplete transmission from classic growth-scare risk-off.",
+      "Distinguishes a duration/rates shock with incomplete transmission from broader dollar-liquidity tightening or classic growth-scare risk-off.",
   },
   {
     action:
