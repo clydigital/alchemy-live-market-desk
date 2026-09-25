@@ -6,6 +6,7 @@ import { buildMarketIntelligenceSnapshot } from "@/lib/market-intelligence-snaps
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { fetchNyFedPrimaryDealers } from "@/lib/providers/ny-fed-primary-dealers";
 import { fetchNyFedReferenceRates } from "@/lib/providers/ny-fed-reference-rates";
+import { fetchTreasuryBills } from "@/lib/providers/treasury-bills";
 import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +30,11 @@ export async function GET() {
       });
     }
 
-    const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, creatorVerification] = await Promise.all([
+    const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, treasuryBills, creatorVerification] = await Promise.all([
       getMarketMonitor(),
       fetchNyFedReferenceRates(),
       fetchNyFedPrimaryDealers(),
+      fetchTreasuryBills(),
       getStockedUpEvidenceBrief().catch(() => null),
     ]);
     const dailyAssetState = buildDailyAssetState({
@@ -45,6 +47,7 @@ export async function GET() {
       monitor,
       nyFedReferenceRates,
       nyFedPrimaryDealers,
+      treasuryBills,
       dailyAssetState,
       creatorVerification,
     });
