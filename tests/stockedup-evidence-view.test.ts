@@ -25,9 +25,9 @@ test("StockedUp creator claims that remain unverified stay outside canonical rea
   assert.match(brief, /status: "CREATOR_ONLY"/);
 });
 
-test("Live Overview, Dossier and lightweight Hybrid handoff expose the same verification brief", () => {
-  assert.match(overview, /StockedUpEvidenceBoard/);
-  assert.match(dossier, /StockedUpEvidenceBoard/);
+test("Live keeps the verification brief in the handoff without rendering the StockedUp module", () => {
+  assert.doesNotMatch(overview, /StockedUpEvidenceBoard/);
+  assert.doesNotMatch(dossier, /StockedUpEvidenceBoard/);
   assert.match(route, /stockedUpEvidenceBrief/);
   assert.match(route, /getStockedUpEvidenceBrief/);
 });
