@@ -1015,6 +1015,7 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
         sofr_volume_billions: nyFed.rates.find((item) => item.type === "SOFR")?.volumeInBillions ?? null,
         tgcr_volume_billions: nyFed.rates.find((item) => item.type === "TGCR")?.volumeInBillions ?? null,
         bgcr_volume_billions: nyFed.rates.find((item) => item.type === "BGCR")?.volumeInBillions ?? null,
+        provider_status: nyFed.status,
       },
       provenance: [{
         source_type: "NY_FED",
@@ -1049,6 +1050,7 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
         fails_deliver_weekly_change_millions: failsDeliver?.weeklyChangeMillions ?? null,
         fails_receive_millions: failsReceive?.valueMillions ?? null,
         fails_receive_weekly_change_millions: failsReceive?.weeklyChangeMillions ?? null,
+        provider_status: dealers.status,
       },
       provenance: [{
         source_type: "NY_FED",
@@ -1076,6 +1078,7 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
       metrics: {
         bill_3m_pct: treasuryBills.points.find((item) => item.tenor === "3M")?.yieldPercent ?? null,
         bill_6m_pct: treasuryBills.points.find((item) => item.tenor === "6M")?.yieldPercent ?? null,
+        provider_status: treasuryBills.status,
       },
       provenance: [{
         source_type: "US_TREASURY",
