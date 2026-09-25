@@ -397,11 +397,6 @@ export const loadExtras = unstable_cache(async () => {
   const creditRows = await Promise.all(
     FRED_CREDIT_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
   );
-  const cashRows = await Promise.all([
-    ...FRED_CASH_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
-    fetchGoldSpotSeries().catch(() => null),
-    fetchBitcoinSpotSeries().catch(() => null),
-  ]);
   const globalRateRows = await Promise.all([
     fetchFredSeries({ id: "eur10y", seriesId: "IRLTLT01EZM156N", label: "Euro Area 10Y Yield · monthly" })
       .then((row) => ({ ...row, frequency: "monthly" as const }))
@@ -410,8 +405,17 @@ export const loadExtras = unstable_cache(async () => {
       .then((row) => ({ ...row, frequency: "monthly" as const }))
       .catch(() => null),
   ]);
-  return [...extraRows, ...rateRows, ...creditRows, ...cashRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v5-cash"], { revalidate: EXTRA_REVALIDATE });
+  return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-extras-v5"], { revalidate: EXTRA_REVALIDATE });
+
+export const loadCashAnchors = unstable_cache(async () => {
+  const rows = await Promise.all([
+    ...FRED_CASH_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
+    fetchGoldSpotSeries().catch(() => null),
+    fetchBitcoinSpotSeries().catch(() => null),
+  ]);
+  return rows.filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-cash-anchors-v1"], { revalidate: 300 });
 
 function baseRaw(spec: BaseSpec, series: MarketSeries): RawSeries {
   return {
@@ -623,16 +627,19 @@ function buildResearchTriggers(rows: MarketMonitorRow[], contradictions: MarketC
 }
 
 async function loadMarketMonitor(): Promise<MarketMonitor> {
-  // Degrade independently: fetch both getMarketData and loadExtras.
-  // Use Promise.allSettled() so one failure doesn't block the entire monitor.
-  const results = await Promise.allSettled([getMarketData(), loadExtras()]);
+  // Degrade independently: core market data, broad extras and cash anchors.
+  // Cash anchors stay on their own short cache so headline prices can refresh
+  // without re-fetching the full extras universe.
+  const results = await Promise.allSettled([getMarketData(), loadExtras(), loadCashAnchors()]);
   
   const marketResult = results[0];
   const extrasResult = results[1];
+  const cashResult = results[2];
   
   // Extract data or use empty fallbacks
   const market = marketResult.status === "fulfilled" ? marketResult.value : null;
   const extras = extrasResult.status === "fulfilled" ? extrasResult.value : [];
+  const cashAnchors = cashResult.status === "fulfilled" ? cashResult.value : [];
   
   // Collect coverage gaps from failed branches
   const coverageGaps: string[] = [];
@@ -648,6 +655,9 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   // If loadExtras failed, record extras gap
   if (extrasResult.status === "rejected") {
     coverageGaps.push("Additional market series (Nasdaq extras, FRED rates) are temporarily unavailable.");
+  }
+  if (cashResult.status === "rejected") {
+    coverageGaps.push("Direct cash/spot headline anchors are temporarily unavailable; headline cards will fail closed rather than use ETF proxies.");
   }
   
   // Build base rows from getMarketData if available
@@ -679,7 +689,7 @@ async function loadMarketMonitor(): Promise<MarketMonitor> {
   
   // Combine base (from getMarketData) and extras (from loadExtras)
   // If both branches failed, rows will be empty but not crash.
-  let rows = makeRows([...base, ...extras]);
+  let rows = makeRows([...base, ...extras, ...cashAnchors]);
   const contradictions = buildContradictions(rows);
   const contradictionIds = new Set(contradictions.flatMap((item) => item.assets));
   rows = rows.map((row) => {
