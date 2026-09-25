@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -10,12 +11,15 @@ export const revalidate = 30;
 export async function GET() {
   try {
     const selection = await getDossierV2PresentationSelection();
-    const monitor = await getMarketMonitor().catch(() => null);
+    const [monitor, stockedUpEvidenceBrief] = await Promise.all([
+      getMarketMonitor().catch(() => null),
+      getStockedUpEvidenceBrief().catch(() => null),
+    ]);
     const dailyAssetState = monitor
       ? buildDailyAssetState({ monitor, presentation: selection.presentation })
       : null;
 
-    return NextResponse.json({ ...selection, dailyAssetState }, {
+    return NextResponse.json({ ...selection, dailyAssetState, stockedUpEvidenceBrief }, {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
@@ -35,6 +39,7 @@ export async function GET() {
         selectedAsOf: null,
         usingFallback: false,
         dailyAssetState: null,
+        stockedUpEvidenceBrief: null,
         notice: {
           tone: "error",
           label: "Dossier unavailable",
