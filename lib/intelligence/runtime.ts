@@ -1,12 +1,6 @@
 import { parseRatesContext } from "../rates-research-plan.ts";
 import { ratesSourceClass } from "../rates-research-acquisition.ts";
 import { attachRatesContext, isRatesContext } from "./rates-context.ts";
-import {
-  buildDivergenceEvidencePack,
-  compactEvidenceForModel,
-  compactStoryReviewTargetsForModel,
-  stageInputSize,
-} from "./stage-input-compaction.ts";
 import "server-only";
 
 import { createHash } from "node:crypto";
@@ -2542,44 +2536,23 @@ export async function runIntelligenceEngine({
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
-    const rawMarketBeliefInput = {
-      asOf: analysisAsOf,
-      freshEvidenceCandidates: recruitment.candidates.map((candidate) => ({
-        ...candidate.evidence,
-        evidenceNature: candidate.nature,
-        ageHours: candidate.ageHours,
-        freshnessScore: candidate.freshnessScore,
-        upstreamMateriality: candidate.upstreamMateriality,
-      })),
-      storyReviewTargets,
-    };
-    const marketBeliefInput = {
-      asOf: analysisAsOf,
-      freshEvidenceCandidates: recruitment.candidates.map((candidate) => ({
-        ...compactEvidenceForModel(candidate.evidence),
-        evidenceNature: candidate.nature,
-        ageHours: candidate.ageHours,
-        freshnessScore: candidate.freshnessScore,
-        upstreamMateriality: candidate.upstreamMateriality,
-      })),
-      storyReviewTargets: compactStoryReviewTargetsForModel(storyReviewTargets),
-    };
-    console.info(JSON.stringify({
-      event: "intelligence_stage_input_compaction",
-      stageKey: "market_belief",
-      evidenceCount: recruitment.candidates.length,
-      storyReviewTargetCount: storyReviewTargets.length,
-      rawBytes: stageInputSize(rawMarketBeliefInput),
-      compactBytes: stageInputSize(marketBeliefInput),
-    }));
-
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "market_belief",
       modelKind: "fast",
       schema: MARKET_BELIEF_SCHEMA,
-      input: marketBeliefInput,
+      input: {
+        asOf: analysisAsOf,
+        freshEvidenceCandidates: recruitment.candidates.map((candidate) => ({
+          ...candidate.evidence,
+          evidenceNature: candidate.nature,
+          ageHours: candidate.ageHours,
+          freshnessScore: candidate.freshnessScore,
+          upstreamMateriality: candidate.upstreamMateriality,
+        })),
+        storyReviewTargets,
+      },
       maxOutputTokens: 4_500,
     });
     await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
@@ -2619,33 +2592,13 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const divergenceEvidence = buildDivergenceEvidencePack({
-      beliefs,
-      recruitmentClusters,
-      reasoningEvidence,
-      asOf: analysisAsOf,
-    });
-    const rawDivergenceInput = { beliefs, evidence: reasoningEvidence };
-    const divergenceInput = {
-      beliefs,
-      evidence: divergenceEvidence.map(compactEvidenceForModel),
-    };
-    console.info(JSON.stringify({
-      event: "intelligence_stage_input_compaction",
-      stageKey: "divergence",
-      originalEvidenceCount: reasoningEvidence.length,
-      selectedEvidenceCount: divergenceEvidence.length,
-      rawBytes: stageInputSize(rawDivergenceInput),
-      compactBytes: stageInputSize(divergenceInput),
-    }));
-
     const divergenceStage = await modelStage<DivergenceOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "divergence",
       modelKind: "fast",
       schema: DIVERGENCE_SCHEMA,
-      input: divergenceInput,
+      input: { beliefs, evidence: reasoningEvidence },
       maxOutputTokens: 2_800,
     });
     const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
