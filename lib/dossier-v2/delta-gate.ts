@@ -224,7 +224,40 @@ export async function loadDossierDeltaContext(
     }
 
     const typedStates = (states ?? []) as DossierIntelligenceState[];
-    const ids = [...new Set(typedStates.map((state) => state.story_id).filter(Boolean))];
+    const rawEvidenceIds = [...new Set(
+      typedStates.flatMap((state) => stringArray(state.decisive_evidence_ids)),
+    )];
+    const evidenceIdMap = new Map<string, string>();
+    if (rawEvidenceIds.length > 0) {
+      const { data: evidenceRows, error: evidenceError } = await client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id")
+        .in("id", rawEvidenceIds);
+      if (evidenceError) {
+        return {
+          available: false,
+          states: typedStates,
+          stories: [],
+          warning: `Failed to translate intelligence evidence IDs for Dossier delta: ${evidenceError.message}`,
+        };
+      }
+      for (const row of evidenceRows ?? []) {
+        if (typeof row.id !== "string") continue;
+        const packetEvidenceId =
+          typeof row.external_evidence_id === "string" && row.external_evidence_id.trim()
+            ? row.external_evidence_id.trim()
+            : `ev:${row.id}`;
+        evidenceIdMap.set(row.id, packetEvidenceId);
+      }
+    }
+
+    const mappedStates = typedStates.map((state) => ({
+      ...state,
+      decisive_evidence_ids: stringArray(state.decisive_evidence_ids).map(
+        (id) => evidenceIdMap.get(id) ?? id,
+      ),
+    }));
+    const ids = [...new Set(mappedStates.map((state) => state.story_id).filter(Boolean))];
     if (ids.length === 0) {
       return { available: true, states: [], stories: [], warning: null };
     }
@@ -239,7 +272,7 @@ export async function loadDossierDeltaContext(
     if (storyError) {
       return {
         available: false,
-        states: typedStates,
+        states: mappedStates,
         stories: [],
         warning: `Failed to read canonical Story records for Dossier delta: ${storyError.message}`,
       };
@@ -247,7 +280,7 @@ export async function loadDossierDeltaContext(
 
     return {
       available: true,
-      states: typedStates,
+      states: mappedStates,
       stories: (stories ?? []) as DossierStoryRecord[],
       warning: null,
     };
