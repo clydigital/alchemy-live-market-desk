@@ -288,11 +288,15 @@ export async function applyFirecrawlResearchFallback(input: ResearchRunInput, no
 
   if (!firecrawlConfigured()) {
     const blockedSet = new Set(blockedSupported.map((check) => check.source));
+    const note = `Firecrawl blocked-page recovery is not configured for: ${blockedSupported.map((check) => check.source).join(", ")}.`;
     return {
       ...input,
       sourceChecks: input.sourceChecks.map((check) => blockedSet.has(check.source)
         ? { ...check, note: `${check.note || "Direct acquisition was blocked."} Firecrawl fallback is not configured.` }
         : check),
+      summary: input.summary?.trim()
+        ? `${input.summary.trim()} ${note}`
+        : `Autonomous Live-owned research cycle. ${note}`,
     };
   }
 
