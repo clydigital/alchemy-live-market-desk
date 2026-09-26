@@ -8,6 +8,14 @@ import {
   type MarketDossierV2Input,
 } from "./contracts.ts";
 import type { DossierV2InputPacket, ResearchGap } from "./input-packet.ts";
+import {
+  buildDeterministicDossierPatch,
+  decideDossierDelta,
+  loadDossierDeltaContext,
+  type DossierDeltaContext,
+  type DossierDeltaDecision,
+  type DossierDeltaMode,
+} from "./delta-gate.ts";
 import { persistMarketDossierV2 } from "./persistence.ts";
 import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
 import { buildDossierRateRegime } from "./rate-regime.ts";
@@ -32,14 +40,19 @@ import {
 export interface DossierV2ExecutionOptions {
   client?: SupabaseClient;
   researchBrainOptions?: ResearchBrainOptions;
+  previousDossier?: MarketDossierV2 | null;
+  deltaContext?: DossierDeltaContext;
+  deltaMode?: DossierDeltaMode;
 }
 
 export interface DossierV2ExecutionResult {
   packet_id: string;
   analytical_output: ResearchBrainOutputV1;
-  dossier_input: MarketDossierV2Input;
+  dossier_input: MarketDossierV2Input | null;
   dossier: MarketDossierV2;
   story_refresh_agenda: DossierStoryRefreshAgendaResult;
+  persisted: boolean;
+  delta_decision: DossierDeltaDecision;
 }
 
 function cloneJson<T>(value: T): T {
@@ -341,14 +354,121 @@ export async function executeAndPersistDossierV2(
   packet: DossierV2InputPacket,
   options: DossierV2ExecutionOptions = {},
 ): Promise<DossierV2ExecutionResult> {
-  const analyticalOutput = await executeResearchBrain(
-    {
-      contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
-      as_of: packet.as_of,
+  const deltaMode = options.deltaMode ?? "rebase";
+  const previousDossier = options.previousDossier ?? null;
+  let deltaContext: DossierDeltaContext = options.deltaContext ?? {
+    available: false,
+    states: [],
+    stories: [],
+    warning: "Automatic Dossier delta context was not requested.",
+  };
+
+  let decision: DossierDeltaDecision = {
+    action: "REBASE",
+    reason: deltaMode === "rebase"
+      ? "Explicit Dossier rebase requested."
+      : "Automatic Dossier handoff has no prior state to compare.",
+    previousDossierId: previousDossier?.id ?? null,
+    previousAsOf: previousDossier?.as_of ?? null,
+    changedStoryIds: [],
+    newObservedEvidence: packet.observed_evidence.length,
+    postIntelligenceModelCallBudget: 2,
+  };
+
+  if (deltaMode === "auto") {
+    if (!options.deltaContext && options.client) {
+      deltaContext = await loadDossierDeltaContext(options.client, previousDossier);
+    }
+    decision = decideDossierDelta({
       packet,
-    },
-    options.researchBrainOptions,
-  );
+      previousDossier,
+      context: deltaContext,
+    });
+  }
+
+  console.info(JSON.stringify({
+    event: "dossier_v2_delta_decision",
+    packetId: packet.packet_id,
+    action: decision.action,
+    reason: decision.reason,
+    previousDossierId: decision.previousDossierId,
+    previousAsOf: decision.previousAsOf,
+    changedStoryIds: decision.changedStoryIds,
+    newObservedEvidence: decision.newObservedEvidence,
+    postIntelligenceModelCallBudget: decision.postIntelligenceModelCallBudget,
+  }));
+
+  if (decision.action === "NO_CHANGE" && previousDossier) {
+    const priorAnalytical = previousDossier.payload?.analytical_output;
+    if (
+      priorAnalytical &&
+      typeof priorAnalytical === "object" &&
+      !Array.isArray(priorAnalytical)
+    ) {
+      return {
+        packet_id: packet.packet_id,
+        analytical_output: cloneJson(priorAnalytical as ResearchBrainOutputV1),
+        dossier_input: null,
+        dossier: previousDossier,
+        story_refresh_agenda: {
+          dossier_id: previousDossier.id,
+          status: "empty" as const,
+          candidates: 0,
+          enqueued: 0,
+          skipped_existing: 0,
+          items: [],
+        },
+        persisted: false,
+        delta_decision: decision,
+      };
+    }
+
+    decision = {
+      ...decision,
+      action: "REBASE",
+      reason: "NO_CHANGE could not reuse the prior analytical payload safely; escalating to full synthesis.",
+      postIntelligenceModelCallBudget: 2,
+    };
+  }
+
+  let analyticalOutput: ResearchBrainOutputV1 | null = null;
+
+  if (decision.action === "PATCH" && previousDossier) {
+    const patch = buildDeterministicDossierPatch({
+      packet,
+      previousDossier,
+      context: deltaContext,
+      decision,
+    });
+
+    if (patch.output) {
+      analyticalOutput = patch.output;
+    } else {
+      decision = {
+        ...decision,
+        action: "REBASE",
+        reason: "Deterministic Dossier patch failed contract validation; escalating to full synthesis.",
+        postIntelligenceModelCallBudget: 2,
+        validationErrors: patch.errors.slice(0, 12),
+      };
+      console.warn(JSON.stringify({
+        event: "dossier_v2_patch_escalated",
+        packetId: packet.packet_id,
+        errors: decision.validationErrors,
+      }));
+    }
+  }
+
+  if (!analyticalOutput) {
+    analyticalOutput = await executeResearchBrain(
+      {
+        contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+        as_of: packet.as_of,
+        packet,
+      },
+      options.researchBrainOptions,
+    );
+  }
 
   const dossierInput = buildMarketDossierV2InputFromResearchBrain(
     packet,
@@ -378,5 +498,7 @@ export async function executeAndPersistDossierV2(
     dossier_input: dossierInput,
     dossier,
     story_refresh_agenda: storyRefreshAgenda,
+    persisted: true,
+    delta_decision: decision,
   };
 }

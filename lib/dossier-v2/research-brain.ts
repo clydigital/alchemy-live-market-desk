@@ -45,8 +45,8 @@ export interface ResearchBrainOptions {
 
 type ResearchBrainReasoningEffort = "none" | "low" | "medium" | "high";
 
-const RESEARCH_BRAIN_PRIMARY_OUTPUT_TOKENS = 26_000;
-const RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS = 16_000;
+const RESEARCH_BRAIN_PRIMARY_OUTPUT_TOKENS = 16_000;
+const RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS = 8_000;
 const RESEARCH_BRAIN_REQUEST_TIMEOUT_MS = 240_000;
 const VALID_RESEARCH_BRAIN_EFFORT = new Set<ResearchBrainReasoningEffort>(["none", "low", "medium", "high"]);
 

@@ -30,7 +30,7 @@ import {
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
 
 
-test("Research Brain runtime gives primary synthesis enough output headroom without inflating repair", () => {
+test("Research Brain runtime keeps full rebase output bounded by default", () => {
   const primary = researchBrainStageRuntime(
     "research_brain_primary",
     undefined,
@@ -42,10 +42,10 @@ test("Research Brain runtime gives primary synthesis enough output headroom with
     {} as NodeJS.ProcessEnv,
   );
 
-  assert.equal(primary.maxOutputTokens, 26_000);
+  assert.equal(primary.maxOutputTokens, 16_000);
   assert.equal(primary.reasoningEffort, "medium");
   assert.equal(primary.timeoutMs, 240_000);
-  assert.equal(repair.maxOutputTokens, 16_000);
+  assert.equal(repair.maxOutputTokens, 8_000);
   assert.equal(repair.reasoningEffort, "low");
   assert.equal(repair.timeoutMs, 240_000);
 });

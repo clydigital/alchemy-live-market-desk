@@ -6,6 +6,7 @@ import {
   runManualDossierV2,
   type ManualDossierV2RunResult,
 } from "./manual-run.ts";
+import type { DossierDeltaMode } from "./delta-gate.ts";
 
 type PersistAuthorization = ManualLiveTriggerAuthorization;
 
@@ -13,6 +14,7 @@ type PersistInput = {
   asOf?: unknown;
   lookbackHours?: unknown;
   evidenceLimit?: unknown;
+  strategy?: unknown;
 };
 
 type PersistDependencies = {
@@ -21,6 +23,7 @@ type PersistDependencies = {
     asOf: string;
     lookbackHours: number;
     evidenceLimit: number;
+    strategy: DossierDeltaMode;
   }) => Promise<ManualDossierV2RunResult>;
   now?: () => Date;
   logger?: (event: Record<string, unknown>) => void;
@@ -86,7 +89,7 @@ export async function handleDossierV2PersistRunWithDependencies(
 
   // Persistence is fixed by the endpoint itself. Reject control fields so an
   // audited production run cannot silently change execution semantics.
-  const allowedKeys = new Set(["asOf", "lookbackHours", "evidenceLimit"]);
+  const allowedKeys = new Set(["asOf", "lookbackHours", "evidenceLimit", "strategy"]);
   const unknownKeys = Object.keys(input).filter((key) => !allowedKeys.has(key));
   if (unknownKeys.length > 0) {
     return json(
@@ -102,12 +105,24 @@ export async function handleDossierV2PersistRunWithDependencies(
   const asOf = resolveAsOf(input.asOf, now);
   const lookbackHours = boundedPositiveInt(input.lookbackHours, 168, 24 * 30);
   const evidenceLimit = boundedPositiveInt(input.evidenceLimit, 180, 500);
+  const strategy: DossierDeltaMode =
+    input.strategy === undefined || input.strategy === null || input.strategy === ""
+      ? "rebase"
+      : input.strategy === "auto" || input.strategy === "rebase"
+        ? input.strategy
+        : "rebase";
+  const strategyValid =
+    input.strategy === undefined ||
+    input.strategy === null ||
+    input.strategy === "" ||
+    input.strategy === "auto" ||
+    input.strategy === "rebase";
 
-  if (!asOf || lookbackHours === null || evidenceLimit === null) {
+  if (!asOf || lookbackHours === null || evidenceLimit === null || !strategyValid) {
     return json(
       {
         error:
-          "asOf must be an ISO timestamp; lookbackHours must be 1-720; evidenceLimit must be 1-500.",
+          "asOf must be an ISO timestamp; lookbackHours must be 1-720; evidenceLimit must be 1-500; strategy must be auto or rebase.",
       },
       400,
     );
@@ -124,6 +139,7 @@ export async function handleDossierV2PersistRunWithDependencies(
     asOf,
     lookbackHours,
     evidenceLimit,
+    strategy,
     vercelRequestId: request.headers.get("x-vercel-id") || undefined,
   });
 
@@ -134,30 +150,43 @@ export async function handleDossierV2PersistRunWithDependencies(
         asOf: string;
         lookbackHours: number;
         evidenceLimit: number;
+        strategy: DossierDeltaMode;
       }) =>
         runManualDossierV2({
-          ...options,
+          asOf: options.asOf,
+          lookbackHours: options.lookbackHours,
+          evidenceLimit: options.evidenceLimit,
           persist: true,
+          deltaMode: options.strategy,
         }));
 
     const result = await run({
       asOf,
       lookbackHours,
       evidenceLimit,
+      strategy,
     });
 
-    if (result.mode !== "persisted" || !result.dossier) {
+    if ((result.mode !== "persisted" && result.mode !== "no_change") || !result.dossier) {
       throw new Error(
-        "Dossier V2 persistence endpoint received a non-persisted result.",
+        "Dossier V2 persistence endpoint received an invalid handoff result.",
       );
     }
 
     return json({
       status: "completed",
       mode: result.mode,
+      strategy,
       persistenceAvailable: result.persistence_available,
       previousDossierId: result.previous_dossier_id,
-      persistedDossier: {
+      dossierDecision: result.delta_decision ?? null,
+      persistedDossier: result.mode === "persisted" ? {
+        id: result.dossier.id,
+        previousDossierId: result.dossier.previous_dossier_id,
+        asOf: result.dossier.as_of,
+        createdAt: result.dossier.created_at,
+      } : null,
+      currentDossier: {
         id: result.dossier.id,
         previousDossierId: result.dossier.previous_dossier_id,
         asOf: result.dossier.as_of,
