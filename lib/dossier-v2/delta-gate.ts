@@ -147,13 +147,31 @@ function previousMajorStoryIds(output: ResearchBrainOutputV1 | null): Set<string
   ]);
 }
 
+function hasAnalyticalStoryDelta(state: DossierIntelligenceState): boolean {
+  return (state.qualification_score ?? 0) > 0
+    || stringArray(state.decisive_evidence_ids).length > 0
+    || Boolean(state.research_synthesis?.trim())
+    || Boolean(state.market_belief?.trim())
+    || Boolean(state.divergence_summary?.trim())
+    || Boolean(state.causal_mechanism?.trim())
+    || Boolean(state.strongest_support?.trim())
+    || Boolean(state.strongest_contradiction?.trim());
+}
+
 function changedRelevantStates(
   context: DossierDeltaContext,
   priorStoryIds: Set<string>,
 ): DossierIntelligenceState[] {
-  return context.states.filter((state) =>
-    state.publication_eligible === true || priorStoryIds.has(state.story_id)
-  );
+  return context.states.filter((state) => {
+    // A Story already carried by the Dossier is always relevant: incomplete
+    // state must fail safe rather than silently erasing or weakening a live thesis.
+    if (priorStoryIds.has(state.story_id)) return true;
+
+    // publication_eligible is a structural compatibility flag in Intelligence,
+    // not proof of research completeness. A newly touched Story with no score,
+    // decisive evidence or analytical payload must not force a full Dossier rebase.
+    return state.publication_eligible === true && hasAnalyticalStoryDelta(state);
+  });
 }
 
 function stateEvidenceIds(
