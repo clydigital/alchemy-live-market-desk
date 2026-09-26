@@ -141,7 +141,7 @@ test("Firecrawl fallback preserves earlier acquisition diagnostics in the run su
     const result = await applyFirecrawlResearchFallback(input, new Date("2026-08-14T10:00:00.000Z"));
     assert.match(result.summary || "", /Direct macro\/news coverage is degraded/);
     assert.match(result.summary || "", /Regional discovery checked Korea and Japan/);
-    assert.match(result.summary || "", /Firecrawl fallback is not configured|Direct acquisition was blocked/);
+    assert.match(result.summary || "", /Firecrawl blocked-page recovery is not configured/);
   } finally {
     if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
     else process.env.FIRECRAWL_API_KEY = previousKey;
