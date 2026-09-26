@@ -173,6 +173,58 @@ jobs:
           echo "Canonical intelligence did not complete within eight continuations." >&2
           exit 1
 
+      - name: Run token-aware Dossier V2 handoff
+        if: ${{ env.MODE == 'research' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/dossier-v2-auto-handoff.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          body="$(jq -cn \
+            --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
+            --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
+            '{strategy:"auto",lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
+
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$PROD_URL/api/admin/dossier-v2/run")"
+
+          jq -c '{
+            status,
+            mode,
+            strategy,
+            dossierDecision,
+            persistedDossier,
+            currentDossier,
+            packetSummary: {
+              packetId: .packetSummary.packetId,
+              asOf: .packetSummary.asOf,
+              observedEvidence: .packetSummary.observedEvidence,
+              researchLeads: .packetSummary.researchLeads,
+              developmentClusters: .packetSummary.developmentClusters
+            }
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Automatic Dossier V2 handoff returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          if [[ "$state" != "completed" ]]; then
+            echo "Automatic Dossier V2 handoff ended in state: ${state:-missing}" >&2
+            exit 1
+          fi
+
       - name: Run canonical intelligence only
         if: ${{ env.MODE == 'intelligence_only' }}
         shell: bash
@@ -396,9 +448,12 @@ jobs:
           jq -c '{
             status,
             mode,
+            strategy,
             persistenceAvailable,
             previousDossierId,
+            dossierDecision,
             persistedDossier,
+            currentDossier,
             snapshotDiagnostics,
             packetSummary: {
               packetId: .packetSummary.packetId,
