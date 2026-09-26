@@ -74,6 +74,18 @@ export const REQUIRED_ASIAN_MARKET_TARGETS = TARGETS.filter((target) => target.k
 
 type Target = (typeof TARGETS)[number];
 
+const TARGET_MATCHERS: Record<Target["key"], RegExp> = {
+  "us-macro": /\b(CPI|PPI|ISM|PMI|payrolls?|JOLTS|Federal Reserve|FOMC)\b/i,
+  "japan-yen": /\b(yen|USDJPY|USD\/JPY|BOJ|Bank of Japan|Japan Ministry of Finance|FX intervention)\b/i,
+  "japan-equities": /\b(Nikkei|TOPIX|Japan(?:ese)? stocks?|Tokyo stocks?)\b/i,
+  korea: /\b(KOSPI|KOSDAQ|Korea(?:n)? stocks?|SK Hynix|KRW|Korean won)\b/i,
+  "china-mainland": /\b(CSI ?300|Shanghai Composite|Shenzhen|PBOC|People'?s Bank of China|CNY|yuan)\b/i,
+  "hong-kong": /\b(Hang Seng|Hong Kong stocks?|Hang Seng Tech|HKD)\b/i,
+  taiwan: /\b(TAIEX|TSMC|Taiwan(?:ese)? stocks?|TWD)\b/i,
+  india: /\b(Nifty|Sensex|India(?:n)? stocks?|INR|rupee)\b/i,
+  "southeast-asia": /\b(Straits Times|Bursa Malaysia|KLCI|Jakarta Composite|JCI|SET Index|Singapore stocks?|Malaysia(?:n)? stocks?|Indonesia(?:n)? stocks?|Thailand stocks?)\b/i,
+};
+
 type GdeltArticle = {
   title?: unknown;
   url?: unknown;
@@ -153,6 +165,26 @@ function withinWindow(value: string, now: Date) {
   return Number.isFinite(timestamp)
     && timestamp >= now.getTime() - LOOKBACK_MS
     && timestamp <= now.getTime() + 5 * 60_000;
+}
+
+function existingCanonicalTargetMatches(
+  target: Target,
+  items: IntakeItemInput[],
+  now: Date,
+) {
+  const matcher = TARGET_MATCHERS[target.key];
+  return items.filter((item) => {
+    if (!item.publishedAt || !withinWindow(item.publishedAt, now)) return false;
+    if (!item.evidence?.length || item.recommendedAction !== "collect_evidence") return false;
+    const text = [
+      item.title,
+      item.summary,
+      item.newsSignal,
+      item.publisher,
+      ...(item.evidence ?? []).map((evidence) => evidence.claim),
+    ].filter(Boolean).join(" ");
+    return matcher.test(text);
+  });
 }
 
 function metaContent(html: string, keys: string[]) {
@@ -302,6 +334,14 @@ export async function applyHighImpactMarketDiscovery(
   const coverage: string[] = [];
 
   for (const target of TARGETS) {
+    // First credit canonical publisher evidence already acquired by the direct
+    // feed/discovery layers. GDELT is gap-filling, not the sole coverage oracle.
+    const existingMatches = existingCanonicalTargetMatches(target, input.items, now);
+    if (existingMatches.length) {
+      coverage.push(`${target.key}=existing_canonical_input (${existingMatches.length} readable publisher item(s); 0 external discovery calls)`);
+      continue;
+    }
+
     // Preserve existing US macro / yen depth; bound each added regional check.
     const retainedLimit = ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
     const search = await searchTarget(target, now, fetchImpl);
@@ -327,7 +367,7 @@ export async function applyHighImpactMarketDiscovery(
     coverage.push(`${target.key}=${search.state} (${leads.length} discovery leads; ${targetCount} new retained; ${pagesRead} readable publisher pages)`);
   }
 
-  const suffix = `High-impact ${slot} discovery retained ${retained.length} market lead(s); ${firecrawlRecovered} required blocked-page Firecrawl recovery after direct access failed. Required regional discovery checked at ${now.toISOString()}: ${coverage.join("; ")}. Discovery coverage is not verified index-price coverage or evidence of unchanged markets.`;
+  const suffix = `High-impact ${slot} discovery retained ${retained.length} new market lead(s); ${firecrawlRecovered} blocked-page Firecrawl recovery after direct access failed. Regional discovery checked at ${now.toISOString()}: ${coverage.join("; ")}. Existing canonical publisher evidence is credited before external search. Discovery coverage is not verified index-price coverage or evidence of unchanged markets.`;
   return {
     ...input,
     items: [...input.items, ...retained],

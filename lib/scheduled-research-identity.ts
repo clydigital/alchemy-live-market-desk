@@ -54,14 +54,28 @@ export function malaysiaDateKey(now: Date) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+const RESEARCH_SLOT_TIME_MY: Record<CanonicalResearchSlot, string> = {
+  morning: "09:15:00",
+  evening: "21:15:00",
+};
+
+export function scheduledOccurrenceMalaysiaDateKey(
+  slot: CanonicalResearchSlot,
+  now = new Date(),
+) {
+  const today = malaysiaDateKey(now);
+  const candidate = `${today}T${RESEARCH_SLOT_TIME_MY[slot]}+08:00`;
+  if (Date.parse(candidate) <= now.getTime()) return today;
+  return malaysiaDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1_000));
+}
+
 export function scheduledForMalaysiaSlot(slot: CanonicalResearchSlot, now = new Date()) {
-  const date = malaysiaDateKey(now);
-  const time = slot === "morning" ? "09:15:00" : "21:15:00";
-  return `${date}T${time}+08:00`;
+  const date = scheduledOccurrenceMalaysiaDateKey(slot, now);
+  return `${date}T${RESEARCH_SLOT_TIME_MY[slot]}+08:00`;
 }
 
 export function scheduledRunKey(slot: CanonicalResearchSlot, now = new Date()) {
-  return `cron-v1:${slot}:${malaysiaDateKey(now)}`;
+  return `cron-v1:${slot}:${scheduledOccurrenceMalaysiaDateKey(slot, now)}`;
 }
 
 function explicitRetryKey(request: Request, baseRunKey: string) {

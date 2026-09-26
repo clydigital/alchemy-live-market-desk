@@ -235,9 +235,9 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
   };
 }
 
-async function loadDedicatedVideoSourceChecks(slot: CanonicalResearchSlot, now: Date) {
+async function loadDedicatedVideoSourceChecks(slot: CanonicalResearchSlot, deskOccurrenceAt: Date) {
   const videoSlot = scheduledVideoSlotForDesk(slot);
-  const { scheduledFor } = scheduledVideoRunIdentity(videoSlot, now);
+  const { scheduledFor } = scheduledVideoRunIdentity(videoSlot, deskOccurrenceAt);
   try {
     const client = createSupabaseAdminClient();
     const { data: videoRun, error: videoError } = await client
@@ -333,7 +333,7 @@ export async function buildScheduledResearchInput(
   const windowEnd = now.getTime();
   const windowStart = windowEnd - SOURCE_WINDOW_MS;
   const [videoChecks, zerohedge, axios, investing, fxstreet, alchemy, powerStack] = await Promise.all([
-    loadDedicatedVideoSourceChecks(slot, now),
+    loadDedicatedVideoSourceChecks(slot, new Date(scheduledFor)),
     acquireDirectFeed(DIRECT_FEEDS[0], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[1], windowStart, windowEnd),
     acquireDirectFeed(DIRECT_FEEDS[2], windowStart, windowEnd),
@@ -372,7 +372,36 @@ export async function buildScheduledResearchInput(
     }));
   }
 
-  const blocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
+  const videoSources = new Set<ResearchSourceKey>([
+    "stockedup",
+    "wall-street-truth-bombs",
+    "traders-reality",
+  ]);
+  const directNewsSources = new Set<ResearchSourceKey>([
+    "zerohedge",
+    "axios",
+    "investing-com",
+    "fxstreet",
+  ]);
+  const blockedVideo = sourceChecks
+    .filter((check) => videoSources.has(check.source) && check.status === "blocked")
+    .map((check) => check.source);
+  const blockedNews = sourceChecks
+    .filter((check) => directNewsSources.has(check.source) && check.status === "blocked")
+    .map((check) => check.source);
+  const directNewsAvailable = sourceChecks.some(
+    (check) => directNewsSources.has(check.source) && check.status !== "blocked",
+  );
+
+  const coverageSummary = !directNewsAvailable
+    ? `Autonomous Live-owned research cycle has no available direct macro/news feed coverage. Blocked news sources: ${blockedNews.join(", ") || "all configured direct feeds"}.`
+    : blockedNews.length
+      ? `Autonomous Live-owned research cycle has degraded but usable direct macro/news coverage. Unavailable alternatives: ${blockedNews.join(", ")}.`
+      : "Autonomous Live-owned research cycle has complete configured direct macro/news feed coverage.";
+  const videoSummary = blockedVideo.length
+    ? ` Creator-video checkpoint gaps remain research debt and do not globally block canonical news research: ${blockedVideo.join(", ")}.`
+    : " Creator-video checkpoint coverage is available through the dedicated canonical intake record.";
+
   return {
     runKey: options.runKey || scheduledRunKey(slot, now),
     scheduleSlot: slot,
@@ -380,9 +409,7 @@ export async function buildScheduledResearchInput(
     sourceChecks,
     items,
     recalibrations: [],
-    summary: blocked.length
-      ? `Autonomous Live-owned research cycle is blocked by required source coverage: ${blocked.join(", ")}. ${powerStack.note}`
-      : `Autonomous Live-owned research cycle. Video evidence remains in its dedicated canonical intake record and is not reassigned to the desk run. ${powerStack.note}`,
+    summary: `${coverageSummary}${videoSummary} ${powerStack.note}`,
     dryRun: false,
   };
 }
