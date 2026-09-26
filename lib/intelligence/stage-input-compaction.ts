@@ -2,7 +2,6 @@ import type {
   EvidencePackItem,
   StoryReviewTargetPackItem,
 } from "./schemas.ts";
-import { attachRatesContext } from "./rates-context.ts";
 
 const MAX_CLAIM_CHARS = 1_800;
 const MAX_SUMMARY_CHARS = 700;
@@ -134,36 +133,6 @@ export function compactStoryReviewTargetsForModel(
     ...target,
     relevantEvidence: target.relevantEvidence.map(compactEvidenceForModel),
   }));
-}
-
-export function buildDivergenceEvidencePack({
-  beliefs,
-  recruitmentClusters,
-  reasoningEvidence,
-  asOf,
-}: {
-  beliefs: BeliefEvidenceReference[];
-  recruitmentClusters: RecruitmentClusterEvidenceReference[];
-  reasoningEvidence: EvidencePackItem[];
-  asOf: string;
-}) {
-  const clusterById = new Map(recruitmentClusters.map((cluster) => [cluster.id, cluster]));
-  const selectedIds = new Set<string>();
-
-  for (const belief of beliefs) {
-    for (const evidenceId of belief.evidence_ids ?? []) selectedIds.add(evidenceId);
-    for (const clusterId of belief.recruitment_cluster_ids ?? []) {
-      for (const evidenceId of clusterById.get(clusterId)?.evidence_ids ?? []) {
-        selectedIds.add(evidenceId);
-      }
-    }
-  }
-
-  if (!selectedIds.size) return reasoningEvidence;
-
-  const selected = reasoningEvidence.filter((item) => selectedIds.has(item.id));
-  if (!selected.length) return reasoningEvidence;
-  return attachRatesContext(selected, reasoningEvidence, asOf);
 }
 
 export function stageInputSize(value: unknown) {
