@@ -19,6 +19,10 @@ import {
   type DossierV2ExecutionResult,
 } from "./execution.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
+import type {
+  DossierDeltaDecision,
+  DossierDeltaMode,
+} from "./delta-gate.ts";
 import {
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type EpistemicLabel,
@@ -38,10 +42,11 @@ export interface ManualDossierV2RunOptions {
   client?: SupabaseClient;
   researchBrainOptions?: ResearchBrainOptions;
   snapshotResult?: CanonicalSnapshotResult;
+  deltaMode?: DossierDeltaMode;
 }
 
 export interface ManualDossierV2RunResult {
-  mode: "dry_run" | "persisted";
+  mode: "dry_run" | "persisted" | "no_change";
   persistence_available: boolean;
   previous_dossier_id: string | null;
   snapshot_diagnostics: CanonicalSnapshotResult["diagnostics"];
@@ -49,6 +54,7 @@ export interface ManualDossierV2RunResult {
   analytical_output: ResearchBrainOutputV1;
   dossier?: MarketDossierV2;
   story_refresh_agenda?: DossierStoryRefreshAgendaResult;
+  delta_decision?: DossierDeltaDecision;
 }
 
 interface PreviousDossierResolution {
@@ -333,11 +339,13 @@ export async function runManualDossierV2(
       {
         client,
         researchBrainOptions: options.researchBrainOptions,
+        previousDossier: previousResolution.dossier,
+        deltaMode: options.deltaMode ?? "rebase",
       },
     );
 
     return {
-      mode: "persisted",
+      mode: result.persisted ? "persisted" : "no_change",
       persistence_available: true,
       previous_dossier_id: packet.previous_dossier_id,
       snapshot_diagnostics: snapshotResult.diagnostics,
@@ -345,6 +353,7 @@ export async function runManualDossierV2(
       analytical_output: result.analytical_output,
       dossier: result.dossier,
       story_refresh_agenda: result.story_refresh_agenda,
+      delta_decision: result.delta_decision,
     };
   }
 
