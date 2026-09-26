@@ -129,3 +129,21 @@ test("Firecrawl failure remains diagnostic and does not fabricate evidence", asy
     else process.env.FIRECRAWL_API_KEY = previousKey;
   }
 });
+
+test("Firecrawl fallback preserves earlier acquisition diagnostics in the run summary", async () => {
+  const previousKey = process.env.FIRECRAWL_API_KEY;
+  delete process.env.FIRECRAWL_API_KEY;
+  try {
+    const input = {
+      ...inputWithSource("blocked"),
+      summary: "Direct macro/news coverage is degraded. Regional discovery checked Korea and Japan.",
+    };
+    const result = await applyFirecrawlResearchFallback(input, new Date("2026-08-14T10:00:00.000Z"));
+    assert.match(result.summary || "", /Direct macro\/news coverage is degraded/);
+    assert.match(result.summary || "", /Regional discovery checked Korea and Japan/);
+    assert.match(result.summary || "", /Firecrawl fallback is not configured|Direct acquisition was blocked/);
+  } finally {
+    if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = previousKey;
+  }
+});
