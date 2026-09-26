@@ -196,9 +196,20 @@ jobs:
           oidc_token="$(jq -er '.value' <<<"$oidc_response")"
           echo "::add-mask::$oidc_token"
 
+          lookback_hours="${DOSSIER_LOOKBACK_HOURS:-168}"
+          evidence_limit="${DOSSIER_EVIDENCE_LIMIT:-180}"
+          if [[ ! "$lookback_hours" =~ ^[0-9]+$ ]] || (( lookback_hours < 1 || lookback_hours > 720 )); then
+            echo "Automatic Dossier lookback must be an integer from 1 to 720." >&2
+            exit 1
+          fi
+          if [[ ! "$evidence_limit" =~ ^[0-9]+$ ]] || (( evidence_limit < 1 || evidence_limit > 500 )); then
+            echo "Automatic Dossier evidence limit must be an integer from 1 to 500." >&2
+            exit 1
+          fi
+
           body="$(jq -cn \
-            --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
-            --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
+            --argjson lookbackHours "$lookback_hours" \
+            --argjson evidenceLimit "$evidence_limit" \
             '{strategy:"auto",lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
 
           http_status="$(curl --silent --show-error --max-time 305 \
