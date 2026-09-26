@@ -106,7 +106,7 @@ test("divergence digest shadow bounds contextual expansion but never anchor evid
   assert.equal(shadow.candidateEvidenceCount, 140);
 });
 
-test("provider boundary keeps Divergence full-context while logging the shadow digest", () => {
+test("provider boundary promotes the measured Divergence digest to model input with fail-safe fallback", () => {
   const source = readFileSync(new URL("../lib/intelligence/openai.ts", import.meta.url), "utf8");
   const divergenceStart = source.indexOf('if (stageKey === "divergence")');
   const downstreamStart = source.indexOf('if (stageKey !== "scenario" && stageKey !== "story_synthesis")', divergenceStart);
@@ -114,7 +114,9 @@ test("provider boundary keeps Divergence full-context while logging the shadow d
 
   assert.ok(divergenceStart >= 0);
   assert.match(divergenceBlock, /buildDivergenceDigestShadow/);
-  assert.match(divergenceBlock, /event: "divergence_digest_shadow"/);
-  assert.match(divergenceBlock, /return input;/);
-  assert.doesNotMatch(divergenceBlock, /evidence:\s*shadow\.evidence/);
+  assert.match(divergenceBlock, /shadow\.anchorEvidenceCount > 0/);
+  assert.match(divergenceBlock, /shadow\.evidence/);
+  assert.match(divergenceBlock, /sourceEvidence/);
+  assert.match(divergenceBlock, /compactEvidenceForModel/);
+  assert.match(divergenceBlock, /event: "intelligence_stage_input_compaction"/);
 });
