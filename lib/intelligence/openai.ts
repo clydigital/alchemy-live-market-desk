@@ -194,10 +194,10 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
 /**
  * Provider-boundary context shaping.
  *
- * Divergence currently remains full-context. We compute a shadow digest only
- * for measurement and return the original input untouched. Scenario and Story
- * Synthesis use the already-validated ResearchDeltaDigest to reduce repeated
- * evidence serialisation.
+ * Market Belief keeps the full admitted candidate/review set but uses a bounded
+ * Evidence projection. Divergence promotes the historically measured digest to
+ * live input with a full-evidence fallback when anchor evidence is unavailable.
+ * Scenario and Story Synthesis keep using the validated ResearchDeltaDigest.
  */
 export function canonicalStageInput(stageKey: string, input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
