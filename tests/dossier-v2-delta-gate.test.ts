@@ -287,6 +287,64 @@ test("Dossier delta gate returns NO_CHANGE when evidence changes but canonical S
   assert.equal(decision.newObservedEvidence, 2);
 });
 
+test("Dossier delta gate ignores a structurally publishable new Story with no analytical delta", () => {
+  const base = patchContext().states[0];
+  const emptyNewStory = {
+    ...base,
+    story_id: "story-empty-new",
+    publication_eligible: true,
+    qualification_score: 0,
+    causal_mechanism: null,
+    decisive_evidence_ids: [],
+    research_synthesis: null,
+    market_belief: null,
+    divergence_summary: null,
+    strongest_support: null,
+    strongest_contradiction: null,
+  };
+
+  const decision = decideDossierDelta({
+    packet: packet(),
+    previousDossier: previousDossier(),
+    context: {
+      available: true,
+      warning: null,
+      states: [emptyNewStory],
+      stories: [],
+    },
+  });
+
+  assert.equal(decision.action, "NO_CHANGE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 0);
+  assert.deepEqual(decision.changedStoryIds, []);
+});
+
+test("Dossier delta gate still fails safe when an existing Dossier Story becomes analytically incomplete", () => {
+  const context = patchContext();
+  context.states[0] = {
+    ...context.states[0],
+    publication_eligible: true,
+    qualification_score: 0,
+    causal_mechanism: null,
+    decisive_evidence_ids: [],
+    research_synthesis: null,
+    market_belief: null,
+    divergence_summary: null,
+    strongest_support: null,
+    strongest_contradiction: null,
+  };
+
+  const decision = decideDossierDelta({
+    packet: packet(),
+    previousDossier: previousDossier(),
+    context,
+  });
+
+  assert.equal(decision.action, "REBASE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 2);
+  assert.deepEqual(decision.changedStoryIds, ["story-rates"]);
+});
+
 test("Dossier delta gate selects zero-token PATCH for one qualified canonical Story change", () => {
   const decision = decideDossierDelta({
     packet: packet(),
