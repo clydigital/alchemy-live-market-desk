@@ -133,6 +133,7 @@ test("Task 1 authorised request persists once with bounded options", async () =>
     asOf: "2026-09-21T00:00:00.000Z",
     lookbackHours: 72,
     evidenceLimit: 120,
+    strategy: "rebase",
   }]);
 
   const body = await response.json();
@@ -142,6 +143,40 @@ test("Task 1 authorised request persists once with bounded options", async () =>
     body.persistedDossier.id,
     "11111111-1111-4111-8111-111111111111",
   );
+});
+
+test("automatic strategy may complete with NO_CHANGE without persisting a duplicate dossier", async () => {
+  const response = await handleDossierV2PersistRunWithDependencies(
+    request({
+      asOf: "2026-09-21T00:00:00Z",
+      strategy: "auto",
+    }),
+    {
+      authorize: authorized,
+      run: async () => ({
+        ...persistedResult(),
+        mode: "no_change",
+        delta_decision: {
+          action: "NO_CHANGE",
+          reason: "No new material canonical Story state was produced.",
+          previousDossierId: "11111111-1111-4111-8111-111111111111",
+          previousAsOf: "2026-09-21T00:00:00.000Z",
+          changedStoryIds: [],
+          newObservedEvidence: 0,
+          postIntelligenceModelCallBudget: 0,
+        },
+      }),
+      logger: () => undefined,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.mode, "no_change");
+  assert.equal(body.strategy, "auto");
+  assert.equal(body.dossierDecision.action, "NO_CHANGE");
+  assert.equal(body.persistedDossier, null);
+  assert.equal(body.currentDossier.id, "11111111-1111-4111-8111-111111111111");
 });
 
 test("Task 1 production route and workflow keep the trusted OIDC boundary", () => {
@@ -163,6 +198,8 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.match(handler, /persist:\s*true/);
   assert.match(workflow, /dossier_v2_persist/);
   assert.match(workflow, /api\/admin\/dossier-v2\/run/);
+  assert.match(workflow, /strategy:"auto"/);
+  assert.match(workflow, /Run token-aware Dossier V2 handoff/);
   assert.match(workflow, /id-token:\s*write/);
   assert.doesNotMatch(workflow, /CRON_SECRET/);
   assert.doesNotMatch(workflow, /RESEARCH_UPDATE_TOKEN/);
