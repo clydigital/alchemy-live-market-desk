@@ -3,6 +3,11 @@ import "server-only";
 import { markModelStageInvoked } from "./invocation-context.ts";
 import { sanitizeHypothesisOutputEvidenceIds } from "./hypothesis-core.ts";
 import { buildDivergenceDigestShadow } from "./divergence-digest-shadow.ts";
+import {
+  compactEvidenceForModel,
+  compactStoryReviewTargetsForModel,
+  stageInputSize,
+} from "./stage-input-compaction.ts";
 import { buildResearchDeltaDigest } from "./research-delta-digest.ts";
 import {
   buildDivergenceStageAdmissionShadow,
@@ -14,7 +19,7 @@ import {
   observeMarketBeliefAdmissionShadow,
   type MarketBeliefAdmissionShadowDecision,
 } from "./market-belief-stage-admission-shadow.ts";
-import type { EvidencePackItem, HypothesisOutput } from "./schemas.ts";
+import type { EvidencePackItem, HypothesisOutput, StoryReviewTargetPackItem } from "./schemas.ts";
 import {
   OpenAIStageError,
   executeProviderWithRetry,
@@ -189,52 +194,114 @@ function deterministicStage<T>(stageKey: string, input: unknown): OpenAIStageRes
 /**
  * Provider-boundary context shaping.
  *
- * Divergence currently remains full-context. We compute a shadow digest only
- * for measurement and return the original input untouched. Scenario and Story
- * Synthesis use the already-validated ResearchDeltaDigest to reduce repeated
- * evidence serialisation.
+ * Market Belief keeps the full admitted candidate/review set but uses a bounded
+ * Evidence projection. Divergence promotes the historically measured digest to
+ * live input with a full-evidence fallback when anchor evidence is unavailable.
+ * Scenario and Story Synthesis keep using the validated ResearchDeltaDigest.
  */
 export function canonicalStageInput(stageKey: string, input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const canonical = input as Record<string, unknown>;
+
+  if (stageKey === "market_belief") {
+    const rawCandidates = Array.isArray(canonical.freshEvidenceCandidates)
+      ? canonical.freshEvidenceCandidates
+      : [];
+    const rawTargets = Array.isArray(canonical.storyReviewTargets)
+      ? canonical.storyReviewTargets
+      : [];
+
+    const freshEvidenceCandidates = rawCandidates.map((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+      const candidate = value as EvidencePackItem & {
+        evidenceNature?: unknown;
+        ageHours?: unknown;
+        freshnessScore?: unknown;
+        upstreamMateriality?: unknown;
+      };
+      return {
+        ...compactEvidenceForModel(candidate),
+        evidenceNature: candidate.evidenceNature,
+        ageHours: candidate.ageHours,
+        freshnessScore: candidate.freshnessScore,
+        upstreamMateriality: candidate.upstreamMateriality,
+      };
+    });
+    const storyReviewTargets = compactStoryReviewTargetsForModel(
+      rawTargets as StoryReviewTargetPackItem[],
+    );
+    const shaped = {
+      ...canonical,
+      freshEvidenceCandidates,
+      storyReviewTargets,
+    };
+    console.info(JSON.stringify({
+      event: "intelligence_stage_input_compaction",
+      stageKey,
+      evidenceCount: rawCandidates.length,
+      storyReviewTargetCount: rawTargets.length,
+      rawBytes: stageInputSize(input),
+      compactBytes: stageInputSize(shaped),
+    }));
+    return shaped;
+  }
 
   if (stageKey === "divergence") {
-    const canonical = input as Record<string, unknown>;
-    if (Array.isArray(canonical.evidence) && Array.isArray(canonical.beliefs)) {
-      const shadow = buildDivergenceDigestShadow({
-        evidence: canonical.evidence as EvidencePackItem[],
-        beliefs: canonical.beliefs as Array<{ evidence_ids?: string[]; affected_assets?: string[] }>,
-      });
-      console.info(JSON.stringify({
-        event: "divergence_digest_shadow",
-        version: shadow.version,
-        stageKey,
-        sourceEvidenceCount: shadow.sourceEvidenceCount,
-        anchorEvidenceCount: shadow.anchorEvidenceCount,
-        assetContextCount: shadow.assetContextCount,
-        topicContextCount: shadow.topicContextCount,
-        ratesContextCount: shadow.ratesContextCount,
-        candidateEvidenceCount: shadow.candidateEvidenceCount,
-      }));
+    if (!Array.isArray(canonical.evidence) || !Array.isArray(canonical.beliefs)) {
+      return input;
     }
-    return input;
+
+    const sourceEvidence = canonical.evidence as EvidencePackItem[];
+    const shadow = buildDivergenceDigestShadow({
+      evidence: sourceEvidence,
+      beliefs: canonical.beliefs as Array<{ evidence_ids?: string[]; affected_assets?: string[] }>,
+    });
+    const selectedEvidence = shadow.anchorEvidenceCount > 0
+      ? shadow.evidence
+      : sourceEvidence;
+    const shaped = {
+      ...canonical,
+      evidence: selectedEvidence.map(compactEvidenceForModel),
+    };
+    console.info(JSON.stringify({
+      event: "divergence_digest_shadow",
+      version: shadow.version,
+      stageKey,
+      sourceEvidenceCount: shadow.sourceEvidenceCount,
+      anchorEvidenceCount: shadow.anchorEvidenceCount,
+      assetContextCount: shadow.assetContextCount,
+      topicContextCount: shadow.topicContextCount,
+      ratesContextCount: shadow.ratesContextCount,
+      candidateEvidenceCount: shadow.candidateEvidenceCount,
+    }));
+    console.info(JSON.stringify({
+      event: "intelligence_stage_input_compaction",
+      stageKey,
+      sourceEvidenceCount: sourceEvidence.length,
+      selectedEvidenceCount: selectedEvidence.length,
+      rawBytes: stageInputSize(input),
+      compactBytes: stageInputSize(shaped),
+      fallbackToFullEvidence: shadow.anchorEvidenceCount === 0,
+    }));
+    return shaped;
   }
 
   if (stageKey !== "scenario" && stageKey !== "story_synthesis") return input;
 
-  const { challenger: _criticCompatibilityOnly, ...canonical } = input as Record<string, unknown>;
-  if (!Array.isArray(canonical.evidence)) return canonical;
+  const { challenger: _criticCompatibilityOnly, ...canonicalWithoutCritic } = canonical;
+  if (!Array.isArray(canonicalWithoutCritic.evidence)) return canonicalWithoutCritic;
 
-  const hypotheses = (Array.isArray(canonical.hypotheses) ? canonical.hypotheses : []) as Array<{
+  const hypotheses = (Array.isArray(canonicalWithoutCritic.hypotheses) ? canonicalWithoutCritic.hypotheses : []) as Array<{
     evidence_for_ids?: string[];
     evidence_against_ids?: string[];
     affected_assets?: string[];
     causal_chain?: unknown;
   }>;
-  const scenarios = (Array.isArray(canonical.scenarios) ? canonical.scenarios : []) as Array<{
+  const scenarios = (Array.isArray(canonicalWithoutCritic.scenarios) ? canonicalWithoutCritic.scenarios : []) as Array<{
     explanatory_evidence_ids?: string[];
   }>;
   const digest = buildResearchDeltaDigest({
-    evidence: canonical.evidence as EvidencePackItem[],
+    evidence: canonicalWithoutCritic.evidence as EvidencePackItem[],
     hypotheses,
     scenarios,
   });
@@ -250,7 +317,7 @@ export function canonicalStageInput(stageKey: string, input: unknown) {
     }));
   }
 
-  return { ...canonical, evidence: digest.evidence };
+  return { ...canonicalWithoutCritic, evidence: digest.evidence };
 }
 
 function canonicalStageOutput<T>(stageKey: string, input: unknown, data: T): T {
