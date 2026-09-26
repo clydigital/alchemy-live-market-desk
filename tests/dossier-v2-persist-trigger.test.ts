@@ -133,7 +133,7 @@ test("Task 1 authorised request persists once with bounded options", async () =>
     asOf: "2026-09-21T00:00:00.000Z",
     lookbackHours: 72,
     evidenceLimit: 120,
-    strategy: "rebase",
+    strategy: "auto",
   }]);
 
   const body = await response.json();
@@ -143,6 +143,27 @@ test("Task 1 authorised request persists once with bounded options", async () =>
     body.persistedDossier.id,
     "11111111-1111-4111-8111-111111111111",
   );
+});
+
+test("explicit rebase strategy remains available for deliberate full rebuilds", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const response = await handleDossierV2PersistRunWithDependencies(
+    request({
+      asOf: "2026-09-21T00:00:00Z",
+      strategy: "rebase",
+    }),
+    {
+      authorize: authorized,
+      run: async (options) => {
+        calls.push(options);
+        return persistedResult();
+      },
+      logger: () => undefined,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls[0]?.strategy, "rebase");
 });
 
 test("automatic strategy may complete with NO_CHANGE without persisting a duplicate dossier", async () => {
@@ -198,7 +219,10 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.match(handler, /persist:\s*true/);
   assert.match(workflow, /dossier_v2_persist/);
   assert.match(workflow, /api\/admin\/dossier-v2\/run/);
+  assert.match(workflow, /dossier_strategy:/);
+  assert.match(workflow, /DOSSIER_STRATEGY:/);
   assert.match(workflow, /strategy:"auto"/);
+  assert.match(workflow, /\{strategy:\$strategy,lookbackHours:\$lookbackHours,evidenceLimit:\$evidenceLimit\}/);
   assert.match(workflow, /Run token-aware Dossier V2 handoff/);
   assert.match(workflow, /id-token:\s*write/);
   assert.doesNotMatch(workflow, /CRON_SECRET/);

@@ -52,6 +52,14 @@ on:
         required: false
         type: string
         default: "180"
+      dossier_strategy:
+        description: Dossier V2 persistence strategy
+        required: false
+        type: choice
+        default: auto
+        options:
+          - auto
+          - rebase
       verified_macro_signals_json:
         description: JSON object with 1-6 provenance-backed macro signals (verified_macro_signals mode)
         required: false
@@ -86,6 +94,7 @@ jobs:
       DOSSIER_AS_OF: ${{ inputs.dossier_as_of }}
       DOSSIER_LOOKBACK_HOURS: ${{ inputs.dossier_lookback_hours }}
       DOSSIER_EVIDENCE_LIMIT: ${{ inputs.dossier_evidence_limit }}
+      DOSSIER_STRATEGY: ${{ inputs.dossier_strategy }}
       VERIFIED_MACRO_SIGNALS_JSON: ${{ inputs.verified_macro_signals_json }}
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
@@ -428,14 +437,16 @@ jobs:
           if [[ -n "$DOSSIER_AS_OF" ]]; then
             body="$(jq -cn \
               --arg asOf "$DOSSIER_AS_OF" \
+              --arg strategy "$DOSSIER_STRATEGY" \
               --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
               --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
-              '{asOf:$asOf,lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
+              '{asOf:$asOf,strategy:$strategy,lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
           else
             body="$(jq -cn \
+              --arg strategy "$DOSSIER_STRATEGY" \
               --argjson lookbackHours "$DOSSIER_LOOKBACK_HOURS" \
               --argjson evidenceLimit "$DOSSIER_EVIDENCE_LIMIT" \
-              '{lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
+              '{strategy:$strategy,lookbackHours:$lookbackHours,evidenceLimit:$evidenceLimit}')"
           fi
 
           http_status="$(curl --silent --show-error --max-time 305 \

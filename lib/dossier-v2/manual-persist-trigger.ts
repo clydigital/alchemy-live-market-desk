@@ -107,10 +107,10 @@ export async function handleDossierV2PersistRunWithDependencies(
   const evidenceLimit = boundedPositiveInt(input.evidenceLimit, 180, 500);
   const strategy: DossierDeltaMode =
     input.strategy === undefined || input.strategy === null || input.strategy === ""
-      ? "rebase"
+      ? "auto"
       : input.strategy === "auto" || input.strategy === "rebase"
         ? input.strategy
-        : "rebase";
+        : "auto";
   const strategyValid =
     input.strategy === undefined ||
     input.strategy === null ||
