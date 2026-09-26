@@ -303,12 +303,15 @@ export async function applyFirecrawlResearchFallback(input: ResearchRunInput, no
   const mergedItems = [...new Map([...input.items, ...recoveredItems].map((item) => [item.itemKey, item])).values()];
   const stillBlocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
 
+  const fallbackSummary = stillBlocked.length
+    ? `Firecrawl blocked-page recovery ran; unresolved source checks remain: ${stillBlocked.join(", ")}.`
+    : "Firecrawl blocked-page recovery restored all supported blocked public-feed sources.";
   return {
     ...input,
     sourceChecks,
     items: mergedItems,
-    summary: stillBlocked.length
-      ? `Autonomous Live-owned research cycle. Firecrawl fallback ran; unresolved blocked sources: ${stillBlocked.join(", ")}.`
-      : "Autonomous Live-owned research cycle. Firecrawl fallback recovered all supported blocked public-feed sources; canonical evidence and Story reasoning remain unchanged.",
+    summary: input.summary?.trim()
+      ? `${input.summary.trim()} ${fallbackSummary}`
+      : `Autonomous Live-owned research cycle. ${fallbackSummary}`,
   };
 }
