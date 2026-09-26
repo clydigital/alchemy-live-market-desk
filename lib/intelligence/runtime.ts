@@ -342,9 +342,18 @@ Rank sources in this order: official releases; company filings, earnings release
 Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
 Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
 
+const DIVERGENCE_ROLE_RULES = `For stage "divergence": Divergence owns expected-versus-observed mismatch detection only.
+- Compare the reaction implied by the supplied market belief with the supplied observed evidence. Do not force a divergence when the expected relationship is unsupported or the observed move is immaterial.
+- Treat timing and sequencing as evidence. A later headline cannot explain an earlier price move unless the supplied evidence supports an anticipatory mechanism.
+- Record the mismatch, magnitude, persistence and decisive evidence. Do NOT choose the causal explanation here; causal formation belongs to Hypothesis.
+- Historical base rates and seasonality may establish context for unusualness but are not deterministic forecasts.`;
+
 const HYPOTHESIS_ROLE_RULES = `For stage "hypothesis": Hypothesis owns causal-thesis formation only.
 For each material divergence:
 - Formulate testable causal mechanisms explaining why the observed divergence occurred.
+- For a material expected-versus-observed price mismatch, consider only mechanisms relevant to the supplied evidence, including expectation/pricing, rates or real yields, FX, positioning or short covering, options or other mechanical flows, technical conditions, cross-asset transmission, safe-haven demand, and physical-versus-financial market differences.
+- Treat each mechanism as inferred or speculative until supplied evidence supports the causal link. Never promote short covering, dealer gamma, positioning, real yields, safe-haven demand or physical-market stress to an observed or strongly-supported explanation without evidence that directly bears on that mechanism.
+- Prefer the explanation best supported by timing, direct-market evidence and cross-asset confirmation. If the evidence cannot distinguish competing mechanisms, keep confidence bounded and use confirmation, invalidation and next catalysts to identify the next discriminating evidence.
 - Produce exactly ONE primary causal hypothesis for each divergence by default.
 - A second hypothesis is permitted ONLY if it represents a genuinely different competing causal mechanism (e.g. supply disruption versus demand destruction).
 - FORBIDDEN: Do NOT create opposite (yes/no), bullish/bearish, or partial/degree variants of the same causal mechanism. Those scenario branches belong in Scenario and Challenger, not Hypothesis.
@@ -366,6 +375,7 @@ Do not omit a supplied Story. Return an empty storyAssessments array only when s
 
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
 For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
+If supplied evidence cannot discriminate between plausible causal mechanisms, acceptedExplanation must preserve that unresolved state rather than manufacture certainty; use the overlooked variable, confirmation/invalidation and next test to state what evidence would resolve it.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Reader-facing Story prose must never contain raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles, or provenance tokens such as "ASDA-file...". Keep those only in structured evidence/reference fields and audit metadata. Do not append source-key lists in parentheses to thesis, explanation, support, contradiction, catalyst or article wording.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
@@ -651,7 +661,7 @@ async function modelStage<T>({
     const result = await runStructuredStage<T>({
       stageKey,
       instructions: withRatesResearchLens(
-        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}${stageKey === "semantic_deduplication" ? `\n\n${SEMANTIC_DEDUPLICATION_REFERENCE_RULES}` : ""}`,
+        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "divergence" ? `\n\n${DIVERGENCE_ROLE_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}${stageKey === "semantic_deduplication" ? `\n\n${SEMANTIC_DEDUPLICATION_REFERENCE_RULES}` : ""}`,
         stageKey,
         true,
       ),
