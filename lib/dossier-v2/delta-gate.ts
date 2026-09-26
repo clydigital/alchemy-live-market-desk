@@ -70,7 +70,7 @@ export type DossierDeltaDecision = {
   previousAsOf: string | null;
   changedStoryIds: string[];
   newObservedEvidence: number;
-  postIntelligenceModelCalls: 0 | 1;
+  postIntelligenceModelCallBudget: 0 | 2;
   validationErrors?: string[];
 };
 
@@ -282,7 +282,7 @@ export function decideDossierDelta({
       previousAsOf: previousDossier?.as_of ?? null,
       changedStoryIds: [],
       newObservedEvidence: newEvidence,
-      postIntelligenceModelCalls: 1,
+      postIntelligenceModelCallBudget: 2,
     };
   }
 
@@ -294,7 +294,7 @@ export function decideDossierDelta({
       previousAsOf: previousDossier.as_of,
       changedStoryIds: [],
       newObservedEvidence: newEvidence,
-      postIntelligenceModelCalls: 1,
+      postIntelligenceModelCallBudget: 2,
     };
   }
 
@@ -311,7 +311,7 @@ export function decideDossierDelta({
       previousAsOf: previousDossier.as_of,
       changedStoryIds: [],
       newObservedEvidence: newEvidence,
-      postIntelligenceModelCalls: 0,
+      postIntelligenceModelCallBudget: 0,
     };
   }
 
@@ -323,7 +323,7 @@ export function decideDossierDelta({
       previousAsOf: previousDossier.as_of,
       changedStoryIds,
       newObservedEvidence: newEvidence,
-      postIntelligenceModelCalls: 1,
+      postIntelligenceModelCallBudget: 2,
     };
   }
 
@@ -338,7 +338,7 @@ export function decideDossierDelta({
       previousAsOf: previousDossier.as_of,
       changedStoryIds,
       newObservedEvidence: newEvidence,
-      postIntelligenceModelCalls: 1,
+      postIntelligenceModelCallBudget: 2,
     };
   }
 
@@ -354,7 +354,7 @@ export function decideDossierDelta({
         previousAsOf: previousDossier.as_of,
         changedStoryIds,
         newObservedEvidence: newEvidence,
-        postIntelligenceModelCalls: 1,
+        postIntelligenceModelCallBudget: 2,
       };
     }
     if (evidenceIds.length < 2 || independentEvidenceCount(packet, evidenceIds) < 2) {
@@ -365,7 +365,7 @@ export function decideDossierDelta({
         previousAsOf: previousDossier.as_of,
         changedStoryIds,
         newObservedEvidence: newEvidence,
-        postIntelligenceModelCalls: 1,
+        postIntelligenceModelCallBudget: 2,
       };
     }
 
@@ -379,7 +379,7 @@ export function decideDossierDelta({
         previousAsOf: previousDossier.as_of,
         changedStoryIds,
         newObservedEvidence: newEvidence,
-        postIntelligenceModelCalls: 1,
+        postIntelligenceModelCallBudget: 2,
       };
     }
     if (linkedThesisId && priorLedgerEntry(previousOutput, linkedThesisId)?.state === "evolved") {
@@ -390,7 +390,7 @@ export function decideDossierDelta({
         previousAsOf: previousDossier.as_of,
         changedStoryIds,
         newObservedEvidence: newEvidence,
-        postIntelligenceModelCalls: 1,
+        postIntelligenceModelCallBudget: 2,
       };
     }
   }
@@ -402,7 +402,7 @@ export function decideDossierDelta({
     previousAsOf: previousDossier.as_of,
     changedStoryIds,
     newObservedEvidence: newEvidence,
-    postIntelligenceModelCalls: 0,
+    postIntelligenceModelCallBudget: 0,
   };
 }
 
