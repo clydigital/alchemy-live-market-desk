@@ -138,3 +138,44 @@ test('Korean and Chinese publisher evidence is retained with exact provenance',a
  assert.ok(result.items.every(i=>i.evidence?.[0]?.url===i.url));
  assert.match(result.summary||'',/korea=leads_found/);
 });
+
+test("existing canonical regional evidence prevents redundant external discovery for that target", async () => {
+  const input = baseInput();
+  input.items.push({
+    itemKey: "existing-korea",
+    itemType: "news",
+    publisher: "Reuters",
+    title: "KOSPI rises as SK Hynix leads Korean semiconductor shares",
+    url: "https://www.reuters.com/markets/asia/korea-example-2026-09-03/",
+    publishedAt: "2026-09-03T12:30:00.000Z",
+    summary: "KOSPI and Korean chip shares moved with fresh semiconductor and won developments.",
+    sourceQuality: 88,
+    relevance: 90,
+    novelty: 80,
+    materiality: 88,
+    recommendedAction: "collect_evidence",
+    evidence: [{
+      title: "KOSPI rises as SK Hynix leads Korean semiconductor shares",
+      url: "https://www.reuters.com/markets/asia/korea-example-2026-09-03/",
+      publisher: "Reuters",
+      publishedAt: "2026-09-03T12:30:00.000Z",
+      claim: "KOSPI and Korean chip shares moved with fresh semiconductor and won developments.",
+    }],
+  });
+
+  const queries: string[] = [];
+  const result = await applyHighImpactMarketDiscovery(input, "evening", {
+    now: new Date("2026-09-03T13:00:00Z"),
+    fetchImpl: (async (request: RequestInfo | URL) => {
+      const url = String(request);
+      if (!url.startsWith("https://api.gdeltproject.org/")) return response("missing", 404, "text/plain");
+      const query = new URL(url).searchParams.get("query") || "";
+      queries.push(query);
+      return response({ articles: [] });
+    }) as typeof fetch,
+  });
+
+  assert.ok(!queries.some((query) => query.includes("KOSPI")), "Korea should reuse canonical evidence instead of querying GDELT");
+  assert.match(result.summary || "", /korea=existing_canonical_input/);
+  assert.equal(result.items.filter((item) => item.itemKey === "existing-korea").length, 1);
+});
