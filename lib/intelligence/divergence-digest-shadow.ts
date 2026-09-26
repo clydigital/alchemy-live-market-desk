@@ -36,13 +36,12 @@ function ratesTriggerKeys(item: EvidencePackItem): string[] {
 }
 
 /**
- * Measurement-only candidate for a future Divergence evidence digest.
+ * Deterministic Divergence evidence digest, originally introduced as a shadow.
  *
- * The live Divergence model still receives the complete evidence packet. This
- * helper only estimates a deterministic compact packet built around exact
- * Market Belief citations plus bounded asset/topic/rates context. It fails
- * closed when the supplied beliefs cite no evidence rather than pretending the
- * entire universe is a safe compact fallback.
+ * The provider boundary now uses this selector when Market Beliefs cite exact
+ * anchor evidence. It keeps those anchors plus bounded asset/topic/rates
+ * context. When no anchors are available the provider boundary, not this helper,
+ * falls back to the full evidence packet.
  */
 export function buildDivergenceDigestShadow(input: {
   beliefs: BeliefLike[];
