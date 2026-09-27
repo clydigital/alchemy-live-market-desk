@@ -209,12 +209,12 @@ export async function getSystemHealth() {
         || (vercelResearchScheduleEnabled && cronConfigured),
       mode: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED ? "github_actions" : "vercel_cron",
       cronConfigured,
-      expectedSlots: ["09:15 Asia/Kuala_Lumpur", "21:15 Asia/Kuala_Lumpur"],
+      expectedSlots: ["09:30 Asia/Kuala_Lumpur", "21:30 Asia/Kuala_Lumpur"],
       latestResearchRunAt: latestResearchRun?.completed_at || latestResearchRun?.updated_at || null,
       latestResearchRunStatus: latestResearchRun?.status || null,
       latestResearchRunKey: latestResearchRun?.run_key || null,
       note: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
-        ? "The audited GitHub Actions workflow runs the full Live research pipeline at 09:15 and 21:15 Asia/Kuala_Lumpur. Legacy Vercel research cron routes remain paused to avoid duplicate execution."
+        ? "The audited GitHub Actions workflow runs the full Live research pipeline at 09:30 and 21:30 Asia/Kuala_Lumpur. Legacy Vercel research cron routes remain paused to avoid duplicate execution."
         : PRODUCTION_RESEARCH_AUTOMATION_PAUSED
           ? "The schedule flag and cron registrations may be present, but production routing currently intercepts research cron requests."
           : vercelResearchScheduleEnabled

@@ -53,13 +53,13 @@ test("engine-run startup is idempotent for the same run_key", async () => {
   const first = await startIntelligenceEngineRunWithClient(intelligenceRest, {
     researchRunId: "research-run-1",
     triggerKind: "scheduled",
-    runKey: "repair:test:2026-08-14T21:15",
+    runKey: "repair:test:2026-08-14T21:30",
     dryRun: false,
   });
   const second = await startIntelligenceEngineRunWithClient(intelligenceRest, {
       researchRunId: "research-run-1",
       triggerKind: "scheduled",
-      runKey: "repair:test:2026-08-14T21:15",
+      runKey: "repair:test:2026-08-14T21:30",
       dryRun: false,
     });
 
@@ -67,7 +67,7 @@ test("engine-run startup is idempotent for the same run_key", async () => {
   assert.equal(second.kind, "started");
   assert.equal(first.engineRunId, second.engineRunId);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0]?.run_key, "repair:test:2026-08-14T21:15");
+  assert.equal(rows[0]?.run_key, "repair:test:2026-08-14T21:30");
 });
 
 test("schema drift errors keep the original 42P10 detail and add actionability", () => {

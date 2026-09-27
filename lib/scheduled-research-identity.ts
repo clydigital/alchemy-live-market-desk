@@ -55,8 +55,8 @@ export function malaysiaDateKey(now: Date) {
 }
 
 const RESEARCH_SLOT_TIME_MY: Record<CanonicalResearchSlot, string> = {
-  morning: "09:15:00",
-  evening: "21:15:00",
+  morning: "09:30:00",
+  evening: "21:30:00",
 };
 
 export function scheduledOccurrenceMalaysiaDateKey(

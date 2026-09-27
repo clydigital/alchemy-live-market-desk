@@ -15,7 +15,7 @@ The repair phase is complete only when an actual Live production cycle can be tr
 The project-level acceptance condition is:
 
 ```text
-09:15 / 21:15 MYT scheduled Live cycle
+09:30 / 21:30 MYT scheduled Live cycle
 → acquisition completes with graceful provider degradation
 → evidence is normalised, provenance-preserved and persisted
 → material change / Story candidates are determined
@@ -163,7 +163,7 @@ Every production repair should reason through these layers explicitly:
 
 | # | Layer | Responsibility |
 |---|---|---|
-| 1 | Schedule | Trigger 09:15 / 21:15 MYT canonical Live cycle |
+| 1 | Schedule | Trigger 09:30 / 21:30 MYT canonical Live cycle |
 | 2 | Acquisition | Fetch official APIs, RSS/direct sources and allowed fallbacks |
 | 3 | Normalisation | Canonicalise timestamps, units, source identity and evidence schema |
 | 4 | Provenance | Preserve publisher, URL, source record, retrieval state |

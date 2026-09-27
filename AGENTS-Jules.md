@@ -42,8 +42,8 @@ Every research cycle should:
 11. Treat Europe, Japan and Korea as important when developments there have material global or US-market transmission.
 
 Research runs are intended for:
-- 09:15 MYT / 01:15 UTC
-- 21:15 MYT / 13:15 UTC
+- 09:30 MYT / 01:30 UTC
+- 21:30 MYT / 13:30 UTC
 
 ## Global-market relevance
 

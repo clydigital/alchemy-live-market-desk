@@ -9,10 +9,10 @@ const researchState = readFileSync(new URL("../lib/intelligence/research-state.t
 const routing = readFileSync(new URL("../lib/research-automation-routing.ts", import.meta.url), "utf8");
 
 test("full Live research is scheduled at the two canonical Malaysia slots through GitHub Actions", () => {
-  assert.match(workflow, /cron:\s*"15 1 \* \* \*"/);
-  assert.match(workflow, /cron:\s*"15 13 \* \* \*"/);
+  assert.match(workflow, /cron:\s*"30 1 \* \* \*"/);
+  assert.match(workflow, /cron:\s*"30 13 \* \* \*"/);
   assert.match(workflow, /github\.event_name == 'schedule'/);
-  assert.match(workflow, /github\.event\.schedule == '15 1 \* \* \*'/);
+  assert.match(workflow, /github\.event\.schedule == '30 1 \* \* \*'/);
   assert.match(workflow, /MODE:.*research/);
   assert.match(routing, /GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED = true/);
   assert.match(routing, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED = true/);
