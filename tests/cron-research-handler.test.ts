@@ -154,7 +154,7 @@ test("terminal scheduled runs remain non-retriable without an explicit retry key
     updated_at: FIXED_NOW_ISO,
   }]);
 
-  const claim = await harness.claimRun("morning", runKey, "2026-08-15T09:15:00+08:00");
+  const claim = await harness.claimRun("morning", runKey, "2026-08-15T09:30:00+08:00");
   assert.equal(claim.state, "terminal");
   assert.equal(claim.run.id, "run-terminal");
 });
@@ -192,7 +192,7 @@ test("structured observability captures safe Vercel metadata without logging sec
     extra: {
       authStatus: "authorized",
       runKey: "cron-v1:morning:2026-08-15",
-      scheduledFor: "2026-08-15T09:15:00+08:00",
+      scheduledFor: "2026-08-15T09:30:00+08:00",
     },
   });
 
@@ -203,7 +203,7 @@ test("structured observability captures safe Vercel metadata without logging sec
   assert.equal(received.vercelCronSchedule, "15 1 * * *");
   assert.equal("authorization" in received, false);
   assert.equal(claimAttempt.runKey, "cron-v1:morning:2026-08-15");
-  assert.equal(claimAttempt.scheduledFor, "2026-08-15T09:15:00+08:00");
+  assert.equal(claimAttempt.scheduledFor, "2026-08-15T09:30:00+08:00");
   assert.equal(claimAttempt.authStatus, "authorized");
 });
 
