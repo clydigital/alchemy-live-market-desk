@@ -8,7 +8,7 @@ import {
   resolveScheduledResearchIdentity,
 } from "../lib/scheduled-research-identity.ts";
 
-const FIXED_NOW = new Date("2026-08-15T01:18:00.000Z");
+const FIXED_NOW = new Date("2026-08-15T01:33:00.000Z");
 const FIXED_NOW_ISO = FIXED_NOW.toISOString();
 
 type MemoryRun = {
@@ -79,12 +79,12 @@ function cronRequest(url: string, cronSchedule: string) {
 test("primary first then watchdog is a no-op on the same canonical morning run", async () => {
   const harness = createClaimHarness();
   const primaryIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    cronRequest("https://example.com/api/cron/research/morning", "30 1 * * *"),
     "morning",
     FIXED_NOW,
   );
   const watchdogIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning-watchdog", "20 1 * * *"),
+    cronRequest("https://example.com/api/cron/research/morning-watchdog", "35 1 * * *"),
     "morning",
     FIXED_NOW,
   );
@@ -102,14 +102,14 @@ test("primary first then watchdog is a no-op on the same canonical morning run",
 
 test("watchdog first then delayed primary is a no-op on the same canonical evening run", async () => {
   const harness = createClaimHarness();
-  const now = new Date("2026-08-15T13:18:00.000Z");
+  const now = new Date("2026-08-15T13:33:00.000Z");
   const watchdogIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/evening-watchdog", "20 13 * * *"),
+    cronRequest("https://example.com/api/cron/research/evening-watchdog", "35 13 * * *"),
     "evening",
     now,
   );
   const primaryIdentity = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/evening", "15 13 * * *"),
+    cronRequest("https://example.com/api/cron/research/evening", "30 13 * * *"),
     "evening",
     now,
   );
@@ -128,7 +128,7 @@ test("watchdog first then delayed primary is a no-op on the same canonical eveni
 test("primary and watchdog races still collapse to exactly one canonical run", async () => {
   const harness = createClaimHarness();
   const { runKey, scheduledFor } = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    cronRequest("https://example.com/api/cron/research/morning", "30 1 * * *"),
     "morning",
     FIXED_NOW,
   );
@@ -161,12 +161,12 @@ test("terminal scheduled runs remain non-retriable without an explicit retry key
 
 test("an explicit audited retry has a separate, traceable run identity", async () => {
   const canonical = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    cronRequest("https://example.com/api/cron/research/morning", "30 1 * * *"),
     "morning",
     FIXED_NOW,
   );
   const retry = resolveScheduledResearchIdentity(
-    cronRequest("https://example.com/api/cron/research/morning?retry=intelligence-timeout-20260816", "15 1 * * *"),
+    cronRequest("https://example.com/api/cron/research/morning?retry=intelligence-timeout-20260816", "30 1 * * *"),
     "morning",
     FIXED_NOW,
   );
@@ -180,13 +180,13 @@ test("an explicit audited retry has a separate, traceable run identity", async (
 test("structured observability captures safe Vercel metadata without logging secrets", () => {
   const received = buildScheduledResearchLogEvent({
     event: "scheduled_research_received",
-    request: cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    request: cronRequest("https://example.com/api/cron/research/morning", "30 1 * * *"),
     slot: "morning",
     now: FIXED_NOW,
   });
   const claimAttempt = buildScheduledResearchLogEvent({
     event: "scheduled_research_claim_attempt",
-    request: cronRequest("https://example.com/api/cron/research/morning", "15 1 * * *"),
+    request: cronRequest("https://example.com/api/cron/research/morning", "30 1 * * *"),
     slot: "morning",
     now: FIXED_NOW,
     extra: {
@@ -200,7 +200,7 @@ test("structured observability captures safe Vercel metadata without logging sec
   assert.equal(received.slot, "morning");
   assert.equal(received.vercelRequestId, "kul1::cron-test-123");
   assert.equal(received.vercelDeploymentUrl, "alchemy-live-market-desk-test.vercel.app");
-  assert.equal(received.vercelCronSchedule, "15 1 * * *");
+  assert.equal(received.vercelCronSchedule, "30 1 * * *");
   assert.equal("authorization" in received, false);
   assert.equal(claimAttempt.runKey, "cron-v1:morning:2026-08-15");
   assert.equal(claimAttempt.scheduledFor, "2026-08-15T09:30:00+08:00");
