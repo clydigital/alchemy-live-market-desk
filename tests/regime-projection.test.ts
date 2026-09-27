@@ -151,8 +151,9 @@ test("Cost-of-Capital Regime reuses the canonical Dossier rate-regime/1 telemetr
   });
   const rates = projection.find((item) => item.slug === "global-cost-of-capital");
   assert.ok(rates);
-  assert.equal(rates.state, "Restrictive");
-  assert.equal(rates.stateKind, "system1");
+  assert.equal(rates.state, "Rates restrictive · broader funding partial");
+  assert.equal(rates.stateKind, "unresolved");
+  assert.equal(rates.confidence, "PARTIAL · rates HIGH");
   const longEnd = rates.subgroups.find((item) => item.key === "long-end");
   assert.ok(longEnd);
   assert.ok(longEnd.telemetry.some((item) => item.source === "rate-regime/1" && item.key === "LONG_END"));
