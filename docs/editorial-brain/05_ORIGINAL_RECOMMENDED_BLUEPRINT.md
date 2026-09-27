@@ -13,6 +13,8 @@ The Original remains the most detailed product. It owns the complete research re
 
 The current semantic and presentation contract is defined in [Regime / Story Operating Framework](08_REGIME_STORY_OPERATING_FRAMEWORK.md). Regimes organise the durable market environment; Stories remain the canonical living hypotheses; What's New remains the dated delta layer; Hybrid remains presentation and learning only.
 
+Production implementation must also satisfy [Regime Implementation Hardening & Failure Modes](09_REGIME_IMPLEMENTATION_HARDENING.md), including single-source System 1 sensors, pinned projection manifests, idempotency, time-skew visibility, lifecycle governance, shadow rollout and rollback.
+
 ## Product hierarchy
 
 ### Level 1: Editorial command surface
@@ -456,6 +458,8 @@ It must never silently reuse an old conclusion as current.
 
 ### Phase 4: Regime and causal-state layer
 
+Before automatic writes, run a shadow/parity phase against the existing Story/Dossier path. Rates must reuse the existing `rate-regime/1` deterministic contract or a proven byte-equivalent shared successor.
+
 - governed Regime dictionary;
 - sub-regime dictionaries;
 - Story-to-Regime many-to-many links;
@@ -464,7 +468,13 @@ It must never silently reuse an old conclusion as current.
 - Concept Library;
 - evidence-aware Regime projection;
 - Regime version history;
-- cross-Story and cross-release interaction.
+- cross-Story and cross-release interaction;
+- bounded current Regime read model;
+- projector idempotency and concurrency guard;
+- interpretation-lag/stale-state health;
+- What's New pending/correction lifecycle;
+- cross-Regime cycle and fan-out guard;
+- feature flags and rollback.
 
 ### Phase 5: Hybrid snapshots
 
@@ -502,6 +512,22 @@ The rates Regime renders as subgroup tabs/cards rather than one long list, and e
 ### Cross-Regime test
 
 One canonical Story may appear under more than one Regime without duplicating evidence, events or thesis history.
+
+### Single-source System 1 test
+
+Rates displayed in Dossier and the Regime surface derive from the same deterministic contract. No second Rates calculator exists.
+
+### Projection integrity test
+
+Repeated or concurrent projection of the same pinned Story/sensor manifest is idempotent and cannot create conflicting Regime versions.
+
+### Degraded-state test
+
+Fresh System 1 telemetry, older System 2 interpretation and projector/Hybrid lag remain separately visible rather than being collapsed into a false-current state.
+
+### Rollback test
+
+Regime UI, automatic routing, automatic Regime versioning and Hybrid deep links can be disabled independently without breaking Stories, What's New, Dossier or Journey.
 
 ### Usefulness test
 
