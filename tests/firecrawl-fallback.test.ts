@@ -8,7 +8,7 @@ function inputWithSource(status: "checked" | "blocked" = "blocked") {
   return {
     runKey: "firecrawl-test",
     scheduleSlot: "morning" as const,
-    scheduledFor: "2026-08-14T09:15:00+08:00",
+    scheduledFor: "2026-08-14T09:30:00+08:00",
     sourceChecks: [{
       source: "zerohedge" as const,
       status,
