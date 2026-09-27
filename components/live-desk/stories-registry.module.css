@@ -171,6 +171,7 @@
 }
 
 .tags span,
+.tags > a,
 .assets span {
   padding: 5px 7px;
   border-radius: 999px;
@@ -178,10 +179,16 @@
   font-weight: 800;
 }
 
-.tags span {
+.tags span,
+.tags > a {
   border: 1px solid rgba(181,151,255,.18);
   color: #ccc6db;
   background: rgba(255,255,255,.025);
+}
+
+.tags > a {
+  color: #d2b6ff;
+  border-color: rgba(181,151,255,.33);
 }
 
 .tags span[data-tone="purple"] { color: #d6b3ff; border-color: rgba(167,96,255,.34); }
