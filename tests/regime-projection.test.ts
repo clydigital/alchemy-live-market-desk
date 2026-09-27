@@ -112,7 +112,7 @@ function dossier(): DossierPresentationV1 {
       gaps: [],
     },
     dollarLiquidity: null,
-  } as DossierPresentationV1;
+  } as unknown as DossierPresentationV1;
 }
 
 test("exact Story routing preserves core and bridge Regime membership", () => {
