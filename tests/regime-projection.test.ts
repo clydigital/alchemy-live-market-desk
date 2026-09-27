@@ -97,6 +97,14 @@ function dossier(): DossierPresentationV1 {
           evidenceRefs: ["policy"],
         },
         {
+          key: "TREASURY_SUPPLY",
+          label: "Treasury supply / buyback relief",
+          state: "HAWKISH",
+          score: 1,
+          detail: "Treasury supply remains a long-end pressure despite larger buybacks.",
+          evidenceRefs: ["treasury-supply"],
+        },
+        {
           key: "LONG_END",
           label: "Long-end nominal yields",
           state: "HAWKISH",
@@ -108,7 +116,7 @@ function dossier(): DossierPresentationV1 {
       drivers: [],
       contradictions: [],
       coverage: { present: 5, total: 5, missing: [] },
-      evidenceRefs: ["policy", "long-end"],
+      evidenceRefs: ["policy", "treasury-supply", "long-end"],
       gaps: [],
     },
     dollarLiquidity: null,
@@ -149,6 +157,9 @@ test("Cost-of-Capital Regime reuses the canonical Dossier rate-regime/1 telemetr
   assert.ok(longEnd);
   assert.ok(longEnd.telemetry.some((item) => item.source === "rate-regime/1" && item.key === "LONG_END"));
   assert.ok(longEnd.stories.some((item) => item.slug === "fed-long-end-stress"));
+  const fiscal = rates.subgroups.find((item) => item.key === "treasury-fiscal");
+  assert.ok(fiscal);
+  assert.ok(fiscal.telemetry.some((item) => item.source === "rate-regime/1" && item.key === "TREASURY_SUPPLY"));
 });
 
 test("raw routed news stays interpretation pending and cannot strengthen the subgroup by itself", () => {
