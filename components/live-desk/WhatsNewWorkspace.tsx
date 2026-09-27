@@ -20,6 +20,9 @@ export type WhatsNewDelta = {
   external: boolean;
   verification: string | null;
   storyTitle: string | null;
+  regimes: Array<{ slug: string; label: string; subgroup: string }>;
+  hybridHref: string | null;
+  interpretationState: "interpreted" | "observed_pending" | null;
 };
 
 function tone(kind: string) {
@@ -82,6 +85,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         delta.topic,
         delta.storyTitle || "",
         delta.verification || "",
+        ...delta.regimes.flatMap((regime) => [regime.label, regime.subgroup]),
         ...delta.traderFlags.map((flag) => flag.label),
       ].some((value) => value.toLowerCase().includes(needle));
     });
@@ -133,8 +137,19 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
               </header>
               <p><TraderText text={delta.detail} /></p>
               <footer>
-                <span>{delta.storyTitle || "Independent source record"}</span>
-                <a href={`#record-${delta.id}`} aria-label={`Link to ${delta.title}`}>#{delta.id.slice(0, 8)}</a>
+                <div className={styles.contextLinks}>
+                  <span>{delta.storyTitle || "Independent source record"}</span>
+                  {delta.interpretationState === "observed_pending" ? <span className={styles.pending}>Observed · interpretation pending</span> : null}
+                  {delta.regimes.map((regime) => (
+                    <a key={`${regime.slug}:${regime.subgroup}`} href={`/regimes/${regime.slug}?subgroup=${regime.subgroup}`}>
+                      {regime.label} → {regime.subgroup.replaceAll("-", " ")}
+                    </a>
+                  ))}
+                </div>
+                <div className={styles.recordLinks}>
+                  {delta.hybridHref ? <a href={delta.hybridHref}>Explain →</a> : null}
+                  <a href={`#record-${delta.id}`} aria-label={`Link to ${delta.title}`}>#{delta.id.slice(0, 8)}</a>
+                </div>
               </footer>
             </div>
           </article>
