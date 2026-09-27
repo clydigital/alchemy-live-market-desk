@@ -13,7 +13,8 @@ export type StoryRegistryItem = {
   slug: string;
   title: string;
   thesis: string;
-  status: string;
+  lifecycle: string;
+  editorialVerdict: string | null;
   confidence: number;
   assets: string[];
   tags: StoryTag[];
@@ -27,6 +28,8 @@ export type StoryRegistryItem = {
   imageSourceUrl: string | null;
   imagePublisher: string | null;
   imageKind: "research" | "fallback" | null;
+  regimes: Array<{ slug: string; label: string }>;
+  hybridHref: string;
 };
 
 export default function StoriesRegistry({ stories }: { stories: StoryRegistryItem[] }) {
@@ -40,15 +43,15 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
   }, [stories]);
 
-  const statuses = useMemo(() => Array.from(new Set(stories.map((story) => story.status))).sort(), [stories]);
+  const statuses = useMemo(() => Array.from(new Set(stories.map((story) => story.lifecycle))).sort(), [stories]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return stories.filter((story) => {
       if (tag !== "All" && !story.tags.includes(tag)) return false;
-      if (status !== "All" && story.status !== status) return false;
+      if (status !== "All" && story.lifecycle !== status) return false;
       if (!needle) return true;
-      return [story.title, story.thesis, story.marketQuestion || "", story.nextCatalyst || "", ...story.assets, ...story.tags]
+      return [story.title, story.thesis, story.marketQuestion || "", story.nextCatalyst || "", story.editorialVerdict || "", ...story.assets, ...story.tags, ...story.regimes.map((regime) => regime.label)]
         .some((value) => value.toLowerCase().includes(needle));
     });
   }, [query, status, stories, tag]);
@@ -96,8 +99,8 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
             <header>
               <div>
                 <div className={styles.statusLine}>
-                  <span>{story.status}</span>
-                  <small>{story.confidence}% confidence</small>
+                  <span>{story.lifecycle}</span>
+                  <small>{story.confidence}% thesis confidence</small>
                 </div>
                 <Link href={`/stories/${story.slug}`}><h3>{story.title}</h3></Link>
               </div>
@@ -112,6 +115,9 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
             </ul>
 
             <div className={styles.tags}>
+              {story.regimes.map((regime) => (
+                <Link href={`/regimes/${regime.slug}`} key={regime.slug}>{regime.label}</Link>
+              ))}
               {story.tags.map((item) => <span key={item} data-tone={storyTagTone(item)}>{item}</span>)}
             </div>
 
@@ -124,8 +130,13 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
                 <span>{story.eventCount} dated event{story.eventCount === 1 ? "" : "s"}</span>
                 <span>{story.versionCount === null ? "Current thesis" : `${story.versionCount} thesis version${story.versionCount === 1 ? "" : "s"}`}</span>
                 {story.evidenceRoom ? <span>Evidence room: {story.evidenceRoom}</span> : null}
+                {story.editorialVerdict ? <span>Editorial: {story.editorialVerdict}</span> : null}
               </div>
-              <Link href={`/stories/${story.slug}`}>Open record →</Link>
+              <div>
+                <Link href={story.hybridHref}>Explain →</Link>
+                {" · "}
+                <Link href={`/stories/${story.slug}`}>Open record →</Link>
+              </div>
             </footer>
           </article>
         ))}

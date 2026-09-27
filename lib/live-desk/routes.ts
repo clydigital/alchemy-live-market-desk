@@ -8,7 +8,8 @@ export const deskRoutes: LiveDeskRoute[] = [
   { label: "Overview", href: "/", description: "Research status and current desk state" },
   { label: "Dossier", href: "/dossier", description: "Canonical Dossier V2: what matters now, what to watch and what to research next" },
   { label: "What’s New", href: "/whats-new", description: "Material deltas, statements and intake" },
-  { label: "Stories", href: "/stories", description: "Persistent theses and event history" },
+  { label: "Regimes", href: "/regimes", description: "Durable market environments, sub-regimes and causal drivers" },
+  { label: "Stories", href: "/stories", description: "Living theses inside Regimes and exact event history" },
   { label: "Articles", href: "/articles", description: "Published coverage and article memory" },
   { label: "Hybrid Output", href: "/hybrid-output", description: "Audit the Live-to-Hybrid handoff" },
 ];
@@ -31,6 +32,8 @@ const legacyTabMap: Record<string, string> = {
   research: "/whats-new",
   "research layer": "/whats-new",
   "research-layer": "/whats-new",
+  regimes: "/regimes",
+  regime: "/regimes",
   stories: "/stories",
   articles: "/articles",
   "ai news": "/whats-new?filter=ai",

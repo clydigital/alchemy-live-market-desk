@@ -10,6 +10,7 @@ import { getDeskData } from "@/lib/data";
 import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,18 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const charts = data.charts.filter((chart) => chart.story_id === story.id);
   const coverage = data.evidenceCoverage.find((item) => item.slug === story.slug);
 
+  const regimeRoutes = routeStoryToRegimes(story, currentVersion);
+  const regimeLinks = regimeRoutes.flatMap((route) => {
+    const regime = getRegimeDefinition(route.regime);
+    return regime ? [{
+      slug: regime.slug,
+      title: regime.shortTitle,
+      subgroup: route.subgroup,
+      subgroupLabel: regime.subgroups.find((item) => item.key === route.subgroup)?.label || route.subgroup,
+      role: route.role,
+    }] : [];
+  });
+
   const current = {
     title: currentVersion?.title || story.title,
     thesis: currentVersion?.thesis || story.thesis,
@@ -83,6 +96,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
       <div className={styles.grid}>
         <nav className={detailStyles.recordIndex} aria-label="Story record sections">
           <span>Record index</span>
+          <a href="#context">Why it matters</a>
           <a href="#monitors">Live monitors</a>
           <a href="#thesis">Current thesis</a>
           <a href="#versions">Thesis versions</a>
@@ -108,6 +122,36 @@ export default async function StoryDetailPage({ params }: PageProps) {
             ? `This Story has ${versions.length} complete thesis version${versions.length === 1 ? "" : "s"} and ${events.length} append-only event${events.length === 1 ? "" : "s"}.`
             : "Exact links are available for the current Story, dated updates, evidence and sources. Complete historical thesis snapshots will appear after the approved persistence migration is applied."}
         />
+
+        <div id="context" className={detailStyles.sectionAnchor}>
+          <Panel
+            title="Where this Story fits"
+            description="The Story is the living interpretation. Regimes provide the durable market context; What’s New records the dated developments that move it."
+            action={<Link className={styles.link} href={`/hybrid-output?story=${encodeURIComponent(story.slug)}`}>Explain in Hybrid →</Link>}
+          >
+            <div className={styles.recordList}>
+              <article className={styles.record}>
+                <span className={styles.metaLabel}>REGIME PATH</span>
+                {regimeLinks.length ? regimeLinks.map((item) => (
+                  <p key={`${item.slug}:${item.subgroup}`}>
+                    <Link href={`/regimes/${item.slug}?subgroup=${item.subgroup}`}>
+                      {item.title} → {item.subgroupLabel}
+                    </Link>
+                    {" · "}{item.role}
+                  </p>
+                )) : <p>Unassigned. This Story remains canonical and visible; it is not forced into a weak Regime mapping.</p>}
+              </article>
+              <article className={styles.record}>
+                <span className={styles.metaLabel}>WHY THIS MATTERS</span>
+                <p>{current.bestExplanation || current.thesis}</p>
+              </article>
+              <article className={styles.record}>
+                <span className={styles.metaLabel}>CURRENT QUESTION</span>
+                <p>{current.marketQuestion || "No explicit current market question is recorded."}</p>
+              </article>
+            </div>
+          </Panel>
+        </div>
 
         <CaseMonitorBoard board={caseMonitor} />
 

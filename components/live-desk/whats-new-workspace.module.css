@@ -292,3 +292,35 @@
   .body footer { display: block; }
   .body footer a { display: inline-block; margin-top: 8px; }
 }
+
+
+.contextLinks,
+.recordLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.contextLinks {
+  min-width: 0;
+}
+
+.contextLinks a {
+  padding: 3px 6px;
+  border: 1px solid rgba(181,151,255,.16);
+  border-radius: 999px;
+  color: #c5a6f2 !important;
+  font-size: 8px !important;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pending {
+  color: #ffd180 !important;
+}
+
+.recordLinks {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
