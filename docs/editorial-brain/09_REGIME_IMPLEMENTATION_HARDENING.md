@@ -638,6 +638,93 @@ Initial Regime render uses the bounded current projection and does not fan out i
 
 All Regime feature flags can be disabled without breaking existing Stories, What's New, Dossier or Journey.
 
+## 24. Rate-regime semantic scope boundary
+
+The existing Dossier V2 `rate-regime/1` contract is a canonical System 1 sensor, but it is **not** the full Sovereign Funding & Global Cost of Capital Regime.
+
+Its current signals cover:
+
+- policy / macro impulse;
+- front-end pricing;
+- 10Y real yield;
+- 10Y breakeven;
+- long-end nominal yields;
+- 2Y/10Y curve context.
+
+It does not by itself establish:
+
+- Treasury fiscal/supply pressure;
+- auction quality;
+- foreign demand;
+- Japan/JGB global-duration transmission;
+- corporate-credit tightening;
+- AI/private issuance pressure;
+- housing transmission.
+
+Therefore:
+
+1. `rate-regime/1` feeds only the relevant sub-regime telemetry.
+2. Its HAWKISH/DOVISH vocabulary must not be copied directly into the parent Regime state.
+3. The parent Regime uses a separate interpretation vocabulary appropriate to financial conditions, such as restrictive, easing, mixed, stress rising, stress falling or unresolved.
+4. New deterministic sensors for Treasury/Fiscal, Global Rates/Japan, Credit/Financing and Housing must be separately versioned.
+5. System 2 synthesizes the full parent Regime only from the complete available subgroup vector and must show missing subgroup coverage.
+
+This avoids a semantic bug where a hawkish Fed signal is treated as proof that sovereign funding stress, credit stress and housing transmission all strengthened simultaneously.
+
+## 25. Existing taxonomy and migration-drift gate
+
+Production currently contains the `intelligence_themes` and `intelligence_story_theme_links` tables, while repository migrations describe seeded taxonomy state. Production inspection has shown these tables can be empty despite relevant migrations appearing in migration history.
+
+Do not assume the historical taxonomy migration can safely serve as the new Regime foundation.
+
+Before Regime DDL or seed data:
+
+1. inspect production schema and row state;
+2. compare applied migration history with the current repository migration contents;
+3. create a new forward-only repair/reconciliation migration;
+4. do not rewrite an already-applied migration;
+5. verify parent/child taxonomy pointers and Story links after the forward migration;
+6. run RLS/security and performance advisors;
+7. preserve current Story history.
+
+The new Regime tables should have explicit ownership rather than silently reinterpreting legacy `intelligence_themes` semantics unless a deliberate compatibility mapping is documented.
+
+The empty legacy `market_state_ledger` must not be repurposed as the canonical Regime store merely because its name sounds similar. Its schema represents a different older state model.
+
+## 26. Materiality-source contract
+
+Materiality must not be a new opaque Regime-only score.
+
+Reuse existing evidence and Story gates wherever possible.
+
+A Story-driven Regime change should normally require one of:
+
+- an existing Story assessment with material change applied;
+- an accepted new Story version from canonical Story synthesis;
+- an accepted invalidation/reframe;
+- a deterministic next-test resolution that enters System 2 and changes the accepted explanation.
+
+A pure System 1 telemetry move can update the live subgroup telemetry without creating a new interpreted Regime version.
+
+If a deterministic threshold crossing is important enough to require a Regime interpretation change, it must escalate to System 2 first.
+
+Persist the materiality reason and the exact source Story-version/sensor snapshot that caused escalation.
+
+## 27. Projection vocabulary contract
+
+Sub-regimes may use domain-specific deterministic vocabularies:
+
+- Rates sensor: HAWKISH / DOVISH / MIXED / UNRESOLVED;
+- liquidity sensor: tightening / easing / mixed / unresolved;
+- breadth sensor: broadening / narrowing / mixed / unresolved;
+- physical energy sensor: tightening / loosening / disrupted / normalising / unresolved.
+
+Do not force all System 1 sensors into one universal label before interpretation.
+
+The Regime projector normalises only for presentation, while retaining the original sensor state and contract version.
+
+System 2 parent-Regime prose must describe the actual combination rather than mechanically translating one child label.
+
 ## Final hardening principle
 
 The Regime layer is an **organising and state-projection layer**, not a new source of truth.
