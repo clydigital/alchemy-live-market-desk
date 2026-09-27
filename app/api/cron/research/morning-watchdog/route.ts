@@ -6,7 +6,7 @@ export const maxDuration = 300;
 
 /**
  * PART C: Watchdog for morning research acquisition.
- * Invoked ~5 minutes after the primary morning cron (09:30 → 09:20 MYT).
+ * Invoked ~5 minutes after the primary morning cron (09:30 → 09:35 MYT).
  * It shares the canonical run identity and safely no-ops when the primary
  * already claimed or completed the acquisition phase.
  */
