@@ -3,6 +3,7 @@ import StoriesRegistry from "@/components/live-desk/StoriesRegistry";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function StoriesPage() {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
-  const priorityStories = data.stories.filter((story) => /develop|publish/i.test(story.article_verdict || story.status)).length;
+  const priorityStories = data.stories.filter((story) => /develop|publish/i.test(story.article_verdict || "")).length;
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
   const legacyEventCounts = new Map<string, number>();
   data.updates.forEach((update) => legacyEventCounts.set(update.story_id, (legacyEventCounts.get(update.story_id) || 0) + 1));
@@ -20,22 +21,43 @@ export default async function StoriesPage() {
   const persistentEventCounts = new Map<string, number>();
   recordLayer.events.forEach((event) => persistentEventCounts.set(event.story_id, (persistentEventCounts.get(event.story_id) || 0) + 1));
   const versionCounts = new Map<string, number>();
-  recordLayer.thesisVersions.forEach((version) => versionCounts.set(version.story_id, (versionCounts.get(version.story_id) || 0) + 1));
+  const latestVersionByStory = new Map<string, (typeof recordLayer.thesisVersions)[number]>();
+  recordLayer.thesisVersions.forEach((version) => {
+    versionCounts.set(version.story_id, (versionCounts.get(version.story_id) || 0) + 1);
+    const prior = latestVersionByStory.get(version.story_id);
+    if (!prior || version.version_number > prior.version_number || (
+      version.version_number === prior.version_number && version.effective_at > prior.effective_at
+    )) latestVersionByStory.set(version.story_id, version);
+  });
 
   const registryStories = data.stories.map((story) => {
     const image = storyImages.get(story.id);
     const fallback = getStableStoryFallbackImage(story.id);
+    const version = latestVersionByStory.get(story.id);
+    const current = {
+      ...story,
+      title: version?.title || story.title,
+      thesis: version?.thesis || story.thesis,
+      market_question: version?.market_question || story.market_question,
+      next_catalyst: version?.next_catalyst || story.next_catalyst,
+      assets: version?.assets || story.assets || [],
+    };
+    const regimes = routeStoryToRegimes(story, version)
+      .map((route) => getRegimeDefinition(route.regime))
+      .filter((regime, index, all): regime is NonNullable<typeof regime> => Boolean(regime) && all.findIndex((item) => item?.slug === regime?.slug) === index)
+      .map((regime) => ({ slug: regime.slug, label: regime.shortTitle }));
     return {
       id: story.id,
       slug: story.slug,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.article_verdict || story.status,
-      confidence: story.confidence,
-      assets: story.assets || [],
-      tags: deriveStoryTags(story, 8),
-      marketQuestion: story.market_question,
-      nextCatalyst: story.next_catalyst,
+      title: current.title,
+      thesis: current.thesis,
+      lifecycle: version?.status || story.status,
+      editorialVerdict: version?.article_verdict ?? story.article_verdict,
+      confidence: version?.confidence ?? story.confidence,
+      assets: current.assets,
+      tags: deriveStoryTags(current, 8),
+      marketQuestion: current.market_question,
+      nextCatalyst: current.next_catalyst,
       evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
       eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
       versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
@@ -44,6 +66,8 @@ export default async function StoriesPage() {
       imageSourceUrl: image?.articleUrl || null,
       imagePublisher: image?.publisher || null,
       imageKind: image?.kind || "fallback" as const,
+      regimes,
+      hybridHref: `/hybrid-output?story=${encodeURIComponent(story.slug)}`,
     };
   });
 
@@ -51,7 +75,7 @@ export default async function StoriesPage() {
     <LiveDeskShell
       activePath="/stories"
       title="Stories"
-      description="Persistent market questions, current theses and exact supporting records."
+      description="Living market theses inside durable Regimes. Visible headlines follow the latest accepted Story version while identity and history stay stable."
       meta={`${data.stories.length} non-archived Stories`}
     >
       <div className={styles.grid}>
