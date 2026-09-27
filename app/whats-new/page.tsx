@@ -4,6 +4,7 @@ import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/com
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
+import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,18 @@ function classifyStoryTopic(
   return classifyTopic(eventHeadline, `${storyThesis || ""} ${eventDetail || ""}`, (assets || []).join(" "));
 }
 
+function regimeLinks(routes: RegimeRoute[]) {
+  const seen = new Set<string>();
+  return routes.flatMap((route) => {
+    const regime = getRegimeDefinition(route.regime);
+    if (!regime) return [];
+    const key = `${regime.slug}:${route.subgroup}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{ slug: regime.slug, label: regime.shortTitle, subgroup: route.subgroup }];
+  });
+}
+
 function versionKey(storyId: string, versionNumber: number) {
   return `${storyId}:${versionNumber}`;
 }
@@ -127,11 +140,21 @@ export default async function WhatsNewPage() {
   const versionByStoryAndNumber = new Map(
     recordLayer.thesisVersions.map((version) => [versionKey(version.story_id, version.version_number), version]),
   );
+  const latestVersionByStory = new Map<string, StoryThesisVersion>();
+  for (const version of recordLayer.thesisVersions) {
+    const current = latestVersionByStory.get(version.story_id);
+    if (!current || version.version_number > current.version_number || (
+      version.version_number === current.version_number && version.effective_at > current.effective_at
+    )) latestVersionByStory.set(version.story_id, version);
+  }
 
   const storyDeltas: WhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
       const story = storyById.get(event.story_id);
-      const human = humaniseStoryEvent(event, story?.title, versionByEventId, versionByStoryAndNumber);
+      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
+      const currentTitle = currentVersion?.title || story?.title;
+      const human = humaniseStoryEvent(event, currentTitle, versionByEventId, versionByStoryAndNumber);
+      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
       return {
         id: event.id,
         kind: humanEventLabel(event.event_type),
@@ -144,12 +167,18 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${event.id}` : null,
         external: false,
         verification: event.impact,
-        storyTitle: story?.title || null,
+        storyTitle: currentTitle || null,
+        regimes: regimeLinks(routes),
+        hybridHref: `/hybrid-output?event=${encodeURIComponent(event.id)}`,
+        interpretationState: "interpreted" as const,
       };
     })
     : data.updates.map((update) => {
       const story = storyById.get(update.story_id);
+      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
+      const currentTitle = currentVersion?.title || story?.title;
       const timestamp = update.observed_at || update.created_at;
+      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
       return {
         id: update.id,
         kind: humanEventLabel(update.update_type),
@@ -162,53 +191,74 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${update.id}` : null,
         external: false,
         verification: "Dated Story update",
-        storyTitle: story?.title || null,
+        storyTitle: currentTitle || null,
+        regimes: regimeLinks(routes),
+        hybridHref: story ? `/hybrid-output?story=${encodeURIComponent(story.slug)}` : null,
+        interpretationState: "interpreted" as const,
       };
     });
 
   const deltas: WhatsNewDelta[] = [
     ...storyDeltas,
-    ...data.statements.map((statement) => ({
-      id: statement.id,
-      kind: "Statement",
-      stream: "Statement" as const,
-      topic: classifyTopic(
-        `${statement.topic} ${statement.speaker}`,
-        `${statement.market_interpretation || ""} ${statement.quote_excerpt || ""}`,
-      ),
-      title: `${statement.speaker}: ${statement.topic}`,
-      detail: statement.market_interpretation || statement.quote_excerpt,
-      dateLabel: formatDeskDate(statement.statement_date),
-      timestamp: statement.statement_date,
-      href: statement.source_url || null,
-      external: true,
-      verification: statement.verification_status,
-      storyTitle: null,
-    })),
-    ...data.newsThreads.map((thread) => ({
-      id: thread.id,
-      kind: thread.category || thread.source_type,
-      stream: "News" as const,
-      topic: classifyTopic(
-        `${thread.category || ""} ${thread.headline}`,
-        `${thread.current_view || ""} ${thread.summary || ""}`,
-      ),
-      title: thread.headline,
-      detail: thread.current_view || thread.summary,
-      dateLabel: formatDeskDate(thread.published_at),
-      timestamp: thread.published_at,
-      href: thread.source_url || null,
-      external: true,
-      verification: thread.source_type,
-      storyTitle: null,
-    })),
+    ...data.statements.map((statement) => {
+      const routes = routeTextToRegimes(
+        `${statement.speaker} ${statement.topic} ${statement.market_interpretation || ""} ${statement.quote_excerpt || ""} ${(statement.affected_assets || []).join(" ")}`,
+        1,
+      );
+      return {
+        id: statement.id,
+        kind: "Statement",
+        stream: "Statement" as const,
+        topic: classifyTopic(
+          `${statement.topic} ${statement.speaker}`,
+          `${statement.market_interpretation || ""} ${statement.quote_excerpt || ""}`,
+        ),
+        title: `${statement.speaker}: ${statement.topic}`,
+        detail: statement.market_interpretation || statement.quote_excerpt,
+        dateLabel: formatDeskDate(statement.statement_date),
+        timestamp: statement.statement_date,
+        href: statement.source_url || null,
+        external: true,
+        verification: statement.verification_status,
+        storyTitle: null,
+        regimes: regimeLinks(routes),
+        hybridHref: null,
+        interpretationState: routes.length ? "observed_pending" as const : null,
+      };
+    }),
+    ...data.newsThreads.map((thread) => {
+      const routes = routeTextToRegimes(
+        `${thread.category || ""} ${thread.headline} ${thread.current_view || ""} ${thread.summary || ""} ${(thread.affected_assets || []).join(" ")}`,
+        1,
+      );
+      return {
+        id: thread.id,
+        kind: thread.category || thread.source_type,
+        stream: "News" as const,
+        topic: classifyTopic(
+          `${thread.category || ""} ${thread.headline}`,
+          `${thread.current_view || ""} ${thread.summary || ""}`,
+        ),
+        title: thread.headline,
+        detail: thread.current_view || thread.summary,
+        dateLabel: formatDeskDate(thread.published_at),
+        timestamp: thread.published_at,
+        href: thread.source_url || null,
+        external: true,
+        verification: thread.source_type,
+        storyTitle: null,
+        regimes: regimeLinks(routes),
+        hybridHref: null,
+        interpretationState: routes.length ? "observed_pending" as const : null,
+      };
+    }),
   ].sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")).slice(0, 60);
 
   return (
     <LiveDeskShell
       activePath="/whats-new"
       title="What’s New"
-      description="Material Story changes, verified statements and relevant news records, grouped visually by the market they belong to."
+      description="Material deltas only: what changed, which Regime/subgroup it may affect, and whether the Story-level interpretation is accepted or still pending."
       meta={`${deltas.length} recent records shown`}
     >
       <div className={styles.grid}>
