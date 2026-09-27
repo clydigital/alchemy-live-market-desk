@@ -10,8 +10,8 @@ See the [Editorial-Brain Design Pack](docs/editorial-brain/README.md) for the Or
 
 The Live Desk runs two full Asia/Kuala_Lumpur research cycles:
 
-- 09:15 full desk update (`morning`, 01:15 UTC)
-- 21:15 evening delta update (`evening`, 13:15 UTC)
+- 09:30 full desk update (`morning`, 01:30 UTC)
+- 21:30 evening delta update (`evening`, 13:30 UTC)
 
 Each Vercel Cron route first performs bounded YouTube/TranscriptAPI intake, then acquires the direct ZeroHedge, Axios, Investing.com, FXStreet and Alchemy feeds. It submits the resulting evidence only to Live's `/api/research-update` publisher. Hybrid is not called and never performs independent research.
 
