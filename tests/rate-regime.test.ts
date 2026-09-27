@@ -302,3 +302,88 @@ test("Rate System 1 prefers the direct Treasury 10Y cash yield over FRED fallbac
   assert.equal(regime.curve.spreadBps, 38);
   assert.ok(regime.curve.evidenceRefs.includes("market-monitor:us10y:2026-09-24"));
 });
+
+
+test("Treasury liquidity support becomes restrictive only with independent long-end confirmation", () => {
+  const input = packet([
+    {
+      evidence_id: "verified-macro:treasury-long-end-buyback-2026-09-24",
+      claim_or_fact: "Treasury increased the maximum long-end liquidity-support buyback operation to $6 billion from $2 billion.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T11:45:00.000Z",
+      occurrence_time: "2026-09-24T11:30:00.000Z",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "treasury_supply",
+        observed_value: 6,
+        previous_value: 2,
+        measurement_unit: "USD billions",
+      },
+      provenance: [{
+        source_type: "US_TREASURY",
+        source_id: "TREASURY_BUYBACK_SEP24",
+      }],
+    },
+    {
+      evidence_id: "verified-macro:us30y-sep24-supply-test",
+      claim_or_fact: "The US 30Y Treasury yield remained above 5%.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T11:50:00.000Z",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "us30y",
+        observed_value: 5.45,
+        measurement_unit: "percent",
+      },
+      provenance: [{ source_type: "US_TREASURY", source_id: "US30Y_SUPPLY_TEST" }],
+    },
+    fred("us2y", 4.8, 1.5),
+    fred("us10y-fred", 5.05, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
+
+  assert.equal(supply?.state, "HAWKISH");
+  assert.equal(supply?.score, 1);
+  assert.match(supply?.detail ?? "", /3\.0×/);
+  assert.match(supply?.detail ?? "", /not QE/i);
+  assert.ok(supply?.evidenceRefs.includes("verified-macro:treasury-long-end-buyback-2026-09-24"));
+});
+
+test("a larger Treasury buyback does not manufacture tightening without elevated long-end yields", () => {
+  const input = packet([
+    {
+      evidence_id: "verified-macro:treasury-long-end-buyback-no-confirmation",
+      claim_or_fact: "Treasury increased the maximum long-end liquidity-support buyback operation to $6 billion from $2 billion.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-24T11:45:00.000Z",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "treasury_supply",
+        observed_value: 6,
+        previous_value: 2,
+        measurement_unit: "USD billions",
+      },
+      provenance: [{ source_type: "US_TREASURY", source_id: "TREASURY_BUYBACK_NO_CONFIRMATION" }],
+    },
+    fred("us2y", 4.5, 0),
+    fred("us10y-fred", 4.7, 0),
+    fred("us10y-real", 1.5, 0),
+    fred("us10y-breakeven", 2.3, 0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
+
+  assert.equal(supply?.state, "NEUTRAL");
+  assert.equal(supply?.score, 0);
+  assert.match(supply?.detail ?? "", /not treated as tightening evidence by itself/i);
+});
