@@ -11,6 +11,8 @@ The Original should not be rebuilt as one monolithic dashboard. It should combin
 
 The Original remains the most detailed product. It owns the complete research record, including raw sources, claims, component observations, causal links, story versions, charts, editorial decisions and post-event reviews.
 
+The current semantic and presentation contract is defined in [Regime / Story Operating Framework](08_REGIME_STORY_OPERATING_FRAMEWORK.md). Regimes organise the durable market environment; Stories remain the canonical living hypotheses; What's New remains the dated delta layer; Hybrid remains presentation and learning only.
+
 ## Product hierarchy
 
 ### Level 1: Editorial command surface
@@ -42,20 +44,21 @@ Specialist pages provide the full detail:
 - Catalyst calendar;
 - Article memory.
 
-### Level 3: Persistent macro and story state
+### Level 3: Regime, sub-regime and persistent Story state
 
-This layer connects evidence across time:
+This layer connects evidence across time without flattening every mechanism into one Story list.
 
-- growth;
-- inflation;
-- labour;
-- policy;
-- liquidity and credit;
-- oil and physical supply;
-- risk appetite;
-- USD;
-- yen and carry;
-- AI capex.
+The initial governed Regimes are:
+
+- Sovereign Funding & Global Cost of Capital;
+- US-China AI Industrial Competition;
+- Global Energy Security & Inflation;
+- Gold & Global Reserve Diversification;
+- Equity Rally Quality & Earnings Breadth.
+
+Each Regime contains controlled sub-regimes/drivers. Stories are the current living interpretations inside those drivers and may link to more than one Regime. The visible Story headline may change with a material accepted thesis version while the canonical Story identity and history remain stable.
+
+Regimes update from canonical Story reasoning, never directly from raw headlines.
 
 ### Level 4: History Cabinet and audit trail
 
@@ -63,9 +66,9 @@ Every release, story, state and article decision is retrievable by vintage.
 
 ## Recommended homepage
 
-### A. Since Last Visit
+### A. Since Last Visit / What's New
 
-Only material deltas.
+Only material deltas. This is the dated change feed, not the persistent Story registry.
 
 Required fields:
 
@@ -73,7 +76,9 @@ Required fields:
 - event;
 - exact new fact;
 - verification status;
-- story affected;
+- Story affected;
+- Regime and sub-regime affected;
+- contribution: supports / contradicts / unresolved / context;
 - why it matters;
 - market reaction;
 - editorial action change.
@@ -143,9 +148,22 @@ It shows:
 - state change;
 - story update.
 
-### F. Macro State Delta
+### F. Regime State Delta
 
-A compact strip shows only states that changed.
+A compact strip shows only Regimes or sub-regimes that materially changed. Complex Regimes such as Rates use coloured subgroup tabs/cards rather than long row lists.
+
+The rates Regime must distinguish at minimum:
+
+- Fed / Front End;
+- Treasury / Fiscal;
+- Long End / Term Premium;
+- Global Rates / Japan;
+- Credit / Financing;
+- Housing / Real Economy.
+
+Each subgroup shows its current state, direction, confidence, current Stories, deciding monitors, latest contributing evidence/news nodes and next test.
+
+The same subgroup pattern applies to AI, Energy, Gold and Equities using their governed dictionaries.
 
 ### G. Supporting modules
 
@@ -354,7 +372,21 @@ Every release family has a stable component dictionary and cross-check map.
 
 ### Story templates
 
-Every story uses the same Decision Brief schema, with optional specialist modules.
+Every Story uses the same Decision Brief schema, with optional specialist modules. The Story ID/slug and historical lineage are stable, while the current visible headline may change after a material accepted thesis revision.
+
+### Regime projection
+
+A post-Story projection layer maps the accepted current Story version into one or more governed Regimes/sub-regimes. It deduplicates canonical evidence by evidence ID and source ancestry, aggregates Story monitors upward, and versions the Regime only when its state materially changes.
+
+### Hybrid deep links
+
+Where the exact target is available, Live should link directly to:
+
+- `/hybrid-output?regime=<regime-slug>`;
+- `/hybrid-output?story=<story-slug>`;
+- `/hybrid-output?event=<event-id>`.
+
+Hybrid may simplify and teach the causal chain but must preserve the exact canonical claim status, confidence, evidence state, confirmation and invalidation.
 
 ### State mappings
 
@@ -422,13 +454,17 @@ It must never silently reuse an old conclusion as current.
 - competing angles;
 - article recommendation.
 
-### Phase 4: Macro state engine
+### Phase 4: Regime and causal-state layer
 
-- state dictionary;
-- evidence mapping;
-- reaction functions;
-- state history;
-- cross-release interaction.
+- governed Regime dictionary;
+- sub-regime dictionaries;
+- Story-to-Regime many-to-many links;
+- read-only Regime board first;
+- contribution nodes sourced from canonical Story evidence;
+- Concept Library;
+- evidence-aware Regime projection;
+- Regime version history;
+- cross-Story and cross-release interaction.
 
 ### Phase 5: Hybrid snapshots
 
@@ -453,7 +489,19 @@ The desk must identify the reported framework, parties, stage, contradictions, i
 
 ### Maintenance test
 
-A revised value updates the Original, Hybrid and History Cabinet without manual duplication.
+A revised value updates the Original, the affected Story, the relevant Regime/sub-regime projection, Hybrid and History Cabinet without manual duplication. A raw headline cannot bypass canonical Story reasoning to mutate a Regime.
+
+### Story / What's New test
+
+A fresh event may appear in What's New without creating a new Story. A current Story headline changes only after a material accepted Story-version revision, while its ID, slug and history remain stable.
+
+### Rates visual test
+
+The rates Regime renders as subgroup tabs/cards rather than one long list, and each subgroup shows current Stories, contribution nodes and the next deciding test.
+
+### Cross-Regime test
+
+One canonical Story may appear under more than one Regime without duplicating evidence, events or thesis history.
 
 ### Usefulness test
 
