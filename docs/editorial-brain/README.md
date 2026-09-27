@@ -20,6 +20,7 @@ The [COTSignal Method Alignment](07_COTSIGNAL_METHOD_ALIGNMENT.md) refines the C
 6. [Recommended Original Blueprint](05_ORIGINAL_RECOMMENDED_BLUEPRINT.md)
 7. [COT Positioning Lens](06_COT_POSITIONING_LENS.md)
 8. [COTSignal Method Alignment](07_COTSIGNAL_METHOD_ALIGNMENT.md)
+9. [Regime / Story Operating Framework](08_REGIME_STORY_OPERATING_FRAMEWORK.md)
 
 ## Judge-panel decision
 
@@ -28,6 +29,7 @@ Do not choose one complete variant.
 - Use Variant B for the default homepage and editorial queue.
 - Use Variant A for Latest Data Releases, ISM decomposition and the History Cabinet.
 - Use Variant C for macro state, cross-release interaction and policy reaction functions.
+- Use the Regime / Story Operating Framework as the current semantic and presentation contract for Regimes, sub-regimes, Stories, What's New, Concepts and Hybrid deep links.
 - Apply the COT Positioning Lens as a weekly supports, contradicts, amplifies, neutral or stale story filter.
 - Use the COTSignal-style Legacy View only as a clearly labelled secondary presentation mode.
 
