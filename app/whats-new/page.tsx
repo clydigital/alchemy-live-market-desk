@@ -60,6 +60,10 @@ function classifyStoryTopic(
   eventDetail: string | null | undefined,
   assets: string[] | null | undefined,
 ): WhatsNewTopic {
+  // Event-specific market content should win over a broader parent Story title.
+  // This prevents a Treasury/rates development under an oil-linked Story from
+  // being mislabeled as Commodities simply because the durable parent mentions oil.
+  if (/\b(?:treasur(?:y|ies)|yield|rates?|long end|buyback|term premium|duration)\b/i.test(eventHeadline)) return "Macro";
   const story = storyTitle || "";
   if (/\b(?:oil|crude|physical normalisation|physical disruption|energy disruption)\b/i.test(story)) return "Commodities";
   if (/\b(?:yen|carry|forex|currency|intervention)\b/i.test(story)) return "FX";
