@@ -13,7 +13,7 @@ export type RateRegimeState =
 export type RateRegimeConfidence = "HIGH" | "MEDIUM" | "LOW" | "UNRESOLVED";
 
 export type RateRegimeSignal = {
-  key: "POLICY" | "FRONT_END" | "REAL_YIELDS" | "BREAKEVENS" | "LONG_END";
+  key: "POLICY" | "FRONT_END" | "REAL_YIELDS" | "BREAKEVENS" | "LONG_END" | "TREASURY_SUPPLY";
   label: string;
   state: RateRegimeState;
   score: number;
@@ -239,6 +239,7 @@ export function buildDossierRateRegime(
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
+  const treasurySupply = signalContextEvidence(evidence, "treasury_supply");
 
   const us2yLevel = metricNumber(us2y, "last");
   const us10yLevel = metricNumber(us10y, "last");
@@ -246,6 +247,13 @@ export function buildDossierRateRegime(
   const real10yLevel = metricNumber(real10y, "last");
   const breakevenLevel = metricNumber(breakeven10y, "last");
   const effrLevel = metricNumber(effectiveFedFunds, "last");
+  const treasuryBuybackMax = metricNumber(treasurySupply, "observed_value");
+  const treasuryBuybackPreviousMax = metricNumber(treasurySupply, "previous_value");
+  const treasuryBuybackMultiple = treasuryBuybackMax !== null
+    && treasuryBuybackPreviousMax !== null
+    && treasuryBuybackPreviousMax > 0
+      ? treasuryBuybackMax / treasuryBuybackPreviousMax
+      : null;
 
   const us2y5dBp = bpChange(us2y);
   const us10y5dBp = bpChange(us10y);
@@ -341,12 +349,44 @@ export function buildDossierRateRegime(
     evidenceRefs: [us10y?.evidence_id, us30y?.evidence_id].filter((value): value is string => Boolean(value)),
   };
 
+  // A larger Treasury liquidity-support buyback is not tightening by itself:
+  // it is a debt-management/liquidity operation, not QE. Treat it as a
+  // restrictive regime signal only when verified long-end yields independently
+  // confirm that term-premium/duration pressure remains elevated.
+  const longEndElevated = (us30yLevel !== null && us30yLevel >= 5)
+    || (us10yLevel !== null && us10yLevel >= 5);
+  const treasurySupplyResolved = treasurySupply !== null
+    && treasuryBuybackMax !== null
+    && treasuryBuybackPreviousMax !== null;
+  const treasurySupplyScore =
+    treasurySupplyResolved
+    && treasuryBuybackMultiple !== null
+    && treasuryBuybackMultiple >= 2
+    && longEndElevated
+      ? 1
+      : 0;
+  const treasurySupplySignal: RateRegimeSignal = {
+    key: "TREASURY_SUPPLY",
+    label: "Treasury supply / liquidity",
+    state: signalState(treasurySupplyScore, treasurySupplyResolved),
+    score: treasurySupplyScore,
+    detail: treasurySupplyResolved
+      ? `Long-end liquidity-support buyback maximum ${treasuryBuybackMax === null ? "n/a" : `${treasuryBuybackMax.toFixed(1)}bn`} vs ${treasuryBuybackPreviousMax === null ? "n/a" : `${treasuryBuybackPreviousMax.toFixed(1)}bn`} previously${treasuryBuybackMultiple === null ? "" : ` (${treasuryBuybackMultiple.toFixed(1)}×)`}. ${longEndElevated ? "Long-end yields remain elevated despite the larger operation, so term-premium/duration pressure remains restrictive." : "Without elevated long-end yields, the larger buyback is not treated as tightening evidence by itself."} Treasury buybacks are liquidity support, not QE.`
+      : "No current verified Treasury buyback/supply observation is present in the bounded rate context.",
+    evidenceRefs: [
+      treasurySupply?.evidence_id,
+      us30y?.evidence_id,
+      us10y?.evidence_id,
+    ].filter((value): value is string => Boolean(value)),
+  };
+
   const signals = [
     policySignal,
     frontEndSignal,
     realYieldSignal,
     breakevenSignal,
     longEndSignal,
+    treasurySupplySignal,
   ];
 
   const resolvedSignals = signals.filter((item) => item.state !== "UNRESOLVED");

@@ -84,7 +84,7 @@ export type MarketIntelligenceSnapshotV1 = {
     nyFedReferenceRates: NyFedReferenceRatesSnapshot["status"];
     nyFedPrimaryDealers: NyFedPrimaryDealerSnapshot["status"];
     treasuryBills: TreasuryBillSnapshot["status"];
-    treasurySupply: "UNRESOLVED";
+    treasurySupply: "OK" | "UNRESOLVED";
   };
   contradictions: Array<{
     id: string;
@@ -336,24 +336,6 @@ function dealerSignal(
   };
 }
 
-function treasurySupplySignal(
-  presentation: DossierPresentationV1,
-): MarketIntelligenceSignal {
-  const direction: MonetarySignalDirection = "UNRESOLVED";
-  return {
-    key: "TREASURY_SUPPLY",
-    label: "Treasury supply / auctions",
-    direction,
-    confirmation: confirmation(presentation.rateRegime.state, direction),
-    detail: "Live has Treasury auction/supply research logic, but market-intelligence-snapshot/v1 does not yet normalize a current machine-readable supply impulse. Keep this unresolved rather than infer from yields.",
-    asOf: presentation.asOf,
-    sourceName: "Live Desk research state",
-    sourceUrl: null,
-    evidenceRefs: [],
-    metrics: {},
-  };
-}
-
 export function buildMarketIntelligenceSnapshot({
   status,
   presentation,
@@ -382,11 +364,11 @@ export function buildMarketIntelligenceSnapshot({
     creditSignal(presentation, monitor),
     usdSignal(presentation, monitor),
     dealerSignal(presentation, nyFedPrimaryDealers),
-    treasurySupplySignal(presentation),
   ];
   const confirming = signals.filter((item) => item.confirmation === "CONFIRMING").map((item) => item.key);
   const contradicting = signals.filter((item) => item.confirmation === "CONTRADICTING").map((item) => item.key);
   const unresolved = signals.filter((item) => item.confirmation === "UNRESOLVED").map((item) => item.key);
+  const treasurySupply = presentation.rateRegime.signals?.find((item) => item.key === "TREASURY_SUPPLY") ?? null;
   const selectedIds = new Set([
     "us2y",
     "us10y-fred",
@@ -418,7 +400,9 @@ export function buildMarketIntelligenceSnapshot({
     ...nyFedReferenceRates.warnings,
     ...nyFedPrimaryDealers.warnings,
     ...treasuryBills.warnings,
-    "Treasury supply/auction state is not yet normalized into market-intelligence-snapshot/v1.",
+    ...(treasurySupply && treasurySupply.state !== "UNRESOLVED"
+      ? []
+      : ["Treasury supply/auction state is not yet resolved from verified Live rate evidence."]),
   ];
 
   return {
@@ -465,7 +449,7 @@ export function buildMarketIntelligenceSnapshot({
       nyFedReferenceRates: nyFedReferenceRates.status,
       nyFedPrimaryDealers: nyFedPrimaryDealers.status,
       treasuryBills: treasuryBills.status,
-      treasurySupply: "UNRESOLVED",
+      treasurySupply: treasurySupply && treasurySupply.state !== "UNRESOLVED" ? "OK" : "UNRESOLVED",
     },
     contradictions: [
       ...monitor.contradictions.map((item) => ({
