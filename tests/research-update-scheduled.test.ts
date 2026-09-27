@@ -8,7 +8,7 @@ import {
 
 const baseFields: ResearchRunLedgerStartFields = {
   schedule_slot: "morning",
-  scheduled_for: "2026-08-15T09:15:00+08:00",
+  scheduled_for: "2026-08-15T09:30:00+08:00",
   status: "running",
   accuracy_gate: "ready",
   required_sources_complete: true,
@@ -24,7 +24,7 @@ const baseFields: ResearchRunLedgerStartFields = {
   updates_published: 0,
   warnings: [],
   summary: "Scheduled test run.",
-  updated_at: "2026-08-15T01:15:00.000Z",
+  updated_at: "2026-08-15T01:30:00.000Z",
 };
 
 test("scheduled publisher preserves original started_at by patching only mutable fields", async () => {
@@ -38,7 +38,7 @@ test("scheduled publisher preserves original started_at by patching only mutable
     runKey: "cron-v1:morning:2026-08-15",
     isScheduledInternalRequest: true,
     fields: baseFields,
-    now: "2026-08-15T01:15:00.000Z",
+    now: "2026-08-15T01:30:00.000Z",
   });
 
   assert.equal(runId, "run-1");
@@ -50,7 +50,7 @@ test("scheduled publisher preserves original started_at by patching only mutable
   assert.equal("started_at" in patchBody, false);
   assert.equal("run_key" in patchBody, false);
   assert.equal(patchBody.status, "running");
-  assert.equal(patchBody.scheduled_for, "2026-08-15T09:15:00+08:00");
+  assert.equal(patchBody.scheduled_for, "2026-08-15T09:30:00+08:00");
 });
 
 test("scheduled publisher fails closed if the canonical preclaim is missing", async () => {
@@ -77,9 +77,9 @@ test("non-scheduled publisher still creates its row with started_at", async () =
     fields: {
       ...baseFields,
       schedule_slot: "evening",
-      scheduled_for: "2026-08-15T21:15:00+08:00",
+      scheduled_for: "2026-08-15T21:30:00+08:00",
     },
-    now: "2026-08-15T13:15:00.000Z",
+    now: "2026-08-15T13:30:00.000Z",
   });
 
   assert.equal(runId, "run-2");
@@ -88,7 +88,7 @@ test("non-scheduled publisher still creates its row with started_at", async () =
 
   const postBody = JSON.parse(String(calls[0].init?.body));
   assert.equal(postBody.run_key, "manual:test:2026-08-15");
-  assert.equal(postBody.started_at, "2026-08-15T13:15:00.000Z");
+  assert.equal(postBody.started_at, "2026-08-15T13:30:00.000Z");
   assert.equal(postBody.schedule_slot, "evening");
-  assert.equal(postBody.scheduled_for, "2026-08-15T21:15:00+08:00");
+  assert.equal(postBody.scheduled_for, "2026-08-15T21:30:00+08:00");
 });
