@@ -90,7 +90,7 @@ export type ProjectedRegimeSubgroup = RegimeSubgroupDefinition & {
   latestAt: string | null;
 };
 
-export type ProjectedRegime = RegimeDefinition & {
+export type ProjectedRegime = Omit<RegimeDefinition, "subgroups"> & {
   state: string;
   stateKind: "system1" | "interpreted" | "unresolved";
   confidence: string;
