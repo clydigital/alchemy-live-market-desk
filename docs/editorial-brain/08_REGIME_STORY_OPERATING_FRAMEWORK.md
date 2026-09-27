@@ -311,6 +311,343 @@ Did the Regime materially change?
 
 A creator or news headline cannot directly flip a Regime state.
 
+
+## System 1 / System 2 operating model
+
+The Regime architecture must use the existing two-speed research pattern rather than send every update through the same reasoning path.
+
+### System 1 — deterministic sensing and triage
+
+System 1 is always-on, cheap, reproducible and bounded.
+
+It may:
+
+- normalise and deduplicate canonical evidence;
+- apply freshness and source-verification rules;
+- calculate direct market/statistical readings;
+- compare observations with explicit deterministic thresholds;
+- maintain structured subgroup telemetry;
+- apply documented conventional directional priors;
+- detect deterministic expected-versus-observed mismatch candidates;
+- identify stale or expired next tests;
+- map an observation to candidate Regime/sub-regime destinations using governed rules;
+- create a factual What's New delta;
+- decide whether the item needs System 2 attention.
+
+System 1 must not:
+
+- invent a causal explanation;
+- declare a headline's motive;
+- rewrite a Story thesis or headline;
+- create a new Regime;
+- decide that two coexisting levels prove a causal divergence;
+- convert a creator/news claim into a canonical fact without verification;
+- strengthen a Regime merely because several duplicated sources repeat the same claim.
+
+The current Dossier V2 rates implementation is the model for this layer. It already deterministically evaluates policy impulse, front-end pricing, real yields, breakevens and the long end, and it already creates bounded divergence candidates. Dollar-liquidity classification is another existing System 1 sensor.
+
+### System 2 — causal interpretation and revision
+
+System 2 is selective, slower and evidence-bounded.
+
+The existing Market Belief → Divergence → Hypothesis → Challenger → Scenario → Story Synthesis path is the canonical System 2 reasoning chain.
+
+System 2 activates when System 1 or the existing Story-maintenance queue identifies a material question, including:
+
+- a high-materiality verified event;
+- a deterministic divergence candidate;
+- a contradiction to an active Story;
+- a deciding monitor crossing a meaningful threshold;
+- a Story's next test resolving;
+- evidence that may reframe a causal mechanism;
+- evidence that may require a current Story headline change;
+- a possible cross-Regime bridge;
+- a candidate material Regime-state change;
+- a high-impact item that cannot be safely classified by deterministic rules.
+
+System 2 owns:
+
+- causal explanation;
+- competing mechanisms;
+- hypothesis formation;
+- Challenger/countercase;
+- confirmation and invalidation;
+- current Story thesis;
+- current visible Story headline;
+- Story-versus-new-Story decision;
+- Story-to-Regime role when deterministic routing is insufficient;
+- Regime interpretation from the aggregate of current Story reasoning;
+- "why this matters" explanation;
+- causal mechanism presentation supplied to Hybrid.
+
+System 2 must remain evidence-bounded. It may interpret supplied canonical evidence but may not manufacture a missing observation, probability, price move or source.
+
+### Activation rule
+
+Do not run System 2 on every What's New item.
+
+Use:
+
+```text
+canonical evidence
+      ↓
+SYSTEM 1
+observe / classify / measure / triage
+      ↓
+is there a material unresolved question?
+      ├── NO
+      │    ↓
+      │  What's New factual delta / context only
+      │  telemetry updates if directly measurable
+      │
+      └── YES
+           ↓
+        SYSTEM 2
+        hypothesis → challenger → Story synthesis
+           ↓
+        accepted Story version
+           ↓
+        Regime projection
+```
+
+This preserves budget and prevents the slower reasoning layer from rewriting stable conclusions because of routine noise.
+
+### Two-state presentation rule
+
+Regime and sub-regime UI must distinguish:
+
+1. **Observed telemetry** — deterministic System 1 readings.
+2. **Interpreted state** — System 2's current evidence-backed explanation.
+
+Example:
+
+```text
+LONG END / TERM PREMIUM
+
+Observed telemetry — System 1
+US10Y: 5.18%
+5D: +11 bp
+US30Y: 5.42%
+State: restrictive / higher
+
+Interpreted state — System 2
+"Long-end pressure is increasingly being sustained by
+fiscal/debt-supply and global-duration forces rather than
+the immediate oil impulse alone."
+
+Confidence: 78%
+```
+
+If a Regime lacks adequate deterministic sensors, the observed layer must say **UNRESOLVED / COVERAGE GAP**. System 2 interpretation must not be presented as if it were a deterministic measurement.
+
+## Exact integration and update contract
+
+The following is the required end-to-end behaviour for Regimes, Stories, What's New and Hybrid.
+
+### Step 1 — acquisition and canonical evidence
+
+News, releases, market data, filings, creator material and specialist data enter the existing acquisition path.
+
+Only canonical, provenance-linked evidence can alter Story or Regime reasoning. Discovery-only material may recruit research but cannot prove a mutation by itself.
+
+### Step 2 — System 1 observation
+
+System 1 evaluates what can be known deterministically:
+
+- what changed;
+- when it changed;
+- source/freshness state;
+- direct market/statistical reading;
+- candidate Regime/sub-regime routing;
+- relevant existing Story monitors;
+- conventional expected reaction where a governed rule exists;
+- mismatch/divergence candidate where both trigger and observed evidence exist.
+
+### Step 3 — What's New appears immediately
+
+A verified material delta may appear in What's New before System 2 finishes interpreting it.
+
+It has one of two states:
+
+- **OBSERVED / INTERPRETATION PENDING** — fact is verified, causal Story impact not yet accepted;
+- **INTERPRETED** — System 2 has linked it to an accepted Story/Regime mechanism.
+
+Before interpretation, the UI may show candidate destinations but must not say the item strengthened or weakened a thesis unless that relationship is deterministic and explicitly governed.
+
+### Step 4 — System 2 escalation
+
+Items that clear the activation rule enter the existing reasoning path.
+
+System 2 decides whether the evidence:
+
+- reinforces the existing Story;
+- weakens it;
+- reframes it;
+- invalidates it;
+- opens a new Story;
+- remains unresolved/context only.
+
+### Step 5 — Story update
+
+If materially changed:
+
+- preserve canonical Story ID and slug;
+- create a new immutable Story thesis version;
+- update the visible current Story headline to describe what is actually happening now;
+- append the exact triggering Story Event;
+- update confirmation/invalidation/next test;
+- preserve prior versions unchanged.
+
+If not materially changed, the What's New item remains linked context and does not generate a new thesis version.
+
+### Step 6 — Regime projector
+
+The Regime projector consumes:
+
+- current accepted Story versions;
+- System 1 subgroup telemetry;
+- Story lifecycle;
+- canonical causal edges;
+- support/contradiction;
+- current monitors;
+- evidence IDs and source ancestry;
+- cross-Regime Story links.
+
+It does not reread raw headlines independently.
+
+For each affected sub-regime it updates a **current projection** containing:
+
+- observed telemetry;
+- interpreted state;
+- direction;
+- confidence;
+- current Stories;
+- contribution nodes;
+- strongest support;
+- strongest contradiction;
+- next test;
+- coverage gaps.
+
+### Step 7 — Regime materiality gate
+
+A new immutable Regime version is created only when at least one material condition is met:
+
+- interpreted Regime state changes;
+- dominant driver changes;
+- a core Story is materially reframed/invalidated;
+- a new core/bridge Story materially changes transmission;
+- strongest support/contradiction changes the current explanation;
+- confirmation/invalidation state materially changes;
+- next decisive test changes because the prior test resolved.
+
+Routine telemetry changes update the live current projection without creating unnecessary historical Regime versions.
+
+### Step 8 — visual contribution nodes
+
+Every interpreted What's New item that materially contributes to a Regime becomes a small contribution node under the relevant subgroup.
+
+Node states:
+
+- **supports**;
+- **contradicts**;
+- **unresolved**;
+- **context**;
+- **interpretation pending**.
+
+A single evidence item may appear visually in several sub-regimes, but its canonical evidence ID and ancestry are counted once for evidence breadth.
+
+### Step 9 — Hybrid handoff
+
+After the accepted Story/Regime projection exists, Live publishes or exposes the exact canonical presentation snapshot used by Hybrid.
+
+Live surfaces deep-link to the same target:
+
+- Regime → Hybrid Regime explanation;
+- Story → Hybrid Story explanation;
+- What's New/Event → Hybrid explanation of why that event matters.
+
+Hybrid may reorder and simplify the explanation but may not re-reason the underlying claim.
+
+### Step 10 — downstream propagation
+
+Only after the canonical Live state is accepted should Dossier, Journey and later Power Stack consume the new Regime references.
+
+No downstream surface may independently mutate the Regime or Story.
+
+## System 1 sensors by Regime
+
+System 1 coverage should be built per Regime and explicitly versioned. Do not pretend all Regimes have equal deterministic coverage.
+
+### Sovereign Funding & Global Cost of Capital
+
+Existing / near-existing System 1 inputs:
+
+- next-meeting policy impulse/pricing;
+- US 2Y;
+- effective fed funds;
+- US 10Y nominal;
+- US 30Y where verified;
+- 10Y real yield;
+- 10Y breakeven;
+- curve spreads;
+- dollar-liquidity plumbing;
+- later: Treasury auction/supply and credit-spread sensors.
+
+This Regime should have the richest deterministic subgroup strip first.
+
+### US-China AI Industrial Competition
+
+System 1 should initially be narrower:
+
+- verified model cost/price observations where structured;
+- model usage/adoption observations where comparable;
+- semiconductor/memory pricing and capacity where canonical;
+- company capex/guidance;
+- credit spreads / issuance;
+- power/data-centre capacity observations.
+
+Claims such as "China is winning the AI price war" remain System 2 interpretations, not System 1 states.
+
+### Global Energy Security & Inflation
+
+System 1 candidates:
+
+- WTI/Brent;
+- refined-product prices/cracks;
+- EIA inventories/utilisation;
+- LNG benchmarks/flows where canonical;
+- Hormuz/physical transit measures;
+- freight/insurance where structured;
+- energy CPI/PPI contribution.
+
+Physical data outrank narrative headlines.
+
+### Gold & Global Reserve Diversification
+
+System 1 candidates:
+
+- gold price;
+- real yields;
+- DXY;
+- ETF flows where canonical;
+- official central-bank reserve/purchase data;
+- reserve-composition data when available.
+
+"Gold is becoming a central-bank hedge" remains a System 2 structural interpretation supported by those observations.
+
+### Equity Rally Quality & Earnings Breadth
+
+System 1 candidates:
+
+- SPY / QQQ / RSP / IWM;
+- breadth measures;
+- sector relative performance;
+- earnings revisions;
+- guidance changes;
+- credit and volatility confirmation.
+
+Whether breadth is sufficient to make the rally structurally healthier is a System 2 conclusion.
+
 ## Causal explanation contract
 
 The Desk should explain every material conclusion as:
