@@ -4,7 +4,11 @@ This is a binding research rule for the Alchemy Live Market Desk and every downs
 
 ## Core rule
 
-A Story is an unresolved market question, not a container for headlines.
+A Story is a persistent unresolved market question and causal lineage, not a container for headlines.
+
+The **canonical Story identity** remains stable across time, but the **visible Story headline may change** when a material accepted thesis version changes what is actually happening. Protect the Story ID, slug, central lineage and history; do not freeze the display headline merely to preserve identity.
+
+**What's New** is the dated delta layer. It records the exact new event or evidence that changed, strengthened, weakened or failed to move a Story. A What's New item does not become a new Story merely because its headline is fresh.
 
 Every active Story must define the observable evidence that can answer its question. New updates must state whether the new evidence:
 
@@ -14,6 +18,8 @@ Every active Story must define the observable evidence that can answer its quest
 - exposes a monitor/data coverage gap.
 
 A fresh headline is not automatically a Story update. If it does not move a confirmation condition, invalidation condition, causal link or deciding monitor, it should remain source context rather than change the thesis.
+
+When a Story does materially change, write a new immutable thesis version and allow the current display headline to reflect the new accepted state. The append-only Event/What's New headline retains the exact triggering development.
 
 ## Required monitor contract
 
@@ -95,3 +101,16 @@ Every material Story update should be writable as:
 > **New evidence:** [what changed]. **Question impact:** [confirming / contradicting / unresolved]. **Why:** [which monitor or causal link moved]. **Still missing:** [remaining deciding evidence].
 
 This is the default logic even when the final client-facing prose is more natural.
+
+
+## Regime projection rule
+
+Stories may project upward into one or more governed Regimes and sub-regimes. Regimes do not bypass the Story monitor contract.
+
+The update path is:
+
+> **new source/event → canonical evidence → Story reasoning → Story version → Regime projection**
+
+A headline, creator claim or raw market move must never change a Regime directly. Regime pages aggregate the current canonical Story monitors, causal edges, support/contradiction and next tests.
+
+A Story may appear under multiple Regimes without being cloned. Case monitors remain Story-owned and are aggregated upward for display.
