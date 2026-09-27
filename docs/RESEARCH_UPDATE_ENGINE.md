@@ -8,8 +8,8 @@ A Story is an unresolved market question, not a container for new headlines.
 
 ## Schedule
 
-- 09:15 Asia/Kuala_Lumpur (01:15 UTC)
-- 21:15 Asia/Kuala_Lumpur (13:15 UTC)
+- 09:30 Asia/Kuala_Lumpur (01:30 UTC)
+- 21:30 Asia/Kuala_Lumpur (13:30 UTC)
 
 Each Vercel Cron cycle claims a stable run key before any provider call. It
 performs bounded YouTube transcript intake, acquires the direct named news
