@@ -40,7 +40,7 @@ export default function RegimeDetailWorkspace({
       <section className={styles.hero}>
         <header className={styles.heroHead}>
           <div>
-            <span className={styles.kicker}>MARKET REGIME · {regime.stateKind === "system1" ? "SYSTEM 1 TELEMETRY + STORY INTERPRETATION" : "STORY-LED INTERPRETATION"}</span>
+            <span className={styles.kicker}>MARKET REGIME · {regime.stateKind === "system1" ? "SYSTEM 1 TELEMETRY + STORY INTERPRETATION" : regime.stateKind === "unresolved" ? "PARTIAL COVERAGE · SUBGROUP STATES BELOW" : "STORY-LED INTERPRETATION"}</span>
             <h1>{regime.title}</h1>
           </div>
           <span className={styles.state} data-kind={regime.stateKind}>{regime.state}</span>

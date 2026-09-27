@@ -586,12 +586,25 @@ export function buildRegimeProjection(input: {
 
     const allNodes = subgroups.flatMap((subgroup) => subgroup.nodes)
       .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""));
-    const interpreted = deriveInterpretedState(regimeStories, allNodes);
     const isRates = definition.slug === "global-cost-of-capital" && input.dossier?.rateRegime;
-    const state = isRates ? rateStateLabel(input.dossier!.rateRegime.state) : interpreted.state;
-    const stateKind = isRates ? "system1" as const : interpreted.kind;
+    const rateSensorState = isRates ? rateStateLabel(input.dossier!.rateRegime.state) : null;
+
+    // Parent Regimes are broader than any one deterministic sensor. Until the
+    // persisted Regime/System-2 projector exists, keep parent direction
+    // deliberately partial rather than promoting the Dossier rate sensor into
+    // a whole-Regime conclusion.
+    const state = isRates
+      ? `Rates ${rateSensorState!.toLowerCase()} · broader funding partial`
+      : regimeStories.length
+        ? "Active / story-led"
+        : "Unresolved";
+    const stateKind = isRates
+      ? "unresolved" as const
+      : regimeStories.length
+        ? "interpreted" as const
+        : "unresolved" as const;
     const confidence = isRates
-      ? input.dossier!.rateRegime.confidence || "UNRESOLVED"
+      ? `PARTIAL · rates ${input.dossier!.rateRegime.confidence || "UNRESOLVED"}`
       : regimeStories.length
         ? "STORY-LED"
         : "UNRESOLVED";
