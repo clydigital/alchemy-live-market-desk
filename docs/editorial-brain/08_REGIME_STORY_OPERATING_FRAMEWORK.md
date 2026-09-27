@@ -4,6 +4,8 @@
 
 The Live Desk should organise persistent market understanding around a small, governed set of **Regimes**.
 
+Implementation must also satisfy the binding failure-mode and rollout constraints in [Regime Implementation Hardening & Failure Modes](09_REGIME_IMPLEMENTATION_HARDENING.md). Where this framework describes the product model and the hardening document adds a stricter safety/integrity rule, the hardening rule wins.
+
 A Regime is the durable market environment. A Story is the current living interpretation of one branch inside that Regime. **What's New** is the dated delta that caused a Story or Regime state to change. Hybrid is the presentation and learning layer that explains the causal chain without becoming a second research brain.
 
 The user-facing hierarchy is:
@@ -797,6 +799,10 @@ The design must explicitly guard against:
 - hard-coded Story-slug monitors being recreated unnecessarily at Regime level;
 - Hybrid becoming a second source of truth.
 
+## Canonical sensor-source rule
+
+Regime UI must never create a second deterministic calculator for a signal already owned elsewhere in Live. In particular, Rates must consume the existing Dossier V2 `rate-regime/1`, policy-outlook and System 1 dollar-liquidity contracts, or a tested byte-equivalent shared successor. The long-term target is one shared, versioned System 1 sensor library consumed by Regimes, Dossier, Research Brain and Hybrid.
+
 ## Compatibility rules
 
 1. Existing Story synthesis, Story events, evidence lineage and immutable thesis versions remain canonical.
@@ -832,6 +838,17 @@ On Story pages, surface:
 - Hybrid deep link.
 
 No new reasoning stage is required.
+
+### Phase 1.5 — shadow and parity gate
+
+Before reader-facing Regime state:
+
+- run Regime projection in shadow mode;
+- pin Story-version and System 1 sensor manifests;
+- compare Rates against the existing `rate-regime/1` output;
+- verify no duplicate evidence counting;
+- verify no new Story/Regime writes are produced by repeated identical inputs;
+- expose interpretation lag and stale-state diagnostics.
 
 ### Phase 2 — read-only Regime layer
 
