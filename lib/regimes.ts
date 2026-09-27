@@ -392,6 +392,7 @@ function rateStateLabel(state: DossierPresentationV1["rateRegime"]["state"]) {
 
 function signalSubgroup(key: string) {
   if (key === "POLICY" || key === "FRONT_END") return "fed-front-end";
+  if (key === "TREASURY_SUPPLY") return "treasury-fiscal";
   if (key === "REAL_YIELDS" || key === "BREAKEVENS" || key === "LONG_END") return "long-end";
   return null;
 }
