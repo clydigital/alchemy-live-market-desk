@@ -1,0 +1,132 @@
+.wrap {
+  display: grid;
+  gap: 14px;
+}
+
+.summary {
+  display: grid;
+  gap: 9px;
+  padding: 15px;
+  border: 1px solid rgba(181,151,255,.15);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255,255,255,.024), rgba(255,255,255,.012));
+}
+
+.summaryHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.summary h3 {
+  margin: 0;
+  color: #f3effa;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.meta {
+  color: #868092;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.signalGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.signal {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(181,151,255,.13);
+  border-radius: 12px;
+  background: rgba(255,255,255,.016);
+}
+
+.signal[data-key="POLICY"],
+.signal[data-key="FRONT_END"] { border-color: rgba(74,166,255,.28); background: rgba(74,166,255,.035); }
+.signal[data-key="REAL_YIELDS"] { border-color: rgba(255,165,70,.3); background: rgba(255,165,70,.035); }
+.signal[data-key="BREAKEVENS"] { border-color: rgba(181,151,255,.3); background: rgba(181,151,255,.035); }
+.signal[data-key="LONG_END"] { border-color: rgba(255,84,117,.28); background: rgba(255,84,117,.03); }
+
+.signal span {
+  display: block;
+  color: #8f899d;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+.signal strong {
+  display: block;
+  margin: 7px 0;
+  color: #efebf6;
+  font-size: 12px;
+}
+
+.signal p {
+  margin: 0;
+  color: #aca7b9;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.lower {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.compact {
+  padding: 11px 12px;
+  border: 1px solid rgba(181,151,255,.11);
+  border-radius: 11px;
+  background: rgba(255,255,255,.012);
+}
+
+.compact strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #d9d4e4;
+  font-size: 10px;
+}
+
+.compact p {
+  margin: 0;
+  color: #9892a7;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.footer a {
+  color: #c49aff;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.footer span {
+  color: #7f798e;
+  font-size: 9px;
+}
+
+@media (max-width: 1100px) {
+  .signalGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .signalGrid, .lower { grid-template-columns: 1fr; }
+  .summaryHead { display: grid; }
+}
