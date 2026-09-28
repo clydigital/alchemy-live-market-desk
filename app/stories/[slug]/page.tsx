@@ -8,6 +8,7 @@ import detailStyles from "@/components/live-desk/story-detail.module.css";
 import { buildCaseMonitorBoards, caseMonitorForStory } from "@/lib/case-monitors";
 import { getDeskData } from "@/lib/data";
 import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
+import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
@@ -24,8 +25,13 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const story = data.stories.find((candidate) => candidate.slug === slug);
   if (!story) notFound();
-  const caseMonitor = caseMonitorForStory(await buildCaseMonitorBoards(data), slug);
-  const intelligenceRoom = await getIntelligenceStoryRoom(story.id);
+  const [caseMonitorBoards, intelligenceRoom, storyReasoningRows] = await Promise.all([
+    buildCaseMonitorBoards(data),
+    getIntelligenceStoryRoom(story.id),
+    getRegimeLiveReasoning([story.id]),
+  ]);
+  const caseMonitor = caseMonitorForStory(caseMonitorBoards, slug);
+  const storyReasoning = storyReasoningRows[0] || null;
 
   const legacyUpdates = data.updates.filter((update) => update.story_id === story.id);
   const versions = recordLayer.thesisVersions.filter((version) => version.story_id === story.id);
@@ -104,6 +110,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
         <nav className={detailStyles.recordIndex} aria-label="Story record sections">
           <span>Record index</span>
           <a href="#context">Why it matters</a>
+          <a href="#mechanism">Causal chain</a>
           <a href="#monitors">Live monitors</a>
           <a href="#thesis">Current thesis</a>
           <a href="#versions">Thesis versions</a>
@@ -168,6 +175,48 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 />
               ) : null}
             </div>
+          </Panel>
+        </div>
+
+        <div id="mechanism" className={detailStyles.sectionAnchor}>
+          <Panel
+            title="How this Story works"
+            description="Canonical System 2 reasoning only: the accepted hypothesis, mechanism and evidence-bounded causal edges that explain why this Story matters now."
+            action={<Link className={styles.link} href={regimeLinks[0] ? `/regimes/${regimeLinks[0].slug}?subgroup=${regimeLinks[0].subgroup}&view=live` : "/regimes"}>Open Regime LIVE →</Link>}
+          >
+            {storyReasoning ? (
+              <div className={detailStyles.reasoningGrid}>
+                <article className={styles.record}>
+                  <span className={styles.metaLabel}>CURRENT CANONICAL HYPOTHESIS</span>
+                  <h3>{storyReasoning.question || storyReasoning.statement}</h3>
+                  {storyReasoning.question ? <p>{storyReasoning.statement}</p> : null}
+                  <p><strong>Mechanism:</strong> {storyReasoning.mechanism}</p>
+                  <div className={styles.meta}>
+                    {Math.round(storyReasoning.confidence)}% hypothesis confidence · {storyReasoning.decisionState.replaceAll("_", " ")}
+                  </div>
+                </article>
+                {storyReasoning.causalChain.length ? (
+                  <div className={detailStyles.causalChain}>
+                    {storyReasoning.causalChain.map((edge, index) => (
+                      <article className={detailStyles.causalEdge} key={`${storyReasoning.hypothesisId}:${index}`}>
+                        <div className={detailStyles.edgePath}>
+                          <span>{edge.from}</span>
+                          <b>→ {edge.relationship} →</b>
+                          <span>{edge.to}</span>
+                        </div>
+                        <small>
+                          {edge.evidenceState.replaceAll("_", " ")} · {edge.evidenceCount} linked evidence record{edge.evidenceCount === 1 ? "" : "s"}
+                        </small>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <DataState title="No persisted causal edges" detail="A canonical hypothesis exists, but no structured causal-chain edges are persisted. The Story page will not manufacture a chain from prose." />
+                )}
+              </div>
+            ) : (
+              <DataState state="warn" title="Canonical causal chain not yet persisted" detail="This Story can remain current without a structured hypothesis chain. Regime and Story pages will not infer one from titles or headlines." />
+            )}
           </Panel>
         </div>
 
@@ -293,7 +342,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                     {intelligenceRoom.state.marketBelief ? <p><strong>Market belief:</strong> {intelligenceRoom.state.marketBelief}</p> : null}
                     {intelligenceRoom.state.divergence ? <p><strong>Divergence:</strong> {intelligenceRoom.state.divergence}</p> : null}
                     {intelligenceRoom.state.bias ? <div className={styles.meta}>Scenario: {intelligenceRoom.state.bias.replaceAll("_", " ")} · {intelligenceRoom.state.conviction === null ? "unscored" : `${Math.round(intelligenceRoom.state.conviction)} conviction`}</div> : null}
-                    <div className={styles.meta}>Novelty: {intelligenceRoom.state.noveltyClass || "not yet classified"} Â· Room: {intelligenceRoom.room?.status || "state only"}</div>
+                    <div className={styles.meta}>Novelty: {intelligenceRoom.state.noveltyClass || "not yet classified"} · Room: {intelligenceRoom.room?.status || "state only"}</div>
                   </article>
                 ) : null}
                 {intelligenceRoom.hypothesis ? (
@@ -329,7 +378,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                     </div>
                     {item.summary ? <p>{item.summary}</p> : null}
                     <div className={detailStyles.recordFooter}>
-                      <span>{item.confidence}% confidence Â· {formatDeskDate(item.eventAt)}</span>
+                      <span>{item.confidence}% confidence · {formatDeskDate(item.eventAt)}</span>
                       {item.provenanceUrls[0] ? <a className={detailStyles.recordLink} href={item.provenanceUrls[0]} target="_blank" rel="noreferrer">Provenance</a> : null}
                     </div>
                   </article>
@@ -340,7 +389,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                     {intelligenceRoom.relationships.map((relationship) => {
                       const from = intelligenceRoom.entities.find((entity) => entity.id === relationship.fromEntityId)?.name || relationship.fromEntityId.slice(0, 8);
                       const to = intelligenceRoom.entities.find((entity) => entity.id === relationship.toEntityId)?.name || relationship.toEntityId.slice(0, 8);
-                      return <p key={relationship.id}>{from} â†’ {relationship.relationship} â†’ {to} ({Math.round(relationship.confidence)}%)</p>;
+                      return <p key={relationship.id}>{from} → {relationship.relationship} → {to} ({Math.round(relationship.confidence)}%)</p>;
                     })}
                   </article>
                 ) : null}
