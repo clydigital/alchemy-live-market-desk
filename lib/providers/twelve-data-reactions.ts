@@ -191,7 +191,9 @@ export async function fetchTwelveDataReactionSnapshot(options: {
   fetchImpl?: FetchLike;
 }): Promise<TwelveDataReactionSnapshot> {
   const retrievedAt = new Date().toISOString();
-  const apiKey = options.apiKey ?? process.env.TWELVE_DATA_API_KEY ?? null;
+  const apiKey = options.apiKey === undefined
+    ? process.env.TWELVE_DATA_API_KEY ?? null
+    : options.apiKey;
   if (!apiKey?.trim()) {
     return {
       state: "unconfigured",
