@@ -351,6 +351,51 @@ export function buildMarketDossierV2InputFromResearchBrain(
   };
 }
 
+function currentSystem1State(packet: DossierV2InputPacket) {
+  const policyOutlook = buildDossierPolicyOutlook(packet);
+  const rateRegime = buildDossierRateRegime(packet, policyOutlook);
+  const dollarLiquidity = buildSystem1DollarLiquidity(packet);
+  const policyLiquidityInteraction = buildPolicyLiquidityInteraction(rateRegime, dollarLiquidity);
+  return { policyOutlook, rateRegime, dollarLiquidity, policyLiquidityInteraction };
+}
+
+function previousObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function system1StateTransitions(
+  previousDossier: MarketDossierV2,
+  current: ReturnType<typeof currentSystem1State>,
+) {
+  const transitions: string[] = [];
+  const priorRate = previousObject(previousDossier.payload?.system1_rate_regime);
+  if (
+    priorRate
+    && priorRate.contractVersion === current.rateRegime.contractVersion
+    && typeof priorRate.state === "string"
+    && priorRate.state !== current.rateRegime.state
+  ) transitions.push(`rate regime: ${priorRate.state} -> ${current.rateRegime.state}`);
+
+  const priorLiquidity = previousObject(previousDossier.payload?.system1_dollar_liquidity);
+  if (
+    priorLiquidity
+    && priorLiquidity.contractVersion === current.dollarLiquidity.contractVersion
+    && typeof priorLiquidity.state === "string"
+    && priorLiquidity.state !== current.dollarLiquidity.state
+  ) transitions.push(`dollar liquidity: ${priorLiquidity.state} -> ${current.dollarLiquidity.state}`);
+
+  const priorInteraction = previousObject(previousDossier.payload?.system1_policy_liquidity_interaction);
+  if (
+    priorInteraction
+    && typeof priorInteraction.alignment === "string"
+    && priorInteraction.alignment !== current.policyLiquidityInteraction.alignment
+  ) transitions.push(`policy/liquidity interaction: ${priorInteraction.alignment} -> ${current.policyLiquidityInteraction.alignment}`);
+
+  return transitions;
+}
+
 export async function executeAndPersistDossierV2(
   packet: DossierV2InputPacket,
   options: DossierV2ExecutionOptions = {},
@@ -387,6 +432,8 @@ export async function executeAndPersistDossierV2(
     });
   }
 
+  let analyticalOutput: ResearchBrainOutputV1 | null = null;
+
   console.info(JSON.stringify({
     event: "dossier_v2_delta_decision",
     packetId: packet.packet_id,
@@ -403,36 +450,45 @@ export async function executeAndPersistDossierV2(
     const priorAnalytical = previousDossier.payload?.analytical_output;
     if (
       priorAnalytical &&
-      typeof priorAnalytical === "object" &&
-      !Array.isArray(priorAnalytical)
+      typeof priorAnalytical === "object"
+      && !Array.isArray(priorAnalytical)
     ) {
-      return {
-        packet_id: packet.packet_id,
-        analytical_output: cloneJson(priorAnalytical as ResearchBrainOutputV1),
-        dossier_input: null,
-        dossier: previousDossier,
-        story_refresh_agenda: {
-          dossier_id: previousDossier.id,
-          status: "empty" as const,
-          candidates: 0,
-          enqueued: 0,
-          skipped_existing: 0,
-          items: [],
-        },
-        persisted: false,
-        delta_decision: decision,
+      const transitions = system1StateTransitions(previousDossier, currentSystem1State(packet));
+      if (!transitions.length) {
+        return {
+          packet_id: packet.packet_id,
+          analytical_output: cloneJson(priorAnalytical as ResearchBrainOutputV1),
+          dossier_input: null,
+          dossier: previousDossier,
+          story_refresh_agenda: {
+            dossier_id: previousDossier.id,
+            status: "empty" as const,
+            candidates: 0,
+            enqueued: 0,
+            skipped_existing: 0,
+            items: [],
+          },
+          persisted: false,
+          delta_decision: decision,
+        };
+      }
+
+      analyticalOutput = cloneJson(priorAnalytical as ResearchBrainOutputV1);
+      decision = {
+        ...decision,
+        action: "PATCH",
+        reason: `Deterministic System 1 state transition requires a sensor-state patch without a Research Brain call: ${transitions.join("; ")}.`,
+        postIntelligenceModelCallBudget: 0,
+      };
+    } else {
+      decision = {
+        ...decision,
+        action: "REBASE",
+        reason: "NO_CHANGE could not reuse the prior analytical payload safely; escalating to full synthesis.",
+        postIntelligenceModelCallBudget: 2,
       };
     }
-
-    decision = {
-      ...decision,
-      action: "REBASE",
-      reason: "NO_CHANGE could not reuse the prior analytical payload safely; escalating to full synthesis.",
-      postIntelligenceModelCallBudget: 2,
-    };
   }
-
-  let analyticalOutput: ResearchBrainOutputV1 | null = null;
 
   if (decision.action === "PATCH" && previousDossier) {
     const patch = buildDeterministicDossierPatch({
