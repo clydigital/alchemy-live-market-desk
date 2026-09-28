@@ -42,6 +42,8 @@ export type RegimeRoute = {
   score: number;
 };
 
+export type RegimeStoryMaturity = "durable" | "early" | "seed" | "episode";
+
 export type ProjectedStory = {
   id: string;
   slug: string;
@@ -55,6 +57,9 @@ export type ProjectedStory = {
   versionId: string | null;
   versionNumber: number | null;
   routes: RegimeRoute[];
+  maturity: RegimeStoryMaturity;
+  contributesToState: boolean;
+  maturityReason: string;
   hybridHref: string;
 };
 
@@ -85,6 +90,8 @@ export type ProjectedRegimeSubgroup = RegimeSubgroupDefinition & {
   state: string;
   stateKind: "system1" | "interpreted" | "unresolved";
   stories: ProjectedStory[];
+  durableStories: ProjectedStory[];
+  contextStories: ProjectedStory[];
   nodes: RegimeContributionNode[];
   telemetry: RegimeTelemetryItem[];
   latestAt: string | null;
@@ -96,6 +103,8 @@ export type ProjectedRegime = Omit<RegimeDefinition, "subgroups"> & {
   confidence: string;
   asOf: string | null;
   stories: ProjectedStory[];
+  durableStories: ProjectedStory[];
+  contextStories: ProjectedStory[];
   latestNode: RegimeContributionNode | null;
   subgroups: ProjectedRegimeSubgroup[];
   hybridHref: string;
@@ -299,6 +308,61 @@ function latestVersionsByStory(versions: StoryThesisVersion[]) {
   return map;
 }
 
+const EPISODIC_STORY_SLUGS = new Set([
+  "rates-led-same-session-repricing-overwhelms-summit-optics",
+]);
+
+export function classifyRegimeStory(
+  story: Story,
+  version?: StoryThesisVersion | null,
+): {
+  maturity: RegimeStoryMaturity;
+  contributesToState: boolean;
+  reason: string;
+} {
+  const confidence = version?.confidence ?? story.confidence;
+  const lifecycle = String(version?.status || story.status || "").trim().toLowerCase();
+  const editorialVerdict = String(version?.article_verdict ?? story.article_verdict ?? "").trim().toLowerCase();
+
+  if (EPISODIC_STORY_SLUGS.has(story.slug)) {
+    return {
+      maturity: "episode",
+      contributesToState: false,
+      reason: "Legacy event-like Story retained for context; it is too time-specific to define a durable Regime branch.",
+    };
+  }
+
+  if (editorialVerdict === "theme_seed_unverified") {
+    return {
+      maturity: "seed",
+      contributesToState: false,
+      reason: "Unverified theme seed: keep the branch visible, but do not let it drive Regime interpretation before evidence matures.",
+    };
+  }
+
+  if (confidence < 25) {
+    return {
+      maturity: "early",
+      contributesToState: false,
+      reason: `Early Story at ${confidence}% thesis confidence; visible for monitoring but below the Regime contribution gate.`,
+    };
+  }
+
+  if (/invalid|archive|dormant/.test(lifecycle)) {
+    return {
+      maturity: "early",
+      contributesToState: false,
+      reason: `Lifecycle is ${lifecycle || "inactive"}; retained for context but excluded from current Regime state.`,
+    };
+  }
+
+  return {
+    maturity: "durable",
+    contributesToState: true,
+    reason: "Accepted persistent Story with enough maturity to contribute to Regime interpretation.",
+  };
+}
+
 function storyText(story: Story, version?: StoryThesisVersion | null) {
   return [
     story.slug,
@@ -463,6 +527,7 @@ export function buildRegimeProjection(input: {
   const projectedStories: ProjectedStory[] = input.stories.map((story) => {
     const version = latestVersion.get(story.id) || null;
     const routes = routeStoryToRegimes(story, version);
+    const maturity = classifyRegimeStory(story, version);
     return {
       id: story.id,
       slug: story.slug,
@@ -476,6 +541,9 @@ export function buildRegimeProjection(input: {
       versionId: version?.id || null,
       versionNumber: version?.version_number ?? null,
       routes,
+      maturity: maturity.maturity,
+      contributesToState: maturity.contributesToState,
+      maturityReason: maturity.reason,
       hybridHref: `/hybrid-output?story=${encodeURIComponent(story.slug)}`,
     };
   });
@@ -498,7 +566,7 @@ export function buildRegimeProjection(input: {
           title: event.headline,
           detail: event.detail || "Story event recorded without additional detail.",
           timestamp: event.event_at,
-          state: eventState(event),
+          state: story.contributesToState ? eventState(event) : "context",
           sourceKind: "story_event",
           verification: event.impact,
           storyId: story.id,
@@ -517,7 +585,11 @@ export function buildRegimeProjection(input: {
     }
 
     const subgroups: ProjectedRegimeSubgroup[] = definition.subgroups.map((subgroup) => {
-      const stories = regimeStories.filter((story) => story.routes.some((route) => route.regime === definition.slug && route.subgroup === subgroup.key));
+      const stories = regimeStories
+        .filter((story) => story.routes.some((route) => route.regime === definition.slug && route.subgroup === subgroup.key))
+        .sort((left, right) => Number(right.contributesToState) - Number(left.contributesToState) || right.confidence - left.confidence || left.title.localeCompare(right.title));
+      const durableStories = stories.filter((story) => story.contributesToState);
+      const contextStories = stories.filter((story) => !story.contributesToState);
       const nodes = (eventNodesBySubgroup.get(subgroup.key) || [])
         .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""))
         .slice(0, 6);
@@ -559,7 +631,7 @@ export function buildRegimeProjection(input: {
         }
       }
 
-      const interpreted = deriveInterpretedState(stories, nodes);
+      const interpreted = deriveInterpretedState(durableStories, nodes);
       const telemetryState = telemetry.length
         ? telemetry.some((item) => /restrict|hawk|tight/i.test(item.state))
           ? "Restrictive / tighter"
@@ -575,6 +647,8 @@ export function buildRegimeProjection(input: {
         state: telemetryState || interpreted.state,
         stateKind: telemetryState ? "system1" : interpreted.kind,
         stories,
+        durableStories,
+        contextStories,
         nodes,
         telemetry,
         latestAt: timestampMax([
@@ -584,6 +658,8 @@ export function buildRegimeProjection(input: {
       };
     });
 
+    const durableRegimeStories = regimeStories.filter((story) => story.contributesToState);
+    const contextRegimeStories = regimeStories.filter((story) => !story.contributesToState);
     const allNodes = subgroups.flatMap((subgroup) => subgroup.nodes)
       .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""));
     const isRates = definition.slug === "global-cost-of-capital" && input.dossier?.rateRegime;
@@ -595,19 +671,23 @@ export function buildRegimeProjection(input: {
     // a whole-Regime conclusion.
     const state = isRates
       ? `Rates ${rateSensorState!.toLowerCase()} · broader funding partial`
-      : regimeStories.length
-        ? "Active / story-led"
-        : "Unresolved";
+      : durableRegimeStories.length
+        ? "Active / durable Stories"
+        : regimeStories.length
+          ? "Coverage gap / non-durable Stories"
+          : "Unresolved";
     const stateKind = isRates
       ? "unresolved" as const
-      : regimeStories.length
+      : durableRegimeStories.length
         ? "interpreted" as const
         : "unresolved" as const;
     const confidence = isRates
       ? `PARTIAL · rates ${input.dossier!.rateRegime.confidence || "UNRESOLVED"}`
-      : regimeStories.length
-        ? "STORY-LED"
-        : "UNRESOLVED";
+      : durableRegimeStories.length
+        ? "DURABLE STORY-LED"
+        : regimeStories.length
+          ? "COVERAGE GAP"
+          : "UNRESOLVED";
 
     return {
       ...definition,
@@ -619,6 +699,8 @@ export function buildRegimeProjection(input: {
         ...subgroups.map((subgroup) => subgroup.latestAt),
       ]),
       stories: regimeStories,
+      durableStories: durableRegimeStories,
+      contextStories: contextRegimeStories,
       latestNode: allNodes[0] || null,
       subgroups,
       hybridHref: `/hybrid-output?regime=${encodeURIComponent(definition.slug)}`,
