@@ -65,6 +65,14 @@ const PROBABILITY_CLAIM_REGEX = /\b(\d+(\.\d+)?%?\s*probability|probability\s*(o
 const GENERIC_CHART_TASK_REGEX = /^(check|look at|review|chart|see|watch)\s+(s&p|spx|yields|rates|gold|oil|btc|stocks|market|crypto|fx|dollar)$/i;
 const VAGUE_PLACEHOLDER_REGEX = /^(tbd|todo|n\/a|none|chart|unknown|placeholder|\?+)$/i;
 
+function normaliseAnalyticalProse(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9%]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 const REQUIRED_VERDICT_LENSES = [
   "US_RATES",
   "BONDS",
@@ -679,6 +687,16 @@ export function validateResearchBrainOutput(
       : null;
     const divergence = inv.divergence;
     const researchNext = typeof inv.research_next === "string" ? inv.research_next.trim() : "";
+    const competingExplanations = Array.isArray(inv.competing_explanations)
+      ? inv.competing_explanations.filter(
+          (item): item is string => typeof item === "string" && Boolean(item.trim()),
+        )
+      : [];
+    const missingEvidence = Array.isArray(inv.missing_evidence)
+      ? inv.missing_evidence.filter(
+          (item): item is string => typeof item === "string" && Boolean(item.trim()),
+        )
+      : [];
 
     if (!question || !whyItMatters || !currentExplanation || !researchNext) {
       errors.push(`investigations[${iIdx}] (${invId}) missing required question, why_it_matters, current_explanation, or research_next.`);
@@ -700,6 +718,22 @@ export function validateResearchBrainOutput(
       }
       if (!indexes.priceDataAvailable || !hasActualMarketPricingEvidence(obsEv, indexes)) {
         errors.push(`investigations[${iIdx}] (${invId}) divergence ${divergence} requires observed market/pricing evidence.`);
+      }
+
+      if (divergence === "PARTIAL" || divergence === "MATERIAL") {
+        if (
+          observedReaction
+          && normaliseAnalyticalProse(currentExplanation) === normaliseAnalyticalProse(observedReaction)
+        ) {
+          errors.push(
+            `investigations[${iIdx}] (${invId}) divergence ${divergence} current_explanation only restates observed_reaction; identify the failed, lagged, offset, or unproven transmission link instead.`,
+          );
+        }
+        if (competingExplanations.length === 0 && missingEvidence.length === 0) {
+          errors.push(
+            `investigations[${iIdx}] (${invId}) divergence ${divergence} requires at least one competing_explanation or missing_evidence item so the post-mortem does not present an untested cause as settled.`,
+          );
+        }
       }
     }
 
