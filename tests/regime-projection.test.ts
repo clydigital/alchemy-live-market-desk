@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import type { Story } from "../lib/data.ts";
 import type { DossierPresentationV1 } from "../lib/dossier-v2/presentation-adapter.ts";
-import type { StoryEvent } from "../lib/persistence/contracts.ts";
+import type { StoryEvent, StoryThesisVersion } from "../lib/persistence/contracts.ts";
 import {
   materialProjectionSignature,
   REGIME_PROJECTOR_CONTRACT_VERSION,
@@ -279,8 +279,8 @@ test("accepted Story-state changes alter the material Regime signature", () => {
 });
 
 
-test("Regime projector v2 makes Story maturity part of the persisted interpretation contract", () => {
-  assert.equal(REGIME_PROJECTOR_CONTRACT_VERSION, "regime-projector/2");
+test("Regime projector v3 includes stale Story maturity in the persisted interpretation contract", () => {
+  assert.equal(REGIME_PROJECTOR_CONTRACT_VERSION, "regime-projector/3");
 });
 
 test("unverified theme seeds stay mapped but cannot drive Regime state", () => {
@@ -431,4 +431,103 @@ test("changing only Story maturity changes the material Regime signature", () =>
     materialProjectionSignature(seed),
     materialProjectionSignature(durable),
   );
+});
+
+
+function thesisVersion(storyId: string, overrides: Partial<StoryThesisVersion> = {}): StoryThesisVersion {
+  return {
+    id: "version-stale",
+    story_id: storyId,
+    event_id: null,
+    version_number: 6,
+    title: "Weak jobs meet expensive oil; CPI becomes the tie-breaker",
+    thesis: "July CPI is therefore the cleanest near-term decision point for rates.",
+    status: "publish",
+    confidence: 100,
+    market_question: "Does CPI validate the rates repricing?",
+    dominant_narrative: null,
+    best_explanation: null,
+    strongest_support: null,
+    strongest_contradiction: null,
+    priced_assessment: null,
+    confirmation_trigger: null,
+    invalidation_trigger: null,
+    next_catalyst: null,
+    article_angle: null,
+    provisional_title: null,
+    article_verdict: "develop",
+    assets: ["US02Y", "US10Y"],
+    portfolio_map: {},
+    snapshot: {
+      maintenanceContext: {
+        operationalCatalystRefresh: true,
+        reasoningPatch: {
+          nextTest: {
+            label: "U.S. CPI and Real Earnings on 12 August 2026",
+            status: "expired",
+            dueAt: null,
+            expiresAt: "2026-09-28T06:53:39Z",
+          },
+        },
+      },
+    },
+    change_reason: "material_evidence_recalibration",
+    effective_at: "2026-09-28T06:53:39Z",
+    created_at: "2026-09-28T06:53:39Z",
+    created_by: null,
+    ...overrides,
+  };
+}
+
+test("expired decision-point Story remains mapped but becomes stale context until reframed", () => {
+  const fed = story({
+    id: "fed-stale",
+    slug: "fed-rate-repricing",
+    title: "Weak jobs meet expensive oil; CPI becomes the tie-breaker",
+    thesis: "July CPI is therefore the cleanest near-term decision point for rates.",
+    confidence: 100,
+    article_verdict: "develop",
+  });
+  const version = thesisVersion(fed.id);
+
+  const maturity = classifyRegimeStory(fed, version);
+  assert.equal(maturity.maturity, "stale");
+  assert.equal(maturity.contributesToState, false);
+
+  const rates = buildRegimeProjection({
+    stories: [fed],
+    events: [event({ story_id: fed.id, headline: "Old CPI framework remains unresolved" })],
+    versions: [version],
+    newsThreads: [],
+    statements: [],
+    dossier: null,
+  }).find((item) => item.slug === "global-cost-of-capital");
+
+  assert.ok(rates);
+  assert.equal(rates.durableStories.length, 0);
+  assert.equal(rates.contextStories[0]?.maturity, "stale");
+  const frontEnd = rates.subgroups.find((item) => item.key === "fed-front-end");
+  assert.ok(frontEnd);
+  assert.equal(frontEnd.durableStories.length, 0);
+  assert.equal(frontEnd.contextStories[0]?.maturity, "stale");
+  assert.ok(frontEnd.nodes.every((node) => node.state === "context"));
+});
+
+test("expired test does not stale a Story whose current framing no longer depends on that event", () => {
+  const productivity = story({
+    id: "productivity-current",
+    slug: "productivity-labor-share",
+    title: "Productivity gains now face a weaker-demand test",
+    thesis: "Productivity gains remain conditional on household demand holding up.",
+    confidence: 100,
+    article_verdict: "develop",
+  });
+  const version = thesisVersion(productivity.id, {
+    title: productivity.title,
+    thesis: productivity.thesis,
+  });
+
+  const maturity = classifyRegimeStory(productivity, version);
+  assert.equal(maturity.maturity, "durable");
+  assert.equal(maturity.contributesToState, true);
 });
