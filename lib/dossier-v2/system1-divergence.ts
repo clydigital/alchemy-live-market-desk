@@ -261,6 +261,15 @@ export function isSystem1ReactionTriggerEvidence(item: ObservedEvidence): boolea
   return RULES.some((rule) => evidenceMatchesRule(item, rule));
 }
 
+const INTRADAY_ENRICHMENT_MONITORS = new Set(["dxy", "gold", "smh"]);
+
+export function isSystem1IntradayReactionTriggerEvidence(item: ObservedEvidence): boolean {
+  return RULES.some((rule) =>
+    evidenceMatchesRule(item, rule)
+    && rule.expectations.some(([monitorId]) => INTRADAY_ENRICHMENT_MONITORS.has(monitorId))
+  );
+}
+
 function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
   return policyEvidence(packet)
     .filter((item) => evidenceMatchesRule(item, rule))
