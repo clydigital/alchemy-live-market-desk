@@ -308,3 +308,113 @@ begin
   end if;
 end;
 $$;
+
+
+-- A stale worker that finishes after a newer run must never overwrite current.
+do $$
+declare
+  newer_run uuid;
+  older_run uuid;
+  newer_version uuid;
+  stale_return_version uuid;
+  current_version uuid;
+  current_hash text;
+  fixture_story uuid;
+  fiscal_subgroup text := 'treasury-fiscal';
+  link_payload jsonb;
+  active_links integer;
+begin
+  insert into public.market_regime_projection_runs(
+    run_key, projection_mode, trigger_kind, contract_version,
+    status, input_manifest, input_hash, started_at
+  ) values (
+    'contract:stale:newer', 'shadow', 'dossier', 'regime-projector/1',
+    'started', '{}'::jsonb, repeat('5',64), now() + interval '1 minute'
+  ) returning id into newer_run;
+
+  select version_id
+  into newer_version
+  from public.persist_market_regime_projection_v1(
+    newer_run,
+    'global-cost-of-capital',
+    '{"regime":{"state":"newest"}}'::jsonb,
+    repeat('c',64),
+    '{"storyVersionIds":["newest"]}'::jsonb,
+    now(),
+    'Newest state',
+    'interpreted',
+    'STORY-LED',
+    'shadow_change'
+  );
+
+  select id into fixture_story
+  from public.stories
+  order by created_at, id
+  limit 1;
+
+  if fixture_story is null then
+    raise exception 'Regime contract fixture has no Story row for stale-link test';
+  end if;
+
+  link_payload := jsonb_build_array(jsonb_build_object(
+    'story_id', fixture_story,
+    'regime_slug', 'global-cost-of-capital',
+    'subgroup_key', fiscal_subgroup,
+    'role', 'core',
+    'confidence', 90
+  ));
+
+  perform * from public.sync_market_regime_story_links_v1(newer_run, link_payload);
+
+  insert into public.market_regime_projection_runs(
+    run_key, projection_mode, trigger_kind, contract_version,
+    status, input_manifest, input_hash, started_at
+  ) values (
+    'contract:stale:older', 'shadow', 'story_engine', 'regime-projector/1',
+    'started', '{}'::jsonb, repeat('6',64), now() - interval '1 hour'
+  ) returning id into older_run;
+
+  select version_id
+  into stale_return_version
+  from public.persist_market_regime_projection_v1(
+    older_run,
+    'global-cost-of-capital',
+    '{"regime":{"state":"stale-worker"}}'::jsonb,
+    repeat('d',64),
+    '{"storyVersionIds":["stale"]}'::jsonb,
+    now(),
+    'Stale worker state',
+    'interpreted',
+    'STORY-LED',
+    'shadow_change'
+  );
+
+  select version_id, snapshot_hash
+  into current_version, current_hash
+  from public.market_regime_current
+  where regime_id=(select id from public.market_regimes where slug='global-cost-of-capital')
+    and projection_mode='shadow';
+
+  if current_version <> newer_version
+     or stale_return_version <> newer_version
+     or current_hash <> repeat('c',64) then
+    raise exception 'Stale Regime worker overwrote newer current projection';
+  end if;
+
+  perform * from public.sync_market_regime_story_links_v1(older_run, '[]'::jsonb);
+
+  select count(*) into active_links
+  from public.market_regime_story_links link
+  join public.market_regimes regime on regime.id=link.regime_id
+  join public.market_regime_subgroups subgroup on subgroup.id=link.subgroup_id
+  where link.story_id=fixture_story
+    and regime.slug='global-cost-of-capital'
+    and subgroup.subgroup_key=fiscal_subgroup
+    and link.role='core'
+    and link.effective_to is null;
+
+  if active_links <> 1 then
+    raise exception 'Stale Regime worker expired newer active Story link';
+  end if;
+end;
+$$;
