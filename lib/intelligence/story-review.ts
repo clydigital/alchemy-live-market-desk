@@ -1,11 +1,17 @@
 import type { EvidencePackItem, ExistingStoryPackItem, StoryReviewTargetPackItem } from "./schemas.ts";
 import { isCanonicalEligibleEvidence, isScheduledEvidence } from "./source-verification.ts";
+import {
+  assessStoryCatalyst,
+  catalystTimestamp,
+  shouldRecalibrateExpiredCatalyst,
+} from "../story-hygiene.ts";
 
 export const MAX_STORY_REVIEW_TARGETS = 4;
 export const MAX_STORY_REVIEW_EVIDENCE = 10;
 
 export type StoryReviewReason =
   | "explicit_queue"
+  | "catalyst_expired"
   | "criteria_evidence"
   | "overdue_critical_debt"
   | "contradictory_evidence"
@@ -57,6 +63,8 @@ export type StoryReviewContext = {
     nextCheckAt: string | null;
   }>;
   dueCatalysts: string[];
+  expiredCatalysts: string[];
+  catalystRecalibrationRequired: boolean;
   triggerEvidenceIds: string[];
   catalystCandidates: Array<{
     label: string;
@@ -67,12 +75,13 @@ export type StoryReviewContext = {
 
 const REASON_RANK: Record<StoryReviewReason, number> = {
   explicit_queue: 1,
-  criteria_evidence: 2,
-  overdue_critical_debt: 3,
-  contradictory_evidence: 4,
-  supporting_evidence: 5,
-  catalyst_due: 6,
-  review_age: 7,
+  catalyst_expired: 2,
+  criteria_evidence: 3,
+  overdue_critical_debt: 4,
+  contradictory_evidence: 5,
+  supporting_evidence: 6,
+  catalyst_due: 7,
+  review_age: 8,
 };
 
 const EVIDENCE_ROLE_RANK: Record<string, number> = {
@@ -96,26 +105,16 @@ function reviewAgeHours(status: string) {
   return 72;
 }
 
-function catalystTime(value: string) {
-  const iso = value.match(/\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-Z]+)?\b/)?.[0];
-  if (iso) return milliseconds(iso);
-
-  const natural = value.match(
-    /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i,
-  );
-  if (!natural) return null;
-  const parsed = Date.parse(`${natural[2]} ${natural[1]}, ${natural[3]} 12:00:00 UTC`);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function scheduledCatalystCandidate(item: EvidencePackItem) {
+function scheduledCatalystCandidate(item: EvidencePackItem, nowMs: number) {
   if (!isScheduledEvidence(item)) return null;
   const title = typeof item.structuredPayload?.title === "string"
     ? item.structuredPayload.title.trim()
     : "";
-  const eventDate = item.eventAt && Number.isFinite(Date.parse(item.eventAt))
-    ? item.eventAt.slice(0, 10)
-    : "";
+  const eventMs = item.eventAt && Number.isFinite(Date.parse(item.eventAt))
+    ? Date.parse(item.eventAt)
+    : null;
+  if (eventMs !== null && eventMs < nowMs) return null;
+  const eventDate = eventMs !== null ? new Date(eventMs).toISOString().slice(0, 10) : "";
   const baseLabel = title || item.claim.trim();
   if (!baseLabel) return null;
   return {
@@ -183,19 +182,32 @@ export function selectStoryReviewTargets(input: {
     const overdueCriticalDebt = relevantDebt.filter((debt) => ["high", "critical"].includes(debt.severity)
       && (milliseconds(debt.nextCheckAt) ?? Number.POSITIVE_INFINITY) <= nowMs);
     const dueCatalysts = story.nextCatalysts.filter((catalyst) => {
-      const due = catalystTime(catalyst);
+      const due = catalystTimestamp(catalyst);
       return due !== null && due <= nowMs && due > lastEvaluated;
     });
+    const expiredCatalysts = story.nextCatalysts.filter((catalyst) => {
+      const assessment = assessStoryCatalyst({ nextCatalyst: catalyst, now: input.now });
+      return assessment.status === "expired";
+    });
+    const catalystRecalibrationRequired = expiredCatalysts.some((catalyst) =>
+      shouldRecalibrateExpiredCatalyst({
+        assessment: assessStoryCatalyst({ nextCatalyst: catalyst, now: input.now }),
+        lastEvaluatedAt: story.lastEvaluatedAt,
+        now: input.now,
+      }),
+    );
     const catalystCandidates = [
       ...[...new Set(story.nextCatalysts.map((value) => value.trim()).filter(Boolean))]
+        .filter((label) => !expiredCatalysts.includes(label))
         .map((label) => ({ label, catalystRef: null })),
       ...relevantEvidence.flatMap((item) => {
-        const candidate = scheduledCatalystCandidate(item);
+        const candidate = scheduledCatalystCandidate(item, nowMs);
         return candidate ? [candidate] : [];
       }),
     ];
     const reasons: StoryReviewReason[] = [];
     if (availableQueue.length) reasons.push("explicit_queue");
+    if (catalystRecalibrationRequired) reasons.push("catalyst_expired");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");
     if (overdueCriticalDebt.length) reasons.push("overdue_critical_debt");
     if (fresh.some((item) => item.supportDirection === "contradicting" || linkRoles.get(item.id) === "contradicting")) reasons.push("contradictory_evidence");
@@ -215,6 +227,8 @@ export function selectStoryReviewTargets(input: {
         nextCheckAt: debt.nextCheckAt,
       })),
       dueCatalysts,
+      expiredCatalysts,
+      catalystRecalibrationRequired,
       triggerEvidenceIds: [...new Set([
         ...fresh.map((item) => item.id),
         ...requestedEvidenceIds,
