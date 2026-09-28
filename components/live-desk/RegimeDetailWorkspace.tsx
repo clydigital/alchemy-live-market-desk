@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import type { DossierPresentationInvestigation } from "@/lib/dossier-v2/presentation-adapter";
+import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
@@ -36,7 +36,7 @@ export default function RegimeDetailWorkspace({
   initialView?: "understand" | "live";
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
-  investigations: DossierPresentationInvestigation[];
+  investigations: RoutedDossierInvestigation[];
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
     ? initialSubgroup!
@@ -58,10 +58,13 @@ export default function RegimeDetailWorkspace({
     })
     : [];
   const subgroupInvestigations = useMemo(() => {
-    if (!subgroup) return [];
-    const storyIds = new Set(subgroup.durableStories.map((story) => story.id));
-    return investigations.filter((item) => item.storyIds.some((storyId) => storyIds.has(storyId)));
-  }, [investigations, subgroup]);
+    if (!subgroup || !subgroup.durableStories.length) return [];
+    return investigations.filter((item) =>
+      item.regimeRoutes.some((route) =>
+        route.regime === regime.slug && route.subgroup === subgroup.key
+      )
+    );
+  }, [investigations, regime.slug, subgroup]);
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
