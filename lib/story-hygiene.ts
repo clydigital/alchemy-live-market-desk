@@ -36,7 +36,7 @@ function validIso(value: unknown) {
 export function catalystTimestamp(label: string | null | undefined) {
   if (!label) return null;
 
-  const iso = label.match(/\\b\\d{4}-\\d{2}-\\d{2}(?:[T ][0-9:.+\\-Z]+)?\\b/)?.[0];
+  const iso = label.match(/\b\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+Z-]+)?\b/)?.[0];
   if (iso) {
     const parsed = Date.parse(iso);
     if (Number.isFinite(parsed)) return parsed;
