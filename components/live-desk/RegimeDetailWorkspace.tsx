@@ -144,16 +144,24 @@ export default function RegimeDetailWorkspace({
                 <small>What it is → why it matters → what to watch</small>
               </header>
               <div className={styles.conceptGrid}>
-                {explanation.concepts.map((concept) => (
-                  <article className={styles.conceptCard} key={concept.key}>
-                    <h3>{concept.label}</h3>
-                    <p>{concept.definition}</p>
-                    <p><strong>Why it matters here:</strong> {concept.whyItMatters}</p>
-                    <div className={styles.watchRow}>
-                      {concept.watch.map((item) => <span key={item}>{item}</span>)}
-                    </div>
-                  </article>
-                ))}
+                {explanation.concepts.map((concept) => {
+                  const returnPath = `/regimes/${regime.slug}?view=understand#concept-${concept.key}`;
+                  return (
+                    <article className={styles.conceptCard} id={`concept-${concept.key}`} key={concept.key}>
+                      <h3>
+                        <Link href={`/concepts/${concept.key}?from=${encodeURIComponent(returnPath)}`}>{concept.label}</Link>
+                      </h3>
+                      <p>{concept.definition}</p>
+                      <p><strong>Why it matters here:</strong> {concept.whyItMatters}</p>
+                      <div className={styles.watchRow}>
+                        {concept.watch.map((item) => <span key={item}>{item}</span>)}
+                      </div>
+                      <Link className={styles.conceptLink} href={`/concepts/${concept.key}?from=${encodeURIComponent(returnPath)}`}>
+                        Open Concept →
+                      </Link>
+                    </article>
+                  );
+                })}
               </div>
             </section>
           ) : null}
