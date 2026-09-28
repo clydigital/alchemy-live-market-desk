@@ -24,6 +24,8 @@ export type System1PolicyExpectationCheck = {
   }>;
 };
 
+export type System1ReactionWindowKey = "5m" | "30m" | "4h" | "session_close" | "next_session";
+
 export type System1ReactionAssessment = {
   check_id: string;
   rule_id: string;
@@ -35,7 +37,8 @@ export type System1ReactionAssessment = {
   observed_change_pct: number;
   observed_instrument: string;
   is_proxy: boolean;
-  reaction_window: "5m" | "30m" | "4h" | null;
+  reaction_window: System1ReactionWindowKey | null;
+  reaction_windows: Array<{ window: System1ReactionWindowKey; observed_change_pct: number }>;
   timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
   relation: "ALIGNED" | "DIVERGENT";
   severity: "MEDIUM" | "HIGH";
@@ -170,6 +173,43 @@ function metricBoolean(evidence: ObservedEvidence | undefined, key: string): boo
   return evidence?.metrics?.[key] === true;
 }
 
+const SYSTEM1_REACTION_WINDOWS = new Set<System1ReactionWindowKey>([
+  "5m",
+  "30m",
+  "4h",
+  "session_close",
+  "next_session",
+]);
+
+function metricReactionWindows(
+  evidence: ObservedEvidence | undefined,
+): Array<{ window: System1ReactionWindowKey; observed_change_pct: number }> {
+  const raw = evidence?.metrics?.reaction_windows;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+
+  return Object.entries(raw as Record<string, unknown>)
+    .flatMap(([window, value]) => {
+      if (!SYSTEM1_REACTION_WINDOWS.has(window as System1ReactionWindowKey)) return [];
+      if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+      const change = (value as Record<string, unknown>).change_pct;
+      if (typeof change !== "number" || !Number.isFinite(change)) return [];
+      return [{
+        window: window as System1ReactionWindowKey,
+        observed_change_pct: change,
+      }];
+    })
+    .sort((left, right) => {
+      const rank: Record<System1ReactionWindowKey, number> = {
+        "5m": 0,
+        "30m": 1,
+        "4h": 2,
+        "session_close": 3,
+        "next_session": 4,
+      };
+      return rank[left.window] - rank[right.window];
+    });
+}
+
 function timestamp(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -295,7 +335,8 @@ function marketMove(
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   observedInstrument: string | null;
   isProxy: boolean;
-  reactionWindow: "5m" | "30m" | "4h" | null;
+  reactionWindow: System1ReactionWindowKey | null;
+  reactionWindows: Array<{ window: System1ReactionWindowKey; observed_change_pct: number }>;
 } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
@@ -310,10 +351,20 @@ function marketMove(
       const eventTriggerId = metricString(item, "trigger_evidence_id");
       if (eventChange !== null && eventTriggerId === trigger.evidence_id) {
         const rawWindow = metricString(item, "reaction_window");
-        const reactionWindow: "5m" | "30m" | "4h" | null =
-          rawWindow === "5m" || rawWindow === "30m" || rawWindow === "4h"
-            ? rawWindow
+        const reactionWindow =
+          rawWindow && SYSTEM1_REACTION_WINDOWS.has(rawWindow as System1ReactionWindowKey)
+            ? rawWindow as System1ReactionWindowKey
             : null;
+        const reactionWindows = metricReactionWindows(item);
+        if (
+          reactionWindow
+          && !reactionWindows.some((window) => window.window === reactionWindow)
+        ) {
+          reactionWindows.push({
+            window: reactionWindow,
+            observed_change_pct: eventChange,
+          });
+        }
         return [{
           evidence: item,
           timingPrecision,
@@ -322,6 +373,7 @@ function marketMove(
           observedInstrument: metricString(item, "observed_instrument"),
           isProxy: metricBoolean(item, "is_proxy"),
           reactionWindow,
+          reactionWindows,
         }];
       }
 
@@ -335,6 +387,7 @@ function marketMove(
         observedInstrument: metricString(item, "observed_instrument") ?? metricString(item, "symbol"),
         isProxy: metricBoolean(item, "is_proxy"),
         reactionWindow: null,
+        reactionWindows: [],
       }];
     })
     .sort((left, right) =>
@@ -351,6 +404,7 @@ function marketMove(
         observedInstrument: match.observedInstrument,
         isProxy: match.isProxy,
         reactionWindow: match.reactionWindow,
+        reactionWindows: match.reactionWindows,
       }
     : null;
 }
@@ -410,6 +464,7 @@ function system1ReactionAssessments(
         observed_instrument: move.observedInstrument ?? instrument,
         is_proxy: move.isProxy,
         reaction_window: move.reactionWindow,
+        reaction_windows: move.reactionWindows,
         timing_precision: move.timingPrecision,
         relation: observed === expected ? "ALIGNED" : "DIVERGENT",
         severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",
