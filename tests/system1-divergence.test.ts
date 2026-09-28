@@ -322,6 +322,30 @@ test("FedWatch repricing is confirming evidence, not a second monetary-policy tr
   assert.equal(outlook[0]?.trigger_evidence_id, "ev:pmi:strong");
 });
 
+test("Structured signal_context overrides contradictory prose", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:structured-weak",
+      claim_or_fact: "Flash manufacturing PMI was reported above expected in an earlier headline, but the canonical surprise classification is weak.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T10:00:00Z",
+      occurrence_time: "2026-09-22T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "WEAK_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI_CANONICAL" }],
+    }],
+    [],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.rule_id, "WEAK_ACTIVITY_SURPRISE");
+  assert.equal(outlook[0]?.trigger_evidence_id, "ev:pmi:structured-weak");
+});
+
 test("Policy outlook never fabricates a numeric FedWatch probability", () => {
   const packet = packetWith(
     [{
