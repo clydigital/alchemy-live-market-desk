@@ -64,6 +64,15 @@ interface PreviousDossierResolution {
   analyticalBaseline: MarketDossierV2 | null;
 }
 
+function hasResearchBrainDegradedGap(dossier: MarketDossierV2): boolean {
+  return dossier.research_gaps.some((gap) => (
+    Boolean(gap)
+    && typeof gap === "object"
+    && !Array.isArray(gap)
+    && (gap as { category?: unknown }).category === "RESEARCH_BRAIN_DEGRADED"
+  ));
+}
+
 function isMissingDossierTableError(error: { code?: string | null; message?: string | null } | null): boolean {
   if (!error) return false;
   const code = String(error.code ?? "");
@@ -123,7 +132,7 @@ async function resolveLatestDossier(
       : null;
   const latestDegraded =
     diagnostics?.degraded === true
-    || latest.research_gaps.some((gap) => gap.category === "RESEARCH_BRAIN_DEGRADED");
+    || hasResearchBrainDegradedGap(latest);
 
   if (!latestDegraded && analytical) {
     return {
@@ -174,9 +183,7 @@ async function resolveLatestDossier(
 
         return (
           candidateDiagnostics?.degraded !== true
-          && !candidate.research_gaps.some(
-            (gap) => gap.category === "RESEARCH_BRAIN_DEGRADED",
-          )
+          && !hasResearchBrainDegradedGap(candidate)
         );
       }) ?? null;
 
