@@ -250,6 +250,7 @@ jobs:
             dossierDecision,
             persistedDossier,
             currentDossier,
+            system2Activation,
             packetSummary: {
               packetId: .packetSummary.packetId,
               asOf: .packetSummary.asOf,
@@ -266,6 +267,50 @@ jobs:
           state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
           if [[ "$state" != "completed" ]]; then
             echo "Automatic Dossier V2 handoff ended in state: ${state:-missing}" >&2
+            exit 1
+          fi
+
+      - name: Consume Dossier-triggered System 2 activation
+        if: ${{ env.MODE == 'research' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DOSSIER_RESPONSE="$RUNNER_TEMP/dossier-v2-auto-handoff.json"
+          if [[ ! -f "$DOSSIER_RESPONSE" ]]; then
+            echo "Dossier response is unavailable; cannot inspect System 2 activation." >&2
+            exit 1
+          fi
+
+          queued="$(jq -r '.system2Activation.enqueued // 0' "$DOSSIER_RESPONSE")"
+          if [[ ! "$queued" =~ ^[0-9]+$ ]]; then
+            echo "Invalid System 2 activation count: $queued" >&2
+            exit 1
+          fi
+          if (( queued == 0 )); then
+            echo "No Dossier-triggered System 2 Story reevaluation was queued."
+            exit 0
+          fi
+
+          echo "Consuming $queued Dossier-triggered System 2 Story reevaluation target(s)."
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          retry_key="s2-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          body="$(jq -cn             --arg slot "$SLOT"             --arg retryKey "$retry_key"             '{slot:$slot,stage:"maintenance",retryKey:$retryKey}')"
+          http_status="$(curl --silent --show-error --max-time 305             -o "$response_file" -w '%{http_code}'             -H "Authorization: Bearer $oidc_token"             -H "Content-Type: application/json"             --data "$body"             "$PROD_URL/api/admin/research/run")"
+
+          jq -c '{status,slot,runKey,engineRunId,storiesConsidered,storiesPublished,warnings}' "$response_file"
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Dossier-triggered System 2 maintenance returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$response_file")"
+          if [[ "$state" != "completed" ]]; then
+            echo "Dossier-triggered System 2 maintenance ended in state: ${state:-missing}" >&2
             exit 1
           fi
 
