@@ -8,6 +8,10 @@ const migration = fs.readFileSync(
   path.join(root, "supabase", "migrations", "20260928065000_story_catalyst_expiry_recalibration.sql"),
   "utf8",
 );
+const baseMaintenance = fs.readFileSync(
+  path.join(root, "supabase", "migrations", "20260823220916_existing_story_maintenance_contract_v1.sql"),
+  "utf8",
+);
 
 test("expired catalyst migration is operational housekeeping, not thesis mutation", () => {
   assert.match(migration, /current_catalyst_expired boolean := false/);
@@ -28,7 +32,8 @@ test("clearing an expired catalyst preserves an immutable expired nextTest marke
   assert.match(migration, /'status', 'expired'/);
   assert.match(migration, /expired_next_test/);
   assert.match(migration, /jsonb_build_object\('nextTest', expired_next_test\)/);
-  assert.match(migration, /story_maintenance_reasoning_for_version/);
+  assert.match(migration, /reasoning_patch/);
+  assert.match(baseMaintenance, /story_maintenance_reasoning_for_version/);
 });
 
 test("migration cannot accept an arbitrary model catalyst outside frozen candidates", () => {
