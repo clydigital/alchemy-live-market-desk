@@ -169,3 +169,26 @@ test("daily asset state fails closed instead of substituting ETF proxies", () =>
   assert.equal(state.assets.find((item) => item.key === "BITCOIN")?.last, null);
   assert.match(state.limitations.join(" "), /fails closed/i);
 });
+
+
+test("gold badge stays tactical when current tape is bearish even if structural language is bullish", () => {
+  const currentMonitor = monitor();
+  const goldRow = currentMonitor.rows.find((item: any) => item.id === "gold");
+  goldRow.last = 4118.8;
+  goldRow.previousClose = 4321.02;
+  goldRow.dayChange = -4.68;
+
+  const currentPresentation = presentation();
+  const goldLens = currentPresentation.regimeStrip.find((item: any) => item.key === "GOLD");
+  goldLens.reaction = "Gold is weaker intraweek, consistent with rates/USD dominance over safe-haven bids.";
+  goldLens.interpretation = "Gold remains structurally bullish, but rising real yields and USD strength are crowding out geopolitical safe-haven flows.";
+
+  const state = buildDailyAssetState({
+    monitor: currentMonitor,
+    presentation: currentPresentation,
+  });
+  const gold = state.assets.find((item) => item.key === "GOLD");
+
+  assert.equal(gold?.dailyChange, -4.68);
+  assert.equal(gold?.bias, "BEARISH");
+});
