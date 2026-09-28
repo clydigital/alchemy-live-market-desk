@@ -1320,7 +1320,6 @@ export async function loadCanonicalCandidateSnapshot(
   const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
   const calendarTo = new Date(asOfMs);
 
-  const intradayReactionTriggers = selectIntradayReactionTriggers(result, options.asOf);
   const [
     marketMonitorResult,
     eiaResult,
@@ -1328,7 +1327,6 @@ export async function loadCanonicalCandidateSnapshot(
     nyFedResult,
     dealerResult,
     treasuryBillsResult,
-    twelveDataReactionResult,
   ] = await Promise.allSettled([
     import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
     fetchEiaWeeklyPetroleumSnapshot(),
@@ -1339,10 +1337,6 @@ export async function loadCanonicalCandidateSnapshot(
     fetchNyFedReferenceRates(new Date(asOfMs)),
     fetchNyFedPrimaryDealers(new Date(asOfMs)),
     fetchTreasuryBills(new Date(asOfMs)),
-    fetchTwelveDataReactionSnapshot({
-      asOf: options.asOf,
-      triggers: intradayReactionTriggers,
-    }),
   ]);
 
   if (marketMonitorResult.status === "fulfilled") {
@@ -1357,22 +1351,6 @@ export async function loadCanonicalCandidateSnapshot(
       market_monitor: {
         status: "WARNING",
         message: `Existing Live market monitor was unavailable to Dossier V2: ${marketMonitorResult.reason instanceof Error ? marketMonitorResult.reason.message : String(marketMonitorResult.reason)}`,
-      },
-    };
-  }
-
-  if (twelveDataReactionResult.status === "fulfilled") {
-    result = augmentCandidateSnapshotWithTwelveDataReactions(
-      result,
-      twelveDataReactionResult.value,
-      options,
-    );
-  } else {
-    result.snapshot.sources_status = {
-      ...(result.snapshot.sources_status ?? {}),
-      twelve_data_intraday_reactions: {
-        status: "OPTIONAL_UNAVAILABLE",
-        message: `Optional Twelve Data intraday enrichment failed closed: ${twelveDataReactionResult.reason instanceof Error ? twelveDataReactionResult.reason.message : String(twelveDataReactionResult.reason)}`,
       },
     };
   }
@@ -1423,6 +1401,29 @@ export async function loadCanonicalCandidateSnapshot(
       trading_economics_us_calendar: {
         status: "OPTIONAL_UNAVAILABLE",
         message: `Optional Trading Economics enrichment failed closed: ${tradingEconomicsResult.reason instanceof Error ? tradingEconomicsResult.reason.message : String(tradingEconomicsResult.reason)}`,
+      },
+    };
+  }
+
+  // Intraday reactions are deliberately second-stage enrichment: the trigger
+  // set must include freshly admitted macro-calendar observations above.
+  const intradayReactionTriggers = selectIntradayReactionTriggers(result, options.asOf);
+  try {
+    const twelveDataReactions = await fetchTwelveDataReactionSnapshot({
+      asOf: options.asOf,
+      triggers: intradayReactionTriggers,
+    });
+    result = augmentCandidateSnapshotWithTwelveDataReactions(
+      result,
+      twelveDataReactions,
+      options,
+    );
+  } catch (error) {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      twelve_data_intraday_reactions: {
+        status: "OPTIONAL_UNAVAILABLE",
+        message: `Optional Twelve Data intraday enrichment failed closed: ${error instanceof Error ? error.message : String(error)}`,
       },
     };
   }
