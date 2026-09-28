@@ -101,6 +101,7 @@ export function openAIResearchBrainEnabled(): boolean {
 export function normalizeResearchBrainOutputReferences(
   output: unknown,
   system1Candidates: unknown[] = [],
+  system1ReactionAssessments: unknown[] = [],
 ): unknown {
   if (!output || typeof output !== "object" || Array.isArray(output)) return output;
 
@@ -127,6 +128,14 @@ export function normalizeResearchBrainOutputReferences(
     const marketId = typeof item.market_evidence_id === "string" ? item.market_evidence_id : null;
     return triggerId && marketId ? [{ triggerId, marketId }] : [];
   });
+  const system1AlignedEvidencePairs = system1ReactionAssessments.flatMap((assessment) => {
+    if (!assessment || typeof assessment !== "object" || Array.isArray(assessment)) return [];
+    const item = assessment as Record<string, unknown>;
+    if (item.relation !== "ALIGNED") return [];
+    const triggerId = typeof item.trigger_evidence_id === "string" ? item.trigger_evidence_id : null;
+    const marketId = typeof item.market_evidence_id === "string" ? item.market_evidence_id : null;
+    return triggerId && marketId ? [{ triggerId, marketId }] : [];
+  });
 
   let normalizedCount = 0;
   if (Array.isArray(root.investigations)) {
@@ -145,14 +154,18 @@ export function normalizeResearchBrainOutputReferences(
       const hasDeterministicMismatch = system1EvidencePairs.some(
         ({ triggerId, marketId }) => observedIds.has(triggerId) && observedIds.has(marketId),
       );
+      const hasDeterministicAlignment = system1AlignedEvidencePairs.some(
+        ({ triggerId, marketId }) => observedIds.has(triggerId) && observedIds.has(marketId),
+      );
       const isSupportedMismatch = (divergence === "PARTIAL" || divergence === "MATERIAL") &&
         hasDeterministicMismatch;
+      const isSupportedAlignment = divergence === "NONE" && hasDeterministicAlignment;
 
-      // V1 is deliberately conservative: System 1 only emits mismatches, so it
-      // can support PARTIAL/MATERIAL but can never prove alignment (NONE).
+      // V1 remains fail-closed. PARTIAL/MATERIAL need a deterministic mismatch
+      // pair; NONE needs a chronology-safe deterministic aligned pair.
       // General research questions, missing confirmation, level comparisons,
-      // and model-authored NONE labels all stay unresolved.
-      if (!isSupportedMismatch) {
+      // and model-authored labels without the exact pair stay unresolved.
+      if (!isSupportedMismatch && !isSupportedAlignment) {
         investigation.divergence = "UNRESOLVED";
         normalizedCount++;
       }
@@ -507,9 +520,13 @@ export async function executeResearchBrain(
   const system1Candidates = Array.isArray(prompt.boundedInput.system1_divergence_candidates)
     ? prompt.boundedInput.system1_divergence_candidates
     : [];
+  const system1ReactionAssessments = Array.isArray(prompt.boundedInput.system1_reaction_assessments)
+    ? prompt.boundedInput.system1_reaction_assessments
+    : [];
   console.info(JSON.stringify({
     event: "research_brain_system1_screen",
     packetId: packet.packet_id,
+    reactionAssessmentCount: system1ReactionAssessments.length,
     candidateCount: system1Candidates.length,
     candidates: system1Candidates,
   }));
@@ -535,7 +552,11 @@ export async function executeResearchBrain(
 
   // Step 5: Apply safe clerical normalization, then run deterministic validation.
   // This never changes analytical content or referenced IDs.
-  firstPassData = normalizeResearchBrainOutputReferences(firstPassData, system1Candidates);
+  firstPassData = normalizeResearchBrainOutputReferences(
+    firstPassData,
+    system1Candidates,
+    system1ReactionAssessments,
+  );
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
@@ -560,7 +581,11 @@ export async function executeResearchBrain(
         schema: jsonSchema,
       });
 
-      const normalizedRepairData = normalizeResearchBrainOutputReferences(repairRes.data, system1Candidates);
+      const normalizedRepairData = normalizeResearchBrainOutputReferences(
+        repairRes.data,
+        system1Candidates,
+        system1ReactionAssessments,
+      );
       const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
