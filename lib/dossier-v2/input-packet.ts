@@ -1476,6 +1476,7 @@ export function assembleDossierV2InputPacket(
             : "UNRESOLVED";
         const status =
           raw.status === "open"
+          || raw.status === "strengthened"
           || raw.status === "weakened"
           || raw.status === "resolved"
           || raw.status === "parked"
