@@ -626,7 +626,7 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
           current_explanation: "Transmission remains incomplete.",
           competing_explanations: ["Tech leadership may be masking broader pressure."],
           research_next: "Watch credit and breadth.",
-          status: "open",
+          status: "strengthened",
           linked_story_ids: ["story:duration"],
           linked_thesis_ids: ["thesis:duration"],
         }],
@@ -707,6 +707,10 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
   assert.equal(
     result.packet.prior_analytical_state.prior_investigations?.[0]?.investigation_id,
     "inv:duration-transmission",
+  );
+  assert.equal(
+    result.packet.prior_analytical_state.prior_investigations?.[0]?.status,
+    "strengthened",
   );
   assert.equal(
     result.packet.prior_analytical_state.prior_investigations?.some(
