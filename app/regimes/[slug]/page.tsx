@@ -4,7 +4,6 @@ import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import RegimeDetailWorkspace from "@/components/live-desk/RegimeDetailWorkspace";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
-import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
