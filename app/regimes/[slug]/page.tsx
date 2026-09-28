@@ -6,6 +6,7 @@ import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
@@ -42,6 +43,8 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   const initialView = query.view === "live" ? "live" : "understand";
   const explanation = getRegimeExplanation(regime.slug);
   const liveReasoning = await getRegimeLiveReasoning(regime.durableStories.map((story) => story.id));
+  const investigations = routeDossierInvestigations(dossierSelection.presentation?.watchNext ?? [])
+    .filter((item) => item.regimeRoutes.some((route) => route.regime === regime.slug));
 
   return (
     <LiveDeskShell
@@ -56,7 +59,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         initialView={initialView}
         explanation={explanation}
         liveReasoning={liveReasoning}
-        investigations={dossierSelection.presentation?.watchNext ?? []}
+        investigations={investigations}
       />
     </LiveDeskShell>
   );
