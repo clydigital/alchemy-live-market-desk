@@ -38,6 +38,28 @@ function journeyLabel(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function learningTone(state: string): "default" | "ready" | "warn" | "risk" {
+  if (state === "DIVERGENCE_REVIEW") return "risk";
+  if (state === "MIXED_REACTION_REVIEW" || state === "TRANSMISSION_UNRESOLVED") return "warn";
+  if (state === "REACTION_RULE_SUPPORTED") return "ready";
+  return "default";
+}
+
+function learningLabel(state: string) {
+  if (state === "DIVERGENCE_REVIEW") return "REACTION DIVERGED";
+  if (state === "MIXED_REACTION_REVIEW") return "MIXED REACTION";
+  if (state === "REACTION_RULE_SUPPORTED") return "REACTION RULE SUPPORTED";
+  if (state === "CLOSED_WITHOUT_MECHANISM_VERDICT") return "CLOSED · NO MECHANISM VERDICT";
+  return "TRANSMISSION UNRESOLVED";
+}
+
+function reactionReadLabel(value: string) {
+  if (value === "FOLLOWED_EXPECTATION") return "Followed expectation";
+  if (value === "DID_NOT_FOLLOW_EXPECTATION") return "Did not follow expectation";
+  if (value === "MIXED_REACTION") return "Mixed reaction";
+  return "Not exactly measured";
+}
+
 export default async function DossierPage() {
   const [selection, monitor] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -389,10 +411,10 @@ export default async function DossierPage() {
                       <div>
                         <strong>{lineage.latestQuestion}</strong>
                         <small>
-                          {lineage.measuredVintages} measured vintages · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
+                          {lineage.caseVintages} case vintages · {lineage.evaluatedVintages} exact evaluated · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
                         </small>
                       </div>
-                      {lineage.hasDivergence ? <Badge tone="risk">Divergence seen</Badge> : lineage.hasMixed ? <Badge tone="warn">Mixed seen</Badge> : <Badge tone="ready">Aligned history</Badge>}
+                      <Badge tone={learningTone(lineage.learningState)}>{learningLabel(lineage.learningState)}</Badge>
                     </header>
                     <div className={styles.lineageSequence}>
                       {lineage.cases.map((item) => (
@@ -401,10 +423,28 @@ export default async function DossierPage() {
                         </span>
                       ))}
                     </div>
+                    <div className={styles.learningGrid}>
+                      <div>
+                        <small>MARKET VS EXPECTATION</small>
+                        <strong>{reactionReadLabel(lineage.reactionRead)}</strong>
+                      </div>
+                      <div>
+                        <small>WAS OUR MECHANISM WRONG?</small>
+                        <strong>Not established by calibration</strong>
+                        <span>{lineage.mechanismRead}</span>
+                      </div>
+                      <div>
+                        <small>TRANSMISSION STATE</small>
+                        <strong>{lineage.learningState === "TRANSMISSION_UNRESOLVED" ? "Still unresolved" : "Evidence updated"}</strong>
+                        <span>{lineage.transmissionRead}</span>
+                      </div>
+                    </div>
+                    <p className={styles.learningLesson}><strong>What did we learn?</strong> {lineage.learningSummary}</p>
                     <p><strong>Latest hypothesis:</strong> {lineage.latestPostMortemHypothesis}</p>
                     <small>
                       Next discriminator: {lineage.latestResearchNext}
                       {lineage.expectationRewriteCount ? " · " + lineage.expectationRewriteCount + " expectation rewrite(s) flagged" : ""}
+                      {lineage.rewriteOnlyVintages ? " · " + lineage.rewriteOnlyVintages + " rewrite-only vintage(s)" : ""}
                     </small>
                   </article>
                 ))}

@@ -49,8 +49,24 @@ export type DossierCalibrationHistoryEntry = {
   cases: DossierCalibrationHistoryCase[];
 };
 
+export type DossierCalibrationLearningState =
+  | "REACTION_RULE_SUPPORTED"
+  | "DIVERGENCE_REVIEW"
+  | "MIXED_REACTION_REVIEW"
+  | "TRANSMISSION_UNRESOLVED"
+  | "CLOSED_WITHOUT_MECHANISM_VERDICT";
+
+export type DossierCalibrationReactionRead =
+  | "FOLLOWED_EXPECTATION"
+  | "DID_NOT_FOLLOW_EXPECTATION"
+  | "MIXED_REACTION"
+  | "NOT_MEASURED";
+
 export type DossierCalibrationCaseLineage = {
   lineageId: string;
+  caseVintages: number;
+  evaluatedVintages: number;
+  rewriteOnlyVintages: number;
   measuredVintages: number;
   firstAsOf: string;
   latestAsOf: string;
@@ -60,6 +76,11 @@ export type DossierCalibrationCaseLineage = {
   expectationRewriteCount: number;
   latestPostMortemHypothesis: string;
   latestResearchNext: string;
+  learningState: DossierCalibrationLearningState;
+  reactionRead: DossierCalibrationReactionRead;
+  mechanismRead: string;
+  transmissionRead: string;
+  learningSummary: string;
   cases: DossierCalibrationHistoryCase[];
 };
 
@@ -178,6 +199,82 @@ function calibrationHistory(
   }).slice(0, 12);
 }
 
+function learningFromCases(
+  ordered: DossierCalibrationHistoryCase[],
+) {
+  const latest = ordered.at(-1)!;
+  const evaluated = ordered.filter((item) => item.checkCount > 0);
+  const rewriteOnlyVintages = ordered.filter(
+    (item) => item.checkCount === 0 && item.expectationChanged === true,
+  ).length;
+  const allEvaluatedAligned =
+    evaluated.length >= 2 && evaluated.every((item) => item.outcome === "ALIGNED");
+
+  const reactionRead: DossierCalibrationReactionRead =
+    latest.outcome === "DIVERGENT"
+      ? "DID_NOT_FOLLOW_EXPECTATION"
+      : latest.outcome === "MIXED"
+        ? "MIXED_REACTION"
+        : latest.outcome === "ALIGNED"
+          ? "FOLLOWED_EXPECTATION"
+          : "NOT_MEASURED";
+
+  const closed = latest.status === "resolved" || latest.status === "parked";
+  const learningState: DossierCalibrationLearningState =
+    closed
+      ? "CLOSED_WITHOUT_MECHANISM_VERDICT"
+      : latest.outcome === "DIVERGENT"
+        ? "DIVERGENCE_REVIEW"
+        : latest.outcome === "MIXED"
+          ? "MIXED_REACTION_REVIEW"
+          : allEvaluatedAligned
+            ? "REACTION_RULE_SUPPORTED"
+            : "TRANSMISSION_UNRESOLVED";
+
+  const mechanismRead =
+    "Calibration alone cannot prove the mechanism was right or wrong; that requires canonical invalidation or discriminating evidence.";
+
+  const transmissionRead =
+    reactionRead === "DID_NOT_FOLLOW_EXPECTATION"
+      ? "The expected transmission failed or was offset in this measured window; the cause remains a post-mortem hypothesis."
+      : reactionRead === "MIXED_REACTION"
+        ? "Transmission was mixed across exact checks; no single causal explanation is established."
+        : reactionRead === "FOLLOWED_EXPECTATION"
+          ? "The expected transmission appeared in the measured window, but that does not validate the full causal mechanism."
+          : "No exact reaction audit exists for the latest case, so transmission remains unresolved.";
+
+  let learningSummary: string;
+  if (evaluated.length === 0) {
+    learningSummary =
+      `${ordered.length} case vintage(s), 0 exact reaction audits. `
+      + (rewriteOnlyVintages
+        ? `Expectation wording changed in ${rewriteOnlyVintages} vintage(s); treat this as hypothesis refinement, not forecast calibration.`
+        : "This history is contextual, not calibrated.");
+  } else if (latest.outcome === "DIVERGENT") {
+    learningSummary =
+      "The latest exact reaction did not follow the preserved expectation. Review the failed/offset transmission link; do not infer that the entire mechanism is invalid.";
+  } else if (latest.outcome === "MIXED") {
+    learningSummary =
+      "Exact checks disagreed. The case remains a competing-mechanism problem rather than a clean success/failure verdict.";
+  } else if (allEvaluatedAligned) {
+    learningSummary =
+      `The reaction expectation aligned across ${evaluated.length} exact measured vintage(s). This supports the reaction rule, not the whole causal mechanism.`;
+  } else {
+    learningSummary =
+      "One exact reaction aligned with expectation. More independent measured vintages are needed before treating the reaction rule as repeatable.";
+  }
+
+  return {
+    evaluatedVintages: evaluated.length,
+    rewriteOnlyVintages,
+    learningState,
+    reactionRead,
+    mechanismRead,
+    transmissionRead,
+    learningSummary,
+  };
+}
+
 function calibrationLineages(
   built: CandidatePresentation[],
   history: DossierCalibrationHistoryEntry[],
@@ -250,10 +347,14 @@ function calibrationLineages(
       );
       const first = ordered[0];
       const latest = ordered.at(-1)!;
+      const learning = learningFromCases(ordered);
 
       return {
         lineageId: nodeKey(first.dossierId, first.investigationId),
-        measuredVintages: ordered.length,
+        caseVintages: ordered.length,
+        evaluatedVintages: learning.evaluatedVintages,
+        rewriteOnlyVintages: learning.rewriteOnlyVintages,
+        measuredVintages: learning.evaluatedVintages,
         firstAsOf: first.asOf,
         latestAsOf: latest.asOf,
         latestQuestion: latest.question,
@@ -262,13 +363,18 @@ function calibrationLineages(
         expectationRewriteCount: ordered.filter((item) => item.expectationChanged === true).length,
         latestPostMortemHypothesis: latest.postMortemHypothesis,
         latestResearchNext: latest.researchNext,
+        learningState: learning.learningState,
+        reactionRead: learning.reactionRead,
+        mechanismRead: learning.mechanismRead,
+        transmissionRead: learning.transmissionRead,
+        learningSummary: learning.learningSummary,
         cases: ordered,
       } satisfies DossierCalibrationCaseLineage;
     })
     .sort(
       (left, right) =>
         Date.parse(right.latestAsOf) - Date.parse(left.latestAsOf)
-        || right.measuredVintages - left.measuredVintages
+        || right.caseVintages - left.caseVintages
         || left.lineageId.localeCompare(right.lineageId),
     );
 }
