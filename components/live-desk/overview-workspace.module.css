@@ -557,6 +557,36 @@
   line-height: 1.58;
 }
 
+.breakdownGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 14px 0;
+}
+
+.breakdownGrid > div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(178, 169, 255, .13);
+  border-radius: 12px;
+  background: rgba(10, 12, 33, .32);
+}
+
+.breakdownGrid span {
+  color: #9c70e7;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.breakdownGrid p {
+  margin: 6px 0 0;
+  color: #c3c0d0;
+  font-size: 12px;
+  line-height: 1.48;
+}
+
 .tagRow,
 .assetRow {
   display: flex;
@@ -739,6 +769,10 @@
 
   .storyLayout {
     gap: 16px;
+  }
+
+  .breakdownGrid {
+    grid-template-columns: 1fr;
   }
 
   .storyMap {

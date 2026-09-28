@@ -24,6 +24,7 @@ import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 import { deriveStoryScorecard } from "@/lib/story-scorecard";
+import { buildStoryBreakdown } from "@/lib/story-breakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -252,18 +253,42 @@ export default async function Page({ searchParams }: PageProps) {
     dossier: dossierSelection.presentation,
   });
 
-  const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events);
+  const latestVersionByStory = new Map<string, (typeof recordLayer.thesisVersions)[number]>();
+  for (const version of recordLayer.thesisVersions) {
+    const current = latestVersionByStory.get(version.story_id);
+    if (!current || version.version_number > current.version_number || (
+      version.version_number === current.version_number && version.effective_at > current.effective_at
+    )) latestVersionByStory.set(version.story_id, version);
+  }
+  const latestEventByStory = new Map<string, (typeof recordLayer.events)[number]>();
+  for (const event of recordLayer.events) {
+    if (!latestEventByStory.has(event.story_id)) latestEventByStory.set(event.story_id, event);
+  }
+  const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events, recordLayer.thesisVersions);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
   const stories = storyRows.map((story) => {
     const image = storyImages.get(story.id);
     const fallback = getStableStoryFallbackImage(story.id);
+    const currentVersion = latestVersionByStory.get(story.id) || null;
+    const latestEvent = latestEventByStory.get(story.id);
+    const latestLegacyUpdate = !recordLayer.available ? data.updates.find((update) => update.story_id === story.id) : null;
+    const breakdown = buildStoryBreakdown({
+      story,
+      version: currentVersion,
+      event: latestEvent
+        ? { headline: latestEvent.headline, detail: latestEvent.detail, at: latestEvent.event_at }
+        : latestLegacyUpdate
+          ? { headline: latestLegacyUpdate.headline, detail: latestLegacyUpdate.detail, at: latestLegacyUpdate.observed_at || latestLegacyUpdate.created_at }
+          : null,
+    });
     return {
       id: story.id,
       slug: story.slug,
-      title: story.title,
-      thesis: story.thesis,
-      status: story.article_verdict || story.status,
-      confidence: story.confidence,
+      title: currentVersion?.title || story.title,
+      thesis: currentVersion?.thesis || story.thesis,
+      status: currentVersion?.status || story.article_verdict || story.status,
+      confidence: currentVersion?.confidence ?? story.confidence,
+      breakdown,
       scorecard: deriveStoryScorecard({
         confidence: story.confidence,
         sourceQuality: story.source_quality,
@@ -273,7 +298,7 @@ export default async function Page({ searchParams }: PageProps) {
         status: story.status,
         nextCatalyst: story.next_catalyst,
       }),
-      assets: story.assets || [],
+      assets: currentVersion?.assets?.length ? currentVersion.assets : story.assets || [],
       tags: deriveStoryTags(story, 6),
       imageUrl: image?.imageUrl || fallback.dataUri,
       fallbackImageUrl: fallback.dataUri,

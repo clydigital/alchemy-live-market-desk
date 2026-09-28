@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { deriveTraderFlags, splitTraderText } from "@/lib/trader-flags";
+import type { StoryBreakdown } from "@/lib/story-breakdown";
 import styles from "./whats-new-workspace.module.css";
 
 export type WhatsNewTopic = "FX" | "Stocks" | "Geopolitics" | "Macro" | "Commodities" | "Earnings" | "Crypto" | "Other";
@@ -23,6 +24,7 @@ export type WhatsNewDelta = {
   regimes: Array<{ slug: string; label: string; subgroup: string }>;
   hybridHref: string | null;
   interpretationState: "interpreted" | "observed_pending" | null;
+  breakdown: StoryBreakdown | null;
 };
 
 function tone(kind: string) {
@@ -85,6 +87,8 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         delta.topic,
         delta.storyTitle || "",
         delta.verification || "",
+        delta.breakdown?.whyItMatters || "",
+        ...(delta.breakdown?.affectedMarkets || []),
         ...delta.regimes.flatMap((regime) => [regime.label, regime.subgroup]),
         ...delta.traderFlags.map((flag) => flag.label),
       ].some((value) => value.toLowerCase().includes(needle));
@@ -136,6 +140,16 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                 </div>
               </header>
               <p><TraderText text={delta.detail} /></p>
+              {delta.breakdown ? (
+                <div className={styles.breakdown}>
+                  <div><strong>Markets</strong><span>{delta.breakdown.affectedMarkets.join(" · ") || "No assets mapped"}</span></div>
+                  <p><strong>Why it matters:</strong> {delta.breakdown.whyItMatters}</p>
+                  <p><strong>Transmission:</strong> {delta.breakdown.mechanism[0]
+                    ? `${delta.breakdown.mechanism[0].from} → ${delta.breakdown.mechanism[0].relationship} → ${delta.breakdown.mechanism[0].to}`
+                    : "Structured causal chain not yet persisted."}</p>
+                  <p><strong>What changes this:</strong> {delta.breakdown.invalidation[0] || delta.breakdown.nextTest?.label || "No canonical invalidation or next test is recorded."}</p>
+                </div>
+              ) : null}
               <footer>
                 <div className={styles.contextLinks}>
                   <span>{delta.storyTitle || "Independent source record"}</span>

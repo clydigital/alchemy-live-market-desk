@@ -8,6 +8,7 @@ import EconomicReleaseReminder, { type OverviewEconomicRelease, type OverviewRel
 import StoryHeaderImage from "./StoryHeaderImage";
 import styles from "./overview-workspace.module.css";
 import type { StoryScorecard } from "@/lib/story-scorecard";
+import type { StoryBreakdown } from "@/lib/story-breakdown";
 
 export type OverviewStory = {
   id: string;
@@ -16,6 +17,7 @@ export type OverviewStory = {
   thesis: string;
   status: string;
   confidence: number;
+  breakdown: StoryBreakdown;
   scorecard: StoryScorecard;
   assets: string[];
   tags: StoryTag[];
@@ -213,7 +215,7 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
             <article className={styles.storyDetail}>
               <div className={styles.storyHeading}>
                 <div>
-                  <span>{activeStory.status}</span>
+                  <span>{activeStory.status} · {activeStory.breakdown.presentationState.replaceAll("_", " ")}</span>
                   <h3>{activeStory.title}</h3>
                 </div>
                 <strong aria-label={`Priority ${activeStory.scorecard.priority}`} title="Priority score">{activeStory.scorecard.priority}</strong>
@@ -230,7 +232,20 @@ export default function OverviewWorkspace({ stories, changes, systems, immediate
                 className={styles.storyImage}
               />
 
-              <p>{activeStory.thesis}</p>
+              <div className={styles.breakdownGrid}>
+                <div><span>What happened</span><p>{activeStory.breakdown.whatHappened}</p></div>
+                <div><span>Why it matters</span><p>{activeStory.breakdown.whyItMatters}</p></div>
+                <div>
+                  <span>Transmission</span>
+                  <p>{activeStory.breakdown.mechanism[0]
+                    ? `${activeStory.breakdown.mechanism[0].from} → ${activeStory.breakdown.mechanism[0].relationship} → ${activeStory.breakdown.mechanism[0].to}`
+                    : "Structured causal chain not yet persisted."}</p>
+                </div>
+                <div>
+                  <span>What changes the view</span>
+                  <p>{activeStory.breakdown.invalidation[0] || activeStory.breakdown.nextTest?.label || "No canonical invalidation or next test is recorded."}</p>
+                </div>
+              </div>
               <div className={styles.tagRow} aria-label="Deterministic Story scorecard">
                 <span>Materiality {activeStory.scorecard.materiality}</span>
                 <span>Verification {activeStory.scorecard.verification}</span>
