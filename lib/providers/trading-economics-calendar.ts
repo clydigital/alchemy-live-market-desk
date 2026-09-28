@@ -61,7 +61,13 @@ function stringValue(value: unknown): string | null {
 function isoTimestamp(value: unknown): string | null {
   const text = stringValue(value);
   if (!text) return null;
-  const parsed = Date.parse(text);
+
+  // Trading Economics documents Calendar Date / LastUpdate timestamps as UTC
+  // even when the JSON value omits a trailing Z. Make that contract explicit
+  // instead of inheriting the runtime host timezone.
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  const normalized = hasExplicitZone ? text : `${text}Z`;
+  const parsed = Date.parse(normalized);
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
