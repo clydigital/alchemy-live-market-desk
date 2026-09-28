@@ -18,6 +18,7 @@ export type RegimeLiveStoryReasoning = {
   mechanism: string;
   confidence: number;
   decisionState: string;
+  updatedAt: string | null;
   causalChain: RegimeLiveCausalEdge[];
 };
 
@@ -68,7 +69,7 @@ export async function getRegimeLiveReasoning(storyIds: string[]): Promise<Regime
 
     const { data: hypotheses, error: hypothesisError } = await client
       .from("intelligence_hypotheses")
-      .select("id,question,statement,causal_mechanism,causal_chain,decision_state,confidence")
+      .select("id,question,statement,causal_mechanism,causal_chain,decision_state,confidence,updated_at")
       .in("id", hypothesisIds);
     if (hypothesisError || !hypotheses?.length) return [];
 
@@ -86,6 +87,7 @@ export async function getRegimeLiveReasoning(storyIds: string[]): Promise<Regime
         mechanism: hypothesis.causal_mechanism,
         confidence: Number(hypothesis.confidence || 0),
         decisionState: hypothesis.decision_state,
+        updatedAt: typeof hypothesis.updated_at === "string" ? hypothesis.updated_at : null,
         causalChain: parseCausalChain(hypothesis.causal_chain),
       }];
     });
