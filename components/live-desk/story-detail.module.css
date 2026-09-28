@@ -165,3 +165,66 @@
     margin-top: 8px;
   }
 }
+
+
+.reasoningGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.reasoningGrid h3 {
+  margin: 6px 0 8px;
+  color: #f4f1ff;
+  font-size: 14px;
+}
+
+.causalChain {
+  display: grid;
+  gap: 8px;
+}
+
+.causalEdge {
+  padding: 12px;
+  border: 1px solid rgba(181,151,255,.14);
+  border-radius: 12px;
+  background: rgba(255,255,255,.018);
+}
+
+.edgePath {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.edgePath span {
+  color: #d8d3e4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.edgePath b {
+  color: #bfa4ef;
+  font-size: 9px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.causalEdge small {
+  display: block;
+  margin-top: 8px;
+  color: #7f7a91;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+
+@media (max-width: 640px) {
+  .edgePath {
+    grid-template-columns: 1fr;
+  }
+
+  .edgePath b {
+    text-align: left;
+  }
+}
