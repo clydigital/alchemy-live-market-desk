@@ -603,6 +603,119 @@ function leadOnlySnapshot(): CanonicalSnapshotResult {
   );
 }
 
+test("Task C4 keeps the immutable predecessor while sourcing reasoning memory from the last healthy Dossier", async () => {
+  const healthyId = "11111111-1111-4111-8111-111111111111";
+  const degradedId = "22222222-2222-4222-8222-222222222222";
+
+  const healthy = {
+    id: healthyId,
+    contract_version: "market-dossier-v2/1",
+    previous_dossier_id: null,
+    as_of: "2026-09-26T10:22:27.316Z",
+    freshness: { warnings: [] },
+    research_gaps: [],
+    payload: {
+      analytical_output: {
+        diagnostics: { degraded: false },
+        investigations: [{
+          investigation_id: "inv:duration-transmission",
+          question: "Is duration pressure transmitting into credit and breadth?",
+          expected_reaction: "Credit widens and breadth weakens.",
+          observed_reaction: null,
+          divergence: "UNRESOLVED",
+          current_explanation: "Transmission remains incomplete.",
+          competing_explanations: ["Tech leadership may be masking broader pressure."],
+          research_next: "Watch credit and breadth.",
+          status: "open",
+          linked_story_ids: ["story:duration"],
+          linked_thesis_ids: ["thesis:duration"],
+        }],
+      },
+    },
+    created_at: "2026-09-26T10:23:47.311Z",
+  };
+
+  const degraded = {
+    id: degradedId,
+    contract_version: "market-dossier-v2/1",
+    previous_dossier_id: healthyId,
+    as_of: "2026-09-27T06:46:04.435Z",
+    freshness: { warnings: [] },
+    research_gaps: [{
+      gap_id: "gap:brain",
+      category: "RESEARCH_BRAIN_DEGRADED",
+      severity: "MATERIAL",
+      description: "Primary model output was truncated.",
+    }],
+    payload: {
+      analytical_output: {
+        diagnostics: { degraded: true },
+        investigations: [{
+          investigation_id: "inv:degraded:placeholder",
+          question: "Placeholder degraded investigation",
+        }],
+      },
+    },
+    created_at: "2026-09-27T06:49:12.006Z",
+  };
+
+  const client = {
+    from(table: string) {
+      assert.equal(table, "market_dossiers_v2");
+      return {
+        select(_fields: string) {
+          return {
+            order(_column: string, _options: unknown) {
+              return {
+                limit(limit: number) {
+                  if (limit === 1) {
+                    return {
+                      async maybeSingle() {
+                        return { data: degraded, error: null };
+                      },
+                    };
+                  }
+                  assert.equal(limit, 12);
+                  return Promise.resolve({ data: [degraded, healthy], error: null });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  const failingRunner: ModelRunner = async () => {
+    throw new Error("stop after packet assembly");
+  };
+
+  const result = await runManualDossierV2({
+    asOf: "2026-09-28T15:00:00.000Z",
+    client,
+    snapshotResult: leadOnlySnapshot(),
+    researchBrainOptions: { modelRunner: failingRunner },
+  });
+
+  assert.equal(result.packet.previous_dossier_id, degradedId);
+  assert.equal(result.previous_dossier_id, degradedId);
+  assert.equal(result.packet.prior_analytical_state.previous_dossier_id, healthyId);
+  assert.equal(
+    result.packet.prior_analytical_state.as_of,
+    "2026-09-26T10:22:27.316Z",
+  );
+  assert.equal(
+    result.packet.prior_analytical_state.prior_investigations?.[0]?.investigation_id,
+    "inv:duration-transmission",
+  );
+  assert.equal(
+    result.packet.prior_analytical_state.prior_investigations?.some(
+      (item) => item.investigation_id === "inv:degraded:placeholder",
+    ),
+    false,
+  );
+});
+
 test("Task 9 manual mode stays read-only when Dossier V2 persistence is not deployed", async () => {
   let modelCalls = 0;
   const failingRunner: ModelRunner = async () => {

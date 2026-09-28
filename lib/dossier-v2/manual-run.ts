@@ -61,6 +61,16 @@ export interface ManualDossierV2RunResult {
 interface PreviousDossierResolution {
   persistenceAvailable: boolean;
   dossier: MarketDossierV2 | null;
+  analyticalBaseline: MarketDossierV2 | null;
+}
+
+function hasResearchBrainDegradedGap(dossier: MarketDossierV2): boolean {
+  return dossier.research_gaps.some((gap) => (
+    Boolean(gap)
+    && typeof gap === "object"
+    && !Array.isArray(gap)
+    && (gap as { category?: unknown }).category === "RESEARCH_BRAIN_DEGRADED"
+  ));
 }
 
 function isMissingDossierTableError(error: { code?: string | null; message?: string | null } | null): boolean {
@@ -92,6 +102,7 @@ async function resolveLatestDossier(
       return {
         persistenceAvailable: false,
         dossier: null,
+        analyticalBaseline: null,
       };
     }
     throw new Error(`Failed to resolve latest MarketDossierV2: ${error.message}`);
@@ -101,12 +112,85 @@ async function resolveLatestDossier(
     return {
       persistenceAvailable: true,
       dossier: null,
+      analyticalBaseline: null,
     };
   }
 
+  const latest = validateMarketDossierV2Record(data);
+
+  const analytical =
+    latest.payload.analytical_output
+    && typeof latest.payload.analytical_output === "object"
+    && !Array.isArray(latest.payload.analytical_output)
+      ? (latest.payload.analytical_output as Record<string, unknown>)
+      : null;
+  const diagnostics =
+    analytical?.diagnostics
+    && typeof analytical.diagnostics === "object"
+    && !Array.isArray(analytical.diagnostics)
+      ? (analytical.diagnostics as Record<string, unknown>)
+      : null;
+  const latestDegraded =
+    diagnostics?.degraded === true
+    || hasResearchBrainDegradedGap(latest);
+
+  if (!latestDegraded && analytical) {
+    return {
+      persistenceAvailable: true,
+      dossier: latest,
+      analyticalBaseline: latest,
+    };
+  }
+
+  const { data: recentRows, error: recentError } = await client
+    .from("market_dossiers_v2")
+    .select(
+      "id, contract_version, previous_dossier_id, as_of, freshness, research_gaps, payload, created_at",
+    )
+    .order("as_of", { ascending: false })
+    .limit(12);
+
+  if (recentError) {
+    throw new Error(
+      `Failed to resolve healthy analytical Dossier baseline: ${recentError.message}`,
+    );
+  }
+
+  const analyticalBaseline =
+    (recentRows ?? [])
+      .flatMap((row) => {
+        try {
+          return [validateMarketDossierV2Record(row)];
+        } catch {
+          return [];
+        }
+      })
+      .find((candidate) => {
+        const candidateAnalytical =
+          candidate.payload.analytical_output
+          && typeof candidate.payload.analytical_output === "object"
+          && !Array.isArray(candidate.payload.analytical_output)
+            ? (candidate.payload.analytical_output as Record<string, unknown>)
+            : null;
+        if (!candidateAnalytical) return false;
+
+        const candidateDiagnostics =
+          candidateAnalytical.diagnostics
+          && typeof candidateAnalytical.diagnostics === "object"
+          && !Array.isArray(candidateAnalytical.diagnostics)
+            ? (candidateAnalytical.diagnostics as Record<string, unknown>)
+            : null;
+
+        return (
+          candidateDiagnostics?.degraded !== true
+          && !hasResearchBrainDegradedGap(candidate)
+        );
+      }) ?? null;
+
   return {
     persistenceAvailable: true,
-    dossier: validateMarketDossierV2Record(data),
+    dossier: latest,
+    analyticalBaseline,
   };
 }
 
@@ -364,6 +448,7 @@ function buildPriorThesisLedger(dossier: MarketDossierV2): ThesisLedger | undefi
 function buildInputRequest(
   asOf: string,
   previousDossier: MarketDossierV2 | null,
+  analyticalBaseline: MarketDossierV2 | null,
 ): DossierV2InputRequest {
   if (!previousDossier) {
     return {
@@ -379,9 +464,15 @@ function buildInputRequest(
     previous_dossier: {
       id: previousDossier.id,
       as_of: previousDossier.as_of,
-      prior_claims: buildPriorClaims(previousDossier),
-      prior_investigations: buildPriorInvestigations(previousDossier),
-      thesis_ledger: buildPriorThesisLedger(previousDossier),
+      analytical_baseline_id: analyticalBaseline?.id ?? null,
+      analytical_baseline_as_of: analyticalBaseline?.as_of ?? null,
+      prior_claims: analyticalBaseline ? buildPriorClaims(analyticalBaseline) : [],
+      prior_investigations: analyticalBaseline
+        ? buildPriorInvestigations(analyticalBaseline)
+        : [],
+      thesis_ledger: analyticalBaseline
+        ? buildPriorThesisLedger(analyticalBaseline)
+        : undefined,
     },
   };
 }
@@ -400,7 +491,11 @@ export async function runManualDossierV2(
     }));
 
   const previousResolution = await resolveLatestDossier(client);
-  const request = buildInputRequest(options.asOf, previousResolution.dossier);
+  const request = buildInputRequest(
+    options.asOf,
+    previousResolution.dossier,
+    previousResolution.analyticalBaseline,
+  );
   const packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
 
   if (options.persist) {
