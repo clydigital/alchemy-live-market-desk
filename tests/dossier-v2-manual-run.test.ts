@@ -691,7 +691,7 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
   };
 
   const result = await runManualDossierV2({
-    asOf: AS_OF,
+    asOf: "2026-09-28T15:00:00.000Z",
     client,
     snapshotResult: leadOnlySnapshot(),
     researchBrainOptions: { modelRunner: failingRunner },
