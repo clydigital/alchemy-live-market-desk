@@ -24,6 +24,18 @@ export type RegimeSubgroupDefinition = {
   mechanism: string;
 };
 
+export type RegimeMechanismChain = {
+  label: string;
+  steps: string[];
+  marketImplication: string;
+};
+
+export type RegimeConcept = {
+  name: string;
+  definition: string;
+  whyHere: string;
+};
+
 export type RegimeDefinition = {
   slug: RegimeSlug;
   title: string;
@@ -31,6 +43,9 @@ export type RegimeDefinition = {
   coreQuestion: string;
   whyItMatters: string;
   mechanism: string;
+  mechanismChains: RegimeMechanismChain[];
+  concepts: RegimeConcept[];
+  counterfactual: string;
   affectedMarkets: string[];
   subgroups: RegimeSubgroupDefinition[];
 };
@@ -118,6 +133,31 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Can governments and companies finance large capital needs cheaply while inflation, sovereign issuance and private investment demand keep required returns elevated?",
     whyItMatters: "Long-term yields and funding conditions transmit into mortgages, corporate borrowing, AI financing, equity valuations, currencies and the government's own interest burden.",
     mechanism: "Debt supply / inflation / policy pressure → required yields → borrowing costs → investment, housing and valuation pressure.",
+    mechanismChains: [
+      {
+        label: "Sovereign supply → economy-wide borrowing cost",
+        steps: ["Treasury borrowing / issuance ↑", "Investor absorption burden / term premium ↑", "10Y–30Y required yield ↑", "Mortgage + corporate borrowing costs ↑", "Housing, capex and equity valuation face pressure"],
+        marketImplication: "The long end can tighten financial conditions even when the Fed is not actively hiking.",
+      },
+      {
+        label: "Inflation → policy path → front-end pricing",
+        steps: ["Inflation / energy pressure ↑", "Expected Fed easing ↓ or hiking risk ↑", "2Y and real yields ↑", "USD / financing hurdle ↑", "Long-duration assets reprice"],
+        marketImplication: "The front end tells us whether inflation is changing the expected policy path.",
+      },
+      {
+        label: "Japan / global duration spillover",
+        steps: ["JGB yields / Japan policy normalisation ↑", "Domestic Japanese return hurdle ↑", "Repatriation / hedging / carry economics change", "Demand for foreign duration can weaken", "US/global long yields face extra pressure"],
+        marketImplication: "US rates can be affected by global capital allocation, not only US data.",
+      },
+    ],
+    concepts: [
+      { name: "Term premium", definition: "The extra yield investors demand to hold a long bond instead of rolling short maturities.", whyHere: "It can push 10Y/30Y yields higher even without a higher expected Fed path." },
+      { name: "Real yield", definition: "Nominal Treasury yield minus expected inflation.", whyHere: "A higher real yield raises the discount rate faced by gold, housing and long-duration equities." },
+      { name: "Duration", definition: "Sensitivity of an asset or bond price to changes in interest rates.", whyHere: "Long-duration equities and long bonds are most exposed when required yields rise." },
+      { name: "Treasury buyback", definition: "Treasury purchases outstanding securities while separately financing government cash needs through issuance.", whyHere: "It can improve market functioning or alter maturity composition without eliminating the underlying borrowing need." },
+      { name: "Refinancing risk", definition: "The risk that debt must be rolled at materially higher interest rates.", whyHere: "It links today's yields to future corporate, household and sovereign interest expense." },
+    ],
+    counterfactual: "This Regime would materially ease if inflation and issuance pressure faded, auctions cleared cleanly, real yields fell and credit/housing borrowing costs followed lower without a new growth or inflation shock.",
     affectedMarkets: ["US02Y", "US10Y", "US30Y", "DXY", "XAUUSD", "QQQ", "Credit", "Housing"],
     subgroups: [
       { key: "fed-front-end", label: "Fed / Front End", accent: "blue", whyItMatters: "The front end shows how markets price the near-term policy path.", mechanism: "Macro surprise → Fed path → 2Y / policy pricing → USD and rate-sensitive assets." },
@@ -135,6 +175,31 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Which ecosystem captures the economics and physical infrastructure of AI as intelligence becomes cheaper and compute becomes strategically important?",
     whyItMatters: "Model pricing, chips, memory, power and financing determine where value migrates as AI usage scales and margins are pressured.",
     mechanism: "AI price ↓ → adoption / inference ↑ → compute, memory and power demand ↑, while monetisation pressure can lower returns on capex.",
+    mechanismChains: [
+      {
+        label: "AI price war → physical demand",
+        steps: ["Model / token price ↓", "AI adoption and usage ↑", "Inference volume ↑", "Accelerator + HBM + network demand ↑", "Data-centre power and cooling demand ↑"],
+        marketImplication: "Cheaper intelligence can be bullish for physical AI infrastructure even while software/model pricing compresses.",
+      },
+      {
+        label: "Cheap intelligence → monetisation test",
+        steps: ["Model price ↓", "Revenue per unit of intelligence ↓", "Usage must scale faster to protect gross profit", "Cash conversion / ROIC becomes more important", "Capex pace and valuation depend on realised returns"],
+        marketImplication: "Usage growth is not automatically the same as profitable AI economics.",
+      },
+      {
+        label: "US–China localisation race",
+        steps: ["Export controls / strategic restrictions ↑", "Chinese localisation incentive ↑", "Domestic accelerators + memory + equipment investment ↑", "Supply-chain substitution ↑", "Competitive share and pricing power shift"],
+        marketImplication: "Policy can redirect semiconductor value across the stack rather than simply reduce total demand.",
+      },
+    ],
+    concepts: [
+      { name: "Inference", definition: "Running a trained AI model to answer requests or generate outputs.", whyHere: "Inference volume is the recurring workload that can turn cheap models into large compute demand." },
+      { name: "HBM", definition: "High-bandwidth memory stacked close to accelerators to feed data at very high speed.", whyHere: "AI chips can be underutilised if memory bandwidth is insufficient, making HBM a critical bottleneck." },
+      { name: "Accelerator", definition: "A specialised processor such as a GPU or AI ASIC used for training and inference.", whyHere: "Accelerator availability is a core constraint in the compute race." },
+      { name: "ROIC", definition: "Return on invested capital: operating profit generated relative to capital committed.", whyHere: "The AI buildout increasingly needs to prove that huge capex produces acceptable returns." },
+      { name: "Export controls", definition: "Government restrictions on the sale or transfer of strategic technology.", whyHere: "They influence access to advanced chips, equipment and the speed of domestic substitution." },
+    ],
+    counterfactual: "The current industrial-competition thesis would weaken if model costs stopped falling, AI usage failed to scale, localisation stalled and hyperscaler returns comfortably outran financing and infrastructure costs.",
     affectedMarkets: ["NVDA", "MU", "BABA", "SMIC", "CXMT", "Semis", "Cloud", "Power", "Credit"],
     subgroups: [
       { key: "models", label: "Models / Price War", accent: "blue", whyItMatters: "Cheaper intelligence can expand usage while compressing model economics.", mechanism: "Model price / quality → adoption → inference volume → monetisation." },
@@ -153,6 +218,30 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Is marginal energy supply becoming structurally more expensive, fragile or politically constrained, and is that feeding inflation and rates?",
     whyItMatters: "Crude, products, LNG, shipping and power can transmit physical disruption into inflation, margins and central-bank policy.",
     mechanism: "Physical disruption → energy / freight cost → inflation and margins → central-bank room → yields / equities.",
+    mechanismChains: [
+      {
+        label: "Chokepoint disruption → delivered energy inflation",
+        steps: ["Security / transit risk ↑", "Physical flows or insurance capacity ↓", "Freight + delivered energy cost ↑", "Industrial / transport input costs ↑", "Inflation pressure and margin squeeze ↑"],
+        marketImplication: "The inflation impulse depends on delivered fuel and freight costs, not crude alone.",
+      },
+      {
+        label: "Refining bottleneck → diesel squeeze",
+        steps: ["Refinery throughput / product supply ↓", "Distillate inventories tighten", "Crack spreads ↑", "Retail diesel / transport costs ↑", "PPI/CPI and corporate margins face pressure"],
+        marketImplication: "Products can stay inflationary even when headline crude falls.",
+      },
+      {
+        label: "LNG shock → electricity / industrial pressure",
+        steps: ["Qatar / global LNG flows ↓", "Europe and Asia compete for flexible cargoes", "TTF / JKM ↑", "Electricity and industrial gas cost ↑", "Growth weakens while inflation pressure persists"],
+        marketImplication: "Gas disruption can create a stagflationary impulse outside the oil market.",
+      },
+    ],
+    concepts: [
+      { name: "Crack spread", definition: "The margin proxy between refined-product prices and crude input cost.", whyHere: "A widening diesel crack can reveal product scarcity hidden by softer crude." },
+      { name: "PADD", definition: "US Petroleum Administration for Defense District used to track regional refining and inventories.", whyHere: "Regional outages can create product stress even when national averages look less severe." },
+      { name: "TTF / JKM", definition: "Major European and Asian natural-gas/LNG price benchmarks.", whyHere: "They show whether regions are competing aggressively for marginal LNG cargoes." },
+      { name: "Chokepoint", definition: "A narrow transport route whose disruption can constrain large commodity flows.", whyHere: "Hormuz-type disruptions affect physical availability, freight and insurance simultaneously." },
+    ],
+    counterfactual: "The Regime would cool if physical flows normalised, refinery/product inventories rebuilt, LNG competition eased and energy stopped feeding inflation expectations or central-bank pricing.",
     affectedMarkets: ["WTI", "Brent", "ULSD", "LNG", "US02Y", "US10Y", "XLE", "Industrials"],
     subgroups: [
       { key: "crude", label: "Crude", accent: "orange", whyItMatters: "Crude is the first-order global energy risk price, but it does not capture every product bottleneck.", mechanism: "Supply / geopolitics → crude balance → benchmark price → inflation impulse." },
@@ -170,6 +259,25 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Is gold gaining a durable monetary and reserve role even when cyclical real-yield and dollar forces move against it?",
     whyItMatters: "Gold sits at the intersection of real yields, the dollar, geopolitical risk and central-bank reserve allocation.",
     mechanism: "Reserve diversification / geopolitical risk supports structural demand while real yields and USD drive cyclical opportunity cost.",
+    mechanismChains: [
+      {
+        label: "Reserve diversification → structural gold demand",
+        steps: ["Geopolitical / sanctions / reserve-security concern ↑", "Desire to diversify reserve assets ↑", "Central-bank gold allocation ↑", "Official-sector demand becomes persistent", "Structural support for gold ↑"],
+        marketImplication: "Official demand can support gold even when short-term investor flows are weak.",
+      },
+      {
+        label: "Real yields → cyclical gold pressure",
+        steps: ["Real yields ↑", "Opportunity cost of holding non-yielding gold ↑", "USD can strengthen / financial conditions tighten", "Private investor demand can soften", "Gold faces cyclical headwind"],
+        marketImplication: "Structural and cyclical gold forces can point in opposite directions at the same time.",
+      },
+    ],
+    concepts: [
+      { name: "Reserve diversification", definition: "Reducing reliance on one reserve asset or currency by allocating across alternatives.", whyHere: "It is the core structural mechanism behind official gold demand." },
+      { name: "Opportunity cost", definition: "The return forgone by holding one asset instead of another.", whyHere: "Gold pays no coupon, so higher real bond yields increase the cost of holding it." },
+      { name: "Official-sector demand", definition: "Purchases by central banks and reserve managers rather than private investors.", whyHere: "It can behave differently from ETF, futures or retail flows." },
+      { name: "Real yield", definition: "Bond yield after expected inflation.", whyHere: "It is one of the cleanest cyclical macro inputs for gold." },
+    ],
+    counterfactual: "The structural thesis would weaken if official-sector purchases slowed materially and reserve diversification reversed; the cyclical headwind would ease if real yields and the dollar fell.",
     affectedMarkets: ["XAUUSD", "DXY", "US10Y Real Yield", "Gold ETFs", "Central-bank reserves"],
     subgroups: [
       { key: "central-banks", label: "Central Banks", accent: "gold", whyItMatters: "Official-sector demand can create a structural bid independent of short-term investor flows.", mechanism: "Reserve allocation → official purchases → structural gold demand." },
@@ -186,6 +294,25 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Is the equity advance becoming economically broader, or does it remain dependent on a narrow set of AI and large-cap earnings leaders?",
     whyItMatters: "A rally supported by earnings, breadth and credit is more robust than one carried by a narrow group of long-duration winners.",
     mechanism: "Earnings + breadth + financial conditions → participation and leadership → durability of equity risk appetite.",
+    mechanismChains: [
+      {
+        label: "Earnings breadth → durable participation",
+        steps: ["Revenue / margin guidance improves beyond megacap AI", "Forward EPS revisions broaden", "More sectors participate", "Equal-weight and small-cap relative strength improves", "Index rally becomes less concentrated"],
+        marketImplication: "A broader earnings engine makes the rally less dependent on a few leaders.",
+      },
+      {
+        label: "Rates → valuation quality test",
+        steps: ["Real yields / cost of capital ↑", "Long-duration valuation hurdle ↑", "High-multiple leaders become more rate-sensitive", "Breadth and financials must absorb leadership", "Rally quality depends more on earnings than multiple expansion"],
+        marketImplication: "Strong indices can conceal deteriorating quality if breadth fails while rates stay high.",
+      },
+    ],
+    concepts: [
+      { name: "Market breadth", definition: "How widely gains or losses are distributed across stocks and sectors.", whyHere: "It distinguishes a broad advance from an index carried by a small group." },
+      { name: "Equal weight", definition: "An index construction that gives each member similar weight rather than weighting by market value.", whyHere: "RSP versus SPY is a simple test of whether gains extend beyond the largest companies." },
+      { name: "Earnings revisions", definition: "Changes analysts make to expected future company profits.", whyHere: "Broad upward revisions provide fundamental support for broader participation." },
+      { name: "Discount rate", definition: "The required return used to value future cash flows today.", whyHere: "Higher rates reduce the present value of distant earnings, especially for long-duration growth stocks." },
+    ],
+    counterfactual: "The concentration concern would weaken if forward earnings revisions, equal-weight performance, small caps and financials broadened while credit stayed healthy; it would strengthen if index gains persisted without those confirmations.",
     affectedMarkets: ["SPY", "QQQ", "RSP", "IWM", "SMH", "KRE", "XLF", "Earnings"],
     subgroups: [
       { key: "ai-leadership", label: "AI Leadership", accent: "purple", whyItMatters: "AI leadership can support indices while concealing weakness underneath.", mechanism: "AI earnings / capex → megacap leadership → index performance." },
