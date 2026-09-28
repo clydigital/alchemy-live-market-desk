@@ -250,6 +250,26 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.regimeStrip[1].observed, false);
 });
 
+test("presentation adapter preserves the canonical expected-vs-observed divergence journey", () => {
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Energy supply stress should lift WTI and refined products.",
+    observed_reaction: "WTI fell after the trigger while the investigation remained open.",
+    divergence: "MATERIAL",
+  };
+
+  const result = buildDossierV2Presentation(
+    dossier("afd9bb75-ffdc-4f51-8f5c-28131d3d2495", currentOutput),
+  );
+
+  assert.equal(result.watchNext[0].expectedReaction, "Energy supply stress should lift WTI and refined products.");
+  assert.equal(result.watchNext[0].observedReaction, "WTI fell after the trigger while the investigation remained open.");
+  assert.equal(result.watchNext[0].divergence, "MATERIAL");
+  assert.deepEqual(result.watchNext[0].storyIds, ["story-1"]);
+  assert.deepEqual(result.watchNext[0].thesisIds, ["thesis-1"]);
+});
+
 test("presentation adapter computes thesis changes against the previous dossier only", () => {
   const previousOutput = output({
     thesis_ledger: {
