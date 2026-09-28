@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { RegimeExplanation } from "@/lib/regime-explanations";
+import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
 import type { ProjectedRegime } from "@/lib/regimes";
 import styles from "./regime-workspace.module.css";
@@ -53,6 +54,12 @@ export default function RegimeDetailWorkspace({
       return reasoning ? [{ story, reasoning }] : [];
     })
     : [];
+  const freshness = subgroup
+    ? assessRegimeInterpretationFreshness({
+      telemetryAt: subgroup.telemetry.map((item) => item.asOf),
+      interpretationAt: subgroupReasoning.map((item) => item.reasoning.updatedAt),
+    })
+    : null;
 
   return (
     <div className={styles.board}>
@@ -248,6 +255,22 @@ export default function RegimeDetailWorkspace({
                 <span className={styles.state} data-kind={subgroup.stateKind}>{subgroup.state}</span>
               </header>
 
+              {freshness?.status === "new_telemetry" ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>NEW TELEMETRY — INTERPRETATION PENDING</strong>
+                  <span>
+                    Observed telemetry: {displayDate(freshness.telemetryAt)} · latest canonical System 2 hypothesis: {displayDate(freshness.interpretationAt)} · telemetry is {freshness.lagMinutes} min newer.
+                  </span>
+                  <p>The causal read below predates the newest deterministic observation. Keep the last accepted interpretation visible, but do not present it as though it already explains the new telemetry.</p>
+                </div>
+              ) : freshness?.status === "no_interpretation" ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>OBSERVED TELEMETRY — NO TIMESTAMPED SYSTEM 2 READ</strong>
+                  <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
+                  <p>No current persisted primary hypothesis is available for comparison. The interface will not manufacture an interpretation.</p>
+                </div>
+              ) : null}
+
               <div className={styles.liveGrid}>
                 <div className={styles.column}>
                   <div>
@@ -306,6 +329,7 @@ export default function RegimeDetailWorkspace({
                               <span>{story.title}</span>
                               <span>{reasoning.decisionState}</span>
                               <span>{Math.round(reasoning.confidence)}% hypothesis confidence</span>
+                              <span>updated {displayDate(reasoning.updatedAt)}</span>
                             </div>
                             <h4>{reasoning.question || reasoning.statement}</h4>
                             <p>{reasoning.mechanism}</p>
