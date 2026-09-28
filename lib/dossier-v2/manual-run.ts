@@ -19,6 +19,7 @@ import {
   type DossierV2ExecutionResult,
 } from "./execution.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
+import type { RegimeShadowProjectionResult } from "../regime-engine.ts";
 import type {
   DossierDeltaDecision,
   DossierDeltaMode,
@@ -54,6 +55,7 @@ export interface ManualDossierV2RunResult {
   analytical_output: ResearchBrainOutputV1;
   dossier?: MarketDossierV2;
   story_refresh_agenda?: DossierStoryRefreshAgendaResult;
+  regime_shadow?: RegimeShadowProjectionResult | null;
   delta_decision?: DossierDeltaDecision;
 }
 
@@ -353,6 +355,7 @@ export async function runManualDossierV2(
       analytical_output: result.analytical_output,
       dossier: result.dossier,
       story_refresh_agenda: result.story_refresh_agenda,
+      regime_shadow: result.regime_shadow,
       delta_decision: result.delta_decision,
     };
   }
