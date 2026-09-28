@@ -270,10 +270,20 @@ export function isSystem1IntradayReactionTriggerEvidence(item: ObservedEvidence)
   );
 }
 
+function triggerSequenceTime(item: ObservedEvidence): number | null {
+  return timestamp(item.occurrence_time) ?? timestamp(item.available_at);
+}
+
 function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
   return policyEvidence(packet)
     .filter((item) => evidenceMatchesRule(item, rule))
-    .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
+    .sort((a, b) => {
+      const aTime = triggerSequenceTime(a) ?? Number.NEGATIVE_INFINITY;
+      const bTime = triggerSequenceTime(b) ?? Number.NEGATIVE_INFINITY;
+      return bTime - aTime
+        || b.available_at.localeCompare(a.available_at)
+        || b.evidence_id.localeCompare(a.evidence_id);
+    })[0] ?? null;
 }
 
 function activeTriggers(packet: DossierV2InputPacket) {
@@ -283,6 +293,27 @@ function activeTriggers(packet: DossierV2InputPacket) {
       return trigger ? [[rule.id, trigger] as const] : [];
     }),
   );
+}
+
+function opposingTriggerBlocks(
+  active: Map<string, ObservedEvidence>,
+  rule: Rule,
+  trigger: ObservedEvidence,
+): boolean {
+  if (!rule.opposite) return false;
+  const opposite = active.get(rule.opposite);
+  if (!opposite) return false;
+
+  const triggerTime = triggerSequenceTime(trigger);
+  const oppositeTime = triggerSequenceTime(opposite);
+
+  // Fail closed when sequencing cannot distinguish the two impulses. If one
+  // clearly occurred later, only the later signal remains eligible.
+  if (triggerTime === null || oppositeTime === null || triggerTime === oppositeTime) {
+    return true;
+  }
+
+  return oppositeTime > triggerTime;
 }
 
 function marketMove(
@@ -363,7 +394,7 @@ export function buildSystem1PolicyExpectationChecks(
 
   for (const rule of RULES) {
     const trigger = active.get(rule.id);
-    if (!trigger || !rule.policyImpulse || (rule.opposite && active.has(rule.opposite))) continue;
+    if (!trigger || !rule.policyImpulse || opposingTriggerBlocks(active, rule, trigger)) continue;
 
     const hawkish = rule.policyImpulse === "HAWKISH";
     checks.push({
@@ -391,7 +422,7 @@ function system1ReactionAssessments(
 
   for (const rule of RULES) {
     const trigger = active.get(rule.id);
-    if (!trigger || (rule.opposite && active.has(rule.opposite))) continue;
+    if (!trigger || opposingTriggerBlocks(active, rule, trigger)) continue;
 
     for (const [monitorId, instrument, expected] of rule.expectations) {
       const move = marketMove(packet, monitorId, trigger);
