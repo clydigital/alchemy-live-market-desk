@@ -229,6 +229,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <p><strong>Expected reaction:</strong> {item.expectedReaction ?? "No canonical pre-event expectation is available."}</p>
                   <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
                   <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
+                  <p>
+                    <strong>Since prior Dossier:</strong> {item.journey.transition.replaceAll("_", " ")}
+                    {item.journey.previousDivergence
+                      ? ` · ${item.journey.previousDivergence} → ${item.journey.currentDivergence ?? "not carried"}`
+                      : ""}
+                  </p>
                   {item.reactionChecks.length ? (
                     <p><strong>System 1 audit:</strong> {item.reactionChecks.map((check) =>
                       `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
@@ -251,6 +257,23 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   detail="The current canonical Dossier has no unresolved investigation promoted into Watch Next."
                 />
               )}
+              {dossier.investigationJourney
+                .filter((item) => item.transition === "NOT_CARRIED_FORWARD")
+                .map((item) => (
+                  <article className={styles.record} key={item.previousId ?? item.question}>
+                    <div className={styles.recordHeader}>
+                      <div>
+                        <h3>{item.question}</h3>
+                        <div className={styles.meta}>Prior investigation audit</div>
+                      </div>
+                      <Badge tone="default">NOT CARRIED FORWARD</Badge>
+                    </div>
+                    <p>
+                      Previous state: {item.previousDivergence ?? "UNRESOLVED"} · {item.previousStatus ?? "unknown"}.
+                      Absence from the current Dossier is not treated as resolution.
+                    </p>
+                  </article>
+                ))}
             </div>
           </Panel>
         </div>
