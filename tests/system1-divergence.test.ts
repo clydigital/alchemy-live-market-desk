@@ -9,6 +9,7 @@ import { buildResearchBrainPrompt } from "../lib/dossier-v2/research-brain-promp
 import {
   buildSystem1DivergenceCandidates,
   buildSystem1PolicyExpectationChecks,
+  buildSystem1ReactionAssessments,
 } from "../lib/dossier-v2/system1-divergence.ts";
 
 const AS_OF = "2026-09-22T12:00:00Z";
@@ -120,7 +121,9 @@ test("Tiny or missing moves add no prompt noise", () => {
 
   const prompt = buildResearchBrainPrompt({ as_of: packet.as_of, packet });
 
+  assert.deepEqual(buildSystem1ReactionAssessments(packet), []);
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+  assert.deepEqual(prompt.boundedInput.system1_reaction_assessments, []);
   assert.deepEqual(prompt.boundedInput.system1_divergence_candidates, []);
   assert.match(prompt.instructions, /SYSTEM 1 POLICY \+ DIVERGENCE SCREEN/);
   assert.match(prompt.instructions, /NOT independent facts/);
@@ -145,8 +148,11 @@ test("Research Brain gets compact energy divergence candidates only", () => {
   );
 
   const prompt = buildResearchBrainPrompt({ as_of: packet.as_of, packet });
+  const assessments = prompt.boundedInput.system1_reaction_assessments as Array<Record<string, unknown>>;
   const candidates = prompt.boundedInput.system1_divergence_candidates as Array<Record<string, unknown>>;
 
+  assert.equal(assessments.length, 3);
+  assert.ok(assessments.every((item) => item.relation === "DIVERGENT"));
   assert.equal(candidates.length, 3);
   assert.ok(candidates.every((item) => item.expected_direction === "UP"));
   assert.ok(candidates.every((item) => item.observed_direction === "DOWN"));
@@ -177,7 +183,15 @@ test("Strong Flash PMI creates a hawkish policy outlook even when market reactio
   assert.equal(outlook[0]?.policy_impulse, "HAWKISH");
   assert.equal(outlook[0]?.next_meeting_rate_outlook, "MORE_HAWKISH");
   assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_UP");
+
+  const assessments = buildSystem1ReactionAssessments(packet);
+  assert.equal(assessments.length, 4);
+  assert.ok(assessments.every((item) => item.relation === "ALIGNED"));
+  assert.ok(assessments.every((item) => item.timing_precision === "INTRADAY"));
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+
+  const prompt = buildResearchBrainPrompt({ as_of: packet.as_of, packet });
+  assert.deepEqual(prompt.boundedInput.system1_reaction_assessments, assessments);
 });
 
 test("FedWatch repricing is confirming evidence, not a second monetary-policy trigger", () => {
