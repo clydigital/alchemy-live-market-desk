@@ -51,6 +51,8 @@ test("an expired test does not stale durable framing that no longer depends on i
     } } },
   });
   assert.equal(storyPresentationState({ story, version: durable, now: new Date("2026-09-29T00:00:00Z") }).state, "active");
+  const breakdown = buildStoryBreakdown({ story, version: durable, now: new Date("2026-09-29T00:00:00Z") });
+  assert.equal(breakdown.nextTest, null);
 });
 
 test("canonical reasoning projects into a compact Story breakdown without another model pass", () => {
@@ -76,6 +78,8 @@ test("canonical reasoning projects into a compact Story breakdown without anothe
   assert.equal(breakdown.whatHappened, "Core inflation surprised higher");
   assert.equal(breakdown.whyItMatters, "Inflation persistence is keeping the expected policy path tighter for longer.");
   assert.deepEqual(breakdown.affectedMarkets.slice(0, 2), ["NDX", "US10Y"]);
+  assert.equal(breakdown.affectedMarkets.includes("NDX"), true);
+  assert.equal(breakdown.affectedMarkets.includes("US10Y"), true);
   assert.equal(breakdown.mechanism[0]?.from, "Sticky inflation");
   assert.equal(breakdown.implications[0]?.asset, "NDX");
   assert.equal(breakdown.nextTest?.label, "Next PCE release");
@@ -85,4 +89,32 @@ test("fallback breakdown does not invent a causal chain from prose", () => {
   const breakdown = buildStoryBreakdown({ story });
   assert.equal(breakdown.mechanism.length, 0);
   assert.equal(breakdown.whyItMatters, story.best_explanation);
+});
+
+
+test("internal recalibration event codes fall back to canonical reader-facing change text", () => {
+  const current = version({ snapshot: { reasoning: {
+    contractVersion: "canonical-story-reasoning/v1",
+    lifecycle: "developing",
+    whatChanged: "Treasury yields repriced higher after stronger activity data.",
+    previousState: "Rates were stable.",
+    currentState: "US10Y remains elevated.",
+    marketReaction: "US10Y rose while QQQ softened.",
+    acceptedExplanation: "Higher yields raised discount rates.",
+    claims: [],
+    causalChain: [],
+    countercase: { strongest: null, evidenceIds: [], weakestLink: null, marketMayBeRight: null },
+    overlookedVariable: { text: null, evidenceState: null, evidenceIds: [] },
+    assetImplications: [],
+    confirmation: [],
+    invalidation: [],
+    nextTest: null,
+    visualPlan: [],
+  } } });
+  const breakdown = buildStoryBreakdown({
+    story,
+    version: { ...current, change_reason: "material_evidence_recalibration" },
+    event: { headline: "material_evidence_recalibration" },
+  });
+  assert.equal(breakdown.whatHappened, "Treasury yields repriced higher after stronger activity data.");
 });

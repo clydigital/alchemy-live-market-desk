@@ -8,6 +8,7 @@ import {
   assessStoryCatalyst,
   storyFramingDependsOnExpiredCatalyst,
 } from "./story-hygiene.ts";
+import { readerFacingText } from "./presentation-hygiene.ts";
 
 export const STORY_BREAKDOWN_V1 = "story-breakdown/1" as const;
 
@@ -60,6 +61,12 @@ function currentTitle(story: Story, version?: StoryThesisVersion | null) {
 }
 function currentThesis(story: Story, version?: StoryThesisVersion | null) {
   return version?.thesis || story.thesis;
+}
+
+const MARKET_SYMBOL_PATTERN = /\b(?:US02Y|US05Y|US10Y|US30Y|SPX|SPY|QQQ|NDX|NASDAQ|RSP|DXY|UUP|TLT|IEF|SHY|XAUUSD|GOLD|WTI|BRENT|USO|ULSD|USDJPY|EURUSD|GBPUSD|AUDUSD|USDCAD|USDCHF|NIKKEI|KOSPI|HSI|SMH|SOXX|META|NVDA|AMD|MSFT|GOOGL|AMZN|TSLA)\b/gi;
+
+function explicitMarketSymbols(values: Array<string | null | undefined>) {
+  return values.flatMap((value) => value?.match(MARKET_SYMBOL_PATTERN) || []).map((value) => value.toUpperCase());
 }
 
 export function storyPresentationState(input: { story: Story; version?: StoryThesisVersion | null; now?: Date }) {
@@ -140,9 +147,21 @@ export function buildStoryBreakdown(input: {
     confirmation: impact.confirmation,
     invalidation: impact.invalidation,
   }));
+  const explicitMarkets = reasoning ? explicitMarketSymbols([
+    reasoning.currentState,
+    reasoning.marketReaction,
+    reasoning.acceptedExplanation,
+    reasoning.nextTest?.label,
+    ...(reasoning.confirmation || []),
+    ...(reasoning.invalidation || []),
+    ...(reasoning.causalChain || []).flatMap((edge) => [edge.from, edge.relationship, edge.to]),
+    ...(reasoning.assetImplications || []).flatMap((impact) => [impact.baseCase, impact.confirmation, impact.invalidation]),
+  ]) : [];
   const affectedMarkets = unique([
     ...implications.map((item) => item.asset),
-    ...(version?.assets?.length ? version.assets : story.assets || []),
+    ...explicitMarkets,
+    ...(version?.assets || []),
+    ...(story.assets || []),
   ], 10);
   const confirmation = unique([
     ...(reasoning?.confirmation || []),
@@ -154,8 +173,16 @@ export function buildStoryBreakdown(input: {
     version?.invalidation_trigger,
     story.invalidation_trigger,
   ], 4);
-  const versionChange = version?.change_reason && !/^(?:story_updated|story update|thesis-bearing story field changed|thesis bearing story field changed)$/i.test(version.change_reason.trim())
-    ? version.change_reason.trim()
+  const eventChange = readerFacingText(event?.headline);
+  const reasoningChange = readerFacingText(reasoning?.whatChanged);
+  const versionChange = readerFacingText(version?.change_reason);
+  const maintenanceRecalibration = Boolean(
+    event?.headline && !eventChange
+    || reasoning?.whatChanged && !reasoningChange
+    || version?.change_reason && !versionChange
+  );
+  const currentNextTest = catalyst.label && !["expired", "resolved"].includes(catalyst.status)
+    ? { label: catalyst.label, status: catalyst.status }
     : null;
 
   return {
@@ -164,7 +191,10 @@ export function buildStoryBreakdown(input: {
     thesisVersionId: version?.id || null,
     presentationState: presentation.state,
     freshnessReason: presentation.reason,
-    whatHappened: event?.headline?.trim() || reasoning?.whatChanged?.trim() || versionChange || `Current Story state: ${title}`,
+    whatHappened: eventChange
+      || reasoningChange
+      || versionChange
+      || (maintenanceRecalibration ? "Story thesis recalibrated from new evidence." : `Current Story state: ${title}`),
     affectedMarkets,
     whyItMatters: reasoning?.acceptedExplanation?.trim() || bestExplanation?.trim() || thesis,
     currentRead: reasoning?.currentState?.trim() || thesis,
@@ -172,7 +202,7 @@ export function buildStoryBreakdown(input: {
     implications,
     confirmation,
     invalidation,
-    nextTest: catalyst.label ? { label: catalyst.label, status: catalyst.status } : null,
+    nextTest: currentNextTest,
     hybridHref: `/hybrid-output?story=${encodeURIComponent(story.slug)}`,
   };
 }

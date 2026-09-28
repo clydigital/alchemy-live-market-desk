@@ -203,6 +203,7 @@ test("the geopolitical clock accepts scheduled events only", () => {
 test("the existing canonical feed contract remains version 2 and keeps edition payload", () => {
   const source = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
   assert.match(source, /contractVersion:\s*2/);
-  assert.match(source, /payload:\s*dailyBrief\?\.payload\s*\|\|\s*\{\}/);
+  assert.match(source, /const rawEditionPayload = selectedPublicationSnapshot\?\.payload \|\| dailyBrief\?\.payload \|\| \{\}/);
+  assert.match(source, /payload:\s*editionPayload/);
   assert.doesNotMatch(source, /contractVersion:\s*3/);
 });

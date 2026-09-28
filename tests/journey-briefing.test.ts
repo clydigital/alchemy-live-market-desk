@@ -302,3 +302,28 @@ test("all completed-run entry points use the canonical Journey fallback publishe
     assert.doesNotMatch(sourceText, /persistCanonicalEditionForResearchRun/);
   }
 });
+
+
+test("past date-only and TBC events move to chronology instead of leaking into Later", () => {
+  const pastDate = event("past-date", {
+    startAt: "2026-08-25",
+    timePrecision: "date",
+    timeLabel: "Time TBC",
+    status: "scheduled",
+  });
+  const pastTbc = event("past-tbc", {
+    startAt: "2026-08-24",
+    timePrecision: "tbc",
+    timeLabel: "Time TBC",
+    status: "scheduled",
+  });
+  const futureDate = event("future-date", {
+    startAt: "2026-08-28",
+    timePrecision: "date",
+    timeLabel: "Time TBC",
+    status: "scheduled",
+  });
+  const result = board([story("time")], undefined, [pastDate, pastTbc, futureDate]);
+  assert.deepEqual(result.journey?.chronology.filter((item) => item.eventId).map((item) => item.eventId), ["past-tbc", "past-date"]);
+  assert.deepEqual(result.journey?.horizon.later.map((item) => item.eventId), ["future-date"]);
+});

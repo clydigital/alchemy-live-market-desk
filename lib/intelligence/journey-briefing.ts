@@ -221,12 +221,17 @@ function horizonBucket(event: MarketEventV1, generatedAt: string): "today" | "to
 
 function splitEvents(events: MarketEventV1[], generatedAt: string) {
   const generatedMs = Date.parse(generatedAt);
+  const generatedLocal = localParts(generatedAt);
   const chronology: JourneyChronologyItem[] = [];
   const horizon = { today: [] as JourneyChronologyItem[], tonight: [] as JourneyChronologyItem[], later: [] as JourneyChronologyItem[] };
   for (const event of events) {
     if (event.status === "cancelled") continue;
     const exactMs = event.timePrecision === "exact" && event.startAt ? Date.parse(event.startAt) : Number.NaN;
-    const completed = event.status === "completed" || (Number.isFinite(exactMs) && exactMs <= generatedMs);
+    const datedDay = eventDate(event);
+    const pastCalendarDay = Boolean(generatedLocal && datedDay && datedDay < generatedLocal.date);
+    const completed = event.status === "completed"
+      || pastCalendarDay
+      || (Number.isFinite(exactMs) && exactMs <= generatedMs);
     if (completed) chronology.push(eventItem(event));
     else horizon[horizonBucket(event, generatedAt)].push(eventItem(event));
   }

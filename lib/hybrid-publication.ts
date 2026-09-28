@@ -444,6 +444,74 @@ export function selectLegacyStoriesForLive(
     .filter((story): story is Story => Boolean(story));
 }
 
+
+const KL_OFFSET_MS = 8 * 60 * 60 * 1_000;
+
+function presentationLocalDate(value: string) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return new Date(timestamp + KL_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function journeyItemIsPast(item: unknown, generatedAt: string) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  const timing = (item as Record<string, unknown>).timing;
+  if (!timing || typeof timing !== "object" || Array.isArray(timing)) return false;
+  const value = (timing as Record<string, unknown>).value;
+  if (typeof value !== "string" || !value) return false;
+  const nowMs = Date.parse(generatedAt);
+  if (!Number.isFinite(nowMs)) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const localDate = presentationLocalDate(generatedAt);
+    return Boolean(localDate && value < localDate);
+  }
+  const eventMs = Date.parse(value);
+  return Number.isFinite(eventMs) && eventMs <= nowMs;
+}
+
+function sanitizeJourneyForCurrentPresentation(value: unknown, generatedAt: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const journey = value as Record<string, unknown>;
+  const rawHorizon = journey.horizon;
+  if (!rawHorizon || typeof rawHorizon !== "object" || Array.isArray(rawHorizon)) return value;
+  const horizon = rawHorizon as Record<string, unknown>;
+  const buckets = ["today", "tonight", "later"] as const;
+  const expired: unknown[] = [];
+  const nextHorizon: Record<string, unknown[]> = {};
+  for (const bucket of buckets) {
+    const items = Array.isArray(horizon[bucket]) ? horizon[bucket] as unknown[] : [];
+    nextHorizon[bucket] = items.filter((item) => {
+      const past = journeyItemIsPast(item, generatedAt);
+      if (past) expired.push(item);
+      return !past;
+    });
+  }
+  if (!expired.length) return value;
+  const chronology = Array.isArray(journey.chronology) ? [...journey.chronology as unknown[], ...expired] : expired;
+  chronology.sort((left, right) => {
+    const value = (item: unknown) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return 0;
+      const timing = (item as Record<string, unknown>).timing;
+      if (!timing || typeof timing !== "object" || Array.isArray(timing)) return 0;
+      return Date.parse(String((timing as Record<string, unknown>).value || "")) || 0;
+    };
+    return value(left) - value(right);
+  });
+  return { ...journey, chronology, horizon: { ...horizon, ...nextHorizon } };
+}
+
+export function sanitizeCurrentJourneyPayload(payload: Record<string, unknown>, generatedAt: string) {
+  const next = { ...payload };
+  if (next.journey) next.journey = sanitizeJourneyForCurrentPresentation(next.journey, generatedAt);
+  const dossier = next.dossier;
+  if (dossier && typeof dossier === "object" && !Array.isArray(dossier)) {
+    const dossierRecord = { ...(dossier as Record<string, unknown>) };
+    if (dossierRecord.journey) dossierRecord.journey = sanitizeJourneyForCurrentPresentation(dossierRecord.journey, generatedAt);
+    next.dossier = dossierRecord;
+  }
+  return next;
+}
+
 function legacyDelta(update: Update, story: Story | undefined) {
   return {
     id: update.id,
@@ -549,6 +617,11 @@ export function buildHybridPublicationContract({
   const lead = featuredStoryStates[0] || null;
   const selectedEdition = editionReplay.publication.selectedEdition;
 
+  const rawEditionPayload = selectedPublicationSnapshot?.payload || dailyBrief?.payload || {};
+  const editionPayload = isHistoricalReplay
+    ? rawEditionPayload
+    : sanitizeCurrentJourneyPayload(rawEditionPayload, generatedAt);
+
   const edition = {
     id: requestedEdition?.snapshotId || currentEdition?.snapshotId || `compat-${latestRun?.id || generatedAt}`,
     snapshotId: requestedEdition?.snapshotId || currentEdition?.snapshotId || null,
@@ -558,8 +631,7 @@ export function buildHybridPublicationContract({
     immutable: Boolean(requestedEdition || currentEdition),
     mode: isHistoricalReplay ? "immutable_replay" : currentEdition ? "current_canonical" : "compatibility",
     summary: selectedPublicationSnapshot?.public_summary || dailyBrief?.public_summary || null,
-    payload: dailyBrief?.payload || {},
-    ...(selectedPublicationSnapshot ? { payload: selectedPublicationSnapshot.payload } : {}),
+    payload: editionPayload,
     leadStoryId: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.id || null : lead?.id || null,
     leadStorySlug: isHistoricalReplay ? historicalReplay?.featuredStoryStates[0]?.slug || null : lead?.slug || null,
     materialChangeCount: isHistoricalReplay ? 0 : materialDeltas.length,
