@@ -18,6 +18,11 @@ const dossierRouteSource = fs.readFileSync(
   "utf8",
 );
 
+const hybridPublicationSource = fs.readFileSync(
+  path.join(process.cwd(), "lib/hybrid-publication.ts"),
+  "utf8",
+);
+
 test("Hybrid research receives only explicitly persisted divergence rows", () => {
   assert.match(routeSource, /const persistedDivergences = data\.monitorResearchIntake/);
   assert.match(routeSource, /\.filter\(\(item\) => Boolean\(item\.divergence_note\)\)/);
@@ -49,4 +54,11 @@ test("current Dossier V2 is isolated from the heavy Hybrid intelligence feed", (
 test("historical intelligence-feed replay remains free of current-state Dossier V2", () => {
   assert.match(routeSource, /getHybridPublicationFeedRecords\(\{ editionId \}\)/);
   assert.doesNotMatch(routeSource, /dossierV2/);
+});
+
+
+test("canonical feed carries the deterministic Story breakdown and blocks stale framing", () => {
+  assert.match(hybridPublicationSource, /storyBreakdown/);
+  assert.match(hybridPublicationSource, /needs_reframe/);
+  assert.doesNotMatch(hybridPublicationSource, /executeResearchBrain|runIntelligenceEngine/);
 });

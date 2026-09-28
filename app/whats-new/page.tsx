@@ -5,6 +5,7 @@ import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
+import { buildStoryBreakdown } from "@/lib/story-breakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,11 @@ export default async function WhatsNewPage() {
       const currentTitle = currentVersion?.title || story?.title;
       const human = humaniseStoryEvent(event, currentTitle, versionByEventId, versionByStoryAndNumber);
       const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
+      const breakdown = story ? buildStoryBreakdown({
+        story,
+        version: currentVersion,
+        event: { headline: human.title, detail: human.detail, at: event.event_at },
+      }) : null;
       return {
         id: event.id,
         kind: humanEventLabel(event.event_type),
@@ -171,6 +177,7 @@ export default async function WhatsNewPage() {
         regimes: regimeLinks(routes),
         hybridHref: `/hybrid-output?event=${encodeURIComponent(event.id)}`,
         interpretationState: "interpreted" as const,
+        breakdown,
       };
     })
     : data.updates.map((update) => {
@@ -179,6 +186,11 @@ export default async function WhatsNewPage() {
       const currentTitle = currentVersion?.title || story?.title;
       const timestamp = update.observed_at || update.created_at;
       const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
+      const breakdown = story ? buildStoryBreakdown({
+        story,
+        version: currentVersion,
+        event: { headline: update.headline, detail: update.detail, at: timestamp },
+      }) : null;
       return {
         id: update.id,
         kind: humanEventLabel(update.update_type),
@@ -195,6 +207,7 @@ export default async function WhatsNewPage() {
         regimes: regimeLinks(routes),
         hybridHref: story ? `/hybrid-output?story=${encodeURIComponent(story.slug)}` : null,
         interpretationState: "interpreted" as const,
+        breakdown,
       };
     });
 
@@ -224,6 +237,7 @@ export default async function WhatsNewPage() {
         regimes: regimeLinks(routes),
         hybridHref: null,
         interpretationState: routes.length ? "observed_pending" as const : null,
+        breakdown: null,
       };
     }),
     ...data.newsThreads.map((thread) => {
@@ -250,6 +264,7 @@ export default async function WhatsNewPage() {
         regimes: regimeLinks(routes),
         hybridHref: null,
         interpretationState: routes.length ? "observed_pending" as const : null,
+        breakdown: null,
       };
     }),
   ].sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")).slice(0, 60);

@@ -248,6 +248,40 @@
   line-height: 1.58;
 }
 
+.breakdown {
+  display: grid;
+  gap: 7px;
+  margin: 13px 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(181,151,255,.13);
+  border-radius: 11px;
+  background: rgba(10,11,31,.34);
+}
+
+.breakdown > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: baseline;
+}
+
+.breakdown strong {
+  color: #c4a7f0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.breakdown span,
+.breakdown p {
+  color: #aaa7bd;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.breakdown p { margin: 0; }
+
 .body footer {
   display: flex;
   align-items: center;

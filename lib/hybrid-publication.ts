@@ -1,4 +1,6 @@
 import type { Story, Update, ResearchRunStatus } from "@/lib/data";
+import type { StoryThesisVersion } from "@/lib/persistence/contracts";
+import { buildStoryBreakdown, storyPresentationState } from "@/lib/story-breakdown";
 import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
 import {
   MAX_FEATURED_STORIES,
@@ -128,28 +130,7 @@ async function getLegacyStoryVerificationSnapshots(
   return snapshots;
 }
 
-type ThesisVersion = {
-  id: string;
-  story_id: string;
-  event_id?: string | null;
-  version_number: number;
-  title: string;
-  thesis: string;
-  status: string;
-  confidence: number;
-  market_question: string | null;
-  dominant_narrative: string | null;
-  best_explanation: string | null;
-  strongest_support: string | null;
-  strongest_contradiction: string | null;
-  priced_assessment: string | null;
-  confirmation_trigger: string | null;
-  invalidation_trigger: string | null;
-  next_catalyst: string | null;
-  assets: string[];
-  change_reason: string;
-  effective_at: string;
-};
+type ThesisVersion = StoryThesisVersion;
 
 type StoryEvent = {
   id: string;
@@ -275,6 +256,7 @@ function newestThesisByStory(versions: ThesisVersion[]) {
 
 function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined, intelligence: IntelligenceStoryState | undefined) {
   const fallback = getStableStoryFallbackImage(story.id);
+  const storyBreakdown = buildStoryBreakdown({ story, version });
   return {
     id: story.id,
     slug: story.slug,
@@ -284,6 +266,8 @@ function storyState(story: Story, version: ThesisVersion | undefined, image: Sto
     confidence: version?.confidence ?? story.confidence,
     rank: story.rank,
     status: version?.status || story.status,
+    presentationState: storyBreakdown.presentationState,
+    storyBreakdown,
     assets: version?.assets?.length ? version.assets : story.assets,
     dominantNarrative: version?.dominant_narrative ?? story.dominant_narrative,
     bestExplanation: version?.best_explanation ?? story.best_explanation,
@@ -378,7 +362,8 @@ function publicationCandidate(
     nextCatalysts: intelligence?.nextCatalysts?.length ? intelligence.nextCatalysts : [state.nextCatalyst || ""].filter(Boolean),
     confidence: state.confidence,
     lifecycleStatus: status,
-    publicationEligible: intelligence?.publicationEligible ?? !["invalidated", "archived"].includes(status),
+    publicationEligible: (intelligence?.publicationEligible ?? !["invalidated", "archived"].includes(status))
+      && !["needs_reframe", "archived"].includes(state.presentationState),
     qualificationScore: intelligence?.qualificationScore ?? state.confidence,
     researchSynthesis: intelligence?.researchSynthesis || null,
     marketBelief: intelligence?.marketBelief || null,
@@ -442,9 +427,18 @@ export function selectLegacyStoriesForPublication(
     .filter((story): story is Story => Boolean(story));
 }
 
-export function selectLegacyStoriesForLive(stories: Story[], events: LegacyStoryEvent[] = []) {
+export function selectLegacyStoriesForLive(
+  stories: Story[],
+  events: LegacyStoryEvent[] = [],
+  versions: StoryThesisVersion[] = [],
+) {
   const byId = new Map(stories.map((story) => [story.id, story]));
-  const published = selectQualifiedStories(legacyPublicationCandidates(stories, events), MAX_PUBLISHED_STORIES).selected;
+  const newest = newestThesisByStory(versions);
+  const freshStories = stories.filter((story) => {
+    const state = storyPresentationState({ story, version: newest.get(story.id) || null }).state;
+    return state !== "needs_reframe" && state !== "archived";
+  });
+  const published = selectQualifiedStories(legacyPublicationCandidates(freshStories, events), MAX_PUBLISHED_STORIES).selected;
   return selectFeaturedStories(published, MAX_FEATURED_STORIES)
     .map((candidate) => byId.get(candidate.id || ""))
     .filter((story): story is Story => Boolean(story));
