@@ -245,6 +245,7 @@ export type DossierPresentationV1 = {
   };
 
   watchNext: DossierPresentationInvestigation[];
+  investigationAudit: DossierPresentationInvestigation[];
   investigationJourney: DossierPresentationInvestigationJourney[];
   reactionCalibration: DossierPresentationCalibrationSummary;
   researchNow: ResearchNowAction[];
@@ -1021,6 +1022,7 @@ export function buildDossierV2Presentation(
         const presented = presentedById.get(item.investigation_id);
         return presented ? [presented] : [];
       }),
+    investigationAudit: presentedInvestigations,
     investigationJourney: journey,
     reactionCalibration: calibrationSummary(presentedInvestigations),
 
