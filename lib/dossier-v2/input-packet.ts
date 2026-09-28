@@ -61,6 +61,20 @@ export interface PriorAnalyticalClaim {
   provenance: ProvenanceRef[];
 }
 
+export interface PriorInvestigationSnapshot {
+  investigation_id: string;
+  question: string;
+  expected_reaction: string | null;
+  observed_reaction: string | null;
+  divergence: "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
+  current_explanation: string;
+  competing_explanations: string[];
+  research_next: string;
+  status: "open" | "weakened" | "resolved" | "parked";
+  linked_story_ids: string[];
+  linked_thesis_ids: string[];
+}
+
 export interface ThesisArgument {
   arg_id: string;
   type: "supporting" | "counter";
@@ -157,6 +171,7 @@ export interface DossierV2InputRequest {
     id: string;
     as_of: string;
     prior_claims?: PriorAnalyticalClaim[];
+    prior_investigations?: PriorInvestigationSnapshot[];
     thesis_ledger?: ThesisLedger;
     [key: string]: unknown;
   } | null;
@@ -195,6 +210,7 @@ export interface DossierV2InputPacket {
     previous_dossier_id: string | null;
     as_of: string | null;
     prior_claims: PriorAnalyticalClaim[];
+    prior_investigations: PriorInvestigationSnapshot[];
     thesis_ledger: ThesisLedger | null;
   };
 
@@ -220,6 +236,7 @@ const MAX_CREATOR_EXPAND_LATER = 2;
 const MAX_CREATOR_CLAIMS_PER_THEME = 3;
 const MAX_CATALYSTS = 12;
 const MAX_PRIOR_CLAIMS = 12;
+const MAX_PRIOR_INVESTIGATIONS = 2;
 export const MAX_THESIS_LEDGER_ENTRIES = 12;
 const MAX_THESIS_LINEAGE_ITEMS = 10;
 const MAX_THESIS_ARGUMENTS = 10;
@@ -1346,6 +1363,7 @@ export function assembleDossierV2InputPacket(
   }
 
   let priorClaims: PriorAnalyticalClaim[] = [];
+  let priorInvestigations: PriorInvestigationSnapshot[] = [];
   let prevDossierAsOf: string | null = null;
   let activeThesisLedger: ThesisLedger | null = null;
 
@@ -1376,6 +1394,80 @@ export function assembleDossierV2InputPacket(
           dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? truncateString(pc.dossier_id, 100, markTruncated) : (previousDossierId ?? "prior"),
           as_of: claimAsOf,
           provenance: sanitizeProvenance(pc.provenance, markTruncated),
+        });
+      }
+    }
+
+    if (Array.isArray(request.previous_dossier.prior_investigations)) {
+      for (const raw of request.previous_dossier.prior_investigations.slice(0, MAX_PRIOR_INVESTIGATIONS)) {
+        if (!isPlainObject(raw)) continue;
+
+        const investigationId =
+          typeof raw.investigation_id === "string"
+            ? truncateString(raw.investigation_id.trim(), 100, markTruncated)
+            : "";
+        const question =
+          typeof raw.question === "string"
+            ? truncateString(raw.question.trim(), LIMIT_CLAIM_TEXT, markTruncated)
+            : "";
+        const currentExplanation =
+          typeof raw.current_explanation === "string"
+            ? truncateString(raw.current_explanation.trim(), LIMIT_CLAIM_TEXT, markTruncated)
+            : "";
+        const researchNext =
+          typeof raw.research_next === "string"
+            ? truncateString(raw.research_next.trim(), LIMIT_CLAIM_TEXT, markTruncated)
+            : "";
+        const divergence =
+          raw.divergence === "NONE"
+          || raw.divergence === "PARTIAL"
+          || raw.divergence === "MATERIAL"
+          || raw.divergence === "UNRESOLVED"
+            ? raw.divergence
+            : "UNRESOLVED";
+        const status =
+          raw.status === "open"
+          || raw.status === "weakened"
+          || raw.status === "resolved"
+          || raw.status === "parked"
+            ? raw.status
+            : "open";
+
+        if (!investigationId || !question) continue;
+
+        priorInvestigations.push({
+          investigation_id: investigationId,
+          question,
+          expected_reaction:
+            typeof raw.expected_reaction === "string" && raw.expected_reaction.trim()
+              ? truncateString(raw.expected_reaction.trim(), LIMIT_CLAIM_TEXT, markTruncated)
+              : null,
+          observed_reaction:
+            typeof raw.observed_reaction === "string" && raw.observed_reaction.trim()
+              ? truncateString(raw.observed_reaction.trim(), LIMIT_CLAIM_TEXT, markTruncated)
+              : null,
+          divergence,
+          current_explanation: currentExplanation,
+          competing_explanations: Array.isArray(raw.competing_explanations)
+            ? raw.competing_explanations
+                .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+                .slice(0, 3)
+                .map((item) => truncateString(item.trim(), LIMIT_CLAIM_TEXT, markTruncated))
+            : [],
+          research_next: researchNext,
+          status,
+          linked_story_ids: Array.isArray(raw.linked_story_ids)
+            ? raw.linked_story_ids
+                .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+                .slice(0, 4)
+                .map((item) => truncateString(item.trim(), 100, markTruncated))
+            : [],
+          linked_thesis_ids: Array.isArray(raw.linked_thesis_ids)
+            ? raw.linked_thesis_ids
+                .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+                .slice(0, 4)
+                .map((item) => truncateString(item.trim(), 100, markTruncated))
+            : [],
         });
       }
     }
@@ -1448,6 +1540,7 @@ export function assembleDossierV2InputPacket(
       previous_dossier_id: previousDossierId,
       as_of: prevDossierAsOf,
       prior_claims: priorClaims,
+      prior_investigations: priorInvestigations,
       thesis_ledger: activeThesisLedger,
     },
 
@@ -1559,6 +1652,20 @@ export function assembleDossierV2InputPacket(
         }
         for (const pc of packetWithoutId.prior_analytical_state.prior_claims) {
           pc.claim_text = truncateString(pc.claim_text, maxTextLen);
+        }
+        for (const inv of packetWithoutId.prior_analytical_state.prior_investigations) {
+          inv.question = truncateString(inv.question, maxTextLen);
+          inv.current_explanation = truncateString(inv.current_explanation, maxTextLen);
+          inv.research_next = truncateString(inv.research_next, maxTextLen);
+          inv.expected_reaction = inv.expected_reaction
+            ? truncateString(inv.expected_reaction, maxTextLen)
+            : null;
+          inv.observed_reaction = inv.observed_reaction
+            ? truncateString(inv.observed_reaction, maxTextLen)
+            : null;
+          inv.competing_explanations = inv.competing_explanations.map((item) =>
+            truncateString(item, maxTextLen)
+          );
         }
         if (packetWithoutId.thesis_ledger) {
           for (const entry of packetWithoutId.thesis_ledger.entries) {
