@@ -101,6 +101,8 @@ export type DossierPresentationStory = {
   chartIds: string[];
 };
 
+export type DossierPresentationReactionWindowKey = "5m" | "30m" | "4h" | "session_close" | "next_session";
+
 export type DossierPresentationReactionCheck = {
   checkId: string;
   instrument: string;
@@ -109,7 +111,8 @@ export type DossierPresentationReactionCheck = {
   observedChangePct: number;
   observedInstrument: string;
   isProxy: boolean;
-  reactionWindow: "5m" | "30m" | "4h" | null;
+  reactionWindow: DossierPresentationReactionWindowKey | null;
+  reactionWindows: Array<{ window: DossierPresentationReactionWindowKey; observedChangePct: number }>;
   relation: "ALIGNED" | "DIVERGENT";
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   triggerEvidenceRef: string;
@@ -152,7 +155,7 @@ export type DossierPresentationReactionCalibration = {
   checkCount: number;
   alignedCount: number;
   divergentCount: number;
-  reactionWindows: Array<"5m" | "30m" | "4h">;
+  reactionWindows: DossierPresentationReactionWindowKey[];
   expectationChanged: boolean | null;
   requiresReview: boolean;
 };
@@ -413,16 +416,43 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
       || (item.timing_precision !== "INTRADAY" && item.timing_precision !== "DAILY_POST_EVENT")
     ) return [];
 
-    const reactionWindow =
-      item.reaction_window === "5m"
-      || item.reaction_window === "30m"
-      || item.reaction_window === "4h"
-        ? item.reaction_window
-        : null;
+    const validWindow = (value: unknown): value is DossierPresentationReactionWindowKey =>
+      value === "5m"
+      || value === "30m"
+      || value === "4h"
+      || value === "session_close"
+      || value === "next_session";
 
-    // Backward-compatible with Dossiers persisted before intraday-window V1.
-    // Legacy assessments remain valid audits with direct-instrument identity and
-    // no named reaction window.
+    const reactionWindow = validWindow(item.reaction_window)
+      ? item.reaction_window
+      : null;
+
+    const reactionWindows = Array.isArray(item.reaction_windows)
+      ? item.reaction_windows.flatMap((raw) => {
+          if (
+            !isObject(raw)
+            || !validWindow(raw.window)
+            || typeof raw.observed_change_pct !== "number"
+            || !Number.isFinite(raw.observed_change_pct)
+          ) return [];
+          return [{
+            window: raw.window,
+            observed_change_pct: raw.observed_change_pct,
+          }];
+        })
+      : [];
+
+    if (
+      reactionWindow
+      && !reactionWindows.some((window) => window.window === reactionWindow)
+    ) {
+      reactionWindows.push({
+        window: reactionWindow,
+        observed_change_pct: item.observed_change_pct,
+      });
+    }
+
+    // Backward-compatible with Dossiers persisted before persistence-window V1.
     return [{
       ...(item as unknown as System1ReactionAssessment),
       observed_instrument:
@@ -431,6 +461,7 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
           : item.instrument,
       is_proxy: item.is_proxy === true,
       reaction_window: reactionWindow,
+      reaction_windows: reactionWindows,
     }];
   });
 }
@@ -495,11 +526,19 @@ function reactionCalibration(
         : reactionChecks[0].timingPrecision;
 
   const reactionWindows = [...new Set(
-    reactionChecks
-      .map((item) => item.reactionWindow)
-      .filter((value): value is "5m" | "30m" | "4h" => value !== null),
+    reactionChecks.flatMap((item) =>
+      item.reactionWindows.length
+        ? item.reactionWindows.map((window) => window.window)
+        : item.reactionWindow ? [item.reactionWindow] : []
+    ),
   )].sort((left, right) => {
-    const rank = { "5m": 0, "30m": 1, "4h": 2 } as const;
+    const rank: Record<DossierPresentationReactionWindowKey, number> = {
+      "5m": 0,
+      "30m": 1,
+      "4h": 2,
+      "session_close": 3,
+      "next_session": 4,
+    };
     return rank[left] - rank[right];
   });
 
@@ -540,6 +579,10 @@ function presentationInvestigation(
       observedInstrument: assessment.observed_instrument,
       isProxy: assessment.is_proxy,
       reactionWindow: assessment.reaction_window,
+      reactionWindows: (assessment.reaction_windows ?? []).map((window) => ({
+        window: window.window,
+        observedChangePct: window.observed_change_pct,
+      })),
       relation: assessment.relation,
       timingPrecision: assessment.timing_precision,
       triggerEvidenceRef: assessment.trigger_evidence_id,
