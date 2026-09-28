@@ -329,7 +329,7 @@ export default function RegimeDetailWorkspace({
                                 <div>
                                   {item.reactionChecks.map((check) => (
                                     <span data-relation={check.relation.toLowerCase()} key={check.checkId}>
-                                      {check.instrument} · {check.relation} · {check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}
+                                      {check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} · {check.relation} · {check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}
                                     </span>
                                   ))}
                                 </div>
