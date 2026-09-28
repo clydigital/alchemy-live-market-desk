@@ -33,6 +33,7 @@ export type System1DivergenceCandidate = {
   expected_direction: Direction;
   observed_direction: Direction;
   observed_change_pct: number;
+  timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
   severity: "MEDIUM" | "HIGH";
 };
 
@@ -153,6 +154,54 @@ function metric(evidence: ObservedEvidence | undefined, key: string): number | n
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function timestamp(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function utcDate(value: string | null | undefined): string | null {
+  const parsed = timestamp(value);
+  return parsed === null ? null : new Date(parsed).toISOString().slice(0, 10);
+}
+
+function marketReactionTiming(
+  evidence: ObservedEvidence,
+  trigger: ObservedEvidence,
+): "INTRADAY" | "DAILY_POST_EVENT" | null {
+  const triggerTime = timestamp(trigger.occurrence_time ?? trigger.available_at);
+  const marketTime = timestamp(evidence.occurrence_time);
+  if (triggerTime === null || marketTime === null) return null;
+
+  const frequency = typeof evidence.metrics?.frequency === "string"
+    ? evidence.metrics.frequency.trim().toLowerCase()
+    : "";
+
+  // Daily observations do not establish an event reaction when the catalyst
+  // occurred on the same calendar date: the daily move contains pre-event
+  // trading and cannot prove the direction of the post-event tape. A later
+  // daily session is valid only as a coarse post-event persistence check.
+  if (frequency === "daily" || frequency.includes("daily")) {
+    const triggerDate = utcDate(trigger.occurrence_time ?? trigger.available_at);
+    const marketDate = utcDate(evidence.occurrence_time);
+    return triggerDate && marketDate && marketDate > triggerDate
+      ? "DAILY_POST_EVENT"
+      : null;
+  }
+
+  // Weekly/monthly observations are too coarse for deterministic event
+  // divergence. They remain context for System 2, not reaction evidence.
+  if (
+    frequency.includes("weekly")
+    || frequency.includes("monthly")
+    || frequency.includes("quarter")
+    || frequency.includes("annual")
+  ) return null;
+
+  // Exact timestamped market observations can establish sequencing.
+  return marketTime >= triggerTime ? "INTRADAY" : null;
+}
+
 function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
   const merged = [
     ...(packet.rate_context?.evidence ?? []),
@@ -199,26 +248,31 @@ function marketMove(
   packet: DossierV2InputPacket,
   monitorId: string,
   trigger: ObservedEvidence,
-): { evidence: ObservedEvidence; change: number } | null {
+): {
+  evidence: ObservedEvidence;
+  change: number;
+  timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+} | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
   );
-  const triggerAvailableAt = Date.parse(trigger.available_at);
-  const evidence = cluster?.evidence.find((item) => {
-    if (item.source_type !== "MARKET_DATA" || metric(item, "day_change_pct") === null) {
-      return false;
-    }
+  const match = cluster?.evidence
+    .flatMap((item) => {
+      if (item.source_type !== "MARKET_DATA" || metric(item, "day_change_pct") === null) {
+        return [];
+      }
+      const timingPrecision = marketReactionTiming(item, trigger);
+      return timingPrecision ? [{ evidence: item, timingPrecision }] : [];
+    })
+    .sort((left, right) =>
+      (timestamp(right.evidence.occurrence_time) ?? 0)
+      - (timestamp(left.evidence.occurrence_time) ?? 0)
+    )[0] ?? null;
 
-    // Divergence requires a market reaction observed after the trigger. A
-    // prior-day close paired with a newer macro release is context, not a
-    // reaction, and must never generate an expected-vs-observed mismatch.
-    const marketAvailableAt = Date.parse(item.available_at);
-    return Number.isFinite(triggerAvailableAt)
-      && Number.isFinite(marketAvailableAt)
-      && marketAvailableAt >= triggerAvailableAt;
-  });
-  const change = metric(evidence, "day_change_pct");
-  return evidence && change !== null ? { evidence, change } : null;
+  const change = metric(match?.evidence, "day_change_pct");
+  return match && change !== null
+    ? { evidence: match.evidence, change, timingPrecision: match.timingPrecision }
+    : null;
 }
 
 export function buildSystem1PolicyExpectationChecks(
@@ -276,6 +330,7 @@ export function buildSystem1DivergenceCandidates(
         expected_direction: expected,
         observed_direction: observed,
         observed_change_pct: move.change,
+        timing_precision: move.timingPrecision,
         severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",
       });
     }
