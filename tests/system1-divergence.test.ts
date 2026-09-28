@@ -16,14 +16,14 @@ const AVAILABLE_AT = "2026-09-22T11:30:00Z";
 
 function marketMonitor(id: string, dayChangePct: number | null): Record<string, unknown> {
   return {
-    evidence_id: `market-monitor:${id}:2026-09-22`,
-    claim_or_fact: `Market monitor ${id} moved ${dayChangePct ?? "n/a"}% on the day.`,
+    evidence_id: `market-monitor:${id}:2026-09-22T11:30:00Z`,
+    claim_or_fact: `Market monitor ${id} moved ${dayChangePct ?? "n/a"}% after the catalyst.`,
     available_at: AVAILABLE_AT,
-    occurrence_time: "2026-09-22T00:00:00Z",
+    occurrence_time: AVAILABLE_AT,
     grouping_key: `market-monitor:${id}`,
     category: "MARKET",
     source_type: "MARKET_DATA",
-    metrics: { day_change_pct: dayChangePct },
+    metrics: { day_change_pct: dayChangePct, frequency: "intraday" },
     provenance: [{ source_type: "MARKET_DATA", source_id: `market-monitor:${id}` }],
   };
 }
@@ -64,7 +64,8 @@ test("System 1 emits only material opposite reactions", () => {
   assert.equal(candidates[0]?.expected_direction, "DOWN");
   assert.equal(candidates[0]?.observed_direction, "UP");
   assert.equal(candidates[0]?.trigger_evidence_id, "ev:fomc:hawkish");
-  assert.equal(candidates[0]?.market_evidence_id, "market-monitor:gold:2026-09-22");
+  assert.equal(candidates[0]?.market_evidence_id, "market-monitor:gold:2026-09-22T11:30:00Z");
+  assert.equal(candidates[0]?.timing_precision, "INTRADAY");
   assert.ok(!("explanation" in (candidates[0] ?? {})));
 });
 
@@ -266,6 +267,73 @@ test("Strong labour surprise creates a hawkish policy outlook", () => {
   assert.equal(outlook[0]?.fedwatch_expectation, "HIKE_ODDS_UP");
 });
 
+
+test("System 1 does not treat same-day daily data as an intraday post-event reaction", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:same-day",
+      claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T10:00:00Z",
+      occurrence_time: "2026-09-22T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+    }],
+    [{
+      evidence_id: "market-monitor:gold:2026-09-22",
+      claim_or_fact: "Gold was higher on the daily bar.",
+      // The row is ingested after the release, but the daily observation itself
+      // cannot establish which part of the move happened after 10:00.
+      available_at: "2026-09-22T11:30:00Z",
+      occurrence_time: "2026-09-22T00:00:00Z",
+      grouping_key: "market-monitor:gold",
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      metrics: { day_change_pct: 1.2, frequency: "daily" },
+      provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:gold" }],
+    }],
+  );
+
+  assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+});
+
+test("System 1 can use a later daily session as a coarse post-event persistence check", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:prior-session",
+      claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-21T10:00:00Z",
+      occurrence_time: "2026-09-21T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+    }],
+    [{
+      evidence_id: "market-monitor:gold:2026-09-22",
+      claim_or_fact: "Gold rose in the later daily session.",
+      available_at: "2026-09-22T11:30:00Z",
+      occurrence_time: "2026-09-22T00:00:00Z",
+      grouping_key: "market-monitor:gold",
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      metrics: { day_change_pct: 1.2, frequency: "daily" },
+      provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:gold" }],
+    }],
+  );
+
+  const candidates = buildSystem1DivergenceCandidates(packet);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.instrument, "XAUUSD");
+  assert.equal(candidates[0]?.timing_precision, "DAILY_POST_EVENT");
+});
 
 test("System 1 never compares a prior-day market snapshot with a newer macro trigger", () => {
   const packet = packetWith(
