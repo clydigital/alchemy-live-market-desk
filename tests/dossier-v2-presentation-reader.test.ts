@@ -305,12 +305,100 @@ test("reader reconstructs bounded calibration history including closed investiga
   assert.equal(result.calibrationHistory[1].cases[0].requiresReview, false);
 
   assert.equal(result.calibrationLineages.length, 1);
+  assert.equal(result.calibrationLineages[0].caseVintages, 2);
+  assert.equal(result.calibrationLineages[0].evaluatedVintages, 2);
   assert.equal(result.calibrationLineages[0].measuredVintages, 2);
+  assert.equal(result.calibrationLineages[0].rewriteOnlyVintages, 0);
   assert.deepEqual(
     result.calibrationLineages[0].cases.map((item) => item.outcome),
     ["ALIGNED", "DIVERGENT"],
   );
   assert.equal(result.calibrationLineages[0].hasDivergence, true);
+  assert.equal(result.calibrationLineages[0].learningState, "DIVERGENCE_REVIEW");
+  assert.equal(result.calibrationLineages[0].reactionRead, "DID_NOT_FOLLOW_EXPECTATION");
+  assert.match(result.calibrationLineages[0].learningSummary, /did not follow/i);
+});
+
+test("rewrite-only lineages remain transmission-unresolved rather than falsely aligned", () => {
+  const oldestOutput = brain();
+  oldestOutput.investigations = [investigation({
+    expectedReaction: "Rates should rise if the inflation impulse persists.",
+  })];
+  const oldest = dossier({
+    id: "44444444-4444-4444-8444-444444444444",
+    asOf: "2026-09-21T09:00:00Z",
+    output: oldestOutput,
+  });
+
+  const middleOutput = brain();
+  middleOutput.investigations = [investigation({
+    expectedReaction: "Rates and USD should rise if inflation remains sticky.",
+  })];
+  const middle = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    previousDossierId: oldest.id,
+    output: middleOutput,
+  });
+
+  const currentOutput = brain();
+  currentOutput.investigations = [investigation({
+    expectedReaction: "Credit and breadth should weaken if the rates shock transmits.",
+  })];
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: OLDER_ID,
+    output: currentOutput,
+  });
+
+  const result = selectDossierV2Presentation([current, middle, oldest]);
+
+  assert.equal(result.calibrationLineages.length, 1);
+  const lineage = result.calibrationLineages[0];
+  assert.equal(lineage.caseVintages, 2);
+  assert.equal(lineage.evaluatedVintages, 0);
+  assert.equal(lineage.measuredVintages, 0);
+  assert.equal(lineage.rewriteOnlyVintages, 2);
+  assert.equal(lineage.learningState, "TRANSMISSION_UNRESOLVED");
+  assert.equal(lineage.reactionRead, "NOT_MEASURED");
+  assert.match(lineage.learningSummary, /hypothesis refinement, not forecast calibration/i);
+});
+
+test("repeated exact alignment supports only the reaction rule, not the whole mechanism", () => {
+  const olderOutput = brain();
+  olderOutput.investigations = [investigation({
+    divergence: "NONE",
+    observedReaction: "UUP rose over the measured 30m window.",
+  })];
+  const older = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    output: olderOutput,
+  });
+  addReactionAssessment(older, "ALIGNED", "UP");
+
+  const currentOutput = brain();
+  currentOutput.investigations = [investigation({
+    divergence: "NONE",
+    observedReaction: "UUP rose again over the measured 30m window.",
+  })];
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: OLDER_ID,
+    output: currentOutput,
+  });
+  addReactionAssessment(current, "ALIGNED", "UP");
+
+  const result = selectDossierV2Presentation([current, older]);
+
+  const lineage = result.calibrationLineages[0];
+  assert.equal(lineage.evaluatedVintages, 2);
+  assert.equal(lineage.learningState, "REACTION_RULE_SUPPORTED");
+  assert.equal(lineage.reactionRead, "FOLLOWED_EXPECTATION");
+  assert.match(lineage.learningSummary, /supports the reaction rule, not the whole causal mechanism/i);
+  assert.match(lineage.mechanismRead, /cannot prove the mechanism was right or wrong/i);
 });
 
 test("calibration lineage excludes continuity inferred only from broad Regime routing", () => {
