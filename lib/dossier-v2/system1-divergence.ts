@@ -301,7 +301,7 @@ function marketMove(
       const eventTriggerId = metricString(item, "trigger_evidence_id");
       if (eventChange !== null && eventTriggerId === trigger.evidence_id) {
         const rawWindow = metricString(item, "reaction_window");
-        const reactionWindow =
+        const reactionWindow: "5m" | "30m" | "4h" | null =
           rawWindow === "5m" || rawWindow === "30m" || rawWindow === "4h"
             ? rawWindow
             : null;
