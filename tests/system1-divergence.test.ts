@@ -308,8 +308,8 @@ test("System 1 can use a later daily session as a coarse post-event persistence 
       claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
       category: "ECONOMIC_METRIC",
       source_type: "VERIFIED_MACRO_DATA",
-      available_at: "2026-09-21T10:00:00Z",
-      occurrence_time: "2026-09-21T10:00:00Z",
+      available_at: "2026-09-21T23:30:00Z",
+      occurrence_time: "2026-09-21T23:30:00Z",
       metrics: {
         signal_kind: "economic_release",
         signal_context: "STRONG_ACTIVITY_SURPRISE",
