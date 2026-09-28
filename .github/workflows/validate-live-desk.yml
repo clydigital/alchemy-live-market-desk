@@ -144,5 +144,8 @@ jobs:
       - name: Apply persistent Regime shadow engine migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260928011010_persistent_regime_shadow_engine.sql
 
+      - name: Apply persistent Regime FK indexes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260928011605_persistent_regime_shadow_engine_fk_indexes.sql
+
       - name: Verify persistent Regime shadow engine contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/persistent_regime_shadow_engine_contract.sql
