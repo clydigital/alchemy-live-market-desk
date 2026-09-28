@@ -70,7 +70,7 @@ export interface PriorInvestigationSnapshot {
   current_explanation: string;
   competing_explanations: string[];
   research_next: string;
-  status: "open" | "weakened" | "resolved" | "parked";
+  status: "open" | "strengthened" | "weakened" | "resolved" | "parked";
   linked_story_ids: string[];
   linked_thesis_ids: string[];
 }
