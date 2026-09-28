@@ -5,6 +5,7 @@ import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
+import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
@@ -17,6 +18,7 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
+import { buildRegimeProjection } from "@/lib/regimes";
 import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -241,6 +243,14 @@ export default async function Page({ searchParams }: PageProps) {
   const releaseStories = getRelatedStoriesForRelease(immediateRelease, data.stories, 3);
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossierSelection.presentation });
+  const regimes = buildRegimeProjection({
+    stories: data.stories,
+    events: recordLayer.events,
+    versions: recordLayer.thesisVersions,
+    newsThreads: data.newsThreads,
+    statements: data.statements,
+    dossier: dossierSelection.presentation,
+  });
 
   const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
@@ -345,13 +355,14 @@ export default async function Page({ searchParams }: PageProps) {
       )}
     >
       <div style={{ display: "grid", gap: 24 }}>
+        <RateRegimeOverview selection={dossierSelection} />
+        <MarketRegimeStrip regimes={regimes} />
+        <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
         <DailyAssetStateBoard
           state={dailyAssetState}
           dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}
           policyLiquidityInteraction={dossierSelection.presentation?.policyLiquidityInteraction ?? null}
         />
-        <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
-        <RateRegimeOverview selection={dossierSelection} />
         <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
         <OverviewWorkspace
           stories={stories}
