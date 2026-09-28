@@ -302,6 +302,45 @@ test("presentation adapter preserves the canonical expected-vs-observed divergen
   });
 });
 
+test("presentation adapter keeps pre-window reaction audits from older Dossiers visible", () => {
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    observed_evidence: ["ev-trigger", "ev-market"],
+  };
+
+  const current = dossier("legacy-reaction-audit", currentOutput);
+  current.payload.system1_reaction_assessments = [{
+    check_id: "system1:legacy:dxy",
+    rule_id: "STRONG_ACTIVITY_SURPRISE",
+    trigger_evidence_id: "ev-trigger",
+    market_evidence_id: "ev-market",
+    instrument: "DXY",
+    expected_direction: "UP",
+    observed_direction: "DOWN",
+    observed_change_pct: -0.6,
+    timing_precision: "INTRADAY",
+    relation: "DIVERGENT",
+    severity: "MEDIUM",
+  }];
+
+  const result = buildDossierV2Presentation(current);
+  assert.deepEqual(result.watchNext[0].reactionChecks[0], {
+    checkId: "system1:legacy:dxy",
+    instrument: "DXY",
+    expectedDirection: "UP",
+    observedDirection: "DOWN",
+    observedChangePct: -0.6,
+    observedInstrument: "DXY",
+    isProxy: false,
+    reactionWindow: null,
+    relation: "DIVERGENT",
+    timingPrecision: "INTRADAY",
+    triggerEvidenceRef: "ev-trigger",
+    marketEvidenceRef: "ev-market",
+  });
+});
+
 test("presentation adapter computes thesis changes against the previous dossier only", () => {
   const previousOutput = output({
     thesis_ledger: {
