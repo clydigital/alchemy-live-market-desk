@@ -291,3 +291,22 @@
     margin-top: 12px;
   }
 }
+
+
+.statusLine span[data-maturity="durable"] { color: #89dca9; }
+.statusLine span[data-maturity="early"] { color: #ffbd72; }
+.statusLine span[data-maturity="seed"] { color: #e7c66a; }
+.statusLine span[data-maturity="episode"] { color: #8f899c; }
+
+.expiredCatalyst {
+  margin-top: 5px;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(255,84,117,.45);
+  background: rgba(255,84,117,.035);
+  color: #e2a8b4;
+}
+
+.contextNote {
+  color: #938d9e;
+  font-size: 10px;
+}
