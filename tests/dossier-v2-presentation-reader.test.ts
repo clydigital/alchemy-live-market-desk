@@ -131,6 +131,66 @@ function dossier({
   };
 }
 
+function investigation({
+  id = "inv-1",
+  status = "open",
+  divergence = "UNRESOLVED",
+  expectedReaction = "Hot inflation should lift the dollar.",
+  observedReaction = null,
+}: {
+  id?: string;
+  status?: "open" | "weakened" | "resolved" | "parked";
+  divergence?: "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
+  expectedReaction?: string | null;
+  observedReaction?: string | null;
+} = {}): ResearchBrainOutputV1["investigations"][number] {
+  return {
+    investigation_id: id,
+    question: "Did the macro surprise transmit through the expected cross-asset channel?",
+    why_it_matters: "The answer determines whether the initial policy impulse is dominating the tape.",
+    current_explanation: divergence === "MATERIAL"
+      ? "The expected dollar transmission did not appear in the measured reaction window."
+      : "The measured reaction was consistent with the directional prior.",
+    expected_reaction: expectedReaction,
+    observed_reaction: observedReaction,
+    divergence,
+    competing_explanations: divergence === "MATERIAL" ? ["A competing growth impulse may have offset the policy channel."] : [],
+    observed_evidence: ["ev-trigger", "ev-market"],
+    missing_evidence: [],
+    research_next: "Compare the next rates, USD and gold reaction window.",
+    chart_task_links: [],
+    confirmation_condition: "The same transmission appears on the next comparable catalyst.",
+    invalidation_condition: "The relationship reverses on comparable evidence.",
+    status,
+    linked_story_ids: ["story-1"],
+    linked_thesis_ids: ["thesis-1"],
+    leads_referenced: [],
+  };
+}
+
+function addReactionAssessment(
+  target: MarketDossierV2,
+  relation: "ALIGNED" | "DIVERGENT",
+  observedDirection: "UP" | "DOWN",
+) {
+  target.payload.system1_reaction_assessments = [{
+    check_id: `system1:history:dxy:${relation.toLowerCase()}`,
+    rule_id: "HOT_INFLATION_SURPRISE",
+    trigger_evidence_id: "ev-trigger",
+    market_evidence_id: "ev-market",
+    instrument: "DXY",
+    expected_direction: "UP",
+    observed_direction: observedDirection,
+    observed_change_pct: observedDirection === "UP" ? 0.5 : -0.6,
+    observed_instrument: "UUP",
+    is_proxy: true,
+    reaction_window: "30m",
+    timing_precision: "INTRADAY",
+    relation,
+    severity: "MEDIUM",
+  }];
+}
+
 const HEALTHY_ID = "11111111-1111-4111-8111-111111111111";
 const DEGRADED_ID = "22222222-2222-4222-8222-222222222222";
 const OLDER_ID = "33333333-3333-4333-8333-333333333333";
@@ -203,6 +263,55 @@ test("reader exposes the degraded latest Dossier only when no healthy fallback e
   assert.equal(result.selectedDossierId, DEGRADED_ID);
   assert.equal(result.presentation?.health.degraded, true);
   assert.equal(result.notice.tone, "warn");
+});
+
+test("reader reconstructs bounded calibration history including closed investigations", () => {
+  const olderOutput = brain();
+  olderOutput.investigations = [investigation({
+    status: "resolved",
+    divergence: "NONE",
+    observedReaction: "UUP rose over the measured 30m window.",
+  })];
+  const older = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    output: olderOutput,
+  });
+  addReactionAssessment(older, "ALIGNED", "UP");
+
+  const currentOutput = brain();
+  currentOutput.investigations = [investigation({
+    divergence: "MATERIAL",
+    observedReaction: "UUP fell over the measured 30m window.",
+  })];
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: OLDER_ID,
+    output: currentOutput,
+  });
+  addReactionAssessment(current, "DIVERGENT", "DOWN");
+
+  const result = selectDossierV2Presentation([current, older]);
+
+  assert.equal(result.calibrationHistory.length, 2);
+  assert.equal(result.calibrationHistory[0].dossierId, HEALTHY_ID);
+  assert.equal(result.calibrationHistory[0].cases[0].outcome, "DIVERGENT");
+  assert.equal(result.calibrationHistory[0].cases[0].precision, "INTRADAY");
+  assert.equal(result.calibrationHistory[0].cases[0].requiresReview, true);
+  assert.equal(result.calibrationHistory[1].dossierId, OLDER_ID);
+  assert.equal(result.calibrationHistory[1].cases[0].status, "resolved");
+  assert.equal(result.calibrationHistory[1].cases[0].outcome, "ALIGNED");
+  assert.equal(result.calibrationHistory[1].cases[0].requiresReview, false);
+});
+
+test("reader omits Dossier vintages with no exact calibration or expectation rewrite from history", () => {
+  const result = selectDossierV2Presentation([
+    dossier({ id: HEALTHY_ID, asOf: "2026-09-21T12:45:00Z" }),
+    dossier({ id: OLDER_ID, asOf: "2026-09-21T10:00:00Z" }),
+  ]);
+
+  assert.deepEqual(result.calibrationHistory, []);
 });
 
 test("reader reports unavailable when no persisted Dossier exists", () => {
