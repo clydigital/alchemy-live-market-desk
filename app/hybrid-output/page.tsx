@@ -266,7 +266,10 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                       `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
                     ).join(" · ")}</p>
                   ) : null}
-                  <p>Current explanation: {item.currentExplanation}</p>
+                  <p>
+                    <strong>{item.reactionCalibration.requiresReview ? "Post-mortem hypothesis:" : "Current explanation:"}</strong>{" "}
+                    {item.currentExplanation}
+                  </p>
                   <p>Research next: {item.researchNext}</p>
                   <p>Confirm: {item.confirmationCondition}</p>
                   <p>Invalidate: {item.invalidationCondition}</p>
