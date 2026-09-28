@@ -293,6 +293,61 @@
   margin: 1px 0 0;
 }
 
+.journeyBadge {
+  padding: 4px 8px;
+  border: 1px solid rgba(181, 151, 255, .16);
+  border-radius: 999px;
+  color: #9d96ad;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.journeyBadge[data-transition="divergence_detected"],
+.journeyBadge[data-transition="divergence_escalated"] {
+  border-color: rgba(255, 84, 117, .3);
+  color: #ff9aae;
+}
+
+.journeyBadge[data-transition="aligned_confirmed"] {
+  border-color: rgba(79, 209, 133, .26);
+  color: #8ce4b1;
+}
+
+.journeyBadge[data-transition="evidence_became_unresolved"],
+.journeyBadge[data-transition="divergence_deescalated"] {
+  border-color: rgba(255, 187, 66, .28);
+  color: #ffd180;
+}
+
+.journeyAudit {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px dashed rgba(181, 151, 255, .16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .01);
+}
+
+.journeyAudit > div {
+  display: grid;
+  gap: 4px;
+}
+
+.journeyAudit strong {
+  color: #c4bfce;
+  font-size: 11px;
+}
+
+.journeyAudit span {
+  color: #878191;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .explanation {
   max-width: 1000px;
   margin: 14px 0 0;

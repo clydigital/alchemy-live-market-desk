@@ -310,6 +310,9 @@ export default function RegimeDetailWorkspace({
                           <article className={styles.divergenceCard} data-divergence={item.divergence.toLowerCase()} key={item.id}>
                             <div className={styles.divergenceMeta}>
                               <span>{item.status}</span>
+                              <span className={styles.journeyState} data-transition={item.journey.transition.toLowerCase()}>
+                                {item.journey.transition.replaceAll("_", " ")}
+                              </span>
                               <strong>{item.divergence} DIVERGENCE</strong>
                             </div>
                             <h4>{item.question}</h4>

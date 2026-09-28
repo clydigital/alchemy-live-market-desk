@@ -115,6 +115,34 @@ export type DossierPresentationReactionCheck = {
   marketEvidenceRef: string;
 };
 
+export type DossierPresentationInvestigationTransition =
+  | "BASELINE"
+  | "NEW"
+  | "UNCHANGED"
+  | "DIVERGENCE_DETECTED"
+  | "DIVERGENCE_ESCALATED"
+  | "DIVERGENCE_DEESCALATED"
+  | "EVIDENCE_BECAME_UNRESOLVED"
+  | "ALIGNED_CONFIRMED"
+  | "REOPENED"
+  | "CLOSED"
+  | "STATUS_CHANGED"
+  | "NOT_CARRIED_FORWARD";
+
+export type DossierPresentationInvestigationJourney = {
+  currentId: string | null;
+  previousId: string | null;
+  matchedBy: "id" | "linkage" | null;
+  transition: DossierPresentationInvestigationTransition;
+  previousDivergence: Investigation["divergence"] | null;
+  currentDivergence: Investigation["divergence"] | null;
+  previousStatus: Investigation["status"] | null;
+  currentStatus: Investigation["status"] | null;
+  previousExpectedReaction: string | null;
+  currentExpectedReaction: string | null;
+  question: string;
+};
+
 export type DossierPresentationInvestigation = {
   id: string;
   status: Investigation["status"];
@@ -134,6 +162,7 @@ export type DossierPresentationInvestigation = {
   storyIds: string[];
   thesisIds: string[];
   reactionChecks: DossierPresentationReactionCheck[];
+  journey: DossierPresentationInvestigationJourney;
 };
 
 export type DossierPresentationChart = ChartTask & {
@@ -190,6 +219,7 @@ export type DossierPresentationV1 = {
   };
 
   watchNext: DossierPresentationInvestigation[];
+  investigationJourney: DossierPresentationInvestigationJourney[];
   researchNow: ResearchNowAction[];
 
   charts: {
@@ -415,6 +445,7 @@ function presentationStory(story: MajorStory): DossierPresentationStory {
 function presentationInvestigation(
   item: Investigation,
   reactionAssessments: System1ReactionAssessment[],
+  journey: DossierPresentationInvestigationJourney,
 ): DossierPresentationInvestigation {
   const observedIds = new Set(item.observed_evidence);
   const reactionChecks: DossierPresentationReactionCheck[] = reactionAssessments
@@ -457,7 +488,161 @@ function presentationInvestigation(
     storyIds: [...item.linked_story_ids],
     thesisIds: [...item.linked_thesis_ids],
     reactionChecks,
+    journey,
   };
+}
+
+function investigationLinkageKey(item: Investigation): string | null {
+  const storyIds = [...new Set(item.linked_story_ids.filter(Boolean))].sort();
+  const thesisIds = [...new Set(item.linked_thesis_ids.filter(Boolean))].sort();
+  if (!storyIds.length && !thesisIds.length) return null;
+  return `stories:${storyIds.join(",")}|theses:${thesisIds.join(",")}`;
+}
+
+function transitionForInvestigation(
+  previous: Investigation,
+  current: Investigation,
+): DossierPresentationInvestigationTransition {
+  const previousClosed = previous.status === "resolved" || previous.status === "parked";
+  const currentClosed = current.status === "resolved" || current.status === "parked";
+
+  if (previousClosed && !currentClosed) return "REOPENED";
+  if (!previousClosed && currentClosed) return "CLOSED";
+
+  if (previous.divergence === current.divergence) {
+    return previous.status === current.status ? "UNCHANGED" : "STATUS_CHANGED";
+  }
+
+  if (current.divergence === "NONE") return "ALIGNED_CONFIRMED";
+
+  const previousDivergent = previous.divergence === "PARTIAL" || previous.divergence === "MATERIAL";
+  const currentDivergent = current.divergence === "PARTIAL" || current.divergence === "MATERIAL";
+
+  if (!previousDivergent && currentDivergent) return "DIVERGENCE_DETECTED";
+  if (previous.divergence === "PARTIAL" && current.divergence === "MATERIAL") {
+    return "DIVERGENCE_ESCALATED";
+  }
+  if (previous.divergence === "MATERIAL" && current.divergence === "PARTIAL") {
+    return "DIVERGENCE_DEESCALATED";
+  }
+  if (previousDivergent && current.divergence === "UNRESOLVED") {
+    return "EVIDENCE_BECAME_UNRESOLVED";
+  }
+  if (previous.divergence === "NONE" && currentDivergent) return "DIVERGENCE_DETECTED";
+
+  return "STATUS_CHANGED";
+}
+
+function investigationJourney(
+  current: ResearchBrainOutputV1,
+  previous: ResearchBrainOutputV1 | null,
+): DossierPresentationInvestigationJourney[] {
+  if (!previous) {
+    return current.investigations.map((item) => ({
+      currentId: item.investigation_id,
+      previousId: null,
+      matchedBy: null,
+      transition: "BASELINE",
+      previousDivergence: null,
+      currentDivergence: item.divergence,
+      previousStatus: null,
+      currentStatus: item.status,
+      previousExpectedReaction: null,
+      currentExpectedReaction: item.expected_reaction,
+      question: item.question,
+    }));
+  }
+
+  const previousById = new Map(previous.investigations.map((item) => [item.investigation_id, item]));
+  const previousByLinkage = new Map<string, Investigation[]>();
+  const currentLinkageCounts = new Map<string, number>();
+
+  for (const item of previous.investigations) {
+    const key = investigationLinkageKey(item);
+    if (!key) continue;
+    const list = previousByLinkage.get(key) ?? [];
+    list.push(item);
+    previousByLinkage.set(key, list);
+  }
+  for (const item of current.investigations) {
+    const key = investigationLinkageKey(item);
+    if (!key) continue;
+    currentLinkageCounts.set(key, (currentLinkageCounts.get(key) ?? 0) + 1);
+  }
+
+  const usedPreviousIds = new Set<string>();
+  const result: DossierPresentationInvestigationJourney[] = [];
+
+  for (const item of current.investigations) {
+    let matched = previousById.get(item.investigation_id) ?? null;
+    if (matched && usedPreviousIds.has(matched.investigation_id)) matched = null;
+    let matchedBy: "id" | "linkage" | null = matched ? "id" : null;
+
+    if (!matched) {
+      const key = investigationLinkageKey(item);
+      const candidates = key ? previousByLinkage.get(key) ?? [] : [];
+      if (
+        key
+        && currentLinkageCounts.get(key) === 1
+        && candidates.length === 1
+        && !usedPreviousIds.has(candidates[0].investigation_id)
+      ) {
+        matched = candidates[0];
+        matchedBy = "linkage";
+      }
+    }
+
+    if (!matched) {
+      result.push({
+        currentId: item.investigation_id,
+        previousId: null,
+        matchedBy: null,
+        transition: "NEW",
+        previousDivergence: null,
+        currentDivergence: item.divergence,
+        previousStatus: null,
+        currentStatus: item.status,
+        previousExpectedReaction: null,
+        currentExpectedReaction: item.expected_reaction,
+        question: item.question,
+      });
+      continue;
+    }
+
+    usedPreviousIds.add(matched.investigation_id);
+    result.push({
+      currentId: item.investigation_id,
+      previousId: matched.investigation_id,
+      matchedBy,
+      transition: transitionForInvestigation(matched, item),
+      previousDivergence: matched.divergence,
+      currentDivergence: item.divergence,
+      previousStatus: matched.status,
+      currentStatus: item.status,
+      previousExpectedReaction: matched.expected_reaction,
+      currentExpectedReaction: item.expected_reaction,
+      question: item.question,
+    });
+  }
+
+  for (const item of previous.investigations) {
+    if (usedPreviousIds.has(item.investigation_id)) continue;
+    result.push({
+      currentId: null,
+      previousId: item.investigation_id,
+      matchedBy: null,
+      transition: "NOT_CARRIED_FORWARD",
+      previousDivergence: item.divergence,
+      currentDivergence: null,
+      previousStatus: item.status,
+      currentStatus: null,
+      previousExpectedReaction: item.expected_reaction,
+      currentExpectedReaction: null,
+      question: item.question,
+    });
+  }
+
+  return result;
 }
 
 function lensEntries(output: ResearchBrainOutputV1): DossierPresentationLens[] {
@@ -595,6 +780,10 @@ export function buildDossierV2Presentation(
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
   const reactionAssessments = system1ReactionAssessments(dossier);
+  const journey = investigationJourney(output, previousOutput);
+  const journeyByCurrentId = new Map(
+    journey.flatMap((item) => item.currentId ? [[item.currentId, item] as const] : []),
+  );
 
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
@@ -635,7 +824,24 @@ export function buildDossierV2Presentation(
 
     watchNext: output.investigations
       .filter((item) => item.status !== "resolved" && item.status !== "parked")
-      .map((item) => presentationInvestigation(item, reactionAssessments)),
+      .map((item) => presentationInvestigation(
+        item,
+        reactionAssessments,
+        journeyByCurrentId.get(item.investigation_id) ?? {
+          currentId: item.investigation_id,
+          previousId: null,
+          matchedBy: null,
+          transition: "BASELINE",
+          previousDivergence: null,
+          currentDivergence: item.divergence,
+          previousStatus: null,
+          currentStatus: item.status,
+          previousExpectedReaction: null,
+          currentExpectedReaction: item.expected_reaction,
+          question: item.question,
+        },
+      )),
+    investigationJourney: journey,
 
     researchNow: output.research_now.map((item) => ({
       ...item,

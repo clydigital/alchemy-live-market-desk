@@ -341,6 +341,115 @@ test("presentation adapter keeps pre-window reaction audits from older Dossiers 
   });
 });
 
+test("investigation journey detects divergence transition by exact investigation ID", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    expected_reaction: "Energy stress should lift WTI.",
+    divergence: "UNRESOLVED",
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Energy stress should lift WTI.",
+    observed_reaction: "WTI fell after the catalyst.",
+    divergence: "MATERIAL",
+  };
+
+  const previous = dossier("prior-journey", previousOutput);
+  const current = dossier("current-journey", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.watchNext[0].journey.transition, "DIVERGENCE_DETECTED");
+  assert.equal(result.watchNext[0].journey.matchedBy, "id");
+  assert.equal(result.watchNext[0].journey.previousDivergence, "UNRESOLVED");
+  assert.equal(result.watchNext[0].journey.currentDivergence, "MATERIAL");
+});
+
+test("investigation journey can bridge a changed model ID only through unique story/thesis linkage", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    investigation_id: "inv:old-duration",
+    divergence: "UNRESOLVED",
+    linked_story_ids: ["story:duration"],
+    linked_thesis_ids: ["thesis:duration"],
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    investigation_id: "inv:new-duration",
+    divergence: "NONE",
+    linked_story_ids: ["story:duration"],
+    linked_thesis_ids: ["thesis:duration"],
+  };
+
+  const previous = dossier("prior-linkage", previousOutput);
+  const current = dossier("current-linkage", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.watchNext[0].journey.transition, "ALIGNED_CONFIRMED");
+  assert.equal(result.watchNext[0].journey.matchedBy, "linkage");
+  assert.equal(result.watchNext[0].journey.previousId, "inv:old-duration");
+});
+
+test("investigation journey never infers resolution when a prior question disappears", () => {
+  const previousOutput = output();
+  const currentOutput = output({ investigations: [] });
+
+  const previous = dossier("prior-missing", previousOutput);
+  const current = dossier("current-missing", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.watchNext.length, 0);
+  assert.equal(result.investigationJourney.length, 1);
+  assert.equal(result.investigationJourney[0].transition, "NOT_CARRIED_FORWARD");
+  assert.equal(result.investigationJourney[0].previousStatus, "open");
+  assert.equal(result.investigationJourney[0].currentStatus, null);
+});
+
+test("investigation journey fails closed when linkage is ambiguous", () => {
+  const base = output().investigations[0];
+  const previousOutput = output({
+    investigations: [
+      {
+        ...base,
+        investigation_id: "inv:prior-a",
+        linked_story_ids: ["story:shared"],
+        linked_thesis_ids: ["thesis:shared"],
+      },
+      {
+        ...base,
+        investigation_id: "inv:prior-b",
+        question: "Second prior question",
+        linked_story_ids: ["story:shared"],
+        linked_thesis_ids: ["thesis:shared"],
+      },
+    ],
+  });
+  const currentOutput = output({
+    investigations: [{
+      ...base,
+      investigation_id: "inv:current",
+      linked_story_ids: ["story:shared"],
+      linked_thesis_ids: ["thesis:shared"],
+    }],
+  });
+
+  const previous = dossier("prior-ambiguous", previousOutput);
+  const current = dossier("current-ambiguous", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.watchNext[0].journey.transition, "NEW");
+  assert.equal(result.watchNext[0].journey.matchedBy, null);
+  assert.equal(
+    result.investigationJourney.filter((item) => item.transition === "NOT_CARRIED_FORWARD").length,
+    2,
+  );
+});
+
 test("presentation adapter computes thesis changes against the previous dossier only", () => {
   const previousOutput = output({
     thesis_ledger: {

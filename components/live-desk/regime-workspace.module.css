@@ -307,6 +307,32 @@
   color: #ffd180;
 }
 
+.journeyState {
+  padding: 3px 6px;
+  border: 1px solid rgba(181,151,255,.14);
+  border-radius: 999px;
+  color: #968fa3;
+  font-size: 7px;
+  font-weight: 950;
+}
+
+.journeyState[data-transition="divergence_detected"],
+.journeyState[data-transition="divergence_escalated"] {
+  border-color: rgba(255,84,117,.3);
+  color: #ff9aae;
+}
+
+.journeyState[data-transition="aligned_confirmed"] {
+  border-color: rgba(79,209,133,.26);
+  color: #8ce4b1;
+}
+
+.journeyState[data-transition="evidence_became_unresolved"],
+.journeyState[data-transition="divergence_deescalated"] {
+  border-color: rgba(255,187,66,.28);
+  color: #ffd180;
+}
+
 .divergenceCard[data-divergence="material"] .divergenceMeta strong { color: #ff9aae; }
 .divergenceCard[data-divergence="none"] .divergenceMeta strong { color: #8ce4b1; }
 

@@ -27,6 +27,10 @@ function divergenceTone(divergence: string): "default" | "ready" | "warn" | "ris
   return "default";
 }
 
+function journeyLabel(value: string) {
+  return value.replaceAll("_", " ");
+}
+
 export default async function DossierPage() {
   const [selection, monitor] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -34,6 +38,9 @@ export default async function DossierPage() {
   ]);
   const dossier = selection.presentation;
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossier });
+  const notCarriedForward = dossier?.investigationJourney.filter(
+    (item) => item.transition === "NOT_CARRIED_FORWARD",
+  ) ?? [];
 
   if (!dossier) {
     return (
@@ -237,6 +244,9 @@ export default async function DossierPage() {
                 <article className={styles.investigation} key={item.id}>
                   <header>
                     <Badge tone={item.status === "weakened" ? "warn" : "default"}>{item.status}</Badge>
+                    <span className={styles.journeyBadge} data-transition={item.journey.transition.toLowerCase()}>
+                      {journeyLabel(item.journey.transition)}
+                    </span>
                     <h4>{item.question}</h4>
                   </header>
                   <div className={styles.divergenceCompare}>
@@ -300,6 +310,19 @@ export default async function DossierPage() {
               detail="The current Dossier has no unresolved investigation promoted into Watch Next."
             />
           )}
+          {notCarriedForward.length ? (
+            <div className={styles.journeyAudit}>
+              <small>PRIOR INVESTIGATIONS NOT CARRIED FORWARD</small>
+              {notCarriedForward.map((item) => (
+                <div key={item.previousId ?? item.question}>
+                  <strong>{item.question}</strong>
+                  <span>
+                    Prior state: {item.previousDivergence ?? "UNRESOLVED"} · {item.previousStatus ?? "unknown"} · absence is not treated as resolution
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className={styles.primarySection}>
