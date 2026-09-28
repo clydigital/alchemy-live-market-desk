@@ -387,6 +387,21 @@ test("9. prior analytical labels remain isolated to prior state", () => {
           provenance: [],
         },
       ],
+      prior_investigations: [
+        {
+          investigation_id: "inv:prior-rates",
+          question: "Will hotter inflation keep front-end yields and USD supported?",
+          expected_reaction: "US02Y and DXY should rise while gold weakens.",
+          observed_reaction: "The first reaction had not been measured yet.",
+          divergence: "UNRESOLVED",
+          current_explanation: "The inflation impulse was expected to work through policy repricing.",
+          competing_explanations: ["Growth concerns could offset the rates impulse."],
+          research_next: "Measure the timestamped rates, USD and gold reaction.",
+          status: "open",
+          linked_story_ids: ["story:rates"],
+          linked_thesis_ids: ["thesis:rates"],
+        },
+      ],
     },
   };
 
@@ -404,7 +419,14 @@ test("9. prior analytical labels remain isolated to prior state", () => {
   assert.equal(packet.prior_analytical_state.prior_claims.length, 2);
   assert.equal(packet.prior_analytical_state.prior_claims[0].epistemic_label, "INFERRED");
   assert.equal(packet.prior_analytical_state.prior_claims[1].epistemic_label, "SPECULATIVE");
+  assert.equal(packet.prior_analytical_state.prior_investigations?.length, 1);
+  assert.equal(
+    packet.prior_analytical_state.prior_investigations?.[0].expected_reaction,
+    "US02Y and DXY should rise while gold weakens.",
+  );
+  assert.equal(packet.prior_analytical_state.prior_investigations?.[0].divergence, "UNRESOLVED");
 });
+
 
 test("10. exact dedupe works and merges provenance", () => {
   const request: DossierV2InputRequest = {
