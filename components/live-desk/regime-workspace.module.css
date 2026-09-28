@@ -624,3 +624,31 @@
   .liveEdge { grid-template-columns: 1fr; }
   .liveEdge > span { text-align: left; }
 }
+
+
+.freshnessWarning {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,187,66,.28);
+  border-radius: 12px;
+  background: rgba(255,187,66,.045);
+}
+
+.freshnessWarning strong {
+  color: #ffd180;
+  font-size: 9px;
+  letter-spacing: .07em;
+}
+
+.freshnessWarning span {
+  color: #b9ac93;
+  font-size: 9px;
+}
+
+.freshnessWarning p {
+  margin: 0;
+  color: #b8b1c2;
+  font-size: 11px;
+  line-height: 1.5;
+}
