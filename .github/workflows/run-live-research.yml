@@ -3,7 +3,9 @@ name: Run Live Research Now
 on:
   schedule:
     - cron: "30 1 * * *"
+    - cron: "45 1 * * *"
     - cron: "30 13 * * *"
+    - cron: "45 13 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -87,7 +89,8 @@ jobs:
     env:
       PROD_URL: https://alchemy-live-market-desk.vercel.app
       MODE: ${{ github.event_name == 'schedule' && 'research' || inputs.mode }}
-      SLOT: ${{ github.event_name == 'schedule' && github.event.schedule == '30 1 * * *' && 'morning' || github.event_name == 'schedule' && 'evening' || inputs.slot }}
+      SLOT: ${{ inputs.slot }}
+      CRON_SCHEDULE: ${{ github.event.schedule }}
       RETRY_KEY: ${{ inputs.retry_key }}
       FINRA_TRADE_DATE: ${{ inputs.finra_trade_date }}
       FINRA_SYMBOLS: ${{ inputs.finra_symbols }}
@@ -102,19 +105,30 @@ jobs:
         if: ${{ env.MODE == 'research' || env.MODE == 'intelligence_only' || env.MODE == 'story_maintenance' }}
         shell: bash
         run: |
-          if [[ -z "$RETRY_KEY" ]]; then
-            if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
-              RETRY_KEY="live-auto-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            else
-              RETRY_KEY="live-manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            fi
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            case "$CRON_SCHEDULE" in
+              "30 1 * * *"|"45 1 * * *")
+                SLOT="morning"
+                ;;
+              "30 13 * * *"|"45 13 * * *")
+                SLOT="evening"
+                ;;
+              *)
+                echo "Unrecognised production schedule: ${CRON_SCHEDULE:-missing}" >&2
+                exit 1
+                ;;
+            esac
+            RETRY_KEY="github-scheduled"
+          elif [[ -z "$RETRY_KEY" ]]; then
+            RETRY_KEY="live-manual-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           fi
           if [[ ! "$RETRY_KEY" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,40}$ ]]; then
             echo "retry_key must contain only letters, numbers, and hyphens and be at most 41 characters." >&2
             exit 1
           fi
+          echo "SLOT=$SLOT" >> "$GITHUB_ENV"
           echo "RETRY_KEY=$RETRY_KEY" >> "$GITHUB_ENV"
-          echo "Manual research identity: $RETRY_KEY"
+          echo "Production research identity: slot=$SLOT retry=$RETRY_KEY schedule=${CRON_SCHEDULE:-manual}"
 
       - name: Run canonical production pipeline
         if: ${{ env.MODE == 'research' }}
@@ -156,6 +170,16 @@ jobs:
           }
 
           invoke_stage acquisition
+          acquisition_state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          acquisition_message="$(jq -r '.message // empty' "$RESPONSE_FILE")"
+          if [[ "$acquisition_state" == "not_retried" ]]; then
+            if [[ "$acquisition_message" == *"terminal state"* ]]; then
+              echo "Scheduled fallback found a terminal prior run: $acquisition_message" >&2
+              exit 1
+            fi
+            echo "Scheduled fallback no-op: the canonical slot already completed."
+            exit 0
+          fi
 
           for attempt in {1..8}; do
             echo "Intelligence continuation attempt $attempt"
