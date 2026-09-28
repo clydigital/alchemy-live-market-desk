@@ -184,6 +184,9 @@ test("the production route and workflow keep the canonical handlers and OIDC bou
   assert.match(handler, /live-internal\.invalid\/api\/cron\/research/);
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /api\/admin\/research\/run/);
+  assert.match(workflow, /Consume Dossier-triggered System 2 activation/);
+  assert.match(workflow, /system2Activation\.enqueued/);
+  assert.match(workflow, /stage:"maintenance"/);
   assert.match(workflow, /- intelligence_only/);
   assert.match(workflow, /- story_maintenance/);
   assert.match(workflow, /env\.MODE == 'research' \|\| env\.MODE == 'intelligence_only'/);
