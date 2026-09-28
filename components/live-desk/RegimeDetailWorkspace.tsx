@@ -30,6 +30,7 @@ export default function RegimeDetailWorkspace({
   explanation,
   liveReasoning,
   investigations,
+  investigationRoutes,
 }: {
   regime: ProjectedRegime;
   initialSubgroup?: string | null;
@@ -37,6 +38,7 @@ export default function RegimeDetailWorkspace({
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
   investigations: DossierPresentationInvestigation[];
+  investigationRoutes: Record<string, string[]>;
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
     ? initialSubgroup!
@@ -60,8 +62,12 @@ export default function RegimeDetailWorkspace({
   const subgroupInvestigations = useMemo(() => {
     if (!subgroup) return [];
     const storyIds = new Set(subgroup.durableStories.map((story) => story.id));
-    return investigations.filter((item) => item.storyIds.some((storyId) => storyIds.has(storyId)));
-  }, [investigations, subgroup]);
+    const routeKey = `${regime.slug}:${subgroup.key}`;
+    return investigations.filter((item) =>
+      item.storyIds.some((storyId) => storyIds.has(storyId))
+      || (investigationRoutes[item.id] ?? []).includes(routeKey)
+    );
+  }, [investigationRoutes, investigations, regime.slug, subgroup]);
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
