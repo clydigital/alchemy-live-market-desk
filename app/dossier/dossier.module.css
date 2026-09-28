@@ -511,6 +511,103 @@
   line-height: 1.55;
 }
 
+.lineageList {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.lineageHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lineageHead small {
+  color: #9c95aa;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .07em;
+}
+
+.lineageHead span {
+  color: #777181;
+  font-size: 8px;
+}
+
+.lineageCard {
+  display: grid;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(181, 151, 255, .14);
+  border-radius: 11px;
+  background: rgba(140, 98, 218, .025);
+}
+
+.lineageCard > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lineageCard > header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.lineageCard > header strong {
+  color: #e6e1ec;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.lineageCard > header small,
+.lineageCard > small {
+  color: #888190;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.lineageSequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lineageSequence span {
+  padding: 4px 7px;
+  border: 1px solid rgba(181, 151, 255, .12);
+  border-radius: 999px;
+  color: #9d96aa;
+  font-size: 8px;
+}
+
+.lineageSequence span[data-outcome="aligned"] {
+  border-color: rgba(79, 209, 133, .24);
+  color: #8ce4b1;
+}
+
+.lineageSequence span[data-outcome="divergent"] {
+  border-color: rgba(255, 84, 117, .26);
+  color: #ff9aae;
+}
+
+.lineageSequence span[data-outcome="mixed"],
+.lineageSequence span[data-outcome="unresolved"] {
+  border-color: rgba(255, 187, 66, .24);
+  color: #ffd180;
+}
+
+.lineageCard p {
+  margin: 0;
+  color: #aaa4b4;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .historyList {
   display: grid;
   gap: 12px;

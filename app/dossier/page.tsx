@@ -377,6 +377,39 @@ export default async function DossierPage() {
             <p className={styles.historyIntro}>
               Read-only reconstruction from immutable Dossiers. Each case keeps the expectation, measured tape and post-mortem hypothesis from that vintage; counts are not converted into an accuracy percentage.
             </p>
+            {selection.calibrationLineages.length ? (
+              <div className={styles.lineageList}>
+                <div className={styles.lineageHead}>
+                  <small>STRICT REPEATED CASES</small>
+                  <span>Exact ID or unique Story/Thesis continuity only</span>
+                </div>
+                {selection.calibrationLineages.slice(0, 4).map((lineage) => (
+                  <article className={styles.lineageCard} key={lineage.lineageId}>
+                    <header>
+                      <div>
+                        <strong>{lineage.latestQuestion}</strong>
+                        <small>
+                          {lineage.measuredVintages} measured vintages · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
+                        </small>
+                      </div>
+                      {lineage.hasDivergence ? <Badge tone="risk">Divergence seen</Badge> : lineage.hasMixed ? <Badge tone="warn">Mixed seen</Badge> : <Badge tone="ready">Aligned history</Badge>}
+                    </header>
+                    <div className={styles.lineageSequence}>
+                      {lineage.cases.map((item) => (
+                        <span key={item.dossierId + "-" + item.investigationId} data-outcome={item.outcome.toLowerCase()}>
+                          {formatDeskDate(item.asOf)} · {item.outcome}
+                        </span>
+                      ))}
+                    </div>
+                    <p><strong>Latest hypothesis:</strong> {lineage.latestPostMortemHypothesis}</p>
+                    <small>
+                      Next discriminator: {lineage.latestResearchNext}
+                      {lineage.expectationRewriteCount ? " · " + lineage.expectationRewriteCount + " expectation rewrite(s) flagged" : ""}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className={styles.historyList}>
               {selection.calibrationHistory.slice(0, 6).map((entry) => (
                 <article className={styles.historyVintage} key={entry.dossierId}>
