@@ -365,6 +365,70 @@ export default async function DossierPage() {
           ) : null}
         </section>
 
+        {selection.calibrationHistory.length ? (
+          <section className={styles.primarySection}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span>AUDIT / REASONING HISTORY</span>
+                <h3>Calibration cases by Dossier vintage</h3>
+              </div>
+              <small>{selection.calibrationHistory.length} measured vintage(s)</small>
+            </div>
+            <p className={styles.historyIntro}>
+              Read-only reconstruction from immutable Dossiers. Each case keeps the expectation, measured tape and post-mortem hypothesis from that vintage; counts are not converted into an accuracy percentage.
+            </p>
+            <div className={styles.historyList}>
+              {selection.calibrationHistory.slice(0, 6).map((entry) => (
+                <article className={styles.historyVintage} key={entry.dossierId}>
+                  <header>
+                    <div>
+                      <small>{formatDeskDate(entry.asOf)}</small>
+                      <strong>
+                        {entry.summary.evaluatedInvestigations} evaluated · {entry.summary.unresolvedInvestigations} unresolved
+                      </strong>
+                    </div>
+                    {entry.degraded ? <Badge tone="warn">Degraded vintage</Badge> : <Badge tone="default">Immutable vintage</Badge>}
+                  </header>
+                  <div className={styles.historyCases}>
+                    {entry.cases.map((item) => (
+                      <div className={styles.historyCase} key={entry.dossierId + "-" + item.investigationId}>
+                        <div className={styles.historyCaseHead}>
+                          <Badge tone={calibrationTone(item.outcome)}>{item.outcome}</Badge>
+                          <span>{item.journeyTransition.replaceAll("_", " ")}</span>
+                          <span>{item.precision.toLowerCase().replaceAll("_", " ")}</span>
+                          {item.reactionWindows.length ? <span>{item.reactionWindows.join(" / ")}</span> : null}
+                          {item.expectationChanged ? <strong>Expectation wording changed</strong> : null}
+                        </div>
+                        <h4>{item.question}</h4>
+                        <div className={styles.historyCaseGrid}>
+                          <div>
+                            <small>PRIOR / PRE-TAPE EXPECTATION</small>
+                            <p>{item.priorExpectedReaction ?? item.currentExpectedReaction ?? "No historical expectation was preserved."}</p>
+                          </div>
+                          <div>
+                            <small>MEASURED TAPE</small>
+                            <p>{item.observedReaction ?? "No reader-facing reaction summary was recorded."}</p>
+                          </div>
+                        </div>
+                        <p className={styles.historyHypothesis}>
+                          <strong>{item.requiresReview ? "Post-mortem hypothesis:" : "Vintage explanation:"}</strong>{" "}
+                          {item.postMortemHypothesis}
+                        </p>
+                        {item.competingExplanations.length ? (
+                          <p className={styles.historyAlternatives}>
+                            <strong>Competing:</strong> {item.competingExplanations.join(" · ")}
+                          </p>
+                        ) : null}
+                        <small className={styles.historyNext}>Next discriminator: {item.researchNext}</small>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
             <div>
