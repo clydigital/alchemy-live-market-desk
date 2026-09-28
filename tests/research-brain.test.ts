@@ -12,6 +12,7 @@ import type {
   ThesisLedgerEntryV2,
 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import {
+  buildResearchBrainCompactRecoveryPrompt,
   buildResearchBrainPrompt,
   buildResearchBrainRepairPrompt,
   getResearchBrainJsonSchema,
@@ -28,6 +29,7 @@ import {
   researchBrainStageRuntime,
 } from "../lib/dossier-v2/research-brain.ts";
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
+import { OpenAIStageError } from "../lib/intelligence/openai-core.ts";
 
 
 test("Research Brain runtime keeps full rebase output bounded by default", () => {
@@ -1181,6 +1183,53 @@ test("10. Structural Repair Pass (Max 1 Repair Attempt)", async () => {
   assert.equal(callsCount, 2);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.diagnostics.model_repair_used, true);
+});
+
+test("10A. Compact recovery handles primary max_output_tokens without raising the primary budget", async () => {
+  const packet = createValidBasePacket();
+  const recoveredOutput = createValidOutput(packet);
+  const stages: string[] = [];
+
+  const mockRunner: ModelRunner = async (inp) => {
+    stages.push(inp.stageKey);
+    if (stages.length === 1) {
+      throw new OpenAIStageError("OpenAI response was incomplete (max_output_tokens).", {
+        code: "incomplete_provider_response",
+        incompleteReason: "max_output_tokens",
+        outputTokens: 16_000,
+      });
+    }
+    return { data: recoveredOutput };
+  };
+
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { modelRunner: mockRunner, allowRepair: true },
+  );
+
+  assert.deepEqual(stages, ["research_brain_primary", "research_brain_repair"]);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, true);
+  assert.ok(result.diagnostics.notes.some((note) => note.includes("Compact recovery")));
+});
+
+test("10B. Compact recovery prompt trims low-priority context and demands terse completion", () => {
+  const packet = createValidBasePacket();
+  packet.research_leads = Array.from({ length: 20 }, (_, index) => ({
+    ...packet.research_leads[0],
+    lead_id: `lead:compact:${index}`,
+    claim_or_question: `Compact recovery lead ${index}`,
+  }));
+
+  const prompt = buildResearchBrainCompactRecoveryPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+
+  assert.match(prompt.instructions, /COMPACT RECOVERY MODE/);
+  assert.match(prompt.instructions, /complete concise object/);
+  assert.equal((prompt.boundedInput.research_leads as unknown[]).length, 12);
 });
 
 test("11. Deterministic Degradation Fallback & Traceability", async () => {
