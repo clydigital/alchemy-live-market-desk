@@ -140,6 +140,7 @@ export type DossierPresentationInvestigationJourney = {
   currentStatus: Investigation["status"] | null;
   previousExpectedReaction: string | null;
   currentExpectedReaction: string | null;
+  expectationChanged: boolean | null;
   question: string;
 };
 
@@ -492,6 +493,16 @@ function presentationInvestigation(
   };
 }
 
+function normaliseExpectation(value: string | null): string | null {
+  if (!value) return null;
+  const normalised = value.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalised || null;
+}
+
+function expectationChanged(previous: Investigation, current: Investigation): boolean {
+  return normaliseExpectation(previous.expected_reaction) !== normaliseExpectation(current.expected_reaction);
+}
+
 function investigationLinkageKey(item: Investigation): string | null {
   const storyIds = [...new Set(item.linked_story_ids.filter(Boolean))].sort();
   const thesisIds = [...new Set(item.linked_thesis_ids.filter(Boolean))].sort();
@@ -549,6 +560,7 @@ function investigationJourney(
       currentStatus: item.status,
       previousExpectedReaction: null,
       currentExpectedReaction: item.expected_reaction,
+      expectationChanged: null,
       question: item.question,
     }));
   }
@@ -604,6 +616,7 @@ function investigationJourney(
         currentStatus: item.status,
         previousExpectedReaction: null,
         currentExpectedReaction: item.expected_reaction,
+        expectationChanged: null,
         question: item.question,
       });
       continue;
@@ -621,6 +634,7 @@ function investigationJourney(
       currentStatus: item.status,
       previousExpectedReaction: matched.expected_reaction,
       currentExpectedReaction: item.expected_reaction,
+      expectationChanged: expectationChanged(matched, item),
       question: item.question,
     });
   }
@@ -638,6 +652,7 @@ function investigationJourney(
       currentStatus: null,
       previousExpectedReaction: item.expected_reaction,
       currentExpectedReaction: null,
+      expectationChanged: null,
       question: item.question,
     });
   }
@@ -838,6 +853,7 @@ export function buildDossierV2Presentation(
           currentStatus: item.status,
           previousExpectedReaction: null,
           currentExpectedReaction: item.expected_reaction,
+          expectationChanged: null,
           question: item.question,
         },
       )),
