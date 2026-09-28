@@ -8,14 +8,14 @@ See the [Editorial-Brain Design Pack](docs/editorial-brain/README.md) for the Or
 
 ## Scheduled research engine
 
-The Live Desk runs two full Asia/Kuala_Lumpur research cycles:
+The Live Desk has two canonical Asia/Kuala_Lumpur research cycles:
 
 - 09:30 full desk update (`morning`, 01:30 UTC)
 - 21:30 evening delta update (`evening`, 13:30 UTC)
 
-Each Vercel Cron route first performs bounded YouTube/TranscriptAPI intake, then acquires the direct ZeroHedge, Axios, Investing.com, FXStreet and Alchemy feeds. It submits the resulting evidence only to Live's `/api/research-update` publisher. Hybrid is not called and never performs independent research.
+The audited GitHub Actions workflow `Run Live Research Now` owns those full-desk cycles and invokes the existing Vercel production handlers through short-lived GitHub OIDC. Each canonical slot also has a 15-minute safety trigger (09:45 / 21:45 MYT) using the same daily scheduled identity, so it no-ops after a successful primary run instead of duplicating research.
 
-`vercel.json` declares the two production-only Cron routes. Keep `NEXT_PUBLIC_RESEARCH_SCHEDULE_ENABLED=false` until `CRON_SECRET`, provider credentials and a production smoke test have all been confirmed.
+Legacy Vercel research cron routes remain paused. `vercel.json` schedules only creator/video intake jobs; full Live research stays GitHub-owned until scheduler ownership is changed in a reviewed migration.
 
 ## OpenAI market-intelligence runtime
 
