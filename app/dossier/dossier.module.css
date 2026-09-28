@@ -374,6 +374,16 @@
   line-height: 1.5;
 }
 
+.expectationRevision {
+  display: block;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed rgba(181, 151, 255, .12);
+  color: #827b90;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .divergenceStatus {
   display: grid;
   gap: 8px;
