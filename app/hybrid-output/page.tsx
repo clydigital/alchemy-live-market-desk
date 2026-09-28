@@ -226,7 +226,13 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                     <Badge tone="warn">{item.status}</Badge>
                   </div>
 
-                  <p><strong>Expected reaction:</strong> {item.expectedReaction ?? "No canonical pre-event expectation is available."}</p>
+                  <p>
+                    <strong>{item.journey.previousExpectedReaction ? "Prior Dossier expectation:" : "Expected reaction:"}</strong>{" "}
+                    {item.journey.previousExpectedReaction ?? item.expectedReaction ?? "No canonical pre-event expectation is available."}
+                  </p>
+                  {item.journey.expectationChanged && item.expectedReaction ? (
+                    <p><strong>Current expectation wording:</strong> {item.expectedReaction}</p>
+                  ) : null}
                   <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
                   <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
                   <p>
