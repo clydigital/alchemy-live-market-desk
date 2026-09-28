@@ -141,7 +141,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 30. BUNDLED INVESTIGATION AGENDA: One investigation equals one market question, not one dataset. When relevant, use no more than two bundled investigations: (1) whether duration stress is broadening or beginning to transmit, checked with 30Y/curve/real yields, MOVE/VIX, credit, breadth, gold/USD and foreign sovereigns; (2) whether energy keeps the inflation/rates impulse alive, checked with crude curves, cracks, inventories/utilisation, physical stress and verified high-impact event implementation. Use the three Research Now slots for (1) policy-path versus real-yield/inflation/term-premium decomposition, (2) credit/breadth/volatility transmission, and (3) energy structure plus event implementation. Do not publish unverified political outcomes as facts.
 31. SYSTEM 1 DOLLAR LIQUIDITY: system1_rate_regime and system1_dollar_liquidity are independent deterministic compression layers. Treat them as triage/context, not standalone facts. Any material conclusion drawn from them must be supported by their supplied underlying evidence_refs. Compare policy/rates with dollar liquidity instead of assuming Fed policy and monetary conditions are identical. A hawkish rate regime plus tightening dollar liquidity is confirmation; a dovish rate regime plus tightening dollar liquidity is a policy/liquidity divergence and should be investigated. If credit remains neutral while rates/USD/funding tighten, describe transmission as incomplete rather than calling a systemic dollar shortage.
 32. LIQUIDITY ESCALATION DISCIPLINE: system1_policy_liquidity_interaction tells you whether the compressed state is worth System-2 attention. When escalateToBrain is false, do not create a Major Story or Investigation solely because plumbing data exists. When true, use the supplied question to focus causal reasoning and competing explanations. OFFSHORE_USD is explicitly unresolved until cross-currency-basis/FX-swap evidence exists; never label the current state a complete eurodollar-system measurement.
-33. DIVERGENCE POST-MORTEM DISCIPLINE: packet.prior_analytical_state.prior_investigations is the bounded previous-Dossier investigation baseline. Treat continuity as established only when the current Investigation retains the same investigation_id or the same explicit linked Story/Thesis identity. When the same investigation truly continues, REUSE its prior investigation_id rather than minting a cosmetic new ID; reformulating the wording does not justify a new ID. A similar question, market mechanism, Regime or subgroup alone is NOT enough to inherit a prior expectation; in that case create a new investigation and leave the old one as historical context. For a strictly continued investigation, preserve the PRIOR expected_reaction as historical pre-tape context; do not rewrite it to fit current price action. If an exact system1_divergence_candidate supports PARTIAL or MATERIAL divergence, current_explanation must do more than restate that price moved the other way: identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven. Use competing_explanations for plausible supplied alternatives, and make research_next name the observable that would discriminate between the leading explanation and its alternatives. If supplied evidence cannot explain the mismatch, say the mechanism remains unresolved and specify what evidence is missing; never infer causality from price direction alone. If the exact reaction is ALIGNED/NONE, describe alignment neutrally rather than calling the prior view 'correct' or treating one event as validation of the whole thesis.`;
+33. DIVERGENCE POST-MORTEM DISCIPLINE: packet.prior_analytical_state.prior_investigations is the bounded previous-Dossier investigation baseline. Treat continuity as established only when the current Investigation retains the same investigation_id or the same explicit linked Story/Thesis identity. When the same investigation truly continues, REUSE its prior investigation_id rather than minting a cosmetic new ID; reformulating the wording does not justify a new ID. A similar question, market mechanism, Regime or subgroup alone is NOT enough to inherit a prior expectation; in that case create a new investigation and leave the old one as historical context. For a strictly continued investigation, preserve the PRIOR expected_reaction as historical pre-tape context; do not rewrite it to fit current price action. If an exact system1_divergence_candidate supports PARTIAL or MATERIAL divergence, current_explanation must do more than restate that price moved the other way: identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven. Use competing_explanations for plausible supplied alternatives, and make research_next name the observable that would discriminate between the leading explanation and its alternatives. If supplied evidence cannot explain the mismatch, say the mechanism remains unresolved and specify what evidence is missing; never infer causality from price direction alone. If the exact reaction is ALIGNED/NONE, describe alignment neutrally rather than calling the prior view 'correct' or treating one event as validation of the whole thesis.
+34. OUTPUT BREVITY BUDGET: Stay well below the provider output ceiling. Do not fill array caps merely because capacity exists. Prefer 2-3 Major Stories, exactly the material investigations, zero optional charts unless they add distinct information, and zero creator expansions unless directly material. Keep each prose field to one concise sentence unless the schema requires more. Main-thread answer <= 60 words; Story mechanism <= 55 words; other Story prose <= 40 words; lens reaction/interpretation <= 35 words each; investigation explanation <= 50 words; expected/observed reaction <= 40 words; each competing explanation <= 24 words; research-next <= 45 words; stock-radar prose <= 30 words; developing-theme summary <= 40 words; thesis statement/state reason <= 45 words. Preserve evidence IDs and analytical distinctions; remove repetition, not substance.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -235,6 +236,48 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
   return {
     instructions: buildResearchBrainSystemInstructions(),
     boundedInput: boundedContext,
+  };
+}
+
+export function buildResearchBrainCompactRecoveryPrompt(
+  input: ResearchBrainInputV1,
+): {
+  instructions: string;
+  boundedInput: Record<string, unknown>;
+} {
+  const primary = buildResearchBrainPrompt(input);
+  const source = primary.boundedInput;
+
+  return {
+    instructions: `${primary.instructions}
+
+COMPACT RECOVERY MODE:
+The previous provider pass was truncated by the output-token ceiling before a complete structured object was returned.
+Produce a fresh complete object from the supplied canonical context. This is not permission to invent facts or weaken validation.
+Use the minimum valid analytical set:
+- 2-3 Major Stories maximum; fewer if the evidence does not support more.
+- Keep the two bounded investigations only when material.
+- Exactly the required core chart set; optional charts should normally be empty.
+- At most 2 Stock Radar items, 3 Developing Themes, 0 Creator expansions unless directly material.
+- Preserve the active Thesis Ledger but make every prose field terse.
+- Do not repeat the same rationale across Main Thread, Stories, lenses and investigations.
+- Prefer IDs and short conditions over explanatory repetition.
+A complete concise object is more important than filling presentation capacity.`,
+    boundedInput: {
+      ...source,
+      research_leads: Array.isArray(source.research_leads)
+        ? source.research_leads.slice(0, 12)
+        : source.research_leads,
+      development_clusters: Array.isArray(source.development_clusters)
+        ? source.development_clusters.slice(0, 16)
+        : source.development_clusters,
+      creator_themes: Array.isArray(source.creator_themes)
+        ? source.creator_themes.slice(0, 3)
+        : source.creator_themes,
+      catalysts: Array.isArray(source.catalysts)
+        ? source.catalysts.slice(0, 8)
+        : source.catalysts,
+    },
   };
 }
 
