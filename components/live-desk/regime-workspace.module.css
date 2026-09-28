@@ -255,6 +255,104 @@
   gap: 9px;
 }
 
+.divergenceList {
+  display: grid;
+  gap: 10px;
+}
+
+.divergenceCard {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(181,151,255,.14);
+  border-radius: 13px;
+  background: rgba(255,255,255,.016);
+}
+
+.divergenceCard[data-divergence="material"] {
+  border-color: rgba(255,84,117,.34);
+  background: rgba(255,84,117,.035);
+}
+
+.divergenceCard[data-divergence="partial"],
+.divergenceCard[data-divergence="unresolved"] {
+  border-color: rgba(255,187,66,.28);
+}
+
+.divergenceCard[data-divergence="none"] {
+  border-color: rgba(79,209,133,.25);
+}
+
+.divergenceCard h4 {
+  margin: 0;
+  color: #f0edf7;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.divergenceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8e879d;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.divergenceMeta strong {
+  color: #ffd180;
+}
+
+.divergenceCard[data-divergence="material"] .divergenceMeta strong { color: #ff9aae; }
+.divergenceCard[data-divergence="none"] .divergenceMeta strong { color: #8ce4b1; }
+
+.reactionPair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.reactionPair > div {
+  padding: 11px 12px;
+  border: 1px solid rgba(181,151,255,.1);
+  border-radius: 10px;
+  background: rgba(0,0,0,.08);
+}
+
+.reactionPair small {
+  color: #918aa7;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .07em;
+}
+
+.reactionPair p,
+.divergenceExplanation,
+.divergenceAlternatives {
+  margin: 6px 0 0;
+  color: #c2bdce;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.divergenceAlternatives {
+  padding-top: 10px;
+  border-top: 1px dashed rgba(181,151,255,.13);
+  color: #a9a2b6;
+}
+
+.divergenceNext {
+  display: grid;
+  gap: 6px;
+  color: #8f899f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .storyCard, .node {
   padding: 13px 14px;
   border: 1px solid rgba(181,151,255,.12);
@@ -343,6 +441,7 @@
 
 @media (max-width: 720px) {
   .cardHead, .heroHead, .sectionHead, .cardFooter { display: grid; }
+  .reactionPair { grid-template-columns: 1fr; }
   .telemetryGrid { grid-template-columns: 1fr; }
   .hero, .section { padding: 16px; }
   .cardBody { padding: 16px; }
