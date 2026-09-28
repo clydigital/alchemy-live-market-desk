@@ -25,6 +25,7 @@ import {
 import {
   executeResearchBrain,
   normalizeResearchBrainOutputReferences,
+  pruneInvalidStockRadarEvidenceReferences,
   produceDegradedOutput,
   researchBrainStageRuntime,
 } from "../lib/dossier-v2/research-brain.ts";
@@ -1070,7 +1071,60 @@ test("7B. Deterministic Stock Radar normalization does not hide unknown IDs", ()
   assert.ok(val.errors.some((e) => e.includes("does not match main_thread.thread_id")));
 });
 
-test("7C. Research gap blocker relations must resolve to canonical conclusions", () => {
+test("7C. Invalid optional Stock Radar evidence refs are pruned to canonical observed evidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const validRef = output.stock_radar[0].evidence_references[0];
+
+  output.stock_radar[0].evidence_references = [
+    validRef,
+    "research-intake:not-observed-evidence",
+  ];
+
+  const pruned = pruneInvalidStockRadarEvidenceReferences(
+    output,
+    packet,
+  ) as ResearchBrainOutputV1;
+
+  assert.deepEqual(pruned.stock_radar[0].evidence_references, [validRef]);
+  const val = validateResearchBrainOutput(pruned, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+});
+
+test("7D. Stock Radar clerical prune avoids spending the repair model pass", async () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.stock_radar[0].evidence_references.push(
+    "research-intake:not-observed-evidence",
+  );
+
+  const stages: string[] = [];
+  const runner: ModelRunner = async (input) => {
+    stages.push(input.stageKey);
+    return { data: structuredClone(output) };
+  };
+
+  const result = await executeResearchBrain(
+    {
+      contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+      as_of: packet.as_of,
+      packet,
+    },
+    { modelRunner: runner, allowRepair: true },
+  );
+
+  assert.deepEqual(stages, ["research_brain_primary"]);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, false);
+  assert.equal(
+    result.stock_radar[0].evidence_references.includes(
+      "research-intake:not-observed-evidence",
+    ),
+    false,
+  );
+});
+
+test("7E. Research gap blocker relations must resolve to canonical conclusions", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
   output.research_gaps = [{
@@ -1087,7 +1141,7 @@ test("7C. Research gap blocker relations must resolve to canonical conclusions",
   assert.ok(val.errors.some((error) => /unknown canonical conclusion/i.test(error)));
 });
 
-test("7D. Refinements cannot carry blocker references", () => {
+test("7F. Refinements cannot carry blocker references", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
   output.research_gaps = [{
@@ -1104,7 +1158,7 @@ test("7D. Refinements cannot carry blocker references", () => {
   assert.ok(val.errors.some((error) => /REFINEMENT must not block/i.test(error)));
 });
 
-test("7E. A structured material blocker linked to Main Thread is valid", () => {
+test("7G. A structured material blocker linked to Main Thread is valid", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
   output.research_gaps = [{
