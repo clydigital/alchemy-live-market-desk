@@ -140,11 +140,12 @@ test("an overdue dated catalyst on a published Story cannot be starved by the fo
   assert.equal(selected.length, 4);
   assert.ok(selected.some((target) => target.story.id === "fed-rate-repricing"));
   const fed = selected.find((target) => target.story.id === "fed-rate-repricing");
-  assert.equal(fed?.reason, "catalyst_due");
+  assert.equal(fed?.reason, "catalyst_expired");
   assert.deepEqual(
-    fed?.reviewContext?.dueCatalysts,
+    fed?.reviewContext?.expiredCatalysts,
     ["U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August."],
   );
+  assert.equal(fed?.reviewContext?.catalystRecalibrationRequired, true);
 });
 
 test("explicit queue evidence is Story-relevant even before a durable Story-evidence link exists", () => {
@@ -318,4 +319,79 @@ test("Story routing never fabricates asset mentions", () => {
   assert.deepEqual(explicitlyMentionedAssets("Oil supply conditions tightened.", ["WTI", "BRENT"]), []);
   assert.deepEqual(explicitlyMentionedAssets("WTI rose while shipping remained constrained.", ["WTI", "BRENT"]), ["WTI"]);
   assert.deepEqual(explicitlyMentionedAssets("Brent weakened against WTI.", ["WTI", "BRENT"]), ["WTI", "BRENT"]);
+});
+
+
+test("an expired catalyst remains actionable even after a later review left it unchanged", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("fed-rate-repricing", {
+      status: "publish",
+      lastEvaluatedAt: "2026-09-26T19:57:32.000Z",
+      nextCatalyst: "U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August.",
+      nextCatalysts: ["U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August."],
+    })],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [],
+    debt: [],
+    now: new Date("2026-09-28T06:30:00.000Z"),
+  });
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.reason, "catalyst_expired");
+  assert.deepEqual(selected[0]?.reviewContext?.expiredCatalysts, [
+    "U.S. CPI and Real Earnings on 12 August 2026, followed by PPI on 13 August.",
+  ]);
+  assert.deepEqual(selected[0]?.reviewContext?.catalystCandidates, []);
+});
+
+test("expired-catalyst recalibration uses a cooldown instead of consuming every engine run", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("recently-reviewed", {
+      status: "publish",
+      lastEvaluatedAt: "2026-09-28T06:00:00.000Z",
+      nextCatalyst: "12 August 2026 CPI",
+      nextCatalysts: ["12 August 2026 CPI"],
+    })],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [],
+    debt: [],
+    now: new Date("2026-09-28T06:30:00.000Z"),
+  });
+
+  assert.deepEqual(selected, []);
+});
+
+test("past scheduled evidence is never offered as a future catalyst candidate", () => {
+  const past = evidence("past-scheduled", "fed", {
+    claim: "Old scheduled release.",
+    evidenceClass: "other",
+    sourceTier: 1,
+    eventAt: "2026-08-12T12:30:00.000Z",
+    publishedAt: "2026-08-01T00:00:00.000Z",
+    structuredPayload: {
+      title: "CPI release",
+      evidenceNature: "scheduled_event",
+    },
+  });
+  const selected = selectStoryReviewTargets({
+    stories: [story("fed", { lastEvaluatedAt: "2026-08-10T00:00:00.000Z" })],
+    evidence: [past],
+    evidenceLinks: [{ storyId: "fed", evidenceId: past.id, evidenceRole: "context", linkedAt: "2026-08-10T01:00:00.000Z" }],
+    queue: [{
+      id: "queue-past",
+      storyId: "fed",
+      status: "pending",
+      reason: "test",
+      priority: 50,
+      availableAt: "2026-09-28T00:00:00.000Z",
+      createdAt: "2026-09-28T00:00:00.000Z",
+    }],
+    debt: [],
+    now: new Date("2026-09-28T06:30:00.000Z"),
+  });
+
+  assert.equal(selected.length, 1);
+  assert.deepEqual(selected[0]?.reviewContext?.catalystCandidates, []);
 });
