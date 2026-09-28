@@ -1007,6 +1007,25 @@ test("6H. Divergence explanation must add analysis beyond the measured move", ()
   assert.ok(val.errors.some((e) => e.includes("only restates observed_reaction")));
 });
 
+test("6I. Divergence explanation keeps an alternative or explicit missing evidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.expected_reaction = "The front end should rise.";
+  inv.observed_reaction = "The front end fell instead.";
+  inv.current_explanation = "The expected policy transmission may have been offset by another macro impulse.";
+  inv.divergence = "MATERIAL";
+  inv.observed_evidence = [evYields];
+  inv.competing_explanations = [];
+  inv.missing_evidence = [];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("requires at least one competing_explanation or missing_evidence")));
+});
+
 test("7. Main Thread & Stock Radar Linkage Validation", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
