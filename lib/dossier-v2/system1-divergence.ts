@@ -24,7 +24,7 @@ export type System1PolicyExpectationCheck = {
   }>;
 };
 
-export type System1DivergenceCandidate = {
+export type System1ReactionAssessment = {
   check_id: string;
   rule_id: string;
   trigger_evidence_id: string;
@@ -34,11 +34,15 @@ export type System1DivergenceCandidate = {
   observed_direction: Direction;
   observed_change_pct: number;
   timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
+  relation: "ALIGNED" | "DIVERGENT";
   severity: "MEDIUM" | "HIGH";
 };
 
+export type System1DivergenceCandidate = Omit<System1ReactionAssessment, "relation">;
+
 const MIN_MATERIAL_MOVE_PCT = 0.25;
 const MAX_CANDIDATES = 5;
+const MAX_REACTION_ASSESSMENTS = 8;
 const MAX_POLICY_CHECKS = 3;
 
 const RULES: Rule[] = [
@@ -303,12 +307,11 @@ export function buildSystem1PolicyExpectationChecks(
   return checks.slice(0, MAX_POLICY_CHECKS);
 }
 
-export function buildSystem1DivergenceCandidates(
+function system1ReactionAssessments(
   packet: DossierV2InputPacket,
-): System1DivergenceCandidate[] {
+): System1ReactionAssessment[] {
   const active = activeTriggers(packet);
-
-  const candidates: System1DivergenceCandidate[] = [];
+  const assessments: System1ReactionAssessment[] = [];
 
   for (const rule of RULES) {
     const trigger = active.get(rule.id);
@@ -319,9 +322,7 @@ export function buildSystem1DivergenceCandidates(
       if (!move || Math.abs(move.change) < MIN_MATERIAL_MOVE_PCT) continue;
 
       const observed: Direction = move.change > 0 ? "UP" : "DOWN";
-      if (observed === expected) continue;
-
-      candidates.push({
+      assessments.push({
         check_id: `system1:${rule.id.toLowerCase()}:${monitorId}`,
         rule_id: rule.id,
         trigger_evidence_id: trigger.evidence_id,
@@ -331,16 +332,30 @@ export function buildSystem1DivergenceCandidates(
         observed_direction: observed,
         observed_change_pct: move.change,
         timing_precision: move.timingPrecision,
+        relation: observed === expected ? "ALIGNED" : "DIVERGENT",
         severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",
       });
     }
   }
 
-  return candidates
-    .sort(
-      (a, b) =>
-        Math.abs(b.observed_change_pct) - Math.abs(a.observed_change_pct) ||
-        a.check_id.localeCompare(b.check_id),
-    )
-    .slice(0, MAX_CANDIDATES);
+  return assessments.sort(
+    (a, b) =>
+      Math.abs(b.observed_change_pct) - Math.abs(a.observed_change_pct) ||
+      a.check_id.localeCompare(b.check_id),
+  );
+}
+
+export function buildSystem1ReactionAssessments(
+  packet: DossierV2InputPacket,
+): System1ReactionAssessment[] {
+  return system1ReactionAssessments(packet).slice(0, MAX_REACTION_ASSESSMENTS);
+}
+
+export function buildSystem1DivergenceCandidates(
+  packet: DossierV2InputPacket,
+): System1DivergenceCandidate[] {
+  return system1ReactionAssessments(packet)
+    .filter((assessment) => assessment.relation === "DIVERGENT")
+    .slice(0, MAX_CANDIDATES)
+    .map(({ relation: _relation, ...candidate }) => candidate);
 }
