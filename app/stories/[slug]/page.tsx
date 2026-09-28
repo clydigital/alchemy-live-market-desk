@@ -10,7 +10,8 @@ import { getDeskData } from "@/lib/data";
 import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
-import { getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
+import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
+import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const charts = data.charts.filter((chart) => chart.story_id === story.id);
   const coverage = data.evidenceCoverage.find((item) => item.slug === story.slug);
 
+  const maturity = classifyRegimeStory(story, currentVersion);
   const regimeRoutes = routeStoryToRegimes(story, currentVersion);
   const regimeLinks = regimeRoutes.flatMap((route) => {
     const regime = getRegimeDefinition(route.regime);
@@ -79,6 +81,11 @@ export default async function StoryDetailPage({ params }: PageProps) {
     nextCatalyst: currentVersion?.next_catalyst || story.next_catalyst,
     assets: currentVersion?.assets?.length ? currentVersion.assets : story.assets,
   };
+  const catalystAssessment = assessStoryCatalyst({
+    nextCatalyst: current.nextCatalyst,
+    version: currentVersion,
+  });
+
 
   return (
     <LiveDeskShell
@@ -149,6 +156,17 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 <span className={styles.metaLabel}>CURRENT QUESTION</span>
                 <p>{current.marketQuestion || "No explicit current market question is recorded."}</p>
               </article>
+              <article className={styles.record}>
+                <span className={styles.metaLabel}>STORY MATURITY</span>
+                <p><strong>{maturity.maturity}</strong> · {maturity.reason}</p>
+              </article>
+              {catalystAssessment.recalibrationRequired ? (
+                <DataState
+                  state="warn"
+                  title="Catalyst expired — recalibration required"
+                  detail={`${catalystAssessment.label || "The dated catalyst"} has passed. It remains visible as history, but Story maintenance must replace or clear it before it is treated as a current next test.`}
+                />
+              ) : null}
             </div>
           </Panel>
         </div>
@@ -189,7 +207,9 @@ export default async function StoryDetailPage({ params }: PageProps) {
               </article>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Next catalyst</span>
-                <p>{current.nextCatalyst || "Not recorded"}</p>
+                <p>{catalystDisplayLabel(catalystAssessment) || "Not recorded"}</p>
+                {catalystAssessment.recalibrationRequired ? <small>Expired catalyst · Story maintenance must replace or clear this before it is treated as current.</small> : null}
+                {catalystAssessment.recalibrationRequired ? <div className={styles.meta}>Expired catalyst — not current guidance.</div> : null}
               </article>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Affected assets</span>

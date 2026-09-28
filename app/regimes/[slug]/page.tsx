@@ -5,6 +5,8 @@ import RegimeDetailWorkspace from "@/components/live-desk/RegimeDetailWorkspace"
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,9 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   if (!regime) notFound();
 
   const subgroup = typeof query.subgroup === "string" ? query.subgroup : null;
+  const initialView = query.view === "live" ? "live" : "understand";
+  const explanation = getRegimeExplanation(regime.slug);
+  const liveReasoning = await getRegimeLiveReasoning(regime.durableStories.map((story) => story.id));
 
   return (
     <LiveDeskShell
@@ -45,7 +50,13 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
       description="Understand the causal mechanism, then inspect the live subgroup telemetry, current Stories and the evidence/news nodes contributing to the state."
       meta={`${regime.durableStories.length} durable · ${regime.contextStories.length} context · ${regime.state}`}
     >
-      <RegimeDetailWorkspace regime={regime} initialSubgroup={subgroup} />
+      <RegimeDetailWorkspace
+        regime={regime}
+        initialSubgroup={subgroup}
+        initialView={initialView}
+        explanation={explanation}
+        liveReasoning={liveReasoning}
+      />
     </LiveDeskShell>
   );
 }

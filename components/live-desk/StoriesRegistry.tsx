@@ -20,6 +20,10 @@ export type StoryRegistryItem = {
   tags: StoryTag[];
   marketQuestion: string | null;
   nextCatalyst: string | null;
+  catalystStatus: "missing" | "ongoing" | "upcoming" | "due" | "expired" | "resolved";
+  catalystRecalibrationRequired: boolean;
+  maturity: "durable" | "early" | "seed" | "episode";
+  maturityReason: string;
   evidenceRoom: string | null;
   eventCount: number;
   versionCount: number | null;
@@ -100,6 +104,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
               <div>
                 <div className={styles.statusLine}>
                   <span>{story.lifecycle}</span>
+                  <span data-maturity={story.maturity}>{story.maturity}</span>
                   <small>{story.confidence}% thesis confidence</small>
                 </div>
                 <Link href={`/stories/${story.slug}`}><h3>{story.title}</h3></Link>
@@ -111,7 +116,12 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
               <li>{story.thesis}</li>
               {story.assets.length ? <li>Affected markets: {story.assets.slice(0, 6).join(", ")}.</li> : null}
               {story.marketQuestion ? <li>{story.marketQuestion}</li> : null}
-              {story.nextCatalyst ? <li>Next test: {story.nextCatalyst}</li> : null}
+              {story.nextCatalyst ? (
+                <li className={story.catalystRecalibrationRequired ? styles.expiredCatalyst : undefined}>
+                  {story.catalystRecalibrationRequired ? "Catalyst needs recalibration: " : "Next test: "}{story.nextCatalyst}
+                </li>
+              ) : null}
+              {story.maturity !== "durable" ? <li className={styles.contextNote}>Context only: {story.maturityReason}</li> : null}
             </ul>
 
             <div className={styles.tags}>

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import type { RegimeExplanation } from "@/lib/regime-explanations";
+import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
 import type { ProjectedRegime } from "@/lib/regimes";
 import styles from "./regime-workspace.module.css";
 
@@ -22,18 +24,35 @@ function displayDate(value: string | null) {
 export default function RegimeDetailWorkspace({
   regime,
   initialSubgroup,
+  initialView = "understand",
+  explanation,
+  liveReasoning,
 }: {
   regime: ProjectedRegime;
   initialSubgroup?: string | null;
+  initialView?: "understand" | "live";
+  explanation: RegimeExplanation | null;
+  liveReasoning: RegimeLiveStoryReasoning[];
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
     ? initialSubgroup!
     : regime.subgroups[0]?.key || "";
   const [activeKey, setActiveKey] = useState(defaultKey);
+  const [view, setView] = useState<"understand" | "live">(initialView);
   const subgroup = useMemo(
     () => regime.subgroups.find((item) => item.key === activeKey) || regime.subgroups[0],
     [activeKey, regime.subgroups],
   );
+  const reasoningByStory = useMemo(
+    () => new Map(liveReasoning.map((item) => [item.storyId, item])),
+    [liveReasoning],
+  );
+  const subgroupReasoning = subgroup
+    ? subgroup.durableStories.flatMap((story) => {
+      const reasoning = reasoningByStory.get(story.id);
+      return reasoning ? [{ story, reasoning }] : [];
+    })
+    : [];
 
   return (
     <div className={styles.board}>
@@ -64,119 +83,273 @@ export default function RegimeDetailWorkspace({
         </div>
       </section>
 
-      <section className={styles.section}>
-        <header className={styles.sectionHead}>
-          <div>
-            <span className={styles.kicker}>UNDERSTAND</span>
-            <h2>How this Regime is organised</h2>
-          </div>
-          <small>Stable drivers, changing Stories</small>
-        </header>
-        <div className={styles.tabs}>
-          {regime.subgroups.map((item) => (
-            <button
-              type="button"
-              className={styles.tab}
-              data-accent={item.accent}
-              data-active={item.key === subgroup?.key}
-              onClick={() => setActiveKey(item.key)}
-              key={item.key}
-            >
-              {item.label} · {item.state}
-            </button>
-          ))}
-        </div>
-        {subgroup ? (
-          <>
-            <p className={styles.why}><strong>{subgroup.label}:</strong> {subgroup.whyItMatters}</p>
-            <p className={styles.mechanism}>{subgroup.mechanism}</p>
-          </>
-        ) : null}
-      </section>
+      <nav className={styles.viewSwitch} aria-label="Regime workspace view">
+        <button type="button" data-active={view === "understand"} onClick={() => setView("understand")}>
+          <span>UNDERSTAND</span>
+          <small>How the machine works</small>
+        </button>
+        <button type="button" data-active={view === "live"} onClick={() => setView("live")}>
+          <span>LIVE</span>
+          <small>What is moving it now</small>
+        </button>
+      </nav>
 
-      {subgroup ? (
-        <section className={styles.section}>
-          <header className={styles.sectionHead}>
-            <div>
-              <span className={styles.kicker}>LIVE · {subgroup.stateKind === "system1" ? "OBSERVED TELEMETRY + INTERPRETATION" : "INTERPRETED STATE"}</span>
-              <h2>{subgroup.label}</h2>
-            </div>
-            <span className={styles.state} data-kind={subgroup.stateKind}>{subgroup.state}</span>
-          </header>
-
-          <div className={styles.liveGrid}>
-            <div className={styles.column}>
+      {view === "understand" ? (
+        <>
+          <section className={styles.section}>
+            <header className={styles.sectionHead}>
               <div>
-                <span className={styles.kicker}>SYSTEM 1 / OBSERVED</span>
-                {subgroup.telemetry.length ? (
-                  <div className={styles.telemetryGrid}>
-                    {subgroup.telemetry.map((item) => (
-                      <article className={styles.telemetry} key={item.key}>
-                        <span>{item.label}</span>
-                        <strong>{item.state}</strong>
-                        <p>{item.detail}</p>
-                        <small>{item.source} · {displayDate(item.asOf)}</small>
-                      </article>
-                    ))}
+                <span className={styles.kicker}>UNDERSTAND · STRUCTURAL MAP</span>
+                <h2>How the machine works</h2>
+              </div>
+              <small>Stable mechanism, not a claim about today</small>
+            </header>
+
+            {explanation ? (
+              <>
+                <p className={styles.why}>{explanation.plainEnglish}</p>
+                <div className={styles.chainGrid}>
+                  {explanation.chains.map((chain) => (
+                    <article className={styles.chainCard} key={chain.id}>
+                      <div>
+                        <span className={styles.kicker}>CAUSAL CHAIN</span>
+                        <h3>{chain.title}</h3>
+                        <p>{chain.summary}</p>
+                      </div>
+                      <div className={styles.chainSteps}>
+                        {chain.steps.map((step, index) => (
+                          <div className={styles.chainStep} key={`${chain.id}:${index}`}>
+                            <b>{index + 1}</b>
+                            <span>{step}</span>
+                            {index < chain.steps.length - 1 ? <i>↓</i> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className={styles.empty}>No governed explanation has been published for this Regime yet.</div>
+            )}
+          </section>
+
+          {explanation ? (
+            <section className={styles.section}>
+              <header className={styles.sectionHead}>
+                <div>
+                  <span className={styles.kicker}>UNDERSTAND · CONCEPTS</span>
+                  <h2>Key concepts you need for this Regime</h2>
+                </div>
+                <small>What it is → why it matters → what to watch</small>
+              </header>
+              <div className={styles.conceptGrid}>
+                {explanation.concepts.map((concept) => (
+                  <article className={styles.conceptCard} key={concept.key}>
+                    <h3>{concept.label}</h3>
+                    <p>{concept.definition}</p>
+                    <p><strong>Why it matters here:</strong> {concept.whyItMatters}</p>
+                    <div className={styles.watchRow}>
+                      {concept.watch.map((item) => <span key={item}>{item}</span>)}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className={styles.section}>
+            <header className={styles.sectionHead}>
+              <div>
+                <span className={styles.kicker}>UNDERSTAND · SUBGROUPS</span>
+                <h2>Where each moving part belongs</h2>
+              </div>
+              <small>Choose a branch before moving into LIVE</small>
+            </header>
+            <div className={styles.tabs}>
+              {regime.subgroups.map((item) => (
+                <button
+                  type="button"
+                  className={styles.tab}
+                  data-accent={item.accent}
+                  data-active={item.key === subgroup?.key}
+                  onClick={() => setActiveKey(item.key)}
+                  key={item.key}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            {subgroup ? (
+              <div className={styles.subgroupExplain}>
+                <div>
+                  <span className={styles.kicker}>{subgroup.label}</span>
+                  <p className={styles.why}>{subgroup.whyItMatters}</p>
+                </div>
+                <p className={styles.mechanism}>{subgroup.mechanism}</p>
+              </div>
+            ) : null}
+          </section>
+
+          {explanation ? (
+            <section className={styles.counterfactual}>
+              <span className={styles.kicker}>WHAT WOULD CHANGE THE STRUCTURAL READ?</span>
+              <p>{explanation.counterfactual}</p>
+            </section>
+          ) : null}
+
+          <button className={styles.toLiveButton} type="button" onClick={() => setView("live")}>
+            Go to LIVE: what is moving this Regime now →
+          </button>
+        </>
+      ) : null}
+
+      {view === "live" ? (
+        <>
+          <section className={styles.section}>
+            <header className={styles.sectionHead}>
+              <div>
+                <span className={styles.kicker}>LIVE · CHOOSE SUBGROUP</span>
+                <h2>Current Regime branches</h2>
+              </div>
+              <button className={styles.backButton} type="button" onClick={() => setView("understand")}>← Back to UNDERSTAND</button>
+            </header>
+            <div className={styles.tabs}>
+              {regime.subgroups.map((item) => (
+                <button
+                  type="button"
+                  className={styles.tab}
+                  data-accent={item.accent}
+                  data-active={item.key === subgroup?.key}
+                  onClick={() => setActiveKey(item.key)}
+                  key={item.key}
+                >
+                  {item.label} · {item.state}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {subgroup ? (
+            <section className={styles.section}>
+              <header className={styles.sectionHead}>
+                <div>
+                  <span className={styles.kicker}>LIVE · {subgroup.stateKind === "system1" ? "OBSERVED TELEMETRY + INTERPRETATION" : "INTERPRETED STATE"}</span>
+                  <h2>{subgroup.label}</h2>
+                </div>
+                <span className={styles.state} data-kind={subgroup.stateKind}>{subgroup.state}</span>
+              </header>
+
+              <div className={styles.liveGrid}>
+                <div className={styles.column}>
+                  <div>
+                    <span className={styles.kicker}>SYSTEM 1 / OBSERVED</span>
+                    {subgroup.telemetry.length ? (
+                      <div className={styles.telemetryGrid}>
+                        {subgroup.telemetry.map((item) => (
+                          <article className={styles.telemetry} key={item.key}>
+                            <span>{item.label}</span>
+                            <strong>{item.state}</strong>
+                            <p>{item.detail}</p>
+                            <small>{item.source} · {displayDate(item.asOf)}</small>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.empty}>No deterministic System 1 sensor is wired for this subgroup yet. The state below is Story-led; it is not being presented as a measured score.</div>
+                    )}
                   </div>
-                ) : (
-                  <div className={styles.empty}>No deterministic System 1 sensor is wired for this subgroup yet. The state below is Story-led; it is not being presented as a measured score.</div>
-                )}
-              </div>
 
-              <div>
-                <span className={styles.kicker}>CURRENT STORIES / SYSTEM 2</span>
-                <div className={styles.storyList}>
-                  {subgroup.stories.length ? subgroup.stories.map((story) => (
-                    <article className={styles.storyCard} data-maturity={story.maturity} key={story.id}>
-                      <div className={styles.storyMeta}>
-                        <span className={styles.storyMaturity}>{story.maturity}</span>
-                        <span>{story.lifecycle}</span>
-                        <span>{story.confidence}% thesis confidence</span>
-                        {story.versionNumber ? <span>v{story.versionNumber}</span> : null}
-                      </div>
-                      <h4>{story.title}</h4>
-                      <p>{story.thesis}</p>
-                      {!story.contributesToState ? (
-                        <p className={styles.maturityNote}><strong>Context only:</strong> {story.maturityReason}</p>
-                      ) : null}
-                      <div className={styles.linkRow}>
-                        <Link href={`/stories/${story.slug}`}>Open Story →</Link>
-                        <Link href={story.hybridHref}>Explain in Hybrid →</Link>
-                      </div>
-                    </article>
-                  )) : <div className={styles.empty}>No mapped Story is available for this subgroup. Do not infer a thesis from the absence of a Story.</div>}
-                </div>
-                {subgroup.contextStories.length ? (
-                  <div className={styles.empty}>{subgroup.contextStories.length} mapped Story{ subgroup.contextStories.length === 1 ? "" : "ies" } are retained as seed, early or episode context and do not drive this subgroup state.</div>
-                ) : null}
-              </div>
-            </div>
+                  <div>
+                    <span className={styles.kicker}>CURRENT STORIES / SYSTEM 2</span>
+                    <div className={styles.storyList}>
+                      {subgroup.stories.length ? subgroup.stories.map((story) => (
+                        <article className={styles.storyCard} data-maturity={story.maturity} key={story.id}>
+                          <div className={styles.storyMeta}>
+                            <span className={styles.storyMaturity}>{story.maturity}</span>
+                            <span>{story.lifecycle}</span>
+                            <span>{story.confidence}% thesis confidence</span>
+                            {story.versionNumber ? <span>v{story.versionNumber}</span> : null}
+                          </div>
+                          <h4>{story.title}</h4>
+                          <p>{story.thesis}</p>
+                          {!story.contributesToState ? (
+                            <p className={styles.maturityNote}><strong>Context only:</strong> {story.maturityReason}</p>
+                          ) : null}
+                          <div className={styles.linkRow}>
+                            <Link href={`/stories/${story.slug}`}>Open Story →</Link>
+                            <Link href={story.hybridHref}>Explain in Hybrid →</Link>
+                          </div>
+                        </article>
+                      )) : <div className={styles.empty}>No mapped Story is available for this subgroup. Do not infer a thesis from the absence of a Story.</div>}
+                    </div>
+                    {subgroup.contextStories.length ? (
+                      <div className={styles.empty}>{subgroup.contextStories.length} mapped Story{subgroup.contextStories.length === 1 ? "" : "ies"} are retained as seed, early or episode context and do not drive this subgroup state.</div>
+                    ) : null}
+                  </div>
 
-            <div className={styles.column}>
-              <div>
-                <span className={styles.kicker}>WHAT IS CONTRIBUTING NOW</span>
-                <div className={styles.nodeList}>
-                  {subgroup.nodes.length ? subgroup.nodes.map((node) => (
-                    <article className={styles.node} data-state={node.state} key={node.id}>
-                      <div className={styles.nodeMeta}>
-                        <span className={styles.nodeState}>{node.state.replaceAll("_", " ")}</span>
-                        <span>{node.sourceKind.replaceAll("_", " ")}</span>
-                        <span>{displayDate(node.timestamp)}</span>
+                  <div>
+                    <span className={styles.kicker}>CURRENT CAUSAL READ</span>
+                    {subgroupReasoning.length ? (
+                      <div className={styles.reasoningList}>
+                        {subgroupReasoning.map(({ story, reasoning }) => (
+                          <article className={styles.reasoningCard} key={reasoning.hypothesisId}>
+                            <div className={styles.storyMeta}>
+                              <span>{story.title}</span>
+                              <span>{reasoning.decisionState}</span>
+                              <span>{Math.round(reasoning.confidence)}% hypothesis confidence</span>
+                            </div>
+                            <h4>{reasoning.question || reasoning.statement}</h4>
+                            <p>{reasoning.mechanism}</p>
+                            {reasoning.causalChain.length ? (
+                              <div className={styles.liveChain}>
+                                {reasoning.causalChain.map((edge, index) => (
+                                  <div className={styles.liveEdge} data-evidence={edge.evidenceState} key={`${reasoning.hypothesisId}:${index}`}>
+                                    <strong>{edge.from}</strong>
+                                    <span>{edge.relationship}</span>
+                                    <strong>{edge.to}</strong>
+                                    <small>{edge.evidenceState.replaceAll("_", " ")} · {edge.evidenceCount} evidence ref{edge.evidenceCount === 1 ? "" : "s"}</small>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className={styles.empty}>The current hypothesis has no persisted canonical causal edges.</div>
+                            )}
+                          </article>
+                        ))}
                       </div>
-                      <h4>{node.title}</h4>
-                      <p>{node.detail}</p>
-                      <div className={styles.linkRow}>
-                        {node.href ? <a href={node.href} target={node.sourceKind === "story_event" ? undefined : "_blank"} rel={node.sourceKind === "story_event" ? undefined : "noreferrer"}>Open source →</a> : null}
-                        {node.hybridHref ? <Link href={node.hybridHref}>Explain in Hybrid →</Link> : null}
-                      </div>
-                    </article>
-                  )) : <div className={styles.empty}>No recent contribution node is available for this subgroup.</div>}
+                    ) : (
+                      <div className={styles.empty}>No current durable Story in this subgroup has a persisted primary hypothesis with canonical causal edges. The governed UNDERSTAND mechanism remains available, but LIVE does not manufacture missing evidence.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.column}>
+                  <div>
+                    <span className={styles.kicker}>WHAT IS CONTRIBUTING NOW</span>
+                    <div className={styles.nodeList}>
+                      {subgroup.nodes.length ? subgroup.nodes.map((node) => (
+                        <article className={styles.node} data-state={node.state} key={node.id}>
+                          <div className={styles.nodeMeta}>
+                            <span className={styles.nodeState}>{node.state.replaceAll("_", " ")}</span>
+                            <span>{node.sourceKind.replaceAll("_", " ")}</span>
+                            <span>{displayDate(node.timestamp)}</span>
+                          </div>
+                          <h4>{node.title}</h4>
+                          <p>{node.detail}</p>
+                          <div className={styles.linkRow}>
+                            {node.href ? <a href={node.href} target={node.sourceKind === "story_event" ? undefined : "_blank"} rel={node.sourceKind === "story_event" ? undefined : "noreferrer"}>Open source →</a> : null}
+                            {node.hybridHref ? <Link href={node.hybridHref}>Explain in Hybrid →</Link> : null}
+                          </div>
+                        </article>
+                      )) : <div className={styles.empty}>No recent contribution node is available for this subgroup.</div>}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
