@@ -10,7 +10,8 @@
     "chrome:transcript-operator": "node scripts/chrome-transcript-operator.mjs",
     "dossier:v2:manual": "node --experimental-strip-types scripts/run-dossier-v2-manual.ts",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "test:persistence": "node --conditions=react-server --experimental-strip-types --experimental-loader ./tests/runtime-test-loader.mjs --test tests/canonicalise-intake-persistence.test.ts"
+    "test:persistence": "node --conditions=react-server --experimental-strip-types --experimental-loader ./tests/runtime-test-loader.mjs --test tests/canonicalise-intake-persistence.test.ts",
+    "test:task-c": "node scripts/run-task-c-closure-tests.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
