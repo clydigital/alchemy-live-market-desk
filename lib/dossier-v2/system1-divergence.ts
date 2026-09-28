@@ -156,6 +156,8 @@ const RULES: Rule[] = [
   },
 ];
 
+const STRUCTURED_SIGNAL_CONTEXTS = new Set(RULES.map((rule) => rule.id));
+
 function metric(evidence: ObservedEvidence | undefined, key: string): number | null {
   const value = evidence?.metrics?.[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -245,7 +247,15 @@ function evidenceMatchesRule(item: ObservedEvidence, rule: Rule): boolean {
   const signalContext = typeof item.metrics?.signal_context === "string"
     ? item.metrics.signal_context
     : null;
-  if (signalContext !== rule.id && !rule.pattern.test(item.claim_or_fact)) return false;
+
+  // When the canonical macro/policy adapter supplied a known structured
+  // classification, treat it as authoritative. Do not let prose that mentions
+  // another direction make one release match both opposing rules.
+  if (signalContext && STRUCTURED_SIGNAL_CONTEXTS.has(signalContext)) {
+    return signalContext === rule.id;
+  }
+
+  if (!rule.pattern.test(item.claim_or_fact)) return false;
 
   // Text-only monetary-policy rows without structured signal_kind still use
   // the normal rule matcher above. Structured confirmation rows already exited.
