@@ -1024,6 +1024,31 @@ export function augmentCandidateSnapshotWithEia(
   };
 }
 
+function tradingEconomicsSystem1Signal(event: TradingEconomicsUsCalendarSnapshot["events"][number]): string | null {
+  const surprise = event.surprise;
+  if (surprise === null || surprise === 0) return null;
+
+  const text = `${event.category} ${event.event}`.toLowerCase();
+
+  if (/\b(cpi|consumer price|ppi|producer price|pce|inflation|price index)\b/.test(text)) {
+    return surprise > 0 ? "HOT_INFLATION_SURPRISE" : "SOFT_INFLATION_SURPRISE";
+  }
+
+  if (/\b(unemployment rate|jobless claims|unemployment claims|initial claims|continuing claims)\b/.test(text)) {
+    return surprise > 0 ? "WEAK_LABOUR_SURPRISE" : "STRONG_LABOUR_SURPRISE";
+  }
+
+  if (/\b(nonfarm|payroll|employment|average hourly earnings|wage growth|wages)\b/.test(text)) {
+    return surprise > 0 ? "STRONG_LABOUR_SURPRISE" : "WEAK_LABOUR_SURPRISE";
+  }
+
+  if (/\b(pmi|ism|gdp|retail sales)\b/.test(text)) {
+    return surprise > 0 ? "STRONG_ACTIVITY_SURPRISE" : "WEAK_ACTIVITY_SURPRISE";
+  }
+
+  return null;
+}
+
 export function augmentCandidateSnapshotWithTradingEconomics(
   result: CanonicalSnapshotResult,
   calendar: TradingEconomicsUsCalendarSnapshot,
@@ -1056,6 +1081,8 @@ export function augmentCandidateSnapshotWithTradingEconomics(
         });
       }
 
+      const signalContext = tradingEconomicsSystem1Signal(event);
+
       observed.push({
         evidence_id: `trading-economics:${event.calendarId}:${event.date.slice(0, 10)}`,
         claim_or_fact: `${event.event}: actual ${event.actual}${consensusText}${previousText}.`,
@@ -1078,6 +1105,8 @@ export function augmentCandidateSnapshotWithTradingEconomics(
           parsed_previous: event.parsedPrevious,
           surprise: event.surprise,
           importance: event.importance,
+          signal_kind: signalContext ? "economic_release" : null,
+          signal_context: signalContext,
           reported_source: event.source,
         },
         provenance,
