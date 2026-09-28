@@ -83,6 +83,19 @@ function compactPriorState(packet: DossierV2InputPacket) {
       dossier_id: claim.dossier_id,
       as_of: claim.as_of,
     })),
+    prior_investigations: (packet.prior_analytical_state.prior_investigations ?? []).map((item) => ({
+      investigation_id: item.investigation_id,
+      question: item.question,
+      expected_reaction: item.expected_reaction,
+      observed_reaction: item.observed_reaction,
+      divergence: item.divergence,
+      current_explanation: item.current_explanation,
+      competing_explanations: item.competing_explanations,
+      research_next: item.research_next,
+      status: item.status,
+      linked_story_ids: item.linked_story_ids,
+      linked_thesis_ids: item.linked_thesis_ids,
+    })),
     thesis_ledger: packet.prior_analytical_state.thesis_ledger,
   };
 }
@@ -93,7 +106,7 @@ export function buildResearchBrainSystemInstructions(): string {
 EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 1. Current facts come ONLY from packet.observed_evidence and packet.rate_context.evidence. rate_context is a bounded protected OBSERVED subset for rates/policy continuity when cluster caps would otherwise omit those facts.
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
-3. Prior analytical claims and prior Thesis Ledger entries are historical state, NOT current facts.
+3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. Prior investigations preserve what the desk asked, expected and believed at the previous Dossier vintage; never present their old observations as current tape.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
@@ -127,7 +140,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 29. REGIME FAMILY: main_thread.regime_family is the canonical teaching state for downstream Hybrid. Use RATES_LED_TIGHTENING when rising long/real yields and bond volatility dominate while credit/VIX transmission is incomplete; GROWTH_SCARE_RISK_OFF when falling long yields accompany credit stress, weak breadth and defensive leadership; MIXED_TRANSITION when the evidence is moving between or materially combines those patterns; otherwise UNRESOLVED. This field is Live-owned and must match the prose regime implication.
 30. BUNDLED INVESTIGATION AGENDA: One investigation equals one market question, not one dataset. When relevant, use no more than two bundled investigations: (1) whether duration stress is broadening or beginning to transmit, checked with 30Y/curve/real yields, MOVE/VIX, credit, breadth, gold/USD and foreign sovereigns; (2) whether energy keeps the inflation/rates impulse alive, checked with crude curves, cracks, inventories/utilisation, physical stress and verified high-impact event implementation. Use the three Research Now slots for (1) policy-path versus real-yield/inflation/term-premium decomposition, (2) credit/breadth/volatility transmission, and (3) energy structure plus event implementation. Do not publish unverified political outcomes as facts.
 31. SYSTEM 1 DOLLAR LIQUIDITY: system1_rate_regime and system1_dollar_liquidity are independent deterministic compression layers. Treat them as triage/context, not standalone facts. Any material conclusion drawn from them must be supported by their supplied underlying evidence_refs. Compare policy/rates with dollar liquidity instead of assuming Fed policy and monetary conditions are identical. A hawkish rate regime plus tightening dollar liquidity is confirmation; a dovish rate regime plus tightening dollar liquidity is a policy/liquidity divergence and should be investigated. If credit remains neutral while rates/USD/funding tighten, describe transmission as incomplete rather than calling a systemic dollar shortage.
-32. LIQUIDITY ESCALATION DISCIPLINE: system1_policy_liquidity_interaction tells you whether the compressed state is worth System-2 attention. When escalateToBrain is false, do not create a Major Story or Investigation solely because plumbing data exists. When true, use the supplied question to focus causal reasoning and competing explanations. OFFSHORE_USD is explicitly unresolved until cross-currency-basis/FX-swap evidence exists; never label the current state a complete eurodollar-system measurement.`;
+32. LIQUIDITY ESCALATION DISCIPLINE: system1_policy_liquidity_interaction tells you whether the compressed state is worth System-2 attention. When escalateToBrain is false, do not create a Major Story or Investigation solely because plumbing data exists. When true, use the supplied question to focus causal reasoning and competing explanations. OFFSHORE_USD is explicitly unresolved until cross-currency-basis/FX-swap evidence exists; never label the current state a complete eurodollar-system measurement.
+33. DIVERGENCE POST-MORTEM DISCIPLINE: packet.prior_analytical_state.prior_investigations is the bounded previous-Dossier investigation baseline. When a current Investigation clearly continues one of those questions through the same investigation_id, linked Story/Thesis identity, or the same market mechanism, preserve the PRIOR expected_reaction as historical pre-tape context; do not rewrite it to fit current price action. If an exact system1_divergence_candidate supports PARTIAL or MATERIAL divergence, current_explanation must do more than restate that price moved the other way: identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven. Use competing_explanations for plausible supplied alternatives, and make research_next name the observable that would discriminate between the leading explanation and its alternatives. If supplied evidence cannot explain the mismatch, say the mechanism remains unresolved and specify what evidence is missing; never infer causality from price direction alone. If the exact reaction is ALIGNED/NONE, describe alignment neutrally rather than calling the prior view 'correct' or treating one event as validation of the whole thesis.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {

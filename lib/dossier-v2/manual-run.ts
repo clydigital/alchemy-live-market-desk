@@ -12,6 +12,7 @@ import {
   type DossierV2InputPacket,
   type DossierV2InputRequest,
   type PriorAnalyticalClaim,
+  type PriorInvestigationSnapshot,
   type ThesisLedger,
 } from "./input-packet.ts";
 import {
@@ -191,6 +192,80 @@ function buildPriorClaims(dossier: MarketDossierV2): PriorAnalyticalClaim[] {
   return result;
 }
 
+function buildPriorInvestigations(
+  dossier: MarketDossierV2,
+): PriorInvestigationSnapshot[] {
+  const analytical =
+    dossier.payload.analytical_output &&
+    typeof dossier.payload.analytical_output === "object" &&
+    !Array.isArray(dossier.payload.analytical_output)
+      ? (dossier.payload.analytical_output as Record<string, unknown>)
+      : null;
+
+  const investigations = Array.isArray(analytical?.investigations)
+    ? analytical.investigations
+    : [];
+
+  return investigations.slice(0, 2).flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const value = item as Record<string, unknown>;
+
+    const investigationId =
+      typeof value.investigation_id === "string" ? value.investigation_id.trim() : "";
+    const question = typeof value.question === "string" ? value.question.trim() : "";
+    if (!investigationId || !question) return [];
+
+    const divergence =
+      value.divergence === "NONE"
+      || value.divergence === "PARTIAL"
+      || value.divergence === "MATERIAL"
+      || value.divergence === "UNRESOLVED"
+        ? value.divergence
+        : "UNRESOLVED";
+    const status =
+      value.status === "open"
+      || value.status === "weakened"
+      || value.status === "resolved"
+      || value.status === "parked"
+        ? value.status
+        : "open";
+
+    return [{
+      investigation_id: investigationId,
+      question,
+      expected_reaction:
+        typeof value.expected_reaction === "string" && value.expected_reaction.trim()
+          ? value.expected_reaction.trim()
+          : null,
+      observed_reaction:
+        typeof value.observed_reaction === "string" && value.observed_reaction.trim()
+          ? value.observed_reaction.trim()
+          : null,
+      divergence,
+      current_explanation:
+        typeof value.current_explanation === "string" ? value.current_explanation.trim() : "",
+      competing_explanations: Array.isArray(value.competing_explanations)
+        ? value.competing_explanations.filter(
+            (entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
+          )
+        : [],
+      research_next:
+        typeof value.research_next === "string" ? value.research_next.trim() : "",
+      status,
+      linked_story_ids: Array.isArray(value.linked_story_ids)
+        ? value.linked_story_ids.filter(
+            (entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
+          )
+        : [],
+      linked_thesis_ids: Array.isArray(value.linked_thesis_ids)
+        ? value.linked_thesis_ids.filter(
+            (entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
+          )
+        : [],
+    }];
+  });
+}
+
 function buildPriorThesisLedger(dossier: MarketDossierV2): ThesisLedger | undefined {
   const payload = dossier.payload;
   const analytical =
@@ -305,6 +380,7 @@ function buildInputRequest(
       id: previousDossier.id,
       as_of: previousDossier.as_of,
       prior_claims: buildPriorClaims(previousDossier),
+      prior_investigations: buildPriorInvestigations(previousDossier),
       thesis_ledger: buildPriorThesisLedger(previousDossier),
     },
   };

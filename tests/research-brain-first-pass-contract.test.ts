@@ -71,6 +71,18 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
 });
 
 
+test("Research Brain uses prior investigation baselines for bounded divergence post-mortems", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /DIVERGENCE POST-MORTEM DISCIPLINE/);
+  assert.match(instructions, /prior_analytical_state\.prior_investigations is the bounded previous-Dossier investigation baseline/);
+  assert.match(instructions, /preserve the PRIOR expected_reaction as historical pre-tape context/);
+  assert.match(instructions, /identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven/);
+  assert.match(instructions, /research_next name the observable that would discriminate between the leading explanation and its alternatives/);
+  assert.match(instructions, /never infer causality from price direction alone/);
+  assert.match(instructions, /describe alignment neutrally rather than calling the prior view 'correct'/);
+});
+
 test("Research Brain frames the dossier around regime before asset calls", () => {
   const instructions = buildResearchBrainSystemInstructions();
 
