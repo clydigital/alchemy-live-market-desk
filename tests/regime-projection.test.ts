@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import type { Story } from "../lib/data.ts";
 import type { DossierPresentationV1 } from "../lib/dossier-v2/presentation-adapter.ts";
 import type { StoryEvent } from "../lib/persistence/contracts.ts";
+import { materialProjectionSignature } from "../lib/regime-engine.ts";
 import {
   buildRegimeProjection,
   routeStoryToRegimes,
@@ -190,4 +191,85 @@ test("raw routed news stays interpretation pending and cannot strengthen the sub
   assert.equal(fiscal.state, "Unresolved");
   assert.equal(fiscal.stateKind, "unresolved");
   assert.equal(fiscal.nodes[0]?.state, "interpretation_pending");
+});
+
+
+test("pending news refreshes the live projection without changing the material Regime signature", () => {
+  const base = buildRegimeProjection({
+    stories: [story()],
+    events: [event()],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: dossier(),
+  }).find((item) => item.slug === "global-cost-of-capital");
+  assert.ok(base);
+
+  const withPendingNews = buildRegimeProjection({
+    stories: [story()],
+    events: [event()],
+    versions: [],
+    newsThreads: [{
+      id: "news-pending",
+      domain: "rates",
+      category: "Treasury",
+      headline: "Treasury issues another routine financing update",
+      summary: "Verified factual delta awaiting Story interpretation.",
+      current_view: null,
+      source_url: "https://example.com/treasury-pending",
+      source_type: "official",
+      published_at: "2026-09-28T03:00:00Z",
+      importance: 70,
+      affected_assets: ["US30Y"],
+    }],
+    statements: [],
+    dossier: dossier(),
+  }).find((item) => item.slug === "global-cost-of-capital");
+  assert.ok(withPendingNews);
+
+  assert.deepEqual(
+    materialProjectionSignature(withPendingNews),
+    materialProjectionSignature(base),
+  );
+  assert.ok(
+    withPendingNews.subgroups
+      .flatMap((subgroup) => subgroup.nodes)
+      .some((node) => node.id === "news:news-pending" && node.state === "interpretation_pending"),
+  );
+});
+
+test("accepted Story-state changes alter the material Regime signature", () => {
+  const supporting = buildRegimeProjection({
+    stories: [story()],
+    events: [event({ id: "supporting", impact: "supports" })],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: null,
+  }).find((item) => item.slug === "global-cost-of-capital");
+  assert.ok(supporting);
+
+  const contested = buildRegimeProjection({
+    stories: [story()],
+    events: [
+      event({ id: "supporting", impact: "supports" }),
+      event({
+        id: "contradiction",
+        event_type: "contradiction",
+        impact: "contradicts",
+        headline: "Long-end pressure loses confirmation",
+        event_at: "2026-09-28T04:00:00Z",
+      }),
+    ],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: null,
+  }).find((item) => item.slug === "global-cost-of-capital");
+  assert.ok(contested);
+
+  assert.notDeepEqual(
+    materialProjectionSignature(contested),
+    materialProjectionSignature(supporting),
+  );
 });
