@@ -365,6 +365,37 @@ test("investigation journey detects divergence transition by exact investigation
   assert.equal(result.watchNext[0].journey.matchedBy, "id");
   assert.equal(result.watchNext[0].journey.previousDivergence, "UNRESOLVED");
   assert.equal(result.watchNext[0].journey.currentDivergence, "MATERIAL");
+  assert.equal(result.watchNext[0].journey.previousExpectedReaction, "Energy stress should lift WTI.");
+  assert.equal(result.watchNext[0].journey.currentExpectedReaction, "Energy stress should lift WTI.");
+  assert.equal(result.watchNext[0].journey.expectationChanged, false);
+});
+
+test("investigation journey preserves prior expectation when current wording changes", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    expected_reaction: "Hot inflation should lift front-end yields and the dollar.",
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Rates and USD should rise if the inflation impulse persists.",
+  };
+
+  const previous = dossier("prior-expectation", previousOutput);
+  const current = dossier("current-expectation", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(
+    result.watchNext[0].journey.previousExpectedReaction,
+    "Hot inflation should lift front-end yields and the dollar.",
+  );
+  assert.equal(
+    result.watchNext[0].journey.currentExpectedReaction,
+    "Rates and USD should rise if the inflation impulse persists.",
+  );
+  assert.equal(result.watchNext[0].journey.expectationChanged, true);
 });
 
 test("investigation journey can bridge a changed model ID only through unique story/thesis linkage", () => {
