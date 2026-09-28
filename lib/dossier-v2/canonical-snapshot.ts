@@ -21,10 +21,17 @@ import {
   fetchTreasuryBills,
   type TreasuryBillSnapshot,
 } from "../providers/treasury-bills.ts";
+import {
+  fetchTwelveDataReactionSnapshot,
+  type IntradayReactionTrigger,
+  type TwelveDataReactionSnapshot,
+} from "../providers/twelve-data-reactions.ts";
 import type {
   CandidateSnapshot,
+  ObservedEvidence,
   SourceDataStatus,
 } from "./input-packet.ts";
+import { isSystem1ReactionTriggerEvidence } from "./system1-divergence.ts";
 
 export interface CanonicalEvidenceSourceRow {
   id: string;
@@ -643,6 +650,140 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 }
 
 
+export function selectIntradayReactionTriggers(
+  result: CanonicalSnapshotResult,
+  asOf: string,
+): IntradayReactionTrigger[] {
+  const asOfMs = parseTimestamp(asOf);
+  if (asOfMs === null) return [];
+
+  return (result.snapshot.observed_evidence ?? [])
+    .flatMap((raw) => {
+      const evidenceId = typeof raw.evidence_id === "string" ? raw.evidence_id : null;
+      const claim = typeof raw.claim_or_fact === "string" ? raw.claim_or_fact : null;
+      const category = typeof raw.category === "string" ? raw.category : null;
+      const sourceType = typeof raw.source_type === "string" ? raw.source_type : null;
+      const availableAt = typeof raw.available_at === "string" ? raw.available_at : null;
+      const occurredAt = typeof raw.occurrence_time === "string" ? raw.occurrence_time : null;
+      if (!evidenceId || !claim || !category || !sourceType || !availableAt || !occurredAt) return [];
+
+      const occurredMs = parseTimestamp(occurredAt);
+      if (occurredMs === null || occurredMs > asOfMs) return [];
+
+      // Midnight timestamps are commonly date-level placeholders in canonical
+      // data. Do not treat them as exact event times for intraday reactions.
+      if (/T00:00:00(?:\.000)?Z$/i.test(occurredAt)) return [];
+
+      const candidate: ObservedEvidence = {
+        evidence_id: evidenceId,
+        epistemic_label: "OBSERVED",
+        claim_or_fact: claim,
+        category,
+        source_type: sourceType,
+        available_at: availableAt,
+        occurrence_time: occurredAt,
+        metrics: raw.metrics && typeof raw.metrics === "object" && !Array.isArray(raw.metrics)
+          ? raw.metrics as Record<string, unknown>
+          : undefined,
+        provenance: Array.isArray(raw.provenance)
+          ? raw.provenance as ObservedEvidence["provenance"]
+          : [],
+      };
+
+      return isSystem1ReactionTriggerEvidence(candidate)
+        ? [{ evidenceId, occurredAt }]
+        : [];
+    })
+    .sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt))
+    .slice(-4);
+}
+
+export function augmentCandidateSnapshotWithTwelveDataReactions(
+  result: CanonicalSnapshotResult,
+  reactions: TwelveDataReactionSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+
+  for (const record of reactions.records) {
+    const primary =
+      record.windows.find((window) => window.window === "30m")
+      ?? record.windows.find((window) => window.window === "5m")
+      ?? record.windows.find((window) => window.window === "4h");
+    if (!primary) continue;
+
+    const windowMap = Object.fromEntries(
+      record.windows.map((window) => [window.window, {
+        baseline_at: window.baselineAt,
+        observed_at: window.observedAt,
+        baseline: window.baseline,
+        observed: window.observed,
+        change_pct: window.changePct,
+      }]),
+    );
+
+    observed.push({
+      evidence_id: `twelve-data:event-reaction:${record.triggerEvidenceId}:${record.monitorId}`,
+      claim_or_fact: `${record.observedInstrument}${record.isProxy ? " proxy" : ""} moved ${primary.changePct >= 0 ? "+" : ""}${primary.changePct.toFixed(2)}% over the ${primary.window} window after the timestamped catalyst.`,
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      available_at: primary.observedAt,
+      occurrence_time: primary.observedAt,
+      grouping_key: `market-monitor:${record.monitorId}`,
+      rank: 17,
+      metrics: {
+        signal_kind: "market_reaction",
+        trigger_evidence_id: record.triggerEvidenceId,
+        event_change_pct: primary.changePct,
+        reaction_window: primary.window,
+        reaction_windows: windowMap,
+        expected_instrument: record.expectedInstrument,
+        observed_instrument: record.observedInstrument,
+        is_proxy: record.isProxy,
+        frequency: "intraday",
+        provider: record.sourceName,
+        retrieved_at: reactions.retrievedAt,
+      },
+      provenance: [{
+        source_type: "TWELVE_DATA",
+        source_id: `twelve-data:${record.observedInstrument}`,
+        url: record.sourceUrl,
+        publisher: record.sourceName,
+      }],
+    });
+  }
+
+  const status =
+    reactions.state === "ready"
+      ? "OK"
+      : reactions.state === "unconfigured"
+        ? "OPTIONAL_UNCONFIGURED"
+        : "OPTIONAL_UNAVAILABLE";
+
+  const message = reactions.state === "ready"
+    ? `${reactions.records.length} chronology-safe intraday event-reaction records admitted. ${reactions.warnings.join(" ")}`.trim()
+    : reactions.warnings.join(" ");
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: {
+        ...(result.snapshot.sources_status ?? {}),
+        twelve_data_intraday_reactions: {
+          status,
+          available_at: reactions.state === "ready" ? options.asOf : undefined,
+          message,
+        },
+      },
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 export function augmentCandidateSnapshotWithMarketMonitor(
   result: CanonicalSnapshotResult,
   monitor: MarketMonitorLike | null | undefined,
@@ -1177,18 +1318,30 @@ export async function loadCanonicalCandidateSnapshot(
   const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
   const calendarTo = new Date(asOfMs);
 
-  const [marketMonitorResult, eiaResult, tradingEconomicsResult, nyFedResult, dealerResult, treasuryBillsResult] =
-    await Promise.allSettled([
-      import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
-      fetchEiaWeeklyPetroleumSnapshot(),
-      fetchTradingEconomicsUsCalendarSnapshot({
-        from: calendarFrom,
-        to: calendarTo,
-      }),
-      fetchNyFedReferenceRates(new Date(asOfMs)),
-      fetchNyFedPrimaryDealers(new Date(asOfMs)),
-      fetchTreasuryBills(new Date(asOfMs)),
-    ]);
+  const intradayReactionTriggers = selectIntradayReactionTriggers(result, options.asOf);
+  const [
+    marketMonitorResult,
+    eiaResult,
+    tradingEconomicsResult,
+    nyFedResult,
+    dealerResult,
+    treasuryBillsResult,
+    twelveDataReactionResult,
+  ] = await Promise.allSettled([
+    import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
+    fetchEiaWeeklyPetroleumSnapshot(),
+    fetchTradingEconomicsUsCalendarSnapshot({
+      from: calendarFrom,
+      to: calendarTo,
+    }),
+    fetchNyFedReferenceRates(new Date(asOfMs)),
+    fetchNyFedPrimaryDealers(new Date(asOfMs)),
+    fetchTreasuryBills(new Date(asOfMs)),
+    fetchTwelveDataReactionSnapshot({
+      asOf: options.asOf,
+      triggers: intradayReactionTriggers,
+    }),
+  ]);
 
   if (marketMonitorResult.status === "fulfilled") {
     result = augmentCandidateSnapshotWithMarketMonitor(
@@ -1202,6 +1355,22 @@ export async function loadCanonicalCandidateSnapshot(
       market_monitor: {
         status: "WARNING",
         message: `Existing Live market monitor was unavailable to Dossier V2: ${marketMonitorResult.reason instanceof Error ? marketMonitorResult.reason.message : String(marketMonitorResult.reason)}`,
+      },
+    };
+  }
+
+  if (twelveDataReactionResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithTwelveDataReactions(
+      result,
+      twelveDataReactionResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      twelve_data_intraday_reactions: {
+        status: "OPTIONAL_UNAVAILABLE",
+        message: `Optional Twelve Data intraday enrichment failed closed: ${twelveDataReactionResult.reason instanceof Error ? twelveDataReactionResult.reason.message : String(twelveDataReactionResult.reason)}`,
       },
     };
   }
