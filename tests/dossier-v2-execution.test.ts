@@ -10,6 +10,7 @@ import {
 } from "../lib/dossier-v2/contracts.ts";
 import {
   buildMarketDossierV2InputFromResearchBrain,
+  detectDossierSystem1StateTransitions,
   executeAndPersistDossierV2,
 } from "../lib/dossier-v2/execution.ts";
 import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
@@ -254,6 +255,40 @@ function createValidBrainOutput(
     },
   };
 }
+
+test("Dossier NO_CHANGE gate detects same-contract System 1 state transitions without treating contract rollout as a market move", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const currentRate = input.payload.system1_rate_regime as Record<string, unknown>;
+
+  const previous: MarketDossierV2 = {
+    id: randomUUID(),
+    contract_version: MARKET_DOSSIER_V2_CONTRACT_VERSION,
+    previous_dossier_id: null,
+    as_of: "2026-09-19T12:00:00.000Z",
+    freshness: {},
+    research_gaps: [],
+    payload: {
+      ...input.payload,
+      system1_rate_regime: {
+        ...currentRate,
+        state: currentRate.state === "HAWKISH" ? "DOVISH" : "HAWKISH",
+      },
+    },
+    created_at: "2026-09-19T12:00:00.000Z",
+  };
+
+  const transitions = detectDossierSystem1StateTransitions(previous, packet);
+  assert.equal(transitions.length, 1);
+  assert.match(transitions[0], /rate regime:/);
+
+  previous.payload.system1_rate_regime = {
+    ...(previous.payload.system1_rate_regime as Record<string, unknown>),
+    contractVersion: "rate-regime/0",
+  };
+  assert.deepEqual(detectDossierSystem1StateTransitions(previous, packet), []);
+});
 
 test("Task 8 bridge executes Research Brain and persists one immutable MarketDossierV2", async () => {
   const previousDossierId = randomUUID();
