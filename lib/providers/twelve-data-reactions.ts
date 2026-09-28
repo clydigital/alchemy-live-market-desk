@@ -49,6 +49,7 @@ type Bar = {
 
 const TWELVE_DATA_URL = "https://api.twelvedata.com/time_series";
 const MAX_TRIGGER_AGE_HOURS = 18;
+const BAR_INTERVAL_MS = 60_000;
 const BASELINE_TOLERANCE_MS = 6 * 60_000;
 const TARGET_TOLERANCE_MS = 6 * 60_000;
 
@@ -138,13 +139,29 @@ function seriesBySymbol(payload: unknown, symbols: string[]): Map<string, Bar[]>
   return output;
 }
 
+function barCloseAt(bar: Bar): number {
+  return bar.at + BAR_INTERVAL_MS;
+}
+
 function baselineBar(bars: Bar[], triggerAt: number): Bar | null {
-  const eligible = bars.filter((bar) => bar.at <= triggerAt && triggerAt - bar.at <= BASELINE_TOLERANCE_MS);
+  // Twelve Data timestamps a 1-minute bar by the minute it OPENS. The event
+  // minute itself is therefore contaminated by post-trigger trading. Use only
+  // a bar that was fully complete before the trigger.
+  const eligible = bars.filter((bar) => {
+    const closeAt = barCloseAt(bar);
+    return closeAt <= triggerAt && triggerAt - closeAt <= BASELINE_TOLERANCE_MS;
+  });
   return eligible.at(-1) ?? null;
 }
 
 function targetBar(bars: Bar[], targetAt: number): Bar | null {
-  return bars.find((bar) => bar.at >= targetAt && bar.at - targetAt <= TARGET_TOLERANCE_MS) ?? null;
+  // Same no-look-ahead rule for the reaction endpoint: use the latest fully
+  // completed 1-minute bar at or before the requested horizon.
+  const eligible = bars.filter((bar) => {
+    const closeAt = barCloseAt(bar);
+    return closeAt <= targetAt && targetAt - closeAt <= TARGET_TOLERANCE_MS;
+  });
+  return eligible.at(-1) ?? null;
 }
 
 function reactionWindows(bars: Bar[], triggerAt: number, asOfAt: number): IntradayReactionWindow[] {
@@ -159,8 +176,8 @@ function reactionWindows(bars: Bar[], triggerAt: number, asOfAt: number): Intrad
     if (!observed) continue;
     windows.push({
       window: key,
-      baselineAt: new Date(baseline.at).toISOString(),
-      observedAt: new Date(observed.at).toISOString(),
+      baselineAt: new Date(barCloseAt(baseline)).toISOString(),
+      observedAt: new Date(barCloseAt(observed)).toISOString(),
       baseline: baseline.close,
       observed: observed.close,
       changePct: Number((((observed.close / baseline.close) - 1) * 100).toFixed(4)),
