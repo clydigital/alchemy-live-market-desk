@@ -1,12 +1,13 @@
-export type IntradayReactionWindowKey = "5m" | "30m" | "4h";
+export type ReactionWindowKey = "5m" | "30m" | "4h" | "session_close" | "next_session";
+type FixedReactionWindowKey = "5m" | "30m" | "4h";
 
 export type IntradayReactionTrigger = {
   evidenceId: string;
   occurredAt: string;
 };
 
-export type IntradayReactionWindow = {
-  window: IntradayReactionWindowKey;
+export type ReactionWindow = {
+  window: ReactionWindowKey;
   baselineAt: string;
   observedAt: string;
   baseline: number;
@@ -23,7 +24,7 @@ export type TwelveDataReactionRecord = {
   isProxy: boolean;
   sourceName: string;
   sourceUrl: string;
-  windows: IntradayReactionWindow[];
+  windows: ReactionWindow[];
 };
 
 export type TwelveDataReactionSnapshot = {
@@ -48,7 +49,7 @@ type Bar = {
 };
 
 const TWELVE_DATA_URL = "https://api.twelvedata.com/time_series";
-const MAX_TRIGGER_AGE_HOURS = 18;
+const MAX_TRIGGER_AGE_HOURS = 96;
 const BAR_INTERVAL_MS = 60_000;
 const BASELINE_TOLERANCE_MS = 6 * 60_000;
 const TARGET_TOLERANCE_MS = 6 * 60_000;
@@ -74,7 +75,7 @@ const INSTRUMENTS: InstrumentSpec[] = [
   },
 ];
 
-const WINDOW_MS: Record<IntradayReactionWindowKey, number> = {
+const WINDOW_MS: Record<FixedReactionWindowKey, number> = {
   "5m": 5 * 60_000,
   "30m": 30 * 60_000,
   "4h": 4 * 60 * 60_000,
@@ -164,25 +165,131 @@ function targetBar(bars: Bar[], targetAt: number): Bar | null {
   return eligible.at(-1) ?? null;
 }
 
-function reactionWindows(bars: Bar[], triggerAt: number, asOfAt: number): IntradayReactionWindow[] {
+const NEW_YORK_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function newYorkParts(value: number) {
+  return Object.fromEntries(
+    NEW_YORK_PARTS
+      .formatToParts(new Date(value))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+}
+
+function newYorkDateKey(value: number): string {
+  const parts = newYorkParts(value);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function regularSessionCloseAt(dateKey: string): number | null {
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // US regular-session close is 16:00 New York. Depending on DST that is
+  // either 20:00 or 21:00 UTC. Verify through Intl instead of hard-coding the
+  // offset so DST transitions remain correct.
+  for (const utcHour of [20, 21]) {
+    const candidate = Date.UTC(year, month - 1, day, utcHour, 0, 0);
+    const parts = newYorkParts(candidate);
+    if (
+      parts.year === match[1]
+      && parts.month === match[2]
+      && parts.day === match[3]
+      && parts.hour === "16"
+      && parts.minute === "00"
+    ) return candidate;
+  }
+  return null;
+}
+
+function completedWindow(
+  window: ReactionWindowKey,
+  baseline: Bar,
+  observed: Bar,
+): ReactionWindow {
+  return {
+    window,
+    baselineAt: new Date(barCloseAt(baseline)).toISOString(),
+    observedAt: new Date(barCloseAt(observed)).toISOString(),
+    baseline: baseline.close,
+    observed: observed.close,
+    changePct: Number((((observed.close / baseline.close) - 1) * 100).toFixed(4)),
+  };
+}
+
+function sessionCloseWindow(
+  bars: Bar[],
+  triggerAt: number,
+  asOfAt: number,
+  baseline: Bar,
+): ReactionWindow | null {
+  const triggerDate = newYorkDateKey(triggerAt);
+  const closeAt = regularSessionCloseAt(triggerDate);
+  if (closeAt === null || asOfAt < closeAt) return null;
+  const observed = targetBar(bars, closeAt);
+  if (
+    !observed
+    || barCloseAt(observed) <= triggerAt
+    || newYorkDateKey(barCloseAt(observed)) !== triggerDate
+  ) return null;
+  return completedWindow("session_close", baseline, observed);
+}
+
+function nextSessionWindow(
+  bars: Bar[],
+  triggerAt: number,
+  asOfAt: number,
+  baseline: Bar,
+): ReactionWindow | null {
+  const triggerDate = newYorkDateKey(triggerAt);
+  const nextDate = [...new Set(
+    bars
+      .map((bar) => newYorkDateKey(barCloseAt(bar)))
+      .filter((dateKey) => dateKey > triggerDate),
+  )].sort()[0];
+  if (!nextDate) return null;
+
+  const closeAt = regularSessionCloseAt(nextDate);
+  if (closeAt === null || asOfAt < closeAt) return null;
+  const observed = targetBar(bars, closeAt);
+
+  // Do not skip an early-close/incomplete next session and relabel a later
+  // session as "next session". If the first later trading date has no regular
+  // 16:00 close bar, leave the horizon unresolved.
+  if (!observed || newYorkDateKey(barCloseAt(observed)) !== nextDate) return null;
+  return completedWindow("next_session", baseline, observed);
+}
+
+function reactionWindows(bars: Bar[], triggerAt: number, asOfAt: number): ReactionWindow[] {
   const baseline = baselineBar(bars, triggerAt);
   if (!baseline || baseline.close === 0) return [];
 
-  const windows: IntradayReactionWindow[] = [];
+  const windows: ReactionWindow[] = [];
   for (const key of ["5m", "30m", "4h"] as const) {
     const targetAt = triggerAt + WINDOW_MS[key];
     if (targetAt > asOfAt) continue;
     const observed = targetBar(bars, targetAt);
     if (!observed) continue;
-    windows.push({
-      window: key,
-      baselineAt: new Date(barCloseAt(baseline)).toISOString(),
-      observedAt: new Date(barCloseAt(observed)).toISOString(),
-      baseline: baseline.close,
-      observed: observed.close,
-      changePct: Number((((observed.close / baseline.close) - 1) * 100).toFixed(4)),
-    });
+    windows.push(completedWindow(key, baseline, observed));
   }
+
+  const sessionClose = sessionCloseWindow(bars, triggerAt, asOfAt, baseline);
+  if (sessionClose) windows.push(sessionClose);
+
+  const nextSession = nextSessionWindow(bars, triggerAt, asOfAt, baseline);
+  if (nextSession) windows.push(nextSession);
+
   return windows;
 }
 
@@ -244,10 +351,9 @@ export async function fetchTwelveDataReactionSnapshot(options: {
     triggers[0].occurredAtMs - 10 * 60_000,
     asOfAt - MAX_TRIGGER_AGE_HOURS * 60 * 60_000,
   );
-  const latestNeeded = Math.min(
-    asOfAt,
-    Math.max(...triggers.map((trigger) => trigger.occurredAtMs + WINDOW_MS["4h"] + TARGET_TOLERANCE_MS)),
-  );
+  // Fetch through as-of so the same bounded request can capture session-close
+  // and next-session persistence when those horizons have actually completed.
+  const latestNeeded = asOfAt;
   const symbols = INSTRUMENTS.map((item) => item.providerSymbol);
 
   const url = new URL(TWELVE_DATA_URL);
