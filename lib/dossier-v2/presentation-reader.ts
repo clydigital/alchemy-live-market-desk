@@ -18,6 +18,7 @@ export type DossierPresentationSelectionStatus =
 export type DossierCalibrationHistoryCase = {
   dossierId: string;
   previousDossierId: string | null;
+  analyticalPreviousDossierId: string | null;
   asOf: string;
   investigationId: string;
   question: string;
@@ -103,6 +104,7 @@ export type DossierPresentationSelection = {
 
 type CandidatePresentation = {
   dossier: MarketDossierV2;
+  analyticalPreviousDossierId: string | null;
   presentation: DossierPresentationV1;
 };
 
@@ -112,13 +114,48 @@ function byNewest(left: MarketDossierV2, right: MarketDossierV2) {
   return rightTime - leftTime || right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id);
 }
 
-function priorDossier(
+function dossierHasHealthyAnalyticalState(dossier: MarketDossierV2): boolean {
+  const analytical =
+    dossier.payload.analytical_output &&
+    typeof dossier.payload.analytical_output === "object" &&
+    !Array.isArray(dossier.payload.analytical_output)
+      ? (dossier.payload.analytical_output as Record<string, unknown>)
+      : null;
+  const diagnostics =
+    analytical?.diagnostics &&
+    typeof analytical.diagnostics === "object" &&
+    !Array.isArray(analytical.diagnostics)
+      ? (analytical.diagnostics as Record<string, unknown>)
+      : null;
+
+  if (diagnostics?.degraded === true) return false;
+
+  return !dossier.research_gaps.some((gap) => (
+    gap
+    && typeof gap === "object"
+    && !Array.isArray(gap)
+    && (gap as Record<string, unknown>).category === "RESEARCH_BRAIN_DEGRADED"
+  ));
+}
+
+function analyticalPriorDossier(
   dossier: MarketDossierV2,
   dossiersById: Map<string, MarketDossierV2>,
-) {
-  return dossier.previous_dossier_id
-    ? dossiersById.get(dossier.previous_dossier_id) ?? null
-    : null;
+): MarketDossierV2 | null {
+  let priorId = dossier.previous_dossier_id;
+  const visited = new Set<string>();
+
+  for (let depth = 0; priorId && depth < 12; depth++) {
+    if (visited.has(priorId)) return null;
+    visited.add(priorId);
+
+    const prior = dossiersById.get(priorId) ?? null;
+    if (!prior) return null;
+    if (dossierHasHealthyAnalyticalState(prior)) return prior;
+    priorId = prior.previous_dossier_id;
+  }
+
+  return null;
 }
 
 function buildCandidate(
@@ -126,15 +163,17 @@ function buildCandidate(
   dossiersById: Map<string, MarketDossierV2>,
 ): CandidatePresentation | null {
   try {
-    const previous = priorDossier(dossier, dossiersById);
+    const previous = analyticalPriorDossier(dossier, dossiersById);
     return {
       dossier,
+      analyticalPreviousDossierId: previous?.id ?? null,
       presentation: buildDossierV2Presentation(dossier, previous),
     };
   } catch {
     try {
       return {
         dossier,
+        analyticalPreviousDossierId: null,
         presentation: buildDossierV2Presentation(dossier),
       };
     } catch {
@@ -155,7 +194,7 @@ function presentationIsHealthy(presentation: DossierPresentationV1) {
 function calibrationHistory(
   built: CandidatePresentation[],
 ): DossierCalibrationHistoryEntry[] {
-  return built.flatMap(({ dossier, presentation }) => {
+  return built.flatMap(({ dossier, analyticalPreviousDossierId, presentation }) => {
     const cases = presentation.investigationAudit
       .filter((item) =>
         item.reactionCalibration.checkCount > 0
@@ -164,6 +203,7 @@ function calibrationHistory(
       .map((item): DossierCalibrationHistoryCase => ({
         dossierId: dossier.id,
         previousDossierId: dossier.previous_dossier_id,
+        analyticalPreviousDossierId,
         asOf: dossier.as_of,
         investigationId: item.id,
         question: item.question,
@@ -310,8 +350,8 @@ function calibrationLineages(
     parent.set(child, root);
   };
 
-  for (const { dossier, presentation } of built) {
-    if (!dossier.previous_dossier_id) continue;
+  for (const { dossier, analyticalPreviousDossierId, presentation } of built) {
+    if (!analyticalPreviousDossierId) continue;
     for (const item of presentation.investigationAudit) {
       if (
         !item.journey.previousId
@@ -320,7 +360,7 @@ function calibrationLineages(
 
       union(
         nodeKey(dossier.id, item.id),
-        nodeKey(dossier.previous_dossier_id, item.journey.previousId),
+        nodeKey(analyticalPreviousDossierId, item.journey.previousId),
       );
     }
   }
