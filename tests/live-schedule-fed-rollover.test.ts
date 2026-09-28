@@ -8,11 +8,17 @@ const calendar = readFileSync(new URL("../lib/calendar.ts", import.meta.url), "u
 const researchState = readFileSync(new URL("../lib/intelligence/research-state.ts", import.meta.url), "utf8");
 const routing = readFileSync(new URL("../lib/research-automation-routing.ts", import.meta.url), "utf8");
 
-test("full Live research is scheduled at the two canonical Malaysia slots through GitHub Actions", () => {
+test("full Live research has canonical GitHub slots plus deduplicated 15-minute fallbacks", () => {
   assert.match(workflow, /cron:\s*"30 1 \* \* \*"/);
+  assert.match(workflow, /cron:\s*"45 1 \* \* \*"/);
   assert.match(workflow, /cron:\s*"30 13 \* \* \*"/);
+  assert.match(workflow, /cron:\s*"45 13 \* \* \*"/);
   assert.match(workflow, /github\.event_name == 'schedule'/);
-  assert.match(workflow, /github\.event\.schedule == '30 1 \* \* \*'/);
+  assert.match(workflow, /"30 1 \* \* \*"\|"45 1 \* \* \*"/);
+  assert.match(workflow, /"30 13 \* \* \*"\|"45 13 \* \* \*"/);
+  assert.match(workflow, /RETRY_KEY="github-scheduled"/);
+  assert.match(workflow, /Scheduled fallback no-op: the canonical slot already completed/);
+  assert.doesNotMatch(workflow, /live-auto-\$\{GITHUB_RUN_ID\}/);
   assert.match(workflow, /MODE:.*research/);
   assert.match(routing, /GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED = true/);
   assert.match(routing, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED = true/);
