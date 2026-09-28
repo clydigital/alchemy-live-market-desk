@@ -284,7 +284,7 @@ test("Dossier NO_CHANGE gate detects same-contract System 1 state transitions wi
   assert.match(transitions[0], /rate regime:/);
 
   previous.payload.system1_rate_regime = {
-    ...previous.payload.system1_rate_regime as Record<string, unknown>,
+    ...(previous.payload.system1_rate_regime as Record<string, unknown>),
     contractVersion: "rate-regime/0",
   };
   assert.deepEqual(detectDossierSystem1StateTransitions(previous, packet), []);
