@@ -739,6 +739,29 @@ export function assembleDossierV2InputPacket(
       if (Date.parse(request.previous_dossier.as_of) > asOfMs) {
         throw new Error(`Invalid prior dossier: as_of "${request.previous_dossier.as_of}" is future-dated relative to request as_of "${asOf}".`);
       }
+
+      const baselineId = request.previous_dossier.analytical_baseline_id;
+      const baselineAsOf = request.previous_dossier.analytical_baseline_as_of;
+      if (baselineId !== undefined && baselineId !== null && !isValidUuid(baselineId)) {
+        throw new Error(
+          `Invalid analytical_baseline_id: expected UUID string or null, got "${String(baselineId)}".`,
+        );
+      }
+      if (
+        baselineAsOf !== undefined
+        && baselineAsOf !== null
+        && !isValidIsoTimestamp(baselineAsOf)
+      ) {
+        throw new Error("Invalid analytical_baseline_as_of: expected ISO string or null.");
+      }
+      if (
+        typeof baselineAsOf === "string"
+        && Date.parse(baselineAsOf) > asOfMs
+      ) {
+        throw new Error(
+          `Invalid analytical baseline: as_of "${baselineAsOf}" is future-dated relative to request as_of "${asOf}".`,
+        );
+      }
     }
   }
 
@@ -1387,6 +1410,14 @@ export function assembleDossierV2InputPacket(
           : isValidIsoTimestamp(request.previous_dossier.as_of)
             ? request.previous_dossier.as_of
             : null;
+
+    if (analyticalBaselineId !== previousDossierId) {
+      notes.push(
+        analyticalBaselineId
+          ? `Prior analytical state bridged from healthy Dossier ${analyticalBaselineId}; immutable predecessor remains ${previousDossierId}.`
+          : `Immediate predecessor ${previousDossierId} has no healthy analytical baseline in the bounded history; prior analytical memory omitted.`,
+      );
+    }
 
     if (Array.isArray(request.previous_dossier.prior_claims)) {
       for (const pc of request.previous_dossier.prior_claims) {
