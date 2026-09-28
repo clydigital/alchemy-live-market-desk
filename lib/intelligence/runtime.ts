@@ -362,6 +362,7 @@ For every cluster, score current materiality, momentum, cross-source or cross-as
 Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
 Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
 An unchanged assessment advances freshness only. It must not rewrite the thesis or manufacture a recalibration.
+If reviewContext.catalystRecalibrationRequired is true, the current dated catalyst has already expired. Never repeat anything in reviewContext.expiredCatalysts as proposedNextCatalyst. Choose one valid future catalystCandidate when the supplied evidence supports it; otherwise return proposedNextCatalyst as null so PostgreSQL can clear the stale catalyst without changing thesis or confidence.
 Creator/video transcript evidence may create a lead or test, but cannot by itself materially change thesis, lifecycle or confidence.
 Do not omit a supplied Story. Return an empty storyAssessments array only when storyReviewTargets is empty.`;
 
