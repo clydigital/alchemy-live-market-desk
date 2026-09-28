@@ -21,6 +21,10 @@ import { persistMarketDossierV2 } from "./persistence.ts";
 import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
 import { buildDossierRateRegime } from "./rate-regime.ts";
 import {
+  buildSystem1DivergenceCandidates,
+  buildSystem1ReactionAssessments,
+} from "./system1-divergence.ts";
+import {
   buildPolicyLiquidityInteraction,
   buildSystem1DollarLiquidity,
 } from "./system1-dollar-liquidity.ts";
@@ -323,6 +327,8 @@ export function buildMarketDossierV2InputFromResearchBrain(
     rateRegime,
     dollarLiquidity,
   );
+  const reactionAssessments = buildSystem1ReactionAssessments(packet);
+  const divergenceCandidates = buildSystem1DivergenceCandidates(packet);
   const normalized = applyAnalyticalGapPolicy(analyticalOutput);
 
   return {
@@ -346,6 +352,8 @@ export function buildMarketDossierV2InputFromResearchBrain(
       system1_rate_regime: cloneJson(rateRegime),
       system1_dollar_liquidity: cloneJson(dollarLiquidity),
       system1_policy_liquidity_interaction: cloneJson(policyLiquidityInteraction),
+      system1_reaction_assessments: cloneJson(reactionAssessments),
+      system1_divergence_candidates: cloneJson(divergenceCandidates),
       analytical_output: cloneJson(normalized.analyticalOutput),
     },
   };
