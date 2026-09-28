@@ -348,9 +348,18 @@
   line-height: 1.45;
 }
 
+.postMortemLabel {
+  display: block;
+  margin-top: 14px;
+  color: #ffd180;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .07em;
+}
+
 .explanation {
   max-width: 1000px;
-  margin: 14px 0 0;
+  margin: 7px 0 0;
   color: #d2cede;
   line-height: 1.6;
 }
