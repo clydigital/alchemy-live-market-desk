@@ -105,6 +105,9 @@ export type DossierPresentationInvestigation = {
   question: string;
   whyItMatters: string;
   currentExplanation: string;
+  expectedReaction: string | null;
+  observedReaction: string | null;
+  divergence: Investigation["divergence"];
   competingExplanations: string[];
   researchNext: string;
   confirmationCondition: string;
@@ -113,6 +116,7 @@ export type DossierPresentationInvestigation = {
   missingEvidence: string[];
   chartIds: string[];
   storyIds: string[];
+  thesisIds: string[];
 };
 
 export type DossierPresentationChart = ChartTask & {
@@ -358,6 +362,9 @@ function presentationInvestigation(item: Investigation): DossierPresentationInve
     question: item.question,
     whyItMatters: item.why_it_matters,
     currentExplanation: item.current_explanation,
+    expectedReaction: item.expected_reaction,
+    observedReaction: item.observed_reaction,
+    divergence: item.divergence,
     competingExplanations: [...item.competing_explanations],
     researchNext: item.research_next,
     confirmationCondition: item.confirmation_condition,
@@ -366,6 +373,7 @@ function presentationInvestigation(item: Investigation): DossierPresentationInve
     missingEvidence: [...item.missing_evidence],
     chartIds: [...item.chart_task_links],
     storyIds: [...item.linked_story_ids],
+    thesisIds: [...item.linked_thesis_ids],
   };
 }
 
