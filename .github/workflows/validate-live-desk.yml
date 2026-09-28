@@ -125,3 +125,24 @@ jobs:
 
       - name: Verify Market Dossiers V2 database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_dossiers_v2_contract.sql
+
+      - name: Bootstrap historical Regime migration dependency
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create or replace function public.intelligence_set_updated_at()
+          returns trigger
+          language plpgsql
+          set search_path = public
+          as $
+          begin
+            new.updated_at = now();
+            return new;
+          end;
+          $;
+          SQL
+
+      - name: Apply persistent Regime shadow engine migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260928011010_persistent_regime_shadow_engine.sql
+
+      - name: Verify persistent Regime shadow engine contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/persistent_regime_shadow_engine_contract.sql
