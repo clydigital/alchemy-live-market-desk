@@ -6,6 +6,7 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
+import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
@@ -54,6 +55,7 @@ export default async function StoriesPage() {
       version,
       now,
     });
+    const catalyst = assessStoryCatalyst({ nextCatalyst: current.next_catalyst, version });
     const regimes = routeStoryToRegimes(story, version)
       .map((route) => getRegimeDefinition(route.regime))
       .filter((regime, index, all): regime is NonNullable<typeof regime> => Boolean(regime) && all.findIndex((item) => item?.slug === regime?.slug) === index)
@@ -69,7 +71,9 @@ export default async function StoriesPage() {
       assets: current.assets,
       tags: deriveStoryTags(current, 8),
       marketQuestion: current.market_question,
-      nextCatalyst: current.next_catalyst,
+      nextCatalyst: catalystDisplayLabel(catalyst),
+      catalystStatus: catalyst.status,
+      catalystRecalibrationRequired: catalyst.recalibrationRequired,
       evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
       eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
       versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
