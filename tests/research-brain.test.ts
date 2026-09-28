@@ -990,6 +990,23 @@ test("6G. Divergence V1 rejects NONE when the deterministic aligned pair is not 
   assert.equal(normalized.investigations[0].divergence, "UNRESOLVED");
 });
 
+test("6H. Divergence explanation must add analysis beyond the measured move", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.expected_reaction = "The front end should rise.";
+  inv.observed_reaction = "The front end fell instead.";
+  inv.current_explanation = "The front end fell instead.";
+  inv.divergence = "MATERIAL";
+  inv.observed_evidence = [evYields];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("only restates observed_reaction")));
+});
+
 test("7. Main Thread & Stock Radar Linkage Validation", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
