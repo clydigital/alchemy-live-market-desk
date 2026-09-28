@@ -26,6 +26,17 @@ function investigation(
     storyIds: [],
     thesisIds: [],
     reactionChecks: [],
+    reactionCalibration: {
+      basis: "SYSTEM1_REACTION_AUDIT",
+      outcome: "UNRESOLVED",
+      precision: "NONE",
+      checkCount: 0,
+      alignedCount: 0,
+      divergentCount: 0,
+      reactionWindows: [],
+      expectationChanged: null,
+      requiresReview: false,
+    },
     journey: {
       currentId: "investigation:test",
       previousId: null,
