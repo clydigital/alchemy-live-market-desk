@@ -61,6 +61,31 @@ export interface ManualDossierV2RunResult {
 interface PreviousDossierResolution {
   persistenceAvailable: boolean;
   dossier: MarketDossierV2 | null;
+  analyticalBaseline: MarketDossierV2 | null;
+}
+
+function dossierHasHealthyAnalyticalState(dossier: MarketDossierV2): boolean {
+  const analytical =
+    dossier.payload.analytical_output &&
+    typeof dossier.payload.analytical_output === "object" &&
+    !Array.isArray(dossier.payload.analytical_output)
+      ? (dossier.payload.analytical_output as Record<string, unknown>)
+      : null;
+  const diagnostics =
+    analytical?.diagnostics &&
+    typeof analytical.diagnostics === "object" &&
+    !Array.isArray(analytical.diagnostics)
+      ? (analytical.diagnostics as Record<string, unknown>)
+      : null;
+
+  if (diagnostics?.degraded === true) return false;
+
+  return !dossier.research_gaps.some((gap) => (
+    gap
+    && typeof gap === "object"
+    && !Array.isArray(gap)
+    && (gap as Record<string, unknown>).category === "RESEARCH_BRAIN_DEGRADED"
+  ));
 }
 
 function isMissingDossierTableError(error: { code?: string | null; message?: string | null } | null): boolean {
@@ -73,6 +98,48 @@ function isMissingDossierTableError(error: { code?: string | null; message?: str
     (message.includes("market_dossiers_v2") &&
       (message.includes("does not exist") || message.includes("schema cache")))
   );
+}
+
+async function resolveDossierById(
+  client: SupabaseClient,
+  id: string,
+): Promise<MarketDossierV2 | null> {
+  const { data, error } = await client
+    .from("market_dossiers_v2")
+    .select(
+      "id, contract_version, previous_dossier_id, as_of, freshness, research_gaps, payload, created_at",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to resolve MarketDossierV2 ${id}: ${error.message}`);
+  }
+  return data ? validateMarketDossierV2Record(data) : null;
+}
+
+async function resolveHealthyAnalyticalBaseline(
+  client: SupabaseClient,
+  latest: MarketDossierV2 | null,
+): Promise<MarketDossierV2 | null> {
+  if (!latest) return null;
+  if (dossierHasHealthyAnalyticalState(latest)) return latest;
+
+  const visited = new Set<string>([latest.id]);
+  let cursor: MarketDossierV2 | null = latest;
+
+  for (let depth = 0; depth < 12; depth++) {
+    const priorId = cursor?.previous_dossier_id ?? null;
+    if (!priorId || visited.has(priorId)) return null;
+    visited.add(priorId);
+
+    const prior = await resolveDossierById(client, priorId);
+    if (!prior) return null;
+    if (dossierHasHealthyAnalyticalState(prior)) return prior;
+    cursor = prior;
+  }
+
+  return null;
 }
 
 async function resolveLatestDossier(
@@ -92,6 +159,7 @@ async function resolveLatestDossier(
       return {
         persistenceAvailable: false,
         dossier: null,
+        analyticalBaseline: null,
       };
     }
     throw new Error(`Failed to resolve latest MarketDossierV2: ${error.message}`);
@@ -101,12 +169,15 @@ async function resolveLatestDossier(
     return {
       persistenceAvailable: true,
       dossier: null,
+      analyticalBaseline: null,
     };
   }
 
+  const dossier = validateMarketDossierV2Record(data);
   return {
     persistenceAvailable: true,
-    dossier: validateMarketDossierV2Record(data),
+    dossier,
+    analyticalBaseline: await resolveHealthyAnalyticalBaseline(client, dossier),
   };
 }
 
@@ -361,9 +432,20 @@ function buildPriorThesisLedger(dossier: MarketDossierV2): ThesisLedger | undefi
   };
 }
 
+function priorStateInput(dossier: MarketDossierV2) {
+  return {
+    id: dossier.id,
+    as_of: dossier.as_of,
+    prior_claims: buildPriorClaims(dossier),
+    prior_investigations: buildPriorInvestigations(dossier),
+    thesis_ledger: buildPriorThesisLedger(dossier),
+  };
+}
+
 function buildInputRequest(
   asOf: string,
   previousDossier: MarketDossierV2 | null,
+  analyticalBaseline: MarketDossierV2 | null,
 ): DossierV2InputRequest {
   if (!previousDossier) {
     return {
@@ -373,16 +455,22 @@ function buildInputRequest(
     };
   }
 
+  const latestIsBaseline = analyticalBaseline?.id === previousDossier.id;
   return {
     as_of: asOf,
     previous_dossier_id: previousDossier.id,
-    previous_dossier: {
-      id: previousDossier.id,
-      as_of: previousDossier.as_of,
-      prior_claims: buildPriorClaims(previousDossier),
-      prior_investigations: buildPriorInvestigations(previousDossier),
-      thesis_ledger: buildPriorThesisLedger(previousDossier),
-    },
+    previous_dossier: latestIsBaseline
+      ? priorStateInput(previousDossier)
+      : {
+          id: previousDossier.id,
+          as_of: previousDossier.as_of,
+          prior_claims: [],
+          prior_investigations: [],
+        },
+    analytical_baseline:
+      analyticalBaseline && !latestIsBaseline
+        ? priorStateInput(analyticalBaseline)
+        : null,
   };
 }
 
@@ -400,7 +488,11 @@ export async function runManualDossierV2(
     }));
 
   const previousResolution = await resolveLatestDossier(client);
-  const request = buildInputRequest(options.asOf, previousResolution.dossier);
+  const request = buildInputRequest(
+    options.asOf,
+    previousResolution.dossier,
+    previousResolution.analyticalBaseline,
+  );
   const packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
 
   if (options.persist) {
