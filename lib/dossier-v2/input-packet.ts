@@ -237,6 +237,7 @@ const MAX_CREATOR_CLAIMS_PER_THEME = 3;
 const MAX_CATALYSTS = 12;
 const MAX_PRIOR_CLAIMS = 12;
 const MAX_PRIOR_INVESTIGATIONS = 2;
+const EVENT_REACTION_TRIGGER_MAX_AGE_HOURS = 96;
 export const MAX_THESIS_LEDGER_ENTRIES = 12;
 const MAX_THESIS_LINEAGE_ITEMS = 10;
 const MAX_THESIS_ARGUMENTS = 10;
@@ -837,6 +838,25 @@ export function assembleDossierV2InputPacket(
   const candidateEvidence = Array.isArray(snapshot.observed_evidence) ? snapshot.observed_evidence : [];
   const candidateLeadsList = Array.isArray(snapshot.research_leads) ? [...snapshot.research_leads] : [];
 
+  // A timestamped reaction row may be refreshed when session-close or
+  // next-session persistence completes. Preserve only the exact trigger IDs
+  // referenced by a recent reaction row, and only inside the bounded 96-hour
+  // persistence horizon. The ordinary evidence window remains 24 hours.
+  const protectedReactionTriggerIds = new Set<string>();
+  for (const raw of candidateEvidence) {
+    if (!isPlainObject(raw) || !isValidIsoTimestamp(raw.available_at)) continue;
+    const availableAt = Date.parse(raw.available_at as string);
+    if (availableAt > asOfMs || availableAt < windowStartMs) continue;
+    if (!isPlainObject(raw.metrics) || raw.metrics.signal_kind !== "market_reaction") continue;
+    const triggerEvidenceId =
+      typeof raw.metrics.trigger_evidence_id === "string"
+        ? raw.metrics.trigger_evidence_id.trim()
+        : "";
+    if (triggerEvidenceId) protectedReactionTriggerIds.add(triggerEvidenceId);
+  }
+  const reactionTriggerWindowStartMs =
+    asOfMs - EVENT_REACTION_TRIGGER_MAX_AGE_HOURS * 3_600_000;
+
   const eligibleCandidateEvidence: Array<{
     raw: Record<string, unknown>;
     ev: ObservedEvidence & { grouping_key: string; conflict_key?: string; supersedes_id?: string };
@@ -847,7 +867,13 @@ export function assembleDossierV2InputPacket(
     if (!isValidIsoTimestamp(raw.available_at)) continue;
 
     const availMs = Date.parse(raw.available_at as string);
-    if (availMs > asOfMs || availMs < windowStartMs) {
+    const rawEvidenceId =
+      typeof raw.evidence_id === "string" ? raw.evidence_id.trim() : "";
+    const protectedReactionTrigger =
+      Boolean(rawEvidenceId)
+      && protectedReactionTriggerIds.has(rawEvidenceId)
+      && availMs >= reactionTriggerWindowStartMs;
+    if (availMs > asOfMs || (availMs < windowStartMs && !protectedReactionTrigger)) {
       omittedEvidenceCount++;
       continue;
     }
@@ -960,11 +986,34 @@ export function assembleDossierV2InputPacket(
       || left.evidence_id.localeCompare(right.evidence_id))
     .slice(0, 3);
 
+  const protectedEventPairIds = new Set(
+    activeAdmittedEvidence
+      .filter((item) => {
+        if (protectedReactionTriggerIds.has(item.evidence_id)) return true;
+        const signalKind =
+          typeof item.metrics?.signal_kind === "string"
+            ? item.metrics.signal_kind
+            : null;
+        const triggerEvidenceId =
+          typeof item.metrics?.trigger_evidence_id === "string"
+            ? item.metrics.trigger_evidence_id
+            : null;
+        return signalKind === "market_reaction"
+          && Boolean(triggerEvidenceId)
+          && protectedReactionTriggerIds.has(triggerEvidenceId!);
+      })
+      .map((item) => item.evidence_id),
+  );
+
   const rateContextEvidence = activeAdmittedEvidence
     .filter((item) => isRateContextEvidence(item))
-    .sort((left, right) =>
-      right.available_at.localeCompare(left.available_at) ||
-      left.evidence_id.localeCompare(right.evidence_id))
+    .sort((left, right) => {
+      const leftProtected = protectedEventPairIds.has(left.evidence_id) ? 1 : 0;
+      const rightProtected = protectedEventPairIds.has(right.evidence_id) ? 1 : 0;
+      return rightProtected - leftProtected
+        || right.available_at.localeCompare(left.available_at)
+        || left.evidence_id.localeCompare(right.evidence_id);
+    })
     .slice(0, 24)
     .map((item) => {
       const {
@@ -1508,6 +1557,12 @@ export function assembleDossierV2InputPacket(
   }
 
   freshnessWarnings.sort((a, b) => a.source_name.localeCompare(b.source_name));
+
+  if (protectedEventPairIds.size) {
+    notes.push(
+      `Protected ${protectedEventPairIds.size} exact event/reaction observations for bounded persistence analysis beyond the ordinary 24-hour evidence window.`,
+    );
+  }
 
   if (protectedDollarLiquidityEvidence.length) {
     notes.push(
