@@ -361,8 +361,9 @@ First inspect freshEvidenceCandidates without looking at existing Story titles. 
 For every cluster, score current materiality, momentum, cross-source or cross-asset breadth, and time urgency separately from confidence. Use verdict "recruit" when a current cluster deserves causal research now, "context" when it helps interpret recruited news, and "defer" when it is not presently decision-relevant. Scheduled-only calendar entries are not in this packet and must never be reconstructed.
 Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
 Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
-An unchanged assessment advances freshness only. It must not rewrite the thesis or manufacture a recalibration.
+An unchanged assessment advances freshness and may perform catalyst housekeeping only. It must not rewrite thesis, confidence, mechanism or market question.
 If reviewContext.catalystRecalibrationRequired is true, the current dated catalyst has already expired. Never repeat anything in reviewContext.expiredCatalysts as proposedNextCatalyst. Choose one valid future catalystCandidate when the supplied evidence supports it; otherwise return proposedNextCatalyst as null so PostgreSQL can clear the stale catalyst without changing thesis or confidence.
+If an expired event is embedded in the Story title or market question, reframe that wording only when the target's current canonical evidence supports the same durable underlying mechanism. Do not refresh a title merely because it sounds old, and do not manufacture a replacement event.
 Creator/video transcript evidence may create a lead or test, but cannot by itself materially change thesis, lifecycle or confidence.
 Do not omit a supplied Story. Return an empty storyAssessments array only when storyReviewTargets is empty.`;
 
