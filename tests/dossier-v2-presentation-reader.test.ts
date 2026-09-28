@@ -303,6 +303,65 @@ test("reader reconstructs bounded calibration history including closed investiga
   assert.equal(result.calibrationHistory[1].cases[0].status, "resolved");
   assert.equal(result.calibrationHistory[1].cases[0].outcome, "ALIGNED");
   assert.equal(result.calibrationHistory[1].cases[0].requiresReview, false);
+
+  assert.equal(result.calibrationLineages.length, 1);
+  assert.equal(result.calibrationLineages[0].measuredVintages, 2);
+  assert.deepEqual(
+    result.calibrationLineages[0].cases.map((item) => item.outcome),
+    ["ALIGNED", "DIVERGENT"],
+  );
+  assert.equal(result.calibrationLineages[0].hasDivergence, true);
+});
+
+test("calibration lineage excludes continuity inferred only from broad Regime routing", () => {
+  const olderInvestigation = investigation({
+    id: "inv:prior-duration",
+    divergence: "NONE",
+    observedReaction: "UUP rose over the measured 30m window.",
+  });
+  olderInvestigation.question = "Is duration and real-yield repricing broadening into financial conditions?";
+  olderInvestigation.why_it_matters = "A duration shock can tighten financial conditions.";
+  olderInvestigation.current_explanation = "Long-end real yields remain elevated.";
+  olderInvestigation.expected_reaction = "Credit spreads widen and breadth deteriorates.";
+  olderInvestigation.linked_story_ids = ["story:old-duration"];
+  olderInvestigation.linked_thesis_ids = ["thesis:old-duration"];
+
+  const currentInvestigation = investigation({
+    id: "inv:current-duration",
+    divergence: "MATERIAL",
+    observedReaction: "UUP fell over the measured 30m window.",
+  });
+  currentInvestigation.question = "Is US duration and real-yield pressure transmitting into credit, volatility and breadth?";
+  currentInvestigation.why_it_matters = "Transmission would broaden the tightening impulse.";
+  currentInvestigation.current_explanation = "Rates pressure persists while cross-asset transmission is mixed.";
+  currentInvestigation.expected_reaction = "Credit spreads widen, VIX rises and breadth deteriorates.";
+  currentInvestigation.linked_story_ids = ["story:new-duration"];
+  currentInvestigation.linked_thesis_ids = ["thesis:new-duration"];
+
+  const olderOutput = brain();
+  olderOutput.investigations = [olderInvestigation];
+  const older = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    output: olderOutput,
+  });
+  addReactionAssessment(older, "ALIGNED", "UP");
+
+  const currentOutput = brain();
+  currentOutput.investigations = [currentInvestigation];
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: OLDER_ID,
+    output: currentOutput,
+  });
+  addReactionAssessment(current, "DIVERGENT", "DOWN");
+
+  const result = selectDossierV2Presentation([current, older]);
+
+  assert.equal(result.calibrationHistory.length, 2);
+  assert.equal(result.calibrationHistory[0].cases[0].matchedBy, "regime_route");
+  assert.deepEqual(result.calibrationLineages, []);
 });
 
 test("reader omits Dossier vintages with no exact calibration or expectation rewrite from history", () => {
@@ -312,6 +371,7 @@ test("reader omits Dossier vintages with no exact calibration or expectation rew
   ]);
 
   assert.deepEqual(result.calibrationHistory, []);
+  assert.deepEqual(result.calibrationLineages, []);
 });
 
 test("reader reports unavailable when no persisted Dossier exists", () => {
