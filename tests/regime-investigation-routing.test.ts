@@ -25,6 +25,7 @@ function investigation(
     chartIds: [],
     storyIds: [],
     thesisIds: [],
+    reactionChecks: [],
     ...overrides,
   };
 }
