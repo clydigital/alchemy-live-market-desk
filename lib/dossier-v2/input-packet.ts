@@ -163,18 +163,21 @@ export interface OmissionDiagnostics {
   notes: string[];
 }
 
+export interface DossierV2PriorAnalyticalStateInput {
+  id: string;
+  as_of: string;
+  prior_claims?: PriorAnalyticalClaim[];
+  prior_investigations?: PriorInvestigationSnapshot[];
+  thesis_ledger?: ThesisLedger;
+  [key: string]: unknown;
+}
+
 export interface DossierV2InputRequest {
   contract_version?: string;
   as_of: string;
   previous_dossier_id?: string | null;
-  previous_dossier?: {
-    id: string;
-    as_of: string;
-    prior_claims?: PriorAnalyticalClaim[];
-    prior_investigations?: PriorInvestigationSnapshot[];
-    thesis_ledger?: ThesisLedger;
-    [key: string]: unknown;
-  } | null;
+  previous_dossier?: DossierV2PriorAnalyticalStateInput | null;
+  analytical_baseline?: DossierV2PriorAnalyticalStateInput | null;
 }
 
 export interface SourceDataStatus {
@@ -208,6 +211,7 @@ export interface DossierV2InputPacket {
   research_leads: ResearchLead[];
   prior_analytical_state: {
     previous_dossier_id: string | null;
+    source_dossier_id?: string | null;
     as_of: string | null;
     prior_claims: PriorAnalyticalClaim[];
     prior_investigations?: PriorInvestigationSnapshot[];
@@ -726,6 +730,9 @@ export function assembleDossierV2InputPacket(
     if (request.previous_dossier) {
       throw new Error("Invalid request: previous_dossier state supplied when previous_dossier_id is null.");
     }
+    if (request.analytical_baseline) {
+      throw new Error("Invalid request: analytical_baseline supplied when previous_dossier_id is null.");
+    }
   } else {
     if (request.previous_dossier && isPlainObject(request.previous_dossier)) {
       if (request.previous_dossier.id !== previousDossierId) {
@@ -736,6 +743,18 @@ export function assembleDossierV2InputPacket(
       }
       if (Date.parse(request.previous_dossier.as_of) > asOfMs) {
         throw new Error(`Invalid prior dossier: as_of "${request.previous_dossier.as_of}" is future-dated relative to request as_of "${asOf}".`);
+      }
+    }
+
+    if (request.analytical_baseline && isPlainObject(request.analytical_baseline)) {
+      if (!isValidUuid(request.analytical_baseline.id)) {
+        throw new Error(`Invalid analytical_baseline.id: expected UUID string, got "${String(request.analytical_baseline.id)}".`);
+      }
+      if (!isValidIsoTimestamp(request.analytical_baseline.as_of)) {
+        throw new Error("Invalid analytical baseline: as_of timestamp is invalid.");
+      }
+      if (Date.parse(request.analytical_baseline.as_of) > asOfMs) {
+        throw new Error(`Invalid analytical baseline: as_of "${request.analytical_baseline.as_of}" is future-dated relative to request as_of "${asOf}".`);
       }
     }
   }
@@ -1365,13 +1384,25 @@ export function assembleDossierV2InputPacket(
   let priorClaims: PriorAnalyticalClaim[] = [];
   let priorInvestigations: PriorInvestigationSnapshot[] = [];
   let prevDossierAsOf: string | null = null;
+  let priorSourceDossierId: string | null = null;
   let activeThesisLedger: ThesisLedger | null = null;
 
-  if (request.previous_dossier && isPlainObject(request.previous_dossier)) {
-    prevDossierAsOf = isValidIsoTimestamp(request.previous_dossier.as_of) ? request.previous_dossier.as_of : null;
+  const priorAnalyticalSource =
+    request.analytical_baseline && isPlainObject(request.analytical_baseline)
+      ? request.analytical_baseline
+      : request.previous_dossier && isPlainObject(request.previous_dossier)
+        ? request.previous_dossier
+        : null;
 
-    if (Array.isArray(request.previous_dossier.prior_claims)) {
-      for (const pc of request.previous_dossier.prior_claims) {
+  if (priorAnalyticalSource) {
+    priorSourceDossierId =
+      typeof priorAnalyticalSource.id === "string" ? priorAnalyticalSource.id : null;
+    prevDossierAsOf = isValidIsoTimestamp(priorAnalyticalSource.as_of)
+      ? priorAnalyticalSource.as_of
+      : null;
+
+    if (Array.isArray(priorAnalyticalSource.prior_claims)) {
+      for (const pc of priorAnalyticalSource.prior_claims) {
         if (!isPlainObject(pc)) continue;
         const claimText = truncateString(String(pc.claim_text ?? "").trim(), LIMIT_CLAIM_TEXT, markTruncated);
         if (!claimText) continue;
@@ -1391,15 +1422,15 @@ export function assembleDossierV2InputPacket(
           claim_id: typeof pc.claim_id === "string" && pc.claim_id ? truncateString(pc.claim_id, 100, markTruncated) : `pc:${hashString(claimText)}`,
           epistemic_label: epistemicLabel,
           claim_text: claimText,
-          dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? truncateString(pc.dossier_id, 100, markTruncated) : (previousDossierId ?? "prior"),
+          dossier_id: typeof pc.dossier_id === "string" && pc.dossier_id ? truncateString(pc.dossier_id, 100, markTruncated) : (priorSourceDossierId ?? previousDossierId ?? "prior"),
           as_of: claimAsOf,
           provenance: sanitizeProvenance(pc.provenance, markTruncated),
         });
       }
     }
 
-    if (Array.isArray(request.previous_dossier.prior_investigations)) {
-      for (const raw of request.previous_dossier.prior_investigations.slice(0, MAX_PRIOR_INVESTIGATIONS)) {
+    if (Array.isArray(priorAnalyticalSource.prior_investigations)) {
+      for (const raw of priorAnalyticalSource.prior_investigations.slice(0, MAX_PRIOR_INVESTIGATIONS)) {
         if (!isPlainObject(raw)) continue;
 
         const investigationId =
@@ -1472,8 +1503,8 @@ export function assembleDossierV2InputPacket(
       }
     }
 
-    if (request.previous_dossier.thesis_ledger) {
-      activeThesisLedger = validateThesisLedger(request.previous_dossier.thesis_ledger, markTruncated);
+    if (priorAnalyticalSource.thesis_ledger) {
+      activeThesisLedger = validateThesisLedger(priorAnalyticalSource.thesis_ledger, markTruncated);
     }
   }
 
@@ -1538,6 +1569,7 @@ export function assembleDossierV2InputPacket(
     research_leads: researchLeads,
     prior_analytical_state: {
       previous_dossier_id: previousDossierId,
+      source_dossier_id: priorSourceDossierId,
       as_of: prevDossierAsOf,
       prior_claims: priorClaims,
       prior_investigations: priorInvestigations,
