@@ -709,8 +709,14 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
     const primary =
       record.windows.find((window) => window.window === "30m")
       ?? record.windows.find((window) => window.window === "5m")
-      ?? record.windows.find((window) => window.window === "4h");
+      ?? record.windows.find((window) => window.window === "4h")
+      ?? record.windows.find((window) => window.window === "session_close")
+      ?? record.windows.find((window) => window.window === "next_session");
     if (!primary) continue;
+
+    const latestWindow = [...record.windows].sort(
+      (left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt),
+    )[0];
 
     const windowMap = Object.fromEntries(
       record.windows.map((window) => [window.window, {
@@ -727,7 +733,7 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
       claim_or_fact: `${record.observedInstrument}${record.isProxy ? " proxy" : ""} moved ${primary.changePct >= 0 ? "+" : ""}${primary.changePct.toFixed(2)}% over the ${primary.window} window after the timestamped catalyst.`,
       category: "MARKET",
       source_type: "MARKET_DATA",
-      available_at: primary.observedAt,
+      available_at: latestWindow.observedAt,
       occurrence_time: primary.observedAt,
       grouping_key: `market-monitor:${record.monitorId}`,
       rank: 17,
@@ -740,7 +746,7 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
         expected_instrument: record.expectedInstrument,
         observed_instrument: record.observedInstrument,
         is_proxy: record.isProxy,
-        frequency: "intraday",
+        frequency: "event_window",
         provider: record.sourceName,
         retrieved_at: reactions.retrievedAt,
       },
@@ -761,7 +767,7 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
         : "OPTIONAL_UNAVAILABLE";
 
   const message = reactions.state === "ready"
-    ? `${reactions.records.length} chronology-safe intraday event-reaction records admitted. ${reactions.warnings.join(" ")}`.trim()
+    ? `${reactions.records.length} chronology-safe timestamped event-reaction records admitted. ${reactions.warnings.join(" ")}`.trim()
     : reactions.warnings.join(" ");
 
   return {
@@ -1346,7 +1352,7 @@ export async function loadCanonicalCandidateSnapshot(
     options,
   );
 
-  const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
+  const calendarFrom = new Date(asOfMs - Math.min(96, lookbackHours) * 3_600_000);
   const calendarTo = new Date(asOfMs);
 
   const [
