@@ -1,5 +1,5 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
-import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
+import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
@@ -306,6 +306,38 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             </div>
           </Panel>
         </div>
+
+        {selection.calibrationHistory.length ? (
+          <Panel
+            title="Reasoning history"
+            description="Read-only prior Dossier calibration cases. Hybrid may teach from these records but must not rewrite them."
+          >
+            <div className={styles.recordList}>
+              {selection.calibrationHistory.slice(0, 4).flatMap((entry) =>
+                entry.cases.map((item) => (
+                  <article className={styles.record} key={entry.dossierId + "-" + item.investigationId}>
+                    <div className={styles.recordHeader}>
+                      <div>
+                        <h3>{item.question}</h3>
+                        <div className={styles.meta}>
+                          {formatDeskDate(entry.asOf)} · {item.checkCount} exact check(s) · {item.precision.toLowerCase().replaceAll("_", " ")}
+                        </div>
+                      </div>
+                      <Badge tone={calibrationTone(item.outcome)}>{item.outcome}</Badge>
+                    </div>
+                    <p><strong>Pre-tape expectation:</strong> {item.priorExpectedReaction ?? item.currentExpectedReaction ?? "Not preserved."}</p>
+                    <p><strong>Measured tape:</strong> {item.observedReaction ?? "No reader-facing reaction summary."}</p>
+                    <p><strong>{item.requiresReview ? "Post-mortem hypothesis:" : "Vintage explanation:"}</strong> {item.postMortemHypothesis}</p>
+                    {item.competingExplanations.length ? (
+                      <p><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
+                    ) : null}
+                    <p><strong>Next discriminator:</strong> {item.researchNext}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </Panel>
+        ) : null}
 
         <div className={styles.gridTwo}>
           <Panel
