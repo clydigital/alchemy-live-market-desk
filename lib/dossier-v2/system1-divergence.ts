@@ -307,7 +307,7 @@ export function buildSystem1PolicyExpectationChecks(
   return checks.slice(0, MAX_POLICY_CHECKS);
 }
 
-export function buildSystem1ReactionAssessments(
+function system1ReactionAssessments(
   packet: DossierV2InputPacket,
 ): System1ReactionAssessment[] {
   const active = activeTriggers(packet);
@@ -338,19 +338,23 @@ export function buildSystem1ReactionAssessments(
     }
   }
 
-  return assessments
-    .sort(
-      (a, b) =>
-        Math.abs(b.observed_change_pct) - Math.abs(a.observed_change_pct) ||
-        a.check_id.localeCompare(b.check_id),
-    )
-    .slice(0, MAX_REACTION_ASSESSMENTS);
+  return assessments.sort(
+    (a, b) =>
+      Math.abs(b.observed_change_pct) - Math.abs(a.observed_change_pct) ||
+      a.check_id.localeCompare(b.check_id),
+  );
+}
+
+export function buildSystem1ReactionAssessments(
+  packet: DossierV2InputPacket,
+): System1ReactionAssessment[] {
+  return system1ReactionAssessments(packet).slice(0, MAX_REACTION_ASSESSMENTS);
 }
 
 export function buildSystem1DivergenceCandidates(
   packet: DossierV2InputPacket,
 ): System1DivergenceCandidate[] {
-  return buildSystem1ReactionAssessments(packet)
+  return system1ReactionAssessments(packet)
     .filter((assessment) => assessment.relation === "DIVERGENT")
     .slice(0, MAX_CANDIDATES)
     .map(({ relation: _relation, ...candidate }) => candidate);
