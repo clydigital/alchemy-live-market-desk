@@ -1,7 +1,7 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import StoriesRegistry from "@/components/live-desk/StoriesRegistry";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
-import { getDeskData } from "@/lib/data";
+import { getStoryRegistryData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
@@ -12,7 +12,7 @@ import { deriveStoryTags } from "@/lib/story-tags";
 export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
-  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
+  const [data, recordLayer] = await Promise.all([getStoryRegistryData(), getStoryRecordLayer()]);
   const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
   const legacyEventCounts = new Map<string, number>();
@@ -98,7 +98,7 @@ export default async function StoriesPage() {
             { value: currentDrivers, label: "Current Regime drivers" },
             { value: contextOnly, label: "Context / needs work" },
             { value: recordLayer.available ? recordLayer.events.length : data.updates.length, label: "Dated Story events" },
-            { value: data.evidence.length, label: "Evidence records" },
+            { value: data.evidenceCount, label: "Evidence records" },
           ]}
         />
 

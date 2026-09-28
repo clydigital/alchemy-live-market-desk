@@ -452,6 +452,71 @@ export async function getHybridDeskData(options: QueryOptions = {}) {
   };
 }
 
+async function loadStoryRegistryData() {
+  const [stories, updates, sources, evidenceCoverage, evidenceRows] = await Promise.all([
+    query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
+    query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
+    query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
+    query<StoryEvidenceCoverage>("story_evidence_coverage", "select=*&order=gate_score.desc,slug.asc"),
+    query<Pick<StoryEvidence, "id">>("evidence", "select=id&is_active=eq.true&order=created_at.desc&limit=240"),
+  ]);
+  return { stories, updates, sources, evidenceCoverage, evidenceCount: evidenceRows.length };
+}
+
+export const getStoryRegistryData = unstable_cache(
+  loadStoryRegistryData,
+  ["story-registry-data-v1"],
+  { revalidate: DESK_REVALIDATE },
+);
+
+async function loadStoryBySlug(slug: string) {
+  const safeSlug = encodeURIComponent(slug);
+  const rows = await query<Story>(
+    "stories",
+    `select=*&slug=eq.${safeSlug}&status=neq.archived&limit=1`,
+  );
+  return rows[0] || null;
+}
+
+export const getStoryBySlug = unstable_cache(
+  loadStoryBySlug,
+  ["story-by-slug-v1"],
+  { revalidate: DESK_REVALIDATE },
+);
+
+async function loadStoryDetailSupport(storyId: string, slug: string) {
+  const safeStoryId = encodeURIComponent(storyId);
+  const safeSlug = encodeURIComponent(slug);
+  const [updates, charts, statements, sources, evidence, evidenceCoverage, macroObservations, marketObservations, researchIntake] = await Promise.all([
+    query<Update>("story_updates", `select=*&story_id=eq.${safeStoryId}&order=created_at.desc&limit=40`),
+    query<ChartRequest>("chart_requests", `select=*&story_id=eq.${safeStoryId}&order=created_at.desc&limit=40`),
+    query<PublicStatement>("public_statements", "select=*&order=statement_date.desc&limit=30"),
+    query<ResearchSource>("sources", `select=*&story_id=eq.${safeStoryId}&order=observation_date.desc.nullslast,created_at.desc&limit=80`),
+    query<StoryEvidence>("evidence", `select=*&story_id=eq.${safeStoryId}&is_active=eq.true&order=strength.desc,created_at.desc&limit=80`),
+    query<StoryEvidenceCoverage>("story_evidence_coverage", `select=*&slug=eq.${safeSlug}&limit=1`),
+    query<MacroSeriesObservation>("macro_series_observations", "select=*&order=observation_date.asc&limit=500"),
+    query<MarketSeriesObservation>("market_series_observations", "select=*&order=observation_date.asc&limit=800"),
+    privateQuery<ResearchIntakeQueueItem>("research_intake_queue", "select=*&order=candidate_score.desc,published_at.desc&limit=120"),
+  ]);
+  return {
+    updates,
+    charts,
+    statements,
+    sources,
+    evidence,
+    evidenceCoverage,
+    macroObservations,
+    marketObservations,
+    researchIntake,
+  };
+}
+
+export const getStoryDetailSupport = unstable_cache(
+  loadStoryDetailSupport,
+  ["story-detail-support-v1"],
+  { revalidate: DESK_REVALIDATE },
+);
+
 async function loadDeskData() {
   const [stories, calls, updates, charts, guidance, macroReleaseRows, macroReleaseMetrics, statements, newsThreads, sources, evidence, evidenceCoverage, researchRegistry, researchRollout, macroObservations, marketObservations, marketStateRecords, researchRuns, researchIntake] = await Promise.all([
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),

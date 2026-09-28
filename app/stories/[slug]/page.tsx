@@ -6,11 +6,11 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import detailStyles from "@/components/live-desk/story-detail.module.css";
 import { buildCaseMonitorBoards, caseMonitorForStory } from "@/lib/case-monitors";
-import { getDeskData } from "@/lib/data";
+import { getStoryBySlug, getStoryDetailSupport } from "@/lib/data";
 import { getIntelligenceStoryRoom } from "@/lib/intelligence/story-room";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { latestThesisVersion } from "@/lib/persistence/contracts";
-import { getStoryRecordLayer } from "@/lib/persistence/read";
+import { getStoryRecordLayerForStory } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 
@@ -22,14 +22,21 @@ type PageProps = {
 
 export default async function StoryDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
-  const story = data.stories.find((candidate) => candidate.slug === slug);
+  const story = await getStoryBySlug(slug);
   if (!story) notFound();
-  const [caseMonitorBoards, intelligenceRoom, storyReasoningRows] = await Promise.all([
-    buildCaseMonitorBoards(data),
+  const [data, recordLayer, intelligenceRoom, storyReasoningRows] = await Promise.all([
+    getStoryDetailSupport(story.id, story.slug),
+    getStoryRecordLayerForStory(story.id),
     getIntelligenceStoryRoom(story.id),
     getRegimeLiveReasoning([story.id]),
   ]);
+  const caseMonitorBoards = await buildCaseMonitorBoards({
+    stories: [story],
+    macroObservations: data.macroObservations,
+    marketObservations: data.marketObservations,
+    statements: data.statements,
+    researchIntake: data.researchIntake,
+  });
   const caseMonitor = caseMonitorForStory(caseMonitorBoards, slug);
   const storyReasoning = storyReasoningRows[0] || null;
 
