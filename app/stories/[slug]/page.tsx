@@ -54,11 +54,6 @@ export default async function StoryDetailPage({ params }: PageProps) {
   const coverage = data.evidenceCoverage.find((item) => item.slug === story.slug);
 
   const maturity = classifyRegimeStory(story, currentVersion);
-  const catalyst = assessStoryCatalyst({
-    nextCatalyst: catalystDisplayLabel(catalyst),
-    version: currentVersion,
-    now: new Date(),
-  });
   const regimeRoutes = routeStoryToRegimes(story, currentVersion);
   const regimeLinks = regimeRoutes.flatMap((route) => {
     const regime = getRegimeDefinition(route.regime);
@@ -165,11 +160,11 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 <span className={styles.metaLabel}>STORY MATURITY</span>
                 <p><strong>{maturity.maturity}</strong> · {maturity.reason}</p>
               </article>
-              {catalyst.recalibrationRequired ? (
+              {catalystAssessment.recalibrationRequired ? (
                 <DataState
                   state="warn"
                   title="Catalyst expired — recalibration required"
-                  detail={`${catalyst.label || "The dated catalyst"} has passed. It remains visible as history, but Story maintenance must replace or clear it before it is treated as a current next test.`}
+                  detail={`${catalystAssessment.label || "The dated catalyst"} has passed. It remains visible as history, but Story maintenance must replace or clear it before it is treated as a current next test.`}
                 />
               ) : null}
             </div>
@@ -214,7 +209,7 @@ export default async function StoryDetailPage({ params }: PageProps) {
                 <span className={styles.metaLabel}>Next catalyst</span>
                 <p>{catalystDisplayLabel(catalystAssessment) || "Not recorded"}</p>
                 {catalystAssessment.recalibrationRequired ? <small>Expired catalyst · Story maintenance must replace or clear this before it is treated as current.</small> : null}
-                {catalyst.recalibrationRequired ? <div className={styles.meta}>Expired catalyst — not current guidance.</div> : null}
+                {catalystAssessment.recalibrationRequired ? <div className={styles.meta}>Expired catalyst — not current guidance.</div> : null}
               </article>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Affected assets</span>
