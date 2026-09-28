@@ -6,8 +6,6 @@ import { Badge, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getConcept } from "@/lib/concepts";
 import { getRegimeDefinition } from "@/lib/regimes";
 
-export const dynamic = "force-static";
-
 type PageProps = {
   params: Promise<{ key: string }>;
   searchParams: Promise<{ from?: string }>;
