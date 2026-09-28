@@ -7,6 +7,7 @@ import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
+import { buildDossierInvestigationRouteMap } from "@/lib/regime-investigation-routing";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,14 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   const initialView = query.view === "live" ? "live" : "understand";
   const explanation = getRegimeExplanation(regime.slug);
   const liveReasoning = await getRegimeLiveReasoning(regime.durableStories.map((story) => story.id));
+  const dossier = dossierSelection.presentation;
+  const investigations = dossier?.watchNext ?? [];
+  const investigationRoutes = dossier
+    ? buildDossierInvestigationRouteMap({
+        stories: dossier.whatMattersNow.stories,
+        investigations,
+      })
+    : {};
 
   return (
     <LiveDeskShell
@@ -56,7 +65,8 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         initialView={initialView}
         explanation={explanation}
         liveReasoning={liveReasoning}
-        investigations={dossierSelection.presentation?.watchNext ?? []}
+        investigations={investigations}
+        investigationRoutes={investigationRoutes}
       />
     </LiveDeskShell>
   );
