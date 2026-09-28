@@ -76,6 +76,11 @@ test("Research Brain uses prior investigation baselines for bounded divergence p
 
   assert.match(instructions, /DIVERGENCE POST-MORTEM DISCIPLINE/);
   assert.match(instructions, /prior_analytical_state\.prior_investigations is the bounded previous-Dossier investigation baseline/);
+  assert.match(instructions, /same investigation_id or the same explicit linked Story\/Thesis identity/);
+  assert.match(instructions, /REUSE its prior investigation_id rather than minting a cosmetic new ID/);
+  assert.match(instructions, /reformulating the wording does not justify a new ID/);
+  assert.match(instructions, /A similar question, market mechanism, Regime or subgroup alone is NOT enough to inherit a prior expectation/);
+  assert.match(instructions, /create a new investigation and leave the old one as historical context/);
   assert.match(instructions, /preserve the PRIOR expected_reaction as historical pre-tape context/);
   assert.match(instructions, /identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven/);
   assert.match(instructions, /research_next name the observable that would discriminate between the leading explanation and its alternatives/);

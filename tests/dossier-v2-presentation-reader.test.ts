@@ -360,7 +360,8 @@ test("calibration lineage excludes continuity inferred only from broad Regime ro
   const result = selectDossierV2Presentation([current, older]);
 
   assert.equal(result.calibrationHistory.length, 2);
-  assert.equal(result.calibrationHistory[0].cases[0].matchedBy, "regime_route");
+  assert.equal(result.calibrationHistory[0].cases[0].matchedBy, null);
+  assert.equal(result.calibrationHistory[0].cases[0].priorExpectedReaction, null);
   assert.deepEqual(result.calibrationLineages, []);
 });
 

@@ -557,7 +557,7 @@ test("investigation journey can bridge a changed model ID only through unique st
   assert.equal(result.watchNext[0].journey.previousId, "inv:old-duration");
 });
 
-test("investigation journey bridges reformulated duration questions through a unique primary Regime route", () => {
+test("investigation journey does not inherit memory from a shared Regime route alone", () => {
   const previousOutput = output();
   previousOutput.investigations[0] = {
     ...previousOutput.investigations[0],
@@ -586,13 +586,15 @@ test("investigation journey bridges reformulated duration questions through a un
   const current = dossier("current-route", currentOutput, previous.id);
   const result = buildDossierV2Presentation(current, previous);
 
-  assert.equal(result.watchNext[0].journey.matchedBy, "regime_route");
-  assert.equal(result.watchNext[0].journey.previousId, "inv:prior-duration");
+  assert.equal(result.watchNext[0].journey.transition, "NEW");
+  assert.equal(result.watchNext[0].journey.matchedBy, null);
+  assert.equal(result.watchNext[0].journey.previousId, null);
+  assert.equal(result.watchNext[0].journey.previousExpectedReaction, null);
+  assert.equal(result.watchNext[0].journey.expectationChanged, null);
   assert.equal(
-    result.watchNext[0].journey.previousExpectedReaction,
-    "Credit spreads widen and breadth deteriorates if duration stress transmits.",
+    result.investigationJourney.filter((item) => item.transition === "NOT_CARRIED_FORWARD").length,
+    1,
   );
-  assert.equal(result.watchNext[0].journey.expectationChanged, true);
 });
 
 test("investigation journey never infers resolution when a prior question disappears", () => {
