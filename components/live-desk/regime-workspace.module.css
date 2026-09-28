@@ -365,6 +365,16 @@
   line-height: 1.5;
 }
 
+.expectationRevision {
+  display: block;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(181,151,255,.11);
+  color: #827b90;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
 .divergenceAlternatives {
   padding-top: 10px;
   border-top: 1px dashed rgba(181,151,255,.13);
