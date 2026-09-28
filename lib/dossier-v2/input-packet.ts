@@ -170,6 +170,8 @@ export interface DossierV2InputRequest {
   previous_dossier?: {
     id: string;
     as_of: string;
+    analytical_baseline_id?: string | null;
+    analytical_baseline_as_of?: string | null;
     prior_claims?: PriorAnalyticalClaim[];
     prior_investigations?: PriorInvestigationSnapshot[];
     thesis_ledger?: ThesisLedger;
@@ -1365,10 +1367,26 @@ export function assembleDossierV2InputPacket(
   let priorClaims: PriorAnalyticalClaim[] = [];
   let priorInvestigations: PriorInvestigationSnapshot[] = [];
   let prevDossierAsOf: string | null = null;
+  let analyticalBaselineId: string | null = previousDossierId;
   let activeThesisLedger: ThesisLedger | null = null;
 
   if (request.previous_dossier && isPlainObject(request.previous_dossier)) {
-    prevDossierAsOf = isValidIsoTimestamp(request.previous_dossier.as_of) ? request.previous_dossier.as_of : null;
+    const requestedBaselineId = request.previous_dossier.analytical_baseline_id;
+    if (requestedBaselineId === null) {
+      analyticalBaselineId = null;
+    } else if (typeof requestedBaselineId === "string" && isValidUuid(requestedBaselineId)) {
+      analyticalBaselineId = requestedBaselineId;
+    }
+
+    const requestedBaselineAsOf = request.previous_dossier.analytical_baseline_as_of;
+    prevDossierAsOf =
+      requestedBaselineAsOf === null
+        ? null
+        : isValidIsoTimestamp(requestedBaselineAsOf)
+          ? requestedBaselineAsOf
+          : isValidIsoTimestamp(request.previous_dossier.as_of)
+            ? request.previous_dossier.as_of
+            : null;
 
     if (Array.isArray(request.previous_dossier.prior_claims)) {
       for (const pc of request.previous_dossier.prior_claims) {
@@ -1537,7 +1555,7 @@ export function assembleDossierV2InputPacket(
     observed_evidence: observedEvidence,
     research_leads: researchLeads,
     prior_analytical_state: {
-      previous_dossier_id: previousDossierId,
+      previous_dossier_id: analyticalBaselineId,
       as_of: prevDossierAsOf,
       prior_claims: priorClaims,
       prior_investigations: priorInvestigations,
