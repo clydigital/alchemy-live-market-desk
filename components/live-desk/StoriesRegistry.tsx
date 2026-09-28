@@ -40,6 +40,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<"All" | StoryTag>("All");
   const [status, setStatus] = useState("All");
+  const [role, setRole] = useState<"Current drivers" | "Context only" | "All">("Current drivers");
 
   const tags = useMemo(() => {
     const counts = new Map<StoryTag, number>();
@@ -54,11 +55,13 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
     return stories.filter((story) => {
       if (tag !== "All" && !story.tags.includes(tag)) return false;
       if (status !== "All" && story.lifecycle !== status) return false;
+      if (role === "Current drivers" && story.maturity !== "durable") return false;
+      if (role === "Context only" && story.maturity === "durable") return false;
       if (!needle) return true;
       return [story.title, story.thesis, story.marketQuestion || "", story.nextCatalyst || "", story.editorialVerdict || "", ...story.assets, ...story.tags, ...story.regimes.map((regime) => regime.label)]
         .some((value) => value.toLowerCase().includes(needle));
     });
-  }, [query, status, stories, tag]);
+  }, [query, role, status, stories, tag]);
 
   return (
     <div className={styles.registry}>
@@ -68,7 +71,15 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Title, asset, thesis or catalyst" />
         </label>
         <label>
-          <span>Status</span>
+          <span>Market role</span>
+          <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+            <option>Current drivers</option>
+            <option>Context only</option>
+            <option>All</option>
+          </select>
+        </label>
+        <label>
+          <span>Lifecycle</span>
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option>All</option>
             {statuses.map((item) => <option key={item}>{item}</option>)}
@@ -85,7 +96,9 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
         ))}
       </div>
 
-      <div className={styles.resultLine}>{filtered.length} of {stories.length} Stories shown</div>
+      <div className={styles.resultLine}>
+        {filtered.length} of {stories.length} Stories shown · {role === "Current drivers" ? "Regime-driving only" : role === "Context only" ? "Context / needs work" : "All maturity states"}
+      </div>
 
       <div className={styles.cards}>
         {filtered.map((story) => (
@@ -152,7 +165,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
         ))}
       </div>
 
-      {!filtered.length ? <div className={styles.empty}>No Stories match the current filters.</div> : null}
+      {!filtered.length ? <div className={styles.empty}>No Stories match the current filters. Switch Market role to “All” to inspect stale, seed, early or episode context.</div> : null}
     </div>
   );
 }
