@@ -934,6 +934,62 @@ test("6E. Divergence V1 never treats System 1 mismatch evidence as proof of NONE
   assert.equal(normalized.investigations[0].divergence, "UNRESOLVED");
 });
 
+test("6F. Divergence V1 preserves NONE only when an aligned System 1 evidence pair is carried", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  const evCpi = packet.observed_evidence.find((e) => e.evidence_id.includes("cpi"))?.evidence_id ?? "ev:cpi:2026-09";
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.expected_reaction = "Hot inflation should push the front end higher.";
+  inv.observed_reaction = "The front end moved higher.";
+  inv.divergence = "NONE";
+  inv.observed_evidence = [evCpi, evYields];
+
+  const normalized = normalizeResearchBrainOutputReferences(
+    output,
+    [],
+    [{
+      trigger_evidence_id: evCpi,
+      market_evidence_id: evYields,
+      relation: "ALIGNED",
+      timing_precision: "INTRADAY",
+    }],
+  ) as ResearchBrainOutputV1;
+
+  assert.equal(normalized.investigations[0].divergence, "NONE");
+  const val = validateResearchBrainOutput(normalized, packet);
+  assert.equal(val.isValid, true);
+});
+
+test("6G. Divergence V1 rejects NONE when the deterministic aligned pair is not carried", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  const evCpi = packet.observed_evidence.find((e) => e.evidence_id.includes("cpi"))?.evidence_id ?? "ev:cpi:2026-09";
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.expected_reaction = "Hot inflation should push the front end higher.";
+  inv.observed_reaction = "The front end moved higher.";
+  inv.divergence = "NONE";
+  inv.observed_evidence = [evYields];
+
+  const normalized = normalizeResearchBrainOutputReferences(
+    output,
+    [],
+    [{
+      trigger_evidence_id: evCpi,
+      market_evidence_id: evYields,
+      relation: "ALIGNED",
+      timing_precision: "INTRADAY",
+    }],
+  ) as ResearchBrainOutputV1;
+
+  assert.equal(normalized.investigations[0].divergence, "UNRESOLVED");
+});
+
 test("7. Main Thread & Stock Radar Linkage Validation", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
