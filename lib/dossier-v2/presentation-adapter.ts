@@ -569,6 +569,7 @@ export function buildDossierV2Presentation(
   const degraded = Boolean(output.diagnostics.degraded);
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
+  const reactionAssessments = system1ReactionAssessments(dossier);
 
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
@@ -609,7 +610,7 @@ export function buildDossierV2Presentation(
 
     watchNext: output.investigations
       .filter((item) => item.status !== "resolved" && item.status !== "parked")
-      .map((item) => presentationInvestigation(item, system1ReactionAssessments(dossier))),
+      .map((item) => presentationInvestigation(item, reactionAssessments)),
 
     researchNow: output.research_now.map((item) => ({
       ...item,
