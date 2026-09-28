@@ -308,6 +308,7 @@ function buildPriorInvestigations(
         : "UNRESOLVED";
     const status =
       value.status === "open"
+      || value.status === "strengthened"
       || value.status === "weakened"
       || value.status === "resolved"
       || value.status === "parked"
