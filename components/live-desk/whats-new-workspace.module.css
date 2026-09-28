@@ -358,3 +358,12 @@
   flex: 0 0 auto;
   justify-content: flex-end;
 }
+
+
+.historical {
+  color: #d9b36c !important;
+  font-size: 8px !important;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}

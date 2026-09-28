@@ -25,6 +25,8 @@ export type WhatsNewDelta = {
   hybridHref: string | null;
   interpretationState: "interpreted" | "observed_pending" | null;
   breakdown: StoryBreakdown | null;
+  ageState: "current" | "historical";
+  ageLabel: string | null;
 };
 
 function tone(kind: string) {
@@ -124,6 +126,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                     <span>{delta.topic}</span>
                     <span className={styles.streamLabel}>{delta.stream}</span>
                     <time dateTime={delta.timestamp || undefined}>{delta.dateLabel}</time>
+                    {delta.ageState === "historical" ? <span className={styles.historical}>Historical context · {delta.ageLabel}</span> : null}
                   </div>
                   {delta.traderFlags.length ? <div className={styles.traderFlags} aria-label="Trader risk signals">
                     {delta.traderFlags.map((flag) => <span key={flag.key} data-tone={flag.tone}>{flag.label}</span>)}

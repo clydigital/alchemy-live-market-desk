@@ -6,8 +6,11 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
 import { buildStoryBreakdown } from "@/lib/story-breakdown";
+import { presentationAge, readerFacingText } from "@/lib/presentation-hygiene";
 
 export const dynamic = "force-dynamic";
+
+type RawWhatsNewDelta = Omit<WhatsNewDelta, "ageState" | "ageLabel">;
 
 const TOPIC_PATTERNS: Array<[WhatsNewTopic, RegExp]> = [
   ["Crypto", /\b(?:crypto|bitcoin|btc|ethereum|eth|stablecoin|blockchain|token)\b/i],
@@ -93,8 +96,7 @@ function versionKey(storyId: string, versionNumber: number) {
 }
 
 function isHumanChangeReason(reason: string | null | undefined) {
-  if (!reason) return false;
-  return !/^(?:story_updated|story update|thesis-bearing story field changed|thesis bearing story field changed)$/i.test(reason.trim());
+  return Boolean(readerFacingText(reason));
 }
 
 function humaniseStoryEvent(
@@ -105,8 +107,8 @@ function humaniseStoryEvent(
 ) {
   if (event.event_type !== "thesis_revision") {
     return {
-      title: event.headline,
-      detail: event.detail || "No additional detail was stored for this Story event.",
+      title: readerFacingText(event.headline) || storyTitle || humanEventLabel(event.event_type),
+      detail: readerFacingText(event.detail) || `Story record updated: ${humanEventLabel(event.event_type).toLowerCase()}.`,
     };
   }
 
@@ -122,7 +124,8 @@ function humaniseStoryEvent(
   const title = version.title || storyTitle || event.headline;
   const now = version.thesis ? `NOW: ${version.thesis}` : "";
   const before = previous?.thesis ? ` PREVIOUSLY: ${previous.thesis}` : "";
-  const reason = isHumanChangeReason(version.change_reason) ? ` WHY IT CHANGED: ${version.change_reason}` : "";
+  const readerReason = isHumanChangeReason(version.change_reason) ? readerFacingText(version.change_reason) : null;
+  const reason = readerReason ? ` WHY IT CHANGED: ${readerReason}` : "";
 
   return {
     title,
@@ -149,7 +152,7 @@ export default async function WhatsNewPage() {
     )) latestVersionByStory.set(version.story_id, version);
   }
 
-  const storyDeltas: WhatsNewDelta[] = recordLayer.available
+  const storyDeltas: RawWhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
       const story = storyById.get(event.story_id);
       const currentVersion = story ? latestVersionByStory.get(story.id) : null;
@@ -211,6 +214,7 @@ export default async function WhatsNewPage() {
       };
     });
 
+  const now = new Date();
   const deltas: WhatsNewDelta[] = [
     ...storyDeltas,
     ...data.statements.map((statement) => {
@@ -267,7 +271,10 @@ export default async function WhatsNewPage() {
         breakdown: null,
       };
     }),
-  ].sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")).slice(0, 60);
+  ]
+    .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""))
+    .slice(0, 60)
+    .map((delta) => ({ ...delta, ...presentationAge(delta.timestamp, now) }));
 
   return (
     <LiveDeskShell

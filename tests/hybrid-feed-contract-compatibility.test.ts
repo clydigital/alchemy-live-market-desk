@@ -62,3 +62,10 @@ test("canonical feed carries the deterministic Story breakdown and blocks stale 
   assert.match(hybridPublicationSource, /needs_reframe/);
   assert.doesNotMatch(hybridPublicationSource, /executeResearchBrain|runIntelligenceEngine/);
 });
+
+
+test("current feed presentation removes already-past events from forward Journey buckets without mutating historical replay", () => {
+  assert.match(hybridPublicationSource, /sanitizeCurrentJourneyPayload/);
+  assert.match(hybridPublicationSource, /journeyItemIsPast/);
+  assert.match(hybridPublicationSource, /isHistoricalReplay\s*\?\s*rawEditionPayload/);
+});
