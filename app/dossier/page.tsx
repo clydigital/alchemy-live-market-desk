@@ -251,8 +251,13 @@ export default async function DossierPage() {
                   </header>
                   <div className={styles.divergenceCompare}>
                     <div>
-                      <small>EXPECTED / BEFORE TAPE</small>
-                      <p>{item.expectedReaction || "No canonical pre-event expectation is available for this investigation."}</p>
+                      <small>{item.journey.previousExpectedReaction ? "PRIOR DOSSIER EXPECTATION" : "EXPECTED / BEFORE TAPE"}</small>
+                      <p>{item.journey.previousExpectedReaction || item.expectedReaction || "No canonical pre-event expectation is available for this investigation."}</p>
+                      {item.journey.expectationChanged && item.expectedReaction ? (
+                        <span className={styles.expectationRevision}>
+                          Current Dossier wording: {item.expectedReaction}
+                        </span>
+                      ) : null}
                     </div>
                     <div>
                       <small>OBSERVED / ACTUAL TAPE</small>
