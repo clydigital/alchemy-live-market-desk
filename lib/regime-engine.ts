@@ -223,7 +223,7 @@ function projectionSnapshot(regime: ProjectedRegime) {
   };
 }
 
-function materialProjectionSignature(regime: ProjectedRegime) {
+export function materialProjectionSignature(regime: ProjectedRegime) {
   return {
     contractVersion: REGIME_PROJECTOR_CONTRACT_VERSION,
     regimeSlug: regime.slug,
