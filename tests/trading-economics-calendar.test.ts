@@ -50,6 +50,8 @@ test("Trading Economics parser separates survey consensus from TE forecast and c
   assert.equal(result.events.length, 1);
   assert.equal(result.events[0].consensus, "53.6");
   assert.equal(result.events[0].teForecast, "53.8");
+  assert.equal(result.events[0].date, "2026-09-24T12:30:00.000Z");
+  assert.equal(result.events[0].lastUpdate, "2026-09-24T12:31:00.000Z");
   assert.equal(result.events[0].parsedActual, 57);
   assert.equal(result.events[0].parsedConsensus, 53.6);
   assert.ok(Math.abs((result.events[0].surprise ?? 0) - 3.4) < 1e-9);

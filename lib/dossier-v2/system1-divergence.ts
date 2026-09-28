@@ -33,6 +33,9 @@ export type System1ReactionAssessment = {
   expected_direction: Direction;
   observed_direction: Direction;
   observed_change_pct: number;
+  observed_instrument: string;
+  is_proxy: boolean;
+  reaction_window: "5m" | "30m" | "4h" | null;
   timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
   relation: "ALIGNED" | "DIVERGENT";
   severity: "MEDIUM" | "HIGH";
@@ -158,6 +161,15 @@ function metric(evidence: ObservedEvidence | undefined, key: string): number | n
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function metricString(evidence: ObservedEvidence | undefined, key: string): string | null {
+  const value = evidence?.metrics?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function metricBoolean(evidence: ObservedEvidence | undefined, key: string): boolean {
+  return evidence?.metrics?.[key] === true;
+}
+
 function timestamp(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -214,28 +226,53 @@ function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
   return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
 }
 
-function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
+function evidenceMatchesRule(item: ObservedEvidence, rule: Rule): boolean {
   const monetaryPolicyRule =
     rule.id === "HAWKISH_MONETARY_POLICY" || rule.id === "DOVISH_MONETARY_POLICY";
 
+  if (item.source_type === "MARKET_DATA") return false;
+
+  // Rate-pricing and post-event reaction rows are confirmation evidence, never
+  // fresh macro/policy triggers. Apply this exclusion before signal_context,
+  // because confirmation rows deliberately inherit the trigger's context.
+  const signalKind = typeof item.metrics?.signal_kind === "string"
+    ? item.metrics.signal_kind
+    : null;
+  if (signalKind === "rate_expectation" || signalKind === "market_reaction") {
+    return false;
+  }
+
+  const signalContext = typeof item.metrics?.signal_context === "string"
+    ? item.metrics.signal_context
+    : null;
+  if (signalContext !== rule.id && !rule.pattern.test(item.claim_or_fact)) return false;
+
+  // Text-only monetary-policy rows without structured signal_kind still use
+  // the normal rule matcher above. Structured confirmation rows already exited.
+  if (
+    monetaryPolicyRule &&
+    (signalKind === "rate_expectation" || signalKind === "market_reaction")
+  ) return false;
+
+  return true;
+}
+
+export function isSystem1ReactionTriggerEvidence(item: ObservedEvidence): boolean {
+  return RULES.some((rule) => evidenceMatchesRule(item, rule));
+}
+
+const INTRADAY_ENRICHMENT_MONITORS = new Set(["dxy", "gold", "smh"]);
+
+export function isSystem1IntradayReactionTriggerEvidence(item: ObservedEvidence): boolean {
+  return RULES.some((rule) =>
+    evidenceMatchesRule(item, rule)
+    && rule.expectations.some(([monitorId]) => INTRADAY_ENRICHMENT_MONITORS.has(monitorId))
+  );
+}
+
+function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
   return policyEvidence(packet)
-    .filter((item) => {
-      if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
-
-      // A probability repricing or post-event market reaction is evidence about
-      // the policy outlook, not a new monetary-policy event. Without this gate,
-      // phrases such as "probability of a rate hike" can recursively trigger a
-      // second policy expectation check.
-      const signalKind = typeof item.metrics?.signal_kind === "string"
-        ? item.metrics.signal_kind
-        : null;
-      if (
-        monetaryPolicyRule &&
-        (signalKind === "rate_expectation" || signalKind === "market_reaction")
-      ) return false;
-
-      return true;
-    })
+    .filter((item) => evidenceMatchesRule(item, rule))
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
@@ -256,26 +293,65 @@ function marketMove(
   evidence: ObservedEvidence;
   change: number;
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+  observedInstrument: string | null;
+  isProxy: boolean;
+  reactionWindow: "5m" | "30m" | "4h" | null;
 } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
   );
   const match = cluster?.evidence
     .flatMap((item) => {
-      if (item.source_type !== "MARKET_DATA" || metric(item, "day_change_pct") === null) {
-        return [];
-      }
+      if (item.source_type !== "MARKET_DATA") return [];
       const timingPrecision = marketReactionTiming(item, trigger);
-      return timingPrecision ? [{ evidence: item, timingPrecision }] : [];
+      if (!timingPrecision) return [];
+
+      const eventChange = metric(item, "event_change_pct");
+      const eventTriggerId = metricString(item, "trigger_evidence_id");
+      if (eventChange !== null && eventTriggerId === trigger.evidence_id) {
+        const rawWindow = metricString(item, "reaction_window");
+        const reactionWindow: "5m" | "30m" | "4h" | null =
+          rawWindow === "5m" || rawWindow === "30m" || rawWindow === "4h"
+            ? rawWindow
+            : null;
+        return [{
+          evidence: item,
+          timingPrecision,
+          change: eventChange,
+          priority: 0,
+          observedInstrument: metricString(item, "observed_instrument"),
+          isProxy: metricBoolean(item, "is_proxy"),
+          reactionWindow,
+        }];
+      }
+
+      const dayChange = metric(item, "day_change_pct");
+      if (dayChange === null) return [];
+      return [{
+        evidence: item,
+        timingPrecision,
+        change: dayChange,
+        priority: 1,
+        observedInstrument: metricString(item, "observed_instrument") ?? metricString(item, "symbol"),
+        isProxy: metricBoolean(item, "is_proxy"),
+        reactionWindow: null,
+      }];
     })
     .sort((left, right) =>
-      (timestamp(right.evidence.occurrence_time) ?? 0)
+      left.priority - right.priority
+      || (timestamp(right.evidence.occurrence_time) ?? 0)
       - (timestamp(left.evidence.occurrence_time) ?? 0)
     )[0] ?? null;
 
-  const change = metric(match?.evidence, "day_change_pct");
-  return match && change !== null
-    ? { evidence: match.evidence, change, timingPrecision: match.timingPrecision }
+  return match
+    ? {
+        evidence: match.evidence,
+        change: match.change,
+        timingPrecision: match.timingPrecision,
+        observedInstrument: match.observedInstrument,
+        isProxy: match.isProxy,
+        reactionWindow: match.reactionWindow,
+      }
     : null;
 }
 
@@ -331,6 +407,9 @@ function system1ReactionAssessments(
         expected_direction: expected,
         observed_direction: observed,
         observed_change_pct: move.change,
+        observed_instrument: move.observedInstrument ?? instrument,
+        is_proxy: move.isProxy,
+        reaction_window: move.reactionWindow,
         timing_precision: move.timingPrecision,
         relation: observed === expected ? "ALIGNED" : "DIVERGENT",
         severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",

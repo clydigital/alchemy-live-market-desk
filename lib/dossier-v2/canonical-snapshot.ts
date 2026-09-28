@@ -21,10 +21,17 @@ import {
   fetchTreasuryBills,
   type TreasuryBillSnapshot,
 } from "../providers/treasury-bills.ts";
+import {
+  fetchTwelveDataReactionSnapshot,
+  type IntradayReactionTrigger,
+  type TwelveDataReactionSnapshot,
+} from "../providers/twelve-data-reactions.ts";
 import type {
   CandidateSnapshot,
+  ObservedEvidence,
   SourceDataStatus,
 } from "./input-packet.ts";
+import { isSystem1IntradayReactionTriggerEvidence } from "./system1-divergence.ts";
 
 export interface CanonicalEvidenceSourceRow {
   id: string;
@@ -643,6 +650,140 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 }
 
 
+export function selectIntradayReactionTriggers(
+  result: CanonicalSnapshotResult,
+  asOf: string,
+): IntradayReactionTrigger[] {
+  const asOfMs = parseTimestamp(asOf);
+  if (asOfMs === null) return [];
+
+  return (result.snapshot.observed_evidence ?? [])
+    .flatMap((raw) => {
+      const evidenceId = typeof raw.evidence_id === "string" ? raw.evidence_id : null;
+      const claim = typeof raw.claim_or_fact === "string" ? raw.claim_or_fact : null;
+      const category = typeof raw.category === "string" ? raw.category : null;
+      const sourceType = typeof raw.source_type === "string" ? raw.source_type : null;
+      const availableAt = typeof raw.available_at === "string" ? raw.available_at : null;
+      const occurredAt = typeof raw.occurrence_time === "string" ? raw.occurrence_time : null;
+      if (!evidenceId || !claim || !category || !sourceType || !availableAt || !occurredAt) return [];
+
+      const occurredMs = parseTimestamp(occurredAt);
+      if (occurredMs === null || occurredMs > asOfMs) return [];
+
+      // Midnight timestamps are commonly date-level placeholders in canonical
+      // data. Do not treat them as exact event times for intraday reactions.
+      if (/T00:00:00(?:\.000)?Z$/i.test(occurredAt)) return [];
+
+      const candidate: ObservedEvidence = {
+        evidence_id: evidenceId,
+        epistemic_label: "OBSERVED",
+        claim_or_fact: claim,
+        category,
+        source_type: sourceType,
+        available_at: availableAt,
+        occurrence_time: occurredAt,
+        metrics: raw.metrics && typeof raw.metrics === "object" && !Array.isArray(raw.metrics)
+          ? raw.metrics as Record<string, unknown>
+          : undefined,
+        provenance: Array.isArray(raw.provenance)
+          ? raw.provenance as ObservedEvidence["provenance"]
+          : [],
+      };
+
+      return isSystem1IntradayReactionTriggerEvidence(candidate)
+        ? [{ evidenceId, occurredAt }]
+        : [];
+    })
+    .sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt))
+    .slice(-4);
+}
+
+export function augmentCandidateSnapshotWithTwelveDataReactions(
+  result: CanonicalSnapshotResult,
+  reactions: TwelveDataReactionSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+
+  for (const record of reactions.records) {
+    const primary =
+      record.windows.find((window) => window.window === "30m")
+      ?? record.windows.find((window) => window.window === "5m")
+      ?? record.windows.find((window) => window.window === "4h");
+    if (!primary) continue;
+
+    const windowMap = Object.fromEntries(
+      record.windows.map((window) => [window.window, {
+        baseline_at: window.baselineAt,
+        observed_at: window.observedAt,
+        baseline: window.baseline,
+        observed: window.observed,
+        change_pct: window.changePct,
+      }]),
+    );
+
+    observed.push({
+      evidence_id: `twelve-data:event-reaction:${record.triggerEvidenceId}:${record.monitorId}`,
+      claim_or_fact: `${record.observedInstrument}${record.isProxy ? " proxy" : ""} moved ${primary.changePct >= 0 ? "+" : ""}${primary.changePct.toFixed(2)}% over the ${primary.window} window after the timestamped catalyst.`,
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      available_at: primary.observedAt,
+      occurrence_time: primary.observedAt,
+      grouping_key: `market-monitor:${record.monitorId}`,
+      rank: 17,
+      metrics: {
+        signal_kind: "market_reaction",
+        trigger_evidence_id: record.triggerEvidenceId,
+        event_change_pct: primary.changePct,
+        reaction_window: primary.window,
+        reaction_windows: windowMap,
+        expected_instrument: record.expectedInstrument,
+        observed_instrument: record.observedInstrument,
+        is_proxy: record.isProxy,
+        frequency: "intraday",
+        provider: record.sourceName,
+        retrieved_at: reactions.retrievedAt,
+      },
+      provenance: [{
+        source_type: "TWELVE_DATA",
+        source_id: `twelve-data:${record.observedInstrument}`,
+        url: record.sourceUrl,
+        publisher: record.sourceName,
+      }],
+    });
+  }
+
+  const status =
+    reactions.state === "ready"
+      ? "OK"
+      : reactions.state === "unconfigured"
+        ? "OPTIONAL_UNCONFIGURED"
+        : "OPTIONAL_UNAVAILABLE";
+
+  const message = reactions.state === "ready"
+    ? `${reactions.records.length} chronology-safe intraday event-reaction records admitted. ${reactions.warnings.join(" ")}`.trim()
+    : reactions.warnings.join(" ");
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: {
+        ...(result.snapshot.sources_status ?? {}),
+        twelve_data_intraday_reactions: {
+          status,
+          available_at: reactions.state === "ready" ? options.asOf : undefined,
+          message,
+        },
+      },
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 export function augmentCandidateSnapshotWithMarketMonitor(
   result: CanonicalSnapshotResult,
   monitor: MarketMonitorLike | null | undefined,
@@ -686,6 +827,8 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       rank: isCreditOas ? (row.id === "hy-oas" ? 18 : 19) : undefined,
       metrics: {
         symbol: row.symbol,
+        observed_instrument: row.symbol,
+        is_proxy: /proxy/i.test(row.label),
         last: row.last,
         ...(isCreditOas ? {
           spread_level_pct: row.last,
@@ -881,6 +1024,31 @@ export function augmentCandidateSnapshotWithEia(
   };
 }
 
+function tradingEconomicsSystem1Signal(event: TradingEconomicsUsCalendarSnapshot["events"][number]): string | null {
+  const surprise = event.surprise;
+  if (surprise === null || surprise === 0) return null;
+
+  const text = `${event.category} ${event.event}`.toLowerCase();
+
+  if (/\b(cpi|consumer price|ppi|producer price|pce|inflation|price index)\b/.test(text)) {
+    return surprise > 0 ? "HOT_INFLATION_SURPRISE" : "SOFT_INFLATION_SURPRISE";
+  }
+
+  if (/\b(unemployment rate|jobless claims|unemployment claims|initial claims|continuing claims)\b/.test(text)) {
+    return surprise > 0 ? "WEAK_LABOUR_SURPRISE" : "STRONG_LABOUR_SURPRISE";
+  }
+
+  if (/\b(nonfarm|payroll|employment|average hourly earnings|wage growth|wages)\b/.test(text)) {
+    return surprise > 0 ? "STRONG_LABOUR_SURPRISE" : "WEAK_LABOUR_SURPRISE";
+  }
+
+  if (/\b(pmi|ism|gdp|retail sales)\b/.test(text)) {
+    return surprise > 0 ? "STRONG_ACTIVITY_SURPRISE" : "WEAK_ACTIVITY_SURPRISE";
+  }
+
+  return null;
+}
+
 export function augmentCandidateSnapshotWithTradingEconomics(
   result: CanonicalSnapshotResult,
   calendar: TradingEconomicsUsCalendarSnapshot,
@@ -913,6 +1081,8 @@ export function augmentCandidateSnapshotWithTradingEconomics(
         });
       }
 
+      const signalContext = tradingEconomicsSystem1Signal(event);
+
       observed.push({
         evidence_id: `trading-economics:${event.calendarId}:${event.date.slice(0, 10)}`,
         claim_or_fact: `${event.event}: actual ${event.actual}${consensusText}${previousText}.`,
@@ -935,6 +1105,8 @@ export function augmentCandidateSnapshotWithTradingEconomics(
           parsed_previous: event.parsedPrevious,
           surprise: event.surprise,
           importance: event.importance,
+          signal_kind: signalContext ? "economic_release" : null,
+          signal_context: signalContext,
           reported_source: event.source,
         },
         provenance,
@@ -1177,18 +1349,24 @@ export async function loadCanonicalCandidateSnapshot(
   const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);
   const calendarTo = new Date(asOfMs);
 
-  const [marketMonitorResult, eiaResult, tradingEconomicsResult, nyFedResult, dealerResult, treasuryBillsResult] =
-    await Promise.allSettled([
-      import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
-      fetchEiaWeeklyPetroleumSnapshot(),
-      fetchTradingEconomicsUsCalendarSnapshot({
-        from: calendarFrom,
-        to: calendarTo,
-      }),
-      fetchNyFedReferenceRates(new Date(asOfMs)),
-      fetchNyFedPrimaryDealers(new Date(asOfMs)),
-      fetchTreasuryBills(new Date(asOfMs)),
-    ]);
+  const [
+    marketMonitorResult,
+    eiaResult,
+    tradingEconomicsResult,
+    nyFedResult,
+    dealerResult,
+    treasuryBillsResult,
+  ] = await Promise.allSettled([
+    import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
+    fetchEiaWeeklyPetroleumSnapshot(),
+    fetchTradingEconomicsUsCalendarSnapshot({
+      from: calendarFrom,
+      to: calendarTo,
+    }),
+    fetchNyFedReferenceRates(new Date(asOfMs)),
+    fetchNyFedPrimaryDealers(new Date(asOfMs)),
+    fetchTreasuryBills(new Date(asOfMs)),
+  ]);
 
   if (marketMonitorResult.status === "fulfilled") {
     result = augmentCandidateSnapshotWithMarketMonitor(
@@ -1252,6 +1430,29 @@ export async function loadCanonicalCandidateSnapshot(
       trading_economics_us_calendar: {
         status: "OPTIONAL_UNAVAILABLE",
         message: `Optional Trading Economics enrichment failed closed: ${tradingEconomicsResult.reason instanceof Error ? tradingEconomicsResult.reason.message : String(tradingEconomicsResult.reason)}`,
+      },
+    };
+  }
+
+  // Intraday reactions are deliberately second-stage enrichment: the trigger
+  // set must include freshly admitted macro-calendar observations above.
+  const intradayReactionTriggers = selectIntradayReactionTriggers(result, options.asOf);
+  try {
+    const twelveDataReactions = await fetchTwelveDataReactionSnapshot({
+      asOf: options.asOf,
+      triggers: intradayReactionTriggers,
+    });
+    result = augmentCandidateSnapshotWithTwelveDataReactions(
+      result,
+      twelveDataReactions,
+      options,
+    );
+  } catch (error) {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      twelve_data_intraday_reactions: {
+        status: "OPTIONAL_UNAVAILABLE",
+        message: `Optional Twelve Data intraday enrichment failed closed: ${error instanceof Error ? error.message : String(error)}`,
       },
     };
   }

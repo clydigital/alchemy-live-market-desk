@@ -480,6 +480,9 @@ test("Task 9 adapter admits Trading Economics actual-consensus-previous as optio
     String(result.snapshot.observed_evidence?.[0]?.claim_or_fact ?? ""),
     /actual 57\.0 vs consensus 53\.6; previous 53\.9/i,
   );
+  const metrics = result.snapshot.observed_evidence?.[0]?.metrics as Record<string, unknown>;
+  assert.equal(metrics.signal_kind, "economic_release");
+  assert.equal(metrics.signal_context, "STRONG_ACTIVITY_SURPRISE");
 });
 
 test("Task 9 adapter excludes legacy MacroMicro-backed evidence from new Dossier inputs", () => {

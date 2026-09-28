@@ -231,7 +231,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
                   {item.reactionChecks.length ? (
                     <p><strong>System 1 audit:</strong> {item.reactionChecks.map((check) =>
-                      `${check.instrument} ${check.relation.toLowerCase()} (${check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
+                      `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
                     ).join(" · ")}</p>
                   ) : null}
                   <p>Current explanation: {item.currentExplanation}</p>
