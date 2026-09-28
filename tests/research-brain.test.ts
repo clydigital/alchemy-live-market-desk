@@ -25,6 +25,7 @@ import {
 import {
   executeResearchBrain,
   normalizeResearchBrainOutputReferences,
+  preservePriorInvestigationExpectedReactions,
   pruneInvalidStockRadarEvidenceReferences,
   produceDegradedOutput,
   researchBrainStageRuntime,
@@ -1029,6 +1030,78 @@ test("6I. Divergence explanation keeps an alternative or explicit missing eviden
   assert.ok(val.errors.some((e) => e.includes("requires at least one competing_explanation or missing_evidence")));
 });
 
+test("6J. Continued investigation preserves its exact prior expected reaction", () => {
+  const packet = createValidBasePacket();
+  packet.prior_analytical_state.prior_investigations = [{
+    investigation_id: "inv:oil_risk",
+    question: "Will Middle East supply disruptions impact Q4 oil prices?",
+    expected_reaction: "Original pre-event expectation, preserved byte-for-byte.",
+    observed_reaction: null,
+    divergence: "UNRESOLVED",
+    current_explanation: "Prior explanation.",
+    competing_explanations: [],
+    research_next: "Keep testing.",
+    status: "open",
+    linked_story_ids: ["story:fed_easing"],
+    linked_thesis_ids: [],
+  }];
+
+  const output = createValidOutput(packet);
+  output.investigations[0].expected_reaction = "Model rewrote the expectation after seeing the tape.";
+
+  const preserved = preservePriorInvestigationExpectedReactions(output, packet) as ResearchBrainOutputV1;
+  assert.equal(
+    preserved.investigations[0].expected_reaction,
+    "Original pre-event expectation, preserved byte-for-byte.",
+  );
+});
+
+test("6K. Continued investigation preserves a prior null expectation", () => {
+  const packet = createValidBasePacket();
+  packet.prior_analytical_state.prior_investigations = [{
+    investigation_id: "inv:oil_risk",
+    question: "Will Middle East supply disruptions impact Q4 oil prices?",
+    expected_reaction: null,
+    observed_reaction: null,
+    divergence: "UNRESOLVED",
+    current_explanation: "Prior explanation.",
+    competing_explanations: [],
+    research_next: "Keep testing.",
+    status: "open",
+    linked_story_ids: ["story:fed_easing"],
+    linked_thesis_ids: [],
+  }];
+
+  const output = createValidOutput(packet);
+  output.investigations[0].expected_reaction = "Retroactively invented expectation.";
+
+  const preserved = preservePriorInvestigationExpectedReactions(output, packet) as ResearchBrainOutputV1;
+  assert.equal(preserved.investigations[0].expected_reaction, null);
+});
+
+test("6L. New investigation may define a new expected reaction", () => {
+  const packet = createValidBasePacket();
+  packet.prior_analytical_state.prior_investigations = [{
+    investigation_id: "inv:old-question",
+    question: "Old question",
+    expected_reaction: "Old expectation.",
+    observed_reaction: null,
+    divergence: "UNRESOLVED",
+    current_explanation: "Old explanation.",
+    competing_explanations: [],
+    research_next: "Old next step.",
+    status: "open",
+    linked_story_ids: [],
+    linked_thesis_ids: [],
+  }];
+
+  const output = createValidOutput(packet);
+  output.investigations[0].expected_reaction = "New investigation expectation.";
+
+  const preserved = preservePriorInvestigationExpectedReactions(output, packet) as ResearchBrainOutputV1;
+  assert.equal(preserved.investigations[0].expected_reaction, "New investigation expectation.");
+});
+
 test("7. Main Thread & Stock Radar Linkage Validation", () => {
   const packet = createValidBasePacket();
   const output = createValidOutput(packet);
@@ -1208,6 +1281,33 @@ test("9. Model Orchestration: Single Provider Attempt per Pass (maxAttempts = 1)
   assert.equal(result.packet_id, packet.packet_id);
 });
 
+test("9A. Primary model path cannot rewrite a continued investigation expectation", async () => {
+  const packet = createValidBasePacket();
+  packet.prior_analytical_state.prior_investigations = [{
+    investigation_id: "inv:oil_risk",
+    question: "Will Middle East supply disruptions impact Q4 oil prices?",
+    expected_reaction: "Frozen pre-event expectation.",
+    observed_reaction: null,
+    divergence: "UNRESOLVED",
+    current_explanation: "Prior explanation.",
+    competing_explanations: [],
+    research_next: "Keep testing.",
+    status: "open",
+    linked_story_ids: ["story:fed_easing"],
+    linked_thesis_ids: [],
+  }];
+  const output = createValidOutput(packet);
+  output.investigations[0].expected_reaction = "Rewritten by model.";
+
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { modelRunner: async () => ({ data: structuredClone(output) }) },
+  );
+
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.investigations[0].expected_reaction, "Frozen pre-event expectation.");
+});
+
 test("10. Structural Repair Pass (Max 1 Repair Attempt)", async () => {
   const packet = createValidBasePacket();
   const invalidOutput = createValidOutput(packet);
@@ -1237,6 +1337,44 @@ test("10. Structural Repair Pass (Max 1 Repair Attempt)", async () => {
   assert.equal(callsCount, 2);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.diagnostics.model_repair_used, true);
+});
+
+test("10A0. Structural repair path cannot rewrite a continued investigation expectation", async () => {
+  const packet = createValidBasePacket();
+  packet.prior_analytical_state.prior_investigations = [{
+    investigation_id: "inv:oil_risk",
+    question: "Will Middle East supply disruptions impact Q4 oil prices?",
+    expected_reaction: "Frozen pre-event expectation.",
+    observed_reaction: null,
+    divergence: "UNRESOLVED",
+    current_explanation: "Prior explanation.",
+    competing_explanations: [],
+    research_next: "Keep testing.",
+    status: "open",
+    linked_story_ids: ["story:fed_easing"],
+    linked_thesis_ids: [],
+  }];
+
+  const invalidOutput = createValidOutput(packet);
+  invalidOutput.major_stories[0].what_changed = "";
+  const repairedOutput = createValidOutput(packet);
+  repairedOutput.investigations[0].expected_reaction = "Repair pass rewrote expectation.";
+
+  let calls = 0;
+  const runner: ModelRunner = async () => {
+    calls++;
+    return { data: calls === 1 ? structuredClone(invalidOutput) : structuredClone(repairedOutput) };
+  };
+
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { modelRunner: runner, allowRepair: true },
+  );
+
+  assert.equal(calls, 2);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, true);
+  assert.equal(result.investigations[0].expected_reaction, "Frozen pre-event expectation.");
 });
 
 test("10A. Compact recovery handles primary max_output_tokens without raising the primary budget", async () => {
