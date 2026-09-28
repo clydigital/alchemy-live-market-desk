@@ -282,6 +282,54 @@ test("Strong labour surprise creates a hawkish policy outlook", () => {
 });
 
 
+test("System 1 prefers an exact 30m event reaction and preserves proxy identity", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:intraday",
+      claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T10:00:00Z",
+      occurrence_time: "2026-09-22T10:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+    }],
+    [{
+      evidence_id: "twelve-data:event-reaction:ev:pmi:intraday:dxy",
+      claim_or_fact: "UUP proxy fell over the 30m reaction window.",
+      available_at: "2026-09-22T10:30:00Z",
+      occurrence_time: "2026-09-22T10:30:00Z",
+      grouping_key: "market-monitor:dxy",
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      metrics: {
+        signal_kind: "market_reaction",
+        trigger_evidence_id: "ev:pmi:intraday",
+        event_change_pct: -0.7,
+        reaction_window: "30m",
+        observed_instrument: "UUP",
+        expected_instrument: "DXY",
+        is_proxy: true,
+        frequency: "intraday",
+      },
+      provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
+    }],
+  );
+
+  const assessments = buildSystem1ReactionAssessments(packet);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0]?.instrument, "DXY");
+  assert.equal(assessments[0]?.observed_instrument, "UUP");
+  assert.equal(assessments[0]?.is_proxy, true);
+  assert.equal(assessments[0]?.reaction_window, "30m");
+  assert.equal(assessments[0]?.timing_precision, "INTRADAY");
+  assert.equal(assessments[0]?.relation, "DIVERGENT");
+  assert.equal(assessments[0]?.market_evidence_id, "twelve-data:event-reaction:ev:pmi:intraday:dxy");
+});
+
 test("System 1 does not treat same-day daily data as an intraday post-event reaction", () => {
   const packet = packetWith(
     [{
