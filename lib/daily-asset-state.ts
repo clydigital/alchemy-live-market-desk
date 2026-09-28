@@ -71,8 +71,8 @@ function lensFor(presentation: DossierPresentationV1 | null | undefined, key: st
 
 function textBias(text: string): "BULLISH" | "BEARISH" | "MIXED" | "UNRESOLVED" {
   const input = text.toLowerCase();
-  const positive = /(bullish|constructive|supportive|relief|strength|stronger|improv|rebound|outperform|upside|bid|breakout|easing)/.test(input);
-  const negative = /(bearish|fragile|pressure|restrictive|tightening|stress|weaken|deterior|downside|risk-off|breakdown|selling|reject)/.test(input);
+  const positive = /(bullish|constructive|supportive|relief|strength|stronger|improv|rebound|outperform|upside|breakout|easing)/.test(input);
+  const negative = /(bearish|fragile|pressure|restrictive|tightening|stress|weak|weaken|deterior|downside|risk-off|breakdown|selling|reject)/.test(input);
   if (positive && negative) return "MIXED";
   if (positive) return "BULLISH";
   if (negative) return "BEARISH";
@@ -118,6 +118,19 @@ function nasdaqBias(presentation: DossierPresentationV1 | null | undefined): Dai
   return techBias === "UNRESOLVED"
     ? (presentation?.header.regimeFamily === "MIXED_TRANSITION" ? "MIXED" : "UNRESOLVED")
     : techBias;
+}
+
+function goldBias(row: MarketMonitorRow | null, lens: DossierPresentationLens | null): DailyAssetBias {
+  // The headline Gold badge is tactical/current-state, not the structural gold thesis.
+  // Material tape direction therefore takes precedence over narrative keywords.
+  if (row?.dayChange != null && Math.abs(row.dayChange) >= 0.5) {
+    return row.dayChange > 0 ? "BULLISH" : "BEARISH";
+  }
+
+  const reactionBias = textBias(lens?.reaction ?? "");
+  if (reactionBias !== "UNRESOLVED") return reactionBias;
+
+  return textBias(lens?.interpretation ?? "");
 }
 
 function rowChange(row: MarketMonitorRow | null, unit: "percent" | "bps") {
@@ -244,7 +257,7 @@ export function buildDailyAssetState(args: {
       label: "Gold spot",
       row: gold,
       lens: goldLens,
-      bias: textBias(`${goldLens?.reaction ?? ""} ${goldLens?.interpretation ?? ""}`),
+      bias: goldBias(gold, goldLens),
       primaryDriver: goldLens?.interpretation ?? "No canonical gold interpretation is currently published.",
       invalidation: headerInvalidation,
     }),
