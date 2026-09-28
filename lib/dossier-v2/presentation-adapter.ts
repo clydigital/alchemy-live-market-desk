@@ -106,6 +106,9 @@ export type DossierPresentationReactionCheck = {
   expectedDirection: "UP" | "DOWN";
   observedDirection: "UP" | "DOWN";
   observedChangePct: number;
+  observedInstrument: string;
+  isProxy: boolean;
+  reactionWindow: "5m" | "30m" | "4h" | null;
   relation: "ALIGNED" | "DIVERGENT";
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   triggerEvidenceRef: string;
@@ -348,6 +351,14 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
       || (item.expected_direction !== "UP" && item.expected_direction !== "DOWN")
       || (item.observed_direction !== "UP" && item.observed_direction !== "DOWN")
       || typeof item.observed_change_pct !== "number"
+      || typeof item.observed_instrument !== "string"
+      || typeof item.is_proxy !== "boolean"
+      || !(
+        item.reaction_window === null
+        || item.reaction_window === "5m"
+        || item.reaction_window === "30m"
+        || item.reaction_window === "4h"
+      )
       || (item.relation !== "ALIGNED" && item.relation !== "DIVERGENT")
       || (item.timing_precision !== "INTRADAY" && item.timing_precision !== "DAILY_POST_EVENT")
     ) return [];
@@ -407,6 +418,9 @@ function presentationInvestigation(
       expectedDirection: assessment.expected_direction,
       observedDirection: assessment.observed_direction,
       observedChangePct: assessment.observed_change_pct,
+      observedInstrument: assessment.observed_instrument,
+      isProxy: assessment.is_proxy,
+      reactionWindow: assessment.reaction_window,
       relation: assessment.relation,
       timingPrecision: assessment.timing_precision,
       triggerEvidenceRef: assessment.trigger_evidence_id,
