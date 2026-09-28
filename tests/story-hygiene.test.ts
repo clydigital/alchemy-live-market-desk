@@ -37,7 +37,7 @@ function version(snapshot: Record<string, unknown>): StoryThesisVersion {
     effective_at: "2026-09-28T00:00:00Z",
     created_by: null,
     created_at: "2026-09-28T00:00:00Z",
-  } as StoryThesisVersion;
+  } as unknown as StoryThesisVersion;
 }
 
 test("legacy natural-language catalyst dates are parsed deterministically", () => {
