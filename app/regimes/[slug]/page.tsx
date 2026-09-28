@@ -43,7 +43,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
       activePath="/regimes"
       title={regime.shortTitle}
       description="Understand the causal mechanism, then inspect the live subgroup telemetry, current Stories and the evidence/news nodes contributing to the state."
-      meta={`${regime.stories.length} mapped Stories · ${regime.state}`}
+      meta={`${regime.durableStories.length} durable · ${regime.contextStories.length} context · ${regime.state}`}
     >
       <RegimeDetailWorkspace regime={regime} initialSubgroup={subgroup} />
     </LiveDeskShell>

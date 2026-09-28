@@ -96,7 +96,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                     <div className={styles.recordHeader}>
                       <div>
                         <h3>{focusedRegime.title}</h3>
-                        <div className={styles.meta}>{focusedRegime.state} · {focusedRegime.confidence} · {focusedRegime.stories.length} mapped Stories</div>
+                        <div className={styles.meta}>{focusedRegime.state} · {focusedRegime.confidence} · {focusedRegime.durableStories.length} durable · {focusedRegime.contextStories.length} context</div>
                       </div>
                       <Badge>{focusedRegime.stateKind === "system1" ? "SYSTEM 1 + SYSTEM 2" : "STORY-LED"}</Badge>
                     </div>

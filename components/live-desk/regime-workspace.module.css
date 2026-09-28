@@ -103,6 +103,7 @@
 }
 
 .subgroupPill b { margin-left: 4px; color: #f0ebfa; }
+.subgroupPill small { margin-left: 4px; color: #817b91; font-size: 8px; }
 
 .tab {
   min-height: 39px;
@@ -259,6 +260,33 @@
   border: 1px solid rgba(181,151,255,.12);
   border-radius: 13px;
   background: rgba(255,255,255,.016);
+}
+
+.storyCard[data-maturity="early"],
+.storyCard[data-maturity="seed"],
+.storyCard[data-maturity="episode"] {
+  border-style: dashed;
+  background: rgba(255,255,255,.01);
+}
+
+.storyCard[data-maturity="seed"] { border-color: rgba(255,205,92,.24); }
+.storyCard[data-maturity="early"] { border-color: rgba(255,165,70,.22); }
+.storyCard[data-maturity="episode"] { border-color: rgba(143,137,159,.22); }
+
+.storyMaturity {
+  padding: 3px 6px;
+  border: 1px solid rgba(181,151,255,.17);
+  border-radius: 999px;
+  color: #d4c5ec;
+}
+
+.maturityNote {
+  margin-top: 8px !important;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(255,187,66,.3);
+  background: rgba(255,187,66,.035);
+  color: #a9a2b6 !important;
+  font-size: 11px !important;
 }
 
 .storyCard h4, .node h4 {

@@ -12,7 +12,7 @@ import {
 } from "./regimes.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
-export const REGIME_PROJECTOR_CONTRACT_VERSION = "regime-projector/1" as const;
+export const REGIME_PROJECTOR_CONTRACT_VERSION = "regime-projector/2" as const;
 
 export type RegimeProjectionTrigger =
   | "story_engine"
@@ -237,6 +237,8 @@ export function materialProjectionSignature(regime: ProjectedRegime) {
         versionNumber: story.versionNumber,
         lifecycle: story.lifecycle,
         confidence: story.confidence,
+        maturity: story.maturity,
+        contributesToState: story.contributesToState,
         routes: story.routes
           .filter((route) => route.regime === regime.slug)
           .map((route) => ({
@@ -251,8 +253,11 @@ export function materialProjectionSignature(regime: ProjectedRegime) {
         key: subgroup.key,
         state: subgroup.state,
         stateKind: subgroup.stateKind,
-        stories: subgroup.stories
+        durableStories: subgroup.durableStories
           .map((story) => ({ id: story.id, versionId: story.versionId }))
+          .sort((left, right) => left.id.localeCompare(right.id)),
+        contextStories: subgroup.contextStories
+          .map((story) => ({ id: story.id, versionId: story.versionId, maturity: story.maturity }))
           .sort((left, right) => left.id.localeCompare(right.id)),
         telemetry: subgroup.telemetry
           .map((item) => ({

@@ -50,7 +50,8 @@ export default function RegimeDetailWorkspace({
         <p className={styles.mechanism}>{regime.mechanism}</p>
         <div className={styles.heroMeta}>
           <span>{regime.confidence}</span>
-          <span>{regime.stories.length} mapped Stories</span>
+          <span>{regime.durableStories.length} durable Stories</span>
+          <span>{regime.contextStories.length} context / coverage</span>
           <span>As of {displayDate(regime.asOf)}</span>
         </div>
         <div className={styles.assetRow}>
@@ -127,21 +128,28 @@ export default function RegimeDetailWorkspace({
                 <span className={styles.kicker}>CURRENT STORIES / SYSTEM 2</span>
                 <div className={styles.storyList}>
                   {subgroup.stories.length ? subgroup.stories.map((story) => (
-                    <article className={styles.storyCard} key={story.id}>
+                    <article className={styles.storyCard} data-maturity={story.maturity} key={story.id}>
                       <div className={styles.storyMeta}>
+                        <span className={styles.storyMaturity}>{story.maturity}</span>
                         <span>{story.lifecycle}</span>
                         <span>{story.confidence}% thesis confidence</span>
                         {story.versionNumber ? <span>v{story.versionNumber}</span> : null}
                       </div>
                       <h4>{story.title}</h4>
                       <p>{story.thesis}</p>
+                      {!story.contributesToState ? (
+                        <p className={styles.maturityNote}><strong>Context only:</strong> {story.maturityReason}</p>
+                      ) : null}
                       <div className={styles.linkRow}>
                         <Link href={`/stories/${story.slug}`}>Open Story →</Link>
                         <Link href={story.hybridHref}>Explain in Hybrid →</Link>
                       </div>
                     </article>
-                  )) : <div className={styles.empty}>No accepted active Story is mapped to this subgroup. Do not infer a thesis from the absence of a Story.</div>}
+                  )) : <div className={styles.empty}>No mapped Story is available for this subgroup. Do not infer a thesis from the absence of a Story.</div>}
                 </div>
+                {subgroup.contextStories.length ? (
+                  <div className={styles.empty}>{subgroup.contextStories.length} mapped Story{ subgroup.contextStories.length === 1 ? "" : "ies" } are retained as seed, early or episode context and do not drive this subgroup state.</div>
+                ) : null}
               </div>
             </div>
 
