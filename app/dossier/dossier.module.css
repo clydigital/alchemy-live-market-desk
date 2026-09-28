@@ -374,6 +374,62 @@
   line-height: 1.5;
 }
 
+.calibrationSummary {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(181, 151, 255, .14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .012);
+}
+
+.calibrationSummary > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calibrationSummary > div:nth-child(2) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.calibrationSummary span {
+  padding: 4px 8px;
+  border: 1px solid rgba(181, 151, 255, .12);
+  border-radius: 999px;
+  color: #9c96aa;
+  font-size: 9px;
+}
+
+.calibrationSummary p {
+  margin: 0;
+  color: #777181;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.calibrationLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #8f899f;
+  font-size: 9px;
+}
+
+.calibrationLine strong {
+  color: #ffd180;
+  font-size: 8px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
 .expectationRevision {
   display: block;
   margin-top: 8px;
