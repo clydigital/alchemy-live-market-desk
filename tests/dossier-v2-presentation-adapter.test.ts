@@ -302,6 +302,137 @@ test("presentation adapter preserves the canonical expected-vs-observed divergen
   });
 });
 
+test("reaction calibration classifies one deterministic divergent investigation without an accuracy score", () => {
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    observed_evidence: ["ev-trigger", "ev-market"],
+  };
+
+  const current = dossier("calibration-divergent", currentOutput);
+  current.payload.system1_reaction_assessments = [{
+    check_id: "system1:calibration:dxy",
+    rule_id: "STRONG_ACTIVITY_SURPRISE",
+    trigger_evidence_id: "ev-trigger",
+    market_evidence_id: "ev-market",
+    instrument: "DXY",
+    expected_direction: "UP",
+    observed_direction: "DOWN",
+    observed_change_pct: -0.7,
+    observed_instrument: "UUP",
+    is_proxy: true,
+    reaction_window: "30m",
+    timing_precision: "INTRADAY",
+    relation: "DIVERGENT",
+    severity: "MEDIUM",
+  }];
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.deepEqual(result.watchNext[0].reactionCalibration, {
+    basis: "SYSTEM1_REACTION_AUDIT",
+    outcome: "DIVERGENT",
+    precision: "INTRADAY",
+    checkCount: 1,
+    alignedCount: 0,
+    divergentCount: 1,
+    reactionWindows: ["30m"],
+    expectationChanged: null,
+    requiresReview: true,
+  });
+  assert.deepEqual(result.reactionCalibration, {
+    evaluatedInvestigations: 1,
+    alignedInvestigations: 0,
+    divergentInvestigations: 1,
+    mixedInvestigations: 0,
+    unresolvedInvestigations: 0,
+    intradayInvestigations: 1,
+    expectationChangedInvestigations: 0,
+    reviewQueue: ["inv-1"],
+  });
+});
+
+test("reaction calibration stays mixed when exact asset checks disagree", () => {
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    observed_evidence: ["ev-trigger", "ev-dxy", "ev-gold"],
+  };
+
+  const current = dossier("calibration-mixed", currentOutput);
+  current.payload.system1_reaction_assessments = [
+    {
+      check_id: "system1:mixed:dxy",
+      rule_id: "HOT_INFLATION_SURPRISE",
+      trigger_evidence_id: "ev-trigger",
+      market_evidence_id: "ev-dxy",
+      instrument: "DXY",
+      expected_direction: "UP",
+      observed_direction: "UP",
+      observed_change_pct: 0.4,
+      observed_instrument: "UUP",
+      is_proxy: true,
+      reaction_window: "5m",
+      timing_precision: "INTRADAY",
+      relation: "ALIGNED",
+      severity: "MEDIUM",
+    },
+    {
+      check_id: "system1:mixed:gold",
+      rule_id: "HOT_INFLATION_SURPRISE",
+      trigger_evidence_id: "ev-trigger",
+      market_evidence_id: "ev-gold",
+      instrument: "XAUUSD",
+      expected_direction: "DOWN",
+      observed_direction: "UP",
+      observed_change_pct: 0.8,
+      observed_instrument: "GLD",
+      is_proxy: true,
+      reaction_window: "30m",
+      timing_precision: "INTRADAY",
+      relation: "DIVERGENT",
+      severity: "MEDIUM",
+    },
+  ];
+
+  const result = buildDossierV2Presentation(current);
+  const calibration = result.watchNext[0].reactionCalibration;
+
+  assert.equal(calibration.outcome, "MIXED");
+  assert.equal(calibration.precision, "INTRADAY");
+  assert.equal(calibration.alignedCount, 1);
+  assert.equal(calibration.divergentCount, 1);
+  assert.deepEqual(calibration.reactionWindows, ["5m", "30m"]);
+  assert.equal(calibration.requiresReview, true);
+});
+
+test("reaction calibration does not grade text when there is no exact reaction audit", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    expected_reaction: "Rates should rise.",
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Rates should stay supported.",
+  };
+
+  const previous = dossier("calibration-prior", previousOutput);
+  const current = dossier("calibration-current", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+  const calibration = result.watchNext[0].reactionCalibration;
+
+  assert.equal(calibration.outcome, "UNRESOLVED");
+  assert.equal(calibration.precision, "NONE");
+  assert.equal(calibration.checkCount, 0);
+  assert.equal(calibration.expectationChanged, true);
+  assert.equal(calibration.requiresReview, true);
+  assert.equal(result.reactionCalibration.evaluatedInvestigations, 0);
+  assert.equal(result.reactionCalibration.expectationChangedInvestigations, 1);
+});
+
 test("presentation adapter keeps pre-window reaction audits from older Dossiers visible", () => {
   const currentOutput = output();
   currentOutput.investigations[0] = {
