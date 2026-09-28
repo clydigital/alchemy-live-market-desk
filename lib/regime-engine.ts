@@ -225,6 +225,49 @@ function projectionSnapshot(regime: ProjectedRegime) {
   };
 }
 
+function materialProjectionSignature(regime: ProjectedRegime) {
+  return {
+    contractVersion: REGIME_PROJECTOR_CONTRACT_VERSION,
+    regimeSlug: regime.slug,
+    state: regime.state,
+    stateKind: regime.stateKind,
+    confidence: regime.confidence,
+    stories: regime.stories
+      .map((story) => ({
+        id: story.id,
+        versionId: story.versionId,
+        versionNumber: story.versionNumber,
+        lifecycle: story.lifecycle,
+        confidence: story.confidence,
+        routes: story.routes
+          .filter((route) => route.regime === regime.slug)
+          .map((route) => ({
+            subgroup: route.subgroup,
+            role: route.role,
+          }))
+          .sort((left, right) => `${left.subgroup}:${left.role}`.localeCompare(`${right.subgroup}:${right.role}`)),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    subgroups: regime.subgroups
+      .map((subgroup) => ({
+        key: subgroup.key,
+        state: subgroup.state,
+        stateKind: subgroup.stateKind,
+        stories: subgroup.stories
+          .map((story) => ({ id: story.id, versionId: story.versionId }))
+          .sort((left, right) => left.id.localeCompare(right.id)),
+        telemetry: subgroup.telemetry
+          .map((item) => ({
+            key: item.key,
+            state: item.state,
+            source: item.source,
+          }))
+          .sort((left, right) => left.key.localeCompare(right.key)),
+      }))
+      .sort((left, right) => left.key.localeCompare(right.key)),
+  };
+}
+
 function storyRoutes(regimes: ProjectedRegime[]) {
   const seen = new Set<string>();
   const links: Array<{
@@ -433,7 +476,7 @@ export async function persistRegimeShadowProjection(input: {
       }
 
       const snapshot = projectionSnapshot(regime);
-      const snapshotHash = hash(snapshot);
+      const snapshotHash = hash(materialProjectionSignature(regime));
       const perRegimeManifest = {
         ...inputManifest,
         regimeSlug: regime.slug,
