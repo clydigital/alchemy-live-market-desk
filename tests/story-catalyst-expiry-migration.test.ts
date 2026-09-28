@@ -5,7 +5,7 @@ import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
 const migration = fs.readFileSync(
-  path.join(root, "supabase", "migrations", "20260928065000_story_catalyst_expiry_recalibration.sql"),
+  path.join(root, "supabase", "migrations", "20260928064710_story_catalyst_expiry_recalibration.sql"),
   "utf8",
 );
 const baseMaintenance = fs.readFileSync(
