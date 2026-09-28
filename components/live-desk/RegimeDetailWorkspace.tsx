@@ -346,6 +346,9 @@ export default function RegimeDetailWorkspace({
                               <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
                             ) : null}
                             <div className={styles.divergenceNext}>
+                              <span>
+                                <strong>Calibration:</strong> {item.reactionCalibration.outcome} · {item.reactionCalibration.checkCount} exact check(s) · {item.reactionCalibration.precision.toLowerCase().replaceAll("_", " ")}
+                              </span>
                               <span><strong>Research next:</strong> {item.researchNext}</span>
                               <span><strong>Invalidate:</strong> {item.invalidationCondition}</span>
                             </div>
