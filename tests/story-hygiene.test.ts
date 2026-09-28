@@ -7,6 +7,7 @@ import {
   catalystDisplayLabel,
   catalystTimestamp,
   shouldRecalibrateExpiredCatalyst,
+  storyFramingDependsOnExpiredCatalyst,
 } from "../lib/story-hygiene.ts";
 
 function version(snapshot: Record<string, unknown>): StoryThesisVersion {
@@ -121,5 +122,56 @@ test("expired recalibration has a deterministic cooldown", () => {
     assessment,
     lastEvaluatedAt: "2026-09-28T05:00:00Z",
     now: new Date("2026-09-28T06:00:00Z"),
+  }), false);
+});
+
+
+test("maintenance reasoningPatch preserves expired next-test state for legacy Story versions", () => {
+  const item = version({
+    maintenanceContext: {
+      operationalCatalystRefresh: true,
+      reasoningPatch: {
+        nextTest: {
+          label: "U.S. CPI on 12 August 2026",
+          status: "expired",
+          dueAt: null,
+          expiresAt: "2026-09-28T06:53:39Z",
+        },
+      },
+    },
+  });
+  const assessment = assessStoryCatalyst({
+    nextCatalyst: null,
+    version: item,
+    now: new Date("2026-09-28T07:00:00Z"),
+  });
+  assert.equal(assessment.status, "expired");
+  assert.equal(assessment.label, "U.S. CPI on 12 August 2026");
+});
+
+test("Story framing is stale only when it still depends on the expired deciding catalyst", () => {
+  const expired = version({
+    maintenanceContext: {
+      reasoningPatch: {
+        nextTest: {
+          label: "U.S. CPI and Real Earnings on 12 August 2026",
+          status: "expired",
+          dueAt: null,
+          expiresAt: "2026-09-28T06:53:39Z",
+        },
+      },
+    },
+  });
+
+  assert.equal(storyFramingDependsOnExpiredCatalyst({
+    title: "Weak jobs meet expensive oil; CPI becomes the tie-breaker",
+    thesis: "July CPI is the cleanest near-term decision point for rates.",
+    version: expired,
+  }), true);
+
+  assert.equal(storyFramingDependsOnExpiredCatalyst({
+    title: "Productivity gains now face a weaker-demand test",
+    thesis: "Productivity gains remain conditional on household demand holding up.",
+    version: expired,
   }), false);
 });
