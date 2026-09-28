@@ -11,6 +11,13 @@ type HybridOutputPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function divergenceTone(divergence: string): "default" | "ready" | "warn" | "risk" {
+  if (divergence === "MATERIAL") return "risk";
+  if (divergence === "PARTIAL" || divergence === "UNRESOLVED") return "warn";
+  if (divergence === "NONE") return "ready";
+  return "default";
+}
+
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
   const [selection, data, recordLayer, query] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -219,6 +226,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                     <Badge tone="warn">{item.status}</Badge>
                   </div>
 
+                  <p><strong>Expected reaction:</strong> {item.expectedReaction ?? "No canonical pre-event expectation is available."}</p>
+                  <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
+                  <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
                   <p>Current explanation: {item.currentExplanation}</p>
                   <p>Research next: {item.researchNext}</p>
                   <p>Confirm: {item.confirmationCondition}</p>

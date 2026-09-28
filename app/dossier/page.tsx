@@ -20,6 +20,13 @@ function severityTone(severity: string): "default" | "warn" | "risk" {
   return "default";
 }
 
+function divergenceTone(divergence: string): "default" | "ready" | "warn" | "risk" {
+  if (divergence === "MATERIAL") return "risk";
+  if (divergence === "PARTIAL" || divergence === "UNRESOLVED") return "warn";
+  if (divergence === "NONE") return "ready";
+  return "default";
+}
+
 export default async function DossierPage() {
   const [selection, monitor] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -232,6 +239,20 @@ export default async function DossierPage() {
                     <Badge tone={item.status === "weakened" ? "warn" : "default"}>{item.status}</Badge>
                     <h4>{item.question}</h4>
                   </header>
+                  <div className={styles.divergenceCompare}>
+                    <div>
+                      <small>EXPECTED / BEFORE TAPE</small>
+                      <p>{item.expectedReaction || "No canonical pre-event expectation is available for this investigation."}</p>
+                    </div>
+                    <div>
+                      <small>OBSERVED / ACTUAL TAPE</small>
+                      <p>{item.observedReaction || "No comparable post-trigger reaction is available yet."}</p>
+                    </div>
+                    <div className={styles.divergenceStatus}>
+                      <small>DIVERGENCE</small>
+                      <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
+                    </div>
+                  </div>
                   <p className={styles.explanation}>{item.currentExplanation}</p>
                   <div className={styles.investigationGrid}>
                     <div>

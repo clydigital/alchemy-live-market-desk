@@ -300,6 +300,32 @@
   line-height: 1.6;
 }
 
+.divergenceCompare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+  padding: 15px 16px;
+  border: 1px solid rgba(181, 151, 255, .14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .014);
+}
+
+.divergenceCompare p {
+  margin: 7px 0 0;
+  color: #c7c3d3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.divergenceStatus {
+  display: grid;
+  gap: 8px;
+  min-width: 128px;
+  justify-items: start;
+}
+
 .competing {
   margin-top: 17px;
   padding-top: 15px;
@@ -541,4 +567,8 @@
   .sectionHead {
     align-items: start;
   }
+}
+
+@media (max-width: 720px) {
+  .divergenceCompare { grid-template-columns: 1fr; }
 }

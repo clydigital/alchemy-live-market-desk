@@ -56,6 +56,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         initialView={initialView}
         explanation={explanation}
         liveReasoning={liveReasoning}
+        investigations={dossierSelection.presentation?.watchNext ?? []}
       />
     </LiveDeskShell>
   );
