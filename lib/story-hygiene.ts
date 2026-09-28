@@ -52,6 +52,17 @@ export function canonicalNextTestFromVersion(version: StoryThesisVersion | null 
   const snapshot = version?.snapshot;
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
   const record = snapshot as Record<string, unknown>;
+  const maintenance = record.maintenanceContext;
+  if (maintenance && typeof maintenance === "object" && !Array.isArray(maintenance)) {
+    const reasoningPatch = (maintenance as Record<string, unknown>).reasoningPatch;
+    if (reasoningPatch && typeof reasoningPatch === "object" && !Array.isArray(reasoningPatch)) {
+      const patchedNextTest = (reasoningPatch as Record<string, unknown>).nextTest;
+      if (patchedNextTest && typeof patchedNextTest === "object" && !Array.isArray(patchedNextTest)) {
+        return patchedNextTest as CanonicalNextTestLike;
+      }
+    }
+  }
+
   const reasoning = record.reasoning ?? record.canonicalStoryReasoning;
   if (!reasoning || typeof reasoning !== "object" || Array.isArray(reasoning)) return null;
   const nextTest = (reasoning as Record<string, unknown>).nextTest;
@@ -184,4 +195,39 @@ export function catalystDisplayLabel(assessment: StoryCatalystAssessment) {
   if (assessment.status === "upcoming") return "Upcoming · " + assessment.label;
   if (assessment.status === "resolved") return "Resolved · " + assessment.label;
   return assessment.label;
+}
+
+
+const DECIDING_CATALYST_TOKENS = new Set([
+  "cpi", "ppi", "pce", "fomc", "payroll", "payrolls", "jobs", "earnings",
+  "gdp", "pmi", "retail", "sales", "auction", "decision", "meeting",
+  "guidance", "filing", "election",
+]);
+
+function decidingCatalystTokens(value: string) {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => DECIDING_CATALYST_TOKENS.has(token));
+}
+
+/**
+ * A Story becomes stale only when an immutable expired next-test exists and the
+ * accepted reader-facing framing still explicitly depends on that deciding
+ * event. Expiry alone is not enough: continuous-monitor Stories can have one
+ * test expire without invalidating the thesis.
+ */
+export function storyFramingDependsOnExpiredCatalyst(input: {
+  title: string;
+  thesis: string;
+  version?: StoryThesisVersion | null;
+}) {
+  const nextTest = canonicalNextTestFromVersion(input.version);
+  if (!nextTest || nextTest.status !== "expired" || typeof nextTest.label !== "string") return false;
+
+  const catalystTerms = decidingCatalystTokens(nextTest.label);
+  if (!catalystTerms.length) return false;
+
+  const framing = (input.title + " " + input.thesis).toLowerCase();
+  return catalystTerms.some((term) => new RegExp("\\b" + term + "\\b", "i").test(framing));
 }
