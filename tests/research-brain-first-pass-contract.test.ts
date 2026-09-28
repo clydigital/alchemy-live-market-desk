@@ -88,6 +88,20 @@ test("Research Brain uses prior investigation baselines for bounded divergence p
   assert.match(instructions, /describe alignment neutrally rather than calling the prior view 'correct'/);
 });
 
+test("Research Brain uses evidence-gated investigation lifecycle transitions", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /INVESTIGATION LIFECYCLE DISCIPLINE/);
+  assert.match(instructions, /keep status=open when the current packet lacks enough comparable current evidence/);
+  assert.match(instructions, /Use strengthened only when new supplied current evidence materially supports/);
+  assert.match(instructions, /Use weakened only when new supplied current evidence materially contradicts/);
+  assert.match(instructions, /Use resolved only when supplied current evidence answers the market question strongly enough/);
+  assert.match(instructions, /Use parked only when the question is no longer currently decision-relevant/);
+  assert.match(instructions, /parked is not a substitute for missing evidence, age, or uncertainty/);
+  assert.match(instructions, /Do not reopen a prior resolved or parked investigation unless new supplied current evidence materially reactivates/);
+  assert.match(instructions, /preserve uncertainty rather than manufacturing a lifecycle transition/);
+});
+
 test("Research Brain frames the dossier around regime before asset calls", () => {
   const instructions = buildResearchBrainSystemInstructions();
 
