@@ -372,17 +372,19 @@ export function detectDossierSystem1StateTransitions(
   const current = currentSystem1State(packet);
   const transitions: string[] = [];
   const priorRate = previousObject(previousDossier.payload?.system1_rate_regime);
+  const compatibleRateContract = priorRate?.contractVersion === current.rateRegime.contractVersion;
   if (
     priorRate
-    && priorRate.contractVersion === current.rateRegime.contractVersion
+    && compatibleRateContract
     && typeof priorRate.state === "string"
     && priorRate.state !== current.rateRegime.state
   ) transitions.push(`rate regime: ${priorRate.state} -> ${current.rateRegime.state}`);
 
   const priorLiquidity = previousObject(previousDossier.payload?.system1_dollar_liquidity);
+  const compatibleLiquidityContract = priorLiquidity?.contractVersion === current.dollarLiquidity.contractVersion;
   if (
     priorLiquidity
-    && priorLiquidity.contractVersion === current.dollarLiquidity.contractVersion
+    && compatibleLiquidityContract
     && typeof priorLiquidity.state === "string"
     && priorLiquidity.state !== current.dollarLiquidity.state
   ) transitions.push(`dollar liquidity: ${priorLiquidity.state} -> ${current.dollarLiquidity.state}`);
@@ -390,6 +392,8 @@ export function detectDossierSystem1StateTransitions(
   const priorInteraction = previousObject(previousDossier.payload?.system1_policy_liquidity_interaction);
   if (
     priorInteraction
+    && compatibleRateContract
+    && compatibleLiquidityContract
     && typeof priorInteraction.alignment === "string"
     && priorInteraction.alignment !== current.policyLiquidityInteraction.alignment
   ) transitions.push(`policy/liquidity interaction: ${priorInteraction.alignment} -> ${current.policyLiquidityInteraction.alignment}`);
