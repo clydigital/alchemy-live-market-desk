@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import type { MarketDossierV2 } from "./contracts.ts";
 import {
   buildDossierV2Presentation,
+  type DossierPresentationInvestigation,
   type DossierPresentationV1,
 } from "./presentation-adapter.ts";
 import { validateMarketDossierV2Record } from "./validation.ts";
@@ -14,6 +15,38 @@ export type DossierPresentationSelectionStatus =
   | "degraded_latest"
   | "unavailable";
 
+export type DossierCalibrationHistoryCase = {
+  dossierId: string;
+  asOf: string;
+  investigationId: string;
+  question: string;
+  status: DossierPresentationInvestigation["status"];
+  outcome: DossierPresentationInvestigation["reactionCalibration"]["outcome"];
+  precision: DossierPresentationInvestigation["reactionCalibration"]["precision"];
+  checkCount: number;
+  alignedCount: number;
+  divergentCount: number;
+  reactionWindows: DossierPresentationInvestigation["reactionCalibration"]["reactionWindows"];
+  expectationChanged: boolean | null;
+  requiresReview: boolean;
+  journeyTransition: DossierPresentationInvestigation["journey"]["transition"];
+  matchedBy: DossierPresentationInvestigation["journey"]["matchedBy"];
+  priorExpectedReaction: string | null;
+  currentExpectedReaction: string | null;
+  observedReaction: string | null;
+  postMortemHypothesis: string;
+  competingExplanations: string[];
+  researchNext: string;
+};
+
+export type DossierCalibrationHistoryEntry = {
+  dossierId: string;
+  asOf: string;
+  degraded: boolean;
+  summary: DossierPresentationV1["reactionCalibration"];
+  cases: DossierCalibrationHistoryCase[];
+};
+
 export type DossierPresentationSelection = {
   status: DossierPresentationSelectionStatus;
   presentation: DossierPresentationV1 | null;
@@ -22,6 +55,7 @@ export type DossierPresentationSelection = {
   latestAsOf: string | null;
   selectedAsOf: string | null;
   usingFallback: boolean;
+  calibrationHistory: DossierCalibrationHistoryEntry[];
   notice: {
     tone: "ready" | "warn" | "error";
     label: string;
@@ -80,6 +114,51 @@ function presentationIsHealthy(presentation: DossierPresentationV1) {
   );
 }
 
+function calibrationHistory(
+  built: CandidatePresentation[],
+): DossierCalibrationHistoryEntry[] {
+  return built.flatMap(({ dossier, presentation }) => {
+    const cases = presentation.investigationAudit
+      .filter((item) =>
+        item.reactionCalibration.checkCount > 0
+        || item.reactionCalibration.expectationChanged === true
+      )
+      .map((item): DossierCalibrationHistoryCase => ({
+        dossierId: dossier.id,
+        asOf: dossier.as_of,
+        investigationId: item.id,
+        question: item.question,
+        status: item.status,
+        outcome: item.reactionCalibration.outcome,
+        precision: item.reactionCalibration.precision,
+        checkCount: item.reactionCalibration.checkCount,
+        alignedCount: item.reactionCalibration.alignedCount,
+        divergentCount: item.reactionCalibration.divergentCount,
+        reactionWindows: [...item.reactionCalibration.reactionWindows],
+        expectationChanged: item.reactionCalibration.expectationChanged,
+        requiresReview: item.reactionCalibration.requiresReview,
+        journeyTransition: item.journey.transition,
+        matchedBy: item.journey.matchedBy,
+        priorExpectedReaction: item.journey.previousExpectedReaction,
+        currentExpectedReaction: item.expectedReaction,
+        observedReaction: item.observedReaction,
+        postMortemHypothesis: item.currentExplanation,
+        competingExplanations: [...item.competingExplanations],
+        researchNext: item.researchNext,
+      }));
+
+    return cases.length
+      ? [{
+          dossierId: dossier.id,
+          asOf: dossier.as_of,
+          degraded: presentation.health.degraded,
+          summary: presentation.reactionCalibration,
+          cases,
+        }]
+      : [];
+  }).slice(0, 12);
+}
+
 export function selectDossierV2Presentation(
   records: MarketDossierV2[],
 ): DossierPresentationSelection {
@@ -92,6 +171,7 @@ export function selectDossierV2Presentation(
       latestAsOf: null,
       selectedAsOf: null,
       usingFallback: false,
+      calibrationHistory: [],
       notice: {
         tone: "error",
         label: "Dossier unavailable",
@@ -109,6 +189,7 @@ export function selectDossierV2Presentation(
 
   const latestCandidate = built.find((candidate) => candidate.dossier.id === latest.id) ?? null;
   const healthy = built.find((candidate) => presentationIsHealthy(candidate.presentation)) ?? null;
+  const history = calibrationHistory(built);
 
   if (healthy?.dossier.id === latest.id) {
     return {
@@ -119,6 +200,7 @@ export function selectDossierV2Presentation(
       latestAsOf: latest.as_of,
       selectedAsOf: healthy.dossier.as_of,
       usingFallback: false,
+      calibrationHistory: history,
       notice: {
         tone: "ready",
         label: "Current Dossier",
@@ -139,6 +221,7 @@ export function selectDossierV2Presentation(
       latestAsOf: latest.as_of,
       selectedAsOf: healthy.dossier.as_of,
       usingFallback: true,
+      calibrationHistory: history,
       notice: {
         tone: "warn",
         label: "Using prior healthy Dossier",
@@ -156,6 +239,7 @@ export function selectDossierV2Presentation(
       latestAsOf: latest.as_of,
       selectedAsOf: latest.as_of,
       usingFallback: false,
+      calibrationHistory: history,
       notice: {
         tone: "warn",
         label: "Degraded Dossier",
@@ -172,6 +256,7 @@ export function selectDossierV2Presentation(
     latestAsOf: latest.as_of,
     selectedAsOf: null,
     usingFallback: false,
+    calibrationHistory: history,
     notice: {
       tone: "error",
       label: "Dossier unavailable",
