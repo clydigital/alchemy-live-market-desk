@@ -326,6 +326,40 @@
   justify-items: start;
 }
 
+.reactionAudit {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(181, 151, 255, .12);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .012);
+}
+
+.reactionAudit > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.reactionAudit span {
+  padding: 4px 8px;
+  border: 1px solid rgba(181, 151, 255, .13);
+  border-radius: 999px;
+  color: #aaa4b8;
+  font-size: 9px;
+}
+
+.reactionAudit span[data-relation="aligned"] {
+  border-color: rgba(79, 209, 133, .24);
+  color: #8ce4b1;
+}
+
+.reactionAudit span[data-relation="divergent"] {
+  border-color: rgba(255, 84, 117, .26);
+  color: #ff9aae;
+}
+
 .competing {
   margin-top: 17px;
   padding-top: 15px;
