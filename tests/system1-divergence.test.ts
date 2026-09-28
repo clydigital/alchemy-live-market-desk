@@ -70,7 +70,7 @@ test("System 1 emits only material opposite reactions", () => {
   assert.ok(!("explanation" in (candidates[0] ?? {})));
 });
 
-test("System 1 suppresses checks when opposing policy signals coexist", () => {
+test("System 1 lets the later opposing policy signal win", () => {
   const packet = packetWith(
     [
       {
@@ -79,6 +79,7 @@ test("System 1 suppresses checks when opposing policy signals coexist", () => {
         category: "MONETARY_POLICY",
         source_type: "PRESS_RELEASE",
         available_at: "2026-09-22T10:00:00Z",
+        occurrence_time: "2026-09-22T10:00:00Z",
         provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_A" }],
       },
       {
@@ -87,6 +88,7 @@ test("System 1 suppresses checks when opposing policy signals coexist", () => {
         category: "MONETARY_POLICY",
         source_type: "PRESS_RELEASE",
         available_at: "2026-09-22T10:05:00Z",
+        occurrence_time: "2026-09-22T10:05:00Z",
         provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_B" }],
       },
     ],
@@ -98,7 +100,95 @@ test("System 1 suppresses checks when opposing policy signals coexist", () => {
     ],
   );
 
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.rule_id, "DOVISH_MONETARY_POLICY");
+  assert.equal(outlook[0]?.trigger_evidence_id, "ev:fomc:dovish");
+
+  const assessments = buildSystem1ReactionAssessments(packet);
+  assert.equal(assessments.length, 4);
+  assert.ok(assessments.every((item) => item.rule_id === "DOVISH_MONETARY_POLICY"));
+  assert.ok(assessments.every((item) => item.relation === "ALIGNED"));
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+});
+
+test("System 1 fails closed when opposing policy signals have the same sequence time", () => {
+  const packet = packetWith(
+    [
+      {
+        evidence_id: "ev:fomc:hike",
+        claim_or_fact: "The Federal Reserve announced a rate hike.",
+        category: "MONETARY_POLICY",
+        source_type: "PRESS_RELEASE",
+        available_at: "2026-09-22T10:00:00Z",
+        occurrence_time: "2026-09-22T10:00:00Z",
+        provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_A" }],
+      },
+      {
+        evidence_id: "ev:fomc:dovish",
+        claim_or_fact: "The accompanying guidance was explicitly dovish.",
+        category: "MONETARY_POLICY",
+        source_type: "PRESS_RELEASE",
+        available_at: "2026-09-22T10:00:00Z",
+        occurrence_time: "2026-09-22T10:00:00Z",
+        provenance: [{ source_type: "PRESS_RELEASE", source_id: "FOMC_B" }],
+      },
+    ],
+    [
+      marketMonitor("us2y", -0.7),
+      marketMonitor("dxy", -0.5),
+      marketMonitor("gold", 1.1),
+      marketMonitor("smh", 0.9),
+    ],
+  );
+
+  assert.deepEqual(buildSystem1PolicyExpectationChecks(packet), []);
+  assert.deepEqual(buildSystem1ReactionAssessments(packet), []);
+  assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
+});
+
+test("System 1 sequences triggers by event time before ingestion time", () => {
+  const packet = packetWith(
+    [
+      {
+        evidence_id: "ev:pmi:older-backfill",
+        claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+        category: "ECONOMIC_METRIC",
+        source_type: "VERIFIED_MACRO_DATA",
+        available_at: "2026-09-22T10:20:00Z",
+        occurrence_time: "2026-09-22T09:30:00Z",
+        metrics: {
+          signal_kind: "economic_release",
+          signal_context: "STRONG_ACTIVITY_SURPRISE",
+        },
+        provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI_OLD" }],
+      },
+      {
+        evidence_id: "ev:pmi:newer-weak",
+        claim_or_fact: "Flash manufacturing PMI was weaker than expected and below consensus.",
+        category: "ECONOMIC_METRIC",
+        source_type: "VERIFIED_MACRO_DATA",
+        available_at: "2026-09-22T10:05:00Z",
+        occurrence_time: "2026-09-22T10:00:00Z",
+        metrics: {
+          signal_kind: "economic_release",
+          signal_context: "WEAK_ACTIVITY_SURPRISE",
+        },
+        provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI_NEW" }],
+      },
+    ],
+    [
+      marketMonitor("us2y", -0.7),
+      marketMonitor("dxy", -0.5),
+      marketMonitor("gold", 1.1),
+      marketMonitor("smh", 0.9),
+    ],
+  );
+
+  const outlook = buildSystem1PolicyExpectationChecks(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.rule_id, "WEAK_ACTIVITY_SURPRISE");
+  assert.equal(outlook[0]?.trigger_evidence_id, "ev:pmi:newer-weak");
 });
 
 test("Tiny or missing moves add no prompt noise", () => {
