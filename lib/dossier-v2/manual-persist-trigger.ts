@@ -194,6 +194,7 @@ export async function handleDossierV2PersistRunWithDependencies(
       },
       snapshotDiagnostics: result.snapshot_diagnostics,
       storyRefreshAgenda: result.story_refresh_agenda ?? null,
+      system2Activation: result.regime_shadow?.system2Activations ?? { enqueued: 0, skipped: 0 },
       packetSummary: {
         packetId: result.packet.packet_id,
         asOf: result.packet.as_of,
