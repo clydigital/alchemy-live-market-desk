@@ -365,10 +365,11 @@ function previousObject(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function system1StateTransitions(
+export function detectDossierSystem1StateTransitions(
   previousDossier: MarketDossierV2,
-  current: ReturnType<typeof currentSystem1State>,
+  packet: DossierV2InputPacket,
 ) {
+  const current = currentSystem1State(packet);
   const transitions: string[] = [];
   const priorRate = previousObject(previousDossier.payload?.system1_rate_regime);
   if (
@@ -453,7 +454,7 @@ export async function executeAndPersistDossierV2(
       typeof priorAnalytical === "object"
       && !Array.isArray(priorAnalytical)
     ) {
-      const transitions = system1StateTransitions(previousDossier, currentSystem1State(packet));
+      const transitions = detectDossierSystem1StateTransitions(previousDossier, packet);
       if (!transitions.length) {
         return {
           packet_id: packet.packet_id,
