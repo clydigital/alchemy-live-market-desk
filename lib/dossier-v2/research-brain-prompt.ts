@@ -83,7 +83,7 @@ function compactPriorState(packet: DossierV2InputPacket) {
       dossier_id: claim.dossier_id,
       as_of: claim.as_of,
     })),
-    prior_investigations: packet.prior_analytical_state.prior_investigations.map((item) => ({
+    prior_investigations: (packet.prior_analytical_state.prior_investigations ?? []).map((item) => ({
       investigation_id: item.investigation_id,
       question: item.question,
       expected_reaction: item.expected_reaction,
