@@ -31,7 +31,7 @@ import type {
   ObservedEvidence,
   SourceDataStatus,
 } from "./input-packet.ts";
-import { isSystem1ReactionTriggerEvidence } from "./system1-divergence.ts";
+import { isSystem1IntradayReactionTriggerEvidence } from "./system1-divergence.ts";
 
 export interface CanonicalEvidenceSourceRow {
   id: string;
@@ -690,7 +690,7 @@ export function selectIntradayReactionTriggers(
           : [],
       };
 
-      return isSystem1ReactionTriggerEvidence(candidate)
+      return isSystem1IntradayReactionTriggerEvidence(candidate)
         ? [{ evidenceId, occurredAt }]
         : [];
     })
