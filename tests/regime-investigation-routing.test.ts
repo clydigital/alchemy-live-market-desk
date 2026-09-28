@@ -37,6 +37,7 @@ function investigation(
       currentStatus: "open",
       previousExpectedReaction: null,
       currentExpectedReaction: null,
+      expectationChanged: null,
       question: "What is the market mechanism?",
     },
     ...overrides,

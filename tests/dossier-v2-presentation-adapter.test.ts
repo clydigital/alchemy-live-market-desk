@@ -365,6 +365,37 @@ test("investigation journey detects divergence transition by exact investigation
   assert.equal(result.watchNext[0].journey.matchedBy, "id");
   assert.equal(result.watchNext[0].journey.previousDivergence, "UNRESOLVED");
   assert.equal(result.watchNext[0].journey.currentDivergence, "MATERIAL");
+  assert.equal(result.watchNext[0].journey.previousExpectedReaction, "Energy stress should lift WTI.");
+  assert.equal(result.watchNext[0].journey.currentExpectedReaction, "Energy stress should lift WTI.");
+  assert.equal(result.watchNext[0].journey.expectationChanged, false);
+});
+
+test("investigation journey preserves prior expectation when current wording changes", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    expected_reaction: "Hot inflation should lift front-end yields and the dollar.",
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Rates and USD should rise if the inflation impulse persists.",
+  };
+
+  const previous = dossier("prior-expectation", previousOutput);
+  const current = dossier("current-expectation", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(
+    result.watchNext[0].journey.previousExpectedReaction,
+    "Hot inflation should lift front-end yields and the dollar.",
+  );
+  assert.equal(
+    result.watchNext[0].journey.currentExpectedReaction,
+    "Rates and USD should rise if the inflation impulse persists.",
+  );
+  assert.equal(result.watchNext[0].journey.expectationChanged, true);
 });
 
 test("investigation journey can bridge a changed model ID only through unique story/thesis linkage", () => {
@@ -393,6 +424,44 @@ test("investigation journey can bridge a changed model ID only through unique st
   assert.equal(result.watchNext[0].journey.transition, "ALIGNED_CONFIRMED");
   assert.equal(result.watchNext[0].journey.matchedBy, "linkage");
   assert.equal(result.watchNext[0].journey.previousId, "inv:old-duration");
+});
+
+test("investigation journey bridges reformulated duration questions through a unique primary Regime route", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    investigation_id: "inv:prior-duration",
+    question: "Is duration and real-yield repricing broadening into sustained financial-conditions tightening?",
+    why_it_matters: "A broader duration shock would tighten financial conditions.",
+    current_explanation: "Long-end real yields are elevated while transmission is incomplete.",
+    expected_reaction: "Credit spreads widen and breadth deteriorates if duration stress transmits.",
+    linked_story_ids: ["story:old-duration"],
+    linked_thesis_ids: ["thesis:old-duration"],
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    investigation_id: "inv:current-duration",
+    question: "Is US duration and real-yield pressure now transmitting into credit, volatility and broad equity breadth?",
+    why_it_matters: "Transmission would convert a rates-led reprice into broader tightening.",
+    current_explanation: "Higher real yields coexist with contained credit spreads.",
+    expected_reaction: "Credit spreads widen, VIX rises and breadth deteriorates.",
+    linked_story_ids: ["story:new-duration"],
+    linked_thesis_ids: ["thesis:new-duration"],
+  };
+
+  const previous = dossier("prior-route", previousOutput);
+  const current = dossier("current-route", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.watchNext[0].journey.matchedBy, "regime_route");
+  assert.equal(result.watchNext[0].journey.previousId, "inv:prior-duration");
+  assert.equal(
+    result.watchNext[0].journey.previousExpectedReaction,
+    "Credit spreads widen and breadth deteriorates if duration stress transmits.",
+  );
+  assert.equal(result.watchNext[0].journey.expectationChanged, true);
 });
 
 test("investigation journey never infers resolution when a prior question disappears", () => {

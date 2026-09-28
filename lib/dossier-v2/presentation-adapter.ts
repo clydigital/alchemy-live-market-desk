@@ -5,6 +5,7 @@ import type {
   System1DollarLiquiditySnapshot,
 } from "./system1-dollar-liquidity.ts";
 import type { System1ReactionAssessment } from "./system1-divergence.ts";
+import { routeTextToRegimes } from "../regimes.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -132,7 +133,7 @@ export type DossierPresentationInvestigationTransition =
 export type DossierPresentationInvestigationJourney = {
   currentId: string | null;
   previousId: string | null;
-  matchedBy: "id" | "linkage" | null;
+  matchedBy: "id" | "linkage" | "regime_route" | null;
   transition: DossierPresentationInvestigationTransition;
   previousDivergence: Investigation["divergence"] | null;
   currentDivergence: Investigation["divergence"] | null;
@@ -140,6 +141,7 @@ export type DossierPresentationInvestigationJourney = {
   currentStatus: Investigation["status"] | null;
   previousExpectedReaction: string | null;
   currentExpectedReaction: string | null;
+  expectationChanged: boolean | null;
   question: string;
 };
 
@@ -492,6 +494,36 @@ function presentationInvestigation(
   };
 }
 
+function normaliseExpectation(value: string | null): string | null {
+  if (!value) return null;
+  const normalised = value.trim().replace(/\s+/g, " ").toLowerCase();
+  return normalised || null;
+}
+
+function expectationChanged(previous: Investigation, current: Investigation): boolean {
+  return normaliseExpectation(previous.expected_reaction) !== normaliseExpectation(current.expected_reaction);
+}
+
+function investigationMechanismText(item: Investigation): string {
+  return [
+    item.question,
+    item.why_it_matters,
+    item.current_explanation,
+    item.expected_reaction,
+    item.observed_reaction,
+    item.research_next,
+    item.confirmation_condition,
+    item.invalidation_condition,
+    ...item.competing_explanations,
+    ...item.missing_evidence,
+  ].filter((value): value is string => typeof value === "string" && Boolean(value.trim())).join(" ");
+}
+
+function investigationPrimaryRouteKey(item: Investigation): string | null {
+  const route = routeTextToRegimes(investigationMechanismText(item), 1)[0];
+  return route ? `${route.regime}:${route.subgroup}` : null;
+}
+
 function investigationLinkageKey(item: Investigation): string | null {
   const storyIds = [...new Set(item.linked_story_ids.filter(Boolean))].sort();
   const thesisIds = [...new Set(item.linked_thesis_ids.filter(Boolean))].sort();
@@ -549,25 +581,38 @@ function investigationJourney(
       currentStatus: item.status,
       previousExpectedReaction: null,
       currentExpectedReaction: item.expected_reaction,
+      expectationChanged: null,
       question: item.question,
     }));
   }
 
   const previousById = new Map(previous.investigations.map((item) => [item.investigation_id, item]));
   const previousByLinkage = new Map<string, Investigation[]>();
+  const previousByPrimaryRoute = new Map<string, Investigation[]>();
   const currentLinkageCounts = new Map<string, number>();
+  const currentPrimaryRouteCounts = new Map<string, number>();
 
   for (const item of previous.investigations) {
     const key = investigationLinkageKey(item);
-    if (!key) continue;
-    const list = previousByLinkage.get(key) ?? [];
-    list.push(item);
-    previousByLinkage.set(key, list);
+    if (key) {
+      const list = previousByLinkage.get(key) ?? [];
+      list.push(item);
+      previousByLinkage.set(key, list);
+    }
+
+    const routeKey = investigationPrimaryRouteKey(item);
+    if (routeKey) {
+      const list = previousByPrimaryRoute.get(routeKey) ?? [];
+      list.push(item);
+      previousByPrimaryRoute.set(routeKey, list);
+    }
   }
   for (const item of current.investigations) {
     const key = investigationLinkageKey(item);
-    if (!key) continue;
-    currentLinkageCounts.set(key, (currentLinkageCounts.get(key) ?? 0) + 1);
+    if (key) currentLinkageCounts.set(key, (currentLinkageCounts.get(key) ?? 0) + 1);
+
+    const routeKey = investigationPrimaryRouteKey(item);
+    if (routeKey) currentPrimaryRouteCounts.set(routeKey, (currentPrimaryRouteCounts.get(routeKey) ?? 0) + 1);
   }
 
   const usedPreviousIds = new Set<string>();
@@ -576,7 +621,7 @@ function investigationJourney(
   for (const item of current.investigations) {
     let matched = previousById.get(item.investigation_id) ?? null;
     if (matched && usedPreviousIds.has(matched.investigation_id)) matched = null;
-    let matchedBy: "id" | "linkage" | null = matched ? "id" : null;
+    let matchedBy: "id" | "linkage" | "regime_route" | null = matched ? "id" : null;
 
     if (!matched) {
       const key = investigationLinkageKey(item);
@@ -593,6 +638,20 @@ function investigationJourney(
     }
 
     if (!matched) {
+      const routeKey = investigationPrimaryRouteKey(item);
+      const candidates = routeKey ? previousByPrimaryRoute.get(routeKey) ?? [] : [];
+      if (
+        routeKey
+        && currentPrimaryRouteCounts.get(routeKey) === 1
+        && candidates.length === 1
+        && !usedPreviousIds.has(candidates[0].investigation_id)
+      ) {
+        matched = candidates[0];
+        matchedBy = "regime_route";
+      }
+    }
+
+    if (!matched) {
       result.push({
         currentId: item.investigation_id,
         previousId: null,
@@ -604,6 +663,7 @@ function investigationJourney(
         currentStatus: item.status,
         previousExpectedReaction: null,
         currentExpectedReaction: item.expected_reaction,
+        expectationChanged: null,
         question: item.question,
       });
       continue;
@@ -621,6 +681,7 @@ function investigationJourney(
       currentStatus: item.status,
       previousExpectedReaction: matched.expected_reaction,
       currentExpectedReaction: item.expected_reaction,
+      expectationChanged: expectationChanged(matched, item),
       question: item.question,
     });
   }
@@ -638,6 +699,7 @@ function investigationJourney(
       currentStatus: null,
       previousExpectedReaction: item.expected_reaction,
       currentExpectedReaction: null,
+      expectationChanged: null,
       question: item.question,
     });
   }
@@ -838,6 +900,7 @@ export function buildDossierV2Presentation(
           currentStatus: item.status,
           previousExpectedReaction: null,
           currentExpectedReaction: item.expected_reaction,
+          expectationChanged: null,
           question: item.question,
         },
       )),
