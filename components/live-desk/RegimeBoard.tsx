@@ -35,7 +35,8 @@ export default function RegimeBoard({ regimes }: { regimes: ProjectedRegime[] })
                     data-accent={subgroup.accent}
                     href={`/regimes/${regime.slug}?subgroup=${subgroup.key}`}
                   >
-                    {subgroup.label} <b>{subgroup.stories.length}</b>
+                    {subgroup.label} <b>{subgroup.durableStories.length}</b>
+                    {subgroup.contextStories.length ? <small> +{subgroup.contextStories.length} context</small> : null}
                   </Link>
                 ))}
               </div>
@@ -54,7 +55,7 @@ export default function RegimeBoard({ regimes }: { regimes: ProjectedRegime[] })
               </div>
             </div>
             <footer className={styles.cardFooter}>
-              <span>{regime.stories.length} active mapped Stor{regime.stories.length === 1 ? "y" : "ies"}</span>
+              <span>{regime.durableStories.length} durable · {regime.contextStories.length} context/coverage</span>
               <span>{regime.asOf ? `Updated ${new Date(regime.asOf).toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "No current timestamp"}</span>
             </footer>
           </article>
