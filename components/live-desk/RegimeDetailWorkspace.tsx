@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import type { DossierPresentationInvestigation } from "@/lib/dossier-v2/presentation-adapter";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
@@ -28,12 +29,14 @@ export default function RegimeDetailWorkspace({
   initialView = "understand",
   explanation,
   liveReasoning,
+  investigations,
 }: {
   regime: ProjectedRegime;
   initialSubgroup?: string | null;
   initialView?: "understand" | "live";
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
+  investigations: DossierPresentationInvestigation[];
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
     ? initialSubgroup!
@@ -54,6 +57,11 @@ export default function RegimeDetailWorkspace({
       return reasoning ? [{ story, reasoning }] : [];
     })
     : [];
+  const subgroupInvestigations = useMemo(() => {
+    if (!subgroup) return [];
+    const storyIds = new Set(subgroup.durableStories.map((story) => story.id));
+    return investigations.filter((item) => item.storyIds.some((storyId) => storyIds.has(storyId)));
+  }, [investigations, subgroup]);
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
@@ -288,6 +296,43 @@ export default function RegimeDetailWorkspace({
                       </div>
                     ) : (
                       <div className={styles.empty}>No deterministic System 1 sensor is wired for this subgroup yet. The state below is Story-led; it is not being presented as a measured score.</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className={styles.kicker}>EXPECTED → ACTUAL / DIVERGENCE LAB</span>
+                    {subgroupInvestigations.length ? (
+                      <div className={styles.divergenceList}>
+                        {subgroupInvestigations.map((item) => (
+                          <article className={styles.divergenceCard} data-divergence={item.divergence.toLowerCase()} key={item.id}>
+                            <div className={styles.divergenceMeta}>
+                              <span>{item.status}</span>
+                              <strong>{item.divergence} DIVERGENCE</strong>
+                            </div>
+                            <h4>{item.question}</h4>
+                            <div className={styles.reactionPair}>
+                              <div>
+                                <small>EXPECTED / BEFORE TAPE</small>
+                                <p>{item.expectedReaction || "No canonical pre-event expectation is available."}</p>
+                              </div>
+                              <div>
+                                <small>OBSERVED / ACTUAL TAPE</small>
+                                <p>{item.observedReaction || "No comparable post-trigger reaction is available yet."}</p>
+                              </div>
+                            </div>
+                            <p className={styles.divergenceExplanation}><strong>Current explanation:</strong> {item.currentExplanation}</p>
+                            {item.competingExplanations.length ? (
+                              <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
+                            ) : null}
+                            <div className={styles.divergenceNext}>
+                              <span><strong>Research next:</strong> {item.researchNext}</span>
+                              <span><strong>Invalidate:</strong> {item.invalidationCondition}</span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.empty}>No canonical expected-vs-actual investigation is linked to the durable Stories in this subgroup. LIVE will not manufacture a divergence from missing or non-comparable tape.</div>
                     )}
                   </div>
 
