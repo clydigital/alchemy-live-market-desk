@@ -56,6 +56,16 @@ test("intraday trigger selector admits exact System 1 catalysts and rejects date
       provenance: [],
     },
     {
+      evidence_id: "ev:energy-only",
+      claim_or_fact: "A Strait of Hormuz shipping disruption is creating oil supply disruption risk.",
+      category: "ENERGY",
+      source_type: "NEWS_MARKET_CONTEXT",
+      available_at: "2026-09-28T15:00:05Z",
+      occurrence_time: "2026-09-28T15:00:00Z",
+      metrics: {},
+      provenance: [],
+    },
+    {
       evidence_id: "market-monitor:smh:2026-09-28",
       claim_or_fact: "SMH moved on the day.",
       category: "MARKET",
