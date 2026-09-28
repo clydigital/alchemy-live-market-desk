@@ -210,7 +210,7 @@ export interface DossierV2InputPacket {
     previous_dossier_id: string | null;
     as_of: string | null;
     prior_claims: PriorAnalyticalClaim[];
-    prior_investigations: PriorInvestigationSnapshot[];
+    prior_investigations?: PriorInvestigationSnapshot[];
     thesis_ledger: ThesisLedger | null;
   };
 
@@ -1653,7 +1653,7 @@ export function assembleDossierV2InputPacket(
         for (const pc of packetWithoutId.prior_analytical_state.prior_claims) {
           pc.claim_text = truncateString(pc.claim_text, maxTextLen);
         }
-        for (const inv of packetWithoutId.prior_analytical_state.prior_investigations) {
+        for (const inv of packetWithoutId.prior_analytical_state.prior_investigations ?? []) {
           inv.question = truncateString(inv.question, maxTextLen);
           inv.current_explanation = truncateString(inv.current_explanation, maxTextLen);
           inv.research_next = truncateString(inv.research_next, maxTextLen);
