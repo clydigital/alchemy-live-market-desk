@@ -5,6 +5,11 @@ import type { NewsThread, PublicStatement, Story } from "./data.ts";
 import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-reader.ts";
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import {
+  detectSystem1TelemetryStateChanges,
+  selectSystem2ActivationTargets,
+  type System2StoryActivationTarget,
+} from "./regime-system2-activation.ts";
+import {
   buildRegimeProjection,
   REGIME_DEFINITIONS,
   type ProjectedRegime,
@@ -67,6 +72,16 @@ type PersistProjectionRpcRow = {
   version_id: string;
   version_number: number;
   created: boolean;
+};
+
+type CurrentRegimeProjectionRow = {
+  regime_id: string;
+  projection_run_id: string;
+  snapshot: unknown;
+};
+
+type PendingSystem2Activation = System2StoryActivationTarget & {
+  regimeId: string;
 };
 
 type ProjectionInput = {
@@ -318,6 +333,101 @@ async function loadIdentities(client: SupabaseClient) {
   };
 }
 
+async function loadCurrentRegimeSnapshots(client: SupabaseClient) {
+  const { data, error } = await client
+    .from("market_regime_current")
+    .select("regime_id,projection_run_id,snapshot")
+    .eq("projection_mode", "shadow");
+
+  if (error) {
+    throw new Error(`Could not load current Regime snapshots for System 1 activation comparison: ${error.message}`);
+  }
+  return (data || []) as CurrentRegimeProjectionRow[];
+}
+
+function mergeSystem2ActivationTargets(targets: PendingSystem2Activation[]) {
+  const merged = new Map<string, PendingSystem2Activation>();
+  for (const target of targets) {
+    const existing = merged.get(target.storyId);
+    if (!existing) {
+      merged.set(target.storyId, { ...target, changes: [...target.changes] });
+      continue;
+    }
+    existing.priority = Math.max(existing.priority, target.priority);
+    existing.changes = [...new Map([...existing.changes, ...target.changes].map((item) => [
+      `${item.regimeSlug}:${item.subgroupKey}:${item.telemetryKey}:${item.source}`,
+      item,
+    ])).values()];
+    existing.reason = [
+      "system1_threshold_crossing",
+      ...existing.changes.map((item) =>
+        `${item.subgroupLabel} / ${item.telemetryLabel}: ${item.fromState} -> ${item.toState} [${item.source}]`),
+    ].join(" | ");
+  }
+  return [...merged.values()]
+    .sort((left, right) => right.priority - left.priority || left.storyId.localeCompare(right.storyId))
+    .slice(0, 4);
+}
+
+async function enqueueSystem2ActivationTargets(
+  client: SupabaseClient,
+  targets: PendingSystem2Activation[],
+) {
+  const merged = mergeSystem2ActivationTargets(targets);
+  if (!merged.length) return { enqueued: 0, skipped: 0, warning: null as string | null };
+
+  const storyIds = merged.map((item) => item.storyId);
+  const { data: existing, error: existingError } = await client
+    .from("intelligence_reevaluation_queue")
+    .select("target_id")
+    .eq("target_kind", "story")
+    .in("target_id", storyIds)
+    .in("status", ["pending", "processing", "retryable"]);
+
+  if (existingError) {
+    return {
+      enqueued: 0,
+      skipped: 0,
+      warning: `System 2 activation queue lookup failed: ${existingError.message}`,
+    };
+  }
+
+  const alreadyQueued = new Set((existing || []).map((item) => item.target_id));
+  const rows = merged
+    .filter((item) => !alreadyQueued.has(item.storyId))
+    .map((item) => ({
+      target_kind: "story",
+      target_id: item.storyId,
+      requested_by_evidence_id: null,
+      reason: item.reason,
+      priority: item.priority,
+      status: "pending",
+      available_at: new Date().toISOString(),
+    }));
+
+  if (!rows.length) {
+    return { enqueued: 0, skipped: merged.length, warning: null as string | null };
+  }
+
+  const { error: insertError } = await client
+    .from("intelligence_reevaluation_queue")
+    .insert(rows);
+
+  if (insertError) {
+    return {
+      enqueued: 0,
+      skipped: alreadyQueued.size,
+      warning: `System 2 activation queue insert failed: ${insertError.message}`,
+    };
+  }
+
+  return {
+    enqueued: rows.length,
+    skipped: merged.length - rows.length,
+    warning: null as string | null,
+  };
+}
+
 async function beginProjectionRun(input: {
   client: SupabaseClient;
   runKey: string;
@@ -452,6 +562,12 @@ export async function persistRegimeShadowProjection(input: {
     });
 
     const identities = await loadIdentities(client);
+    const priorCurrent = input.trigger === "dossier"
+      ? await loadCurrentRegimeSnapshots(client)
+      : [];
+    const priorSnapshotByRegimeId = new Map(priorCurrent.map((item) => [item.regime_id, item.snapshot]));
+    const pendingSystem2Activations: PendingSystem2Activation[] = [];
+
     const expectedSlugs = new Set(REGIME_DEFINITIONS.map((item) => item.slug));
     const missingRegimes = [...expectedSlugs].filter((slug) => !identities.regimesBySlug.has(slug));
     if (missingRegimes.length) {
@@ -476,6 +592,16 @@ export async function persistRegimeShadowProjection(input: {
         if (!identities.subgroupByKey.has(`${identity.id}:${subgroup.key}`)) {
           warnings.push(`${regime.slug}: missing subgroup identity ${subgroup.key}; snapshot retained but taxonomy link is incomplete.`);
         }
+      }
+
+      const priorSnapshot = priorSnapshotByRegimeId.get(identity.id);
+      if (input.trigger === "dossier" && priorSnapshot) {
+        const telemetryChanges = detectSystem1TelemetryStateChanges(priorSnapshot, regime);
+        const targets = selectSystem2ActivationTargets(regime, telemetryChanges);
+        pendingSystem2Activations.push(...targets.map((target) => ({
+          ...target,
+          regimeId: identity.id,
+        })));
       }
 
       const snapshot = projectionSnapshot(regime);
@@ -506,6 +632,31 @@ export async function persistRegimeShadowProjection(input: {
       const persisted = ((data || []) as PersistProjectionRpcRow[])[0];
       if (!persisted?.version_id) throw new Error(`${regime.slug} projection persistence returned no version pointer.`);
       versionIds.push(persisted.version_id);
+    }
+
+    if (input.trigger === "dossier" && pendingSystem2Activations.length) {
+      const changedRegimeIds = [...new Set(pendingSystem2Activations.map((item) => item.regimeId))];
+      const { data: currentRows, error: currentError } = await client
+        .from("market_regime_current")
+        .select("regime_id")
+        .eq("projection_mode", "shadow")
+        .eq("projection_run_id", begun.row.id)
+        .in("regime_id", changedRegimeIds);
+
+      if (currentError) {
+        warnings.push(`System 2 activation was not queued because current Regime ownership could not be verified: ${currentError.message}`);
+      } else {
+        const currentRegimeIds = new Set((currentRows || []).map((item) => item.regime_id));
+        const eligibleActivations = pendingSystem2Activations.filter((item) => currentRegimeIds.has(item.regimeId));
+        const activation = await enqueueSystem2ActivationTargets(client, eligibleActivations);
+        if (activation.warning) warnings.push(activation.warning);
+        if (activation.enqueued) {
+          warnings.push(`${activation.enqueued} durable Story reevaluation target(s) queued after a same-contract System 1 telemetry state transition; queue context is not canonical evidence.`);
+        }
+        if (activation.skipped) {
+          warnings.push(`${activation.skipped} System 2 activation target(s) were already pending and were not duplicated.`);
+        }
+      }
     }
 
     await completeProjectionRun(client, begun.row.id, versionIds, warnings);
