@@ -35,8 +35,8 @@ export default function RateRegimeOverview({
 
   return (
     <Panel
-      title="Rate Regime"
-      description="Compact System 1 view of policy, front-end pricing, real yields, breakevens and the long end. Open the full Cost-of-Capital Regime for Treasury/Fiscal, Japan, credit and housing Stories."
+      title="US Rate Regime"
+      description="Primary US rates view: Fed policy, front-end pricing, real yields, breakevens, Treasury supply and the long end. This is the high-frequency rates sensor inside the broader Cost-of-Capital Regime."
       action={<Badge tone={toneFor(regime.state)}>{regime.state}</Badge>}
     >
       <div className={styles.wrap}>
@@ -102,8 +102,8 @@ export default function RateRegimeOverview({
         </div>
 
         <footer className={styles.footer}>
-          <span>This sensor is not the full Cost-of-Capital Regime.</span>
-          <Link href="/regimes/global-cost-of-capital">Open full Rates / Cost-of-Capital Regime →</Link>
+          <span>US Rate Regime is the high-frequency rates layer, not the whole global Cost-of-Capital Regime.</span>
+          <Link href="/regimes/global-cost-of-capital">Open full Cost-of-Capital Regime →</Link>
         </footer>
       </div>
     </Panel>
