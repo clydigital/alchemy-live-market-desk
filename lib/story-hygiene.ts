@@ -49,7 +49,10 @@ export function catalystTimestamp(label: string | null | undefined) {
 }
 
 export function canonicalNextTestFromVersion(version: StoryThesisVersion | null | undefined): CanonicalNextTestLike | null {
-  const reasoning = version?.snapshot?.canonicalStoryReasoning;
+  const snapshot = version?.snapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const record = snapshot as Record<string, unknown>;
+  const reasoning = record.reasoning ?? record.canonicalStoryReasoning;
   if (!reasoning || typeof reasoning !== "object" || Array.isArray(reasoning)) return null;
   const nextTest = (reasoning as Record<string, unknown>).nextTest;
   return nextTest && typeof nextTest === "object" && !Array.isArray(nextTest)
