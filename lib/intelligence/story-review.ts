@@ -260,7 +260,7 @@ export function selectStoryReviewTargets(input: {
   if (maxTargets > 0) {
     const overduePublished = sorted.find((target) =>
       ["publish", "published", "confirmed"].includes(target.story.status.toLowerCase())
-      && target.reasons.includes("catalyst_due"),
+      && (target.reasons.includes("catalyst_due") || target.reasons.includes("catalyst_expired")),
     );
     if (overduePublished && !selected.some((target) => target.story.id === overduePublished.story.id)) {
       selected = [...selected.slice(0, Math.max(0, maxTargets - 1)), overduePublished];
