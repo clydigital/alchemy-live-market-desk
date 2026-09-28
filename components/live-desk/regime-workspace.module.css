@@ -345,6 +345,46 @@
   color: #a9a2b6;
 }
 
+.reactionAudit {
+  display: grid;
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid rgba(181,151,255,.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,.012);
+}
+
+.reactionAudit small {
+  color: #8f899f;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .06em;
+}
+
+.reactionAudit > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reactionAudit span {
+  padding: 4px 7px;
+  border: 1px solid rgba(181,151,255,.12);
+  border-radius: 999px;
+  color: #aaa4b8;
+  font-size: 9px;
+}
+
+.reactionAudit span[data-relation="aligned"] {
+  border-color: rgba(79,209,133,.24);
+  color: #8ce4b1;
+}
+
+.reactionAudit span[data-relation="divergent"] {
+  border-color: rgba(255,84,117,.26);
+  color: #ff9aae;
+}
+
 .divergenceNext {
   display: grid;
   gap: 6px;

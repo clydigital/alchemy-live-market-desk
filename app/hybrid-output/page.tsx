@@ -229,6 +229,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <p><strong>Expected reaction:</strong> {item.expectedReaction ?? "No canonical pre-event expectation is available."}</p>
                   <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
                   <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
+                  {item.reactionChecks.length ? (
+                    <p><strong>System 1 audit:</strong> {item.reactionChecks.map((check) =>
+                      `${check.instrument} ${check.relation.toLowerCase()} (${check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
+                    ).join(" · ")}</p>
+                  ) : null}
                   <p>Current explanation: {item.currentExplanation}</p>
                   <p>Research next: {item.researchNext}</p>
                   <p>Confirm: {item.confirmationCondition}</p>

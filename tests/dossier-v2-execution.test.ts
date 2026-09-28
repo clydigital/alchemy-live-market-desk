@@ -336,6 +336,9 @@ test("Task 8 bridge executes Research Brain and persists one immutable MarketDos
   assert.equal(typeof rateRegime.score, "number");
   assert.ok(Array.isArray(rateRegime.signals));
 
+  assert.ok(Array.isArray(result.dossier.payload.system1_reaction_assessments));
+  assert.ok(Array.isArray(result.dossier.payload.system1_divergence_candidates));
+
   const analyticalOutput = result.dossier.payload
     .analytical_output as ResearchBrainOutputV1;
   assert.equal(analyticalOutput.packet_id, packet.packet_id);

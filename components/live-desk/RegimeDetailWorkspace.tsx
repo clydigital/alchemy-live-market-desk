@@ -323,6 +323,18 @@ export default function RegimeDetailWorkspace({
                                 <p>{item.observedReaction || "No comparable post-trigger reaction is available yet."}</p>
                               </div>
                             </div>
+                            {item.reactionChecks.length ? (
+                              <div className={styles.reactionAudit}>
+                                <small>SYSTEM 1 REACTION AUDIT</small>
+                                <div>
+                                  {item.reactionChecks.map((check) => (
+                                    <span data-relation={check.relation.toLowerCase()} key={check.checkId}>
+                                      {check.instrument} · {check.relation} · {check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                             <p className={styles.divergenceExplanation}><strong>Current explanation:</strong> {item.currentExplanation}</p>
                             {item.competingExplanations.length ? (
                               <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>

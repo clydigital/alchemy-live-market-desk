@@ -4,6 +4,7 @@ import type {
   PolicyLiquidityInteraction,
   System1DollarLiquiditySnapshot,
 } from "./system1-dollar-liquidity.ts";
+import type { System1ReactionAssessment } from "./system1-divergence.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -99,6 +100,18 @@ export type DossierPresentationStory = {
   chartIds: string[];
 };
 
+export type DossierPresentationReactionCheck = {
+  checkId: string;
+  instrument: string;
+  expectedDirection: "UP" | "DOWN";
+  observedDirection: "UP" | "DOWN";
+  observedChangePct: number;
+  relation: "ALIGNED" | "DIVERGENT";
+  timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+  triggerEvidenceRef: string;
+  marketEvidenceRef: string;
+};
+
 export type DossierPresentationInvestigation = {
   id: string;
   status: Investigation["status"];
@@ -117,6 +130,7 @@ export type DossierPresentationInvestigation = {
   chartIds: string[];
   storyIds: string[];
   thesisIds: string[];
+  reactionChecks: DossierPresentationReactionCheck[];
 };
 
 export type DossierPresentationChart = ChartTask & {
@@ -320,6 +334,27 @@ function policyLiquidityInteraction(dossier: MarketDossierV2): PolicyLiquidityIn
   return value as unknown as PolicyLiquidityInteraction;
 }
 
+function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAssessment[] {
+  const value = dossier.payload.system1_reaction_assessments;
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (
+      !isObject(item)
+      || typeof item.check_id !== "string"
+      || typeof item.trigger_evidence_id !== "string"
+      || typeof item.market_evidence_id !== "string"
+      || typeof item.instrument !== "string"
+      || (item.expected_direction !== "UP" && item.expected_direction !== "DOWN")
+      || (item.observed_direction !== "UP" && item.observed_direction !== "DOWN")
+      || typeof item.observed_change_pct !== "number"
+      || (item.relation !== "ALIGNED" && item.relation !== "DIVERGENT")
+      || (item.timing_precision !== "INTRADAY" && item.timing_precision !== "DAILY_POST_EVENT")
+    ) return [];
+    return [item as unknown as System1ReactionAssessment];
+  });
+}
+
 function researchGaps(dossier: MarketDossierV2) {
   return dossier.research_gaps.flatMap((gap, index) => {
     if (!isObject(gap)) return [];
@@ -355,7 +390,29 @@ function presentationStory(story: MajorStory): DossierPresentationStory {
   };
 }
 
-function presentationInvestigation(item: Investigation): DossierPresentationInvestigation {
+function presentationInvestigation(
+  item: Investigation,
+  reactionAssessments: System1ReactionAssessment[],
+): DossierPresentationInvestigation {
+  const observedIds = new Set(item.observed_evidence);
+  const reactionChecks: DossierPresentationReactionCheck[] = reactionAssessments
+    .filter((assessment) =>
+      observedIds.has(assessment.trigger_evidence_id)
+      && observedIds.has(assessment.market_evidence_id)
+    )
+    .slice(0, 4)
+    .map((assessment) => ({
+      checkId: assessment.check_id,
+      instrument: assessment.instrument,
+      expectedDirection: assessment.expected_direction,
+      observedDirection: assessment.observed_direction,
+      observedChangePct: assessment.observed_change_pct,
+      relation: assessment.relation,
+      timingPrecision: assessment.timing_precision,
+      triggerEvidenceRef: assessment.trigger_evidence_id,
+      marketEvidenceRef: assessment.market_evidence_id,
+    }));
+
   return {
     id: item.investigation_id,
     status: item.status,
@@ -374,6 +431,7 @@ function presentationInvestigation(item: Investigation): DossierPresentationInve
     chartIds: [...item.chart_task_links],
     storyIds: [...item.linked_story_ids],
     thesisIds: [...item.linked_thesis_ids],
+    reactionChecks,
   };
 }
 
@@ -511,6 +569,7 @@ export function buildDossierV2Presentation(
   const degraded = Boolean(output.diagnostics.degraded);
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
+  const reactionAssessments = system1ReactionAssessments(dossier);
 
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
@@ -551,7 +610,7 @@ export function buildDossierV2Presentation(
 
     watchNext: output.investigations
       .filter((item) => item.status !== "resolved" && item.status !== "parked")
-      .map(presentationInvestigation),
+      .map((item) => presentationInvestigation(item, reactionAssessments)),
 
     researchNow: output.research_now.map((item) => ({
       ...item,

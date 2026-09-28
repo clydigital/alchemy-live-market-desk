@@ -257,17 +257,43 @@ test("presentation adapter preserves the canonical expected-vs-observed divergen
     expected_reaction: "Energy supply stress should lift WTI and refined products.",
     observed_reaction: "WTI fell after the trigger while the investigation remained open.",
     divergence: "MATERIAL",
+    observed_evidence: ["ev-energy-trigger", "ev-wti"],
   };
 
-  const result = buildDossierV2Presentation(
-    dossier("afd9bb75-ffdc-4f51-8f5c-28131d3d2495", currentOutput),
-  );
+  const current = dossier("afd9bb75-ffdc-4f51-8f5c-28131d3d2495", currentOutput);
+  current.payload.system1_reaction_assessments = [{
+    check_id: "system1:energy_supply_stress:wti",
+    rule_id: "ENERGY_SUPPLY_STRESS",
+    trigger_evidence_id: "ev-energy-trigger",
+    market_evidence_id: "ev-wti",
+    instrument: "WTI",
+    expected_direction: "UP",
+    observed_direction: "DOWN",
+    observed_change_pct: -1.4,
+    timing_precision: "INTRADAY",
+    relation: "DIVERGENT",
+    severity: "HIGH",
+  }];
+
+  const result = buildDossierV2Presentation(current);
 
   assert.equal(result.watchNext[0].expectedReaction, "Energy supply stress should lift WTI and refined products.");
   assert.equal(result.watchNext[0].observedReaction, "WTI fell after the trigger while the investigation remained open.");
   assert.equal(result.watchNext[0].divergence, "MATERIAL");
   assert.deepEqual(result.watchNext[0].storyIds, ["story-1"]);
   assert.deepEqual(result.watchNext[0].thesisIds, ["thesis-1"]);
+  assert.equal(result.watchNext[0].reactionChecks.length, 1);
+  assert.deepEqual(result.watchNext[0].reactionChecks[0], {
+    checkId: "system1:energy_supply_stress:wti",
+    instrument: "WTI",
+    expectedDirection: "UP",
+    observedDirection: "DOWN",
+    observedChangePct: -1.4,
+    relation: "DIVERGENT",
+    timingPrecision: "INTRADAY",
+    triggerEvidenceRef: "ev-energy-trigger",
+    marketEvidenceRef: "ev-wti",
+  });
 });
 
 test("presentation adapter computes thesis changes against the previous dossier only", () => {
