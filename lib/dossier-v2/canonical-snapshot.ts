@@ -827,6 +827,8 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       rank: isCreditOas ? (row.id === "hy-oas" ? 18 : 19) : undefined,
       metrics: {
         symbol: row.symbol,
+        observed_instrument: row.symbol,
+        is_proxy: /proxy/i.test(row.label),
         last: row.last,
         ...(isCreditOas ? {
           spread_level_pct: row.last,
