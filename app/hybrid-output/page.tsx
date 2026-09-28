@@ -307,6 +307,40 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           </Panel>
         </div>
 
+        {selection.calibrationLineages.length ? (
+          <Panel
+            title="Repeated calibration cases"
+            description="Strict continuity only: exact investigation identity or unique Story/Thesis linkage."
+          >
+            <div className={styles.recordList}>
+              {selection.calibrationLineages.slice(0, 4).map((lineage) => (
+                <article className={styles.record} key={lineage.lineageId}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <h3>{lineage.latestQuestion}</h3>
+                      <div className={styles.meta}>
+                        {lineage.measuredVintages} measured vintages · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
+                      </div>
+                    </div>
+                    <Badge tone={lineage.hasDivergence ? "risk" : lineage.hasMixed ? "warn" : "ready"}>
+                      {lineage.hasDivergence ? "DIVERGENCE SEEN" : lineage.hasMixed ? "MIXED SEEN" : "ALIGNED HISTORY"}
+                    </Badge>
+                  </div>
+                  <p>
+                    <strong>Sequence:</strong>{" "}
+                    {lineage.cases.map((item) => item.outcome).join(" → ")}
+                  </p>
+                  <p><strong>Latest hypothesis:</strong> {lineage.latestPostMortemHypothesis}</p>
+                  <p><strong>Next discriminator:</strong> {lineage.latestResearchNext}</p>
+                  {lineage.expectationRewriteCount ? (
+                    <p><strong>Expectation rewrites flagged:</strong> {lineage.expectationRewriteCount}</p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </Panel>
+        ) : null}
+
         {selection.calibrationHistory.length ? (
           <Panel
             title="Reasoning history"
