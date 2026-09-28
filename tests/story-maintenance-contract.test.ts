@@ -115,10 +115,11 @@ test("Story review freezes deterministic catalyst candidates for server validati
 
   assert.equal(targets.length, 1);
   assert.deepEqual(targets[0].reviewContext?.catalystCandidates, [
-    { label: "2026-08-23 Earnings call", catalystRef: null },
     { label: "2026-08-28 PCE release", catalystRef: null },
   ]);
   assert.deepEqual(targets[0].reviewContext?.dueCatalysts, ["2026-08-23 Earnings call"]);
+  assert.deepEqual(targets[0].reviewContext?.expiredCatalysts, ["2026-08-23 Earnings call"]);
+  assert.equal(targets[0].reviewContext?.catalystRecalibrationRequired, true);
 });
 
 test("archived Stories require an explicit queue and creator-only wake remains non-material", () => {
