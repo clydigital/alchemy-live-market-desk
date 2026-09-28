@@ -297,6 +297,7 @@
 .statusLine span[data-maturity="early"] { color: #ffbd72; }
 .statusLine span[data-maturity="seed"] { color: #e7c66a; }
 .statusLine span[data-maturity="episode"] { color: #8f899c; }
+.statusLine span[data-maturity="stale"] { color: #ff8fa5; }
 
 .expiredCatalyst {
   margin-top: 5px;
