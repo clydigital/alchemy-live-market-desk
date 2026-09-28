@@ -17,6 +17,7 @@ export type DossierPresentationSelectionStatus =
 
 export type DossierCalibrationHistoryCase = {
   dossierId: string;
+  previousDossierId: string | null;
   asOf: string;
   investigationId: string;
   question: string;
@@ -31,6 +32,7 @@ export type DossierCalibrationHistoryCase = {
   requiresReview: boolean;
   journeyTransition: DossierPresentationInvestigation["journey"]["transition"];
   matchedBy: DossierPresentationInvestigation["journey"]["matchedBy"];
+  previousInvestigationId: string | null;
   priorExpectedReaction: string | null;
   currentExpectedReaction: string | null;
   observedReaction: string | null;
@@ -47,6 +49,20 @@ export type DossierCalibrationHistoryEntry = {
   cases: DossierCalibrationHistoryCase[];
 };
 
+export type DossierCalibrationCaseLineage = {
+  lineageId: string;
+  measuredVintages: number;
+  firstAsOf: string;
+  latestAsOf: string;
+  latestQuestion: string;
+  hasDivergence: boolean;
+  hasMixed: boolean;
+  expectationRewriteCount: number;
+  latestPostMortemHypothesis: string;
+  latestResearchNext: string;
+  cases: DossierCalibrationHistoryCase[];
+};
+
 export type DossierPresentationSelection = {
   status: DossierPresentationSelectionStatus;
   presentation: DossierPresentationV1 | null;
@@ -56,6 +72,7 @@ export type DossierPresentationSelection = {
   selectedAsOf: string | null;
   usingFallback: boolean;
   calibrationHistory: DossierCalibrationHistoryEntry[];
+  calibrationLineages: DossierCalibrationCaseLineage[];
   notice: {
     tone: "ready" | "warn" | "error";
     label: string;
@@ -125,6 +142,7 @@ function calibrationHistory(
       )
       .map((item): DossierCalibrationHistoryCase => ({
         dossierId: dossier.id,
+        previousDossierId: dossier.previous_dossier_id,
         asOf: dossier.as_of,
         investigationId: item.id,
         question: item.question,
@@ -139,6 +157,7 @@ function calibrationHistory(
         requiresReview: item.reactionCalibration.requiresReview,
         journeyTransition: item.journey.transition,
         matchedBy: item.journey.matchedBy,
+        previousInvestigationId: item.journey.previousId,
         priorExpectedReaction: item.journey.previousExpectedReaction,
         currentExpectedReaction: item.expectedReaction,
         observedReaction: item.observedReaction,
@@ -159,6 +178,101 @@ function calibrationHistory(
   }).slice(0, 12);
 }
 
+function calibrationLineages(
+  built: CandidatePresentation[],
+  history: DossierCalibrationHistoryEntry[],
+): DossierCalibrationCaseLineage[] {
+  const parent = new Map<string, string>();
+
+  const nodeKey = (dossierId: string, investigationId: string) =>
+    `${dossierId}:${investigationId}`;
+
+  for (const { dossier, presentation } of built) {
+    for (const item of presentation.investigationAudit) {
+      const key = nodeKey(dossier.id, item.id);
+      parent.set(key, key);
+    }
+  }
+
+  const find = (key: string): string => {
+    const current = parent.get(key);
+    if (!current || current === key) return current ?? key;
+    const root = find(current);
+    parent.set(key, root);
+    return root;
+  };
+
+  const union = (left: string, right: string) => {
+    if (!parent.has(left) || !parent.has(right)) return;
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot === rightRoot) return;
+    const [root, child] = leftRoot.localeCompare(rightRoot) <= 0
+      ? [leftRoot, rightRoot]
+      : [rightRoot, leftRoot];
+    parent.set(child, root);
+  };
+
+  for (const { dossier, presentation } of built) {
+    if (!dossier.previous_dossier_id) continue;
+    for (const item of presentation.investigationAudit) {
+      if (
+        !item.journey.previousId
+        || (item.journey.matchedBy !== "id" && item.journey.matchedBy !== "linkage")
+      ) continue;
+
+      union(
+        nodeKey(dossier.id, item.id),
+        nodeKey(dossier.previous_dossier_id, item.journey.previousId),
+      );
+    }
+  }
+
+  const measuredCases = history.flatMap((entry) => entry.cases);
+  const groups = new Map<string, DossierCalibrationHistoryCase[]>();
+
+  for (const item of measuredCases) {
+    const key = nodeKey(item.dossierId, item.investigationId);
+    const root = parent.has(key) ? find(key) : key;
+    const group = groups.get(root) ?? [];
+    group.push(item);
+    groups.set(root, group);
+  }
+
+  return [...groups.values()]
+    .filter((cases) => cases.length >= 2)
+    .map((cases) => {
+      const ordered = [...cases].sort(
+        (left, right) =>
+          Date.parse(left.asOf) - Date.parse(right.asOf)
+          || left.dossierId.localeCompare(right.dossierId)
+          || left.investigationId.localeCompare(right.investigationId),
+      );
+      const first = ordered[0];
+      const latest = ordered.at(-1)!;
+
+      return {
+        lineageId: nodeKey(first.dossierId, first.investigationId),
+        measuredVintages: ordered.length,
+        firstAsOf: first.asOf,
+        latestAsOf: latest.asOf,
+        latestQuestion: latest.question,
+        hasDivergence: ordered.some((item) => item.outcome === "DIVERGENT"),
+        hasMixed: ordered.some((item) => item.outcome === "MIXED"),
+        expectationRewriteCount: ordered.filter((item) => item.expectationChanged === true).length,
+        latestPostMortemHypothesis: latest.postMortemHypothesis,
+        latestResearchNext: latest.researchNext,
+        cases: ordered,
+      } satisfies DossierCalibrationCaseLineage;
+    })
+    .sort(
+      (left, right) =>
+        Date.parse(right.latestAsOf) - Date.parse(left.latestAsOf)
+        || right.measuredVintages - left.measuredVintages
+        || left.lineageId.localeCompare(right.lineageId),
+    );
+}
+
 export function selectDossierV2Presentation(
   records: MarketDossierV2[],
 ): DossierPresentationSelection {
@@ -172,6 +286,7 @@ export function selectDossierV2Presentation(
       selectedAsOf: null,
       usingFallback: false,
       calibrationHistory: [],
+      calibrationLineages: [],
       notice: {
         tone: "error",
         label: "Dossier unavailable",
@@ -190,6 +305,7 @@ export function selectDossierV2Presentation(
   const latestCandidate = built.find((candidate) => candidate.dossier.id === latest.id) ?? null;
   const healthy = built.find((candidate) => presentationIsHealthy(candidate.presentation)) ?? null;
   const history = calibrationHistory(built);
+  const lineages = calibrationLineages(built, history);
 
   if (healthy?.dossier.id === latest.id) {
     return {
@@ -201,6 +317,7 @@ export function selectDossierV2Presentation(
       selectedAsOf: healthy.dossier.as_of,
       usingFallback: false,
       calibrationHistory: history,
+      calibrationLineages: lineages,
       notice: {
         tone: "ready",
         label: "Current Dossier",
@@ -222,6 +339,7 @@ export function selectDossierV2Presentation(
       selectedAsOf: healthy.dossier.as_of,
       usingFallback: true,
       calibrationHistory: history,
+      calibrationLineages: lineages,
       notice: {
         tone: "warn",
         label: "Using prior healthy Dossier",
@@ -240,6 +358,7 @@ export function selectDossierV2Presentation(
       selectedAsOf: latest.as_of,
       usingFallback: false,
       calibrationHistory: history,
+      calibrationLineages: lineages,
       notice: {
         tone: "warn",
         label: "Degraded Dossier",
@@ -257,6 +376,7 @@ export function selectDossierV2Presentation(
     selectedAsOf: null,
     usingFallback: false,
     calibrationHistory: history,
+    calibrationLineages: lineages,
     notice: {
       tone: "error",
       label: "Dossier unavailable",
