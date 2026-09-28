@@ -26,6 +26,19 @@ function investigation(
     storyIds: [],
     thesisIds: [],
     reactionChecks: [],
+    journey: {
+      currentId: "investigation:test",
+      previousId: null,
+      matchedBy: null,
+      transition: "BASELINE",
+      previousDivergence: null,
+      currentDivergence: "UNRESOLVED",
+      previousStatus: null,
+      currentStatus: "open",
+      previousExpectedReaction: null,
+      currentExpectedReaction: null,
+      question: "What is the market mechanism?",
+    },
     ...overrides,
   };
 }
