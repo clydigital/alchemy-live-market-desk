@@ -75,6 +75,7 @@ function compactResearchLeads(packet: DossierV2InputPacket) {
 function compactPriorState(packet: DossierV2InputPacket) {
   return {
     previous_dossier_id: packet.prior_analytical_state.previous_dossier_id,
+    source_dossier_id: packet.prior_analytical_state.source_dossier_id ?? packet.prior_analytical_state.previous_dossier_id,
     as_of: packet.prior_analytical_state.as_of,
     prior_claims: packet.prior_analytical_state.prior_claims.map((claim) => ({
       claim_id: claim.claim_id,
@@ -106,7 +107,7 @@ export function buildResearchBrainSystemInstructions(): string {
 EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 1. Current facts come ONLY from packet.observed_evidence and packet.rate_context.evidence. rate_context is a bounded protected OBSERVED subset for rates/policy continuity when cluster caps would otherwise omit those facts.
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
-3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. Prior investigations preserve what the desk asked, expected and believed at the previous Dossier vintage; never present their old observations as current tape.
+3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. prior_analytical_state.source_dossier_id identifies the analytical-memory source and may differ from previous_dossier_id when a degraded Dossier was skipped for reasoning continuity. Prior investigations preserve what the desk asked, expected and believed at that healthy analytical vintage; never present their old observations as current tape.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
