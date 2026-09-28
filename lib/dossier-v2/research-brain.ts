@@ -99,6 +99,48 @@ export function openAIResearchBrainEnabled(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim()) && process.env.OPENAI_INTELLIGENCE_ENABLED !== "false";
 }
 
+export function pruneInvalidStockRadarEvidenceReferences(
+  output: unknown,
+  packet: DossierV2InputPacket,
+): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+
+  const validEvidenceIds = new Set([
+    ...(Array.isArray(packet.observed_evidence)
+      ? packet.observed_evidence.map((item) => item.evidence_id)
+      : []),
+    ...(Array.isArray(packet.rate_context?.evidence)
+      ? packet.rate_context.evidence.map((item) => item.evidence_id)
+      : []),
+  ]);
+
+  const root = output as Record<string, unknown>;
+  if (!Array.isArray(root.stock_radar)) return output;
+
+  let prunedCount = 0;
+  for (const item of root.stock_radar) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const radar = item as Record<string, unknown>;
+    if (!Array.isArray(radar.evidence_references)) continue;
+
+    const next = radar.evidence_references.filter(
+      (ref): ref is string => typeof ref === "string" && validEvidenceIds.has(ref),
+    );
+    prunedCount += radar.evidence_references.length - next.length;
+    radar.evidence_references = next;
+  }
+
+  if (prunedCount > 0) {
+    console.info(JSON.stringify({
+      event: "research_brain_stock_radar_reference_prune",
+      packetId: packet.packet_id,
+      prunedCount,
+    }));
+  }
+
+  return output;
+}
+
 export function normalizeResearchBrainOutputReferences(
   output: unknown,
   system1Candidates: unknown[] = [],
@@ -571,10 +613,14 @@ export async function executeResearchBrain(
           boundedInput: recoveryPrompt.boundedInput,
           schema: jsonSchema,
         });
-        const normalizedRecovery = normalizeResearchBrainOutputReferences(
+        let normalizedRecovery = normalizeResearchBrainOutputReferences(
           recoveryRes.data,
           system1Candidates,
           system1ReactionAssessments,
+        );
+        normalizedRecovery = pruneInvalidStockRadarEvidenceReferences(
+          normalizedRecovery,
+          packet,
         );
         const recoveryVal = validateResearchBrainOutput(normalizedRecovery, packet);
         if (recoveryVal.isValid && recoveryVal.output) {
@@ -616,6 +662,7 @@ export async function executeResearchBrain(
     system1Candidates,
     system1ReactionAssessments,
   );
+  firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
@@ -640,10 +687,14 @@ export async function executeResearchBrain(
         schema: jsonSchema,
       });
 
-      const normalizedRepairData = normalizeResearchBrainOutputReferences(
+      let normalizedRepairData = normalizeResearchBrainOutputReferences(
         repairRes.data,
         system1Candidates,
         system1ReactionAssessments,
+      );
+      normalizedRepairData = pruneInvalidStockRadarEvidenceReferences(
+        normalizedRepairData,
+        packet,
       );
       const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
