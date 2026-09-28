@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 export default async function StoriesPage() {
   const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
   const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
-  const priorityStories = data.stories.filter((story) => /develop|publish/i.test(story.article_verdict || "")).length;
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
   const legacyEventCounts = new Map<string, number>();
   data.updates.forEach((update) => legacyEventCounts.set(update.story_id, (legacyEventCounts.get(update.story_id) || 0) + 1));
@@ -83,6 +82,9 @@ export default async function StoriesPage() {
     };
   });
 
+  const currentDrivers = registryStories.filter((story) => story.maturity === "durable").length;
+  const contextOnly = registryStories.length - currentDrivers;
+
   return (
     <LiveDeskShell
       activePath="/stories"
@@ -93,8 +95,8 @@ export default async function StoriesPage() {
       <div className={styles.grid}>
         <MetricGrid
           items={[
-            { value: data.stories.length, label: "Tracked Stories" },
-            { value: priorityStories, label: "Develop or publish" },
+            { value: currentDrivers, label: "Current Regime drivers" },
+            { value: contextOnly, label: "Context / needs work" },
             { value: recordLayer.available ? recordLayer.events.length : data.updates.length, label: "Dated Story events" },
             { value: data.evidence.length, label: "Evidence records" },
           ]}
@@ -110,7 +112,7 @@ export default async function StoriesPage() {
 
         <Panel
           title="Story registry"
-          description="Search by thesis, asset, catalyst or controlled market tag. Each Story opens a stable record with exact event, evidence and source links."
+          description="Current Regime-driving Stories are shown first by default. Switch Market role to inspect stale, seed, early or episode context without letting those records look like current market conclusions."
           action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned" : "Current records"}</Badge>}
         >
           {registryStories.length ? (
