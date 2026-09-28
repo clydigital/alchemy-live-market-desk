@@ -39,21 +39,23 @@ test("Twelve Data reactions compute 5m, 30m and 4h windows from exact UTC bars",
   const payload = {
     UUP: series("UUP", [
       ["2026-09-28 13:59:00", 30],
-      ["2026-09-28 14:05:00", 30.15],
-      ["2026-09-28 14:30:00", 30.3],
-      ["2026-09-28 18:00:00", 30.6],
+      ["2026-09-28 14:00:00", 99],
+      ["2026-09-28 14:04:00", 30.15],
+      ["2026-09-28 14:05:00", 99],
+      ["2026-09-28 14:29:00", 30.3],
+      ["2026-09-28 17:59:00", 30.6],
     ]),
     GLD: series("GLD", [
       ["2026-09-28 13:59:00", 400],
-      ["2026-09-28 14:05:00", 399],
-      ["2026-09-28 14:30:00", 398],
-      ["2026-09-28 18:00:00", 396],
+      ["2026-09-28 14:04:00", 399],
+      ["2026-09-28 14:29:00", 398],
+      ["2026-09-28 17:59:00", 396],
     ]),
     SMH: series("SMH", [
       ["2026-09-28 13:59:00", 350],
-      ["2026-09-28 14:05:00", 348],
-      ["2026-09-28 14:30:00", 346.5],
-      ["2026-09-28 18:00:00", 343],
+      ["2026-09-28 14:04:00", 348],
+      ["2026-09-28 14:29:00", 346.5],
+      ["2026-09-28 17:59:00", 343],
     ]),
   };
 
@@ -90,6 +92,9 @@ test("Twelve Data reactions compute 5m, 30m and 4h windows from exact UTC bars",
   assert.equal(dxy?.observedInstrument, "UUP");
   assert.equal(dxy?.isProxy, true);
   assert.deepEqual(dxy?.windows.map((item) => item.window), ["5m", "30m", "4h"]);
+  assert.equal(dxy?.windows.find((item) => item.window === "5m")?.baselineAt, "2026-09-28T14:00:00.000Z");
+  assert.equal(dxy?.windows.find((item) => item.window === "5m")?.observedAt, "2026-09-28T14:05:00.000Z");
+  assert.equal(dxy?.windows.find((item) => item.window === "5m")?.changePct, 0.5);
   assert.equal(dxy?.windows.find((item) => item.window === "30m")?.changePct, 1);
   assert.equal(gold?.windows.find((item) => item.window === "30m")?.changePct, -0.5);
   assert.equal(smh?.isProxy, false);
