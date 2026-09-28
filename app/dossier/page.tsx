@@ -253,6 +253,18 @@ export default async function DossierPage() {
                       <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                     </div>
                   </div>
+                  {item.reactionChecks.length ? (
+                    <div className={styles.reactionAudit}>
+                      <small>SYSTEM 1 REACTION AUDIT</small>
+                      <div>
+                        {item.reactionChecks.map((check) => (
+                          <span data-relation={check.relation.toLowerCase()} key={check.checkId}>
+                            {check.instrument} · {check.relation} · {check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <p className={styles.explanation}>{item.currentExplanation}</p>
                   <div className={styles.investigationGrid}>
                     <div>
