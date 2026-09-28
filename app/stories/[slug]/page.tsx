@@ -86,6 +86,11 @@ export default async function StoryDetailPage({ params }: PageProps) {
     nextCatalyst: currentVersion?.next_catalyst || story.next_catalyst,
     assets: currentVersion?.assets?.length ? currentVersion.assets : story.assets,
   };
+  const catalystAssessment = assessStoryCatalyst({
+    nextCatalyst: current.nextCatalyst,
+    version: currentVersion,
+  });
+
 
   return (
     <LiveDeskShell
@@ -207,7 +212,8 @@ export default async function StoryDetailPage({ params }: PageProps) {
               </article>
               <article className={styles.record}>
                 <span className={styles.metaLabel}>Next catalyst</span>
-                <p>{current.nextCatalyst || "Not recorded"}</p>
+                <p>{catalystDisplayLabel(catalystAssessment) || "Not recorded"}</p>
+                {catalystAssessment.recalibrationRequired ? <small>Expired catalyst · Story maintenance must replace or clear this before it is treated as current.</small> : null}
                 {catalyst.recalibrationRequired ? <div className={styles.meta}>Expired catalyst — not current guidance.</div> : null}
               </article>
               <article className={styles.record}>
