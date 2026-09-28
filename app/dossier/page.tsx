@@ -312,6 +312,9 @@ export default async function DossierPage() {
                       </div>
                     </div>
                   ) : null}
+                  {item.reactionCalibration.requiresReview ? (
+                    <small className={styles.postMortemLabel}>SYSTEM 2 POST-MORTEM / CURRENT HYPOTHESIS</small>
+                  ) : null}
                   <p className={styles.explanation}>{item.currentExplanation}</p>
                   <div className={styles.investigationGrid}>
                     <div>
