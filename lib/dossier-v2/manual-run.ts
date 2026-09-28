@@ -276,7 +276,7 @@ function buildPriorClaims(dossier: MarketDossierV2): PriorAnalyticalClaim[] {
   return result;
 }
 
-function buildPriorInvestigations(
+export function buildPriorInvestigations(
   dossier: MarketDossierV2,
 ): PriorInvestigationSnapshot[] {
   const analytical =

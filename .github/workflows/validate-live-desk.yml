@@ -37,6 +37,9 @@ jobs:
       - name: Run full test suite
         run: npm test
 
+      - name: Run Task C closure gate
+        run: npm run test:task-c
+
       - name: Typecheck
         run: npx tsc --noEmit
 
