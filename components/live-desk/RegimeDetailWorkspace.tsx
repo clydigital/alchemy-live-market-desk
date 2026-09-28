@@ -341,7 +341,9 @@ export default function RegimeDetailWorkspace({
                                 </div>
                               </div>
                             ) : null}
-                            <p className={styles.divergenceExplanation}><strong>Current explanation:</strong> {item.currentExplanation}</p>
+                            <p className={styles.divergenceExplanation}>
+                              <strong>{item.reactionCalibration.requiresReview ? "Post-mortem hypothesis:" : "Current explanation:"}</strong> {item.currentExplanation}
+                            </p>
                             {item.competingExplanations.length ? (
                               <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
                             ) : null}
