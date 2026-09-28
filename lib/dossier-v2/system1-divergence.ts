@@ -230,7 +230,12 @@ function evidenceMatchesRule(item: ObservedEvidence, rule: Rule): boolean {
   const monetaryPolicyRule =
     rule.id === "HAWKISH_MONETARY_POLICY" || rule.id === "DOVISH_MONETARY_POLICY";
 
-  if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
+  if (item.source_type === "MARKET_DATA") return false;
+
+  const signalContext = typeof item.metrics?.signal_context === "string"
+    ? item.metrics.signal_context
+    : null;
+  if (signalContext !== rule.id && !rule.pattern.test(item.claim_or_fact)) return false;
 
   // A probability repricing or post-event market reaction is evidence about
   // the policy outlook, not a new monetary-policy event. Without this gate,
