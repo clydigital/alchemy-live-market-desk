@@ -25,6 +25,28 @@ function calibrationTone(outcome: string): "default" | "ready" | "warn" | "risk"
   return "default";
 }
 
+function learningTone(state: string): "default" | "ready" | "warn" | "risk" {
+  if (state === "DIVERGENCE_REVIEW") return "risk";
+  if (state === "MIXED_REACTION_REVIEW" || state === "TRANSMISSION_UNRESOLVED") return "warn";
+  if (state === "REACTION_RULE_SUPPORTED") return "ready";
+  return "default";
+}
+
+function learningLabel(state: string) {
+  if (state === "DIVERGENCE_REVIEW") return "REACTION DIVERGED";
+  if (state === "MIXED_REACTION_REVIEW") return "MIXED REACTION";
+  if (state === "REACTION_RULE_SUPPORTED") return "REACTION RULE SUPPORTED";
+  if (state === "CLOSED_WITHOUT_MECHANISM_VERDICT") return "CLOSED · NO MECHANISM VERDICT";
+  return "TRANSMISSION UNRESOLVED";
+}
+
+function reactionReadLabel(value: string) {
+  if (value === "FOLLOWED_EXPECTATION") return "Followed expectation";
+  if (value === "DID_NOT_FOLLOW_EXPECTATION") return "Did not follow expectation";
+  if (value === "MIXED_REACTION") return "Mixed reaction";
+  return "Not exactly measured";
+}
+
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
   const [selection, data, recordLayer, query] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -319,13 +341,17 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                     <div>
                       <h3>{lineage.latestQuestion}</h3>
                       <div className={styles.meta}>
-                        {lineage.measuredVintages} measured vintages · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
+                        {lineage.caseVintages} case vintages · {lineage.evaluatedVintages} exact evaluated · {formatDeskDate(lineage.firstAsOf)} → {formatDeskDate(lineage.latestAsOf)}
                       </div>
                     </div>
-                    <Badge tone={lineage.hasDivergence ? "risk" : lineage.hasMixed ? "warn" : "ready"}>
-                      {lineage.hasDivergence ? "DIVERGENCE SEEN" : lineage.hasMixed ? "MIXED SEEN" : "ALIGNED HISTORY"}
+                    <Badge tone={learningTone(lineage.learningState)}>
+                      {learningLabel(lineage.learningState)}
                     </Badge>
                   </div>
+                  <p><strong>Reaction read:</strong> {reactionReadLabel(lineage.reactionRead)}</p>
+                  <p><strong>Mechanism verdict:</strong> Not established by calibration. {lineage.mechanismRead}</p>
+                  <p><strong>Transmission:</strong> {lineage.transmissionRead}</p>
+                  <p><strong>What did we learn?</strong> {lineage.learningSummary}</p>
                   <p>
                     <strong>Sequence:</strong>{" "}
                     {lineage.cases.map((item) => item.outcome).join(" → ")}
@@ -333,7 +359,10 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <p><strong>Latest hypothesis:</strong> {lineage.latestPostMortemHypothesis}</p>
                   <p><strong>Next discriminator:</strong> {lineage.latestResearchNext}</p>
                   {lineage.expectationRewriteCount ? (
-                    <p><strong>Expectation rewrites flagged:</strong> {lineage.expectationRewriteCount}</p>
+                    <p>
+                      <strong>Expectation rewrites flagged:</strong> {lineage.expectationRewriteCount}
+                      {lineage.rewriteOnlyVintages ? " · " + lineage.rewriteOnlyVintages + " without exact reaction audit" : ""}
+                    </p>
                   ) : null}
                 </article>
               ))}
