@@ -33,6 +33,10 @@ export type RegimeShadowProjectionResult = {
   inputHash: string | null;
   projectedRegimes: number;
   versionIds: string[];
+  system2Activations: {
+    enqueued: number;
+    skipped: number;
+  };
   warnings: string[];
 };
 
@@ -516,6 +520,7 @@ export async function persistRegimeShadowProjection(input: {
       inputHash: null,
       projectedRegimes: 0,
       versionIds: [],
+      system2Activations: { enqueued: 0, skipped: 0 },
       warnings: ["Regime shadow persistence is disabled by REGIME_SHADOW_PERSISTENCE_ENABLED=false."],
     };
   }
@@ -547,6 +552,7 @@ export async function persistRegimeShadowProjection(input: {
       inputHash,
       projectedRegimes: priorVersions?.length || 0,
       versionIds: (priorVersions || []).map((item) => item.id),
+      system2Activations: { enqueued: 0, skipped: 0 },
       warnings: [],
     };
   }
@@ -583,6 +589,7 @@ export async function persistRegimeShadowProjection(input: {
 
     const versionIds: string[] = [];
     const warnings: string[] = [];
+    let system2Activations = { enqueued: 0, skipped: 0 };
 
     for (const regime of regimes) {
       const identity = identities.regimesBySlug.get(regime.slug);
@@ -649,6 +656,10 @@ export async function persistRegimeShadowProjection(input: {
         const currentRegimeIds = new Set((currentRows || []).map((item) => item.regime_id));
         const eligibleActivations = pendingSystem2Activations.filter((item) => currentRegimeIds.has(item.regimeId));
         const activation = await enqueueSystem2ActivationTargets(client, eligibleActivations);
+        system2Activations = {
+          enqueued: activation.enqueued,
+          skipped: activation.skipped,
+        };
         if (activation.warning) warnings.push(activation.warning);
         if (activation.enqueued) {
           warnings.push(`${activation.enqueued} durable Story reevaluation target(s) queued after a same-contract System 1 telemetry state transition; queue context is not canonical evidence.`);
@@ -668,6 +679,7 @@ export async function persistRegimeShadowProjection(input: {
       inputHash,
       projectedRegimes: versionIds.length,
       versionIds,
+      system2Activations,
       warnings,
     };
   } catch (error) {
@@ -699,6 +711,7 @@ export async function persistRegimeShadowProjectionSafely(input: {
       inputHash: null,
       projectedRegimes: 0,
       versionIds: [],
+      system2Activations: { enqueued: 0, skipped: 0 },
       warnings: [message],
     };
   }
