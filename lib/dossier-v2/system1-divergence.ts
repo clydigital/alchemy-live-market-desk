@@ -214,28 +214,34 @@ function policyEvidence(packet: DossierV2InputPacket): ObservedEvidence[] {
   return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
 }
 
-function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
+function evidenceMatchesRule(item: ObservedEvidence, rule: Rule): boolean {
   const monetaryPolicyRule =
     rule.id === "HAWKISH_MONETARY_POLICY" || rule.id === "DOVISH_MONETARY_POLICY";
 
+  if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
+
+  // A probability repricing or post-event market reaction is evidence about
+  // the policy outlook, not a new monetary-policy event. Without this gate,
+  // phrases such as "probability of a rate hike" can recursively trigger a
+  // second policy expectation check.
+  const signalKind = typeof item.metrics?.signal_kind === "string"
+    ? item.metrics.signal_kind
+    : null;
+  if (
+    monetaryPolicyRule &&
+    (signalKind === "rate_expectation" || signalKind === "market_reaction")
+  ) return false;
+
+  return true;
+}
+
+export function isSystem1ReactionTriggerEvidence(item: ObservedEvidence): boolean {
+  return RULES.some((rule) => evidenceMatchesRule(item, rule));
+}
+
+function triggerFor(packet: DossierV2InputPacket, rule: Rule): ObservedEvidence | null {
   return policyEvidence(packet)
-    .filter((item) => {
-      if (item.source_type === "MARKET_DATA" || !rule.pattern.test(item.claim_or_fact)) return false;
-
-      // A probability repricing or post-event market reaction is evidence about
-      // the policy outlook, not a new monetary-policy event. Without this gate,
-      // phrases such as "probability of a rate hike" can recursively trigger a
-      // second policy expectation check.
-      const signalKind = typeof item.metrics?.signal_kind === "string"
-        ? item.metrics.signal_kind
-        : null;
-      if (
-        monetaryPolicyRule &&
-        (signalKind === "rate_expectation" || signalKind === "market_reaction")
-      ) return false;
-
-      return true;
-    })
+    .filter((item) => evidenceMatchesRule(item, rule))
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
