@@ -232,18 +232,23 @@ function evidenceMatchesRule(item: ObservedEvidence, rule: Rule): boolean {
 
   if (item.source_type === "MARKET_DATA") return false;
 
+  // Rate-pricing and post-event reaction rows are confirmation evidence, never
+  // fresh macro/policy triggers. Apply this exclusion before signal_context,
+  // because confirmation rows deliberately inherit the trigger's context.
+  const signalKind = typeof item.metrics?.signal_kind === "string"
+    ? item.metrics.signal_kind
+    : null;
+  if (signalKind === "rate_expectation" || signalKind === "market_reaction") {
+    return false;
+  }
+
   const signalContext = typeof item.metrics?.signal_context === "string"
     ? item.metrics.signal_context
     : null;
   if (signalContext !== rule.id && !rule.pattern.test(item.claim_or_fact)) return false;
 
-  // A probability repricing or post-event market reaction is evidence about
-  // the policy outlook, not a new monetary-policy event. Without this gate,
-  // phrases such as "probability of a rate hike" can recursively trigger a
-  // second policy expectation check.
-  const signalKind = typeof item.metrics?.signal_kind === "string"
-    ? item.metrics.signal_kind
-    : null;
+  // Text-only monetary-policy rows without structured signal_kind still use
+  // the normal rule matcher above. Structured confirmation rows already exited.
   if (
     monetaryPolicyRule &&
     (signalKind === "rate_expectation" || signalKind === "market_reaction")
