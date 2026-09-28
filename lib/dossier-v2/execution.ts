@@ -1,4 +1,7 @@
-import { persistRegimeShadowProjectionSafely } from "../regime-engine.ts";
+import {
+  persistRegimeShadowProjectionSafely,
+  type RegimeShadowProjectionResult,
+} from "../regime-engine.ts";
 import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -52,6 +55,7 @@ export interface DossierV2ExecutionResult {
   dossier_input: MarketDossierV2Input | null;
   dossier: MarketDossierV2;
   story_refresh_agenda: DossierStoryRefreshAgendaResult;
+  regime_shadow: RegimeShadowProjectionResult | null;
   persisted: boolean;
   delta_decision: DossierDeltaDecision;
 }
@@ -573,6 +577,7 @@ export async function executeAndPersistDossierV2(
     dossier_input: dossierInput,
     dossier,
     story_refresh_agenda: storyRefreshAgenda,
+    regime_shadow: regimeShadow,
     persisted: true,
     delta_decision: decision,
   };
