@@ -51,9 +51,11 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
   assert.match(instructions, /DIVERGENCE V1 LIVES ONLY INSIDE PRIORITY INVESTIGATIONS/);
   assert.match(instructions, /DIRECTIONAL OR SEQUENCED expected-vs-observed mismatch/);
   assert.match(instructions, /Missing confirmation, missing breadth, stale\/non-comparable observations, or missing timing are NOT divergences/);
+  assert.match(instructions, /system1_reaction_assessments are deterministic chronology-safe expected-vs-observed comparisons/);
+  assert.match(instructions, /relation=ALIGNED may support divergence=NONE only when the Investigation carries that assessment's exact trigger_evidence_id \+ market_evidence_id pair/);
   assert.match(instructions, /set PARTIAL or MATERIAL only when a relevant system1_divergence_candidate exists/);
-  assert.match(instructions, /If no such candidate exists, use UNRESOLVED/);
-  assert.match(instructions, /Do not use NONE in V1 unless a future deterministic aligned-reaction check explicitly supports it/);
+  assert.match(instructions, /Set NONE only when a relevant system1_reaction_assessment has relation=ALIGNED/);
+  assert.match(instructions, /If no qualifying deterministic pair exists, use UNRESOLVED/);
   assert.deepEqual(investigation.properties.divergence.enum, [
     "NONE",
     "PARTIAL",
