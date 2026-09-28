@@ -1,16 +1,16 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { NewsThread, PublicStatement, Story } from "@/lib/data";
-import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
-import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
+import type { NewsThread, PublicStatement, Story } from "./data.ts";
+import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-reader.ts";
+import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import {
   buildRegimeProjection,
   REGIME_DEFINITIONS,
   type ProjectedRegime,
   type RegimeRoute,
-} from "@/lib/regimes";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+} from "./regimes.ts";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 export const REGIME_PROJECTOR_CONTRACT_VERSION = "regime-projector/1" as const;
 
