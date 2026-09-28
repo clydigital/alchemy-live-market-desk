@@ -18,6 +18,13 @@ function divergenceTone(divergence: string): "default" | "ready" | "warn" | "ris
   return "default";
 }
 
+function calibrationTone(outcome: string): "default" | "ready" | "warn" | "risk" {
+  if (outcome === "DIVERGENT") return "risk";
+  if (outcome === "MIXED" || outcome === "UNRESOLVED") return "warn";
+  if (outcome === "ALIGNED") return "ready";
+  return "default";
+}
+
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
   const [selection, data, recordLayer, query] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -213,6 +220,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             title="Divergence journey"
             description="Open contradictions remain questions until evidence resolves the mechanism."
           >
+            <p>
+              <strong>Calibration:</strong> {dossier.reactionCalibration.evaluatedInvestigations} evaluated ·
+              {" "}{dossier.reactionCalibration.alignedInvestigations} aligned ·
+              {" "}{dossier.reactionCalibration.divergentInvestigations} divergent ·
+              {" "}{dossier.reactionCalibration.mixedInvestigations} mixed ·
+              {" "}{dossier.reactionCalibration.unresolvedInvestigations} unresolved.
+              These are investigation-level audit counts, not an accuracy percentage.
+            </p>
             <div className={styles.recordList}>
               {dossier.watchNext.length ? dossier.watchNext.map((item) => (
                 <article className={styles.record} key={item.id}>
@@ -235,6 +250,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   ) : null}
                   <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
                   <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
+                  <p>
+                    <strong>Reaction calibration:</strong>{" "}
+                    <Badge tone={calibrationTone(item.reactionCalibration.outcome)}>{item.reactionCalibration.outcome}</Badge>{" "}
+                    · {item.reactionCalibration.checkCount} exact check(s) · {item.reactionCalibration.precision.toLowerCase().replaceAll("_", " ")}
+                  </p>
                   <p>
                     <strong>Since prior Dossier:</strong> {item.journey.transition.replaceAll("_", " ")}
                     {item.journey.previousDivergence

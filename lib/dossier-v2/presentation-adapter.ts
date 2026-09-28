@@ -145,6 +145,29 @@ export type DossierPresentationInvestigationJourney = {
   question: string;
 };
 
+export type DossierPresentationReactionCalibration = {
+  basis: "SYSTEM1_REACTION_AUDIT";
+  outcome: "UNRESOLVED" | "ALIGNED" | "DIVERGENT" | "MIXED";
+  precision: "NONE" | "INTRADAY" | "DAILY_POST_EVENT" | "MIXED";
+  checkCount: number;
+  alignedCount: number;
+  divergentCount: number;
+  reactionWindows: Array<"5m" | "30m" | "4h">;
+  expectationChanged: boolean | null;
+  requiresReview: boolean;
+};
+
+export type DossierPresentationCalibrationSummary = {
+  evaluatedInvestigations: number;
+  alignedInvestigations: number;
+  divergentInvestigations: number;
+  mixedInvestigations: number;
+  unresolvedInvestigations: number;
+  intradayInvestigations: number;
+  expectationChangedInvestigations: number;
+  reviewQueue: string[];
+};
+
 export type DossierPresentationInvestigation = {
   id: string;
   status: Investigation["status"];
@@ -164,6 +187,7 @@ export type DossierPresentationInvestigation = {
   storyIds: string[];
   thesisIds: string[];
   reactionChecks: DossierPresentationReactionCheck[];
+  reactionCalibration: DossierPresentationReactionCalibration;
   journey: DossierPresentationInvestigationJourney;
 };
 
@@ -222,6 +246,7 @@ export type DossierPresentationV1 = {
 
   watchNext: DossierPresentationInvestigation[];
   investigationJourney: DossierPresentationInvestigationJourney[];
+  reactionCalibration: DossierPresentationCalibrationSummary;
   researchNow: ResearchNowAction[];
 
   charts: {
@@ -444,6 +469,55 @@ function presentationStory(story: MajorStory): DossierPresentationStory {
   };
 }
 
+function reactionCalibration(
+  reactionChecks: DossierPresentationReactionCheck[],
+  journey: DossierPresentationInvestigationJourney,
+): DossierPresentationReactionCalibration {
+  const alignedCount = reactionChecks.filter((item) => item.relation === "ALIGNED").length;
+  const divergentCount = reactionChecks.filter((item) => item.relation === "DIVERGENT").length;
+
+  const outcome: DossierPresentationReactionCalibration["outcome"] =
+    reactionChecks.length === 0
+      ? "UNRESOLVED"
+      : alignedCount > 0 && divergentCount > 0
+        ? "MIXED"
+        : divergentCount > 0
+          ? "DIVERGENT"
+          : "ALIGNED";
+
+  const precisions = new Set(reactionChecks.map((item) => item.timingPrecision));
+  const precision: DossierPresentationReactionCalibration["precision"] =
+    reactionChecks.length === 0
+      ? "NONE"
+      : precisions.size > 1
+        ? "MIXED"
+        : reactionChecks[0].timingPrecision;
+
+  const reactionWindows = [...new Set(
+    reactionChecks
+      .map((item) => item.reactionWindow)
+      .filter((value): value is "5m" | "30m" | "4h" => value !== null),
+  )].sort((left, right) => {
+    const rank = { "5m": 0, "30m": 1, "4h": 2 } as const;
+    return rank[left] - rank[right];
+  });
+
+  return {
+    basis: "SYSTEM1_REACTION_AUDIT",
+    outcome,
+    precision,
+    checkCount: reactionChecks.length,
+    alignedCount,
+    divergentCount,
+    reactionWindows,
+    expectationChanged: journey.expectationChanged,
+    requiresReview:
+      outcome === "DIVERGENT"
+      || outcome === "MIXED"
+      || journey.expectationChanged === true,
+  };
+}
+
 function presentationInvestigation(
   item: Investigation,
   reactionAssessments: System1ReactionAssessment[],
@@ -490,6 +564,7 @@ function presentationInvestigation(
     storyIds: [...item.linked_story_ids],
     thesisIds: [...item.linked_thesis_ids],
     reactionChecks,
+    reactionCalibration: reactionCalibration(reactionChecks, journey),
     journey,
   };
 }
@@ -707,6 +782,43 @@ function investigationJourney(
   return result;
 }
 
+function calibrationSummary(
+  investigations: DossierPresentationInvestigation[],
+): DossierPresentationCalibrationSummary {
+  const counts = {
+    aligned: 0,
+    divergent: 0,
+    mixed: 0,
+    unresolved: 0,
+    intraday: 0,
+    expectationChanged: 0,
+  };
+  const reviewQueue: string[] = [];
+
+  for (const item of investigations) {
+    const calibration = item.reactionCalibration;
+    if (calibration.outcome === "ALIGNED") counts.aligned += 1;
+    else if (calibration.outcome === "DIVERGENT") counts.divergent += 1;
+    else if (calibration.outcome === "MIXED") counts.mixed += 1;
+    else counts.unresolved += 1;
+
+    if (calibration.precision === "INTRADAY") counts.intraday += 1;
+    if (calibration.expectationChanged === true) counts.expectationChanged += 1;
+    if (calibration.requiresReview) reviewQueue.push(item.id);
+  }
+
+  return {
+    evaluatedInvestigations: investigations.length - counts.unresolved,
+    alignedInvestigations: counts.aligned,
+    divergentInvestigations: counts.divergent,
+    mixedInvestigations: counts.mixed,
+    unresolvedInvestigations: counts.unresolved,
+    intradayInvestigations: counts.intraday,
+    expectationChangedInvestigations: counts.expectationChanged,
+    reviewQueue,
+  };
+}
+
 function lensEntries(output: ResearchBrainOutputV1): DossierPresentationLens[] {
   const source = output.market_verdict.lenses ?? {};
   const known = new Set<string>();
@@ -846,6 +958,25 @@ export function buildDossierV2Presentation(
   const journeyByCurrentId = new Map(
     journey.flatMap((item) => item.currentId ? [[item.currentId, item] as const] : []),
   );
+  const presentedInvestigations = output.investigations.map((item) => presentationInvestigation(
+    item,
+    reactionAssessments,
+    journeyByCurrentId.get(item.investigation_id) ?? {
+      currentId: item.investigation_id,
+      previousId: null,
+      matchedBy: null,
+      transition: "BASELINE",
+      previousDivergence: null,
+      currentDivergence: item.divergence,
+      previousStatus: null,
+      currentStatus: item.status,
+      previousExpectedReaction: null,
+      currentExpectedReaction: item.expected_reaction,
+      expectationChanged: null,
+      question: item.question,
+    },
+  ));
+  const presentedById = new Map(presentedInvestigations.map((item) => [item.id, item]));
 
   return {
     contractVersion: DOSSIER_PRESENTATION_V1,
@@ -886,25 +1017,12 @@ export function buildDossierV2Presentation(
 
     watchNext: output.investigations
       .filter((item) => item.status !== "resolved" && item.status !== "parked")
-      .map((item) => presentationInvestigation(
-        item,
-        reactionAssessments,
-        journeyByCurrentId.get(item.investigation_id) ?? {
-          currentId: item.investigation_id,
-          previousId: null,
-          matchedBy: null,
-          transition: "BASELINE",
-          previousDivergence: null,
-          currentDivergence: item.divergence,
-          previousStatus: null,
-          currentStatus: item.status,
-          previousExpectedReaction: null,
-          currentExpectedReaction: item.expected_reaction,
-          expectationChanged: null,
-          question: item.question,
-        },
-      )),
+      .flatMap((item) => {
+        const presented = presentedById.get(item.investigation_id);
+        return presented ? [presented] : [];
+      }),
     investigationJourney: journey,
+    reactionCalibration: calibrationSummary(presentedInvestigations),
 
     researchNow: output.research_now.map((item) => ({
       ...item,

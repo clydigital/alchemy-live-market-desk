@@ -27,6 +27,13 @@ function divergenceTone(divergence: string): "default" | "ready" | "warn" | "ris
   return "default";
 }
 
+function calibrationTone(outcome: string): "default" | "ready" | "warn" | "risk" {
+  if (outcome === "DIVERGENT") return "risk";
+  if (outcome === "MIXED" || outcome === "UNRESOLVED") return "warn";
+  if (outcome === "ALIGNED") return "ready";
+  return "default";
+}
+
 function journeyLabel(value: string) {
   return value.replaceAll("_", " ");
 }
@@ -238,6 +245,20 @@ export default async function DossierPage() {
             </div>
             <small>{dossier.watchNext.length} active questions</small>
           </div>
+          <div className={styles.calibrationSummary}>
+            <div>
+              <small>SYSTEM 1 REACTION CALIBRATION</small>
+              <strong>{dossier.reactionCalibration.evaluatedInvestigations} evaluated · {dossier.reactionCalibration.unresolvedInvestigations} unresolved</strong>
+            </div>
+            <div>
+              <span>Aligned {dossier.reactionCalibration.alignedInvestigations}</span>
+              <span>Divergent {dossier.reactionCalibration.divergentInvestigations}</span>
+              <span>Mixed {dossier.reactionCalibration.mixedInvestigations}</span>
+              <span>Intraday {dossier.reactionCalibration.intradayInvestigations}</span>
+              <span>Expectation edits {dossier.reactionCalibration.expectationChangedInvestigations}</span>
+            </div>
+            <p>Investigation-level audit counts only. Correlated asset checks are not converted into a forecast-accuracy percentage.</p>
+          </div>
           {dossier.watchNext.length ? (
             <div className={styles.investigationList}>
               {dossier.watchNext.map((item) => (
@@ -267,6 +288,17 @@ export default async function DossierPage() {
                       <small>DIVERGENCE</small>
                       <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                     </div>
+                  </div>
+                  <div className={styles.calibrationLine}>
+                    <small>REACTION CALIBRATION</small>
+                    <Badge tone={calibrationTone(item.reactionCalibration.outcome)}>{item.reactionCalibration.outcome}</Badge>
+                    <span>
+                      {item.reactionCalibration.checkCount} exact check(s) · {item.reactionCalibration.precision.toLowerCase().replaceAll("_", " ")}
+                      {item.reactionCalibration.reactionWindows.length
+                        ? " · " + item.reactionCalibration.reactionWindows.join(" / ")
+                        : ""}
+                    </span>
+                    {item.reactionCalibration.requiresReview ? <strong>Review required</strong> : null}
                   </div>
                   {item.reactionChecks.length ? (
                     <div className={styles.reactionAudit}>
