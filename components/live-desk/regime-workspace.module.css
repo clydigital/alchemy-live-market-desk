@@ -264,7 +264,8 @@
 
 .storyCard[data-maturity="early"],
 .storyCard[data-maturity="seed"],
-.storyCard[data-maturity="episode"] {
+.storyCard[data-maturity="episode"],
+.storyCard[data-maturity="stale"] {
   border-style: dashed;
   background: rgba(255,255,255,.01);
 }
@@ -272,6 +273,7 @@
 .storyCard[data-maturity="seed"] { border-color: rgba(255,205,92,.24); }
 .storyCard[data-maturity="early"] { border-color: rgba(255,165,70,.22); }
 .storyCard[data-maturity="episode"] { border-color: rgba(143,137,159,.22); }
+.storyCard[data-maturity="stale"] { border-color: rgba(255,84,117,.3); }
 
 .storyMaturity {
   padding: 3px 6px;

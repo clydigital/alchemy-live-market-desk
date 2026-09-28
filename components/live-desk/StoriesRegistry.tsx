@@ -22,7 +22,7 @@ export type StoryRegistryItem = {
   nextCatalyst: string | null;
   catalystStatus: "missing" | "ongoing" | "upcoming" | "due" | "expired" | "resolved";
   catalystRecalibrationRequired: boolean;
-  maturity: "durable" | "early" | "seed" | "episode";
+  maturity: "durable" | "early" | "seed" | "episode" | "stale";
   maturityReason: string;
   evidenceRoom: string | null;
   eventCount: number;

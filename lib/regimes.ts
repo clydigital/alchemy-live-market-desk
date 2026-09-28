@@ -1,6 +1,7 @@
 import type { NewsThread, PublicStatement, Story } from "./data.ts";
 import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts";
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
+import { storyFramingDependsOnExpiredCatalyst } from "./story-hygiene.ts";
 
 export type RegimeSlug =
   | "global-cost-of-capital"
@@ -42,7 +43,7 @@ export type RegimeRoute = {
   score: number;
 };
 
-export type RegimeStoryMaturity = "durable" | "early" | "seed" | "episode";
+export type RegimeStoryMaturity = "durable" | "early" | "seed" | "episode" | "stale";
 
 export type ProjectedStory = {
   id: string;
@@ -337,6 +338,18 @@ export function classifyRegimeStory(
       maturity: "seed",
       contributesToState: false,
       reason: "Unverified theme seed: keep the branch visible, but do not let it drive Regime interpretation before evidence matures.",
+    };
+  }
+
+  if (version && storyFramingDependsOnExpiredCatalyst({
+    title: version.title || story.title,
+    thesis: version.thesis || story.thesis,
+    version,
+  })) {
+    return {
+      maturity: "stale",
+      contributesToState: false,
+      reason: "The deciding catalyst expired while the accepted Story framing still depends on it. Keep it visible as context until canonical evidence produces a current reframe.",
     };
   }
 
