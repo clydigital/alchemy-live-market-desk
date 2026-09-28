@@ -14,6 +14,7 @@ import {
   THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
 import {
+  buildResearchBrainCompactRecoveryPrompt,
   buildResearchBrainPrompt,
   buildResearchBrainRepairPrompt,
   getResearchBrainJsonSchema,
@@ -547,6 +548,64 @@ export async function executeResearchBrain(
     firstPassData = res.data;
   } catch (err) {
     console.warn("Research Brain primary model pass failed:", err);
+
+    const stageError = err instanceof OpenAIStageError ? err : null;
+    const outputCeilingHit =
+      stageError?.code === "incomplete_provider_response"
+      && stageError.incompleteReason === "max_output_tokens";
+
+    if (allowRepair && outputCeilingHit) {
+      console.info(JSON.stringify({
+        event: "research_brain_compact_recovery_start",
+        packetId: packet.packet_id,
+        inputTokens: stageError.inputTokens,
+        outputTokens: stageError.outputTokens,
+        totalTokens: stageError.totalTokens,
+      }));
+
+      const recoveryPrompt = buildResearchBrainCompactRecoveryPrompt(validatedInput);
+      try {
+        const recoveryRes = await runner({
+          stageKey: "research_brain_repair",
+          instructions: recoveryPrompt.instructions,
+          boundedInput: recoveryPrompt.boundedInput,
+          schema: jsonSchema,
+        });
+        const normalizedRecovery = normalizeResearchBrainOutputReferences(
+          recoveryRes.data,
+          system1Candidates,
+          system1ReactionAssessments,
+        );
+        const recoveryVal = validateResearchBrainOutput(normalizedRecovery, packet);
+        if (recoveryVal.isValid && recoveryVal.output) {
+          recoveryVal.output.diagnostics = {
+            ...recoveryVal.output.diagnostics,
+            model_repair_used: true,
+            notes: [
+              ...(recoveryVal.output.diagnostics.notes ?? []),
+              "Compact recovery completed after the primary pass hit max_output_tokens.",
+            ],
+          };
+          return recoveryVal.output;
+        }
+
+        console.warn(JSON.stringify({
+          event: "research_brain_compact_recovery_validation_failed",
+          packetId: packet.packet_id,
+          errorCount: recoveryVal.errors.length,
+          errors: recoveryVal.errors.slice(0, 12),
+        }));
+        return produceDegradedOutput(packet, recoveryVal.errors, true);
+      } catch (recoveryErr) {
+        console.warn("Research Brain compact recovery pass failed:", recoveryErr);
+        return produceDegradedOutput(
+          packet,
+          recoveryErr instanceof Error ? recoveryErr : String(recoveryErr),
+          true,
+        );
+      }
+    }
+
     return produceDegradedOutput(packet, err instanceof Error ? err : String(err), false);
   }
 
