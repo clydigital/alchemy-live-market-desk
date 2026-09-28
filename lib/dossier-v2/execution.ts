@@ -1,3 +1,4 @@
+import { persistRegimeShadowProjectionSafely } from "../regime-engine.ts";
 import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -491,6 +492,19 @@ export async function executeAndPersistDossierV2(
         skipped_existing: 0,
         items: [],
       };
+
+  const regimeShadow = await persistRegimeShadowProjectionSafely({
+    trigger: "dossier",
+    triggerRef: dossier.id,
+    client: options.client,
+  });
+  if (regimeShadow.warnings.length) {
+    console.warn(JSON.stringify({
+      event: "dossier_regime_shadow_projection_warning",
+      dossierId: dossier.id,
+      warnings: regimeShadow.warnings,
+    }));
+  }
 
   return {
     packet_id: packet.packet_id,

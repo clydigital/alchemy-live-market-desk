@@ -98,6 +98,7 @@ import {
 import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
+import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
   CANONICAL_STORY_REASONING_V1,
@@ -2370,6 +2371,7 @@ async function persistEarlyEngineCompletion(input: {
   recruitment: FreshNewsRecruitment;
   recruitmentClusters?: RecruitmentClusterRow[];
   contractDiagnostics?: CandidateContractDiagnostic[];
+  dryRun?: boolean;
 }) {
   await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(input.engineRunId)}`, {
     method: "PATCH",
@@ -2392,6 +2394,20 @@ async function persistEarlyEngineCompletion(input: {
       failure_detail: null,
     }),
   });
+
+  if (!input.dryRun) {
+    const regimeShadow = await persistRegimeShadowProjectionSafely({
+      trigger: "story_engine",
+      triggerRef: input.engineRunId,
+    });
+    if (regimeShadow.warnings.length) {
+      console.warn(JSON.stringify({
+        event: "regime_shadow_projection_warning",
+        engineRunId: input.engineRunId,
+        warnings: regimeShadow.warnings,
+      }));
+    }
+  }
 }
 
 export async function runIntelligenceEngine({
@@ -2491,7 +2507,7 @@ export async function runIntelligenceEngine({
     warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
     if (!evidence.length) {
       warnings.push("No canonical evidence is available for intelligence reasoning.");
-      await persistEarlyEngineCompletion({ engineRunId, status: "blocked", warnings, storiesConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, status: "blocked", warnings, storiesConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment });
       return { enabled: true, engineRunId, status: "blocked", evidenceConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered: 0, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2514,6 +2530,7 @@ export async function runIntelligenceEngine({
       warnings.push("Story maintenance-only run found no eligible reevaluation targets.");
       await persistEarlyEngineCompletion({
         engineRunId,
+        dryRun,
         warnings,
         storiesConsidered: 0,
         hypothesesGenerated: 0,
@@ -2560,6 +2577,7 @@ export async function runIntelligenceEngine({
       warnings.push(`Story maintenance-only run completed after Market Belief for ${storyReviewTargets.length} target(s); downstream reasoning and publication were intentionally skipped.`);
       await persistEarlyEngineCompletion({
         engineRunId,
+        dryRun,
         warnings,
         storiesConsidered,
         hypothesesGenerated: 0,
@@ -2588,7 +2606,7 @@ export async function runIntelligenceEngine({
     const beliefs = await persistBeliefs(beliefStage.data, evidenceById, recruitmentClusters);
     if (!beliefs.length) {
       warnings.push("No defensible market beliefs were extracted; no Story reasoning was attempted.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2604,7 +2622,7 @@ export async function runIntelligenceEngine({
     const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
     if (!divergences.length) {
       warnings.push("No material evidence-versus-belief divergence survived the divergence stage.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2614,7 +2632,7 @@ export async function runIntelligenceEngine({
 
     if (hypothesisEvidence.length === 0) {
       warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2637,7 +2655,7 @@ export async function runIntelligenceEngine({
     hypothesesGenerated = hypotheses.length;
     if (!hypotheses.length) {
       warnings.push("No testable hypotheses survived evidence-ID validation.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2664,7 +2682,7 @@ export async function runIntelligenceEngine({
     hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
     if (!reviewed.length) {
       warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted: 0, recruitment, recruitmentClusters });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted: 0, recruitment, recruitmentClusters });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2752,7 +2770,7 @@ export async function runIntelligenceEngine({
     storiesConsidered += synthesisStage.data.candidates.length;
     if (!candidates.length) {
       warnings.push("Story synthesis produced no candidate tied to a reviewed hypothesis.");
-      await persistEarlyEngineCompletion({ engineRunId, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted, recruitment, recruitmentClusters, contractDiagnostics });
+      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted, recruitment, recruitmentClusters, contractDiagnostics });
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
@@ -2903,6 +2921,14 @@ export async function runIntelligenceEngine({
     if (!dryRun && editionStories.length) {
       const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence: reasoningEvidence, recruitment, recruitmentClusters, contractDiagnostics });
       warnings.push(...eventHorizonWarnings.map((warning) => `Event Horizon: ${warning}`));
+    }
+
+    if (!dryRun) {
+      const regimeShadow = await persistRegimeShadowProjectionSafely({
+        trigger: "story_engine",
+        triggerRef: engineRunId,
+      });
+      warnings.push(...regimeShadow.warnings.map((warning) => `Regime shadow: ${warning}`));
     }
 
     await intelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(engineRunId)}`, {

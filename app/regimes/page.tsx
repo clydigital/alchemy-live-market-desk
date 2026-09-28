@@ -3,16 +3,18 @@ import RegimeBoard from "@/components/live-desk/RegimeBoard";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { getRegimeShadowHealth } from "@/lib/regime-engine";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { buildRegimeProjection } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 
 export default async function RegimesPage() {
-  const [data, recordLayer, dossierSelection] = await Promise.all([
+  const [data, recordLayer, dossierSelection, shadowHealth] = await Promise.all([
     getDeskData(),
     getStoryRecordLayer(),
     getDossierV2PresentationSelection(),
+    getRegimeShadowHealth(),
   ]);
 
   const regimes = buildRegimeProjection({
@@ -43,6 +45,7 @@ export default async function RegimesPage() {
             { value: mappedStoryIds.size, label: "Mapped Stories" },
             { value: system1Subgroups, label: "System 1 subgroup sensors" },
             { value: pendingNodes, label: "Observed · interpretation pending" },
+            { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
           ]}
         />
 
@@ -52,6 +55,20 @@ export default async function RegimesPage() {
           detail={recordLayer.available
             ? "Regimes are being projected from current immutable Story versions/events plus the existing deterministic Dossier rate and liquidity sensors. Raw headlines cannot directly rewrite a Regime."
             : "Regimes are available from current Stories, but immutable Story-event history is unavailable. The interface will not infer missing historical state."}
+        />
+
+        <DataState
+          state={
+            shadowHealth.available
+              && shadowHealth.latestRunStatus === "completed"
+              && shadowHealth.currentProjectionCount === shadowHealth.expectedProjectionCount
+              ? "ready"
+              : "warn"
+          }
+          title={shadowHealth.available ? "Persistent shadow engine" : "Persistent shadow engine awaiting first run"}
+          detail={shadowHealth.available
+            ? `${shadowHealth.currentProjectionCount}/${shadowHealth.expectedProjectionCount} persisted Regime projections · ${shadowHealth.contractVersion || "unknown contract"} · last completed ${shadowHealth.lagMinutes === null ? "time unavailable" : `${shadowHealth.lagMinutes} min ago`}. Shadow state is auditable but does not yet replace the live read model.`
+            : `The persistence schema is deployed, but no shadow projector run has completed yet. ${shadowHealth.warning || "The next canonical Story or Dossier write will create the bootstrap projection."}`}
         />
 
         <Panel
