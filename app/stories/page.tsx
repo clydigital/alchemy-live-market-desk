@@ -3,8 +3,9 @@ import StoriesRegistry from "@/components/live-desk/StoriesRegistry";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
-import { getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
+import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
+import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 
@@ -30,6 +31,7 @@ export default async function StoriesPage() {
     )) latestVersionByStory.set(version.story_id, version);
   });
 
+  const now = new Date();
   const registryStories = data.stories.map((story) => {
     const image = storyImages.get(story.id);
     const fallback = getStableStoryFallbackImage(story.id);
@@ -42,6 +44,16 @@ export default async function StoriesPage() {
       next_catalyst: version?.next_catalyst || story.next_catalyst,
       assets: version?.assets || story.assets || [],
     };
+    const maturity = classifyRegimeStory(story, version);
+    const catalyst = assessStoryCatalyst({
+      nextCatalyst: catalystDisplayLabel(catalyst),
+      catalystStatus: catalyst.status,
+      catalystRecalibrationRequired: catalyst.recalibrationRequired,
+      maturity: maturity.maturity,
+      maturityReason: maturity.reason,
+      version,
+      now,
+    });
     const regimes = routeStoryToRegimes(story, version)
       .map((route) => getRegimeDefinition(route.regime))
       .filter((regime, index, all): regime is NonNullable<typeof regime> => Boolean(regime) && all.findIndex((item) => item?.slug === regime?.slug) === index)
