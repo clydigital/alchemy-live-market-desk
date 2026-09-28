@@ -504,6 +504,135 @@
   line-height: 1.5;
 }
 
+.historyIntro {
+  margin: 0 0 15px;
+  color: #898393;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.historyList {
+  display: grid;
+  gap: 12px;
+}
+
+.historyVintage {
+  padding: 16px;
+  border: 1px solid rgba(181, 151, 255, .13);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .012);
+}
+
+.historyVintage > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(181, 151, 255, .1);
+}
+
+.historyVintage > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.historyVintage > header small {
+  color: #847e8e;
+  font-size: 9px;
+}
+
+.historyVintage > header strong {
+  color: #d2cede;
+  font-size: 11px;
+}
+
+.historyCases {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.historyCase {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(181, 151, 255, .1);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, .08);
+}
+
+.historyCaseHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.historyCaseHead > span,
+.historyCaseHead > strong {
+  color: #8f899f;
+  font-size: 8px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.historyCaseHead > strong {
+  color: #ffd180;
+}
+
+.historyCase h4 {
+  margin: 0;
+  color: #ece8f3;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.historyCaseGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.historyCaseGrid > div {
+  padding: 10px 11px;
+  border: 1px solid rgba(181, 151, 255, .08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .01);
+}
+
+.historyCaseGrid small {
+  color: #837d91;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .05em;
+}
+
+.historyCaseGrid p,
+.historyHypothesis,
+.historyAlternatives {
+  margin: 6px 0 0;
+  color: #bcb7c7;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.historyAlternatives {
+  color: #9b95a6;
+}
+
+.historyNext {
+  color: #8f899f;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .historyCaseGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .action {
   display: grid;
   grid-template-columns: 68px minmax(0, 1fr);
