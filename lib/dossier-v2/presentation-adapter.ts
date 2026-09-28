@@ -575,6 +575,7 @@ function investigationJourney(
 
   for (const item of current.investigations) {
     let matched = previousById.get(item.investigation_id) ?? null;
+    if (matched && usedPreviousIds.has(matched.investigation_id)) matched = null;
     let matchedBy: "id" | "linkage" | null = matched ? "id" : null;
 
     if (!matched) {
