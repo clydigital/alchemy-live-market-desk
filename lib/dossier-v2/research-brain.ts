@@ -141,6 +141,49 @@ export function pruneInvalidStockRadarEvidenceReferences(
   return output;
 }
 
+export function preservePriorInvestigationExpectedReactions(
+  output: unknown,
+  packet: DossierV2InputPacket,
+): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+
+  const priorInvestigations = packet.prior_analytical_state?.prior_investigations;
+  if (!Array.isArray(priorInvestigations) || priorInvestigations.length === 0) return output;
+
+  const priorExpectedById = new Map(
+    priorInvestigations
+      .filter((item) => item && typeof item.investigation_id === "string" && item.investigation_id)
+      .map((item) => [item.investigation_id, item.expected_reaction] as const),
+  );
+
+  const root = output as Record<string, unknown>;
+  if (!Array.isArray(root.investigations)) return output;
+
+  let preservedCount = 0;
+  for (const item of root.investigations) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const investigation = item as Record<string, unknown>;
+    const investigationId = investigation.investigation_id;
+    if (typeof investigationId !== "string" || !priorExpectedById.has(investigationId)) continue;
+
+    const priorExpected = priorExpectedById.get(investigationId) ?? null;
+    if (investigation.expected_reaction !== priorExpected) {
+      investigation.expected_reaction = priorExpected;
+      preservedCount++;
+    }
+  }
+
+  if (preservedCount > 0) {
+    console.info(JSON.stringify({
+      event: "research_brain_prior_expectation_preserved",
+      packetId: packet.packet_id,
+      preservedCount,
+    }));
+  }
+
+  return output;
+}
+
 export function normalizeResearchBrainOutputReferences(
   output: unknown,
   system1Candidates: unknown[] = [],
@@ -618,6 +661,10 @@ export async function executeResearchBrain(
           system1Candidates,
           system1ReactionAssessments,
         );
+        normalizedRecovery = preservePriorInvestigationExpectedReactions(
+          normalizedRecovery,
+          packet,
+        );
         normalizedRecovery = pruneInvalidStockRadarEvidenceReferences(
           normalizedRecovery,
           packet,
@@ -662,6 +709,7 @@ export async function executeResearchBrain(
     system1Candidates,
     system1ReactionAssessments,
   );
+  firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
@@ -691,6 +739,10 @@ export async function executeResearchBrain(
         repairRes.data,
         system1Candidates,
         system1ReactionAssessments,
+      );
+      normalizedRepairData = preservePriorInvestigationExpectedReactions(
+        normalizedRepairData,
+        packet,
       );
       normalizedRepairData = pruneInvalidStockRadarEvidenceReferences(
         normalizedRepairData,
