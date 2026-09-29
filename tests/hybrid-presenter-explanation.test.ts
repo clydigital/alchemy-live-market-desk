@@ -6,9 +6,10 @@ const hybrid = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta
 const composer = readFileSync(new URL("../lib/intelligence/dossier-storyline-composer.ts", import.meta.url), "utf8");
 
 test("Hybrid leads with the current canonical composed edition", () => {
-  assert.match(hybrid, /getHybridPublicationRecords\(\{ fresh: true \}\)/);
+  assert.match(hybrid, /getHybridPresenterEditionCandidates\(\)/);
   assert.match(hybrid, /buildCanonicalEditionIndex\(/);
-  assert.match(hybrid, /publicationRecords\.dailyBriefArchive/);
+  assert.match(hybrid, /presenterEditions/);
+  assert.doesNotMatch(hybrid, /getHybridPublicationRecords\(\{ fresh: true \}\)/);
   assert.match(hybrid, /currentEdition\?\.payload\?\.dossier/);
   assert.match(hybrid, /title="Presenter view"/);
   assert.match(hybrid, /What matters now/);
