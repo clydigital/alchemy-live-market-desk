@@ -697,6 +697,16 @@ export function validateResearchBrainOutput(
           (item): item is string => typeof item === "string" && Boolean(item.trim()),
         )
       : [];
+    const candidateExplanations = Array.isArray(inv.candidate_explanations)
+      ? inv.candidate_explanations
+      : [];
+
+    if (!Array.isArray(inv.candidate_explanations)) {
+      errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations must be an array.`);
+    }
+    if (candidateExplanations.length > 4) {
+      errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations exceeds maximum of 4.`);
+    }
 
     if (!question || !whyItMatters || !currentExplanation || !researchNext) {
       errors.push(`investigations[${iIdx}] (${invId}) missing required question, why_it_matters, current_explanation, or research_next.`);
@@ -706,6 +716,65 @@ export function validateResearchBrainOutput(
     for (const evId of obsEv) {
       if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
         errors.push(`investigations[${iIdx}] (${invId}) references unsupported observed_evidence ID "${String(evId)}".`);
+      }
+    }
+
+    const observedEvidenceSet = new Set(
+      obsEv.filter((evId): evId is string => typeof evId === "string"),
+    );
+    const validCandidateConfidences = new Set(["HIGH", "MEDIUM", "LOW", "UNRESOLVED"]);
+    const candidateRanks: number[] = [];
+
+    for (let candidateIndex = 0; candidateIndex < candidateExplanations.length; candidateIndex++) {
+      const candidate = candidateExplanations[candidateIndex];
+      if (!isPlainObject(candidate)) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] is not a plain object.`);
+        continue;
+      }
+
+      const rank = candidate.rank;
+      const explanation = typeof candidate.explanation === "string" ? candidate.explanation.trim() : "";
+      const confidence = typeof candidate.confidence === "string" ? candidate.confidence : "";
+      const discriminatingTest = typeof candidate.discriminating_test === "string"
+        ? candidate.discriminating_test.trim()
+        : "";
+      const evidenceFor = Array.isArray(candidate.evidence_for_ids) ? candidate.evidence_for_ids : [];
+      const evidenceAgainst = Array.isArray(candidate.evidence_against_ids) ? candidate.evidence_against_ids : [];
+
+      if (!Number.isInteger(rank) || Number(rank) < 1 || Number(rank) > 4) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] has invalid rank "${String(rank)}".`);
+      } else {
+        candidateRanks.push(Number(rank));
+      }
+      if (!explanation || !discriminatingTest) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] requires explanation and discriminating_test.`);
+      }
+      if (!validCandidateConfidences.has(confidence)) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] has invalid confidence "${confidence}".`);
+      }
+      if ((confidence === "HIGH" || confidence === "MEDIUM") && evidenceFor.length === 0) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] ${confidence} confidence requires at least one evidence_for_id.`);
+      }
+
+      for (const [side, ids] of [["evidence_for_ids", evidenceFor], ["evidence_against_ids", evidenceAgainst]] as const) {
+        for (const evId of ids) {
+          if (typeof evId !== "string" || !observedEvidenceSet.has(evId)) {
+            errors.push(
+              `investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}].${side} references evidence outside this Investigation's observed_evidence: "${String(evId)}".`,
+            );
+          }
+        }
+      }
+    }
+
+    if (candidateRanks.length) {
+      const orderedRanks = [...candidateRanks].sort((a, b) => a - b);
+      const expectedRanks = orderedRanks.map((_, index) => index + 1);
+      if (
+        new Set(candidateRanks).size !== candidateRanks.length
+        || orderedRanks.some((rank, index) => rank !== expectedRanks[index])
+      ) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations ranks must be unique and contiguous from 1.`);
       }
     }
 
@@ -721,6 +790,11 @@ export function validateResearchBrainOutput(
       }
 
       if (divergence === "PARTIAL" || divergence === "MATERIAL") {
+        if (candidateExplanations.length < 2) {
+          errors.push(
+            `investigations[${iIdx}] (${invId}) divergence ${divergence} requires at least two ranked candidate_explanations.`,
+          );
+        }
         if (
           observedReaction
           && normaliseAnalyticalProse(currentExplanation) === normaliseAnalyticalProse(observedReaction)
