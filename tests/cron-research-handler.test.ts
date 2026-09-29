@@ -256,11 +256,16 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
     .map((cron) => `${cron.path} ${cron.schedule}`)
     .sort();
   assert.deepEqual(schedules, [
+    "/api/cron/live-research */5 1-2 * * *",
+    "/api/cron/live-research */5 13-14 * * *",
+    "/api/cron/live-research 30 1 * * *",
+    "/api/cron/live-research 30 13 * * *",
     "/api/cron/video/late-morning 0 13 * * *",
     "/api/cron/video/midnight 0 1 * * *",
     "/api/cron/video/transcript-worker 30 1 * * *",
   ]);
   assert.ok(vercelConfig.crons.every((cron) => !cron.path.startsWith("/api/cron/research/")));
+  assert.equal(vercelConfig.crons.filter((cron) => cron.path === "/api/cron/live-research").length, 4);
   assert.equal(
     vercelConfig.rewrites?.some(
       (entry) =>
