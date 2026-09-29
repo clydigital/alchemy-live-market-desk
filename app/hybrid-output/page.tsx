@@ -3,7 +3,7 @@ import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/component
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
-import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
+import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import type { DossierBriefingV1 } from "@/lib/intelligence/dossier-briefing";
 import type { DossierStorylineComposition } from "@/lib/intelligence/dossier-storyline-composer";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
@@ -84,11 +84,11 @@ function evidenceTone(state: string): "default" | "ready" | "warn" {
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
-  const [selection, data, recordLayer, publicationRecords, query] = await Promise.all([
+  const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
     getDossierV2PresentationSelection(),
     getDeskData(),
     getStoryRecordLayer(),
-    getHybridPublicationRecords({ fresh: true }),
+    getHybridPresenterEditionCandidates(),
     searchParams,
   ]);
   const dossier = selection.presentation;
@@ -129,11 +129,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     : null;
 
   const currentEditionPointer = buildCanonicalEditionIndex(
-    publicationRecords.dailyBriefArchive,
+    presenterEditions,
     data.researchRuns,
   )[0] || null;
   const currentEdition = currentEditionPointer
-    ? publicationRecords.dailyBriefArchive.find((item) => item.id === currentEditionPointer.snapshotId) || null
+    ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
   const presenter = asPresenterDossier(currentEdition?.payload?.dossier);
   const presenterLessons = presenter
