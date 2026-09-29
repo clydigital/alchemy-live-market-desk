@@ -1384,7 +1384,6 @@ async function persistHypotheses(
   output: HypothesisOutput,
   divergences: DivergenceRow[],
   beliefs: BeliefRow[],
-  knownEvidence: Set<string>,
   allowedHypothesisEvidenceIds: Set<string>,
   hypothesisEvidenceById: ReadonlyMap<string, EvidencePackItem>,
 ) {
@@ -2726,7 +2725,6 @@ export async function runIntelligenceEngine({
       hypothesisStage.data,
       divergences,
       beliefs,
-      knownEvidenceIds,
       allowedHypothesisEvidenceIds,
       hypothesisEvidenceById,
     );
