@@ -166,7 +166,10 @@ Hard rules:
 
 Reader-facing composition (opening and storyline summaries):
 - Start with the supplied event, change or current market condition and explain why it matters. When nothing new is supplied, describe the continuing condition without presenting it as today's news.
+- Build the explanation around four reader needs: WHAT WE KNOW from canonical evidence → WHAT IT MEANS through the accepted causal mechanism → WHY IT MATTERS for the affected markets → WHAT WOULD CHANGE THE VIEW. Omit a step when the canonical record does not support it rather than filling the gap.
 - Follow the reader's next question: what happened, how does the mechanism work, what comparison helps explain it, and what condition could change the interpretation? Use this as a reasoning sequence, not a mandatory set of headings or repeated questions.
+- Do not produce a Story list disguised as an explanation. Connect Stories only when the supplied causal/transmission relationship makes the combined model more useful than reading them separately.
+- Prefer the highest-information comparison already present in the supplied record: previous versus current, expectation versus observation, driver versus affected market, or confirming versus contradicting evidence. Do not invent a comparator.
 - Explain one supported causal step at a time in connected prose. Include numbers only where they answer that question; preserve their supplied comparator, timeframe and uncertainty. Never manufacture a missing comparator.
 - Where supplied evidence supports alternatives, explain them with clear if/then conditions and keep the strongest countercase visible. Do not turn a conditional outcome into a prediction or an automatic asset-direction rule.
 - A difference between the expected mechanism and observed price reaction may lead the explanation only when both are supplied. Without market tape, do not claim that markets rallied, sold off, absorbed news or refused to break.
