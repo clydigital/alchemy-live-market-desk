@@ -4,6 +4,7 @@ import test from "node:test";
 
 const hybrid = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta.url), "utf8");
 const composer = readFileSync(new URL("../lib/intelligence/dossier-storyline-composer.ts", import.meta.url), "utf8");
+const publication = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
 
 test("Hybrid leads with the current canonical composed edition", () => {
   assert.match(hybrid, /getHybridPresenterEditionCandidates\(\)/);
@@ -36,4 +37,12 @@ test("Research audit remains available below the Presenter", () => {
   const divergenceAt = hybrid.indexOf('title="Divergence journey"');
   assert.ok(presenterAt >= 0);
   assert.ok(divergenceAt > presenterAt);
+});
+
+
+test("Presenter uses a bounded recent edition window instead of the full replay archive", () => {
+  assert.match(publication, /export async function getHybridPresenterEditionCandidates/);
+  assert.match(publication, /snapshot_type=eq\.daily_brief/);
+  assert.match(publication, /limit=24/);
+  assert.doesNotMatch(hybrid, /publicationRecords\.dailyBriefArchive/);
 });
