@@ -480,8 +480,6 @@ export default async function Page({ searchParams }: PageProps) {
           stories={stories}
           changes={changes}
           systems={systems}
-          immediateRelease={null}
-          releaseStories={[]}
           metrics={{
             stories: data.stories.length,
             sources: data.sources.length,
