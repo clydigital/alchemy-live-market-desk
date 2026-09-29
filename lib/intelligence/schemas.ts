@@ -195,7 +195,7 @@ export type StorySynthesisOutput = {
     thesis: string;
     question: string;
     marketBelief: string;
-    divergenceSummary: string;
+    divergenceSummary: string | null;
     eventSignature: string;
     causalMechanism: string;
     affectedAssets: string[];
@@ -219,13 +219,13 @@ export type StorySynthesisOutput = {
     whatChanged: string;
     previousState: string;
     currentState: string;
-    marketReaction: string;
+    marketReaction: string | null;
     acceptedExplanation: string;
     acceptedExplanationEvidenceIds: string[];
-    overlookedVariable: string;
-    overlookedVariableEvidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+    overlookedVariable: string | null;
+    overlookedVariableEvidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative" | null;
     overlookedVariableEvidenceIds: string[];
-    marketMayBeRight: string;
+    marketMayBeRight: string | null;
     mechanismSteps: Array<{
       step: number;
       text: string;
@@ -571,7 +571,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           thesis: { type: "string" },
           question: { type: "string" },
           marketBelief: { type: "string" },
-          divergenceSummary: { type: "string" },
+          divergenceSummary: nullableString;
           eventSignature: { type: "string" },
           causalMechanism: { type: "string" },
           affectedAssets: stringArray,
@@ -595,13 +595,13 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           whatChanged: { type: "string" },
           previousState: { type: "string" },
           currentState: { type: "string" },
-          marketReaction: { type: "string" },
+          marketReaction: nullableString;
           acceptedExplanation: { type: "string" },
           acceptedExplanationEvidenceIds: stringArray,
-          overlookedVariable: { type: "string" },
-          overlookedVariableEvidenceStatus: { type: "string", enum: ["observed", "strongly_supported", "inferred", "speculative"] },
+          overlookedVariable: nullableString;
+          overlookedVariableEvidenceStatus: { type: ["string", "null"], enum: ["observed", "strongly_supported", "inferred", "speculative", null] },
           overlookedVariableEvidenceIds: stringArray,
-          marketMayBeRight: { type: "string" },
+          marketMayBeRight: nullableString;
           mechanismSteps: {
             type: "array",
             maxItems: 8,
