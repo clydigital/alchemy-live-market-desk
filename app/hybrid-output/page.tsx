@@ -64,7 +64,11 @@ function asPresenterDossier(value: unknown): PresenterDossier | null {
     !candidate.opening
     || typeof candidate.opening.headline !== "string"
     || typeof candidate.opening.summary !== "string"
+    || typeof candidate.opening.marketState !== "string"
+    || !Array.isArray(candidate.opening.topicChips)
+    || !Array.isArray(candidate.quickSummary)
     || !Array.isArray(candidate.lessons)
+    || !Array.isArray(candidate.watchNow)
   ) return null;
   return candidate as PresenterDossier;
 }
@@ -212,7 +216,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                           <h3>{storyline.title}</h3>
                           <div className={styles.meta}>{storyline.centralQuestion}</div>
                         </div>
-                        <Badge>{storyline.storyIds.length} STORY{storyline.storyIds.length === 1 ? "" : "IES"}</Badge>
+                        <Badge>{storyline.storyIds.length} {storyline.storyIds.length === 1 ? "STORY" : "STORIES"}</Badge>
                       </div>
                       <p>{storyline.summary}</p>
                       {storyline.links.map((link, index) => (
