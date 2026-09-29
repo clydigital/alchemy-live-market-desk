@@ -40,6 +40,7 @@ test("Provider Boundary 1: completed valid Structured Output parses successfully
     output_text: JSON.stringify({
       hypotheses: [
         {
+          marketBeliefId: "belief_1",
           divergenceId: "div_1",
           question: "Why did oil fall despite supply cuts?",
           statement: "Demand destruction outweighed physical supply tightness.",
@@ -318,7 +319,9 @@ test("Hypothesis Contract & Mandate: schema right-sizing & role rules enforce ca
   assert.equal(itemProperties.nextCatalysts.maxItems, 4);
 
   const requiredFields = (properties.items as Record<string, Record<string, unknown>>).required as unknown as string[];
+  assert.ok(requiredFields.includes("marketBeliefId"));
   assert.ok(requiredFields.includes("divergenceId"));
+  assert.deepEqual(itemProperties.divergenceId.type, ["string", "null"]);
   assert.ok(requiredFields.includes("question"));
   assert.ok(requiredFields.includes("statement"));
   assert.ok(requiredFields.includes("causalMechanism"));
