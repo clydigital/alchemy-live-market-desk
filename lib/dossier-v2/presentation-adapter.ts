@@ -167,6 +167,15 @@ export type DossierPresentationCalibrationSummary = {
   reviewQueue: string[];
 };
 
+export type DossierPresentationCandidateExplanation = {
+  rank: number;
+  explanation: string;
+  evidenceForRefs: string[];
+  evidenceAgainstRefs: string[];
+  confidence: "HIGH" | "MEDIUM" | "LOW" | "UNRESOLVED";
+  discriminatingTest: string;
+};
+
 export type DossierPresentationInvestigation = {
   id: string;
   status: Investigation["status"];
@@ -177,6 +186,7 @@ export type DossierPresentationInvestigation = {
   observedReaction: string | null;
   divergence: Investigation["divergence"];
   competingExplanations: string[];
+  candidateExplanations: DossierPresentationCandidateExplanation[];
   researchNext: string;
   confirmationCondition: string;
   invalidationCondition: string;
@@ -545,6 +555,38 @@ function presentationInvestigation(
       marketEvidenceRef: assessment.market_evidence_id,
     }));
 
+  const candidateExplanations: DossierPresentationCandidateExplanation[] =
+    Array.isArray(item.candidate_explanations) && item.candidate_explanations.length
+      ? item.candidate_explanations
+        .map((candidate) => ({
+          rank: candidate.rank,
+          explanation: candidate.explanation,
+          evidenceForRefs: [...candidate.evidence_for_ids],
+          evidenceAgainstRefs: [...candidate.evidence_against_ids],
+          confidence: candidate.confidence,
+          discriminatingTest: candidate.discriminating_test,
+        }))
+        .sort((left, right) => left.rank - right.rank)
+        .slice(0, 4)
+      : [
+        {
+          rank: 1,
+          explanation: item.current_explanation,
+          evidenceForRefs: [],
+          evidenceAgainstRefs: [],
+          confidence: "UNRESOLVED" as const,
+          discriminatingTest: item.research_next,
+        },
+        ...item.competing_explanations.slice(0, 3).map((explanation, index) => ({
+          rank: index + 2,
+          explanation,
+          evidenceForRefs: [],
+          evidenceAgainstRefs: [],
+          confidence: "UNRESOLVED" as const,
+          discriminatingTest: item.research_next,
+        })),
+      ];
+
   return {
     id: item.investigation_id,
     status: item.status,
@@ -555,6 +597,7 @@ function presentationInvestigation(
     observedReaction: item.observed_reaction,
     divergence: item.divergence,
     competingExplanations: [...item.competing_explanations],
+    candidateExplanations,
     researchNext: item.research_next,
     confirmationCondition: item.confirmation_condition,
     invalidationCondition: item.invalidation_condition,
