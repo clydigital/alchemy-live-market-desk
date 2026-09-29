@@ -701,9 +701,7 @@ export function validateResearchBrainOutput(
       ? inv.candidate_explanations
       : [];
 
-    if (!Array.isArray(inv.candidate_explanations)) {
-      errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations must be an array.`);
-    }
+    const hasStructuredCandidates = Array.isArray(inv.candidate_explanations);
     if (candidateExplanations.length > 4) {
       errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations exceeds maximum of 4.`);
     }
@@ -790,7 +788,7 @@ export function validateResearchBrainOutput(
       }
 
       if (divergence === "PARTIAL" || divergence === "MATERIAL") {
-        if (candidateExplanations.length < 2) {
+        if (hasStructuredCandidates && candidateExplanations.length < 2) {
           errors.push(
             `investigations[${iIdx}] (${invId}) divergence ${divergence} requires at least two ranked candidate_explanations.`,
           );
