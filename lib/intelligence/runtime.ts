@@ -355,6 +355,7 @@ Useful hypothesis origins include:
 - STRUCTURAL_SHIFT: several observations suggest a durable change in economics, supply, demand, financing or policy;
 - CATALYST_REPRICING: new evidence materially changes the path or importance of an existing catalyst.
 For every hypothesis, return marketBeliefId for the belief it explains. Return divergenceId only when an actual supplied divergence is central to the thesis; otherwise return null.
+affectedAssets may broaden beyond the originating Market Belief only when that receiving asset is explicitly present in canonical evidence cited by the hypothesis in evidenceForIds or its causalChain. Never introduce an unsupported ticker or instrument from general knowledge.
 Produce exactly ONE primary causal hypothesis for a Market Belief by default. A second is permitted only when it is a genuinely different competing mechanism.
 IDEA QUALITY GATE: Prefer a few strong hypotheses over broad coverage. A hypothesis should survive only when the supplied evidence supports (1) a specific causal mechanism, (2) a decision-relevant market or economic implication, and (3) an observable confirmation or invalidation path. A headline restatement, generic theme label or unsupported clever connection is not a good idea and should be omitted.
 Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable. The analytical edge may be a causal connection, second-order effect, transmission path, structural shift, or repricing rather than a disagreement with consensus.
@@ -1383,12 +1384,12 @@ async function persistHypotheses(
   output: HypothesisOutput,
   divergences: DivergenceRow[],
   beliefs: BeliefRow[],
-  knownEvidence: Set<string>,
-  allowedHypothesisEvidenceIds?: Set<string>,
+  allowedHypothesisEvidenceIds: Set<string>,
+  hypothesisEvidenceById: ReadonlyMap<string, EvidencePackItem>,
 ) {
   const beliefById = new Map(beliefs.map((row) => [row.id, row]));
   const divergenceById = new Map(divergences.map((row) => [row.id, row]));
-  const allowedEvidence = allowedHypothesisEvidenceIds ?? knownEvidence;
+  const allowedEvidence = allowedHypothesisEvidenceIds;
 
   const specs = output.hypotheses.flatMap((hypothesis) => {
     const divergence = hypothesis.divergenceId
@@ -1450,12 +1451,23 @@ async function persistHypotheses(
       )
     ) return [];
 
+    const hypothesisAssetEvidenceIds = unique([
+      ...evidenceFor,
+      ...causalChain.flatMap((edge) => edge.evidenceIds),
+    ]);
+    const allowedHypothesisAssets = unique([
+      ...(belief.affected_assets ?? []),
+      ...hypothesisAssetEvidenceIds.flatMap((evidenceId) =>
+        hypothesisEvidenceById.get(evidenceId)?.affectedAssets ?? []
+      ),
+    ]);
+
     return [{
       divergence_id: divergence?.id ?? null,
       hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
       causal_mechanism: causalMechanism,
-      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief?.affected_assets ?? []),
+      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, allowedHypothesisAssets),
       confirmation_criteria: confirmationCriteria,
       invalidation_criteria: invalidationCriteria,
       next_catalysts: unique(hypothesis.nextCatalysts.map((value) => value.trim()).filter(Boolean)),
@@ -2686,6 +2698,7 @@ export async function runIntelligenceEngine({
     const hypothesisEvidence = attachRatesContext(buildHypothesisEvidencePack(beliefs, divergences, reasoningEvidence), reasoningEvidence, analysisAsOf);
     const hypothesisStories = buildHypothesisStoryPack(beliefs, hypothesisEvidence, storiesPack);
     const allowedHypothesisEvidenceIds = new Set(hypothesisEvidence.map((e) => e.id));
+    const hypothesisEvidenceById = new Map(hypothesisEvidence.map((evidence) => [evidence.id, evidence]));
 
     if (hypothesisEvidence.length === 0) {
       warnings.push("No canonical evidence referenced by Market Beliefs or Divergences was available for Hypothesis generation; reasoning cycle paused without creating hypotheses.");
@@ -2708,7 +2721,13 @@ export async function runIntelligenceEngine({
       },
       maxOutputTokens: 5_500,
     });
-    const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
+    const hypotheses = await persistHypotheses(
+      hypothesisStage.data,
+      divergences,
+      beliefs,
+      allowedHypothesisEvidenceIds,
+      hypothesisEvidenceById,
+    );
     const rejectedHypothesisCount = Math.max(0, hypothesisStage.data.hypotheses.length - hypotheses.length);
     if (rejectedHypothesisCount) {
       warnings.push(`${rejectedHypothesisCount} hypothesis candidate(s) failed minimum reasoning integrity: supporting evidence, causal path, central question, confirmation and invalidation are required.`);
