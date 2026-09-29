@@ -19,3 +19,9 @@ test("canonical Story reasoning accepts a missing Challenger without inventing a
   assert.match(runtime, /\} : null,/);
   assert.match(runtime, /if \(context\.challenger && context\.challenger\.hypothesisId !== context\.hypothesis\.id\)/);
 });
+
+
+test("canonical evidence metadata does not imply mandatory Challenger review", () => {
+  assert.match(runtime, /Decisive evidence selected by the Alchemy intelligence runtime for the canonical Story/);
+  assert.doesNotMatch(runtime, /after Challenger review/);
+});

@@ -2038,7 +2038,7 @@ async function promoteCandidate({
         evidence_id: evidenceId,
         evidence_role: "decisive",
         weight: 80,
-        rationale: "Decisive evidence selected by the Alchemy intelligence runtime after Challenger review.",
+        rationale: "Decisive evidence selected by the Alchemy intelligence runtime for the canonical Story.",
       }))),
     });
   }
