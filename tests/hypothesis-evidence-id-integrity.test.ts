@@ -11,6 +11,7 @@ const TYPO_EVIDENCE_ID = "8b2c46ed-969f-4159-8246-285101f7d243";
 function hypothesisOutput(edge: HypothesisOutput["hypotheses"][number]["causalChain"][number]): HypothesisOutput {
   return {
     hypotheses: [{
+      marketBeliefId: "belief-1",
       divergenceId: "divergence-1",
       question: "Why are long yields moving?",
       statement: "Term-premium pressure is driving the long end.",
