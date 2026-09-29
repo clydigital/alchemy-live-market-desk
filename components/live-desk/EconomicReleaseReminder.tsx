@@ -26,7 +26,7 @@ export type OverviewReleaseStoryLink = {
 };
 
 type Props = {
-  release: OverviewEconomicRelease | null;
+  releases: OverviewEconomicRelease[];
   relatedStories?: OverviewReleaseStoryLink[];
 };
 
@@ -46,64 +46,68 @@ function releaseDateLabel(date: string) {
   }).format(parsed);
 }
 
-export default function EconomicReleaseReminder({ release, relatedStories = [] }: Props) {
-  if (!release) return null;
-
-  const released = release.status === "Released" && Boolean(release.actual);
+export default function EconomicReleaseReminder({ releases, relatedStories = [] }: Props) {
+  if (!releases.length) return null;
 
   return (
-    <section className={styles.reminder} aria-label="Immediate high-impact economic release">
+    <section className={styles.reminder} aria-label="Weekly high-impact economic events">
       <div className={styles.signal} aria-hidden="true"><span /></div>
       <div className={styles.main}>
         <header className={styles.header}>
           <div>
-            <span className={styles.kicker}>Immediate economic release</span>
-            <h2>{release.event}</h2>
+            <span className={styles.kicker}>Upcoming high-impact events · this week</span>
+            <h2>Weekly economic risk calendar</h2>
           </div>
-          <span className={styles.status} data-released={released ? "true" : "false"}>
-            {released ? "Released" : "Awaiting release"}
-          </span>
+          <span className={styles.status}>{releases.length} event{releases.length === 1 ? "" : "s"}</span>
         </header>
 
-        <div className={styles.schedule}>
-          <strong>{releaseDateLabel(release.date)}</strong>
-          <span>{release.timeLabel}</span>
-          {release.referencePeriod ? <span>{release.referencePeriod}</span> : null}
-          <span>High impact</span>
-        </div>
+        {releases.map((release) => {
+          const released = release.status === "Released" && Boolean(release.actual);
+          return (
+            <article key={release.id}>
+              <div className={styles.schedule}>
+                <strong>{releaseDateLabel(release.date)}</strong>
+                <span>{release.timeLabel}</span>
+                {release.referencePeriod ? <span>{release.referencePeriod}</span> : null}
+                <span>{released ? "Released" : "High impact"}</span>
+              </div>
 
-        <div className={styles.values}>
-          <div data-primary="true">
-            <span>Actual</span>
-            <strong>{displayValue(release.actual, "Awaiting release")}</strong>
-          </div>
-          <div>
-            <span>Forecast</span>
-            <strong>{displayValue(release.forecast, "Not loaded")}</strong>
-          </div>
-          <div>
-            <span>Previous</span>
-            <strong>{displayValue(release.previous, "Not loaded")}</strong>
-            {release.revisedPrevious ? <small>Revised: {release.revisedPrevious}</small> : null}
-          </div>
-        </div>
+              <h3>{release.event}</h3>
+              <div className={styles.values}>
+                <div data-primary="true">
+                  <span>Actual</span>
+                  <strong>{displayValue(release.actual, "Awaiting release")}</strong>
+                </div>
+                <div>
+                  <span>Forecast</span>
+                  <strong>{displayValue(release.forecast, "Not loaded")}</strong>
+                </div>
+                <div>
+                  <span>Previous</span>
+                  <strong>{displayValue(release.previous, "Not loaded")}</strong>
+                  {release.revisedPrevious ? <small>Revised: {release.revisedPrevious}</small> : null}
+                </div>
+              </div>
 
-        <div className={styles.footer}>
-          <div>
-            <span>Desk question</span>
-            <p>{release.decidingQuestion}</p>
-          </div>
-          <div className={styles.assets}>
-            {release.affectedAssets.slice(0, 6).map((asset) => <span key={asset}>{asset}</span>)}
-          </div>
-          <a href={release.sourceUrl} target="_blank" rel="noreferrer">{release.sourceName} ↗</a>
-        </div>
+              <div className={styles.footer}>
+                <div>
+                  <span>Desk question</span>
+                  <p>{release.decidingQuestion}</p>
+                </div>
+                <div className={styles.assets}>
+                  {release.affectedAssets.slice(0, 6).map((asset) => <span key={asset}>{asset}</span>)}
+                </div>
+                <a href={release.sourceUrl} target="_blank" rel="noreferrer">{release.sourceName} ↗</a>
+              </div>
+            </article>
+          );
+        })}
 
         {relatedStories.length ? (
           <div className={styles.storyLinks}>
             <div>
-              <span>Feeds into active Stories</span>
-              <small>The release is already attached to the desk questions most likely to change when the print lands.</small>
+              <span>Nearest event feeds into active Stories</span>
+              <small>The nearest release is attached to the desk questions most likely to change when it lands.</small>
             </div>
             <div className={styles.storyLinkList}>
               {relatedStories.map((story) => (
