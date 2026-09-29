@@ -171,7 +171,7 @@ function calendarReleaseCandidate(event: EconomicCalendarEvent): OverviewEconomi
   };
 }
 
-function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: EconomicCalendarEvent[]) {
+function weeklyHighImpactReleases(macroReleases: MacroRelease[], calendar: EconomicCalendarEvent[]) {
   const today = malaysiaDateKey();
   const now = Date.now();
   const candidates = [
@@ -202,7 +202,7 @@ function immediateEconomicRelease(macroReleases: MacroRelease[], calendar: Econo
     return bRichness - aRichness;
   });
 
-  return candidates[0] || null;
+  return candidates;
 }
 
 function scheduleSystemDetail(slot: ReturnType<typeof getFourSlotResearchHealth>["slots"][number]) {
@@ -241,7 +241,8 @@ export default async function Page({ searchParams }: PageProps) {
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
-  const immediateRelease = immediateEconomicRelease(data.macroReleases, calendar);
+  const upcomingReleases = weeklyHighImpactReleases(data.macroReleases, calendar);
+  const immediateRelease = upcomingReleases[0] || null;
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossierSelection.presentation });
   const reasoningInvestigation = dossierSelection.presentation?.watchNext[0] || null;
@@ -468,7 +469,7 @@ export default async function Page({ searchParams }: PageProps) {
             </div>
           </Panel>
         ) : null}
-        <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
+        <EconomicReleaseReminder releases={upcomingReleases} relatedStories={releaseStories} />
         <DailyAssetStateBoard
           state={dailyAssetState}
           dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}
