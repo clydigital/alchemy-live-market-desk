@@ -444,6 +444,23 @@ export default async function Page({ searchParams }: PageProps) {
                 </article>
               </div>
 
+              {reasoningInvestigation.candidateExplanations.length ? (
+                <article className={styles.record}>
+                  <span className={styles.meta}>Candidate mechanisms</span>
+                  <div className={styles.recordList}>
+                    {reasoningInvestigation.candidateExplanations.slice(0, 3).map((candidate) => (
+                      <div key={`${reasoningInvestigation.id}:candidate:${candidate.rank}`}>
+                        <strong>#{candidate.rank} · {candidate.confidence}</strong>
+                        <p>{candidate.explanation}</p>
+                        <small>
+                          Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ) : null}
+
               <article className={styles.record}>
                 <span className={styles.meta}>Investigate next</span>
                 <p>{reasoningInvestigation.researchNext}</p>
