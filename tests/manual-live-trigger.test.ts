@@ -49,6 +49,28 @@ test("an authorised acquisition invocation reuses the canonical scheduled handle
   assert.equal(calls[0]?.request.headers.get("x-alchemy-manual-trigger"), "github-actions-oidc");
 });
 
+
+test("the scheduled GitHub safety transport shares the canonical slot identity", async () => {
+  let canonicalUrl = "";
+  const response = await handleManualLiveTriggerWithDependencies(request({
+    slot: "morning",
+    stage: "acquisition",
+    retryKey: "github-scheduled",
+  }), {
+    authorize: authorized,
+    cronSecret: () => "internal-cron-secret",
+    acquisition: async (canonicalRequest) => {
+      canonicalUrl = canonicalRequest.url;
+      return Response.json({ status: "running" });
+    },
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(canonicalUrl, "https://live-internal.invalid/api/cron/research/morning");
+  assert.doesNotMatch(canonicalUrl, /[?&]retry=/);
+});
+
 test("an authorised intelligence invocation preserves the same retry identity", async () => {
   let canonicalUrl = "";
   let acquisitionCalled = false;
