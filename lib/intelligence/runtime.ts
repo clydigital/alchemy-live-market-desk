@@ -2628,6 +2628,30 @@ export async function runIntelligenceEngine({
         warnings,
       };
     }
+    if (!system1Attention.selectedCandidates.length && !storyReviewTargets.length) {
+      warnings.push("System 1 found no research-worthy fresh cluster and no existing Story required review; System 2 was not invoked.");
+      await persistEarlyEngineCompletion({
+        engineRunId,
+        dryRun,
+        warnings,
+        storiesConsidered: 0,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        recruitment,
+      });
+      return {
+        enabled: true,
+        engineRunId,
+        status: "completed",
+        evidenceConsidered: 0,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        storiesConsidered: 0,
+        storiesPublished: 0,
+        storyIds: [],
+        warnings,
+      };
+    }
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
