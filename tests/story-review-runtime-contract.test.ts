@@ -100,7 +100,7 @@ test("due high and critical Story debt is rescheduled after assessment rather th
 test("Belief, Hypothesis and Story assets are intersected with explicit evidence attribution", () => {
   assert.match(runtime, /persistBeliefs\(output: MarketBeliefOutput, evidenceById:/);
   assert.match(runtime, /affected_assets: onlyExplicitAssets\(belief\.affectedAssets, allowedAssets\)/);
-  assert.match(runtime, /affected_assets: onlyExplicitAssets\(hypothesis\.affectedAssets, belief\?\.affected_assets \?\? \[\]\)/);
+  assert.match(runtime, /affected_assets: onlyExplicitAssets\(hypothesis\.affectedAssets, allowedHypothesisAssets\)/);
   assert.match(runtime, /const affectedAssets = onlyExplicitAssets\(candidate\.affectedAssets, reviewedById/);
 });
 
