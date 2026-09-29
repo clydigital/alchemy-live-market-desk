@@ -1383,18 +1383,22 @@ async function persistHypotheses(
   const allowedEvidence = allowedHypothesisEvidenceIds ?? knownEvidence;
 
   const specs = output.hypotheses.flatMap((hypothesis) => {
-    const belief = beliefById.get(hypothesis.marketBeliefId);
-    if (!belief || !hypothesis.statement.trim()) return [];
-
     const divergence = hypothesis.divergenceId
       ? divergenceById.get(hypothesis.divergenceId) ?? null
       : null;
+    // Backward-compatible with an already-completed pre-change Hypothesis
+    // checkpoint: derive the belief from its persisted divergence when the old
+    // output does not yet contain marketBeliefId.
+    const marketBeliefId = hypothesis.marketBeliefId || divergence?.market_belief_id || null;
+    const belief = marketBeliefId ? beliefById.get(marketBeliefId) : null;
+    if (!belief || !hypothesis.statement.trim()) return [];
+
     if (
       hypothesis.divergenceId
-      && (!divergence || divergence.market_belief_id !== hypothesis.marketBeliefId)
+      && (!divergence || divergence.market_belief_id !== marketBeliefId)
     ) return [];
 
-    const contextId = hypothesis.divergenceId ?? hypothesis.marketBeliefId;
+    const contextId = hypothesis.divergenceId ?? marketBeliefId;
     const evidenceFor = requireKnownEvidenceIds(
       hypothesis.evidenceForIds,
       allowedEvidence,
