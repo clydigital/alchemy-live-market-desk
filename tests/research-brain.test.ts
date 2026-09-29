@@ -1030,7 +1030,45 @@ test("6I. Divergence explanation keeps an alternative or explicit missing eviden
   assert.ok(val.errors.some((e) => e.includes("requires at least one competing_explanation or missing_evidence")));
 });
 
-test("6J. Continued investigation preserves its exact prior expected reaction", () => {
+test("6J. Divergence Lab candidates cannot cite evidence outside the Investigation", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  inv.candidate_explanations = [{
+    rank: 1,
+    explanation: "A competing macro impulse may be offsetting the expected move.",
+    evidence_for_ids: ["ev:not-in-investigation"],
+    evidence_against_ids: [],
+    confidence: "MEDIUM",
+    discriminating_test: "Compare rates, USD and breadth on the next comparable catalyst.",
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("outside this Investigation's observed_evidence")));
+});
+
+test("6K. Divergence Lab medium confidence requires supporting evidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  inv.candidate_explanations = [{
+    rank: 1,
+    explanation: "Positioning may be offsetting the expected macro transmission.",
+    evidence_for_ids: [],
+    evidence_against_ids: [],
+    confidence: "MEDIUM",
+    discriminating_test: "Check whether the move persists after the next session.",
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((e) => e.includes("MEDIUM confidence requires at least one evidence_for_id")));
+});
+
+test("6L. Continued investigation preserves its exact prior expected reaction", () => {
   const packet = createValidBasePacket();
   packet.prior_analytical_state.prior_investigations = [{
     investigation_id: "inv:oil_risk",
