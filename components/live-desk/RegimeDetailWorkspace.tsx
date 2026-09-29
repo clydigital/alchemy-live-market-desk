@@ -344,7 +344,21 @@ export default function RegimeDetailWorkspace({
                             <p className={styles.divergenceExplanation}>
                               <strong>{item.reactionCalibration.requiresReview ? "Post-mortem hypothesis:" : "Current explanation:"}</strong> {item.currentExplanation}
                             </p>
-                            {item.competingExplanations.length ? (
+                            {item.candidateExplanations.length ? (
+                              <div className={styles.divergenceAlternatives}>
+                                <strong>Divergence Lab — candidate mechanisms</strong>
+                                {item.candidateExplanations.map((candidate) => (
+                                  <div key={`${item.id}:candidate:${candidate.rank}`}>
+                                    <span>#{candidate.rank} · {candidate.confidence} confidence</span>
+                                    <p>{candidate.explanation}</p>
+                                    <small>
+                                      Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
+                                    </small>
+                                    <p><strong>Discriminator:</strong> {candidate.discriminatingTest}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : item.competingExplanations.length ? (
                               <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
                             ) : null}
                             <div className={styles.divergenceNext}>
