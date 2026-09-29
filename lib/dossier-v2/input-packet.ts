@@ -76,7 +76,7 @@ export interface PriorInvestigationSnapshot {
   divergence: "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
   current_explanation: string;
   competing_explanations: string[];
-  candidate_explanations: PriorInvestigationCandidateExplanation[];
+  candidate_explanations?: PriorInvestigationCandidateExplanation[];
   research_next: string;
   status: "open" | "strengthened" | "weakened" | "resolved" | "parked";
   linked_story_ids: string[];
@@ -1751,7 +1751,7 @@ export function assembleDossierV2InputPacket(
           inv.competing_explanations = inv.competing_explanations.map((item) =>
             truncateString(item, maxTextLen)
           );
-          inv.candidate_explanations = inv.candidate_explanations.map((candidate) => ({
+          inv.candidate_explanations = (inv.candidate_explanations ?? []).map((candidate) => ({
             ...candidate,
             explanation: truncateString(candidate.explanation, maxTextLen),
             discriminating_test: truncateString(candidate.discriminating_test, maxTextLen),
