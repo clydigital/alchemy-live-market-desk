@@ -5,6 +5,10 @@ import test from "node:test";
 const config = JSON.parse(
   readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
 );
+const liveWorkflow = readFileSync(
+  new URL("../.github/workflows/run-live-research.yml", import.meta.url),
+  "utf8",
+);
 
 test("Vercel auto-deploys only main", () => {
   assert.equal(config.git?.deploymentEnabled?.["*"], false);
@@ -31,4 +35,16 @@ test("Vercel keeps research crons paused while GitHub Actions owns Live scheduli
     ),
     true,
   );
+});
+
+test("GitHub Actions retains the 09:30/09:45 and 21:30/21:45 MYT Live schedule", () => {
+  for (const schedule of [
+    "30 1 * * *",
+    "45 1 * * *",
+    "30 13 * * *",
+    "45 13 * * *",
+  ]) {
+    assert.match(liveWorkflow, new RegExp(`cron: ["']${schedule.replaceAll("*", "\\*")}["']`));
+  }
+  assert.match(liveWorkflow, /for attempt in \{1\.\.8\}/);
 });
