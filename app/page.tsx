@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
@@ -7,7 +8,7 @@ import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/compone
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
-import { formatDeskDate } from "@/components/live-desk/LiveDeskUi";
+import { Badge, Panel, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
 import { getDeskData, type MacroRelease } from "@/lib/data";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
@@ -243,6 +244,14 @@ export default async function Page({ searchParams }: PageProps) {
   const immediateRelease = immediateEconomicRelease(data.macroReleases, calendar);
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossierSelection.presentation });
+  const reasoningInvestigation = dossierSelection.presentation?.watchNext[0] || null;
+  const reasoningTone = reasoningInvestigation?.divergence === "MATERIAL"
+    ? "risk" as const
+    : reasoningInvestigation?.divergence === "PARTIAL" || reasoningInvestigation?.reactionCalibration.requiresReview
+      ? "warn" as const
+      : reasoningInvestigation?.divergence === "NONE"
+        ? "ready" as const
+        : "default" as const;
   const regimes = buildRegimeProjection({
     stories: data.stories,
     events: recordLayer.events,
@@ -385,6 +394,63 @@ export default async function Page({ searchParams }: PageProps) {
       <div style={{ display: "grid", gap: 24 }}>
         <RateRegimeOverview selection={dossierSelection} />
         <MarketRegimeStrip regimes={regimes} />
+        {reasoningInvestigation ? (
+          <Panel
+            title="Expected vs actual"
+            description="Highest-priority canonical investigation from the current Dossier. This block reads existing reasoning; it does not create a second interpretation."
+            action={(
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Badge tone={reasoningTone}>{reasoningInvestigation.divergence}</Badge>
+                <Link className={styles.link} href="/dossier">Open Dossier</Link>
+              </div>
+            )}
+          >
+            <div className={styles.recordList}>
+              <article className={styles.record}>
+                <div className={styles.inlineMeta}>
+                  <span className={styles.meta}>What changed</span>
+                  <Badge>{reasoningInvestigation.journey.transition.replaceAll("_", " ")}</Badge>
+                </div>
+                <h3>{reasoningInvestigation.question}</h3>
+                <p>{reasoningInvestigation.observedReaction || "No comparable post-event market reaction has been admitted yet."}</p>
+              </article>
+
+              <div className={styles.gridTwo}>
+                <article className={styles.record}>
+                  <span className={styles.meta}>Expected</span>
+                  <p>{reasoningInvestigation.expectedReaction || "No preserved pre-event expectation is available yet."}</p>
+                </article>
+                <article className={styles.record}>
+                  <span className={styles.meta}>Actual</span>
+                  <p>{reasoningInvestigation.observedReaction || "Reaction evidence is not yet comparable enough to state an actual-versus-expected verdict."}</p>
+                </article>
+              </div>
+
+              <div className={styles.gridTwo}>
+                <article className={styles.record}>
+                  <div className={styles.inlineMeta}>
+                    <span className={styles.meta}>Biggest contradiction</span>
+                    <Badge tone={reasoningTone}>{reasoningInvestigation.divergence}</Badge>
+                  </div>
+                  <p>{reasoningInvestigation.divergence === "UNRESOLVED"
+                    ? "No evidence-backed divergence verdict yet; the exact reaction evidence is incomplete or non-comparable."
+                    : reasoningInvestigation.divergence === "NONE"
+                      ? "No material contradiction in the measured reaction window."
+                      : reasoningInvestigation.currentExplanation}</p>
+                </article>
+                <article className={styles.record}>
+                  <span className={styles.meta}>Current explanation</span>
+                  <p>{reasoningInvestigation.currentExplanation}</p>
+                </article>
+              </div>
+
+              <article className={styles.record}>
+                <span className={styles.meta}>Investigate next</span>
+                <p>{reasoningInvestigation.researchNext}</p>
+              </article>
+            </div>
+          </Panel>
+        ) : null}
         <EconomicReleaseReminder release={immediateRelease} relatedStories={releaseStories} />
         <DailyAssetStateBoard
           state={dailyAssetState}
