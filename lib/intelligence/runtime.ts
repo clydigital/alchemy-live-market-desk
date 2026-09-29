@@ -1422,7 +1422,7 @@ async function persistHypotheses(
       hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), hypothesis.causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
       causal_mechanism: hypothesis.causalMechanism.trim(),
-      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief.affected_assets ?? []),
+      affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief?.affected_assets ?? []),
       confirmation_criteria: unique(hypothesis.confirmationCriteria.filter(Boolean)),
       invalidation_criteria: unique(hypothesis.invalidationCriteria.filter(Boolean)),
       next_catalysts: unique(hypothesis.nextCatalysts.filter(Boolean)),
