@@ -266,8 +266,9 @@ function reserve(
 }
 
 /**
- * Shadow-only attention allocation. It ranks what deserves investigation but
- * cannot create Evidence, mutate a Story, gate publication, or invoke a model.
+ * Pure deterministic attention allocation. It ranks what deserves investigation
+ * without creating Evidence, mutating Stories or invoking a model. Callers may
+ * use it for shadow telemetry or as a bounded System 1 routing decision.
  * Discovery-only rows may enrich a cluster but can never qualify it by themselves.
  */
 export function buildResearchAttentionPacket(
@@ -321,7 +322,7 @@ export function buildResearchAttentionPacket(
   const diagnostics = [
     `Attention capacity ${maxSlots}: ${reservations.contradiction} contradiction, ${reservations.currentDelta} current-delta, ${reservations.emerging} emerging, ${reservations.open} open before spillover.`,
     `${eligible.length} canonical-eligible cluster(s); ${watchOnly.length} discovery-only cluster(s) excluded from research allocation.`,
-    "Shadow packet only: zero model calls, zero canonical Evidence writes, zero Story mutations and zero publication gating.",
+    "Deterministic attention only: zero model calls, zero canonical Evidence writes and zero Story mutations.",
   ];
 
   return {
