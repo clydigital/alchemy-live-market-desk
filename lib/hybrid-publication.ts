@@ -44,6 +44,19 @@ async function optionalQuery<T>(table: string, params = "", options: Publication
   }
 }
 
+/**
+ * Presenter reads only a bounded recent daily-brief window. It does not need the
+ * full replay archive or unrelated Hybrid publication datasets to explain the
+ * current desk.
+ */
+export async function getHybridPresenterEditionCandidates(options: PublicationQueryOptions = {}) {
+  return optionalQuery<PublicationSnapshot>(
+    "hybrid_publication_snapshots",
+    "select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=24",
+    options,
+  );
+}
+
 /** Daily briefs are the canonical edition archive, never the mixed 480-row operational window. */
 async function getDailyBriefArchive(options: PublicationQueryOptions = {}) {
   const archive: PublicationSnapshot[] = [];
