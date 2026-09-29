@@ -338,6 +338,23 @@ export default async function DossierPage() {
                     <small className={styles.postMortemLabel}>SYSTEM 2 POST-MORTEM / CURRENT HYPOTHESIS</small>
                   ) : null}
                   <p className={styles.explanation}>{item.currentExplanation}</p>
+                  {item.candidateExplanations.length ? (
+                    <div className={styles.competing}>
+                      <small>DIVERGENCE LAB — CANDIDATE MECHANISMS</small>
+                      <div className={styles.investigationGrid}>
+                        {item.candidateExplanations.map((candidate) => (
+                          <div key={`${item.id}:candidate:${candidate.rank}`}>
+                            <small>#{candidate.rank} · {candidate.confidence} CONFIDENCE</small>
+                            <p>{candidate.explanation}</p>
+                            <span>
+                              Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
+                            </span>
+                            <p><strong>Discriminator:</strong> {candidate.discriminatingTest}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className={styles.investigationGrid}>
                     <div>
                       <small>WHY IT MATTERS</small>
@@ -356,12 +373,7 @@ export default async function DossierPage() {
                       <p>{item.invalidationCondition}</p>
                     </div>
                   </div>
-                  {item.competingExplanations.length ? (
-                    <div className={styles.competing}>
-                      <small>COMPETING EXPLANATIONS</small>
-                      <span>{item.competingExplanations.join(" · ")}</span>
-                    </div>
-                  ) : null}
+
                 </article>
               ))}
             </div>
