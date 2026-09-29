@@ -571,7 +571,7 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           thesis: { type: "string" },
           question: { type: "string" },
           marketBelief: { type: "string" },
-          divergenceSummary: nullableString;
+          divergenceSummary: nullableString,
           eventSignature: { type: "string" },
           causalMechanism: { type: "string" },
           affectedAssets: stringArray,
@@ -595,13 +595,13 @@ export const STORY_SYNTHESIS_SCHEMA: JsonSchema = {
           whatChanged: { type: "string" },
           previousState: { type: "string" },
           currentState: { type: "string" },
-          marketReaction: nullableString;
+          marketReaction: nullableString,
           acceptedExplanation: { type: "string" },
           acceptedExplanationEvidenceIds: stringArray,
-          overlookedVariable: nullableString;
+          overlookedVariable: nullableString,
           overlookedVariableEvidenceStatus: { type: ["string", "null"], enum: ["observed", "strongly_supported", "inferred", "speculative", null] },
           overlookedVariableEvidenceIds: stringArray,
-          marketMayBeRight: nullableString;
+          marketMayBeRight: nullableString,
           mechanismSteps: {
             type: "array",
             maxItems: 8,
