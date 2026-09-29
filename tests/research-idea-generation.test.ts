@@ -14,11 +14,11 @@ test("Research Brain does not require divergence before idea generation", () => 
   assert.match(runtime, /CATALYST_REPRICING:/);
   assert.match(runtime, /Hypothesis generation will continue from material Market Beliefs and converging evidence/);
 
-  const divergenceGate = runtime.indexOf("No material evidence-versus-belief divergence survived; Hypothesis generation");
-  const hypothesisStage = runtime.indexOf('stageKey: "hypothesis"', divergenceGate);
-  assert.ok(divergenceGate >= 0 && hypothesisStage > divergenceGate);
-  const between = runtime.slice(divergenceGate, hypothesisStage);
-  assert.doesNotMatch(between, /persistEarlyEngineCompletion/);
+  assert.doesNotMatch(
+    runtime,
+    /if \(!divergences\.length\) \{[\s\S]{0,500}persistEarlyEngineCompletion/,
+    "zero divergence must not terminate the reasoning cycle",
+  );
 });
 
 test("Hypothesis contract carries belief identity and optional divergence", () => {
