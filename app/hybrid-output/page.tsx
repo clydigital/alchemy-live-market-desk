@@ -2,6 +2,10 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
+import { getHybridPublicationRecords } from "@/lib/hybrid-publication";
+import type { DossierBriefingV1 } from "@/lib/intelligence/dossier-briefing";
+import type { DossierStorylineComposition } from "@/lib/intelligence/dossier-storyline-composer";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { buildRegimeProjection } from "@/lib/regimes";
 
@@ -47,11 +51,40 @@ function reactionReadLabel(value: string) {
   return "Not exactly measured";
 }
 
+type PresenterStoryline = DossierStorylineComposition["storylines"][number];
+type PresenterDossier = DossierBriefingV1 & {
+  compositionVersion?: string;
+  storylines?: DossierStorylineComposition["storylines"];
+};
+
+function asPresenterDossier(value: unknown): PresenterDossier | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Partial<PresenterDossier>;
+  if (
+    !candidate.opening
+    || typeof candidate.opening.headline !== "string"
+    || typeof candidate.opening.summary !== "string"
+    || !Array.isArray(candidate.lessons)
+  ) return null;
+  return candidate as PresenterDossier;
+}
+
+function storylineLabel(storyline: PresenterStoryline, nodeId: string) {
+  return storyline.nodes.find((node) => node.id === nodeId)?.label || nodeId;
+}
+
+function evidenceTone(state: string): "default" | "ready" | "warn" {
+  if (state === "observed" || state === "strongly_supported") return "ready";
+  if (state === "speculative") return "warn";
+  return "default";
+}
+
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
-  const [selection, data, recordLayer, query] = await Promise.all([
+  const [selection, data, recordLayer, publicationRecords, query] = await Promise.all([
     getDossierV2PresentationSelection(),
     getDeskData(),
     getStoryRecordLayer(),
+    getHybridPublicationRecords({ fresh: true }),
     searchParams,
   ]);
   const dossier = selection.presentation;
@@ -91,6 +124,21 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
 
+  const currentEditionPointer = buildCanonicalEditionIndex(
+    publicationRecords.dailyBriefArchive,
+    data.researchRuns,
+  )[0] || null;
+  const currentEdition = currentEditionPointer
+    ? publicationRecords.dailyBriefArchive.find((item) => item.id === currentEditionPointer.snapshotId) || null
+    : null;
+  const presenter = asPresenterDossier(currentEdition?.payload?.dossier);
+  const presenterLessons = presenter
+    ? [
+        ...presenter.lessons.filter((lesson) => lesson.storyId === (focusedStory || focusedEventStory)?.id),
+        ...presenter.lessons.filter((lesson) => lesson.storyId !== (focusedStory || focusedEventStory)?.id),
+      ]
+    : [];
+
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -101,7 +149,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     <LiveDeskShell
       activePath="/hybrid-output"
       title="Hybrid Output"
-      description="Review the canonical Live-to-Hybrid handoff: expectation, observed reaction, divergence, investigation and invalidation."
+      description="Understand the current market view through canonical causal storylines, then inspect the underlying research audit when needed."
       meta={`${dossier.policyOutlook.length} policy check(s) · ${openInvestigations} open investigation(s)`}
     >
       <div className={styles.grid}>
@@ -118,6 +166,123 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           title={selection.notice.label}
           detail={selection.notice.detail}
         />
+
+
+        {presenter ? (
+          <>
+            <Panel
+              title="Presenter view"
+              description="The explanation layer uses the current immutable Live edition. It can organise and simplify accepted reasoning, but it cannot create a new thesis."
+              action={<Badge tone="ready">{presenter.compositionVersion ? "COMPOSED" : "CANONICAL"}</Badge>}
+            >
+              <div className={styles.recordList}>
+                <article className={styles.record}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>What matters now</span>
+                      <h3>{presenter.opening.headline}</h3>
+                    </div>
+                    <Badge>{presenter.opening.marketState}</Badge>
+                  </div>
+                  <p>{presenter.opening.summary}</p>
+                  {presenter.opening.topicChips.length ? (
+                    <div className={styles.meta}>{presenter.opening.topicChips.join(" · ")}</div>
+                  ) : null}
+                </article>
+
+                {presenter.quickSummary.slice(0, 5).map((item) => (
+                  <article className={styles.record} key={item.storyId}>
+                    <div className={styles.meta}>#{item.rank} · Desk idea</div>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </Panel>
+
+            {presenter.storylines?.length ? (
+              <Panel
+                title="How the pieces connect"
+                description="The Presenter groups accepted Stories into the smallest useful causal model. Evidence status remains visible on each connection."
+              >
+                <div className={styles.recordList}>
+                  {presenter.storylines.slice(0, 3).map((storyline) => (
+                    <article className={styles.record} key={storyline.id}>
+                      <div className={styles.recordHeader}>
+                        <div>
+                          <h3>{storyline.title}</h3>
+                          <div className={styles.meta}>{storyline.centralQuestion}</div>
+                        </div>
+                        <Badge>{storyline.storyIds.length} STORY{storyline.storyIds.length === 1 ? "" : "IES"}</Badge>
+                      </div>
+                      <p>{storyline.summary}</p>
+                      {storyline.links.map((link, index) => (
+                        <p key={storyline.id + "-" + index}>
+                          <strong>{storylineLabel(storyline, link.from)}</strong>
+                          {" → "}{link.relationship}{" → "}
+                          <strong>{storylineLabel(storyline, link.to)}</strong>{" "}
+                          <Badge tone={evidenceTone(link.evidenceStatus)}>{link.evidenceStatus.replaceAll("_", " ")}</Badge>
+                        </p>
+                      ))}
+                      {storyline.strongestBreakCondition ? (
+                        <p><strong>What changes this view:</strong> {storyline.strongestBreakCondition}</p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
+
+            {presenterLessons.length ? (
+              <Panel
+                title="Why these ideas matter"
+                description="Teaching order follows the causal explanation, not confidence ranking. A deep-linked Story is brought to the front without rewriting it."
+              >
+                <div className={styles.recordList}>
+                  {presenterLessons.slice(0, 4).map((lesson) => (
+                    <article className={styles.record} key={lesson.storyId}>
+                      <div className={styles.recordHeader}>
+                        <div>
+                          <div className={styles.meta}>Lesson {lesson.number} · confidence {lesson.confidence}%</div>
+                          <h3>{lesson.title}</h3>
+                        </div>
+                        {lesson.question ? <Badge>{lesson.icon.toUpperCase()}</Badge> : null}
+                      </div>
+                      {lesson.question ? <p><strong>Question:</strong> {lesson.question}</p> : null}
+                      {lesson.body.slice(0, 3).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+                      {lesson.callouts.slice(0, 4).map((callout) => (
+                        <p key={lesson.storyId + "-" + callout.type}>
+                          <strong>{callout.label}:</strong> {callout.text}
+                        </p>
+                      ))}
+                    </article>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
+
+            {presenter.watchNow.length ? (
+              <Panel
+                title="What to watch next"
+                description="These are the canonical variables that strengthen, weaken or resolve the current explanation."
+              >
+                <div className={styles.recordList}>
+                  {presenter.watchNow.slice(0, 6).map((item) => (
+                    <article className={styles.record} key={item.variable}>
+                      <h3>{item.variable}</h3>
+                      <p>{item.whyItMatters}</p>
+                      {item.strengtheningSignal ? <p><strong>Strengthening signal:</strong> {item.strengtheningSignal}</p> : null}
+                    </article>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
+          </>
+        ) : (
+          <DataState
+            title="Presenter composition unavailable"
+            detail="Hybrid is falling back to canonical research records. It will not invent an explanation until a composed Live edition is available."
+          />
+        )}
 
         {(focusedRegime || focusedStory || focusedEvent) ? (
           <Panel
