@@ -18,7 +18,7 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
-import { buildRegimeProjection } from "@/lib/regimes";
+import { buildRegimeProjection, classifyRegimeStory } from "@/lib/regimes";
 import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -264,9 +264,12 @@ export default async function Page({ searchParams }: PageProps) {
     if (!latestEventByStory.has(event.story_id)) latestEventByStory.set(event.story_id, event);
   }
   const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events, recordLayer.thesisVersions);
-  const releaseStories = getRelatedStoriesForRelease(immediateRelease, storyRows, 3);
-  const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
-  const stories = storyRows.map((story) => {
+  const persistentStoryRows = storyRows.filter((story) => (
+    classifyRegimeStory(story, latestVersionByStory.get(story.id) || null).maturity === "durable"
+  ));
+  const releaseStories = getRelatedStoriesForRelease(immediateRelease, persistentStoryRows, 3);
+  const storyImages = await getStoryHeaderImages(persistentStoryRows.map((story) => story.id), data.sources);
+  const stories = persistentStoryRows.map((story) => {
     const image = storyImages.get(story.id);
     const fallback = getStableStoryFallbackImage(story.id);
     const currentVersion = latestVersionByStory.get(story.id) || null;
