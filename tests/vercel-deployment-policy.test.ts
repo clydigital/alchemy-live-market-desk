@@ -14,14 +14,19 @@ test("Vercel auto-deploys only main", () => {
   assert.doesNotMatch(config.ignoreCommand || "", /\^preview-/);
 });
 
-test("paused research automation has no scheduled Vercel cron invocations", () => {
+test("legacy research automation stays paused while the bounded Live orchestrator is scheduled", () => {
   const cronPaths = (config.crons ?? []).map((entry: { path?: string }) => entry.path);
   assert.deepEqual(cronPaths, [
     "/api/cron/video/midnight",
     "/api/cron/video/transcript-worker",
     "/api/cron/video/late-morning",
+    "/api/cron/live-research",
+    "/api/cron/live-research",
+    "/api/cron/live-research",
+    "/api/cron/live-research",
   ]);
   assert.ok(cronPaths.every((path: string) => !path.startsWith("/api/cron/research/")));
+  assert.equal(cronPaths.filter((path: string) => path === "/api/cron/live-research").length, 4);
   assert.equal(
     config.rewrites?.some(
       (entry: { source?: string; destination?: string }) =>

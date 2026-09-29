@@ -85,8 +85,16 @@ export async function handleManualLiveTriggerWithDependencies(
     vercelRequestId: request.headers.get("x-vercel-id") || undefined,
   });
 
+  // The scheduled GitHub workflow is a safety transport for the same canonical
+  // morning/evening slot used by Vercel Cron. Keep its audited actor marker, but
+  // do not mint a second retry run: whichever transport wins the canonical claim
+  // owns the slot and the other safely resumes/no-ops against that same run.
+  const canonicalScheduledFallback = input.retryKey === "github-scheduled";
+  const retrySuffix = canonicalScheduledFallback
+    ? ""
+    : `?retry=${encodeURIComponent(input.retryKey)}`;
   const internalRequest = new Request(
-    `https://live-internal.invalid/api/cron/research/${input.slot}?retry=${encodeURIComponent(input.retryKey)}`,
+    `https://live-internal.invalid/api/cron/research/${input.slot}${retrySuffix}`,
     {
       headers: {
         authorization: `Bearer ${cronSecret}`,
