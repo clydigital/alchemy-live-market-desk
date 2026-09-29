@@ -275,6 +275,8 @@ type HypothesisRow = {
   id: string;
   hypothesis_key: string;
   divergence_id: string | null;
+  market_belief: string | null;
+  divergence_summary: string | null;
   question: string | null;
   statement: string;
   causal_mechanism: string;
@@ -343,13 +345,20 @@ Rank sources in this order: official releases; company filings, earnings release
 Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
 Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
 
-const HYPOTHESIS_ROLE_RULES = `For stage "hypothesis": Hypothesis owns causal-thesis formation only.
-For each material divergence:
-- Formulate testable causal mechanisms explaining why the observed divergence occurred.
-- Produce exactly ONE primary causal hypothesis for each divergence by default.
-- A second hypothesis is permitted ONLY if it represents a genuinely different competing causal mechanism (e.g. supply disruption versus demand destruction).
-- FORBIDDEN: Do NOT create opposite (yes/no), bullish/bearish, or partial/degree variants of the same causal mechanism. Those scenario branches belong in Scenario and Challenger, not Hypothesis.
-- Do NOT write full bull/base/bear cases, hidden assumptions, counterarguments, publication eligibility, or customer prose. Focus strictly on central question, causal statement, causal mechanism, affected assets, supporting and conflicting evidence IDs, bounded causal chain, confirmation/invalidation criteria, resolving catalysts, and confidence.`;
+const HYPOTHESIS_ROLE_RULES = `For stage "hypothesis": Hypothesis owns causal-thesis formation and idea generation.
+Start from every material supplied Market Belief that has enough canonical evidence to support a useful causal question. A divergence is ONE high-value trigger, not a prerequisite.
+Useful hypothesis origins include:
+- DIVERGENCE: observed evidence or price action conflicts with an expected relationship;
+- CONVERGENCE: several independent facts reinforce the same mechanism;
+- CROSS_ASSET_TRANSMISSION: a change in one market plausibly transmits into another;
+- SECOND_ORDER_EFFECT: the important implication is downstream of the headline;
+- STRUCTURAL_SHIFT: several observations suggest a durable change in economics, supply, demand, financing or policy;
+- CATALYST_REPRICING: new evidence materially changes the path or importance of an existing catalyst.
+For every hypothesis, return marketBeliefId for the belief it explains. Return divergenceId only when an actual supplied divergence is central to the thesis; otherwise return null.
+Produce exactly ONE primary causal hypothesis for a Market Belief by default. A second is permitted only when it is a genuinely different competing mechanism.
+Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable.
+FORBIDDEN: Do not create opposite yes/no, bullish/bearish, or degree variants of the same mechanism. Those conditional branches belong in Scenario.
+Do not write full bull/base/bear cases, publication eligibility or customer prose. Focus on the central question, causal statement, mechanism, affected assets, supporting/conflicting evidence, bounded causal chain, confirmation/invalidation criteria, resolving catalysts and confidence.`;
 
 const CHALLENGER_REQUIREMENT_RULES = `For each assessment, select missingRequirementIds only from the requirements in that hypothesisId's requirementScopes entry.
 These are canonical public.research_story_requirements.requirement_key values. Never translate them into another vocabulary and never use a requirement from another hypothesis scope.
@@ -1318,7 +1327,10 @@ function currentAttentionForHypothesis(
   assessedAt: string,
 ): CurrentAttention {
   const divergence = divergences.find((row) => row.id === hypothesis.divergence_id);
-  const belief = beliefs.find((row) => row.id === divergence?.market_belief_id);
+  const belief = beliefs.find((row) =>
+    row.id === divergence?.market_belief_id
+    || (hypothesis.market_belief !== null && row.statement === hypothesis.market_belief)
+  );
   return {
     assessedAt,
     primaryCategory: belief?.primary_category || "uncategorised",
@@ -1366,35 +1378,47 @@ async function persistHypotheses(
   knownEvidence: Set<string>,
   allowedHypothesisEvidenceIds?: Set<string>,
 ) {
-  const divergenceIds = new Set(divergences.map((row) => row.id));
   const beliefById = new Map(beliefs.map((row) => [row.id, row]));
   const divergenceById = new Map(divergences.map((row) => [row.id, row]));
   const allowedEvidence = allowedHypothesisEvidenceIds ?? knownEvidence;
 
   const specs = output.hypotheses.flatMap((hypothesis) => {
-    if (!divergenceIds.has(hypothesis.divergenceId) || !hypothesis.statement.trim()) return [];
-    const divergence = divergenceById.get(hypothesis.divergenceId)!;
-    const belief = beliefById.get(divergence.market_belief_id);
+    const divergence = hypothesis.divergenceId
+      ? divergenceById.get(hypothesis.divergenceId) ?? null
+      : null;
+    // Backward-compatible with an already-completed pre-change Hypothesis
+    // checkpoint: derive the belief from its persisted divergence when the old
+    // output does not yet contain marketBeliefId.
+    const marketBeliefId = hypothesis.marketBeliefId || divergence?.market_belief_id || null;
+    const belief = marketBeliefId ? beliefById.get(marketBeliefId) : null;
+    if (!belief || !hypothesis.statement.trim()) return [];
+
+    if (
+      hypothesis.divergenceId
+      && (!divergence || divergence.market_belief_id !== marketBeliefId)
+    ) return [];
+
+    const contextId = hypothesis.divergenceId ?? marketBeliefId;
     const evidenceFor = requireKnownEvidenceIds(
       hypothesis.evidenceForIds,
       allowedEvidence,
-      `Hypothesis ${hypothesis.divergenceId} supporting evidence`,
+      `Hypothesis ${contextId} supporting evidence`,
     );
     const evidenceAgainst = requireKnownEvidenceIds(
       hypothesis.evidenceAgainstIds,
       allowedEvidence,
-      `Hypothesis ${hypothesis.divergenceId} conflicting evidence`,
+      `Hypothesis ${contextId} conflicting evidence`,
     );
     const causalChain = hypothesis.causalChain.map((edge, ordinal) => ({
       ...edge,
       evidenceIds: requireKnownEvidenceIds(
         edge.evidenceIds,
         allowedEvidence,
-        `Hypothesis ${hypothesis.divergenceId} causal edge ${ordinal}`,
+        `Hypothesis ${contextId} causal edge ${ordinal}`,
       ),
     }));
     return [{
-      divergence_id: hypothesis.divergenceId,
+      divergence_id: divergence?.id ?? null,
       hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), hypothesis.causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
       causal_mechanism: hypothesis.causalMechanism.trim(),
@@ -1406,8 +1430,8 @@ async function persistHypotheses(
       status: "detected",
       last_evaluated_at: new Date().toISOString(),
       question: hypothesis.question.trim(),
-      market_belief: belief?.statement ?? null,
-      divergence_summary: divergence.observed_change,
+      market_belief: belief.statement,
+      divergence_summary: divergence?.observed_change ?? null,
       evidence_for_ids: evidenceFor,
       evidence_against_ids: evidenceAgainst,
       causal_chain: causalChain,
@@ -2623,9 +2647,7 @@ export async function runIntelligenceEngine({
     });
     const divergences = await persistDivergences(divergenceStage.data, beliefs, knownEvidenceIds);
     if (!divergences.length) {
-      warnings.push("No material evidence-versus-belief divergence survived the divergence stage.");
-      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment, recruitmentClusters });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
+      warnings.push("No material evidence-versus-belief divergence survived; Hypothesis generation will continue from material Market Beliefs and converging evidence.");
     }
 
     const hypothesisEvidence = attachRatesContext(buildHypothesisEvidencePack(beliefs, divergences, reasoningEvidence), reasoningEvidence, analysisAsOf);

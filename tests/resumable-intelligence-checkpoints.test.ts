@@ -16,7 +16,7 @@ function completed(id: string, stageKey: string, outputPayload: unknown): Persis
 
 const MARKET_BELIEF = { beliefs: [{ id: "belief-1", statement: "Rates fall", affectedAssets: [] }] };
 const DIVERGENCE = { divergences: [{ id: "divergence-1", marketBeliefId: "belief-1" }] };
-const HYPOTHESIS = { hypotheses: [{ id: "hypothesis-1", divergenceId: "divergence-1" }] };
+const HYPOTHESIS = { hypotheses: [{ id: "hypothesis-1", marketBeliefId: "belief-1", divergenceId: "divergence-1" }] };
 const CHALLENGER = { assessments: [{ hypothesisId: "hypothesis-1", verdict: "watch" }] };
 const SCENARIO = { scenarios: [{ hypothesisId: "hypothesis-1", asset: "SPX" }] };
 
