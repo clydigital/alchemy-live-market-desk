@@ -15,6 +15,8 @@ test("Overview exposes the canonical Dossier expected-vs-actual investigation", 
   assert.match(overview, />Actual</);
   assert.match(overview, />Biggest contradiction</);
   assert.match(overview, />Current explanation</);
+  assert.match(overview, />Candidate mechanisms</);
+  assert.match(overview, /candidateExplanations\.slice\(0, 3\)/);
   assert.match(overview, />Investigate next</);
 });
 
