@@ -2555,7 +2555,6 @@ export async function runIntelligenceEngine({
 
   try {
     const stories = await loadStories();
-    const researchRequirements = await loadStoryRequirements(stories);
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     const canonicalisedEvidenceIds = await canonicaliseIntake(stories);
@@ -2739,31 +2738,12 @@ export async function runIntelligenceEngine({
       return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated: 0, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
     }
 
-    const requirementScopes = scopeRequirementsByHypothesis(hypotheses, evidenceById, stories, researchRequirements);
-    const knownRequirementIds = new Set<string>(STABLE_REQUIREMENT_IDS);
-    const allowedRequirementIdsByHypothesis = new Map(requirementScopes.map((scope) => [
-      scope.hypothesisId,
-      new Set(scope.requirements.map((requirement) => requirement.requirementId)),
-    ]));
-    const challengerStage = await modelStage<ChallengerOutput>({
-      engineRunId,
-      ...resumableStageExecution,
-      stageKey: "challenger",
-      modelKind: "complex",
-      schema: CHALLENGER_SCHEMA,
-      input: { hypotheses, evidence: reasoningEvidence, existingStories: storiesPack, researchDebt, requirementScopes },
-      maxOutputTokens: 5_000,
-    });
-    const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
-    const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    // Challenger is optional critic context. It must never be an availability
-    // gate for an otherwise evidence-valid Hypothesis.
+    // Challenger is intentionally outside the active Research Brain path.
+    // Historic Challenger rows/checkpoints remain readable for compatibility,
+    // but new runs proceed directly from Hypothesis to Scenario.
+    const challengerByHypothesis = new Map<string, ChallengerRow>();
     const reviewed = hypotheses;
     hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means continued to Scenario.
-    const missingChallengerAssessments = reviewed.filter((hypothesis) => !challengerByHypothesis.has(hypothesis.id));
-    if (missingChallengerAssessments.length) {
-      warnings.push(`${missingChallengerAssessments.length} hypothesis/hypotheses continued without Challenger context.`);
-    }
 
     const reviewedIds = new Set(reviewed.map((item) => item.id));
     const scenarioStage = await modelStage<ScenarioOutput>({
@@ -2772,7 +2752,7 @@ export async function runIntelligenceEngine({
       stageKey: "scenario",
       modelKind: "complex",
       schema: SCENARIO_SCHEMA,
-      input: { hypotheses: reviewed, challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)), evidence: reasoningEvidence },
+      input: { hypotheses: reviewed, evidence: reasoningEvidence },
       maxOutputTokens: 5_500,
     });
     const scenarioRows = await persistScenarios(engineRunId, scenarioStage.data, reviewedIds, knownEvidenceIds);
@@ -2786,7 +2766,6 @@ export async function runIntelligenceEngine({
       schema: STORY_SYNTHESIS_WITH_PLAN_SCHEMA,
       input: {
         hypotheses: reviewed,
-        challenger: challenger.filter((row) => reviewedIds.has(row.hypothesisId)),
         scenarios: scenarioRows,
         evidence: reasoningEvidence,
         existingStories: storiesPack,
