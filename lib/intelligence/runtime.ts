@@ -356,7 +356,8 @@ Useful hypothesis origins include:
 - CATALYST_REPRICING: new evidence materially changes the path or importance of an existing catalyst.
 For every hypothesis, return marketBeliefId for the belief it explains. Return divergenceId only when an actual supplied divergence is central to the thesis; otherwise return null.
 Produce exactly ONE primary causal hypothesis for a Market Belief by default. A second is permitted only when it is a genuinely different competing mechanism.
-Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable.
+IDEA QUALITY GATE: Prefer a few strong hypotheses over broad coverage. A hypothesis should survive only when the supplied evidence supports (1) a specific causal mechanism, (2) a decision-relevant market or economic implication, and (3) an observable confirmation or invalidation path. A headline restatement, generic theme label or unsupported clever connection is not a good idea and should be omitted.
+Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable. The analytical edge may be a causal connection, second-order effect, transmission path, structural shift, or repricing rather than a disagreement with consensus.
 FORBIDDEN: Do not create opposite yes/no, bullish/bearish, or degree variants of the same mechanism. Those conditional branches belong in Scenario.
 Do not write full bull/base/bear cases, publication eligibility or customer prose. Focus on the central question, causal statement, mechanism, affected assets, supporting/conflicting evidence, bounded causal chain, confirmation/invalidation criteria, resolving catalysts and confidence.`;
 
@@ -377,7 +378,14 @@ Creator/video transcript evidence may create a lead or test, but cannot by itsel
 Do not omit a supplied Story. Return an empty storyAssessments array only when storyReviewTargets is empty.`;
 
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
-For every candidate, reuse question as the one central question. State what changed versus the previous canonical state, the observed market reaction, the accepted explanation, one measurable overlooked variable, and the strongest case for why the market may still be right.
+QUALITY OVER QUANTITY: Return only hypotheses that are useful enough to become durable market research. Each candidate must have a specific evidence-backed mechanism, a material decision-relevant implication, and observable confirmation/invalidation. Omit candidates that merely restate a headline, repeat the Market Belief, or rely on a clever but unsupported connection.
+For every candidate, reuse question as the one central question. State the accepted explanation and the current evidence-backed implication.
+Divergence and contrarian annotations are OPTIONAL:
+- divergenceSummary: use null unless an actual supplied divergence is central to this Story.
+- marketReaction: use null unless supplied canonical market evidence establishes a relevant reaction.
+- overlookedVariable: use null unless the evidence supports a distinct measurable variable that genuinely improves the thesis; when null, use overlookedVariableEvidenceStatus=null and overlookedVariableEvidenceIds=[].
+- marketMayBeRight: use null unless there is a meaningful supplied alternative interpretation worth preserving.
+Do not manufacture any of these fields to make the Story sound more original. A strong confirming or convergent thesis is valid.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Reader-facing Story prose must never contain raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles, or provenance tokens such as "ASDA-file...". Keep those only in structured evidence/reference fields and audit metadata. Do not append source-key lists in parentheses to thesis, explanation, support, contradiction, catalyst or article wording.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
@@ -2047,12 +2055,12 @@ function editionStory(
     whatChanged: candidate.whatChanged,
     previousState: candidate.previousState,
     currentState: candidate.currentState,
-    marketReaction: candidate.marketReaction,
+    marketReaction: candidate.marketReaction ?? "",
     acceptedExplanation: candidate.acceptedExplanation,
     contradiction: candidate.strongestContradiction,
-    overlookedVariable: candidate.overlookedVariable,
-    overlookedVariableEvidenceStatus: candidate.overlookedVariableEvidenceStatus,
-    marketMayBeRight: candidate.marketMayBeRight,
+    overlookedVariable: candidate.overlookedVariable ?? "",
+    overlookedVariableEvidenceStatus: candidate.overlookedVariableEvidenceStatus ?? "speculative",
+    marketMayBeRight: candidate.marketMayBeRight ?? "",
     mechanismSteps: candidate.mechanismSteps,
     plainEnglish: locked.plainEnglish,
     affectedAssets: candidate.affectedAssets,
