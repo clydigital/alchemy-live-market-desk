@@ -3,12 +3,12 @@ import {
   type AttentionReservationLane,
   type ResearchAttentionCandidate,
   type ResearchAttentionInput,
-} from "../research-attention";
+} from "../research-attention.ts";
 import {
   type FreshNewsRecruitment,
   type RecruitmentEvidenceCandidate,
-} from "./fresh-news-recruitment";
-import type { EvidencePackItem } from "./schemas";
+} from "./fresh-news-recruitment.ts";
+import type { EvidencePackItem } from "./schemas.ts";
 
 export const MAX_SYSTEM1_RESEARCH_CLUSTERS = 4;
 export const MAX_SYSTEM1_EVIDENCE_PER_CLUSTER = 4;
