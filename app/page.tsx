@@ -241,7 +241,6 @@ export default async function Page({ searchParams }: PageProps) {
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const immediateRelease = immediateEconomicRelease(data.macroReleases, calendar);
-  const releaseStories = getRelatedStoriesForRelease(immediateRelease, data.stories, 3);
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossierSelection.presentation });
   const regimes = buildRegimeProjection({
@@ -265,6 +264,7 @@ export default async function Page({ searchParams }: PageProps) {
     if (!latestEventByStory.has(event.story_id)) latestEventByStory.set(event.story_id, event);
   }
   const storyRows = selectLegacyStoriesForLive(data.stories, recordLayer.events, recordLayer.thesisVersions);
+  const releaseStories = getRelatedStoriesForRelease(immediateRelease, storyRows, 3);
   const storyImages = await getStoryHeaderImages(storyRows.map((story) => story.id), data.sources);
   const stories = storyRows.map((story) => {
     const image = storyImages.get(story.id);
