@@ -316,7 +316,7 @@ type ScenarioRow = {
 
 type StoryReasoningContext = {
   hypothesis: HypothesisRow;
-  challenger: ChallengerRow;
+  challenger: ChallengerRow | null;
   scenarios: ScenarioRow[];
   evidenceById: Map<string, EvidencePackItem>;
 };
@@ -1655,7 +1655,7 @@ function buildStoryReasoningSnapshot(
   if (synthesis.primaryHypothesisId !== context.hypothesis.id) {
     throw new Error(`Story candidate ${synthesis.candidateKey} does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
   }
-  if (context.challenger.hypothesisId !== context.hypothesis.id) {
+  if (context.challenger && context.challenger.hypothesisId !== context.hypothesis.id) {
     throw new Error(`Challenger assessment does not match persisted primary Hypothesis ${context.hypothesis.id}.`);
   }
   const evidenceById = new Map<string, StoryReasoningEvidence>(
@@ -1684,11 +1684,11 @@ function buildStoryReasoningSnapshot(
       confirmationCriteria: context.hypothesis.confirmation_criteria,
       invalidationCriteria: context.hypothesis.invalidation_criteria,
     },
-    challenger: {
+    challenger: context.challenger ? {
       strongestCountercase: context.challenger.strongestCountercase,
       conflictingEvidenceIds: context.challenger.conflictingEvidenceIds,
       weakestLink: context.challenger.weakestLink,
-    },
+    } : null,
     scenarios: context.scenarios
       .filter((scenario) => scenario.hypothesis_id === context.hypothesis.id)
       .map((scenario) => ({
@@ -1819,7 +1819,7 @@ async function promoteCandidate({
   existingStories: StoryRow[];
   evidenceById: Map<string, EvidencePackItem>;
   hypothesis: HypothesisRow;
-  challenger: ChallengerRow;
+  challenger: ChallengerRow | null;
   scenarios: ScenarioRow[];
 }) {
   const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
@@ -2708,14 +2708,13 @@ export async function runIntelligenceEngine({
     });
     const challenger = await persistChallenger(challengerStage.data, hypotheses, challengerStage.stageRunId, knownEvidenceIds, knownRequirementIds, allowedRequirementIdsByHypothesis);
     const challengerByHypothesis = new Map(challenger.map((row) => [row.hypothesisId, row]));
-    // Challenger is a critic, not a publication bouncer. Every structurally valid
-    // assessed hypothesis continues to scenario and Story synthesis regardless of verdict.
-    const reviewed = hypotheses.filter((hypothesis) => challengerByHypothesis.has(hypothesis.id));
-    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means reviewed.
-    if (!reviewed.length) {
-      warnings.push("Challenger returned no valid hypothesis assessments; no Story was synthesized.");
-      await persistEarlyEngineCompletion({ engineRunId, dryRun, warnings, storiesConsidered, hypothesesGenerated, hypothesesPromoted: 0, recruitment, recruitmentClusters });
-      return { enabled: true, engineRunId, status: "completed", evidenceConsidered: reasoningEvidence.length, hypothesesGenerated, hypothesesPromoted: 0, storiesConsidered, storiesPublished: 0, storyIds: [], warnings };
+    // Challenger is optional critic context. It must never be an availability
+    // gate for an otherwise evidence-valid Hypothesis.
+    const reviewed = hypotheses;
+    hypothesesPromoted = reviewed.length; // Backward-compatible run counter; now means continued to Scenario.
+    const missingChallengerAssessments = reviewed.filter((hypothesis) => !challengerByHypothesis.has(hypothesis.id));
+    if (missingChallengerAssessments.length) {
+      warnings.push(`${missingChallengerAssessments.length} hypothesis/hypotheses continued without Challenger context.`);
     }
 
     const reviewedIds = new Set(reviewed.map((item) => item.id));
@@ -2915,9 +2914,9 @@ export async function runIntelligenceEngine({
 
       if (!structurallyPublishable || dryRun || !rows[0]?.id) continue;
       const primaryHypothesis = reviewedById.get(candidate.primaryHypothesisId);
-      const primaryChallenger = challengerByHypothesis.get(candidate.primaryHypothesisId);
-      if (!primaryHypothesis || !primaryChallenger) {
-        throw new Error(`Canonical reasoning inputs are incomplete for Story candidate ${candidate.candidateKey}.`);
+      const primaryChallenger = challengerByHypothesis.get(candidate.primaryHypothesisId) ?? null;
+      if (!primaryHypothesis) {
+        throw new Error(`Canonical Hypothesis input is incomplete for Story candidate ${candidate.candidateKey}.`);
       }
       let promotedStory: StoryRow | null = null;
       try {

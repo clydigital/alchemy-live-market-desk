@@ -27,8 +27,10 @@ test("runtime builds reasoning from persisted stage-owned records", () => {
   assert.match(reasoningBuilder, /invalidationCriteria: context\.hypothesis\.invalidation_criteria/);
   assert.match(reasoningBuilder, /acceptedExplanationEvidenceIds: synthesis\.acceptedExplanationEvidenceIds/);
   assert.match(reasoningBuilder, /overlookedVariableEvidenceIds: synthesis\.overlookedVariableEvidenceIds/);
+  assert.match(reasoningBuilder, /challenger: context\.challenger \? \{/);
   assert.match(reasoningBuilder, /strongestCountercase: context\.challenger\.strongestCountercase/);
   assert.match(reasoningBuilder, /conflictingEvidenceIds: context\.challenger\.conflictingEvidenceIds/);
+  assert.match(reasoningBuilder, /\} : null/);
   assert.match(reasoningBuilder, /context\.scenarios[\s\S]*scenario\.hypothesis_id === context\.hypothesis\.id/);
   assert.match(reasoningBuilder, /baseCase: scenario\.base_case\.summary/);
   assert.match(reasoningBuilder, /claim: item\.claim/);
