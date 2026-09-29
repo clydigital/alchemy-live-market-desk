@@ -130,7 +130,8 @@ export type DivergenceOutput = {
 
 export type HypothesisOutput = {
   hypotheses: Array<{
-    divergenceId: string;
+    marketBeliefId: string;
+    divergenceId: string | null;
     question: string;
     statement: string;
     causalMechanism: string;
@@ -442,9 +443,10 @@ export const HYPOTHESIS_SCHEMA: JsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["divergenceId", "question", "statement", "causalMechanism", "affectedAssets", "evidenceForIds", "evidenceAgainstIds", "causalChain", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence"],
+        required: ["marketBeliefId", "divergenceId", "question", "statement", "causalMechanism", "affectedAssets", "evidenceForIds", "evidenceAgainstIds", "causalChain", "confirmationCriteria", "invalidationCriteria", "nextCatalysts", "confidence"],
         properties: {
-          divergenceId: { type: "string" },
+          marketBeliefId: { type: "string" },
+          divergenceId: nullableString,
           question: { type: "string" },
           statement: { type: "string" },
           causalMechanism: { type: "string" },
