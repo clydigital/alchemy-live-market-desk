@@ -1407,6 +1407,10 @@ async function persistHypotheses(
     ) return [];
 
     const contextId = hypothesis.divergenceId ?? marketBeliefId;
+    const question = hypothesis.question.trim();
+    const causalMechanism = hypothesis.causalMechanism.trim();
+    const confirmationCriteria = unique(hypothesis.confirmationCriteria.map((value) => value.trim()).filter(Boolean));
+    const invalidationCriteria = unique(hypothesis.invalidationCriteria.map((value) => value.trim()).filter(Boolean));
     const evidenceFor = requireKnownEvidenceIds(
       hypothesis.evidenceForIds,
       allowedEvidence,
@@ -1419,25 +1423,46 @@ async function persistHypotheses(
     );
     const causalChain = hypothesis.causalChain.map((edge, ordinal) => ({
       ...edge,
+      from: edge.from.trim(),
+      relationship: edge.relationship.trim(),
+      to: edge.to.trim(),
       evidenceIds: requireKnownEvidenceIds(
         edge.evidenceIds,
         allowedEvidence,
         `Hypothesis ${contextId} causal edge ${ordinal}`,
       ),
     }));
+
+    // Minimum reasoning integrity. This is deliberately binary rather than a
+    // confidence/qualification score: an idea must explain something, be tied
+    // to canonical evidence, show a causal path, and be falsifiable.
+    if (
+      !question
+      || !causalMechanism
+      || evidenceFor.length === 0
+      || causalChain.length === 0
+      || confirmationCriteria.length === 0
+      || invalidationCriteria.length === 0
+      || causalChain.some((edge) => !edge.from || !edge.relationship || !edge.to)
+      || causalChain.some((edge) =>
+        (edge.evidenceState === "observed" || edge.evidenceState === "strongly_supported")
+        && edge.evidenceIds.length === 0
+      )
+    ) return [];
+
     return [{
       divergence_id: divergence?.id ?? null,
-      hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), hypothesis.causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
+      hypothesis_key: stableKey("hypothesis", hypothesis.statement.toLowerCase(), causalMechanism.toLowerCase(), [...hypothesis.affectedAssets].sort()),
       statement: hypothesis.statement.trim(),
-      causal_mechanism: hypothesis.causalMechanism.trim(),
+      causal_mechanism: causalMechanism,
       affected_assets: onlyExplicitAssets(hypothesis.affectedAssets, belief?.affected_assets ?? []),
-      confirmation_criteria: unique(hypothesis.confirmationCriteria.filter(Boolean)),
-      invalidation_criteria: unique(hypothesis.invalidationCriteria.filter(Boolean)),
-      next_catalysts: unique(hypothesis.nextCatalysts.filter(Boolean)),
+      confirmation_criteria: confirmationCriteria,
+      invalidation_criteria: invalidationCriteria,
+      next_catalysts: unique(hypothesis.nextCatalysts.map((value) => value.trim()).filter(Boolean)),
       confidence: clamp(hypothesis.confidence),
       status: "detected",
       last_evaluated_at: new Date().toISOString(),
-      question: hypothesis.question.trim(),
+      question,
       market_belief: belief.statement,
       divergence_summary: divergence?.observed_change ?? null,
       evidence_for_ids: evidenceFor,
@@ -2684,6 +2709,10 @@ export async function runIntelligenceEngine({
       maxOutputTokens: 5_500,
     });
     const hypotheses = await persistHypotheses(hypothesisStage.data, divergences, beliefs, knownEvidenceIds, allowedHypothesisEvidenceIds);
+    const rejectedHypothesisCount = Math.max(0, hypothesisStage.data.hypotheses.length - hypotheses.length);
+    if (rejectedHypothesisCount) {
+      warnings.push(`${rejectedHypothesisCount} hypothesis candidate(s) failed minimum reasoning integrity: supporting evidence, causal path, central question, confirmation and invalidation are required.`);
+    }
     hypothesesGenerated = hypotheses.length;
     if (!hypotheses.length) {
       warnings.push("No testable hypotheses survived evidence-ID validation.");
