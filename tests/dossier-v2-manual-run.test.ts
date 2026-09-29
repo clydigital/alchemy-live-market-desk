@@ -625,6 +625,14 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
           divergence: "UNRESOLVED",
           current_explanation: "Transmission remains incomplete.",
           competing_explanations: ["Tech leadership may be masking broader pressure."],
+          candidate_explanations: [{
+            rank: 1,
+            explanation: "Tech leadership is masking broader duration pressure.",
+            evidence_for_ids: ["ev:historical-only"],
+            evidence_against_ids: [],
+            confidence: "MEDIUM",
+            discriminating_test: "Check whether credit and breadth weaken while mega-cap tech holds.",
+          }],
           research_next: "Watch credit and breadth.",
           status: "strengthened",
           linked_story_ids: ["story:duration"],
@@ -711,6 +719,15 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
   assert.equal(
     result.packet.prior_analytical_state.prior_investigations?.[0]?.status,
     "strengthened",
+  );
+  assert.deepEqual(
+    result.packet.prior_analytical_state.prior_investigations?.[0]?.candidate_explanations?.[0],
+    {
+      rank: 1,
+      explanation: "Tech leadership is masking broader duration pressure.",
+      confidence: "MEDIUM",
+      discriminating_test: "Check whether credit and breadth weaken while mega-cap tech holds.",
+    },
   );
   assert.equal(
     result.packet.prior_analytical_state.prior_investigations?.some(
