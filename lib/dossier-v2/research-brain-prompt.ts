@@ -91,7 +91,7 @@ function compactPriorState(packet: DossierV2InputPacket) {
       divergence: item.divergence,
       current_explanation: item.current_explanation,
       competing_explanations: item.competing_explanations,
-      candidate_explanations: item.candidate_explanations,
+      candidate_explanations: item.candidate_explanations ?? [],
       research_next: item.research_next,
       status: item.status,
       linked_story_ids: item.linked_story_ids,
