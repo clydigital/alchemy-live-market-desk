@@ -17,6 +17,7 @@ function investigation(
     observedReaction: null,
     divergence: "UNRESOLVED",
     competingExplanations: [],
+    candidateExplanations: [],
     researchNext: "Collect the missing evidence.",
     confirmationCondition: "Confirmation arrives.",
     invalidationCondition: "The mechanism reverses.",

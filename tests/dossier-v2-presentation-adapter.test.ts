@@ -257,6 +257,24 @@ test("presentation adapter preserves the canonical expected-vs-observed divergen
     expected_reaction: "Energy supply stress should lift WTI and refined products.",
     observed_reaction: "WTI fell after the trigger while the investigation remained open.",
     divergence: "MATERIAL",
+    candidate_explanations: [
+      {
+        rank: 1,
+        explanation: "The crude headline eased faster than physical product stress.",
+        evidence_for_ids: ["ev-wti"],
+        evidence_against_ids: [],
+        confidence: "MEDIUM",
+        discriminating_test: "Check ULSD/crack persistence against WTI over the next session.",
+      },
+      {
+        rank: 2,
+        explanation: "Positioning amplified the initial downside move.",
+        evidence_for_ids: [],
+        evidence_against_ids: ["ev-energy-trigger"],
+        confidence: "LOW",
+        discriminating_test: "Check whether the move fades without further fundamental evidence.",
+      },
+    ],
     observed_evidence: ["ev-energy-trigger", "ev-wti"],
   };
 
@@ -286,6 +304,15 @@ test("presentation adapter preserves the canonical expected-vs-observed divergen
   assert.deepEqual(result.watchNext[0].storyIds, ["story-1"]);
   assert.deepEqual(result.watchNext[0].thesisIds, ["thesis-1"]);
   assert.equal(result.watchNext[0].reactionChecks.length, 1);
+  assert.equal(result.watchNext[0].candidateExplanations.length, 2);
+  assert.deepEqual(result.watchNext[0].candidateExplanations[0], {
+    rank: 1,
+    explanation: "The crude headline eased faster than physical product stress.",
+    evidenceForRefs: ["ev-wti"],
+    evidenceAgainstRefs: [],
+    confidence: "MEDIUM",
+    discriminatingTest: "Check ULSD/crack persistence against WTI over the next session.",
+  });
   assert.deepEqual(result.watchNext[0].reactionChecks[0], {
     checkId: "system1:energy_supply_stress:wti",
     instrument: "WTI",

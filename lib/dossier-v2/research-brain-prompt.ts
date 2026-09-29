@@ -91,6 +91,7 @@ function compactPriorState(packet: DossierV2InputPacket) {
       divergence: item.divergence,
       current_explanation: item.current_explanation,
       competing_explanations: item.competing_explanations,
+      candidate_explanations: item.candidate_explanations ?? [],
       research_next: item.research_next,
       status: item.status,
       linked_story_ids: item.linked_story_ids,
@@ -143,7 +144,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 32. LIQUIDITY ESCALATION DISCIPLINE: system1_policy_liquidity_interaction tells you whether the compressed state is worth System-2 attention. When escalateToBrain is false, do not create a Major Story or Investigation solely because plumbing data exists. When true, use the supplied question to focus causal reasoning and competing explanations. OFFSHORE_USD is explicitly unresolved until cross-currency-basis/FX-swap evidence exists; never label the current state a complete eurodollar-system measurement.
 33. DIVERGENCE POST-MORTEM DISCIPLINE: packet.prior_analytical_state.prior_investigations is the bounded previous-Dossier investigation baseline. Treat continuity as established only when the current Investigation retains the same investigation_id or the same explicit linked Story/Thesis identity. When the same investigation truly continues, REUSE its prior investigation_id rather than minting a cosmetic new ID; reformulating the wording does not justify a new ID. A similar question, market mechanism, Regime or subgroup alone is NOT enough to inherit a prior expectation; in that case create a new investigation and leave the old one as historical context. For a strictly continued investigation, preserve the PRIOR expected_reaction as historical pre-tape context; do not rewrite it to fit current price action. If an exact system1_divergence_candidate supports PARTIAL or MATERIAL divergence, current_explanation must do more than restate that price moved the other way: identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven. Use competing_explanations for plausible supplied alternatives, and make research_next name the observable that would discriminate between the leading explanation and its alternatives. If supplied evidence cannot explain the mismatch, say the mechanism remains unresolved and specify what evidence is missing; never infer causality from price direction alone. If the exact reaction is ALIGNED/NONE, describe alignment neutrally rather than calling the prior view 'correct' or treating one event as validation of the whole thesis.
 34. INVESTIGATION LIFECYCLE DISCIPLINE: Status is an evidence-gated analytical state, not a freshness label. For a continued investigation, keep status=open when the current packet lacks enough comparable current evidence to change the prior state or when a material discriminator is still outstanding. Use strengthened only when new supplied current evidence materially supports the prior leading explanation or confirmation condition but the market question is not fully settled. Use weakened only when new supplied current evidence materially contradicts the leading explanation or moves toward the invalidation condition but the question is not fully settled. Use resolved only when supplied current evidence answers the market question strongly enough that no material discriminator remains; the resolution must be supported by current observed_evidence and current_explanation must state what resolved it. Use parked only when the question is no longer currently decision-relevant; parked is not a substitute for missing evidence, age, or uncertainty. Do not change status merely because time passed, wording changed, or a similar Story moved. Do not reopen a prior resolved or parked investigation unless new supplied current evidence materially reactivates the same explicit Story/Thesis question, and state why. When evidence is insufficient, preserve uncertainty rather than manufacturing a lifecycle transition.
-35. OUTPUT BREVITY BUDGET: Stay well below the provider output ceiling. Do not fill array caps merely because capacity exists. Prefer 2-3 Major Stories, exactly the material investigations, zero optional charts unless they add distinct information, and zero creator expansions unless directly material. Keep each prose field to one concise sentence unless the schema requires more. Main-thread answer <= 60 words; Story mechanism <= 55 words; other Story prose <= 40 words; lens reaction/interpretation <= 35 words each; investigation explanation <= 50 words; expected/observed reaction <= 40 words; each competing explanation <= 24 words; research-next <= 45 words; stock-radar prose <= 30 words; developing-theme summary <= 40 words; thesis statement/state reason <= 45 words. Preserve evidence IDs and analytical distinctions; remove repetition, not substance.`;
+35. DIVERGENCE LAB CANDIDATES: candidate_explanations is the structured hypothesis set behind each Investigation. For a continued investigation, prior_analytical_state.prior_investigations[*].candidate_explanations is historical hypothesis memory: preserve it as the prior state and change ranking, confidence or mechanism wording only when current supplied evidence justifies the change. Prior candidate evidence is intentionally not carried forward as current evidence. For PARTIAL or MATERIAL divergence, emit 2-4 ranked candidates rather than presenting one post-hoc cause as settled. Rank 1 must be the current leading mechanism and current_explanation should summarise it. For each candidate, evidence_for_ids and evidence_against_ids may contain ONLY IDs already present in that Investigation's observed_evidence; an empty side is allowed when the packet lacks discriminating evidence. confidence is confidence in that mechanism, not confidence that the price move occurred. discriminating_test must name the observable that would separate that candidate from the alternatives. If the mechanism is not established, use LOW or UNRESOLVED. For NONE or UNRESOLVED, candidate_explanations may be empty when there is no genuine mechanism contest. Keep competing_explanations for compact backwards-compatible prose, but do not let it substitute for candidate_explanations when a material divergence exists.
+36. OUTPUT BREVITY BUDGET: Stay well below the provider output ceiling. Do not fill array caps merely because capacity exists. Prefer 2-3 Major Stories, exactly the material investigations, zero optional charts unless they add distinct information, and zero creator expansions unless directly material. Keep each prose field to one concise sentence unless the schema requires more. Main-thread answer <= 60 words; Story mechanism <= 55 words; other Story prose <= 40 words; lens reaction/interpretation <= 35 words each; investigation explanation <= 50 words; expected/observed reaction <= 40 words; each candidate explanation <= 24 words; each discriminating test <= 24 words; each competing explanation <= 24 words; research-next <= 45 words; stock-radar prose <= 30 words; developing-theme summary <= 40 words; thesis statement/state reason <= 45 words. Preserve evidence IDs and analytical distinctions; remove repetition, not substance.`;
 }
 
 export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
@@ -573,6 +575,30 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
               enum: ["NONE", "PARTIAL", "MATERIAL", "UNRESOLVED"],
             },
             competing_explanations: { type: "array", items: { type: "string" } },
+            candidate_explanations: {
+              type: "array",
+              maxItems: 4,
+              items: {
+                type: "object",
+                properties: {
+                  rank: { type: "integer", minimum: 1, maximum: 4 },
+                  explanation: { type: "string" },
+                  evidence_for_ids: { type: "array", items: { type: "string" } },
+                  evidence_against_ids: { type: "array", items: { type: "string" } },
+                  confidence: { type: "string", enum: ["HIGH", "MEDIUM", "LOW", "UNRESOLVED"] },
+                  discriminating_test: { type: "string" },
+                },
+                required: [
+                  "rank",
+                  "explanation",
+                  "evidence_for_ids",
+                  "evidence_against_ids",
+                  "confidence",
+                  "discriminating_test",
+                ],
+                additionalProperties: false,
+              },
+            },
             observed_evidence: { type: "array", items: { type: "string" } },
             missing_evidence: { type: "array", items: { type: "string" } },
             research_next: { type: "string" },
@@ -596,6 +622,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
             "observed_reaction",
             "divergence",
             "competing_explanations",
+            "candidate_explanations",
             "observed_evidence",
             "missing_evidence",
             "research_next",

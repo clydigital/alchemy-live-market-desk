@@ -102,6 +102,15 @@ export interface MarketVerdict {
   dominant_contradiction: string;
 }
 
+export interface InvestigationCandidateExplanation {
+  rank: number;
+  explanation: string;
+  evidence_for_ids: string[];
+  evidence_against_ids: string[];
+  confidence: "HIGH" | "MEDIUM" | "LOW" | "UNRESOLVED";
+  discriminating_test: string;
+}
+
 export interface Investigation {
   investigation_id: string;
   question: string;
@@ -111,6 +120,11 @@ export interface Investigation {
   observed_reaction: string | null;
   divergence: InvestigationDivergence;
   competing_explanations: string[];
+  /**
+   * Structured Divergence Lab candidates for new runs.
+   * Optional at the TypeScript boundary so immutable older Dossiers remain readable.
+   */
+  candidate_explanations?: InvestigationCandidateExplanation[];
   observed_evidence: string[];
   missing_evidence: string[];
   research_next: string;

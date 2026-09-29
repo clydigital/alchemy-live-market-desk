@@ -396,6 +396,20 @@ test("9. prior analytical labels remain isolated to prior state", () => {
           divergence: "UNRESOLVED",
           current_explanation: "The inflation impulse was expected to work through policy repricing.",
           competing_explanations: ["Growth concerns could offset the rates impulse."],
+          candidate_explanations: [
+            {
+              rank: 1,
+              explanation: "Policy repricing is the leading transmission mechanism.",
+              confidence: "MEDIUM",
+              discriminating_test: "Compare the next inflation surprise with US02Y and DXY.",
+            },
+            {
+              rank: 2,
+              explanation: "Growth concerns could offset the rates impulse.",
+              confidence: "LOW",
+              discriminating_test: "Check whether long yields and cyclicals weaken despite sticky inflation.",
+            },
+          ],
           research_next: "Measure the timestamped rates, USD and gold reaction.",
           status: "open",
           linked_story_ids: ["story:rates"],
@@ -425,6 +439,13 @@ test("9. prior analytical labels remain isolated to prior state", () => {
     "US02Y and DXY should rise while gold weakens.",
   );
   assert.equal(packet.prior_analytical_state.prior_investigations?.[0].divergence, "UNRESOLVED");
+  assert.equal(packet.prior_analytical_state.prior_investigations?.[0].candidate_explanations?.length, 2);
+  assert.deepEqual(packet.prior_analytical_state.prior_investigations?.[0].candidate_explanations?.[0], {
+    rank: 1,
+    explanation: "Policy repricing is the leading transmission mechanism.",
+    confidence: "MEDIUM",
+    discriminating_test: "Compare the next inflation surprise with US02Y and DXY.",
+  });
 });
 
 

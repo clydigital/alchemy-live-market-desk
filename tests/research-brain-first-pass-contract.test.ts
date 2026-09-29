@@ -68,6 +68,15 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
   assert.ok(investigation.required.includes("expected_reaction"));
   assert.ok(investigation.required.includes("observed_reaction"));
   assert.ok(investigation.required.includes("divergence"));
+  assert.ok(investigation.required.includes("candidate_explanations"));
+  assert.equal(investigation.properties.candidate_explanations.maxItems, 4);
+  assert.deepEqual(
+    investigation.properties.candidate_explanations.items.properties.confidence.enum,
+    ["HIGH", "MEDIUM", "LOW", "UNRESOLVED"],
+  );
+  assert.match(instructions, /DIVERGENCE LAB CANDIDATES/);
+  assert.match(instructions, /emit 2-4 ranked candidates rather than presenting one post-hoc cause as settled/);
+  assert.match(instructions, /evidence_for_ids and evidence_against_ids may contain ONLY IDs already present in that Investigation's observed_evidence/);
 });
 
 

@@ -13,6 +13,9 @@ test("Dossier workspace consumes the shared Dossier V2 presentation reader only"
   assert.match(page, /CURRENT MARKET DOSSIER/);
   assert.match(page, /WHAT MATTERS NOW/);
   assert.match(page, /WATCH NEXT/);
+  assert.match(page, /DIVERGENCE LAB — CANDIDATE MECHANISMS/);
+  assert.match(page, /candidate\.evidenceForRefs\.length/);
+  assert.match(page, /candidate\.discriminatingTest/);
   assert.match(page, /RESEARCH NOW/);
   assert.match(page, /TRADINGVIEW INVESTIGATIONS/);
 

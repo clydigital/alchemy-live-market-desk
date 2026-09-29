@@ -334,6 +334,33 @@ export function buildPriorInvestigations(
             (entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
           )
         : [],
+      candidate_explanations: Array.isArray(value.candidate_explanations)
+        ? value.candidate_explanations.flatMap((entry) => {
+            if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+            const candidate = entry as Record<string, unknown>;
+            const rank = Number(candidate.rank);
+            const explanation =
+              typeof candidate.explanation === "string" ? candidate.explanation.trim() : "";
+            const discriminatingTest =
+              typeof candidate.discriminating_test === "string"
+                ? candidate.discriminating_test.trim()
+                : "";
+            const confidence =
+              candidate.confidence === "HIGH"
+              || candidate.confidence === "MEDIUM"
+              || candidate.confidence === "LOW"
+              || candidate.confidence === "UNRESOLVED"
+                ? candidate.confidence
+                : "UNRESOLVED";
+            if (!Number.isInteger(rank) || rank < 1 || rank > 4 || !explanation || !discriminatingTest) return [];
+            return [{
+              rank,
+              explanation,
+              confidence,
+              discriminating_test: discriminatingTest,
+            }];
+          })
+        : [],
       research_next:
         typeof value.research_next === "string" ? value.research_next.trim() : "",
       status,
