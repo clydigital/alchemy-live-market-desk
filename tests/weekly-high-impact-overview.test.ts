@@ -19,4 +19,5 @@ test("Overview keeps the weekly high-impact calendar instead of one next event",
   assert.match(reminder, /Weekly economic risk calendar/);
   assert.match(reminder, /releases\.map/);
   assert.match(reminder, /Weekly high-impact economic events/);
+  assert.doesNotMatch(page, /immediateRelease=\{null\}/);
 });
