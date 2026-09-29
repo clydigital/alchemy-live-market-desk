@@ -61,6 +61,13 @@ export interface PriorAnalyticalClaim {
   provenance: ProvenanceRef[];
 }
 
+export interface PriorInvestigationCandidateExplanation {
+  rank: number;
+  explanation: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW" | "UNRESOLVED";
+  discriminating_test: string;
+}
+
 export interface PriorInvestigationSnapshot {
   investigation_id: string;
   question: string;
@@ -69,6 +76,7 @@ export interface PriorInvestigationSnapshot {
   divergence: "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
   current_explanation: string;
   competing_explanations: string[];
+  candidate_explanations: PriorInvestigationCandidateExplanation[];
   research_next: string;
   status: "open" | "strengthened" | "weakened" | "resolved" | "parked";
   linked_story_ids: string[];
@@ -1504,6 +1512,33 @@ export function assembleDossierV2InputPacket(
                 .slice(0, 3)
                 .map((item) => truncateString(item.trim(), LIMIT_CLAIM_TEXT, markTruncated))
             : [],
+          candidate_explanations: Array.isArray(raw.candidate_explanations)
+            ? raw.candidate_explanations
+                .filter(isPlainObject)
+                .flatMap((candidate) => {
+                  const rank = Number(candidate.rank);
+                  const explanation = typeof candidate.explanation === "string" ? candidate.explanation.trim() : "";
+                  const discriminatingTest = typeof candidate.discriminating_test === "string"
+                    ? candidate.discriminating_test.trim()
+                    : "";
+                  const confidence =
+                    candidate.confidence === "HIGH"
+                    || candidate.confidence === "MEDIUM"
+                    || candidate.confidence === "LOW"
+                    || candidate.confidence === "UNRESOLVED"
+                      ? candidate.confidence
+                      : "UNRESOLVED";
+                  if (!Number.isInteger(rank) || rank < 1 || rank > 4 || !explanation || !discriminatingTest) return [];
+                  return [{
+                    rank,
+                    explanation: truncateString(explanation, LIMIT_CLAIM_TEXT, markTruncated),
+                    confidence,
+                    discriminating_test: truncateString(discriminatingTest, LIMIT_CLAIM_TEXT, markTruncated),
+                  }];
+                })
+                .sort((left, right) => left.rank - right.rank)
+                .slice(0, 4)
+            : [],
           research_next: researchNext,
           status,
           linked_story_ids: Array.isArray(raw.linked_story_ids)
@@ -1716,6 +1751,11 @@ export function assembleDossierV2InputPacket(
           inv.competing_explanations = inv.competing_explanations.map((item) =>
             truncateString(item, maxTextLen)
           );
+          inv.candidate_explanations = inv.candidate_explanations.map((candidate) => ({
+            ...candidate,
+            explanation: truncateString(candidate.explanation, maxTextLen),
+            discriminating_test: truncateString(candidate.discriminating_test, maxTextLen),
+          }));
         }
         if (packetWithoutId.thesis_ledger) {
           for (const entry of packetWithoutId.thesis_ledger.entries) {
