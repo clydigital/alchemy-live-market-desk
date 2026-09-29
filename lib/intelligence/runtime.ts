@@ -90,6 +90,7 @@ import {
   latestStoryEvidenceTimestamp,
   type FreshNewsRecruitment,
 } from "@/lib/intelligence/fresh-news-recruitment";
+import { buildSystem1ResearchAttention } from "@/lib/intelligence/system1-research-attention";
 import {
   evaluateCanonicalStoryRecruitment,
   type CanonicalStoryForRecruitment,
@@ -368,7 +369,7 @@ Do not invent or infer requirement IDs from prose. Use missingEvidence only for 
 Return an empty missingRequirementIds array when the scoped requirements are satisfied or the hypothesis has no scoped requirements.`;
 
 const MARKET_BELIEF_STORY_REVIEW_RULES = `For stage "market_belief", work in this exact order.
-First inspect freshEvidenceCandidates without looking at existing Story titles. Cluster semantically related evidence around the same event, policy signal, causal driver or cross-asset implication. Similar wording alone is not a cluster. Use every supplied evidence ID at most once as primary cluster evidence. Keep the category vocabulary open: primaryCategory and themes are descriptive strings, not a fixed taxonomy.
+First inspect researchAttention and freshEvidenceCandidates without looking at existing Story titles. researchAttention is a deterministic System 1 priority cue, not a conclusion. Use its question to understand why a cluster deserves reasoning, then independently test the supplied evidence. Cluster semantically related evidence around the same event, policy signal, causal driver or cross-asset implication. Similar wording alone is not a cluster. Use every supplied evidence ID at most once as primary cluster evidence. Keep the category vocabulary open: primaryCategory and themes are descriptive strings, not a fixed taxonomy.
 For every cluster, score current materiality, momentum, cross-source or cross-asset breadth, and time urgency separately from confidence. Use verdict "recruit" when a current cluster deserves causal research now, "context" when it helps interpret recruited news, and "defer" when it is not presently decision-relevant. Scheduled-only calendar entries are not in this packet and must never be reconstructed.
 Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
 Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
@@ -2566,15 +2567,22 @@ export async function runIntelligenceEngine({
     const evidence = await loadEvidence(requiredEvidenceIds);
     const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
-    const reasoningEvidence = attachRatesContext(recruitment.candidates.map((candidate) => candidate.evidence), evidence, analysisAsOf);
+    const system1Attention = buildSystem1ResearchAttention(recruitment);
+    const fullFreshEvidence = attachRatesContext(
+      recruitment.candidates.map((candidate) => candidate.evidence),
+      evidence,
+      analysisAsOf,
+    );
+    const reasoningEvidence = attachRatesContext(system1Attention.selectedEvidence, evidence, analysisAsOf);
     const queuedTriggerEvidenceIds = new Set(queuedArchivedReview.triggerEvidenceIds);
     const storyReviewEvidence = unique([
-      ...reasoningEvidence,
+      ...fullFreshEvidence,
       ...recruitment.diagnostics.filter((candidate) => candidate.nature === "scheduled_event").map((candidate) => candidate.evidence),
       ...evidence.filter((item) => queuedTriggerEvidenceIds.has(item.id)),
     ]);
     evidenceConsidered = reasoningEvidence.length;
     warnings.push(`Fresh-news recruiter inspected ${recruitment.evidenceCount} canonical evidence records: ${recruitment.eligibleCount} eligible, ${recruitment.scheduledOnlyCount} scheduled-only, ${recruitment.staleCount} stale and ${recruitment.duplicateCount} duplicate.`);
+    warnings.push(`System 1 attention selected ${system1Attention.candidateCount} research cluster(s) and ${system1Attention.evidenceCount} fresh evidence record(s) for System 2; canonical evidence and existing-Story maintenance remain unfiltered.`);
     if (!evidence.length) {
       warnings.push("No canonical evidence is available for intelligence reasoning.");
       await persistEarlyEngineCompletion({ engineRunId, dryRun, status: "blocked", warnings, storiesConsidered: 0, hypothesesGenerated: 0, hypothesesPromoted: 0, recruitment });
@@ -2620,6 +2628,30 @@ export async function runIntelligenceEngine({
         warnings,
       };
     }
+    if (!system1Attention.selectedCandidates.length && !storyReviewTargets.length) {
+      warnings.push("System 1 found no research-worthy fresh cluster and no existing Story required review; System 2 was not invoked.");
+      await persistEarlyEngineCompletion({
+        engineRunId,
+        dryRun,
+        warnings,
+        storiesConsidered: 0,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        recruitment,
+      });
+      return {
+        enabled: true,
+        engineRunId,
+        status: "completed",
+        evidenceConsidered: 0,
+        hypothesesGenerated: 0,
+        hypothesesPromoted: 0,
+        storiesConsidered: 0,
+        storiesPublished: 0,
+        storyIds: [],
+        warnings,
+      };
+    }
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
@@ -2631,7 +2663,8 @@ export async function runIntelligenceEngine({
       schema: MARKET_BELIEF_SCHEMA,
       input: {
         asOf: analysisAsOf,
-        freshEvidenceCandidates: recruitment.candidates.map((candidate) => ({
+        researchAttention: system1Attention.cues,
+        freshEvidenceCandidates: system1Attention.selectedCandidates.map((candidate) => ({
           ...candidate.evidence,
           evidenceNature: candidate.nature,
           ageHours: candidate.ageHours,
