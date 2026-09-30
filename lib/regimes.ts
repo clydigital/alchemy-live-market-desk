@@ -119,7 +119,7 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Can governments and companies finance large capital needs cheaply while inflation, sovereign issuance and private investment demand keep required returns elevated?",
     whyItMatters: "Long-term yields and funding conditions transmit into mortgages, corporate borrowing, AI financing, equity valuations, currencies and the government's own interest burden.",
     mechanism: "Debt supply / inflation / policy pressure → required yields → borrowing costs → investment, housing and valuation pressure.",
-    affectedMarkets: ["US02Y", "US10Y", "US30Y", "DXY", "USDJPY", "JGB10Y", "JGB30Y", "BUND10Y", "XAUUSD", "QQQ", "Credit", "Housing"],
+    affectedMarkets: ["US02Y", "US05Y", "US10Y", "US20Y", "US30Y", "DXY", "USDJPY", "JGB10Y", "JGB30Y", "BUND10Y", "XAUUSD", "QQQ", "Credit", "Housing"],
     subgroups: [
       { key: "fed-front-end", label: "Fed / Front End", accent: "blue", whyItMatters: "The front end shows how markets price the near-term policy path.", mechanism: "Macro surprise → Fed path → 2Y / policy pricing → USD and rate-sensitive assets." },
       { key: "treasury-fiscal", label: "Treasury / Fiscal", accent: "purple", whyItMatters: "Borrowing needs and maturity choices affect supply, refinancing risk and the term premium.", mechanism: "Deficits / financing mix → Treasury supply → investor absorption → funding pressure." },

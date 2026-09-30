@@ -258,6 +258,9 @@ const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 const MACRO_SPINE_GROUPING_KEYS = [
   "market-monitor:us2y",
+  "market-monitor:us30y-fred",
+  "market-monitor:us20y-fred",
+  "market-monitor:us5y-fred",
   "market-monitor:us10y",
   "market-monitor:spx",
   "market-monitor:smh",

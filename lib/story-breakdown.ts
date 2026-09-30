@@ -63,7 +63,7 @@ function currentThesis(story: Story, version?: StoryThesisVersion | null) {
   return version?.thesis || story.thesis;
 }
 
-const MARKET_SYMBOL_PATTERN = /\b(?:US02Y|US05Y|US10Y|US30Y|SPX|SPY|QQQ|NDX|NASDAQ|RSP|DXY|UUP|TLT|IEF|SHY|XAUUSD|GOLD|WTI|BRENT|USO|ULSD|USDJPY|EURUSD|GBPUSD|AUDUSD|USDCAD|USDCHF|NIKKEI|KOSPI|HSI|SMH|SOXX|META|NVDA|AMD|MSFT|GOOGL|AMZN|TSLA)\b/gi;
+const MARKET_SYMBOL_PATTERN = /\b(?:US02Y|US05Y|US10Y|US20Y|US30Y|SPX|SPY|QQQ|NDX|NASDAQ|RSP|DXY|UUP|TLT|IEF|SHY|XAUUSD|GOLD|WTI|BRENT|USO|ULSD|USDJPY|EURUSD|GBPUSD|AUDUSD|USDCAD|USDCHF|NIKKEI|KOSPI|HSI|SMH|SOXX|META|NVDA|AMD|MSFT|GOOGL|AMZN|TSLA)\b/gi;
 
 function explicitMarketSymbols(values: Array<string | null | undefined>) {
   return values.flatMap((value) => value?.match(MARKET_SYMBOL_PATTERN) || []).map((value) => value.toUpperCase());

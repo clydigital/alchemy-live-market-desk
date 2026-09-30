@@ -387,3 +387,24 @@ test("a larger Treasury buyback does not manufacture tightening without elevated
   assert.equal(supply?.score, 0);
   assert.match(supply?.detail ?? "", /not treated as tightening evidence by itself/i);
 });
+
+
+test("official FRED 2Y/5Y/10Y/20Y/30Y curve is preserved in the deterministic rates lens", () => {
+  const input = packet([
+    fred("us2y", 4.80, 1.5),
+    fred("us5y-fred", 4.98, 2.0),
+    fred("us10y-fred", 5.05, 2.0),
+    fred("us20y-fred", 5.41, 2.2),
+    fred("us30y-fred", 5.49, 2.3),
+    fred("us10y-real", 2.20, 3.0),
+    fred("us10y-breakeven", 2.60, 2.0),
+    fred("fed-funds-effective", 4.60, 0),
+  ]);
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const longEnd = regime.signals.find((item) => item.key === "LONG_END");
+  for (const expected of ["2Y 4.80%", "5Y 4.98%", "10Y 5.05%", "20Y 5.41%", "30Y 5.49%"]) assert.match(regime.curve.detail, new RegExp(expected.replace(".", "\\.")));
+  assert.ok(regime.curve.evidenceRefs.includes("market-monitor:us20y-fred:2026-09-24"));
+  assert.ok(regime.curve.evidenceRefs.includes("market-monitor:us30y-fred:2026-09-24"));
+  assert.match(longEnd?.detail ?? "", /US 20Y 5\.41%/);
+  assert.match(longEnd?.detail ?? "", /US 30Y 5\.49%/);
+});
