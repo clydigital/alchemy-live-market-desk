@@ -55,7 +55,7 @@ export function selectPromotableMarketMotion(
     .slice(0, Math.max(0, limit));
 }
 
-export function selectPromotedMarketMotionForDossier(
+export function selectPromotedMarketMotion(
   items: MarketMotionRecord[],
   now = new Date(),
   limit = 3,
@@ -74,6 +74,14 @@ export function selectPromotedMarketMotionForDossier(
       return Date.parse(right.occurred_at) - Date.parse(left.occurred_at);
     })
     .slice(0, Math.max(0, limit));
+}
+
+export function selectPromotedMarketMotionForDossier(
+  items: MarketMotionRecord[],
+  now = new Date(),
+  limit = 3,
+) {
+  return selectPromotedMarketMotion(items, now, limit);
 }
 
 export function marketMotionPromotionInput(

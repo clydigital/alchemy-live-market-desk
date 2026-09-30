@@ -1,4 +1,5 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
+import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
@@ -7,7 +8,9 @@ import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import type { DossierBriefingV1 } from "@/lib/intelligence/dossier-briefing";
 import type { DossierStorylineComposition } from "@/lib/intelligence/dossier-storyline-composer";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
-import { buildRegimeProjection } from "@/lib/regimes";
+import { getCurrentMarketMotion } from "@/lib/market-motion";
+import { selectPromotedMarketMotion } from "@/lib/market-motion-promotion";
+import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 
@@ -84,11 +87,12 @@ function evidenceTone(state: string): "default" | "ready" | "warn" {
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
-  const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
+  const [selection, data, recordLayer, presenterEditions, motionRecords, query] = await Promise.all([
     getDossierV2PresentationSelection(),
     getDeskData(),
     getStoryRecordLayer(),
     getHybridPresenterEditionCandidates(),
+    getCurrentMarketMotion({ limit: 60 }).catch(() => []),
     searchParams,
   ]);
   const dossier = selection.presentation;
@@ -124,6 +128,44 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
   const focusedRegime = regimeSlug ? regimes.find((regime) => regime.slug === regimeSlug) || null : null;
+  const preferredStoryId = (focusedStory || focusedEventStory)?.id || null;
+  const preferredRegimeSlug = focusedRegime?.slug || null;
+  const storyById = new Map(data.stories.map((story) => [story.id, story]));
+  const promotedMotion = selectPromotedMarketMotion(motionRecords, new Date(), 6)
+    .sort((left, right) => {
+      const leftStoryMatch = preferredStoryId && left.primary_story_id === preferredStoryId ? 1 : 0;
+      const rightStoryMatch = preferredStoryId && right.primary_story_id === preferredStoryId ? 1 : 0;
+      if (leftStoryMatch !== rightStoryMatch) return rightStoryMatch - leftStoryMatch;
+      const leftRegimeMatch = preferredRegimeSlug && left.primary_regime_slug === preferredRegimeSlug ? 1 : 0;
+      const rightRegimeMatch = preferredRegimeSlug && right.primary_regime_slug === preferredRegimeSlug ? 1 : 0;
+      if (leftRegimeMatch !== rightRegimeMatch) return rightRegimeMatch - leftRegimeMatch;
+      return right.materiality - left.materiality || Date.parse(right.occurred_at) - Date.parse(left.occurred_at);
+    })
+    .slice(0, 3)
+    .map((item) => {
+      const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
+      const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+      return {
+        id: item.id,
+        headline: item.headline,
+        category: item.category,
+        lifecycleState: item.lifecycle_state,
+        verificationState: item.verification_state,
+        whatHappened: item.what_happened,
+        marketReaction: item.market_reaction,
+        whyInteresting: item.why_interesting,
+        bigPictureBridge: item.big_picture_bridge,
+        nextTest: item.next_test,
+        tickers: item.tickers,
+        occurredAt: item.occurred_at,
+        sourceName: item.source_name,
+        sourceUrl: item.source_url,
+        storyTitle: story?.title || null,
+        storyHref: story ? `/stories/${story.slug}` : null,
+        regimeLabel: regime?.shortTitle || null,
+        regimeHref: regime ? `/regimes/${regime.slug}` : null,
+      };
+    });
   const dossierStory = (focusedStory || focusedEventStory)
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
@@ -171,6 +213,15 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           detail={selection.notice.detail}
         />
 
+        {promotedMotion.length ? (
+          <MarketMotionOverview
+            items={promotedMotion}
+            eyebrow="HYBRID OPENING HOOKS"
+            title="What just moved the explanation?"
+            description="Promoted Live Motion only. These short-horizon hooks can frame the opening question because a linked canonical Story changed, but Hybrid cannot turn them into a new thesis."
+            showFullTapeLink
+          />
+        ) : null}
 
         {presenter ? (
           <>

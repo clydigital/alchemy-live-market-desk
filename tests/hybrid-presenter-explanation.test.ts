@@ -6,7 +6,17 @@ const hybrid = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta
 const composer = readFileSync(new URL("../lib/intelligence/dossier-storyline-composer.ts", import.meta.url), "utf8");
 const publication = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
 
-test("Hybrid leads with the current canonical composed edition", () => {
+test("Hybrid opens with promoted Live Motion before the current canonical composed edition", () => {
+  assert.match(hybrid, /getCurrentMarketMotion/);
+  assert.match(hybrid, /selectPromotedMarketMotion/);
+  assert.match(hybrid, /HYBRID OPENING HOOKS/);
+  assert.match(hybrid, /linked canonical Story changed/);
+  assert.doesNotMatch(hybrid, /selectMarketMotionForOverview/);
+  const motionAt = hybrid.indexOf('eyebrow="HYBRID OPENING HOOKS"');
+  const presenterAt = hybrid.indexOf('title="Presenter view"');
+  assert.ok(motionAt >= 0);
+  assert.ok(presenterAt > motionAt);
+
   assert.match(hybrid, /getHybridPresenterEditionCandidates\(\)/);
   assert.match(hybrid, /buildCanonicalEditionIndex\(/);
   assert.match(hybrid, /presenterEditions/);
@@ -21,6 +31,7 @@ test("Hybrid leads with the current canonical composed edition", () => {
 
 test("Presenter remains an explanation layer rather than a second research brain", () => {
   assert.match(hybrid, /cannot create a new thesis/);
+  assert.match(hybrid, /Hybrid cannot turn them into a new thesis/);
   assert.match(hybrid, /falling back to canonical research records/);
   assert.doesNotMatch(hybrid, /runStructuredStage|modelStage|OpenAI/);
 
