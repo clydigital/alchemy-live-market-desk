@@ -1,4 +1,11 @@
 import { getFourSlotResearchHealth, type FourSlotResearchHealth } from "@/lib/research-schedule-health";
+import {
+  gapHandoffSourceIsCarrier,
+  isResearchGapHandoff,
+  researchGapHandoffRunKey,
+  validateResearchGapHandoff,
+  type ResearchGapHandoffInput,
+} from "@/lib/research-gap-handoff";
 
 export const REQUIRED_RESEARCH_SOURCES = [
   "stockedup",
@@ -85,6 +92,7 @@ export type ResearchRunInput = {
   sourceChecks: SourceCheckInput[];
   items: IntakeItemInput[];
   recalibrations?: StoryRecalibrationInput[];
+  handoff?: ResearchGapHandoffInput;
   summary?: string;
   dryRun?: boolean;
 };
@@ -145,47 +153,59 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   const sourceChecks = Array.isArray(input.sourceChecks) ? input.sourceChecks : [];
   const items = Array.isArray(input.items) ? input.items : [];
   const recalibrations = Array.isArray(input.recalibrations) ? input.recalibrations : [];
+  const gapHandoff = isResearchGapHandoff(input.handoff) ? input.handoff : null;
 
+  if (input.handoff !== undefined && !gapHandoff) errors.push("handoff.kind must be research_gap_gate when a research handoff is supplied.");
+  if (gapHandoff) errors.push(...validateResearchGapHandoff(gapHandoff));
   if (!input.runKey || input.runKey.length > 120) errors.push("runKey is required and must be at most 120 characters.");
   if (!["video_midnight", "morning", "video_late_morning", "evening", "manual"].includes(input.scheduleSlot)) errors.push("scheduleSlot is invalid.");
   if (!validDate(input.scheduledFor)) errors.push("scheduledFor must be a valid date.");
   if (items.length > 250) errors.push("A run may contain at most 250 retained intake items.");
 
   const sourceMap = new Map(sourceChecks.map((check) => [check.source, check]));
-  if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
-  if (sourceChecks.length !== REQUIRED_RESEARCH_SOURCES.length) {
-    errors.push(`sourceChecks must contain exactly ${REQUIRED_RESEARCH_SOURCES.length} required sources.`);
-  }
-  for (const check of sourceChecks) {
-    if (!(REQUIRED_RESEARCH_SOURCES as readonly string[]).includes(check.source)) {
-      errors.push(`Unknown source check: ${check.source}.`);
+  if (gapHandoff) {
+    if (input.scheduleSlot !== "manual") errors.push("Research Gap handoffs must use scheduleSlot manual.");
+    if (input.runKey !== researchGapHandoffRunKey(gapHandoff)) errors.push("Research Gap handoff runKey must equal the deterministic gap-gate:<gateRunId>:<gapId> key.");
+    if (sourceChecks.length) errors.push("Research Gap handoffs must leave sourceChecks empty; the handoff carries underlying source evidence instead of pretending to run the scheduled source sweep.");
+    if (!items.length) errors.push("Research Gap handoffs require at least one underlying source item, including NO_CHANGE outcomes.");
+  } else {
+    if (sourceMap.size !== sourceChecks.length) errors.push("sourceChecks contains a duplicate source.");
+    if (sourceChecks.length !== REQUIRED_RESEARCH_SOURCES.length) {
+      errors.push(`sourceChecks must contain exactly ${REQUIRED_RESEARCH_SOURCES.length} required sources.`);
     }
-  }
-  for (const required of REQUIRED_RESEARCH_SOURCES) {
-    const check = sourceMap.get(required);
-    if (!check) {
-      errors.push(`Missing source check: ${required}.`);
-      continue;
+    for (const check of sourceChecks) {
+      if (!(REQUIRED_RESEARCH_SOURCES as readonly string[]).includes(check.source)) {
+        errors.push(`Unknown source check: ${check.source}.`);
+      }
     }
-    if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
-    if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
-    if (check.retryable !== undefined && typeof check.retryable !== "boolean") errors.push(`Invalid retryable state for ${required}.`);
-    if (check.status === "checked" && check.itemCount < 1) {
-      errors.push(`${required} cannot be checked with zero retained items; use no_new_items when the direct acquisition succeeded without a new item.`);
+    for (const required of REQUIRED_RESEARCH_SOURCES) {
+      const check = sourceMap.get(required);
+      if (!check) {
+        errors.push(`Missing source check: ${required}.`);
+        continue;
+      }
+      if (!["checked", "no_new_items", "blocked"].includes(check.status)) errors.push(`Invalid status for ${required}.`);
+      if (!Number.isInteger(check.itemCount) || check.itemCount < 0) errors.push(`Invalid itemCount for ${required}.`);
+      if (check.retryable !== undefined && typeof check.retryable !== "boolean") errors.push(`Invalid retryable state for ${required}.`);
+      if (check.status === "checked" && check.itemCount < 1) {
+        errors.push(`${required} cannot be checked with zero retained items; use no_new_items when the direct acquisition succeeded without a new item.`);
+      }
+      if (check.status === "no_new_items" && check.itemCount !== 0) {
+        errors.push(`${required} cannot report no_new_items with a positive itemCount.`);
+      }
+      if (check.status === "blocked" && check.itemCount !== 0) {
+        errors.push(`${required} cannot report blocked with a positive itemCount.`);
+      }
+      if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
+      if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
     }
-    if (check.status === "no_new_items" && check.itemCount !== 0) {
-      errors.push(`${required} cannot report no_new_items with a positive itemCount.`);
-    }
-    if (check.status === "blocked" && check.itemCount !== 0) {
-      errors.push(`${required} cannot report blocked with a positive itemCount.`);
-    }
-    if (required === "alchemy-market-insights" && check.itemCount > 30) errors.push("Alchemy Market Insights may scan at most the 30 most recent dated articles.");
-    if (check.status === "blocked") warnings.push(`${required} was blocked: ${check.note || "no reason supplied"}.`);
   }
   const directFeeds: readonly ResearchSourceKey[] = ["zerohedge", "axios", "investing-com", "fxstreet"];
-  // Direct providers are alternatives for current macro/news coverage. Creator transcripts
-  // and optional commentary can degrade independently without globally blocking Stories.
-  const sourceCoverageAvailable = directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked"); // Diagnostic only.
+  // Direct providers are alternatives for current macro/news coverage. Research Gap
+  // handoffs are bounded manual evidence packets and do not impersonate that scheduled sweep.
+  const sourceCoverageAvailable = gapHandoff
+    ? items.length > 0
+    : directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked"); // Diagnostic only.
 
   const itemKeys = new Set<string>();
   const articlePositions = new Set<number>();
@@ -195,6 +215,9 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     itemKeys.add(item.itemKey);
     if (!["video", "news", "alchemy_article"].includes(item.itemType)) errors.push(`${prefix}.itemType is invalid.`);
     if (!item.publisher?.trim()) errors.push(`${prefix}.publisher is required.`);
+    if (gapHandoff && gapHandoffSourceIsCarrier(item.publisher, item.url)) {
+      errors.push(`${prefix} must cite an underlying source, not the Research Gap / MacroPulse / Notion handoff carrier.`);
+    }
     if (!item.title?.trim()) errors.push(`${prefix}.title is required.`);
     if (!validUrl(item.url)) errors.push(`${prefix}.url must be HTTPS.`);
     if (!validDate(item.publishedAt)) errors.push(`${prefix}.publishedAt is required and must be valid.`);
@@ -204,6 +227,9 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
     }
     if (!["ignore", "monitor", "collect_evidence", "review_article", "recalibrate_story"].includes(item.recommendedAction)) {
       errors.push(`${prefix}.recommendedAction is invalid.`);
+    }
+    if (gapHandoff?.outcome === "NO_CHANGE" && item.recommendedAction === "recalibrate_story") {
+      errors.push(`${prefix}.recommendedAction cannot be recalibrate_story when the Research Gap handoff outcome is NO_CHANGE.`);
     }
     if (item.itemType === "video") {
       if (!item.transcriptStatus) errors.push(`${prefix}.transcriptStatus is required for video items.`);

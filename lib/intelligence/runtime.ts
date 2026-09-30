@@ -1,4 +1,5 @@
 import { parseRatesContext } from "../rates-research-plan.ts";
+import { parseResearchGapHandoffContext } from "../research-gap-handoff.ts";
 import { ratesSourceClass } from "../rates-research-acquisition.ts";
 import { attachRatesContext, isRatesContext } from "./rates-context.ts";
 import "server-only";
@@ -897,10 +898,14 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
     const domain = canonicalDomain(item.url);
     const source = sourceByExternal.get(`${domain}|${slugPart(item.publisher)}`);
     if (!source) return [];
+    const gapHandoff = parseResearchGapHandoffContext(item.divergence_note);
     const evidenceText = [
       item.title,
       item.summary,
-      item.divergence_note,
+      gapHandoff?.finding,
+      gapHandoff?.liveImplication,
+      gapHandoff?.itemNote,
+      gapHandoff ? null : item.divergence_note,
       item.stats_signal,
       item.news_signal,
       item.review_reason,
@@ -930,7 +935,7 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
       evidence_class: calendarItem && !calendarReleased ? "other" : evidenceClass(item),
       support_direction: supportDirection(item),
       claim_text: item.summary.trim(),
-      summary: item.divergence_note?.trim() || null,
+      summary: gapHandoff?.itemNote?.trim() || (gapHandoff ? null : item.divergence_note?.trim()) || null,
       event_at: item.published_at,
       published_at: item.published_at,
       available_at: item.published_at,
@@ -943,8 +948,9 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
       structured_payload: {
         itemKey: item.item_key,
         ...(ratesContext ? { ratesContext } : {}),
+        ...(gapHandoff ? { researchGapHandoff: gapHandoff } : {}),
         title: item.title,
-        evidenceNature: ratesContext ? "research_context" : calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
+        evidenceNature: gapHandoff ? "research_gap_handoff" : ratesContext ? "research_context" : calendarItem ? (calendarReleased ? "event_outcome" : "scheduled_event") : item.item_type === "video" ? "creator_lead" : item.item_type === "alchemy_article" ? "research_context" : "fresh_news",
         candidateScore: item.candidate_score,
         relevance: item.relevance,
         novelty: item.novelty,

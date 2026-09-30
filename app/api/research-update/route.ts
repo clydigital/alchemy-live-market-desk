@@ -13,6 +13,10 @@ import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelli
 import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
 import { getMarketData } from "@/lib/market";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import {
+  attachResearchGapHandoffToItems,
+  isResearchGapHandoff,
+} from "@/lib/research-gap-handoff";
 import { type ResearchRunLedgerStartFields, writeResearchRunLedgerStart } from "@/lib/research-run-ledger";
 import { CANONICAL_RESEARCH_SLOTS } from "@/lib/research-schedule-health";
 import {
@@ -150,13 +154,17 @@ export async function POST(request: Request) {
     return response({ error: "The request body is not valid JSON." }, 400);
   }
 
+  const gapHandoff = isResearchGapHandoff(input.handoff) ? input.handoff : null;
   const anchor = Number.isFinite(Date.parse(input.scheduledFor)) ? new Date(input.scheduledFor) : new Date();
-  const calendarItems = buildHighImpactCalendarIntake(await getEconomicCalendar(), anchor);
-  const suppliedItems = Array.isArray(input.items) ? input.items : [];
+  const calendarItems = gapHandoff ? [] : buildHighImpactCalendarIntake(await getEconomicCalendar(), anchor);
+  const suppliedItems = gapHandoff
+    ? attachResearchGapHandoffToItems(gapHandoff, Array.isArray(input.items) ? input.items : [])
+    : (Array.isArray(input.items) ? input.items : []);
   const suppliedKeys = new Set(suppliedItems.map((item) => item.itemKey));
   input = {
     ...input,
     items: [...suppliedItems, ...calendarItems.filter((item) => !suppliedKeys.has(item.itemKey))],
+    summary: input.summary || (gapHandoff ? `Research Gap handoff ${gapHandoff.outcome.toLowerCase().replaceAll("_", " ")}: ${gapHandoff.finding}` : input.summary),
   };
 
   const intelligenceEnabled = openAIIntelligenceEnabled();
@@ -175,25 +183,70 @@ export async function POST(request: Request) {
     }, 422);
   }
 
+  if (gapHandoff && !input.dryRun) {
+    try {
+      const existing = await rest<Array<{
+        id: string;
+        status: "running" | "completed" | "blocked" | "failed";
+        updates_published: number;
+        warnings: string[];
+        updated_at: string;
+      }>>(
+        `research_runs?run_key=eq.${encodeURIComponent(input.runKey)}&select=id,status,updates_published,warnings,updated_at&limit=1`,
+      );
+      const prior = existing[0];
+      if (prior?.status === "completed") {
+        return response({
+          accepted: true,
+          replayed: true,
+          runId: prior.id,
+          status: "completed",
+          updatesPublished: prior.updates_published || 0,
+          researchGapHandoff: { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome },
+          warnings: prior.warnings || [],
+        });
+      }
+      const updatedAt = prior?.updated_at ? Date.parse(prior.updated_at) : Number.NaN;
+      if (prior?.status === "running" && Number.isFinite(updatedAt) && Date.now() - updatedAt < 15 * 60 * 1_000) {
+        return response({
+          accepted: true,
+          replayed: true,
+          runId: prior.id,
+          status: "intelligence_pending",
+          researchGapHandoff: { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome },
+          warnings: prior.warnings || [],
+        }, 202);
+      }
+    } catch (error) {
+      return response({
+        error: error instanceof Error ? error.message : "Could not check Research Gap handoff replay state.",
+      }, 500);
+    }
+  }
+
   const ratesDiagnostics: string[] = [];
-  try {
-    // Leave time for the base ledger/publication work even when upstream acquisition was slow.
-    const budgetMs = Number.isFinite(scheduledExecutionStartedAtMs)
-      ? Math.max(0, Math.min(24000, 300000 - (Date.now() - scheduledExecutionStartedAtMs) - 45000))
-      : 24000;
-    const rates = await acquireRatesResearch(validationInput, { budgetMs });
-    const enriched = validateResearchRun(rates.input);
-    ratesDiagnostics.push(...rates.diagnostics);
-    if (!enriched.errors.length) {
-      input = { ...input, items: rates.input.items };
-      validation = enriched;
-    } else ratesDiagnostics.push("Rates context failed validation; base research retained.");
-  } catch {
-    ratesDiagnostics.push("Rates retrieval unavailable; base research continues with unknown inputs.");
+  if (!gapHandoff) {
+    try {
+      // Leave time for the base ledger/publication work even when upstream acquisition was slow.
+      const budgetMs = Number.isFinite(scheduledExecutionStartedAtMs)
+        ? Math.max(0, Math.min(24000, 300000 - (Date.now() - scheduledExecutionStartedAtMs) - 45000))
+        : 24000;
+      const rates = await acquireRatesResearch(validationInput, { budgetMs });
+      const enriched = validateResearchRun(rates.input);
+      ratesDiagnostics.push(...rates.diagnostics);
+      if (!enriched.errors.length) {
+        input = { ...input, items: rates.input.items };
+        validation = enriched;
+      } else ratesDiagnostics.push("Rates context failed validation; base research retained.");
+    } catch {
+      ratesDiagnostics.push("Rates retrieval unavailable; base research continues with unknown inputs.");
+    }
   }
 
   const accuracy = runAccuracyCheck(await getMarketData());
-  const macroLifecycle = await persistMacroReleaseLifecycle();
+  const macroLifecycle = gapHandoff
+    ? { available: true as const, reason: null, summary: { skipped: "research_gap_handoff" } }
+    : await persistMacroReleaseLifecycle();
   // Only a structurally blocked canonical market-data check prevents writes.
   // Provider coverage and research completeness remain descriptive diagnostics.
   const runtimePublicationReady = accuracy.updateGate !== "blocked";
@@ -205,7 +258,8 @@ export async function POST(request: Request) {
   if (!calendarItems.length) warnings.push("No verified high-impact economic releases were found in the two-day lookback and eight-day forward window.");
   if (accuracy.updateGate === "blocked") warnings.push("Canonical market data failed structural accuracy checks; intelligence may reason but writes are disabled for this run.");
   else if (accuracy.updateGate === "review") warnings.push("Canonical market data has review diagnostics; legitimate traceable Stories may still publish.");
-  if (!validation.sourceCoverageAvailable) warnings.push("Direct-provider coverage is degraded; available canonical evidence and unrelated Stories continue independently.");
+  if (!gapHandoff && !validation.sourceCoverageAvailable) warnings.push("Direct-provider coverage is degraded; available canonical evidence and unrelated Stories continue independently.");
+  if (gapHandoff?.outcome === "NO_CHANGE") warnings.push("Research Gap Gate reported NO_CHANGE; underlying evidence is admitted without caller-forced Story recalibration.");
   if (input.dryRun) {
     return response({
       accepted: true,
@@ -217,6 +271,7 @@ export async function POST(request: Request) {
       warnings,
       calendarCandidates: calendarItems.length,
       macroLifecycle: macroLifecycle.summary,
+      researchGapHandoff: gapHandoff ? { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome } : null,
       scoredItems: validation.scoredItems.map(({ transcriptText: _transcriptText, ...item }) => item),
     });
   }
@@ -302,6 +357,7 @@ export async function POST(request: Request) {
         intelligence: null,
         calendarCandidates: calendarItems.length,
         macroLifecycle: macroLifecycle.summary,
+        researchGapHandoff: gapHandoff ? { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome } : null,
         warnings,
         accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
       }, 202);
@@ -409,6 +465,7 @@ export async function POST(request: Request) {
       intelligence,
       calendarCandidates: calendarItems.length,
       macroLifecycle: macroLifecycle.summary,
+      researchGapHandoff: gapHandoff ? { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome } : null,
       warnings,
       accuracy: { status: accuracy.status, score: accuracy.score, updateGate: accuracy.updateGate },
     }, finalStatus === "completed" ? 200 : finalStatus === "failed" ? 500 : 202);
