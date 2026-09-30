@@ -82,7 +82,7 @@ export default function NarrativeSpine({
         : fxLens?.observed
           ? "Use FX to test whether rates pressure is becoming a broader dollar or yen story"
           : "Global-rates and FX confirmation still needs evidence",
-      detail: globalRatesBranch?.latestNode?.detail
+      detail: globalRatesBranch?.nodes[0]?.detail
         || fxLens?.interpretation
         || "The desk should not infer a Japan/yen transmission channel until comparable JGB, UST and FX evidence is available.",
       supporting: fxResearch?.action || fxLens?.unresolvedSignals.join(" · ") || null,
