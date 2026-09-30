@@ -245,7 +245,10 @@ export function prioritiseResearchGapWork(
   };
 }
 
-export async function loadPrioritisedResearchGapWork() {
-  const queue = await loadLatestResearchGapWorkQueue();
+export async function loadPrioritisedResearchGapWork(
+  client?: SupabaseClient,
+  now = new Date(),
+) {
+  const queue = await loadLatestResearchGapWorkQueue(client, now);
   return queue ? prioritiseResearchGapWork(queue) : null;
 }
