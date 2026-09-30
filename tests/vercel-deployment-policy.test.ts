@@ -18,33 +18,33 @@ test("Vercel auto-deploys only main", () => {
   assert.doesNotMatch(config.ignoreCommand || "", /\^preview-/);
 });
 
-test("Vercel keeps research crons paused while GitHub Actions owns Live scheduling", () => {
-  const cronPaths = (config.crons ?? []).map((entry: { path?: string }) => entry.path);
-  assert.deepEqual(cronPaths, [
-    "/api/cron/video/midnight",
-    "/api/cron/video/transcript-worker",
-    "/api/cron/video/late-morning",
-  ]);
-  assert.ok(cronPaths.every((path: string) => !path.startsWith("/api/cron/research/")));
-  assert.equal(cronPaths.includes("/api/cron/live-research"), false);
+test("Vercel owns the canonical Live research clock", () => {
+  const crons = config.crons ?? [];
+  const schedules = new Map(
+    crons.map((entry: { path: string; schedule: string }) => [entry.path, entry.schedule]),
+  );
+  assert.equal(schedules.get("/api/cron/research/morning"), "30 1 * * *");
+  assert.equal(schedules.get("/api/cron/research/morning-intelligence"), "32-58/2 1 * * *");
+  assert.equal(schedules.get("/api/cron/research/morning-watchdog"), "35 1 * * *");
+  assert.equal(schedules.get("/api/cron/research/evening"), "30 13 * * *");
+  assert.equal(schedules.get("/api/cron/research/evening-intelligence"), "32-58/2 13 * * *");
+  assert.equal(schedules.get("/api/cron/research/evening-watchdog"), "35 13 * * *");
   assert.equal(
     config.rewrites?.some(
       (entry: { source?: string; destination?: string }) =>
         entry.source === "/api/cron/research/:path*" &&
         entry.destination === "/api/automation-paused",
-    ),
-    true,
+    ) ?? false,
+    false,
   );
 });
 
-test("GitHub Actions retains the 09:30/09:45 and 21:30/21:45 MYT Live schedule", () => {
-  for (const schedule of [
-    "30 1 * * *",
-    "45 1 * * *",
-    "30 13 * * *",
-    "45 13 * * *",
-  ]) {
+test("GitHub Actions is the 10:05/22:05 MYT recovery transport", () => {
+  for (const schedule of ["5 2 * * *", "5 14 * * *"]) {
     assert.match(liveWorkflow, new RegExp(`cron: ["']${schedule.replaceAll("*", "\\*")}["']`));
   }
+  assert.doesNotMatch(liveWorkflow, /cron: ["']30 1 \* \* \*["']/);
+  assert.doesNotMatch(liveWorkflow, /cron: ["']30 13 \* \* \*["']/);
+  assert.match(liveWorkflow, /RETRY_KEY="github-scheduled"/);
   assert.match(liveWorkflow, /for attempt in \{1\.\.8\}/);
 });
