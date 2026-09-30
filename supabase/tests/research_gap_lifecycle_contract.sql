@@ -143,7 +143,7 @@ begin
     raise exception 'replayed occurrence incremented occurrence_count';
   end if;
 
-  select count(*), max(c.claim_token)
+  select count(*), (array_agg(c.claim_token))[1]
   into claimed_count, claim_token
   from public.claim_research_gap_cases('contract-test-worker', 1, 600) c;
 
