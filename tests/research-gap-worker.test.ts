@@ -105,12 +105,26 @@ test("native urgency and linkage signals survive normalisation", () => {
   assert.deepEqual(investigation.evidenceNeeded, ["MOVE/VIX", "HY/IG"]);
 });
 
-test("work IDs are deterministic for the same Dossier and source identity", () => {
+test("work IDs stay Dossier-scoped while gap keys persist across Dossiers", () => {
   const first = buildResearchGapWorkQueue(dossier(), new Date("2026-10-01T00:05:00Z"));
-  const second = buildResearchGapWorkQueue(dossier(), new Date("2026-10-01T00:06:00Z"));
+  const replay = buildResearchGapWorkQueue(dossier(), new Date("2026-10-01T00:06:00Z"));
+  const next = buildResearchGapWorkQueue(dossier({
+    id: "22222222-2222-4222-8222-222222222222",
+    previous_dossier_id: "11111111-1111-4111-8111-111111111111",
+    as_of: "2026-10-01T12:00:00.000Z",
+  }));
+
   assert.deepEqual(
     first.candidates.map((item) => item.workId),
-    second.candidates.map((item) => item.workId),
+    replay.candidates.map((item) => item.workId),
+  );
+  assert.notDeepEqual(
+    first.candidates.map((item) => item.workId),
+    next.candidates.map((item) => item.workId),
+  );
+  assert.deepEqual(
+    first.candidates.map((item) => item.gapKey),
+    next.candidates.map((item) => item.gapKey),
   );
 });
 

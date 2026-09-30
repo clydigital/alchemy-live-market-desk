@@ -18,6 +18,7 @@ function candidate(
 ): ResearchGapWorkCandidate {
   return {
     workId,
+    gapKey: `gap:test:${workId}`,
     sourceKind,
     sourceRef: workId,
     dossierId: "11111111-1111-4111-8111-111111111111",

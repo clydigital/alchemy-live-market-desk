@@ -12,7 +12,7 @@ It reads only the latest persisted `market_dossiers_v2` record and normalises wo
 
 Resolved and parked investigations are excluded.
 
-The worker intentionally does **not** score, claim, research, resolve or mutate a gap yet. Those are separate lifecycle and prioritisation stages.
+The worker intentionally does **not** score, claim, research, resolve or mutate a gap. Prioritisation and durable lifecycle are separate stages.
 
 ## Machine endpoint
 
@@ -24,7 +24,7 @@ The response uses:
 
 `research-gap-work-queue/1`
 
-Each work candidate has a deterministic `workId` tied to the Dossier ID, source kind and native source identity.
+Each work candidate has a deterministic `workId` tied to the Dossier occurrence plus a stable `gapKey` intended to survive across Dossiers.
 
 ## Preserved native signals
 
@@ -49,4 +49,4 @@ If no Dossier exists, the endpoint returns `404` with `status: empty`.
 
 If a Dossier exists but has no eligible work, the queue is valid with `candidates: []`.
 
-No database rows are written by this stage.
+No database rows are written by this reader stage. The separate lifecycle sync persists only the prioritised maximum-three cases.

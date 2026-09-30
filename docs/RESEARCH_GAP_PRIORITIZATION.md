@@ -42,7 +42,7 @@ Investigation
 → suppress the lower-scoring duplicate
 ```
 
-This is deliberately local deduplication only. Persistent cross-Dossier lifecycle/deduplication remains a later task.
+This prioritiser still performs local same-Dossier suppression. The downstream durable lifecycle now uses each selected item's stable `gapKey` for conservative cross-Dossier carry-forward.
 
 ## Boundary
 

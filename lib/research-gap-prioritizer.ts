@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type {
   ResearchGapWorkCandidate,
   ResearchGapWorkQueue,
@@ -245,7 +247,10 @@ export function prioritiseResearchGapWork(
   };
 }
 
-export async function loadPrioritisedResearchGapWork() {
-  const queue = await loadLatestResearchGapWorkQueue();
+export async function loadPrioritisedResearchGapWork(
+  client?: SupabaseClient,
+  now = new Date(),
+) {
+  const queue = await loadLatestResearchGapWorkQueue(client, now);
   return queue ? prioritiseResearchGapWork(queue) : null;
 }
