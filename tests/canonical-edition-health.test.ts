@@ -94,3 +94,14 @@ test("a missing evening cycle becomes an explicit missed trigger after the grace
   assert.equal(result.state, "stale");
   assert.match(result.reason, /missed its start grace window/i);
 });
+
+
+test("before the morning slot, prior-day evening health still resolves to 21:30 MYT", () => {
+  const result = health({
+    now: new Date("2026-09-07T00:06:00.000Z"),
+    researchRuns: [],
+    editions: [matchingEdition],
+  });
+  assert.equal(result.latestExpectedCycle.slot, "evening");
+  assert.equal(result.latestExpectedCycle.expectedAt, "2026-09-06T13:30:00.000Z");
+});
