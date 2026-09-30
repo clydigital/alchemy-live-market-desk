@@ -27,7 +27,7 @@ The prioritizer selects at most three items per Dossier.
 
 ## Same-Dossier duplicate suppression
 
-If a selected item already covers an investigation ID, a lower-scoring candidate linked to the same investigation is suppressed for this Dossier.
+If a selected Research Now item already operationalises an investigation ID, the lower-level Investigation card for that same ID is suppressed for this Dossier. Distinct Research Now actions are not collapsed merely because they share an investigation.
 
 Example:
 
