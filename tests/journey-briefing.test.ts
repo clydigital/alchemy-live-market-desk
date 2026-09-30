@@ -6,6 +6,7 @@ import { composeAlchemyEdition, type EditionStory } from "../lib/intelligence/ed
 import type { JourneyStorySource } from "../lib/intelligence/journey-briefing.ts";
 import type { CanonicalStoryReasoningV1 } from "../lib/intelligence/story-reasoning.ts";
 import type { MarketEventV1 } from "../lib/market-events.ts";
+import type { MarketMotionEditionItem } from "../lib/market-motion-edition.ts";
 
 function story(id: string, overrides: Partial<EditionStory> = {}): EditionStory {
   return {
@@ -142,13 +143,53 @@ function event(id: string, overrides: Partial<MarketEventV1> = {}): MarketEventV
   };
 }
 
-function board(stories: EditionStory[], sources = stories.map((item, index) => source(item.id, index + 1)), events: MarketEventV1[] = []) {
+function motion(id: string, overrides: Partial<MarketMotionEditionItem> = {}): MarketMotionEditionItem {
+  return {
+    id: `motion-${id}`,
+    motionKey: `intake:motion-${id}`,
+    versionNumber: 2,
+    headline: `Motion ${id}`,
+    category: "MACRO",
+    verificationState: "REPORTED",
+    lifecycleState: "PROMOTED",
+    whatHappened: `${id} happened.`,
+    marketReaction: null,
+    whyInteresting: `${id} matters to the linked Story.`,
+    bigPictureBridge: `${id} → linked Story`,
+    nextTest: `Test ${id}.`,
+    promotionReason: "Linked canonical Story changed.",
+    tickers: ["DXY"],
+    sourceName: "Reuters",
+    sourceUrl: "https://www.reuters.com/example",
+    sourceKind: "reporting",
+    materiality: 88,
+    relevance: 86,
+    novelty: 80,
+    occurredAt: "2026-08-26T08:30:00.000Z",
+    observedAt: "2026-08-26T08:35:00.000Z",
+    expiresAt: "2026-08-29T08:35:00.000Z",
+    storyId: id,
+    storySlug: `story-${id}`,
+    storyTitle: `Story ${id}`,
+    regimeSlug: "global-cost-of-capital",
+    regimeLabel: "Global Cost of Capital",
+    ...overrides,
+  };
+}
+
+function board(
+  stories: EditionStory[],
+  sources = stories.map((item, index) => source(item.id, index + 1)),
+  events: MarketEventV1[] = [],
+  marketMotion: MarketMotionEditionItem[] = [],
+) {
   return composeAlchemyEdition({
     generatedAt: "2026-08-26T09:00:00.000Z",
     comparisonWindowStart: "2026-08-25T09:00:00.000Z",
     stories,
     journeyStorySources: sources,
     marketEvents: events,
+    marketMotion,
     marketTape: {
       regimeSummary: "Rates lead; cross-asset confirmation is mixed.",
       assets: [{ symbol: "SPX", move: "Observed", state: "Firm", whyRelevant: "Direct market evidence." }],
@@ -183,6 +224,35 @@ test("zero-change editions still compose a valid explicitly sparse Journey contr
   assert.deepEqual(result.journey?.bigStories, []);
   assert.equal(result.journey?.leadStoryId, null);
   assert.equal(result.journey?.opening.headline, "No materially supported Story change in this edition.");
+});
+
+test("promoted Market Motion enters chronology without becoming a Story or thesis", () => {
+  const result = board(
+    [story("rates")],
+    [source("rates", 1)],
+    [],
+    [motion("rates")],
+  );
+
+  const hook = result.journey?.chronology.find((item) => item.motionId === "motion-rates");
+  assert.equal(hook?.lane, "market_motion");
+  assert.equal(hook?.storyId, "rates");
+  assert.equal(hook?.title, "Motion rates");
+  assert.equal(result.journey?.bigStories.length, 1);
+  assert.equal(result.journey?.leadStoryId, "rates");
+  assert.equal(result.journey?.bigStories[0]?.storyId, "rates");
+});
+
+test("Motion-only zero-change editions preserve chronology while remaining thesis-sparse", () => {
+  const result = board([], [], [], [motion("rates")]);
+
+  assert.deepEqual(result.journey?.bigStories, []);
+  assert.equal(result.journey?.leadStoryId, null);
+  assert.equal(result.journey?.opening.headline, "No materially supported Story change in this edition.");
+  assert.deepEqual(
+    result.journey?.chronology.map((item) => ({ lane: item.lane, motionId: item.motionId || null })),
+    [{ lane: "market_motion", motionId: "motion-rates" }],
+  );
 });
 
 test("sparse editions stay sparse while a fourth supported Story is not hidden by a three-card cap", () => {
