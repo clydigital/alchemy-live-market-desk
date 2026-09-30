@@ -15,7 +15,7 @@ test("existing Story updates normalise the parent title before atomic persistenc
 
 test("fresh development headline remains the append-only event headline", () => {
   assert.match(runtime, /event:\s*\{[\s\S]*headline:\s*candidate\.title\.slice\(0, 180\)/);
-  assert.match(runtime, /metadata:\s*\{\s*novelty_class:\s*"existing_story_update"\s*\}/);
+  assert.match(runtime, /metadata:\s*\{[\s\S]*novelty_class:\s*"existing_story_update"[\s\S]*story_identity_preserved:\s*true[\s\S]*\}/);
 });
 
 test("new Story synthesis title is defined as a durable thematic identity", () => {
