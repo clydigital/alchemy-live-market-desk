@@ -1,17 +1,48 @@
 # Production research automation routing
 
-Full Live Desk research has two canonical slots: **09:30** and **21:30 Asia/Kuala_Lumpur**, owned by the audited GitHub Actions workflow `.github/workflows/run-live-research.yml`. Primary triggers run at **01:30 UTC** and **13:30 UTC**. Safety triggers run 15 minutes later at **01:45 UTC** and **13:45 UTC** to recover a missed or delayed primary trigger.
+Full Live Desk research has two canonical slots: **09:30** and **21:30 Asia/Kuala_Lumpur**.
 
-Primary and safety triggers use the same daily `github-scheduled` retry identity inside the canonical slot key. If the primary already completed, the safety trigger exits without repeating provider, model or Dossier work. If the slot is still running, it may continue the same resumable pipeline. Terminal failures remain terminal and require an explicit audited manual retry key.
+## Primary clock — Vercel Cron
 
-The legacy Vercel research routes under `/api/cron/research/*` remain deliberately paused in both routing and middleware. They are not the active scheduler and must stay paused while GitHub Actions owns the two full-desk slots; this prevents duplicate acquisition/intelligence work and avoids the prior Vercel cron fan-out.
+Vercel owns the exact slot clock:
+
+- morning acquisition: **01:30 UTC / 09:30 MYT**
+- evening acquisition: **13:30 UTC / 21:30 MYT**
+- acquisition watchdogs: five minutes after each slot
+- intelligence continuation: every two minutes from :32 through :58
+
+The intelligence route advances at most one durable model stage per invocation. Repeated cron calls therefore resume from persisted checkpoints rather than running a long multi-stage model chain inside one serverless request. Once the canonical run is complete, later continuation calls no-op.
+
+All research cron routes resolve the same stable identity:
+
+```text
+cron-v1:<morning|evening>:<Malaysia date>
+```
+
+## Recovery transport — GitHub Actions
+
+GitHub Actions no longer owns the exact 09:30 / 21:30 clock. Its scheduled recovery runs occur at:
+
+- **10:05 MYT / 02:05 UTC**
+- **22:05 MYT / 14:05 UTC**
+
+The GitHub OIDC bridge sends the audited marker `github-scheduled`, but the Live admin bridge deliberately strips that marker from the canonical run key. Vercel and GitHub therefore converge on the same row.
+
+If Vercel completed the slot, GitHub exits or finalises a harmless no-op. If Vercel acquisition or intelligence is still resumable, GitHub continues the same run. Terminal failed/blocked runs are not silently replaced; they still require an explicit audited retry key.
+
+## Why this is safe
+
+- acquisition is protected by the unique canonical `run_key`
+- continuation claims use compare-and-set persistence and an active-claim lease
+- one model stage runs per continuation invocation
+- publication checkpoints are durable and replayable
+- the later GitHub transport does not mint a second scheduled run
+- the middleware pause guard remains available for rollback through `PRODUCTION_RESEARCH_AUTOMATION_PAUSED`
 
 Video discovery remains separate:
 
-- `/api/cron/video/midnight` at 09:00 Asia/Kuala_Lumpur
-- `/api/cron/video/transcript-worker` at 09:30 Asia/Kuala_Lumpur
-- `/api/cron/video/late-morning` at 21:00 Asia/Kuala_Lumpur
+- `/api/cron/video/midnight` at 09:00 MYT
+- `/api/cron/video/transcript-worker` at 09:30 MYT
+- `/api/cron/video/late-morning` at 21:00 MYT
 
 Video discovery and transcript processing can create creator-lead evidence, but they do not replace the 09:30 / 21:30 full Live research cycles and cannot independently publish a Story to Hybrid.
-
-System health should report `scheduling.mode = github_actions` while this routing is active. The 15-minute safety triggers are not additional canonical slots; they share the same persisted slot identity. If ownership is ever moved back to Vercel Cron, disable all GitHub primary/safety triggers and remove the Vercel research pause in the same reviewed change so only one scheduler can own a canonical slot.

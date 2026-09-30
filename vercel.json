@@ -6,12 +6,6 @@
       "main": true
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/cron/research/:path*",
-      "destination": "/api/automation-paused"
-    }
-  ],
   "crons": [
     {
       "path": "/api/cron/video/midnight",
@@ -22,8 +16,32 @@
       "schedule": "30 1 * * *"
     },
     {
+      "path": "/api/cron/research/morning",
+      "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-intelligence",
+      "schedule": "32-58/2 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-watchdog",
+      "schedule": "35 1 * * *"
+    },
+    {
       "path": "/api/cron/video/late-morning",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening",
+      "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-intelligence",
+      "schedule": "32-58/2 13 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-watchdog",
+      "schedule": "35 13 * * *"
     }
   ],
   "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi"
