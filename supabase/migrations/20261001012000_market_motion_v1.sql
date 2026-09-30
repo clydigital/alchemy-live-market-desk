@@ -10,9 +10,9 @@ create table if not exists public.market_motion_items (
   version_number integer not null check (version_number > 0),
   previous_version_id uuid null references public.market_motion_items(id) on delete restrict,
   contract_version text not null default 'market-motion/v1',
-  research_run_id uuid null references public.research_runs(id) on delete set null,
-  source_id uuid null references public.sources(id) on delete set null,
-  evidence_id uuid null references public.evidence(id) on delete set null,
+  research_run_id uuid null,
+  source_id uuid null,
+  evidence_id uuid null,
   primary_story_id uuid null references public.stories(id) on delete restrict,
   primary_regime_slug text null references public.market_regimes(slug) on delete restrict,
   lifecycle_state text not null check (lifecycle_state in ('MOTION','PROMOTED','EXPIRED')),
@@ -67,6 +67,43 @@ create table if not exists public.market_motion_items (
   unique (motion_key, version_number),
   check (expires_at >= occurred_at)
 );
+
+do $
+begin
+  if to_regclass('public.research_runs') is not null
+    and not exists (
+      select 1 from pg_constraint
+      where conname='market_motion_items_research_run_id_fkey'
+        and conrelid='public.market_motion_items'::regclass
+    ) then
+    alter table public.market_motion_items
+      add constraint market_motion_items_research_run_id_fkey
+      foreign key (research_run_id) references public.research_runs(id) on delete set null;
+  end if;
+
+  if to_regclass('public.sources') is not null
+    and not exists (
+      select 1 from pg_constraint
+      where conname='market_motion_items_source_id_fkey'
+        and conrelid='public.market_motion_items'::regclass
+    ) then
+    alter table public.market_motion_items
+      add constraint market_motion_items_source_id_fkey
+      foreign key (source_id) references public.sources(id) on delete set null;
+  end if;
+
+  if to_regclass('public.evidence') is not null
+    and not exists (
+      select 1 from pg_constraint
+      where conname='market_motion_items_evidence_id_fkey'
+        and conrelid='public.market_motion_items'::regclass
+    ) then
+    alter table public.market_motion_items
+      add constraint market_motion_items_evidence_id_fkey
+      foreign key (evidence_id) references public.evidence(id) on delete set null;
+  end if;
+end
+$;
 
 create index if not exists market_motion_items_key_version_idx
   on public.market_motion_items(motion_key, version_number desc);
