@@ -84,8 +84,9 @@ function score(value: unknown) {
 }
 
 function stableEvidenceKey(source: AutomaticGapEvidence) {
+  // Provider/source IDs are audit metadata, not evidence identity. Two tools
+  // discovering the same URL + claim must converge on one canonical intake key.
   const basis = [
-    clean(source.sourceId),
     clean(source.url).toLowerCase(),
     clean(source.claim),
   ].join("\n");
