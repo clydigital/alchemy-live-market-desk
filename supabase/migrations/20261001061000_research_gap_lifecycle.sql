@@ -137,7 +137,7 @@ set search_path = ''
 as $$
 declare
   v_case public.research_gap_cases%rowtype;
-  v_occurrence_inserted boolean := false;
+  v_occurrence_rows integer := 0;
 begin
   if nullif(btrim(p_gap_key), '') is null then
     raise exception 'p_gap_key is required' using errcode = '22023';
