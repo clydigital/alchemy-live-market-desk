@@ -12,6 +12,7 @@ test("Overview keeps the weekly high-impact calendar instead of one next event",
   const calendar = source("../lib/calendar.ts");
 
   assert.match(page, /weeklyHighImpactReleases/);
+  assert.match(page, /personal income and outlays/);
   assert.match(page, /const upcomingReleases = weeklyHighImpactReleases/);
   assert.match(page, /<EconomicReleaseReminder releases=\{upcomingReleases\}/);
   assert.doesNotMatch(page, /return candidates\[0\] \|\| null/);
