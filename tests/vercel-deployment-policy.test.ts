@@ -18,33 +18,38 @@ test("Vercel auto-deploys only main", () => {
   assert.doesNotMatch(config.ignoreCommand || "", /\^preview-/);
 });
 
-test("Vercel keeps research crons paused while GitHub Actions owns Live scheduling", () => {
-  const cronPaths = (config.crons ?? []).map((entry: { path?: string }) => entry.path);
-  assert.deepEqual(cronPaths, [
-    "/api/cron/video/midnight",
-    "/api/cron/video/transcript-worker",
-    "/api/cron/video/late-morning",
-  ]);
-  assert.ok(cronPaths.every((path: string) => !path.startsWith("/api/cron/research/")));
-  assert.equal(cronPaths.includes("/api/cron/live-research"), false);
+test("Vercel owns exact Live slots and durable continuation cadence", () => {
+  const crons = config.crons ?? [];
+  const has = (path: string, schedule: string) =>
+    crons.some((entry: { path?: string; schedule?: string }) => entry.path === path && entry.schedule === schedule);
+
+  assert.equal(has("/api/cron/research/morning", "30 1 * * *"), true);
+  assert.equal(has("/api/cron/research/morning-watchdog", "35 1 * * *"), true);
+  assert.equal(has("/api/cron/research/evening", "30 13 * * *"), true);
+  assert.equal(has("/api/cron/research/evening-watchdog", "35 13 * * *"), true);
+
+  for (const schedule of ["40 1 * * *","45 1 * * *","50 1 * * *","55 1 * * *","0 2 * * *","5 2 * * *","10 2 * * *","15 2 * * *"]) {
+    assert.equal(has("/api/cron/research/morning-intelligence", schedule), true);
+  }
+  for (const schedule of ["40 13 * * *","45 13 * * *","50 13 * * *","55 13 * * *","0 14 * * *","5 14 * * *","10 14 * * *","15 14 * * *"]) {
+    assert.equal(has("/api/cron/research/evening-intelligence", schedule), true);
+  }
+
   assert.equal(
-    config.rewrites?.some(
-      (entry: { source?: string; destination?: string }) =>
-        entry.source === "/api/cron/research/:path*" &&
-        entry.destination === "/api/automation-paused",
-    ),
-    true,
+    config.rewrites?.some((entry: { source?: string }) => entry.source === "/api/cron/research/:path*") ?? false,
+    false,
   );
 });
 
-test("GitHub Actions retains the 09:30/09:45 and 21:30/21:45 MYT Live schedule", () => {
+test("GitHub Actions is a delayed fallback for the same canonical slots", () => {
   for (const schedule of [
-    "30 1 * * *",
-    "45 1 * * *",
-    "30 13 * * *",
-    "45 13 * * *",
+    "30 2 * * *",
+    "45 2 * * *",
+    "30 14 * * *",
+    "45 14 * * *",
   ]) {
     assert.match(liveWorkflow, new RegExp(`cron: ["']${schedule.replaceAll("*", "\\*")}["']`));
   }
+  assert.match(liveWorkflow, /RETRY_KEY="github-scheduled"/);
   assert.match(liveWorkflow, /for attempt in \{1\.\.8\}/);
 });

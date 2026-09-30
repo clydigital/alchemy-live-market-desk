@@ -57,7 +57,7 @@ test("the worker uses incremental concurrent capacity below the 300-second platf
   assert.match(route, /maxDuration = 300/);
 });
 
-test("the worker is authenticated, scheduled and separate from paused research", () => {
+test("the worker is authenticated, scheduled and separate from full-desk research routes", () => {
   assert.match(handler, /acceptsResearchAuthorization/);
   assert.match(authConfig, /MACHINE_AUTH_PATHS[\s\S]*"\/api\/cron\/video\/transcript-worker"/);
   assert.match(handler, /batchSize: DEFAULT_BATCH_SIZE/);
@@ -74,7 +74,11 @@ test("the worker is authenticated, scheduled and separate from paused research",
     true,
   );
   assert.equal(
-    vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*" && rewrite.destination === "/api/automation-paused"),
+    vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*") ?? false,
+    false,
+  );
+  assert.equal(
+    vercel.crons.some((cron) => cron.path === "/api/cron/research/morning" && cron.schedule === "30 1 * * *"),
     true,
   );
 });

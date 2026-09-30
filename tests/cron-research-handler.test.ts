@@ -252,23 +252,24 @@ test("scheduled acquisition and intelligence routes are separate durable phases"
   assert.match(canonicalJourneyEdition, /captureCanonicalStoryStates\(\)/);
   assert.doesNotMatch(continuationHandler, /persistCanonicalEditionForResearchRun/);
 
-  const schedules = vercelConfig.crons
-    .map((cron) => `${cron.path} ${cron.schedule}`)
-    .sort();
-  assert.deepEqual(schedules, [
-    "/api/cron/video/late-morning 0 13 * * *",
-    "/api/cron/video/midnight 0 1 * * *",
-    "/api/cron/video/transcript-worker 30 1 * * *",
-  ]);
-  assert.ok(vercelConfig.crons.every((cron) => !cron.path.startsWith("/api/cron/research/")));
+  const hasCron = (path: string, schedule: string) =>
+    vercelConfig.crons.some((cron) => cron.path === path && cron.schedule === schedule);
+  assert.equal(hasCron("/api/cron/research/morning", "30 1 * * *"), true);
+  assert.equal(hasCron("/api/cron/research/morning-watchdog", "35 1 * * *"), true);
+  assert.equal(hasCron("/api/cron/research/evening", "30 13 * * *"), true);
+  assert.equal(hasCron("/api/cron/research/evening-watchdog", "35 13 * * *"), true);
+  assert.equal(
+    vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/morning-intelligence").length,
+    8,
+  );
+  assert.equal(
+    vercelConfig.crons.filter((cron) => cron.path === "/api/cron/research/evening-intelligence").length,
+    8,
+  );
   assert.equal(vercelConfig.crons.some((cron) => cron.path === "/api/cron/live-research"), false);
   assert.equal(
-    vercelConfig.rewrites?.some(
-      (entry) =>
-        entry.source === "/api/cron/research/:path*" &&
-        entry.destination === "/api/automation-paused",
-    ),
-    true,
+    vercelConfig.rewrites?.some((entry) => entry.source === "/api/cron/research/:path*") ?? false,
+    false,
   );
 });
 
