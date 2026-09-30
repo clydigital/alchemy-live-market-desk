@@ -2320,6 +2320,10 @@ export async function persistCanonicalEditionForResearchRun({
     canonicalStoryStates: await captureCanonicalStoryStates(),
     publishedAt: generatedAt,
   });
+  const marketMotion = await captureMarketMotionEditionAttachment({
+    researchRunId,
+    capturedAt: generatedAt,
+  }).catch(() => emptyMarketMotionEditionAttachment(researchRunId, generatedAt));
   const rows = await intelligenceRest<Array<{ id: string }>>("hybrid_publication_snapshots", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -2338,8 +2342,12 @@ export async function persistCanonicalEditionForResearchRun({
         scheduledFor: researchRun?.scheduled_for || null,
         runKey: researchRun?.run_key || runKey,
         canonicalStoryManifest,
+        marketMotion,
       },
-      source_record_refs: canonicalStoryManifest.map((entry) => ({ type: "story", id: entry.storyId, snapshotId: entry.snapshotId })),
+      source_record_refs: [
+        ...canonicalStoryManifest.map((entry) => ({ type: "story", id: entry.storyId, snapshotId: entry.snapshotId })),
+        ...marketMotionEditionSourceRefs(marketMotion),
+      ],
       redaction_log: [],
       confidence: canonicalStoryManifest.length
         ? Math.round(canonicalStoryManifest.reduce((sum, entry) => sum + Number((entry.state as { confidence?: number }).confidence || 0), 0) / canonicalStoryManifest.length)
