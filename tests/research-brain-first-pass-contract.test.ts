@@ -52,7 +52,7 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
   assert.match(instructions, /DIRECTIONAL OR SEQUENCED expected-vs-observed mismatch/);
   assert.match(instructions, /Missing confirmation, missing breadth, stale\/non-comparable observations, or missing timing are NOT divergences/);
   assert.match(instructions, /system1_reaction_assessments are deterministic chronology-safe expected-vs-observed comparisons/);
-  assert.match(instructions, /reaction_window is 5m, 30m or 4h/);
+  assert.match(instructions, /reaction_window is 5m, 30m, 4h, close or next_session/);
   assert.match(instructions, /If is_proxy=true, observed_instrument is a proxy for instrument/);
   assert.match(instructions, /never rewrite the proxy move as a direct move in the underlying instrument/);
   assert.match(instructions, /relation=ALIGNED may support divergence=NONE only when the Investigation carries that assessment's exact trigger_evidence_id \+ market_evidence_id pair/);
