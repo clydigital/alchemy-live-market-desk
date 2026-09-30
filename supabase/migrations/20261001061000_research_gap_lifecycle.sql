@@ -237,9 +237,9 @@ begin
   )
   on conflict (gap_case_id, dossier_id, work_id) do nothing;
 
-  get diagnostics v_occurrence_inserted = row_count;
+  get diagnostics v_occurrence_rows = row_count;
 
-  if v_occurrence_inserted then
+  if v_occurrence_rows > 0 then
     update public.research_gap_cases
     set occurrence_count = occurrence_count + 1
     where id = v_case.id
@@ -306,7 +306,7 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_released boolean := false;
+  v_released_rows integer := 0;
 begin
   update public.research_gap_cases gap
   set status = 'QUEUED',
@@ -319,8 +319,8 @@ begin
     and gap.status in ('CLAIMED', 'RESEARCHING')
     and gap.claim_token = p_claim_token;
 
-  get diagnostics v_released = row_count;
-  return v_released;
+  get diagnostics v_released_rows = row_count;
+  return v_released_rows > 0;
 end;
 $$;
 
