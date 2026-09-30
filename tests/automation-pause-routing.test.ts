@@ -8,26 +8,24 @@ const middlewareSource = fs.readFileSync(path.join(process.cwd(), "middleware.ts
 const routingSource = fs.readFileSync(path.join(process.cwd(), "lib", "research-automation-routing.ts"), "utf8");
 const systemHealthSource = fs.readFileSync(path.join(process.cwd(), "lib", "system-health.ts"), "utf8");
 
-test("production research crons remain paused while video discovery crons stay schedulable", () => {
-  assert.ok(Array.isArray(vercelConfig.crons) && vercelConfig.crons.length > 0);
+test("production research crons are active while video discovery remains separate", () => {
+  const crons = Array.isArray(vercelConfig.crons) ? vercelConfig.crons : [];
+  const paths = new Set(crons.map((entry: { path: string }) => entry.path));
 
-  const researchRewrite = vercelConfig.rewrites?.find(
-    (entry: { source?: string }) => entry.source === "/api/cron/research/:path*",
+  assert.equal(
+    vercelConfig.rewrites?.some((entry: { source?: string }) => entry.source === "/api/cron/research/:path*") ?? false,
+    false,
   );
-  assert.equal(researchRewrite?.destination, "/api/automation-paused");
-
-  const blanketRewrite = vercelConfig.rewrites?.find(
-    (entry: { source?: string }) => entry.source === "/api/cron/:path*",
-  );
-  assert.equal(blanketRewrite, undefined);
-
-  const paths = new Set(vercelConfig.crons.map((entry: { path: string }) => entry.path));
+  assert.equal(paths.has("/api/cron/research/morning"), true);
+  assert.equal(paths.has("/api/cron/research/morning-watchdog"), true);
+  assert.equal(paths.has("/api/cron/research/morning-intelligence"), true);
+  assert.equal(paths.has("/api/cron/research/evening"), true);
+  assert.equal(paths.has("/api/cron/research/evening-watchdog"), true);
+  assert.equal(paths.has("/api/cron/research/evening-intelligence"), true);
   assert.equal(paths.has("/api/cron/video/midnight"), true);
   assert.equal(paths.has("/api/cron/video/late-morning"), true);
 
-  assert.match(middlewareSource, /pathname\.startsWith\("\/api\/cron\/research\/"\)/);
-  assert.doesNotMatch(middlewareSource, /pathname\.startsWith\("\/api\/cron\/"\)\)/);
-  assert.match(routingSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED = true/);
-  assert.match(systemHealthSource, /paused_by_routing/);
-  assert.match(systemHealthSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED/);
+  assert.match(middlewareSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED/);
+  assert.match(routingSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED = false/);
+  assert.match(systemHealthSource, /vercel_primary_github_fallback/);
 });

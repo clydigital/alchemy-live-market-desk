@@ -161,6 +161,7 @@ export async function getSystemHealth() {
   const vercelResearchScheduleEnabled = scheduleFlagEnabled && !PRODUCTION_RESEARCH_AUTOMATION_PAUSED;
   const scheduleEnabled = GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED || vercelResearchScheduleEnabled;
   const cronConfigured = configured(process.env.CRON_SECRET);
+  const dualResearchScheduler = vercelResearchScheduleEnabled && GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED;
   const openAIConfigured = configured(process.env.OPENAI_API_KEY) && openAIIntelligenceEnabled();
   const youtubeConfigured = configured(process.env.YOUTUBE_DATA_API_KEY);
   const transcriptConfigured = configured(process.env.TRANSCRIPT_API_KEY);
@@ -196,32 +197,37 @@ export async function getSystemHealth() {
           : "The canonical OpenAI runtime is configured but has not recorded an intelligence run.",
     },
     scheduling: {
-      state: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
-        ? "enabled"
+      state: scheduleEnabled
+        ? cronConfigured
+          ? "enabled"
+          : "blocked_missing_cron_secret"
         : PRODUCTION_RESEARCH_AUTOMATION_PAUSED
           ? "paused_by_routing"
-          : vercelResearchScheduleEnabled && cronConfigured
-            ? "enabled"
-            : vercelResearchScheduleEnabled
-              ? "blocked_missing_cron_secret"
-              : "intentionally_disabled",
-      configured: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
-        || (vercelResearchScheduleEnabled && cronConfigured),
-      mode: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED ? "github_actions" : "vercel_cron",
+          : "intentionally_disabled",
+      configured: scheduleEnabled && cronConfigured,
+      mode: dualResearchScheduler
+        ? "vercel_primary_github_fallback"
+        : vercelResearchScheduleEnabled
+          ? "vercel_cron"
+          : GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
+            ? "github_actions"
+            : "disabled",
       cronConfigured,
       expectedSlots: ["09:30 Asia/Kuala_Lumpur", "21:30 Asia/Kuala_Lumpur"],
+      primaryTransport: vercelResearchScheduleEnabled ? "vercel_cron" : GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED ? "github_actions" : null,
+      fallbackTransport: dualResearchScheduler ? "github_actions" : null,
       latestResearchRunAt: latestResearchRun?.completed_at || latestResearchRun?.updated_at || null,
       latestResearchRunStatus: latestResearchRun?.status || null,
       latestResearchRunKey: latestResearchRun?.run_key || null,
-      note: GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
-        ? "The audited GitHub Actions workflow runs the full Live research pipeline at 09:30 and 21:30 Asia/Kuala_Lumpur. Legacy Vercel research cron routes remain paused to avoid duplicate execution."
+      note: dualResearchScheduler
+        ? "Vercel Cron owns the exact 09:30 and 21:30 Asia/Kuala_Lumpur start times and advances the durable intelligence continuation. GitHub Actions retries the same canonical slot about one hour later and therefore resumes or no-ops instead of creating a duplicate run."
         : PRODUCTION_RESEARCH_AUTOMATION_PAUSED
           ? "The schedule flag and cron registrations may be present, but production routing currently intercepts research cron requests."
           : vercelResearchScheduleEnabled
-            ? cronConfigured
-              ? "The Live-owned Vercel research schedule is enabled and publishes only through the canonical Live runtime."
-              : "The schedule flag is on but CRON_SECRET is missing, so unattended execution remains blocked."
-            : "Research automation is intentionally disabled.",
+            ? "The Live-owned Vercel research schedule is enabled and publishes only through the canonical Live runtime."
+            : GITHUB_ACTIONS_RESEARCH_AUTOMATION_ENABLED
+              ? "GitHub Actions owns the canonical Live research schedule."
+              : "Research automation is intentionally disabled.",
     },
     supabase: {
       state: state(configured(process.env.NEXT_PUBLIC_SUPABASE_URL) && configured(process.env.SUPABASE_SERVICE_ROLE_KEY), Boolean(latestResearchRun)),

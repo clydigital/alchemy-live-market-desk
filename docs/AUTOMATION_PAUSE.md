@@ -1,17 +1,41 @@
 # Production research automation routing
 
-Full Live Desk research has two canonical slots: **09:30** and **21:30 Asia/Kuala_Lumpur**, owned by the audited GitHub Actions workflow `.github/workflows/run-live-research.yml`. Primary triggers run at **01:30 UTC** and **13:30 UTC**. Safety triggers run 15 minutes later at **01:45 UTC** and **13:45 UTC** to recover a missed or delayed primary trigger.
+Full Live Desk research has two canonical slots: **09:30** and **21:30 Asia/Kuala_Lumpur**.
 
-Primary and safety triggers use the same daily `github-scheduled` retry identity inside the canonical slot key. If the primary already completed, the safety trigger exits without repeating provider, model or Dossier work. If the slot is still running, it may continue the same resumable pipeline. Terminal failures remain terminal and require an explicit audited manual retry key.
+## Primary clock — Vercel Cron
 
-The legacy Vercel research routes under `/api/cron/research/*` remain deliberately paused in both routing and middleware. They are not the active scheduler and must stay paused while GitHub Actions owns the two full-desk slots; this prevents duplicate acquisition/intelligence work and avoids the prior Vercel cron fan-out.
+Vercel owns the exact slot start:
+
+- morning acquisition: 01:30 UTC / 09:30 MYT
+- evening acquisition: 13:30 UTC / 21:30 MYT
+- acquisition watchdog: five minutes after each primary start
+- durable intelligence continuations: every five minutes from +10 to +45 minutes
+
+The intelligence route advances the existing persisted run one durable model stage at a time. Every continuation resolves the same canonical `cron-v1:<slot>:<date>` run identity. If a previous invocation is still running, already completed, or won the optimistic claim, the later invocation safely waits/no-ops instead of starting duplicate model work.
+
+## Delayed fallback — GitHub Actions
+
+The audited workflow `.github/workflows/run-live-research.yml` remains enabled as a transport fallback, but no longer owns the exact 09:30 / 21:30 clock.
+
+Fallback triggers run roughly one hour later:
+
+- morning: 02:30 and 02:45 UTC / 10:30 and 10:45 MYT
+- evening: 14:30 and 14:45 UTC / 22:30 and 22:45 MYT
+
+Scheduled GitHub runs use the `github-scheduled` marker, which the manual Live trigger deliberately strips before calling the canonical handlers. Vercel and GitHub therefore converge on the same daily slot run key. If Vercel completed the slot, GitHub exits without repeating provider, model, Dossier or publication work. If the slot is resumable, GitHub continues it.
+
+Terminal failed/blocked rows remain terminal and require an explicit audited manual retry key.
+
+## Why both transports exist
+
+GitHub scheduled workflows can be delayed. Vercel previously stayed paused to avoid duplicate execution, but the runtime now has canonical run-key deduplication, optimistic continuation claims, and one-model-stage invocation guards. That makes a primary-plus-fallback design safe while removing GitHub scheduling delay as the single point of failure.
 
 Video discovery remains separate:
 
-- `/api/cron/video/midnight` at 09:00 Asia/Kuala_Lumpur
-- `/api/cron/video/transcript-worker` at 09:30 Asia/Kuala_Lumpur
-- `/api/cron/video/late-morning` at 21:00 Asia/Kuala_Lumpur
+- `/api/cron/video/midnight` at 09:00 MYT
+- `/api/cron/video/transcript-worker` at 09:30 MYT
+- `/api/cron/video/late-morning` at 21:00 MYT
 
 Video discovery and transcript processing can create creator-lead evidence, but they do not replace the 09:30 / 21:30 full Live research cycles and cannot independently publish a Story to Hybrid.
 
-System health should report `scheduling.mode = github_actions` while this routing is active. The 15-minute safety triggers are not additional canonical slots; they share the same persisted slot identity. If ownership is ever moved back to Vercel Cron, disable all GitHub primary/safety triggers and remove the Vercel research pause in the same reviewed change so only one scheduler can own a canonical slot.
+System health should report `scheduling.mode = vercel_primary_github_fallback` while this routing is active.
