@@ -57,6 +57,11 @@ export type ResearchGapCaseRow = {
   completed_at: string | null;
   handed_off_at: string | null;
   closed_at: string | null;
+  research_plan_version: string | null;
+  research_plan: Record<string, unknown> | null;
+  research_started_at: string | null;
+  verdict_version: string | null;
+  verdict: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -186,13 +191,78 @@ export async function releaseResearchGapCase(
   return data === true;
 }
 
+export async function getOwnedResearchGapCase(
+  input: { caseId: string; claimToken: string; statuses?: ResearchGapCaseStatus[] },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  let query = client
+    .from("research_gap_cases")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,created_at,updated_at")
+    .eq("id", input.caseId)
+    .eq("claim_token", input.claimToken);
+
+  const statuses = input.statuses?.filter(Boolean) || [];
+  if (statuses.length === 1) query = query.eq("status", statuses[0]!);
+  else if (statuses.length > 1) query = query.in("status", statuses);
+
+  const { data, error } = await query.maybeSingle();
+  message(error, "Could not load owned Research Gap case");
+  return (data || null) as ResearchGapCaseRow | null;
+}
+
+export async function startResearchGapCase(
+  input: {
+    caseId: string;
+    claimToken: string;
+    planVersion: string;
+    plan: Record<string, unknown>;
+    startedAt?: string;
+  },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const { data, error } = await client.rpc("start_research_gap_case", {
+    p_case_id: input.caseId,
+    p_claim_token: input.claimToken,
+    p_plan_version: input.planVersion,
+    p_plan: input.plan,
+    p_started_at: input.startedAt || new Date().toISOString(),
+  });
+  message(error, "Could not start Research Gap case");
+  const rows = (data ?? []) as ResearchGapCaseRow[];
+  return rows[0] || null;
+}
+
+export async function completeResearchGapCase(
+  input: {
+    caseId: string;
+    claimToken: string;
+    outcome: ResearchGapOutcome;
+    verdictVersion: string;
+    verdict: Record<string, unknown>;
+    completedAt?: string;
+  },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const { data, error } = await client.rpc("complete_research_gap_case", {
+    p_case_id: input.caseId,
+    p_claim_token: input.claimToken,
+    p_outcome: input.outcome,
+    p_verdict_version: input.verdictVersion,
+    p_verdict: input.verdict,
+    p_completed_at: input.completedAt || new Date().toISOString(),
+  });
+  message(error, "Could not complete Research Gap case");
+  const rows = (data ?? []) as ResearchGapCaseRow[];
+  return rows[0] || null;
+}
+
 export async function listResearchGapCases(
   client: SupabaseClient = createSupabaseAdminClient(),
   limit = 50,
 ) {
   const { data, error } = await client
     .from("research_gap_cases")
-    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,created_at,updated_at")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,created_at,updated_at")
     .neq("status", "CLOSED")
     .order("latest_priority_score", { ascending: false, nullsFirst: false })
     .order("first_seen_at", { ascending: true })
