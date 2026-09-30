@@ -126,8 +126,24 @@ function researchGapCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
       ? gap.gap_class
       : null;
 
+    const linkedStoryIds = linkedStoryIdsFromBlockingRefs(blockingRefs);
+    const reason = clean(gap.category) || null;
+    const action = `Investigate: ${description}`;
+
     return [{
       workId: workId(dossier.id, "research_gap", ref),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "research_gap",
+        sourceRef: ref,
+        nativeId: explicitGapId,
+        question: description,
+        action,
+        reason,
+        evidenceNeeded: [],
+        linkedInvestigationIds: [],
+        linkedStoryIds,
+        blockingRefs,
+      }),
       sourceKind: "research_gap" as const,
       sourceRef: ref,
       dossierId: dossier.id,
@@ -137,7 +153,7 @@ function researchGapCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
       reason: clean(gap.category) || null,
       evidenceNeeded: [],
       linkedInvestigationIds: [],
-      linkedStoryIds: linkedStoryIdsFromBlockingRefs(blockingRefs),
+      linkedStoryIds,
       blockingRefs,
       nativeSignals: {
         severity,
@@ -170,8 +186,24 @@ function researchNowCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
     const explicitRef = rank === null ? "" : `research-now:${rank}:${stableHash(action)}`;
     const ref = sourceRef(dossier.id, "research_now", explicitRef, `${action}:${index}`);
 
+    const reason = clean(item.reason) || null;
+    const evidenceNeeded = strings(item.blocking_evidence);
+    const linkedInvestigationIds = strings(item.linked_investigations);
+    const linkedStoryIds = strings(item.linked_stories);
+
     return [{
       workId: workId(dossier.id, "research_now", ref),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "research_now",
+        sourceRef: ref,
+        question: null,
+        action,
+        reason,
+        evidenceNeeded,
+        linkedInvestigationIds,
+        linkedStoryIds,
+        blockingRefs: [],
+      }),
       sourceKind: "research_now" as const,
       sourceRef: ref,
       dossierId: dossier.id,
@@ -222,8 +254,26 @@ function investigationCandidates(dossier: MarketDossierV2) {
       `${question}:${researchNext}:${index}`,
     );
 
+    const action = researchNext || `Investigate: ${question}`;
+    const reason = clean(item.why_it_matters) || null;
+    const evidenceNeeded = strings(item.missing_evidence);
+    const linkedInvestigationIds = explicitId ? [explicitId] : [];
+    const linkedStoryIds = strings(item.linked_story_ids);
+
     return [{
       workId: workId(dossier.id, "investigation", ref),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "investigation",
+        sourceRef: ref,
+        nativeId: explicitId,
+        question: question || null,
+        action,
+        reason,
+        evidenceNeeded,
+        linkedInvestigationIds,
+        linkedStoryIds,
+        blockingRefs: [],
+      }),
       sourceKind: "investigation" as const,
       sourceRef: ref,
       dossierId: dossier.id,
