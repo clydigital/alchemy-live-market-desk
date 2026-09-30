@@ -105,6 +105,11 @@ import { getStoryHeaderImages } from "@/lib/story-images";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
 import { promoteMarketMotionForPublishedStories } from "@/lib/market-motion-promotion";
 import {
+  captureMarketMotionEditionAttachment,
+  emptyMarketMotionEditionAttachment,
+  marketMotionEditionSourceRefs,
+} from "@/lib/market-motion-edition";
+import {
   buildCanonicalStoryReasoningSnapshotV1,
   CANONICAL_STORY_REASONING_V1,
   canonicalCausalEdgeId,
@@ -2381,6 +2386,16 @@ async function persistDailyBrief({
     publishedAt: generatedAt,
   });
   const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const motionWarnings: string[] = [];
+  const marketMotion = researchRunId
+    ? await captureMarketMotionEditionAttachment({
+        researchRunId,
+        capturedAt: generatedAt,
+      }).catch((error) => {
+        motionWarnings.push(`Market Motion edition snapshot unavailable: ${error instanceof Error ? error.message : "unknown failure"}`);
+        return emptyMarketMotionEditionAttachment(researchRunId, generatedAt);
+      })
+    : null;
   const eventHorizon = await buildEditionEventHorizon(stories.map((story) => ({ id: story.id, title: story.title, assets: story.affectedAssets })));
   const marketObservations = evidence
     .filter((item) => item.evidenceClass === "market_observation" && item.affectedAssets.length)
@@ -2407,7 +2422,7 @@ async function persistDailyBrief({
     journeyStorySources: journeySources,
     marketEvents: eventHorizon.events,
     diagnostics: {
-      warnings: eventHorizon.warnings,
+      warnings: [...eventHorizon.warnings, ...motionWarnings],
       eventHorizonCoverage: eventHorizon.coverage,
       recruitment: {
         asOf: recruitment.asOf,
@@ -2443,17 +2458,19 @@ async function persistDailyBrief({
         scheduledFor: researchRun?.scheduled_for || null,
         runKey: researchRun?.run_key || runKey || null,
         canonicalStoryManifest,
+        ...(marketMotion ? { marketMotion } : {}),
       },
       source_record_refs: [
         ...stories.map((story) => ({ type: "story", id: story.id })),
         ...evidence.flatMap((item) => item.id ? [{ type: "evidence", id: item.id }] : []),
+        ...(marketMotion ? marketMotionEditionSourceRefs(marketMotion) : []),
       ],
       redaction_log: [],
       confidence: Math.round(stories.reduce((sum, story) => sum + story.confidence, 0) / stories.length),
       published_at: generatedAt,
     }),
   });
-  return eventHorizon.warnings;
+  return [...eventHorizon.warnings, ...motionWarnings];
 }
 
 function recruitmentRunMetadata(
