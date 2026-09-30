@@ -2429,6 +2429,7 @@ async function persistDailyBrief({
     upcoming: eventHorizon.upcoming,
     journeyStorySources: journeySources,
     marketEvents: eventHorizon.events,
+    marketMotion: marketMotion?.items || [],
     diagnostics: {
       warnings: [...eventHorizon.warnings, ...motionWarnings],
       eventHorizonCoverage: eventHorizon.coverage,
