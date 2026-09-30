@@ -23,6 +23,10 @@ test("runtime builds reasoning from persisted stage-owned records", () => {
   assert.match(reasoningBuilder, /buildCanonicalStoryReasoningSnapshotV1\(\{/);
   assert.match(reasoningBuilder, /lifecycleStatus,/);
   assert.match(reasoningBuilder, /causalChain: persistedCausalChain\(context\.hypothesis\)/);
+  assert.match(reasoningBuilder, /mechanism: context\.hypothesis\.causal_mechanism/);
+  assert.match(reasoningBuilder, /mechanismCode: classifyPresenterMechanism\(context\.hypothesis\.causal_mechanism/);
+  assert.match(reasoningBuilder, /competingHypotheses: context\.competingHypotheses\.map/);
+  assert.match(reasoningBuilder, /evidenceAgainstIds: hypothesis\.evidence_against_ids/);
   assert.match(reasoningBuilder, /confirmationCriteria: context\.hypothesis\.confirmation_criteria/);
   assert.match(reasoningBuilder, /invalidationCriteria: context\.hypothesis\.invalidation_criteria/);
   assert.match(reasoningBuilder, /acceptedExplanationEvidenceIds: synthesis\.acceptedExplanationEvidenceIds/);
@@ -53,6 +57,10 @@ test("Story Synthesis keeps decisive lineage strict while isolating optional ann
 });
 
 test("reasoning is validated before the one atomic Story persistence call", () => {
+  assert.match(runtime, /const competingHypotheses = reviewed/);
+  assert.match(runtime, /hypothesis\.market_belief === primaryHypothesis\.market_belief/);
+  assert.match(runtime, /\.slice\(0, 2\)/);
+  assert.match(promotion, /competingHypotheses,/);
   assert.match(promotion, /const reasoning = buildStoryReasoningSnapshot\(candidate, reasoningContext, lifecycleStatus\)/);
   assert.ok(
     promotion.indexOf("const reasoning = buildStoryReasoningSnapshot") < promotion.indexOf("persistCanonicalStoryReasoning({"),

@@ -1,5 +1,6 @@
 import { parseRatesContext } from "../rates-research-plan.ts";
 import { parseResearchGapHandoffContext } from "../research-gap-handoff.ts";
+import { classifyPresenterMechanism } from "./presenter-mechanism-codes.ts";
 import { ratesSourceClass } from "../rates-research-acquisition.ts";
 import { attachRatesContext, isRatesContext } from "./rates-context.ts";
 import "server-only";
@@ -319,6 +320,7 @@ type ScenarioRow = {
 
 type StoryReasoningContext = {
   hypothesis: HypothesisRow;
+  competingHypotheses: HypothesisRow[];
   challenger: ChallengerRow | null;
   scenarios: ScenarioRow[];
   evidenceById: Map<string, EvidencePackItem>;
@@ -1724,11 +1726,28 @@ function buildStoryReasoningSnapshot(
     },
     hypothesis: {
       id: context.hypothesis.id,
+      statement: context.hypothesis.statement,
+      mechanism: context.hypothesis.causal_mechanism,
+      mechanismCode: classifyPresenterMechanism(context.hypothesis.causal_mechanism, context.hypothesis.statement, context.hypothesis.question),
+      confidence: context.hypothesis.confidence,
       evidenceForIds: context.hypothesis.evidence_for_ids,
+      evidenceAgainstIds: context.hypothesis.evidence_against_ids,
       causalChain: persistedCausalChain(context.hypothesis),
       confirmationCriteria: context.hypothesis.confirmation_criteria,
       invalidationCriteria: context.hypothesis.invalidation_criteria,
     },
+    competingHypotheses: context.competingHypotheses.map((hypothesis) => ({
+      id: hypothesis.id,
+      statement: hypothesis.statement,
+      mechanism: hypothesis.causal_mechanism,
+      mechanismCode: classifyPresenterMechanism(hypothesis.causal_mechanism, hypothesis.statement, hypothesis.question),
+      confidence: hypothesis.confidence,
+      evidenceForIds: hypothesis.evidence_for_ids,
+      evidenceAgainstIds: hypothesis.evidence_against_ids,
+      causalChain: persistedCausalChain(hypothesis),
+      confirmationCriteria: hypothesis.confirmation_criteria,
+      invalidationCriteria: hypothesis.invalidation_criteria,
+    })),
     challenger: context.challenger ? {
       strongestCountercase: context.challenger.strongestCountercase,
       conflictingEvidenceIds: context.challenger.conflictingEvidenceIds,
@@ -1853,6 +1872,7 @@ async function promoteCandidate({
   existingStories,
   evidenceById,
   hypothesis,
+  competingHypotheses,
   challenger,
   scenarios,
 }: {
@@ -1864,10 +1884,11 @@ async function promoteCandidate({
   existingStories: StoryRow[];
   evidenceById: Map<string, EvidencePackItem>;
   hypothesis: HypothesisRow;
+  competingHypotheses: HypothesisRow[];
   challenger: ChallengerRow | null;
   scenarios: ScenarioRow[];
 }) {
-  const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
+  const reasoningContext = { hypothesis, competingHypotheses, challenger, scenarios, evidenceById };
   const reasoning = buildStoryReasoningSnapshot(candidate, reasoningContext, lifecycleStatus);
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
   const identity = resolvePersistentStoryIdentity(
@@ -2997,6 +3018,14 @@ export async function runIntelligenceEngine({
       if (!primaryHypothesis) {
         throw new Error(`Canonical Hypothesis input is incomplete for Story candidate ${candidate.candidateKey}.`);
       }
+      const competingHypotheses = reviewed
+        .filter((hypothesis) => hypothesis.id !== primaryHypothesis.id)
+        .filter((hypothesis) => (
+          Boolean(primaryHypothesis.market_belief && hypothesis.market_belief === primaryHypothesis.market_belief)
+          || Boolean(primaryHypothesis.divergence_id && hypothesis.divergence_id === primaryHypothesis.divergence_id)
+        ))
+        .sort((left, right) => right.confidence - left.confidence || left.id.localeCompare(right.id))
+        .slice(0, 2);
       let promotedStory: StoryRow | null = null;
       try {
         promotedStory = await promoteCandidate({
@@ -3008,6 +3037,7 @@ export async function runIntelligenceEngine({
         existingStories: stories,
         evidenceById,
         hypothesis: primaryHypothesis,
+        competingHypotheses,
         challenger: primaryChallenger,
         scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
       });

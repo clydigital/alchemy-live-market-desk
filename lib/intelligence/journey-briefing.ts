@@ -4,6 +4,7 @@ import {
   CANONICAL_STORY_REASONING_V1,
   type CanonicalAssetImplicationV1,
   type CanonicalCausalEdgeV1,
+  type CanonicalExplanationCandidateV1,
   type CanonicalClaimV1,
   type CanonicalNextTestV1,
   type CanonicalStoryReasoningV1,
@@ -51,6 +52,7 @@ export type JourneyBigStory = {
   facts: CanonicalClaimV1[];
   evidenceRefs: string[];
   marketInterpretation: string | null;
+  explanationCandidates: CanonicalExplanationCandidateV1[];
   alchemyInterpretation: string;
   mechanism: CanonicalCausalEdgeV1[];
   contradiction: CanonicalStoryReasoningV1["countercase"];
@@ -92,6 +94,7 @@ function storyEvidence(reasoning: CanonicalStoryReasoningV1) {
     ...reasoning.causalChain.flatMap((edge) => edge.evidenceIds),
     ...reasoning.countercase.evidenceIds,
     ...reasoning.overlookedVariable.evidenceIds,
+    ...(reasoning.explanationCandidates ?? []).flatMap((candidate) => [...candidate.evidenceForIds, ...candidate.evidenceAgainstIds]),
     ...reasoning.assetImplications.flatMap((impact) => impact.evidenceIds),
     ...(reasoning.nextTest?.evidenceIds || []),
     ...(reasoning.nextTest?.resolutionEvidenceIds || []),
@@ -114,6 +117,11 @@ function journeyStory(source: JourneyStorySource, rank: number): JourneyBigStory
     facts: reasoning.claims.filter((claim) => claim.type === "fact").map((claim) => ({ ...claim, evidenceIds: [...claim.evidenceIds] })),
     evidenceRefs: storyEvidence(reasoning),
     marketInterpretation: reasoning.acceptedExplanation,
+    explanationCandidates: (reasoning.explanationCandidates ?? []).map((candidate) => ({
+      ...candidate,
+      evidenceForIds: [...candidate.evidenceForIds],
+      evidenceAgainstIds: [...candidate.evidenceAgainstIds],
+    })),
     alchemyInterpretation: reasoning.thesis,
     mechanism: reasoning.causalChain.map((edge) => ({ ...edge, evidenceIds: [...edge.evidenceIds] })),
     contradiction: { ...reasoning.countercase, evidenceIds: [...reasoning.countercase.evidenceIds] },
