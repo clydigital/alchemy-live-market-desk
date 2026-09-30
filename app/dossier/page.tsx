@@ -1,5 +1,6 @@
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
+import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
@@ -137,6 +138,8 @@ export default async function DossierPage() {
             </div>
           </div>
         </section>
+
+        <NarrativeSpine dossier={dossier} surface="dossier" />
 
         <section className={styles.regimeSection}>
           <div className={styles.sectionHead}>

@@ -145,6 +145,11 @@ test("deterministic text routing maps Treasury and long-end news without creatin
   assert.ok(routes.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "long-end"));
 });
 
+test("global rates routing recognises USDJPY, JGB and foreign-flow language", () => {
+  const routes = routeTextToRegimes("USDJPY reacts to JGB yields, TIC holdings and Japanese repatriation", 3);
+  assert.ok(routes.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "global-rates"));
+});
+
 test("Cost-of-Capital Regime reuses the canonical Dossier rate-regime/1 telemetry", () => {
   const projection = buildRegimeProjection({
     stories: [story()],

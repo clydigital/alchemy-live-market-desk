@@ -7,6 +7,7 @@ import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
+import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { Badge, Panel, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
@@ -394,6 +395,9 @@ export default async function Page({ searchParams }: PageProps) {
     >
       <div style={{ display: "grid", gap: 24 }}>
         <RateRegimeOverview selection={dossierSelection} />
+        {dossierSelection.presentation ? (
+          <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
+        ) : null}
         <MarketRegimeStrip regimes={regimes} />
         {reasoningInvestigation ? (
           <Panel

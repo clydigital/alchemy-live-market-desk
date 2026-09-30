@@ -119,7 +119,7 @@ export const REGIME_DEFINITIONS: RegimeDefinition[] = [
     coreQuestion: "Can governments and companies finance large capital needs cheaply while inflation, sovereign issuance and private investment demand keep required returns elevated?",
     whyItMatters: "Long-term yields and funding conditions transmit into mortgages, corporate borrowing, AI financing, equity valuations, currencies and the government's own interest burden.",
     mechanism: "Debt supply / inflation / policy pressure → required yields → borrowing costs → investment, housing and valuation pressure.",
-    affectedMarkets: ["US02Y", "US10Y", "US30Y", "DXY", "XAUUSD", "QQQ", "Credit", "Housing"],
+    affectedMarkets: ["US02Y", "US10Y", "US30Y", "DXY", "USDJPY", "JGB10Y", "JGB30Y", "BUND10Y", "XAUUSD", "QQQ", "Credit", "Housing"],
     subgroups: [
       { key: "fed-front-end", label: "Fed / Front End", accent: "blue", whyItMatters: "The front end shows how markets price the near-term policy path.", mechanism: "Macro surprise → Fed path → 2Y / policy pricing → USD and rate-sensitive assets." },
       { key: "treasury-fiscal", label: "Treasury / Fiscal", accent: "purple", whyItMatters: "Borrowing needs and maturity choices affect supply, refinancing risk and the term premium.", mechanism: "Deficits / financing mix → Treasury supply → investor absorption → funding pressure." },
@@ -263,7 +263,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "global-cost-of-capital", subgroup: "fed-front-end", pattern: /\b(fed|fomc|policy rate|rate hike|rate cut|front[- ]end|2y|two[- ]year|fed funds)\b/i, weight: 5 },
   { regime: "global-cost-of-capital", subgroup: "treasury-fiscal", pattern: /\b(treasury|fiscal|deficit|debt supply|issuance|buyback|borrowing|tga|auction)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "long-end", pattern: /\b(10y|30y|long[- ]end|term premium|duration|real yield|breakeven|mortgage rate)\b/i, weight: 6 },
-  { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|yen|carry trade|global yield|repatriat)\b/i, weight: 5 },
+  { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|japanese|yen|usd.?jpy|carry trade|global yield|global rates|repatriat|bund|gilt|tic|foreign treasury|foreign demand|hedging cost)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(credit|spread|refinanc|funding|bond issuance|project finance|leverage|debt-funded)\b/i, weight: 5 },
   { regime: "global-cost-of-capital", subgroup: "housing", pattern: /\b(housing|mortgage|homebuilder|home sales|affordability)\b/i, weight: 5 },
 
