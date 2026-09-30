@@ -103,6 +103,7 @@ import { getHybridDeskData } from "@/lib/data";
 import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
+import { promoteMarketMotionForPublishedStories } from "@/lib/market-motion-promotion";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
   CANONICAL_STORY_REASONING_V1,
@@ -3056,6 +3057,22 @@ export async function runIntelligenceEngine({
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
+    }
+
+    if (!dryRun && researchRunId && publishedStories.length) {
+      try {
+        const motionPromotion = await promoteMarketMotionForPublishedStories({
+          researchRunId,
+          engineRunId,
+          storyIds: publishedStories.map((story) => story.id),
+        });
+        if (motionPromotion.promoted > 0) {
+          warnings.push(`Market Motion promoted ${motionPromotion.promoted} item(s) because the linked canonical Story changed in this intelligence run.`);
+        }
+        warnings.push(...motionPromotion.warnings.map((warning) => `Market Motion promotion: ${warning}`));
+      } catch (error) {
+        warnings.push(`Market Motion promotion unavailable: ${error instanceof Error ? error.message : "unknown failure"}`);
+      }
     }
 
     if (!dryRun && editionStories.length) {
