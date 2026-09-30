@@ -55,6 +55,29 @@ export function selectPromotableMarketMotion(
     .slice(0, Math.max(0, limit));
 }
 
+export function selectPromotedMarketMotionForDossier(
+  items: MarketMotionRecord[],
+  dossierStoryIds: string[],
+  now = new Date(),
+  limit = 3,
+) {
+  const storyIds = new Set(dossierStoryIds.filter(Boolean));
+  return items
+    .filter((item) => item.primary_story_id && storyIds.has(item.primary_story_id))
+    .filter((item) => marketMotionEffectiveState(item, now) === "PROMOTED")
+    .sort((left, right) => {
+      const materialityDelta = right.materiality - left.materiality;
+      if (materialityDelta) return materialityDelta;
+      const relevanceDelta = right.relevance - left.relevance;
+      if (relevanceDelta) return relevanceDelta;
+      const verificationDelta = (right.verification_state === "VERIFIED" ? 1 : 0)
+        - (left.verification_state === "VERIFIED" ? 1 : 0);
+      if (verificationDelta) return verificationDelta;
+      return Date.parse(right.occurred_at) - Date.parse(left.occurred_at);
+    })
+    .slice(0, Math.max(0, limit));
+}
+
 export function marketMotionPromotionInput(
   item: MarketMotionRecord,
   input: { researchRunId: string; engineRunId: string },
