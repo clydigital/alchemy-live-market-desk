@@ -143,3 +143,9 @@ jobs:
 
       - name: Verify persistent Regime shadow engine contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/persistent_regime_shadow_engine_contract.sql
+
+      - name: Apply Market Motion v1 migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001012000_market_motion_v1.sql
+
+      - name: Verify Market Motion v1 database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_motion_v1_contract.sql
