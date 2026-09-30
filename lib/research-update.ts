@@ -1,11 +1,11 @@
-import { getFourSlotResearchHealth, type FourSlotResearchHealth } from "@/lib/research-schedule-health";
+import { getFourSlotResearchHealth, type FourSlotResearchHealth } from "./research-schedule-health.ts";
 import {
   gapHandoffSourceIsCarrier,
   isResearchGapHandoff,
   researchGapHandoffRunKey,
   validateResearchGapHandoff,
   type ResearchGapHandoffInput,
-} from "@/lib/research-gap-handoff";
+} from "./research-gap-handoff.ts";
 
 export const REQUIRED_RESEARCH_SOURCES = [
   "stockedup",

@@ -41,7 +41,7 @@ test("calendar-only evidence and late slot retries fail closed at their canonica
   const runtime = source("../lib/intelligence/runtime.ts");
   const replay = source("../lib/edition-replay.ts");
 
-  assert.match(runtime, /evidenceNature: ratesContext \? "research_context" : calendarItem \? \(calendarReleased \? "event_outcome" : "scheduled_event"\)/);
+  assert.match(runtime, /evidenceNature: gapHandoff \? "research_gap_handoff" : ratesContext \? "research_context" : calendarItem \? \(calendarReleased \? "event_outcome" : "scheduled_event"\)/);
   assert.match(replay, /Canonical schedule identity outranks wall-clock publication time/);
   assert.match(replay, /canonicalOrderAt/);
 });
