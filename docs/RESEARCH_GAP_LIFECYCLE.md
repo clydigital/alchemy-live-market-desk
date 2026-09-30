@@ -47,7 +47,7 @@ NEW
  -> CLOSED
 ```
 
-This PR actively uses `QUEUED` and `CLAIMED`. Later executor / feedback work will own the remaining transitions.
+The lifecycle now actively uses `QUEUED`, `CLAIMED`, `RESEARCHING` and `COMPLETED`. `HANDED_OFF` and `CLOSED` remain reserved for the canonical handoff / feedback stage.
 
 Analytical research outcomes are separate:
 
@@ -131,16 +131,32 @@ Reads the latest Dossier priority queue and persists the selected maximum-three 
 }
 ```
 
-## Deliberately not included
+## Research execution boundary
 
-This lifecycle foundation does not yet:
+`POST /api/research-gap/execution` now owns two deterministic operational transitions:
 
-- generate a structured Research Plan;
-- execute external research;
-- choose `CONFIRMING / CONTRADICTING / UNRESOLVED / NO_CHANGE`;
-- mark research `COMPLETED`;
-- send the finished case through the already-existing automatic handoff;
+- `start` — builds and persists a bounded `research-gap-plan/1`, then moves an owned claim to `RESEARCHING`;
+- `evaluate` — evaluates structured evidence assessments against the persisted plan. Research stays open until deterministic stop conditions are met; only then does the case move to `COMPLETED`.
+
+The plan is intentionally conservative. It preserves the canonical question/action, turns explicit missing evidence into bounded requirements, recommends broad source classes, and never invents a prior expectation when none is persisted.
+
+The verdict contract is also conservative:
+
+- every required branch needs traceable coverage before a directional verdict;
+- one authoritative direct source or two independent strong direct sources can establish one-sided support;
+- strong evidence on both sides returns `UNRESOLVED`;
+- complete strong neutral evidence may return `NO_CHANGE`;
+- exhausted source/branch budgets stop as `UNRESOLVED`;
+- otherwise research continues.
+
+## Still deliberately not included
+
+This lifecycle does not yet:
+
+- execute external research by itself;
+- route every gap type to provider-specific source adapters;
+- send a `COMPLETED` lifecycle case through the already-existing automatic handoff without an executor supplying the underlying evidence packet;
 - close or reopen a case from canonical Live feedback;
 - schedule the 08:10 / 20:10 Gap runs.
 
-Those remain the next pipeline stages.
+Those remain later stages because scheduling before an actual research executor would merely claim work without resolving it.
