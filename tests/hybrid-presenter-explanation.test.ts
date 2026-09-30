@@ -7,10 +7,13 @@ const composer = readFileSync(new URL("../lib/intelligence/dossier-storyline-com
 const publication = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
 
 test("Hybrid opens with promoted Live Motion before the current canonical composed edition", () => {
-  assert.match(hybrid, /getCurrentMarketMotion/);
-  assert.match(hybrid, /selectPromotedMarketMotion/);
+  assert.match(hybrid, /marketMotionFromEditionPayload/);
+  assert.match(hybrid, /selectMarketMotionEditionContext/);
+  assert.doesNotMatch(hybrid, /getCurrentMarketMotion/);
+  assert.doesNotMatch(hybrid, /selectPromotedMarketMotion/);
   assert.match(hybrid, /HYBRID OPENING HOOKS/);
   assert.match(hybrid, /linked canonical Story changed/);
+  assert.match(hybrid, /same immutable edition as the Presenter/);
   assert.doesNotMatch(hybrid, /selectMarketMotionForOverview/);
   const motionAt = hybrid.indexOf('eyebrow="HYBRID OPENING HOOKS"');
   const presenterAt = hybrid.indexOf('title="Presenter view"');

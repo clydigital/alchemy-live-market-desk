@@ -17,6 +17,11 @@ import {
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 import { buildEditionEventHorizon } from "@/lib/market-event-runtime";
 import { getStoryHeaderImages } from "@/lib/story-images";
+import {
+  captureMarketMotionEditionAttachment,
+  emptyMarketMotionEditionAttachment,
+  marketMotionEditionSourceRefs,
+} from "@/lib/market-motion-edition";
 
 type StorySnapshotRow = {
   id: string;
@@ -318,6 +323,14 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
+  const motionWarnings: string[] = [];
+  const marketMotion = await captureMarketMotionEditionAttachment({
+    researchRunId,
+    capturedAt: generatedAt,
+  }).catch((error) => {
+    motionWarnings.push(`Market Motion edition snapshot unavailable: ${error instanceof Error ? error.message : "unknown failure"}`);
+    return emptyMarketMotionEditionAttachment(researchRunId, generatedAt);
+  });
   const eventHorizon = await buildEditionEventHorizon([]);
   const [recruitment, contractDiagnostics] = await Promise.all([
     recruitmentForResearchRun(researchRunId),
@@ -335,7 +348,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     journeyStorySources: journeySources,
     marketEvents: eventHorizon.events,
     diagnostics: {
-      warnings: eventHorizon.warnings,
+      warnings: [...eventHorizon.warnings, ...motionWarnings],
       eventHorizonCoverage: eventHorizon.coverage,
       recruitment,
       contractDiagnostics,
@@ -370,12 +383,16 @@ export async function persistCanonicalJourneyEditionForResearchRun({
             scheduledFor: researchRun?.scheduled_for || null,
             runKey: researchRun?.run_key || runKey,
             canonicalStoryManifest,
+            marketMotion,
           },
-          source_record_refs: canonicalStoryManifest.map((entry) => ({
-            type: "story",
-            id: entry.storyId,
-            snapshotId: entry.snapshotId,
-          })),
+          source_record_refs: [
+            ...canonicalStoryManifest.map((entry) => ({
+              type: "story",
+              id: entry.storyId,
+              snapshotId: entry.snapshotId,
+            })),
+            ...marketMotionEditionSourceRefs(marketMotion),
+          ],
           redaction_log: [],
           confidence: canonicalStoryManifest.length
             ? Math.round(canonicalStoryManifest.reduce(
