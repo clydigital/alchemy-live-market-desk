@@ -20,7 +20,8 @@ export const MACHINE_AUTH_PATHS = [
   "/api/research-update",
   "/api/research-gap/handoff",
   "/api/research-gap/queue",
-  "/api/research-gap/priorities",\n  "/api/research-gap/lifecycle",
+  "/api/research-gap/priorities",
+  "/api/research-gap/lifecycle",
   "/api/video-intake",
   "/api/cron/video/transcript-worker",
 ] as const;
