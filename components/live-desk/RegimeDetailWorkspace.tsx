@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
 import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
@@ -71,6 +72,12 @@ export default function RegimeDetailWorkspace({
       interpretationAt: subgroupReasoning.map((item) => item.reasoning.updatedAt),
     })
     : null;
+  const globalRatesFxBridge = useMemo(
+    () => subgroup?.key === "global-rates"
+      ? buildGlobalRatesFxBridge({ regime, investigations, liveReasoning })
+      : null,
+    [investigations, liveReasoning, regime, subgroup?.key],
+  );
 
   return (
     <div className={styles.board}>
@@ -265,6 +272,44 @@ export default function RegimeDetailWorkspace({
                 </div>
                 <span className={styles.state} data-kind={subgroup.stateKind}>{subgroup.state}</span>
               </header>
+
+              {globalRatesFxBridge ? (
+                <section className={styles.fxBridge} aria-label="Global rates and FX sensor">
+                  <header className={styles.fxBridgeHeader}>
+                    <div>
+                      <span className={styles.kicker}>GLOBAL RATES / FX SENSOR</span>
+                      <h3>US rates → UST/JGB → USDJPY → Japan flows → risk/carry</h3>
+                      <p>Evidence-gated chain. Observed means the desk has a current factual input; Supported means canonical reasoning backs the link; Unresolved means the system is still waiting for the specified evidence.</p>
+                    </div>
+                    <div className={styles.fxBridgeScore}>
+                      <span data-state="observed">{globalRatesFxBridge.observedCount} observed</span>
+                      <span data-state="supported">{globalRatesFxBridge.supportedCount} supported</span>
+                      <span data-state="unresolved">{globalRatesFxBridge.unresolvedCount} unresolved</span>
+                    </div>
+                  </header>
+                  <div className={styles.fxBridgeRail}>
+                    {globalRatesFxBridge.steps.map((step, index) => (
+                      <article className={styles.fxBridgeStep} data-state={step.state} key={step.key}>
+                        <div className={styles.fxBridgeStepHead}>
+                          <b>{String(index + 1).padStart(2, "0")}</b>
+                          <span>{step.label}</span>
+                          <strong>{step.state}</strong>
+                        </div>
+                        <h4>{step.title}</h4>
+                        <p>{step.detail}</p>
+                        <div className={styles.fxBridgeMeta}>
+                          <span>{step.evidenceLabel}</span>
+                          <span>{step.asOf ? displayDate(step.asOf) : "No timestamped evidence"}</span>
+                        </div>
+                        {step.nextTest ? (
+                          <small><b>Next test:</b> {step.nextTest}</small>
+                        ) : null}
+                        {index < globalRatesFxBridge.steps.length - 1 ? <i aria-hidden="true">→</i> : null}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               {freshness?.status === "new_telemetry" ? (
                 <div className={styles.freshnessWarning}>
