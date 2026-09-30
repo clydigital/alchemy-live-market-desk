@@ -1,5 +1,6 @@
 import type { EventHorizonCoverage } from "../event-horizon-acquisition.ts";
 import type { MarketEventV1, MarketEventTimePrecision } from "../market-events.ts";
+import type { MarketMotionEditionItem } from "../market-motion-edition.ts";
 import {
   CANONICAL_STORY_REASONING_V1,
   type CanonicalAssetImplicationV1,
@@ -29,11 +30,12 @@ export type JourneyTiming = {
 
 export type JourneyChronologyItem = {
   id: string;
-  lane: "story" | "economic_calendar" | "earnings" | "geopolitical_clock" | "market_event";
+  lane: "story" | "market_motion" | "economic_calendar" | "earnings" | "geopolitical_clock" | "market_event";
   title: string;
   storyId: string | null;
   thesisVersionId: string | null;
   eventId: string | null;
+  motionId?: string | null;
   timing: JourneyTiming;
   evidenceRefs: string[];
 };
@@ -195,6 +197,20 @@ function storyChronologyItem(story: JourneyBigStory): JourneyChronologyItem {
   };
 }
 
+function marketMotionChronologyItem(item: MarketMotionEditionItem): JourneyChronologyItem {
+  return {
+    id: `market-motion:${item.id}`,
+    lane: "market_motion",
+    title: item.headline,
+    storyId: item.storyId,
+    thesisVersionId: null,
+    eventId: null,
+    motionId: item.id,
+    timing: { value: item.occurredAt, label: null, precision: "exact" },
+    evidenceRefs: [],
+  };
+}
+
 const KL_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
 function localParts(value: string) {
@@ -268,6 +284,7 @@ export function composeJourneyBriefing({
   journeyStorySources,
   marketTape,
   marketEvents,
+  marketMotion = [],
   diagnostics,
   finalBoard,
 }: {
@@ -277,6 +294,7 @@ export function composeJourneyBriefing({
   journeyStorySources: JourneyStorySource[];
   marketTape: MarketTape;
   marketEvents: MarketEventV1[];
+  marketMotion?: MarketMotionEditionItem[];
   diagnostics: Pick<EditionDiagnostics, "warnings" | "eventHorizonCoverage">;
   finalBoard: AlchemyFinalBoard;
 }): JourneyBriefingV1 {
@@ -284,7 +302,11 @@ export function composeJourneyBriefing({
   const bigStories = orderedChangedStories(changes, journeyStorySources, warnings);
   const lead = bigStories[0] || null;
   const temporal = splitEvents(marketEvents, generatedAt);
-  const chronology = [...bigStories.map(storyChronologyItem), ...temporal.chronology]
+  const chronology = [
+    ...bigStories.map(storyChronologyItem),
+    ...marketMotion.map(marketMotionChronologyItem),
+    ...temporal.chronology,
+  ]
     .sort((left, right) => (Date.parse(left.timing.value || "") || 0) - (Date.parse(right.timing.value || "") || 0) || left.id.localeCompare(right.id));
   const nextEvent = [...temporal.horizon.today, ...temporal.horizon.tonight, ...temporal.horizon.later][0] || null;
 

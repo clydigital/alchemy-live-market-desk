@@ -1,6 +1,7 @@
 import type { StoryLifecycleStatus } from "@/lib/intelligence/contracts";
 import type { EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import type { MarketEventV1 } from "@/lib/market-events";
+import type { MarketMotionEditionItem } from "@/lib/market-motion-edition";
 import {
   composeDossierBriefing,
   type DossierBriefingV1,
@@ -364,6 +365,7 @@ export function composeAlchemyEdition({
   upcoming = emptyUpcoming(),
   journeyStorySources = [],
   marketEvents = [],
+  marketMotion = [],
   diagnostics = { warnings: [] },
 }: {
   generatedAt: string;
@@ -378,6 +380,7 @@ export function composeAlchemyEdition({
   upcoming?: EditionUpcoming;
   journeyStorySources?: JourneyStorySource[];
   marketEvents?: MarketEventV1[];
+  marketMotion?: MarketMotionEditionItem[];
   diagnostics?: EditionDiagnostics;
 }): AlchemyEdition {
   const changes = selectMaterialChanges(stories, previousEdition);
@@ -446,6 +449,7 @@ export function composeAlchemyEdition({
       journeyStorySources,
       marketTape,
       marketEvents,
+      marketMotion,
       diagnostics,
       finalBoard,
     }),
