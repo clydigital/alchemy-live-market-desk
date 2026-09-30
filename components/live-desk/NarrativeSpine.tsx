@@ -18,6 +18,7 @@ type SpineStep = {
   detail: string;
   supporting?: string | null;
   state: "observed" | "supported" | "unresolved";
+  href?: string | null;
 };
 
 function findLens(dossier: DossierPresentationV1, key: string) {
@@ -91,6 +92,7 @@ export default function NarrativeSpine({
         : fxLens?.observed
           ? "observed"
           : "unresolved",
+      href: "/regimes/global-cost-of-capital?view=live&subgroup=global-rates",
     },
     {
       number: "05",
@@ -138,6 +140,7 @@ export default function NarrativeSpine({
             <h3>{step.title}</h3>
             <p>{step.detail}</p>
             {step.supporting ? <small>{step.supporting}</small> : null}
+            {step.href ? <Link className={styles.stepLink} href={step.href}>Open sensor →</Link> : null}
           </article>
         ))}
       </div>
