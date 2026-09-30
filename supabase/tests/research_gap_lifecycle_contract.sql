@@ -6,7 +6,7 @@ declare
   dossier_two uuid;
   case_id uuid;
   case_count integer;
-  occurrence_count integer;
+  case_occurrence_count integer;
   occurrence_rows integer;
   claimed_count integer;
   claim_token uuid;
@@ -95,11 +95,11 @@ begin
   );
 
   select count(*), max(c.occurrence_count)
-  into case_count, occurrence_count
+  into case_count, case_occurrence_count
   from public.research_gap_cases c
   where c.gap_key = 'gap:investigation:inv:duration';
 
-  if case_count <> 1 or occurrence_count <> 2 then
+  if case_count <> 1 or case_occurrence_count <> 2 then
     raise exception 'stable gap key did not carry forward into one case with two occurrences';
   end if;
 
@@ -134,12 +134,12 @@ begin
     '2026-10-01T12:06:00Z'
   );
 
-  select occurrence_count
-  into occurrence_count
-  from public.research_gap_cases
-  where id = case_id;
+  select c.occurrence_count
+  into case_occurrence_count
+  from public.research_gap_cases c
+  where c.id = case_id;
 
-  if occurrence_count <> 2 then
+  if case_occurrence_count <> 2 then
     raise exception 'replayed occurrence incremented occurrence_count';
   end if;
 
