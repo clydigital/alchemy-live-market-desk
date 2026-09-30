@@ -167,7 +167,9 @@ export function buildGlobalRatesFxBridge(input: {
   const relevantInvestigations = regimeInvestigations(regime, investigations);
 
   const usRateEvidence = rateLines;
-  const usRateBest = pickBest(usRateEvidence);
+  const usRateBest = pickBest(
+    usRateEvidence.filter((line) => /restrict|hawk|tight|10y|30y|real yield/i.test(line.text)),
+  ) || pickBest(usRateEvidence);
 
   const ustJgbEvidence = findMatching(globalLines, (text) =>
     /\b(jgb|japanese government bond)\b/i.test(text)
@@ -241,7 +243,7 @@ export function buildGlobalRatesFxBridge(input: {
         : "No explicit USDJPY observation",
       nextTest: firstInvestigationGap(
         relevantInvestigations,
-        /\b(usd.?jpy|yen|fx|cross.?currency)\b/i,
+        /\b(usd.?jpy|yen)\b/i,
         "Add USDJPY spot/change and compare it with the UST–JGB rate differential.",
       ),
       asOf: latestTimestamp(usdJpyEvidence),
@@ -257,7 +259,7 @@ export function buildGlobalRatesFxBridge(input: {
         : "Flow evidence unresolved",
       nextTest: firstInvestigationGap(
         relevantInvestigations,
-        /\b(tic|flow|repatriat|intervention|basis|swap|dealer)\b/i,
+        /\b(tic|repatriat|intervention|ministry of finance|mof|treasury holdings|cross.?currency basis|fx swap|hedging cost)\b/i,
         "Check TIC/foreign Treasury holdings, intervention evidence, hedging costs and cross-currency basis.",
       ),
       asOf: latestTimestamp(flowEvidence),
@@ -279,7 +281,7 @@ export function buildGlobalRatesFxBridge(input: {
       nextTest: riskInvestigation?.confirmationCondition
         || riskInvestigation?.researchNext
         || "Compare credit, breadth and volatility with USDJPY and the relative-rate move.",
-      asOf: riskBest?.at || null,
+      asOf: riskInvestigation ? regime.asOf : riskBest?.at || null,
     },
   ];
 
