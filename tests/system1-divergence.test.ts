@@ -32,13 +32,14 @@ function marketMonitor(id: string, dayChangePct: number | null): Record<string, 
 function packetWith(
   eventFacts: Array<Record<string, unknown>>,
   monitors: Array<Record<string, unknown>>,
+  asOf = AS_OF,
 ) {
   const snapshot: CandidateSnapshot = {
     observed_evidence: [...eventFacts, ...monitors],
     price_data: { status: "OK", available_at: AVAILABLE_AT },
     macro_data: { status: "OK", available_at: AVAILABLE_AT },
   };
-  return assembleDossierV2InputPacket({ as_of: AS_OF }, snapshot);
+  return assembleDossierV2InputPacket({ as_of: asOf }, snapshot);
 }
 
 test("System 1 emits only material opposite reactions", () => {
@@ -431,6 +432,7 @@ test("System 1 prefers an exact 30m event reaction and preserves proxy identity"
       },
       provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
     }],
+    "2026-09-22T21:00:00Z",
   );
 
   const assessments = buildSystem1ReactionAssessments(packet);
