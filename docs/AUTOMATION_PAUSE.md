@@ -9,6 +9,7 @@ Vercel owns the exact slot start:
 - morning acquisition: 01:30 UTC / 09:30 MYT
 - evening acquisition: 13:30 UTC / 21:30 MYT
 - acquisition watchdog: five minutes after each primary start
+- stale-acquisition recovery watchdog: +13 minutes; it may reclaim the same canonical row only when the row is still running, has no persisted source checks, and has been untouched for at least seven minutes
 - durable intelligence continuations: every five minutes from +10 to +45 minutes
 
 The intelligence route advances the existing persisted run one durable model stage at a time. Every continuation resolves the same canonical `cron-v1:<slot>:<date>` run identity. If a previous invocation is still running, already completed, or won the optimistic claim, the later invocation safely waits/no-ops instead of starting duplicate model work.
@@ -39,3 +40,6 @@ Video discovery remains separate:
 Video discovery and transcript processing can create creator-lead evidence, but they do not replace the 09:30 / 21:30 full Live research cycles and cannot independently publish a Story to Hybrid.
 
 System health should report `scheduling.mode = vercel_primary_github_fallback` while this routing is active.
+
+
+A stale acquisition reclaim is compare-and-swap guarded on the canonical row's id, running status and exact updated_at value. It never creates a second run key. Once source checks exist, acquisition reclaim is disabled and the intelligence continuation path owns recovery.

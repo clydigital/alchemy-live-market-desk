@@ -5,6 +5,7 @@ export type ClaimedRun = {
   status: "running" | "completed" | "blocked" | "failed";
   completed_at: string | null;
   updated_at: string;
+  source_checks?: unknown;
 };
 
 export type ClaimResult =
@@ -22,8 +23,25 @@ export type ClaimInsertInput = {
 export type ClaimRunDependencies = {
   readRun: (runKey: string) => Promise<ClaimedRun | null>;
   insertRun: (input: ClaimInsertInput) => Promise<ClaimedRun>;
+  reclaimRun?: (existing: ClaimedRun, input: ClaimInsertInput) => Promise<ClaimedRun | null>;
   now?: () => string;
 };
+
+export const ACQUISITION_CLAIM_STALE_MS = 7 * 60 * 1_000;
+
+function hasPersistedSourceChecks(value: unknown) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+export function staleAcquisitionClaimEligible(
+  run: ClaimedRun,
+  now = new Date(),
+) {
+  if (run.status !== "running" || hasPersistedSourceChecks(run.source_checks)) return false;
+  const updatedAt = Date.parse(run.updated_at);
+  if (!Number.isFinite(updatedAt)) return false;
+  return now.getTime() - updatedAt >= ACQUISITION_CLAIM_STALE_MS;
+}
 
 export type ScheduledResearchLogEvent = {
   event: string;
@@ -99,10 +117,30 @@ export async function claimRunWithDependencies(
   scheduledFor: string,
   dependencies: ClaimRunDependencies,
 ): Promise<ClaimResult> {
-  const existing = await dependencies.readRun(runKey);
-  if (existing) return claimState(existing);
-
   const now = dependencies.now?.() ?? new Date().toISOString();
+  const existing = await dependencies.readRun(runKey);
+  if (existing) {
+    if (
+      dependencies.reclaimRun
+      && staleAcquisitionClaimEligible(existing, new Date(now))
+    ) {
+      const input: ClaimInsertInput = {
+        runKey,
+        slot,
+        scheduledFor,
+        startedAt: now,
+        updatedAt: now,
+      };
+      const reclaimed = await dependencies.reclaimRun(existing, input);
+      if (reclaimed) return { state: "claimed", run: reclaimed };
+
+      const raced = await dependencies.readRun(runKey);
+      if (!raced) throw new Error("A stale scheduled acquisition reclaim could not be recovered.");
+      return claimState(raced);
+    }
+    return claimState(existing);
+  }
+
   try {
     const created = await dependencies.insertRun({
       runKey,

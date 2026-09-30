@@ -53,7 +53,7 @@ async function readRun(runKey: string) {
   const client = createSupabaseAdminClient();
   const { data, error } = await client
     .from("research_runs")
-    .select("id,status,completed_at,updated_at")
+    .select("id,status,completed_at,updated_at,source_checks")
     .eq("run_key", runKey)
     .maybeSingle<ClaimedRun>();
   if (error) throw new Error(`Could not read scheduled research run: ${error.message}`);
@@ -75,7 +75,7 @@ async function insertRun(input: ClaimInsertInput) {
     warnings: [],
     summary: "Scheduled Live-only acquisition is in progress.",
     updated_at: input.updatedAt,
-  }).select("id,status,completed_at,updated_at").single<ClaimedRun>();
+  }).select("id,status,completed_at,updated_at,source_checks").single<ClaimedRun>();
   if (!error && data) return data;
   const failure = new Error(`Could not claim scheduled research run: ${error?.message || "unknown database error"}`) as Error & {
     code?: string;
@@ -84,10 +84,32 @@ async function insertRun(input: ClaimInsertInput) {
   throw failure;
 }
 
+async function reclaimStaleAcquisitionRun(
+  existing: ClaimedRun,
+  input: ClaimInsertInput,
+): Promise<ClaimedRun | null> {
+  const client = createSupabaseAdminClient();
+  const { data, error } = await client
+    .from("research_runs")
+    .update({
+      started_at: input.startedAt,
+      completed_at: null,
+      updated_at: input.updatedAt,
+    })
+    .eq("id", existing.id)
+    .eq("status", "running")
+    .eq("updated_at", existing.updated_at)
+    .select("id,status,completed_at,updated_at,source_checks")
+    .maybeSingle<ClaimedRun>();
+  if (error) throw new Error(`Could not reclaim stale scheduled acquisition: ${error.message}`);
+  return data;
+}
+
 async function claimRun(slot: CanonicalResearchSlot, runKey: string, scheduledFor: string): Promise<ClaimResult> {
   return claimRunWithDependencies(slot, runKey, scheduledFor, {
     readRun,
     insertRun,
+    reclaimRun: reclaimStaleAcquisitionRun,
   });
 }
 

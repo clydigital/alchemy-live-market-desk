@@ -3,9 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  ACQUISITION_CLAIM_STALE_MS,
   buildScheduledResearchLogEvent,
   claimRunWithDependencies,
   resolveScheduledResearchIdentity,
+  staleAcquisitionClaimEligible,
 } from "../lib/scheduled-research-identity.ts";
 
 const FIXED_NOW = new Date("2026-08-15T01:33:00.000Z");
@@ -286,4 +288,109 @@ test("post-engine publication failure remains resumable and bypasses engine repl
   assert.match(continuationHandler, /publicationFailureDisposition\(completedEngineWork\)/);
   assert.match(continuationHandler, /continuation: "RETRY_PUBLICATION"/);
   assert.match(continuationHandler, /\.eq\("status", run\.status\)/);
+});
+
+
+test("stale acquisition claim can be reclaimed only before source checks are durable", async () => {
+  const staleUpdatedAt = new Date(FIXED_NOW.getTime() - ACQUISITION_CLAIM_STALE_MS - 1_000).toISOString();
+  const stale = {
+    id: "run-stale",
+    status: "running" as const,
+    completed_at: null,
+    updated_at: staleUpdatedAt,
+    source_checks: [],
+  };
+
+  assert.equal(staleAcquisitionClaimEligible(stale, FIXED_NOW), true);
+  assert.equal(
+    staleAcquisitionClaimEligible({ ...stale, source_checks: [{ source: "fred" }] }, FIXED_NOW),
+    false,
+  );
+
+  let reclaimCalls = 0;
+  let row = { ...stale };
+  const result = await claimRunWithDependencies(
+    "morning",
+    "cron-v1:morning:2026-08-15",
+    "2026-08-15T09:30:00+08:00",
+    {
+      now: () => FIXED_NOW_ISO,
+      readRun: async () => row,
+      insertRun: async () => {
+        throw new Error("insert must not run for a stale canonical row");
+      },
+      reclaimRun: async (existing, input) => {
+        reclaimCalls += 1;
+        assert.equal(existing.id, "run-stale");
+        row = {
+          ...row,
+          updated_at: input.updatedAt,
+          source_checks: [],
+        };
+        return row;
+      },
+    },
+  );
+
+  assert.equal(result.state, "claimed");
+  assert.equal(result.run.id, "run-stale");
+  assert.equal(reclaimCalls, 1);
+});
+
+test("stale reclaim race fails closed to the canonical row instead of duplicating it", async () => {
+  const staleUpdatedAt = new Date(FIXED_NOW.getTime() - ACQUISITION_CLAIM_STALE_MS - 1_000).toISOString();
+  let reads = 0;
+  const result = await claimRunWithDependencies(
+    "evening",
+    "cron-v1:evening:2026-08-14",
+    "2026-08-14T21:30:00+08:00",
+    {
+      now: () => FIXED_NOW_ISO,
+      readRun: async () => {
+        reads += 1;
+        if (reads === 1) {
+          return {
+            id: "run-race",
+            status: "running",
+            completed_at: null,
+            updated_at: staleUpdatedAt,
+            source_checks: [],
+          };
+        }
+        return {
+          id: "run-race",
+          status: "running",
+          completed_at: null,
+          updated_at: FIXED_NOW_ISO,
+          source_checks: [],
+        };
+      },
+      insertRun: async () => {
+        throw new Error("insert must not run for an existing canonical row");
+      },
+      reclaimRun: async () => null,
+    },
+  );
+
+  assert.equal(result.state, "running");
+  assert.equal(result.run.id, "run-race");
+  assert.equal(reads, 2);
+});
+
+test("Vercel schedules a second acquisition watchdog after the stale threshold", () => {
+  const vercelConfig = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")) as {
+    crons: Array<{ path: string; schedule: string }>;
+  };
+  assert.equal(
+    vercelConfig.crons.some((cron) =>
+      cron.path === "/api/cron/research/morning-watchdog" && cron.schedule === "43 1 * * *"
+    ),
+    true,
+  );
+  assert.equal(
+    vercelConfig.crons.some((cron) =>
+      cron.path === "/api/cron/research/evening-watchdog" && cron.schedule === "43 13 * * *"
+    ),
+    true,
+  );
 });

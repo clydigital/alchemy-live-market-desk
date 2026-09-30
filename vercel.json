@@ -98,6 +98,14 @@
     {
       "path": "/api/cron/research/evening-intelligence",
       "schedule": "15 14 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-watchdog",
+      "schedule": "43 1 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-watchdog",
+      "schedule": "43 13 * * *"
     }
   ],
   "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi"
