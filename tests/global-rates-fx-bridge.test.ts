@@ -89,6 +89,8 @@ test("global rates FX bridge refuses to infer Japan and USDJPY from US rates alo
     ],
   );
   assert.match(bridge.steps[2].detail, /DXY is not a substitute/i);
+  assert.match(bridge.steps[2].nextTest || "", /USDJPY spot\/change/i);
+  assert.match(bridge.steps[3].nextTest || "", /TIC\/foreign Treasury holdings/i);
 });
 
 test("global rates FX bridge upgrades only the links with canonical evidence", () => {
@@ -155,4 +157,5 @@ test("global rates FX bridge upgrades only the links with canonical evidence", (
       ["risk-carry", "supported"],
     ],
   );
+  assert.equal(bridge.steps[4].asOf, "2026-09-30T10:00:00Z");
 });
