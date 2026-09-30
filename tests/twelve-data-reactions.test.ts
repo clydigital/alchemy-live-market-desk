@@ -101,6 +101,87 @@ test("Twelve Data reactions compute 5m, 30m and 4h windows from exact UTC bars",
   assert.equal(smh?.windows.find((item) => item.window === "4h")?.changePct, -2);
 });
 
+test("Twelve Data reactions add regular-session close and next-session horizons from actual bars", async () => {
+  const payload = {
+    UUP: series("UUP", [
+      ["2026-09-28 13:59:00", 30],
+      ["2026-09-28 14:04:00", 30.15],
+      ["2026-09-28 14:29:00", 30.3],
+      ["2026-09-28 17:59:00", 30.6],
+      ["2026-09-28 19:59:00", 30.9],
+      ["2026-09-29 19:59:00", 31.2],
+    ]),
+    GLD: series("GLD", [
+      ["2026-09-28 13:59:00", 400],
+      ["2026-09-28 14:04:00", 399],
+      ["2026-09-28 14:29:00", 398],
+      ["2026-09-28 17:59:00", 396],
+      ["2026-09-28 19:59:00", 395],
+      ["2026-09-29 19:59:00", 394],
+    ]),
+    SMH: series("SMH", [
+      ["2026-09-28 13:59:00", 350],
+      ["2026-09-28 14:04:00", 348],
+      ["2026-09-28 14:29:00", 346.5],
+      ["2026-09-28 17:59:00", 343],
+      ["2026-09-28 19:59:00", 342],
+      ["2026-09-29 19:59:00", 340],
+    ]),
+  };
+  const fetchImpl = (async () => ({
+    ok: true,
+    status: 200,
+    async json() { return payload; },
+  } as Response)) as typeof fetch;
+
+  const result = await fetchTwelveDataReactionSnapshot({
+    asOf: "2026-09-29T20:05:00Z",
+    triggers: [{ evidenceId: "ev:fomc", occurredAt: "2026-09-28T14:00:00Z" }],
+    apiKey: "secret-test-key",
+    fetchImpl,
+  });
+
+  const dxy = result.records.find((item) => item.monitorId === "dxy");
+  assert.deepEqual(dxy?.windows.map((item) => item.window), ["5m", "30m", "4h", "close", "next_session"]);
+  assert.equal(dxy?.windows.find((item) => item.window === "close")?.observedAt, "2026-09-28T20:00:00.000Z");
+  assert.equal(dxy?.windows.find((item) => item.window === "next_session")?.observedAt, "2026-09-29T20:00:00.000Z");
+  assert.equal(dxy?.windows.find((item) => item.window === "close")?.changePct, 3);
+  assert.equal(dxy?.windows.find((item) => item.window === "next_session")?.changePct, 4);
+});
+
+test("session horizons do not invent a close when no completed regular-session bar is present", async () => {
+  const payload = {
+    UUP: series("UUP", [
+      ["2026-09-28 13:59:00", 30],
+      ["2026-09-28 17:59:00", 30.6],
+    ]),
+    GLD: series("GLD", [
+      ["2026-09-28 13:59:00", 400],
+      ["2026-09-28 17:59:00", 396],
+    ]),
+    SMH: series("SMH", [
+      ["2026-09-28 13:59:00", 350],
+      ["2026-09-28 17:59:00", 343],
+    ]),
+  };
+  const fetchImpl = (async () => ({
+    ok: true,
+    status: 200,
+    async json() { return payload; },
+  } as Response)) as typeof fetch;
+
+  const result = await fetchTwelveDataReactionSnapshot({
+    asOf: "2026-09-28T18:30:00Z",
+    triggers: [{ evidenceId: "ev:fomc", occurredAt: "2026-09-28T14:00:00Z" }],
+    apiKey: "secret-test-key",
+    fetchImpl,
+  });
+
+  const dxy = result.records.find((item) => item.monitorId === "dxy");
+  assert.equal(dxy?.windows.some((item) => item.window === "close"), false);
+  assert.equal(dxy?.windows.some((item) => item.window === "next_session"), false);
+});
+
 test("Twelve Data reactions fail closed when no pre-trigger regular-session baseline exists", async () => {
   const payload = {
     UUP: series("UUP", [
