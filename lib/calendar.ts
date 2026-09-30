@@ -31,6 +31,9 @@ const ECB_CALENDAR = "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index
 const BOJ_CALENDAR = "https://www.boj.or.jp/en/mopo/mpmsche_minu/m_ref/mref250731a.pdf";
 const RBA_CALENDAR = "https://www.rba.gov.au/schedules-events/board-meeting-schedules.html";
 const RBNZ_CALENDAR = "https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028";
+const BEA_SCHEDULE = "https://www.bea.gov/news/schedule";
+const ADP_CALENDAR = "https://adpemploymentreport.com/";
+const ISM_MANUFACTURING = "https://www.ismworld.org/supply-management-news-and-reports/reports/ism-pmi-reports/pmi/";
 
 const scheduledEvents: EconomicCalendarEvent[] = [
   {
@@ -521,6 +524,109 @@ const scheduledEvents: EconomicCalendarEvent[] = [
   },
 ];
 
+const officialScheduleFallbacks: EconomicCalendarEvent[] = [
+  {
+    id: "us-bea-2026-09-30-gdp-third-estimate-q2-2026",
+    date: "2026-09-30",
+    timeLabel: "08:30 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "GDP (Third Estimate), Q2 2026",
+    category: "Growth",
+    impact: "High",
+    referencePeriod: "Q2 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Do the GDP revisions materially change the growth and inflation mix already priced into rates and equities?",
+    affectedAssets: ["USD", "US10Y", "SPX"],
+    sourceName: "U.S. Bureau of Economic Analysis",
+    sourceUrl: BEA_SCHEDULE,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "us-bea-2026-09-30-personal-income-outlays-august-2026",
+    date: "2026-09-30",
+    timeLabel: "08:30 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "Personal Income and Outlays",
+    category: "Inflation",
+    impact: "High",
+    referencePeriod: "August 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Does core PCE reinforce the current Fed path or challenge the market's inflation assumptions?",
+    affectedAssets: ["USD", "US02Y", "SPX", "GOLD"],
+    sourceName: "U.S. Bureau of Economic Analysis",
+    sourceUrl: BEA_SCHEDULE,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "us-adp-2026-09-30-national-employment-report",
+    date: "2026-09-30",
+    timeLabel: "08:15 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "ADP National Employment Report",
+    category: "Labour",
+    impact: "High",
+    referencePeriod: "September 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Does private payroll momentum confirm or challenge the labour picture heading into official payrolls?",
+    affectedAssets: ["USD", "US02Y", "SPX"],
+    sourceName: "ADP Research",
+    sourceUrl: ADP_CALENDAR,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "us-ism-2026-10-01-manufacturing-pmi-september-2026",
+    date: "2026-10-01",
+    timeLabel: "10:00 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "ISM Manufacturing PMI",
+    category: "Growth",
+    impact: "High",
+    referencePeriod: "September 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Are growth, employment and prices in manufacturing reinforcing the current nominal-growth and rates regime?",
+    affectedAssets: ["USD", "US10Y", "SPX", "COPPER"],
+    sourceName: "Institute for Supply Management",
+    sourceUrl: ISM_MANUFACTURING,
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "us-bls-2026-10-02-employment-situation-for-september-2026",
+    date: "2026-10-02",
+    timeLabel: "08:30 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "Employment Situation for September 2026",
+    category: "Labour",
+    impact: "High",
+    referencePeriod: "September 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Are payrolls, unemployment and wages changing the Fed path?",
+    affectedAssets: ["USD", "US02Y", "SPX"],
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/schedule/news_release/empsit.htm",
+    sourceKind: "official-schedule",
+  },
+];
+
 const BLS_ICS = "https://www.bls.gov/schedule/news_release/bls.ics";
 
 function field(block: string, name: string) {
@@ -695,7 +801,7 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
 
 export async function getEconomicCalendar() {
   const [blsEvents, deskEvents] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar()]);
-  const allEvents = [...scheduledEvents, ...blsEvents, ...deskEvents];
+  const allEvents = [...scheduledEvents, ...officialScheduleFallbacks, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }
