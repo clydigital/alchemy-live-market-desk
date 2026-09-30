@@ -173,3 +173,33 @@ test("machine-authenticated priority endpoint is whitelisted before dashboard au
   assert.match(route, /loadPrioritisedResearchGapWork/);
   assert.match(route, /acceptsResearchAuthorization/);
 });
+
+
+test("distinct Research Now actions sharing one investigation are not collapsed", () => {
+  const first = candidate("rn-duration-1", "research_now", {
+    linkedInvestigationIds: ["inv:duration"],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: "High",
+      researchNowRank: 1,
+      investigationStatus: null,
+      divergence: null,
+    },
+  });
+  const second = candidate("rn-duration-2", "research_now", {
+    linkedInvestigationIds: ["inv:duration"],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: "High",
+      researchNowRank: 2,
+      investigationStatus: null,
+      divergence: null,
+    },
+  });
+
+  const result = prioritiseResearchGapWork(queue([first, second]));
+  assert.deepEqual(result.selected.map((item) => item.workId), ["rn-duration-1", "rn-duration-2"]);
+  assert.equal(result.suppressed.length, 0);
+});
