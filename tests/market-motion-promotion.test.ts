@@ -100,16 +100,17 @@ test("promotion remains bounded and prioritises verified, material Motion", () =
   assert.equal(selected[0].id, "motion-0");
 });
 
-test("Dossier selector admits only fresh PROMOTED Motion tied to a Story in the current Dossier", () => {
+test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
   const rows = [
     record({ id: "promoted", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 92 }),
     record({ id: "plain-motion", lifecycle_state: "MOTION", effective_state: "MOTION", materiality: 99 }),
-    record({ id: "other-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: "story-2" }),
+    record({ id: "other-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: "story-2", materiality: 89 }),
+    record({ id: "no-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, materiality: 99 }),
     record({ id: "expired", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", expires_at: "2026-10-01T01:00:00Z" }),
   ];
 
   assert.deepEqual(
-    selectPromotedMarketMotionForDossier(rows, ["story-1"], NOW).map((item) => item.id),
-    ["promoted"],
+    selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
+    ["promoted", "other-story"],
   );
 });
