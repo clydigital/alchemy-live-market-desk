@@ -1,6 +1,7 @@
 export type CanonicalEditionHealthState = "healthy" | "degraded" | "stale" | "failed" | "not_configured";
 
 export const CANONICAL_EDITION_TOLERANCE_MS = 4 * 60 * 60 * 1_000;
+export const CANONICAL_SLOT_START_GRACE_MS = 30 * 60 * 1_000;
 const KUALA_LUMPUR_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
 type ResearchRunHealthInput = {
@@ -8,6 +9,7 @@ type ResearchRunHealthInput = {
   schedule_slot: string;
   scheduled_for: string;
   status: string;
+  started_at?: string | null;
   completed_at?: string | null;
   updated_at?: string | null;
   warnings?: string[];
@@ -46,8 +48,8 @@ function expectedCycle(now: Date) {
   const year = local.getUTCFullYear();
   const month = local.getUTCMonth();
   const day = local.getUTCDate();
-  const morning = Date.UTC(year, month, day, 1, 15);
-  const evening = Date.UTC(year, month, day, 13, 15);
+  const morning = Date.UTC(year, month, day, 1, 30);
+  const evening = Date.UTC(year, month, day, 13, 30);
   const nowMs = now.getTime();
   if (nowMs >= evening) return { slot: "evening", expectedAt: new Date(evening).toISOString() };
   if (nowMs >= morning) return { slot: "morning", expectedAt: new Date(morning).toISOString() };
@@ -119,12 +121,24 @@ export function buildCanonicalEditionHealth({
   const editionCurrentForCycle = editionMatchesCycle(latestPersistedEdition, latestCycle, latestExpectedCycle);
   const stale = !latestPersistedEdition || !editionCurrentForCycle || currentEditionAt === null
     || currentEditionAt < expectedAt - CANONICAL_EDITION_TOLERANCE_MS;
+  const startedAt = validTime(latestCycle?.started_at);
+  const startDelayMinutes = startedAt === null ? null : Math.round((startedAt - expectedAt) / 60_000);
+  const lateStart = startDelayMinutes !== null && startDelayMinutes > CANONICAL_SLOT_START_GRACE_MS / 60_000;
+  const missedExpectedTrigger = !latestCycle && now.getTime() > expectedAt + CANONICAL_SLOT_START_GRACE_MS;
+  const slotStatus = !latestCycle
+    ? missedExpectedTrigger ? "missed" : "awaiting"
+    : latestCycle.status === "running"
+      ? "running"
+      : lateStart
+        ? "late"
+        : "on_time";
   const base = {
     latestExpectedCycle,
     latestCycle: latestCycle ? {
       id: latestCycle.id,
       status: latestCycle.status,
       scheduledFor: latestCycle.scheduled_for,
+      startedAt: latestCycle.started_at || null,
       completedAt: latestCycle.completed_at || null,
       warnings: [...(latestCycle.warnings || [])],
     } : null,
@@ -135,13 +149,28 @@ export function buildCanonicalEditionHealth({
       scheduledFor: latestPersistedEdition.scheduledFor,
     } : null,
     stale,
+    slotTiming: {
+      status: slotStatus,
+      expectedAt: latestExpectedCycle.expectedAt,
+      startedAt: latestCycle?.started_at || null,
+      startDelayMinutes,
+      graceMinutes: CANONICAL_SLOT_START_GRACE_MS / 60_000,
+      missedExpectedTrigger,
+    },
   };
 
   if (!latestCycle && !latestPersistedEdition) {
     return { ...base, state: "not_configured" as const, reason: "No persisted scheduled cycle or canonical edition is available.", failure: null };
   }
   if (!latestCycle) {
-    return { ...base, state: "stale" as const, reason: "The latest expected cycle has no persisted research run.", failure: null };
+    return {
+      ...base,
+      state: "stale" as const,
+      reason: missedExpectedTrigger
+        ? "The latest expected cycle missed its start grace window and has no persisted research run."
+        : "The latest expected cycle has no persisted research run yet.",
+      failure: null,
+    };
   }
   if (latestCycle.status === "failed" || latestCycle.status === "blocked") {
     return { ...base, state: "failed" as const, reason: "The latest expected cycle failed before a current canonical edition could be confirmed.", failure: failureDetail(latestCycle, intelligenceRuns, intelligenceStages) };
@@ -154,6 +183,14 @@ export function buildCanonicalEditionHealth({
   }
   if (stale) {
     return { ...base, state: "stale" as const, reason: "The latest persisted canonical edition is outside the expected-cycle tolerance.", failure: null };
+  }
+  if (lateStart) {
+    return {
+      ...base,
+      state: "degraded" as const,
+      reason: `The latest expected cycle started ${startDelayMinutes} minutes after its scheduled slot.`,
+      failure: null,
+    };
   }
   if ((latestCycle.warnings || []).length) {
     return { ...base, state: "degraded" as const, reason: "The latest completed cycle published with warnings.", failure: null };

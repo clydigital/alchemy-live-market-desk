@@ -108,7 +108,7 @@ export type DossierPresentationReactionCheck = {
   observedChangePct: number;
   observedInstrument: string;
   isProxy: boolean;
-  reactionWindow: "5m" | "30m" | "4h" | null;
+  reactionWindow: "5m" | "30m" | "4h" | "close" | "next_session" | null;
   relation: "ALIGNED" | "DIVERGENT";
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   triggerEvidenceRef: string;
@@ -151,7 +151,7 @@ export type DossierPresentationReactionCalibration = {
   checkCount: number;
   alignedCount: number;
   divergentCount: number;
-  reactionWindows: Array<"5m" | "30m" | "4h">;
+  reactionWindows: Array<"5m" | "30m" | "4h" | "close" | "next_session">;
   expectationChanged: boolean | null;
   requiresReview: boolean;
 };
@@ -426,6 +426,8 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
       item.reaction_window === "5m"
       || item.reaction_window === "30m"
       || item.reaction_window === "4h"
+      || item.reaction_window === "close"
+      || item.reaction_window === "next_session"
         ? item.reaction_window
         : null;
 
@@ -506,9 +508,9 @@ function reactionCalibration(
   const reactionWindows = [...new Set(
     reactionChecks
       .map((item) => item.reactionWindow)
-      .filter((value): value is "5m" | "30m" | "4h" => value !== null),
+      .filter((value): value is "5m" | "30m" | "4h" | "close" | "next_session" => value !== null),
   )].sort((left, right) => {
-    const rank = { "5m": 0, "30m": 1, "4h": 2 } as const;
+    const rank = { "5m": 0, "30m": 1, "4h": 2, close: 3, next_session: 4 } as const;
     return rank[left] - rank[right];
   });
 

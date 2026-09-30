@@ -2,6 +2,7 @@ import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 
 type Direction = "UP" | "DOWN";
 type PolicyImpulse = "HAWKISH" | "DOVISH";
+type ReactionWindow = "5m" | "30m" | "4h" | "close" | "next_session";
 
 type Rule = {
   id: string;
@@ -35,7 +36,7 @@ export type System1ReactionAssessment = {
   observed_change_pct: number;
   observed_instrument: string;
   is_proxy: boolean;
-  reaction_window: "5m" | "30m" | "4h" | null;
+  reaction_window: ReactionWindow | null;
   timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
   relation: "ALIGNED" | "DIVERGENT";
   severity: "MEDIUM" | "HIGH";
@@ -336,7 +337,7 @@ function marketMove(
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   observedInstrument: string | null;
   isProxy: boolean;
-  reactionWindow: "5m" | "30m" | "4h" | null;
+  reactionWindow: ReactionWindow | null;
 } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
@@ -351,8 +352,12 @@ function marketMove(
       const eventTriggerId = metricString(item, "trigger_evidence_id");
       if (eventChange !== null && eventTriggerId === trigger.evidence_id) {
         const rawWindow = metricString(item, "reaction_window");
-        const reactionWindow: "5m" | "30m" | "4h" | null =
-          rawWindow === "5m" || rawWindow === "30m" || rawWindow === "4h"
+        const reactionWindow: ReactionWindow | null =
+          rawWindow === "5m"
+          || rawWindow === "30m"
+          || rawWindow === "4h"
+          || rawWindow === "close"
+          || rawWindow === "next_session"
             ? rawWindow
             : null;
         return [{

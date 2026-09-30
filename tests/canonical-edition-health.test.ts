@@ -3,13 +3,14 @@ import test from "node:test";
 
 import { buildCanonicalEditionHealth } from "../lib/canonical-edition-health.ts";
 
-const expectedAt = "2026-09-06T01:15:00.000Z";
+const expectedAt = "2026-09-06T01:30:00.000Z";
 const now = new Date("2026-09-06T03:00:00.000Z");
 const completedRun = {
   id: "run-morning",
   schedule_slot: "morning",
   scheduled_for: expectedAt,
   status: "completed",
+  started_at: "2026-09-06T01:35:00.000Z",
   completed_at: "2026-09-06T02:00:00.000Z",
   warnings: [],
 };
@@ -61,4 +62,35 @@ test("a completed latest cycle without its terminal canonical edition is failed,
   const result = health({ editions: [] });
   assert.equal(result.state, "failed");
   assert.match(result.reason, /no matching terminal canonical edition/i);
+});
+
+
+test("a cycle that starts well after the slot is explicitly degraded as late", () => {
+  const lateRun = {
+    ...completedRun,
+    started_at: "2026-09-06T06:53:00.000Z",
+    completed_at: "2026-09-06T07:01:00.000Z",
+  };
+  const result = health({
+    researchRuns: [lateRun],
+    editions: [{ ...matchingEdition, publishedAt: "2026-09-06T07:01:00.000Z", researchRunId: lateRun.id }],
+  });
+  assert.equal(result.state, "degraded");
+  assert.equal(result.slotTiming.status, "late");
+  assert.equal(result.slotTiming.startDelayMinutes, 323);
+  assert.match(result.reason, /323 minutes after/i);
+});
+
+test("a missing evening cycle becomes an explicit missed trigger after the grace window", () => {
+  const result = health({
+    now: new Date("2026-09-06T14:15:00.000Z"),
+    researchRuns: [completedRun],
+    editions: [matchingEdition],
+  });
+  assert.equal(result.latestExpectedCycle.slot, "evening");
+  assert.equal(result.latestExpectedCycle.expectedAt, "2026-09-06T13:30:00.000Z");
+  assert.equal(result.slotTiming.status, "missed");
+  assert.equal(result.slotTiming.missedExpectedTrigger, true);
+  assert.equal(result.state, "stale");
+  assert.match(result.reason, /missed its start grace window/i);
 });

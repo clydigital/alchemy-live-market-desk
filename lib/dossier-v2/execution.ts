@@ -29,6 +29,7 @@ import {
   buildSystem1DollarLiquidity,
 } from "./system1-dollar-liquidity.ts";
 import {
+  MAX_RESEARCH_GAPS,
   MAX_RESEARCH_NOW_ACTIONS,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   type ResearchBrainOutputV1,
@@ -250,6 +251,57 @@ function applyAnalyticalGapPolicy(
   return { analyticalOutput: normalized, topLevelGaps };
 }
 
+
+function normalizedGapSubject(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function deriveResearchRefinementGaps(
+  analyticalOutput: ResearchBrainOutputV1,
+): ResearchGap[] {
+  const gaps: ResearchGap[] = [];
+  const seen = new Set<string>();
+
+  const add = (category: string, subject: string, description: string) => {
+    const normalized = normalizedGapSubject(subject);
+    if (!normalized || seen.has(normalized) || gaps.length >= MAX_RESEARCH_GAPS) return;
+    seen.add(normalized);
+    gaps.push({
+      gap_id: `gap:refinement:${hashText(`${category}:${normalized}`)}`,
+      category,
+      description: description.trim().slice(0, 500),
+      severity: "INFORMATIONAL",
+      gap_class: "REFINEMENT",
+      blocking_refs: [],
+    });
+  };
+
+  for (const missing of analyticalOutput.diagnostics.missing_input_categories ?? []) {
+    if (typeof missing !== "string" || !missing.trim()) continue;
+    add("MISSING_INPUT", missing, `Missing input category: ${missing.trim()}.`);
+  }
+
+  for (const investigation of analyticalOutput.investigations ?? []) {
+    for (const missing of investigation.missing_evidence ?? []) {
+      if (typeof missing !== "string" || !missing.trim()) continue;
+      add(
+        "INVESTIGATION_EVIDENCE",
+        missing,
+        `${investigation.question.trim()} Missing evidence: ${missing.trim()}.`,
+      );
+    }
+  }
+
+  for (const action of analyticalOutput.research_now ?? []) {
+    for (const missing of action.blocking_evidence ?? []) {
+      if (typeof missing !== "string" || !missing.trim()) continue;
+      add("RESEARCH_NOW_EVIDENCE", missing, `Research Now evidence gap: ${missing.trim()}.`);
+    }
+  }
+
+  return gaps;
+}
+
 function mergeResearchGaps(
   packetGaps: ResearchGap[],
   analyticalGaps: ResearchGap[],
@@ -301,7 +353,15 @@ function mergeResearchGaps(
     }
   }
 
-  return Array.from(merged.values());
+  const ordered = Array.from(merged.values()).sort((left, right) => {
+    const severity = (value: unknown) => (
+      value && typeof value === "object" && !Array.isArray(value)
+        ? String((value as { severity?: unknown }).severity ?? "").toUpperCase()
+        : ""
+    );
+    return Number(severity(right) === "MATERIAL") - Number(severity(left) === "MATERIAL");
+  });
+  return ordered.slice(0, MAX_RESEARCH_GAPS);
 }
 
 export function buildMarketDossierV2InputFromResearchBrain(
@@ -330,6 +390,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
   const reactionAssessments = buildSystem1ReactionAssessments(packet);
   const divergenceCandidates = buildSystem1DivergenceCandidates(packet);
   const normalized = applyAnalyticalGapPolicy(analyticalOutput);
+  const refinementGaps = deriveResearchRefinementGaps(normalized.analyticalOutput);
 
   return {
     contract_version: MARKET_DOSSIER_V2_CONTRACT_VERSION,
@@ -342,7 +403,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
     },
     research_gaps: mergeResearchGaps(
       packet.research_gaps,
-      normalized.topLevelGaps,
+      [...normalized.topLevelGaps, ...refinementGaps],
       normalized.analyticalOutput.diagnostics,
     ),
     payload: {

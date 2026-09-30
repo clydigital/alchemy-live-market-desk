@@ -712,7 +712,9 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
     const primary =
       record.windows.find((window) => window.window === "30m")
       ?? record.windows.find((window) => window.window === "5m")
-      ?? record.windows.find((window) => window.window === "4h");
+      ?? record.windows.find((window) => window.window === "4h")
+      ?? record.windows.find((window) => window.window === "close")
+      ?? record.windows.find((window) => window.window === "next_session");
     if (!primary) continue;
 
     const windowMap = Object.fromEntries(

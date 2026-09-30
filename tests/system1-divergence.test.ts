@@ -542,3 +542,48 @@ test("System 1 never compares a prior-day market snapshot with a newer macro tri
   assert.equal(buildSystem1PolicyExpectationChecks(packet)[0]?.rule_id, "STRONG_ACTIVITY_SURPRISE");
   assert.deepEqual(buildSystem1DivergenceCandidates(packet), []);
 });
+
+
+test("System 1 preserves a regular-session close reaction horizon", () => {
+  const packet = packetWith(
+    [{
+      evidence_id: "ev:pmi:close-window",
+      claim_or_fact: "Flash manufacturing PMI was stronger than expected and above consensus.",
+      category: "ECONOMIC_METRIC",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: "2026-09-22T14:00:00Z",
+      occurrence_time: "2026-09-22T14:00:00Z",
+      metrics: {
+        signal_kind: "economic_release",
+        signal_context: "STRONG_ACTIVITY_SURPRISE",
+      },
+      provenance: [{ source_type: "VERIFIED_MACRO_DATA", source_id: "FLASH_PMI" }],
+    }],
+    [{
+      evidence_id: "twelve-data:event-reaction:ev:pmi:close-window:dxy",
+      claim_or_fact: "UUP proxy fell by the completed US session close.",
+      available_at: "2026-09-22T20:00:00Z",
+      occurrence_time: "2026-09-22T20:00:00Z",
+      grouping_key: "market-monitor:dxy",
+      category: "MARKET",
+      source_type: "MARKET_DATA",
+      metrics: {
+        signal_kind: "market_reaction",
+        trigger_evidence_id: "ev:pmi:close-window",
+        event_change_pct: -0.8,
+        reaction_window: "close",
+        observed_instrument: "UUP",
+        expected_instrument: "DXY",
+        is_proxy: true,
+        frequency: "intraday",
+      },
+      provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
+    }],
+  );
+
+  const assessments = buildSystem1ReactionAssessments(packet);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0]?.reaction_window, "close");
+  assert.equal(assessments[0]?.timing_precision, "INTRADAY");
+  assert.equal(assessments[0]?.relation, "DIVERGENT");
+});
