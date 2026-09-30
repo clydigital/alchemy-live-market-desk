@@ -53,7 +53,7 @@ function expectedCycle(now: Date) {
   const nowMs = now.getTime();
   if (nowMs >= evening) return { slot: "evening", expectedAt: new Date(evening).toISOString() };
   if (nowMs >= morning) return { slot: "morning", expectedAt: new Date(morning).toISOString() };
-  return { slot: "evening", expectedAt: new Date(Date.UTC(year, month, day - 1, 13, 15)).toISOString() };
+  return { slot: "evening", expectedAt: new Date(Date.UTC(year, month, day - 1, 13, 30)).toISOString() };
 }
 
 function nearestScheduledRun(runs: ResearchRunHealthInput[], cycle: { slot: string; expectedAt: string }) {
