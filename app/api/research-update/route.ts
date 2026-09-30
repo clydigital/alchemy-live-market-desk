@@ -11,6 +11,7 @@ import { openAIIntelligenceEnabled } from "@/lib/intelligence/openai";
 import { evaluateIntakeStatus } from "@/lib/intelligence/research-state";
 import { runIntelligenceEngine, type IntelligenceRunResult } from "@/lib/intelligence/runtime";
 import { persistMacroReleaseLifecycle } from "@/lib/macro-release-persistence";
+import { persistMarketMotionFromResearchRun, type MarketMotionIngestionResult } from "@/lib/market-motion-ingestion";
 import { getMarketData } from "@/lib/market";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import {
@@ -277,6 +278,7 @@ export async function POST(request: Request) {
   }
 
   let runId: string | null = null;
+  let marketMotion: MarketMotionIngestionResult | null = null;
   try {
     const runStatus = runtimePublicationReady ? "completed" : "blocked";
     const now = new Date().toISOString();
@@ -332,6 +334,25 @@ export async function POST(request: Request) {
       });
     }
 
+    if (runtimePublicationReady && validation.scoredItems.length) {
+      try {
+        marketMotion = await persistMarketMotionFromResearchRun({
+          researchRunId: runId,
+          items: validation.scoredItems,
+        });
+        for (const warning of marketMotion.warnings) {
+          if (!warnings.includes(warning)) warnings.push(warning);
+        }
+        if (marketMotion.inserted > 0) {
+          revalidatePath("/");
+          revalidatePath("/whats-new");
+        }
+      } catch (error) {
+        const warning = `Market Motion ingestion was unavailable: ${error instanceof Error ? error.message : "unknown failure"}`;
+        if (!warnings.includes(warning)) warnings.push(warning);
+      }
+    }
+
     if (deferScheduledIntelligence && intelligenceEnabled) {
       const deferredWarning = "Scheduled acquisition persisted; canonical intelligence is pending a dedicated continuation invocation.";
       if (!warnings.includes(deferredWarning)) warnings.push(deferredWarning);
@@ -355,6 +376,7 @@ export async function POST(request: Request) {
         legacyRecalibrationsPublished: 0,
         legacyUpdatesPublished: 0,
         intelligence: null,
+        marketMotion,
         calendarCandidates: calendarItems.length,
         macroLifecycle: macroLifecycle.summary,
         researchGapHandoff: gapHandoff ? { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome } : null,
@@ -463,6 +485,7 @@ export async function POST(request: Request) {
       legacyRecalibrationsPublished: legacyUpdatesPublished,
       legacyUpdatesPublished,
       intelligence,
+      marketMotion,
       calendarCandidates: calendarItems.length,
       macroLifecycle: macroLifecycle.summary,
       researchGapHandoff: gapHandoff ? { gateRunId: gapHandoff.gateRunId, gapId: gapHandoff.gapId, outcome: gapHandoff.outcome } : null,
