@@ -15,7 +15,7 @@ declare
   second_previous uuid;
   update_failed boolean := false;
   delete_failed boolean := false;
-  effective_state text;
+  expired_effective_state text;
 begin
   if to_regclass('public.market_motion_items') is null then
     raise exception 'public.market_motion_items table does not exist';
@@ -169,7 +169,7 @@ begin
     from public.current_market_motion_items
     where motion_key='contract:market-motion'
       and id=second_id
-      and effective_state='PROMOTED'
+      and current_market_motion_items.effective_state='PROMOTED'
   ) then
     raise exception 'Current Market Motion view did not select latest promoted version';
   end if;
@@ -214,12 +214,12 @@ begin
     null
   );
 
-  select effective_state into effective_state
+  select current_market_motion_items.effective_state into expired_effective_state
   from public.current_market_motion_items
   where motion_key='contract:expired-motion';
 
-  if effective_state <> 'EXPIRED' then
-    raise exception '72h Market Motion expiry failed, got %', effective_state;
+  if expired_effective_state <> 'EXPIRED' then
+    raise exception '72h Market Motion expiry failed, got %', expired_effective_state;
   end if;
 
   begin
