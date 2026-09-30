@@ -101,11 +101,11 @@ test("lifecycle sync persists the stable gap key rather than the Dossier-scoped 
 });
 
 test("claim requests are tightly bounded before reaching the atomic database RPC", async () => {
-  let seen: Record<string, unknown> | null = null;
+  const calls: Array<Record<string, unknown>> = [];
   const fakeClient = {
     async rpc(name: string, args: Record<string, unknown>) {
       assert.equal(name, "claim_research_gap_cases");
-      seen = args;
+      calls.push(args);
       return { data: [], error: null };
     },
   };
@@ -115,17 +115,17 @@ test("claim requests are tightly bounded before reaching the atomic database RPC
     fakeClient as never,
   );
 
-  assert.equal(seen?.p_worker_id, "gap-worker-a");
-  assert.equal(seen?.p_batch_size, 3);
-  assert.equal(seen?.p_lease_seconds, 1800);
+  assert.equal(calls[0]?.p_worker_id, "gap-worker-a");
+  assert.equal(calls[0]?.p_batch_size, 3);
+  assert.equal(calls[0]?.p_lease_seconds, 1800);
 });
 
 test("release is ownership-token guarded", async () => {
-  let seen: Record<string, unknown> | null = null;
+  const calls: Array<Record<string, unknown>> = [];
   const fakeClient = {
     async rpc(name: string, args: Record<string, unknown>) {
       assert.equal(name, "release_research_gap_case");
-      seen = args;
+      calls.push(args);
       return { data: true, error: null };
     },
   };
@@ -136,8 +136,8 @@ test("release is ownership-token guarded", async () => {
   }, fakeClient as never);
 
   assert.equal(released, true);
-  assert.equal(seen?.p_case_id, "22222222-2222-4222-8222-222222222222");
-  assert.equal(seen?.p_claim_token, "33333333-3333-4333-8333-333333333333");
+  assert.equal(calls[0]?.p_case_id, "22222222-2222-4222-8222-222222222222");
+  assert.equal(calls[0]?.p_claim_token, "33333333-3333-4333-8333-333333333333");
 });
 
 test("lifecycle machine endpoint is whitelisted and supports sync, claim and release", () => {
