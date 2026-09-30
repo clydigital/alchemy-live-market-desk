@@ -47,7 +47,23 @@ function releaseDateLabel(date: string) {
 }
 
 export default function EconomicReleaseReminder({ releases, relatedStories = [] }: Props) {
-  if (!releases.length) return null;
+  if (!releases.length) {
+    return (
+      <section className={styles.reminder} aria-label="Weekly high-impact economic events">
+        <div className={styles.signal} aria-hidden="true"><span /></div>
+        <div className={styles.main}>
+          <header className={styles.header}>
+            <div>
+              <span className={styles.kicker}>Upcoming high-impact events · this week</span>
+              <h2>Weekly economic risk calendar</h2>
+            </div>
+            <span className={styles.status}>Coverage check</span>
+          </header>
+          <p>No verified high-impact events were loaded for the current window. Calendar coverage may be incomplete.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.reminder} aria-label="Weekly high-impact economic events">
