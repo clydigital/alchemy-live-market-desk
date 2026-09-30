@@ -25,7 +25,7 @@ export type WhatsNewDelta = {
   hybridHref: string | null;
   interpretationState: "interpreted" | "observed_pending" | null;
   breakdown: StoryBreakdown | null;
-  motion: {
+  motion?: {
     whatHappened: string;
     marketReaction: string | null;
     whyInteresting: string;
