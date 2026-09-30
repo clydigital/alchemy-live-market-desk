@@ -62,6 +62,8 @@ export type ResearchGapCaseRow = {
   research_started_at: string | null;
   verdict_version: string | null;
   verdict: Record<string, unknown> | null;
+  handoff_run_key: string | null;
+  handoff_canonical_status: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -197,7 +199,7 @@ export async function getOwnedResearchGapCase(
 ) {
   let query = client
     .from("research_gap_cases")
-    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,created_at,updated_at")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
     .eq("id", input.caseId)
     .eq("claim_token", input.claimToken);
 
@@ -256,13 +258,48 @@ export async function completeResearchGapCase(
   return rows[0] || null;
 }
 
+export async function getResearchGapCaseById(
+  caseId: string,
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
+    .eq("id", caseId)
+    .maybeSingle();
+  message(error, "Could not load Research Gap case");
+  return (data || null) as ResearchGapCaseRow | null;
+}
+
+export async function markResearchGapCaseHandedOff(
+  input: {
+    caseId: string;
+    outcome: ResearchGapOutcome;
+    runKey: string;
+    canonicalStatus: number;
+    handedOffAt?: string;
+  },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const { data, error } = await client.rpc("mark_research_gap_case_handed_off", {
+    p_case_id: input.caseId,
+    p_expected_outcome: input.outcome,
+    p_handoff_run_key: input.runKey,
+    p_canonical_status: input.canonicalStatus,
+    p_handed_off_at: input.handedOffAt || new Date().toISOString(),
+  });
+  message(error, "Could not mark Research Gap case handed off");
+  const rows = (data ?? []) as ResearchGapCaseRow[];
+  return rows[0] || null;
+}
+
 export async function listResearchGapCases(
   client: SupabaseClient = createSupabaseAdminClient(),
   limit = 50,
 ) {
   const { data, error } = await client
     .from("research_gap_cases")
-    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,created_at,updated_at")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
     .neq("status", "CLOSED")
     .order("latest_priority_score", { ascending: false, nullsFirst: false })
     .order("first_seen_at", { ascending: true })
