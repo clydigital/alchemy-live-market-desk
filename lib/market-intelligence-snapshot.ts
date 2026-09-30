@@ -1,5 +1,6 @@
 import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts";
 import type { MarketMonitor, MarketMonitorRow } from "./market-monitor.ts";
+import type { MarketMotionEditionAttachment } from "./market-motion-edition.ts";
 import type { NyFedPrimaryDealerSnapshot } from "./providers/ny-fed-primary-dealers.ts";
 import type { NyFedReferenceRatesSnapshot } from "./providers/ny-fed-reference-rates.ts";
 import type { TreasuryBillSnapshot } from "./providers/treasury-bills.ts";
@@ -77,6 +78,7 @@ export type MarketIntelligenceSnapshotV1 = {
   investigations: DossierPresentationV1["watchNext"];
   stockRadar: DossierPresentationV1["stockRadar"];
   creatorVerification: unknown;
+  marketMotion: (MarketMotionEditionAttachment & { editionId: string }) | null;
   sourceHealth: {
     dossier: "OK" | "DEGRADED";
     marketMonitor: "OK" | "PARTIAL" | "UNAVAILABLE";
@@ -345,6 +347,7 @@ export function buildMarketIntelligenceSnapshot({
   treasuryBills,
   dailyAssetState = null,
   creatorVerification = null,
+  marketMotion = null,
   generatedAt = new Date().toISOString(),
 }: {
   status: string;
@@ -355,6 +358,7 @@ export function buildMarketIntelligenceSnapshot({
   treasuryBills: TreasuryBillSnapshot;
   dailyAssetState?: unknown;
   creatorVerification?: unknown;
+  marketMotion?: (MarketMotionEditionAttachment & { editionId: string }) | null;
   generatedAt?: string;
 }): MarketIntelligenceSnapshotV1 {
   const signals = [
@@ -442,6 +446,7 @@ export function buildMarketIntelligenceSnapshot({
     investigations: structuredClone(presentation.watchNext),
     stockRadar: structuredClone(presentation.stockRadar),
     creatorVerification: structuredClone(creatorVerification),
+    marketMotion: marketMotion ? structuredClone(marketMotion) : null,
     sourceHealth: {
       dossier: presentation.health.degraded ? "DEGRADED" : "OK",
       marketMonitor: !monitor.rows.length ? "UNAVAILABLE" : monitor.limitations.length ? "PARTIAL" : "OK",
@@ -474,6 +479,7 @@ export function buildMarketIntelligenceSnapshot({
       "Power Stack may map these signals to portfolio exposures but must not recompute or send Live-derived macro confirmation back to Live.",
       "UNRESOLVED is a valid state. Missing, stale or ambiguous data must not be coerced into a directional signal.",
       "Company fundamentals, valuation, portfolio construction and entry discipline remain Power Stack-owned.",
+      "Promoted Market Motion is short-horizon context only: it may raise portfolio research priority but cannot change company fundamentals or conviction by itself.",
     ],
   };
 }
