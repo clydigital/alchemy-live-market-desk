@@ -175,11 +175,11 @@ begin
 
   if not exists (
     select 1
-    from public.research_gap_cases
-    where id = case_id
-      and status = 'QUEUED'
-      and claim_token is null
-      and attempt_count = 1
+    from public.research_gap_cases c
+    where c.id = case_id
+      and c.status = 'QUEUED'
+      and c.claim_token is null
+      and c.attempt_count = 1
   ) then
     raise exception 'release did not restore the operational queue safely';
   end if;
