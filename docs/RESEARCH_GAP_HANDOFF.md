@@ -16,7 +16,7 @@ POST /api/research-update
 canonical Evidence → Story / Regime reasoning → Dossier → Hybrid
 ```
 
-The handoff uses the existing authenticated `/api/research-update` route. It does not create a second research engine.
+The handoff uses the existing authenticated `/api/research-update` route. It does not create a second research engine. Gap handoffs are bounded manual evidence packets, so they do not impersonate or rerun the scheduled source sweep.
 
 ## Required handoff fields
 
