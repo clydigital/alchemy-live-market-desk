@@ -82,6 +82,7 @@ import {
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
 import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
@@ -1869,14 +1870,22 @@ async function promoteCandidate({
   const reasoningContext = { hypothesis, challenger, scenarios, evidenceById };
   const reasoning = buildStoryReasoningSnapshot(candidate, reasoningContext, lifecycleStatus);
   const matched = decision.matchedStoryId ? existingStories.find((story) => story.id === decision.matchedStoryId) : null;
+  const identity = resolvePersistentStoryIdentity(
+    decision.noveltyClass === "existing_story_update" ? matched : null,
+    {
+      title: candidate.title,
+      marketQuestion: candidate.question,
+      dominantNarrative: candidate.marketBelief,
+    },
+  );
   const mutationAt = new Date().toISOString();
   const storyPayload = {
-    title: candidate.title.slice(0, 180),
+    title: identity.title.slice(0, 180),
     thesis: candidate.thesis,
     status: statusFromLifecycle(lifecycleStatus),
     confidence: clamp(candidate.confidence),
-    market_question: candidate.question,
-    dominant_narrative: candidate.marketBelief,
+    market_question: identity.marketQuestion,
+    dominant_narrative: identity.dominantNarrative,
     best_explanation: hypothesis.causal_mechanism,
     strongest_support: candidate.strongestSupport,
     strongest_contradiction: candidate.strongestContradiction,
@@ -1903,7 +1912,11 @@ async function promoteCandidate({
         headline: candidate.title.slice(0, 180),
         detail: candidate.researchSynthesis,
         eventAt: mutationAt,
-        metadata: { novelty_class: "existing_story_update" },
+        metadata: {
+          novelty_class: "existing_story_update",
+          story_identity_preserved: true,
+          update_headline: candidate.title.slice(0, 180),
+        },
       },
     });
     story = persisted.story;
