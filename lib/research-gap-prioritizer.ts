@@ -1,4 +1,4 @@
-import type {
+import type { SupabaseClient } from "@supabase/supabase-js";\n\nimport type {
   ResearchGapWorkCandidate,
   ResearchGapWorkQueue,
 } from "./research-gap-worker.ts";
