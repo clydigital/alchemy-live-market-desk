@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -185,4 +186,10 @@ test("automatic bridge rejects unauthorised callers before constructing or publi
 
   assert.equal(response.status, 401);
   assert.equal(published, false);
+});
+
+
+test("automatic Gap bridge is whitelisted for machine authentication before middleware session checks", () => {
+  const config = readFileSync(new URL("../lib/supabase/config.ts", import.meta.url), "utf8");
+  assert.match(config, /MACHINE_AUTH_PATHS[\s\S]*"\/api\/research-gap\/handoff"/);
 });
