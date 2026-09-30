@@ -232,18 +232,24 @@ export function buildDossierRateRegime(
 ): DossierRateRegimeSnapshot {
   const evidence = rateEvidence(packet);
   const us2y = monitorEvidence(evidence, "us2y");
+  const us5y = monitorEvidence(evidence, "us5y-fred");
   const us10yCash = monitorEvidence(evidence, "us10y");
   const us10yFred = monitorEvidence(evidence, "us10y-fred");
   const us10y = us10yCash ?? us10yFred;
-  const us30y = signalContextEvidence(evidence, "us30y");
+  const us20y = monitorEvidence(evidence, "us20y-fred");
+  const us30yDirect = signalContextEvidence(evidence, "us30y");
+  const us30yFred = monitorEvidence(evidence, "us30y-fred");
+  const us30y = us30yDirect ?? us30yFred;
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
   const treasurySupply = signalContextEvidence(evidence, "treasury_supply");
 
   const us2yLevel = metricNumber(us2y, "last");
+  const us5yLevel = metricNumber(us5y, "last");
   const us10yLevel = metricNumber(us10y, "last");
-  const us30yLevel = metricNumber(us30y, "observed_value");
+  const us20yLevel = metricNumber(us20y, "last");
+  const us30yLevel = metricNumber(us30y, "observed_value") ?? metricNumber(us30y, "last");
   const real10yLevel = metricNumber(real10y, "last");
   const breakevenLevel = metricNumber(breakeven10y, "last");
   const effrLevel = metricNumber(effectiveFedFunds, "last");
@@ -256,7 +262,10 @@ export function buildDossierRateRegime(
       : null;
 
   const us2y5dBp = bpChange(us2y);
+  const us5y5dBp = bpChange(us5y);
   const us10y5dBp = bpChange(us10y);
+  const us20y5dBp = bpChange(us20y);
+  const us30y5dBp = bpChange(us30y);
   const real10y5dBp = bpChange(real10y);
   const breakeven5dBp = bpChange(breakeven10y);
 
@@ -332,21 +341,28 @@ export function buildDossierRateRegime(
   };
 
   let longEndScore = 0;
-  if (us10y5dBp !== null) {
-    if (us10y5dBp >= 7) longEndScore += 1;
-    else if (us10y5dBp <= -7) longEndScore -= 1;
-  }
+  const longEndChanges = [us10y5dBp, us20y5dBp, us30y5dBp].filter((value): value is number => value !== null);
+  const risingLongEnd = longEndChanges.filter((value) => value >= 7).length;
+  const fallingLongEnd = longEndChanges.filter((value) => value <= -7).length;
+  if (risingLongEnd >= 2 || (risingLongEnd === 1 && longEndChanges.length === 1)) longEndScore += 1;
+  else if (fallingLongEnd >= 2 || (fallingLongEnd === 1 && longEndChanges.length === 1)) longEndScore -= 1;
+  const longEndResolved = us10yLevel !== null || us20yLevel !== null || us30yLevel !== null;
+  const longEndDetail = [
+    us10yLevel === null ? null : `US 10Y ${formatPct(us10yLevel)}; 5D ${formatBp(us10y5dBp)}`,
+    us20yLevel === null ? null : `US 20Y ${formatPct(us20yLevel)}; 5D ${formatBp(us20y5dBp)}`,
+    us30yLevel === null ? null : `${us30yDirect ? "verified " : ""}US 30Y ${formatPct(us30yLevel)}; 5D ${formatBp(us30y5dBp)}`,
+  ].filter((value): value is string => Boolean(value)).join("; ");
   const longEndSignal: RateRegimeSignal = {
     key: "LONG_END",
     label: "Long-end nominal yields",
-    state: signalState(longEndScore, us10yLevel !== null),
-    score: longEndScore,
+    state: signalState(longEndScore, longEndResolved && us10yLevel !== null),
+    score: us10yLevel !== null ? longEndScore : 0,
     detail: us10yLevel !== null
-      ? `US 10Y ${formatPct(us10yLevel)}; 5D ${formatBp(us10y5dBp)}${us30yLevel === null ? "" : `; verified US 30Y ${formatPct(us30yLevel)}`}.`
+      ? `${longEndDetail}.`
       : us30yLevel !== null
-        ? `Verified US 30Y ${formatPct(us30yLevel)}; US 10Y monitor unavailable.`
+        ? `${us30yDirect ? "Verified " : ""}US 30Y ${formatPct(us30yLevel)}; US 10Y monitor unavailable.`
         : "US long-end nominal-yield context is unavailable.",
-    evidenceRefs: [us10y?.evidence_id, us30y?.evidence_id].filter((value): value is string => Boolean(value)),
+    evidenceRefs: [us10y?.evidence_id, us20y?.evidence_id, us30y?.evidence_id].filter((value): value is string => Boolean(value)),
   };
 
   // A larger Treasury liquidity-support buyback is not tightening by itself:
@@ -354,6 +370,7 @@ export function buildDossierRateRegime(
   // restrictive regime signal only when verified long-end yields independently
   // confirm that term-premium/duration pressure remains elevated.
   const longEndElevated = (us30yLevel !== null && us30yLevel >= 5)
+    || (us20yLevel !== null && us20yLevel >= 5)
     || (us10yLevel !== null && us10yLevel >= 5);
   const treasurySupplyResolved = treasurySupply !== null
     && treasuryBuybackMax !== null
@@ -375,6 +392,7 @@ export function buildDossierRateRegime(
       : "No current verified Treasury buyback/supply observation is present in the bounded rate context.",
     evidenceRefs: [
       treasurySupply?.evidence_id,
+      us20y?.evidence_id,
       us30y?.evidence_id,
       us10y?.evidence_id,
     ].filter((value): value is string => Boolean(value)),
@@ -426,7 +444,7 @@ export function buildDossierRateRegime(
       : curveSpreadBps < -10 ? "INVERTED" as const
         : curveSpreadBps > 10 ? "POSITIVE" as const
           : "FLAT" as const;
-  const curveEvidenceRefs = [us2y?.evidence_id, us10y?.evidence_id]
+  const curveEvidenceRefs = [us2y?.evidence_id, us5y?.evidence_id, us10y?.evidence_id, us20y?.evidence_id, us30y?.evidence_id]
     .filter((value): value is string => Boolean(value));
 
   const primary = policyOutlook[0] ?? null;
@@ -465,7 +483,7 @@ export function buildDossierRateRegime(
             : "The rate regime is unresolved.";
 
   const summary = `${stateLead} ${drivers.slice(0, 2).join(" ")}`.trim();
-  const fredCount = [us2y, us10yFred, real10y, breakeven10y, effectiveFedFunds]
+  const fredCount = [us2y, us5y, us10yFred, us20y, us30yFred, real10y, breakeven10y, effectiveFedFunds]
     .filter((item) => item?.provenance?.some((ref) => ref.source_type === "FRED")).length;
 
   const gaps = [
@@ -488,7 +506,7 @@ export function buildDossierRateRegime(
     usRatesReaction: frontEndResolved
       ? `US 2Y 5D ${formatBp(us2y5dBp)}`
       : null,
-    usRatesInterpretation: [frontEndSignal.detail, realYieldSignal.detail]
+    usRatesInterpretation: [frontEndSignal.detail, longEndSignal.detail, realYieldSignal.detail]
       .filter(Boolean)
       .join(" "),
     fredBacked: fredCount >= 2,
@@ -497,7 +515,14 @@ export function buildDossierRateRegime(
       state: curveState,
       detail: curveSpreadBps === null
         ? "The 2Y/10Y curve cannot be computed from current evidence."
-        : `10Y minus 2Y is ${formatBp(curveSpreadBps)} (${curveState.toLowerCase()}).`,
+        : [
+            `2Y ${formatPct(us2yLevel)}`,
+            us5yLevel === null ? null : `5Y ${formatPct(us5yLevel)}`,
+            `10Y ${formatPct(us10yLevel)}`,
+            us20yLevel === null ? null : `20Y ${formatPct(us20yLevel)}`,
+            us30yLevel === null ? null : `30Y ${formatPct(us30yLevel)}`,
+            `10Y minus 2Y ${formatBp(curveSpreadBps)} (${curveState.toLowerCase()})`,
+          ].filter((value): value is string => Boolean(value)).join(" · ") + ".",
       evidenceRefs: curveEvidenceRefs,
     },
     signals,

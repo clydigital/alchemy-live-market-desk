@@ -134,8 +134,11 @@ const ARTICLE_SOURCE_TYPES = new Set([
 
 const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "us2y",
+  "us5y-fred",
   "us10y",
   "us10y-fred",
+  "us20y-fred",
+  "us30y-fred",
   "us10y-real",
   "us10y-breakeven",
   "fed-funds-effective",
