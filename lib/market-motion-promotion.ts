@@ -57,13 +57,11 @@ export function selectPromotableMarketMotion(
 
 export function selectPromotedMarketMotionForDossier(
   items: MarketMotionRecord[],
-  dossierStoryIds: string[],
   now = new Date(),
   limit = 3,
 ) {
-  const storyIds = new Set(dossierStoryIds.filter(Boolean));
   return items
-    .filter((item) => item.primary_story_id && storyIds.has(item.primary_story_id))
+    .filter((item) => Boolean(item.primary_story_id))
     .filter((item) => marketMotionEffectiveState(item, now) === "PROMOTED")
     .sort((left, right) => {
       const materialityDelta = right.materiality - left.materiality;
