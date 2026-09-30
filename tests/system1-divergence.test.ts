@@ -432,7 +432,6 @@ test("System 1 prefers an exact 30m event reaction and preserves proxy identity"
       },
       provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
     }],
-    "2026-09-22T21:00:00Z",
   );
 
   const assessments = buildSystem1ReactionAssessments(packet);
@@ -581,6 +580,7 @@ test("System 1 preserves a regular-session close reaction horizon", () => {
       },
       provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
     }],
+    "2026-09-22T21:00:00Z",
   );
 
   const assessments = buildSystem1ReactionAssessments(packet);
