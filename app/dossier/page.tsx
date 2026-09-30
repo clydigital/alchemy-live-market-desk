@@ -76,18 +76,8 @@ export default async function DossierPage() {
   const notCarriedForward = dossier?.investigationJourney.filter(
     (item) => item.transition === "NOT_CARRIED_FORWARD",
   ) ?? [];
-  const dossierStoryIds = dossier
-    ? [...new Set([
-      ...dossier.whatMattersNow.stories.map((story) => story.id),
-      ...dossier.watchNext.flatMap((item) => item.storyIds),
-    ])]
-    : [];
-  const dossierStoryTitleById = new Map(
-    (dossier?.whatMattersNow.stories || []).map((story) => [story.id, story.title]),
-  );
   const promotedMotion = selectPromotedMarketMotionForDossier(
     motionRecords,
-    dossierStoryIds,
   ).map((item) => {
     const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
     return {
@@ -105,7 +95,7 @@ export default async function DossierPage() {
       occurredAt: item.occurred_at,
       sourceName: item.source_name,
       sourceUrl: item.source_url,
-      storyTitle: item.primary_story_id ? dossierStoryTitleById.get(item.primary_story_id) || null : null,
+      storyTitle: null,
       storyHref: null,
       regimeLabel: regime?.shortTitle || null,
       regimeHref: regime ? `/regimes/${regime.slug}` : null,
@@ -186,7 +176,7 @@ export default async function DossierPage() {
             items={promotedMotion}
             eyebrow="PROMOTED MARKET MOTION"
             title="Fresh hooks attached to this Dossier"
-            description="Only Motion whose exact linked Story changed canonically is admitted here. It can sharpen what to inspect next, but it does not rewrite the persisted Dossier thesis."
+            description="Only fresh Motion already promoted by a canonical Story change is admitted here. Dossier V2 uses synthetic research IDs, so this surface does not guess a fuzzy Story mapping or rewrite the persisted thesis."
             showFullTapeLink
           />
         ) : null}
