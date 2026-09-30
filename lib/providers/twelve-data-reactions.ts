@@ -1,4 +1,4 @@
-export type IntradayReactionWindowKey = "5m" | "30m" | "4h";
+export type IntradayReactionWindowKey = "5m" | "30m" | "4h" | "close" | "next_session";
 
 export type IntradayReactionTrigger = {
   evidenceId: string;
@@ -48,7 +48,7 @@ type Bar = {
 };
 
 const TWELVE_DATA_URL = "https://api.twelvedata.com/time_series";
-const MAX_TRIGGER_AGE_HOURS = 18;
+const MAX_TRIGGER_AGE_HOURS = 120;
 const BAR_INTERVAL_MS = 60_000;
 const BASELINE_TOLERANCE_MS = 6 * 60_000;
 const TARGET_TOLERANCE_MS = 6 * 60_000;
@@ -74,11 +74,54 @@ const INSTRUMENTS: InstrumentSpec[] = [
   },
 ];
 
-const WINDOW_MS: Record<IntradayReactionWindowKey, number> = {
+const FIXED_WINDOW_MS = {
   "5m": 5 * 60_000,
   "30m": 30 * 60_000,
   "4h": 4 * 60 * 60_000,
-};
+} as const;
+
+type FixedReactionWindowKey = keyof typeof FIXED_WINDOW_MS;
+
+const NEW_YORK_PARTS = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function newYorkSessionParts(timestamp: number) {
+  const parts = Object.fromEntries(
+    NEW_YORK_PARTS.formatToParts(new Date(timestamp))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  if (!parts.year || !parts.month || !parts.day || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minuteOfDay: hour * 60 + minute,
+  };
+}
+
+function completedRegularSessionCloses(bars: Bar[], asOfAt: number): Bar[] {
+  const byDate = new Map<string, Bar>();
+  for (const bar of bars) {
+    const closeAt = barCloseAt(bar);
+    if (closeAt > asOfAt) continue;
+    const session = newYorkSessionParts(closeAt);
+    if (!session) continue;
+    // Use the latest completed regular-session bar in the final ten minutes.
+    // This tolerates a missing exact 15:59 bar while excluding after-hours data.
+    if (session.minuteOfDay < 15 * 60 + 50 || session.minuteOfDay > 16 * 60) continue;
+    const prior = byDate.get(session.date);
+    if (!prior || barCloseAt(prior) < closeAt) byDate.set(session.date, bar);
+  }
+  return [...byDate.values()].sort((left, right) => barCloseAt(left) - barCloseAt(right));
+}
 
 function parseTime(value: string): number | null {
   const parsed = Date.parse(value);
@@ -164,25 +207,41 @@ function targetBar(bars: Bar[], targetAt: number): Bar | null {
   return eligible.at(-1) ?? null;
 }
 
+function reactionWindow(
+  key: IntradayReactionWindowKey,
+  baseline: Bar,
+  observed: Bar,
+): IntradayReactionWindow {
+  return {
+    window: key,
+    baselineAt: new Date(barCloseAt(baseline)).toISOString(),
+    observedAt: new Date(barCloseAt(observed)).toISOString(),
+    baseline: baseline.close,
+    observed: observed.close,
+    changePct: Number((((observed.close / baseline.close) - 1) * 100).toFixed(4)),
+  };
+}
+
 function reactionWindows(bars: Bar[], triggerAt: number, asOfAt: number): IntradayReactionWindow[] {
   const baseline = baselineBar(bars, triggerAt);
   if (!baseline || baseline.close === 0) return [];
 
   const windows: IntradayReactionWindow[] = [];
-  for (const key of ["5m", "30m", "4h"] as const) {
-    const targetAt = triggerAt + WINDOW_MS[key];
+  for (const key of ["5m", "30m", "4h"] as const satisfies readonly FixedReactionWindowKey[]) {
+    const targetAt = triggerAt + FIXED_WINDOW_MS[key];
     if (targetAt > asOfAt) continue;
     const observed = targetBar(bars, targetAt);
-    if (!observed) continue;
-    windows.push({
-      window: key,
-      baselineAt: new Date(barCloseAt(baseline)).toISOString(),
-      observedAt: new Date(barCloseAt(observed)).toISOString(),
-      baseline: baseline.close,
-      observed: observed.close,
-      changePct: Number((((observed.close / baseline.close) - 1) * 100).toFixed(4)),
-    });
+    if (observed) windows.push(reactionWindow(key, baseline, observed));
   }
+
+  const closes = completedRegularSessionCloses(bars, asOfAt);
+  const firstCloseIndex = closes.findIndex((bar) => barCloseAt(bar) >= triggerAt);
+  if (firstCloseIndex >= 0) {
+    windows.push(reactionWindow("close", baseline, closes[firstCloseIndex]));
+    const nextSession = closes[firstCloseIndex + 1];
+    if (nextSession) windows.push(reactionWindow("next_session", baseline, nextSession));
+  }
+
   return windows;
 }
 
@@ -244,10 +303,10 @@ export async function fetchTwelveDataReactionSnapshot(options: {
     triggers[0].occurredAtMs - 10 * 60_000,
     asOfAt - MAX_TRIGGER_AGE_HOURS * 60 * 60_000,
   );
-  const latestNeeded = Math.min(
-    asOfAt,
-    Math.max(...triggers.map((trigger) => trigger.occurredAtMs + WINDOW_MS["4h"] + TARGET_TOLERANCE_MS)),
-  );
+  // Session-close and next-session reactions are discovered from actual bars.
+  // Fetch through the Dossier as-of so weekends and exchange holidays fail
+  // closed naturally instead of relying on a hand-coded trading calendar.
+  const latestNeeded = asOfAt;
   const symbols = INSTRUMENTS.map((item) => item.providerSymbol);
 
   const url = new URL(TWELVE_DATA_URL);
