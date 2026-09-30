@@ -106,13 +106,16 @@ export function getFourSlotResearchHealth(runs: ResearchRunLike[], now = new Dat
     } satisfies ResearchSlotHealth;
   });
 
-  const completedRuns = runs
+  const canonicalRuns = runs.filter(
+    (run) => run.schedule_slot === "morning" || run.schedule_slot === "evening",
+  );
+  const completedRuns = canonicalRuns
     .filter((run) => run.status === "completed" && run.completed_at)
     .sort((a, b) => Date.parse(b.completed_at!) - Date.parse(a.completed_at!));
   const completedCount = slots.filter((slot) => slot.status === "complete").length;
 
   const health: FourSlotResearchHealth = {
-    state: !runs.length ? "not_configured" : completedCount === slots.length ? "healthy" : "attention",
+    state: !canonicalRuns.length ? "not_configured" : completedCount === slots.length ? "healthy" : "attention",
     slots,
     completedCount,
     warningCount: slots.reduce((sum, slot) => sum + slot.warningCount, 0),
