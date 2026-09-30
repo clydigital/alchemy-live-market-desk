@@ -1,10 +1,14 @@
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
+import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getCurrentMarketMotion } from "@/lib/market-motion";
+import { selectPromotedMarketMotionForDossier } from "@/lib/market-motion-promotion";
+import { getRegimeDefinition } from "@/lib/regimes";
 
 import styles from "./dossier.module.css";
 
@@ -62,15 +66,51 @@ function reactionReadLabel(value: string) {
 }
 
 export default async function DossierPage() {
-  const [selection, monitor] = await Promise.all([
+  const [selection, monitor, motionRecords] = await Promise.all([
     getDossierV2PresentationSelection(),
     getMarketMonitor(),
+    getCurrentMarketMotion({ limit: 60 }).catch(() => []),
   ]);
   const dossier = selection.presentation;
   const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossier });
   const notCarriedForward = dossier?.investigationJourney.filter(
     (item) => item.transition === "NOT_CARRIED_FORWARD",
   ) ?? [];
+  const dossierStoryIds = dossier
+    ? [...new Set([
+      ...dossier.whatMattersNow.stories.map((story) => story.id),
+      ...dossier.watchNext.flatMap((item) => item.storyIds),
+    ])]
+    : [];
+  const dossierStoryTitleById = new Map(
+    (dossier?.whatMattersNow.stories || []).map((story) => [story.id, story.title]),
+  );
+  const promotedMotion = selectPromotedMarketMotionForDossier(
+    motionRecords,
+    dossierStoryIds,
+  ).map((item) => {
+    const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    return {
+      id: item.id,
+      headline: item.headline,
+      category: item.category,
+      lifecycleState: item.lifecycle_state,
+      verificationState: item.verification_state,
+      whatHappened: item.what_happened,
+      marketReaction: item.market_reaction,
+      whyInteresting: item.why_interesting,
+      bigPictureBridge: item.big_picture_bridge,
+      nextTest: item.next_test,
+      tickers: item.tickers,
+      occurredAt: item.occurred_at,
+      sourceName: item.source_name,
+      sourceUrl: item.source_url,
+      storyTitle: item.primary_story_id ? dossierStoryTitleById.get(item.primary_story_id) || null : null,
+      storyHref: null,
+      regimeLabel: regime?.shortTitle || null,
+      regimeHref: regime ? `/regimes/${regime.slug}` : null,
+    };
+  });
 
   if (!dossier) {
     return (
@@ -140,6 +180,16 @@ export default async function DossierPage() {
         </section>
 
         <NarrativeSpine dossier={dossier} surface="dossier" />
+
+        {promotedMotion.length ? (
+          <MarketMotionOverview
+            items={promotedMotion}
+            eyebrow="PROMOTED MARKET MOTION"
+            title="Fresh hooks attached to this Dossier"
+            description="Only Motion whose exact linked Story changed canonically is admitted here. It can sharpen what to inspect next, but it does not rewrite the persisted Dossier thesis."
+            showFullTapeLink
+          />
+        ) : null}
 
         <section className={styles.regimeSection}>
           <div className={styles.sectionHead}>
