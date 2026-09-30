@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 
 import { acceptsResearchAuthorization } from "./research-auth.ts";
 import {
+  getResearchGapCaseById,
+  markResearchGapCaseHandedOff,
+  type ResearchGapCaseRow,
+} from "./research-gap-lifecycle.ts";
+import {
   gapHandoffSourceIsCarrier,
   researchGapHandoffRunKey,
   validateResearchGapHandoff,
@@ -31,6 +36,7 @@ export type AutomaticGapEvidence = {
 };
 
 export type CompletedResearchGapResult = {
+  caseId?: string;
   gateRunId: string;
   gapId: string;
   investigationId?: string;
@@ -52,6 +58,12 @@ export type AutomaticGapHandoffSubmission = {
   automaticHandoff: true;
   canonicalStatus: number;
   canonicalBody: unknown;
+  lifecycle: {
+    caseId: string;
+    status: "handed_off" | "not_updated";
+    lifecycleStatus?: string;
+    warning?: string;
+  } | null;
 };
 
 export class AutomaticGapHandoffError extends Error {
@@ -67,6 +79,13 @@ export class AutomaticGapHandoffError extends Error {
 type AutomaticGapHandoffDependencies = {
   authorize?: (request: Request) => boolean;
   publishCanonical?: (request: Request, run: ResearchRunInput) => Promise<Response>;
+  loadLifecycleCase?: (caseId: string) => Promise<ResearchGapCaseRow | null>;
+  markLifecycleHandedOff?: (input: {
+    caseId: string;
+    outcome: ResearchGapHandoffOutcome;
+    runKey: string;
+    canonicalStatus: number;
+  }) => Promise<ResearchGapCaseRow | null>;
 };
 
 const MAX_BODY_BYTES = 256_000;
@@ -98,6 +117,19 @@ function automaticHandoffAuthorization(request: Request) {
     request.headers.get("authorization"),
     [process.env.RESEARCH_UPDATE_TOKEN, process.env.CRON_SECRET],
   );
+}
+
+async function loadLifecycleCase(caseId: string) {
+  return getResearchGapCaseById(caseId);
+}
+
+async function markLifecycleHandedOff(input: {
+  caseId: string;
+  outcome: ResearchGapHandoffOutcome;
+  runKey: string;
+  canonicalStatus: number;
+}) {
+  return markResearchGapCaseHandedOff(input);
 }
 
 async function publishToCanonicalResearch(request: Request, run: ResearchRunInput) {
@@ -180,6 +212,10 @@ export function validateCompletedResearchGapResult(result: CompletedResearchGapR
 
   const handoff = handoffFromResult(result);
   errors.push(...validateResearchGapHandoff(handoff));
+
+  if (result.caseId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clean(result.caseId))) {
+    errors.push("caseId must be a UUID when supplied.");
+  }
 
   if (!validDate(result.completedAt)) {
     errors.push("completedAt is required and must be a valid date.");
@@ -299,6 +335,61 @@ export async function handleAutomaticResearchGapHandoff(
     return json({ error: "Automatic Research Gap handoff could not be constructed." }, 500);
   }
 
+  const caseId = clean(result.caseId);
+  if (caseId) {
+    let lifecycleCase: ResearchGapCaseRow | null;
+    try {
+      lifecycleCase = await (dependencies.loadLifecycleCase ?? loadLifecycleCase)(caseId);
+    } catch (error) {
+      return json({
+        error: "Research Gap lifecycle preflight failed.",
+        detail: error instanceof Error ? error.message.slice(0, 500) : "Unknown lifecycle failure.",
+        caseId,
+        runKey: run.runKey,
+      }, 502);
+    }
+
+    if (!lifecycleCase) {
+      return json({
+        error: "Research Gap lifecycle case was not found.",
+        caseId,
+        runKey: run.runKey,
+      }, 409);
+    }
+
+    if (!["COMPLETED", "HANDED_OFF"].includes(lifecycleCase.status)) {
+      return json({
+        error: "Research Gap lifecycle case is not completed.",
+        caseId,
+        lifecycleStatus: lifecycleCase.status,
+        runKey: run.runKey,
+      }, 409);
+    }
+
+    if (lifecycleCase.research_outcome !== result.outcome) {
+      return json({
+        error: "Research Gap handoff outcome does not match the persisted deterministic verdict.",
+        caseId,
+        persistedOutcome: lifecycleCase.research_outcome,
+        submittedOutcome: result.outcome,
+        runKey: run.runKey,
+      }, 409);
+    }
+
+    if (
+      lifecycleCase.status === "HANDED_OFF"
+      && lifecycleCase.handoff_run_key
+      && lifecycleCase.handoff_run_key !== run.runKey
+    ) {
+      return json({
+        error: "Research Gap lifecycle case is already tied to a different canonical handoff run.",
+        caseId,
+        persistedRunKey: lifecycleCase.handoff_run_key,
+        submittedRunKey: run.runKey,
+      }, 409);
+    }
+  }
+
   let canonical: Response;
   try {
     canonical = await (dependencies.publishCanonical ?? publishToCanonicalResearch)(request, run);
@@ -321,6 +412,35 @@ export async function handleAutomaticResearchGapHandoff(
     };
   }
 
+  let lifecycle: AutomaticGapHandoffSubmission["lifecycle"] = null;
+  if (caseId && canonical.ok) {
+    try {
+      const updated = await (dependencies.markLifecycleHandedOff ?? markLifecycleHandedOff)({
+        caseId,
+        outcome: result.outcome,
+        runKey: run.runKey,
+        canonicalStatus: canonical.status,
+      });
+      lifecycle = updated
+        ? {
+            caseId,
+            status: "handed_off",
+            lifecycleStatus: updated.status,
+          }
+        : {
+            caseId,
+            status: "not_updated",
+            warning: "Canonical Live accepted the handoff, but the lifecycle case no longer matched the expected COMPLETED/HANDED_OFF state.",
+          };
+    } catch (error) {
+      lifecycle = {
+        caseId,
+        status: "not_updated",
+        warning: error instanceof Error ? error.message.slice(0, 500) : "Unknown lifecycle update failure.",
+      };
+    }
+  }
+
   return json({
     automaticHandoff: true,
     runKey: run.runKey,
@@ -328,6 +448,7 @@ export async function handleAutomaticResearchGapHandoff(
     outcome: result.outcome,
     canonicalStatus: canonical.status,
     canonicalBody,
+    lifecycle,
   } satisfies AutomaticGapHandoffSubmission & {
     runKey: string;
     gapId: string;

@@ -146,6 +146,110 @@ test("automatic bridge forwards the generated canonical run and preserves canoni
   assert.equal(body.canonicalBody.runId, "run-1");
 });
 
+test("lifecycle-linked handoff requires the persisted deterministic verdict before canonical publication", async () => {
+  let published = false;
+  const request = new Request("https://live.example/api/research-gap/handoff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(completed({
+      caseId: "44444444-4444-4444-8444-444444444444",
+      outcome: "CONFIRMING",
+    })),
+  });
+
+  const response = await handleAutomaticResearchGapHandoff(request, {
+    authorize: () => true,
+    loadLifecycleCase: async () => ({
+      id: "44444444-4444-4444-8444-444444444444",
+      status: "COMPLETED",
+      research_outcome: "CONTRADICTING",
+      handoff_run_key: null,
+    } as never),
+    publishCanonical: async () => {
+      published = true;
+      return Response.json({ accepted: true });
+    },
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal(published, false);
+  const body = await response.json();
+  assert.match(body.error, /does not match the persisted deterministic verdict/i);
+});
+
+test("successful lifecycle-linked canonical handoff marks the durable case HANDED_OFF", async () => {
+  let markInput: unknown = null;
+  const request = new Request("https://live.example/api/research-gap/handoff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(completed({
+      caseId: "44444444-4444-4444-8444-444444444444",
+    })),
+  });
+
+  const response = await handleAutomaticResearchGapHandoff(request, {
+    authorize: () => true,
+    loadLifecycleCase: async () => ({
+      id: "44444444-4444-4444-8444-444444444444",
+      status: "COMPLETED",
+      research_outcome: "CONFIRMING",
+      handoff_run_key: null,
+    } as never),
+    publishCanonical: async (_incoming, run) => Response.json({
+      accepted: true,
+      runKey: run.runKey,
+      status: "intelligence_pending",
+    }, { status: 202 }),
+    markLifecycleHandedOff: async (input) => {
+      markInput = input;
+      return {
+        id: input.caseId,
+        status: "HANDED_OFF",
+        research_outcome: input.outcome,
+        handoff_run_key: input.runKey,
+        handoff_canonical_status: input.canonicalStatus,
+      } as never;
+    },
+  });
+
+  assert.equal(response.status, 202);
+  assert.equal((markInput as { canonicalStatus?: number }).canonicalStatus, 202);
+  const body = await response.json();
+  assert.equal(body.lifecycle.status, "handed_off");
+  assert.equal(body.lifecycle.lifecycleStatus, "HANDED_OFF");
+});
+
+test("failed canonical handoff never advances lifecycle state", async () => {
+  let marked = false;
+  const request = new Request("https://live.example/api/research-gap/handoff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(completed({
+      caseId: "44444444-4444-4444-8444-444444444444",
+    })),
+  });
+
+  const response = await handleAutomaticResearchGapHandoff(request, {
+    authorize: () => true,
+    loadLifecycleCase: async () => ({
+      id: "44444444-4444-4444-8444-444444444444",
+      status: "COMPLETED",
+      research_outcome: "CONFIRMING",
+      handoff_run_key: null,
+    } as never),
+    publishCanonical: async () => Response.json({ error: "downstream failed" }, { status: 503 }),
+    markLifecycleHandedOff: async () => {
+      marked = true;
+      return null;
+    },
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(marked, false);
+  const body = await response.json();
+  assert.equal(body.lifecycle, null);
+});
+
 test("canonical pending/replay responses pass through instead of creating another handoff identity", async () => {
   const request = new Request("https://live.example/api/research-gap/handoff", {
     method: "POST",

@@ -141,6 +141,12 @@ jobs:
       - name: Verify Research Gap plan + verdict database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/research_gap_plan_verdict_contract.sql
 
+      - name: Apply Research Gap handoff lifecycle migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001070500_research_gap_handoff_lifecycle.sql
+
+      - name: Verify Research Gap handoff lifecycle database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/research_gap_handoff_lifecycle_contract.sql
+
       - name: Bootstrap historical Regime migration dependency
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/regime_historical_dependency_fixture.sql
 

@@ -160,3 +160,23 @@ This lifecycle does not yet:
 - schedule the 08:10 / 20:10 Gap runs.
 
 Those remain later stages because scheduling before an actual research executor would merely claim work without resolving it.
+
+
+## Canonical handoff acknowledgement
+
+A completed lifecycle case may now be tied to the existing automatic Live handoff by supplying its `caseId` with the completed result.
+
+Before publishing evidence to canonical Live, the handoff bridge verifies:
+
+- the lifecycle case exists;
+- its state is `COMPLETED` or an idempotent replay of `HANDED_OFF`;
+- the submitted outcome exactly matches the persisted deterministic verdict;
+- a previously handed-off case is not being rebound to a different deterministic run key.
+
+Only after `/api/research-update` returns a 2xx acknowledgement does the case transition:
+
+`COMPLETED → HANDED_OFF`
+
+The lifecycle stores the deterministic handoff run key and canonical HTTP status. A failed canonical handoff leaves the case `COMPLETED`.
+
+`HANDED_OFF` still does not mean the Story changed. It means the evidence packet was admitted into the canonical Live research path. Closing/reopening remains a later feedback step.
