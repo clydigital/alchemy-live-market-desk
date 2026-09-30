@@ -225,10 +225,12 @@ function parseItem(value: unknown): MarketMotionEditionItem | null {
   ) return null;
   if (!validIso(occurredAt) || !validIso(observedAt) || !validIso(expiresAt)) return null;
 
+  const versionNumber = Number(item.versionNumber);
+
   return {
     id,
     motionKey,
-    versionNumber: Number.isFinite(item.versionNumber) ? Number(item.versionNumber) : 1,
+    versionNumber: Number.isFinite(versionNumber) ? versionNumber : 1,
     headline,
     category,
     verificationState,
