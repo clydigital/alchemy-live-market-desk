@@ -1888,10 +1888,17 @@ async function promoteCandidate({
   let story: StoryRow;
   let isNew = false;
   if (decision.noveltyClass === "existing_story_update" && matched) {
+    const existingStoryPayload = {
+      ...storyPayload,
+      title: matched.title,
+      market_question: matched.market_question?.trim()
+        ? matched.market_question
+        : storyPayload.market_question,
+    };
     const persisted = await persistCanonicalStoryReasoning({
       mutationKey: candidateRowId,
       storyId: matched.id,
-      storyPayload,
+      storyPayload: existingStoryPayload,
       reasoning,
       event: {
         headline: candidate.title.slice(0, 180),
