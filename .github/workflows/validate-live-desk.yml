@@ -129,6 +129,12 @@ jobs:
       - name: Verify Market Dossiers V2 database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_dossiers_v2_contract.sql
 
+      - name: Apply Research Gap lifecycle migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001061000_research_gap_lifecycle.sql
+
+      - name: Verify Research Gap lifecycle database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/research_gap_lifecycle_contract.sql
+
       - name: Bootstrap historical Regime migration dependency
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/regime_historical_dependency_fixture.sql
 
