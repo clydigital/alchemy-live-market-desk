@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
+import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { buildMarketIntelligenceSnapshot } from "@/lib/market-intelligence-snapshot";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { marketMotionFromEditionPayload } from "@/lib/market-motion-edition";
 import { fetchNyFedPrimaryDealers } from "@/lib/providers/ny-fed-primary-dealers";
 import { fetchNyFedReferenceRates } from "@/lib/providers/ny-fed-reference-rates";
 import { fetchTreasuryBills } from "@/lib/providers/treasury-bills";
@@ -30,13 +33,22 @@ export async function GET() {
       });
     }
 
-    const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, treasuryBills, creatorVerification] = await Promise.all([
+    const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, treasuryBills, creatorVerification, presenterEditions] = await Promise.all([
       getMarketMonitor(),
       fetchNyFedReferenceRates(),
       fetchNyFedPrimaryDealers(),
       fetchTreasuryBills(),
       getStockedUpEvidenceBrief().catch(() => null),
+      getHybridPresenterEditionCandidates(),
     ]);
+    const currentEditionPointer = buildCanonicalEditionIndex(presenterEditions)[0] || null;
+    const currentEdition = currentEditionPointer
+      ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
+      : null;
+    const frozenMarketMotion = marketMotionFromEditionPayload(currentEdition?.payload);
+    const marketMotion = frozenMarketMotion && currentEdition
+      ? { ...frozenMarketMotion, editionId: currentEdition.id }
+      : null;
     const dailyAssetState = buildDailyAssetState({
       monitor,
       presentation: selection.presentation,
@@ -50,6 +62,7 @@ export async function GET() {
       treasuryBills,
       dailyAssetState,
       creatorVerification,
+      marketMotion,
     });
 
     return NextResponse.json(snapshot, {
