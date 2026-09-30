@@ -9,6 +9,8 @@ function source(path: string) {
 const runtime = source("../lib/intelligence/runtime.ts");
 const canonicalEdition = source("../lib/intelligence/canonical-journey-edition.ts");
 const hybrid = source("../app/hybrid-output/page.tsx");
+const journey = source("../lib/intelligence/journey-briefing.ts");
+const edition = source("../lib/intelligence/edition.ts");
 
 test("canonical base publication freezes promoted Market Motion into the edition", () => {
   assert.match(runtime, /captureMarketMotionEditionAttachment/);
@@ -24,6 +26,16 @@ test("canonical base publication freezes promoted Market Motion into the edition
 test("Dossier composition carries the exact base-edition Motion snapshot forward", () => {
   assert.match(canonicalEdition, /const payload = \{[\s\S]{0,120}\.\.\.base\.payload/);
   assert.doesNotMatch(canonicalEdition, /marketMotion[\s\S]{0,120}PATCH/);
+});
+
+test("Journey chronology consumes only the immutable edition Motion snapshot", () => {
+  assert.match(runtime, /marketMotion:\s*marketMotion\?\.items \|\| \[\]/);
+  assert.match(canonicalEdition, /marketMotion:\s*marketMotion\.items/);
+  assert.match(edition, /marketMotion\?: MarketMotionEditionItem\[\]/);
+  assert.match(edition, /marketMotion,/);
+  assert.match(journey, /lane:\s*"story" \| "market_motion"/);
+  assert.match(journey, /marketMotion\.map\(marketMotionChronologyItem\)/);
+  assert.match(journey, /motionId:\s*item\.id/);
 });
 
 test("Hybrid reads Motion from the immutable edition instead of the mutable current view", () => {
