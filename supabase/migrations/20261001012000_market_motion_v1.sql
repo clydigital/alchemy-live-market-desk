@@ -68,7 +68,7 @@ create table if not exists public.market_motion_items (
   check (expires_at >= occurred_at)
 );
 
-do $
+do $motion$
 begin
   if to_regclass('public.research_runs') is not null
     and not exists (
@@ -103,7 +103,7 @@ begin
       foreign key (evidence_id) references public.evidence(id) on delete set null;
   end if;
 end
-$;
+$motion$;
 
 create index if not exists market_motion_items_key_version_idx
   on public.market_motion_items(motion_key, version_number desc);
