@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { MarketDossierV2 } from "./dossier-v2/contracts.ts";
-import { validateMarketDossierV2Record } from "./dossier-v2/validation.ts";\nimport { persistentResearchGapKey } from "./research-gap-identity.ts";
+import { validateMarketDossierV2Record } from "./dossier-v2/validation.ts";
+import { persistentResearchGapKey } from "./research-gap-identity.ts";
 
 export const RESEARCH_GAP_WORK_QUEUE_VERSION = "research-gap-work-queue/1" as const;
 export const MAX_RESEARCH_GAP_WORK_CANDIDATES = 20;
@@ -15,6 +16,7 @@ export type ResearchGapWorkSource =
 
 export type ResearchGapWorkCandidate = {
   workId: string;
+  gapKey: string;
   sourceKind: ResearchGapWorkSource;
   sourceRef: string;
   dossierId: string;
