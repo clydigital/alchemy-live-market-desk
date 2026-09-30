@@ -2,6 +2,7 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
 import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
+import { getCurrentMarketMotion, marketMotionEffectiveState } from "@/lib/market-motion";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
@@ -134,7 +135,7 @@ function humaniseStoryEvent(
 }
 
 export default async function WhatsNewPage() {
-  const [data, recordLayer] = await Promise.all([getDeskData(), getStoryRecordLayer()]);
+  const [data, recordLayer, motionRecords] = await Promise.all([getDeskData(), getStoryRecordLayer(), getCurrentMarketMotion({ includeExpired: true, limit: 100 }).catch(() => [])]);
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const versionByEventId = new Map(
     recordLayer.thesisVersions
@@ -151,6 +152,54 @@ export default async function WhatsNewPage() {
       version.version_number === current.version_number && version.effective_at > current.effective_at
     )) latestVersionByStory.set(version.story_id, version);
   }
+
+  const motionDeltas: RawWhatsNewDelta[] = motionRecords.map((item) => {
+    const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
+    const fullText = [
+      item.headline,
+      item.what_happened,
+      item.market_reaction || "",
+      item.why_interesting,
+      item.big_picture_bridge,
+      item.next_test || "",
+      ...item.tickers,
+    ].join(" ");
+    const routed = routeTextToRegimes(fullText, 2);
+    const routes = item.primary_regime_slug
+      ? [...routed].sort((left, right) => Number(right.regime === item.primary_regime_slug) - Number(left.regime === item.primary_regime_slug))
+      : routed;
+    const effectiveState = marketMotionEffectiveState(item);
+    return {
+      id: item.id,
+      kind: effectiveState === "PROMOTED" ? "Promoted motion" : effectiveState === "EXPIRED" ? "Expired motion" : "Market motion",
+      stream: "Motion" as const,
+      topic: classifyTopic(
+        `${item.category} ${item.headline}`,
+        `${item.what_happened} ${item.why_interesting} ${item.big_picture_bridge}`,
+        item.tickers.join(" "),
+      ),
+      title: item.headline,
+      detail: item.market_reaction || item.what_happened,
+      dateLabel: formatDeskDate(item.occurred_at),
+      timestamp: item.occurred_at,
+      href: item.source_url,
+      external: true,
+      verification: item.verification_state,
+      storyTitle: story?.title || null,
+      regimes: regimeLinks(routes),
+      hybridHref: null,
+      interpretationState: item.primary_story_id || item.primary_regime_slug ? "observed_pending" as const : null,
+      breakdown: null,
+      motion: {
+        whatHappened: item.what_happened,
+        marketReaction: item.market_reaction,
+        whyInteresting: item.why_interesting,
+        bigPictureBridge: item.big_picture_bridge,
+        nextTest: item.next_test,
+        lifecycleState: effectiveState,
+      },
+    };
+  });
 
   const storyDeltas: RawWhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
@@ -216,6 +265,7 @@ export default async function WhatsNewPage() {
 
   const now = new Date();
   const deltas: WhatsNewDelta[] = [
+    ...motionDeltas,
     ...storyDeltas,
     ...data.statements.map((statement) => {
       const routes = routeTextToRegimes(
@@ -280,7 +330,7 @@ export default async function WhatsNewPage() {
     <LiveDeskShell
       activePath="/whats-new"
       title="What’s New"
-      description="Material deltas only: what changed, which Regime/subgroup it may affect, and whether the Story-level interpretation is accepted or still pending."
+      description="Chronological market motion plus canonical Story deltas: what just happened, why it matters, which Regime it touches, and whether the interpretation is still pending."
       meta={`${deltas.length} recent records shown`}
     >
       <div className={styles.grid}>
@@ -293,8 +343,8 @@ export default async function WhatsNewPage() {
         />
 
         <Panel
-          title="Current delta stream"
-          description="Two-column scan of recent market changes. Topic icons separate FX, stocks, macro, geopolitics and other desks at a glance."
+          title="Motion + delta stream"
+          description="Fresh Motion sits beside canonical Story history. Headlines remain hooks until verification and evidence justify promotion into a durable Story or investigation."
           action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned events" : "Current events"}</Badge>}
         >
           {deltas.length ? (

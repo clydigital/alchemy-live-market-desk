@@ -282,6 +282,44 @@
 
 .breakdown p { margin: 0; }
 
+.motionBreakdown {
+  display: grid;
+  gap: 7px;
+  margin: 13px 0;
+  padding: 12px;
+  border: 1px solid rgba(140,104,220,.24);
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(126,67,216,.09), rgba(10,11,31,.3));
+}
+
+.motionBreakdown p {
+  margin: 0;
+  color: #b9b4c8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.motionBreakdown > div {
+  display: grid;
+  gap: 4px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(181,151,255,.12);
+}
+
+.motionBreakdown strong {
+  color: #c7a9f4;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.motionBreakdown span {
+  color: #e1d9ee;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .body footer {
   display: flex;
   align-items: center;

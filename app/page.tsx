@@ -7,6 +7,7 @@ import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
+import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { Badge, Panel, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
@@ -17,10 +18,12 @@ import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { getCurrentMarketMotion, selectMarketMotionForOverview } from "@/lib/market-motion";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
 import { buildRegimeProjection, classifyRegimeStory } from "@/lib/regimes";
+import { getRegimeDefinition } from "@/lib/regimes";
 import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -230,18 +233,43 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, monitor, recordLayer, calendar, dossierSelection] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getMarketMonitor(),
     getStoryRecordLayer(),
     getEconomicCalendar(),
     getDossierV2PresentationSelection(),
+    getCurrentMarketMotion({ limit: 50 }).catch(() => []),
   ]);
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
+  const marketMotion = selectMarketMotionForOverview(motionRecords).map((item) => {
+    const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
+    const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    return {
+      id: item.id,
+      headline: item.headline,
+      category: item.category,
+      lifecycleState: item.lifecycle_state,
+      verificationState: item.verification_state,
+      whatHappened: item.what_happened,
+      marketReaction: item.market_reaction,
+      whyInteresting: item.why_interesting,
+      bigPictureBridge: item.big_picture_bridge,
+      nextTest: item.next_test,
+      tickers: item.tickers,
+      occurredAt: item.occurred_at,
+      sourceName: item.source_name,
+      sourceUrl: item.source_url,
+      storyTitle: story?.title || null,
+      storyHref: story ? `/stories/${story.slug}` : null,
+      regimeLabel: regime?.shortTitle || null,
+      regimeHref: regime ? `/regimes/${regime.slug}` : null,
+    };
+  });
   const upcomingReleases = weeklyHighImpactReleases(data.macroReleases, calendar);
   const immediateRelease = upcomingReleases[0] || null;
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
@@ -398,6 +426,7 @@ export default async function Page({ searchParams }: PageProps) {
         {dossierSelection.presentation ? (
           <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
         ) : null}
+        <MarketMotionOverview items={marketMotion} />
         <MarketRegimeStrip regimes={regimes} />
         {reasoningInvestigation ? (
           <Panel
