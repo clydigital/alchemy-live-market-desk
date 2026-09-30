@@ -47,16 +47,30 @@ function verificationTone(value: MarketMotionVerificationState) {
   return "reported";
 }
 
-export default function MarketMotionOverview({ items }: { items: MarketMotionOverviewItem[] }) {
+export default function MarketMotionOverview({
+  items,
+  eyebrow = "MARKET MOTION",
+  title = "What moved the story today?",
+  description = "Fresh hooks only. Motion can confirm, challenge or test a durable Story, but it does not become the Story by itself.",
+  emptyText = "No fresh Motion item has cleared the Live contract yet. The desk will not manufacture a hook from stale or unverified headlines.",
+  showFullTapeLink = true,
+}: {
+  items: MarketMotionOverviewItem[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  emptyText?: string;
+  showFullTapeLink?: boolean;
+}) {
   return (
     <section className={styles.section}>
       <header className={styles.header}>
         <div>
-          <span>MARKET MOTION</span>
-          <h2>What moved the story today?</h2>
-          <p>Fresh hooks only. Motion can confirm, challenge or test a durable Story, but it does not become the Story by itself.</p>
+          <span>{eyebrow}</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
         </div>
-        <Link href="/whats-new">Open full motion tape →</Link>
+        {showFullTapeLink ? <Link href="/whats-new">Open full motion tape →</Link> : null}
       </header>
 
       {items.length ? (
@@ -104,9 +118,7 @@ export default function MarketMotionOverview({ items }: { items: MarketMotionOve
           ))}
         </div>
       ) : (
-        <div className={styles.empty}>
-          No fresh Motion item has cleared the Live contract yet. The desk will not manufacture a hook from stale or unverified headlines.
-        </div>
+        <div className={styles.empty}>{emptyText}</div>
       )}
     </section>
   );

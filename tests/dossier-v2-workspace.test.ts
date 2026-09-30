@@ -6,7 +6,7 @@ function source(path: string) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
-test("Dossier workspace consumes the shared Dossier V2 presentation reader only", () => {
+test("Dossier workspace keeps Dossier V2 authoritative while admitting only promoted Market Motion context", () => {
   const page = source("../app/dossier/page.tsx");
 
   assert.match(page, /getDossierV2PresentationSelection/);
@@ -18,6 +18,10 @@ test("Dossier workspace consumes the shared Dossier V2 presentation reader only"
   assert.match(page, /candidate\.discriminatingTest/);
   assert.match(page, /RESEARCH NOW/);
   assert.match(page, /TRADINGVIEW INVESTIGATIONS/);
+  assert.match(page, /getCurrentMarketMotion/);
+  assert.match(page, /selectPromotedMarketMotionForDossier/);
+  assert.match(page, /PROMOTED MARKET MOTION/);
+  assert.match(page, /does not guess a fuzzy Story mapping/);
 
   assert.doesNotMatch(page, /openai/i);
   assert.doesNotMatch(page, /runIntelligenceEngine/);
