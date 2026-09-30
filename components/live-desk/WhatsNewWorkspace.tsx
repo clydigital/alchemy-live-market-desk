@@ -11,7 +11,7 @@ export type WhatsNewTopic = "FX" | "Stocks" | "Geopolitics" | "Macro" | "Commodi
 export type WhatsNewDelta = {
   id: string;
   kind: string;
-  stream: "Story" | "Statement" | "News";
+  stream: "Story" | "Motion" | "Statement" | "News";
   topic: WhatsNewTopic;
   title: string;
   detail: string;
@@ -25,6 +25,14 @@ export type WhatsNewDelta = {
   hybridHref: string | null;
   interpretationState: "interpreted" | "observed_pending" | null;
   breakdown: StoryBreakdown | null;
+  motion: {
+    whatHappened: string;
+    marketReaction: string | null;
+    whyInteresting: string;
+    bigPictureBridge: string;
+    nextTest: string | null;
+    lifecycleState: string;
+  } | null;
   ageState: "current" | "historical";
   ageLabel: string | null;
 };
@@ -73,6 +81,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
   const counts = useMemo(() => ({
     All: enriched.length,
     Story: enriched.filter((delta) => delta.stream === "Story").length,
+    Motion: enriched.filter((delta) => delta.stream === "Motion").length,
     Statement: enriched.filter((delta) => delta.stream === "Statement").length,
     News: enriched.filter((delta) => delta.stream === "News").length,
   }), [enriched]);
@@ -90,6 +99,11 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         delta.storyTitle || "",
         delta.verification || "",
         delta.breakdown?.whyItMatters || "",
+        delta.motion?.whatHappened || "",
+        delta.motion?.marketReaction || "",
+        delta.motion?.whyInteresting || "",
+        delta.motion?.bigPictureBridge || "",
+        delta.motion?.nextTest || "",
         ...(delta.breakdown?.affectedMarkets || []),
         ...delta.regimes.flatMap((regime) => [regime.label, regime.subgroup]),
         ...delta.traderFlags.map((flag) => flag.label),
@@ -101,7 +115,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
     <div className={styles.workspace}>
       <div className={styles.controls}>
         <div className={styles.segments} aria-label="Filter What’s New by record type">
-          {(["All", "Story", "Statement", "News"] as const).map((item) => (
+          {(["All", "Motion", "Story", "Statement", "News"] as const).map((item) => (
             <button key={item} className={stream === item ? styles.active : ""} onClick={() => setStream(item)}>
               {item} <b>{counts[item]}</b>
             </button>
@@ -143,6 +157,15 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                 </div>
               </header>
               <p><TraderText text={delta.detail} /></p>
+              {delta.motion ? (
+                <div className={styles.motionBreakdown}>
+                  <p><strong>What happened:</strong> {delta.motion.whatHappened}</p>
+                  {delta.motion.marketReaction ? <p><strong>Reaction:</strong> {delta.motion.marketReaction}</p> : null}
+                  <p><strong>Why it matters:</strong> {delta.motion.whyInteresting}</p>
+                  <div><strong>Big-picture bridge</strong><span>{delta.motion.bigPictureBridge}</span></div>
+                  {delta.motion.nextTest ? <p><strong>Next test:</strong> {delta.motion.nextTest}</p> : null}
+                </div>
+              ) : null}
               {delta.breakdown ? (
                 <div className={styles.breakdown}>
                   <div><strong>Markets</strong><span>{delta.breakdown.affectedMarkets.join(" · ") || "No assets mapped"}</span></div>
