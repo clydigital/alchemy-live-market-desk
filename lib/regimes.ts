@@ -263,7 +263,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "global-cost-of-capital", subgroup: "fed-front-end", pattern: /\b(fed|fomc|policy rate|rate hike|rate cut|front[- ]end|2y|two[- ]year|fed funds)\b/i, weight: 5 },
   { regime: "global-cost-of-capital", subgroup: "treasury-fiscal", pattern: /\b(treasury|fiscal|deficit|debt supply|issuance|buyback|borrowing|tga|auction)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "long-end", pattern: /\b(10y|30y|long[- ]end|term premium|duration|real yield|breakeven|mortgage rate)\b/i, weight: 6 },
-  { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|yen|carry trade|global yield|repatriat)\b/i, weight: 5 },
+  { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|japanese|yen|usd.?jpy|carry trade|global yield|global rates|repatriat|bund|gilt|tic|foreign treasury|foreign demand|hedging cost)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(credit|spread|refinanc|funding|bond issuance|project finance|leverage|debt-funded)\b/i, weight: 5 },
   { regime: "global-cost-of-capital", subgroup: "housing", pattern: /\b(housing|mortgage|homebuilder|home sales|affordability)\b/i, weight: 5 },
 
