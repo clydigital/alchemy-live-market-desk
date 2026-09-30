@@ -530,7 +530,18 @@ test("Task 8 mapper rejects blocker references that do not resolve to a canonica
   }] as typeof output.research_gaps;
 
   const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
-  assert.equal(dossierInput.research_gaps.length, 0);
+  const persistedGaps = dossierInput.research_gaps.filter(
+    (gap): gap is Record<string, unknown> => Boolean(gap) && typeof gap === "object" && !Array.isArray(gap),
+  );
+  assert.equal(
+    persistedGaps.some((gap) => gap.severity === "MATERIAL" || gap.gap_class === "BLOCKER"),
+    false,
+  );
+  assert.ok(persistedGaps.some((gap) =>
+    gap.severity === "INFORMATIONAL"
+    && gap.gap_class === "REFINEMENT"
+    && /unlinked blocker/i.test(String(gap.description ?? ""))
+  ));
 
   const persistedOutput = dossierInput.payload.analytical_output as ResearchBrainOutputV1;
   assert.ok(persistedOutput.research_now.some((item) =>
