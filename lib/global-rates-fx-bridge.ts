@@ -59,11 +59,11 @@ function nodeLines(items: RegimeContributionNode[]): EvidenceLine[] {
     text: `${item.title}. ${item.detail}`,
     at: item.timestamp,
     kind: "node" as const,
-    state: item.state === "supports" || item.state === "interpretation_pending"
+    state: item.state === "interpretation_pending"
       ? "observed" as const
-      : item.state === "context"
-        ? "weak" as const
-        : "supported" as const,
+      : item.state === "supports"
+        ? "supported" as const
+        : "weak" as const,
   }));
 }
 
