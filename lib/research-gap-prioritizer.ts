@@ -153,11 +153,20 @@ function overlapsInvestigation(
   candidate: ResearchGapWorkCandidate,
   selected: PrioritisedResearchGap[],
 ) {
+  // Only suppress the lower-level Investigation card when higher-level selected
+  // Research Now work already operationalises that investigation. Distinct
+  // Research Now actions may share one investigation and still represent
+  // different evidence branches worth funding separately.
+  if (candidate.sourceKind !== "investigation") return null;
+
   const ids = new Set(candidate.linkedInvestigationIds);
   if (ids.size === 0) return null;
 
   for (const item of selected) {
-    if (item.linkedInvestigationIds.some((id) => ids.has(id))) return item;
+    if (
+      item.sourceKind === "research_now"
+      && item.linkedInvestigationIds.some((id) => ids.has(id))
+    ) return item;
   }
   return null;
 }
