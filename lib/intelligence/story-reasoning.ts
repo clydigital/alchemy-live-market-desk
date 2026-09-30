@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import type { PresenterMechanismCode } from "./presenter-mechanism-codes.ts";
+
 export const CANONICAL_STORY_REASONING_V1 = "canonical-story-reasoning/v1" as const;
 
 export type EvidenceState =
@@ -86,6 +88,17 @@ export type CanonicalNextTestV1 = {
   resolutionEvidenceIds: string[];
 };
 
+export type CanonicalExplanationCandidateV1 = {
+  hypothesisId: string;
+  mechanismCode: PresenterMechanismCode;
+  statement: string;
+  causalMechanism: string;
+  confidence: number;
+  evidenceForIds: string[];
+  evidenceAgainstIds: string[];
+  isLeading: boolean;
+};
+
 export type CanonicalSeriesRefV1 = {
   seriesId: string;
   label: string;
@@ -151,6 +164,7 @@ export type CanonicalStoryReasoningV1 = {
   currentState: string | null;
   marketReaction: string | null;
   acceptedExplanation: string | null;
+  explanationCandidates?: CanonicalExplanationCandidateV1[];
   claims: CanonicalClaimV1[];
   causalChain: CanonicalCausalEdgeV1[];
   countercase: CanonicalCountercaseV1;
@@ -174,7 +188,12 @@ export type StoryReasoningEvidence = {
 
 export type StoryReasoningHypothesis = {
   id: string;
+  statement?: string;
+  mechanism?: string;
+  mechanismCode?: PresenterMechanismCode;
+  confidence?: number;
   evidenceForIds: string[];
+  evidenceAgainstIds?: string[];
   causalChain: Array<{
     from: string;
     relationship: string;
@@ -287,6 +306,7 @@ function factClaims(
 export function buildCanonicalStoryReasoningSnapshotV1(input: {
   synthesis: StoryReasoningSynthesis;
   hypothesis: StoryReasoningHypothesis;
+  competingHypotheses?: StoryReasoningHypothesis[];
   challenger: StoryReasoningChallenger | null;
   scenarios: StoryReasoningScenario[];
   evidenceById: ReadonlyMap<string, StoryReasoningEvidence>;
@@ -310,8 +330,35 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     };
   });
 
+  const primaryThesisEvidenceIds = assertKnownEvidenceIds(
+    input.hypothesis.evidenceForIds,
+    knownEvidenceIds,
+    "Primary hypothesis thesis evidence",
+  );
+
+  const explanationCandidates = [input.hypothesis, ...(input.competingHypotheses ?? [])]
+    .filter((hypothesis, index, all) => all.findIndex((item) => item.id === hypothesis.id) === index)
+    .slice(0, 3)
+    .flatMap((hypothesis, index): CanonicalExplanationCandidateV1[] => {
+      const statement = hypothesis.statement?.trim() || "";
+      const causalMechanism = hypothesis.mechanism?.trim() || "";
+      if (!statement || !causalMechanism) return [];
+      return [{
+        hypothesisId: hypothesis.id,
+        mechanismCode: hypothesis.mechanismCode ?? "UNKNOWN",
+        statement,
+        causalMechanism,
+        confidence: Math.max(0, Math.min(100, Number.isFinite(hypothesis.confidence) ? Number(hypothesis.confidence) : 0)),
+        evidenceForIds: index === 0
+          ? primaryThesisEvidenceIds
+          : assertKnownEvidenceIds(hypothesis.evidenceForIds, knownEvidenceIds, `Explanation candidate ${hypothesis.id} supporting evidence`),
+        evidenceAgainstIds: assertKnownEvidenceIds(hypothesis.evidenceAgainstIds ?? [], knownEvidenceIds, `Explanation candidate ${hypothesis.id} conflicting evidence`),
+        isLeading: index === 0,
+      }];
+    });
+
   const claims: CanonicalClaimV1[] = factClaims(input.synthesis.decisiveEvidenceIds, input.evidenceById, knownEvidenceIds);
-  const thesisEvidenceIds = assertKnownEvidenceIds(input.hypothesis.evidenceForIds, knownEvidenceIds, "Primary hypothesis thesis evidence");
+  const thesisEvidenceIds = primaryThesisEvidenceIds;
   claims.push({
     id: `claim:thesis:${hash(input.synthesis.thesis, 20)}`,
     type: "thesis",
@@ -378,6 +425,7 @@ export function buildCanonicalStoryReasoningSnapshotV1(input: {
     currentState: input.synthesis.currentState,
     marketReaction: input.synthesis.marketReaction,
     acceptedExplanation: input.synthesis.acceptedExplanation,
+    explanationCandidates,
     claims,
     causalChain,
     countercase: {
@@ -424,6 +472,7 @@ export function materialiseCanonicalStoryReasoningV1(version: ImmutableStoryVers
   if (!reasoning) return null;
   return {
     ...reasoning,
+    explanationCandidates: reasoning.explanationCandidates ?? [],
     lifecycle: reasoning.lifecycle ?? lifecycleFromVersionStatus(version.status),
     storyId: version.story_id,
     storyVersionId: version.id,

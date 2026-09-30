@@ -51,7 +51,12 @@ function buildSnapshot({
     },
     hypothesis: {
       id: "hyp-1",
+      statement: "Lower front-end yields are supporting gold.",
+      mechanism: "Lower real yields reduce the opportunity cost of holding gold.",
+      mechanismCode: "REAL_YIELD",
+      confidence: 72,
       evidenceForIds: hypothesisEvidenceForIds,
+      evidenceAgainstIds: ["ev-3"],
       causalChain: [
         {
           from: "Lower front-end yields",
@@ -78,6 +83,18 @@ function buildSnapshot({
       confirmationCriteria: ["Front-end yields continue lower"],
       invalidationCriteria: ["DXY and real yields break materially higher"],
     },
+    competingHypotheses: [{
+      id: "hyp-2",
+      statement: "The gold rally may be a positioning unwind.",
+      mechanism: "Short covering can temporarily overpower the macro signal.",
+      mechanismCode: "SHORT_COVERING",
+      confidence: 51,
+      evidenceForIds: ["ev-2"],
+      evidenceAgainstIds: ["ev-1"],
+      causalChain: [],
+      confirmationCriteria: ["The move fades after positioning normalises"],
+      invalidationCriteria: ["Gold remains bid with supportive rates evidence"],
+    }],
     challenger: {
       strongestCountercase: "Inflation reacceleration could reverse the yield move.",
       conflictingEvidenceIds: challengerEvidenceIds,
@@ -193,6 +210,32 @@ test("fact claims are copied only from canonical evidence text", () => {
   assert.deepEqual(facts.map((claim) => claim.evidenceIds), [["ev-1"], ["ev-2"]]);
 });
 
+test("Presenter explanation candidates preserve competing mechanisms and evidence on both sides", () => {
+  const snapshot = buildSnapshot();
+  assert.deepEqual(snapshot.explanationCandidates, [
+    {
+      hypothesisId: "hyp-1",
+      mechanismCode: "REAL_YIELD",
+      statement: "Lower front-end yields are supporting gold.",
+      causalMechanism: "Lower real yields reduce the opportunity cost of holding gold.",
+      confidence: 72,
+      evidenceForIds: ["ev-1"],
+      evidenceAgainstIds: ["ev-3"],
+      isLeading: true,
+    },
+    {
+      hypothesisId: "hyp-2",
+      mechanismCode: "SHORT_COVERING",
+      statement: "The gold rally may be a positioning unwind.",
+      causalMechanism: "Short covering can temporarily overpower the macro signal.",
+      confidence: 51,
+      evidenceForIds: ["ev-2"],
+      evidenceAgainstIds: ["ev-1"],
+      isLeading: false,
+    },
+  ]);
+});
+
 test("Hypothesis-owned causal chain and criteria survive materialisation", () => {
   const snapshot = buildSnapshot();
   assert.deepEqual(snapshot.confirmation, ["Front-end yields continue lower"]);
@@ -284,6 +327,7 @@ test("materialised V1 matches the frozen A1 transport shape", () => {
     "contractVersion",
     "countercase",
     "currentState",
+    "explanationCandidates",
     "effectiveAt",
     "invalidation",
     "lifecycle",
