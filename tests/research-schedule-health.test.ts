@@ -22,3 +22,41 @@ test("enabled scheduling retains real slot health", () => {
   assert.notEqual(health.state, "disabled");
   assert.ok(health.slots.some((slot) => slot.status === "missed"));
 });
+
+
+test("auxiliary video runs do not make canonical Live research look fresher", () => {
+  const health = getFourSlotResearchHealth([
+    {
+      schedule_slot: "morning",
+      scheduled_for: "2026-09-30T01:30:00.000Z",
+      completed_at: "2026-09-30T07:01:32.031Z",
+      status: "completed",
+      warnings: [],
+    },
+    {
+      schedule_slot: "video_late_morning",
+      scheduled_for: "2026-09-30T13:00:00.000Z",
+      completed_at: "2026-09-30T13:55:27.186Z",
+      status: "completed",
+      warnings: [],
+    },
+  ], new Date("2026-09-30T16:10:00.000Z"), true);
+
+  assert.equal(health.latestCompletedAt, "2026-09-30T07:01:32.031Z");
+  assert.equal(health.slots.find((slot) => slot.key === "evening")?.status, "missed");
+});
+
+test("video-only history does not count as configured full-desk research", () => {
+  const health = getFourSlotResearchHealth([
+    {
+      schedule_slot: "video_late_morning",
+      scheduled_for: "2026-09-30T13:00:00.000Z",
+      completed_at: "2026-09-30T13:55:27.186Z",
+      status: "completed",
+      warnings: [],
+    },
+  ], new Date("2026-09-30T16:10:00.000Z"), true);
+
+  assert.equal(health.state, "not_configured");
+  assert.equal(health.latestCompletedAt, null);
+});
