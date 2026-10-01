@@ -12,6 +12,7 @@ import {
   marketMotionFromEditionPayload,
   selectMarketMotionEditionContext,
 } from "@/lib/market-motion-edition";
+import { deriveMarketMotionAttention } from "@/lib/market-motion";
 import { buildRegimeProjection } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -148,8 +149,23 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     preferredStoryId,
     preferredRegimeSlug,
     limit: 3,
-  }).map((item) => ({
+  }).map((item) => {
+    const attention = deriveMarketMotionAttention({
+      materiality: item.materiality,
+      relevance: item.relevance,
+      novelty: item.novelty,
+      verificationState: item.verificationState,
+      lifecycleState: item.lifecycleState,
+      category: item.category,
+      tickers: item.tickers,
+      marketReaction: item.marketReaction,
+    });
+    return {
     id: item.id,
+    attentionTier: attention.tier,
+    attentionScore: attention.score,
+    writingPotential: attention.writingPotential,
+    attentionReasons: attention.reasons,
     headline: item.headline,
     category: item.category,
     lifecycleState: item.lifecycleState,
@@ -167,7 +183,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     storyHref: `/stories/${item.storySlug}`,
     regimeLabel: item.regimeLabel,
     regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
-  }));
+    };
+  });
   const presenter = asPresenterDossier(currentEdition?.payload?.dossier);
   const presenterLessons = presenter
     ? [
