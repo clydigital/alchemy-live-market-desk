@@ -6,7 +6,7 @@ import type { ResearchGapCaseRow } from "./research-gap-lifecycle.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 export type ResearchGapContextSource = {
-  sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse";
+  sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse" | "market_motion";
   sourceId: string;
   contractVersion: string;
   asOf: string;
@@ -68,6 +68,22 @@ export function adaptMacroPulseContext(input: {
     sourceId: requiredText(input.id, "MacroPulse id"),
     contractVersion: requiredText(input.contractVersion, "MacroPulse contractVersion"),
     asOf: iso(input.asOf, "MacroPulse asOf"),
+    authority: "context_only",
+    payload: clone(input.payload),
+  };
+}
+
+export function adaptMarketMotionContext(input: {
+  id: string;
+  contractVersion: string;
+  asOf: string;
+  payload: Record<string, unknown>;
+}): ResearchGapContextSource {
+  return {
+    sourceType: "market_motion",
+    sourceId: requiredText(input.id, "Market Motion id"),
+    contractVersion: requiredText(input.contractVersion, "Market Motion contractVersion"),
+    asOf: iso(input.asOf, "Market Motion asOf"),
     authority: "context_only",
     payload: clone(input.payload),
   };
@@ -191,10 +207,30 @@ export async function loadResearchGapPlanContext(
     dossierId = dossier.previous_dossier_id;
   }
 
+  const additionalSources: ResearchGapContextSource[] = [];
+  const exactOccurrence = occurrence as ResearchGapOccurrenceRow;
+  if (exactOccurrence.source_kind === "market_motion") {
+    const rawMotion = await single(
+      client.from("market_motion_items").select("*").eq("id", exactOccurrence.source_ref).maybeSingle(),
+      `Could not load exact Market Motion source ${exactOccurrence.source_ref}`,
+    );
+    if (!rawMotion || typeof rawMotion !== "object" || Array.isArray(rawMotion)) {
+      throw new Error("Exact Market Motion source was not found.");
+    }
+    const motion = rawMotion as Record<string, unknown>;
+    additionalSources.push(adaptMarketMotionContext({
+      id: requiredText(motion.id, "Market Motion id"),
+      contractVersion: requiredText(motion.contract_version, "Market Motion contract_version"),
+      asOf: iso(motion.observed_at, "Market Motion observed_at"),
+      payload: motion,
+    }));
+  }
+
   return buildResearchGapPlanContext({
     gap,
-    occurrence: occurrence as ResearchGapOccurrenceRow,
+    occurrence: exactOccurrence,
     dossierLineage,
     frozenAt: now.toISOString(),
+    additionalSources,
   });
 }
