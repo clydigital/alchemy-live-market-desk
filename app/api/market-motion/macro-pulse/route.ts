@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
 
   try {
     const result = await persistMarketMotionFromMacroPulseCandidates({ submission });
+    if (result.inserted > 0) {
+      revalidatePath("/");
+      revalidatePath("/whats-new");
+    }
     return response({
       status: "accepted",
       contractVersion: "macro-pulse-motion-candidate/v1",
