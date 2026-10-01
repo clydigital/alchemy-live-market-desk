@@ -95,6 +95,7 @@ test("Task 1 rejects persistence control fields from the request body", async ()
     request({ persist: false }),
     {
       authorize: authorized,
+      syncResearchGaps: async () => null,
       run: async () => {
         runCalled = true;
         return persistedResult();
@@ -120,6 +121,7 @@ test("Task 1 authorised request persists once with bounded options", async () =>
     }),
     {
       authorize: authorized,
+      syncResearchGaps: async () => null,
       run: async (options) => {
         calls.push(options);
         return persistedResult();
@@ -154,6 +156,7 @@ test("explicit rebase strategy remains available for deliberate full rebuilds", 
     }),
     {
       authorize: authorized,
+      syncResearchGaps: async () => null,
       run: async (options) => {
         calls.push(options);
         return persistedResult();
@@ -174,6 +177,7 @@ test("automatic strategy may complete with NO_CHANGE without persisting a duplic
     }),
     {
       authorize: authorized,
+      syncResearchGaps: async () => null,
       run: async () => ({
         ...persistedResult(),
         mode: "no_change",
@@ -200,6 +204,70 @@ test("automatic strategy may complete with NO_CHANGE without persisting a duplic
   assert.equal(body.currentDossier.id, "11111111-1111-4111-8111-111111111111");
 });
 
+test("Dossier handoff materialises the bounded Research Gap queue without starting research", async () => {
+  let syncCalls = 0;
+  const response = await handleDossierV2PersistRunWithDependencies(
+    request({ strategy: "auto" }),
+    {
+      authorize: authorized,
+      run: async () => ({
+        ...persistedResult(),
+        mode: "no_change",
+        delta_decision: {
+          action: "NO_CHANGE",
+          reason: "No material Story change.",
+          previousDossierId: "11111111-1111-4111-8111-111111111111",
+          previousAsOf: "2026-09-21T00:00:00.000Z",
+          changedStoryIds: [],
+          newObservedEvidence: 2,
+          postIntelligenceModelCallBudget: 0,
+        },
+      }),
+      syncResearchGaps: async () => {
+        syncCalls += 1;
+        return {
+          contractVersion: "research-gap-lifecycle-sync/1" as const,
+          dossierId: "11111111-1111-4111-8111-111111111111",
+          dossierAsOf: "2026-09-21T00:00:00.000Z",
+          syncedAt: "2026-09-21T00:02:00.000Z",
+          selectedCount: 2,
+          cases: [],
+        };
+      },
+      logger: () => undefined,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(syncCalls, 1);
+  const body = await response.json();
+  assert.deepEqual(body.researchGapSync, {
+    status: "synced",
+    dossierId: "11111111-1111-4111-8111-111111111111",
+    selectedCount: 2,
+  });
+});
+
+test("Research Gap materialisation failure is explicit after a valid Dossier handoff", async () => {
+  const response = await handleDossierV2PersistRunWithDependencies(
+    request({ strategy: "auto" }),
+    {
+      authorize: authorized,
+      run: async () => persistedResult(),
+      syncResearchGaps: async () => {
+        throw new Error("gap sync unavailable");
+      },
+      logger: () => undefined,
+    },
+  );
+
+  assert.equal(response.status, 500);
+  const body = await response.json();
+  assert.equal(body.status, "failed");
+  assert.match(body.error, /Research Gap materialisation failed/);
+  assert.equal(body.currentDossierId, "11111111-1111-4111-8111-111111111111");
+});
+
 test("Task 1 production route and workflow keep the trusted OIDC boundary", () => {
   const route = readFileSync(
     new URL("../app/api/admin/dossier-v2/run/route.ts", import.meta.url),
@@ -217,6 +285,8 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.match(route, /handleDossierV2PersistRunWithDependencies/);
   assert.match(handler, /verifyGitHubActionsManualLiveTrigger/);
   assert.match(handler, /persist:\s*true/);
+  assert.match(handler, /syncLatestPrioritisedResearchGapCases/);
+  assert.match(handler, /dossier_v2_research_gap_materialised/);
   assert.match(workflow, /dossier_v2_persist/);
   assert.match(workflow, /api\/admin\/dossier-v2\/run/);
   assert.match(workflow, /dossier_strategy:/);
