@@ -87,6 +87,58 @@ export type MarketMotionIngestionResult = {
   warnings: string[];
 };
 
+export const MACRO_PULSE_MOTION_KINDS = [
+  "AUCTION_SHOCK",
+  "RATES_MOVE",
+  "OIL_PRODUCTS_DIVERGENCE",
+  "POLICY_SURPRISE",
+  "CROSS_ASSET_DIVERGENCE",
+] as const;
+
+export type MacroPulseMotionKind = typeof MACRO_PULSE_MOTION_KINDS[number];
+
+export type MacroPulseMotionReference = {
+  sourceName: string;
+  sourceUrl: string;
+  sourceKind?: NonNullable<MarketMotionInput["sourceKind"]>;
+  publishedAt?: string | null;
+  claim?: string | null;
+};
+
+export type MacroPulseMotionCandidateInput = {
+  candidateKey: string;
+  kind: MacroPulseMotionKind;
+  occurredAt: string;
+  headline: string;
+  whatHappened: string;
+  marketReaction?: string | null;
+  whyInteresting: string;
+  nextTest: string;
+  affectedStorySlugs?: string[];
+  tickers?: string[];
+  materiality: number;
+  relevance: number;
+  novelty: number;
+  references?: MacroPulseMotionReference[];
+};
+
+export type MacroPulseMotionSubmission = {
+  pulseId: string;
+  pulseUrl: string;
+  pulseAsOf: string;
+  candidates: MacroPulseMotionCandidateInput[];
+};
+
+export class MacroPulseMotionInputError extends Error {
+  readonly errors: string[];
+
+  constructor(errors: string[]) {
+    super(errors.join(" "));
+    this.name = "MacroPulseMotionInputError";
+    this.errors = errors;
+  }
+}
+
 function cleanText(value: string | undefined | null, max: number) {
   return (value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
@@ -119,6 +171,10 @@ const EVENT_FAMILIES: Array<[string, RegExp]> = [
   ["pce", /\b(?:personal consumption expenditures|pce)\b/i],
   ["jobs", /\b(?:nonfarm payrolls?|nfp|jobs report|payrolls)\b/i],
   ["fomc", /\b(?:fomc|fed decision|federal reserve decision)\b/i],
+  ["auction", /\b(?:treasury auction|auction tail|auction stop|bid-to-cover|indirect bidders?)\b/i],
+  ["rates_move", /\b(?:(?:2|5|10|20|30)[- ]?year treasury yield|(?:2y|5y|10y|20y|30y) yield|yield curve (?:steepen|flatten|bear|bull))\b/i],
+  ["oil_products", /\b(?:crude[- ]products? divergence|oil[- ]products? divergence|distillate divergence|gasoline divergence|refined products? divergence)\b/i],
+  ["policy_surprise", /\b(?:policy surprise|unexpected policy|surprise tariff|surprise sanction|unexpected tariff|unexpected sanction)\b/i],
 ];
 
 const SUBJECT_STOPWORDS = new Set([
@@ -181,7 +237,9 @@ function sourceRef(candidate: MarketMotionInput): MarketMotionSourceRef {
     sourceUrl: candidate.sourceUrl,
     sourceKind: candidate.sourceKind || "other",
     verificationState: candidate.verificationState || "LEAD",
-    role: candidate.sourceKind === "creator" ? "discovery" : "primary",
+    role: candidate.sourceKind === "creator" || metadata.ingestion === "macro-pulse-motion-candidate/v1"
+      ? "discovery"
+      : "primary",
     sourceItemKey: typeof metadata.itemKey === "string" ? metadata.itemKey : null,
   };
 }
@@ -251,9 +309,10 @@ function eventFamily(text: string) {
 }
 
 function eventMotionKey(candidate: MarketMotionInput) {
-  const family = eventFamily(`${candidate.headline} ${candidate.whatHappened}`);
-  if (!family) return candidate.motionKey;
   const metadata = candidate.metadata || {};
+  const explicitFamily = typeof metadata.eventFamily === "string" ? metadata.eventFamily.trim() : "";
+  const family = explicitFamily || eventFamily(`${candidate.headline} ${candidate.whatHappened}`);
+  if (!family) return candidate.motionKey;
   const entities = metadataStrings(metadata, "entities", 8);
   const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
   const subject = entitySubject || properSubject(candidate.headline) || candidate.tickers?.map(normalizeSubject).find(Boolean) || null;
@@ -563,6 +622,181 @@ export function buildMarketMotionCandidates(
     });
 }
 
+
+
+const MACRO_PULSE_MAX_CANDIDATES = MARKET_MOTION_RUN_LIMIT;
+
+function validHttps(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function macroPulseEventFamily(kind: MacroPulseMotionKind) {
+  if (kind === "AUCTION_SHOCK") return "auction";
+  if (kind === "RATES_MOVE") return "rates_move";
+  if (kind === "OIL_PRODUCTS_DIVERGENCE") return "oil_products";
+  if (kind === "POLICY_SURPRISE") return "policy_surprise";
+  return "cross_asset_divergence";
+}
+
+function macroPulseCategory(kind: MacroPulseMotionKind): MarketMotionCategory {
+  if (kind === "OIL_PRODUCTS_DIVERGENCE") return "ENERGY";
+  if (kind === "POLICY_SURPRISE") return "POLICY";
+  if (kind === "CROSS_ASSET_DIVERGENCE") return "MARKET_STRUCTURE";
+  return "MACRO";
+}
+
+function validateMacroPulseMotionSubmission(
+  submission: MacroPulseMotionSubmission,
+  now: Date,
+) {
+  const errors: string[] = [];
+  const pulseId = cleanText(submission?.pulseId, 120);
+  const pulseUrl = cleanText(submission?.pulseUrl, 2_000);
+  const pulseAsOf = Date.parse(submission?.pulseAsOf || "");
+  const candidates = Array.isArray(submission?.candidates) ? submission.candidates : [];
+
+  if (!pulseId) errors.push("pulseId is required and must be at most 120 characters.");
+  if (!pulseUrl || !validHttps(pulseUrl)) errors.push("pulseUrl must be a credential-free HTTPS URL.");
+  if (!Number.isFinite(pulseAsOf)) errors.push("pulseAsOf must be a valid timestamp.");
+  if (!candidates.length) errors.push("At least one Macro Pulse candidate is required.");
+  if (candidates.length > MACRO_PULSE_MAX_CANDIDATES) {
+    errors.push(`At most ${MACRO_PULSE_MAX_CANDIDATES} Macro Pulse candidates may be submitted at once.`);
+  }
+
+  const seen = new Set<string>();
+  candidates.forEach((candidate, index) => {
+    const prefix = `candidates[${index}]`;
+    const key = cleanText(candidate?.candidateKey, 120);
+    const occurred = Date.parse(candidate?.occurredAt || "");
+    if (!key) errors.push(`${prefix}.candidateKey is required and must be at most 120 characters.`);
+    else if (seen.has(key)) errors.push(`${prefix}.candidateKey is duplicated.`);
+    else seen.add(key);
+    if (!MACRO_PULSE_MOTION_KINDS.includes(candidate?.kind as MacroPulseMotionKind)) errors.push(`${prefix}.kind is invalid.`);
+    if (!Number.isFinite(occurred)) errors.push(`${prefix}.occurredAt must be a valid timestamp.`);
+    else {
+      if (occurred > now.getTime() + 5 * 60_000) errors.push(`${prefix}.occurredAt cannot be materially in the future.`);
+      if (now.getTime() - occurred > MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000) errors.push(`${prefix} is outside the ${MARKET_MOTION_FRESHNESS_HOURS}-hour Motion window.`);
+    }
+    if (!cleanText(candidate?.headline, 500)) errors.push(`${prefix}.headline is required.`);
+    if (!cleanText(candidate?.whatHappened, 3_600)) errors.push(`${prefix}.whatHappened is required.`);
+    if (!cleanText(candidate?.whyInteresting, 1_200)) errors.push(`${prefix}.whyInteresting is required.`);
+    if (!cleanText(candidate?.nextTest, 1_200)) errors.push(`${prefix}.nextTest is required because Macro Pulse is discovery, not evidence.`);
+    for (const field of ["materiality", "relevance", "novelty"] as const) {
+      const value = Number(candidate?.[field]);
+      if (!Number.isInteger(value) || value < 0 || value > 100) errors.push(`${prefix}.${field} must be an integer from 0 to 100.`);
+    }
+    if (Number(candidate?.materiality) < MARKET_MOTION_MIN_MATERIALITY) errors.push(`${prefix}.materiality is below the Motion threshold.`);
+    if (Number(candidate?.relevance) < MARKET_MOTION_MIN_RELEVANCE) errors.push(`${prefix}.relevance is below the Motion threshold.`);
+    if (Number(candidate?.novelty) < MARKET_MOTION_MIN_NOVELTY) errors.push(`${prefix}.novelty is below the Motion threshold.`);
+
+    const references = Array.isArray(candidate?.references) ? candidate.references : [];
+    if (references.length > 12) errors.push(`${prefix}.references may contain at most 12 discovery references.`);
+    references.forEach((reference, refIndex) => {
+      if (!cleanText(reference?.sourceName, 300)) errors.push(`${prefix}.references[${refIndex}].sourceName is required.`);
+      if (!validHttps(cleanText(reference?.sourceUrl, 2_000))) errors.push(`${prefix}.references[${refIndex}].sourceUrl must be HTTPS.`);
+      if (reference?.publishedAt && !Number.isFinite(Date.parse(reference.publishedAt))) errors.push(`${prefix}.references[${refIndex}].publishedAt must be a valid timestamp when supplied.`);
+    });
+  });
+
+  if (errors.length) throw new MacroPulseMotionInputError(errors);
+}
+
+export function buildMacroPulseMotionCandidates(
+  submission: MacroPulseMotionSubmission,
+  stories: StoryRef[],
+  options: { now?: Date } = {},
+): MarketMotionInput[] {
+  const now = options.now ?? new Date();
+  validateMacroPulseMotionSubmission(submission, now);
+
+  return submission.candidates.map((candidate) => {
+    const references = (candidate.references || []).slice(0, 12);
+    const affectedStorySlugs = asStringArray(candidate.affectedStorySlugs, 12);
+    const text = [
+      candidate.headline,
+      candidate.whatHappened,
+      candidate.marketReaction || "",
+      candidate.whyInteresting,
+      candidate.nextTest,
+      ...references.map((reference) => reference.claim || ""),
+    ].join(" ");
+    const links = resolveMarketMotionLinks({
+      text,
+      affectedStorySlugs,
+      stories,
+    });
+    const storyBySlug = new Map(stories.map((story) => [story.slug, story]));
+    const story = affectedStorySlugs.map((slug) => storyBySlug.get(slug)).find(Boolean) || null;
+    const detectedTickers = explicitlyMentionedInstrumentSpecs(text).map((spec) => spec.instrument);
+    const tickers = [...new Set([
+      ...asStringArray(candidate.tickers, 20).map((ticker) => ticker.toUpperCase()),
+      ...detectedTickers,
+    ])].slice(0, 20);
+    const eventFamily = macroPulseEventFamily(candidate.kind);
+
+    return {
+      motionKey: `macropulse:${cleanText(submission.pulseId, 120)}:${cleanText(candidate.candidateKey, 120)}`,
+      lifecycleState: "MOTION",
+      category: macroPulseCategory(candidate.kind),
+      verificationState: "LEAD",
+      headline: cleanText(candidate.headline, 500),
+      whatHappened: cleanText(candidate.whatHappened, 3_600),
+      marketReaction: cleanText(candidate.marketReaction, 1_200) || null,
+      whyInteresting: cleanText(candidate.whyInteresting, 1_200),
+      bigPictureBridge: bridgeFor({
+        regimeSlug: links.primaryRegimeSlug,
+        story,
+      }),
+      nextTest: cleanText(candidate.nextTest, 1_200),
+      tickers,
+      sourceName: "Macro Pulse",
+      sourceUrl: submission.pulseUrl,
+      sourceKind: "other",
+      materiality: candidate.materiality,
+      relevance: candidate.relevance,
+      novelty: candidate.novelty,
+      occurredAt: candidate.occurredAt,
+      observedAt: now.toISOString(),
+      primaryStoryId: links.primaryStoryId,
+      primaryRegimeSlug: links.primaryRegimeSlug,
+      metadata: {
+        ingestion: "macro-pulse-motion-candidate/v1",
+        pulseId: submission.pulseId,
+        pulseAsOf: new Date(submission.pulseAsOf).toISOString(),
+        pulseCandidateKey: candidate.candidateKey,
+        pulseCandidateKind: candidate.kind,
+        eventFamily,
+        affectedStorySlugs,
+        primaryRegimeSubgroup: links.primaryRegimeSubgroup,
+        researchQuestions: [cleanText(candidate.nextTest, 1_200)],
+        sourceRefs: [
+          {
+            sourceName: "Macro Pulse",
+            sourceUrl: submission.pulseUrl,
+            sourceKind: "other",
+            verificationState: "LEAD",
+            role: "discovery",
+            sourceItemKey: `macropulse:${submission.pulseId}:${candidate.candidateKey}`,
+          },
+          ...references.map((reference) => ({
+            sourceName: cleanText(reference.sourceName, 300),
+            sourceUrl: reference.sourceUrl,
+            sourceKind: reference.sourceKind || "other",
+            verificationState: "LEAD" as const,
+            role: "discovery" as const,
+            sourceItemKey: null,
+          })),
+        ],
+        originItemKeys: [`macropulse:${submission.pulseId}:${candidate.candidateKey}`],
+      },
+    };
+  });
+}
 
 function creatorRowEligible(row: ReviewedTranscriptMotionRow, now: Date) {
   if (parseResearchGapHandoffContext(row.divergence_note)) return false;
@@ -883,6 +1117,28 @@ export async function persistMarketMotionFromResearchRun(input: {
     considered: input.items.length + transcriptRows.length,
     creatorRowsConsidered: transcriptRows.length,
     creatorLeadCandidates: creatorCandidates.length,
+    warnings,
+  });
+}
+
+export async function persistMarketMotionFromMacroPulseCandidates(input: {
+  submission: MacroPulseMotionSubmission;
+  now?: Date;
+  client?: SupabaseClient;
+}): Promise<MarketMotionIngestionResult> {
+  const db = input.client ?? createSupabaseAdminClient();
+  const now = input.now ?? new Date();
+  const warnings: string[] = [];
+  const stories = await loadStories(db);
+  const macroCandidates = buildMacroPulseMotionCandidates(input.submission, stories, { now });
+  const candidates = unifyMarketMotionCandidates(macroCandidates);
+
+  return persistUnifiedCandidates({
+    candidates,
+    db,
+    considered: input.submission.candidates.length,
+    creatorRowsConsidered: 0,
+    creatorLeadCandidates: 0,
     warnings,
   });
 }

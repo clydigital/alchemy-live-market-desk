@@ -23,6 +23,7 @@ export const MACHINE_AUTH_PATHS = [
   "/api/research-gap/priorities",
   "/api/research-gap/lifecycle",
   "/api/research-gap/execution",
+  "/api/market-motion/macro-pulse",
   "/api/video-intake",
   "/api/cron/video/transcript-worker",
 ] as const;
