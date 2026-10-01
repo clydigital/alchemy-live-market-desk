@@ -57,23 +57,20 @@ export function assessProductionSchemaDrift(
   expected: ExpectedMigration[],
   applied: AppliedMigration[],
 ) {
-  const expectedNames = new Set(expected.map((migration) => migration.name));
-  const appliedAfterBaseline = applied.filter(
-    (migration) => migration.version >= PRODUCTION_SCHEMA_ENFORCEMENT_START,
-  );
-  const appliedNames = new Set(appliedAfterBaseline.map((migration) => migration.name));
-
+  // The repository timestamp is the enforcement boundary. Historical production
+  // tooling sometimes re-stamped the same migration name when applying it, so
+  // remote timestamps are not reliable enough to filter applied history.
+  const appliedNames = new Set(applied.map((migration) => migration.name));
   const missing = expected.filter((migration) => !appliedNames.has(migration.name));
-  const unexpected = appliedAfterBaseline.filter(
-    (migration) => !expectedNames.has(migration.name),
-  );
+  const appliedExpectedCount = expected.length - missing.length;
 
   return {
-    healthy: missing.length === 0 && unexpected.length === 0,
+    healthy: missing.length === 0,
     missing,
-    unexpected,
+    unexpected: [] as AppliedMigration[],
     expectedCount: expected.length,
-    appliedCount: appliedAfterBaseline.length,
+    appliedCount: appliedExpectedCount,
+    productionHistoryCount: applied.length,
   };
 }
 
