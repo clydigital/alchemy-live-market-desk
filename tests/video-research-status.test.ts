@@ -77,27 +77,23 @@ test("an explicitly blocked job is not reported as pending", () => {
   assert.equal(status.channels.find((channel) => channel.key === "stockedup")?.transcript.state, "blocked");
 });
 
-test("the ten retained production placeholders become claimable through application semantics", () => {
+test("only fixed-universe legacy placeholders are claimable", () => {
   const retained = [
     ["GYne0nYFiqk", "StockedUp"],
     ["tLNn2TcraYg", "Wall Street Truthbombs"],
+    ["MbJlreEtsA8", "FX Evolution"],
+    ["JGXazh-8vog", "TraderNick"],
     ["DoHrjs14ESA", "Traders Reality"],
     ["D_kovjESYsc", "Kevin Gerrity"],
-    ["Em56VP75r2Q", "ClearValue Tax"],
-    ["rZx1mJD_7_s", "StockedUp"],
-    ["YqOCOMPvivY", "Wall Street Truthbombs"],
-    ["wbMNXDKyhQc", "Traders Reality"],
-    ["EfYOPbZ4_98", "Kevin Gerrity"],
-    ["-I-ZPysTU1E", "ClearValue Tax"],
   ] as const;
   const status = composeVideoResearchStatus({
-    now: new Date("2026-09-14T00:00:00.000Z"),
+    now: new Date("2026-10-01T04:00:00.000Z"),
     run: null,
     videos: retained.map(([videoId, publisher], index) => ({
       publisher,
       title: `Retained video ${index + 1}`,
       url: `https://www.youtube.com/watch?v=${videoId}`,
-      published_at: new Date(Date.UTC(2026, 8, 10, 22, 0, index)).toISOString(),
+      published_at: new Date(Date.UTC(2026, 9, 1, 1, 0, index)).toISOString(),
       transcript_status: "missing" as const,
       transcript_provider: null,
       transcript_error_code: null,
@@ -112,8 +108,9 @@ test("the ten retained production placeholders become claimable through applicat
     })),
   });
 
-  assert.equal(status.summary.transcriptsPending, 10);
-  assert.equal(status.summary.transcriptsBlocked, 0);
+  assert.equal(status.summary.transcriptsPending, 4);
+  assert.equal(status.summary.transcriptsBlocked, 2);
   assert.equal(status.summary.transcriptsRunning, 0);
   assert.equal(status.summary.transcriptsCompleted, 0);
 });
+
