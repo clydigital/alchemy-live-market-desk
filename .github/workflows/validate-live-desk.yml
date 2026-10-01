@@ -165,5 +165,8 @@ jobs:
       - name: Apply Market Motion v1 migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001012000_market_motion_v1.sql
 
+      - name: Apply Market Motion 48h freshness migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001140700_market_motion_48h_window.sql
+
       - name: Verify Market Motion v1 database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_motion_v1_contract.sql

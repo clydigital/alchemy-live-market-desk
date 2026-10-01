@@ -11,6 +11,8 @@ declare
   first_id uuid;
   second_id uuid;
   first_version integer;
+  first_observed_at timestamptz;
+  first_expires_at timestamptz;
   second_version integer;
   second_previous uuid;
   update_failed boolean := false;
@@ -113,10 +115,15 @@ begin
     now() - interval '1 hour',
     now(),
     null
-  ) returning id, version_number into first_id, first_version;
+  ) returning id, version_number, observed_at, expires_at
+    into first_id, first_version, first_observed_at, first_expires_at;
 
   if first_version <> 1 then
     raise exception 'First Market Motion version expected 1, got %', first_version;
+  end if;
+
+  if first_expires_at <> first_observed_at + interval '48 hours' then
+    raise exception '48h Market Motion default expiry failed: observed %, expires %', first_observed_at, first_expires_at;
   end if;
 
   insert into public.market_motion_items (
@@ -219,7 +226,7 @@ begin
   where motion_key='contract:expired-motion';
 
   if expired_effective_state <> 'EXPIRED' then
-    raise exception '72h Market Motion expiry failed, got %', expired_effective_state;
+    raise exception '48h Market Motion expiry failed, got %', expired_effective_state;
   end if;
 
   begin

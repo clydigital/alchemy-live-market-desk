@@ -107,13 +107,21 @@ test("Exact upstream Story slugs are linked; fuzzy Story guessing is not used", 
 
 test("Market Motion rejects stale, weak, non-actionable or untraceable news", () => {
   const candidates = buildMarketMotionCandidates([
-    item({ itemKey: "stale", publishedAt: "2026-09-25T00:00:00Z" }),
+    item({ itemKey: "stale", publishedAt: "2026-09-29T01:00:00Z" }),
     item({ itemKey: "weak", candidateScore: 68 }),
     item({ itemKey: "monitor", recommendedAction: "monitor" }),
     item({ itemKey: "no-evidence", evidence: [] }),
   ], [], { now: NOW });
 
   assert.deepEqual(candidates, []);
+});
+
+test("Market Motion keeps reporting inside the 48-hour window", () => {
+  const candidates = buildMarketMotionCandidates([
+    item({ itemKey: "fresh-47h", publishedAt: "2026-09-29T03:00:00Z" }),
+  ], [], { now: NOW });
+
+  assert.equal(candidates.length, 1);
 });
 
 test("Ready creator transcripts can qualify, but missing transcripts cannot", () => {

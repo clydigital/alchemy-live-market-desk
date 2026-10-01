@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import type { Story } from "../lib/data.ts";
 import {
+  MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   MARKET_MOTION_FRESHNESS_HOURS,
   marketMotionEffectiveState,
   marketMotionExpiry,
@@ -51,11 +52,11 @@ function record(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
   };
 }
 
-test("Market Motion expiry defaults to 72 hours from the later of occurrence or observation", () => {
-  assert.equal(MARKET_MOTION_FRESHNESS_HOURS, 72);
+test("Market Motion expiry defaults to 48 hours from the later of occurrence or observation", () => {
+  assert.equal(MARKET_MOTION_FRESHNESS_HOURS, 48);
   assert.equal(
     marketMotionExpiry("2026-09-30T10:00:00Z", "2026-09-30T12:00:00Z"),
-    "2026-10-03T12:00:00.000Z",
+    "2026-10-02T12:00:00.000Z",
   );
 });
 
@@ -65,7 +66,7 @@ test("Market Motion expires dynamically without rewriting history", () => {
   assert.equal(marketMotionEffectiveState(item, new Date("2026-10-01T01:00:00Z")), "EXPIRED");
 });
 
-test("Overview selection keeps three highest-priority fresh motion items", () => {
+test("Overview selection keeps every fresh qualifying item up to the safety ceiling", () => {
   const items = [
     record({ id: "a", motion_key: "a", lifecycle_state: "MOTION", materiality: 95, relevance: 95 }),
     record({ id: "b", motion_key: "b", lifecycle_state: "PROMOTED", materiality: 70, relevance: 70 }),
@@ -75,8 +76,20 @@ test("Overview selection keeps three highest-priority fresh motion items", () =>
   ];
   assert.deepEqual(
     selectMarketMotionForOverview(items, new Date("2026-10-01T00:00:00Z")).map((item) => item.id),
-    ["b", "a", "c"],
+    ["b", "a", "c", "d"],
   );
+});
+
+test("Overview safety ceiling prevents pathological feeds without imposing a three-item editorial quota", () => {
+  const items = Array.from({ length: MARKET_MOTION_DISPLAY_SAFETY_LIMIT + 4 }, (_, index) => record({
+    id: `item-${index}`,
+    motion_key: `item-${index}`,
+    materiality: 100 - index,
+    relevance: 100 - index,
+  }));
+
+  const selected = selectMarketMotionForOverview(items, new Date("2026-10-01T00:00:00Z"));
+  assert.equal(selected.length, MARKET_MOTION_DISPLAY_SAFETY_LIMIT);
 });
 
 test("Market Motion links Story only by exact upstream slug while Regime routing stays deterministic", () => {
@@ -123,5 +136,5 @@ test("Market Motion validation keeps headlines informative but non-authoritative
   assert.deepEqual(validated.tickers, ["META", "MDB"]);
   assert.equal(validated.lifecycle_state, "MOTION");
   assert.equal(validated.primary_story_id, null);
-  assert.equal(validated.expires_at, "2026-10-03T10:30:00.000Z");
+  assert.equal(validated.expires_at, "2026-10-02T10:30:00.000Z");
 });

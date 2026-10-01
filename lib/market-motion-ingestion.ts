@@ -7,6 +7,7 @@ import {
 } from "./regimes.ts";
 import type { IntakeItemInput } from "./research-update.ts";
 import {
+  MARKET_MOTION_FRESHNESS_HOURS,
   persistMarketMotion,
   resolveMarketMotionLinks,
   type MarketMotionCategory,
@@ -16,7 +17,7 @@ import {
 } from "./market-motion.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
-export const MARKET_MOTION_RUN_LIMIT = 6;
+export const MARKET_MOTION_RUN_LIMIT = 18;
 export const MARKET_MOTION_MIN_SCORE = 72;
 export const MARKET_MOTION_MIN_MATERIALITY = 72;
 export const MARKET_MOTION_MIN_RELEVANCE = 70;
@@ -97,7 +98,7 @@ function eligible(item: ScoredIntakeItem, now: Date) {
   const publishedAt = Date.parse(item.publishedAt);
   if (!Number.isFinite(publishedAt)) return false;
   if (publishedAt > now.getTime() + 5 * 60_000) return false;
-  if (now.getTime() - publishedAt > 72 * 60 * 60 * 1_000) return false;
+  if (now.getTime() - publishedAt > MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000) return false;
   if (!["collect_evidence", "review_article", "recalibrate_story"].includes(item.recommendedAction)) return false;
   if (item.candidateScore < MARKET_MOTION_MIN_SCORE) return false;
   if (item.materiality < MARKET_MOTION_MIN_MATERIALITY) return false;
