@@ -13,7 +13,20 @@ test("Hybrid opens from the full bounded Market Motion stream instead of three D
   assert.doesNotMatch(hybrid, /getCurrentMarketMotion/);
   assert.match(hybrid, /MARKET MOTION JOURNEY/);
   assert.match(hybrid, /event → why interesting → market reaction → Story\/Regime bridge → what to investigate or write/);
+  assert.match(hybrid, /Primary Motion/);
+  assert.match(hybrid, /Secondary Motion/);
   assert.match(hybrid, /journeyMode/);
+});
+
+test("Journey exposes an exact Motion investigation path without creating a second Dossier", () => {
+  assert.match(hybrid, /marketMotionInvestigationEligibility/);
+  assert.match(hybrid, /motionId/);
+  assert.match(hybrid, /investigationHref/);
+  assert.match(hybrid, /Motion investigation path/);
+  assert.match(hybrid, /INVESTIGATION ELIGIBLE/);
+  assert.match(hybrid, /Motion → exact linked Story\/Regime → Research Gap investigation when eligible/);
+  assert.match(hybrid, /Dossier\/regime state changes only if later canonical evidence changes the accepted interpretation/);
+  assert.match(hybrid, /exact immutable Motion snapshot attached to the current canonical edition/);
 });
 
 test("Hybrid links to canonical Dossier context instead of mirroring Presenter composition", () => {

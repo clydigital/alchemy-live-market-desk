@@ -7,6 +7,7 @@ import {
   MARKET_MOTION_FRESHNESS_HOURS,
   marketMotionAttention,
   marketMotionEffectiveState,
+  marketMotionInvestigationEligibility,
   marketMotionExpiry,
   resolveMarketMotionLinks,
   selectMarketMotionForOverview,
@@ -65,6 +66,64 @@ test("Market Motion expires dynamically without rewriting history", () => {
   const item = record({ lifecycle_state: "PROMOTED", expires_at: "2026-10-01T01:00:00Z" });
   assert.equal(marketMotionEffectiveState(item, new Date("2026-10-01T00:30:00Z")), "PROMOTED");
   assert.equal(marketMotionEffectiveState(item, new Date("2026-10-01T01:00:00Z")), "EXPIRED");
+});
+
+test("Motion investigation eligibility is explicit and shared across Journey and Research Gap", () => {
+  const now = new Date("2026-10-01T00:30:00Z");
+  const eligible = marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: "Check whether credit confirms the rates move.",
+    storyId: "story-rates",
+  }, now);
+
+  assert.deepEqual(eligible, {
+    eligible: true,
+    reason: "ELIGIBLE",
+    nextTest: "Check whether credit confirms the rates move.",
+    storyId: "story-rates",
+  });
+
+  assert.equal(marketMotionInvestigationEligibility({
+    lifecycleState: "MOTION",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: "Check credit.",
+    storyId: "story-rates",
+  }, now).reason, "NOT_PROMOTED");
+
+  assert.equal(marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "CONTRADICTED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: "Check credit.",
+    storyId: "story-rates",
+  }, now).reason, "CONTRADICTED");
+
+  assert.equal(marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T00:29:59Z",
+    nextTest: "Check credit.",
+    storyId: "story-rates",
+  }, now).reason, "EXPIRED");
+
+  assert.equal(marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: null,
+    storyId: "story-rates",
+  }, now).reason, "NO_NEXT_TEST");
+
+  assert.equal(marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: "Check credit.",
+    storyId: null,
+  }, now).reason, "NO_STORY_LINK");
 });
 
 test("Overview selection keeps every fresh qualifying item up to the safety ceiling", () => {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/market-motion-edition";
 import {
   deriveMarketMotionAttention,
+  marketMotionInvestigationEligibility,
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 } from "@/lib/market-motion";
 import { buildRegimeProjection } from "@/lib/regimes";
@@ -95,6 +96,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const storySlug = typeof query.story === "string" ? query.story : null;
   const regimeSlug = typeof query.regime === "string" ? query.regime : null;
   const eventId = typeof query.event === "string" ? query.event : null;
+  const motionId = typeof query.motion === "string" ? query.motion : null;
   const focusedStory = storySlug ? data.stories.find((story) => story.slug === storySlug) || null : null;
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
@@ -129,33 +131,49 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       tickers: item.tickers,
       marketReaction: item.marketReaction,
     });
+    const investigation = marketMotionInvestigationEligibility({
+      lifecycleState: item.lifecycleState,
+      verificationState: item.verificationState,
+      expiresAt: item.expiresAt,
+      nextTest: item.nextTest,
+      storyId: item.storyId,
+    });
     return {
-    id: item.id,
-    attentionTier: attention.tier,
-    attentionScore: attention.score,
-    writingPotential: attention.writingPotential,
-    attentionReasons: attention.reasons,
-    headline: item.headline,
-    category: item.category,
-    lifecycleState: item.lifecycleState,
-    verificationState: item.verificationState,
-    whatHappened: item.whatHappened,
-    marketReaction: item.marketReaction,
-    whyInteresting: item.whyInteresting,
-    bigPictureBridge: item.bigPictureBridge,
-    nextTest: item.nextTest,
-    tickers: item.tickers,
-    occurredAt: item.occurredAt,
-    sourceName: item.sourceName,
-    sourceUrl: item.sourceUrl,
-    storyTitle: item.storyTitle,
-    storyHref: `/stories/${item.storySlug}`,
-    regimeLabel: item.regimeLabel,
-    regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
+      id: item.id,
+      attentionTier: attention.tier,
+      attentionScore: attention.score,
+      writingPotential: attention.writingPotential,
+      attentionReasons: attention.reasons,
+      headline: item.headline,
+      category: item.category,
+      lifecycleState: item.lifecycleState,
+      verificationState: item.verificationState,
+      whatHappened: item.whatHappened,
+      marketReaction: item.marketReaction,
+      whyInteresting: item.whyInteresting,
+      bigPictureBridge: item.bigPictureBridge,
+      nextTest: item.nextTest,
+      tickers: item.tickers,
+      occurredAt: item.occurredAt,
+      sourceName: item.sourceName,
+      sourceUrl: item.sourceUrl,
+      storyId: item.storyId,
+      storySlug: item.storySlug,
+      storyTitle: item.storyTitle,
+      storyHref: `/stories/${item.storySlug}`,
+      regimeSlug: item.regimeSlug,
+      regimeLabel: item.regimeLabel,
+      regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
+      investigationEligible: investigation.eligible,
+      investigationReason: investigation.reason,
+      investigationHref: investigation.eligible
+        ? `/hybrid-output?motion=${encodeURIComponent(item.id)}#motion-investigation`
+        : null,
     };
   });
   const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
-  const highWritingPotentialCount = motionJourney.filter((item) => item.writingPotential === "HIGH").length;
+  const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
+  const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -167,14 +185,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       activePath="/hybrid-output"
       title="Hybrid Output"
       description="Start from fresh Market Motion, follow the implication into the linked Story or Regime, then use the canonical Dossier only when deeper reasoning is needed."
-      meta={`${motionJourney.length} fresh Motion · ${primaryMotionCount} primary · Dossier ${selection.selectedDossierId ? "linked" : "unavailable"}`}
+      meta={`${motionJourney.length} fresh Motion · ${primaryMotionCount} primary · ${secondaryMotionCount} secondary · Dossier ${selection.selectedDossierId ? "linked" : "unavailable"}`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
             { value: motionJourney.length, label: "Fresh Motion" },
             { value: primaryMotionCount, label: "Primary Motion" },
-            { value: highWritingPotentialCount, label: "High writing potential" },
+            { value: secondaryMotionCount, label: "Secondary Motion" },
             { value: openInvestigations, label: "Open investigations" },
           ]}
         />
@@ -199,6 +217,51 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             detail="Hybrid will not manufacture an opening from stale headlines. Open the canonical Dossier below for the latest durable market state."
           />
         )}
+
+        {motionId ? (
+          focusedMotion ? (
+            <Panel
+              title="Motion investigation path"
+              description="Exact Journey handoff for one immutable Motion item. The operational Research Gap worker uses the same eligibility gate; this surface does not create a new thesis or regime."
+              action={<Badge tone={focusedMotion.investigationEligible ? "ready" : "warn"}>{focusedMotion.investigationEligible ? "INVESTIGATION ELIGIBLE" : "CONTEXT ONLY"}</Badge>}
+            >
+              <article className={styles.record} id="motion-investigation">
+                <div className={styles.recordHeader}>
+                  <div>
+                    <span className={styles.kicker}>{focusedMotion.attentionTier} MOTION · {focusedMotion.category.replaceAll("_", " ")}</span>
+                    <h3>{focusedMotion.headline}</h3>
+                  </div>
+                  <Badge>{focusedMotion.verificationState}</Badge>
+                </div>
+                <p><strong>What happened:</strong> {focusedMotion.whatHappened}</p>
+                <p><strong>Why it matters:</strong> {focusedMotion.whyInteresting}</p>
+                {focusedMotion.marketReaction ? <p><strong>Market reaction:</strong> {focusedMotion.marketReaction}</p> : null}
+                <p><strong>Big-picture bridge:</strong> {focusedMotion.bigPictureBridge}</p>
+                <p><strong>Investigation next:</strong> {focusedMotion.nextTest || "No exact next test is persisted; this Motion stays context-only."}</p>
+                <p>
+                  <strong>Routing:</strong> Motion → exact linked Story/Regime → Research Gap investigation when eligible.
+                  Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
+                </p>
+                <p>
+                  <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
+                  {" · "}
+                  {focusedMotion.regimeHref && focusedMotion.regimeLabel ? (
+                    <>
+                      <a className={styles.link} href={focusedMotion.regimeHref}>Regime · {focusedMotion.regimeLabel}</a>
+                      {" · "}
+                    </>
+                  ) : null}
+                  <a className={styles.link} href={focusedMotion.sourceUrl} target="_blank" rel="noreferrer">Source · {focusedMotion.sourceName} ↗</a>
+                </p>
+              </article>
+            </Panel>
+          ) : (
+            <DataState
+              title="Motion is not in the current Journey edition"
+              detail="Hybrid only opens investigation paths from the exact immutable Motion snapshot attached to the current canonical edition. It will not recover a stale or fuzzy match."
+            />
+          )
+        ) : null}
 
         <Panel
           title="Canonical context"

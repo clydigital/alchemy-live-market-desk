@@ -46,6 +46,50 @@ export type MarketMotionAttention = {
   reasons: string[];
 };
 
+export type MarketMotionInvestigationEligibility = {
+  eligible: boolean;
+  reason:
+    | "ELIGIBLE"
+    | "NO_NEXT_TEST"
+    | "NO_STORY_LINK"
+    | "NOT_PROMOTED"
+    | "EXPIRED"
+    | "INVALID_EXPIRY"
+    | "CONTRADICTED";
+  nextTest: string | null;
+  storyId: string | null;
+};
+
+export function marketMotionInvestigationEligibility(
+  input: {
+    lifecycleState: MarketMotionLifecycleState;
+    verificationState: MarketMotionVerificationState;
+    expiresAt: string;
+    nextTest?: string | null;
+    storyId?: string | null;
+  },
+  now = new Date(),
+): MarketMotionInvestigationEligibility {
+  const nextTest = input.nextTest?.trim() || null;
+  const storyId = input.storyId?.trim() || null;
+  if (!nextTest) return { eligible: false, reason: "NO_NEXT_TEST", nextTest: null, storyId };
+  if (!storyId) return { eligible: false, reason: "NO_STORY_LINK", nextTest, storyId: null };
+  if (input.lifecycleState !== "PROMOTED") {
+    return { eligible: false, reason: "NOT_PROMOTED", nextTest, storyId };
+  }
+  const expiry = Date.parse(input.expiresAt);
+  if (!Number.isFinite(expiry)) {
+    return { eligible: false, reason: "INVALID_EXPIRY", nextTest, storyId };
+  }
+  if (expiry <= now.getTime()) {
+    return { eligible: false, reason: "EXPIRED", nextTest, storyId };
+  }
+  if (input.verificationState === "CONTRADICTED") {
+    return { eligible: false, reason: "CONTRADICTED", nextTest, storyId };
+  }
+  return { eligible: true, reason: "ELIGIBLE", nextTest, storyId };
+}
+
 type MarketMotionAttentionInput = {
   materiality: number;
   relevance: number;

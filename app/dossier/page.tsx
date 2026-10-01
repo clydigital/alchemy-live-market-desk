@@ -181,7 +181,7 @@ export default async function DossierPage() {
             items={promotedMotion}
             eyebrow="PROMOTED MARKET MOTION"
             title="Fresh hooks attached to this Dossier"
-            description="Only fresh Motion already promoted by a canonical Story change is admitted here. Dossier V2 uses synthetic research IDs, so this surface does not guess a fuzzy Story mapping or rewrite the persisted thesis."
+            description="Only fresh Motion already promoted by a canonical Story change is admitted here; exact Regime links are shown when present. The full Primary/Secondary Motion tape stays in Journey, so Dossier does not become a second Motion feed, does not guess a fuzzy Story mapping, and does not rewrite the persisted thesis."
             showFullTapeLink
           />
         ) : null}
