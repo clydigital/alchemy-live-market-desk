@@ -8,6 +8,7 @@ import {
   unifyMarketMotionCandidates,
   type ReviewedTranscriptMotionRow,
 } from "../lib/market-motion-ingestion.ts";
+import { encodeResearchGapHandoffContext } from "../lib/research-gap-handoff.ts";
 import type { IntakeItemInput } from "../lib/research-update.ts";
 
 type ScoredItem = IntakeItemInput & {
@@ -114,6 +115,27 @@ test("Market Motion rejects stale, weak, non-actionable or untraceable news", ()
     item({ itemKey: "weak", candidateScore: 68 }),
     item({ itemKey: "monitor", recommendedAction: "monitor" }),
     item({ itemKey: "no-evidence", evidence: [] }),
+  ], [], { now: NOW });
+
+  assert.deepEqual(candidates, []);
+});
+
+test("Research Gap handoff evidence cannot re-enter Market Motion", () => {
+  const divergenceNote = encodeResearchGapHandoffContext({
+    kind: "research_gap_gate",
+    gateRunId: "gate-1",
+    gapId: "gap-1",
+    researchQuestion: "Does the long-end move confirm the rates thesis?",
+    finding: "The source evidence resolves the funded Gap branch.",
+    confidence: 88,
+    outcome: "CONFIRMING",
+  });
+
+  const candidates = buildMarketMotionCandidates([
+    item({
+      itemKey: "gap-handoff-source",
+      divergenceNote,
+    }),
   ], [], { now: NOW });
 
   assert.deepEqual(candidates, []);
