@@ -71,6 +71,15 @@ export function persistentResearchGapKey(input: PersistentGapIdentityInput) {
     return `gap:native:${nativeId}`;
   }
 
+  if (input.sourceKind === "market_motion" && nativeId) {
+    const branchHash = stableHash([
+      input.question ?? "",
+      input.action,
+      ...sorted(input.evidenceNeeded),
+    ]);
+    return `gap:motion:${nativeId}:branch:${branchHash}`;
+  }
+
   const storyIds = sorted(input.linkedStoryIds);
   const fingerprint = stableHash([
     input.sourceKind,
