@@ -723,43 +723,60 @@ function sameCore(existing: MarketMotionRecord, candidate: MarketMotionInput) {
     && contextSignature(existing.metadata) === contextSignature(candidate.metadata);
 }
 
-export async function persistMarketMotionFromResearchRun(input: {
-  researchRunId: string;
-  items: ScoredIntakeItem[];
-  now?: Date;
-  client?: SupabaseClient;
-}): Promise<MarketMotionIngestionResult> {
-  const db = input.client ?? createSupabaseAdminClient();
-  const warnings: string[] = [];
 
-  const { data: stories, error: storyError } = await db
+async function loadStories(db: SupabaseClient): Promise<StoryRef[]> {
+  const { data, error } = await db
     .from("stories")
     .select("id,slug,title")
     .neq("status", "archived");
+  if (error) throw new Error(`Market Motion could not read canonical Stories: ${error.message}`);
+  return (data || []) as StoryRef[];
+}
 
-  if (storyError) {
-    throw new Error(`Market Motion could not read canonical Stories: ${storyError.message}`);
-  }
+async function loadRecentReviewedTranscripts(input: {
+  db: SupabaseClient;
+  now: Date;
+  intakeItemIds?: string[];
+}): Promise<ReviewedTranscriptMotionRow[]> {
+  const cutoff = new Date(input.now.getTime() - MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000).toISOString();
+  let query = input.db
+    .from("research_intake_items")
+    .select("id,run_id,item_key,publisher,title,url,published_at,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,transcript_status,video_review_status,transcript_motion_leads,review_reason")
+    .eq("item_type", "video")
+    .eq("transcript_status", "ready")
+    .eq("video_review_status", "reviewed")
+    .gte("published_at", cutoff)
+    .order("published_at", { ascending: false });
 
-  const candidates = buildMarketMotionCandidates(
-    input.items,
-    (stories || []) as StoryRef[],
-    { now: input.now, researchRunId: input.researchRunId },
-  );
+  if (input.intakeItemIds?.length) query = query.in("id", [...new Set(input.intakeItemIds)]);
+  const { data, error } = await query.limit(100);
+  if (error) throw new Error(`Market Motion could not read transcript leads: ${error.message}`);
+  return (data || []) as ReviewedTranscriptMotionRow[];
+}
 
-  if (!candidates.length) {
+async function persistUnifiedCandidates(input: {
+  candidates: MarketMotionInput[];
+  db: SupabaseClient;
+  considered: number;
+  creatorRowsConsidered: number;
+  creatorLeadCandidates: number;
+  warnings: string[];
+}): Promise<MarketMotionIngestionResult> {
+  if (!input.candidates.length) {
     return {
-      considered: input.items.length,
+      considered: input.considered,
       eligible: 0,
       inserted: 0,
       skippedExisting: 0,
+      creatorRowsConsidered: input.creatorRowsConsidered,
+      creatorLeadCandidates: input.creatorLeadCandidates,
       motionIds: [],
-      warnings,
+      warnings: input.warnings,
     };
   }
 
-  const keys = candidates.map((candidate) => candidate.motionKey);
-  const { data: existingRows, error: existingError } = await db
+  const keys = input.candidates.map((candidate) => candidate.motionKey);
+  const { data: existingRows, error: existingError } = await input.db
     .from("current_market_motion_items")
     .select("*")
     .in("motion_key", keys);
@@ -775,26 +792,126 @@ export async function persistMarketMotionFromResearchRun(input: {
   const motionIds: string[] = [];
   let skippedExisting = 0;
 
-  for (const candidate of candidates) {
-    const prior = existingByKey.get(candidate.motionKey);
+  for (const rawCandidate of input.candidates) {
+    const prior = existingByKey.get(rawCandidate.motionKey);
+    const candidate = prior
+      ? {
+          ...mergeCandidatePair(rawCandidate, recordAsInput(prior)),
+          motionKey: rawCandidate.motionKey,
+          researchRunId: rawCandidate.researchRunId || prior.research_run_id,
+          observedAt: rawCandidate.observedAt || new Date().toISOString(),
+          // Existing explicit expiry belongs to the previous version. Let the new version
+          // recalculate its 48h expiry from the merged occurrence/observation timestamps.
+          expiresAt: null,
+        }
+      : rawCandidate;
+
     if (prior && sameCore(prior, candidate)) {
       skippedExisting += 1;
       continue;
     }
+
     try {
-      const row = await persistMarketMotion(candidate, db);
+      const row = await persistMarketMotion(candidate, input.db);
       motionIds.push(row.id);
+      existingByKey.set(row.motion_key, row);
     } catch (error) {
-      warnings.push(error instanceof Error ? error.message : `Market Motion failed for ${candidate.motionKey}.`);
+      input.warnings.push(error instanceof Error ? error.message : `Market Motion failed for ${candidate.motionKey}.`);
     }
   }
 
   return {
-    considered: input.items.length,
-    eligible: candidates.length,
+    considered: input.considered,
+    eligible: input.candidates.length,
     inserted: motionIds.length,
     skippedExisting,
+    creatorRowsConsidered: input.creatorRowsConsidered,
+    creatorLeadCandidates: input.creatorLeadCandidates,
     motionIds,
-    warnings,
+    warnings: input.warnings,
   };
+}
+
+export async function persistMarketMotionFromResearchRun(input: {
+  researchRunId: string;
+  items: ScoredIntakeItem[];
+  now?: Date;
+  client?: SupabaseClient;
+}): Promise<MarketMotionIngestionResult> {
+  const db = input.client ?? createSupabaseAdminClient();
+  const now = input.now ?? new Date();
+  const warnings: string[] = [];
+  const stories = await loadStories(db);
+
+  const intakeCandidates = buildMarketMotionCandidates(
+    input.items,
+    stories,
+    { now, researchRunId: input.researchRunId },
+  );
+
+  let transcriptRows: ReviewedTranscriptMotionRow[] = [];
+  try {
+    transcriptRows = await loadRecentReviewedTranscripts({ db, now });
+  } catch (error) {
+    warnings.push(error instanceof Error ? error.message : "Market Motion transcript-lead read failed.");
+  }
+
+  const creatorCandidates = buildTranscriptMotionCandidates(
+    transcriptRows,
+    stories,
+    { now, researchRunId: input.researchRunId },
+  );
+  const candidates = unifyMarketMotionCandidates(
+    [...intakeCandidates, ...creatorCandidates],
+    { researchRunId: input.researchRunId },
+  );
+
+  return persistUnifiedCandidates({
+    candidates,
+    db,
+    considered: input.items.length + transcriptRows.length,
+    creatorRowsConsidered: transcriptRows.length,
+    creatorLeadCandidates: creatorCandidates.length,
+    warnings,
+  });
+}
+
+export async function persistMarketMotionFromCreatorReviews(input: {
+  intakeItemIds: string[];
+  now?: Date;
+  client?: SupabaseClient;
+}): Promise<MarketMotionIngestionResult> {
+  const db = input.client ?? createSupabaseAdminClient();
+  const now = input.now ?? new Date();
+  const warnings: string[] = [];
+  if (!input.intakeItemIds.length) {
+    return {
+      considered: 0,
+      eligible: 0,
+      inserted: 0,
+      skippedExisting: 0,
+      creatorRowsConsidered: 0,
+      creatorLeadCandidates: 0,
+      motionIds: [],
+      warnings,
+    };
+  }
+
+  const stories = await loadStories(db);
+  const transcriptRows = await loadRecentReviewedTranscripts({
+    db,
+    now,
+    intakeItemIds: input.intakeItemIds,
+  });
+  const creatorCandidates = buildTranscriptMotionCandidates(transcriptRows, stories, { now });
+  const candidates = unifyMarketMotionCandidates(creatorCandidates);
+
+  return persistUnifiedCandidates({
+    candidates,
+    db,
+    considered: transcriptRows.length,
+    creatorRowsConsidered: transcriptRows.length,
+    creatorLeadCandidates: creatorCandidates.length,
+    warnings,
+  });
 }
