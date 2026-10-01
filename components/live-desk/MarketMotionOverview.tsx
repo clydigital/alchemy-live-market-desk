@@ -53,7 +53,13 @@ function verificationTone(value: MarketMotionVerificationState) {
   return "reported";
 }
 
-function MotionCard({ item }: { item: MarketMotionOverviewItem }) {
+function MotionCard({
+  item,
+  journeyMode = false,
+}: {
+  item: MarketMotionOverviewItem;
+  journeyMode?: boolean;
+}) {
   return (
     <article className={styles.card} key={item.id}>
       <div className={styles.meta}>
@@ -76,8 +82,17 @@ function MotionCard({ item }: { item: MarketMotionOverviewItem }) {
 
       <div className={styles.body}>
         <p><strong>What happened:</strong> {item.whatHappened}</p>
-        {item.marketReaction ? <p><strong>Reaction:</strong> {item.marketReaction}</p> : null}
-        <p><strong>Why it matters:</strong> {item.whyInteresting}</p>
+        {journeyMode ? (
+          <>
+            <p><strong>Why it matters:</strong> {item.whyInteresting}</p>
+            {item.marketReaction ? <p><strong>Market reaction:</strong> {item.marketReaction}</p> : null}
+          </>
+        ) : (
+          <>
+            {item.marketReaction ? <p><strong>Reaction:</strong> {item.marketReaction}</p> : null}
+            <p><strong>Why it matters:</strong> {item.whyInteresting}</p>
+          </>
+        )}
       </div>
 
       <div className={styles.bridge}>
@@ -91,7 +106,9 @@ function MotionCard({ item }: { item: MarketMotionOverviewItem }) {
       </div>
 
       {item.nextTest ? (
-        <p className={styles.next}><strong>Next test:</strong> {item.nextTest}</p>
+        <p className={styles.next}>
+          <strong>{journeyMode ? "Investigate / write next:" : "Next test:"}</strong> {item.nextTest}
+        </p>
       ) : null}
 
       <footer>
@@ -112,6 +129,7 @@ export default function MarketMotionOverview({
   description = "Fresh hooks only. Motion can confirm, challenge or test a durable Story, but it does not become the Story by itself.",
   emptyText = "No fresh Motion item has cleared the Live contract yet. The desk will not manufacture a hook from stale or unverified headlines.",
   showFullTapeLink = true,
+  journeyMode = false,
 }: {
   items: MarketMotionOverviewItem[];
   eyebrow?: string;
@@ -119,6 +137,7 @@ export default function MarketMotionOverview({
   description?: string;
   emptyText?: string;
   showFullTapeLink?: boolean;
+  journeyMode?: boolean;
 }) {
   const groups = [
     {
@@ -157,7 +176,7 @@ export default function MarketMotionOverview({
             <strong>{group.items.length}</strong>
           </div>
           <div className={styles.grid}>
-            {group.items.map((item) => <MotionCard item={item} key={item.id} />)}
+            {group.items.map((item) => <MotionCard item={item} journeyMode={journeyMode} key={item.id} />)}
           </div>
         </div>
       )) : (
