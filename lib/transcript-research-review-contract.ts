@@ -140,6 +140,11 @@ export type TranscriptMotionLead = {
 
 const STATISTIC_PATTERN = /(?:[$€£¥]\s?\d|\b\d+(?:\.\d+)?\s?(?:%|bps?|basis points?|billion|million|trillion|bn|mn|x)\b)/i;
 const COMPANY_EVENT_PATTERN = /\b(?:ipo|prospectus|filed|filing|earnings|revenue|loss(?:es)?|guidance|acquisition|merger|launch(?:ed)?|contract|partnership|buyback|offering|ceo|cfo|layoffs?)\b/i;
+const TICKER_STOPWORDS = new Set(["AI", "IPO", "ETF", "CPI", "PPI", "PCE", "GDP", "PMI", "ISM", "FOMC", "CEO", "CFO", "USD", "US", "UK", "EU"]);
+
+function looksLikeTicker(value: string) {
+  return /^[A-Z][A-Z0-9.-]{1,5}$/.test(value) && !TICKER_STOPWORDS.has(value);
+}
 
 function leadEntities(text: string, terms: string[]) {
   const lowered = text.toLowerCase();
@@ -191,7 +196,7 @@ export function buildTranscriptMotionLeads(review: TranscriptResearchReview): Tr
     pushTag(tags, "company_event", COMPANY_EVENT_PATTERN.test(text));
     pushTag(tags, "interpretation", item.kind === "interpretation");
     pushTag(tags, "market_reaction", item.kind === "market_observation");
-    pushTag(tags, "ticker", entities.some((entity) => /^[A-Z][A-Z0-9.-]{1,5}$/.test(entity)));
+    pushTag(tags, "ticker", entities.some(looksLikeTicker));
     const verificationNeeded = Boolean(item.verificationNeeded);
     const verificationTarget = clean(item.verificationTarget, 300) || null;
     leads.push({
@@ -214,7 +219,7 @@ export function buildTranscriptMotionLeads(review: TranscriptResearchReview): Tr
     const tags = expertTags(item.kind);
     pushTag(tags, "statistic", STATISTIC_PATTERN.test(text));
     pushTag(tags, "company_event", COMPANY_EVENT_PATTERN.test(text));
-    pushTag(tags, "ticker", entities.some((entity) => /^[A-Z][A-Z0-9.-]{1,5}$/.test(entity)));
+    pushTag(tags, "ticker", entities.some(looksLikeTicker));
     const verificationNeeded = !["article_hook", "research_question"].includes(item.kind);
     leads.push({
       kind: item.kind,
