@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  deriveMarketMotionAttention,
+  MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   marketMotionEffectiveState,
   type MarketMotionCategory,
   type MarketMotionRecord,
@@ -10,7 +12,7 @@ import { getRegimeDefinition, type RegimeSlug } from "./regimes.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 export const MARKET_MOTION_EDITION_V1 = "market-motion-edition/v1" as const;
-export const MARKET_MOTION_EDITION_LIMIT = 6;
+export const MARKET_MOTION_EDITION_LIMIT = MARKET_MOTION_DISPLAY_SAFETY_LIMIT;
 
 export type MarketMotionEditionStoryRef = {
   id: string;
@@ -77,7 +79,32 @@ function strings(value: unknown) {
 }
 
 function priority(left: MarketMotionRecord, right: MarketMotionRecord) {
-  return right.materiality - left.materiality
+  const leftAttention = deriveMarketMotionAttention({
+    materiality: left.materiality,
+    relevance: left.relevance,
+    novelty: left.novelty,
+    verificationState: left.verification_state,
+    lifecycleState: left.lifecycle_state,
+    category: left.category,
+    tickers: left.tickers,
+    marketReaction: left.market_reaction,
+    metadata: left.metadata,
+  });
+  const rightAttention = deriveMarketMotionAttention({
+    materiality: right.materiality,
+    relevance: right.relevance,
+    novelty: right.novelty,
+    verificationState: right.verification_state,
+    lifecycleState: right.lifecycle_state,
+    category: right.category,
+    tickers: right.tickers,
+    marketReaction: right.market_reaction,
+    metadata: right.metadata,
+  });
+  const tierDelta = (rightAttention.tier === "PRIMARY" ? 1 : 0) - (leftAttention.tier === "PRIMARY" ? 1 : 0);
+  return tierDelta
+    || rightAttention.score - leftAttention.score
+    || right.materiality - left.materiality
     || right.relevance - left.relevance
     || right.novelty - left.novelty
     || Date.parse(right.occurred_at) - Date.parse(left.occurred_at)
@@ -171,7 +198,7 @@ export async function captureMarketMotionEditionAttachment(input: {
     .eq("research_run_id", input.researchRunId)
     .eq("lifecycle_state", "PROMOTED")
     .order("occurred_at", { ascending: true })
-    .limit(24);
+    .limit(MARKET_MOTION_DISPLAY_SAFETY_LIMIT);
 
   if (error) throw new Error(`Market Motion edition read failed: ${error.message}`);
 
@@ -293,12 +320,35 @@ export function selectMarketMotionEditionContext(input: {
       const leftRegime = input.preferredRegimeSlug && left.regimeSlug === input.preferredRegimeSlug ? 1 : 0;
       const rightRegime = input.preferredRegimeSlug && right.regimeSlug === input.preferredRegimeSlug ? 1 : 0;
       if (leftRegime !== rightRegime) return rightRegime - leftRegime;
-      return right.materiality - left.materiality
+      const leftAttention = deriveMarketMotionAttention({
+        materiality: left.materiality,
+        relevance: left.relevance,
+        novelty: left.novelty,
+        verificationState: left.verificationState,
+        lifecycleState: left.lifecycleState,
+        category: left.category,
+        tickers: left.tickers,
+        marketReaction: left.marketReaction,
+      });
+      const rightAttention = deriveMarketMotionAttention({
+        materiality: right.materiality,
+        relevance: right.relevance,
+        novelty: right.novelty,
+        verificationState: right.verificationState,
+        lifecycleState: right.lifecycleState,
+        category: right.category,
+        tickers: right.tickers,
+        marketReaction: right.marketReaction,
+      });
+      const tierDelta = (rightAttention.tier === "PRIMARY" ? 1 : 0) - (leftAttention.tier === "PRIMARY" ? 1 : 0);
+      return tierDelta
+        || rightAttention.score - leftAttention.score
+        || right.materiality - left.materiality
         || right.relevance - left.relevance
         || Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
         || left.id.localeCompare(right.id);
     })
-    .slice(0, Math.max(0, input.limit ?? 3));
+    .slice(0, Math.max(0, input.limit ?? MARKET_MOTION_DISPLAY_SAFETY_LIMIT));
 }
 
 export function marketMotionEditionSourceRefs(attachment: MarketMotionEditionAttachment) {
