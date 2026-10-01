@@ -5,14 +5,15 @@ import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
-import type { DossierBriefingV1 } from "@/lib/intelligence/dossier-briefing";
-import type { DossierStorylineComposition } from "@/lib/intelligence/dossier-storyline-composer";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
   selectMarketMotionEditionContext,
 } from "@/lib/market-motion-edition";
-import { deriveMarketMotionAttention } from "@/lib/market-motion";
+import {
+  deriveMarketMotionAttention,
+  MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
+} from "@/lib/market-motion";
 import { buildRegimeProjection } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -55,38 +56,6 @@ function reactionReadLabel(value: string) {
   if (value === "DID_NOT_FOLLOW_EXPECTATION") return "Did not follow expectation";
   if (value === "MIXED_REACTION") return "Mixed reaction";
   return "Not exactly measured";
-}
-
-type PresenterStoryline = DossierStorylineComposition["storylines"][number];
-type PresenterDossier = DossierBriefingV1 & {
-  compositionVersion?: string;
-  storylines?: DossierStorylineComposition["storylines"];
-};
-
-function asPresenterDossier(value: unknown): PresenterDossier | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const candidate = value as Partial<PresenterDossier>;
-  if (
-    !candidate.opening
-    || typeof candidate.opening.headline !== "string"
-    || typeof candidate.opening.summary !== "string"
-    || typeof candidate.opening.marketState !== "string"
-    || !Array.isArray(candidate.opening.topicChips)
-    || !Array.isArray(candidate.quickSummary)
-    || !Array.isArray(candidate.lessons)
-    || !Array.isArray(candidate.watchNow)
-  ) return null;
-  return candidate as PresenterDossier;
-}
-
-function storylineLabel(storyline: PresenterStoryline, nodeId: string) {
-  return storyline.nodes.find((node) => node.id === nodeId)?.label || nodeId;
-}
-
-function evidenceTone(state: string): "default" | "ready" | "warn" {
-  if (state === "observed" || state === "strongly_supported") return "ready";
-  if (state === "speculative") return "warn";
-  return "default";
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
@@ -144,11 +113,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
   const marketMotionAttachment = marketMotionFromEditionPayload(currentEdition?.payload);
-  const promotedMotion = selectMarketMotionEditionContext({
+  const motionJourney = selectMarketMotionEditionContext({
     attachment: marketMotionAttachment,
     preferredStoryId,
     preferredRegimeSlug,
-    limit: 3,
+    limit: MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   }).map((item) => {
     const attention = deriveMarketMotionAttention({
       materiality: item.materiality,
@@ -185,14 +154,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
     };
   });
-  const presenter = asPresenterDossier(currentEdition?.payload?.dossier);
-  const presenterLessons = presenter
-    ? [
-        ...presenter.lessons.filter((lesson) => lesson.storyId === (focusedStory || focusedEventStory)?.id),
-        ...presenter.lessons.filter((lesson) => lesson.storyId !== (focusedStory || focusedEventStory)?.id),
-      ]
-    : [];
-
+  const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
+  const highWritingPotentialCount = motionJourney.filter((item) => item.writingPotential === "HIGH").length;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -203,16 +166,16 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     <LiveDeskShell
       activePath="/hybrid-output"
       title="Hybrid Output"
-      description="Understand the current market view through canonical causal storylines, then inspect the underlying research audit when needed."
-      meta={`${dossier.policyOutlook.length} policy check(s) · ${openInvestigations} open investigation(s)`}
+      description="Start from fresh Market Motion, follow the implication into the linked Story or Regime, then use the canonical Dossier only when deeper reasoning is needed."
+      meta={`${motionJourney.length} fresh Motion · ${primaryMotionCount} primary · Dossier ${selection.selectedDossierId ? "linked" : "unavailable"}`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
-            { value: dossier.whatMattersNow.stories.length, label: "Canonical stories" },
-            { value: dossier.policyOutlook.length, label: "Policy expectation checks" },
+            { value: motionJourney.length, label: "Fresh Motion" },
+            { value: primaryMotionCount, label: "Primary Motion" },
+            { value: highWritingPotentialCount, label: "High writing potential" },
             { value: openInvestigations, label: "Open investigations" },
-            { value: requiredCharts, label: "Required charts" },
           ]}
         />
 
@@ -221,131 +184,44 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           detail={selection.notice.detail}
         />
 
-        {promotedMotion.length ? (
+        {motionJourney.length ? (
           <MarketMotionOverview
-            items={promotedMotion}
-            eyebrow="HYBRID OPENING HOOKS"
-            title="What just moved the explanation?"
-            description="Promoted Live Motion only, frozen inside the same immutable edition as the Presenter. These hooks can frame the opening question because a linked canonical Story changed, but Hybrid cannot turn them into a new thesis."
+            items={motionJourney}
+            eyebrow="MARKET MOTION JOURNEY"
+            title="What moved, why it matters, and what to do next"
+            description="The 48-hour Motion stream is the opening layer: event → why interesting → market reaction → Story/Regime bridge → what to investigate or write. Motion can direct attention, but it cannot create an independent regime or thesis."
             showFullTapeLink
+            journeyMode
           />
-        ) : null}
-
-        {presenter ? (
-          <>
-            <Panel
-              title="Presenter view"
-              description="The explanation layer uses the current immutable Live edition. It can organise and simplify accepted reasoning, but it cannot create a new thesis."
-              action={<Badge tone="ready">{presenter.compositionVersion ? "COMPOSED" : "CANONICAL"}</Badge>}
-            >
-              <div className={styles.recordList}>
-                <article className={styles.record}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <span className={styles.kicker}>What matters now</span>
-                      <h3>{presenter.opening.headline}</h3>
-                    </div>
-                    <Badge>{presenter.opening.marketState}</Badge>
-                  </div>
-                  <p>{presenter.opening.summary}</p>
-                  {presenter.opening.topicChips.length ? (
-                    <div className={styles.meta}>{presenter.opening.topicChips.join(" · ")}</div>
-                  ) : null}
-                </article>
-
-                {presenter.quickSummary.slice(0, 5).map((item) => (
-                  <article className={styles.record} key={item.storyId}>
-                    <div className={styles.meta}>#{item.rank} · Desk idea</div>
-                    <p>{item.text}</p>
-                  </article>
-                ))}
-              </div>
-            </Panel>
-
-            {presenter.storylines?.length ? (
-              <Panel
-                title="How the pieces connect"
-                description="The Presenter groups accepted Stories into the smallest useful causal model. Evidence status remains visible on each connection."
-              >
-                <div className={styles.recordList}>
-                  {presenter.storylines.slice(0, 3).map((storyline) => (
-                    <article className={styles.record} key={storyline.id}>
-                      <div className={styles.recordHeader}>
-                        <div>
-                          <h3>{storyline.title}</h3>
-                          <div className={styles.meta}>{storyline.centralQuestion}</div>
-                        </div>
-                        <Badge>{storyline.storyIds.length} {storyline.storyIds.length === 1 ? "STORY" : "STORIES"}</Badge>
-                      </div>
-                      <p>{storyline.summary}</p>
-                      {storyline.links.map((link, index) => (
-                        <p key={storyline.id + "-" + index}>
-                          <strong>{storylineLabel(storyline, link.from)}</strong>
-                          {" → "}{link.relationship}{" → "}
-                          <strong>{storylineLabel(storyline, link.to)}</strong>{" "}
-                          <Badge tone={evidenceTone(link.evidenceStatus)}>{link.evidenceStatus.replaceAll("_", " ")}</Badge>
-                        </p>
-                      ))}
-                      {storyline.strongestBreakCondition ? (
-                        <p><strong>What changes this view:</strong> {storyline.strongestBreakCondition}</p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </Panel>
-            ) : null}
-
-            {presenterLessons.length ? (
-              <Panel
-                title="Why these ideas matter"
-                description="Teaching order follows the causal explanation, not confidence ranking. A deep-linked Story is brought to the front without rewriting it."
-              >
-                <div className={styles.recordList}>
-                  {presenterLessons.slice(0, 4).map((lesson) => (
-                    <article className={styles.record} key={lesson.storyId}>
-                      <div className={styles.recordHeader}>
-                        <div>
-                          <div className={styles.meta}>Lesson {lesson.number} · confidence {lesson.confidence}%</div>
-                          <h3>{lesson.title}</h3>
-                        </div>
-                        {lesson.question ? <Badge>{lesson.icon.toUpperCase()}</Badge> : null}
-                      </div>
-                      {lesson.question ? <p><strong>Question:</strong> {lesson.question}</p> : null}
-                      {lesson.body.slice(0, 3).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
-                      {lesson.callouts.slice(0, 4).map((callout) => (
-                        <p key={lesson.storyId + "-" + callout.type}>
-                          <strong>{callout.label}:</strong> {callout.text}
-                        </p>
-                      ))}
-                    </article>
-                  ))}
-                </div>
-              </Panel>
-            ) : null}
-
-            {presenter.watchNow.length ? (
-              <Panel
-                title="What to watch next"
-                description="These are the canonical variables that strengthen, weaken or resolve the current explanation."
-              >
-                <div className={styles.recordList}>
-                  {presenter.watchNow.slice(0, 6).map((item) => (
-                    <article className={styles.record} key={item.variable}>
-                      <h3>{item.variable}</h3>
-                      <p>{item.whyItMatters}</p>
-                      {item.strengtheningSignal ? <p><strong>Strengthening signal:</strong> {item.strengtheningSignal}</p> : null}
-                    </article>
-                  ))}
-                </div>
-              </Panel>
-            ) : null}
-          </>
         ) : (
           <DataState
-            title="Presenter composition unavailable"
-            detail="Hybrid is falling back to canonical research records. It will not invent an explanation until a composed Live edition is available."
+            title="No fresh Market Motion"
+            detail="Hybrid will not manufacture an opening from stale headlines. Open the canonical Dossier below for the latest durable market state."
           />
         )}
+
+        <Panel
+          title="Canonical context"
+          description="The Dossier remains the analytical authority. Hybrid links Motion back to that record instead of duplicating the Presenter, causal storyline, or creating a second regime."
+          action={<Badge tone={selection.selectedDossierId ? "ready" : "warn"}>{selection.selectedDossierId ? "DOSSIER LINKED" : "DOSSIER UNAVAILABLE"}</Badge>}
+        >
+          <div className={styles.recordList}>
+            <article className={styles.record}>
+              <div className={styles.recordHeader}>
+                <div>
+                  <span className={styles.kicker}>Durable market state</span>
+                  <h3>{dossier.header.headline}</h3>
+                </div>
+                <Badge>{selection.status.replaceAll("_", " ").toUpperCase()}</Badge>
+              </div>
+              <p>
+                Canonical Dossier ID: {selection.selectedDossierId || "Unavailable"}.
+                Motion is the event-led discovery layer; the Dossier owns the deeper accepted reasoning and regime state.
+              </p>
+              <a className={styles.link} href="/dossier">Open canonical Dossier →</a>
+            </article>
+          </div>
+        </Panel>
 
         {(focusedRegime || focusedStory || focusedEvent) ? (
           <Panel
