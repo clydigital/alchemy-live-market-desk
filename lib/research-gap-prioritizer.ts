@@ -16,6 +16,7 @@ export type ResearchGapPriorityBreakdown = {
   investigationState: number;
   linkage: number;
   evidenceNeed: number;
+  motionAttention: number;
 };
 
 export type PrioritisedResearchGap = ResearchGapWorkCandidate & {
@@ -113,9 +114,24 @@ function evidenceNeedScore(candidate: ResearchGapWorkCandidate) {
   return Math.min(8, candidate.evidenceNeeded.length * 2);
 }
 
+function motionAttentionScore(candidate: ResearchGapWorkCandidate) {
+  if (candidate.sourceKind !== "market_motion") return 0;
+  const score = candidate.nativeSignals.motionAttentionScore ?? 0;
+  const tier = candidate.nativeSignals.motionAttentionTier;
+  const writing = candidate.nativeSignals.motionWritingPotential;
+
+  let result = tier === "PRIMARY" ? 16 : score >= 80 ? 10 : score >= 70 ? 6 : 3;
+  if (score >= 90) result += 4;
+  else if (score >= 85) result += 2;
+  if (writing === "HIGH") result += 4;
+  else if (writing === "MEDIUM") result += 2;
+  return Math.min(24, result);
+}
+
 function sourceTieBreak(candidate: ResearchGapWorkCandidate) {
-  if (candidate.sourceKind === "research_gap") return 3;
-  if (candidate.sourceKind === "research_now") return 2;
+  if (candidate.sourceKind === "research_gap") return 4;
+  if (candidate.sourceKind === "research_now") return 3;
+  if (candidate.sourceKind === "market_motion") return 2;
   return 1;
 }
 
@@ -127,6 +143,7 @@ export function scoreResearchGapCandidate(candidate: ResearchGapWorkCandidate) {
     investigationState: investigationStateScore(candidate),
     linkage: linkageScore(candidate),
     evidenceNeed: evidenceNeedScore(candidate),
+    motionAttention: motionAttentionScore(candidate),
   };
   const priorityScore = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0);
 
@@ -141,6 +158,8 @@ export function scoreResearchGapCandidate(candidate: ResearchGapWorkCandidate) {
   if (candidate.blockingRefs.includes("REGIME:CURRENT")) selectionReason.push("blocks current regime");
   if (candidate.linkedStoryIds.length > 0) selectionReason.push("linked to persistent Story");
   if (candidate.evidenceNeeded.length > 0) selectionReason.push("specific missing evidence identified");
+  if (scoreBreakdown.motionAttention >= 16) selectionReason.push("Primary Market Motion with unresolved next test");
+  else if (scoreBreakdown.motionAttention > 0) selectionReason.push("Market Motion with research-worthy attention");
   if (selectionReason.length === 0) selectionReason.push("eligible unresolved research work");
 
   return {
@@ -241,6 +260,7 @@ export function prioritiseResearchGapWork(
         "Expected information gain and native Research Now rank are preserved as strong priority signals.",
         "Unresolved/divergent investigations gain priority but do not outrank a true material blocker.",
         "A lower-ranked candidate linked to an investigation already covered by a selected item is suppressed for this Dossier.",
+        "Fresh promoted Market Motion may compete for funding when it carries a concrete unresolved next test; Motion attention adds urgency but cannot outrank a true material blocker by itself.",
         "At most three candidates are selected per Dossier.",
       ],
     },
