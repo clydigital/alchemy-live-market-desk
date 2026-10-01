@@ -49,7 +49,7 @@ function queue(candidates: ResearchGapWorkCandidate[]): ResearchGapWorkQueue {
     dossierId: "11111111-1111-4111-8111-111111111111",
     dossierAsOf: "2026-10-01T00:00:00.000Z",
     candidates,
-    sourceCounts: { researchGaps: 0, researchNow: 0, investigations: 0 },
+    sourceCounts: { researchGaps: 0, researchNow: 0, investigations: 0, marketMotion: 0 },
     diagnostics: {
       needsPrioritisation: true,
       truncated: false,
@@ -112,6 +112,44 @@ test("Research Now rank and information gain produce transparent score component
   assert.equal(scored.scoreBreakdown.linkage, 8);
   assert.equal(scored.scoreBreakdown.evidenceNeed, 4);
   assert.equal(scored.priorityScore, 55);
+});
+
+test("Primary Motion can compete for a Gap slot but does not outrank a material blocker by attention alone", () => {
+  const blocker = candidate("blocker", "research_gap", {
+    blockingRefs: ["REGIME:CURRENT"],
+    linkedStoryIds: ["story:rates"],
+    nativeSignals: {
+      severity: "MATERIAL",
+      gapClass: "BLOCKER",
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: null,
+    },
+  });
+  const motionCandidate = candidate("motion", "market_motion", {
+    linkedStoryIds: ["story:rates"],
+    evidenceNeeded: ["Check whether the long-end move persists."],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: null,
+      motionAttentionTier: "PRIMARY",
+      motionAttentionScore: 95,
+      motionWritingPotential: "HIGH",
+    },
+  });
+
+  const scored = scoreResearchGapCandidate(motionCandidate);
+  assert.equal(scored.scoreBreakdown.motionAttention, 24);
+  assert.ok(scored.selectionReason.includes("Primary Market Motion with unresolved next test"));
+
+  const result = prioritiseResearchGapWork(queue([motionCandidate, blocker]));
+  assert.equal(result.selected[0]?.workId, "blocker");
+  assert.equal(result.selected[1]?.workId, "motion");
 });
 
 test("selected Research Now work suppresses lower-scoring investigation duplicate", () => {
