@@ -63,6 +63,7 @@ export type ReviewedTranscriptMotionRow = {
   transcript_status: string | null;
   video_review_status: string | null;
   transcript_motion_leads: unknown;
+  divergence_note?: string | null;
   review_reason: string | null;
 };
 
@@ -564,6 +565,7 @@ export function buildMarketMotionCandidates(
 
 
 function creatorRowEligible(row: ReviewedTranscriptMotionRow, now: Date) {
+  if (parseResearchGapHandoffContext(row.divergence_note)) return false;
   const publishedAt = Date.parse(row.published_at);
   return Number.isFinite(publishedAt)
     && publishedAt <= now.getTime() + 5 * 60_000
@@ -746,7 +748,7 @@ async function loadRecentReviewedTranscripts(input: {
   const cutoff = new Date(input.now.getTime() - MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000).toISOString();
   let query = input.db
     .from("research_intake_items")
-    .select("id,run_id,item_key,publisher,title,url,published_at,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,transcript_status,video_review_status,transcript_motion_leads,review_reason")
+    .select("id,run_id,item_key,publisher,title,url,published_at,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,transcript_status,video_review_status,transcript_motion_leads,divergence_note,review_reason")
     .eq("item_type", "video")
     .eq("transcript_status", "ready")
     .eq("video_review_status", "reviewed")
