@@ -7,8 +7,10 @@ import {
   type ManualDossierV2RunResult,
 } from "./manual-run.ts";
 import type { DossierDeltaMode } from "./delta-gate.ts";
+import { syncLatestPrioritisedResearchGapCases } from "../research-gap-lifecycle.ts";
 
 type PersistAuthorization = ManualLiveTriggerAuthorization;
+type ResearchGapSyncResult = Awaited<ReturnType<typeof syncLatestPrioritisedResearchGapCases>>;
 
 type PersistInput = {
   asOf?: unknown;
@@ -27,6 +29,7 @@ type PersistDependencies = {
   }) => Promise<ManualDossierV2RunResult>;
   now?: () => Date;
   logger?: (event: Record<string, unknown>) => void;
+  syncResearchGaps?: () => Promise<ResearchGapSyncResult>;
 };
 
 function json(body: unknown, status = 200) {
@@ -173,6 +176,53 @@ export async function handleDossierV2PersistRunWithDependencies(
       );
     }
 
+    const syncResearchGaps =
+      dependencies.syncResearchGaps ?? (() => syncLatestPrioritisedResearchGapCases());
+    let researchGapSync: {
+      status: "synced" | "empty";
+      dossierId: string | null;
+      selectedCount: number;
+    };
+    try {
+      const sync = await syncResearchGaps();
+      researchGapSync = sync
+        ? {
+          status: "synced",
+          dossierId: sync.dossierId,
+          selectedCount: sync.selectedCount,
+        }
+        : {
+          status: "empty",
+          dossierId: result.dossier.id,
+          selectedCount: 0,
+        };
+      logger({
+        event: "dossier_v2_research_gap_materialised",
+        actor: authorization.actor,
+        githubRunId: authorization.githubRunId,
+        dossierId: researchGapSync.dossierId,
+        selectedCount: researchGapSync.selectedCount,
+        syncStatus: researchGapSync.status,
+      });
+    } catch (error) {
+      logger({
+        event: "dossier_v2_research_gap_materialisation_failed",
+        actor: authorization.actor,
+        githubRunId: authorization.githubRunId,
+        dossierId: result.dossier.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return json(
+        {
+          status: "failed",
+          error: "Dossier V2 completed but Research Gap materialisation failed.",
+          detail: error instanceof Error ? error.message : String(error),
+          currentDossierId: result.dossier.id,
+        },
+        500,
+      );
+    }
+
     return json({
       status: "completed",
       mode: result.mode,
@@ -207,6 +257,7 @@ export async function handleDossierV2PersistRunWithDependencies(
         diagnostics: result.packet.diagnostics,
       },
       analyticalOutput: result.analytical_output,
+      researchGapSync,
     });
   } catch (error) {
     logger({
