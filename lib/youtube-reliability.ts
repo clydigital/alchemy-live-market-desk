@@ -95,16 +95,19 @@ async function youtubeJson<T>(path: string, apiKey: string): Promise<T> {
 
 async function resolveChannelId(channel: typeof XWADA_VIDEO_CHANNELS[number], apiKey: string) {
   const configured = process.env[channel.env]?.trim();
-  if ("officialChannelId" in channel && channel.officialChannelId) {
-    if (configured && configured !== channel.officialChannelId) {
+  const officialChannelId = "officialChannelId" in channel && typeof channel.officialChannelId === "string"
+    ? channel.officialChannelId
+    : null;
+  if (officialChannelId) {
+    if (configured && configured !== officialChannelId) {
       const error = new Error(
         `${channel.env} does not match the pinned official ${channel.name} channel ID. `
-        + `Set it to ${channel.officialChannelId}.`,
+        + `Set it to ${officialChannelId}.`,
       );
       Object.assign(error, { xwadaStatus: "configuration_error" satisfies XwadaCheckStatus });
       throw error;
     }
-    return channel.officialChannelId;
+    return officialChannelId;
   }
   if (configured) return configured;
   const response = await youtubeJson<{ items?: Array<{ id?: string }> }>(
