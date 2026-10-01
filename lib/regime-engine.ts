@@ -379,7 +379,7 @@ async function enqueueSystem2ActivationTargets(
   const storyIds = merged.map((item) => item.storyId);
   const { data: existing, error: existingError } = await client
     .from("intelligence_reevaluation_queue")
-    .select("target_id")
+    .select("target_id,reason")
     .eq("target_kind", "story")
     .in("target_id", storyIds)
     .in("status", ["pending", "processing", "retryable"]);
@@ -392,7 +392,12 @@ async function enqueueSystem2ActivationTargets(
     };
   }
 
-  const alreadyQueued = new Set((existing || []).map((item) => item.target_id));
+  // Evidence-triggered queue rows must not mask a genuine deterministic
+  // System 1 threshold crossing. Only an already-open System 1 activation for
+  // the same Story suppresses a duplicate activation row.
+  const alreadyQueued = new Set((existing || [])
+    .filter((item) => typeof item.reason === "string" && item.reason.startsWith("system1_threshold_crossing"))
+    .map((item) => item.target_id));
   const rows = merged
     .filter((item) => !alreadyQueued.has(item.storyId))
     .map((item) => ({
