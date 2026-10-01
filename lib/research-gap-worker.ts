@@ -6,7 +6,7 @@ import type { MarketDossierV2 } from "./dossier-v2/contracts.ts";
 import { validateMarketDossierV2Record } from "./dossier-v2/validation.ts";
 import {
   deriveMarketMotionAttention,
-  marketMotionEffectiveState,
+  marketMotionInvestigationEligibility,
   type MarketMotionRecord,
 } from "./market-motion.ts";
 import { persistentResearchGapKey } from "./research-gap-identity.ts";
@@ -251,15 +251,16 @@ function marketMotionCandidates(
   now: Date,
 ): ResearchGapWorkCandidate[] {
   return rows.flatMap((item) => {
-    const nextTest = clean(item.next_test);
-    if (
-      !nextTest
-      || !item.primary_story_id
-      || item.lifecycle_state !== "PROMOTED"
-      || marketMotionEffectiveState(item, now) !== "PROMOTED"
-      || item.verification_state === "CONTRADICTED"
-    ) return [];
+    const investigation = marketMotionInvestigationEligibility({
+      lifecycleState: item.lifecycle_state,
+      verificationState: item.verification_state,
+      expiresAt: item.expires_at,
+      nextTest: item.next_test,
+      storyId: item.primary_story_id,
+    }, now);
+    if (!investigation.eligible || !investigation.nextTest || !investigation.storyId) return [];
 
+    const nextTest = investigation.nextTest;
     const attention = deriveMarketMotionAttention({
       materiality: item.materiality,
       relevance: item.relevance,
@@ -273,8 +274,8 @@ function marketMotionCandidates(
     });
     const action = `Investigate Motion: ${nextTest}`;
     const reason = clean(item.why_interesting) || clean(item.big_picture_bridge) || null;
-    const linkedStoryIds = [item.primary_story_id];
-    const blockingRefs = [`MOTION:${item.id}`, `STORY:${item.primary_story_id}`];
+    const linkedStoryIds = [investigation.storyId];
+    const blockingRefs = [`MOTION:${item.id}`, `STORY:${investigation.storyId}`];
 
     return [{
       workId: workId(dossier.id, "market_motion", item.id),
