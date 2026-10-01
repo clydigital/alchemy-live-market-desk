@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { explicitlyMentionedInstrumentSpecs } from "./instrument-mentions.ts";
@@ -16,6 +18,7 @@ import {
   type MarketMotionVerificationState,
 } from "./market-motion.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import type { TranscriptMotionLead } from "./transcript-research-review-contract.ts";
 
 export const MARKET_MOTION_RUN_LIMIT = 18;
 export const MARKET_MOTION_MIN_SCORE = 72;
@@ -23,7 +26,7 @@ export const MARKET_MOTION_MIN_MATERIALITY = 72;
 export const MARKET_MOTION_MIN_RELEVANCE = 70;
 export const MARKET_MOTION_MIN_NOVELTY = 65;
 
-type ScoredIntakeItem = IntakeItemInput & {
+export type ScoredIntakeItem = IntakeItemInput & {
   candidateScore: number;
   evidence: Array<{
     title: string;
@@ -40,17 +43,317 @@ type StoryRef = {
   title: string;
 };
 
+export type ReviewedTranscriptMotionRow = {
+  id: string;
+  run_id: string;
+  item_key: string;
+  publisher: string;
+  title: string;
+  url: string;
+  published_at: string;
+  summary: string;
+  affected_story_slugs: string[];
+  source_quality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  candidate_score: number;
+  recommended_action: string;
+  transcript_status: string | null;
+  video_review_status: string | null;
+  transcript_motion_leads: unknown;
+  review_reason: string | null;
+};
+
+type MarketMotionSourceRef = {
+  sourceName: string;
+  sourceUrl: string;
+  sourceKind: string;
+  verificationState: MarketMotionVerificationState;
+  role: "primary" | "discovery";
+  sourceItemKey?: string | null;
+};
+
 export type MarketMotionIngestionResult = {
   considered: number;
   eligible: number;
   inserted: number;
   skippedExisting: number;
+  creatorRowsConsidered: number;
+  creatorLeadCandidates: number;
   motionIds: string[];
   warnings: string[];
 };
 
 function cleanText(value: string | undefined | null, max: number) {
   return (value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+
+const CREATOR_EVENT_LEAD_KINDS = new Set([
+  "claim",
+  "catalyst",
+  "market_reaction",
+  "threshold",
+  "positioning",
+  "technical_level",
+]);
+
+const EVENT_FAMILIES: Array<[string, RegExp]> = [
+  ["ipo", /\b(?:ipo|initial public offering|s-?1|prospectus)\b/i],
+  ["earnings", /\b(?:earnings|eps|quarterly results?|results? season)\b/i],
+  ["guidance", /\b(?:guidance|outlook|forecast raised|forecast cut)\b/i],
+  ["acquisition", /\b(?:acquisition|acquire[ds]?|takeover|merger)\b/i],
+  ["buyback", /\b(?:buyback|share repurchase|repurchase authori[sz]ation)\b/i],
+  ["regulation", /\b(?:regulation|regulatory|nhtsa|ftc|doj|antitrust|certification deadline)\b/i],
+  ["contract", /\b(?:contract win|awarded? .*contract|contract award)\b/i],
+  ["launch", /\b(?:product launch|launched|roll(?:ing)? out|new platform)\b/i],
+  ["financing", /\b(?:financing|funding round|debt offering|convertible|capital raise)\b/i],
+  ["layoffs", /\b(?:layoffs?|job cuts?|workforce reduction)\b/i],
+  ["tariff", /\b(?:tariffs?|trade truce|export controls?)\b/i],
+  ["diplomacy", /\b(?:ceasefire|peace talks?|negotiat(?:e|ion|ions)|trust-building|diplomatic)\b/i],
+  ["cpi", /\b(?:consumer price index|cpi)\b/i],
+  ["ppi", /\b(?:producer price index|ppi)\b/i],
+  ["pce", /\b(?:personal consumption expenditures|pce)\b/i],
+  ["jobs", /\b(?:nonfarm payrolls?|nfp|jobs report|payrolls)\b/i],
+  ["fomc", /\b(?:fomc|fed decision|federal reserve decision)\b/i],
+];
+
+const SUBJECT_STOPWORDS = new Set([
+  "the", "inside", "why", "how", "what", "when", "where", "after", "before", "new", "latest",
+  "reuters", "yahoo", "stockedup", "market", "markets", "consumer", "producer", "federal", "united",
+  "ai", "ipo", "cpi", "ppi", "pce", "nfp", "fomc", "usd", "us", "uk", "eu",
+]);
+
+function asStringArray(value: unknown, limit = 20) {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim()))].slice(0, limit)
+    : [];
+}
+
+function parseTranscriptMotionLeads(value: unknown): TranscriptMotionLead[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): TranscriptMotionLead[] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const row = raw as Record<string, unknown>;
+    const text = cleanText(typeof row.text === "string" ? row.text : "", 600);
+    const kind = typeof row.kind === "string" ? row.kind : "";
+    const priority = Math.max(0, Math.min(100, Math.round(Number(row.priority) || 0)));
+    if (!text || !kind || !priority) return [];
+    return [{
+      kind: kind as TranscriptMotionLead["kind"],
+      text,
+      tags: asStringArray(row.tags, 16) as TranscriptMotionLead["tags"],
+      entities: asStringArray(row.entities, 12),
+      verificationNeeded: Boolean(row.verificationNeeded),
+      verificationTarget: cleanText(typeof row.verificationTarget === "string" ? row.verificationTarget : null, 300) || null,
+      searchPrompt: cleanText(typeof row.searchPrompt === "string" ? row.searchPrompt : null, 600) || null,
+      articleHook: cleanText(typeof row.articleHook === "string" ? row.articleHook : null, 600) || null,
+      priority,
+    }];
+  });
+}
+
+function sourceRank(kind: string | null | undefined) {
+  if (kind === "primary" || kind === "official" || kind === "filing") return 6;
+  if (kind === "reporting") return 5;
+  if (kind === "market_data") return 4;
+  if (kind === "creator") return 2;
+  return 1;
+}
+
+function verificationRank(state: MarketMotionVerificationState | undefined) {
+  if (state === "VERIFIED") return 6;
+  if (state === "PARTIAL") return 5;
+  if (state === "REPORTED") return 4;
+  if (state === "LEAD") return 3;
+  if (state === "UNRESOLVED") return 2;
+  if (state === "CONTRADICTED") return 1;
+  return 0;
+}
+
+function sourceRef(candidate: MarketMotionInput): MarketMotionSourceRef {
+  const metadata = candidate.metadata || {};
+  return {
+    sourceName: candidate.sourceName,
+    sourceUrl: candidate.sourceUrl,
+    sourceKind: candidate.sourceKind || "other",
+    verificationState: candidate.verificationState || "LEAD",
+    role: candidate.sourceKind === "creator" ? "discovery" : "primary",
+    sourceItemKey: typeof metadata.itemKey === "string" ? metadata.itemKey : null,
+  };
+}
+
+function sourceRefs(metadata: Record<string, unknown> | undefined) {
+  if (!metadata || !Array.isArray(metadata.sourceRefs)) return [];
+  return metadata.sourceRefs.flatMap((raw): MarketMotionSourceRef[] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const row = raw as Record<string, unknown>;
+    if (typeof row.sourceName !== "string" || typeof row.sourceUrl !== "string" || typeof row.sourceKind !== "string") return [];
+    return [{
+      sourceName: row.sourceName,
+      sourceUrl: row.sourceUrl,
+      sourceKind: row.sourceKind,
+      verificationState: (typeof row.verificationState === "string" ? row.verificationState : "LEAD") as MarketMotionVerificationState,
+      role: row.role === "discovery" ? "discovery" : "primary",
+      sourceItemKey: typeof row.sourceItemKey === "string" ? row.sourceItemKey : null,
+    }];
+  });
+}
+
+function uniqueSourceRefs(refs: MarketMotionSourceRef[]) {
+  const byKey = new Map<string, MarketMotionSourceRef>();
+  for (const ref of refs) {
+    const key = ref.sourceUrl || `${ref.sourceName}:${ref.sourceItemKey || ""}`;
+    const prior = byKey.get(key);
+    if (!prior || sourceRank(ref.sourceKind) > sourceRank(prior.sourceKind)) byKey.set(key, ref);
+  }
+  return [...byKey.values()];
+}
+
+function metadataStrings(metadata: Record<string, unknown> | undefined, field: string, limit = 12) {
+  if (!metadata) return [];
+  return asStringArray(metadata[field], limit);
+}
+
+function candidateStrength(candidate: MarketMotionInput) {
+  return sourceRank(candidate.sourceKind) * 1_000_000
+    + verificationRank(candidate.verificationState) * 10_000
+    + Number(candidate.materiality || 0) * 100
+    + Number(candidate.relevance || 0);
+}
+
+function strongerVerification(left: MarketMotionVerificationState | undefined, right: MarketMotionVerificationState | undefined) {
+  return verificationRank(left) >= verificationRank(right) ? (left || "LEAD") : (right || "LEAD");
+}
+
+function normalizeSubject(value: string) {
+  return value.toLowerCase()
+    .replace(/['’]s\b/g, "")
+    .replace(/[^a-z0-9.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+function properSubject(headline: string) {
+  const matches = headline.match(/\b[A-Z][A-Za-z0-9&.-]{1,24}\b/g) || [];
+  for (const value of matches) {
+    const normalized = normalizeSubject(value);
+    if (normalized && !SUBJECT_STOPWORDS.has(normalized)) return normalized;
+  }
+  return null;
+}
+
+function eventFamily(text: string) {
+  return EVENT_FAMILIES.find(([, pattern]) => pattern.test(text))?.[0] || null;
+}
+
+function eventMotionKey(candidate: MarketMotionInput) {
+  const family = eventFamily(`${candidate.headline} ${candidate.whatHappened}`);
+  if (!family) return candidate.motionKey;
+  const metadata = candidate.metadata || {};
+  const entities = metadataStrings(metadata, "entities", 8);
+  const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
+  const subject = entitySubject || properSubject(candidate.headline) || candidate.tickers?.map(normalizeSubject).find(Boolean) || null;
+  if (!subject) {
+    if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {
+      return `event:${family}:${candidate.occurredAt.slice(0, 10)}`;
+    }
+    return candidate.motionKey;
+  }
+  return `event:${family}:${subject}`.slice(0, 300);
+}
+
+function mergedMetadata(primary: MarketMotionInput, secondary: MarketMotionInput) {
+  const left = primary.metadata || {};
+  const right = secondary.metadata || {};
+  const refs = uniqueSourceRefs([
+    ...sourceRefs(left),
+    sourceRef(primary),
+    ...sourceRefs(right),
+    sourceRef(secondary),
+  ]);
+  return {
+    ...right,
+    ...left,
+    sourceRefs: refs,
+    writingAngles: [...new Set([...metadataStrings(left, "writingAngles"), ...metadataStrings(right, "writingAngles")])].slice(0, 8),
+    researchQuestions: [...new Set([...metadataStrings(left, "researchQuestions"), ...metadataStrings(right, "researchQuestions")])].slice(0, 8),
+    creatorInterpretations: [...new Set([...metadataStrings(left, "creatorInterpretations"), ...metadataStrings(right, "creatorInterpretations")])].slice(0, 8),
+    creatorLeadTexts: [...new Set([...metadataStrings(left, "creatorLeadTexts"), ...metadataStrings(right, "creatorLeadTexts")])].slice(0, 12),
+    originItemKeys: [...new Set([
+      ...metadataStrings(left, "originItemKeys"),
+      ...metadataStrings(right, "originItemKeys"),
+      ...(typeof left.itemKey === "string" ? [left.itemKey] : []),
+      ...(typeof right.itemKey === "string" ? [right.itemKey] : []),
+    ])].slice(0, 20),
+  };
+}
+
+function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): MarketMotionInput {
+  const primary = candidateStrength(left) >= candidateStrength(right) ? left : right;
+  const secondary = primary === left ? right : left;
+  const metadata = mergedMetadata(primary, secondary);
+  const researchQuestions = metadataStrings(metadata, "researchQuestions");
+  const primaryHasSpecificTest = Boolean(primary.nextTest && !/^Seek independent|^Check whether/i.test(primary.nextTest));
+  return {
+    ...primary,
+    motionKey: left.motionKey,
+    verificationState: strongerVerification(left.verificationState, right.verificationState),
+    tickers: [...new Set([...(left.tickers || []), ...(right.tickers || [])])].slice(0, 20),
+    materiality: Math.max(Number(left.materiality || 0), Number(right.materiality || 0)),
+    relevance: Math.max(Number(left.relevance || 0), Number(right.relevance || 0)),
+    novelty: Math.max(Number(left.novelty || 0), Number(right.novelty || 0)),
+    occurredAt: new Date(Math.min(Date.parse(left.occurredAt), Date.parse(right.occurredAt))).toISOString(),
+    observedAt: new Date(Math.max(Date.parse(left.observedAt || left.occurredAt), Date.parse(right.observedAt || right.occurredAt))).toISOString(),
+    nextTest: primaryHasSpecificTest ? primary.nextTest : (researchQuestions[0] || secondary.nextTest || primary.nextTest || null),
+    primaryStoryId: primary.primaryStoryId || secondary.primaryStoryId || null,
+    primaryRegimeSlug: primary.primaryRegimeSlug || secondary.primaryRegimeSlug || null,
+    researchRunId: primary.researchRunId || secondary.researchRunId || null,
+    metadata,
+  };
+}
+
+function recordAsInput(row: MarketMotionRecord): MarketMotionInput {
+  return {
+    motionKey: row.motion_key,
+    lifecycleState: row.lifecycle_state,
+    category: row.category,
+    verificationState: row.verification_state,
+    headline: row.headline,
+    whatHappened: row.what_happened,
+    marketReaction: row.market_reaction,
+    whyInteresting: row.why_interesting,
+    bigPictureBridge: row.big_picture_bridge,
+    nextTest: row.next_test,
+    promotionReason: row.promotion_reason,
+    tickers: row.tickers,
+    sourceName: row.source_name,
+    sourceUrl: row.source_url,
+    sourceKind: row.source_kind as MarketMotionInput["sourceKind"],
+    materiality: row.materiality,
+    relevance: row.relevance,
+    novelty: row.novelty,
+    occurredAt: row.occurred_at,
+    observedAt: row.observed_at,
+    expiresAt: row.expires_at,
+    researchRunId: row.research_run_id,
+    sourceId: row.source_id,
+    evidenceId: row.evidence_id,
+    primaryStoryId: row.primary_story_id,
+    primaryRegimeSlug: row.primary_regime_slug,
+    metadata: row.metadata || {},
+  };
+}
+
+function contextSignature(metadata: Record<string, unknown> | undefined) {
+  return JSON.stringify({
+    sourceRefs: uniqueSourceRefs(sourceRefs(metadata)),
+    writingAngles: metadataStrings(metadata, "writingAngles"),
+    researchQuestions: metadataStrings(metadata, "researchQuestions"),
+    creatorInterpretations: metadataStrings(metadata, "creatorInterpretations"),
+    creatorLeadTexts: metadataStrings(metadata, "creatorLeadTexts"),
+  });
 }
 
 function sourceHost(url: string) {
