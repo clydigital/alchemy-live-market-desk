@@ -4,6 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { MarketDossierV2 } from "./dossier-v2/contracts.ts";
 import { validateMarketDossierV2Record } from "./dossier-v2/validation.ts";
+import {
+  deriveMarketMotionAttention,
+  marketMotionEffectiveState,
+  type MarketMotionRecord,
+} from "./market-motion.ts";
 import { persistentResearchGapKey } from "./research-gap-identity.ts";
 
 export const RESEARCH_GAP_WORK_QUEUE_VERSION = "research-gap-work-queue/1" as const;
@@ -12,7 +17,8 @@ export const MAX_RESEARCH_GAP_WORK_CANDIDATES = 20;
 export type ResearchGapWorkSource =
   | "research_gap"
   | "research_now"
-  | "investigation";
+  | "investigation"
+  | "market_motion";
 
 export type ResearchGapWorkCandidate = {
   workId: string;
@@ -35,6 +41,9 @@ export type ResearchGapWorkCandidate = {
     researchNowRank: number | null;
     investigationStatus: string | null;
     divergence: string | null;
+    motionAttentionTier: "PRIMARY" | "SECONDARY" | null;
+    motionAttentionScore: number | null;
+    motionWritingPotential: "HIGH" | "MEDIUM" | "LOW" | null;
   };
 };
 
@@ -48,6 +57,7 @@ export type ResearchGapWorkQueue = {
     researchGaps: number;
     researchNow: number;
     investigations: number;
+    marketMotion: number;
   };
   diagnostics: {
     needsPrioritisation: true;
@@ -164,6 +174,9 @@ function researchGapCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
         researchNowRank: null,
         investigationStatus: null,
         divergence: null,
+        motionAttentionTier: null,
+        motionAttentionScore: null,
+        motionWritingPotential: null,
       },
     }];
   });
@@ -224,6 +237,80 @@ function researchNowCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
         researchNowRank: rank,
         investigationStatus: null,
         divergence: null,
+        motionAttentionTier: null,
+        motionAttentionScore: null,
+        motionWritingPotential: null,
+      },
+    }];
+  });
+}
+
+function marketMotionCandidates(
+  dossier: MarketDossierV2,
+  rows: MarketMotionRecord[],
+  now: Date,
+): ResearchGapWorkCandidate[] {
+  return rows.flatMap((item) => {
+    const nextTest = clean(item.next_test);
+    if (
+      !nextTest
+      || !item.primary_story_id
+      || item.lifecycle_state !== "PROMOTED"
+      || marketMotionEffectiveState(item, now) !== "PROMOTED"
+      || item.verification_state === "CONTRADICTED"
+    ) return [];
+
+    const attention = deriveMarketMotionAttention({
+      materiality: item.materiality,
+      relevance: item.relevance,
+      novelty: item.novelty,
+      verificationState: item.verification_state,
+      lifecycleState: item.lifecycle_state,
+      category: item.category,
+      tickers: item.tickers,
+      marketReaction: item.market_reaction,
+      metadata: item.metadata,
+    });
+    const action = `Investigate Motion: ${nextTest}`;
+    const reason = clean(item.why_interesting) || clean(item.big_picture_bridge) || null;
+    const linkedStoryIds = [item.primary_story_id];
+    const blockingRefs = [`MOTION:${item.id}`, `STORY:${item.primary_story_id}`];
+
+    return [{
+      workId: workId(dossier.id, "market_motion", item.id),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "market_motion",
+        sourceRef: item.id,
+        nativeId: item.motion_key,
+        question: nextTest,
+        action,
+        reason,
+        evidenceNeeded: [nextTest],
+        linkedInvestigationIds: [],
+        linkedStoryIds,
+        blockingRefs,
+      }),
+      sourceKind: "market_motion" as const,
+      sourceRef: item.id,
+      dossierId: dossier.id,
+      dossierAsOf: dossier.as_of,
+      question: nextTest,
+      action,
+      reason,
+      evidenceNeeded: [nextTest],
+      linkedInvestigationIds: [],
+      linkedStoryIds,
+      blockingRefs,
+      nativeSignals: {
+        severity: null,
+        gapClass: null,
+        expectedInformationGain: null,
+        researchNowRank: null,
+        investigationStatus: null,
+        divergence: null,
+        motionAttentionTier: attention.tier,
+        motionAttentionScore: attention.score,
+        motionWritingPotential: attention.writingPotential,
       },
     }];
   });
@@ -294,6 +381,9 @@ function investigationCandidates(dossier: MarketDossierV2) {
         researchNowRank: null,
         investigationStatus: status || null,
         divergence: clean(item.divergence) || null,
+        motionAttentionTier: null,
+        motionAttentionScore: null,
+        motionWritingPotential: null,
       },
     }];
   });
@@ -304,14 +394,16 @@ function investigationCandidates(dossier: MarketDossierV2) {
 export function buildResearchGapWorkQueue(
   dossier: MarketDossierV2,
   now = new Date(),
+  motionRows: MarketMotionRecord[] = [],
 ): ResearchGapWorkQueue {
   const researchGaps = researchGapCandidates(dossier);
   const researchNow = researchNowCandidates(dossier);
   const investigations = investigationCandidates(dossier);
+  const motion = marketMotionCandidates(dossier, motionRows, now);
 
   // Preserve source-native ordering only. Deliberate cross-source prioritisation
   // belongs to the next worker stage so ingestion does not hide policy.
-  const all = [...researchGaps, ...researchNow, ...investigations.candidates];
+  const all = [...researchGaps, ...researchNow, ...investigations.candidates, ...motion];
   const candidates = all.slice(0, MAX_RESEARCH_GAP_WORK_CANDIDATES);
   const omittedCandidates = Math.max(0, all.length - candidates.length);
 
@@ -325,6 +417,7 @@ export function buildResearchGapWorkQueue(
       researchGaps: researchGaps.length,
       researchNow: researchNow.length,
       investigations: investigations.candidates.length,
+      marketMotion: motion.length,
     },
     diagnostics: {
       needsPrioritisation: true,
@@ -333,7 +426,8 @@ export function buildResearchGapWorkQueue(
       excludedResolvedInvestigations: investigations.excludedResolved,
       notes: [
         "This stage reads and normalises work only; it does not score, claim, research, resolve or mutate a gap.",
-        "Native ranks, blocker labels, information-gain labels and investigation state are preserved for the prioritisation stage.",
+        "Native ranks, blocker labels, information-gain labels, investigation state and Motion attention are preserved for the prioritisation stage.",
+        "Only fresh PROMOTED Motion with an exact Story link and a concrete next_test can enter the Research Gap queue.",
       ],
     },
   };
@@ -357,5 +451,21 @@ export async function loadLatestResearchGapWorkQueue(
   }
   if (!data) return null;
 
-  return buildResearchGapWorkQueue(validateMarketDossierV2Record(data), now);
+  const { data: motionRows, error: motionError } = await db
+    .from("current_market_motion_items")
+    .select("*")
+    .eq("lifecycle_state", "PROMOTED")
+    .eq("effective_state", "PROMOTED")
+    .order("occurred_at", { ascending: false })
+    .limit(18);
+
+  if (motionError) {
+    throw new Error(`Failed to load Market Motion Research Gap sources: ${motionError.message}`);
+  }
+
+  return buildResearchGapWorkQueue(
+    validateMarketDossierV2Record(data),
+    now,
+    (motionRows || []) as MarketMotionRecord[],
+  );
 }
