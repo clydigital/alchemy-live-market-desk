@@ -242,13 +242,17 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <strong>Routing:</strong> Motion → exact linked Story/Regime → Research Gap investigation when eligible.
                   Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
                 </p>
-                <div className={styles.inlineLinks}>
+                <p>
                   <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
+                  {" · "}
                   {focusedMotion.regimeHref && focusedMotion.regimeLabel ? (
-                    <a className={styles.link} href={focusedMotion.regimeHref}>Regime · {focusedMotion.regimeLabel}</a>
+                    <>
+                      <a className={styles.link} href={focusedMotion.regimeHref}>Regime · {focusedMotion.regimeLabel}</a>
+                      {" · "}
+                    </>
                   ) : null}
                   <a className={styles.link} href={focusedMotion.sourceUrl} target="_blank" rel="noreferrer">Source · {focusedMotion.sourceName} ↗</a>
-                </div>
+                </p>
               </article>
             </Panel>
           ) : (
