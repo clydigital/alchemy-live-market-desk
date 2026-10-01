@@ -2,11 +2,72 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ResearchGapCaseRow } from "../lib/research-gap-lifecycle.ts";
+import { adaptMacroPulseContext, buildResearchGapPlanContext } from "../lib/research-gap-context.ts";
+import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import {
   buildResearchGapPlan,
   evaluateResearchGapEvidence,
+  isResearchGapPlan,
   type ResearchGapEvidenceAssessment,
 } from "../lib/research-gap-plan.ts";
+
+function dossier(
+  id: string,
+  previous: string | null,
+  investigation: Record<string, unknown>,
+): MarketDossierV2 {
+  return {
+    id,
+    contract_version: "market-dossier-v2/1",
+    previous_dossier_id: previous,
+    as_of: id.startsWith("2") ? "2026-10-01T00:00:00.000Z" : "2026-09-30T12:00:00.000Z",
+    freshness: {},
+    research_gaps: [],
+    payload: { analytical_output: { investigations: [investigation] } },
+    created_at: "2026-10-01T00:00:00.000Z",
+  };
+}
+
+function planContext() {
+  const current = dossier(gap().latest_dossier_id, "44444444-4444-4444-8444-444444444444", {
+    investigation_id: "inv:duration",
+    question: "Does full-curve stress confirm a term-premium shock?",
+    expected_reaction: "The long end leads while credit and volatility weaken.",
+    missing_evidence: ["Full US Treasury curve", "Auction tails"],
+    research_next: "Compare real yields with breakevens.",
+  });
+  const prior = dossier("44444444-4444-4444-8444-444444444444", null, {
+    investigation_id: "inv:duration",
+    question: "OLDER QUESTION MUST NOT WIN",
+    expected_reaction: "OLDER EXPECTATION MUST NOT WIN",
+    missing_evidence: ["OLDER REQUIREMENT MUST NOT WIN"],
+  });
+  return buildResearchGapPlanContext({
+    gap: gap(),
+    occurrence: {
+      id: "55555555-5555-4555-8555-555555555555",
+      gap_case_id: gap().id,
+      dossier_id: gap().latest_dossier_id,
+      dossier_as_of: gap().latest_dossier_as_of,
+      work_id: gap().latest_work_id,
+      source_kind: gap().source_kind,
+      source_ref: gap().source_ref,
+      priority_rank: 1,
+      priority_score: 88,
+      snapshot: { contractVersion: "research-gap-case-snapshot/1" },
+      observed_at: "2026-10-01T00:01:00.000Z",
+      created_at: "2026-10-01T00:01:00.000Z",
+    },
+    dossierLineage: [current, prior],
+    additionalSources: [adaptMacroPulseContext({
+      id: "macropulse:am",
+      contractVersion: "macropulse/1",
+      asOf: "2026-10-01T00:00:00.000Z",
+      payload: { question: "MACROPULSE QUESTION MUST NOT WIN" },
+    })],
+    frozenAt: "2026-10-01T00:06:00.000Z",
+  });
+}
 
 function gap(overrides: Partial<ResearchGapCaseRow> = {}): ResearchGapCaseRow {
   return {
@@ -86,6 +147,30 @@ test("Research Gap plan is bounded, deterministic and preserves explicit missing
   assert.equal(first.budget.maxSources, 8);
   assert.equal(first.budget.maxBranches, 3);
   assert.ok(first.requirements.every((item) => item.preferredSourceClasses.includes("market_data")));
+});
+
+test("context-aware plan uses only the authoritative Dossier and freezes source provenance", () => {
+  const plan = buildResearchGapPlan(gap(), new Date("2026-10-01T00:06:00Z"), planContext());
+
+  assert.equal(plan.researchQuestion, "Does full-curve stress confirm a term-premium shock?");
+  assert.equal(plan.priorExpectation, "The long end leads while credit and volatility weaken.");
+  assert.ok(plan.requirements.some((item) => item.description === "Full US Treasury curve"));
+  assert.equal(plan.requirements.some((item) => item.description.includes("OLDER")), false);
+  assert.deepEqual(plan.context?.dossierLineageIds, [
+    gap().latest_dossier_id,
+    "44444444-4444-4444-8444-444444444444",
+  ]);
+  assert.deepEqual(plan.context?.sources.map((item) => item.authority), [
+    "operational_authority", "canonical", "context_only", "context_only",
+  ]);
+  assert.equal(plan.context?.sourceWorkId, gap().latest_work_id);
+  assert.equal(plan.context?.authoritativeDossierId, gap().latest_dossier_id);
+});
+
+test("legacy v1 plans without context remain valid and replayable", () => {
+  const legacy = buildResearchGapPlan(gap(), new Date("2026-10-01T00:06:00Z"));
+  assert.equal(legacy.context, undefined);
+  assert.equal(isResearchGapPlan(legacy), true);
 });
 
 test("one authoritative direct source can resolve CONFIRMING only when all requirements are covered", () => {

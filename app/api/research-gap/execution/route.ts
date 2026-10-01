@@ -13,6 +13,7 @@ import {
   validateResearchGapEvidenceAssessments,
   type ResearchGapEvidenceAssessment,
 } from "@/lib/research-gap-plan";
+import { loadResearchGapPlanContext } from "@/lib/research-gap-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
         });
       }
 
-      const plan = buildResearchGapPlan(gap);
+      const context = await loadResearchGapPlanContext(gap);
+      const plan = buildResearchGapPlan(gap, new Date(), context);
       const started = await startResearchGapCase({
         caseId,
         claimToken,
