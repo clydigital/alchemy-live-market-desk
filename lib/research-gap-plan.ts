@@ -4,6 +4,7 @@ import type {
   ResearchGapCaseRow,
   ResearchGapOutcome,
 } from "./research-gap-lifecycle.ts";
+import type { ResearchGapPlanContext } from "./research-gap-context.ts";
 
 export const RESEARCH_GAP_PLAN_VERSION = "research-gap-plan/1" as const;
 export const RESEARCH_GAP_VERDICT_VERSION = "research-gap-verdict/1" as const;
@@ -28,6 +29,20 @@ export type ResearchGapRequirement = {
   preferredSourceClasses: GapResearchSourceClass[];
 };
 
+export type ResearchGapPlanContextMetadata = {
+  frozenAt: string;
+  sourceWorkId: string;
+  authoritativeDossierId: string;
+  dossierLineageIds: string[];
+  sources: Array<{
+    sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse";
+    sourceId: string;
+    contractVersion: string;
+    asOf: string;
+    authority: "operational_authority" | "canonical" | "context_only";
+  }>;
+};
+
 export type ResearchGapPlan = {
   contractVersion: typeof RESEARCH_GAP_PLAN_VERSION;
   planId: string;
@@ -35,7 +50,7 @@ export type ResearchGapPlan = {
   gapKey: string;
   generatedAt: string;
   researchQuestion: string;
-  priorExpectation: null;
+  priorExpectation: string | null;
   objective: string;
   subquestions: string[];
   requirements: ResearchGapRequirement[];
@@ -54,6 +69,7 @@ export type ResearchGapPlan = {
     minimumIndependentStrongSources: number;
     rules: string[];
   };
+  context?: ResearchGapPlanContextMetadata;
 };
 
 export type ResearchGapEvidenceAssessment = {
@@ -136,12 +152,81 @@ function unique(values: string[], limit = 24) {
   return [...new Set(values.map((value) => clean(value)).filter(Boolean))].slice(0, limit);
 }
 
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function strings(value: unknown) {
+  return Array.isArray(value) ? value.map(clean).filter(Boolean) : [];
+}
+
+function linkedAuthoritativeInvestigations(
+  gap: ResearchGapCaseRow,
+  context?: ResearchGapPlanContext,
+) {
+  if (!context) return [];
+  const analyticalOutput = record(context.authoritativeDossier.payload.analytical_output);
+  const investigations = Array.isArray(analyticalOutput?.investigations)
+    ? analyticalOutput.investigations.map(record).filter((item): item is Record<string, unknown> => Boolean(item))
+    : [];
+  const byId = new Map(
+    investigations
+      .map((item) => [clean(item.investigation_id), item] as const)
+      .filter(([id]) => Boolean(id)),
+  );
+  return unique(gap.linked_investigation_ids)
+    .map((id) => byId.get(id))
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+}
+
+function contextMetadata(context: ResearchGapPlanContext): ResearchGapPlanContextMetadata {
+  return {
+    frozenAt: context.frozenAt,
+    sourceWorkId: context.gap.latest_work_id,
+    authoritativeDossierId: context.authoritativeDossier.id,
+    dossierLineageIds: context.dossierLineage.map((item) => item.id),
+    sources: context.sources.map((source) => ({
+      sourceType: source.sourceType,
+      sourceId: source.sourceId,
+      contractVersion: source.contractVersion,
+      asOf: source.asOf,
+      authority: source.authority,
+    })),
+  };
+}
+
+function assertContextMatchesGap(gap: ResearchGapCaseRow, context: ResearchGapPlanContext) {
+  if (
+    context.gap.id !== gap.id
+    || context.gap.gap_key !== gap.gap_key
+    || context.gap.latest_work_id !== gap.latest_work_id
+    || context.gap.latest_dossier_id !== gap.latest_dossier_id
+    || context.occurrence.gap_case_id !== gap.id
+    || context.occurrence.work_id !== gap.latest_work_id
+    || context.occurrence.dossier_id !== gap.latest_dossier_id
+    || context.authoritativeDossier.id !== gap.latest_dossier_id
+  ) {
+    throw new Error("Research Gap plan context does not match the current case identity.");
+  }
+}
+
 export function buildResearchGapPlan(
   gap: ResearchGapCaseRow,
   now = new Date(),
+  context?: ResearchGapPlanContext,
 ): ResearchGapPlan {
-  const researchQuestion = clean(gap.question) || clean(gap.action);
-  const evidenceNeeded = unique(gap.evidence_needed, 6);
+  if (context) assertContextMatchesGap(gap, context);
+  const investigations = linkedAuthoritativeInvestigations(gap, context);
+  const primaryInvestigation = investigations[0];
+  const researchQuestion = clean(primaryInvestigation?.question) || clean(gap.question) || clean(gap.action);
+  const priorExpectation = clean(primaryInvestigation?.expected_reaction) || null;
+  const evidenceNeeded = unique([
+    ...gap.evidence_needed,
+    ...investigations.flatMap((item) => strings(item.missing_evidence)),
+    ...investigations.map((item) => clean(item.research_next)),
+  ], 6);
   const baseRequirements = evidenceNeeded.length
     ? evidenceNeeded
     : [researchQuestion];
@@ -163,6 +248,8 @@ export function buildResearchGapPlan(
     gap.gap_key,
     gap.latest_work_id,
     gap.latest_dossier_id,
+    ...(context?.dossierLineage.map((item) => item.id) ?? []),
+    ...(context?.sources.map((source) => `${source.sourceType}:${source.sourceId}`) ?? []),
     ...requirements.map((item) => item.description),
   ])}`;
 
@@ -173,7 +260,7 @@ export function buildResearchGapPlan(
     gapKey: gap.gap_key,
     generatedAt: now.toISOString(),
     researchQuestion,
-    priorExpectation: null,
+    priorExpectation,
     objective: clean(gap.action) || researchQuestion,
     subquestions,
     requirements,
@@ -199,7 +286,37 @@ export function buildResearchGapPlan(
         "Stop UNRESOLVED when the source or branch budget is exhausted without sufficient directional evidence.",
       ],
     },
+    ...(context ? { context: contextMetadata(context) } : {}),
   };
+}
+
+function isResearchGapPlanContextMetadata(value: unknown): value is ResearchGapPlanContextMetadata {
+  const context = record(value);
+  if (!context) return false;
+  if (
+    !clean(context.frozenAt)
+    || !clean(context.sourceWorkId)
+    || !clean(context.authoritativeDossierId)
+    || !Array.isArray(context.dossierLineageIds)
+    || context.dossierLineageIds.length < 1
+    || context.dossierLineageIds.length > 3
+    || context.dossierLineageIds.some((id) => !clean(id))
+    || context.dossierLineageIds[0] !== context.authoritativeDossierId
+    || !Array.isArray(context.sources)
+    || context.sources.length < 2
+  ) return false;
+
+  return context.sources.every((raw) => {
+    const source = record(raw);
+    return Boolean(
+      source
+      && ["research_gap_occurrence", "dossier_v2", "macropulse"].includes(clean(source.sourceType))
+      && clean(source.sourceId)
+      && clean(source.contractVersion)
+      && clean(source.asOf)
+      && ["operational_authority", "canonical", "context_only"].includes(clean(source.authority)),
+    );
+  });
 }
 
 export function isResearchGapPlan(value: unknown): value is ResearchGapPlan {
@@ -211,11 +328,13 @@ export function isResearchGapPlan(value: unknown): value is ResearchGapPlan {
     && typeof plan.caseId === "string"
     && typeof plan.gapKey === "string"
     && typeof plan.researchQuestion === "string"
+    && (plan.priorExpectation === null || typeof plan.priorExpectation === "string")
     && Array.isArray(plan.requirements)
     && plan.requirements.length >= 1
     && plan.requirements.length <= 6
     && Boolean(plan.budget)
     && Boolean(plan.stopPolicy)
+    && (plan.context === undefined || isResearchGapPlanContextMetadata(plan.context))
   );
 }
 

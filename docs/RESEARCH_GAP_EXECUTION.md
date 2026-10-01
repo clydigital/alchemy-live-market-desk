@@ -27,10 +27,15 @@ It preserves:
 - research question / action;
 - linked Story and Investigation IDs;
 - explicit missing-evidence branches;
+- frozen source provenance for new plans;
 - a bounded source budget;
 - a bounded branch budget.
 
-It does not infer a prior expectation when one is absent.
+New plans load the exact persisted Gap occurrence and the current Dossier named by the case. They may also retain up to two exact predecessors reached through `previous_dossier_id`. Only the current Dossier is analytical authority: exact linked investigations may supply the question, prior expectation, missing evidence and next research. Older Dossiers and MacroPulse are context-only and cannot override those fields.
+
+The optional plan `context` contains the work ID, authoritative Dossier ID, ordered Dossier lineage IDs and source provenance. Existing persisted `research-gap-plan/1` records without `context` remain valid and replayable.
+
+MacroPulse has a validated context adapter boundary, but no live reader yet because this repository has no canonical machine-readable MacroPulse storage contract. MacroPulse prose is not scraped or treated as evidence.
 
 ## Default research budget
 
@@ -73,7 +78,9 @@ The evaluator does not choose a causal explanation. It only decides whether the 
 }
 ```
 
-Requires an owned, unexpired `CLAIMED` case. The route builds the deterministic plan and transitions the case to `RESEARCHING`.
+Requires an owned, unexpired `CLAIMED` case. The route freezes the exact context, builds the deterministic plan and transitions the case to `RESEARCHING`.
+
+The transition is fenced in the database: a context-aware plan starts only when its case, gap, work and authoritative Dossier identities still match the current durable case. If a newer Dossier refreshes the case while the plan is being built, the transition returns no row and the route reports a conflict instead of persisting stale work.
 
 ### Evaluate
 

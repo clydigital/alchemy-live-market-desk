@@ -15,6 +15,7 @@ test("Research Gap execution endpoint is machine-authenticated and owns start/ev
   assert.match(route, /input\.action === "start"/);
   assert.match(route, /input\.action === "evaluate"/);
   assert.match(route, /buildResearchGapPlan/);
+  assert.match(route, /loadResearchGapPlanContext/);
   assert.match(route, /evaluateResearchGapEvidence/);
   assert.match(route, /verdict\.shouldStop/);
   assert.match(route, /completeResearchGapCase/);
