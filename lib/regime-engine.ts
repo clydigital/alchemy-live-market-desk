@@ -6,6 +6,7 @@ import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-rea
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import {
   detectSystem1TelemetryStateChanges,
+  openSystem2ActivationStoryIds,
   selectSystem2ActivationTargets,
   type System2StoryActivationTarget,
 } from "./regime-system2-activation.ts";
@@ -395,9 +396,7 @@ async function enqueueSystem2ActivationTargets(
   // Evidence-triggered queue rows must not mask a genuine deterministic
   // System 1 threshold crossing. Only an already-open System 1 activation for
   // the same Story suppresses a duplicate activation row.
-  const alreadyQueued = new Set((existing || [])
-    .filter((item) => typeof item.reason === "string" && item.reason.startsWith("system1_threshold_crossing"))
-    .map((item) => item.target_id));
+  const alreadyQueued = openSystem2ActivationStoryIds(existing || []);
   const rows = merged
     .filter((item) => !alreadyQueued.has(item.storyId))
     .map((item) => ({
