@@ -843,12 +843,6 @@ export async function persistMarketMotionFromResearchRun(input: {
   const warnings: string[] = [];
   const stories = await loadStories(db);
 
-  const intakeCandidates = buildMarketMotionCandidates(
-    input.items,
-    stories,
-    { now, researchRunId: input.researchRunId },
-  );
-
   let transcriptRows: ReviewedTranscriptMotionRow[] = [];
   try {
     transcriptRows = await loadRecentReviewedTranscripts({ db, now });
@@ -856,6 +850,16 @@ export async function persistMarketMotionFromResearchRun(input: {
     warnings.push(error instanceof Error ? error.message : "Market Motion transcript-lead read failed.");
   }
 
+  const reviewedVideoKeys = new Set(
+    transcriptRows
+      .filter((row) => parseTranscriptMotionLeads(row.transcript_motion_leads).length > 0)
+      .map((row) => row.item_key),
+  );
+  const intakeCandidates = buildMarketMotionCandidates(
+    input.items.filter((item) => item.itemType !== "video" || !reviewedVideoKeys.has(item.itemKey)),
+    stories,
+    { now, researchRunId: input.researchRunId },
+  );
   const creatorCandidates = buildTranscriptMotionCandidates(
     transcriptRows,
     stories,
