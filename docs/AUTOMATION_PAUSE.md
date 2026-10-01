@@ -36,6 +36,7 @@ Video discovery remains separate:
 - `/api/cron/video/midnight` at 09:00 MYT
 - `/api/cron/video/transcript-worker` at 09:30 MYT
 - `/api/cron/video/late-morning` at 21:00 MYT
+- `/api/cron/video/transcript-worker` at 21:30 MYT
 
 Video discovery and transcript processing can create creator-lead evidence, but they do not replace the 09:30 / 21:30 full Live research cycles and cannot independently publish a Story to Hybrid.
 
