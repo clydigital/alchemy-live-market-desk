@@ -1,0 +1,109 @@
+name: Verify Production Schema
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: verify-production-schema
+  cancel-in-progress: true
+
+jobs:
+  verify-production-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROD_URL: https://alchemy-live-market-desk.vercel.app
+      OIDC_AUDIENCE: alchemy-live-market-desk:production-schema
+      ENFORCEMENT_START: "20261001000000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build expected migration manifest
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$RUNNER_TEMP/production-migrations.json"
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          cutoff = os.environ["ENFORCEMENT_START"]
+          pattern = re.compile(r"^(\d{14})_([A-Za-z0-9_]+)\.sql$")
+          migrations = []
+          names = set()
+
+          for path in sorted(Path("supabase/migrations").glob("*.sql")):
+              match = pattern.match(path.name)
+              if not match:
+                  continue
+              version, name = match.groups()
+              if version < cutoff:
+                  continue
+              if name in names:
+                  raise SystemExit(f"Duplicate production migration name: {name}")
+              names.add(name)
+              migrations.append({"version": version, "name": name})
+
+          if not migrations:
+              raise SystemExit("No production migrations found at or after the enforcement baseline.")
+
+          print(json.dumps(migrations, separators=(",", ":")))
+          PY
+
+          echo "count=$(jq 'length' "$RUNNER_TEMP/production-migrations.json")" >> "$GITHUB_OUTPUT"
+          echo "Production schema guard will verify $(jq 'length' "$RUNNER_TEMP/production-migrations.json") migration(s)."
+
+      - name: Verify deployed commit and production migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/production-schema-drift.json"
+          MIGRATIONS="$(cat "$RUNNER_TEMP/production-migrations.json")"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          body="$(jq -cn             --arg expectedDeploymentSha "$GITHUB_SHA"             --argjson migrations "$MIGRATIONS"             '{expectedDeploymentSha:$expectedDeploymentSha,migrations:$migrations}')"
+
+          for attempt in {1..48}; do
+            http_status="$(curl --silent --show-error --max-time 30               -o "$RESPONSE_FILE" -w '%{http_code}'               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$body"               "$PROD_URL/api/admin/system/schema-drift" || true)"
+
+            status="$(jq -r '.status // empty' "$RESPONSE_FILE" 2>/dev/null || true)"
+
+            if [[ "$http_status" == "200" && "$status" == "healthy" ]]; then
+              jq -c '{status,deploymentSha,enforcementStart,expectedCount,appliedCount,missing,unexpected}' "$RESPONSE_FILE"
+              exit 0
+            fi
+
+            if [[ "$http_status" == "200" && "$status" == "deployment_pending" ]]; then
+              echo "Production still serves $(jq -r '.deploymentSha // "unknown"' "$RESPONSE_FILE"); waiting for $GITHUB_SHA."
+              sleep 15
+              continue
+            fi
+
+            if [[ "$http_status" == "404" || "$http_status" == "502" || "$http_status" == "503" ]]; then
+              echo "Production schema endpoint is not ready yet (HTTP $http_status); attempt $attempt/48."
+              sleep 15
+              continue
+            fi
+
+            echo "Production schema verification failed (HTTP ${http_status:-missing}, status ${status:-missing})." >&2
+            cat "$RESPONSE_FILE" >&2 || true
+            exit 1
+          done
+
+          echo "Production did not serve commit $GITHUB_SHA with a verifiable schema within the bounded wait window." >&2
+          exit 1
