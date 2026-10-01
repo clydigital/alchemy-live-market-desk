@@ -6,7 +6,7 @@ import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDes
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
-import { getCurrentMarketMotion } from "@/lib/market-motion";
+import { getCurrentMarketMotion, marketMotionAttention } from "@/lib/market-motion";
 import { selectPromotedMarketMotionForDossier } from "@/lib/market-motion-promotion";
 import { getRegimeDefinition } from "@/lib/regimes";
 
@@ -80,7 +80,12 @@ export default async function DossierPage() {
     motionRecords,
   ).map((item) => {
     const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    const attention = marketMotionAttention(item);
     return {
+      attentionTier: attention.tier,
+      attentionScore: attention.score,
+      writingPotential: attention.writingPotential,
+      attentionReasons: attention.reasons,
       id: item.id,
       headline: item.headline,
       category: item.category,
