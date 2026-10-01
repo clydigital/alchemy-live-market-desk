@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ResearchHealthState } from "./persistence/contracts.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
-import { isLegacyClaimableTranscriptPlaceholder, type TranscriptJobStatus } from "./transcript-job-state.ts";
+import type { TranscriptJobStatus } from "./transcript-job-state.ts";
 import type { XwadaChannelKey, XwadaVideo } from "./youtube-reliability.ts";
 import type {
   ReadyTranscriptCache,
@@ -14,6 +14,11 @@ import type {
 import type { TranscriptApiError, TranscriptApiRetrieval, TranscriptSegment } from "./transcriptapi.ts";
 
 export type VideoResearchSlot = "video_midnight" | "video_late_morning";
+
+export type EnsuredVideoIntakeItem = {
+  item: TranscriptIntakeItem;
+  created: boolean;
+};
 
 const VIDEO_FAILURE_HEALTH_STATE = "blocked" satisfies ResearchHealthState;
 
@@ -667,45 +672,29 @@ export async function ensureVideoIntakeItem(input: {
   channelKey: XwadaChannelKey;
   video: XwadaVideo;
   client?: SupabaseClient;
-}) {
+}): Promise<EnsuredVideoIntakeItem> {
   const client = input.client ?? createSupabaseAdminClient();
   const itemKey = `youtube:${input.channelKey}:${input.video.videoId}`;
   const select = "id,run_id,external_id,publisher,title,url,transcript_status,transcript_attempted_at,transcript_error_code,transcript_error_message,transcript_http_status,transcript_retryable,transcript_attempt_count,status,summary,video_review_status,transcript_job_status";
+
+  // YouTube video ID is the durable identity. Do not reassign an existing
+  // canonical row to the active discovery run, because doing so turns a
+  // lookback scan into repeated transcript work.
   const { data: existing, error: readError } = await client
     .from("research_intake_items")
     .select(select)
-    .eq("item_key", itemKey)
+    .eq("item_type", "video")
+    .eq("external_id", input.video.videoId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle<IntakeRow>();
   throwIfError(readError, "Could not read the canonical video intake item");
+
   if (existing) {
-    const makeClaimable = isLegacyClaimableTranscriptPlaceholder({
-      status: existing.status || "",
-      publisher: existing.publisher,
-      url: existing.url,
-      external_id: existing.external_id,
-      summary: existing.summary || "",
-      transcript_status: existing.transcript_status,
-      transcript_error_code: existing.transcript_error_code,
-      transcript_attempt_count: existing.transcript_attempt_count,
-      video_review_status: existing.video_review_status,
-      transcript_job_status: existing.transcript_job_status,
-    });
-    const { error } = await client.from("research_intake_items").update({
-      run_id: input.runId,
-      title: input.video.title,
-      url: input.video.url,
-      published_at: input.video.publishedAt,
-      ...(makeClaimable ? {
-        transcript_job_status: "pending",
-        transcript_job_last_error: null,
-        transcript_next_attempt_at: null,
-      } : {}),
-      updated_at: new Date().toISOString(),
-    }).eq("id", existing.id);
-    throwIfError(error, "Could not refresh video intake metadata");
-    return toIntakeItem({ ...existing, run_id: input.runId });
+    return { item: toIntakeItem(existing), created: false };
   }
-  const { data, error } = await client.from("research_intake_items").insert({
+
+  const insertPayload = {
     run_id: input.runId,
     item_key: itemKey,
     item_type: "video",
@@ -731,10 +720,31 @@ export async function ensureVideoIntakeItem(input: {
     evidence_links: [{ url: input.video.url, kind: "direct_video" }],
     review_reason: "Transcript collection is pending.",
     updated_at: new Date().toISOString(),
-  }).select(select).single<IntakeRow>();
+  };
+
+  const { data, error } = await client.from("research_intake_items")
+    .insert(insertPayload)
+    .select(select)
+    .single<IntakeRow>();
+
+  if (error && (error as { code?: string }).code === "23505") {
+    // A concurrent run may have inserted the same YouTube ID after our read.
+    // Recover the canonical row instead of creating duplicate provider work.
+    const { data: raced, error: racedReadError } = await client
+      .from("research_intake_items")
+      .select(select)
+      .eq("item_type", "video")
+      .eq("external_id", input.video.videoId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<IntakeRow>();
+    throwIfError(racedReadError, "Could not recover the canonical video intake item");
+    if (raced) return { item: toIntakeItem(raced), created: false };
+  }
+
   throwIfError(error, "Could not persist the discovered video intake item");
   if (!data) throw new Error("Could not persist the discovered video intake item: no row returned.");
-  return toIntakeItem(data);
+  return { item: toIntakeItem(data), created: true };
 }
 
 export async function finalizeVideoIntakeRun(input: {

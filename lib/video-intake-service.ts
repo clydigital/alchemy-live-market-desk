@@ -44,6 +44,7 @@ export type ScheduledVideoIntakeResult = {
     transcriptsUnavailable: number;
     cacheHits: number;
     transcriptsDeferred: number;
+    previouslySeenSkipped: number;
     livestreamsSkipped: number;
     shortsSkipped: number;
   };
@@ -56,6 +57,7 @@ export type ScheduledVideoIntakeResult = {
     httpStatus: number | null;
   }>;
   deferredVideoIds: string[];
+  skippedPreviouslySeenIds: string[];
   skippedLivestreamIds: string[];
   skippedShortIds: string[];
 };
@@ -181,6 +183,7 @@ export async function runScheduledVideoIntake(input: {
     const results: TranscriptPipelineResult[] = [];
     const knownUnavailableVideos: ScheduledVideoIntakeResult["knownUnavailableVideos"] = [];
     const deferredVideoIds: string[] = [];
+    const skippedPreviouslySeenIds: string[] = [];
     const selectedChannels = channels.filter((channel) => isTranscriptChannel(channel.channelKey));
     const skippedLivestreamIds = selectedChannels.flatMap((channel) => (
       channel.videos.filter((video) => video.isLive === true).map((video) => video.videoId)
@@ -200,13 +203,32 @@ export async function runScheduledVideoIntake(input: {
         if (!video) continue;
 
         currentStage = "video_item_persisted";
-        const item = await dependencies.ensureItem({
+        const ensured = await dependencies.ensureItem({
           runId: run.id,
           channelKey: channel.channelKey,
           video,
           client: run.client,
         });
 
+        if (!ensured.created) {
+          skippedPreviouslySeenIds.push(video.videoId);
+          currentStage = "video_already_seen";
+          await dependencies.recordStage({
+            runId: run.id,
+            slot: input.slot,
+            stage: "video_already_seen",
+            status: "complete",
+            detail: {
+              videoId: video.videoId,
+              channelKey: channel.channelKey,
+              transcriptStatus: ensured.item.transcriptStatus,
+            },
+            client: run.client,
+          });
+          continue;
+        }
+
+        const item = ensured.item;
         await dependencies.recordStage({
           runId: run.id,
           slot: input.slot,
@@ -398,6 +420,7 @@ export async function runScheduledVideoIntake(input: {
         transcriptsUnavailable: knownUnavailableVideos.length,
         cacheHits: results.filter((result) => result.status === "ready" && result.cacheHit).length,
         transcriptsDeferred: deferredVideoIds.length,
+        previouslySeenSkipped: skippedPreviouslySeenIds.length,
         livestreamsSkipped: skippedLivestreamIds.length,
         shortsSkipped: skippedShortIds.length,
       },
@@ -405,6 +428,7 @@ export async function runScheduledVideoIntake(input: {
       transcripts: results,
       knownUnavailableVideos,
       deferredVideoIds,
+      skippedPreviouslySeenIds,
       skippedLivestreamIds,
       skippedShortIds,
     };

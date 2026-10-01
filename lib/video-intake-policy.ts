@@ -1,14 +1,10 @@
-// The first three are the channels the research handoff explicitly requires.
-// Keeping them at the head of the fixed six-video budget guarantees that a
-// healthy dedicated intake can satisfy that contract without increasing the
-// number of browser/manual transcript tasks per run.
+// Fixed creator universe for creator intelligence. Keep this list aligned with
+// discovery, the transcript worker and the creator-research workflow.
 export const TRANSCRIPT_CHANNEL_PRIORITY = [
   "stockedup",
   "wall-street-truth-bombs",
-  "traders-reality",
-  "kevin-gerrity",
-  "clearvalue-tax",
   "fx-evolution",
+  "tradernick",
 ] as const;
 
 const TRANSCRIPT_CHANNEL_KEYS = new Set<string>(TRANSCRIPT_CHANNEL_PRIORITY);

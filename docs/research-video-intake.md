@@ -4,37 +4,27 @@ The Live Market Desk owns creator-video discovery and transcript-gated intake. H
 
 ## Required YouTube channels
 
-- FX Evolution — https://www.youtube.com/@fxevolutionvideo/videos
-- Trade Brigade — https://www.youtube.com/@TradeBrigade/videos
-- Kevin Gerrity — https://www.youtube.com/@Kevin.Gerrity/videos
-- ClearValue Tax — https://www.youtube.com/@clearvaluetax9382/videos
-- StockedUp — https://www.youtube.com/@StockedUp/videos
-- Wall Street Truthbombs — https://www.youtube.com/@wstruthbombs/videos
-- TraderNick — https://www.youtube.com/@TraderNick/videos
-- Traders Reality — https://www.youtube.com/@TradersReality/videos
-- Beginner Trading — https://www.youtube.com/@BeginnerTrading/videos
-- Eurodollar University — https://www.youtube.com/@eurodollaruniversity/videos
+Creator intelligence is intentionally limited to this fixed universe:
+
+1. StockedUp — https://www.youtube.com/@StockedUp/videos
+2. Wall Street Truthbombs / Mark Malek — https://www.youtube.com/@wstruthbombs/videos
+3. FX Evolution — https://www.youtube.com/@fxevolutionvideo/videos
+4. TraderNick — https://www.youtube.com/@TraderNick/videos
+
+Do not add other creators to scheduled discovery or transcript claiming without an explicit workflow change.
 
 ## Current monitored-video priority
 
-Creator discovery remains broad. The browser/manual transcript work list has a
-fixed maximum of six long-form uploads per run, in this order:
+The scheduled detector checks only the four creators above, in this order:
 
 1. StockedUp
-2. Wall Street Truthbombs
-3. Traders Reality
-4. Kevin Gerrity
-5. ClearValue Tax
-6. FX Evolution
+2. Wall Street Truthbombs / Mark Malek
+3. FX Evolution
+4. TraderNick
 
-The first three are the creator channels the desk handoff explicitly requires.
-Discovery remains queue-only. A separate leased worker processes one retained
-video per invocation through the configured Supadata native-caption provider.
+Only long-form, non-live uploads enter transcript intake. YouTube video ID is the durable deduplication key. If a video ID already exists in `research_intake_items`, rediscovery records an `already_seen` stage and stops before cache lookup, browser retrieval or transcript-provider work. Transcript retries belong to the leased transcript worker and its cooldown state; discovery must not create a second retry path.
 
-Only long-form, non-live uploads from those channels enter an automated
-transcript path. Current, upcoming and archived livestreams are classified from
-YouTube video/live-stream metadata and are excluded before any automated
-transcript attempt is made.
+The database also enforces uniqueness for video `external_id` values and restricts transcript-job claims to the same four publishers. This prevents a concurrent run, renamed channel key or stale queue row from creating duplicate provider work.
 
 YouTube does not expose a first-class Shorts flag through the Data API. Scheduled Live intake therefore treats any upload with a YouTube-reported duration of 180 seconds or less as short-form and excludes it from transcript collection. This can intentionally exclude an occasional normal sub-three-minute upload rather than queue Shorts for manual work.
 

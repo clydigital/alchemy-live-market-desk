@@ -159,6 +159,7 @@ function scheduledHarness(options: {
   browserConfigured?: boolean;
   ensureError?: Error;
   finalizeError?: Error;
+  existingVideo?: boolean;
 } = {}) {
   const store = options.store ?? new ScheduledMemoryStore();
   const stages: Array<{ stage: string; status: string; detail?: Record<string, unknown> }> = [];
@@ -166,6 +167,7 @@ function scheduledHarness(options: {
   const failed: Array<Parameters<ScheduledVideoIntakeDependencies["failRun"]>[0]> = [];
   let discoveryPersisted = 0;
   let providerCalls = 0;
+  const ensuredVideoIds = new Set<string>();
 
   const dependencies: Partial<ScheduledVideoIntakeDependencies> = {
     createRun: async () => ({ id: "active-video-run", client: {} as never }),
@@ -177,8 +179,12 @@ function scheduledHarness(options: {
     },
     ensureItem: async (input) => {
       if (options.ensureError) throw options.ensureError;
-      store.item = { ...store.item, runId: input.runId };
-      return store.item;
+      const alreadySeen = options.existingVideo === true || ensuredVideoIds.has(input.video.videoId);
+      if (!alreadySeen) {
+        ensuredVideoIds.add(input.video.videoId);
+        store.item = { ...store.item, runId: input.runId, videoId: input.video.videoId };
+      }
+      return { item: store.item, created: !alreadySeen };
     },
     finalizeRun: async (input) => {
       finalized.push(input);
@@ -206,7 +212,7 @@ function scheduledHarness(options: {
   };
 }
 
-test("only selected creators' long-form non-live videos enter the browser/manual work list", () => {
+test("only the fixed creator universe enters the browser/manual work list", () => {
   const channels = [
     channel("fx-evolution", [
       video("fx-evolution", "fx-upload"),
@@ -219,13 +225,6 @@ test("only selected creators' long-form non-live videos enter the browser/manual
       video("stockedup", "stock-short", { isShort: true }),
     ]),
     channel("wall-street-truth-bombs", [video("wall-street-truth-bombs", "truth-upload")]),
-    channel("traders-reality", [video("traders-reality", "reality-upload")]),
-    channel("kevin-gerrity", [video("kevin-gerrity", "kevin-upload")]),
-    channel("clearvalue-tax", [
-      video("clearvalue-tax", "clear-upload"),
-      video("clearvalue-tax", "clear-live", { isLive: true }),
-      video("clearvalue-tax", "clear-short", { isShort: true }),
-    ]),
     channel("tradernick", [video("tradernick", "nick-upload")]),
   ];
 
@@ -233,26 +232,22 @@ test("only selected creators' long-form non-live videos enter the browser/manual
   assert.deepEqual(workList.map((entry) => entry.channelKey), [
     "stockedup",
     "wall-street-truth-bombs",
-    "traders-reality",
-    "kevin-gerrity",
-    "clearvalue-tax",
     "fx-evolution",
+    "tradernick",
   ]);
   assert.deepEqual(workList.flatMap((entry) => entry.videos.map((entryVideo) => entryVideo.videoId)), [
     "stock-upload",
     "truth-upload",
-    "reality-upload",
-    "kevin-upload",
-    "clear-upload",
     "fx-upload",
+    "nick-upload",
   ]);
   assert.equal(isTranscriptChannel("stockedup"), true);
-  assert.equal(isTranscriptChannel("kevin-gerrity"), true);
-  assert.equal(isTranscriptChannel("clearvalue-tax"), true);
-  assert.equal(isTranscriptChannel("fx-evolution"), true);
   assert.equal(isTranscriptChannel("wall-street-truth-bombs"), true);
-  assert.equal(isTranscriptChannel("traders-reality"), true);
-  assert.equal(isTranscriptChannel("tradernick"), false);
+  assert.equal(isTranscriptChannel("fx-evolution"), true);
+  assert.equal(isTranscriptChannel("tradernick"), true);
+  assert.equal(isTranscriptChannel("traders-reality"), false);
+  assert.equal(isTranscriptChannel("kevin-gerrity"), false);
+  assert.equal(isTranscriptChannel("clearvalue-tax"), false);
 });
 
 test("YouTube ISO durations support the conservative three-minute Shorts guard", () => {
@@ -387,6 +382,10 @@ function videoLifecycleContractHarness() {
       return typeof id === "string" ? runs.get(id) ?? null : null;
     }
     if (table === "research_intake_items") {
+      const externalId = filters.get("external_id");
+      if (typeof externalId === "string") {
+        return [...items.values()].find((row) => row.external_id === externalId) ?? null;
+      }
       const itemKey = filters.get("item_key");
       return typeof itemKey === "string" ? items.get(itemKey) ?? null : null;
     }
@@ -416,6 +415,8 @@ function videoLifecycleContractHarness() {
               : [],
             error: null,
           }),
+          order: () => query,
+          limit: () => query,
           maybeSingle: async () => ({ data: selectedRow(table, filters), error: null }),
         };
         return query;
@@ -560,14 +561,16 @@ test("stale video recovery permits one date-correct queued intake run and idempo
   assert.equal(harness.runs.get(firstRun.id)?.run_key, runInput.runKey);
   assert.equal(harness.runs.get(firstRun.id)?.scheduled_for, runInput.scheduledFor);
   assert.equal(harness.slots.get(firstRun.id)?.health_state, "unknown");
-  assert.equal(firstItem.transcriptStatus, "missing");
-  assert.equal(replayedItem.id, firstItem.id);
+  assert.equal(firstItem.created, true);
+  assert.equal(firstItem.item.transcriptStatus, "missing");
+  assert.equal(replayedItem.created, false);
+  assert.equal(replayedItem.item.id, firstItem.item.id);
   assert.equal(harness.runs.size, 2, "replay must not duplicate the stale or fresh run");
   assert.equal(harness.slots.size, 2, "replay must not duplicate the fresh slot");
   assert.equal(harness.items.size, 1, "replay must not duplicate pending transcript work");
 });
 
-test("scheduled StockedUp intake reaches Chrome, persists timestamps, and replays from cache", async () => {
+test("scheduled intake skips a previously seen YouTube ID before transcript work", async () => {
   const harness = scheduledHarness({ browserConfigured: true });
   const input = {
     slot: "video_midnight" as const,
@@ -581,27 +584,17 @@ test("scheduled StockedUp intake reaches Chrome, persists timestamps, and replay
   const replay = await runScheduledVideoIntake(input, harness.dependencies);
   const replayStages = harness.stages.slice(secondStageStart);
 
-  assert.equal(first.status, "healthy");
   assert.equal(first.transcripts[0]?.status, "ready");
-  assert.equal(first.transcripts[0]?.provider, "youtubetotranscript.com");
   assert.equal(first.transcripts[0]?.cacheHit, false);
-  assert.equal(harness.store.item.transcriptStatus, "ready");
-  assert.equal(harness.store.item.transcriptProvider, "youtubetotranscript.com");
-  assert.equal(harness.store.item.attemptCount, 1);
-  assert.deepEqual(harness.store.cache?.transcript.segments, scheduledRetrieval.transcript.segments);
-  assert.equal(harness.providerCalls(), 0);
-  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_request_started" && entry.status === "complete"));
-  assert.ok(harness.stages.some((entry) => entry.stage === "chrome_transcript_response_received" && entry.status === "complete"));
-  assert.equal(harness.discoveryPersisted(), 2);
-  assert.equal(harness.finalized.length, 2);
+  assert.deepEqual(first.skippedPreviouslySeenIds, []);
 
-  assert.equal(replay.transcripts[0]?.status, "ready");
-  assert.equal(replay.transcripts[0]?.cacheHit, true);
-  assert.equal(replay.summary.cacheHits, 1);
-  assert.equal(harness.providerCalls(), 0, "a replayed ready transcript must not spend a paid provider request");
-  assert.ok(!replayStages.some((entry) => entry.stage.startsWith("supadata_")));
-  assert.ok(replayStages.some((entry) => entry.stage === "transcript_state_updated" && entry.detail?.cacheHit === true));
-  assert.ok(harness.store.recalculatedRunIds.every((runId) => runId === "active-video-run"));
+  assert.deepEqual(replay.transcripts, []);
+  assert.deepEqual(replay.skippedPreviouslySeenIds, ["KHacM8aduWM"]);
+  assert.equal(replay.summary.previouslySeenSkipped, 1);
+  assert.equal(replay.summary.cacheHits, 0);
+  assert.ok(replayStages.some((entry) => entry.stage === "video_already_seen"));
+  assert.ok(!replayStages.some((entry) => entry.stage === "transcript_cache_checked"));
+  assert.ok(!replayStages.some((entry) => entry.stage === "chrome_transcript_request_started"));
 });
 
 test("a configured Chrome operator records its own failure without a paid fallback", async () => {
@@ -657,17 +650,10 @@ test("an unconfigured Chrome operator leaves the detected video visibly pending 
   assert.equal(manualStage?.status, "blocked");
 });
 
-test("scheduled intake reads a legacy TranscriptAPI cache without changing its provenance", async () => {
+test("an existing canonical transcript row is skipped without provider work", async () => {
   const store = new ScheduledMemoryStore();
   store.item = { ...store.item, transcriptStatus: "ready", transcriptProvider: "transcriptapi", attemptCount: 3 };
-  store.cache = {
-    itemId: store.item.id,
-    runId: "prior-transcriptapi-run",
-    retrievedAt: "2026-08-26T00:00:00.000Z",
-    provider: "transcriptapi",
-    transcript: scheduledRetrieval.transcript,
-  };
-  const harness = scheduledHarness({ store });
+  const harness = scheduledHarness({ store, existingVideo: true, browserConfigured: true });
 
   const result = await runScheduledVideoIntake({
     slot: "video_midnight",
@@ -676,13 +662,12 @@ test("scheduled intake reads a legacy TranscriptAPI cache without changing its p
     now: new Date("2026-08-27T00:40:00+08:00"),
   }, harness.dependencies);
 
-  assert.equal(result.transcripts[0]?.status, "ready");
-  assert.equal(result.transcripts[0]?.provider, "transcriptapi");
-  assert.equal(result.transcripts[0]?.cacheHit, true);
-  assert.equal(harness.providerCalls(), 0);
+  assert.deepEqual(result.transcripts, []);
+  assert.deepEqual(result.skippedPreviouslySeenIds, ["KHacM8aduWM"]);
+  assert.equal(result.summary.previouslySeenSkipped, 1);
   assert.equal(harness.store.savedProvider, null);
-  assert.ok(!harness.stages.some((entry) => entry.stage.startsWith("paid_")));
-  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
+  assert.deepEqual(harness.store.recalculatedRunIds, []);
+  assert.ok(!harness.stages.some((entry) => entry.stage === "transcript_cache_checked"));
 });
 
 test("a pre-provider scheduled failure preserves discovery and terminalizes the active stage", async () => {
@@ -760,8 +745,7 @@ test("createVideoIntakeRun creates initial stage log and slot run", async () => 
   assert.equal(runPayload.process_log[1].stage, "youtube_discovery_started");
 });
 
-test("ensureVideoIntakeItem assigns an existing canonical video to the active run", async () => {
-  const updates: Array<Record<string, unknown>> = [];
+test("ensureVideoIntakeItem preserves an existing canonical video without reassigning its run", async () => {
   const existing = {
     id: "canonical-item",
     run_id: "historic-run",
@@ -774,30 +758,29 @@ test("ensureVideoIntakeItem assigns an existing canonical video to the active ru
   };
   const mockClient = {
     from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: existing, error: null }) }),
-      }),
-      update: (payload: Record<string, unknown>) => ({
-        eq: async () => {
-          updates.push(payload);
-          return { error: null };
-        },
-      }),
+      select: () => {
+        const query = {
+          eq: () => query,
+          order: () => query,
+          limit: () => query,
+          maybeSingle: async () => ({ data: existing, error: null }),
+        };
+        return query;
+      },
     }),
   } as unknown as Parameters<typeof import("../lib/youtube-transcript-persistence.ts").ensureVideoIntakeItem>[0]["client"];
   const { ensureVideoIntakeItem } = await import("../lib/youtube-transcript-persistence.ts");
 
-  const item = await ensureVideoIntakeItem({
+  const ensured = await ensureVideoIntakeItem({
     runId: "active-video-run",
     channelKey: "stockedup",
     video: video("stockedup", "KHacM8aduWM"),
     client: mockClient,
   });
 
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0]?.run_id, "active-video-run");
-  assert.equal(item.runId, "active-video-run");
-  assert.equal(item.transcriptStatus, "missing");
+  assert.equal(ensured.created, false);
+  assert.equal(ensured.item.runId, "historic-run");
+  assert.equal(ensured.item.transcriptStatus, "missing");
 });
 
 test("persistDiscoveryResult updates source_checks and discovery stages independently", async () => {
