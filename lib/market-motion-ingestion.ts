@@ -237,7 +237,9 @@ function sourceRef(candidate: MarketMotionInput): MarketMotionSourceRef {
     sourceUrl: candidate.sourceUrl,
     sourceKind: candidate.sourceKind || "other",
     verificationState: candidate.verificationState || "LEAD",
-    role: candidate.sourceKind === "creator" ? "discovery" : "primary",
+    role: candidate.sourceKind === "creator" || metadata.ingestion === "macro-pulse-motion-candidate/v1"
+      ? "discovery"
+      : "primary",
     sourceItemKey: typeof metadata.itemKey === "string" ? metadata.itemKey : null,
   };
 }
@@ -728,9 +730,8 @@ export function buildMacroPulseMotionCandidates(
       affectedStorySlugs,
       stories,
     });
-    const story = exactStory({
-      ...({ affectedStorySlugs } as ScoredIntakeItem),
-    }, stories);
+    const storyBySlug = new Map(stories.map((story) => [story.slug, story]));
+    const story = affectedStorySlugs.map((slug) => storyBySlug.get(slug)).find(Boolean) || null;
     const detectedTickers = explicitlyMentionedInstrumentSpecs(text).map((spec) => spec.instrument);
     const tickers = [...new Set([
       ...asStringArray(candidate.tickers, 20).map((ticker) => ticker.toUpperCase()),
