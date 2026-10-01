@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server.js";
 
+import { persistMarketMotionFromCreatorReviews } from "./market-motion-ingestion.ts";
 import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { retrieveSupadataVideo } from "./supadata.ts";
 import { SupabaseTranscriptWorkerStore } from "./supabase-transcript-worker-store.ts";
@@ -18,6 +19,7 @@ export type TranscriptWorkerHandlerDependencies = {
   createStore: () => SupabaseTranscriptWorkerStore;
   extract: typeof retrieveSupadataVideo;
   interpret: typeof reviewCreatorTranscript;
+  refreshMarketMotion: typeof persistMarketMotionFromCreatorReviews;
 };
 
 const defaultDependencies: TranscriptWorkerHandlerDependencies = {
@@ -30,6 +32,7 @@ const defaultDependencies: TranscriptWorkerHandlerDependencies = {
   createStore: () => new SupabaseTranscriptWorkerStore(),
   extract: retrieveSupadataVideo,
   interpret: reviewCreatorTranscript,
+  refreshMarketMotion: persistMarketMotionFromCreatorReviews,
 };
 
 export async function handleTranscriptWorkerRequest(
@@ -63,11 +66,27 @@ export async function handleTranscriptWorkerRequest(
       }),
     });
     const hasFailure = result.outcomes.some((outcome) => ["retryable", "failed", "lease_lost"].includes(outcome.status));
+    const completedItemIds = result.outcomes
+      .filter((outcome) => outcome.status === "completed")
+      .map((outcome) => outcome.itemId);
+    let marketMotion = null;
+    let marketMotionWarning: string | null = null;
+    if (completedItemIds.length) {
+      try {
+        marketMotion = await dependencies.refreshMarketMotion({ intakeItemIds: completedItemIds });
+      } catch (error) {
+        // Creator Motion refresh is enrichment. A failure must not turn a successfully
+        // persisted transcript into a failed transcript-worker job.
+        marketMotionWarning = error instanceof Error ? error.message : "Creator Market Motion refresh failed.";
+      }
+    }
     return NextResponse.json({
       engine: "XWADA",
       mode: "leased_transcript_worker",
       generatedAt: new Date().toISOString(),
       ...result,
+      marketMotion,
+      marketMotionWarning,
     }, {
       status: hasFailure ? 207 : 200,
       headers: { "Cache-Control": "no-store" },
