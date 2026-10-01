@@ -375,7 +375,8 @@ export async function buildScheduledResearchInput(
   const videoSources = new Set<ResearchSourceKey>([
     "stockedup",
     "wall-street-truth-bombs",
-    "traders-reality",
+    "fx-evolution",
+    "tradernick",
   ]);
   const directNewsSources = new Set<ResearchSourceKey>([
     "zerohedge",

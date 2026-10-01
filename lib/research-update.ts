@@ -10,7 +10,8 @@ import {
 export const REQUIRED_RESEARCH_SOURCES = [
   "stockedup",
   "wall-street-truth-bombs",
-  "traders-reality",
+  "fx-evolution",
+  "tradernick",
   "zerohedge",
   "axios",
   "investing-com",

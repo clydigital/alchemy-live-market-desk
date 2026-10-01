@@ -5,7 +5,8 @@ import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.t
 type ResearchSourceKey =
   | "stockedup"
   | "wall-street-truth-bombs"
-  | "traders-reality"
+  | "fx-evolution"
+  | "tradernick"
   | "zerohedge"
   | "axios"
   | "investing-com"

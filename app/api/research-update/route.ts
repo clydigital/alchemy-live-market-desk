@@ -96,7 +96,7 @@ export function buildResearchRunLedgerStartFields(input: {
     required_sources_complete: validation.sourceCoverageAvailable,
     evidence_gate_passed: validation.recalibrationEvidenceUsable,
     source_checks: researchRun.sourceChecks,
-    videos_found: sourceCount(researchRun, ["stockedup", "wall-street-truth-bombs", "traders-reality"]),
+    videos_found: sourceCount(researchRun, ["stockedup", "wall-street-truth-bombs", "fx-evolution", "tradernick"]),
     transcripts_ready: validation.scoredItems.filter((item) => item.itemType === "video" && item.transcriptStatus === "ready").length,
     news_scanned: sourceCount(researchRun, ["zerohedge", "axios", "investing-com", "fxstreet"]) + calendarItemCount,
     candidates_kept: validation.scoredItems.filter((item) => item.recommendedAction !== "ignore").length,
