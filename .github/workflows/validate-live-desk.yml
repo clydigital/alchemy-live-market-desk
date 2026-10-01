@@ -170,3 +170,9 @@ jobs:
 
       - name: Verify Market Motion v1 database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_motion_v1_contract.sql
+
+      - name: Apply transcript Motion leads migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001143000_transcript_motion_leads.sql
+
+      - name: Verify transcript Motion leads database contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/transcript_motion_leads_contract.sql

@@ -15,7 +15,7 @@ import {
 const REVIEW_INSTRUCTIONS = `You are reviewing a creator transcript for the Alchemy Markets Live Desk.
 The creator is a research lead, not an authoritative source. Extract how the creator reaches a market conclusion without promoting unverified claims into facts.
 
-Identify the central thesis and causal chain; separate cited facts and observed moves from interpretation; capture tone, conviction, thresholds, catalysts, watch items, contradictions and the strongest countercase through the requested fields. Map only to supplied Story slugs. Mark factual creator claims that require independent verification and state the verification target.
+Identify the central thesis and causal chain; separate cited facts and observed moves from interpretation; capture tone, conviction, thresholds, catalysts, watch items, contradictions and the strongest countercase through the requested fields. Preserve named companies, tickers, dated statistics, earnings/IPO/regulatory/company events and unusual interpretations when they are actually present in the transcript. Use expertNotes.kind=article_hook for a concrete writing angle worth exploring and expertNotes.kind=research_question for the specific follow-up search that could validate or deepen a lead. Map only to supplied Story slugs. Mark factual creator claims that require independent verification and state the verification target.
 
 Do not invent facts, sources, market moves, Story slugs or thresholds. Do not treat the creator's assertion as proof. Return only the requested structured output.`;
 

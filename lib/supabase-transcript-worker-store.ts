@@ -5,7 +5,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPersistentStoriesForCreatorRouting } from "./creator-story-routing.ts";
 import { canonicaliseIntake } from "./intelligence/runtime.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
-import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
+import {
+  buildTranscriptMotionLeads,
+  type TranscriptResearchReview,
+} from "./transcript-research-review-contract.ts";
 import {
   LostTranscriptLeaseError,
   type ClaimedTranscriptJob,
@@ -171,6 +174,7 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
       terms_detected: review.termsDetected,
       claim_checks: review.claimChecks,
       expert_notes: review.expertNotes,
+      transcript_motion_leads: buildTranscriptMotionLeads(review),
       affected_story_slugs: review.affectedStorySlugs,
       video_review_status: "reviewed",
       transcript_interpreted_at: interpretedAt,
