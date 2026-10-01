@@ -273,6 +273,23 @@ test("reviewed transcripts create discrete creator leads instead of one video-su
   assert.deepEqual(candidates[0].metadata?.researchQuestions, ["How much of Anthropic's losses are operating burn versus financing/accounting effects?"]);
 });
 
+test("Research Gap handoff videos stay fenced after transcript review", () => {
+  const divergenceNote = encodeResearchGapHandoffContext({
+    kind: "research_gap_gate",
+    gateRunId: "gate-video",
+    gapId: "gap-video",
+    researchQuestion: "Does the creator evidence resolve the funded branch?",
+    finding: "The Gap executor admitted this video as underlying evidence.",
+    confidence: 84,
+    outcome: "UNRESOLVED",
+  });
+  const candidates = buildTranscriptMotionCandidates([
+    reviewedTranscriptRow({ divergence_note: divergenceNote }),
+  ], [], { now: NOW });
+
+  assert.deepEqual(candidates, []);
+});
+
 test("creator Anthropic lead and Reuters IPO reporting collapse into one event with stronger reporting primary", () => {
   const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
   const [reuters] = buildMarketMotionCandidates([
