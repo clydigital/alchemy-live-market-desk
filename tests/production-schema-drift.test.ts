@@ -38,6 +38,7 @@ function manifest() {
   return [
     { version: "20260930120000", name: "legacy_before_guard" },
     { version: "20261001012000", name: "market_motion_v1" },
+    { version: "20261001061000", name: "research_gap_lifecycle" },
     { version: "20261001143000", name: "transcript_motion_leads" },
     { version: "20261002024600", name: "production_schema_drift_guard" },
   ];
@@ -47,7 +48,8 @@ test("schema drift assessment uses names after the enforcement baseline", () => 
   const assessment = assessProductionSchemaDrift(
     manifest().filter((item) => item.version >= PRODUCTION_SCHEMA_ENFORCEMENT_START),
     [
-      { version: "20261001181142", name: "market_motion_v1" },
+      { version: "20260930181142", name: "market_motion_v1" },
+      { version: "20260930224033", name: "research_gap_lifecycle" },
       { version: "20261001185600", name: "transcript_motion_leads" },
       { version: "20261002010000", name: "production_schema_drift_guard" },
     ],
@@ -65,7 +67,8 @@ test("schema guard fails closed when a checked-in migration is missing", async (
       authorize: authorized,
       deploymentSha: () => deployedSha,
       loadAppliedMigrations: async () => [
-        { version: "20261001181142", name: "market_motion_v1" },
+        { version: "20260930181142", name: "market_motion_v1" },
+        { version: "20260930224033", name: "research_gap_lifecycle" },
         { version: "20261002010000", name: "production_schema_drift_guard" },
       ],
       logger: () => undefined,
@@ -80,14 +83,15 @@ test("schema guard fails closed when a checked-in migration is missing", async (
   ]);
 });
 
-test("schema guard fails closed when production has an uncommitted post-baseline migration", async () => {
+test("schema guard does not infer unexpected migrations from unreliable remote timestamps", async () => {
   const response = await handleProductionSchemaDriftWithDependencies(
     request({ expectedDeploymentSha: deployedSha, migrations: manifest() }),
     {
       authorize: authorized,
       deploymentSha: () => deployedSha,
       loadAppliedMigrations: async () => [
-        { version: "20261001181142", name: "market_motion_v1" },
+        { version: "20260930181142", name: "market_motion_v1" },
+        { version: "20260930224033", name: "research_gap_lifecycle" },
         { version: "20261001185600", name: "transcript_motion_leads" },
         { version: "20261002010000", name: "production_schema_drift_guard" },
         { version: "20261002020000", name: "dashboard_hotfix_not_in_git" },
@@ -96,11 +100,11 @@ test("schema guard fails closed when production has an uncommitted post-baseline
     },
   );
 
-  assert.equal(response.status, 409);
+  assert.equal(response.status, 200);
   const body = await response.json();
-  assert.deepEqual(body.unexpected.map((item: { name: string }) => item.name), [
-    "dashboard_hotfix_not_in_git",
-  ]);
+  assert.equal(body.status, "healthy");
+  assert.deepEqual(body.unexpected, []);
+  assert.equal(body.productionHistoryCount, 5);
 });
 
 test("schema guard waits for the exact production deployment before inspecting schema", async () => {
