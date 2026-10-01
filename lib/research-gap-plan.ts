@@ -35,7 +35,7 @@ export type ResearchGapPlanContextMetadata = {
   authoritativeDossierId: string;
   dossierLineageIds: string[];
   sources: Array<{
-    sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse";
+    sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse" | "market_motion";
     sourceId: string;
     contractVersion: string;
     asOf: string;
