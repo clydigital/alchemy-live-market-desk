@@ -542,10 +542,169 @@ export function buildMarketMotionCandidates(
           affectedStorySlugs: item.affectedStorySlugs || [],
           primaryRegimeSubgroup: links.primaryRegimeSubgroup,
           evidenceUrls: item.evidence.map((link) => link.url).slice(0, 8),
+          sourceRefs: [{
+            sourceName: cleanText(item.publisher, 300),
+            sourceUrl: item.url,
+            sourceKind: kind,
+            verificationState: verification,
+            role: kind === "creator" ? "discovery" : "primary",
+            sourceItemKey: item.itemKey,
+          }],
+          originItemKeys: [item.itemKey],
           ingestion: "research-update/v1",
         },
       };
     });
+}
+
+
+function creatorRowEligible(row: ReviewedTranscriptMotionRow, now: Date) {
+  const publishedAt = Date.parse(row.published_at);
+  return Number.isFinite(publishedAt)
+    && publishedAt <= now.getTime() + 5 * 60_000
+    && now.getTime() - publishedAt <= MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000
+    && row.transcript_status === "ready"
+    && row.video_review_status === "reviewed";
+}
+
+function storyForSlugs(slugs: string[], stories: StoryRef[]) {
+  const bySlug = new Map(stories.map((story) => [story.slug, story]));
+  return slugs.map((slug) => bySlug.get(slug)).find(Boolean) || null;
+}
+
+export function buildTranscriptMotionCandidates(
+  rows: ReviewedTranscriptMotionRow[],
+  stories: StoryRef[],
+  options: { now?: Date; researchRunId?: string | null } = {},
+): MarketMotionInput[] {
+  const now = options.now ?? new Date();
+  const candidates: MarketMotionInput[] = [];
+
+  for (const row of rows) {
+    if (!creatorRowEligible(row, now)) continue;
+    const leads = parseTranscriptMotionLeads(row.transcript_motion_leads);
+    const writingAngles = leads.filter((lead) => lead.kind === "article_hook").map((lead) => lead.articleHook || lead.text).filter(Boolean).slice(0, 8);
+    const researchQuestions = leads.filter((lead) => lead.kind === "research_question").map((lead) => lead.searchPrompt || lead.text).filter(Boolean).slice(0, 8);
+    const creatorInterpretations = leads
+      .filter((lead) => ["causal_link", "countercase"].includes(lead.kind))
+      .map((lead) => lead.text)
+      .slice(0, 8);
+    const eventLeads = leads
+      .filter((lead) => CREATOR_EVENT_LEAD_KINDS.has(lead.kind))
+      .filter((lead) => lead.priority >= MARKET_MOTION_MIN_SCORE)
+      .sort((left, right) => right.priority - left.priority)
+      .slice(0, 8);
+
+    for (const lead of eventLeads) {
+      const text = [lead.text, row.title, row.summary, ...lead.entities].join(" ");
+      const links = resolveMarketMotionLinks({
+        text,
+        affectedStorySlugs: row.affected_story_slugs || [],
+        stories,
+      });
+      const story = storyForSlugs(row.affected_story_slugs || [], stories);
+      const tickers = explicitlyMentionedInstrumentSpecs(text).map((spec) => spec.instrument);
+      const leadKey = createHash("sha256").update(`${row.item_key}\n${lead.text}`).digest("hex").slice(0, 16);
+      const whyInteresting = writingAngles[0]
+        ? `Transcript writing angle: ${writingAngles[0]}`
+        : story
+          ? `Creator research lead may add a fresh test to the existing Story: ${story.title}.`
+          : "Creator transcript surfaced a discrete event, statistic or market claim worth current verification.";
+
+      candidates.push({
+        motionKey: `creator:${row.item_key}:${leadKey}`.slice(0, 300),
+        lifecycleState: "MOTION",
+        category: categoryFor(text),
+        verificationState: "LEAD",
+        headline: cleanText(lead.text, 500),
+        whatHappened: cleanText(`${row.publisher} surfaced this in a recent transcript. It remains a creator-sourced lead until independently corroborated: ${lead.text}`, 3_600),
+        marketReaction: lead.kind === "market_reaction" ? cleanText(lead.text, 1_200) : null,
+        whyInteresting,
+        bigPictureBridge: bridgeFor({ regimeSlug: links.primaryRegimeSlug, story }),
+        nextTest: lead.searchPrompt || lead.verificationTarget || researchQuestions[0] || "Verify the creator lead with a primary source or high-quality current reporting.",
+        tickers,
+        sourceName: cleanText(row.publisher, 300),
+        sourceUrl: row.url,
+        sourceKind: "creator",
+        materiality: Math.max(Number(row.materiality || 0), lead.priority),
+        relevance: Math.max(Number(row.relevance || 0), lead.priority),
+        novelty: Math.max(Number(row.novelty || 0), lead.priority),
+        occurredAt: row.published_at,
+        observedAt: now.toISOString(),
+        researchRunId: options.researchRunId || row.run_id || null,
+        primaryStoryId: links.primaryStoryId,
+        primaryRegimeSlug: links.primaryRegimeSlug,
+        metadata: {
+          itemKey: row.item_key,
+          itemType: "video",
+          intakeItemId: row.id,
+          originResearchRunId: row.run_id,
+          creatorVideoTitle: row.title,
+          creatorLeadKind: lead.kind,
+          creatorLeadPriority: lead.priority,
+          verificationNeeded: lead.verificationNeeded,
+          verificationTarget: lead.verificationTarget,
+          tags: lead.tags,
+          entities: lead.entities,
+          writingAngles,
+          researchQuestions,
+          creatorInterpretations,
+          creatorLeadTexts: [lead.text],
+          originItemKeys: [row.item_key],
+          sourceRefs: [{
+            sourceName: row.publisher,
+            sourceUrl: row.url,
+            sourceKind: "creator",
+            verificationState: "LEAD",
+            role: "discovery",
+            sourceItemKey: row.item_key,
+          }],
+          affectedStorySlugs: row.affected_story_slugs || [],
+          primaryRegimeSubgroup: links.primaryRegimeSubgroup,
+          ingestion: "creator-transcript-motion-lead/v1",
+        },
+      });
+    }
+  }
+
+  return candidates
+    .sort((left, right) =>
+      Number(right.materiality || 0) - Number(left.materiality || 0)
+      || Number(right.relevance || 0) - Number(left.relevance || 0)
+      || Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
+    .slice(0, MARKET_MOTION_RUN_LIMIT);
+}
+
+export function unifyMarketMotionCandidates(
+  candidates: MarketMotionInput[],
+  options: { researchRunId?: string | null } = {},
+) {
+  const byEvent = new Map<string, MarketMotionInput>();
+
+  for (const raw of candidates) {
+    const motionKey = eventMotionKey(raw);
+    const candidate: MarketMotionInput = {
+      ...raw,
+      motionKey,
+      researchRunId: options.researchRunId ?? raw.researchRunId ?? null,
+      metadata: {
+        ...(raw.metadata || {}),
+        eventIdentity: motionKey.startsWith("event:") ? motionKey : null,
+        sourceRefs: uniqueSourceRefs([
+          ...sourceRefs(raw.metadata),
+          sourceRef(raw),
+        ]),
+      },
+    };
+    const prior = byEvent.get(motionKey);
+    byEvent.set(motionKey, prior ? mergeCandidatePair(prior, candidate) : candidate);
+  }
+
+  return [...byEvent.values()]
+    .sort((left, right) =>
+      candidateStrength(right) - candidateStrength(left)
+      || Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
+    .slice(0, MARKET_MOTION_RUN_LIMIT);
 }
 
 function sameCore(existing: MarketMotionRecord, candidate: MarketMotionInput) {
@@ -559,7 +718,9 @@ function sameCore(existing: MarketMotionRecord, candidate: MarketMotionInput) {
     && existing.next_test === (candidate.nextTest || null)
     && existing.source_url === candidate.sourceUrl
     && existing.primary_story_id === (candidate.primaryStoryId || null)
-    && existing.primary_regime_slug === (candidate.primaryRegimeSlug || null);
+    && existing.primary_regime_slug === (candidate.primaryRegimeSlug || null)
+    && existing.research_run_id === (candidate.researchRunId || null)
+    && contextSignature(existing.metadata) === contextSignature(candidate.metadata);
 }
 
 export async function persistMarketMotionFromResearchRun(input: {
