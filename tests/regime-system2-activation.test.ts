@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   detectSystem1TelemetryStateChanges,
+  openSystem2ActivationStoryIds,
   selectSystem2ActivationTargets,
 } from "../lib/regime-system2-activation.ts";
 import type { ProjectedRegime, ProjectedStory } from "../lib/regimes.ts";
@@ -159,4 +160,36 @@ test("activation remains bounded to the canonical Story-maintenance budget", () 
   const targets = selectSystem2ActivationTargets(current, changes);
   assert.equal(targets.length, 4);
   assert.equal(targets[0].storyId, "core-story");
+});
+
+
+test("normal evidence queue rows do not suppress a later System 1 activation", () => {
+  const queued = openSystem2ActivationStoryIds([
+    {
+      target_id: "rates-story",
+      reason: "new_linked_evidence",
+    },
+    {
+      target_id: "ai-story",
+      reason: "system1_threshold_crossing | Funding / credit: Loose -> Restrictive",
+    },
+  ]);
+
+  assert.equal(queued.has("rates-story"), false);
+  assert.equal(queued.has("ai-story"), true);
+});
+
+test("existing System 1 activation rows remain deduplicated by Story", () => {
+  const queued = openSystem2ActivationStoryIds([
+    {
+      target_id: "rates-story",
+      reason: "system1_threshold_crossing | Long End: Mixed -> Restrictive",
+    },
+    {
+      target_id: "rates-story",
+      reason: "system1_threshold_crossing | Funding: Stable -> Tight",
+    },
+  ]);
+
+  assert.deepEqual([...queued], ["rates-story"]);
 });

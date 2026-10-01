@@ -21,6 +21,16 @@ export type System2StoryActivationTarget = {
   changes: System1TelemetryStateChange[];
 };
 
+export function openSystem2ActivationStoryIds(
+  rows: Array<{ target_id: string; reason: string | null }>,
+) {
+  return new Set(rows
+    .filter((item) =>
+      typeof item.reason === "string"
+      && item.reason.startsWith("system1_threshold_crossing"))
+    .map((item) => item.target_id));
+}
+
 type SnapshotTelemetry = {
   key?: unknown;
   label?: unknown;

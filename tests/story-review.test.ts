@@ -5,6 +5,7 @@ import { explicitlyMentionedAssets } from "../lib/instrument-mentions.ts";
 import {
   MAX_STORY_REVIEW_EVIDENCE,
   materialAssessmentHasEligibleEvidence,
+  planStoryReviewQueueHygiene,
   selectStoryReviewTargets,
   type StoryEvidenceLink,
   type StoryReviewStory,
@@ -394,4 +395,109 @@ test("past scheduled evidence is never offered as a future catalyst candidate", 
 
   assert.equal(selected.length, 1);
   assert.deepEqual(selected[0]?.reviewContext?.catalystCandidates, []);
+});
+
+
+test("queue hygiene cancels only exact duplicates or already-applied requests", () => {
+  const plan = planStoryReviewQueueHygiene({
+    queue: [
+      {
+        id: "keep-high",
+        storyId: "rates",
+        status: "pending",
+        reason: "new_linked_evidence",
+        priority: 80,
+        availableAt: "2026-08-19T10:00:00Z",
+        createdAt: "2026-08-19T10:00:00Z",
+        requestedEvidenceId: "evidence-1",
+      },
+      {
+        id: "duplicate-low",
+        storyId: "rates",
+        status: "retryable",
+        reason: "new_linked_evidence",
+        priority: 70,
+        availableAt: "2026-08-19T10:05:00Z",
+        createdAt: "2026-08-19T10:05:00Z",
+        requestedEvidenceId: "evidence-1",
+      },
+      {
+        id: "distinct-aged",
+        storyId: "rates",
+        status: "pending",
+        reason: "new_linked_evidence",
+        priority: 70,
+        availableAt: "2026-08-19T09:00:00Z",
+        createdAt: "2026-08-19T09:00:00Z",
+        requestedEvidenceId: "evidence-2",
+      },
+      {
+        id: "already-applied",
+        storyId: "ai",
+        status: "pending",
+        reason: "new_linked_evidence",
+        priority: 70,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:00:00Z",
+        requestedEvidenceId: "evidence-3",
+      },
+      {
+        id: "system1-live",
+        storyId: "rates",
+        status: "pending",
+        reason: "system1_threshold_crossing | Long End: Mixed -> Restrictive",
+        priority: 80,
+        availableAt: "2026-08-19T08:00:00Z",
+        createdAt: "2026-08-19T08:00:00Z",
+        requestedEvidenceId: null,
+      },
+    ],
+    storyStatuses: new Map([
+      ["rates", "publish"],
+      ["ai", "publish"],
+    ]),
+    appliedQueueIds: new Set(["already-applied"]),
+    now,
+  });
+
+  assert.deepEqual(plan.duplicateIds, ["duplicate-low"]);
+  assert.deepEqual(plan.alreadyAppliedIds, ["already-applied"]);
+  assert.deepEqual(plan.cancelIds, ["already-applied", "duplicate-low"]);
+  assert.deepEqual(plan.agedIds, ["distinct-aged", "keep-high"]);
+  assert.equal(plan.cancelIds.includes("system1-live"), false);
+  assert.equal(plan.agedIds.includes("system1-live"), false);
+});
+
+test("queue hygiene never collapses distinct fresh evidence for the same Story", () => {
+  const plan = planStoryReviewQueueHygiene({
+    queue: [
+      {
+        id: "evidence-a",
+        storyId: "oil",
+        status: "pending",
+        reason: "new_linked_evidence",
+        priority: 70,
+        availableAt: "2026-08-21T11:30:00Z",
+        createdAt: "2026-08-21T11:30:00Z",
+        requestedEvidenceId: "evidence-a",
+      },
+      {
+        id: "evidence-b",
+        storyId: "oil",
+        status: "pending",
+        reason: "new_linked_evidence",
+        priority: 70,
+        availableAt: "2026-08-21T11:31:00Z",
+        createdAt: "2026-08-21T11:31:00Z",
+        requestedEvidenceId: "evidence-b",
+      },
+    ],
+    storyStatuses: new Map([["oil", "publish"]]),
+    appliedQueueIds: new Set(),
+    now,
+  });
+
+  assert.deepEqual(plan.cancelIds, []);
+  assert.deepEqual(plan.duplicateIds, []);
+  assert.deepEqual(plan.agedIds, []);
 });

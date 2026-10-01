@@ -98,11 +98,81 @@ function milliseconds(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function reviewAgeHours(status: string) {
+export function reviewAgeHours(status: string) {
   const normalised = status.toLowerCase();
   if (["publish", "published", "confirmed"].includes(normalised)) return 24;
   if (["develop", "developing"].includes(normalised)) return 48;
   return 72;
+}
+
+export type StoryReviewQueueHygienePlan = {
+  cancelIds: string[];
+  duplicateIds: string[];
+  alreadyAppliedIds: string[];
+  agedIds: string[];
+};
+
+export function planStoryReviewQueueHygiene(input: {
+  queue: StoryReviewQueueItem[];
+  storyStatuses: ReadonlyMap<string, string>;
+  appliedQueueIds: ReadonlySet<string>;
+  now: Date;
+}): StoryReviewQueueHygienePlan {
+  const actionable = input.queue.filter((item) =>
+    ["pending", "retryable"].includes(item.status));
+  const alreadyAppliedIds = actionable
+    .filter((item) => input.appliedQueueIds.has(item.id))
+    .map((item) => item.id)
+    .sort();
+  const alreadyApplied = new Set(alreadyAppliedIds);
+
+  const duplicateIds: string[] = [];
+  const groups = new Map<string, StoryReviewQueueItem[]>();
+  for (const item of actionable) {
+    if (
+      item.reason !== "new_linked_evidence"
+      || !item.requestedEvidenceId
+      || alreadyApplied.has(item.id)
+    ) continue;
+    const key = [item.storyId, item.requestedEvidenceId, item.reason].join(":");
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    group.sort((left, right) =>
+      right.priority - left.priority
+      || (milliseconds(left.createdAt) ?? 0) - (milliseconds(right.createdAt) ?? 0)
+      || left.id.localeCompare(right.id));
+    duplicateIds.push(...group.slice(1).map((item) => item.id));
+  }
+  duplicateIds.sort();
+
+  const cancelIds = [...new Set([...alreadyAppliedIds, ...duplicateIds])].sort();
+  const cancelled = new Set(cancelIds);
+  const nowMs = input.now.getTime();
+  const agedIds = actionable
+    .filter((item) => {
+      if (
+        item.reason !== "new_linked_evidence"
+        || !item.requestedEvidenceId
+        || cancelled.has(item.id)
+      ) return false;
+      const createdAt = milliseconds(item.createdAt);
+      if (createdAt === null) return false;
+      const status = input.storyStatuses.get(item.storyId) ?? "";
+      return nowMs - createdAt >= reviewAgeHours(status) * 60 * 60 * 1_000;
+    })
+    .map((item) => item.id)
+    .sort();
+
+  return {
+    cancelIds,
+    duplicateIds,
+    alreadyAppliedIds,
+    agedIds,
+  };
 }
 
 function scheduledCatalystCandidate(item: EvidencePackItem, nowMs: number) {

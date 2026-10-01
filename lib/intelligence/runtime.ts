@@ -86,7 +86,7 @@ import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intellig
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { materialAssessmentHasEligibleEvidence, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -1059,6 +1059,88 @@ async function loadResearchDebt() {
   return intelligenceRest<ResearchDebtRow[]>(
     "research_debt?select=story_id,debt_key,severity,status,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
   ).catch(() => []);
+}
+
+async function applyStoryReevaluationQueueHygiene(now: Date) {
+  const rows = await intelligenceRest<Array<{
+    id: string;
+    target_id: string;
+    status: string;
+    reason: string;
+    priority: number;
+    available_at: string;
+    created_at: string;
+    requested_by_evidence_id: string | null;
+  }>>(
+    "intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at,requested_by_evidence_id&target_kind=eq.story&status=in.(pending,retryable)&order=created_at.asc&limit=500",
+  ).catch(() => []);
+
+  if (!rows.length) {
+    return { openRows: 0, targetCount: 0, cancelled: 0, duplicates: 0, alreadyApplied: 0, aged: 0 };
+  }
+
+  const targetIds = unique(rows.map((row) => row.target_id).filter(Boolean));
+  const [states, assessments] = await Promise.all([
+    targetIds.length
+      ? intelligenceRest<Array<{ story_id: string; lifecycle_status: string }>>(
+        "intelligence_story_states?select=story_id,lifecycle_status&story_id=in.(" + targetIds.join(",") + ")",
+      ).catch(() => [])
+      : Promise.resolve([]),
+    intelligenceRest<Array<{ queue_ids: string[] | null; applied_at: string | null }>>(
+      "intelligence_story_assessments?select=queue_ids,applied_at&applied_at=not.is.null&order=applied_at.desc&limit=400",
+    ).catch(() => []),
+  ]);
+
+  const storyStatuses = new Map(states.map((state) => [state.story_id, state.lifecycle_status]));
+  const appliedQueueIds = new Set(assessments.flatMap((assessment) => assessment.queue_ids ?? []));
+  const queue: StoryReviewQueueItem[] = rows.map((row) => ({
+    id: row.id,
+    storyId: row.target_id,
+    status: row.status,
+    reason: row.reason,
+    priority: row.priority,
+    availableAt: row.available_at,
+    createdAt: row.created_at,
+    requestedEvidenceId: row.requested_by_evidence_id,
+  }));
+  const plan = planStoryReviewQueueHygiene({
+    queue,
+    storyStatuses,
+    appliedQueueIds,
+    now,
+  });
+
+  if (plan.cancelIds.length) {
+    await intelligenceRest(
+      "intelligence_reevaluation_queue?id=in.(" + plan.cancelIds.join(",") + ")&status=in.(pending,retryable)",
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "cancelled",
+          completed_at: now.toISOString(),
+          last_error: null,
+          updated_at: now.toISOString(),
+        }),
+      },
+    );
+  }
+
+  const result = {
+    openRows: rows.length,
+    targetCount: new Set(rows.map((row) => row.target_id)).size,
+    cancelled: plan.cancelIds.length,
+    duplicates: plan.duplicateIds.length,
+    alreadyApplied: plan.alreadyAppliedIds.length,
+    aged: plan.agedIds.length,
+  };
+  console.info(JSON.stringify({
+    event: "story_reevaluation_queue_hygiene",
+    ...result,
+    cancelledQueueIds: plan.cancelIds,
+    agedQueueIds: plan.agedIds.slice(0, 20),
+  }));
+  return result;
 }
 
 function validFrozenStoryReviewTargets(value: unknown): value is StoryReviewTargetPackItem[] {
@@ -2626,13 +2708,20 @@ export async function runIntelligenceEngine({
     const researchDebt = await loadResearchDebt();
     if (researchDebt.length) warnings.push(`${researchDebt.length} open research-debt obligation(s) were supplied to the reasoning stages for prioritisation.`);
     const canonicalisedEvidenceIds = await canonicaliseIntake(stories);
+    const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
+    const queueHygiene = await applyStoryReevaluationQueueHygiene(new Date(analysisAsOf));
+    if (queueHygiene.cancelled) {
+      warnings.push(`Story reevaluation queue hygiene cancelled ${queueHygiene.cancelled} redundant request(s): ${queueHygiene.duplicates} exact duplicate(s) and ${queueHygiene.alreadyApplied} already-applied request(s).`);
+    }
+    if (queueHygiene.aged) {
+      warnings.push(`${queueHygiene.aged} unresolved new-linked-evidence request(s) exceeded the Story review-age window; they remain live and retain oldest-first selection priority.`);
+    }
     const queuedArchivedReview = await loadExplicitlyQueuedArchivedReviewContext();
     const requiredEvidenceIds = unique([
       ...canonicalisedEvidenceIds,
       ...queuedArchivedReview.triggerEvidenceIds,
     ]);
     const evidence = await loadEvidence(requiredEvidenceIds);
-    const analysisAsOf = currentIntelligenceInvocation()?.frozenInputs?.analysisAsOf || new Date().toISOString();
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
     const system1Attention = buildSystem1ResearchAttention(recruitment);
     const fullFreshEvidence = attachRatesContext(
