@@ -36,6 +36,108 @@ export const MARKET_MOTION_CATEGORIES = [
 ] as const;
 export type MarketMotionCategory = typeof MARKET_MOTION_CATEGORIES[number];
 
+export type MarketMotionAttentionTier = "PRIMARY" | "SECONDARY";
+export type MarketMotionWritingPotential = "HIGH" | "MEDIUM" | "LOW";
+
+export type MarketMotionAttention = {
+  tier: MarketMotionAttentionTier;
+  score: number;
+  writingPotential: MarketMotionWritingPotential;
+  reasons: string[];
+};
+
+type MarketMotionAttentionInput = {
+  materiality: number;
+  relevance: number;
+  novelty: number;
+  verificationState: MarketMotionVerificationState;
+  lifecycleState: MarketMotionLifecycleState;
+  category: MarketMotionCategory;
+  tickers?: string[];
+  marketReaction?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function metadataArrayCount(metadata: Record<string, unknown> | null | undefined, field: string) {
+  return Array.isArray(metadata?.[field]) ? (metadata![field] as unknown[]).length : 0;
+}
+
+export function deriveMarketMotionAttention(input: MarketMotionAttentionInput): MarketMotionAttention {
+  const verificationBonus =
+    input.verificationState === "VERIFIED" ? 7
+      : input.verificationState === "REPORTED" ? 4
+        : input.verificationState === "PARTIAL" ? 2
+          : input.verificationState === "UNRESOLVED" ? -2
+            : input.verificationState === "CONTRADICTED" ? -8
+              : 0;
+  const sourceRefCount = metadataArrayCount(input.metadata, "sourceRefs");
+  const writingAngleCount = metadataArrayCount(input.metadata, "writingAngles");
+  const researchQuestionCount = metadataArrayCount(input.metadata, "researchQuestions");
+  const corroborationBonus = sourceRefCount >= 2 ? 3 : 0;
+  const writingBonus = writingAngleCount > 0 ? 4 : 0;
+  const researchBonus = researchQuestionCount > 0 ? 2 : 0;
+  const tickerBonus = input.tickers?.length ? 2 : 0;
+  const reactionBonus = input.marketReaction ? 2 : 0;
+  const promotionBonus = input.lifecycleState === "PROMOTED" ? 3 : 0;
+
+  const score = Math.max(0, Math.min(100, Math.round(
+    input.materiality * 0.45
+    + input.relevance * 0.35
+    + input.novelty * 0.10
+    + verificationBonus
+    + corroborationBonus
+    + writingBonus
+    + researchBonus
+    + tickerBonus
+    + reactionBonus
+    + promotionBonus,
+  )));
+
+  const tier: MarketMotionAttentionTier =
+    score >= 82 && input.materiality >= 78 && input.relevance >= 74
+      ? "PRIMARY"
+      : "SECONDARY";
+
+  const companyLike = input.category === "COMPANY" || input.category === "EARNINGS";
+  const writingPotential: MarketMotionWritingPotential =
+    writingAngleCount > 0 || (companyLike && Boolean(input.tickers?.length) && score >= 78)
+      ? "HIGH"
+      : researchQuestionCount > 0 || Boolean(input.tickers?.length) || input.category === "MARKET_STRUCTURE"
+        ? "MEDIUM"
+        : "LOW";
+
+  const reasons: string[] = [];
+  if (input.materiality >= 85) reasons.push("high materiality");
+  if (input.relevance >= 85) reasons.push("high market relevance");
+  if (input.verificationState === "VERIFIED") reasons.push("primary/official verification");
+  else if (sourceRefCount >= 2) reasons.push("multi-source corroboration");
+  if (input.marketReaction) reasons.push("market reaction captured");
+  if (writingAngleCount > 0) reasons.push("explicit writing angle");
+  else if (researchQuestionCount > 0) reasons.push("specific research question");
+  if (input.tickers?.length) reasons.push("asset/ticker linked");
+
+  return {
+    tier,
+    score,
+    writingPotential,
+    reasons: reasons.slice(0, 4),
+  };
+}
+
+export function marketMotionAttention(item: MarketMotionRecord): MarketMotionAttention {
+  return deriveMarketMotionAttention({
+    materiality: item.materiality,
+    relevance: item.relevance,
+    novelty: item.novelty,
+    verificationState: item.verification_state,
+    lifecycleState: item.lifecycle_state,
+    category: item.category,
+    tickers: item.tickers,
+    marketReaction: item.market_reaction,
+    metadata: item.metadata,
+  });
+}
+
 export type MarketMotionInput = {
   motionKey: string;
   lifecycleState?: Exclude<MarketMotionLifecycleState, "EXPIRED"> | "EXPIRED";
@@ -216,14 +318,16 @@ export function selectMarketMotionForOverview(
   return items
     .filter((item) => marketMotionEffectiveState(item, now) !== "EXPIRED")
     .sort((left, right) => {
-      const stateDelta = (right.lifecycle_state === "PROMOTED" ? 1 : 0) - (left.lifecycle_state === "PROMOTED" ? 1 : 0);
-      if (stateDelta) return stateDelta;
+      const leftAttention = marketMotionAttention(left);
+      const rightAttention = marketMotionAttention(right);
+      const tierDelta = (rightAttention.tier === "PRIMARY" ? 1 : 0) - (leftAttention.tier === "PRIMARY" ? 1 : 0);
+      if (tierDelta) return tierDelta;
+      const attentionDelta = rightAttention.score - leftAttention.score;
+      if (attentionDelta) return attentionDelta;
       const materialityDelta = right.materiality - left.materiality;
       if (materialityDelta) return materialityDelta;
       const relevanceDelta = right.relevance - left.relevance;
       if (relevanceDelta) return relevanceDelta;
-      const noveltyDelta = right.novelty - left.novelty;
-      if (noveltyDelta) return noveltyDelta;
       return Date.parse(right.occurred_at) - Date.parse(left.occurred_at);
     })
     .slice(0, Math.max(0, limit));

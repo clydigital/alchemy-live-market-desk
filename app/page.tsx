@@ -18,7 +18,7 @@ import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation
 import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
-import { getCurrentMarketMotion, selectMarketMotionForOverview } from "@/lib/market-motion";
+import { getCurrentMarketMotion, marketMotionAttention, selectMarketMotionForOverview } from "@/lib/market-motion";
 import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
@@ -249,7 +249,12 @@ export default async function Page({ searchParams }: PageProps) {
   const marketMotion = selectMarketMotionForOverview(motionRecords).map((item) => {
     const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
     const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    const attention = marketMotionAttention(item);
     return {
+      attentionTier: attention.tier,
+      attentionScore: attention.score,
+      writingPotential: attention.writingPotential,
+      attentionReasons: attention.reasons,
       id: item.id,
       headline: item.headline,
       category: item.category,
