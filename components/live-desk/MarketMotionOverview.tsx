@@ -32,6 +32,7 @@ export type MarketMotionOverviewItem = {
   storyHref: string | null;
   regimeLabel: string | null;
   regimeHref: string | null;
+  investigationHref?: string | null;
 };
 
 function shortDate(value: string) {
@@ -109,6 +110,12 @@ function MotionCard({
         <p className={styles.next}>
           <strong>{journeyMode ? "Investigate / write next:" : "Next test:"}</strong> {item.nextTest}
         </p>
+      ) : null}
+
+      {journeyMode && item.investigationHref ? (
+        <Link className={styles.investigationLink} href={item.investigationHref}>
+          Open Motion investigation path →
+        </Link>
       ) : null}
 
       <footer>
