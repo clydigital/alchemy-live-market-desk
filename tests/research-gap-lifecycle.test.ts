@@ -44,6 +44,7 @@ function item(overrides: Partial<PrioritisedResearchGap> = {}): PrioritisedResea
       investigationState: 16,
       linkage: 8,
       evidenceNeed: 4,
+      motionAttention: 0,
     },
     selectionReason: ["unresolved/divergent investigation"],
     ...overrides,

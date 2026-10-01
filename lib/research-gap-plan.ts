@@ -35,7 +35,7 @@ export type ResearchGapPlanContextMetadata = {
   authoritativeDossierId: string;
   dossierLineageIds: string[];
   sources: Array<{
-    sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse";
+    sourceType: "research_gap_occurrence" | "dossier_v2" | "macropulse" | "market_motion";
     sourceId: string;
     contractVersion: string;
     asOf: string;
@@ -310,7 +310,7 @@ function isResearchGapPlanContextMetadata(value: unknown): value is ResearchGapP
     const source = record(raw);
     return Boolean(
       source
-      && ["research_gap_occurrence", "dossier_v2", "macropulse"].includes(clean(source.sourceType))
+      && ["research_gap_occurrence", "dossier_v2", "macropulse", "market_motion"].includes(clean(source.sourceType))
       && clean(source.sourceId)
       && clean(source.contractVersion)
       && clean(source.asOf)

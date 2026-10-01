@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   adaptMacroPulseContext,
+  adaptMarketMotionContext,
   buildResearchGapPlanContext,
   loadResearchGapPlanContext,
 } from "../lib/research-gap-context.ts";
@@ -22,7 +23,7 @@ function dossier(id: string, previous: string | null, asOf: string): MarketDossi
   };
 }
 
-function gap(): ResearchGapCaseRow {
+function gap(overrides: Partial<ResearchGapCaseRow> = {}): ResearchGapCaseRow {
   return {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     gap_key: "gap:investigation:duration",
@@ -62,6 +63,7 @@ function gap(): ResearchGapCaseRow {
     handoff_canonical_status: null,
     created_at: "2026-09-30T00:00:00.000Z",
     updated_at: "2026-10-01T00:55:00.000Z",
+    ...overrides,
   };
 }
 
@@ -121,6 +123,76 @@ test("adapts MacroPulse deterministically as context-only", () => {
   assert.equal(first.authority, "context_only");
   assert.equal(first.sourceType, "macropulse");
   assert.notEqual(first.payload, input.payload);
+});
+
+test("adapts exact Market Motion as context-only", () => {
+  const source = adaptMarketMotionContext({
+    id: "motion-1",
+    contractVersion: "market-motion/v1",
+    asOf: "2026-10-01T00:40:00.000Z",
+    payload: { motion_key: "event:rates:test", next_test: "Check the long end." },
+  });
+  assert.equal(source.sourceType, "market_motion");
+  assert.equal(source.authority, "context_only");
+  assert.equal(source.sourceId, "motion-1");
+});
+
+test("Motion-origin Gap loader freezes the exact immutable Motion row beside the canonical Dossier", async () => {
+  const motionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const motionGap = gap({
+    source_kind: "market_motion",
+    source_ref: motionId,
+    gap_key: "gap:motion:event:rates:test:branch:abc",
+    question: "Check whether long-end stress persists.",
+    action: "Investigate Motion: Check whether long-end stress persists.",
+    evidence_needed: ["10Y/30Y real yields"],
+    linked_investigation_ids: [],
+  });
+  const current = dossier(motionGap.latest_dossier_id, null, motionGap.latest_dossier_as_of);
+  const motionOccurrence = {
+    ...occurrence,
+    gap_case_id: motionGap.id,
+    dossier_id: motionGap.latest_dossier_id,
+    dossier_as_of: motionGap.latest_dossier_as_of,
+    work_id: motionGap.latest_work_id,
+    source_kind: "market_motion",
+    source_ref: motionId,
+  };
+  const motionRow = {
+    id: motionId,
+    contract_version: "market-motion/v1",
+    observed_at: "2026-10-01T00:40:00.000Z",
+    motion_key: "event:rates:test",
+    next_test: "Check whether long-end stress persists.",
+  };
+  const tables: Record<string, Array<Record<string, unknown>>> = {
+    research_gap_case_occurrences: [motionOccurrence],
+    market_dossiers_v2: [current] as unknown as Array<Record<string, unknown>>,
+    market_motion_items: [motionRow],
+  };
+  const client = {
+    from(table: string) {
+      let rows = [...(tables[table] ?? [])];
+      const query = {
+        select() { return query; },
+        eq(column: string, value: unknown) { rows = rows.filter((row) => row[column] === value); return query; },
+        async maybeSingle() { return { data: rows[0] ?? null, error: null }; },
+      };
+      return query;
+    },
+  };
+
+  const context = await loadResearchGapPlanContext(
+    motionGap,
+    client as never,
+    new Date("2026-10-01T01:00:00.000Z"),
+  );
+  assert.deepEqual(context.sources.map((item) => item.sourceType), [
+    "research_gap_occurrence",
+    "dossier_v2",
+    "market_motion",
+  ]);
+  assert.equal(context.sources.at(-1)?.sourceId, motionId);
 });
 
 test("loader follows predecessor IDs and ignores an unrelated newer Dossier", async () => {

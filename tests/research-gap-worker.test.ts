@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
+import type { MarketMotionRecord } from "../lib/market-motion.ts";
 import {
   buildResearchGapWorkQueue,
   loadLatestResearchGapWorkQueue,
@@ -60,6 +61,45 @@ function dossier(overrides: Partial<MarketDossierV2> = {}): MarketDossierV2 {
   };
 }
 
+function motion(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord {
+  return {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    motion_key: "event:rates:term-premium",
+    version_number: 2,
+    previous_version_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    contract_version: "market-motion/v1",
+    research_run_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    source_id: null,
+    evidence_id: null,
+    primary_story_id: "story:rates-duration-stress",
+    primary_regime_slug: "global-cost-of-capital",
+    lifecycle_state: "PROMOTED",
+    effective_state: "PROMOTED",
+    category: "MACRO",
+    verification_state: "VERIFIED",
+    headline: "Long-end yields stay elevated after the policy move",
+    what_happened: "The long end remains under pressure despite a less dramatic front-end move.",
+    market_reaction: "US10Y and US30Y stayed firm while growth equities lagged.",
+    why_interesting: "Tests whether term premium is becoming the dominant rates channel.",
+    big_picture_bridge: "Treasury supply → long-end yields → financing costs → valuation",
+    next_test: "Decompose 10Y/30Y real yields versus breakevens and compare DXY plus growth equities.",
+    promotion_reason: "Canonical Story changed.",
+    tickers: ["US10Y", "US30Y", "DXY"],
+    source_name: "Treasury",
+    source_url: "https://home.treasury.gov/example",
+    source_kind: "official",
+    materiality: 94,
+    relevance: 93,
+    novelty: 86,
+    occurred_at: "2026-10-01T00:30:00.000Z",
+    observed_at: "2026-10-01T00:40:00.000Z",
+    expires_at: "2026-10-03T00:40:00.000Z",
+    metadata: { writingAngles: ["Why the long end matters now"] },
+    created_at: "2026-10-01T00:40:00.000Z",
+    ...overrides,
+  };
+}
+
 test("worker reads research gaps, Research Now and unresolved investigations without ranking them", () => {
   const queue = buildResearchGapWorkQueue(
     dossier(),
@@ -72,6 +112,7 @@ test("worker reads research gaps, Research Now and unresolved investigations wit
     researchGaps: 1,
     researchNow: 1,
     investigations: 1,
+    marketMotion: 0,
   });
   assert.equal(queue.candidates.length, 3);
   assert.deepEqual(queue.candidates.map((item) => item.sourceKind), [
@@ -81,6 +122,30 @@ test("worker reads research gaps, Research Now and unresolved investigations wit
   ]);
   assert.equal(queue.diagnostics.needsPrioritisation, true);
   assert.equal(queue.diagnostics.excludedResolvedInvestigations, 1);
+});
+
+test("fresh promoted Motion opens one traceable research candidate without becoming a second authority", () => {
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T01:00:00.000Z"),
+    [
+      motion(),
+      motion({ id: "expired", motion_key: "expired", expires_at: "2026-10-01T00:59:00.000Z" }),
+      motion({ id: "plain", motion_key: "plain", lifecycle_state: "MOTION", effective_state: "MOTION" }),
+      motion({ id: "no-test", motion_key: "no-test", next_test: null }),
+      motion({ id: "no-story", motion_key: "no-story", primary_story_id: null }),
+    ],
+  );
+
+  const candidates = queue.candidates.filter((item) => item.sourceKind === "market_motion");
+  assert.equal(candidates.length, 1);
+  assert.equal(queue.sourceCounts.marketMotion, 1);
+  assert.equal(candidates[0]?.sourceRef, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  assert.equal(candidates[0]?.question, motion().next_test);
+  assert.deepEqual(candidates[0]?.linkedStoryIds, ["story:rates-duration-stress"]);
+  assert.ok(candidates[0]?.gapKey.startsWith("gap:motion:event:rates:term-premium:branch:"));
+  assert.equal(candidates[0]?.nativeSignals.motionAttentionTier, "PRIMARY");
+  assert.ok((candidates[0]?.nativeSignals.motionAttentionScore ?? 0) >= 82);
 });
 
 test("native urgency and linkage signals survive normalisation", () => {
@@ -128,44 +193,66 @@ test("work IDs stay Dossier-scoped while gap keys persist across Dossiers", () =
   );
 });
 
-test("latest-Dossier loader orders by as-of then creation time and returns a normalised queue", async () => {
+test("latest-Dossier loader adds current promoted Motion as a bounded secondary work source", async () => {
   const row = dossier();
   const calls: Array<[string, unknown]> = [];
-  const query = {
+  const dossierQuery = {
     select(value: string) {
-      calls.push(["select", value]);
+      calls.push(["dossier:select", value]);
       return this;
     },
     order(column: string, options: unknown) {
-      calls.push([`order:${column}`, options]);
+      calls.push([`dossier:order:${column}`, options]);
       return this;
     },
     limit(value: number) {
-      calls.push(["limit", value]);
+      calls.push(["dossier:limit", value]);
       return this;
     },
     async maybeSingle() {
-      calls.push(["maybeSingle", true]);
+      calls.push(["dossier:maybeSingle", true]);
       return { data: row, error: null };
+    },
+  };
+  const motionQuery = {
+    select(value: string) {
+      calls.push(["motion:select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`motion:eq:${column}`, value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`motion:order:${column}`, options]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["motion:limit", value]);
+      return { data: [motion()], error: null };
     },
   };
   const fakeClient = {
     from(table: string) {
-      assert.equal(table, "market_dossiers_v2");
-      return query;
+      if (table === "market_dossiers_v2") return dossierQuery;
+      if (table === "current_market_motion_items") return motionQuery;
+      throw new Error(`unexpected table ${table}`);
     },
   };
 
   const queue = await loadLatestResearchGapWorkQueue(
     fakeClient as never,
-    new Date("2026-10-01T00:10:00Z"),
+    new Date("2026-10-01T01:00:00Z"),
   );
   assert.equal(queue?.dossierId, row.id);
-  assert.deepEqual(calls.filter(([name]) => String(name).startsWith("order:")), [
-    ["order:as_of", { ascending: false }],
-    ["order:created_at", { ascending: false }],
+  assert.equal(queue?.sourceCounts.marketMotion, 1);
+  assert.deepEqual(calls.filter(([name]) => String(name).startsWith("dossier:order:")), [
+    ["dossier:order:as_of", { ascending: false }],
+    ["dossier:order:created_at", { ascending: false }],
   ]);
-  assert.ok(calls.some(([name, value]) => name === "limit" && value === 1));
+  assert.ok(calls.some(([name, value]) => name === "motion:eq:lifecycle_state" && value === "PROMOTED"));
+  assert.ok(calls.some(([name, value]) => name === "motion:eq:effective_state" && value === "PROMOTED"));
+  assert.ok(calls.some(([name, value]) => name === "motion:limit" && value === 18));
 });
 
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {
