@@ -188,3 +188,22 @@ jobs:
 
       - name: Verify Market Motion Research Gap bridge contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_motion_research_gap_bridge_contract.sql
+
+      - name: Bootstrap production migration history fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists supabase_migrations;
+          create table if not exists supabase_migrations.schema_migrations (
+            version text primary key,
+            name text not null
+          );
+          insert into supabase_migrations.schema_migrations (version, name)
+          values ('20261002000000', 'fixture_guard_migration')
+          on conflict (version) do update set name = excluded.name;
+          SQL
+
+      - name: Apply production schema drift guard migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261002024600_production_schema_drift_guard.sql
+
+      - name: Verify production schema drift guard contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/production_schema_drift_guard_contract.sql
