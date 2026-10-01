@@ -182,3 +182,9 @@ jobs:
 
       - name: Verify transcript Motion leads database contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/transcript_motion_leads_contract.sql
+
+      - name: Apply Market Motion Research Gap bridge migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001170000_market_motion_research_gap_bridge.sql
+
+      - name: Verify Market Motion Research Gap bridge contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/market_motion_research_gap_bridge_contract.sql
