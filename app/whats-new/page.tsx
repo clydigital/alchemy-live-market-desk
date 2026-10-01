@@ -2,7 +2,7 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
 import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
-import { getCurrentMarketMotion, marketMotionEffectiveState } from "@/lib/market-motion";
+import { getCurrentMarketMotion, marketMotionAttention, marketMotionEffectiveState } from "@/lib/market-motion";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
@@ -169,9 +169,14 @@ export default async function WhatsNewPage() {
       ? [...routed].sort((left, right) => Number(right.regime === item.primary_regime_slug) - Number(left.regime === item.primary_regime_slug))
       : routed;
     const effectiveState = marketMotionEffectiveState(item);
+    const attention = marketMotionAttention(item);
     return {
       id: item.id,
-      kind: effectiveState === "PROMOTED" ? "Promoted motion" : effectiveState === "EXPIRED" ? "Expired motion" : "Market motion",
+      kind: effectiveState === "PROMOTED"
+        ? `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} promoted motion`
+        : effectiveState === "EXPIRED"
+          ? "Expired motion"
+          : `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} motion`,
       stream: "Motion" as const,
       topic: classifyTopic(
         `${item.category} ${item.headline}`,
