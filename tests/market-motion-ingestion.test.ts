@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 import {
   MARKET_MOTION_RUN_LIMIT,
   buildMarketMotionCandidates,
+  buildTranscriptMotionCandidates,
+  unifyMarketMotionCandidates,
+  type ReviewedTranscriptMotionRow,
 } from "../lib/market-motion-ingestion.ts";
 import type { IntakeItemInput } from "../lib/research-update.ts";
 
@@ -173,4 +176,120 @@ test("Per-run Market Motion output is bounded and priority-sorted", () => {
 
   assert.equal(candidates.length, MARKET_MOTION_RUN_LIMIT);
   assert.equal(candidates[0].motionKey, `intake:item-${MARKET_MOTION_RUN_LIMIT + 2}`);
+});
+
+
+function reviewedTranscriptRow(overrides: Partial<ReviewedTranscriptMotionRow> = {}): ReviewedTranscriptMotionRow {
+  return {
+    id: "creator-row-anthropic",
+    run_id: "creator-run-1",
+    item_key: "youtube:stockedup:anthropic001",
+    publisher: "StockedUp",
+    title: "Anthropic IPO and AI economics",
+    url: "https://www.youtube.com/watch?v=anthropic01",
+    published_at: "2026-10-01T00:10:00Z",
+    summary: "The creator discusses Anthropic's IPO filing, losses and compute economics.",
+    affected_story_slugs: [],
+    source_quality: 80,
+    relevance: 90,
+    novelty: 92,
+    materiality: 90,
+    candidate_score: 88,
+    recommended_action: "collect_evidence",
+    transcript_status: "ready",
+    video_review_status: "reviewed",
+    transcript_motion_leads: [
+      {
+        kind: "claim",
+        text: "Anthropic filed IPO papers and is running at more than $8 billion of operating losses.",
+        tags: ["company_event", "statistic"],
+        entities: ["Anthropic", "IPO"],
+        verificationNeeded: true,
+        verificationTarget: "Anthropic IPO filing / prospectus",
+        searchPrompt: "Verify Anthropic IPO filing and operating-loss figure.",
+        articleHook: null,
+        priority: 94,
+      },
+      {
+        kind: "article_hook",
+        text: "Anthropic's IPO makes AI unit economics publicly testable.",
+        tags: ["writing_angle"],
+        entities: ["Anthropic"],
+        verificationNeeded: false,
+        verificationTarget: null,
+        searchPrompt: null,
+        articleHook: "Anthropic's IPO makes AI unit economics publicly testable.",
+        priority: 94,
+      },
+      {
+        kind: "research_question",
+        text: "How much of the losses are operating burn versus financing/accounting effects?",
+        tags: ["research_question"],
+        entities: ["Anthropic"],
+        verificationNeeded: false,
+        verificationTarget: null,
+        searchPrompt: "How much of Anthropic's losses are operating burn versus financing/accounting effects?",
+        articleHook: null,
+        priority: 93,
+      },
+    ],
+    review_reason: "Creator lead requires independent verification.",
+    ...overrides,
+  };
+}
+
+test("reviewed transcripts create discrete creator leads instead of one video-summary Motion card", () => {
+  const candidates = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW });
+
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].sourceKind, "creator");
+  assert.equal(candidates[0].verificationState, "LEAD");
+  assert.match(candidates[0].headline, /Anthropic filed IPO papers/);
+  assert.doesNotMatch(candidates[0].headline, /Anthropic IPO and AI economics$/);
+  assert.match(candidates[0].whatHappened, /remains a creator-sourced lead until independently corroborated/);
+  assert.deepEqual(candidates[0].metadata?.writingAngles, ["Anthropic's IPO makes AI unit economics publicly testable."]);
+  assert.deepEqual(candidates[0].metadata?.researchQuestions, ["How much of Anthropic's losses are operating burn versus financing/accounting effects?"]);
+});
+
+test("creator Anthropic lead and Reuters IPO reporting collapse into one event with stronger reporting primary", () => {
+  const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
+  const [reuters] = buildMarketMotionCandidates([
+    item({
+      itemKey: "reuters:anthropic-ipo",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+      summary: "Anthropic's IPO prospectus disclosed large operating losses alongside rapid revenue growth and major compute commitments.",
+      newsSignal: "The filing turns private AI economics into a public financing and unit-economics test.",
+      evidence: [{
+        title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+        url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+        publisher: "Reuters",
+        publishedAt: "2026-10-01T00:40:00Z",
+        claim: "Anthropic's IPO prospectus disclosed large operating losses.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "dossier-run-1" });
+
+  const unified = unifyMarketMotionCandidates([creator, reuters], { researchRunId: "dossier-run-1" });
+
+  assert.equal(unified.length, 1);
+  assert.equal(unified[0].motionKey, "event:ipo:anthropic");
+  assert.equal(unified[0].sourceKind, "reporting");
+  assert.equal(unified[0].sourceName, "Reuters");
+  assert.equal(unified[0].verificationState, "REPORTED");
+  assert.equal(unified[0].researchRunId, "dossier-run-1");
+  const refs = unified[0].metadata?.sourceRefs as Array<{ sourceKind: string; sourceUrl: string }>;
+  assert.equal(refs.length, 2);
+  assert.ok(refs.some((ref) => ref.sourceKind === "creator"));
+  assert.ok(refs.some((ref) => ref.sourceKind === "reporting"));
+  assert.deepEqual(unified[0].metadata?.writingAngles, ["Anthropic's IPO makes AI unit economics publicly testable."]);
+  assert.deepEqual(unified[0].metadata?.researchQuestions, ["How much of Anthropic's losses are operating burn versus financing/accounting effects?"]);
+});
+
+test("unrelated events remain separate even when they share the same source window", () => {
+  const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
+  const [micron] = buildMarketMotionCandidates([item()], [], { now: NOW });
+  const unified = unifyMarketMotionCandidates([creator, micron]);
+
+  assert.equal(unified.length, 2);
 });
