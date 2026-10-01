@@ -12,6 +12,10 @@ const capacityMigration = fs.readFileSync(
   path.join(root, "supabase", "migrations", "20260914033000_transcript_worker_capacity.sql"),
   "utf8",
 );
+const fixedCreatorCapacityMigration = fs.readFileSync(
+  path.join(root, "supabase", "migrations", "20261001050500_restore_fixed_creator_transcript_capacity.sql"),
+  "utf8",
+);
 const creatorLinkBackfillMigration = fs.readFileSync(
   path.join(root, "supabase", "migrations", "20260921134000_backfill_creator_story_evidence_links.sql"),
   "utf8",
@@ -37,6 +41,15 @@ test("the database claim is atomic, leased, private and supports a 25-job capabi
   assert.match(capacityMigration, /transcript_job_attempt_count = intake\.transcript_job_attempt_count \+ 1/i);
   assert.match(capacityMigration, /revoke all on function public\.claim_transcript_jobs[\s\S]*from public, anon, authenticated/i);
   assert.match(capacityMigration, /grant execute on function public\.claim_transcript_jobs[\s\S]*to service_role/i);
+});
+
+test("the fixed creator claim gate preserves the worker capacity contract", () => {
+  assert.match(fixedCreatorCapacityMigration, /'StockedUp'::text/);
+  assert.match(fixedCreatorCapacityMigration, /'Wall Street Truthbombs'::text/);
+  assert.match(fixedCreatorCapacityMigration, /'FX Evolution'::text/);
+  assert.match(fixedCreatorCapacityMigration, /'TraderNick'::text/);
+  assert.doesNotMatch(fixedCreatorCapacityMigration, /'Kevin Gerrity'::text/);
+  assert.match(fixedCreatorCapacityMigration, /limit greatest\(1, least\(coalesce\(p_batch_size, 1\), 25\)\)/i);
 });
 
 test("only the exact retained placeholder state receives legacy claimability", () => {
