@@ -41,9 +41,9 @@ export type ResearchGapWorkCandidate = {
     researchNowRank: number | null;
     investigationStatus: string | null;
     divergence: string | null;
-    motionAttentionTier: "PRIMARY" | "SECONDARY" | null;
-    motionAttentionScore: number | null;
-    motionWritingPotential: "HIGH" | "MEDIUM" | "LOW" | null;
+    motionAttentionTier?: "PRIMARY" | "SECONDARY" | null;
+    motionAttentionScore?: number | null;
+    motionWritingPotential?: "HIGH" | "MEDIUM" | "LOW" | null;
   };
 };
 
