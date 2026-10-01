@@ -211,7 +211,7 @@ test("production schema guard wiring remains read-only and post-deploy", () => {
   assert.match(workflow, /deployment_pending/);
   assert.match(workflow, /api\/admin\/system\/schema-drift/);
   assert.match(migration, /security invoker/i);
-  assert.match(migration, /revoke all [\\s\\S]*live_desk_applied_migrations/);
+  assert.ok(migration.includes("revoke all on function public.live_desk_applied_migrations()"));
   assert.doesNotMatch(migration, /security definer/i);
   assert.match(route, /handleProductionSchemaDriftWithDependencies/);
 });
