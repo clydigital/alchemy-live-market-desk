@@ -9,7 +9,7 @@ export type DedicatedVideoSlotRun = {
   transcript_status: "complete" | "partial" | "blocked" | null;
 };
 
-type VideoSource = "stockedup" | "wall-street-truth-bombs" | "traders-reality";
+type VideoSource = "stockedup" | "wall-street-truth-bombs" | "fx-evolution" | "tradernick";
 
 export type DedicatedVideoSourceCheck = {
   source: VideoSource;
@@ -22,7 +22,8 @@ export type DedicatedVideoSourceCheck = {
 const REQUIRED_VIDEO_SOURCES: Array<{ source: VideoSource; channelName: string }> = [
   { source: "stockedup", channelName: "StockedUp" },
   { source: "wall-street-truth-bombs", channelName: "Wall Street Truthbombs" },
-  { source: "traders-reality", channelName: "Traders Reality" },
+  { source: "fx-evolution", channelName: "FX Evolution" },
+  { source: "tradernick", channelName: "TraderNick" },
 ];
 
 function sourceCheckRows(value: unknown) {
