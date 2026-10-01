@@ -5,8 +5,9 @@ import { routeTextToRegimes, type RegimeSlug } from "./regimes.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 export const MARKET_MOTION_CONTRACT_VERSION = "market-motion/v1" as const;
-export const MARKET_MOTION_FRESHNESS_HOURS = 72;
-export const MARKET_MOTION_OVERVIEW_LIMIT = 3;
+export const MARKET_MOTION_FRESHNESS_HOURS = 48;
+// Safety ceiling only. Editorial importance is decided upstream; the overview is not a three-hook quota.
+export const MARKET_MOTION_DISPLAY_SAFETY_LIMIT = 18;
 
 export const MARKET_MOTION_STATES = ["MOTION", "PROMOTED", "EXPIRED"] as const;
 export type MarketMotionLifecycleState = typeof MARKET_MOTION_STATES[number];
@@ -210,7 +211,7 @@ export function validateMarketMotionInput(input: MarketMotionInput) {
 export function selectMarketMotionForOverview(
   items: MarketMotionRecord[],
   now = new Date(),
-  limit = MARKET_MOTION_OVERVIEW_LIMIT,
+  limit = MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 ) {
   return items
     .filter((item) => marketMotionEffectiveState(item, now) !== "EXPIRED")
