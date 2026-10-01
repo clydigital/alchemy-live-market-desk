@@ -4,15 +4,17 @@ import test from "node:test";
 import { youtubeDiscoveryHealthState } from "../lib/youtube-health.ts";
 import { discoverXwadaVideoChannels, XWADA_VIDEO_CHANNELS } from "../lib/youtube-reliability.ts";
 
-test("pins ClearValue Tax to its known official channel rather than the renamed handle", () => {
-  const clearValue = XWADA_VIDEO_CHANNELS.find((channel) => channel.key === "clearvalue-tax");
-  assert.deepEqual(clearValue, {
-    key: "clearvalue-tax",
-    name: "ClearValue Tax",
-    handle: "@clearvaluetax9382",
-    env: "YOUTUBE_CHANNEL_ID_CLEARVALUE_TAX",
-    officialChannelId: "UCigUBIf-zt_DA6xyOQtq2WA",
-  });
+test("production discovery uses only the fixed creator universe and active FX Evolution handle", () => {
+  assert.deepEqual(XWADA_VIDEO_CHANNELS.map((channel) => channel.key), [
+    "stockedup",
+    "wall-street-truth-bombs",
+    "fx-evolution",
+    "tradernick",
+  ]);
+  assert.equal(
+    XWADA_VIDEO_CHANNELS.find((channel) => channel.key === "fx-evolution")?.handle,
+    "@fxevolutionvideo",
+  );
 });
 
 test("a latest YouTube discovery failure cannot be hidden by other successful channels", () => {
