@@ -7,6 +7,7 @@ import {
   getRegimeDefinition,
   type RegimeSlug,
 } from "./regimes.ts";
+import { parseResearchGapHandoffContext } from "./research-gap-handoff.ts";
 import type { IntakeItemInput } from "./research-update.ts";
 import {
   MARKET_MOTION_FRESHNESS_HOURS,
@@ -398,6 +399,10 @@ function categoryFor(text: string): MarketMotionCategory {
 }
 
 function eligible(item: ScoredIntakeItem, now: Date) {
+  // Gap research is admitted back into canonical Live through the handoff path.
+  // Do not turn that same handoff into new Motion or Motion -> Gap can recurse.
+  if (parseResearchGapHandoffContext(item.divergenceNote)) return false;
+
   const publishedAt = Date.parse(item.publishedAt);
   if (!Number.isFinite(publishedAt)) return false;
   if (publishedAt > now.getTime() + 5 * 60_000) return false;
