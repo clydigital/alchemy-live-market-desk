@@ -3,10 +3,8 @@ export const LEGACY_TRANSCRIPT_PLACEHOLDER = "New monitored creator video discov
 export const TRANSCRIPT_WORKER_CREATORS = new Set([
   "StockedUp",
   "Wall Street Truthbombs",
-  "Traders Reality",
-  "Kevin Gerrity",
-  "ClearValue Tax",
   "FX Evolution",
+  "TraderNick",
 ]);
 
 export type TranscriptJobStatus = "pending" | "running" | "retryable" | "blocked" | "completed" | "failed";
