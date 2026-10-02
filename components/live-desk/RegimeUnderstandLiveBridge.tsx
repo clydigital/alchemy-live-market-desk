@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import type { UnderstandLiveBridge } from "@/lib/regime-understand-live-bridge";
 
 import styles from "./regime-understand-live-bridge.module.css";
@@ -135,9 +133,6 @@ export default function RegimeUnderstandLiveBridge({
               </article>
             ))}
           </div>
-          <Link href={`/stories/${bridge.liveStory.storyId}`} className={styles.hiddenLink}>
-            Open Story
-          </Link>
         </div>
       ) : null}
     </section>
