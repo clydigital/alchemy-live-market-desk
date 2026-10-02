@@ -28,7 +28,7 @@ const API_URL = "https://api.openai.com/v1/responses";
 const WEB_EXECUTOR_VERSION = "research-gap-web-executor/1" as const;
 const BLOCKED_SEARCH_DOMAINS = ["reddit.com", "quora.com", "wikipedia.org", "chatgpt.com"];
 
-type WebEvidenceCandidate = {
+export type WebEvidenceCandidate = {
   sourceUrl: string;
   sourceTitle: string;
   publishedAt: string;
@@ -44,7 +44,7 @@ type WebResearchOutput = {
   evidence: WebEvidenceCandidate[];
 };
 
-type ConsultedSource = {
+export type ConsultedSource = {
   url: string;
   title: string | null;
 };
@@ -138,7 +138,7 @@ function canonicalUrl(value: string) {
   }
 }
 
-function collectConsultedSources(payload: unknown) {
+export function collectConsultedSources(payload: unknown) {
   const result = new Map<string, ConsultedSource>();
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return result;
   const output = (payload as { output?: unknown }).output;
