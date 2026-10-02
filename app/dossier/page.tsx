@@ -1,10 +1,17 @@
+import Link from "next/link";
 import LiveDeskShell from "@/components/live-desk/LiveDeskShell";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
-import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import {
+  getDossierV2HistoryIndex,
+  getDossierV2PresentationSelection,
+  getDossierV2PresentationSelectionById,
+  selectExactDossierV2Presentation,
+} from "@/lib/dossier-v2/presentation-reader";
+import { isValidUuid } from "@/lib/dossier-v2/validation";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention } from "@/lib/market-motion";
 import { selectPromotedMarketMotionForDossier } from "@/lib/market-motion-promotion";
@@ -65,14 +72,39 @@ function reactionReadLabel(value: string) {
   return "Not exactly measured";
 }
 
-export default async function DossierPage() {
-  const [selection, monitor, motionRecords] = await Promise.all([
-    getDossierV2PresentationSelection(),
-    getMarketMonitor(),
-    getCurrentMarketMotion({ limit: 60 }).catch(() => []),
+type DossierPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function DossierPage({ searchParams }: DossierPageProps) {
+  const query = await searchParams;
+  const rawRequestedId = Array.isArray(query.id) ? query.id[0] : query.id;
+  const requestedId = rawRequestedId?.trim() || null;
+  const selectionPromise = requestedId
+    ? isValidUuid(requestedId)
+      ? getDossierV2PresentationSelectionById(requestedId)
+      : Promise.resolve(selectExactDossierV2Presentation(null, null, requestedId))
+    : getDossierV2PresentationSelection();
+
+  const [selection, historyIndex] = await Promise.all([
+    selectionPromise,
+    getDossierV2HistoryIndex(18).catch(() => ({
+      contractVersion: "dossier-history/1" as const,
+      items: [],
+      omittedInvalidCount: 0,
+    })),
   ]);
+  const historicalMode = selection.status === "historical_exact";
+  const [monitor, motionRecords] = requestedId
+    ? [null, []]
+    : await Promise.all([
+        getMarketMonitor().catch(() => null),
+        getCurrentMarketMotion({ limit: 60 }).catch(() => []),
+      ]);
   const dossier = selection.presentation;
-  const dailyAssetState = buildDailyAssetState({ monitor, presentation: dossier });
+  const dailyAssetState = monitor
+    ? buildDailyAssetState({ monitor, presentation: dossier })
+    : null;
   const notCarriedForward = dossier?.investigationJourney.filter(
     (item) => item.transition === "NOT_CARRIED_FORWARD",
   ) ?? [];
@@ -121,6 +153,11 @@ export default async function DossierPage() {
           title={selection.notice.label}
           detail={selection.notice.detail}
         />
+        {requestedId ? (
+          <div className={styles.historyReturn}>
+            <Link href="/dossier">Return to current Dossier</Link>
+          </div>
+        ) : null}
       </LiveDeskShell>
     );
   }
@@ -139,12 +176,14 @@ export default async function DossierPage() {
       }
     >
       <div className={styles.workspace}>
-        <DailyAssetStateBoard
-          state={dailyAssetState}
-          dollarLiquidity={dossier.dollarLiquidity ?? null}
-          policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
-          compact
-        />
+        {dailyAssetState ? (
+          <DailyAssetStateBoard
+            state={dailyAssetState}
+            dollarLiquidity={dossier.dollarLiquidity ?? null}
+            policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
+            compact
+          />
+        ) : null}
         <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>
             <span>DESK STATE</span>
@@ -153,9 +192,42 @@ export default async function DossierPage() {
           <p>{selection.notice.detail}</p>
         </section>
 
+        <section className={styles.historyNav}>
+          <div className={styles.historyNavHead}>
+            <div>
+              <span>DOSSIER MEMORY</span>
+              <strong>{historicalMode ? "Exact historical replay" : "Immutable history"}</strong>
+            </div>
+            {historicalMode ? <Link href="/dossier">Return to current</Link> : null}
+          </div>
+          <div className={styles.historyNavList}>
+            {historyIndex.items.slice(0, 10).map((item) => (
+              <Link
+                href={`/dossier?id=${item.id}`}
+                className={[
+                  styles.historyNavItem,
+                  selection.selectedDossierId === item.id ? styles.historyNavItemActive : "",
+                ].filter(Boolean).join(" ")}
+                key={item.id}
+              >
+                <small>{formatDeskDate(item.asOf)}</small>
+                <strong>{item.headline}</strong>
+                <span>
+                  {item.health} · {item.investigationCount} investigations · {item.divergentInvestigationCount} divergent
+                </span>
+              </Link>
+            ))}
+          </div>
+          {historyIndex.omittedInvalidCount ? (
+            <small className={styles.historyNavWarning}>
+              {historyIndex.omittedInvalidCount} malformed vintage(s) omitted from replay navigation.
+            </small>
+          ) : null}
+        </section>
+
         <section className={styles.hero}>
           <div className={styles.heroKicker}>
-            <span>CURRENT MARKET DOSSIER</span>
+            <span>{historicalMode ? "HISTORICAL MARKET DOSSIER" : "CURRENT MARKET DOSSIER"}</span>
             <Badge tone={dossier.health.degraded ? "warn" : "ready"}>
               {dossier.health.degraded ? "Degraded" : dossier.header.epistemicLabel}
             </Badge>
