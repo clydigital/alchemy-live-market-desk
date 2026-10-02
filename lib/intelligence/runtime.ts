@@ -99,9 +99,7 @@ import {
   type CanonicalStoryForRecruitment,
   type StoryRecruitmentDecision,
 } from "@/lib/intelligence/story-recruitment";
-import { getHybridDeskData } from "@/lib/data";
-import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
-import { getStoryHeaderImages } from "@/lib/story-images";
+import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
 import { promoteMarketMotionForPublishedStories } from "@/lib/market-motion-promotion";
 import {
@@ -2332,16 +2330,7 @@ function asPreviousEdition(payload: Record<string, unknown> | undefined): Alchem
  * and must never enrich it from current tables later.
  */
 async function captureCanonicalStoryStates() {
-  const [desk, records] = await Promise.all([
-    getHybridDeskData({ fresh: true }),
-    getHybridPublicationRecords({ fresh: true }),
-  ]);
-  const storyImages = await getStoryHeaderImages(desk.stories.map((story) => story.id), desk.sources);
-  return selectHybridPublicationStoryStates({
-    stories: desk.stories,
-    records,
-    storyImages,
-  }).storyStates;
+  return captureCanonicalPublicationStoryStates({ fresh: true });
 }
 
 async function persistCanonicalStoryManifest({
