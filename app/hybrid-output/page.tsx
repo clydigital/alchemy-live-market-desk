@@ -452,7 +452,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   </p>
                   {item.reactionChecks.length ? (
                     <p><strong>System 1 audit:</strong> {item.reactionChecks.map((check) =>
-                      `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})`
+                      `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})${check.reactionPath.length ? ` [path: ${check.reactionPath.map((point) => `${point.window} ${point.changePct >= 0 ? "+" : ""}${point.changePct.toFixed(2)}%`).join(" → ")}]` : ""}`
                     ).join(" · ")}</p>
                   ) : null}
                   <p>
