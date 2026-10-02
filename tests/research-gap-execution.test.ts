@@ -116,3 +116,28 @@ test("manual one-case Gap executor is OIDC-gated, bounded and intentionally stop
   assert.match(workflow, /env\.MODE == 'research_gap_one'/);
   assert.match(workflow, /api\/admin\/research-gap\/run-one/);
 });
+
+
+test("manual snapshot handoff is separate from web execution and has no scheduler", () => {
+  const route = readFileSync(new URL("../app/api/admin/research-gap/handoff-one/route.ts", import.meta.url), "utf8");
+  const handler = readFileSync(new URL("../lib/research-gap-manual-handoff-run.ts", import.meta.url), "utf8");
+  const adapter = readFileSync(new URL("../lib/research-gap-snapshot-handoff.ts", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
+
+  assert.match(route, /handleManualResearchGapSnapshotHandoff/);
+  assert.match(route, /maxDuration = 300/);
+  assert.match(handler, /verifyGitHubActionsManualLiveTrigger/);
+  assert.match(handler, /handleAutomaticResearchGapHandoff/);
+  assert.match(handler, /status === "COMPLETED"/);
+  assert.doesNotMatch(handler, /executeResearchGapWebPlan/);
+  assert.doesNotMatch(handler, /claimResearchGapCases/);
+
+  assert.match(adapter, /evidenceSnapshotVersion/);
+  assert.match(adapter, /affectedStorySlugs/);
+  assert.match(adapter, /did not expose a reliable publication timestamp/);
+
+  assert.match(workflow, /- research_gap_handoff_one/);
+  assert.match(workflow, /env\.MODE == 'research_gap_handoff_one'/);
+  assert.match(workflow, /api\/admin\/research-gap\/handoff-one/);
+  assert.doesNotMatch(workflow, /cron:[\s\S]*research_gap_handoff_one/);
+});
