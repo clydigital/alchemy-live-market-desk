@@ -223,6 +223,20 @@ type AssetImpact = {
   expires_at: string | null;
 };
 
+/**
+ * Current Story qualification needs only current thesis/event/intelligence state.
+ * Keep this read bounded so immutable publication capture never scans the edition
+ * archive or legacy replay verification paths.
+ */
+export async function getHybridStoryStateRecords(options: PublicationQueryOptions = {}) {
+  const [thesisVersions, events, intelligenceStates] = await Promise.all([
+    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
+    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
+    optionalIntelligenceStates(),
+  ]);
+  return { thesisVersions, events, intelligenceStates };
+}
+
 export async function getHybridPublicationRecords(options: PublicationQueryOptions = {}) {
   const toneCutoff = encodeURIComponent(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
   const [snapshots, dailyBriefArchive, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates] = await Promise.all([
@@ -547,7 +561,7 @@ export function selectHybridPublicationStoryStates({
   storyImages,
 }: {
   stories: Story[];
-  records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
+  records: Awaited<ReturnType<typeof getHybridStoryStateRecords>>;
   storyImages?: Map<string, StoryHeaderImage>;
 }) {
   const versionByStory = newestThesisByStory(records.thesisVersions);
