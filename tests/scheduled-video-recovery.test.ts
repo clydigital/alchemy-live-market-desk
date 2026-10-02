@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import type { ScheduledVideoIntakeResult } from "../lib/video-intake-service.ts";
+import type { VideoResearchSlot } from "../lib/youtube-transcript-persistence.ts";
+
 import {
   ensureScheduledVideoDiscovery,
   hasDurableVideoDiscovery,
@@ -24,17 +27,17 @@ function checkpoint(overrides: Partial<ScheduledVideoDiscoveryCheckpoint> = {}):
   };
 }
 
-function intakeResult(runId = "recovered-run") {
+function intakeResult(runId = "recovered-run"): ScheduledVideoIntakeResult {
   return {
     runId,
     runKey: "video_midnight-2026-10-03",
     generatedAt: now.toISOString(),
     status: "attention" as const,
     summary: {
-      totalChannels: 4,
-      healthyChannels: 4,
-      attentionChannels: 0,
-      videosDetected: 2,
+      channelsChecked: 4,
+      channelsFailed: 0,
+      uploadsScanned: 2,
+      recentVideos: 2,
       transcriptsReady: 0,
       transcriptFailures: 0,
       transcriptsUnavailable: 0,
@@ -102,19 +105,20 @@ test("fresh running discovery is never re-entered", async () => {
 });
 
 test("missing discovery checkpoint is recovered through the canonical queue-only slot identity", async () => {
-  let received: Record<string, unknown> | null = null;
+  let received: { slot: VideoResearchSlot; runKey: string; scheduledFor: string } | null = null;
   const result = await ensureScheduledVideoDiscovery("video_midnight", now, {
     readCheckpoint: async () => null,
     runDiscovery: async (input) => {
-      received = input as unknown as Record<string, unknown>;
+      received = { slot: input.slot, runKey: input.runKey, scheduledFor: input.scheduledFor };
       return intakeResult();
     },
   });
 
   assert.equal(result.action, "recovered");
-  assert.equal(received?.slot, "video_midnight");
-  assert.equal(received?.runKey, "video_midnight-2026-10-03");
-  assert.equal(received?.scheduledFor, "2026-10-03T09:00:00+08:00");
+  assert.ok(received);
+  assert.equal(received.slot, "video_midnight");
+  assert.equal(received.runKey, "video_midnight-2026-10-03");
+  assert.equal(received.scheduledFor, "2026-10-03T09:00:00+08:00");
 });
 
 test("failed non-durable discovery is recovered exactly through the same canonical run identity", async () => {
