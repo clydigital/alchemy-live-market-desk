@@ -26,6 +26,7 @@ type Dependencies = {
   authorize?: (request: Request) => Promise<ManualLiveTriggerAuthorization>;
   claim?: (input: { workerId: string; batchSize: number; leaseSeconds: number }) => Promise<ClaimedResearchGapCase[]>;
   loadContext?: typeof loadResearchGapPlanContext;
+  buildPlan?: typeof buildResearchGapPlan;
   start?: typeof startResearchGapCase;
   research?: (plan: ResearchGapPlan) => Promise<ResearchGapWebExecutionResult>;
   complete?: typeof completeResearchGapCase;
@@ -57,6 +58,7 @@ export async function handleManualResearchGapWebRun(
 
   const claim = dependencies.claim ?? ((input) => claimResearchGapCases(input));
   const loadContext = dependencies.loadContext ?? loadResearchGapPlanContext;
+  const buildPlan = dependencies.buildPlan ?? buildResearchGapPlan;
   const start = dependencies.start ?? startResearchGapCase;
   const research = dependencies.research ?? executeResearchGapWebPlan;
   const complete = dependencies.complete ?? completeResearchGapCase;
@@ -83,8 +85,9 @@ export async function handleManualResearchGapWebRun(
       });
     }
 
-    const context = await loadContext(claimed, undefined, now());
-    const plan = buildResearchGapPlan(claimed, now(), context);
+    const planNow = now();
+    const context = await loadContext(claimed, undefined, planNow);
+    const plan = buildPlan(claimed, planNow, context);
     const started = await start({
       caseId: claimed.id,
       claimToken: claimed.claim_token,
