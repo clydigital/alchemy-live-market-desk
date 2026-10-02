@@ -142,7 +142,8 @@ export async function POST(request: Request) {
   // PART A: Distinguish scheduled vs non-scheduled paths.
   // ONLY trusted after passing authorization (line 72 above).
   const isScheduledInternalRequest = request.headers.get("x-alchemy-scheduled-research") === "1";
-  const deferScheduledIntelligence = isScheduledInternalRequest && request.headers.get("x-alchemy-defer-intelligence") === "1";
+  const deferRequestedIntelligence = request.headers.get("x-alchemy-defer-intelligence") === "1";
+  const deferScheduledIntelligence = isScheduledInternalRequest && deferRequestedIntelligence;
   const scheduledExecutionStartedAt = request.headers.get("x-alchemy-scheduled-research-started-at");
   const scheduledExecutionStartedAtMs = scheduledExecutionStartedAt ? Date.parse(scheduledExecutionStartedAt) : Number.NaN;
 
@@ -156,6 +157,8 @@ export async function POST(request: Request) {
   }
 
   const gapHandoff = isResearchGapHandoff(input.handoff) ? input.handoff : null;
+  const deferGapHandoffIntelligence = Boolean(gapHandoff && deferRequestedIntelligence);
+  const deferIntelligence = deferScheduledIntelligence || deferGapHandoffIntelligence;
   const anchor = Number.isFinite(Date.parse(input.scheduledFor)) ? new Date(input.scheduledFor) : new Date();
   const calendarItems = gapHandoff ? [] : buildHighImpactCalendarIntake(await getEconomicCalendar(), anchor);
   const suppliedItems = gapHandoff
@@ -353,8 +356,10 @@ export async function POST(request: Request) {
       }
     }
 
-    if (deferScheduledIntelligence && intelligenceEnabled) {
-      const deferredWarning = "Scheduled acquisition persisted; canonical intelligence is pending a dedicated continuation invocation.";
+    if (deferIntelligence && intelligenceEnabled) {
+      const deferredWarning = gapHandoff
+        ? "Research Gap evidence was admitted; canonical intelligence is pending a dedicated continuation invocation."
+        : "Scheduled acquisition persisted; canonical intelligence is pending a dedicated continuation invocation.";
       if (!warnings.includes(deferredWarning)) warnings.push(deferredWarning);
       await rest(`research_runs?id=eq.${encodeURIComponent(runId)}`, {
         method: "PATCH",
