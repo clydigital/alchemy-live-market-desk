@@ -88,3 +88,31 @@ test("completion transition persists only the deterministic verdict outcome", as
   assert.equal(calls[0]?.args.p_outcome, "UNRESOLVED");
   assert.equal(row?.status, "COMPLETED");
 });
+
+
+test("manual one-case Gap executor is OIDC-gated, bounded and intentionally stops before handoff", () => {
+  const route = readFileSync(new URL("../app/api/admin/research-gap/run-one/route.ts", import.meta.url), "utf8");
+  const handler = readFileSync(new URL("../lib/research-gap-manual-web-run.ts", import.meta.url), "utf8");
+  const webExecutor = readFileSync(new URL("../lib/research-gap-web-executor.ts", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
+
+  assert.match(route, /handleManualResearchGapWebRun/);
+  assert.match(route, /maxDuration = 300/);
+  assert.match(handler, /verifyGitHubActionsManualLiveTrigger/);
+  assert.match(handler, /batchSize: 1/);
+  assert.match(handler, /leaseSeconds: 1800/);
+  assert.match(handler, /executeResearchGapWebPlan/);
+  assert.match(handler, /evaluateResearchGapEvidence/);
+  assert.match(handler, /completeResearchGapCase/);
+  assert.match(handler, /handoff: "not_attempted_portion_9b"/);
+  assert.doesNotMatch(handler, /handleAutomaticResearchGapHandoff|research-update/);
+
+  assert.match(webExecutor, /tools: \[\{ type: "web_search" \}\]/);
+  assert.match(webExecutor, /max_tool_calls: 1/);
+  assert.match(webExecutor, /sourceUrl: \{ type: "string", enum: allowedUrls \}/);
+  assert.match(webExecutor, /Actively search for contradictory, neutral, or no-change evidence/);
+
+  assert.match(workflow, /- research_gap_one/);
+  assert.match(workflow, /env\.MODE == 'research_gap_one'/);
+  assert.match(workflow, /api\/admin\/research-gap\/run-one/);
+});
