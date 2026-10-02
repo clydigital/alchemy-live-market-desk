@@ -189,6 +189,37 @@ test("one authoritative direct source can resolve CONFIRMING only when all requi
   assert.equal(verdict.authoritativeConfirming, true);
 });
 
+test("every verdict durably snapshots the exact validated evidence packet", () => {
+  const plan = buildResearchGapPlan(gap());
+  const input = assessment(plan, {
+    evidenceId: " durable-source ",
+    independenceKey: " source-group ",
+    sourceUrl: " https://example.com/durable ",
+    requirementIds: [plan.requirements[0]!.id, plan.requirements[0]!.id],
+    claim: "  Durable evidence claim.  ",
+  });
+  const verdict = evaluateResearchGapEvidence({
+    plan,
+    evidence: [input],
+    branchCount: 1,
+    now: new Date("2026-10-01T00:10:00Z"),
+  });
+
+  assert.equal(verdict.evidenceSnapshotVersion, "research-gap-evidence-snapshot/1");
+  assert.deepEqual(verdict.evidenceSnapshot, [{
+    evidenceId: "durable-source",
+    independenceKey: "source-group",
+    sourceClass: "official",
+    sourceUrl: "https://example.com/durable",
+    requirementIds: [plan.requirements[0]!.id],
+    direction: "CONFIRMING",
+    directness: "DIRECT",
+    quality: 94,
+    traceable: true,
+    claim: "Durable evidence claim.",
+  }]);
+});
+
 test("missing required evidence keeps research open even with a strong source", () => {
   const plan = buildResearchGapPlan(gap());
   const verdict = evaluateResearchGapEvidence({
