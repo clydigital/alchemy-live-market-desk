@@ -23,7 +23,9 @@ test("production research crons are active while video discovery remains separat
   assert.equal(paths.has("/api/cron/research/evening-watchdog"), true);
   assert.equal(paths.has("/api/cron/research/evening-intelligence"), true);
   assert.equal(paths.has("/api/cron/video/midnight"), true);
+  assert.equal(paths.has("/api/cron/video/midnight-watchdog"), true);
   assert.equal(paths.has("/api/cron/video/late-morning"), true);
+  assert.equal(paths.has("/api/cron/video/late-morning-watchdog"), true);
 
   assert.match(middlewareSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED/);
   assert.match(routingSource, /PRODUCTION_RESEARCH_AUTOMATION_PAUSED = false/);
