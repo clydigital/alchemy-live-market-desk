@@ -4,7 +4,7 @@ import type {
   PolicyLiquidityInteraction,
   System1DollarLiquiditySnapshot,
 } from "./system1-dollar-liquidity.ts";
-import type { System1ReactionAssessment } from "./system1-divergence.ts";
+import type { System1ReactionAssessment, System1ReactionPathPoint } from "./system1-divergence.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -473,7 +473,7 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
             observed,
             change_pct: changePct,
             observed_direction: observedDirection,
-          }]
+          } satisfies System1ReactionPathPoint]
           : [];
       })
       : [];
