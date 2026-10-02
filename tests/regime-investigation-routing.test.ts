@@ -5,7 +5,7 @@ import type {
   DossierPresentationInvestigation,
   DossierPresentationStory,
 } from "../lib/dossier-v2/presentation-adapter.ts";
-import { routeDossierInvestigationToRegimes } from "../lib/regime-investigations.ts";
+import { investigationMatchesRegimeSubgroup, routeDossierInvestigationToRegimes, routeDossierInvestigations } from "../lib/regime-investigations.ts";
 
 function story(
   id: string,
@@ -133,4 +133,45 @@ test("investigation prose cannot invent a Regime route when linked Story identit
   );
 
   assert.deepEqual(routes, []);
+});
+
+
+test("exact persistent Story identity still links an investigation when analytical routing is unavailable", () => {
+  const [routed] = routeDossierInvestigations(
+    [investigation({
+      id: "investigation:persistent-story",
+      storyIds: ["persistent-story-uuid"],
+      question: "Could unrelated macro language appear here?",
+    })],
+    [],
+  );
+
+  assert.equal(
+    investigationMatchesRegimeSubgroup(routed, {
+      regime: "global-cost-of-capital",
+      subgroup: "long-end",
+      persistentStoryIds: ["persistent-story-uuid"],
+    }),
+    true,
+  );
+});
+
+test("missing analytical and persistent Story identity fails closed", () => {
+  const [routed] = routeDossierInvestigations(
+    [investigation({
+      id: "investigation:no-route",
+      storyIds: ["story:missing"],
+      question: "Higher real yields, Treasury duration and credit are all mentioned here.",
+    })],
+    [],
+  );
+
+  assert.equal(
+    investigationMatchesRegimeSubgroup(routed, {
+      regime: "global-cost-of-capital",
+      subgroup: "long-end",
+      persistentStoryIds: ["different-story-uuid"],
+    }),
+    false,
+  );
 });
