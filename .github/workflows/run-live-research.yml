@@ -17,6 +17,7 @@ on:
           - research
           - intelligence_only
           - story_maintenance
+          - research_gap_web
           - dossier_v2_dry_run
           - dossier_v2_persist
           - verified_macro_signals
@@ -102,7 +103,7 @@ jobs:
       OIDC_AUDIENCE: alchemy-live-market-desk:manual-research
     steps:
       - name: Resolve audited manual identity
-        if: ${{ env.MODE == 'research' || env.MODE == 'intelligence_only' || env.MODE == 'story_maintenance' }}
+        if: ${{ env.MODE == 'research' || env.MODE == 'intelligence_only' || env.MODE == 'story_maintenance' || env.MODE == 'research_gap_web' }}
         shell: bash
         run: |
           if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
@@ -366,6 +367,53 @@ jobs:
           state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
           if [[ "$state" != "completed" ]]; then
             echo "Story maintenance ended in state: ${state:-missing}" >&2
+            exit 1
+          fi
+
+      - name: Run one bounded Research Gap web case
+        if: ${{ env.MODE == 'research_gap_web' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/research-gap-web.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          body="$(jq -cn --arg workerId "github-gap-web-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            '{action:"run",workerId:$workerId}')"
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$PROD_URL/api/research-gap/web-executor")"
+
+          jq -c '{
+            status,
+            message,
+            caseId: .case.id,
+            gapKey: .case.gap_key,
+            outcome: .verdict.outcome,
+            stopReason: .verdict.stopReason,
+            rounds,
+            evidenceCount: (.evidence | length),
+            canonicalStatus: .canonicalHandoff.status,
+            lifecycleStatus: .canonicalHandoff.body.lifecycle.lifecycleStatus
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Research Gap web executor returned HTTP $http_status." >&2
+            cat "$RESPONSE_FILE" >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          if [[ "$state" != "completed" ]]; then
+            echo "Research Gap web executor ended in state: ${state:-missing}" >&2
             exit 1
           fi
 
