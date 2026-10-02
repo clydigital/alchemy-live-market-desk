@@ -40,6 +40,11 @@ on:
         required: false
         type: string
         default: ""
+      research_gap_case_id:
+        description: Optional exact Research Gap case UUID (research_gap_handoff_one mode)
+        required: false
+        type: string
+        default: ""
       finra_trade_date:
         description: FINRA trade date YYYY-MM-DD (finra_sensor mode)
         required: false
@@ -98,6 +103,7 @@ jobs:
       SLOT: ${{ inputs.slot }}
       CRON_SCHEDULE: ${{ github.event.schedule }}
       RETRY_KEY: ${{ inputs.retry_key }}
+      RESEARCH_GAP_CASE_ID: ${{ inputs.research_gap_case_id }}
       FINRA_TRADE_DATE: ${{ inputs.finra_trade_date }}
       FINRA_SYMBOLS: ${{ inputs.finra_symbols }}
       DOSSIER_AS_OF: ${{ inputs.dossier_as_of }}
@@ -445,11 +451,17 @@ jobs:
           oidc_token="$(jq -er '.value' <<<"$oidc_response")"
           echo "::add-mask::$oidc_token"
 
+          if [[ -n "$RESEARCH_GAP_CASE_ID" ]] && [[ ! "$RESEARCH_GAP_CASE_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "research_gap_case_id must be a UUID when provided." >&2
+            exit 1
+          fi
+          body="$(jq -cn --arg caseId "$RESEARCH_GAP_CASE_ID" 'if $caseId == "" then {} else {caseId:$caseId} end')"
+
           http_status="$(curl --silent --show-error --max-time 305 \
             -o "$RESPONSE_FILE" -w '%{http_code}' \
             -H "Authorization: Bearer $oidc_token" \
             -H "Content-Type: application/json" \
-            --data '{}' \
+            --data "$body" \
             "$PROD_URL/api/admin/research-gap/handoff-one")"
 
           jq -c '{
