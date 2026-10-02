@@ -133,7 +133,7 @@ test("manual snapshot handoff is separate from web execution and has no schedule
   assert.doesNotMatch(handler, /claimResearchGapCases/);
 
   assert.match(adapter, /evidenceSnapshotVersion/);
-  assert.match(adapter, /affectedStorySlugs/);
+  assert.doesNotMatch(adapter, /affectedStorySlugs:/);
   assert.match(adapter, /did not expose a reliable publication timestamp/);
 
   assert.match(workflow, /- research_gap_handoff_one/);
