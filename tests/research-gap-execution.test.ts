@@ -139,5 +139,5 @@ test("manual snapshot handoff is separate from web execution and has no schedule
   assert.match(workflow, /- research_gap_handoff_one/);
   assert.match(workflow, /env\.MODE == 'research_gap_handoff_one'/);
   assert.match(workflow, /api\/admin\/research-gap\/handoff-one/);
-  assert.doesNotMatch(workflow, /cron:[\s\S]*research_gap_handoff_one/);
+  assert.match(workflow, /MODE: \$\{\{ github\.event_name == 'schedule' && 'research' \|\| inputs\.mode \}\}/);
 });
