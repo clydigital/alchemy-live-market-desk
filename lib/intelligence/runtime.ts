@@ -2506,22 +2506,30 @@ async function persistDailyBrief({
   contractDiagnostics: CandidateContractDiagnostic[];
 }) {
   if (!stories.length) return [];
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "daily_brief_start", engineRunId, researchRunId, storyCount: stories.length }));
   const prior = await intelligenceRest<Array<{ id: string; payload: Record<string, unknown>; published_at: string }>>(
     "hybrid_publication_snapshots?select=id,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc&limit=1",
   );
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "prior_loaded", engineRunId, priorBriefCount: prior.length }));
   const generatedAt = new Date().toISOString();
   const researchRun = researchRunId
     ? (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
         `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
       ))[0] || null
     : null;
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "research_run_loaded", engineRunId, hasResearchRun: Boolean(researchRun) }));
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "story_state_capture_start", engineRunId }));
+  const canonicalStoryStates = await captureCanonicalStoryStates();
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "story_state_capture_done", engineRunId, storyStateCount: canonicalStoryStates.length }));
   const { manifest: canonicalStoryManifest, journeySources } = await persistCanonicalStoryManifest({
     researchRunId,
-    canonicalStoryStates: await captureCanonicalStoryStates(),
+    canonicalStoryStates,
     publishedAt: generatedAt,
   });
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "story_manifest_persisted", engineRunId, manifestCount: canonicalStoryManifest.length, journeySourceCount: journeySources.length }));
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   const motionWarnings: string[] = [];
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "market_motion_capture_start", engineRunId }));
   const marketMotion = researchRunId
     ? await captureMarketMotionEditionAttachment({
         researchRunId,
@@ -2531,7 +2539,10 @@ async function persistDailyBrief({
         return emptyMarketMotionEditionAttachment(researchRunId, generatedAt);
       })
     : null;
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "market_motion_capture_done", engineRunId, marketMotionCount: marketMotion?.items?.length ?? 0, motionWarningCount: motionWarnings.length }));
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "event_horizon_start", engineRunId }));
   const eventHorizon = await buildEditionEventHorizon(stories.map((story) => ({ id: story.id, title: story.title, assets: story.affectedAssets })));
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "event_horizon_done", engineRunId, eventCount: eventHorizon.events.length, warningCount: eventHorizon.warnings.length }));
   const marketObservations = evidence
     .filter((item) => item.evidenceClass === "market_observation" && item.affectedAssets.length)
     .slice(0, 8);
@@ -2575,6 +2586,7 @@ async function persistDailyBrief({
       contractDiagnostics,
     },
   });
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "daily_brief_write_start", engineRunId }));
   await intelligenceRest("hybrid_publication_snapshots", {
     method: "POST",
     headers: { Prefer: "return=minimal" },
@@ -2606,6 +2618,7 @@ async function persistDailyBrief({
       published_at: generatedAt,
     }),
   });
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "daily_brief_write_done", engineRunId }));
   return [...eventHorizon.warnings, ...motionWarnings];
 }
 
