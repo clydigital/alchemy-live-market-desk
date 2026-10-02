@@ -86,7 +86,7 @@ import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intellig
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -1261,6 +1261,44 @@ async function markStoryReviewRetryable(engineRunId: string, targets: StoryRevie
       updated_at: new Date().toISOString(),
     }),
   });
+}
+
+async function resolveCreatorOnlyStoryReviewQueues(
+  engineRunId: string,
+  targets: StoryReviewTargetPackItem[],
+  evaluatedAt: string,
+) {
+  const deterministicTargets = targets.filter(creatorOnlyNonMaterialStoryReview);
+  const queueIds = unique(deterministicTargets.flatMap((target) => target.queueIds));
+  if (!queueIds.length) return 0;
+
+  const resolved = await intelligenceRest<Array<{ id: string }>>(
+    "intelligence_reevaluation_queue?id=in.(" + queueIds.join(",") + ")&claimed_by_engine_run_id=eq."
+      + encodeURIComponent(engineRunId) + "&status=in.(pending,processing,retryable)",
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        status: "completed",
+        completed_at: evaluatedAt,
+        last_error: null,
+        updated_at: evaluatedAt,
+      }),
+    },
+  );
+
+  if (resolved.length) {
+    console.info(JSON.stringify({
+      event: "creator_only_story_review_resolved",
+      engineRunId,
+      queueRowsResolved: resolved.length,
+      targetCount: deterministicTargets.length,
+      storyIds: deterministicTargets.map((target) => target.story.id),
+      queueIds: resolved.map((row) => row.id),
+      reason: "creator_transcript_only_non_material",
+    }));
+  }
+  return resolved.length;
 }
 
 async function persistStoryAssessments(input: {
@@ -2760,7 +2798,16 @@ export async function runIntelligenceEngine({
     }
     const storyReviewTargets = await loadOrCreateStoryReviewTargets(engineRunId, storyReviewStories, storyReviewEvidence, researchDebt);
     storiesConsidered = storyReviewTargets.length;
-    if (maintenanceOnly && !storyReviewTargets.length) {
+    const creatorOnlyQueueRowsResolved = await resolveCreatorOnlyStoryReviewQueues(
+      engineRunId,
+      storyReviewTargets,
+      analysisAsOf,
+    );
+    const modelStoryReviewTargets = storyReviewTargets.filter((target) => !creatorOnlyNonMaterialStoryReview(target));
+    if (creatorOnlyQueueRowsResolved) {
+      warnings.push(`${creatorOnlyQueueRowsResolved} creator-transcript-only Story reevaluation request(s) were resolved as non-material triage without spending Market Belief assessment capacity.`);
+    }
+    if (maintenanceOnly && !modelStoryReviewTargets.length) {
       warnings.push("Story maintenance-only run found no eligible reevaluation targets.");
       await persistEarlyEngineCompletion({
         engineRunId,
@@ -2784,8 +2831,8 @@ export async function runIntelligenceEngine({
         warnings,
       };
     }
-    if (!system1Attention.selectedCandidates.length && !storyReviewTargets.length) {
-      warnings.push("System 1 found no research-worthy fresh cluster and no existing Story required review; System 2 was not invoked.");
+    if (!system1Attention.selectedCandidates.length && !modelStoryReviewTargets.length) {
+      warnings.push("System 1 found no research-worthy fresh cluster and no model-required Story review after deterministic creator-only triage; System 2 was not invoked.");
       await persistEarlyEngineCompletion({
         engineRunId,
         dryRun,
@@ -2827,11 +2874,11 @@ export async function runIntelligenceEngine({
           freshnessScore: candidate.freshnessScore,
           upstreamMateriality: candidate.upstreamMateriality,
         })),
-        storyReviewTargets,
+        storyReviewTargets: modelStoryReviewTargets,
       },
       maxOutputTokens: 4_500,
     });
-    await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: storyReviewTargets });
+    await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: modelStoryReviewTargets });
     if (maintenanceOnly) {
       warnings.push(`Story maintenance-only run completed after Market Belief for ${storyReviewTargets.length} target(s); downstream reasoning and publication were intentionally skipped.`);
       await persistEarlyEngineCompletion({
