@@ -345,6 +345,24 @@ export function isResearchGapPlan(value: unknown): value is ResearchGapPlan {
   );
 }
 
+export function isResearchGapVerdict(value: unknown): value is ResearchGapVerdict {
+  const verdict = record(value);
+  if (!verdict) return false;
+  return (
+    verdict.contractVersion === RESEARCH_GAP_VERDICT_VERSION
+    && verdict.evidenceSnapshotVersion === RESEARCH_GAP_EVIDENCE_SNAPSHOT_VERSION
+    && Array.isArray(verdict.evidenceSnapshot)
+    && typeof verdict.evaluatedAt === "string"
+    && typeof verdict.planId === "string"
+    && ["CONFIRMING", "CONTRADICTING", "UNRESOLVED", "NO_CHANGE"].includes(clean(verdict.outcome))
+    && typeof verdict.confidence === "number"
+    && typeof verdict.shouldStop === "boolean"
+    && typeof verdict.stopReason === "string"
+    && Array.isArray(verdict.rationale)
+    && Array.isArray(verdict.nextResearch)
+  );
+}
+
 export function validateResearchGapEvidenceAssessments(
   plan: ResearchGapPlan,
   evidence: unknown,
