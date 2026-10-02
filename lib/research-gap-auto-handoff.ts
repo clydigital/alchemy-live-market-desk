@@ -142,6 +142,7 @@ async function publishToCanonicalResearch(request: Request, run: ResearchRunInpu
       "Content-Type": "application/json",
       ...(authorization ? { Authorization: authorization } : {}),
       "x-alchemy-gap-auto-handoff": "1",
+      "x-alchemy-defer-intelligence": "1",
     },
     body: JSON.stringify(run),
     cache: "no-store",
@@ -412,8 +413,18 @@ export async function handleAutomaticResearchGapHandoff(
     };
   }
 
+  const canonicalRunStatus = canonicalBody
+    && typeof canonicalBody === "object"
+    && !Array.isArray(canonicalBody)
+    && typeof (canonicalBody as { status?: unknown }).status === "string"
+      ? (canonicalBody as { status: string }).status
+      : null;
+  const canonicalComplete = canonical.ok
+    && canonical.status < 300
+    && canonicalRunStatus === "completed";
+
   let lifecycle: AutomaticGapHandoffSubmission["lifecycle"] = null;
-  if (caseId && canonical.ok) {
+  if (caseId && canonicalComplete) {
     try {
       const updated = await (dependencies.markLifecycleHandedOff ?? markLifecycleHandedOff)({
         caseId,
