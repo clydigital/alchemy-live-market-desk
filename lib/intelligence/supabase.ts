@@ -55,6 +55,12 @@ function frozenReadKind(path: string): "stories" | "evidence" | "researchDebt" |
   return null;
 }
 
+function durableFrozenArray(existing: unknown, current: unknown) {
+  if (Array.isArray(current)) return structuredClone(current);
+  if (Array.isArray(existing)) return structuredClone(existing);
+  return null;
+}
+
 async function persistFrozenInputs() {
   const state = currentIntelligenceInvocation();
   if (!state?.engineRunId || !state.frozenInputs) return;
@@ -62,10 +68,21 @@ async function persistFrozenInputs() {
     `intelligence_engine_runs?select=metadata&id=eq.${encodeURIComponent(state.engineRunId)}&limit=1`,
   );
   const metadata = rows[0]?.metadata ?? {};
+  const existingFrozen = metadata.frozenInputs && typeof metadata.frozenInputs === "object" && !Array.isArray(metadata.frozenInputs)
+    ? metadata.frozenInputs as Record<string, unknown>
+    : {};
+  const frozenInputs = {
+    ...existingFrozen,
+    ...state.frozenInputs,
+    stories: durableFrozenArray(existingFrozen.stories, state.frozenInputs.stories),
+    evidence: durableFrozenArray(existingFrozen.evidence, state.frozenInputs.evidence),
+    researchDebt: durableFrozenArray(existingFrozen.researchDebt, state.frozenInputs.researchDebt),
+    storyReviewTargets: durableFrozenArray(existingFrozen.storyReviewTargets, state.frozenInputs.storyReviewTargets),
+  };
   await rawIntelligenceRest(`intelligence_engine_runs?id=eq.${encodeURIComponent(state.engineRunId)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({ metadata: { ...metadata, frozenInputs: state.frozenInputs } }),
+    body: JSON.stringify({ metadata: { ...metadata, frozenInputs } }),
   });
 }
 
@@ -168,19 +185,22 @@ export function restSelect(value: string) {
 
 export async function freezeStoryReviewTargets(targets: unknown[]) {
   const existing = frozenStoryReviewTargets();
-  if (existing !== null) return structuredClone(existing);
+  const candidate = existing !== null ? existing : targets;
 
   const state = currentIntelligenceInvocation();
-  if (!state?.engineRunId) return targets;
+  if (!state?.engineRunId) return structuredClone(candidate);
+  // Always reconcile the durable DB freeze, even when this invocation already
+  // remembers the targets. Another continuation may have persisted an older
+  // frozenInputs object whose storyReviewTargets field was still JSON null.
   const rows = await rawIntelligenceRest<Array<{ targets: unknown[] }>>("rpc/freeze_intelligence_story_review_targets", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
       p_engine_run_id: state.engineRunId,
-      p_targets: targets,
+      p_targets: candidate,
     }),
   });
-  const frozen = Array.isArray(rows[0]?.targets) ? rows[0].targets : targets;
+  const frozen = Array.isArray(rows[0]?.targets) ? rows[0].targets : candidate;
   rememberFrozenStoryReviewTargets(frozen);
   return structuredClone(frozen);
 }

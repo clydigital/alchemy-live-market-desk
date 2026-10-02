@@ -8,6 +8,7 @@ const runtime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.
 const schema = fs.readFileSync(path.join(root, "lib", "intelligence", "schemas.ts"), "utf8");
 const checkpoints = fs.readFileSync(path.join(root, "lib", "intelligence", "resumable-checkpoints.ts"), "utf8");
 const openai = fs.readFileSync(path.join(root, "lib", "intelligence", "openai.ts"), "utf8");
+const intelligenceSupabase = fs.readFileSync(path.join(root, "lib", "intelligence", "supabase.ts"), "utf8");
 const baseMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821075252_budget_neutral_story_review_repair.sql"), "utf8");
 const hardeningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260821080427_story_review_proof_hardening.sql"), "utf8");
 const atomicReasoningMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260823183129_canonical_story_reasoning_atomic_persistence.sql"), "utf8");
@@ -56,6 +57,21 @@ test("maintenance-only engine stops after canonical Story assessment without dow
   );
   const maintenanceBlock = runtime.match(/if \(maintenanceOnly\) \{[\s\S]*?return \{[\s\S]*?warnings,[\s\S]*?\};[\s\S]*?\}/)?.[0] ?? "";
   assert.doesNotMatch(maintenanceBlock, /stageKey: "divergence"|stageKey: "hypothesis"|persistDailyBrief/);
+});
+
+test("frozen Story targets cannot be overwritten back to JSON null by a stale continuation", () => {
+  assert.match(intelligenceSupabase, /function durableFrozenArray\(existing: unknown, current: unknown\)/);
+  assert.match(intelligenceSupabase, /storyReviewTargets: durableFrozenArray\(existingFrozen\.storyReviewTargets, state\.frozenInputs\.storyReviewTargets\)/);
+  assert.match(intelligenceSupabase, /stories: durableFrozenArray\(existingFrozen\.stories, state\.frozenInputs\.stories\)/);
+  assert.match(intelligenceSupabase, /evidence: durableFrozenArray\(existingFrozen\.evidence, state\.frozenInputs\.evidence\)/);
+  assert.match(intelligenceSupabase, /researchDebt: durableFrozenArray\(existingFrozen\.researchDebt, state\.frozenInputs\.researchDebt\)/);
+
+  assert.match(intelligenceSupabase, /const candidate = existing !== null \? existing : targets/);
+  assert.match(intelligenceSupabase, /rpc\/freeze_intelligence_story_review_targets/);
+  assert.doesNotMatch(
+    intelligenceSupabase,
+    /if \(existing !== null\) return structuredClone\(existing\)/,
+  );
 });
 
 test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
