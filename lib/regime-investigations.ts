@@ -54,7 +54,8 @@ function routeThroughLinkedStories(
  * only the Stories they explicitly link to so plausible investigation prose
  * cannot manufacture a Regime placement after the fact.
  *
- * Missing or orphaned Story identities fail closed.
+ * Missing or orphaned analytical Story identities fail closed. Exact persistent
+ * Story identity is handled separately at the Regime subgroup boundary.
  */
 export function routeDossierInvestigationToRegimes(
   item: DossierPresentationInvestigation,
@@ -78,4 +79,20 @@ export function routeDossierInvestigations(
     ...item,
     regimeRoutes: routeThroughLinkedStories(item, storyById, 4),
   }));
+}
+
+export function investigationMatchesRegimeSubgroup(
+  item: RoutedDossierInvestigation,
+  input: {
+    regime: string;
+    subgroup: string;
+    persistentStoryIds: Iterable<string>;
+  },
+) {
+  const persistentStoryIds = new Set(input.persistentStoryIds);
+
+  return item.storyIds.some((storyId) => persistentStoryIds.has(storyId))
+    || item.regimeRoutes.some((route) =>
+      route.regime === input.regime && route.subgroup === input.subgroup
+    );
 }
