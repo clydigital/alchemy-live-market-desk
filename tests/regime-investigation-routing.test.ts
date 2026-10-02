@@ -1,8 +1,31 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { DossierPresentationInvestigation } from "../lib/dossier-v2/presentation-adapter.ts";
+import type {
+  DossierPresentationInvestigation,
+  DossierPresentationStory,
+} from "../lib/dossier-v2/presentation-adapter.ts";
 import { routeDossierInvestigationToRegimes } from "../lib/regime-investigations.ts";
+
+function story(
+  id: string,
+  title: string,
+  mechanism: string,
+): DossierPresentationStory {
+  return {
+    id,
+    title,
+    whatChanged: title,
+    whyItMatters: mechanism,
+    mechanism,
+    conclusion: mechanism,
+    whatWouldChangeMind: "New evidence changes the mechanism.",
+    epistemicLabel: "OBSERVED",
+    evidenceRefs: [],
+    investigationIds: [],
+    chartIds: [],
+  };
+}
 
 function investigation(
   overrides: Partial<DossierPresentationInvestigation> = {},
@@ -56,45 +79,58 @@ function investigation(
   };
 }
 
-test("duration investigation routes to the long-end Regime subgroup without persistent Story UUIDs", () => {
-  const routes = routeDossierInvestigationToRegimes(investigation({
-    id: "investigation:duration-transmission",
-    question: "Is US duration/real-yield pressure transmitting into credit, volatility and broad equity breadth?",
-    whyItMatters: "Transmission would convert a rates-led reprice into broader cyclical tightening.",
-    currentExplanation: "Nominal and real yields are higher while credit remains contained.",
-    expectedReaction: "Credit spreads widen and breadth deteriorates.",
-    researchNext: "Pull MOVE/VIX, global 10Y yields, breadth and credit.",
-    storyIds: ["story:duration-broadening"],
-    thesisIds: ["thesis-ai-capital-scarcity"],
-  }));
+test("duration investigation routes through its linked analytical Dossier Story", () => {
+  const linkedStory = story(
+    "story:duration-broadening",
+    "Duration and real-yield pressure has risen sharply",
+    "Higher 10Y and 30Y real yields raise the long-end discount rate and tighten credit.",
+  );
+  const routes = routeDossierInvestigationToRegimes(
+    investigation({
+      id: "investigation:duration-transmission",
+      question: "Could an unrelated formatting issue explain this?",
+      storyIds: [linkedStory.id],
+    }),
+    [linkedStory],
+  );
 
   assert.ok(routes.some((route) =>
     route.regime === "global-cost-of-capital" && route.subgroup === "long-end"
   ));
 });
 
-test("refined-product investigation routes to Energy products", () => {
-  const routes = routeDossierInvestigationToRegimes(investigation({
-    id: "investigation:energy-inflation",
-    question: "Will refined-product stress in distillate and crack spreads sustain inflation?",
-    currentExplanation: "Distillate cracks remain elevated while WTI has softened.",
-    expectedReaction: "Persistent product tightness should keep breakevens and yields supported.",
-    researchNext: "Check refinery utilisation, inventories and the crack curve.",
-    storyIds: ["story:energy-product-vs-crude"],
-  }));
+test("refined-product investigation routes through its linked Energy Story", () => {
+  const linkedStory = story(
+    "story:energy-product-vs-crude",
+    "Refined-product stress remains stronger than crude",
+    "Diesel, distillate inventories and crack spreads show physical product stress despite softer WTI.",
+  );
+  const routes = routeDossierInvestigationToRegimes(
+    investigation({
+      id: "investigation:energy-inflation",
+      question: "Could this instead be a rates story?",
+      storyIds: [linkedStory.id],
+    }),
+    [linkedStory],
+  );
 
   assert.ok(routes.some((route) =>
     route.regime === "energy-security-inflation" && route.subgroup === "products"
   ));
 });
 
-test("unrelated investigation does not receive a Regime route", () => {
-  const routes = routeDossierInvestigationToRegimes(investigation({
-    question: "Did an unrelated source formatting issue recur?",
-    whyItMatters: "This is operational metadata only.",
-    currentExplanation: "The parser output needs inspection.",
-    researchNext: "Inspect parser logs.",
-  }));
+test("investigation prose cannot invent a Regime route when linked Story identity is missing", () => {
+  const routes = routeDossierInvestigationToRegimes(
+    investigation({
+      id: "investigation:orphan",
+      question: "Are higher 10Y and 30Y real yields tightening credit and duration?",
+      whyItMatters: "Long-end Treasury pressure could hit growth equities.",
+      currentExplanation: "Real yields are rising and DXY is stronger.",
+      researchNext: "Check US10Y, US30Y, MOVE and credit spreads.",
+      storyIds: ["story:missing"],
+    }),
+    [],
+  );
 
   assert.deepEqual(routes, []);
 });
