@@ -338,7 +338,13 @@ type CandidateWorking = StorySynthesisWithPlanOutputV1["candidates"][number] & {
   currentAttention: CurrentAttention;
 };
 
-type CandidatePersisted = { id: string; candidateKey: string; primaryHypothesisId: string };
+type CandidatePersisted = {
+  id: string;
+  candidateKey: string;
+  primaryHypothesisId: string;
+  createdAt: string;
+  promotedStoryId: string | null;
+};
 
 const MAX_EVIDENCE = 180;
 const LOOKBACK_DAYS = 90;
@@ -1992,6 +1998,7 @@ async function persistDerivedStoryThemes(storyId: string, input: { title: string
 async function promoteCandidate({
   candidate,
   candidateRowId,
+  mutationAt,
   decision,
   lifecycleStatus,
   researchState,
@@ -2004,6 +2011,7 @@ async function promoteCandidate({
 }: {
   candidate: CandidateWorking;
   candidateRowId: string;
+  mutationAt: string;
   decision: DeduplicationOutput["decisions"][number];
   lifecycleStatus: CandidateWorking["lifecycleStatus"];
   researchState: ResearchStateResult;
@@ -2025,7 +2033,6 @@ async function promoteCandidate({
       dominantNarrative: candidate.marketBelief,
     },
   );
-  const mutationAt = new Date().toISOString();
   const storyPayload = {
     title: identity.title.slice(0, 180),
     thesis: candidate.thesis,
@@ -3140,7 +3147,7 @@ export async function runIntelligenceEngine({
       if (!hasPrimaryCorroboration) warnings.push(`${candidate.title}: not published because decisive claims lack primary or direct-market corroboration.`);
       for (const warning of researchContext.research.warnings) warnings.push(`${candidate.title}: ${warning}.`);
 
-      const rows = await intelligenceRest<Array<{ id: string }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
+      const rows = await intelligenceRest<Array<{ id: string; created_at: string; promoted_story_id: string | null }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
         body: JSON.stringify({
@@ -3182,9 +3189,17 @@ export async function runIntelligenceEngine({
           updated_at: new Date().toISOString(),
         }),
       });
-      if (rows[0]?.id) candidateRows.push({ id: rows[0].id, candidateKey: candidate.candidateKey, primaryHypothesisId: candidate.primaryHypothesisId });
+      if (rows[0]?.id && rows[0]?.created_at) {
+        candidateRows.push({
+          id: rows[0].id,
+          candidateKey: candidate.candidateKey,
+          primaryHypothesisId: candidate.primaryHypothesisId,
+          createdAt: rows[0].created_at,
+          promotedStoryId: rows[0].promoted_story_id ?? null,
+        });
+      }
 
-      if (!structurallyPublishable || dryRun || !rows[0]?.id) continue;
+      if (!structurallyPublishable || dryRun || !rows[0]?.id || !rows[0]?.created_at) continue;
       const primaryHypothesis = reviewedById.get(candidate.primaryHypothesisId);
       const primaryChallenger = challengerByHypothesis.get(candidate.primaryHypothesisId) ?? null;
       if (!primaryHypothesis) {
@@ -3200,19 +3215,39 @@ export async function runIntelligenceEngine({
         .slice(0, 2);
       let promotedStory: StoryRow | null = null;
       try {
-        promotedStory = await promoteCandidate({
-        candidate,
-        candidateRowId: rows[0].id,
-        decision,
-        lifecycleStatus: lifecycle,
-        researchState: researchContext.research,
-        existingStories: stories,
-        evidenceById,
-        hypothesis: primaryHypothesis,
-        competingHypotheses,
-        challenger: primaryChallenger,
-        scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
-      });
+        if (rows[0].promoted_story_id) {
+          promotedStory = stories.find((story) => story.id === rows[0].promoted_story_id) ?? null;
+          if (!promotedStory) {
+            const persistedStories = await intelligenceRest<StoryRow[]>(
+              `stories?select=${STORY_REGISTRY_FIELDS}&id=eq.${encodeURIComponent(rows[0].promoted_story_id)}&limit=1`,
+            );
+            promotedStory = persistedStories[0] ?? null;
+          }
+          if (!promotedStory) {
+            throw new Error(`Promoted Story ${rows[0].promoted_story_id} for candidate ${rows[0].id} was not found.`);
+          }
+          await intelligenceRest(`intelligence_story_candidates?id=eq.${encodeURIComponent(rows[0].id)}`, {
+            method: "PATCH",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify({ candidate_status: "promoted", updated_at: new Date().toISOString() }),
+          });
+          warnings.push(`${candidate.title}: reused previously promoted Story candidate during continuation.`);
+        } else {
+          promotedStory = await promoteCandidate({
+            candidate,
+            candidateRowId: rows[0].id,
+            mutationAt: rows[0].created_at,
+            decision,
+            lifecycleStatus: lifecycle,
+            researchState: researchContext.research,
+            existingStories: stories,
+            evidenceById,
+            hypothesis: primaryHypothesis,
+            competingHypotheses,
+            challenger: primaryChallenger,
+            scenarios: scenarioRows.filter((scenario) => scenario.hypothesis_id === primaryHypothesis.id),
+          });
+        }
       } catch (error) {
         if (!isRecoverableStoryContractFailure(error)) throw error;
         const diagnostics = candidateOmissionDiagnostic(candidate, error);
