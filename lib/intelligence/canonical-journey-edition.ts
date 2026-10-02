@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getHybridDeskData } from "@/lib/data";
-import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
+import { getHybridStoryStateRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import {
   composePersistedDossierStorylines,
   DOSSIER_STORYLINE_COMPOSITION_V1,
@@ -159,7 +159,7 @@ async function storySnapshotsForResearchRun(researchRunId: string) {
 async function captureCanonicalStoryStates() {
   const [desk, records] = await Promise.all([
     getHybridDeskData({ fresh: true }),
-    getHybridPublicationRecords({ fresh: true }),
+    getHybridStoryStateRecords({ fresh: true }),
   ]);
   const storyImages = await getStoryHeaderImages(desk.stories.map((story) => story.id), desk.sources);
   return selectHybridPublicationStoryStates({
