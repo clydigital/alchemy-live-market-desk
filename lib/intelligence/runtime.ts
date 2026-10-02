@@ -2332,11 +2332,30 @@ function asPreviousEdition(payload: Record<string, unknown> | undefined): Alchem
  * and must never enrich it from current tables later.
  */
 async function captureCanonicalStoryStates() {
-  const [desk, records] = await Promise.all([
-    getHybridDeskData({ fresh: true }),
-    getHybridPublicationRecords({ fresh: true }),
-  ]);
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "hybrid_desk_read_start" }));
+  const deskPromise = getHybridDeskData({ fresh: true }).then((desk) => {
+    console.info(JSON.stringify({
+      event: "intelligence_publication_checkpoint",
+      step: "hybrid_desk_read_done",
+      storyCount: desk.stories.length,
+      sourceCount: desk.sources.length,
+    }));
+    return desk;
+  });
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "publication_records_read_start" }));
+  const recordsPromise = getHybridPublicationRecords({ fresh: true }).then((records) => {
+    console.info(JSON.stringify({
+      event: "intelligence_publication_checkpoint",
+      step: "publication_records_read_done",
+      snapshotCount: records.snapshots.length,
+      thesisVersionCount: records.thesisVersions.length,
+    }));
+    return records;
+  });
+  const [desk, records] = await Promise.all([deskPromise, recordsPromise]);
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "story_images_start", storyCount: desk.stories.length }));
   const storyImages = await getStoryHeaderImages(desk.stories.map((story) => story.id), desk.sources);
+  console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "story_images_done", imageCount: storyImages.size }));
   return selectHybridPublicationStoryStates({
     stories: desk.stories,
     records,
