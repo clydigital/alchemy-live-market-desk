@@ -139,6 +139,16 @@ test("manual snapshot handoff is separate from web execution and has no schedule
   assert.match(workflow, /- research_gap_handoff_one/);
   assert.match(workflow, /env\.MODE == 'research_gap_handoff_one'/);
   assert.match(workflow, /api\/admin\/research-gap\/handoff-one/);
+  assert.match(workflow, /research_gap_case_id:/);
+  assert.match(workflow, /RESEARCH_GAP_CASE_ID: \${\{ inputs\.research_gap_case_id \}\}/);
+
+  const handoffStart = workflow.indexOf("- name: Hand off one completed Research Gap case");
+  const cycleStart = workflow.indexOf("- name: Run one scheduled Research Gap cycle", handoffStart);
+  assert.ok(handoffStart >= 0 && cycleStart > handoffStart);
+  const manualHandoff = workflow.slice(handoffStart, cycleStart);
+  assert.match(manualHandoff, /--arg caseId "\$RESEARCH_GAP_CASE_ID"/);
+  assert.match(manualHandoff, /if \$caseId == "" then \{\} else \{caseId:\$caseId\} end/);
+  assert.match(manualHandoff, /--data "\$body"/);
 });
 
 test("scheduled Research Gap cycle is one-case, retry-first and non-overlapping", () => {
