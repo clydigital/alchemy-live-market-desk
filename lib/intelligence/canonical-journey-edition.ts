@@ -1,7 +1,6 @@
 import "server-only";
 
-import { getHybridDeskData } from "@/lib/data";
-import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
+import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
 import {
   composePersistedDossierStorylines,
   DOSSIER_STORYLINE_COMPOSITION_V1,
@@ -16,7 +15,6 @@ import {
 } from "@/lib/intelligence/story-reasoning";
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 import { buildEditionEventHorizon } from "@/lib/market-event-runtime";
-import { getStoryHeaderImages } from "@/lib/story-images";
 import {
   captureMarketMotionEditionAttachment,
   emptyMarketMotionEditionAttachment,
@@ -157,16 +155,7 @@ async function storySnapshotsForResearchRun(researchRunId: string) {
  * Story state is consulted later during replay.
  */
 async function captureCanonicalStoryStates() {
-  const [desk, records] = await Promise.all([
-    getHybridDeskData({ fresh: true }),
-    getHybridPublicationRecords({ fresh: true }),
-  ]);
-  const storyImages = await getStoryHeaderImages(desk.stories.map((story) => story.id), desk.sources);
-  return selectHybridPublicationStoryStates({
-    stories: desk.stories,
-    records,
-    storyImages,
-  }).storyStates;
+  return captureCanonicalPublicationStoryStates({ fresh: true });
 }
 
 async function persistCanonicalStoryManifest({
