@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
-import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
+import { investigationMatchesRegimeSubgroup, type RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
@@ -59,11 +59,13 @@ export default function RegimeDetailWorkspace({
     })
     : [];
   const subgroupInvestigations = useMemo(() => {
-    if (!subgroup || !subgroup.durableStories.length) return [];
+    if (!subgroup) return [];
     return investigations.filter((item) =>
-      item.regimeRoutes.some((route) =>
-        route.regime === regime.slug && route.subgroup === subgroup.key
-      )
+      investigationMatchesRegimeSubgroup(item, {
+        regime: regime.slug,
+        subgroup: subgroup.key,
+        persistentStoryIds: subgroup.durableStories.map((story) => story.id),
+      })
     );
   }, [investigations, regime.slug, subgroup]);
   const freshness = subgroup

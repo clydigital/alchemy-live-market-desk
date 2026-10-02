@@ -43,8 +43,11 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   const initialView = query.view === "live" ? "live" : "understand";
   const explanation = getRegimeExplanation(regime.slug);
   const liveReasoning = await getRegimeLiveReasoning(regime.durableStories.map((story) => story.id));
-  const investigations = routeDossierInvestigations(dossierSelection.presentation?.watchNext ?? [])
-    .filter((item) => item.regimeRoutes.some((route) => route.regime === regime.slug));
+  const dossier = dossierSelection.presentation;
+  const investigations = routeDossierInvestigations(
+    dossier?.watchNext ?? [],
+    dossier?.whatMattersNow.stories ?? [],
+  );
 
   return (
     <LiveDeskShell
