@@ -17,6 +17,7 @@ on:
           - research
           - intelligence_only
           - story_maintenance
+          - research_gap_one
           - dossier_v2_dry_run
           - dossier_v2_persist
           - verified_macro_signals
@@ -368,6 +369,62 @@ jobs:
             echo "Story maintenance ended in state: ${state:-missing}" >&2
             exit 1
           fi
+
+      - name: Run one Research Gap web case
+        if: ${{ env.MODE == 'research_gap_one' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/research-gap-one.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            "$PROD_URL/api/admin/research-gap/run-one")"
+
+          jq -c '{
+            status,
+            caseId,
+            gapKey,
+            question,
+            outcome,
+            stopReason,
+            confidence,
+            evidenceCount,
+            eligibleEvidenceCount,
+            sourceCount,
+            branchCount,
+            missingRequirementIds,
+            verdictVersion,
+            evidenceSnapshotVersion,
+            handoff,
+            released,
+            error,
+            detail
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Research Gap one-case executor returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          case "$state" in
+            completed|empty)
+              ;;
+            *)
+              echo "Research Gap one-case executor ended in state: ${state:-missing}" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Run Dossier V2 production dry-run
         if: ${{ env.MODE == 'dossier_v2_dry_run' }}
