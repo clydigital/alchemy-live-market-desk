@@ -13,10 +13,10 @@ function intakeResult(runId = "video-run") {
     generatedAt: eveningNow.toISOString(),
     status: "attention" as const,
     summary: {
-      totalChannels: 4,
-      healthyChannels: 4,
-      attentionChannels: 0,
-      videosDetected: 1,
+      channelsChecked: 4,
+      channelsFailed: 0,
+      uploadsScanned: 4,
+      recentVideos: 1,
       transcriptsReady: 0,
       transcriptFailures: 0,
       transcriptsUnavailable: 0,
@@ -80,20 +80,20 @@ test("does not re-enter an existing running creator-video discovery", async () =
 });
 
 test("recovers only a completely missing dedicated discovery checkpoint", async () => {
-  let received: Record<string, unknown> | null = null;
+  const received: Array<Record<string, unknown>> = [];
   const result = await ensureScheduledVideoCheckpoint("evening", eveningNow, {
     readExisting: async () => ({ run: null, slotRun: null }),
     runVideoIntake: async (input) => {
-      received = input as unknown as Record<string, unknown>;
+      received.push(input as unknown as Record<string, unknown>);
       return intakeResult("recovered");
     },
   });
 
   assert.equal(result.action, "started");
   assert.equal(result.runId, "recovered");
-  assert.equal(received?.slot, "video_late_morning");
-  assert.equal(received?.runKey, "video_late_morning-2026-09-01");
-  assert.equal(received?.scheduledFor, "2026-09-01T21:00:00+08:00");
+  assert.equal(received[0]?.slot, "video_late_morning");
+  assert.equal(received[0]?.runKey, "video_late_morning-2026-09-01");
+  assert.equal(received[0]?.scheduledFor, "2026-09-01T21:00:00+08:00");
   assert.match(result.detail, /queue-only mode/i);
 });
 
