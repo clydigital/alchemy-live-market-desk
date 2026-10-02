@@ -27,6 +27,16 @@ test("existing Story maintenance piggybacks on the one Market Belief call", () =
   assert.match(openai, /max_output_tokens: effectiveMaxOutputTokens/);
 });
 
+test("creator-only queued Story wakes are resolved before Market Belief capacity is spent", () => {
+  assert.match(runtime, /resolveCreatorOnlyStoryReviewQueues/);
+  assert.match(runtime, /creatorOnlyNonMaterialStoryReview/);
+  assert.match(runtime, /status: "completed"/);
+  assert.match(runtime, /creator_transcript_only_non_material/);
+  assert.match(runtime, /storyReviewTargets: modelStoryReviewTargets/);
+  assert.match(runtime, /persistStoryAssessments\([\s\S]*targets: modelStoryReviewTargets/);
+  assert.match(runtime, /no model-required Story review after deterministic creator-only triage/);
+});
+
 test("maintenance-only engine stops after canonical Story assessment without downstream reasoning or publication", () => {
   assert.match(runtime, /maintenanceOnly = false/);
   assert.match(runtime, /maintenanceOnly\?: boolean/);
