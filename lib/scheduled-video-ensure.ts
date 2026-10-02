@@ -1,11 +1,11 @@
-import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
+import { type CanonicalResearchSlot } from "./research-schedule-health.ts";
 import {
   scheduledVideoRunIdentity,
   scheduledVideoSlotForDesk,
   type ScheduledVideoSlot,
-} from "@/lib/scheduled-video-identity";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { runScheduledVideoIntake } from "@/lib/video-intake-service";
+} from "./scheduled-video-identity.ts";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import { runScheduledVideoIntake } from "./video-intake-service.ts";
 
 type ExistingVideoRun = {
   id: string;
