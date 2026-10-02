@@ -55,6 +55,13 @@ The verdict contract is:
 
 `research-gap-verdict/1`
 
+Every newly evaluated verdict also embeds a sanitised evidence packet under:
+
+- `evidenceSnapshotVersion: "research-gap-evidence-snapshot/1"`
+- `evidenceSnapshot`
+
+This preserves the exact source URL, source class, independence key, requirement mapping, direction, directness, quality, traceability and claim that produced the verdict. Older persisted v1 verdicts without this snapshot remain readable; new executor work must use the embedded packet so a failed handoff can be retried without reconstructing research from memory.
+
 Allowed outcomes reuse the existing Live vocabulary:
 
 - `CONFIRMING`
