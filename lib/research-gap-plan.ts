@@ -78,6 +78,10 @@ export type ResearchGapEvidenceAssessment = {
   independenceKey: string;
   sourceClass: GapResearchSourceClass;
   sourceUrl: string;
+  sourceTitle?: string;
+  publisher?: string;
+  publishedAt?: string;
+  summary?: string;
   requirementIds: string[];
   direction: GapEvidenceDirection;
   directness: GapEvidenceDirectness;
@@ -372,6 +376,12 @@ export function validateResearchGapEvidenceAssessments(
     } catch {
       errors.push(`${prefix}.sourceUrl must be HTTPS.`);
     }
+    if (item.sourceTitle !== undefined && !clean(item.sourceTitle)) errors.push(`${prefix}.sourceTitle must be non-empty when supplied.`);
+    if (item.publisher !== undefined && !clean(item.publisher)) errors.push(`${prefix}.publisher must be non-empty when supplied.`);
+    if (item.publishedAt !== undefined && !Number.isFinite(Date.parse(clean(item.publishedAt)))) {
+      errors.push(`${prefix}.publishedAt must be a valid date when supplied.`);
+    }
+    if (item.summary !== undefined && !clean(item.summary)) errors.push(`${prefix}.summary must be non-empty when supplied.`);
 
     const ids = Array.isArray(item.requirementIds) ? item.requirementIds.map(clean).filter(Boolean) : [];
     if (ids.some((id) => !requirementIds.has(id))) errors.push(`${prefix}.requirementIds contains an unknown requirement.`);
@@ -390,6 +400,10 @@ function evidenceSnapshot(items: ResearchGapEvidenceAssessment[]) {
     independenceKey: clean(item.independenceKey),
     sourceClass: item.sourceClass,
     sourceUrl: clean(item.sourceUrl),
+    ...(clean(item.sourceTitle) ? { sourceTitle: clean(item.sourceTitle) } : {}),
+    ...(clean(item.publisher) ? { publisher: clean(item.publisher) } : {}),
+    ...(clean(item.publishedAt) ? { publishedAt: new Date(clean(item.publishedAt)).toISOString() } : {}),
+    ...(clean(item.summary) ? { summary: clean(item.summary) } : {}),
     requirementIds: [...new Set(item.requirementIds.map(clean).filter(Boolean))],
     direction: item.direction,
     directness: item.directness,

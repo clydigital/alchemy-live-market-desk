@@ -195,6 +195,10 @@ test("every verdict durably snapshots the exact validated evidence packet", () =
     evidenceId: " durable-source ",
     independenceKey: " source-group ",
     sourceUrl: " https://example.com/durable ",
+    sourceTitle: "  Treasury decomposition source  ",
+    publisher: "  US Treasury  ",
+    publishedAt: "2026-10-01T00:09:00Z",
+    summary: "  Direct market evidence summary.  ",
     requirementIds: [plan.requirements[0]!.id, plan.requirements[0]!.id],
     claim: "  Durable evidence claim.  ",
   });
@@ -211,6 +215,10 @@ test("every verdict durably snapshots the exact validated evidence packet", () =
     independenceKey: "source-group",
     sourceClass: "official",
     sourceUrl: "https://example.com/durable",
+    sourceTitle: "Treasury decomposition source",
+    publisher: "US Treasury",
+    publishedAt: "2026-10-01T00:09:00.000Z",
+    summary: "Direct market evidence summary.",
     requirementIds: [plan.requirements[0]!.id],
     direction: "CONFIRMING",
     directness: "DIRECT",
@@ -218,6 +226,21 @@ test("every verdict durably snapshots the exact validated evidence packet", () =
     traceable: true,
     claim: "Durable evidence claim.",
   }]);
+});
+
+test("optional handoff provenance is validated when supplied", () => {
+  const plan = buildResearchGapPlan(gap());
+  const invalid = assessment(plan, {
+    sourceTitle: " ",
+    publisher: " ",
+    publishedAt: "not-a-date",
+    summary: " ",
+  });
+  const verdictInput = [invalid];
+  assert.throws(
+    () => evaluateResearchGapEvidence({ plan, evidence: verdictInput }),
+    /sourceTitle must be non-empty.*publisher must be non-empty.*publishedAt must be a valid date.*summary must be non-empty/,
+  );
 });
 
 test("missing required evidence keeps research open even with a strong source", () => {
