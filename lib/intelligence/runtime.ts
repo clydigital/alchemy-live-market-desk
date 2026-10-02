@@ -2685,6 +2685,7 @@ export async function runIntelligenceEngine({
   stageRequestTimeoutMs,
   stageMaxAttempts,
   scheduledExecutionStartedAtMs,
+  publishDailyBriefInsideEngine = true,
 }: {
   researchRunId?: string | null;
   triggerKind?: IntelligenceTriggerKind;
@@ -2701,6 +2702,12 @@ export async function runIntelligenceEngine({
   stageMaxAttempts?: number;
   /** Cron receipt time; keeps scheduled stage requests inside the route deadline. */
   scheduledExecutionStartedAtMs?: number;
+  /**
+   * Keep true only for direct intelligence callers that do not own a separate
+   * canonical edition publication stage. Research publishers set this false
+   * and freeze the immutable Journey edition exactly once after intelligence.
+   */
+  publishDailyBriefInsideEngine?: boolean;
 } = {}): Promise<IntelligenceRunResult> {
   const warnings: string[] = [];
   const contractDiagnostics: CandidateContractDiagnostic[] = [];
@@ -3281,9 +3288,11 @@ export async function runIntelligenceEngine({
       }
     }
 
-    if (!dryRun && editionStories.length) {
+    if (!dryRun && editionStories.length && publishDailyBriefInsideEngine) {
       const eventHorizonWarnings = await persistDailyBrief({ engineRunId, researchRunId, runKey, stories: editionStories, evidence: reasoningEvidence, recruitment, recruitmentClusters, contractDiagnostics });
       warnings.push(...eventHorizonWarnings.map((warning) => `Event Horizon: ${warning}`));
+    } else if (!dryRun && editionStories.length && !publishDailyBriefInsideEngine) {
+      warnings.push("Canonical edition publication is owned by the caller and was intentionally deferred until intelligence completion.");
     }
 
     if (!dryRun) {
