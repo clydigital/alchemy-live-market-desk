@@ -17,7 +17,7 @@ test("fresh-news recruitment remains inside the existing resumable Market Belief
   assert.match(runtime, /freshEvidenceCandidates: system1Attention\.selectedCandidates/);
   assert.match(runtime, /const fullFreshEvidence = attachRatesContext/);
   assert.match(runtime, /const reasoningEvidence = attachRatesContext\(system1Attention\.selectedEvidence/);
-  assert.match(runtime, /System 1 found no research-worthy fresh cluster and no existing Story required review; System 2 was not invoked/);
+  assert.match(runtime, /System 1 found no research-worthy fresh cluster and no model-required Story review after deterministic creator-only triage; System 2 was not invoked/);
   assert.match(runtime, /persistRecruitmentClusters/);
   assert.match(runtime, /cluster\.verdict === "recruit"/);
   assert.match(schema, /recruitmentClusters:[\s\S]*primaryCategory:[\s\S]*materiality:[\s\S]*momentum:[\s\S]*breadth:[\s\S]*urgency:/);

@@ -5,6 +5,7 @@ import test from "node:test";
 
 import { MARKET_BELIEF_SCHEMA, type EvidencePackItem } from "../lib/intelligence/schemas.ts";
 import {
+  creatorOnlyNonMaterialStoryReview,
   materialAssessmentHasEligibleEvidence,
   selectStoryReviewTargets,
   type StoryReviewStory,
@@ -172,6 +173,77 @@ test("archived Stories require an explicit queue and creator-only wake remains n
   assert.deepEqual(queued[0]?.queueIds, ["queue-archived-1"]);
   assert.equal(materialAssessmentHasEligibleEvidence("reinforced", [creatorEvidence.id], queued[0]!), false);
   assert.equal(materialAssessmentHasEligibleEvidence("invalidated", [creatorEvidence.id], queued[0]!), false);
+});
+
+test("creator-only new-evidence wakes can be resolved without a model Story assessment", () => {
+  const creatorEvidence = evidence({
+    id: "creator-only",
+    evidenceClass: "transcript",
+    sourceName: "Creator",
+    sourceTier: 5,
+    ancestryGroupId: "creator:only",
+  });
+  const target = selectStoryReviewTargets({
+    stories: [story({ status: "archived", nextCatalyst: null, nextCatalysts: [] })],
+    evidence: [creatorEvidence],
+    evidenceLinks: [{
+      storyId: "story-1",
+      evidenceId: creatorEvidence.id,
+      evidenceRole: "context",
+      linkedAt: "2026-08-24T01:00:00.000Z",
+    }],
+    queue: [{
+      id: "creator-queue",
+      storyId: "story-1",
+      status: "pending",
+      reason: "new_linked_evidence",
+      priority: 70,
+      availableAt: "2026-08-24T00:00:00.000Z",
+      createdAt: "2026-08-24T00:00:00.000Z",
+      requestedEvidenceId: creatorEvidence.id,
+    }],
+    debt: [],
+    now: new Date("2026-08-24T02:00:00.000Z"),
+  })[0];
+
+  assert.ok(target);
+  assert.equal(creatorOnlyNonMaterialStoryReview(target), true);
+
+  const activeTarget = {
+    ...target,
+    story: { ...target.story, status: "publish" },
+  };
+  assert.equal(creatorOnlyNonMaterialStoryReview(activeTarget), false);
+
+  const canonicalTarget = {
+    ...target,
+    relevantEvidence: [evidence({ id: "official-1" })],
+  };
+  assert.equal(creatorOnlyNonMaterialStoryReview(canonicalTarget), false);
+
+  const catalystTarget = {
+    ...target,
+    reviewContext: {
+      ...target.reviewContext!,
+      catalystRecalibrationRequired: true,
+    },
+  };
+  assert.equal(creatorOnlyNonMaterialStoryReview(catalystTarget), false);
+
+  const debtTarget = {
+    ...target,
+    reviewContext: {
+      ...target.reviewContext!,
+      researchDebt: [{
+        debtKey: "verify",
+        severity: "high",
+        reason: "Need canonical verification",
+        nextAction: "Check official source",
+        nextCheckAt: "2026-08-24T01:00:00.000Z",
+      }],
+    },
+  };
+  assert.equal(creatorOnlyNonMaterialStoryReview(debtTarget), false);
 });
 
 test("creator-only evidence still cannot authorise a material Story mutation", () => {
