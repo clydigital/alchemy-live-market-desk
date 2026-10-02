@@ -88,6 +88,16 @@ test("new and existing Stories use the same mutation-keyed transactional boundar
   assert.match(promotion, /isNew = persisted\.created/);
 });
 
+test("Story mutation continuation reuses persisted candidate identity and time", () => {
+  assert.match(promotion, /mutationAt: string/);
+  assert.doesNotMatch(promotion, /const mutationAt = new Date\(\)\.toISOString\(\)/);
+  assert.match(promotion, /eventAt: mutationAt/);
+  assert.match(runtime, /Array<\{ id: string; created_at: string; promoted_story_id: string \| null \}>/);
+  assert.match(runtime, /mutationAt: rows\[0\]\.created_at/);
+  assert.match(runtime, /if \(rows\[0\]\.promoted_story_id\)/);
+  assert.match(runtime, /reused previously promoted Story candidate during continuation/);
+});
+
 test("runtime has no direct Story, event, version, pointer, or mirrored-update writer", () => {
   assert.doesNotMatch(promotion, /intelligenceRest<StoryRow\[]>\(`stories/);
   assert.doesNotMatch(promotion, /intelligenceRest<StoryRow\[]>\("stories"/);
