@@ -100,6 +100,16 @@ export type DossierPresentationStory = {
   chartIds: string[];
 };
 
+export type DossierPresentationReactionPathPoint = {
+  window: "5m" | "30m" | "4h" | "close" | "next_session";
+  baselineAt: string;
+  observedAt: string;
+  baseline: number;
+  observed: number;
+  changePct: number;
+  observedDirection: "UP" | "DOWN" | "FLAT";
+};
+
 export type DossierPresentationReactionCheck = {
   checkId: string;
   instrument: string;
@@ -109,6 +119,7 @@ export type DossierPresentationReactionCheck = {
   observedInstrument: string;
   isProxy: boolean;
   reactionWindow: "5m" | "30m" | "4h" | "close" | "next_session" | null;
+  reactionPath: DossierPresentationReactionPathPoint[];
   relation: "ALIGNED" | "DIVERGENT";
   timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
   triggerEvidenceRef: string;
@@ -431,9 +442,45 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
         ? item.reaction_window
         : null;
 
-    // Backward-compatible with Dossiers persisted before intraday-window V1.
-    // Legacy assessments remain valid audits with direct-instrument identity and
-    // no named reaction window.
+    const reactionPath = Array.isArray(item.reaction_path)
+      ? item.reaction_path.flatMap((rawPoint) => {
+        if (!isObject(rawPoint)) return [];
+        const window =
+          rawPoint.window === "5m"
+          || rawPoint.window === "30m"
+          || rawPoint.window === "4h"
+          || rawPoint.window === "close"
+          || rawPoint.window === "next_session"
+            ? rawPoint.window
+            : null;
+        const baselineAt = typeof rawPoint.baseline_at === "string" ? rawPoint.baseline_at : null;
+        const observedAt = typeof rawPoint.observed_at === "string" ? rawPoint.observed_at : null;
+        const baseline = typeof rawPoint.baseline === "number" && Number.isFinite(rawPoint.baseline) ? rawPoint.baseline : null;
+        const observed = typeof rawPoint.observed === "number" && Number.isFinite(rawPoint.observed) ? rawPoint.observed : null;
+        const changePct = typeof rawPoint.change_pct === "number" && Number.isFinite(rawPoint.change_pct) ? rawPoint.change_pct : null;
+        const observedDirection =
+          rawPoint.observed_direction === "UP"
+          || rawPoint.observed_direction === "DOWN"
+          || rawPoint.observed_direction === "FLAT"
+            ? rawPoint.observed_direction
+            : null;
+        return window && baselineAt && observedAt && baseline !== null && observed !== null && changePct !== null && observedDirection
+          ? [{
+            window,
+            baseline_at: baselineAt,
+            observed_at: observedAt,
+            baseline,
+            observed,
+            change_pct: changePct,
+            observed_direction: observedDirection,
+          }]
+          : [];
+      })
+      : [];
+
+    // Backward-compatible with Dossiers persisted before intraday-window V1/V2.
+    // Legacy assessments remain valid audits with direct-instrument identity,
+    // no named reaction window and no preserved reaction path.
     return [{
       ...(item as unknown as System1ReactionAssessment),
       observed_instrument:
@@ -442,6 +489,7 @@ function system1ReactionAssessments(dossier: MarketDossierV2): System1ReactionAs
           : item.instrument,
       is_proxy: item.is_proxy === true,
       reaction_window: reactionWindow,
+      reaction_path: reactionPath,
     }];
   });
 }
@@ -506,9 +554,11 @@ function reactionCalibration(
         : reactionChecks[0].timingPrecision;
 
   const reactionWindows = [...new Set(
-    reactionChecks
-      .map((item) => item.reactionWindow)
-      .filter((value): value is "5m" | "30m" | "4h" | "close" | "next_session" => value !== null),
+    reactionChecks.flatMap((item) =>
+      item.reactionPath.length
+        ? item.reactionPath.map((point) => point.window)
+        : item.reactionWindow ? [item.reactionWindow] : []
+    ),
   )].sort((left, right) => {
     const rank = { "5m": 0, "30m": 1, "4h": 2, close: 3, next_session: 4 } as const;
     return rank[left] - rank[right];
@@ -551,6 +601,15 @@ function presentationInvestigation(
       observedInstrument: assessment.observed_instrument,
       isProxy: assessment.is_proxy,
       reactionWindow: assessment.reaction_window,
+      reactionPath: assessment.reaction_path.map((point) => ({
+        window: point.window,
+        baselineAt: point.baseline_at,
+        observedAt: point.observed_at,
+        baseline: point.baseline,
+        observed: point.observed,
+        changePct: point.change_pct,
+        observedDirection: point.observed_direction,
+      })),
       relation: assessment.relation,
       timingPrecision: assessment.timing_precision,
       triggerEvidenceRef: assessment.trigger_evidence_id,
