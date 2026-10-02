@@ -396,6 +396,7 @@ export async function POST(request: Request) {
           ? (Number.isFinite(scheduledExecutionStartedAtMs) ? scheduledExecutionStartedAtMs : Date.now())
           : undefined,
         stageMaxAttempts: isScheduledInternalRequest ? 1 : undefined,
+        publishDailyBriefInsideEngine: false,
       });
       warnings.push(...intelligence.warnings.filter((warning) => !warnings.includes(warning)));
     }
