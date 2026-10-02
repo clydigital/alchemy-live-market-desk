@@ -100,7 +100,7 @@ import {
   type StoryRecruitmentDecision,
 } from "@/lib/intelligence/story-recruitment";
 import { getHybridDeskData } from "@/lib/data";
-import { getHybridPublicationRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
+import { getHybridStoryStateRecords, selectHybridPublicationStoryStates } from "@/lib/hybrid-publication";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
 import { promoteMarketMotionForPublishedStories } from "@/lib/market-motion-promotion";
@@ -2343,7 +2343,7 @@ async function captureCanonicalStoryStates() {
     return desk;
   });
   console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "publication_records_read_start" }));
-  const recordsPromise = getHybridPublicationRecords({ fresh: true }).then((records) => {
+  const recordsPromise = getHybridStoryStateRecords({ fresh: true }).then((records) => {
     console.info(JSON.stringify({
       event: "intelligence_publication_checkpoint",
       step: "publication_records_read_done",
