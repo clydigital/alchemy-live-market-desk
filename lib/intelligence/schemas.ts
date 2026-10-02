@@ -405,6 +405,32 @@ export const MARKET_BELIEF_SCHEMA: JsonSchema = {
   },
 };
 
+export function marketBeliefSchemaForStoryReviewTargets(storyIds: string[]): JsonSchema {
+  const uniqueStoryIds = [...new Set(storyIds)];
+  if (uniqueStoryIds.length !== storyIds.length) {
+    throw new Error("Market Belief Story review targets must contain unique Story IDs.");
+  }
+  if (uniqueStoryIds.length > 4) {
+    throw new Error("Market Belief supports at most four Story review targets.");
+  }
+
+  const schema = JSON.parse(JSON.stringify(MARKET_BELIEF_SCHEMA)) as JsonSchema;
+  const properties = schema.properties as Record<string, unknown> | undefined;
+  const storyAssessments = properties?.storyAssessments as Record<string, unknown> | undefined;
+  const items = storyAssessments?.items as Record<string, unknown> | undefined;
+  const itemProperties = items?.properties as Record<string, unknown> | undefined;
+  if (!storyAssessments || !itemProperties) {
+    throw new Error("Market Belief Story assessment schema is malformed.");
+  }
+
+  storyAssessments.minItems = uniqueStoryIds.length;
+  storyAssessments.maxItems = uniqueStoryIds.length;
+  if (uniqueStoryIds.length) {
+    itemProperties.storyId = { type: "string", enum: uniqueStoryIds };
+  }
+  return schema;
+}
+
 export const DIVERGENCE_SCHEMA: JsonSchema = {
   type: "object",
   additionalProperties: false,
