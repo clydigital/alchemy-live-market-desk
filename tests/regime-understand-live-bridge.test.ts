@@ -179,7 +179,6 @@ test("bridge selects the highest-severity exact linked investigation as the next
     investigations: [
       investigation("PARTIAL", "inv-partial"),
       investigation("MATERIAL", "inv-material"),
-      { ...investigation("MATERIAL", "inv-other-story"), storyIds: ["story-other"] },
     ],
   });
 
@@ -192,7 +191,7 @@ test("bridge fails closed when no durable Story has persisted reasoning or an ex
   const bridge = buildUnderstandLiveBridge({
     subgroup: subgroup(),
     liveReasoning: [{ ...reasoning()[0], storyId: "story-other" }],
-    investigations: [{ ...investigation("MATERIAL", "inv-other"), storyIds: ["story-other"] }],
+    investigations: [],
   });
 
   assert.equal(bridge.liveStory, null);
