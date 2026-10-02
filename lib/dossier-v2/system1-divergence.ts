@@ -2,7 +2,17 @@ import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 
 type Direction = "UP" | "DOWN";
 type PolicyImpulse = "HAWKISH" | "DOVISH";
-type ReactionWindow = "5m" | "30m" | "4h" | "close" | "next_session";
+export type ReactionWindow = "5m" | "30m" | "4h" | "close" | "next_session";
+
+export type System1ReactionPathPoint = {
+  window: ReactionWindow;
+  baseline_at: string;
+  observed_at: string;
+  baseline: number;
+  observed: number;
+  change_pct: number;
+  observed_direction: Direction | "FLAT";
+};
 
 type Rule = {
   id: string;
@@ -37,6 +47,7 @@ export type System1ReactionAssessment = {
   observed_instrument: string;
   is_proxy: boolean;
   reaction_window: ReactionWindow | null;
+  reaction_path: System1ReactionPathPoint[];
   timing_precision: "INTRADAY" | "DAILY_POST_EVENT";
   relation: "ALIGNED" | "DIVERGENT";
   severity: "MEDIUM" | "HIGH";
@@ -171,6 +182,53 @@ function metricString(evidence: ObservedEvidence | undefined, key: string): stri
 
 function metricBoolean(evidence: ObservedEvidence | undefined, key: string): boolean {
   return evidence?.metrics?.[key] === true;
+}
+
+const REACTION_WINDOW_ORDER = ["5m", "30m", "4h", "close", "next_session"] as const satisfies readonly ReactionWindow[];
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function reactionPathFromEvidence(evidence: ObservedEvidence): System1ReactionPathPoint[] {
+  const raw = evidence.metrics?.reaction_windows;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+  const windows = raw as Record<string, unknown>;
+
+  return REACTION_WINDOW_ORDER.flatMap((window) => {
+    const value = windows[window];
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const item = value as Record<string, unknown>;
+    const baselineAt = typeof item.baseline_at === "string" && item.baseline_at.trim()
+      ? item.baseline_at.trim()
+      : null;
+    const observedAt = typeof item.observed_at === "string" && item.observed_at.trim()
+      ? item.observed_at.trim()
+      : null;
+    const baseline = finiteNumber(item.baseline);
+    const observed = finiteNumber(item.observed);
+    const changePct = finiteNumber(item.change_pct);
+    if (
+      !baselineAt
+      || !observedAt
+      || baseline === null
+      || observed === null
+      || changePct === null
+      || timestamp(baselineAt) === null
+      || timestamp(observedAt) === null
+      || timestamp(observedAt)! < timestamp(baselineAt)!
+    ) return [];
+
+    return [{
+      window,
+      baseline_at: baselineAt,
+      observed_at: observedAt,
+      baseline,
+      observed,
+      change_pct: changePct,
+      observed_direction: changePct > 0 ? "UP" : changePct < 0 ? "DOWN" : "FLAT",
+    } satisfies System1ReactionPathPoint];
+  });
 }
 
 function timestamp(value: string | null | undefined): number | null {
@@ -338,6 +396,7 @@ function marketMove(
   observedInstrument: string | null;
   isProxy: boolean;
   reactionWindow: ReactionWindow | null;
+  reactionPath: System1ReactionPathPoint[];
 } | null {
   const cluster = packet.development_clusters.find(
     (item) => item.grouping_key === `market-monitor:${monitorId}`,
@@ -368,6 +427,7 @@ function marketMove(
           observedInstrument: metricString(item, "observed_instrument"),
           isProxy: metricBoolean(item, "is_proxy"),
           reactionWindow,
+          reactionPath: reactionPathFromEvidence(item),
         }];
       }
 
@@ -381,6 +441,7 @@ function marketMove(
         observedInstrument: metricString(item, "observed_instrument") ?? metricString(item, "symbol"),
         isProxy: metricBoolean(item, "is_proxy"),
         reactionWindow: null,
+        reactionPath: [],
       }];
     })
     .sort((left, right) =>
@@ -397,6 +458,7 @@ function marketMove(
         observedInstrument: match.observedInstrument,
         isProxy: match.isProxy,
         reactionWindow: match.reactionWindow,
+        reactionPath: match.reactionPath,
       }
     : null;
 }
@@ -456,6 +518,7 @@ function system1ReactionAssessments(
         observed_instrument: move.observedInstrument ?? instrument,
         is_proxy: move.isProxy,
         reaction_window: move.reactionWindow,
+        reaction_path: move.reactionPath,
         timing_precision: move.timingPrecision,
         relation: observed === expected ? "ALIGNED" : "DIVERGENT",
         severity: Math.abs(move.change) >= 1 ? "HIGH" : "MEDIUM",
