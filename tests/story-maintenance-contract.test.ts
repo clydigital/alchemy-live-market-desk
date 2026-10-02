@@ -209,6 +209,12 @@ test("creator-only new-evidence wakes can be resolved without a model Story asse
   assert.ok(target);
   assert.equal(creatorOnlyNonMaterialStoryReview(target), true);
 
+  const activeTarget = {
+    ...target,
+    story: { ...target.story, status: "publish" },
+  };
+  assert.equal(creatorOnlyNonMaterialStoryReview(activeTarget), false);
+
   const canonicalTarget = {
     ...target,
     relevantEvidence: [evidence({ id: "official-1" })],
