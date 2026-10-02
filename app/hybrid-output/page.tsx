@@ -429,7 +429,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   ))}
               </div>
             ) : null}
-          </Panel>>
+          </Panel>
         </div>
 
         {selection.calibrationLineages.length ? (
