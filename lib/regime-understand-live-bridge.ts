@@ -76,8 +76,9 @@ export function buildUnderstandLiveBridge(input: {
   const primaryReasoning = liveReasoning[0] ?? null;
   const primaryStory = primaryReasoning ? storyById.get(primaryReasoning.storyId) ?? null : null;
 
+  // The caller supplies investigations already scoped through the exact
+  // Regime ↔ Story routing boundary. Do not re-route or widen identity here.
   const nextTest = [...input.investigations]
-    .filter((item) => item.storyIds.some((storyId) => storyById.has(storyId)))
     .sort((left, right) =>
       divergenceRank(right.divergence) - divergenceRank(left.divergence)
       || Number(right.reactionCalibration.requiresReview) - Number(left.reactionCalibration.requiresReview)
