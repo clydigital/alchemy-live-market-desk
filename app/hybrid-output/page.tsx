@@ -1,5 +1,6 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
+import PresenterDivergenceJourney from "@/components/live-desk/PresenterDivergenceJourney";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
@@ -22,13 +23,6 @@ export const dynamic = "force-dynamic";
 type HybridOutputPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-function divergenceTone(divergence: string): "default" | "ready" | "warn" | "risk" {
-  if (divergence === "MATERIAL") return "risk";
-  if (divergence === "PARTIAL" || divergence === "UNRESOLVED") return "warn";
-  if (divergence === "NONE") return "ready";
-  return "default";
-}
 
 function calibrationTone(outcome: string): "default" | "ready" | "warn" | "risk" {
   if (outcome === "DIVERGENT") return "risk";
@@ -406,94 +400,36 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           </Panel>
 
           <Panel
-            title="Divergence journey"
-            description="Open contradictions remain questions until evidence resolves the mechanism."
+            title="Presenter Divergence Lab"
+            description="A read-only reasoning journey from the preserved expectation to measured tape, competing mechanisms and the next discriminator. Hybrid presents canonical reasoning; it does not create a new explanation."
           >
-            <p>
-              <strong>Calibration:</strong> {dossier.reactionCalibration.evaluatedInvestigations} evaluated ·
-              {" "}{dossier.reactionCalibration.alignedInvestigations} aligned ·
-              {" "}{dossier.reactionCalibration.divergentInvestigations} divergent ·
-              {" "}{dossier.reactionCalibration.mixedInvestigations} mixed ·
-              {" "}{dossier.reactionCalibration.unresolvedInvestigations} unresolved.
-              These are investigation-level audit counts, not an accuracy percentage.
-            </p>
-            <div className={styles.recordList}>
-              {dossier.watchNext.length ? dossier.watchNext.map((item) => (
-                <article className={styles.record} key={item.id}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <h3>{item.question}</h3>
-                      <div className={styles.meta}>
-                        {item.evidenceRefs.length} evidence ref(s) · {item.missingEvidence.length} missing input(s)
-                      </div>
-                    </div>
-                    <Badge tone="warn">{item.status}</Badge>
-                  </div>
+            <PresenterDivergenceJourney
+              investigations={dossier.watchNext}
+              calibration={dossier.reactionCalibration}
+            />
 
-                  <p>
-                    <strong>{item.journey.previousExpectedReaction ? "Prior Dossier expectation:" : "Expected reaction:"}</strong>{" "}
-                    {item.journey.previousExpectedReaction ?? item.expectedReaction ?? "No canonical pre-event expectation is available."}
-                  </p>
-                  {item.journey.expectationChanged && item.expectedReaction ? (
-                    <p><strong>Current expectation wording:</strong> {item.expectedReaction}</p>
-                  ) : null}
-                  <p><strong>Observed reaction:</strong> {item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
-                  <p><strong>Divergence:</strong> <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge></p>
-                  <p>
-                    <strong>Reaction calibration:</strong>{" "}
-                    <Badge tone={calibrationTone(item.reactionCalibration.outcome)}>{item.reactionCalibration.outcome}</Badge>{" "}
-                    · {item.reactionCalibration.checkCount} exact check(s) · {item.reactionCalibration.precision.toLowerCase().replaceAll("_", " ")}
-                  </p>
-                  <p>
-                    <strong>Since prior Dossier:</strong> {item.journey.transition.replaceAll("_", " ")}
-                    {item.journey.previousDivergence
-                      ? ` · ${item.journey.previousDivergence} → ${item.journey.currentDivergence ?? "not carried"}`
-                      : ""}
-                  </p>
-                  {item.reactionChecks.length ? (
-                    <p><strong>System 1 audit:</strong> {item.reactionChecks.map((check) =>
-                      `${check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} ${check.relation.toLowerCase()} (${check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"})${check.reactionPath.length ? ` [path: ${check.reactionPath.map((point) => `${point.window} ${point.changePct >= 0 ? "+" : ""}${point.changePct.toFixed(2)}%`).join(" → ")}]` : ""}`
-                    ).join(" · ")}</p>
-                  ) : null}
-                  <p>
-                    <strong>{item.reactionCalibration.requiresReview ? "Post-mortem hypothesis:" : "Current explanation:"}</strong>{" "}
-                    {item.currentExplanation}
-                  </p>
-                  <p>Research next: {item.researchNext}</p>
-                  <p>Confirm: {item.confirmationCondition}</p>
-                  <p>Invalidate: {item.invalidationCondition}</p>
-
-                  {item.competingExplanations.length ? (
-                    <p>
-                      Competing explanations: {item.competingExplanations.join(" · ")}
-                    </p>
-                  ) : null}
-                </article>
-              )) : (
-                <DataState
-                  title="No open divergence investigations"
-                  detail="The current canonical Dossier has no unresolved investigation promoted into Watch Next."
-                />
-              )}
-              {dossier.investigationJourney
-                .filter((item) => item.transition === "NOT_CARRIED_FORWARD")
-                .map((item) => (
-                  <article className={styles.record} key={item.previousId ?? item.question}>
-                    <div className={styles.recordHeader}>
-                      <div>
-                        <h3>{item.question}</h3>
-                        <div className={styles.meta}>Prior investigation audit</div>
+            {dossier.investigationJourney.some((item) => item.transition === "NOT_CARRIED_FORWARD") ? (
+              <div className={styles.recordList}>
+                {dossier.investigationJourney
+                  .filter((item) => item.transition === "NOT_CARRIED_FORWARD")
+                  .map((item) => (
+                    <article className={styles.record} key={item.previousId ?? item.question}>
+                      <div className={styles.recordHeader}>
+                        <div>
+                          <h3>{item.question}</h3>
+                          <div className={styles.meta}>Prior investigation audit</div>
+                        </div>
+                        <Badge tone="default">NOT CARRIED FORWARD</Badge>
                       </div>
-                      <Badge tone="default">NOT CARRIED FORWARD</Badge>
-                    </div>
-                    <p>
-                      Previous state: {item.previousDivergence ?? "UNRESOLVED"} · {item.previousStatus ?? "unknown"}.
-                      Absence from the current Dossier is not treated as resolution.
-                    </p>
-                  </article>
-                ))}
-            </div>
-          </Panel>
+                      <p>
+                        Previous state: {item.previousDivergence ?? "UNRESOLVED"} · {item.previousStatus ?? "unknown"}.
+                        Absence from the current Dossier is not treated as resolution.
+                      </p>
+                    </article>
+                  ))}
+              </div>
+            ) : null}
+          </Panel>>
         </div>
 
         {selection.calibrationLineages.length ? (
