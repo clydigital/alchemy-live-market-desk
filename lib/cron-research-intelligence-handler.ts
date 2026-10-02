@@ -401,6 +401,7 @@ export async function handleScheduledResearchIntelligence(
         runKey: `research:${runKey}`,
         dryRun: run.accuracy_gate === "blocked",
         stageMaxAttempts: 1,
+        publishDailyBriefInsideEngine: false,
       });
       completedEngineWork = intelligence.status === "completed" && run.accuracy_gate !== "blocked";
       const finalStatus = finalScheduledResearchStatus(run.accuracy_gate, intelligence.status);
