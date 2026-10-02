@@ -40,7 +40,7 @@ test("creator-only queued Story wakes are resolved before Market Belief capacity
 test("maintenance-only engine stops after canonical Story assessment without downstream reasoning or publication", () => {
   assert.match(runtime, /maintenanceOnly = false/);
   assert.match(runtime, /maintenanceOnly\?: boolean/);
-  assert.match(runtime, /if \(maintenanceOnly && !storyReviewTargets\.length\)/);
+  assert.match(runtime, /if \(maintenanceOnly && !modelStoryReviewTargets\.length\)/);
   assert.match(
     runtime,
     /persistStoryAssessments\([\s\S]*if \(maintenanceOnly\)[\s\S]*persistEarlyEngineCompletion/,
