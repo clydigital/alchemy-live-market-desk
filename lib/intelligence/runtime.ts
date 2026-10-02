@@ -40,6 +40,7 @@ import {
   HYPOTHESIS_SCHEMA,
   LIFECYCLE_SCHEMA,
   MARKET_BELIEF_SCHEMA,
+  marketBeliefSchemaForStoryReviewTargets,
   SCENARIO_SCHEMA,
   type ChallengerOutput,
   type DeduplicationOutput,
@@ -2858,12 +2859,21 @@ export async function runIntelligenceEngine({
     const completedCheckpoints = await loadCompletedStageCheckpoints(engineRunId);
     const resumableStageExecution = { ...stageExecution, completedCheckpoints };
 
+    const marketBeliefStoryIds = modelStoryReviewTargets.map((target) => target.story.id);
+    const marketBeliefSchema = marketBeliefSchemaForStoryReviewTargets(marketBeliefStoryIds);
+    console.info(JSON.stringify({
+      event: "market_belief_story_assessment_contract",
+      engineRunId,
+      expectedAssessmentCount: marketBeliefStoryIds.length,
+      storyIds: marketBeliefStoryIds,
+    }));
+
     const beliefStage = await modelStage<MarketBeliefOutput>({
       engineRunId,
       ...resumableStageExecution,
       stageKey: "market_belief",
       modelKind: "fast",
-      schema: MARKET_BELIEF_SCHEMA,
+      schema: marketBeliefSchema,
       input: {
         asOf: analysisAsOf,
         researchAttention: system1Attention.cues,
