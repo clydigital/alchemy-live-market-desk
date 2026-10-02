@@ -184,7 +184,7 @@ test("creator-only new-evidence wakes can be resolved without a model Story asse
     ancestryGroupId: "creator:only",
   });
   const target = selectStoryReviewTargets({
-    stories: [story({ status: "archived" })],
+    stories: [story({ status: "archived", nextCatalyst: null, nextCatalysts: [] })],
     evidence: [creatorEvidence],
     evidenceLinks: [{
       storyId: "story-1",
