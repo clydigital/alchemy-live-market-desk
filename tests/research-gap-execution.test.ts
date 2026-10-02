@@ -139,5 +139,32 @@ test("manual snapshot handoff is separate from web execution and has no schedule
   assert.match(workflow, /- research_gap_handoff_one/);
   assert.match(workflow, /env\.MODE == 'research_gap_handoff_one'/);
   assert.match(workflow, /api\/admin\/research-gap\/handoff-one/);
-  assert.match(workflow, /MODE: \$\{\{ github\.event_name == 'schedule' && 'research' \|\| inputs\.mode \}\}/);
+});
+
+test("scheduled Research Gap cycle is one-case, retry-first and non-overlapping", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
+
+  assert.match(workflow, /cron: "15 3 \* \* \*"/);
+  assert.match(workflow, /cron: "15 15 \* \* \*"/);
+  assert.match(workflow, /- research_gap_cycle/);
+  assert.match(workflow, /env\.MODE == 'research_gap_cycle'/);
+  assert.match(workflow, /github\.event\.schedule == '15 3 \* \* \*'/);
+  assert.match(workflow, /github\.event\.schedule == '15 15 \* \* \*'/);
+  assert.match(workflow, /group: production-live-research/);
+  assert.match(workflow, /cancel-in-progress: false/);
+
+  const cycleStart = workflow.indexOf("- name: Run one scheduled Research Gap cycle");
+  const dossierStart = workflow.indexOf("- name: Run Dossier V2 production dry-run", cycleStart);
+  assert.ok(cycleStart >= 0 && dossierStart > cycleStart);
+  const cycle = workflow.slice(cycleStart, dossierStart);
+
+  const retryHandoff = cycle.indexOf('invoke_json "/api/admin/research-gap/handoff-one"');
+  const research = cycle.indexOf('invoke_json "/api/admin/research-gap/run-one"');
+  const exactHandoff = cycle.lastIndexOf('invoke_json "/api/admin/research-gap/handoff-one"');
+  assert.ok(retryHandoff >= 0 && research > retryHandoff && exactHandoff > research);
+  assert.match(cycle, /case_id="\$\(jq -er '\.caseId' "\$RESEARCH_FILE"\)"/);
+  assert.match(cycle, /--arg caseId "\$case_id" '\{caseId:\$caseId\}'/);
+  assert.match(cycle, /Research Gap cycle skipped: no queued case is claimable/);
+  assert.match(cycle, /pending canonical handoff; no new case will be researched/);
+  assert.doesNotMatch(cycle, /for attempt|while |until /);
 });
