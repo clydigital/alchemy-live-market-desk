@@ -73,7 +73,7 @@ const authorize = async () => ({
 
 test("manual one-case executor claims, researches and completes without canonical handoff", async () => {
   const claimed = gap();
-  let completedInput: Record<string, unknown> | null = null;
+  const completedInputs: Array<Record<string, unknown>> = [];
   let releaseCalls = 0;
 
   const response = await handleManualResearchGapWebRun(request(), {
@@ -117,7 +117,7 @@ test("manual one-case executor claims, researches and completes without canonica
       model: "test-model",
     }),
     complete: async (input) => {
-      completedInput = input as unknown as Record<string, unknown>;
+      completedInputs.push(input as unknown as Record<string, unknown>);
       return {
         ...claimed,
         status: "COMPLETED",
@@ -142,8 +142,8 @@ test("manual one-case executor claims, researches and completes without canonica
   assert.equal(body.handoff, "not_attempted_portion_9b");
   assert.equal(body.evidenceSnapshotVersion, "research-gap-evidence-snapshot/1");
   assert.equal(releaseCalls, 0);
-  assert.ok(completedInput);
-  assert.equal((completedInput!.verdict as any).evidenceSnapshot.length, 1);
+  assert.equal(completedInputs.length, 1);
+  assert.equal((completedInputs[0]!.verdict as any).evidenceSnapshot.length, 1);
 });
 
 test("manual executor releases the owned case when web research fails", async () => {
