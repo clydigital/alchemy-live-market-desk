@@ -18,6 +18,7 @@ on:
           - intelligence_only
           - story_maintenance
           - research_gap_one
+          - research_gap_handoff_one
           - dossier_v2_dry_run
           - dossier_v2_persist
           - verified_macro_signals
@@ -422,6 +423,56 @@ jobs:
               ;;
             *)
               echo "Research Gap one-case executor ended in state: ${state:-missing}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Hand off one completed Research Gap case
+        if: ${{ env.MODE == 'research_gap_handoff_one' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/research-gap-handoff-one.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            "$PROD_URL/api/admin/research-gap/handoff-one")"
+
+          jq -c '{
+            status,
+            caseId,
+            gapKey,
+            outcome,
+            evidenceCount,
+            runKey,
+            canonicalStatus,
+            canonicalRunId:.canonicalBody.runId,
+            canonicalRunStatus:.canonicalBody.status,
+            lifecycleStatus:.lifecycle.lifecycleStatus,
+            lifecycleUpdate:.lifecycle.status,
+            error
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Research Gap snapshot handoff returned HTTP $http_status." >&2
+            exit 1
+          fi
+          state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
+          case "$state" in
+            handed_off|empty)
+              ;;
+            *)
+              echo "Research Gap snapshot handoff ended in state: ${state:-missing}" >&2
               exit 1
               ;;
           esac
