@@ -132,3 +132,28 @@ It does not:
 - send evidence to Live by itself.
 
 The existing automatic Gap handoff remains the only admission route from completed Gap evidence into canonical Live.
+
+
+## Scheduled one-case cycle
+
+Once manual web execution and retry-safe canonical handoff were proven in production, the workflow gained a bounded scheduler.
+
+Current scheduled Gap runs:
+
+- `03:15 UTC` — 11:15 MYT
+- `15:15 UTC` — 23:15 MYT
+
+The scheduled cycle is intentionally one-case maximum and shares the existing `production-live-research` concurrency group with the normal Live workflow, so it queues behind an in-flight Live sweep rather than overlapping it.
+
+Execution order:
+
+1. Attempt one persisted `COMPLETED` → canonical handoff first.
+2. If a completed case was handed off, stop.
+3. If no completed case awaits admission, claim and research one queued case.
+4. If no queued case is available, exit successfully with no work.
+5. If research completes, hand off exactly that same case ID.
+6. Stop.
+
+A failed canonical handoff leaves the case `COMPLETED`; the next cycle retries that durable snapshot before doing any new web research. There is no multi-case loop and no automatic re-research of a completed case.
+
+The scheduler does not change Research Gap authority. Canonical Live still decides what admitted evidence does to Stories, Regimes, Journey and Dossier state.
