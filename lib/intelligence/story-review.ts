@@ -351,6 +351,8 @@ function independentGroup(item: EvidencePackItem) {
  */
 export function creatorOnlyNonMaterialStoryReview(target: StoryReviewTargetPackItem) {
   const context = target.reviewContext;
+  const dormant = ["archived", "invalidated", "discarded"].includes(target.story.status.toLowerCase());
+  if (!dormant) return false;
   if (!target.queueIds.length || !target.relevantEvidence.length) return false;
   if (target.reason !== "explicit_queue") return false;
   if (!context?.queueReasons?.length || context.queueReasons.some((reason) => reason !== "new_linked_evidence")) return false;
