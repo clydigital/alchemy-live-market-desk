@@ -547,7 +547,7 @@ export function selectHybridPublicationStoryStates({
   storyImages,
 }: {
   stories: Story[];
-  records: Awaited<ReturnType<typeof getHybridPublicationRecords>>;
+  records: Pick<Awaited<ReturnType<typeof getHybridPublicationRecords>>, "thesisVersions" | "events" | "intelligenceStates">;
   storyImages?: Map<string, StoryHeaderImage>;
 }) {
   const versionByStory = newestThesisByStory(records.thesisVersions);
@@ -565,6 +565,30 @@ export function selectHybridPublicationStoryStates({
     .filter((state): state is NonNullable<typeof state> => Boolean(state));
   const featuredStoryStates = storyStates.filter((state) => state.featuredRank !== null);
   return { allStoryStates, selection, storyStates, featuredStoryStates };
+}
+
+/**
+ * Freeze the current canonical Story selection without rebuilding the entire
+ * Hybrid publication archive or fetching remote article images.
+ *
+ * Canonical Story qualification depends only on the active Story registry,
+ * latest thesis versions, Story events and intelligence state. Images are
+ * presentation decoration; omitting them here gives storyState() its stable
+ * deterministic fallback image.
+ */
+export async function captureCanonicalPublicationStoryStates(
+  options: PublicationQueryOptions = { fresh: true },
+) {
+  const [stories, thesisVersions, events, intelligenceStates] = await Promise.all([
+    optionalQuery<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
+    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
+    optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
+    optionalIntelligenceStates(),
+  ]);
+  return selectHybridPublicationStoryStates({
+    stories,
+    records: { thesisVersions, events, intelligenceStates },
+  }).storyStates;
 }
 
 export function buildHybridPublicationContract({
