@@ -1068,6 +1068,81 @@ test("6K. Divergence Lab medium confidence requires supporting evidence", () => 
   assert.ok(val.errors.some((e) => e.includes("MEDIUM confidence requires at least one evidence_for_id")));
 });
 
+test("6K1. Mechanical-flow candidate rejects generic price evidence at MEDIUM confidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+  const evYields = packet.observed_evidence.find((e) => e.evidence_id.includes("yields"))?.evidence_id ?? "ev:yields:2026-09";
+
+  inv.observed_evidence = [evYields];
+  inv.candidate_explanations = [{
+    rank: 1,
+    explanation: "Short covering drove the rally.",
+    evidence_for_ids: [evYields],
+    evidence_against_ids: [],
+    confidence: "MEDIUM",
+    discriminating_test: "Check whether positioning normalises as the rally persists.",
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(
+    val.errors.some((e) =>
+      e.includes("SHORT_COVERING at MEDIUM confidence requires mechanism-specific supporting evidence")
+    ),
+  );
+});
+
+test("6K2. Mechanical-flow candidate accepts direct positioning evidence", () => {
+  const packet = createValidBasePacket();
+  const positioningEvidenceId = "ev:gold-positioning:2026-09";
+  packet.observed_evidence.push({
+    evidence_id: positioningEvidenceId,
+    epistemic_label: "OBSERVED",
+    claim_or_fact: "COMEX gold futures open interest fell while net-short positioning was reduced during the rally.",
+    category: "POSITIONING",
+    source_type: "EXCHANGE_DATA",
+    available_at: "2026-09-18T11:45:00Z",
+    occurrence_time: "2026-09-18T11:40:00Z",
+    provenance: [
+      { source_type: "EXCHANGE_DATA", source_id: "COMEX_POSITIONING", publisher: "CME" },
+    ],
+  });
+
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+  inv.observed_evidence = [...inv.observed_evidence, positioningEvidenceId];
+  inv.candidate_explanations = [{
+    rank: 1,
+    explanation: "Short covering drove the rally.",
+    evidence_for_ids: [positioningEvidenceId],
+    evidence_against_ids: [],
+    confidence: "MEDIUM",
+    discriminating_test: "Check whether the rally fades as short positioning normalises.",
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+});
+
+test("6K3. Mechanical-flow hypothesis may remain LOW without direct mechanism evidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const inv = output.investigations[0];
+
+  inv.candidate_explanations = [{
+    rank: 1,
+    explanation: "Short covering may have amplified the rally.",
+    evidence_for_ids: [],
+    evidence_against_ids: [],
+    confidence: "LOW",
+    discriminating_test: "Obtain positioning and open-interest evidence before upgrading the mechanism.",
+  }];
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+});
+
 test("6L. Continued investigation preserves its exact prior expected reaction", () => {
   const packet = createValidBasePacket();
   packet.prior_analytical_state.prior_investigations = [{
