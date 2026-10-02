@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import RegimeUnderstandLiveBridge from "./RegimeUnderstandLiveBridge";
+
 import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
 import { investigationMatchesRegimeSubgroup, type RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
+import { buildUnderstandLiveBridge } from "@/lib/regime-understand-live-bridge";
 import type { ProjectedRegime } from "@/lib/regimes";
 import styles from "./regime-workspace.module.css";
 
@@ -68,6 +71,16 @@ export default function RegimeDetailWorkspace({
       })
     );
   }, [investigations, regime.slug, subgroup]);
+  const understandLiveBridge = useMemo(
+    () => subgroup
+      ? buildUnderstandLiveBridge({
+          subgroup,
+          liveReasoning,
+          investigations: subgroupInvestigations,
+        })
+      : null,
+    [investigations, liveReasoning, subgroup, subgroupInvestigations],
+  );
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
@@ -274,6 +287,10 @@ export default function RegimeDetailWorkspace({
                 </div>
                 <span className={styles.state} data-kind={subgroup.stateKind}>{subgroup.state}</span>
               </header>
+
+              {understandLiveBridge ? (
+                <RegimeUnderstandLiveBridge bridge={understandLiveBridge} />
+              ) : null}
 
               {globalRatesFxBridge ? (
                 <section className={styles.fxBridge} aria-label="Global rates and FX sensor">
