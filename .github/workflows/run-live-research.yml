@@ -6,6 +6,9 @@ on:
     - cron: "45 2 * * *"
     - cron: "30 14 * * *"
     - cron: "45 14 * * *"
+    # One bounded Research Gap case after the normal morning/evening Live windows.
+    - cron: "15 3 * * *"
+    - cron: "15 15 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -19,6 +22,7 @@ on:
           - story_maintenance
           - research_gap_one
           - research_gap_handoff_one
+          - research_gap_cycle
           - dossier_v2_dry_run
           - dossier_v2_persist
           - verified_macro_signals
@@ -85,12 +89,12 @@ concurrency:
 
 jobs:
   run-production-cron:
-    name: Run ${{ github.event_name == 'schedule' && 'research' || inputs.mode }} production action
+    name: Run ${{ github.event_name == 'schedule' && ((github.event.schedule == '15 3 * * *' || github.event.schedule == '15 15 * * *') && 'research_gap_cycle' || 'research') || inputs.mode }} production action
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       PROD_URL: https://alchemy-live-market-desk.vercel.app
-      MODE: ${{ github.event_name == 'schedule' && 'research' || inputs.mode }}
+      MODE: ${{ github.event_name == 'schedule' && ((github.event.schedule == '15 3 * * *' || github.event.schedule == '15 15 * * *') && 'research_gap_cycle' || 'research') || inputs.mode }}
       SLOT: ${{ inputs.slot }}
       CRON_SCHEDULE: ${{ github.event.schedule }}
       RETRY_KEY: ${{ inputs.retry_key }}
@@ -476,6 +480,95 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Run one scheduled Research Gap cycle
+        if: ${{ env.MODE == 'research_gap_cycle' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          HANDOFF_FILE="$RUNNER_TEMP/research-gap-cycle-handoff.json"
+          RESEARCH_FILE="$RUNNER_TEMP/research-gap-cycle-research.json"
+
+          request_oidc_token() {
+            local encoded_audience response
+            encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+            response="$(curl --fail --silent --show-error \
+              -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+            OIDC_TOKEN="$(jq -er '.value' <<<"$response")"
+            echo "::add-mask::$OIDC_TOKEN"
+          }
+
+          invoke_json() {
+            local endpoint="$1" body="$2" output="$3"
+            request_oidc_token
+            HTTP_STATUS="$(curl --silent --show-error --max-time 305 \
+              -o "$output" -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$body" \
+              "$PROD_URL$endpoint")"
+          }
+
+          # Retry a previously completed-but-unhanded case first. This keeps a
+          # canonical outage from causing duplicate web research.
+          invoke_json "/api/admin/research-gap/handoff-one" '{}' "$HANDOFF_FILE"
+          jq -c '{status,caseId,gapKey,outcome,evidenceCount,runKey,canonicalStatus,lifecycleStatus:.lifecycle.lifecycleStatus,error}' "$HANDOFF_FILE"
+          if [[ ! "$HTTP_STATUS" =~ ^2 ]]; then
+            echo "Research Gap retry handoff returned HTTP $HTTP_STATUS." >&2
+            exit 1
+          fi
+          handoff_state="$(jq -r '.status // empty' "$HANDOFF_FILE")"
+          case "$handoff_state" in
+            handed_off)
+              echo "Research Gap cycle completed a pending canonical handoff; no new case will be researched."
+              exit 0
+              ;;
+            empty)
+              ;;
+            *)
+              echo "Research Gap retry handoff ended in state: ${handoff_state:-missing}" >&2
+              exit 1
+              ;;
+          esac
+
+          # No completed case is awaiting admission: research exactly one queued case.
+          invoke_json "/api/admin/research-gap/run-one" '{}' "$RESEARCH_FILE"
+          jq -c '{status,caseId,gapKey,question,outcome,stopReason,confidence,evidenceCount,eligibleEvidenceCount,sourceCount,branchCount,missingRequirementIds,evidenceSnapshotVersion,released,error,detail}' "$RESEARCH_FILE"
+          if [[ ! "$HTTP_STATUS" =~ ^2 ]]; then
+            echo "Scheduled Research Gap executor returned HTTP $HTTP_STATUS." >&2
+            exit 1
+          fi
+          research_state="$(jq -r '.status // empty' "$RESEARCH_FILE")"
+          case "$research_state" in
+            empty)
+              echo "Research Gap cycle skipped: no queued case is claimable."
+              exit 0
+              ;;
+            completed)
+              ;;
+            *)
+              echo "Scheduled Research Gap executor ended in state: ${research_state:-missing}" >&2
+              exit 1
+              ;;
+          esac
+
+          case_id="$(jq -er '.caseId' "$RESEARCH_FILE")"
+          handoff_body="$(jq -cn --arg caseId "$case_id" '{caseId:$caseId}')"
+
+          # Hand off only the exact case completed above. If canonical Live fails,
+          # the case remains COMPLETED and the next cycle retries it before research.
+          invoke_json "/api/admin/research-gap/handoff-one" "$handoff_body" "$HANDOFF_FILE"
+          jq -c '{status,caseId,gapKey,outcome,evidenceCount,runKey,canonicalStatus,canonicalRunId:.canonicalBody.runId,canonicalRunStatus:.canonicalBody.status,lifecycleStatus:.lifecycle.lifecycleStatus,error}' "$HANDOFF_FILE"
+          if [[ ! "$HTTP_STATUS" =~ ^2 ]]; then
+            echo "Scheduled Research Gap canonical handoff returned HTTP $HTTP_STATUS." >&2
+            exit 1
+          fi
+          final_state="$(jq -r '.status // empty' "$HANDOFF_FILE")"
+          if [[ "$final_state" != "handed_off" ]]; then
+            echo "Scheduled Research Gap canonical handoff ended in state: ${final_state:-missing}" >&2
+            exit 1
+          fi
 
       - name: Run Dossier V2 production dry-run
         if: ${{ env.MODE == 'dossier_v2_dry_run' }}
