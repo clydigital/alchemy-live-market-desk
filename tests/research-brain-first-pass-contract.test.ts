@@ -82,6 +82,32 @@ test("Research Brain Divergence V1 stays inside priority investigations", () => 
 });
 
 
+test("Research Brain keeps mechanical-flow claims evidence-specific and historical statistics contextual", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(
+    instructions,
+    /PRICED_IN, SHORT_COVERING, LONG_LIQUIDATION, DEALER_GAMMA, OPTIONS_EXPIRY and CTA_FLOW at MEDIUM or HIGH confidence require mechanism-specific evidence/,
+  );
+  assert.match(
+    instructions,
+    /generic price direction alone may establish the move but cannot establish those causes/,
+  );
+  assert.match(instructions, /HISTORICAL STATISTICS DISCIPLINE/);
+  assert.match(
+    instructions,
+    /Historical base rates, seasonality and event-window analogues are contextual evidence only/,
+  );
+  assert.match(
+    instructions,
+    /only when supplied evidence provides the relevant sample window and sample size/,
+  );
+  assert.match(
+    instructions,
+    /If those details are absent, keep the historical comparison qualitative/,
+  );
+});
+
 test("Research Brain uses prior investigation baselines for bounded divergence post-mortems", () => {
   const instructions = buildResearchBrainSystemInstructions();
 

@@ -26,12 +26,18 @@ import type {
   ResearchBrainInputV1,
   ResearchBrainOutputV1,
 } from "./research-brain-contracts.ts";
+import {
+  classifyPresenterMechanism,
+  type PresenterMechanismCode,
+} from "../intelligence/presenter-mechanism-codes.ts";
 
 export interface EvidenceSourceInfo {
   source_type: string;
   source_id: string;
   publisher?: string;
   category: string;
+  claim_or_fact: string;
+  metric_keys: string[];
 }
 
 export interface ValidationIndexes {
@@ -127,6 +133,8 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
         source_id: prov?.source_id ?? ev.evidence_id,
         publisher: prov?.publisher,
         category: String(ev.category ?? "GENERAL").toUpperCase(),
+        claim_or_fact: String(ev.claim_or_fact ?? ""),
+        metric_keys: ev.metrics && typeof ev.metrics === "object" ? Object.keys(ev.metrics) : [],
       });
     }
     if (ev && typeof ev.conflict_group_id === "string") {
@@ -250,6 +258,38 @@ function hasActualMarketPricingEvidence(
     }
   }
   return false;
+}
+
+const MECHANISM_SPECIFIC_SUPPORT_PATTERNS: Partial<Record<PresenterMechanismCode, RegExp>> = {
+  PRICED_IN: /\b(?:fedwatch|fed[ -]?funds futures|meeting pricing|market[- ]?implied|implied (?:rate|probability|odds)|cut odds?|hike odds?|ois|overnight index swap|futures pricing|pre[- ]?event pricing)\b/i,
+  SHORT_COVERING: /\b(?:short interest|net shorts?|open interest|commitments of traders|cot positioning|positioning|shorts? covered|short covering|securities lending)\b/i,
+  LONG_LIQUIDATION: /\b(?:net longs?|open interest|commitments of traders|cot positioning|positioning|long liquidation|longs? liquidat|forced selling)\b/i,
+  DEALER_GAMMA: /\b(?:dealer gamma|gamma exposure|gamma hedg|options? open interest|options? positioning|dealer hedg|strike concentration|pin risk)\b/i,
+  OPTIONS_EXPIRY: /\b(?:options? expir|expiration|opex|triple witch|quadruple witch|options? open interest|strike concentration)\b/i,
+  CTA_FLOW: /\b(?:cta|systematic positioning|systematic flow|trend[- ]?following positioning|vol(?:atility)? control|positioning threshold|trigger level)\b/i,
+};
+
+function hasMechanismSpecificSupportingEvidence(
+  mechanism: PresenterMechanismCode,
+  evIds: string[],
+  indexes: ValidationIndexes,
+): boolean {
+  const pattern = MECHANISM_SPECIFIC_SUPPORT_PATTERNS[mechanism];
+  if (!pattern) return true;
+
+  return evIds.some((id) => {
+    const src = indexes.evidenceSourceMap.get(id);
+    if (!src) return false;
+    const searchable = [
+      src.claim_or_fact,
+      src.source_type,
+      src.category,
+      src.source_id,
+      src.publisher ?? "",
+      ...src.metric_keys,
+    ].join(" ");
+    return pattern.test(searchable);
+  });
 }
 
 export function validateResearchBrainInput(input: unknown): ResearchBrainInputV1 {
@@ -752,6 +792,17 @@ export function validateResearchBrainOutput(
       }
       if ((confidence === "HIGH" || confidence === "MEDIUM") && evidenceFor.length === 0) {
         errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] ${confidence} confidence requires at least one evidence_for_id.`);
+      }
+
+      const mechanism = classifyPresenterMechanism(explanation);
+      if (
+        (confidence === "HIGH" || confidence === "MEDIUM")
+        && evidenceFor.length > 0
+        && !hasMechanismSpecificSupportingEvidence(mechanism, evidenceFor.filter((id): id is string => typeof id === "string"), indexes)
+      ) {
+        errors.push(
+          `investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] ${mechanism} at ${confidence} confidence requires mechanism-specific supporting evidence; generic price action does not establish that flow/mechanical cause.`,
+        );
       }
 
       for (const [side, ids] of [["evidence_for_ids", evidenceFor], ["evidence_against_ids", evidenceAgainst]] as const) {
