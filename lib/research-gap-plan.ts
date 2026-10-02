@@ -8,6 +8,7 @@ import type { ResearchGapPlanContext } from "./research-gap-context.ts";
 
 export const RESEARCH_GAP_PLAN_VERSION = "research-gap-plan/1" as const;
 export const RESEARCH_GAP_VERDICT_VERSION = "research-gap-verdict/1" as const;
+export const RESEARCH_GAP_EVIDENCE_SNAPSHOT_VERSION = "research-gap-evidence-snapshot/1" as const;
 
 export const GAP_RESEARCH_SOURCE_CLASSES = [
   "official",
@@ -87,6 +88,8 @@ export type ResearchGapEvidenceAssessment = {
 
 export type ResearchGapVerdict = {
   contractVersion: typeof RESEARCH_GAP_VERDICT_VERSION;
+  evidenceSnapshotVersion: typeof RESEARCH_GAP_EVIDENCE_SNAPSHOT_VERSION;
+  evidenceSnapshot: ResearchGapEvidenceAssessment[];
   evaluatedAt: string;
   planId: string;
   outcome: ResearchGapOutcome;
@@ -381,6 +384,21 @@ export function validateResearchGapEvidenceAssessments(
   return errors;
 }
 
+function evidenceSnapshot(items: ResearchGapEvidenceAssessment[]) {
+  return items.map((item) => ({
+    evidenceId: clean(item.evidenceId),
+    independenceKey: clean(item.independenceKey),
+    sourceClass: item.sourceClass,
+    sourceUrl: clean(item.sourceUrl),
+    requirementIds: [...new Set(item.requirementIds.map(clean).filter(Boolean))],
+    direction: item.direction,
+    directness: item.directness,
+    quality: Math.round(item.quality),
+    traceable: item.traceable,
+    claim: clean(item.claim),
+  }));
+}
+
 function uniqueIndependent(
   items: ResearchGapEvidenceAssessment[],
   direction: GapEvidenceDirection,
@@ -533,6 +551,8 @@ export function evaluateResearchGapEvidence(input: {
 
   return {
     contractVersion: RESEARCH_GAP_VERDICT_VERSION,
+    evidenceSnapshotVersion: RESEARCH_GAP_EVIDENCE_SNAPSHOT_VERSION,
+    evidenceSnapshot: evidenceSnapshot(input.evidence),
     evaluatedAt: (input.now ?? new Date()).toISOString(),
     planId: plan.planId,
     outcome,
