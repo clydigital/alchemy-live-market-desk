@@ -47,7 +47,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   const investigations = routeDossierInvestigations(
     dossier?.watchNext ?? [],
     dossier?.whatMattersNow.stories ?? [],
-  ).filter((item) => item.regimeRoutes.some((route) => route.regime === regime.slug));
+  );
 
   return (
     <LiveDeskShell
