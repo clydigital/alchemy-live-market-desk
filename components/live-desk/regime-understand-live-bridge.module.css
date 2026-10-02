@@ -172,9 +172,6 @@
   text-transform: uppercase;
 }
 
-.hiddenLink {
-  display: none;
-}
 
 @media (max-width: 1100px) {
   .flow {
