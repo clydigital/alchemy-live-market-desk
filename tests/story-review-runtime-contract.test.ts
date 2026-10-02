@@ -27,6 +27,15 @@ test("existing Story maintenance piggybacks on the one Market Belief call", () =
   assert.match(openai, /max_output_tokens: effectiveMaxOutputTokens/);
 });
 
+test("Market Belief structured output is bound to the frozen Story obligation count", () => {
+  assert.match(runtime, /marketBeliefSchemaForStoryReviewTargets\(marketBeliefStoryIds\)/);
+  assert.match(runtime, /expectedAssessmentCount: marketBeliefStoryIds\.length/);
+  assert.match(runtime, /schema: marketBeliefSchema/);
+  assert.match(schema, /storyAssessments\.minItems = uniqueStoryIds\.length/);
+  assert.match(schema, /storyAssessments\.maxItems = uniqueStoryIds\.length/);
+  assert.match(schema, /itemProperties\.storyId = \{ type: "string", enum: uniqueStoryIds \}/);
+});
+
 test("creator-only queued Story wakes are resolved before Market Belief capacity is spent", () => {
   assert.match(runtime, /resolveCreatorOnlyStoryReviewQueues/);
   assert.match(runtime, /creatorOnlyNonMaterialStoryReview/);
