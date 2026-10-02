@@ -39,7 +39,6 @@ import {
   DIVERGENCE_SCHEMA,
   HYPOTHESIS_SCHEMA,
   LIFECYCLE_SCHEMA,
-  MARKET_BELIEF_SCHEMA,
   marketBeliefSchemaForStoryReviewTargets,
   SCENARIO_SCHEMA,
   type ChallengerOutput,
