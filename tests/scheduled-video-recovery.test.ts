@@ -105,20 +105,20 @@ test("fresh running discovery is never re-entered", async () => {
 });
 
 test("missing discovery checkpoint is recovered through the canonical queue-only slot identity", async () => {
-  let received: { slot: VideoResearchSlot; runKey: string; scheduledFor: string } | null = null;
+  const received: { value?: { slot: VideoResearchSlot; runKey: string; scheduledFor: string } } = {};
   const result = await ensureScheduledVideoDiscovery("video_midnight", now, {
     readCheckpoint: async () => null,
     runDiscovery: async (input) => {
-      received = { slot: input.slot, runKey: input.runKey, scheduledFor: input.scheduledFor };
+      received.value = { slot: input.slot, runKey: input.runKey, scheduledFor: input.scheduledFor };
       return intakeResult();
     },
   });
 
   assert.equal(result.action, "recovered");
-  assert.ok(received);
-  assert.equal(received.slot, "video_midnight");
-  assert.equal(received.runKey, "video_midnight-2026-10-03");
-  assert.equal(received.scheduledFor, "2026-10-03T09:00:00+08:00");
+  assert.ok(received.value);
+  assert.equal(received.value.slot, "video_midnight");
+  assert.equal(received.value.runKey, "video_midnight-2026-10-03");
+  assert.equal(received.value.scheduledFor, "2026-10-03T09:00:00+08:00");
 });
 
 test("failed non-durable discovery is recovered exactly through the same canonical run identity", async () => {
