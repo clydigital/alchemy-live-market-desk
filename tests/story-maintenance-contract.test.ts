@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { MARKET_BELIEF_SCHEMA, type EvidencePackItem } from "../lib/intelligence/schemas.ts";
+import { MARKET_BELIEF_SCHEMA, marketBeliefSchemaForStoryReviewTargets, type EvidencePackItem } from "../lib/intelligence/schemas.ts";
 import {
   creatorOnlyNonMaterialStoryReview,
   materialAssessmentHasEligibleEvidence,
@@ -97,6 +97,32 @@ test("Market Belief requires the complete frozen StoryAssessmentOutputV1 proposa
   assert.equal(assessment.properties.proposedAcceptedExplanation, undefined);
   assert.equal(assessment.properties.proposedScenario, undefined);
   assert.equal(assessment.properties.proposedAssetImplications, undefined);
+});
+
+test("run-specific Market Belief schema requires exact frozen Story assessment coverage", () => {
+  const schema = marketBeliefSchemaForStoryReviewTargets(["story-a", "story-b"]) as any;
+  const assessments = schema.properties.storyAssessments;
+  assert.equal(assessments.minItems, 2);
+  assert.equal(assessments.maxItems, 2);
+  assert.deepEqual(assessments.items.properties.storyId.enum, ["story-a", "story-b"]);
+
+  const zeroSchema = marketBeliefSchemaForStoryReviewTargets([]) as any;
+  assert.equal(zeroSchema.properties.storyAssessments.minItems, 0);
+  assert.equal(zeroSchema.properties.storyAssessments.maxItems, 0);
+  assert.equal(zeroSchema.properties.storyAssessments.items.properties.storyId.enum, undefined);
+
+  const staticAssessments = (MARKET_BELIEF_SCHEMA as any).properties.storyAssessments;
+  assert.equal(staticAssessments.minItems, undefined, "static schema must remain reusable");
+  assert.equal(staticAssessments.maxItems, 4);
+
+  assert.throws(
+    () => marketBeliefSchemaForStoryReviewTargets(["story-a", "story-a"]),
+    /unique Story IDs/,
+  );
+  assert.throws(
+    () => marketBeliefSchemaForStoryReviewTargets(["a", "b", "c", "d", "e"]),
+    /at most four/,
+  );
 });
 
 test("Story review freezes deterministic catalyst candidates for server validation", () => {
