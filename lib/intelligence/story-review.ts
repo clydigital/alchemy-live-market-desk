@@ -349,6 +349,17 @@ function independentGroup(item: EvidencePackItem) {
  * a test, but it cannot materially rewrite the canonical thesis by itself.
  * Invalidation is stricter because it is the highest-impact automatic transition.
  */
+export function creatorOnlyNonMaterialStoryReview(target: StoryReviewTargetPackItem) {
+  const context = target.reviewContext;
+  if (!target.queueIds.length || !target.relevantEvidence.length) return false;
+  if (target.reason !== "explicit_queue") return false;
+  if (!context?.queueReasons?.length || context.queueReasons.some((reason) => reason !== "new_linked_evidence")) return false;
+  if (context.catalystRecalibrationRequired) return false;
+  if ((context.dueCatalysts?.length ?? 0) > 0) return false;
+  if ((context.researchDebt?.length ?? 0) > 0) return false;
+  return target.relevantEvidence.every((item) => item.evidenceClass === "transcript");
+}
+
 export function materialAssessmentHasEligibleEvidence(
   disposition: string,
   evidenceIds: string[],
