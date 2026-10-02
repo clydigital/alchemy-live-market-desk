@@ -45,9 +45,9 @@ test("Hybrid links to canonical Dossier context instead of mirroring Presenter c
   assert.doesNotMatch(hybrid, /runStructuredStage|modelStage|OpenAI/);
 });
 
-test("Research audit remains available below the Motion journey", () => {
+test("Presenter divergence audit remains available below the Motion journey", () => {
   const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
-  const divergenceAt = hybrid.indexOf('title="Divergence journey"');
+  const divergenceAt = hybrid.indexOf('title="Presenter Divergence Lab"');
   assert.ok(motionAt >= 0);
   assert.ok(divergenceAt > motionAt);
 });
