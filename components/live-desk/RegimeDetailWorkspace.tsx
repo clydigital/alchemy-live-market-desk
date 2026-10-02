@@ -380,7 +380,7 @@ export default function RegimeDetailWorkspace({
                                 <div>
                                   {item.reactionChecks.map((check) => (
                                     <span data-relation={check.relation.toLowerCase()} key={check.checkId}>
-                                      {check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} · {check.relation} · {check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}
+                                      {check.isProxy ? `${check.instrument} via ${check.observedInstrument} proxy` : check.instrument} · {check.relation} · {check.reactionWindow ? `${check.reactionWindow} reaction` : check.timingPrecision === "INTRADAY" ? "intraday" : "later daily session"}{check.reactionPath.length ? ` · path ${check.reactionPath.map((point) => `${point.window} ${point.changePct >= 0 ? "+" : ""}${point.changePct.toFixed(2)}%`).join(" → ")}` : ""}
                                     </span>
                                   ))}
                                 </div>

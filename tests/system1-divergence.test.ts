@@ -429,6 +429,29 @@ test("System 1 prefers an exact 30m event reaction and preserves proxy identity"
         expected_instrument: "DXY",
         is_proxy: true,
         frequency: "intraday",
+        reaction_windows: {
+          "5m": {
+            baseline_at: "2026-09-22T09:59:00Z",
+            observed_at: "2026-09-22T10:05:00Z",
+            baseline: 100,
+            observed: 100.2,
+            change_pct: 0.2,
+          },
+          "30m": {
+            baseline_at: "2026-09-22T09:59:00Z",
+            observed_at: "2026-09-22T10:30:00Z",
+            baseline: 100,
+            observed: 99.3,
+            change_pct: -0.7,
+          },
+          "4h": {
+            baseline_at: "2026-09-22T09:59:00Z",
+            observed_at: "2026-09-22T14:00:00Z",
+            baseline: 100,
+            observed: 100.4,
+            change_pct: 0.4,
+          },
+        },
       },
       provenance: [{ source_type: "TWELVE_DATA", source_id: "twelve-data:UUP" }],
     }],
@@ -443,6 +466,35 @@ test("System 1 prefers an exact 30m event reaction and preserves proxy identity"
   assert.equal(assessments[0]?.timing_precision, "INTRADAY");
   assert.equal(assessments[0]?.relation, "DIVERGENT");
   assert.equal(assessments[0]?.market_evidence_id, "twelve-data:event-reaction:ev:pmi:intraday:dxy");
+  assert.deepEqual(assessments[0]?.reaction_path, [
+    {
+      window: "5m",
+      baseline_at: "2026-09-22T09:59:00Z",
+      observed_at: "2026-09-22T10:05:00Z",
+      baseline: 100,
+      observed: 100.2,
+      change_pct: 0.2,
+      observed_direction: "UP",
+    },
+    {
+      window: "30m",
+      baseline_at: "2026-09-22T09:59:00Z",
+      observed_at: "2026-09-22T10:30:00Z",
+      baseline: 100,
+      observed: 99.3,
+      change_pct: -0.7,
+      observed_direction: "DOWN",
+    },
+    {
+      window: "4h",
+      baseline_at: "2026-09-22T09:59:00Z",
+      observed_at: "2026-09-22T14:00:00Z",
+      baseline: 100,
+      observed: 100.4,
+      change_pct: 0.4,
+      observed_direction: "UP",
+    },
+  ]);
 });
 
 test("System 1 does not treat same-day daily data as an intraday post-event reaction", () => {
