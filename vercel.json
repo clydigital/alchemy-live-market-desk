@@ -12,12 +12,20 @@
       "schedule": "0 1 * * *"
     },
     {
+      "path": "/api/cron/video/midnight-watchdog",
+      "schedule": "18 1 * * *"
+    },
+    {
       "path": "/api/cron/video/transcript-worker",
       "schedule": "30 1 * * *"
     },
     {
       "path": "/api/cron/video/late-morning",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/video/late-morning-watchdog",
+      "schedule": "18 13 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
