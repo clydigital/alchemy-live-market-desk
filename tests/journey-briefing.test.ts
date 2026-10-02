@@ -373,6 +373,29 @@ test("all completed-run entry points use the canonical Journey fallback publishe
   }
 });
 
+test("canonical Story freeze uses a bounded database-only projection", () => {
+  const hybrid = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+  const canonicalEdition = readFileSync(new URL("../lib/intelligence/canonical-journey-edition.ts", import.meta.url), "utf8");
+
+  const start = hybrid.indexOf("export async function captureCanonicalPublicationStoryStates");
+  const end = hybrid.indexOf("export function buildHybridPublicationContract", start);
+  assert.ok(start >= 0 && end > start);
+  const boundedCapture = hybrid.slice(start, end);
+
+  assert.match(boundedCapture, /optionalQuery<Story>\("stories"/);
+  assert.match(boundedCapture, /optionalQuery<ThesisVersion>\("story_thesis_versions"/);
+  assert.match(boundedCapture, /optionalQuery<StoryEvent>\("story_events"/);
+  assert.match(boundedCapture, /optionalIntelligenceStates\(\)/);
+  assert.doesNotMatch(boundedCapture, /dailyBriefArchive|hybrid_publication_snapshots|getStoryHeaderImages|ResearchSource/);
+
+  for (const sourceText of [runtime, canonicalEdition]) {
+    assert.match(sourceText, /captureCanonicalPublicationStoryStates\(\{ fresh: true \}\)/);
+    assert.doesNotMatch(sourceText, /getHybridDeskData\(\{ fresh: true \}\)/);
+    assert.doesNotMatch(sourceText, /getStoryHeaderImages\(/);
+  }
+});
+
 
 test("past date-only and TBC events move to chronology instead of leaking into Later", () => {
   const pastDate = event("past-date", {
