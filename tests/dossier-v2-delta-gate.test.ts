@@ -407,3 +407,142 @@ test("Dossier delta gate escalates invalidation of a represented Story to REBASE
   assert.equal(decision.postIntelligenceModelCallBudget, 2);
   assert.match(decision.reason, /invalidated|archived/i);
 });
+
+
+test("fresh evidence-backed Motion wakes Dossier synthesis before canonical Story promotion", () => {
+  const decision = decideDossierDelta({
+    packet: packet(),
+    previousDossier: previousDossier(),
+    context: {
+      available: true,
+      states: [],
+      stories: [],
+      warning: null,
+      motionActivations: [{
+        id: "motion-rates-1",
+        evidence_id: null,
+        research_run_id: "run-motion-1",
+        packet_evidence_id: "ev:rates:official",
+        primary_story_id: "story-rates",
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "REPORTED",
+        headline: "Long-end yields rise despite softer inflation data",
+        materiality: 92,
+        relevance: 94,
+        novelty: 83,
+        occurred_at: "2026-09-26T08:20:00.000Z",
+        observed_at: "2026-09-26T08:32:00.000Z",
+        expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item" },
+      }],
+    },
+  });
+
+  assert.equal(decision.action, "REBASE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 2);
+  assert.deepEqual(decision.changedStoryIds, []);
+  assert.match(decision.reason, /before Story promotion/i);
+});
+
+test("Motion cannot wake Dossier synthesis without an underlying evidence reference", () => {
+  const decision = decideDossierDelta({
+    packet: packet(),
+    previousDossier: previousDossier(),
+    context: {
+      available: true,
+      states: [],
+      stories: [],
+      warning: null,
+      motionActivations: [{
+        id: "motion-headline-only",
+        evidence_id: null,
+        research_run_id: "run-motion-2",
+        packet_evidence_id: null,
+        primary_story_id: "story-rates",
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "REPORTED",
+        headline: "Motion without canonical packet evidence",
+        materiality: 99,
+        relevance: 99,
+        novelty: 99,
+        occurred_at: "2026-09-26T08:20:00.000Z",
+        observed_at: "2026-09-26T08:32:00.000Z",
+        expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-2" },
+      }],
+    },
+  });
+
+  assert.equal(decision.action, "NO_CHANGE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 0);
+});
+
+test("expired Motion cannot wake Dossier synthesis", () => {
+  const decision = decideDossierDelta({
+    packet: packet(),
+    previousDossier: previousDossier(),
+    context: {
+      available: true,
+      states: [],
+      stories: [],
+      warning: null,
+      motionActivations: [{
+        id: "motion-expired",
+        evidence_id: null,
+        research_run_id: "run-motion-3",
+        packet_evidence_id: "ev:rates:market",
+        primary_story_id: null,
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "VERIFIED",
+        headline: "Expired rates Motion",
+        materiality: 95,
+        relevance: 95,
+        novelty: 80,
+        occurred_at: "2026-09-24T08:20:00.000Z",
+        observed_at: "2026-09-24T08:32:00.000Z",
+        expires_at: "2026-09-25T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-3" },
+      }],
+    },
+  });
+
+  assert.equal(decision.action, "NO_CHANGE");
+});
+
+test("Motion activation requires its exact canonical evidence to survive into the current Dossier packet", () => {
+  const currentPacket = packet();
+
+  const decision = decideDossierDelta({
+    packet: currentPacket,
+    previousDossier: previousDossier(),
+    context: {
+      available: true,
+      states: [],
+      stories: [],
+      warning: null,
+      motionActivations: [{
+        id: "motion-current",
+        evidence_id: null,
+        research_run_id: "run-motion-4",
+        packet_evidence_id: "ev:not-in-packet",
+        primary_story_id: "story-rates",
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "VERIFIED",
+        headline: "Motion without current packet evidence",
+        materiality: 95,
+        relevance: 95,
+        novelty: 80,
+        occurred_at: "2026-09-26T08:20:00.000Z",
+        observed_at: "2026-09-26T08:32:00.000Z",
+        expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-4" },
+      }],
+    },
+  });
+
+  assert.equal(decision.action, "NO_CHANGE");
+});
