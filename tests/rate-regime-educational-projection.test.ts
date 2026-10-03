@@ -346,6 +346,7 @@ test("historical educational projection stays valid when an old Dossier has no c
 
   assert.ok(projection);
   assert.equal(projection.ratePath, null);
+  assert.equal(projection.globalDuration, null);
   assert.equal(projection.dossierId, "historical-pre-curve");
 });
 
@@ -417,4 +418,97 @@ test("educational projection exposes observed long-end decomposition while prese
   assert.equal(projection.longEnd?.residualBp, 0);
   assert.equal(projection.longEnd?.termPremiumAvailability, "UNRESOLVED");
   assert.match(projection.longEnd?.marketStructureDetail ?? "", /uninterpreted/i);
+});
+
+
+test("educational projection keeps daily JGB, daily USDJPY, monthly TIC and weekly MOF flows distinct", () => {
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [investigation()],
+    dossier: {
+      dossierId: "dossier-global-rates",
+      asOf: "2026-10-03T01:05:00.000Z",
+      rateRegime: {
+        state: "MIXED",
+        nextMeetingRateOutlook: "MORE_DOVISH",
+        fedWatchExpectedDirection: "HIKE_ODDS_DOWN",
+        trigger: null,
+        observedRatePricing: null,
+        observedConfirmation: null,
+        usRatesReaction: null,
+        usRatesInterpretation: null,
+        fredBacked: true,
+        evidenceRefs: ["global-rates:jgb:2026-10-01", "global-rates:tic:2026-07"],
+        gaps: [],
+        globalDurationDiagnostic: {
+          contractVersion: "rate-global-duration-diagnostic/1",
+          asOf: "2026-10-03T01:05:00.000Z",
+          japanRates: {
+            asOf: "2026-10-01",
+            jgb2yPct: 2.2,
+            jgb10yPct: 3,
+            jgb30yPct: 3.4,
+            jgb2yChange5dBp: 5,
+            jgb10yChange5dBp: 8,
+            jgb30yChange5dBp: 9,
+            evidenceRef: "global-rates:jgb:2026-10-01",
+          },
+          relativeRates: {
+            ustJgb2yBp: 250,
+            ustJgb10yBp: 230,
+            ustJgb30yBp: 230,
+            ustJgb2yChange5dBp: -25,
+            ustJgb10yChange5dBp: 2,
+            ustJgb30yChange5dBp: 1,
+            state: "US_JAPAN_TIGHTENING",
+            globalLabelEligible: false,
+            detail: "US and Japan long ends are both tightening; Bund/gilt confirmation is incomplete.",
+          },
+          fx: {
+            usdJpy: 147.5,
+            change5dPct: 1.72,
+            evidenceRef: "market-monitor:usdjpy:2026-10-03",
+            detail: "USDJPY 147.500; 5D +1.72%.",
+          },
+          foreignTreasuryDemand: {
+            period: "2026-07",
+            japanHoldingsUsdBn: 1103.9,
+            japanPreviousUsdBn: 1116.7,
+            japanMonthlyChangeUsdBn: -12.8,
+            japanHoldingsDirection: "DECREASED",
+            totalForeignHoldingsUsdBn: 9500,
+            foreignOfficialHoldingsUsdBn: 3900,
+            custodyAttributionCaveat: "Custody location may not equal beneficial owner.",
+            evidenceRef: "global-rates:tic:2026-07",
+            detail: "TIC Japan Treasury holdings decreased month over month.",
+          },
+          japanPortfolioFlows: {
+            periodLabel: "2026/09/20-2026/09/26",
+            outwardLongTermDebtNetPurchaseJpyBn: 420,
+            outwardTotalNetPurchaseJpyBn: 500,
+            direction: "NET_PURCHASE",
+            treasurySpecific: false,
+            evidenceRef: "global-rates:japan-mof-flows:2026-09-20-09-26",
+            detail: "Japan residents were net buyers of foreign long-term debt securities, not Treasuries specifically.",
+          },
+          comparability: {
+            canCompareTicAndWeeklyMofAsSameFlow: false,
+            detail: "TIC is monthly Treasury holdings; MOF is weekly foreign securities transactions. Do not merge them.",
+          },
+          evidenceRefs: ["global-rates:jgb:2026-10-01", "global-rates:tic:2026-07"],
+          gaps: ["Comparable Bund long-end evidence is missing.", "Comparable gilt long-end evidence is missing."],
+        },
+      },
+    },
+  });
+
+  assert.ok(projection?.globalDuration);
+  assert.equal(projection.globalDuration?.state, "US_JAPAN_TIGHTENING");
+  assert.equal(projection.globalDuration?.globalLabelEligible, false);
+  assert.equal(projection.globalDuration?.tic.period, "2026-07");
+  assert.equal(projection.globalDuration?.tic.japanMonthlyChangeUsdBn, -12.8);
+  assert.equal(projection.globalDuration?.japanFlows.periodLabel, "2026/09/20-2026/09/26");
+  assert.equal(projection.globalDuration?.japanFlows.outwardLongTermDebtNetPurchaseJpyBn, 420);
+  assert.match(projection.globalDuration?.comparabilityDetail ?? "", /Do not merge/i);
 });

@@ -22,6 +22,18 @@ import {
   type TreasuryBillSnapshot,
 } from "../providers/treasury-bills.ts";
 import {
+  fetchJapanMofJgbYields,
+  type JapanMofJgbSnapshot,
+} from "../providers/japan-mof-jgb-yields.ts";
+import {
+  fetchJapanMofWeeklyFlows,
+  type JapanMofWeeklySnapshot,
+} from "../providers/japan-mof-weekly-flows.ts";
+import {
+  fetchTreasuryTicTable5,
+  type TreasuryTicSnapshot,
+} from "../providers/treasury-tic-holdings.ts";
+import {
   fetchTwelveDataReactionSnapshot,
   type IntradayReactionTrigger,
   type TwelveDataReactionSnapshot,
@@ -930,6 +942,151 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   };
 }
 
+
+function monthEndOccurrence(period: string | null) {
+  if (!period || !/^\d{4}-\d{2}$/.test(period)) return undefined;
+  const [year, month] = period.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month, 0));
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) + "T00:00:00.000Z" : undefined;
+}
+
+function flowEvidenceKey(value: string) {
+  return value.replace(/[^0-9A-Za-z]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "latest";
+}
+
+export function augmentCandidateSnapshotWithGlobalRatesEvidence(
+  result: CanonicalSnapshotResult,
+  jgb: JapanMofJgbSnapshot,
+  tic: TreasuryTicSnapshot,
+  japanFlows: JapanMofWeeklySnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+
+  if (jgb.latest && jgb.asOf && jgb.status !== "UNAVAILABLE") {
+    observed.push({
+      evidence_id: `global-rates:jgb:${jgb.asOf}`,
+      claim_or_fact: `Japan MOF constant-maturity JGB yields for ${jgb.asOf}: 2Y ${jgb.latest.y2 ?? "n/a"}%, 10Y ${jgb.latest.y10 ?? "n/a"}%, 30Y ${jgb.latest.y30 ?? "n/a"}%.`,
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${jgb.asOf}T00:00:00.000Z`,
+      grouping_key: "global-rates:jgb",
+      rank: 12,
+      metrics: {
+        signal_kind: "global_rates",
+        signal_context: "jgb_curve",
+        jgb_2y_pct: jgb.latest.y2,
+        jgb_10y_pct: jgb.latest.y10,
+        jgb_30y_pct: jgb.latest.y30,
+        jgb_2y_change_5d_bp: jgb.changes5dBp.y2,
+        jgb_10y_change_5d_bp: jgb.changes5dBp.y10,
+        jgb_30y_change_5d_bp: jgb.changes5dBp.y30,
+        provider_status: jgb.status,
+      },
+      provenance: [{
+        source_type: "JAPAN_MOF",
+        source_id: "jgb-constant-maturity",
+        url: jgb.sourceUrls[1] ?? jgb.sourceUrls[0],
+        publisher: jgb.sourceName,
+      }],
+    });
+  }
+
+  const japanTic = tic.countries.find((item) => item.country === "Japan") ?? null;
+  const totalTic = tic.countries.find((item) => item.country === "Grand Total") ?? null;
+  const officialTic = tic.countries.find((item) => item.country === "Of Which: Foreign Official") ?? null;
+  if (tic.latestPeriod && japanTic && tic.status !== "UNAVAILABLE") {
+    observed.push({
+      evidence_id: `global-rates:tic:${tic.latestPeriod}`,
+      claim_or_fact: `Treasury TIC reported Japan Treasury holdings of ${japanTic.latestUsdBn ?? "n/a"}bn for ${tic.latestPeriod}; prior month ${japanTic.previousUsdBn ?? "n/a"}bn.`,
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: monthEndOccurrence(tic.latestPeriod),
+      grouping_key: "global-rates:tic",
+      rank: 13,
+      metrics: {
+        signal_kind: "foreign_treasury_holdings",
+        signal_context: "tic_foreign_treasury_holdings",
+        period: tic.latestPeriod,
+        previous_period: tic.previousPeriod,
+        japan_holdings_usd_bn: japanTic.latestUsdBn,
+        japan_previous_usd_bn: japanTic.previousUsdBn,
+        japan_monthly_change_usd_bn: japanTic.monthlyChangeUsdBn,
+        total_foreign_holdings_usd_bn: totalTic?.latestUsdBn ?? null,
+        foreign_official_holdings_usd_bn: officialTic?.latestUsdBn ?? null,
+        custody_attribution_caveat: tic.custodyAttributionCaveat,
+        provider_status: tic.status,
+      },
+      provenance: [{
+        source_type: "US_TREASURY_TIC",
+        source_id: "slt-table5",
+        url: tic.sourceUrl,
+        publisher: tic.sourceName,
+      }],
+    });
+  }
+
+  if (japanFlows.state === "ready" && japanFlows.latest) {
+    observed.push({
+      evidence_id: `global-rates:japan-mof-flows:${flowEvidenceKey(japanFlows.latest.periodLabel)}`,
+      claim_or_fact: `Japan MOF weekly portfolio flows for ${japanFlows.latest.periodLabel}: residents' outward long-term debt net purchase ${japanFlows.latest.outwardLongTermDebtNetPurchaseJpyBn ?? "n/a"} JPY bn.`,
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      grouping_key: "global-rates:japan-mof-flows",
+      rank: 14,
+      metrics: {
+        signal_kind: "portfolio_flow",
+        signal_context: "japan_mof_outward_securities",
+        period_label: japanFlows.latest.periodLabel,
+        outward_sign_convention: japanFlows.latest.outwardSignConvention,
+        outward_long_term_debt_net_purchase_jpy_bn: japanFlows.latest.outwardLongTermDebtNetPurchaseJpyBn,
+        outward_total_net_purchase_jpy_bn: japanFlows.latest.outwardTotalNetPurchaseJpyBn,
+        outward_equity_net_purchase_jpy_bn: japanFlows.latest.outwardEquityNetPurchaseJpyBn,
+        provider_status: japanFlows.state,
+        treasury_specific: false,
+      },
+      provenance: [{
+        source_type: "JAPAN_MOF",
+        source_id: "international-transactions-in-securities-weekly",
+        url: japanFlows.sourceUrl,
+        publisher: japanFlows.sourceName,
+      }],
+    });
+  }
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: {
+        ...(result.snapshot.sources_status ?? {}),
+        japan_mof_jgb_yields: {
+          status: jgb.status,
+          available_at: jgb.asOf ? `${jgb.asOf}T00:00:00.000Z` : undefined,
+          message: jgb.warnings.join(" ") || "Japan MOF JGB constant-maturity yields admitted.",
+        },
+        treasury_tic_foreign_holdings: {
+          status: tic.status,
+          available_at: tic.latestPeriod ? monthEndOccurrence(tic.latestPeriod) : undefined,
+          message: [tic.custodyAttributionCaveat, ...tic.warnings].join(" "),
+        },
+        japan_mof_weekly_flows: {
+          status: japanFlows.state === "ready" ? "OK" : "OPTIONAL_UNAVAILABLE",
+          available_at: japanFlows.retrievedAt ?? undefined,
+          message: japanFlows.note ?? "Japan MOF weekly flow enrichment unavailable.",
+        },
+      },
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 const EIA_GROUPING_KEY_BY_METRIC: Record<EiaWeeklyMetricKey, string> = {
   crudeStocksExSpr: "eia:inventories",
   gasolineStocks: "eia:inventories",
@@ -1361,6 +1518,9 @@ export async function loadCanonicalCandidateSnapshot(
     nyFedResult,
     dealerResult,
     treasuryBillsResult,
+    japanJgbResult,
+    treasuryTicResult,
+    japanMofFlowsResult,
   ] = await Promise.allSettled([
     import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
     fetchEiaWeeklyPetroleumSnapshot(),
@@ -1371,6 +1531,9 @@ export async function loadCanonicalCandidateSnapshot(
     fetchNyFedReferenceRates(new Date(asOfMs)),
     fetchNyFedPrimaryDealers(new Date(asOfMs)),
     fetchTreasuryBills(new Date(asOfMs)),
+    fetchJapanMofJgbYields(new Date(asOfMs)),
+    fetchTreasuryTicTable5(),
+    fetchJapanMofWeeklyFlows(),
   ]);
 
   if (marketMonitorResult.status === "fulfilled") {
@@ -1385,6 +1548,28 @@ export async function loadCanonicalCandidateSnapshot(
       market_monitor: {
         status: "WARNING",
         message: `Existing Live market monitor was unavailable to Dossier V2: ${marketMonitorResult.reason instanceof Error ? marketMonitorResult.reason.message : String(marketMonitorResult.reason)}`,
+      },
+    };
+  }
+
+  if (
+    japanJgbResult.status === "fulfilled"
+    && treasuryTicResult.status === "fulfilled"
+    && japanMofFlowsResult.status === "fulfilled"
+  ) {
+    result = augmentCandidateSnapshotWithGlobalRatesEvidence(
+      result,
+      japanJgbResult.value,
+      treasuryTicResult.value,
+      japanMofFlowsResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      global_rates_foreign_demand: {
+        status: "WARNING",
+        message: "One or more optional global-rates/foreign-demand providers failed before enrichment; affected legs remain unresolved.",
       },
     };
   }

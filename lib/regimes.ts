@@ -695,6 +695,41 @@ export function buildRegimeProjection(input: {
             source: input.dossier.rateRegime.longEndDiagnostic.contractVersion,
           });
         }
+        if (input.dossier.rateRegime.globalDurationDiagnostic && subgroup.key === "global-rates") {
+          const global = input.dossier.rateRegime.globalDurationDiagnostic;
+          telemetry.push({
+            key: "UST_JGB_RELATIVE_RATES",
+            label: "UST ↔ JGB relative rates",
+            state: global.relativeRates.state.replaceAll("_", " "),
+            detail: global.relativeRates.detail,
+            asOf: global.asOf,
+            source: global.contractVersion,
+          });
+          telemetry.push({
+            key: "USDJPY_RATE_BRIDGE",
+            label: "USDJPY",
+            state: global.fx.evidenceRef ? "Observed" : "Unresolved",
+            detail: global.fx.detail,
+            asOf: global.asOf,
+            source: global.contractVersion,
+          });
+          telemetry.push({
+            key: "TIC_FOREIGN_TREASURY_DEMAND",
+            label: "TIC foreign Treasury holdings",
+            state: global.foreignTreasuryDemand.japanHoldingsDirection.replaceAll("_", " "),
+            detail: global.foreignTreasuryDemand.detail,
+            asOf: global.asOf,
+            source: global.contractVersion,
+          });
+          telemetry.push({
+            key: "JAPAN_MOF_PORTFOLIO_FLOWS",
+            label: "Japan MOF foreign securities flows",
+            state: global.japanPortfolioFlows.direction.replaceAll("_", " "),
+            detail: global.japanPortfolioFlows.detail,
+            asOf: global.asOf,
+            source: global.contractVersion,
+          });
+        }
         if (subgroup.key === "credit-financing" && input.dossier.dollarLiquidity) {
           for (const component of input.dossier.dollarLiquidity.components.filter((component) => component.key === "CREDIT" || component.key === "FUNDING")) {
             telemetry.push({

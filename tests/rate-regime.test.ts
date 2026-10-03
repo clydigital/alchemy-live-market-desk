@@ -443,3 +443,96 @@ test("rate regime carries the same bounded long-end diagnostic used by downstrea
   assert.equal(regime.longEndDiagnostic.termPremium.availability, "UNRESOLVED");
   assert.ok(regime.longEndDiagnostic.gaps.some((gap) => /term-premium/i.test(gap)));
 });
+
+
+test("rate regime carries bounded global duration and foreign-demand evidence without merging scopes", () => {
+  const official = (
+    evidenceId: string,
+    groupingKey: string,
+    metrics: Record<string, unknown>,
+    claim: string,
+  ) => ({
+    evidence_id: evidenceId,
+    claim_or_fact: claim,
+    category: "Rates",
+    source_type: "OFFICIAL_DATA",
+    available_at: AVAILABLE_AT,
+    occurrence_time: "2026-09-24T00:00:00.000Z",
+    grouping_key: groupingKey,
+    metrics,
+    provenance: [{ source_type: "OFFICIAL_DATA", source_id: evidenceId }],
+  });
+
+  const input = packet([
+    fred("us2y", 4.70, ((4.70 / 4.90) - 1) * 100),
+    fred("us5y-fred", 4.90, ((4.90 / 5.00) - 1) * 100),
+    fred("us10y-fred", 5.30, ((5.30 / 5.20) - 1) * 100),
+    fred("us20y-fred", 5.60, ((5.60 / 5.55) - 1) * 100),
+    fred("us30y-fred", 5.70, ((5.70 / 5.60) - 1) * 100),
+    {
+      ...official(
+        "market-monitor:usdjpy:2026-09-24",
+        "market-monitor:usdjpy",
+        { last: 147.5, change_5d_pct: ((147.5 / 145) - 1) * 100, frequency: "daily" },
+        "USDJPY was 147.5.",
+      ),
+      source_type: "MARKET_DATA",
+    },
+    official(
+      "global-rates:jgb:2026-09-24",
+      "global-rates:jgb",
+      {
+        signal_kind: "global_rates",
+        signal_context: "jgb_curve",
+        jgb_2y_pct: 2.20,
+        jgb_10y_pct: 3.00,
+        jgb_30y_pct: 3.40,
+        jgb_2y_change_5d_bp: 5,
+        jgb_10y_change_5d_bp: 8,
+        jgb_30y_change_5d_bp: 9,
+      },
+      "Japan MOF JGB constant-maturity yields were updated.",
+    ),
+    official(
+      "global-rates:tic:2026-07",
+      "global-rates:tic",
+      {
+        signal_kind: "foreign_treasury_holdings",
+        signal_context: "tic_foreign_treasury_holdings",
+        period: "2026-07",
+        previous_period: "2026-06",
+        japan_holdings_usd_bn: 1103.9,
+        japan_previous_usd_bn: 1116.7,
+        japan_monthly_change_usd_bn: -12.8,
+        total_foreign_holdings_usd_bn: 9500,
+        foreign_official_holdings_usd_bn: 3900,
+        custody_attribution_caveat: "Custody location may not equal beneficial owner.",
+      },
+      "Treasury TIC reported Japan Treasury holdings.",
+    ),
+    official(
+      "global-rates:japan-mof-flows:2026-09-15-09-21",
+      "global-rates:japan-mof-flows",
+      {
+        signal_kind: "portfolio_flow",
+        signal_context: "japan_mof_outward_securities",
+        period_label: "2026/09/15-2026/09/21",
+        outward_long_term_debt_net_purchase_jpy_bn: 420,
+        outward_total_net_purchase_jpy_bn: 500,
+        treasury_specific: false,
+      },
+      "Japan residents were net buyers of foreign long-term debt securities.",
+    ),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+
+  assert.equal(regime.globalDurationDiagnostic.contractVersion, "rate-global-duration-diagnostic/1");
+  assert.equal(regime.globalDurationDiagnostic.relativeRates.ustJgb10yBp, 230);
+  assert.equal(regime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsDirection, "DECREASED");
+  assert.equal(regime.globalDurationDiagnostic.japanPortfolioFlows.direction, "NET_PURCHASE");
+  assert.equal(regime.globalDurationDiagnostic.japanPortfolioFlows.treasurySpecific, false);
+  assert.equal(regime.globalDurationDiagnostic.comparability.canCompareTicAndWeeklyMofAsSameFlow, false);
+  assert.ok(regime.evidenceRefs.includes("global-rates:tic:2026-07"));
+  assert.ok(regime.evidenceRefs.includes("global-rates:japan-mof-flows:2026-09-15-09-21"));
+});
