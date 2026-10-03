@@ -214,6 +214,57 @@ export default function RateRegimeEducationalShell({
         </article>
       ) : null}
 
+      {projection.goldCrossCheck ? (
+        <article className={styles.longEnd}>
+          <header>
+            <div>
+              <span className={styles.kicker}>GOLD CROSS-CHECK · CANONICAL REACTION AUDIT</span>
+              <h3>Real yields / dollar / gold after the current trigger</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.goldCrossCheck.coverage.present}/3 legs observed</span>
+            </div>
+          </header>
+
+          <div className={styles.decompositionGrid}>
+            <div>
+              <small>10Y REAL YIELD</small>
+              <strong>{projection.goldCrossCheck.realYield10y ? formatPct(projection.goldCrossCheck.realYield10y.levelPct) : "Unresolved"}</strong>
+              <span>{projection.goldCrossCheck.realYield10y ? `${formatBp(projection.goldCrossCheck.realYield10y.change5dBp)} · 5D` : "No canonical real-yield leg"}</span>
+            </div>
+            <div>
+              <small>DXY REACTION</small>
+              <strong>{projection.goldCrossCheck.dxyReaction ? projection.goldCrossCheck.dxyReaction.relation : "Unresolved"}</strong>
+              <span>
+                {projection.goldCrossCheck.dxyReaction
+                  ? `Expected ${projection.goldCrossCheck.dxyReaction.expectedDirection.toLowerCase()} · observed ${projection.goldCrossCheck.dxyReaction.observedDirection.toLowerCase()} ${formatMovePct(projection.goldCrossCheck.dxyReaction.observedChangePct)} via ${projection.goldCrossCheck.dxyReaction.observedInstrument}`
+                  : "No exact DXY post-trigger reaction attached"}
+              </span>
+            </div>
+            <div>
+              <small>GOLD REACTION</small>
+              <strong>{projection.goldCrossCheck.goldReaction ? projection.goldCrossCheck.goldReaction.relation : "Unresolved"}</strong>
+              <span>
+                {projection.goldCrossCheck.goldReaction
+                  ? `Expected ${projection.goldCrossCheck.goldReaction.expectedDirection.toLowerCase()} · observed ${projection.goldCrossCheck.goldReaction.observedDirection.toLowerCase()} ${formatMovePct(projection.goldCrossCheck.goldReaction.observedChangePct)} via ${projection.goldCrossCheck.goldReaction.observedInstrument}`
+                  : "No exact gold post-trigger reaction attached"}
+              </span>
+            </div>
+          </div>
+
+          {projection.goldCrossCheck.coverage.missing.length ? (
+            <div className={styles.gaps}>
+              <strong>Still missing</strong>
+              {projection.goldCrossCheck.coverage.missing.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+
+          <small>
+            This cross-check only displays canonical System 1/Dossier observations. A real-yield, DXY and gold combination can test the textbook rates channel, but this presentation layer does not infer causality or fill a missing reaction leg.
+          </small>
+        </article>
+      ) : null}
+
       {projection.globalDuration ? (
         <article className={styles.globalDuration}>
           <header>
