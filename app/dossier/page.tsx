@@ -184,18 +184,13 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
       }
     >
       <div className={styles.workspace}>
-        <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
+        <section className={[styles.notice, selection.notice.tone === "warn" ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>
             <span>DESK STATE</span>
             <strong>{selection.notice.label}</strong>
           </div>
           <aside className={styles.noticeCopy}>
             <p>{selection.notice.detail}</p>
-            {selection.usingFallback && !historicalMode ? (
-              <small>
-                Canonical interpretation is frozen at {formatDeskDate(dossier.asOf)}. Current tape below may contain newer live observations.
-              </small>
-            ) : null}
             {historicalMode ? <Link href="/dossier">Return to current Dossier</Link> : null}
           </aside>
         </section>
@@ -554,9 +549,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
                 <h3>What markets are doing now</h3>
               </div>
               <p>
-                {selection.usingFallback
-                  ? `Live observations may be newer than the accepted Dossier from ${formatDeskDate(dossier.asOf)}.`
-                  : "Live-owned observations and deterministic checks shown as context beneath the accepted Dossier interpretation."}
+                Live-owned observations may be newer than the frozen Dossier. They are context only and do not rewrite the persisted interpretation.
               </p>
             </div>
 
