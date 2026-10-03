@@ -2,7 +2,8 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
 import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/components/live-desk/WhatsNewWorkspace";
 import { getDeskData } from "@/lib/data";
-import { getCurrentMarketMotion, marketMotionAttention, marketMotionEffectiveState } from "@/lib/market-motion";
+import { getCurrentMarketMotion, marketMotionAttention, marketMotionEffectiveState, type MarketMotionRecord } from "@/lib/market-motion";
+import { buildMarketMotionPresentationUnits } from "@/lib/market-motion-presentation";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
@@ -153,8 +154,7 @@ export default async function WhatsNewPage() {
     )) latestVersionByStory.set(version.story_id, version);
   }
 
-  const motionDeltas: RawWhatsNewDelta[] = motionRecords.map((item) => {
-    const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
+  function motionRoutes(item: MarketMotionRecord) {
     const fullText = [
       item.headline,
       item.what_happened,
@@ -165,33 +165,88 @@ export default async function WhatsNewPage() {
       ...item.tickers,
     ].join(" ");
     const routed = routeTextToRegimes(fullText, 2);
-    const routes = item.primary_regime_slug
+    return item.primary_regime_slug
       ? [...routed].sort((left, right) => Number(right.regime === item.primary_regime_slug) - Number(left.regime === item.primary_regime_slug))
       : routed;
+  }
+
+  function exactBundleRegimeLinks(item: MarketMotionRecord) {
+    if (!item.primary_regime_slug) return [];
+    const regime = getRegimeDefinition(item.primary_regime_slug);
+    if (!regime) return [];
+    const subgroup = typeof item.metadata?.primaryRegimeSubgroup === "string"
+      ? item.metadata.primaryRegimeSubgroup
+      : "";
+    return [{
+      slug: regime.slug,
+      label: regime.shortTitle,
+      subgroup,
+    }];
+  }
+
+  const motionUnits = buildMarketMotionPresentationUnits(motionRecords);
+  const motionDeltas: RawWhatsNewDelta[] = motionUnits.map((unit) => {
+    const item = unit.primary;
+    const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
+    const routes = unit.kind === "creator_bundle"
+      ? unit.records.flatMap(exactBundleRegimeLinks)
+      : regimeLinks(motionRoutes(item));
+    const uniqueRoutes = [...new Map(routes.map((route) => [
+      `${route.slug}:${route.subgroup}`,
+      route,
+    ])).values()];
     const effectiveState = marketMotionEffectiveState(item);
     const attention = marketMotionAttention(item);
+    const bundleChildren = unit.kind === "creator_bundle"
+      ? unit.records.map((child) => {
+        const childStory = child.primary_story_id ? storyById.get(child.primary_story_id) : null;
+        return {
+          id: child.id,
+          title: child.headline,
+          whatHappened: child.what_happened,
+          whyInteresting: child.why_interesting,
+          bigPictureBridge: child.big_picture_bridge,
+          nextTest: child.next_test,
+          lifecycleState: marketMotionEffectiveState(child),
+          verificationState: child.verification_state,
+          sourceName: child.source_name,
+          sourceUrl: child.source_url,
+          tickers: child.tickers,
+          storyTitle: childStory?.title || null,
+          storyHref: childStory ? `/stories/${childStory.slug}` : null,
+          regimes: exactBundleRegimeLinks(child),
+        };
+      })
+      : [];
+
     return {
-      id: item.id,
-      kind: effectiveState === "PROMOTED"
-        ? `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} promoted motion`
-        : effectiveState === "EXPIRED"
-          ? "Expired motion"
-          : `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} motion`,
+      id: unit.id,
+      kind: unit.kind === "creator_bundle"
+        ? "Creator bundle"
+        : effectiveState === "PROMOTED"
+          ? `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} promoted motion`
+          : effectiveState === "EXPIRED"
+            ? "Expired motion"
+            : `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} motion`,
       stream: "Motion" as const,
       topic: classifyTopic(
         `${item.category} ${item.headline}`,
         `${item.what_happened} ${item.why_interesting} ${item.big_picture_bridge}`,
-        item.tickers.join(" "),
+        unit.records.flatMap((record) => record.tickers).join(" "),
       ),
-      title: item.headline,
-      detail: item.market_reaction || item.what_happened,
+      title: unit.kind === "creator_bundle"
+        ? `${unit.sourceName} — ${unit.videoTitle}`
+        : item.headline,
+      detail: unit.kind === "creator_bundle"
+        ? `${unit.records.length} creator claims from one reviewed video. Lead claim: ${item.headline}`
+        : item.market_reaction || item.what_happened,
       dateLabel: formatDeskDate(item.occurred_at),
       timestamp: item.occurred_at,
-      href: item.source_url,
+      href: unit.kind === "creator_bundle" ? unit.sourceUrl : item.source_url,
       external: true,
-      verification: item.verification_state,
+      verification: unit.kind === "creator_bundle" ? "LEAD SET" : item.verification_state,
       storyTitle: story?.title || null,
-      regimes: regimeLinks(routes),
+      regimes: uniqueRoutes,
       hybridHref: null,
       interpretationState: item.primary_story_id || item.primary_regime_slug ? "observed_pending" as const : null,
       breakdown: null,
@@ -200,9 +255,26 @@ export default async function WhatsNewPage() {
         marketReaction: item.market_reaction,
         whyInteresting: item.why_interesting,
         bigPictureBridge: item.big_picture_bridge,
-        nextTest: item.next_test,
+        nextTest: unit.records.find((record) => Boolean(record.next_test))?.next_test || item.next_test,
         lifecycleState: effectiveState,
       },
+      motionBundle: unit.kind === "creator_bundle"
+        ? {
+          sourceName: unit.sourceName,
+          videoTitle: unit.videoTitle,
+          underlyingCount: unit.records.length,
+          promotedCount: unit.promotedCount,
+          leadCount: unit.leadCount,
+          previewClaimIds: unit.previewRecords.map((record) => record.id),
+          storyLinks: [...new Map(bundleChildren
+            .filter((child) => child.storyTitle && child.storyHref)
+            .map((child) => [child.storyHref as string, {
+              title: child.storyTitle as string,
+              href: child.storyHref as string,
+            }])).values()],
+          children: bundleChildren,
+        }
+        : null,
     };
   });
 
