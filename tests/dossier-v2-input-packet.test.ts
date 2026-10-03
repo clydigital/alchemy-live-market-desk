@@ -133,6 +133,25 @@ test("2. optional-source failures remain non-blocking", () => {
   assert.ok(packet.packet_id);
   assert.equal(packet.freshness_warnings.length, 1);
   assert.equal(packet.freshness_warnings[0].source_name, "news_wire");
+
+  const evidenceStates = (packet as typeof packet & {
+    evidence_states?: Array<{
+      source_name: string;
+      state: "FRESH" | "STALE" | "PARTIAL" | "MISSING" | "CONFLICT" | "UNKNOWN";
+      last_available_at?: string;
+      message?: string;
+    }>;
+  }).evidence_states;
+
+  assert.deepEqual(
+    evidenceStates?.map((item) => [item.source_name, item.state]),
+    [
+      ["macro_data", "MISSING"],
+      ["news_wire", "STALE"],
+      ["price_data", "UNKNOWN"],
+    ],
+  );
+
   assert.equal(packet.research_gaps.length, 2);
   const gapCategories = packet.research_gaps.map((g) => g.category);
   assert.ok(gapCategories.includes("PRICE_DATA"));
