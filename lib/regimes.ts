@@ -695,6 +695,56 @@ export function buildRegimeProjection(input: {
             source: input.dossier.rateRegime.longEndDiagnostic.contractVersion,
           });
         }
+        if (input.dossier.rateRegime.crossAssetTransmission && subgroup.key === "long-end") {
+          const transmission = input.dossier.rateRegime.crossAssetTransmission;
+          telemetry.push({
+            key: "RATE_GOLD_TRANSMISSION",
+            label: "Real yields ↔ gold",
+            state: transmission.gold.state.replaceAll("_", " "),
+            detail: transmission.gold.detail,
+            asOf: transmission.asOf,
+            source: transmission.contractVersion,
+          });
+          telemetry.push({
+            key: "EQUITY_DURATION_TRANSMISSION",
+            label: "Equity duration / AI sensitivity",
+            state: transmission.equityDuration.state.replaceAll("_", " "),
+            detail: transmission.equityDuration.detail,
+            asOf: transmission.asOf,
+            source: transmission.contractVersion,
+          });
+        }
+        if (input.dossier.rateRegime.crossAssetTransmission && subgroup.key === "credit-financing") {
+          const transmission = input.dossier.rateRegime.crossAssetTransmission;
+          telemetry.push({
+            key: "RATE_TRANSMISSION_STATE",
+            label: "Rates transmission",
+            state: transmission.state.replaceAll("_", " "),
+            detail: transmission.detail,
+            asOf: transmission.asOf,
+            source: transmission.contractVersion,
+          });
+          telemetry.push({
+            key: "RATE_CREDIT_TRANSMISSION",
+            label: "Credit transmission",
+            state: transmission.credit.state.replaceAll("_", " "),
+            detail: transmission.credit.detail,
+            asOf: transmission.asOf,
+            source: transmission.contractVersion,
+          });
+        }
+        if (input.dossier.rateRegime.crossAssetTransmission && subgroup.key === "global-rates") {
+          const transmission = input.dossier.rateRegime.crossAssetTransmission;
+          telemetry.push({
+            key: "RATE_CARRY_TRANSMISSION",
+            label: "UST–JGB ↔ USDJPY carry",
+            state: transmission.carry.state.replaceAll("_", " "),
+            detail: transmission.carry.detail,
+            asOf: transmission.asOf,
+            source: transmission.contractVersion,
+          });
+        }
+
         if (input.dossier.rateRegime.globalDurationDiagnostic && subgroup.key === "global-rates") {
           const global = input.dossier.rateRegime.globalDurationDiagnostic;
           telemetry.push({
