@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import RegimeUnderstandLiveBridge from "./RegimeUnderstandLiveBridge";
 import RateRegimeEducationalShell from "./RateRegimeEducationalShell";
 
+import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
 import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
 import { investigationMatchesRegimeSubgroup, type RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
@@ -365,7 +366,8 @@ export default function RegimeDetailWorkspace({
                             <p>{item.detail}</p>
                             <small>{item.source} · {displayDate(item.asOf)}</small>
                           </article>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className={styles.empty}>No deterministic System 1 sensor is wired for this subgroup yet. The state below is Story-led; it is not being presented as a measured score.</div>
@@ -376,7 +378,9 @@ export default function RegimeDetailWorkspace({
                     <span className={styles.kicker}>EXPECTED → ACTUAL / DIVERGENCE LAB</span>
                     {subgroupInvestigations.length ? (
                       <div className={styles.divergenceList}>
-                        {subgroupInvestigations.map((item) => (
+                        {subgroupInvestigations.map((item) => {
+                          const lab = buildDivergenceLabPresentation(item);
+                          return (
                           <article className={styles.divergenceCard} data-divergence={item.divergence.toLowerCase()} key={item.id}>
                             <div className={styles.divergenceMeta}>
                               <span>{item.status}</span>
@@ -414,22 +418,31 @@ export default function RegimeDetailWorkspace({
                             <p className={styles.divergenceExplanation}>
                               <strong>{item.reactionCalibration.requiresReview ? "Post-mortem hypothesis:" : "Current explanation:"}</strong> {item.currentExplanation}
                             </p>
-                            {item.candidateExplanations.length ? (
+                            {lab.mode === "full" ? (
                               <div className={styles.divergenceAlternatives}>
                                 <strong>Divergence Lab — candidate mechanisms</strong>
-                                {item.candidateExplanations.map((candidate) => (
+                                {lab.candidates.map((candidate) => (
                                   <div key={`${item.id}:candidate:${candidate.rank}`}>
                                     <span>#{candidate.rank} · {candidate.confidence} confidence</span>
                                     <p>{candidate.explanation}</p>
-                                    <small>
-                                      Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
-                                    </small>
-                                    <p><strong>Discriminator:</strong> {candidate.discriminatingTest}</p>
+                                    {candidate.evidenceForRefs.length || candidate.evidenceAgainstRefs.length ? (
+                                      <small>
+                                        Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
+                                      </small>
+                                    ) : (
+                                      <small>Candidate-specific evidence not yet attached.</small>
+                                    )}
+                                    {candidate.displayDiscriminator ? (
+                                      <p><strong>Discriminator:</strong> {candidate.displayDiscriminator}</p>
+                                    ) : null}
                                   </div>
                                 ))}
                               </div>
-                            ) : item.competingExplanations.length ? (
-                              <p className={styles.divergenceAlternatives}><strong>Competing:</strong> {item.competingExplanations.join(" · ")}</p>
+                            ) : lab.alternatives.length ? (
+                              <div className={styles.divergenceAlternatives}>
+                                <strong>{lab.mode === "compact_unresolved" ? "Mechanism unresolved" : "Competing explanations"}</strong>
+                                <p>{lab.alternatives.map((alternative) => alternative.explanation).join(" · ")}</p>
+                              </div>
                             ) : null}
                             <div className={styles.divergenceNext}>
                               <span>
