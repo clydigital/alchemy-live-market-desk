@@ -3,6 +3,7 @@ import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
 import { buildRateCurveDiagnostic, type RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
 import { buildRateLongEndDiagnostic, type RateLongEndDiagnostic } from "./rate-long-end-diagnostic.ts";
 import { buildRateGlobalDurationDiagnostic, type RateGlobalDurationDiagnostic } from "./rate-global-duration-diagnostic.ts";
+import { buildRateCrossAssetTransmission, type RateCrossAssetTransmission } from "./rate-cross-asset-transmission.ts";
 
 export const RATE_REGIME_CONTRACT_VERSION = "rate-regime/1" as const;
 
@@ -48,6 +49,7 @@ export type DossierRateRegimeSnapshot = {
   curveDiagnostic: RateCurveDiagnostic;
   longEndDiagnostic: RateLongEndDiagnostic;
   globalDurationDiagnostic: RateGlobalDurationDiagnostic;
+  crossAssetTransmission: RateCrossAssetTransmission;
   signals: RateRegimeSignal[];
   drivers: string[];
   contradictions: string[];
@@ -240,6 +242,7 @@ export function buildDossierRateRegime(
   const curveDiagnostic = buildRateCurveDiagnostic(evidence, packet.as_of);
   const longEndDiagnostic = buildRateLongEndDiagnostic(packet);
   const globalDurationDiagnostic = buildRateGlobalDurationDiagnostic(packet, curveDiagnostic);
+  const crossAssetTransmission = buildRateCrossAssetTransmission(packet, longEndDiagnostic, globalDurationDiagnostic);
   const us2y = monitorEvidence(evidence, "us2y");
   const us5y = monitorEvidence(evidence, "us5y-fred");
   const us10yCash = monitorEvidence(evidence, "us10y");
@@ -523,6 +526,7 @@ export function buildDossierRateRegime(
     curveDiagnostic,
     longEndDiagnostic,
     globalDurationDiagnostic,
+    crossAssetTransmission,
     signals,
     drivers,
     contradictions,
