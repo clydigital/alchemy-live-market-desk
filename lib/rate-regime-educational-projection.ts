@@ -96,6 +96,27 @@ export type RateEducationalProjection = {
       missing: string[];
     };
   } | null;
+  growthSemisCrossCheck: {
+    realYield10y: {
+      levelPct: number | null;
+      change5dBp: number | null;
+    } | null;
+    smhReaction: {
+      expectedDirection: "UP" | "DOWN";
+      observedDirection: "UP" | "DOWN";
+      observedChangePct: number;
+      observedInstrument: string;
+      isProxy: boolean;
+      reactionWindow: "5m" | "30m" | "4h" | "close" | "next_session" | null;
+      relation: "ALIGNED" | "DIVERGENT";
+      timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+    } | null;
+    coverage: {
+      present: number;
+      total: 2;
+      missing: string[];
+    };
+  } | null;
   goldCrossCheck: {
     realYield10y: {
       levelPct: number | null;
@@ -301,6 +322,53 @@ function creditFundingFor(regime: ProjectedRegime): RateEducationalProjection["c
   };
 }
 
+function growthSemisCrossCheckFor(
+  investigation: RoutedDossierInvestigation | null,
+  dossier: {
+    rateRegime?: DossierPresentationV1["rateRegime"] | null;
+  } | null,
+): RateEducationalProjection["growthSemisCrossCheck"] {
+  const realYield = dossier?.rateRegime?.longEndDiagnostic?.real10y ?? null;
+  const hasRealYield = Boolean(
+    realYield
+    && (realYield.levelPct !== null || realYield.change5dBp !== null),
+  );
+  const smh = investigation?.reactionChecks.find((item) => item.instrument === "SMH") ?? null;
+
+  if (!hasRealYield && !smh) return null;
+
+  const missing = [
+    ...(!hasRealYield ? ["10Y real yield"] : []),
+    ...(!smh ? ["SMH reaction"] : []),
+  ];
+
+  return {
+    realYield10y: hasRealYield
+      ? {
+          levelPct: realYield!.levelPct,
+          change5dBp: realYield!.change5dBp,
+        }
+      : null,
+    smhReaction: smh
+      ? {
+          expectedDirection: smh.expectedDirection,
+          observedDirection: smh.observedDirection,
+          observedChangePct: smh.observedChangePct,
+          observedInstrument: smh.observedInstrument,
+          isProxy: smh.isProxy,
+          reactionWindow: smh.reactionWindow,
+          relation: smh.relation,
+          timingPrecision: smh.timingPrecision,
+        }
+      : null,
+    coverage: {
+      present: 2 - missing.length,
+      total: 2,
+      missing,
+    },
+  };
+}
+
 function goldCrossCheckFor(
   investigation: RoutedDossierInvestigation | null,
   dossier: {
@@ -455,6 +523,7 @@ export function buildRateEducationalProjection(input: {
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
     creditFunding: creditFundingFor(regime),
+    growthSemisCrossCheck: growthSemisCrossCheckFor(investigation, dossier),
     goldCrossCheck: goldCrossCheckFor(investigation, dossier),
     globalDuration: dossier?.rateRegime?.globalDurationDiagnostic ? {
       state: dossier.rateRegime.globalDurationDiagnostic.relativeRates.state,
