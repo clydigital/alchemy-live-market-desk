@@ -116,6 +116,19 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const dossierStory = (focusedStory || focusedEventStory)
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
+  const dossierMotionDecisions = dossier.motionAttention
+    .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
+    .map((item) => {
+      const story = item.storyId ? data.stories.find((candidate) => candidate.id === item.storyId) || null : null;
+      const regime = item.regimeSlug ? regimes.find((candidate) => candidate.slug === item.regimeSlug) || null : null;
+      return {
+        ...item,
+        storyTitle: story?.title || null,
+        storyHref: story ? `/stories/${story.slug}` : null,
+        regimeLabel: regime?.shortTitle || null,
+        regimeHref: regime ? `/regimes/${regime.slug}` : null,
+      };
+    });
 
   const currentEditionPointer = buildCanonicalEditionIndex(
     presenterEditions,
@@ -227,6 +240,45 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             detail="Hybrid will not manufacture an opening from stale headlines. Open the canonical Dossier below for the latest durable market state."
           />
         )}
+
+        {dossierMotionDecisions.length ? (
+          <Panel
+            title="Dossier Motion decisions"
+            description="Latest accepted/refined Motion reasoning from the persisted Dossier. This can appear before the next immutable Journey edition freezes the promoted Motion; it never reads the mutable current Motion view."
+            action={<Badge tone="ready">{dossierMotionDecisions.length} DOSSIER DECISION{dossierMotionDecisions.length === 1 ? "" : "S"}</Badge>}
+          >
+            <div className={styles.recordList}>
+              {dossierMotionDecisions.map((item) => (
+                <article className={styles.record} key={item.motionId}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>{item.decision} · {item.scope}</span>
+                      <h3>{item.headline}</h3>
+                    </div>
+                    <Badge tone={item.decision === "REFINE" ? "warn" : "ready"}>{item.decision}</Badge>
+                  </div>
+                  <p><strong>What happened:</strong> {item.whatHappened}</p>
+                  <p><strong>Dossier read:</strong> {item.whyInteresting}</p>
+                  {item.marketReaction ? <p><strong>Market reaction:</strong> {item.marketReaction}</p> : null}
+                  <p><strong>Bridge:</strong> {item.bigPictureBridge}</p>
+                  {item.nextTest ? <p><strong>Next test:</strong> {item.nextTest}</p> : null}
+                  <p><strong>Assessment:</strong> {item.reason}</p>
+                  <p>
+                    {item.storyHref && item.storyTitle ? (
+                      <>
+                        <a className={styles.link} href={item.storyHref}>Story · {item.storyTitle}</a>
+                        {" · "}
+                      </>
+                    ) : null}
+                    {item.regimeHref && item.regimeLabel ? (
+                      <a className={styles.link} href={item.regimeHref}>Regime · {item.regimeLabel}</a>
+                    ) : item.scope === "REGIME" ? "Exact Regime route unavailable in current projection." : null}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </Panel>
+        ) : null}
 
         {motionId ? (
           focusedMotion ? (
