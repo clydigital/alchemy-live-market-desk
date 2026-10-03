@@ -16,21 +16,23 @@ function position(label: string) {
   return index;
 }
 
-test("Dossier presenter path leads with state, canonical thesis and narrative before detail", () => {
+test("Dossier presenter path is evidence-first before narrative explanation", () => {
   const state = position("DESK STATE");
   const hero = position("CURRENT MARKET DOSSIER");
-  const spine = position('<NarrativeSpine dossier={dossier} surface="dossier" />');
-  const whatMatters = position("01 / WHAT MATTERS NOW");
-  const watchNext = position("02 / WATCH NEXT");
-  const researchNow = position("03 / RESEARCH NOW");
+  const expectedVsHappened = position("EXPECTED VS HAPPENED");
+  const reactionMap = position("REACTION MAP");
+  const whatMatters = position("WHAT MATTERS NOW");
+  const divergenceLab = position("DIVERGENCE LAB");
+  const whatChangesView = position("WHAT CHANGES THE VIEW");
   const currentTape = position("CURRENT TAPE");
 
   assert.ok(state < hero);
-  assert.ok(hero < spine);
-  assert.ok(spine < whatMatters);
-  assert.ok(whatMatters < watchNext);
-  assert.ok(watchNext < researchNow);
-  assert.ok(researchNow < currentTape);
+  assert.ok(hero < expectedVsHappened);
+  assert.ok(expectedVsHappened < reactionMap);
+  assert.ok(reactionMap < whatMatters);
+  assert.ok(whatMatters < divergenceLab);
+  assert.ok(divergenceLab < whatChangesView);
+  assert.ok(whatChangesView < currentTape);
 });
 
 test("live tape is secondary, current-only context and cannot lead the Dossier", () => {
