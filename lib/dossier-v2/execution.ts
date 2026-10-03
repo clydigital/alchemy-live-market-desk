@@ -13,6 +13,7 @@ import {
   buildDeterministicDossierPatch,
   decideDossierDelta,
   loadDossierDeltaContext,
+  selectDossierMotionActivations,
   type DossierDeltaContext,
   type DossierDeltaDecision,
   type DossierDeltaMode,
@@ -32,6 +33,7 @@ import {
   MAX_RESEARCH_GAPS,
   MAX_RESEARCH_NOW_ACTIONS,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+  type ResearchBrainMotionAttention,
   type ResearchBrainOutputV1,
 } from "./research-brain-contracts.ts";
 import {
@@ -470,6 +472,28 @@ export function detectDossierSystem1StateTransitions(
   return transitions;
 }
 
+function buildResearchBrainMotionAttention(
+  context: DossierDeltaContext,
+  packet: DossierV2InputPacket,
+): ResearchBrainMotionAttention[] {
+  return selectDossierMotionActivations(context, packet).map((item) => ({
+    motion_id: item.id,
+    headline: item.headline,
+    what_happened: item.what_happened,
+    market_reaction: item.market_reaction,
+    why_interesting: item.why_interesting,
+    big_picture_bridge: item.big_picture_bridge,
+    next_test: item.next_test,
+    primary_story_id: item.primary_story_id,
+    primary_regime_slug: item.primary_regime_slug,
+    packet_evidence_id: item.packet_evidence_id!,
+    verification_state: item.verification_state as "REPORTED" | "VERIFIED",
+    materiality: item.materiality,
+    relevance: item.relevance,
+    novelty: item.novelty,
+  }));
+}
+
 export async function executeAndPersistDossierV2(
   packet: DossierV2InputPacket,
   options: DossierV2ExecutionOptions = {},
@@ -591,11 +615,13 @@ export async function executeAndPersistDossierV2(
   }
 
   if (!analyticalOutput) {
+    const motionAttention = buildResearchBrainMotionAttention(deltaContext, packet);
     analyticalOutput = await executeResearchBrain(
       {
         contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
         as_of: packet.as_of,
         packet,
+        motion_attention: motionAttention,
       },
       options.researchBrainOptions,
     );
