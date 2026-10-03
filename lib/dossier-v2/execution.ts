@@ -374,6 +374,7 @@ function mergeResearchGaps(
 export function buildMarketDossierV2InputFromResearchBrain(
   packet: DossierV2InputPacket,
   analyticalOutput: ResearchBrainOutputV1,
+  motionAttention: ResearchBrainMotionAttention[] = [],
 ): MarketDossierV2Input {
   if (analyticalOutput.packet_id !== packet.packet_id) {
     throw new Error(
@@ -422,6 +423,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
       system1_policy_liquidity_interaction: cloneJson(policyLiquidityInteraction),
       system1_reaction_assessments: cloneJson(reactionAssessments),
       system1_divergence_candidates: cloneJson(divergenceCandidates),
+      motion_attention_snapshot: cloneJson(motionAttention),
       analytical_output: cloneJson(normalized.analyticalOutput),
     },
   };
@@ -627,8 +629,9 @@ export async function executeAndPersistDossierV2(
     }
   }
 
+  let motionAttention: ResearchBrainMotionAttention[] = [];
   if (!analyticalOutput) {
-    const motionAttention = buildResearchBrainMotionAttention(deltaContext, packet);
+    motionAttention = buildResearchBrainMotionAttention(deltaContext, packet);
     analyticalOutput = await executeResearchBrain(
       {
         contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
@@ -643,6 +646,7 @@ export async function executeAndPersistDossierV2(
   const dossierInput = buildMarketDossierV2InputFromResearchBrain(
     packet,
     analyticalOutput,
+    motionAttention,
   );
 
   const dossier = await persistMarketDossierV2(dossierInput, options.client);
