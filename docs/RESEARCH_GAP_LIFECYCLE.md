@@ -8,6 +8,7 @@ Research Gap lifecycle owns operational work state only:
 
 ```text
 Dossier work + eligible promoted Market Motion
+  + Dossier-assessed UNRESOLVED Motion with a concrete next test
   -> stable gap identity
   -> one shared priority queue / claim / lease
   -> research execution
@@ -23,7 +24,7 @@ A Research Gap handoff is explicitly excluded from Market Motion ingestion, incl
 
 ## Stable identity
 
-Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`) or a fresh promoted `market_motion` item with an exact Story link and concrete `next_test`:
+Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`), a fresh promoted `market_motion`, or a Dossier-assessed `UNRESOLVED` Motion carrying a concrete `investigation_next`. An unresolved Motion does not need promotion to become research work because promotion would falsely imply analytical acceptance.
 
 - `workId` — identifies the exact work item in one Dossier;
 - `gapKey` — identifies the durable research case across Dossiers.
@@ -33,7 +34,7 @@ Identity policy:
 1. canonical investigation IDs are preferred;
 2. Research Now work linked to one investigation keeps a branch hash so distinct evidence tests are not collapsed;
 3. explicit top-level `gap_id` values are preserved;
-4. Market Motion uses the stable `motion_key` plus a hash of its unresolved research branch, so a replay stays one durable case while a materially different next test becomes a new branch;
+4. promoted Market Motion uses the stable `motion_key` plus a hash of its unresolved research branch; pre-promotion `UNRESOLVED` Motion uses the exact immutable Motion row ID plus the research branch, so it cannot be fuzzy-matched into another Motion;
 5. only when canonical IDs are unavailable does the system use a conservative normalised-text fingerprint.
 
 The fallback is intentionally not fuzzy. The lifecycle layer must not invent semantic equivalence that canonical research has not established.
