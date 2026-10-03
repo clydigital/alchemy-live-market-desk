@@ -12,13 +12,16 @@ Macro Pulse
   -> independent reporting / official evidence may corroborate
   -> exact canonical evidence may activate Dossier reasoning
   -> Dossier System 2 assesses the Motion framing against that evidence
-  -> ACCEPT may append a PROMOTED Motion version when an exact Story link exists
-  -> Hybrid / Research Gap can consume the promoted canonical context
+  -> ACCEPT may promote exact Story or exact Regime context
+  -> REFINE appends and promotes only the corrected evidence-bounded Motion version
+  -> the persisted Dossier exposes that decision to Hybrid immediately
+  -> the next immutable Journey edition freezes the promoted Motion normally
+  -> Story-linked promoted Motion may enter Research Gap; regime-only Motion remains context-only
 ```
 
 The bridge never writes a Story, Regime, Dossier, confidence change or thesis.
 
-Market Motion remains an attention layer, not evidence. Promotion authority belongs to validated Dossier reasoning: a Motion must resolve to exact canonical packet evidence, survive the freshness/materiality gates and receive an `ACCEPT` assessment. `REFINE`, `UNRESOLVED` and `REJECT` do not promote the original Motion.
+Market Motion remains an attention layer, not evidence. Promotion authority belongs to validated Dossier reasoning: a Motion must resolve to exact canonical packet evidence and survive the freshness/materiality gates. `ACCEPT` can promote exact Story or exact Regime context. `REFINE` can promote only a new append-only version carrying explicit corrected headline, why-it-matters and bridge wording. `UNRESOLVED` and `REJECT` never promote. A regime-only decision explicitly clears the Story link rather than manufacturing one.
 
 ## Candidate types
 
