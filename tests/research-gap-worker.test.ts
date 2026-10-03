@@ -262,3 +262,182 @@ test("machine-authenticated queue endpoint is whitelisted before dashboard sessi
   assert.match(route, /acceptsResearchAuthorization/);
   assert.match(route, /loadLatestResearchGapWorkQueue/);
 });
+
+
+test("B3a unresolved Dossier Motion enters Research Gap work without promotion", () => {
+  const row = dossier({
+    payload: {
+      motion_attention_snapshot: [{
+        motion_id: "motion-unresolved-story",
+        headline: "Long-end yields stay firm after softer inflation",
+        what_happened: "The long end remained elevated.",
+        market_reaction: "10Y and 30Y stayed firm.",
+        why_interesting: "Tests whether duration pressure is broader than inflation alone.",
+        big_picture_bridge: "Long-end pressure -> financing costs -> valuation.",
+        next_test: "Separate real yields, supply and term premium.",
+        primary_story_id: "story:rates-duration-stress",
+        primary_regime_slug: "global-cost-of-capital",
+        packet_evidence_id: "ev:rates",
+        verification_state: "VERIFIED",
+        materiality: 93,
+        relevance: 95,
+        novelty: 84,
+      }],
+      analytical_output: {
+        research_now: [],
+        investigations: [],
+        motion_attention_assessments: [{
+          motion_id: "motion-unresolved-story",
+          decision: "UNRESOLVED",
+          reason: "The move is material but current evidence cannot identify the dominant long-end driver.",
+          evidence_references: ["ev:rates"],
+          story_implication: null,
+          regime_implication: null,
+          investigation_next: "Separate real yields, supply and term premium.",
+          refined_headline: null,
+          refined_why_interesting: null,
+          refined_big_picture_bridge: null,
+        }],
+      },
+    },
+  });
+
+  const queue = buildResearchGapWorkQueue(row, new Date("2026-10-01T01:00:00.000Z"));
+  const candidate = queue.candidates.find((item) => item.sourceRef === "motion-unresolved-story");
+
+  assert.ok(candidate);
+  assert.equal(candidate?.sourceKind, "market_motion");
+  assert.equal(candidate?.question, "Separate real yields, supply and term premium.");
+  assert.deepEqual(candidate?.linkedStoryIds, ["story:rates-duration-stress"]);
+  assert.deepEqual(candidate?.blockingRefs, [
+    "MOTION:motion-unresolved-story",
+    "STORY:story:rates-duration-stress",
+    "REGIME:global-cost-of-capital",
+  ]);
+  assert.equal(candidate?.nativeSignals.divergence, "UNRESOLVED");
+  assert.equal(queue.sourceCounts.marketMotion, 1);
+});
+
+test("B3a regime-only unresolved Motion can become research work without inventing a Story", () => {
+  const row = dossier({
+    payload: {
+      motion_attention_snapshot: [{
+        motion_id: "motion-unresolved-regime",
+        headline: "Long-end pressure persists",
+        what_happened: "Long-end yields remained elevated.",
+        market_reaction: "Duration stayed weak.",
+        why_interesting: "Tests the active rate regime.",
+        big_picture_bridge: "Duration pressure -> funding costs -> valuation.",
+        next_test: "Check auctions, real yields and foreign duration.",
+        primary_story_id: null,
+        primary_regime_slug: "global-cost-of-capital",
+        packet_evidence_id: "ev:rates",
+        verification_state: "REPORTED",
+        materiality: 91,
+        relevance: 92,
+        novelty: 81,
+      }],
+      analytical_output: {
+        research_now: [],
+        investigations: [],
+        motion_attention_assessments: [{
+          motion_id: "motion-unresolved-regime",
+          decision: "UNRESOLVED",
+          reason: "The regime implication is material, but no exact Story conclusion is established.",
+          evidence_references: ["ev:rates"],
+          story_implication: null,
+          regime_implication: null,
+          investigation_next: "Check auctions, real yields and foreign duration.",
+          refined_headline: null,
+          refined_why_interesting: null,
+          refined_big_picture_bridge: null,
+        }],
+      },
+    },
+  });
+
+  const queue = buildResearchGapWorkQueue(row, new Date("2026-10-01T01:00:00.000Z"));
+  const candidate = queue.candidates.find((item) => item.sourceRef === "motion-unresolved-regime");
+
+  assert.ok(candidate);
+  assert.deepEqual(candidate?.linkedStoryIds, []);
+  assert.deepEqual(candidate?.blockingRefs, [
+    "MOTION:motion-unresolved-regime",
+    "REGIME:global-cost-of-capital",
+  ]);
+  assert.match(candidate?.gapKey || "", /^gap:motion:motion-unresolved-regime:branch:/);
+});
+
+test("B3a only UNRESOLVED Motion assessments open the pre-promotion research path", () => {
+  const row = dossier({
+    payload: {
+      motion_attention_snapshot: [
+        {
+          motion_id: "motion-rejected",
+          headline: "Rejected framing",
+          what_happened: "A development occurred.",
+          market_reaction: null,
+          why_interesting: "Needs checking.",
+          big_picture_bridge: "Event -> regime.",
+          next_test: "Check source.",
+          primary_story_id: null,
+          primary_regime_slug: "global-cost-of-capital",
+          packet_evidence_id: "ev:1",
+          verification_state: "REPORTED",
+          materiality: 95,
+          relevance: 95,
+          novelty: 95,
+        },
+        {
+          motion_id: "motion-unresolved-no-next",
+          headline: "Unresolved without next test",
+          what_happened: "A development occurred.",
+          market_reaction: null,
+          why_interesting: "Needs checking.",
+          big_picture_bridge: "Event -> regime.",
+          next_test: null,
+          primary_story_id: null,
+          primary_regime_slug: "global-cost-of-capital",
+          packet_evidence_id: "ev:2",
+          verification_state: "REPORTED",
+          materiality: 95,
+          relevance: 95,
+          novelty: 95,
+        },
+      ],
+      analytical_output: {
+        research_now: [],
+        investigations: [],
+        motion_attention_assessments: [
+          {
+            motion_id: "motion-rejected",
+            decision: "REJECT",
+            reason: "Canonical evidence does not support the framing.",
+            evidence_references: ["ev:1"],
+            story_implication: null,
+            regime_implication: null,
+            investigation_next: null,
+            refined_headline: null,
+            refined_why_interesting: null,
+            refined_big_picture_bridge: null,
+          },
+          {
+            motion_id: "motion-unresolved-no-next",
+            decision: "UNRESOLVED",
+            reason: "Material but no discriminator was supplied.",
+            evidence_references: ["ev:2"],
+            story_implication: null,
+            regime_implication: null,
+            investigation_next: null,
+            refined_headline: null,
+            refined_why_interesting: null,
+            refined_big_picture_bridge: null,
+          },
+        ],
+      },
+    },
+  });
+
+  const queue = buildResearchGapWorkQueue(row, new Date("2026-10-01T01:00:00.000Z"));
+  assert.equal(queue.sourceCounts.marketMotion, 0);
+});
