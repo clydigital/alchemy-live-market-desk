@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   MARKET_MOTION_DOSSIER_PROMOTION_POLICY,
   marketMotionDossierPromotionInput,
+  promoteMarketMotionFromDossierAssessments,
   selectDossierAcceptedPromotableMarketMotion,
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
@@ -146,4 +147,19 @@ test("B1 removes Story-change promotion from the canonical intelligence runtime"
 
   assert.doesNotMatch(runtime, /promoteMarketMotionForPublishedStories/);
   assert.doesNotMatch(runtime, /linked canonical Story changed in this intelligence run/);
+});
+
+
+test("B1 Dossier execution owns promotion after persistence", () => {
+  const execution = readFileSync(new URL("../lib/dossier-v2/execution.ts", import.meta.url), "utf8");
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+
+  assert.match(execution, /promoteMarketMotionFromDossierAssessments/);
+  assert.match(execution, /motion_attention_assessments/);
+  assert.doesNotMatch(runtime, /promoteMarketMotionFromDossierAssessments/);
+  assert.doesNotMatch(runtime, /canonical-story-changed\/v1/);
+});
+
+test("B1 promoter is exported for the post-Dossier append-only path", () => {
+  assert.equal(typeof promoteMarketMotionFromDossierAssessments, "function");
 });
