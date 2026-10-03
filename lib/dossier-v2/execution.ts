@@ -472,7 +472,7 @@ export function detectDossierSystem1StateTransitions(
   return transitions;
 }
 
-function buildResearchBrainMotionAttention(
+export function buildResearchBrainMotionAttention(
   context: DossierDeltaContext,
   packet: DossierV2InputPacket,
 ): ResearchBrainMotionAttention[] {
