@@ -402,11 +402,13 @@ function memoryControl(
   const state: DossierPresentationMemory["state"] =
     malformedBaselineId || cycleDetected
       ? "BROKEN_LINEAGE"
-      : analyticalBaselineId !== null && !baselineResolved
+      : structuralPredecessorId !== null && analyticalBaselineId === null
         ? "MISSING"
-        : structuralPredecessorId !== null && !structuralResolved
-          ? "PARTIAL"
-          : "AVAILABLE";
+        : analyticalBaselineId !== null && !baselineResolved
+          ? "MISSING"
+          : structuralPredecessorId !== null && !structuralResolved
+            ? "PARTIAL"
+            : "AVAILABLE";
 
   return {
     state,
@@ -1101,7 +1103,9 @@ export function buildDossierV2Presentation(
 
   const warnings = freshnessWarnings(dossier);
   const gaps = researchGaps(dossier);
-  const degraded = Boolean(output.diagnostics.degraded);
+  const degraded =
+    Boolean(output.diagnostics.degraded)
+    || gaps.some((gap) => gap.severity === "MATERIAL");
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
   const reactionAssessments = system1ReactionAssessments(dossier);
