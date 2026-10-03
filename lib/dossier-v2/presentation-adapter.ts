@@ -17,6 +17,8 @@ import type {
   MajorStory,
   MarketLens,
   RegimeFamily,
+  ResearchBrainMotionAssessment,
+  ResearchBrainMotionAttention,
   ResearchBrainOutputV1,
   ResearchNowAction,
   StockRadarItem,
@@ -240,6 +242,22 @@ export type DossierPresentationEvidenceRef = {
   usedIn: string[];
 };
 
+export type DossierPresentationMotionAttention = {
+  motionId: string;
+  decision: ResearchBrainMotionAssessment["decision"];
+  scope: "STORY" | "REGIME" | "UNROUTED";
+  headline: string;
+  whatHappened: string;
+  marketReaction: string | null;
+  whyInteresting: string;
+  bigPictureBridge: string;
+  nextTest: string | null;
+  storyId: string | null;
+  regimeSlug: string | null;
+  evidenceRefs: string[];
+  reason: string;
+};
+
 export type DossierPresentationV1 = {
   contractVersion: typeof DOSSIER_PRESENTATION_V1;
   dossierId: string;
@@ -275,6 +293,7 @@ export type DossierPresentationV1 = {
   investigationJourney: DossierPresentationInvestigationJourney[];
   reactionCalibration: DossierPresentationCalibrationSummary;
   researchNow: ResearchNowAction[];
+  motionAttention: DossierPresentationMotionAttention[];
 
   charts: {
     core: DossierPresentationChart[];
@@ -322,6 +341,77 @@ function analyticalOutput(dossier: MarketDossierV2): ResearchBrainOutputV1 {
   }
 
   return value as unknown as ResearchBrainOutputV1;
+}
+
+function motionAttentionPresentation(
+  dossier: MarketDossierV2,
+  output: ResearchBrainOutputV1,
+): DossierPresentationMotionAttention[] {
+  const raw = dossier.payload.motion_attention_snapshot;
+  if (!Array.isArray(raw)) return [];
+
+  const assessments = new Map(
+    (output.motion_attention_assessments ?? []).map((item) => [item.motion_id, item] as const),
+  );
+
+  return raw.flatMap((item) => {
+    if (!isObject(item)) return [];
+    const motionId = typeof item.motion_id === "string" ? item.motion_id.trim() : "";
+    const headline = typeof item.headline === "string" ? item.headline.trim() : "";
+    const whatHappened = typeof item.what_happened === "string" ? item.what_happened.trim() : "";
+    const whyInteresting = typeof item.why_interesting === "string" ? item.why_interesting.trim() : "";
+    const bigPictureBridge = typeof item.big_picture_bridge === "string" ? item.big_picture_bridge.trim() : "";
+    if (!motionId || !headline || !whatHappened || !whyInteresting || !bigPictureBridge) return [];
+
+    const assessment = assessments.get(motionId);
+    if (!assessment) return [];
+
+    const storyId = typeof item.primary_story_id === "string" && item.primary_story_id.trim()
+      ? item.primary_story_id.trim()
+      : null;
+    const regimeSlug = typeof item.primary_regime_slug === "string" && item.primary_regime_slug.trim()
+      ? item.primary_regime_slug.trim()
+      : null;
+    const storyAccepted = Boolean(assessment.story_implication?.trim() && storyId);
+    const regimeAccepted = Boolean(assessment.regime_implication?.trim() && regimeSlug);
+    const scope: DossierPresentationMotionAttention["scope"] = storyAccepted
+      ? "STORY"
+      : regimeAccepted
+        ? "REGIME"
+        : "UNROUTED";
+    const refined = assessment.decision === "REFINE";
+
+    return [{
+      motionId,
+      decision: assessment.decision,
+      scope,
+      headline: refined && assessment.refined_headline?.trim()
+        ? assessment.refined_headline.trim()
+        : headline,
+      whatHappened,
+      marketReaction: typeof item.market_reaction === "string" && item.market_reaction.trim()
+        ? item.market_reaction.trim()
+        : null,
+      whyInteresting: refined && assessment.refined_why_interesting?.trim()
+        ? assessment.refined_why_interesting.trim()
+        : scope === "STORY"
+          ? assessment.story_implication?.trim() || whyInteresting
+          : scope === "REGIME"
+            ? assessment.regime_implication?.trim() || whyInteresting
+            : whyInteresting,
+      bigPictureBridge: refined && assessment.refined_big_picture_bridge?.trim()
+        ? assessment.refined_big_picture_bridge.trim()
+        : assessment.regime_implication?.trim()
+          || assessment.story_implication?.trim()
+          || bigPictureBridge,
+      nextTest: assessment.investigation_next?.trim()
+        || (typeof item.next_test === "string" && item.next_test.trim() ? item.next_test.trim() : null),
+      storyId: scope === "STORY" ? storyId : null,
+      regimeSlug,
+      evidenceRefs: [...assessment.evidence_references],
+      reason: assessment.reason,
+    }];
+  });
 }
 
 function freshnessWarnings(dossier: MarketDossierV2): string[] {
@@ -1081,6 +1171,8 @@ export function buildDossierV2Presentation(
       linked_stories: [...item.linked_stories],
       blocking_evidence: [...item.blocking_evidence],
     })),
+
+    motionAttention: motionAttentionPresentation(dossier, output),
 
     charts: {
       core: output.chart_investigation_queue.core.map((item) => ({
