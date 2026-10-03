@@ -270,6 +270,38 @@ test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without i
   assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["10Y real yield"]);
 });
 
+test("growth-semis cross-check uses SMH without broadening it into QQQ or broad equities", () => {
+  const item = investigation();
+  item.reactionChecks = [{
+    checkId: "system1:soft-inflation:smh",
+    triggerEvidenceRef: "ev:soft-inflation",
+    marketEvidenceRef: "ev:smh-reaction",
+    instrument: "SMH",
+    expectedDirection: "UP",
+    observedDirection: "DOWN",
+    observedChangePct: -1.4,
+    observedInstrument: "SMH",
+    isProxy: false,
+    reactionWindow: "30m",
+    reactionPath: [],
+    relation: "DIVERGENT",
+    timingPrecision: "INTRADAY",
+  }];
+
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [item],
+    dossier: { dossierId: "dossier-smh", asOf: "2026-10-03T01:05:00.000Z" },
+  })!;
+
+  assert.ok(projection.growthSemisCrossCheck);
+  assert.equal(projection.growthSemisCrossCheck?.realYield10y, null);
+  assert.equal(projection.growthSemisCrossCheck?.smhReaction?.observedInstrument, "SMH");
+  assert.equal(projection.growthSemisCrossCheck?.smhReaction?.observedChangePct, -1.4);
+  assert.deepEqual(projection.growthSemisCrossCheck?.coverage.missing, ["10Y real yield"]);
+});
+
 test("credit and funding remain separate canonical transmission rows", () => {
   const regime = ratesRegime();
   const credit = regime.subgroups.find((item) => item.key === "credit-financing");
@@ -332,6 +364,7 @@ test("projection fails closed when the current Dossier has no exact linked inves
   assert.equal(projection.currentTest, null);
   assert.equal(projection.dominantDriver, null);
   assert.equal(projection.goldCrossCheck, null);
+  assert.equal(projection.growthSemisCrossCheck, null);
   assert.match(projection.quickRead[1], /still being tested rather than assumed/);
 });
 
@@ -515,6 +548,8 @@ test("educational projection exposes observed long-end decomposition while prese
   assert.equal(projection.goldCrossCheck?.realYield10y?.levelPct, 2.30);
   assert.equal(projection.goldCrossCheck?.realYield10y?.change5dBp, 8);
   assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["DXY reaction", "Gold reaction"]);
+  assert.equal(projection.growthSemisCrossCheck?.realYield10y?.levelPct, 2.30);
+  assert.deepEqual(projection.growthSemisCrossCheck?.coverage.missing, ["SMH reaction"]);
 });
 
 
