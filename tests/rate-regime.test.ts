@@ -427,3 +427,19 @@ test("rate regime exposes the shared full-curve diagnostic without a second curv
   assert.equal(regime.curve.spreadBps, regime.curveDiagnostic.spreads.find((item) => item.key === "2s10s")?.bps);
   assert.deepEqual(regime.curve.evidenceRefs, regime.curveDiagnostic.evidenceRefs);
 });
+
+
+test("rate regime carries the same bounded long-end diagnostic used by downstream reasoning", () => {
+  const input = packet([
+    fred("us10y-fred", 5.30, ((5.30 / 5.20) - 1) * 100),
+    fred("us10y-real", 2.30, ((2.30 / 2.22) - 1) * 100),
+    fred("us10y-breakeven", 3.00, ((3.00 / 2.98) - 1) * 100),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+
+  assert.equal(regime.longEndDiagnostic.contractVersion, "rate-long-end-diagnostic/1");
+  assert.equal(regime.longEndDiagnostic.observedDecomposition.state, "REAL_YIELD_LED");
+  assert.equal(regime.longEndDiagnostic.termPremium.availability, "UNRESOLVED");
+  assert.ok(regime.longEndDiagnostic.gaps.some((gap) => /term-premium/i.test(gap)));
+});
