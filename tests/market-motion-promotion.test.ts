@@ -1,15 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
-  MARKET_MOTION_PROMOTION_LIMIT,
-  MARKET_MOTION_PROMOTION_MIN_MATERIALITY,
-  MARKET_MOTION_PROMOTION_MIN_RELEVANCE,
-  marketMotionPromotionInput,
-  selectPromotableMarketMotion,
+  MARKET_MOTION_DOSSIER_PROMOTION_POLICY,
+  marketMotionDossierPromotionInput,
+  promoteMarketMotionFromDossierAssessments,
+  selectDossierAcceptedPromotableMarketMotion,
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
+import type { ResearchBrainMotionAssessment } from "../lib/dossier-v2/research-brain-contracts.ts";
 
 const NOW = new Date("2026-10-01T02:00:00Z");
 
@@ -52,54 +53,6 @@ function record(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
   };
 }
 
-test("promotion requires exact canonical Story publication plus stronger Motion thresholds", () => {
-  assert.equal(MARKET_MOTION_PROMOTION_MIN_MATERIALITY, 80);
-  assert.equal(MARKET_MOTION_PROMOTION_MIN_RELEVANCE, 75);
-
-  const selected = selectPromotableMarketMotion([
-    record({ id: "eligible" }),
-    record({ id: "wrong-story", primary_story_id: "story-2" }),
-    record({ id: "weak-materiality", materiality: 79 }),
-    record({ id: "weak-relevance", relevance: 74 }),
-    record({ id: "lead", verification_state: "LEAD" }),
-    record({ id: "expired", expires_at: "2026-10-01T01:00:00Z" }),
-    record({ id: "already", lifecycle_state: "PROMOTED", effective_state: "PROMOTED" }),
-  ], ["story-1"], NOW);
-
-  assert.deepEqual(selected.map((item) => item.id), ["eligible"]);
-});
-
-test("promotion preserves verification and expiry while appending PROMOTED lifecycle", () => {
-  const input = marketMotionPromotionInput(record(), {
-    researchRunId: "run-1",
-    engineRunId: "engine-1",
-  });
-
-  assert.equal(input.lifecycleState, "PROMOTED");
-  assert.equal(input.verificationState, "REPORTED");
-  assert.equal(input.primaryStoryId, "story-1");
-  assert.equal(input.primaryRegimeSlug, "us-china-ai");
-  assert.equal(input.expiresAt, "2026-10-04T00:45:00.000Z");
-  assert.match(input.promotionReason || "", /Canonical Story story-1 changed/);
-  assert.equal(input.metadata?.promotionPolicy, "canonical-story-changed/v1");
-  assert.equal(input.metadata?.promotedFromMotionId, "motion-1");
-});
-
-test("promotion remains bounded and prioritises verified, material Motion", () => {
-  const rows = Array.from({ length: MARKET_MOTION_PROMOTION_LIMIT + 3 }, (_, index) => record({
-    id: `motion-${index}`,
-    motion_key: `intake:motion-${index}`,
-    verification_state: index === 0 ? "VERIFIED" : "REPORTED",
-    materiality: 80 + index,
-    relevance: 80 + index,
-  }));
-
-  const selected = selectPromotableMarketMotion(rows, ["story-1"], NOW);
-
-  assert.equal(selected.length, MARKET_MOTION_PROMOTION_LIMIT);
-  assert.equal(selected[0].id, "motion-0");
-});
-
 test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
   const rows = [
     record({ id: "promoted", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 92 }),
@@ -113,4 +66,113 @@ test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
     ["promoted", "other-story"],
   );
+});
+
+
+function assessment(
+  decision: ResearchBrainMotionAssessment["decision"] = "ACCEPT",
+  overrides: Partial<ResearchBrainMotionAssessment> = {},
+): ResearchBrainMotionAssessment {
+  return {
+    motion_id: "motion-1",
+    decision,
+    reason: "Canonical Dossier evidence supports the Motion as current analytical context.",
+    evidence_references: ["research-intake:evidence-1"],
+    story_implication: "The linked Story should carry this accepted short-horizon development.",
+    regime_implication: "The development reinforces the current regime interpretation.",
+    investigation_next: null,
+    ...overrides,
+  };
+}
+
+test("B1 promotion authority requires a Dossier ACCEPT assessment rather than Story publication", () => {
+  const rows = [
+    record({ id: "accepted" }),
+    record({ id: "refined", motion_key: "intake:refined" }),
+    record({ id: "unresolved", motion_key: "intake:unresolved" }),
+    record({ id: "rejected", motion_key: "intake:rejected" }),
+    record({ id: "no-story", motion_key: "intake:no-story", primary_story_id: null }),
+    record({ id: "expired", motion_key: "intake:expired", expires_at: "2026-10-01T01:00:00Z" }),
+    record({ id: "weak", motion_key: "intake:weak", materiality: 79 }),
+    record({ id: "regime-only", motion_key: "intake:regime-only" }),
+  ];
+  const assessments = [
+    assessment("ACCEPT", { motion_id: "accepted" }),
+    assessment("REFINE", { motion_id: "refined" }),
+    assessment("UNRESOLVED", { motion_id: "unresolved", story_implication: null, regime_implication: null, investigation_next: "Test the unresolved branch." }),
+    assessment("REJECT", { motion_id: "rejected", story_implication: null, regime_implication: null }),
+    assessment("ACCEPT", { motion_id: "no-story" }),
+    assessment("ACCEPT", { motion_id: "expired" }),
+    assessment("ACCEPT", { motion_id: "weak" }),
+    assessment("ACCEPT", { motion_id: "regime-only", story_implication: null }),
+  ];
+
+  const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
+
+  assert.deepEqual(selected.map((item) => item.id), ["accepted"]);
+});
+
+test("B1 promoted version records Dossier acceptance as the authority", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment(),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.lifecycleState, "PROMOTED");
+  assert.equal(input.primaryStoryId, "story-1");
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.metadata?.promotionPolicy, MARKET_MOTION_DOSSIER_PROMOTION_POLICY);
+  assert.equal(input.metadata?.promotionDossierId, "dossier-123");
+  assert.equal(input.metadata?.promotionDecision, "ACCEPT");
+  assert.deepEqual(input.metadata?.promotionEvidenceRefs, ["research-intake:evidence-1"]);
+  assert.match(input.promotionReason || "", /Validated Dossier dossier-123 accepted this Motion/i);
+  assert.equal(
+    input.whyInteresting,
+    "The linked Story should carry this accepted short-horizon development.",
+  );
+});
+
+test("B1 defers regime-only ACCEPT until the regime-only promotion slice", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record(),
+      assessment("ACCEPT", { story_implication: null }),
+      { dossierId: "dossier-123" },
+    ),
+    /accepted Story implication/i,
+  );
+});
+
+test("B1 refuses to promote REFINE until a corrected append-only Motion version exists", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record(),
+      assessment("REFINE"),
+      { dossierId: "dossier-123" },
+    ),
+    /requires an ACCEPT assessment/i,
+  );
+});
+
+test("B1 removes Story-change promotion from the canonical intelligence runtime", () => {
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(runtime, /promoteMarketMotionForPublishedStories/);
+  assert.doesNotMatch(runtime, /linked canonical Story changed in this intelligence run/);
+});
+
+
+test("B1 Dossier execution owns promotion after persistence", () => {
+  const execution = readFileSync(new URL("../lib/dossier-v2/execution.ts", import.meta.url), "utf8");
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+
+  assert.match(execution, /promoteMarketMotionFromDossierAssessments/);
+  assert.match(execution, /motion_attention_assessments/);
+  assert.doesNotMatch(runtime, /promoteMarketMotionFromDossierAssessments/);
+  assert.doesNotMatch(runtime, /canonical-story-changed\/v1/);
+});
+
+test("B1 promoter is exported for the post-Dossier append-only path", () => {
+  assert.equal(typeof promoteMarketMotionFromDossierAssessments, "function");
 });
