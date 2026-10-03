@@ -250,6 +250,22 @@ test("presentation adapter exposes the canonical Live/Hybrid sections without re
   assert.equal(result.regimeStrip[1].observed, false);
 });
 
+test("unresolved legacy investigation preserves compact alternatives without synthesising structured candidates", () => {
+  const current = dossier(
+    "compact-unresolved",
+    output(),
+  );
+
+  const result = buildDossierV2Presentation(current);
+  const investigation = result.watchNext[0];
+
+  assert.equal(investigation.divergence, "UNRESOLVED");
+  assert.deepEqual(investigation.candidateExplanations, []);
+  assert.deepEqual(investigation.competingExplanations, ["Positioning"]);
+  assert.equal(investigation.researchNext, "Fetch EIA inventories.");
+});
+
+
 test("presentation adapter preserves the canonical expected-vs-observed divergence journey", () => {
   const currentOutput = output();
   currentOutput.investigations[0] = {
