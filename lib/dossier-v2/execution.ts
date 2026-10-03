@@ -647,22 +647,31 @@ export async function executeAndPersistDossierV2(
 
   const dossier = await persistMarketDossierV2(dossierInput, options.client);
 
-  const motionPromotion = analyticalOutput.motion_attention_assessments?.some(
+  let motionPromotion: MarketMotionPromotionResult = {
+    considered: 0,
+    eligible: 0,
+    promoted: 0,
+    skippedAlreadyPromoted: 0,
+    motionIds: [],
+    warnings: [],
+  };
+  if (analyticalOutput.motion_attention_assessments?.some(
     (assessment) => assessment.decision === "ACCEPT",
-  )
-    ? await promoteMarketMotionFromDossierAssessments({
+  )) {
+    try {
+      motionPromotion = await promoteMarketMotionFromDossierAssessments({
         dossierId: dossier.id,
         assessments: analyticalOutput.motion_attention_assessments,
         client: options.client,
-      })
-    : {
-        considered: 0,
-        eligible: 0,
-        promoted: 0,
-        skippedAlreadyPromoted: 0,
-        motionIds: [],
-        warnings: [],
-      };
+      });
+    } catch (error) {
+      motionPromotion.warnings.push(
+        error instanceof Error
+          ? error.message
+          : "Dossier Motion promotion failed after Dossier persistence.",
+      );
+    }
+  }
 
   if (motionPromotion.warnings.length) {
     console.warn(JSON.stringify({
