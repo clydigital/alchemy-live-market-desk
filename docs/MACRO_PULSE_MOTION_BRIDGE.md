@@ -16,12 +16,14 @@ Macro Pulse
   -> REFINE appends and promotes only the corrected evidence-bounded Motion version
   -> the persisted Dossier exposes that decision to Hybrid immediately
   -> the next immutable Journey edition freezes the promoted Motion normally
-  -> Story-linked promoted Motion may enter Research Gap; regime-only Motion remains context-only
+  -> Story-linked promoted Motion may enter Research Gap
+  -> UNRESOLVED Motion may enter Research Gap directly from the persisted Dossier assessment without promotion
+  -> regime-only accepted Motion remains context-only until a canonical Story or investigation owns the next test
 ```
 
 The bridge never writes a Story, Regime, Dossier, confidence change or thesis.
 
-Market Motion remains an attention layer, not evidence. Promotion authority belongs to validated Dossier reasoning: a Motion must resolve to exact canonical packet evidence and survive the freshness/materiality gates. `ACCEPT` can promote exact Story or exact Regime context. `REFINE` can promote only a new append-only version carrying explicit corrected headline, why-it-matters and bridge wording. `UNRESOLVED` and `REJECT` never promote. A regime-only decision explicitly clears the Story link rather than manufacturing one.
+Market Motion remains an attention layer, not evidence. Promotion authority belongs to validated Dossier reasoning: a Motion must resolve to exact canonical packet evidence and survive the freshness/materiality gates. `ACCEPT` can promote exact Story or exact Regime context. `REFINE` can promote only a new append-only version carrying explicit corrected headline, why-it-matters and bridge wording. `UNRESOLVED` never promotes, but may open a Research Gap branch when the exact Dossier snapshot lineage, evidence references and `investigation_next` are present. `REJECT` never promotes or opens research. A regime-only accepted decision explicitly clears the Story link rather than manufacturing one.
 
 ## Candidate types
 
