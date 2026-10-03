@@ -68,6 +68,10 @@ function unique(values: string[]) {
   return [...new Set(values)];
 }
 
+function uuidText(value: string): boolean {
+  return isValidUuid(value);
+}
+
 function words(value: string) {
   return value
     .toLowerCase()
@@ -448,12 +452,12 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
       input.analyticalOutput,
     );
     const exactIds = exactPacketRefs.flatMap((ref) => {
-      if (isValidUuid(ref)) return [ref];
-      if (ref.startsWith("ev:") && isValidUuid(ref.slice(3))) return [ref.slice(3)];
+      if (uuidText(ref)) return [ref];
+      if (ref.startsWith("ev:") && uuidText(ref.slice(3))) return [ref.slice(3)];
       return [];
     });
     const exactExternalIds = exactPacketRefs.filter((ref) =>
-      !isValidUuid(ref) && !(ref.startsWith("ev:") && isValidUuid(ref.slice(3)))
+      !uuidText(ref) && !(ref.startsWith("ev:") && uuidText(ref.slice(3)))
     );
 
     const exactRows: EvidenceRow[] = [];
