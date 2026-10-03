@@ -94,6 +94,7 @@ test("B1 promotion authority requires a Dossier ACCEPT assessment rather than St
     record({ id: "no-story", motion_key: "intake:no-story", primary_story_id: null }),
     record({ id: "expired", motion_key: "intake:expired", expires_at: "2026-10-01T01:00:00Z" }),
     record({ id: "weak", motion_key: "intake:weak", materiality: 79 }),
+    record({ id: "regime-only", motion_key: "intake:regime-only" }),
   ];
   const assessments = [
     assessment("ACCEPT", { motion_id: "accepted" }),
@@ -103,6 +104,7 @@ test("B1 promotion authority requires a Dossier ACCEPT assessment rather than St
     assessment("ACCEPT", { motion_id: "no-story" }),
     assessment("ACCEPT", { motion_id: "expired" }),
     assessment("ACCEPT", { motion_id: "weak" }),
+    assessment("ACCEPT", { motion_id: "regime-only", story_implication: null }),
   ];
 
   const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
@@ -128,6 +130,17 @@ test("B1 promoted version records Dossier acceptance as the authority", () => {
   assert.equal(
     input.whyInteresting,
     "The linked Story should carry this accepted short-horizon development.",
+  );
+});
+
+test("B1 defers regime-only ACCEPT until the regime-only promotion slice", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record(),
+      assessment("ACCEPT", { story_implication: null }),
+      { dossierId: "dossier-123" },
+    ),
+    /accepted Story implication/i,
   );
 });
 
