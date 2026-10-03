@@ -224,6 +224,8 @@ test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without i
   item.reactionChecks = [
     {
       checkId: "system1:soft-inflation:dxy",
+      triggerEvidenceRef: "ev:soft-inflation",
+      marketEvidenceRef: "ev:dxy-reaction",
       instrument: "DXY",
       expectedDirection: "DOWN",
       observedDirection: "UP",
@@ -237,6 +239,8 @@ test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without i
     },
     {
       checkId: "system1:soft-inflation:gold",
+      triggerEvidenceRef: "ev:soft-inflation",
+      marketEvidenceRef: "ev:gold-reaction",
       instrument: "XAUUSD",
       expectedDirection: "UP",
       observedDirection: "DOWN",
