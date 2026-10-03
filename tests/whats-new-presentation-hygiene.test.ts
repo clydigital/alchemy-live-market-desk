@@ -52,3 +52,13 @@ test("presentation bundling stays isolated from canonical Motion and Research Ga
   assert.doesNotMatch(presentation, /research-gap/);
   assert.doesNotMatch(presentation, /hybrid/);
 });
+
+
+test("exact child Motion hashes reveal their owning creator bundle", () => {
+  assert.match(workspace, /useEffect/);
+  assert.match(workspace, /window\.location\.hash/);
+  assert.match(workspace, /motionBundle\?\.children\.some\(\(child\) => child\.id === targetId\)/);
+  assert.match(workspace, /open=\{openBundleIds\.has\(delta\.id\)\}/);
+  assert.match(workspace, /document\.getElementById\(\`record-\$\{targetId\}\`\)/);
+  assert.match(workspace, /hashchange/);
+});
