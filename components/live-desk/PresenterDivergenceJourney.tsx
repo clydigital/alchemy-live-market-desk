@@ -42,6 +42,12 @@ export default function PresenterDivergenceJourney({
   calibration,
 }: Props) {
   const cases = buildPresenterDivergenceJourney(investigations);
+  const labById = new Map(
+    investigations.map((investigation) => [
+      investigation.id,
+      buildDivergenceLabPresentation(investigation),
+    ]),
+  );
 
   if (!cases.length) {
     return (
@@ -72,9 +78,8 @@ export default function PresenterDivergenceJourney({
 
       <div className={styles.caseList}>
         {cases.map((item) => {
-          const source = investigations.find((investigation) => investigation.id === item.id);
-          if (!source) return null;
-          const lab = buildDivergenceLabPresentation(source);
+          const lab = labById.get(item.id);
+          if (!lab) return null;
 
           return (
           <article className={styles.caseCard} key={item.id}>
