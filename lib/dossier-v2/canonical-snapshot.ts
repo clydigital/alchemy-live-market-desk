@@ -22,6 +22,10 @@ import {
   type TreasuryBillSnapshot,
 } from "../providers/treasury-bills.ts";
 import {
+  fetchTreasuryAuctions,
+  type TreasuryAuctionSnapshot,
+} from "../providers/treasury-auctions.ts";
+import {
   fetchBundesbankBund10,
   type BundesbankBund10Snapshot,
 } from "../providers/bundesbank-bund10.ts";
@@ -1260,6 +1264,103 @@ export function augmentCandidateSnapshotWithEia(
   };
 }
 
+function treasuryAuctionAvailableAt(auctionDate: string) {
+  // Fiscal Data exposes the auction date but not a machine-readable results
+  // publication timestamp. Coupon results are intraday; use a conservative
+  // 21:00Z same-day boundary and never admit the row before that timestamp.
+  return `${auctionDate}T21:00:00.000Z`;
+}
+
+export function augmentCandidateSnapshotWithTreasuryAuctions(
+  result: CanonicalSnapshotResult,
+  auctions: TreasuryAuctionSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+  const asOfMs = parseTimestamp(options.asOf);
+  let added = 0;
+
+  if (auctions.status !== "UNAVAILABLE" && asOfMs !== null) {
+    for (const auction of auctions.auctions) {
+      const availableAt = treasuryAuctionAvailableAt(auction.auctionDate);
+      const availableMs = parseTimestamp(availableAt);
+      if (availableMs === null || availableMs > asOfMs) continue;
+
+      const bidderMix = [
+        auction.primaryDealerAcceptedPct === null ? null : `primary dealers ${auction.primaryDealerAcceptedPct.toFixed(1)}%`,
+        auction.directBidderAcceptedPct === null ? null : `direct bidders ${auction.directBidderAcceptedPct.toFixed(1)}%`,
+        auction.indirectBidderAcceptedPct === null ? null : `indirect bidders ${auction.indirectBidderAcceptedPct.toFixed(1)}%`,
+      ].filter((value): value is string => Boolean(value));
+
+      const resultDetail = [
+        auction.highYieldPct === null ? null : `high yield ${auction.highYieldPct.toFixed(3)}%`,
+        auction.bidToCover === null ? null : `bid-to-cover ${auction.bidToCover.toFixed(2)}`,
+        bidderMix.length ? bidderMix.join(", ") : null,
+      ].filter((value): value is string => Boolean(value)).join("; ");
+
+      observed.push({
+        evidence_id: `treasury-auction:${auction.cusip}:${auction.auctionDate}`,
+        claim_or_fact: `${auction.securityTerm} U.S. Treasury auction on ${auction.auctionDate}${resultDetail ? `: ${resultDetail}` : ""}. Fiscal Data does not provide a when-issued yield here, so an auction tail or stop-through is not determined by this observation.`,
+        category: "RATES",
+        source_type: "OFFICIAL_DATA",
+        available_at: availableAt,
+        occurrence_time: availableAt,
+        grouping_key: `treasury-auction:${auction.securityTerm.toLowerCase()}`,
+        rank: 12 + added,
+        metrics: {
+          signal_kind: "market_reaction",
+          signal_context: "treasury_auction",
+          cusip: auction.cusip,
+          security_type: auction.securityType,
+          security_term: auction.securityTerm,
+          auction_date: auction.auctionDate,
+          issue_date: auction.issueDate,
+          maturity_date: auction.maturityDate,
+          high_yield_pct: auction.highYieldPct,
+          bid_to_cover_ratio: auction.bidToCover,
+          offering_amount_usd: auction.offeringAmountUsd,
+          competitive_accepted_usd: auction.competitiveAcceptedUsd,
+          primary_dealer_accepted_pct: auction.primaryDealerAcceptedPct,
+          direct_bidder_accepted_pct: auction.directBidderAcceptedPct,
+          indirect_bidder_accepted_pct: auction.indirectBidderAcceptedPct,
+          when_issued_yield_pct: null,
+          tail_bps: null,
+        },
+        provenance: [{
+          source_type: "US_TREASURY",
+          source_id: `fiscaldata-auction:${auction.cusip}:${auction.auctionDate}`,
+          url: auctions.sourceUrl,
+          publisher: auctions.sourceName,
+        }],
+      });
+      added += 1;
+    }
+  }
+
+  const sourcesStatus = {
+    ...(result.snapshot.sources_status ?? {}),
+    treasury_auctions: {
+      status: auctions.status,
+      available_at: auctions.asOf ? treasuryAuctionAvailableAt(auctions.asOf) : undefined,
+      message: auctions.status === "UNAVAILABLE"
+        ? auctions.warnings.join(" ") || "Official Treasury auction results were unavailable."
+        : `${added} recent nominal coupon Treasury auction result(s) admitted as official rate context. Auction tail remains unresolved without when-issued evidence.`,
+    },
+  };
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: sourcesStatus,
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 function tradingEconomicsSystem1Signal(event: TradingEconomicsUsCalendarSnapshot["events"][number]): string | null {
   const surprise = event.surprise;
   if (surprise === null || surprise === 0) return null;
@@ -1592,6 +1693,7 @@ export async function loadCanonicalCandidateSnapshot(
     nyFedResult,
     dealerResult,
     treasuryBillsResult,
+    treasuryAuctionsResult,
     japanJgbResult,
     treasuryTicResult,
     japanMofFlowsResult,
@@ -1607,6 +1709,7 @@ export async function loadCanonicalCandidateSnapshot(
     fetchNyFedReferenceRates(new Date(asOfMs)),
     fetchNyFedPrimaryDealers(new Date(asOfMs)),
     fetchTreasuryBills(new Date(asOfMs)),
+    fetchTreasuryAuctions(new Date(asOfMs)),
     fetchJapanMofJgbYields(new Date(asOfMs)),
     fetchTreasuryTicTable5(),
     fetchJapanMofWeeklyFlows(),
@@ -1674,6 +1777,22 @@ export async function loadCanonicalCandidateSnapshot(
       dollar_liquidity_system1: {
         status: "WARNING",
         message: "One or more System 1 dollar-liquidity providers were unavailable; the classifier will fail closed to unresolved where necessary.",
+      },
+    };
+  }
+
+  if (treasuryAuctionsResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithTreasuryAuctions(
+      result,
+      treasuryAuctionsResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      treasury_auctions: {
+        status: "UNAVAILABLE",
+        message: `Official Treasury auction enrichment failed closed: ${treasuryAuctionsResult.reason instanceof Error ? treasuryAuctionsResult.reason.message : String(treasuryAuctionsResult.reason)}`,
       },
     };
   }
