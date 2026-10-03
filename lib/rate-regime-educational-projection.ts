@@ -39,6 +39,47 @@ export type RateEducationalProjection = {
     subgroupKey: string;
     subgroupLabel: string;
   } | null;
+  transmission: {
+    state: string;
+    ratePressure: {
+      restrictive: boolean;
+      easingImpulse: boolean;
+      nominal10yPct: number | null;
+      real10yPct: number | null;
+    };
+    gold: {
+      state: string;
+      goldChange5dPct: number | null;
+      dxyChange5dPct: number | null;
+      realYieldChange5dBp: number | null;
+      detail: string;
+    };
+    credit: {
+      state: string;
+      hyOasChange5dBp: number | null;
+      igOasChange5dBp: number | null;
+      detail: string;
+    };
+    equityDuration: {
+      state: string;
+      spxChange5dPct: number | null;
+      ndxChange5dPct: number | null;
+      rspChange5dPct: number | null;
+      iwmChange5dPct: number | null;
+      smhChange5dPct: number | null;
+      ndxVsRsp5dPct: number | null;
+      detail: string;
+    };
+    carry: {
+      state: string;
+      ustJgb10yGapChange5dBp: number | null;
+      usdJpyChange5dPct: number | null;
+      detail: string;
+    };
+    detail: string;
+    gaps: string[];
+    asOf: string;
+  } | null;
   globalDuration: {
     state: string;
     globalLabelEligible: boolean;
@@ -327,6 +368,47 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    transmission: dossier?.rateRegime?.crossAssetTransmission ? {
+      state: dossier.rateRegime.crossAssetTransmission.state,
+      ratePressure: {
+        restrictive: dossier.rateRegime.crossAssetTransmission.ratePressure.restrictive,
+        easingImpulse: dossier.rateRegime.crossAssetTransmission.ratePressure.easingImpulse,
+        nominal10yPct: dossier.rateRegime.crossAssetTransmission.ratePressure.nominal10yPct,
+        real10yPct: dossier.rateRegime.crossAssetTransmission.ratePressure.real10yPct,
+      },
+      gold: {
+        state: dossier.rateRegime.crossAssetTransmission.gold.state,
+        goldChange5dPct: dossier.rateRegime.crossAssetTransmission.gold.goldChange5dPct,
+        dxyChange5dPct: dossier.rateRegime.crossAssetTransmission.gold.dxyChange5dPct,
+        realYieldChange5dBp: dossier.rateRegime.crossAssetTransmission.gold.realYieldChange5dBp,
+        detail: dossier.rateRegime.crossAssetTransmission.gold.detail,
+      },
+      credit: {
+        state: dossier.rateRegime.crossAssetTransmission.credit.state,
+        hyOasChange5dBp: dossier.rateRegime.crossAssetTransmission.credit.hyOasChange5dBp,
+        igOasChange5dBp: dossier.rateRegime.crossAssetTransmission.credit.igOasChange5dBp,
+        detail: dossier.rateRegime.crossAssetTransmission.credit.detail,
+      },
+      equityDuration: {
+        state: dossier.rateRegime.crossAssetTransmission.equityDuration.state,
+        spxChange5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.spxChange5dPct,
+        ndxChange5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.ndxChange5dPct,
+        rspChange5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.rspChange5dPct,
+        iwmChange5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.iwmChange5dPct,
+        smhChange5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.smhChange5dPct,
+        ndxVsRsp5dPct: dossier.rateRegime.crossAssetTransmission.equityDuration.ndxVsRsp5dPct,
+        detail: dossier.rateRegime.crossAssetTransmission.equityDuration.detail,
+      },
+      carry: {
+        state: dossier.rateRegime.crossAssetTransmission.carry.state,
+        ustJgb10yGapChange5dBp: dossier.rateRegime.crossAssetTransmission.carry.ustJgb10yGapChange5dBp,
+        usdJpyChange5dPct: dossier.rateRegime.crossAssetTransmission.carry.usdJpyChange5dPct,
+        detail: dossier.rateRegime.crossAssetTransmission.carry.detail,
+      },
+      detail: dossier.rateRegime.crossAssetTransmission.detail,
+      gaps: [...dossier.rateRegime.crossAssetTransmission.gaps],
+      asOf: dossier.rateRegime.crossAssetTransmission.asOf,
+    } : null,
     globalDuration: dossier?.rateRegime?.globalDurationDiagnostic ? {
       state: dossier.rateRegime.globalDurationDiagnostic.relativeRates.state,
       globalLabelEligible: dossier.rateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
