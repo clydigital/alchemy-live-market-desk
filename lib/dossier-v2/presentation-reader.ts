@@ -614,13 +614,63 @@ export async function getDossierV2PresentationSelection(
     throw new Error(`Failed to load Market Dossier V2 presentations: ${error.message}`);
   }
 
+  const rows = data ?? [];
+  if (rows.length === 0) return selectDossierV2Presentation([]);
+
   const valid: MarketDossierV2[] = [];
-  for (const row of data ?? []) {
+  let latestIsValid = false;
+
+  rows.forEach((row, index) => {
     try {
-      valid.push(validateMarketDossierV2Record(row));
+      const dossier = validateMarketDossierV2Record(row);
+      valid.push(dossier);
+      if (index === 0) latestIsValid = true;
     } catch {
-      // Fail closed per record. A malformed latest row must not prevent a prior
-      // healthy immutable Dossier from remaining available to Live/Hybrid.
+      // Malformed records remain visible as an explicit current failure when
+      // they are the newest row; older malformed rows are omitted from history.
+    }
+  });
+
+  if (!latestIsValid) {
+    const historical = selectDossierV2Presentation(valid);
+    const rawLatest = rows[0] as Record<string, unknown>;
+    return {
+      status: "unavailable",
+      presentation: null,
+      latestDossierId: typeof rawLatest.id === "string" ? rawLatest.id : null,
+      selectedDossierId: null,
+      latestAsOf: typeof rawLatest.as_of === "string" ? rawLatest.as_of : null,
+      selectedAsOf: null,
+      usingFallback: false,
+      lastValidDossierId: historical.selectedDossierId ?? historical.lastValidDossierId ?? null,
+      lastValidAsOf: historical.selectedAsOf ?? historical.lastValidAsOf ?? null,
+      calibrationHistory: historical.calibrationHistory,
+      calibrationLineages: historical.calibrationLineages,
+      notice: {
+        tone: "error",
+        label: "Current Dossier unavailable",
+        detail: "The latest persisted Dossier cannot be rendered safely. The last valid Dossier remains historical reference only and has not been substituted as current.",
+      },
+    };
+  }
+
+  const dossiersById = new Map(valid.map((dossier) => [dossier.id, dossier]));
+  const latest = [...valid].sort(byNewest)[0];
+  const requiredIds = [
+    latest.previous_dossier_id,
+    analyticalBaselineId(latest),
+  ].filter((id): id is string => Boolean(id));
+
+  for (const id of [...new Set(requiredIds)]) {
+    if (dossiersById.has(id)) continue;
+    try {
+      const related = await getMarketDossierV2ById(id, dbClient);
+      if (related) {
+        valid.push(related);
+        dossiersById.set(related.id, related);
+      }
+    } catch {
+      // Exact lineage resolution fails closed in presentation.memory.
     }
   }
 
@@ -647,7 +697,24 @@ export async function getDossierV2PresentationSelectionById(
     }
   }
 
-  return selectExactDossierV2Presentation(dossier, previous, id);
+  const baselineId = analyticalBaselineId(dossier);
+  let analyticalBaseline: MarketDossierV2 | null =
+    baselineId && previous?.id === baselineId ? previous : null;
+
+  if (baselineId && !analyticalBaseline) {
+    try {
+      analyticalBaseline = await getMarketDossierV2ById(baselineId, dbClient);
+    } catch {
+      analyticalBaseline = null;
+    }
+  }
+
+  return selectExactDossierV2Presentation(
+    dossier,
+    previous,
+    id,
+    analyticalBaseline,
+  );
 }
 
 export async function getDossierV2HistoryIndex(
