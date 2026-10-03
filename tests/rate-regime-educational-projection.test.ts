@@ -463,6 +463,7 @@ test("educational projection keeps daily JGB, daily USDJPY, monthly TIC and week
             ustJgb30yChange5dBp: 1,
             state: "US_JAPAN_TIGHTENING",
             globalLabelEligible: false,
+            comparisonWindowAligned: false,
             detail: "US and Japan long ends are both tightening; Bund/gilt confirmation is incomplete.",
           },
           fx: {
