@@ -5,6 +5,7 @@ import type {
   Investigation,
   MarketLens,
   ResearchBrainInputV1,
+  ResearchBrainMotionAttention,
   ResearchBrainOutputV1,
   ThesisLedgerEntryV2,
   ThesisLedgerV2,
@@ -407,6 +408,7 @@ export function produceDegradedOutput(
   packet: DossierV2InputPacket,
   errorInfo?: string | string[] | Error,
   modelRepairUsed = false,
+  motionAttention: ResearchBrainMotionAttention[] = [],
 ): ResearchBrainOutputV1 {
   let reasonText = "Model pass failed or produced invalid analysis.";
   if (typeof errorInfo === "string") {
@@ -571,6 +573,15 @@ export function produceDegradedOutput(
     thesis_ledger: thesisLedgerV2,
     contradictions_detected: contradictionsDetected,
     research_gaps: degradedGaps,
+    motion_attention_assessments: motionAttention.map((item) => ({
+      motion_id: item.motion_id,
+      decision: "UNRESOLVED",
+      reason: "Research Brain is degraded, so Motion framing cannot be accepted or rejected safely.",
+      evidence_references: [item.packet_evidence_id],
+      story_implication: null,
+      regime_implication: null,
+      investigation_next: item.next_test || "Re-run the Research Brain with the same canonical evidence.",
+    })),
     diagnostics: {
       degraded: true,
       degradation_reasons: [reasonText],
@@ -597,7 +608,7 @@ export async function executeResearchBrain(
     throw new Error(`Invalid ResearchBrainInput: ${errorMsg}`);
   }
 
-  const { packet } = validatedInput;
+  const { packet, motion_attention: motionAttention = [] } = validatedInput;
   const allowRepair = options.allowRepair !== false;
 
   const prompt = buildResearchBrainPrompt(validatedInput);
@@ -669,7 +680,7 @@ export async function executeResearchBrain(
           normalizedRecovery,
           packet,
         );
-        const recoveryVal = validateResearchBrainOutput(normalizedRecovery, packet);
+        const recoveryVal = validateResearchBrainOutput(normalizedRecovery, packet, motionAttention);
         if (recoveryVal.isValid && recoveryVal.output) {
           recoveryVal.output.diagnostics = {
             ...recoveryVal.output.diagnostics,
@@ -688,18 +699,19 @@ export async function executeResearchBrain(
           errorCount: recoveryVal.errors.length,
           errors: recoveryVal.errors.slice(0, 12),
         }));
-        return produceDegradedOutput(packet, recoveryVal.errors, true);
+        return produceDegradedOutput(packet, recoveryVal.errors, true, motionAttention);
       } catch (recoveryErr) {
         console.warn("Research Brain compact recovery pass failed:", recoveryErr);
         return produceDegradedOutput(
           packet,
           recoveryErr instanceof Error ? recoveryErr : String(recoveryErr),
           true,
+          motionAttention,
         );
       }
     }
 
-    return produceDegradedOutput(packet, err instanceof Error ? err : String(err), false);
+    return produceDegradedOutput(packet, err instanceof Error ? err : String(err), false, motionAttention);
   }
 
   // Step 5: Apply safe clerical normalization, then run deterministic validation.
@@ -711,7 +723,7 @@ export async function executeResearchBrain(
   );
   firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
-  const firstVal = validateResearchBrainOutput(firstPassData, packet);
+  const firstVal = validateResearchBrainOutput(firstPassData, packet, motionAttention);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
   }
@@ -725,7 +737,7 @@ export async function executeResearchBrain(
       errors: firstVal.errors.slice(0, 12),
     }));
     console.info(`Research Brain primary output failed validation (${firstVal.errors.length} errors). Attempting single repair pass.`);
-    const repairPrompt = buildResearchBrainRepairPrompt(firstPassData, firstVal.errors, packet);
+    const repairPrompt = buildResearchBrainRepairPrompt(firstPassData, firstVal.errors, packet, motionAttention);
 
     try {
       const repairRes = await runner({
@@ -748,7 +760,7 @@ export async function executeResearchBrain(
         normalizedRepairData,
         packet,
       );
-      const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
+      const repairVal = validateResearchBrainOutput(normalizedRepairData, packet, motionAttention);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
         repairVal.output.diagnostics = {
@@ -765,12 +777,12 @@ export async function executeResearchBrain(
         errors: repairVal.errors.slice(0, 12),
       }));
       console.warn(`Research Brain repair pass failed validation (${repairVal.errors.length} errors).`);
-      return produceDegradedOutput(packet, repairVal.errors, true);
+      return produceDegradedOutput(packet, repairVal.errors, true, motionAttention);
     } catch (repairErr) {
       console.warn("Research Brain repair model pass threw error:", repairErr);
-      return produceDegradedOutput(packet, repairErr instanceof Error ? repairErr : String(repairErr), true);
+      return produceDegradedOutput(packet, repairErr instanceof Error ? repairErr : String(repairErr), true, motionAttention);
     }
   }
 
-  return produceDegradedOutput(packet, firstVal.errors, false);
+  return produceDegradedOutput(packet, firstVal.errors, false, motionAttention);
 }

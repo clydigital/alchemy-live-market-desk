@@ -24,6 +24,7 @@ import {
 import type {
   EpistemicLabel,
   ResearchBrainInputV1,
+  ResearchBrainMotionAttention,
   ResearchBrainOutputV1,
 } from "./research-brain-contracts.ts";
 import {
@@ -314,16 +315,60 @@ export function validateResearchBrainInput(input: unknown): ResearchBrainInputV1
     throw new Error(`Invalid packet contract_version: expected "dossier-v2-input/1", got "${String(packet.contract_version)}".`);
   }
 
+  let motionAttention: ResearchBrainMotionAttention[] = [];
+  if (input.motion_attention !== undefined) {
+    if (!Array.isArray(input.motion_attention)) {
+      throw new Error("Invalid motion_attention: expected an array when supplied.");
+    }
+    if (input.motion_attention.length > 6) {
+      throw new Error("Invalid motion_attention: at most 6 items are allowed.");
+    }
+
+    const packetEvidenceIds = new Set([
+      ...packet.observed_evidence.map((item) => item.evidence_id),
+      ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
+    ]);
+    const seenMotionIds = new Set<string>();
+
+    motionAttention = input.motion_attention.map((raw, index) => {
+      if (!isPlainObject(raw)) {
+        throw new Error(`Invalid motion_attention[${index}]: expected a plain object.`);
+      }
+      const motionId = typeof raw.motion_id === "string" ? raw.motion_id.trim() : "";
+      const packetEvidenceId = typeof raw.packet_evidence_id === "string" ? raw.packet_evidence_id.trim() : "";
+      const verificationState = raw.verification_state;
+      if (!motionId || seenMotionIds.has(motionId)) {
+        throw new Error(`Invalid motion_attention[${index}].motion_id: must be non-empty and unique.`);
+      }
+      seenMotionIds.add(motionId);
+      if (!packetEvidenceId || !packetEvidenceIds.has(packetEvidenceId)) {
+        throw new Error(`Invalid motion_attention[${index}].packet_evidence_id: must reference current packet evidence.`);
+      }
+      if (verificationState !== "REPORTED" && verificationState !== "VERIFIED") {
+        throw new Error(`Invalid motion_attention[${index}].verification_state: expected REPORTED or VERIFIED.`);
+      }
+      for (const field of ["headline", "what_happened", "why_interesting", "big_picture_bridge"] as const) {
+        if (typeof raw[field] !== "string" || !raw[field].trim()) {
+          throw new Error(`Invalid motion_attention[${index}].${field}: must be non-empty.`);
+        }
+      }
+
+      return raw as unknown as ResearchBrainMotionAttention;
+    });
+  }
+
   return {
     contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
     as_of: input.as_of as string,
     packet,
+    motion_attention: motionAttention,
   };
 }
 
 export function validateResearchBrainOutput(
   output: unknown,
   packet: DossierV2InputPacket,
+  motionAttention: ResearchBrainMotionAttention[] = [],
 ): ValidationResult {
   const errors: string[] = [];
 
@@ -365,6 +410,82 @@ export function validateResearchBrainOutput(
   }
 
   const indexes = buildValidationIndexes(packet);
+
+  const expectedMotionById = new Map(motionAttention.map((item) => [item.motion_id, item]));
+  const rawMotionAssessments = brainOutput.motion_attention_assessments;
+  const motionAssessments = Array.isArray(rawMotionAssessments) ? rawMotionAssessments : [];
+  if (motionAttention.length > 0 && !Array.isArray(rawMotionAssessments)) {
+    errors.push("motion_attention_assessments is required when Motion attention context is supplied.");
+  }
+  if (motionAssessments.length > 6) {
+    errors.push("motion_attention_assessments exceeds the maximum of 6 items.");
+  }
+
+  const seenMotionAssessmentIds = new Set<string>();
+  for (let index = 0; index < motionAssessments.length; index++) {
+    const assessment = motionAssessments[index];
+    if (!isPlainObject(assessment)) {
+      errors.push(`motion_attention_assessments[${index}] must be a plain object.`);
+      continue;
+    }
+
+    const motionId = typeof assessment.motion_id === "string" ? assessment.motion_id.trim() : "";
+    const expected = expectedMotionById.get(motionId);
+    if (!motionId || !expected) {
+      errors.push(`motion_attention_assessments[${index}] references unknown motion_id "${motionId}".`);
+      continue;
+    }
+    if (seenMotionAssessmentIds.has(motionId)) {
+      errors.push(`motion_attention_assessments contains duplicate motion_id "${motionId}".`);
+      continue;
+    }
+    seenMotionAssessmentIds.add(motionId);
+
+    const decision = assessment.decision;
+    if (!["ACCEPT", "REFINE", "UNRESOLVED", "REJECT"].includes(String(decision))) {
+      errors.push(`motion_attention_assessments[${index}] has invalid decision "${String(decision)}".`);
+    }
+
+    const reason = typeof assessment.reason === "string" ? assessment.reason.trim() : "";
+    if (!reason) {
+      errors.push(`motion_attention_assessments[${index}] requires a non-empty reason.`);
+    }
+
+    const evidenceRefs = Array.isArray(assessment.evidence_references)
+      ? assessment.evidence_references.filter((item): item is string => typeof item === "string")
+      : [];
+    if (!evidenceRefs.includes(expected.packet_evidence_id)) {
+      errors.push(`motion_attention_assessments[${index}] must cite its exact canonical packet evidence "${expected.packet_evidence_id}".`);
+    }
+    for (const evidenceId of evidenceRefs) {
+      if (!indexes.validEvidenceIds.has(evidenceId)) {
+        errors.push(`motion_attention_assessments[${index}] references unsupported evidence_id "${evidenceId}".`);
+      }
+    }
+
+    const storyImplication = typeof assessment.story_implication === "string"
+      ? assessment.story_implication.trim()
+      : null;
+    const regimeImplication = typeof assessment.regime_implication === "string"
+      ? assessment.regime_implication.trim()
+      : null;
+    const investigationNext = typeof assessment.investigation_next === "string"
+      ? assessment.investigation_next.trim()
+      : null;
+
+    if ((decision === "ACCEPT" || decision === "REFINE") && !storyImplication && !regimeImplication) {
+      errors.push(`motion_attention_assessments[${index}] ${String(decision)} requires a Story or Regime implication.`);
+    }
+    if (decision === "UNRESOLVED" && !investigationNext) {
+      errors.push(`motion_attention_assessments[${index}] UNRESOLVED requires investigation_next.`);
+    }
+  }
+
+  for (const motion of motionAttention) {
+    if (!seenMotionAssessmentIds.has(motion.motion_id)) {
+      errors.push(`Missing Motion attention assessment for "${motion.motion_id}".`);
+    }
+  }
 
   // Collect valid Major Story IDs for cross-referencing
   const majorStories = Array.isArray(brainOutput.major_stories) ? brainOutput.major_stories : [];

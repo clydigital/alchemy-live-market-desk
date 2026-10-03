@@ -13,7 +13,7 @@ import {
   RESEARCH_BRAIN_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
-import type { ResearchBrainInputV1 } from "./research-brain-contracts.ts";
+import type { ResearchBrainInputV1, ResearchBrainMotionAttention } from "./research-brain-contracts.ts";
 import { PRIMARY_MACRO_INSTRUMENT_GUIDANCE } from "../macro-market-universe.ts";
 import {
   buildSystem1DivergenceCandidates,
@@ -109,6 +109,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
 3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. Prior investigations preserve what the desk asked, expected and believed at the previous Dossier vintage; never present their old observations as current tape.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
+4A. MOTION ATTENTION IS NOT EVIDENCE: motion_attention is a bounded attention/routing layer. Its headline, what_happened, market_reaction, why_interesting, big_picture_bridge and next_test fields may tell you what question to test, but they are NOT facts and must never be cited as proof. For every supplied Motion, inspect only the canonical packet evidence named by packet_evidence_id plus any other current packet evidence. Emit exactly one motion_attention_assessment with the same motion_id. Use ACCEPT only when current canonical evidence supports the Motion framing strongly enough to affect the current Story/Regime read; REFINE when the underlying development is supported but the Motion framing is too broad, causal, or directional; UNRESOLVED when the question is material but current evidence cannot discriminate it; REJECT when supplied evidence contradicts or fails to support the proposed framing. Every assessment must cite its exact packet_evidence_id. ACCEPT/REFINE are analytical decisions only: they do not themselves mutate a Story, Regime, thesis, or Motion lifecycle.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
 7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
@@ -174,6 +175,23 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     previous_dossier_id: packet.previous_dossier_id,
     observed_evidence: compactObservedEvidence(packet),
     rate_context: { evidence: compactRateContext(packet) },
+    motion_attention: (input.motion_attention ?? []).slice(0, 6).map((item) => ({
+      motion_id: item.motion_id,
+      headline: item.headline,
+      what_happened: item.what_happened,
+      market_reaction: item.market_reaction,
+      why_interesting: item.why_interesting,
+      big_picture_bridge: item.big_picture_bridge,
+      next_test: item.next_test,
+      primary_story_id: item.primary_story_id,
+      primary_regime_slug: item.primary_regime_slug,
+      packet_evidence_id: item.packet_evidence_id,
+      verification_state: item.verification_state,
+      materiality: item.materiality,
+      relevance: item.relevance,
+      novelty: item.novelty,
+    })),
+
     system1_policy_expectation_checks: buildSystem1PolicyExpectationChecks(packet),
     system1_reaction_assessments: buildSystem1ReactionAssessments(packet),
     system1_divergence_candidates: buildSystem1DivergenceCandidates(packet),
@@ -369,6 +387,7 @@ export function buildResearchBrainRepairPrompt(
   invalidOutput: unknown,
   validationErrors: string[],
   packet: DossierV2InputPacket,
+  motionAttention: ResearchBrainMotionAttention[] = [],
 ): {
   instructions: string;
   boundedInput: Record<string, unknown>;
@@ -398,6 +417,7 @@ export function buildResearchBrainRepairPrompt(
     valid_conflict_group_ids: Array.isArray(packet.observed_evidence)
       ? Array.from(new Set(packet.observed_evidence.map((e) => e.conflict_group_id).filter(Boolean) as string[]))
       : [],
+    valid_motion_ids: motionAttention.map((item) => item.motion_id),
   };
 
   const repairInstructions = `${buildResearchBrainSystemInstructions()}
@@ -407,7 +427,8 @@ Your previous output failed deterministic validation with the following ${valida
 ${validationErrors.map((err, idx) => `${idx + 1}. ${err}`).join("\n")}
 
 Perform STRUCTURAL REPAIR ONLY on the existing output to fix all listed validation errors.
-Use ONLY IDs from the provided allowed_reference_index. Do NOT create new evidence IDs, do NOT reinterpret the market, and do NOT add new analytical claims unless required solely to make existing structure valid.`;
+Use ONLY IDs from the provided allowed_reference_index. Do NOT create new evidence IDs, do NOT reinterpret the market, and do NOT add new analytical claims unless required solely to make existing structure valid.
+When motion_attention is supplied, preserve exactly one motion_attention_assessment per supplied motion_id and keep each assessment grounded in its supplied packet_evidence_id.`;
 
   return {
     instructions: repairInstructions,
@@ -415,6 +436,7 @@ Use ONLY IDs from the provided allowed_reference_index. Do NOT create new eviden
       invalid_previous_output: invalidOutput,
       validation_errors: validationErrors,
       allowed_reference_index: allowedReferenceIndex,
+      motion_attention: motionAttention,
     },
   };
 }
@@ -927,6 +949,32 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           additionalProperties: false,
         },
       },
+      motion_attention_assessments: {
+        type: "array",
+        maxItems: 6,
+        items: {
+          type: "object",
+          properties: {
+            motion_id: { type: "string" },
+            decision: { type: "string", enum: ["ACCEPT", "REFINE", "UNRESOLVED", "REJECT"] },
+            reason: { type: "string" },
+            evidence_references: { type: "array", items: { type: "string" } },
+            story_implication: { type: ["string", "null"] },
+            regime_implication: { type: ["string", "null"] },
+            investigation_next: { type: ["string", "null"] },
+          },
+          required: [
+            "motion_id",
+            "decision",
+            "reason",
+            "evidence_references",
+            "story_implication",
+            "regime_implication",
+            "investigation_next",
+          ],
+          additionalProperties: false,
+        },
+      },
       diagnostics: {
         type: "object",
         properties: {
@@ -964,6 +1012,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       "thesis_ledger",
       "contradictions_detected",
       "research_gaps",
+      "motion_attention_assessments",
       "diagnostics",
     ],
     additionalProperties: false,

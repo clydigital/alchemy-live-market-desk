@@ -10,6 +10,7 @@ import {
 } from "../lib/dossier-v2/contracts.ts";
 import {
   buildMarketDossierV2InputFromResearchBrain,
+  buildResearchBrainMotionAttention,
   detectDossierSystem1StateTransitions,
   executeAndPersistDossierV2,
 } from "../lib/dossier-v2/execution.ts";
@@ -662,4 +663,70 @@ test("Task 8 mapper completes the bounded rates-led research agenda without publ
   assert.match(watchNext, /verified Trump.*Xi/i);
   assert.equal(persistedOutput.research_now.length, 3);
   assert.equal(persistedOutput.investigations.length, 2);
+});
+
+
+test("A2 Motion attention mapper admits only A1-qualified exact-evidence Motion", () => {
+  const packet = createPacket();
+  const context = {
+    available: true,
+    states: [],
+    stories: [],
+    warning: null,
+    motionActivations: [
+      {
+        id: "motion:eligible",
+        evidence_id: null,
+        research_run_id: "run-1",
+        packet_evidence_id: packet.observed_evidence[0].evidence_id,
+        primary_story_id: null,
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "VERIFIED",
+        headline: "Rates Motion",
+        what_happened: "Rates moved materially.",
+        market_reaction: "Long-end yields remained elevated.",
+        why_interesting: "Tests the current rate regime.",
+        big_picture_bridge: "Rates -> funding costs -> valuation.",
+        next_test: "Test long-end decomposition.",
+        materiality: 92,
+        relevance: 94,
+        novelty: 80,
+        occurred_at: "2026-09-20T00:30:00.000Z",
+        observed_at: "2026-09-20T00:40:00.000Z",
+        expires_at: "2026-09-22T00:40:00.000Z",
+        metadata: { itemKey: "eligible" },
+      },
+      {
+        id: "motion:unlinked",
+        evidence_id: null,
+        research_run_id: "run-1",
+        packet_evidence_id: "ev:not-in-packet",
+        primary_story_id: null,
+        primary_regime_slug: "global-cost-of-capital",
+        lifecycle_state: "MOTION",
+        verification_state: "VERIFIED",
+        headline: "Unlinked Motion",
+        what_happened: "A Motion exists without packet evidence.",
+        market_reaction: null,
+        why_interesting: "Should not reach System 2.",
+        big_picture_bridge: "Motion -> evidence gate.",
+        next_test: "Resolve evidence first.",
+        materiality: 99,
+        relevance: 99,
+        novelty: 99,
+        occurred_at: "2026-09-20T00:31:00.000Z",
+        observed_at: "2026-09-20T00:41:00.000Z",
+        expires_at: "2026-09-22T00:41:00.000Z",
+        metadata: { itemKey: "unlinked" },
+      },
+    ],
+  };
+
+  const attention = buildResearchBrainMotionAttention(context, packet);
+
+  assert.equal(attention.length, 1);
+  assert.equal(attention[0]?.motion_id, "motion:eligible");
+  assert.equal(attention[0]?.packet_evidence_id, packet.observed_evidence[0].evidence_id);
+  assert.equal(attention[0]?.primary_regime_slug, "global-cost-of-capital");
 });

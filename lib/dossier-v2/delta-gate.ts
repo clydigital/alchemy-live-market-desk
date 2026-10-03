@@ -66,6 +66,11 @@ export type DossierMotionActivation = {
   lifecycle_state: string;
   verification_state: string;
   headline: string;
+  what_happened: string;
+  market_reaction: string | null;
+  why_interesting: string;
+  big_picture_bridge: string;
+  next_test: string | null;
   materiality: number;
   relevance: number;
   novelty: number;
@@ -250,7 +255,7 @@ export async function loadDossierDeltaContext(
     const { data: motionRows, error: motionError } = await client
       .from("current_market_motion_items")
       .select(
-        "id,evidence_id,research_run_id,primary_story_id,primary_regime_slug,lifecycle_state,verification_state,headline,materiality,relevance,novelty,occurred_at,observed_at,expires_at,metadata",
+        "id,evidence_id,research_run_id,primary_story_id,primary_regime_slug,lifecycle_state,verification_state,headline,what_happened,market_reaction,why_interesting,big_picture_bridge,next_test,materiality,relevance,novelty,occurred_at,observed_at,expires_at,metadata",
       )
       .eq("lifecycle_state", "MOTION")
       .in("verification_state", ["REPORTED", "VERIFIED"])
@@ -413,7 +418,7 @@ export async function loadDossierDeltaContext(
   }
 }
 
-function eligibleMotionActivations(
+export function selectDossierMotionActivations(
   context: DossierDeltaContext,
   packet: DossierV2InputPacket,
 ): DossierMotionActivation[] {
@@ -476,7 +481,7 @@ export function decideDossierDelta({
 
   const relevant = changedRelevantStates(context, priorStoryIds);
   const changedStoryIds = relevant.map((state) => state.story_id);
-  const motionActivations = eligibleMotionActivations(context, packet);
+  const motionActivations = selectDossierMotionActivations(context, packet);
 
   if (relevant.length === 0 && motionActivations.length > 0) {
     return {

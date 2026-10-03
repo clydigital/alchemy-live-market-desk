@@ -1558,3 +1558,134 @@ test("11. Deterministic Degradation Fallback & Traceability", async () => {
   assert.equal(result.investigations[0].leads_referenced![0], "lead:oil:supply");
   assert.equal(result.thesis_ledger.entries.length, 1);
 });
+
+
+function motionAttentionFixture(packet: ReturnType<typeof createValidBasePacket>) {
+  return [{
+    motion_id: "motion:rates:1",
+    headline: "Long-end yields resist the softer inflation impulse",
+    what_happened: "The Motion framing says long-end pressure persisted despite softer inflation.",
+    market_reaction: "Rates remained elevated.",
+    why_interesting: "It tests whether the active rates regime is broader than inflation/Fed alone.",
+    big_picture_bridge: "Softer inflation -> persistent duration pressure -> funding costs -> valuation.",
+    next_test: "Separate real-yield, term-premium and supply channels.",
+    primary_story_id: "story:fed_easing",
+    primary_regime_slug: "global-cost-of-capital",
+    packet_evidence_id: packet.observed_evidence[0].evidence_id,
+    verification_state: "REPORTED" as const,
+    materiality: 92,
+    relevance: 94,
+    novelty: 84,
+  }];
+}
+
+test("Research Brain treats Motion framing as attention context rather than evidence", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  const validated = validateResearchBrainInput({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+    motion_attention: motionAttention,
+  });
+  const prompt = buildResearchBrainPrompt(validated);
+  const bounded = prompt.boundedInput as { motion_attention?: Array<Record<string, unknown>> };
+
+  assert.equal(validated.motion_attention?.length, 1);
+  assert.equal(bounded.motion_attention?.[0]?.motion_id, "motion:rates:1");
+  assert.equal(bounded.motion_attention?.[0]?.packet_evidence_id, packet.observed_evidence[0].evidence_id);
+  assert.match(prompt.instructions, /MOTION ATTENTION IS NOT EVIDENCE/);
+  assert.match(prompt.instructions, /ACCEPT only when current canonical evidence supports the Motion framing/);
+  assert.match(prompt.instructions, /do not themselves mutate a Story, Regime, thesis, or Motion lifecycle/);
+});
+
+test("Research Brain rejects Motion attention that does not resolve to current packet evidence", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  motionAttention[0].packet_evidence_id = "ev:not-in-packet";
+
+  assert.throws(
+    () => validateResearchBrainInput({
+      contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+      as_of: packet.as_of,
+      packet,
+      motion_attention: motionAttention,
+    }),
+    /packet_evidence_id.*current packet evidence/i,
+  );
+});
+
+test("Motion attention assessment must cite exact canonical evidence and cover every supplied Motion", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  const output = createValidOutput(packet);
+  output.motion_attention_assessments = [{
+    motion_id: motionAttention[0].motion_id,
+    decision: "REFINE",
+    reason: "The underlying development is observed, but the broader causal framing remains too strong.",
+    evidence_references: [motionAttention[0].packet_evidence_id],
+    story_implication: "Narrow the rates explanation to the evidence-supported channel.",
+    regime_implication: null,
+    investigation_next: "Test whether the long end remains firm after controlling for the inflation impulse.",
+  }];
+
+  const valid = validateResearchBrainOutput(output, packet, motionAttention);
+  assert.equal(valid.isValid, true, valid.errors.join("\n"));
+
+  const missing = structuredClone(output);
+  delete missing.motion_attention_assessments;
+  const missingValidation = validateResearchBrainOutput(missing, packet, motionAttention);
+  assert.equal(missingValidation.isValid, false);
+  assert.ok(missingValidation.errors.some((error) => /motion_attention_assessments is required/i.test(error)));
+
+  const wrongEvidence = structuredClone(output);
+  wrongEvidence.motion_attention_assessments![0].evidence_references = [packet.observed_evidence[1].evidence_id];
+  const wrongEvidenceValidation = validateResearchBrainOutput(wrongEvidence, packet, motionAttention);
+  assert.equal(wrongEvidenceValidation.isValid, false);
+  assert.ok(wrongEvidenceValidation.errors.some((error) => /exact canonical packet evidence/i.test(error)));
+});
+
+test("executeResearchBrain passes Motion attention to System 2 and persists its bounded assessment", async () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  const output = createValidOutput(packet);
+  output.motion_attention_assessments = [{
+    motion_id: motionAttention[0].motion_id,
+    decision: "ACCEPT",
+    reason: "Current canonical evidence supports using the Motion as a live analytical prompt.",
+    evidence_references: [motionAttention[0].packet_evidence_id],
+    story_implication: "The current Story should explicitly test the broader duration-pressure channel.",
+    regime_implication: "The rates regime remains restrictive pending stronger cross-asset confirmation.",
+    investigation_next: null,
+  }];
+
+  let seenAttention: unknown = null;
+  const result = await executeResearchBrain({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+    motion_attention: motionAttention,
+  }, {
+    allowRepair: false,
+    modelRunner: async ({ boundedInput }) => {
+      seenAttention = boundedInput.motion_attention;
+      return { data: output };
+    },
+  });
+
+  assert.ok(Array.isArray(seenAttention));
+  assert.equal((seenAttention as Array<{ motion_id: string }>)[0]?.motion_id, motionAttention[0].motion_id);
+  assert.equal(result.motion_attention_assessments?.[0]?.decision, "ACCEPT");
+});
+
+test("degraded Research Brain leaves Motion attention unresolved rather than accepting it", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  const degraded = produceDegradedOutput(packet, "forced failure", false, motionAttention);
+
+  assert.equal(degraded.motion_attention_assessments?.[0]?.decision, "UNRESOLVED");
+  assert.deepEqual(
+    degraded.motion_attention_assessments?.[0]?.evidence_references,
+    [motionAttention[0].packet_evidence_id],
+  );
+});
