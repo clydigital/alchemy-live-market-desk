@@ -59,6 +59,8 @@ export type DossierStoryRecord = {
 export type DossierMotionActivation = {
   id: string;
   evidence_id: string | null;
+  research_run_id: string | null;
+  packet_evidence_id: string | null;
   primary_story_id: string | null;
   primary_regime_slug: string | null;
   lifecycle_state: string;
@@ -70,6 +72,7 @@ export type DossierMotionActivation = {
   occurred_at: string;
   observed_at: string;
   expires_at: string;
+  metadata: Record<string, unknown>;
 };
 
 export type DossierDeltaContext = {
@@ -247,7 +250,7 @@ export async function loadDossierDeltaContext(
     const { data: motionRows, error: motionError } = await client
       .from("current_market_motion_items")
       .select(
-        "id,evidence_id,primary_story_id,primary_regime_slug,lifecycle_state,verification_state,headline,materiality,relevance,novelty,occurred_at,observed_at,expires_at",
+        "id,evidence_id,research_run_id,primary_story_id,primary_regime_slug,lifecycle_state,verification_state,headline,materiality,relevance,novelty,occurred_at,observed_at,expires_at,metadata",
       )
       .eq("lifecycle_state", "MOTION")
       .in("verification_state", ["REPORTED", "VERIFIED"])
@@ -267,7 +270,58 @@ export async function loadDossierDeltaContext(
       };
     }
 
-    const motionActivations = (motionRows ?? []) as DossierMotionActivation[];
+    const rawMotionRows = (motionRows ?? []) as Array<Omit<DossierMotionActivation, "packet_evidence_id">>;
+    const motionRunIds = [...new Set(
+      rawMotionRows
+        .map((row) => row.research_run_id)
+        .filter((value): value is string => Boolean(value)),
+    )];
+
+    const motionEvidenceByRunAndItem = new Map<string, string>();
+    if (motionRunIds.length > 0) {
+      const { data: motionEvidenceRows, error: motionEvidenceError } = await client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id,research_run_id,structured_payload")
+        .in("research_run_id", motionRunIds)
+        .limit(240);
+
+      if (motionEvidenceError) {
+        return {
+          available: false,
+          states: [],
+          stories: [],
+          motionActivations: [],
+          warning: `Failed to resolve Market Motion to canonical evidence: ${motionEvidenceError.message}`,
+        };
+      }
+
+      for (const row of motionEvidenceRows ?? []) {
+        if (typeof row.id !== "string" || typeof row.research_run_id !== "string") continue;
+        const payload = row.structured_payload && typeof row.structured_payload === "object" && !Array.isArray(row.structured_payload)
+          ? row.structured_payload as Record<string, unknown>
+          : {};
+        const itemKey = typeof payload.itemKey === "string" ? payload.itemKey.trim() : "";
+        if (!itemKey) continue;
+        const packetEvidenceId =
+          typeof row.external_evidence_id === "string" && row.external_evidence_id.trim()
+            ? row.external_evidence_id.trim()
+            : `ev:${row.id}`;
+        motionEvidenceByRunAndItem.set(`${row.research_run_id}:${itemKey}`, packetEvidenceId);
+      }
+    }
+
+    const motionActivations: DossierMotionActivation[] = rawMotionRows.map((row) => {
+      const itemKeys = [
+        typeof row.metadata?.itemKey === "string" ? row.metadata.itemKey.trim() : "",
+        ...stringArray(row.metadata?.originItemKeys),
+      ].filter(Boolean);
+      const packetEvidenceId = row.research_run_id
+        ? itemKeys
+            .map((itemKey) => motionEvidenceByRunAndItem.get(`${row.research_run_id}:${itemKey}`) ?? null)
+            .find((value): value is string => Boolean(value)) ?? null
+        : null;
+      return { ...row, packet_evidence_id: packetEvidenceId };
+    });
 
     const { data: states, error } = await client
       .from("intelligence_story_states")
@@ -366,10 +420,15 @@ function eligibleMotionActivations(
   const asOf = Date.parse(packet.as_of);
   if (!Number.isFinite(asOf)) return [];
 
+  const packetEvidenceIds = new Set([
+    ...packet.observed_evidence.map((item) => item.evidence_id),
+    ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
+  ]);
+
   return (context.motionActivations ?? [])
     .filter((item) => item.lifecycle_state === "MOTION")
     .filter((item) => item.verification_state === "REPORTED" || item.verification_state === "VERIFIED")
-    .filter((item) => Boolean(item.evidence_id))
+    .filter((item) => Boolean(item.packet_evidence_id && packetEvidenceIds.has(item.packet_evidence_id)))
     .filter((item) => item.materiality >= 80 && item.relevance >= 75)
     .filter((item) => {
       const expiry = Date.parse(item.expires_at);
@@ -419,10 +478,10 @@ export function decideDossierDelta({
   const changedStoryIds = relevant.map((state) => state.story_id);
   const motionActivations = eligibleMotionActivations(context, packet);
 
-  if (relevant.length === 0 && motionActivations.length > 0 && newEvidence > 0) {
+  if (relevant.length === 0 && motionActivations.length > 0) {
     return {
       action: "REBASE",
-      reason: `${motionActivations.length} fresh evidence-backed Market Motion candidate(s) require Dossier synthesis before Story promotion.`,
+      reason: `${motionActivations.length} fresh Market Motion candidate(s) linked to exact canonical packet evidence require Dossier synthesis before Story promotion.`,
       previousDossierId: previousDossier.id,
       previousAsOf: previousDossier.as_of,
       changedStoryIds: [],
