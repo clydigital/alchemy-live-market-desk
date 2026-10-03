@@ -21,6 +21,7 @@ const creatorLinkBackfillMigration = fs.readFileSync(
   "utf8",
 );
 const handler = fs.readFileSync(path.join(root, "lib", "transcript-worker-handler.ts"), "utf8");
+const workerRetrieval = fs.readFileSync(path.join(root, "lib", "transcript-worker-retrieval.ts"), "utf8");
 const worker = fs.readFileSync(path.join(root, "lib", "transcript-worker.ts"), "utf8");
 const store = fs.readFileSync(path.join(root, "lib", "supabase-transcript-worker-store.ts"), "utf8");
 const transcriptReview = fs.readFileSync(path.join(root, "lib", "transcript-research-review.ts"), "utf8");
@@ -79,8 +80,10 @@ test("the worker is authenticated, scheduled and separate from full-desk researc
   assert.match(handler, /claimHeadroomMs: DEFAULT_CLAIM_HEADROOM_MS/);
   assert.match(handler, /leaseSeconds: 300/);
   assert.match(handler, /maxAttempts: 6/);
-  assert.match(handler, /timeoutMs: 12_000/);
-  assert.match(handler, /retrieveSupadataVideo/);
+  assert.match(handler, /retrieveTranscriptForWorker/);
+  assert.match(workerRetrieval, /timeoutMs: 12_000/);
+  assert.match(workerRetrieval, /retrieveSupadataVideo/);
+  assert.match(workerRetrieval, /retrieveChromeYouTubeToTranscript/);
   assert.match(store, /canonicaliseIntake[\s\S]*new Set\(\[job\.itemKey\]\)/);
   assert.equal(
     vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "30 1 * * *"),
