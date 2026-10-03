@@ -245,6 +245,108 @@ function researchNowCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
   });
 }
 
+function dossierMotionAssessmentCandidates(
+  dossier: MarketDossierV2,
+): ResearchGapWorkCandidate[] {
+  const payload = object(dossier.payload);
+  const snapshots = Array.isArray(payload?.motion_attention_snapshot)
+    ? payload.motion_attention_snapshot
+    : [];
+  const analytical = analyticalOutput(dossier);
+  const assessments = Array.isArray(analytical?.motion_attention_assessments)
+    ? analytical.motion_attention_assessments
+    : [];
+
+  const assessmentByMotionId = new Map<string, Record<string, unknown>>();
+  for (const raw of assessments) {
+    const assessment = object(raw);
+    const motionId = clean(assessment?.motion_id);
+    if (assessment && motionId) assessmentByMotionId.set(motionId, assessment);
+  }
+
+  return snapshots.flatMap((raw) => {
+    const snapshot = object(raw);
+    if (!snapshot) return [];
+
+    const motionId = clean(snapshot.motion_id);
+    const assessment = assessmentByMotionId.get(motionId) ?? null;
+    if (!motionId || !assessment || assessment.decision !== "UNRESOLVED") return [];
+
+    const nextTest = clean(assessment.investigation_next) || clean(snapshot.next_test);
+    if (!nextTest) return [];
+
+    const storyId = clean(snapshot.primary_story_id) || null;
+    const regimeSlug = clean(snapshot.primary_regime_slug) || null;
+    const linkedStoryIds = storyId ? [storyId] : [];
+    const blockingRefs = [
+      `MOTION:${motionId}`,
+      ...(storyId ? [`STORY:${storyId}`] : []),
+      ...(regimeSlug ? [`REGIME:${regimeSlug}`] : []),
+    ];
+    const reason = clean(assessment.reason)
+      || clean(snapshot.why_interesting)
+      || clean(snapshot.big_picture_bridge)
+      || null;
+    const action = `Investigate unresolved Motion: ${nextTest}`;
+
+    const verificationState = snapshot.verification_state === "VERIFIED"
+      ? "VERIFIED"
+      : snapshot.verification_state === "REPORTED"
+        ? "REPORTED"
+        : "UNRESOLVED";
+    const materiality = Number.isFinite(snapshot.materiality) ? Number(snapshot.materiality) : 0;
+    const relevance = Number.isFinite(snapshot.relevance) ? Number(snapshot.relevance) : 0;
+    const novelty = Number.isFinite(snapshot.novelty) ? Number(snapshot.novelty) : 0;
+    const attention = deriveMarketMotionAttention({
+      materiality,
+      relevance,
+      novelty,
+      verificationState,
+      lifecycleState: "MOTION",
+      category: "OTHER",
+      marketReaction: clean(snapshot.market_reaction) || null,
+    });
+
+    return [{
+      workId: workId(dossier.id, "market_motion", motionId),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "market_motion",
+        sourceRef: motionId,
+        nativeId: motionId,
+        question: nextTest,
+        action,
+        reason,
+        evidenceNeeded: [nextTest],
+        linkedInvestigationIds: [],
+        linkedStoryIds,
+        blockingRefs,
+      }),
+      sourceKind: "market_motion" as const,
+      sourceRef: motionId,
+      dossierId: dossier.id,
+      dossierAsOf: dossier.as_of,
+      question: nextTest,
+      action,
+      reason,
+      evidenceNeeded: [nextTest],
+      linkedInvestigationIds: [],
+      linkedStoryIds,
+      blockingRefs,
+      nativeSignals: {
+        severity: null,
+        gapClass: null,
+        expectedInformationGain: null,
+        researchNowRank: null,
+        investigationStatus: null,
+        divergence: "UNRESOLVED",
+        motionAttentionTier: attention.tier,
+        motionAttentionScore: attention.score,
+        motionWritingPotential: attention.writingPotential,
+      },
+    }];
+  });
+}
+
 function marketMotionCandidates(
   dossier: MarketDossierV2,
   rows: MarketMotionRecord[],
@@ -400,7 +502,11 @@ export function buildResearchGapWorkQueue(
   const researchGaps = researchGapCandidates(dossier);
   const researchNow = researchNowCandidates(dossier);
   const investigations = investigationCandidates(dossier);
-  const motion = marketMotionCandidates(dossier, motionRows, now);
+  const promotedMotion = marketMotionCandidates(dossier, motionRows, now);
+  const unresolvedMotion = dossierMotionAssessmentCandidates(dossier);
+  const motion = [...new Map(
+    [...unresolvedMotion, ...promotedMotion].map((item) => [item.sourceRef, item] as const),
+  ).values()];
 
   // Preserve source-native ordering only. Deliberate cross-source prioritisation
   // belongs to the next worker stage so ingestion does not hide policy.
@@ -428,7 +534,7 @@ export function buildResearchGapWorkQueue(
       notes: [
         "This stage reads and normalises work only; it does not score, claim, research, resolve or mutate a gap.",
         "Native ranks, blocker labels, information-gain labels, investigation state and Motion attention are preserved for the prioritisation stage.",
-        "Only fresh PROMOTED Motion with an exact Story link and a concrete next_test can enter the Research Gap queue.",
+        "Fresh promoted Motion may enter through its exact canonical route; Dossier-assessed UNRESOLVED Motion may enter directly from the persisted Motion-attention snapshot when it carries a concrete investigation_next.",
       ],
     },
   };
