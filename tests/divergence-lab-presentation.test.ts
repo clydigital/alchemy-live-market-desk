@@ -104,6 +104,27 @@ test("unresolved zero-evidence structured candidates are compact rather than ren
   assert.equal(result.sharedDiscriminator, "Compare MOVE, credit, breadth and global duration.");
 });
 
+test("unresolved investigation with structured evidence still stays compact unresolved", () => {
+  const result = buildDivergenceLabPresentation(investigation({
+    candidateExplanations: [
+      {
+        rank: 1,
+        explanation: "Leadership is delaying broader transmission.",
+        evidenceForRefs: ["ev-credit"],
+        evidenceAgainstRefs: [],
+        confidence: "LOW",
+        discriminatingTest: "Compare breadth and credit persistence.",
+      },
+    ],
+  }));
+
+  assert.equal(result.mode, "compact_unresolved");
+  assert.deepEqual(result.candidates, []);
+  assert.deepEqual(result.alternatives.map((item) => item.explanation), [
+    "Leadership is delaying broader transmission.",
+  ]);
+});
+
 test("material investigation with real persisted candidates keeps the full Lab", () => {
   const source = investigation({
     divergence: "MATERIAL",
