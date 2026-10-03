@@ -82,10 +82,6 @@ function metricString(item: ObservedEvidence | null | undefined, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function metricBoolean(item: ObservedEvidence | null | undefined, key: string) {
-  const value = item?.metrics?.[key];
-  return typeof value === "boolean" ? value : null;
-}
 
 function latestByPrefix(packet: DossierV2InputPacket, prefix: string) {
   return packet.observed_evidence
@@ -231,7 +227,6 @@ export function buildRateGlobalDurationDiagnostic(
 
   const outwardLongDebt = metricNumber(mofFlows, "outward_long_term_debt_net_purchase_jpy_bn");
   const outwardTotal = metricNumber(mofFlows, "outward_total_net_purchase_jpy_bn");
-  const treasurySpecific = metricBoolean(mofFlows, "treasury_specific");
 
   const gaps: string[] = [];
   if (!jgb) gaps.push("Direct Japan MOF JGB constant-maturity evidence is unavailable.");
