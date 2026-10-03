@@ -56,6 +56,29 @@ export type TranscriptApiRetrieval = {
   transcript: TranscriptApiTranscript;
 };
 
+export type TranscriptPersistenceProvider = "transcriptapi" | "supadata" | "youtubetotranscript.com";
+
+export function transcriptProviderFromRetrieval(
+  retrieval: TranscriptApiRetrieval,
+): TranscriptPersistenceProvider | null {
+  const metadata = retrieval.transcript.metadata;
+  const retrievalProvider = typeof metadata.retrievalProvider === "string"
+    ? metadata.retrievalProvider.trim().toLowerCase()
+    : "";
+  const transcriptSource = typeof metadata.transcriptSource === "string"
+    ? metadata.transcriptSource.trim().toLowerCase()
+    : "";
+
+  if (retrievalProvider === "chrome_operator" || transcriptSource === "youtubetotranscript.com") {
+    return "youtubetotranscript.com";
+  }
+  if (retrievalProvider === "supadata" || transcriptSource === "native_caption") {
+    return "supadata";
+  }
+  if (retrievalProvider === "transcriptapi") return "transcriptapi";
+  return null;
+}
+
 export type TranscriptApiClientOptions = {
   fetchImpl?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;

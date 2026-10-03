@@ -8,7 +8,7 @@ import {
   type ClaimedTranscriptJob,
   type TranscriptWorkerStore,
 } from "../lib/transcript-worker.ts";
-import { TranscriptApiError, type TranscriptApiRetrieval } from "../lib/transcriptapi.ts";
+import { transcriptProviderFromRetrieval, TranscriptApiError, type TranscriptApiRetrieval } from "../lib/transcriptapi.ts";
 
 const start = new Date("2026-09-14T00:00:00.000Z");
 
@@ -104,7 +104,7 @@ class MemoryStore implements TranscriptWorkerStore {
   async saveTranscript(candidate: ClaimedTranscriptJob, value: TranscriptApiRetrieval) {
     assert.equal(this.owns(candidate), true);
     this.extractionSaves += 1;
-    this.current = { ...this.current, transcriptStatus: "ready", transcriptText: value.transcript.text, transcriptProvider: "supadata", videoReviewStatus: "transcript_only" };
+    this.current = { ...this.current, transcriptStatus: "ready", transcriptText: value.transcript.text, transcriptProvider: transcriptProviderFromRetrieval(value) ?? "supadata", videoReviewStatus: "transcript_only" };
   }
 
   async saveExtractionFailure(candidate: ClaimedTranscriptJob, error: TranscriptApiError, _at: string, next: string | null) {
@@ -219,6 +219,30 @@ test("an interpretation checkpoint resumes evidence only after an evidence failu
   assert.equal(calls.interpret, 0);
   assert.equal(store.evidenceWrites, 2);
   assert.equal(store.state, "completed");
+});
+
+test("browser fallback retrieval keeps its provider through interpretation and evidence", async () => {
+  const store = new MemoryStore();
+  store.state = "running";
+  store.current = job();
+  const browserRetrieval = retrieval();
+  browserRetrieval.transcript.metadata = {
+    retrievalProvider: "chrome_operator",
+    transcriptSource: "youtubetotranscript.com",
+    browserVerifiedYouTubePage: true,
+  };
+
+  const outcome = await processTranscriptJob({ ...store.current }, {
+    store,
+    now: () => start,
+    leaseSeconds: 300,
+    maxAttempts: 6,
+    extract: async () => browserRetrieval,
+    interpret: async () => review,
+  });
+
+  assert.equal(outcome.status, "completed");
+  assert.equal(store.current.transcriptProvider, "youtubetotranscript.com");
 });
 
 test("permanent transcript unavailability becomes explicitly blocked without retry", async () => {

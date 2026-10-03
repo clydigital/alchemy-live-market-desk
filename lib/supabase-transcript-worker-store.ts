@@ -14,7 +14,7 @@ import {
   type ClaimedTranscriptJob,
   type TranscriptWorkerStore,
 } from "./transcript-worker.ts";
-import type { TranscriptApiError, TranscriptApiRetrieval } from "./transcriptapi.ts";
+import { transcriptProviderFromRetrieval, type TranscriptApiError, type TranscriptApiRetrieval } from "./transcriptapi.ts";
 
 type ClaimedRow = {
   id: string;
@@ -111,9 +111,10 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
 
   async saveTranscript(job: ClaimedTranscriptJob, retrieval: TranscriptApiRetrieval, attemptedAt: string) {
     const transcript = retrieval.transcript;
+    const provider = transcriptProviderFromRetrieval(retrieval) ?? "supadata";
     await this.ownedUpdate(job, {
       transcript_status: "ready",
-      transcript_provider: "supadata",
+      transcript_provider: provider,
       transcript_text: transcript.text,
       transcript_language: transcript.language,
       transcript_segments: transcript.segments,
@@ -134,7 +135,7 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
       status: "blocked",
       review_reason: "Transcript persisted; structured creator review is pending.",
       updated_at: attemptedAt,
-    }, "Could not checkpoint the Supadata transcript");
+    }, `Could not checkpoint the ${provider} transcript`);
   }
 
   async saveExtractionFailure(

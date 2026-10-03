@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
 import {
   normalizeTranscriptApiError,
+  transcriptProviderFromRetrieval,
   TranscriptApiError,
   type TranscriptApiRetrieval,
 } from "./transcriptapi.ts";
@@ -168,7 +169,7 @@ export async function processTranscriptJob(
         ...job,
         transcriptStatus: "ready",
         transcriptText: retrieval.transcript.text,
-        transcriptProvider: "supadata",
+        transcriptProvider: transcriptProviderFromRetrieval(retrieval) ?? job.transcriptProvider ?? "supadata",
         transcriptAttemptCount: job.transcriptAttemptCount + 1,
         videoReviewStatus: "transcript_only",
       };
