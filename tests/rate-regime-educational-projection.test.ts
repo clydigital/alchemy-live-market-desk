@@ -347,6 +347,7 @@ test("historical educational projection stays valid when an old Dossier has no c
   assert.ok(projection);
   assert.equal(projection.ratePath, null);
   assert.equal(projection.globalDuration, null);
+  assert.equal(projection.transmission, null);
   assert.equal(projection.dossierId, "historical-pre-curve");
 });
 
@@ -512,4 +513,90 @@ test("educational projection keeps daily JGB, daily USDJPY, monthly TIC and week
   assert.equal(projection.globalDuration?.japanFlows.periodLabel, "2026/09/20-2026/09/26");
   assert.equal(projection.globalDuration?.japanFlows.outwardLongTermDebtNetPurchaseJpyBn, 420);
   assert.match(projection.globalDuration?.comparabilityDetail ?? "", /Do not merge/i);
+});
+
+
+test("educational projection exposes the same canonical rates-transmission state to Live and Hybrid", () => {
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [],
+    dossier: {
+      dossierId: "dossier-transmission",
+      asOf: "2026-10-03T01:05:00.000Z",
+      rateRegime: {
+        state: "HAWKISH",
+        nextMeetingRateOutlook: null,
+        fedWatchExpectedDirection: null,
+        trigger: null,
+        observedRatePricing: null,
+        observedConfirmation: null,
+        usRatesReaction: null,
+        usRatesInterpretation: null,
+        fredBacked: true,
+        evidenceRefs: ["market-monitor:hy-oas:2026-10-03", "market-monitor:ndx:2026-10-03"],
+        gaps: [],
+        crossAssetTransmission: {
+          contractVersion: "rate-cross-asset-transmission/1",
+          asOf: "2026-10-03T01:05:00.000Z",
+          state: "HIGH_RATES_CONTAINED",
+          ratePressure: {
+            restrictive: true,
+            easingImpulse: false,
+            nominal10yPct: 5.20,
+            nominal10yChange5dBp: 10,
+            real10yPct: 2.30,
+            real10yChange5dBp: 10,
+            detail: "Rates remain restrictive.",
+          },
+          gold: {
+            state: "PRESSURED_AS_EXPECTED",
+            goldChange5dPct: -1.5,
+            dxyChange5dPct: 0.5,
+            realYieldChange5dBp: 10,
+            detail: "Gold fell as real yields rose; observed alignment only.",
+            evidenceRefs: ["market-monitor:gold:2026-10-03"],
+          },
+          credit: {
+            state: "CONTAINED",
+            hyOasPct: 3.2,
+            hyOasChange5dBp: 2,
+            igOasPct: 0.9,
+            igOasChange5dBp: 1,
+            detail: "Credit spreads remain contained.",
+            evidenceRefs: ["market-monitor:hy-oas:2026-10-03"],
+          },
+          equityDuration: {
+            state: "RESILIENT",
+            spxChange5dPct: 1,
+            ndxChange5dPct: 1.2,
+            rspChange5dPct: 0.8,
+            iwmChange5dPct: 0.5,
+            smhChange5dPct: 1.5,
+            ndxVsRsp5dPct: 0.4,
+            smhVsNdx5dPct: 0.3,
+            detail: "Duration-sensitive equities remain resilient.",
+            evidenceRefs: ["market-monitor:ndx:2026-10-03", "market-monitor:rsp:2026-10-03"],
+          },
+          carry: {
+            state: "UNRESOLVED",
+            ustJgb10yGapChange5dBp: null,
+            usdJpyChange5dPct: null,
+            detail: "Carry evidence is incomplete.",
+            evidenceRefs: [],
+          },
+          detail: "High rates are currently being absorbed rather than producing broad credit stress.",
+          evidenceRefs: ["market-monitor:hy-oas:2026-10-03", "market-monitor:ndx:2026-10-03"],
+          gaps: ["Carry transmission lacks comparable evidence."],
+        },
+      },
+    },
+  });
+
+  assert.ok(projection?.transmission);
+  assert.equal(projection.transmission?.state, "HIGH_RATES_CONTAINED");
+  assert.equal(projection.transmission?.credit.state, "CONTAINED");
+  assert.equal(projection.transmission?.equityDuration.state, "RESILIENT");
+  assert.equal(projection.transmission?.ratePressure.restrictive, true);
+  assert.match(projection.transmission?.detail ?? "", /absorbed/i);
 });
