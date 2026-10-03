@@ -467,6 +467,7 @@ export function buildDossierRateRegime(
     ...curveEvidenceRefs,
     ...longEndDiagnostic.evidenceRefs,
     ...globalDurationDiagnostic.evidenceRefs,
+    ...crossAssetTransmission.evidenceRefs,
   ])];
 
   const drivers = signals
