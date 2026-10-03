@@ -188,18 +188,35 @@ function analyticalOutput(dossier: MarketDossierV2) {
 }
 
 
+function dossierMotionSnapshotIds(dossier: MarketDossierV2): Set<string> {
+  const payload = object(dossier.payload);
+  const rows = Array.isArray(payload?.motion_attention_snapshot)
+    ? payload.motion_attention_snapshot
+    : [];
+  return new Set(rows.flatMap((raw) => {
+    const item = object(raw);
+    const motionId = clean(item?.motion_id);
+    const evidenceId = clean(item?.packet_evidence_id);
+    return motionId && evidenceId ? [motionId] : [];
+  }));
+}
+
 function unresolvedMotionAssessmentIds(dossier: MarketDossierV2): string[] {
   const analytical = analyticalOutput(dossier);
   const assessments = Array.isArray(analytical?.motion_attention_assessments)
     ? analytical.motion_attention_assessments
     : [];
+  const snapshotIds = dossierMotionSnapshotIds(dossier);
 
   return [...new Set(assessments.flatMap((raw) => {
     const assessment = object(raw);
     if (!assessment || clean(assessment.decision) !== "UNRESOLVED") return [];
     const motionId = clean(assessment.motion_id);
     const investigationNext = clean(assessment.investigation_next);
-    return motionId && investigationNext ? [motionId] : [];
+    const evidenceRefs = strings(assessment.evidence_references);
+    return motionId && snapshotIds.has(motionId) && investigationNext && evidenceRefs.length
+      ? [motionId]
+      : [];
   }))];
 }
 
@@ -212,13 +229,15 @@ function unresolvedMotionCandidates(
   const assessments = Array.isArray(analytical?.motion_attention_assessments)
     ? analytical.motion_attention_assessments
     : [];
+  const snapshotIds = dossierMotionSnapshotIds(dossier);
   const assessmentByMotionId = new Map(
     assessments.flatMap((raw) => {
       const assessment = object(raw);
       if (!assessment || clean(assessment.decision) !== "UNRESOLVED") return [];
       const motionId = clean(assessment.motion_id);
       const investigationNext = clean(assessment.investigation_next);
-      if (!motionId || !investigationNext) return [];
+      const evidenceRefs = strings(assessment.evidence_references);
+      if (!motionId || !snapshotIds.has(motionId) || !investigationNext || !evidenceRefs.length) return [];
       return [[motionId, assessment] as const];
     }),
   );
