@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  assembleDossierV2InputPacket,
+  type CandidateSnapshot,
+} from "../lib/dossier-v2/input-packet.ts";
+import {
+  buildRateLongEndDiagnostic,
+  RATE_LONG_END_DIAGNOSTIC_VERSION,
+} from "../lib/dossier-v2/rate-long-end-diagnostic.ts";
+
+const AS_OF = "2026-10-03T08:00:00.000Z";
+
+function monitor(id: string, last: number, prior: number) {
+  return {
+    evidence_id: `market-monitor:${id}:2026-10-03`,
+    claim_or_fact: `${id} was ${last}.`,
+    category: "Rates",
+    source_type: "MARKET_DATA",
+    available_at: AS_OF,
+    occurrence_time: "2026-10-03T00:00:00.000Z",
+    metrics: {
+      last,
+      change_5d_pct: ((last / prior) - 1) * 100,
+      frequency: "daily",
+    },
+    provenance: [],
+  };
+}
+
+function packet(evidence: Array<Record<string, unknown>>) {
+  const snapshot: CandidateSnapshot = {
+    observed_evidence: evidence,
+    price_data: { status: "OK", available_at: AS_OF },
+    macro_data: { status: "OK", available_at: AS_OF },
+  };
+  return assembleDossierV2InputPacket({ as_of: AS_OF }, snapshot);
+}
+
+test("long-end diagnostic decomposes the observed 10Y move without assigning the residual to a cause", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("us10y-real", 2.30, 2.22),
+    monitor("us10y-breakeven", 3.00, 2.98),
+  ]));
+
+  assert.equal(result.contractVersion, RATE_LONG_END_DIAGNOSTIC_VERSION);
+  assert.equal(result.nominal10y.change5dBp, 10);
+  assert.equal(result.real10y.change5dBp, 8);
+  assert.equal(result.breakeven10y.change5dBp, 2);
+  assert.equal(result.observedDecomposition.accountedChangeBp, 10);
+  assert.equal(result.observedDecomposition.residualBp, 0);
+  assert.equal(result.observedDecomposition.state, "REAL_YIELD_LED");
+  assert.equal(result.termPremium.availability, "UNRESOLVED");
+  assert.match(result.termPremium.detail, /not sufficient evidence/i);
+});
+
+test("breakeven-led and mixed observed states remain descriptive rather than causal", () => {
+  const breakevenLed = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("us10y-real", 2.23, 2.22),
+    monitor("us10y-breakeven", 3.07, 2.98),
+  ]));
+  assert.equal(breakevenLed.observedDecomposition.state, "BREAKEVEN_LED");
+
+  const mixed = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("us10y-real", 2.27, 2.22),
+    monitor("us10y-breakeven", 3.03, 2.98),
+  ]));
+  assert.equal(mixed.observedDecomposition.state, "MIXED_OBSERVED");
+});
+
+test("governed term-premium evidence is admitted explicitly rather than inferred from the residual", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("us10y-real", 2.30, 2.22),
+    monitor("us10y-breakeven", 3.00, 2.98),
+    {
+      evidence_id: "official:term-premium:2026-10-03",
+      claim_or_fact: "Governed term-premium estimate was 0.82%.",
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: AS_OF,
+      occurrence_time: AS_OF,
+      metrics: {
+        signal_context: "term_premium",
+        observed_value: 0.82,
+        change_bps: 4.5,
+        provider_status: "OK",
+      },
+      provenance: [],
+    },
+  ]));
+
+  assert.equal(result.termPremium.availability, "OBSERVED");
+  assert.equal(result.termPremium.levelPct, 0.82);
+  assert.equal(result.termPremium.change5dBp, 4.5);
+  assert.ok(!result.gaps.some((gap) => /term-premium observation/i.test(gap)));
+});
+
+test("dealer balance-sheet evidence is exposed but remains directionless", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    {
+      evidence_id: "system1-dollar:dealer-balance-sheet:2026-10-01",
+      claim_or_fact: "NY Fed primary-dealer Treasury position and fails were updated.",
+      category: "DOLLAR_LIQUIDITY",
+      source_type: "OFFICIAL_DATA",
+      available_at: AS_OF,
+      occurrence_time: "2026-10-01T00:00:00.000Z",
+      metrics: {
+        treasury_net_position_millions: 125000,
+        treasury_net_position_weekly_change_millions: 15000,
+        fails_deliver_millions: 28000,
+        fails_receive_millions: 24000,
+        provider_status: "OK",
+      },
+      provenance: [],
+    },
+  ]));
+
+  assert.equal(result.marketStructure.dealerNetPositionMillions, 125000);
+  assert.equal(result.marketStructure.dealerNetPositionWeeklyChangeMillions, 15000);
+  assert.equal(result.marketStructure.failsDeliverMillions, 28000);
+  assert.match(result.marketStructure.detail, /intentionally uninterpreted/i);
+});
+
+test("auction evidence is visible for System 2 review but does not create a deterministic stress label", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    {
+      evidence_id: "verified-macro:treasury-auction:2026-10-03",
+      claim_or_fact: "The 10-year Treasury auction tailed by 2.1 bp with bid-to-cover at 2.2.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: AS_OF,
+      occurrence_time: AS_OF,
+      metrics: {
+        bid_to_cover: 2.2,
+        tail_bps: 2.1,
+      },
+      provenance: [],
+    },
+  ]));
+
+  assert.equal(result.marketStructure.auctionEvidenceRef, "verified-macro:treasury-auction:2026-10-03");
+  assert.match(result.marketStructure.detail, /System 2 review/);
+});
+
+test("MOVE is an explicit gap until canonical volatility evidence exists", () => {
+  const unresolved = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+  ]));
+  assert.equal(unresolved.volatility.moveEvidenceRef, null);
+  assert.ok(unresolved.gaps.some((gap) => /MOVE/));
+
+  const observed = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("move", 145, 138),
+  ]));
+  assert.equal(observed.volatility.level, 145);
+  assert.equal(observed.volatility.moveEvidenceRef, "market-monitor:move:2026-10-03");
+});
+
+test("missing real yield and breakeven does not invent a decomposition", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+  ]));
+
+  assert.equal(result.observedDecomposition.state, "NOMINAL_MOVE_ONLY");
+  assert.equal(result.observedDecomposition.accountedChangeBp, null);
+  assert.equal(result.observedDecomposition.residualBp, null);
+});
