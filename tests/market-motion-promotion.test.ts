@@ -1,15 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   MARKET_MOTION_PROMOTION_LIMIT,
   MARKET_MOTION_PROMOTION_MIN_MATERIALITY,
   MARKET_MOTION_PROMOTION_MIN_RELEVANCE,
+  MARKET_MOTION_DOSSIER_PROMOTION_POLICY,
+  marketMotionDossierPromotionInput,
   marketMotionPromotionInput,
+  selectDossierAcceptedPromotableMarketMotion,
   selectPromotableMarketMotion,
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
+import type { ResearchBrainMotionAssessment } from "../lib/dossier-v2/research-brain-contracts.ts";
 
 const NOW = new Date("2026-10-01T02:00:00Z");
 
@@ -113,4 +118,85 @@ test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
     ["promoted", "other-story"],
   );
+});
+
+
+function assessment(
+  decision: ResearchBrainMotionAssessment["decision"] = "ACCEPT",
+  overrides: Partial<ResearchBrainMotionAssessment> = {},
+): ResearchBrainMotionAssessment {
+  return {
+    motion_id: "motion-1",
+    decision,
+    reason: "Canonical Dossier evidence supports the Motion as current analytical context.",
+    evidence_references: ["research-intake:evidence-1"],
+    story_implication: "The linked Story should carry this accepted short-horizon development.",
+    regime_implication: "The development reinforces the current regime interpretation.",
+    investigation_next: null,
+    ...overrides,
+  };
+}
+
+test("B1 promotion authority requires a Dossier ACCEPT assessment rather than Story publication", () => {
+  const rows = [
+    record({ id: "accepted" }),
+    record({ id: "refined", motion_key: "intake:refined" }),
+    record({ id: "unresolved", motion_key: "intake:unresolved" }),
+    record({ id: "rejected", motion_key: "intake:rejected" }),
+    record({ id: "no-story", motion_key: "intake:no-story", primary_story_id: null }),
+    record({ id: "expired", motion_key: "intake:expired", expires_at: "2026-10-01T01:00:00Z" }),
+    record({ id: "weak", motion_key: "intake:weak", materiality: 79 }),
+  ];
+  const assessments = [
+    assessment("ACCEPT", { motion_id: "accepted" }),
+    assessment("REFINE", { motion_id: "refined" }),
+    assessment("UNRESOLVED", { motion_id: "unresolved", story_implication: null, regime_implication: null, investigation_next: "Test the unresolved branch." }),
+    assessment("REJECT", { motion_id: "rejected", story_implication: null, regime_implication: null }),
+    assessment("ACCEPT", { motion_id: "no-story" }),
+    assessment("ACCEPT", { motion_id: "expired" }),
+    assessment("ACCEPT", { motion_id: "weak" }),
+  ];
+
+  const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
+
+  assert.deepEqual(selected.map((item) => item.id), ["accepted"]);
+});
+
+test("B1 promoted version records Dossier acceptance as the authority", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment(),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.lifecycleState, "PROMOTED");
+  assert.equal(input.primaryStoryId, "story-1");
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.metadata?.promotionPolicy, MARKET_MOTION_DOSSIER_PROMOTION_POLICY);
+  assert.equal(input.metadata?.promotionDossierId, "dossier-123");
+  assert.equal(input.metadata?.promotionDecision, "ACCEPT");
+  assert.deepEqual(input.metadata?.promotionEvidenceRefs, ["research-intake:evidence-1"]);
+  assert.match(input.promotionReason || "", /Validated Dossier dossier-123 accepted this Motion/i);
+  assert.equal(
+    input.whyInteresting,
+    "The linked Story should carry this accepted short-horizon development.",
+  );
+});
+
+test("B1 refuses to promote REFINE until a corrected append-only Motion version exists", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record(),
+      assessment("REFINE"),
+      { dossierId: "dossier-123" },
+    ),
+    /requires an ACCEPT assessment/i,
+  );
+});
+
+test("B1 removes Story-change promotion from the canonical intelligence runtime", () => {
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(runtime, /promoteMarketMotionForPublishedStories/);
+  assert.doesNotMatch(runtime, /linked canonical Story changed in this intelligence run/);
 });
