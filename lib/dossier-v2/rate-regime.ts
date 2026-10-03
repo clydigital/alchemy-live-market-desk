@@ -462,6 +462,8 @@ export function buildDossierRateRegime(
   const evidenceRefs = [...new Set([
     ...signals.flatMap((item) => item.evidenceRefs),
     ...curveEvidenceRefs,
+    ...longEndDiagnostic.evidenceRefs,
+    ...globalDurationDiagnostic.evidenceRefs,
   ])];
 
   const drivers = signals
@@ -491,6 +493,8 @@ export function buildDossierRateRegime(
   const gaps = [
     ...missing.map((label) => `${label} is missing from persistent rate context.`),
     ...(primary?.gaps ?? []),
+    ...longEndDiagnostic.gaps,
+    ...globalDurationDiagnostic.gaps,
   ];
 
   return {
