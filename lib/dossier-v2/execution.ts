@@ -656,7 +656,7 @@ export async function executeAndPersistDossierV2(
     warnings: [],
   };
   if (analyticalOutput.motion_attention_assessments?.some(
-    (assessment) => assessment.decision === "ACCEPT",
+    (assessment) => assessment.decision === "ACCEPT" || assessment.decision === "REFINE",
   )) {
     try {
       motionPromotion = await promoteMarketMotionFromDossierAssessments({
