@@ -26,7 +26,7 @@ function monitor(id: string, last: number, prior: number) {
       change_5d_pct: ((last / prior) - 1) * 100,
       frequency: "daily",
     },
-    provenance: [],
+    provenance: [{ source_type: "TEST", source_id: `market-monitor:${id}` }],
   };
 }
 
@@ -92,7 +92,7 @@ test("governed term-premium evidence is admitted explicitly rather than inferred
         change_bps: 4.5,
         provider_status: "OK",
       },
-      provenance: [],
+      provenance: [{ source_type: "TEST", source_id: "fixture" }],
     },
   ]));
 
@@ -120,7 +120,7 @@ test("dealer balance-sheet evidence is exposed but remains directionless", () =>
         fails_receive_millions: 24000,
         provider_status: "OK",
       },
-      provenance: [],
+      provenance: [{ source_type: "TEST", source_id: "fixture" }],
     },
   ]));
 
@@ -145,7 +145,7 @@ test("auction evidence is visible for System 2 review but does not create a dete
         bid_to_cover: 2.2,
         tail_bps: 2.1,
       },
-      provenance: [],
+      provenance: [{ source_type: "TEST", source_id: "fixture" }],
     },
   ]));
 
