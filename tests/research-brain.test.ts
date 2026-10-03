@@ -1627,6 +1627,9 @@ test("Motion attention assessment must cite exact canonical evidence and cover e
     story_implication: "Narrow the rates explanation to the evidence-supported channel.",
     regime_implication: null,
     investigation_next: "Test whether the long end remains firm after controlling for the inflation impulse.",
+    refined_headline: "Long-end yields stay firm after softer inflation evidence",
+    refined_why_interesting: "The move keeps a duration-pressure question alive without proving the cause.",
+    refined_big_picture_bridge: "Softer inflation -> persistent long-end pressure -> test supply, real-yield and term-premium channels.",
   }];
 
   const valid = validateResearchBrainOutput(output, packet, motionAttention);
@@ -1643,6 +1646,12 @@ test("Motion attention assessment must cite exact canonical evidence and cover e
   const wrongEvidenceValidation = validateResearchBrainOutput(wrongEvidence, packet, motionAttention);
   assert.equal(wrongEvidenceValidation.isValid, false);
   assert.ok(wrongEvidenceValidation.errors.some((error) => /exact canonical packet evidence/i.test(error)));
+
+  const missingRefinement = structuredClone(output);
+  missingRefinement.motion_attention_assessments![0].refined_headline = null;
+  const missingRefinementValidation = validateResearchBrainOutput(missingRefinement, packet, motionAttention);
+  assert.equal(missingRefinementValidation.isValid, false);
+  assert.ok(missingRefinementValidation.errors.some((error) => /REFINE requires corrected headline/i.test(error)));
 });
 
 test("executeResearchBrain passes Motion attention to System 2 and persists its bounded assessment", async () => {
@@ -1657,6 +1666,9 @@ test("executeResearchBrain passes Motion attention to System 2 and persists its 
     story_implication: "The current Story should explicitly test the broader duration-pressure channel.",
     regime_implication: "The rates regime remains restrictive pending stronger cross-asset confirmation.",
     investigation_next: null,
+    refined_headline: null,
+    refined_why_interesting: null,
+    refined_big_picture_bridge: null,
   }];
 
   let seenAttention: unknown = null;
