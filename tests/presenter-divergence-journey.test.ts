@@ -163,6 +163,16 @@ test("Presenter journey falls back to compact competing prose without inventing 
   assert.deepEqual(item.fallbackCompetingExplanations, ["Positioning may have amplified the reversal."]);
 });
 
+test("Hybrid renders unresolved mechanisms compactly through the shared presentation classifier", () => {
+  const component = readFileSync(new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url), "utf8");
+
+  assert.match(component, /buildDivergenceLabPresentation/);
+  assert.match(component, /MECHANISM UNRESOLVED/);
+  assert.match(component, /Structured mechanism evidence was not preserved/);
+  assert.match(component, /Candidate-specific evidence not yet attached/);
+  assert.doesNotMatch(component, /None supplied/);
+});
+
 test("Hybrid Presenter surface stays read-only and does not call reasoning or Research Gap execution", () => {
   const page = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta.url), "utf8");
   const component = readFileSync(new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url), "utf8");
