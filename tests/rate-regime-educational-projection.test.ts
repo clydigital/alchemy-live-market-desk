@@ -269,3 +269,82 @@ test("Live and Hybrid render the same shared educational projection instead of c
   assert.doesNotMatch(projectionSource, /fetch\(|createSupabaseAdminClient|executeResearchBrain|runIntelligenceEngine/);
   assert.doesNotMatch(hybrid, /buildDossierRateRegime/);
 });
+
+
+test("educational projection exposes the canonical rate path when the Dossier contains the curve diagnostic", () => {
+  const baseRegime = ratesRegime();
+  const projection = buildRateEducationalProjection({
+    regime: baseRegime,
+    explanation,
+    investigations: [investigation()],
+    dossier: {
+      dossierId: "dossier-curve",
+      asOf: "2026-10-03T01:05:00.000Z",
+      rateRegime: {
+        state: "MIXED",
+        nextMeetingRateOutlook: "MORE_DOVISH",
+        fedWatchExpectedDirection: "HIKE_ODDS_DOWN",
+        trigger: null,
+        observedRatePricing: null,
+        observedConfirmation: null,
+        usRatesReaction: null,
+        usRatesInterpretation: null,
+        fredBacked: true,
+        evidenceRefs: ["market-monitor:us2y:2026-10-03", "market-monitor:us10y:2026-10-03"],
+        gaps: [],
+        curveDiagnostic: {
+          contractVersion: "rate-curve-diagnostic/1",
+          asOf: "2026-10-03T01:05:00.000Z",
+          points: [
+            { maturity: "2Y", yieldPct: 4.72, change5dBp: -18, direction5d: "DOWN", levelEvidenceRef: "market-monitor:us2y:2026-10-03", changeEvidenceRef: "market-monitor:us2y:2026-10-03" },
+            { maturity: "5Y", yieldPct: 4.90, change5dBp: -10, direction5d: "DOWN", levelEvidenceRef: "market-monitor:us5y-fred:2026-10-03", changeEvidenceRef: "market-monitor:us5y-fred:2026-10-03" },
+            { maturity: "10Y", yieldPct: 5.26, change5dBp: 6, direction5d: "UP", levelEvidenceRef: "market-monitor:us10y:2026-10-03", changeEvidenceRef: "market-monitor:us10y:2026-10-03" },
+            { maturity: "20Y", yieldPct: 5.60, change5dBp: 5, direction5d: "UP", levelEvidenceRef: "market-monitor:us20y-fred:2026-10-03", changeEvidenceRef: "market-monitor:us20y-fred:2026-10-03" },
+            { maturity: "30Y", yieldPct: 5.66, change5dBp: 6, direction5d: "UP", levelEvidenceRef: "market-monitor:us30y-fred:2026-10-03", changeEvidenceRef: "market-monitor:us30y-fred:2026-10-03" },
+          ],
+          spreads: [
+            { key: "2s5s", bps: 18, change5dBp: 8 },
+            { key: "2s10s", bps: 54, change5dBp: 24 },
+            { key: "2s20s", bps: 88, change5dBp: 23 },
+            { key: "2s30s", bps: 94, change5dBp: 24 },
+            { key: "5s10s", bps: 36, change5dBp: 16 },
+            { key: "5s30s", bps: 76, change5dBp: 16 },
+            { key: "10s30s", bps: 40, change5dBp: 0 },
+          ],
+          shape: "POSITIVE",
+          moveClass: "DIVERGENT_STEEPENING",
+          separationState: "FRONT_END_EASING_LONG_END_STICKY",
+          frontEndDirection: "DOWN",
+          longEndDirection: "UP",
+          frontEndChange5dBp: -18,
+          longEndAverageChange5dBp: 5.7,
+          detail: "2Y eased while the long end rose.",
+          evidenceRefs: ["market-monitor:us2y:2026-10-03", "market-monitor:us10y:2026-10-03"],
+          coverage: { present: 5, total: 5, missing: [] },
+        },
+      },
+    },
+  });
+
+  assert.ok(projection?.ratePath);
+  assert.equal(projection.ratePath?.moveClass, "DIVERGENT_STEEPENING");
+  assert.equal(projection.ratePath?.separationState, "FRONT_END_EASING_LONG_END_STICKY");
+  assert.equal(projection.ratePath?.points.length, 5);
+  assert.equal(projection.ratePath?.spreads.find((item) => item.key === "2s30s")?.bps, 94);
+});
+
+test("historical educational projection stays valid when an old Dossier has no curve diagnostic", () => {
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [],
+    dossier: {
+      dossierId: "historical-pre-curve",
+      asOf: "2026-09-20T01:05:00.000Z",
+    },
+  });
+
+  assert.ok(projection);
+  assert.equal(projection.ratePath, null);
+  assert.equal(projection.dossierId, "historical-pre-curve");
+});

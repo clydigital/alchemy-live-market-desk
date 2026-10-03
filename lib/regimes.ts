@@ -467,6 +467,13 @@ function rateStateLabel(state: DossierPresentationV1["rateRegime"]["state"]) {
   return "Unresolved";
 }
 
+function rateDirectionLabel(value: "UP" | "DOWN" | "FLAT" | "UNRESOLVED") {
+  if (value === "UP") return "Restrictive / tighter";
+  if (value === "DOWN") return "Easing";
+  if (value === "FLAT") return "Flat";
+  return "Unresolved";
+}
+
 function signalSubgroup(key: string) {
   if (key === "POLICY" || key === "FRONT_END") return "fed-front-end";
   if (key === "TREASURY_SUPPLY") return "treasury-fiscal";
@@ -628,6 +635,34 @@ export function buildRegimeProjection(input: {
             detail: input.dossier.rateRegime.curve.detail,
             asOf: input.dossier.rateRegime.asOf || input.dossier.asOf,
             source: input.dossier.rateRegime.contractVersion || "rate-regime",
+          });
+        }
+        if (input.dossier.rateRegime.curveDiagnostic && subgroup.key === "fed-front-end") {
+          telemetry.push({
+            key: "RATE_PATH_FRONT_END",
+            label: "Front-end curve path",
+            state: rateDirectionLabel(input.dossier.rateRegime.curveDiagnostic.frontEndDirection),
+            detail: `2Y 5D move ${input.dossier.rateRegime.curveDiagnostic.frontEndChange5dBp === null ? "unavailable" : `${input.dossier.rateRegime.curveDiagnostic.frontEndChange5dBp >= 0 ? "+" : ""}${input.dossier.rateRegime.curveDiagnostic.frontEndChange5dBp.toFixed(1)} bp`}. ${input.dossier.rateRegime.curveDiagnostic.separationState.replaceAll("_", " ").toLowerCase()}.`,
+            asOf: input.dossier.rateRegime.curveDiagnostic.asOf,
+            source: input.dossier.rateRegime.curveDiagnostic.contractVersion,
+          });
+        }
+        if (input.dossier.rateRegime.curveDiagnostic && subgroup.key === "long-end") {
+          telemetry.push({
+            key: "RATE_PATH_LONG_END",
+            label: "Long-end curve path",
+            state: rateDirectionLabel(input.dossier.rateRegime.curveDiagnostic.longEndDirection),
+            detail: input.dossier.rateRegime.curveDiagnostic.detail,
+            asOf: input.dossier.rateRegime.curveDiagnostic.asOf,
+            source: input.dossier.rateRegime.curveDiagnostic.contractVersion,
+          });
+          telemetry.push({
+            key: "CURVE_MOVE_CLASS",
+            label: "Curve move class",
+            state: input.dossier.rateRegime.curveDiagnostic.moveClass.replaceAll("_", " "),
+            detail: `Front-end vs long-end: ${input.dossier.rateRegime.curveDiagnostic.separationState.replaceAll("_", " ").toLowerCase()}.`,
+            asOf: input.dossier.rateRegime.curveDiagnostic.asOf,
+            source: input.dossier.rateRegime.curveDiagnostic.contractVersion,
           });
         }
         if (subgroup.key === "credit-financing" && input.dossier.dollarLiquidity) {

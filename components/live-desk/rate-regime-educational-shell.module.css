@@ -9,6 +9,7 @@
 .catalyst,
 .test,
 .explanation,
+.ratePath,
 .board,
 .education {
   border: 1px solid rgba(184, 172, 216, .15);
@@ -102,6 +103,7 @@
 .catalyst,
 .test,
 .explanation,
+.ratePath,
 .board,
 .education {
   padding: 14px;
@@ -122,6 +124,7 @@
 .catalyst p,
 .test p,
 .explanation p,
+.ratePath p,
 .row p,
 .education p {
   margin: 0;
@@ -133,6 +136,7 @@
 .catalyst small,
 .test small,
 .explanation small,
+.ratePath small,
 .board small,
 .education small,
 .row small {
@@ -233,6 +237,106 @@
 
   .grid,
   .boardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ratePath {
+  display: grid;
+  gap: 12px;
+  border-color: rgba(111, 168, 255, .22);
+}
+
+.ratePath > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ratePath h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.pathBadges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.pathBadges span {
+  padding: 5px 7px;
+  border: 1px solid rgba(111, 168, 255, .18);
+  border-radius: 999px;
+  color: #9fc9ff;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.curveGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.curvePoint {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid rgba(111, 168, 255, .12);
+  border-radius: 9px;
+  background: rgba(17, 24, 43, .35);
+}
+
+.curvePoint small {
+  color: #8fa4c1;
+  font-weight: 800;
+}
+
+.curvePoint strong {
+  font-size: 13px;
+}
+
+.curvePoint span {
+  color: #908a9d;
+  font-size: 9px;
+}
+
+.spreadGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.spread {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-top: 1px solid rgba(184, 172, 216, .1);
+}
+
+.spread strong,
+.spread span {
+  font-size: 10px;
+}
+
+@media (max-width: 950px) {
+  .ratePath > header {
+    flex-direction: column;
+  }
+
+  .pathBadges {
+    justify-content: flex-start;
+  }
+
+  .curveGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .spreadGrid {
     grid-template-columns: 1fr;
   }
 }

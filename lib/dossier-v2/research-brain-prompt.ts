@@ -179,6 +179,20 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
       confidence: system1RateRegime.confidence,
       summary: system1RateRegime.summary,
       curve: system1RateRegime.curve,
+      curve_diagnostic: {
+        contract_version: system1RateRegime.curveDiagnostic.contractVersion,
+        shape: system1RateRegime.curveDiagnostic.shape,
+        move_class: system1RateRegime.curveDiagnostic.moveClass,
+        separation_state: system1RateRegime.curveDiagnostic.separationState,
+        front_end_direction: system1RateRegime.curveDiagnostic.frontEndDirection,
+        long_end_direction: system1RateRegime.curveDiagnostic.longEndDirection,
+        front_end_change_5d_bp: system1RateRegime.curveDiagnostic.frontEndChange5dBp,
+        long_end_average_change_5d_bp: system1RateRegime.curveDiagnostic.longEndAverageChange5dBp,
+        spreads: system1RateRegime.curveDiagnostic.spreads
+          .filter((item) => item.key === "2s10s" || item.key === "2s30s")
+          .map((item) => ({ key: item.key, bps: item.bps, change_5d_bp: item.change5dBp })),
+        evidence_refs: system1RateRegime.curveDiagnostic.evidenceRefs.slice(0, 8),
+      },
       drivers: system1RateRegime.drivers.slice(0, 3),
       contradictions: system1RateRegime.contradictions.slice(0, 2),
       evidence_refs: system1RateRegime.evidenceRefs.slice(0, 8),

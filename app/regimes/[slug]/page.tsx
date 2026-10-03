@@ -53,7 +53,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
     regime,
     explanation,
     investigations,
-    dossier: dossier ? { dossierId: dossier.dossierId, asOf: dossier.asOf } : null,
+    dossier: dossier ? { dossierId: dossier.dossierId, asOf: dossier.asOf, rateRegime: dossier.rateRegime } : null,
   });
 
   return (

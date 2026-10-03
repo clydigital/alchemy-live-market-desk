@@ -108,7 +108,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         regime: focusedRegime,
         explanation: getRegimeExplanation(focusedRegime.slug),
         investigations: routedInvestigations,
-        dossier: { dossierId: dossier.dossierId, asOf: dossier.asOf },
+        dossier: { dossierId: dossier.dossierId, asOf: dossier.asOf, rateRegime: dossier.rateRegime },
       })
     : null;
   const preferredStoryId = (focusedStory || focusedEventStory)?.id || null;

@@ -2,6 +2,15 @@ import type { RateEducationalProjection } from "@/lib/rate-regime-educational-pr
 
 import styles from "./rate-regime-educational-shell.module.css";
 
+function formatBp(value: number | null) {
+  if (value === null) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)} bp`;
+}
+
+function formatPct(value: number | null) {
+  return value === null ? "n/a" : `${value.toFixed(2)}%`;
+}
+
 function dateLabel(value: string | null) {
   if (!value) return "No current timestamp";
   const date = new Date(value);
@@ -100,6 +109,43 @@ export default function RateRegimeEducationalShell({
           ))}
         </div>
       </article>
+
+      {projection.ratePath ? (
+        <article className={styles.ratePath}>
+          <header>
+            <div>
+              <span className={styles.kicker}>RATE PATH DIAGNOSTIC · SYSTEM 1</span>
+              <h3>Front end versus long end</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.ratePath.moveClass.replaceAll("_", " ")}</span>
+              <span>{projection.ratePath.separationState.replaceAll("_", " ")}</span>
+            </div>
+          </header>
+          <p>{projection.ratePath.detail}</p>
+          <div className={styles.curveGrid}>
+            {projection.ratePath.points.map((point) => (
+              <div className={styles.curvePoint} key={point.maturity}>
+                <small>{point.maturity}</small>
+                <strong>{formatPct(point.yieldPct)}</strong>
+                <span>{formatBp(point.change5dBp)} · 5D</span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.spreadGrid}>
+            {projection.ratePath.spreads.map((spread) => (
+              <div className={styles.spread} key={spread.key}>
+                <strong>{spread.key}</strong>
+                <span>{formatBp(spread.bps)}</span>
+                <small>{spread.change5dBp === null ? "No 5D slope change" : `${formatBp(spread.change5dBp)} 5D slope change`}</small>
+              </div>
+            ))}
+          </div>
+          <small>
+            Front end {projection.ratePath.frontEndDirection.toLowerCase()} ({formatBp(projection.ratePath.frontEndChange5dBp)}) · long end {projection.ratePath.longEndDirection.toLowerCase()} ({formatBp(projection.ratePath.longEndAverageChange5dBp)} average) · as of {dateLabel(projection.ratePath.asOf)}.
+          </small>
+        </article>
+      ) : null}
 
       <article className={styles.board}>
         <header>

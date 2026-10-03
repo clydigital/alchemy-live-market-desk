@@ -5,6 +5,7 @@ import type {
   System1DollarLiquiditySnapshot,
 } from "./system1-dollar-liquidity.ts";
 import type { System1ReactionAssessment, System1ReactionPathPoint } from "./system1-divergence.ts";
+import type { RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -67,6 +68,7 @@ export type DossierRateRegime = {
     detail: string;
     evidenceRefs: string[];
   };
+  curveDiagnostic?: RateCurveDiagnostic;
   signals?: Array<{
     key: string;
     label: string;
