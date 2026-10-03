@@ -75,13 +75,14 @@ function severity(value: RoutedDossierInvestigation["divergence"]) {
   return 0;
 }
 
-function validTime(value: string | null | undefined) {
-  const parsed = value ? Date.parse(value) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function subgroupByKey(regime: ProjectedRegime, key: string) {
   return regime.subgroups.find((item) => item.key === key) ?? null;
+}
+
+function firstSentence(value: string) {
+  const clean = value.trim().replace(/\s+/g, " ");
+  const match = clean.match(/^.*?[.!?](?:\s|$)/);
+  return (match?.[0] || clean).trim();
 }
 
 function laymanState(subgroup: ProjectedRegimeSubgroup | null) {
@@ -157,7 +158,7 @@ export function buildRateEducationalProjection(input: {
   const quickRead = [
     `Short-term Fed-sensitive rates are ${laymanState(frontEnd)}, while longer-term Treasury pressure is ${laymanState(longEnd)}.`,
     investigation?.currentExplanation
-      ? `The desk's current accepted explanation is: ${investigation.currentExplanation}`
+      ? `The desk's current accepted explanation is: ${firstSentence(investigation.currentExplanation)}`
       : "The reason for any gap between those two paths is still being tested rather than assumed.",
   ];
 
