@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import RegimeUnderstandLiveBridge from "./RegimeUnderstandLiveBridge";
+import RateRegimeEducationalShell from "./RateRegimeEducationalShell";
 
 import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
 import { investigationMatchesRegimeSubgroup, type RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
+import type { RateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildUnderstandLiveBridge } from "@/lib/regime-understand-live-bridge";
 import type { ProjectedRegime } from "@/lib/regimes";
 import styles from "./regime-workspace.module.css";
@@ -34,6 +36,7 @@ export default function RegimeDetailWorkspace({
   explanation,
   liveReasoning,
   investigations,
+  rateEducation,
 }: {
   regime: ProjectedRegime;
   initialSubgroup?: string | null;
@@ -41,6 +44,7 @@ export default function RegimeDetailWorkspace({
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
   investigations: RoutedDossierInvestigation[];
+  rateEducation: RateEducationalProjection | null;
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
     ? initialSubgroup!
@@ -122,6 +126,8 @@ export default function RegimeDetailWorkspace({
           <Link href="/stories">Open all Stories →</Link>
         </div>
       </section>
+
+      {rateEducation ? <RateRegimeEducationalShell projection={rateEducation} /> : null}
 
       <nav className={styles.viewSwitch} aria-label="Regime workspace view">
         <button type="button" data-active={view === "understand"} onClick={() => setView("understand")}>
