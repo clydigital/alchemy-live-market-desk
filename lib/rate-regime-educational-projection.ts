@@ -39,6 +39,20 @@ export type RateEducationalProjection = {
     subgroupKey: string;
     subgroupLabel: string;
   } | null;
+  longEnd: {
+    observedState: string;
+    nominal10y: { levelPct: number | null; change5dBp: number | null };
+    real10y: { levelPct: number | null; change5dBp: number | null };
+    breakeven10y: { levelPct: number | null; change5dBp: number | null };
+    accountedChangeBp: number | null;
+    residualBp: number | null;
+    termPremiumAvailability: string;
+    termPremiumDetail: string;
+    marketStructureDetail: string;
+    volatilityDetail: string;
+    gaps: string[];
+    asOf: string;
+  } | null;
   ratePath: {
     shape: string;
     moveClass: string;
@@ -265,6 +279,29 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    longEnd: dossier?.rateRegime?.longEndDiagnostic ? {
+      observedState: dossier.rateRegime.longEndDiagnostic.observedDecomposition.state,
+      nominal10y: {
+        levelPct: dossier.rateRegime.longEndDiagnostic.nominal10y.levelPct,
+        change5dBp: dossier.rateRegime.longEndDiagnostic.nominal10y.change5dBp,
+      },
+      real10y: {
+        levelPct: dossier.rateRegime.longEndDiagnostic.real10y.levelPct,
+        change5dBp: dossier.rateRegime.longEndDiagnostic.real10y.change5dBp,
+      },
+      breakeven10y: {
+        levelPct: dossier.rateRegime.longEndDiagnostic.breakeven10y.levelPct,
+        change5dBp: dossier.rateRegime.longEndDiagnostic.breakeven10y.change5dBp,
+      },
+      accountedChangeBp: dossier.rateRegime.longEndDiagnostic.observedDecomposition.accountedChangeBp,
+      residualBp: dossier.rateRegime.longEndDiagnostic.observedDecomposition.residualBp,
+      termPremiumAvailability: dossier.rateRegime.longEndDiagnostic.termPremium.availability,
+      termPremiumDetail: dossier.rateRegime.longEndDiagnostic.termPremium.detail,
+      marketStructureDetail: dossier.rateRegime.longEndDiagnostic.marketStructure.detail,
+      volatilityDetail: dossier.rateRegime.longEndDiagnostic.volatility.detail,
+      gaps: [...dossier.rateRegime.longEndDiagnostic.gaps],
+      asOf: dossier.rateRegime.longEndDiagnostic.asOf,
+    } : null,
     ratePath: dossier?.rateRegime?.curveDiagnostic ? {
       shape: dossier.rateRegime!.curveDiagnostic!.shape,
       moveClass: dossier.rateRegime!.curveDiagnostic!.moveClass,
