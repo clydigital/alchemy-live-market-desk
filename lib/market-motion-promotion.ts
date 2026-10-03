@@ -81,7 +81,8 @@ export function selectDossierAcceptedPromotableMarketMotion(
       return Boolean(
         assessment
         && assessment.evidence_references.length > 0
-        && assessment.reason.trim(),
+        && assessment.reason.trim()
+        && assessment.story_implication?.trim(),
       );
     })
     .sort((left, right) => {
@@ -112,6 +113,9 @@ export function marketMotionDossierPromotionInput(
   }
   if (!assessment.evidence_references.length) {
     throw new Error("Dossier Motion promotion requires canonical evidence references.");
+  }
+  if (!assessment.story_implication?.trim()) {
+    throw new Error("B1 Dossier Motion promotion requires an accepted Story implication.");
   }
 
   return {
