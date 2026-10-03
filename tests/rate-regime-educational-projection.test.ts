@@ -270,6 +270,54 @@ test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without i
   assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["10Y real yield"]);
 });
 
+test("projection carries canonical dollar-liquidity context without inventing a Treasury-liquidity equivalence", () => {
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [investigation()],
+    dossier: {
+      dossierId: "dossier-liquidity",
+      asOf: "2026-10-03T01:05:00.000Z",
+      dollarLiquidity: {
+        contractVersion: "system1-dollar-liquidity/1",
+        asOf: "2026-10-03T01:05:00.000Z",
+        state: "MIXED",
+        score: 0,
+        confidence: "HIGH",
+        summary: "Dollar-liquidity signals are mixed.",
+        components: [
+          { key: "FUNDING", label: "Secured funding", direction: "TIGHTER", score: 1, detail: "SOFR is above EFFR.", evidenceRefs: ["ev:funding"] },
+          { key: "FRONT_END_COLLATERAL", label: "Front-end / collateral", direction: "NEUTRAL", score: 0, detail: "Bills are near EFFR.", evidenceRefs: ["ev:bills"] },
+          { key: "CREDIT", label: "Credit transmission", direction: "EASIER", score: -1, detail: "HY OAS narrowed.", evidenceRefs: ["ev:credit"] },
+          { key: "USD", label: "US dollar", direction: "NEUTRAL", score: 0, detail: "Dollar trend is neutral.", evidenceRefs: ["ev:usd"] },
+          { key: "BALANCE_SHEET", label: "Dealer balance sheet", direction: "UNRESOLVED", score: 0, detail: "Direction remains unresolved.", evidenceRefs: ["ev:dealers"] },
+          { key: "OFFSHORE_USD", label: "Offshore USD", direction: "UNRESOLVED", score: 0, detail: "Cross-currency basis is unavailable.", evidenceRefs: [] },
+        ],
+        drivers: ["Secured funding: tighter"],
+        contradictions: ["Tightening: Secured funding.", "Easing: Credit transmission."],
+        evidenceRefs: ["ev:funding", "ev:bills", "ev:credit", "ev:usd", "ev:dealers"],
+        coverage: { resolved: 4, scoredTotal: 4, offshoreUsd: "UNRESOLVED" },
+        gaps: ["Offshore USD / cross-currency basis is not yet normalized."],
+      },
+      policyLiquidityInteraction: {
+        policyState: "MIXED",
+        liquidityState: "MIXED",
+        alignment: "UNRESOLVED",
+        priority: "LOW",
+        escalateToBrain: false,
+        question: "No material policy-versus-liquidity divergence requires escalation.",
+      },
+    },
+  })!;
+
+  assert.equal(projection.dollarLiquidityContext?.state, "MIXED");
+  assert.equal(projection.dollarLiquidityContext?.confidence, "HIGH");
+  assert.equal(projection.dollarLiquidityContext?.components.length, 6);
+  assert.equal(projection.dollarLiquidityContext?.components.find((item) => item.key === "OFFSHORE_USD")?.direction, "UNRESOLVED");
+  assert.equal(projection.dollarLiquidityContext?.policyInteraction?.alignment, "UNRESOLVED");
+  assert.match(projection.dollarLiquidityContext?.gaps[0] ?? "", /cross-currency basis/i);
+});
+
 test("growth-semis cross-check uses SMH without broadening it into QQQ or broad equities", () => {
   const item = investigation();
   item.reactionChecks = [{
@@ -365,6 +413,7 @@ test("projection fails closed when the current Dossier has no exact linked inves
   assert.equal(projection.dominantDriver, null);
   assert.equal(projection.goldCrossCheck, null);
   assert.equal(projection.growthSemisCrossCheck, null);
+  assert.equal(projection.dollarLiquidityContext, null);
   assert.match(projection.quickRead[1], /still being tested rather than assumed/);
 });
 
