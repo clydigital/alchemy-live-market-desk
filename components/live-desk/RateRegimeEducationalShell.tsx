@@ -46,7 +46,7 @@ export default function RateRegimeEducationalShell({
 
       <div className={styles.grid}>
         <article className={styles.catalyst}>
-          <span className={styles.kicker}>LATEST RATE CATALYST</span>
+          <span className={styles.kicker}>{projection.latestCatalyst?.interpretationPending ? "LATEST OBSERVED RATE INPUT" : "LATEST RATE CATALYST"}</span>
           {projection.latestCatalyst ? (
             <>
               <h3>{projection.latestCatalyst.title}</h3>
