@@ -536,3 +536,52 @@ test("rate regime carries bounded global duration and foreign-demand evidence wi
   assert.ok(regime.evidenceRefs.includes("global-rates:tic:2026-07"));
   assert.ok(regime.evidenceRefs.includes("global-rates:japan-mof-flows:2026-09-15-09-21"));
 });
+
+
+test("rate regime carries deterministic cross-asset transmission without promoting it into a trade verdict", () => {
+  const market = (
+    id: string,
+    last: number,
+    prior: number,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    evidence_id: `market-monitor:${id}:2026-09-24`,
+    claim_or_fact: `${id} was ${last}.`,
+    category: "Market",
+    source_type: "MARKET_DATA",
+    available_at: AVAILABLE_AT,
+    occurrence_time: "2026-09-24T00:00:00.000Z",
+    grouping_key: id === "hy-oas" || id === "ig-oas" ? "market-monitor:credit-oas" : `market-monitor:${id}`,
+    metrics: {
+      last,
+      change_5d_pct: ((last / prior) - 1) * 100,
+      frequency: "daily",
+      ...extra,
+    },
+    provenance: [{ source_type: "MARKET_DATA", source_id: `market-monitor:${id}` }],
+  });
+
+  const input = packet([
+    fred("us10y-fred", 5.20, ((5.20 / 5.10) - 1) * 100),
+    fred("us10y-real", 2.30, ((2.30 / 2.20) - 1) * 100),
+    fred("us10y-breakeven", 3.00, 0),
+    market("gold", 100, 101.5),
+    market("dxy", 100.5, 100),
+    market("hy-oas", 3.20, 3.18, { spread_level_pct: 3.20 }),
+    market("ig-oas", 0.90, 0.89, { spread_level_pct: 0.90 }),
+    market("spx", 101, 100),
+    market("ndx", 101.2, 100),
+    market("rsp", 100.8, 100),
+    market("russell", 100.5, 100),
+    market("smh", 101.5, 100),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+
+  assert.equal(regime.crossAssetTransmission.contractVersion, "rate-cross-asset-transmission/1");
+  assert.equal(regime.crossAssetTransmission.state, "HIGH_RATES_CONTAINED");
+  assert.equal(regime.crossAssetTransmission.credit.state, "CONTAINED");
+  assert.equal(regime.crossAssetTransmission.equityDuration.state, "RESILIENT");
+  assert.ok(regime.evidenceRefs.includes("market-monitor:hy-oas:2026-09-24"));
+  assert.ok(regime.evidenceRefs.includes("market-monitor:ndx:2026-09-24"));
+});
