@@ -967,9 +967,9 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
   jgb: JapanMofJgbSnapshot,
   tic: TreasuryTicSnapshot,
   japanFlows: JapanMofWeeklySnapshot,
-  bund10: BundesbankBund10Snapshot,
-  gilt10: BoeGilt10Snapshot,
   options: LoadCanonicalSnapshotOptions,
+  bund10?: BundesbankBund10Snapshot,
+  gilt10?: BoeGilt10Snapshot,
 ): CanonicalSnapshotResult {
   const observed = [...(result.snapshot.observed_evidence ?? [])];
 
@@ -1038,7 +1038,7 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
-  if (bund10.latest && bund10.status !== "UNAVAILABLE") {
+  if (bund10?.latest && bund10.status !== "UNAVAILABLE") {
     observed.push({
       evidence_id: `global-rates:bund:${bund10.latest.date}`,
       claim_or_fact: `Deutsche Bundesbank 10Y current Federal bond yield for ${bund10.latest.date}: ${bund10.latest.yieldPct}%.`,
@@ -1065,7 +1065,7 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
-  if (gilt10.latest && gilt10.status !== "UNAVAILABLE") {
+  if (gilt10?.latest && gilt10.status !== "UNAVAILABLE") {
     observed.push({
       evidence_id: `global-rates:gilt:${gilt10.latest.date}`,
       claim_or_fact: `Bank of England 10Y nominal gilt par yield for ${gilt10.latest.date}: ${gilt10.latest.yieldPct}%.`,
@@ -1143,14 +1143,14 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
           message: japanFlows.note ?? "Japan MOF weekly flow enrichment unavailable.",
         },
         bundesbank_bund10: {
-          status: bund10.status,
-          available_at: bund10.latest ? `${bund10.latest.date}T00:00:00.000Z` : undefined,
-          message: bund10.warnings.join(" ") || "Bundesbank 10Y Bund yield admitted for global-duration confirmation.",
+          status: bund10?.status ?? "OPTIONAL_UNAVAILABLE",
+          available_at: bund10?.latest ? `${bund10.latest.date}T00:00:00.000Z` : undefined,
+          message: bund10?.warnings.join(" ") || "Bundesbank 10Y Bund enrichment is optional and currently unavailable.",
         },
         boe_gilt10: {
-          status: gilt10.status,
-          available_at: gilt10.latest ? `${gilt10.latest.date}T00:00:00.000Z` : undefined,
-          message: gilt10.warnings.join(" ") || "Bank of England 10Y gilt yield admitted for global-duration confirmation.",
+          status: gilt10?.status ?? "OPTIONAL_UNAVAILABLE",
+          available_at: gilt10?.latest ? `${gilt10.latest.date}T00:00:00.000Z` : undefined,
+          message: gilt10?.warnings.join(" ") || "Bank of England 10Y gilt enrichment is optional and currently unavailable.",
         },
       },
     },
@@ -1642,9 +1642,9 @@ export async function loadCanonicalCandidateSnapshot(
       japanJgbResult.value,
       treasuryTicResult.value,
       japanMofFlowsResult.value,
+      options,
       bundesbankBundResult.value,
       boeGiltResult.value,
-      options,
     );
   } else {
     result.snapshot.sources_status = {
