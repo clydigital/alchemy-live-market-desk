@@ -1,6 +1,7 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import PresenterDivergenceJourney from "@/components/live-desk/PresenterDivergenceJourney";
+import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducationalShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
@@ -16,6 +17,9 @@ import {
   marketMotionInvestigationEligibility,
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 } from "@/lib/market-motion";
+import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { routeDossierInvestigations } from "@/lib/regime-investigations";
+import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +99,18 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
   const focusedRegime = regimeSlug ? regimes.find((regime) => regime.slug === regimeSlug) || null : null;
+  const routedInvestigations = routeDossierInvestigations(
+    dossier.watchNext,
+    dossier.whatMattersNow.stories,
+  );
+  const focusedRateEducation = focusedRegime
+    ? buildRateEducationalProjection({
+        regime: focusedRegime,
+        explanation: getRegimeExplanation(focusedRegime.slug),
+        investigations: routedInvestigations,
+        dossier: { dossierId: dossier.dossierId, asOf: dossier.asOf },
+      })
+    : null;
   const preferredStoryId = (focusedStory || focusedEventStory)?.id || null;
   const preferredRegimeSlug = focusedRegime?.slug || null;
   const dossierStory = (focusedStory || focusedEventStory)
@@ -289,6 +305,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             <div className={styles.recordList}>
               {focusedRegime ? (
                 <>
+                  {focusedRateEducation ? (
+                    <RateRegimeEducationalShell projection={focusedRateEducation} compact />
+                  ) : null}
                   <article className={styles.record}>
                     <div className={styles.recordHeader}>
                       <div>
