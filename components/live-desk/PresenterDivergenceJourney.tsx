@@ -2,6 +2,7 @@ import type {
   DossierPresentationCalibrationSummary,
   DossierPresentationInvestigation,
 } from "@/lib/dossier-v2/presentation-adapter";
+import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
 import { buildPresenterDivergenceJourney } from "@/lib/presenter-divergence-journey";
 
 import { Badge, DataState } from "./LiveDeskUi";
@@ -70,7 +71,12 @@ export default function PresenterDivergenceJourney({
       </div>
 
       <div className={styles.caseList}>
-        {cases.map((item) => (
+        {cases.map((item) => {
+          const source = investigations.find((investigation) => investigation.id === item.id);
+          if (!source) return null;
+          const lab = buildDivergenceLabPresentation(source);
+
+          return (
           <article className={styles.caseCard} key={item.id}>
             <header className={styles.caseHeader}>
               <div>
@@ -148,9 +154,11 @@ export default function PresenterDivergenceJourney({
                 <div>
                   <small>04 / COMPETING MECHANISMS</small>
                   <strong>
-                    {item.mechanisms.length
+                    {lab.mode === "full"
                       ? "Evidence-linked hypotheses"
-                      : "No structured mechanism set is available"}
+                      : lab.mode === "compact_unresolved"
+                        ? "MECHANISM UNRESOLVED"
+                        : "Structured mechanism evidence was not preserved"}
                   </strong>
                 </div>
                 {item.missingEvidence.length ? (
@@ -158,9 +166,9 @@ export default function PresenterDivergenceJourney({
                 ) : null}
               </div>
 
-              {item.mechanisms.length ? (
+              {lab.mode === "full" ? (
                 <div className={styles.mechanismGrid}>
-                  {item.mechanisms.map((candidate) => (
+                  {lab.candidates.map((candidate) => (
                     <article className={styles.mechanismCard} key={`${item.id}:mechanism:${candidate.rank}`}>
                       <header>
                         <span>#{candidate.rank}</span>
@@ -169,28 +177,47 @@ export default function PresenterDivergenceJourney({
                         </Badge>
                       </header>
                       <p>{candidate.explanation}</p>
-                      <div className={styles.evidenceGrid}>
-                        <div>
-                          <small>EVIDENCE FOR</small>
-                          <span>{candidate.evidenceForRefs.length ? candidate.evidenceForRefs.join(" · ") : "None supplied"}</span>
+                      {candidate.evidenceForRefs.length || candidate.evidenceAgainstRefs.length ? (
+                        <div className={styles.evidenceGrid}>
+                          {candidate.evidenceForRefs.length ? (
+                            <div>
+                              <small>EVIDENCE FOR</small>
+                              <span>{candidate.evidenceForRefs.join(" · ")}</span>
+                            </div>
+                          ) : null}
+                          {candidate.evidenceAgainstRefs.length ? (
+                            <div>
+                              <small>EVIDENCE AGAINST</small>
+                              <span>{candidate.evidenceAgainstRefs.join(" · ")}</span>
+                            </div>
+                          ) : null}
                         </div>
-                        <div>
-                          <small>EVIDENCE AGAINST</small>
-                          <span>{candidate.evidenceAgainstRefs.length ? candidate.evidenceAgainstRefs.join(" · ") : "None supplied"}</span>
+                      ) : (
+                        <small className={styles.evidencePending}>Candidate-specific evidence not yet attached.</small>
+                      )}
+                      {candidate.displayDiscriminator ? (
+                        <div className={styles.discriminator}>
+                          <small>DISCRIMINATING TEST</small>
+                          <strong>{candidate.displayDiscriminator}</strong>
                         </div>
-                      </div>
-                      <div className={styles.discriminator}>
-                        <small>DISCRIMINATING TEST</small>
-                        <strong>{candidate.discriminatingTest}</strong>
-                      </div>
+                      ) : null}
                     </article>
                   ))}
                 </div>
-              ) : item.fallbackCompetingExplanations.length ? (
-                <div className={styles.fallbackList}>
-                  {item.fallbackCompetingExplanations.map((explanation) => (
-                    <p key={explanation}>{explanation}</p>
-                  ))}
+              ) : lab.alternatives.length ? (
+                <div className={styles.compactMechanisms}>
+                  <p>
+                    {lab.mode === "compact_unresolved"
+                      ? "Current evidence does not yet discriminate between the available explanations."
+                      : "This Dossier vintage preserved compact competing explanations but not structured candidate evidence."}
+                  </p>
+                  <ul>
+                    {lab.alternatives.map((alternative, index) => (
+                      <li key={`${item.id}:alternative:${alternative.rank ?? index}`}>
+                        {alternative.explanation}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : (
                 <p className={styles.emptyMechanism}>
@@ -202,7 +229,7 @@ export default function PresenterDivergenceJourney({
             <section className={styles.nextTest}>
               <div>
                 <small>05 / NEXT DISCRIMINATOR</small>
-                <strong>{item.researchNext}</strong>
+                <strong>{lab.sharedDiscriminator}</strong>
               </div>
               <div>
                 <small>CONFIRM</small>
@@ -214,7 +241,8 @@ export default function PresenterDivergenceJourney({
               </div>
             </section>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
