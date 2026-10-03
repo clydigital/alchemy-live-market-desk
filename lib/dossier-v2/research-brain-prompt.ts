@@ -216,44 +216,42 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
         gaps: system1RateRegime.longEndDiagnostic.gaps.slice(0, 4),
         evidence_refs: system1RateRegime.longEndDiagnostic.evidenceRefs.slice(0, 10),
       },
-      global_duration_diagnostic: {
-        contract_version: system1RateRegime.globalDurationDiagnostic.contractVersion,
-        state: system1RateRegime.globalDurationDiagnostic.relativeRates.state,
-        global_label_eligible: system1RateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
-        jgb: {
-          as_of: system1RateRegime.globalDurationDiagnostic.japanRates.asOf,
-          y2_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb2yPct,
-          y10_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yPct,
-          y30_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yPct,
-          y10_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yChange5dBp,
-          y30_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yChange5dBp,
-        },
-        ust_jgb: {
-          y2_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb2yBp,
-          y10_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yBp,
-          y30_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yBp,
-          y10_change_5d_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yChange5dBp,
-          y30_change_5d_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yChange5dBp,
-        },
-        usdjpy: {
-          last: system1RateRegime.globalDurationDiagnostic.fx.usdJpy,
-          change_5d_pct: system1RateRegime.globalDurationDiagnostic.fx.change5dPct,
-        },
-        tic_japan: {
-          period: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.period,
-          holdings_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsUsdBn,
-          monthly_change_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanMonthlyChangeUsdBn,
-          direction: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsDirection,
-        },
-        japan_mof_outward_long_term_debt: {
-          period: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.periodLabel,
-          net_purchase_jpy_bn: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.outwardLongTermDebtNetPurchaseJpyBn,
-          direction: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.direction,
-          treasury_specific: false,
-        },
-        comparable_as_same_flow: false,
-        evidence_refs: system1RateRegime.globalDurationDiagnostic.evidenceRefs.slice(0, 8),
-      },
+      ...(system1RateRegime.globalDurationDiagnostic.evidenceRefs.length
+        ? {
+            global_duration_diagnostic: {
+              contract_version: system1RateRegime.globalDurationDiagnostic.contractVersion,
+              state: system1RateRegime.globalDurationDiagnostic.relativeRates.state,
+              global_label_eligible: system1RateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
+              jgb: {
+                as_of: system1RateRegime.globalDurationDiagnostic.japanRates.asOf,
+                y10_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yPct,
+                y30_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yPct,
+                y10_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yChange5dBp,
+                y30_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yChange5dBp,
+              },
+              ust_jgb: {
+                y10_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yBp,
+                y30_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yBp,
+              },
+              usdjpy: {
+                last: system1RateRegime.globalDurationDiagnostic.fx.usdJpy,
+                change_5d_pct: system1RateRegime.globalDurationDiagnostic.fx.change5dPct,
+              },
+              tic_japan: {
+                period: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.period,
+                holdings_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsUsdBn,
+                monthly_change_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanMonthlyChangeUsdBn,
+              },
+              japan_mof_outward_long_term_debt: {
+                period: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.periodLabel,
+                net_purchase_jpy_bn: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.outwardLongTermDebtNetPurchaseJpyBn,
+                treasury_specific: false,
+              },
+              comparable_as_same_flow: false,
+              evidence_refs: system1RateRegime.globalDurationDiagnostic.evidenceRefs.slice(0, 6),
+            },
+          }
+        : {}),
       drivers: system1RateRegime.drivers.slice(0, 3),
       contradictions: system1RateRegime.contradictions.slice(0, 2),
       evidence_refs: system1RateRegime.evidenceRefs.slice(0, 8),
