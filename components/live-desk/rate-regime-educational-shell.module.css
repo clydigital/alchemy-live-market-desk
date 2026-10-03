@@ -11,6 +11,7 @@
 .explanation,
 .ratePath,
 .longEnd,
+.transmission,
 .globalDuration,
 .board,
 .education {
@@ -129,6 +130,7 @@
 .explanation p,
 .ratePath p,
 .longEnd p,
+.transmission p,
 .globalDuration p,
 .row p,
 .education p {
@@ -143,6 +145,7 @@
 .explanation small,
 .ratePath small,
 .longEnd small,
+.transmission small,
 .globalDuration small,
 .board small,
 .education small,
@@ -492,6 +495,64 @@
   }
 
   .globalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.transmission {
+  display: grid;
+  gap: 12px;
+  border-color: rgba(199, 140, 255, .22);
+}
+
+.transmission > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.transmission h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.transmissionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transmissionCard {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(199, 140, 255, .12);
+  border-radius: 9px;
+  background: rgba(35, 20, 48, .22);
+}
+
+.transmissionCard small {
+  color: #bba0d6;
+  font-weight: 800;
+}
+
+.transmissionCard strong {
+  font-size: 12px;
+}
+
+.transmissionCard span {
+  color: #9990a5;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+@media (max-width: 950px) {
+  .transmission > header {
+    flex-direction: column;
+  }
+
+  .transmissionGrid {
     grid-template-columns: 1fr;
   }
 }
