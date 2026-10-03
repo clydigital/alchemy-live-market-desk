@@ -12,9 +12,12 @@ Macro Pulse
   -> independent reporting / official evidence may corroborate
   -> exact canonical evidence may activate Dossier reasoning
   -> Dossier System 2 assesses the Motion framing against that evidence
-  -> ACCEPT may promote exact Story or exact Regime context
+  -> ACCEPT / REFINE with an exact Story implication queues that exact canonical Story for re-evaluation using the exact packet evidence
+  -> accepted Story re-evaluation may update the canonical Story thesis/version
+  -> the Regime projector then consumes canonical Story state
+  -> ACCEPT may promote exact Story or exact Regime Motion context
   -> REFINE appends and promotes only the corrected evidence-bounded Motion version
-  -> the persisted Dossier exposes that decision to Hybrid immediately
+  -> the persisted Dossier exposes the decision to Hybrid immediately
   -> the next immutable Journey edition freezes the promoted Motion normally
   -> Story-linked promoted Motion may enter Research Gap
   -> UNRESOLVED Motion may enter Research Gap directly from the persisted Dossier assessment without promotion
