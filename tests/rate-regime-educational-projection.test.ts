@@ -389,6 +389,9 @@ test("Live and Hybrid render the same shared educational projection instead of c
   assert.match(workspace, /RateRegimeEducationalShell/);
   assert.match(shell, /CREDIT \/ FUNDING TRANSMISSION · SYSTEM 1/);
   assert.match(shell, /projection\.creditFunding/);
+  assert.match(shell, /GROWTH \/ SEMIS CROSS-CHECK · CANONICAL REACTION AUDIT/);
+  assert.match(shell, /not being presented as QQQ, NDX or broad-equity confirmation/);
+  assert.match(shell, /projection\.growthSemisCrossCheck/);
   assert.match(shell, /GOLD CROSS-CHECK · CANONICAL REACTION AUDIT/);
   assert.match(shell, /projection\.goldCrossCheck/);
   assert.match(hybrid, /buildRateEducationalProjection/);
