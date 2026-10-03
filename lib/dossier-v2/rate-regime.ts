@@ -493,8 +493,6 @@ export function buildDossierRateRegime(
   const gaps = [
     ...missing.map((label) => `${label} is missing from persistent rate context.`),
     ...(primary?.gaps ?? []),
-    ...longEndDiagnostic.gaps,
-    ...globalDurationDiagnostic.gaps,
   ];
 
   return {
