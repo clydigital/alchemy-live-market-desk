@@ -149,6 +149,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 35. DIVERGENCE LAB CANDIDATES: candidate_explanations is the structured hypothesis set behind each Investigation. For a continued investigation, prior_analytical_state.prior_investigations[*].candidate_explanations is historical hypothesis memory: preserve it as the prior state and change ranking, confidence or mechanism wording only when current supplied evidence justifies the change. Prior candidate evidence is intentionally not carried forward as current evidence. For PARTIAL or MATERIAL divergence, emit 2-4 ranked candidates rather than presenting one post-hoc cause as settled. Rank 1 must be the current leading mechanism and current_explanation should summarise it. For each candidate, evidence_for_ids and evidence_against_ids may contain ONLY IDs already present in that Investigation's observed_evidence; an empty side is allowed when the packet lacks discriminating evidence. confidence is confidence in that mechanism, not confidence that the price move occurred. PRICED_IN, SHORT_COVERING, LONG_LIQUIDATION, DEALER_GAMMA, OPTIONS_EXPIRY and CTA_FLOW at MEDIUM or HIGH confidence require mechanism-specific evidence that bears on pricing/positioning/options/systematic flows; generic price direction alone may establish the move but cannot establish those causes. discriminating_test must name the observable that would separate that candidate from the alternatives. If the mechanism is not established, use LOW or UNRESOLVED. For NONE or UNRESOLVED, candidate_explanations may be empty when there is no genuine mechanism contest. Keep competing_explanations for compact backwards-compatible prose, but do not let it substitute for candidate_explanations when a material divergence exists.
 36. OUTPUT BREVITY BUDGET: Stay well below the provider output ceiling. Do not fill array caps merely because capacity exists. Prefer 2-3 Major Stories, exactly the material investigations, zero optional charts unless they add distinct information, and zero creator expansions unless directly material. Keep each prose field to one concise sentence unless the schema requires more. Main-thread answer <= 60 words; Story mechanism <= 55 words; other Story prose <= 40 words; lens reaction/interpretation <= 35 words each; investigation explanation <= 50 words; expected/observed reaction <= 40 words; each candidate explanation <= 24 words; each discriminating test <= 24 words; each competing explanation <= 24 words; research-next <= 45 words; stock-radar prose <= 30 words; developing-theme summary <= 40 words; thesis statement/state reason <= 45 words. Preserve evidence IDs and analytical distinctions; remove repetition, not substance.
 37. CHRONOLOGY-FIRST ASSEMBLY: Organise the reader-facing analysis so a person can reconstruct how the market arrived at the current state. The preferred sequence is baseline/current starting condition → new catalyst or changed evidence → policy/rates transmission → cross-asset reaction → divergence/counter-force → current provisional interpretation → next decision point. Major Stories should follow that causal/time sequence where the supplied evidence allows it, rather than grouping unrelated facts by asset class. Do not invent event timestamps or a false chronology; when ordering cannot be established, say the sequencing is unresolved.
+37A. RATES TRANSMISSION DISCIPLINE: system1_rate_regime.cross_asset_transmission reports observed co-movement and deterministic stress states; it does not prove causality. Real yields up with gold down may be an aligned opportunity-cost reaction; real yields up with gold up is a divergence, not proof of central-bank or reserve buying. NDX underperformance while real yields rise is duration-sensitive evidence, not proof that rates caused every tech move. High/restrictive rates with contained HY/IG spreads and resilient equities are not systemic stress. If rates fall while credit widens and equities weaken broadly, treat that as a possible growth-scare/risk-off transmission problem rather than automatically bullish duration. USDJPY/carry claims require explicit USDJPY and relative-rate evidence. Do not turn these states into trade sizing or portfolio instructions.
+
 38A. FOREIGN-DEMAND SCOPE DISCIPLINE: Treasury TIC country holdings and Japan MOF weekly outward securities flows are different datasets. TIC is monthly reported U.S. Treasury holdings by country/custody location; a monthly holdings change is not a same-week transaction measure and custody geography is not perfect beneficial-owner attribution. Japan MOF weekly outward long-term debt covers Japanese residents' foreign long-term debt securities generally and is not U.S.-Treasury-specific. Never merge these into one synthetic flow series, never infer that a weekly MOF foreign-debt purchase was a Treasury purchase, and never call TIC month-over-month holdings change a contemporaneous auction-flow signal.
 
 38. FX / JAPAN BRIDGE DISCIPLINE: Treat FX as a cross-asset confirmation layer, not an isolated add-on. When supplied evidence covers Japan, JGBs, the yen or global sovereign duration, explicitly test whether UST–JGB relative rates, policy-path differences, funding/carry incentives and verified capital-flow evidence are consistent with USDJPY. Distinguish broad USD strength from JPY-specific weakness using supplied FX evidence. TIC holdings, repatriation, intervention and hedging-cost narratives remain hypotheses unless current observed evidence supports them. When Japan/FX evidence is missing but material to a duration thesis, put the exact UST/JGB/FX comparison in research_now or the Investigation missing-evidence list rather than asserting the mechanism.
@@ -254,6 +256,41 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
               },
               comparable_as_same_flow: false,
               evidence_refs: system1RateRegime.globalDurationDiagnostic.evidenceRefs.slice(0, 6),
+            },
+          }
+        : {}),
+      ...(system1RateRegime.crossAssetTransmission.evidenceRefs.length
+        ? {
+            cross_asset_transmission: {
+              contract_version: system1RateRegime.crossAssetTransmission.contractVersion,
+              state: system1RateRegime.crossAssetTransmission.state,
+              rate_pressure: system1RateRegime.crossAssetTransmission.ratePressure,
+              gold: {
+                state: system1RateRegime.crossAssetTransmission.gold.state,
+                gold_change_5d_pct: system1RateRegime.crossAssetTransmission.gold.goldChange5dPct,
+                dxy_change_5d_pct: system1RateRegime.crossAssetTransmission.gold.dxyChange5dPct,
+                real_yield_change_5d_bp: system1RateRegime.crossAssetTransmission.gold.realYieldChange5dBp,
+              },
+              credit: {
+                state: system1RateRegime.crossAssetTransmission.credit.state,
+                hy_oas_change_5d_bp: system1RateRegime.crossAssetTransmission.credit.hyOasChange5dBp,
+                ig_oas_change_5d_bp: system1RateRegime.crossAssetTransmission.credit.igOasChange5dBp,
+              },
+              equity_duration: {
+                state: system1RateRegime.crossAssetTransmission.equityDuration.state,
+                ndx_change_5d_pct: system1RateRegime.crossAssetTransmission.equityDuration.ndxChange5dPct,
+                rsp_change_5d_pct: system1RateRegime.crossAssetTransmission.equityDuration.rspChange5dPct,
+                iwm_change_5d_pct: system1RateRegime.crossAssetTransmission.equityDuration.iwmChange5dPct,
+                smh_change_5d_pct: system1RateRegime.crossAssetTransmission.equityDuration.smhChange5dPct,
+                ndx_vs_rsp_5d_pct: system1RateRegime.crossAssetTransmission.equityDuration.ndxVsRsp5dPct,
+              },
+              carry: {
+                state: system1RateRegime.crossAssetTransmission.carry.state,
+                ust_jgb_10y_gap_change_5d_bp: system1RateRegime.crossAssetTransmission.carry.ustJgb10yGapChange5dBp,
+                usdjpy_change_5d_pct: system1RateRegime.crossAssetTransmission.carry.usdJpyChange5dPct,
+              },
+              gaps: system1RateRegime.crossAssetTransmission.gaps.slice(0, 4),
+              evidence_refs: system1RateRegime.crossAssetTransmission.evidenceRefs.slice(0, 10),
             },
           }
         : {}),
