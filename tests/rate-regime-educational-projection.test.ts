@@ -307,11 +307,14 @@ test("educational projection is rates-specific and does not manufacture a second
 test("Live and Hybrid render the same shared educational projection instead of computing separate rates reads", () => {
   const livePage = readFileSync(new URL("../app/regimes/[slug]/page.tsx", import.meta.url), "utf8");
   const workspace = readFileSync(new URL("../components/live-desk/RegimeDetailWorkspace.tsx", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../components/live-desk/RateRegimeEducationalShell.tsx", import.meta.url), "utf8");
   const hybrid = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta.url), "utf8");
   const projectionSource = readFileSync(new URL("../lib/rate-regime-educational-projection.ts", import.meta.url), "utf8");
 
   assert.match(livePage, /buildRateEducationalProjection/);
   assert.match(workspace, /RateRegimeEducationalShell/);
+  assert.match(shell, /GOLD CROSS-CHECK · CANONICAL REACTION AUDIT/);
+  assert.match(shell, /projection\.goldCrossCheck/);
   assert.match(hybrid, /buildRateEducationalProjection/);
   assert.match(hybrid, /RateRegimeEducationalShell/);
   assert.doesNotMatch(projectionSource, /fetch\(|createSupabaseAdminClient|executeResearchBrain|runIntelligenceEngine/);
