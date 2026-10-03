@@ -663,3 +663,34 @@ test("Task 8 mapper completes the bounded rates-led research agenda without publ
   assert.equal(persistedOutput.research_now.length, 3);
   assert.equal(persistedOutput.investigations.length, 2);
 });
+
+
+test("Partition 5 persists structural predecessor, analytical baseline and evidence states separately", () => {
+  const structuralId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const baselineId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const packet = createPacket(structuralId);
+  packet.prior_analytical_state.previous_dossier_id = baselineId;
+  packet.prior_analytical_state.as_of = "2026-09-19T10:00:00.000Z";
+
+  const output = createValidBrainOutput(packet);
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+
+  assert.equal(input.previous_dossier_id, structuralId);
+  assert.deepEqual(input.payload.memory_control, {
+    contract_version: "dossier-memory-control/1",
+    structural_predecessor_id: structuralId,
+    analytical_baseline_id: baselineId,
+    analytical_baseline_as_of: "2026-09-19T10:00:00.000Z",
+  });
+
+  const evidenceStates = (input.freshness.evidence_states as Array<{
+    source_name: string;
+    state: string;
+  }>).map((item) => [item.source_name, item.state]);
+
+  assert.deepEqual(evidenceStates, [
+    ["creator_intelligence", "STALE"],
+    ["macro_data", "FRESH"],
+    ["price_data", "FRESH"],
+  ]);
+});
