@@ -408,3 +408,22 @@ test("official FRED 2Y/5Y/10Y/20Y/30Y curve is preserved in the deterministic ra
   assert.match(longEnd?.detail ?? "", /US 20Y 5\.41%/);
   assert.match(longEnd?.detail ?? "", /US 30Y 5\.49%/);
 });
+
+
+test("rate regime exposes the shared full-curve diagnostic without a second curve calculation", () => {
+  const input = packet([
+    fred("us2y", 4.72, -3.6734693878),
+    fred("us5y-fred", 4.90, -2.0),
+    fred("us10y-fred", 5.26, 1.1538461538),
+    fred("us20y-fred", 5.60, 0.9009009009),
+    fred("us30y-fred", 5.66, 1.0714285714),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+
+  assert.equal(regime.curveDiagnostic.contractVersion, "rate-curve-diagnostic/1");
+  assert.equal(regime.curveDiagnostic.moveClass, "DIVERGENT_STEEPENING");
+  assert.equal(regime.curveDiagnostic.separationState, "FRONT_END_EASING_LONG_END_STICKY");
+  assert.equal(regime.curve.spreadBps, regime.curveDiagnostic.spreads.find((item) => item.key === "2s10s")?.bps);
+  assert.deepEqual(regime.curve.evidenceRefs, regime.curveDiagnostic.evidenceRefs);
+});
