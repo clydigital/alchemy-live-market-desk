@@ -20,6 +20,7 @@ function monitor(id: string, last: number, prior: number) {
     source_type: "MARKET_DATA",
     available_at: AS_OF,
     occurrence_time: "2026-10-03T00:00:00.000Z",
+    grouping_key: `market-monitor:${id}`,
     metrics: {
       last,
       change_5d_pct: ((last / prior) - 1) * 100,
@@ -84,6 +85,7 @@ test("governed term-premium evidence is admitted explicitly rather than inferred
       source_type: "OFFICIAL_DATA",
       available_at: AS_OF,
       occurrence_time: AS_OF,
+      grouping_key: "rate-context:term-premium",
       metrics: {
         signal_context: "term_premium",
         observed_value: 0.82,
@@ -110,6 +112,7 @@ test("dealer balance-sheet evidence is exposed but remains directionless", () =>
       source_type: "OFFICIAL_DATA",
       available_at: AS_OF,
       occurrence_time: "2026-10-01T00:00:00.000Z",
+      grouping_key: "system1:dealer-balance-sheet",
       metrics: {
         treasury_net_position_millions: 125000,
         treasury_net_position_weekly_change_millions: 15000,
@@ -137,6 +140,7 @@ test("auction evidence is visible for System 2 review but does not create a dete
       source_type: "VERIFIED_MACRO_DATA",
       available_at: AS_OF,
       occurrence_time: AS_OF,
+      grouping_key: "treasury-auction:10y",
       metrics: {
         bid_to_cover: 2.2,
         tail_bps: 2.1,
