@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { deriveTraderFlags, splitTraderText } from "@/lib/trader-flags";
 import type { StoryBreakdown } from "@/lib/story-breakdown";
@@ -91,6 +91,7 @@ function TopicIcon({ topic }: { topic: WhatsNewTopic }) {
 export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] }) {
   const [stream, setStream] = useState<"All" | WhatsNewDelta["stream"]>("All");
   const [query, setQuery] = useState("");
+  const [openBundleIds, setOpenBundleIds] = useState<Set<string>>(() => new Set());
 
   const enriched = useMemo(() => deltas.map((delta) => ({
     ...delta,
@@ -160,6 +161,29 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
     (total, delta) => total + (delta.motionBundle?.underlyingCount ?? 1),
     0,
   );
+
+  useEffect(() => {
+    const revealHashTarget = () => {
+      const hash = window.location.hash;
+      if (!hash.startsWith("#record-")) return;
+      const targetId = decodeURIComponent(hash.slice("#record-".length));
+      const bundle = deltas.find((delta) => delta.motionBundle?.children.some((child) => child.id === targetId));
+      if (!bundle) return;
+      setOpenBundleIds((current) => {
+        if (current.has(bundle.id)) return current;
+        const next = new Set(current);
+        next.add(bundle.id);
+        return next;
+      });
+      window.requestAnimationFrame(() => {
+        document.getElementById(`record-${targetId}`)?.scrollIntoView({ block: "center" });
+      });
+    };
+
+    revealHashTarget();
+    window.addEventListener("hashchange", revealHashTarget);
+    return () => window.removeEventListener("hashchange", revealHashTarget);
+  }, [deltas]);
 
   return (
     <div className={styles.workspace}>
@@ -235,7 +259,19 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                 </div>
               ) : null}
               {delta.motionBundle ? (
-                <details className={styles.bundleDetails}>
+                <details
+                  className={styles.bundleDetails}
+                  open={openBundleIds.has(delta.id)}
+                  onToggle={(event) => {
+                    const shouldOpen = event.currentTarget.open;
+                    setOpenBundleIds((current) => {
+                      const next = new Set(current);
+                      if (shouldOpen) next.add(delta.id);
+                      else next.delete(delta.id);
+                      return next;
+                    });
+                  }}
+                >
                   <summary>Show all {delta.motionBundle.underlyingCount} underlying claims</summary>
                   <div className={styles.bundleClaims}>
                     {delta.motionBundle.children.map((child) => (
