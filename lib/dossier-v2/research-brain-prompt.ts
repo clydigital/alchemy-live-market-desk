@@ -216,7 +216,12 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
         gaps: system1RateRegime.longEndDiagnostic.gaps.slice(0, 4),
         evidence_refs: system1RateRegime.longEndDiagnostic.evidenceRefs.slice(0, 10),
       },
-      ...(system1RateRegime.globalDurationDiagnostic.evidenceRefs.length
+      ...((
+        system1RateRegime.globalDurationDiagnostic.japanRates.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.fx.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.evidenceRef
+      )
         ? {
             global_duration_diagnostic: {
               contract_version: system1RateRegime.globalDurationDiagnostic.contractVersion,
