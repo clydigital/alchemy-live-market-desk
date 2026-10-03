@@ -51,13 +51,14 @@ export type MarketMotionInvestigationEligibility = {
   reason:
     | "ELIGIBLE"
     | "NO_NEXT_TEST"
-    | "NO_STORY_LINK"
+    | "NO_CANONICAL_ROUTE"
     | "NOT_PROMOTED"
     | "EXPIRED"
     | "INVALID_EXPIRY"
     | "CONTRADICTED";
   nextTest: string | null;
   storyId: string | null;
+  regimeSlug: string | null;
 };
 
 export function marketMotionInvestigationEligibility(
@@ -67,27 +68,31 @@ export function marketMotionInvestigationEligibility(
     expiresAt: string;
     nextTest?: string | null;
     storyId?: string | null;
+    regimeSlug?: string | null;
   },
   now = new Date(),
 ): MarketMotionInvestigationEligibility {
   const nextTest = input.nextTest?.trim() || null;
   const storyId = input.storyId?.trim() || null;
-  if (!nextTest) return { eligible: false, reason: "NO_NEXT_TEST", nextTest: null, storyId };
-  if (!storyId) return { eligible: false, reason: "NO_STORY_LINK", nextTest, storyId: null };
+  const regimeSlug = input.regimeSlug?.trim() || null;
+  if (!nextTest) return { eligible: false, reason: "NO_NEXT_TEST", nextTest: null, storyId, regimeSlug };
+  if (!storyId && !regimeSlug) {
+    return { eligible: false, reason: "NO_CANONICAL_ROUTE", nextTest, storyId: null, regimeSlug: null };
+  }
   if (input.lifecycleState !== "PROMOTED") {
-    return { eligible: false, reason: "NOT_PROMOTED", nextTest, storyId };
+    return { eligible: false, reason: "NOT_PROMOTED", nextTest, storyId, regimeSlug };
   }
   const expiry = Date.parse(input.expiresAt);
   if (!Number.isFinite(expiry)) {
-    return { eligible: false, reason: "INVALID_EXPIRY", nextTest, storyId };
+    return { eligible: false, reason: "INVALID_EXPIRY", nextTest, storyId, regimeSlug };
   }
   if (expiry <= now.getTime()) {
-    return { eligible: false, reason: "EXPIRED", nextTest, storyId };
+    return { eligible: false, reason: "EXPIRED", nextTest, storyId, regimeSlug };
   }
   if (input.verificationState === "CONTRADICTED") {
-    return { eligible: false, reason: "CONTRADICTED", nextTest, storyId };
+    return { eligible: false, reason: "CONTRADICTED", nextTest, storyId, regimeSlug };
   }
-  return { eligible: true, reason: "ELIGIBLE", nextTest, storyId };
+  return { eligible: true, reason: "ELIGIBLE", nextTest, storyId, regimeSlug };
 }
 
 type MarketMotionAttentionInput = {
