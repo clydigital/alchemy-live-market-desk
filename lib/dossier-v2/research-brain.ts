@@ -581,6 +581,9 @@ export function produceDegradedOutput(
       story_implication: null,
       regime_implication: null,
       investigation_next: item.next_test || "Re-run the Research Brain with the same canonical evidence.",
+      refined_headline: null,
+      refined_why_interesting: null,
+      refined_big_picture_bridge: null,
     })),
     diagnostics: {
       degraded: true,

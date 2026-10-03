@@ -730,3 +730,29 @@ test("A2 Motion attention mapper admits only A1-qualified exact-evidence Motion"
   assert.equal(attention[0]?.packet_evidence_id, packet.observed_evidence[0].evidence_id);
   assert.equal(attention[0]?.primary_regime_slug, "global-cost-of-capital");
 });
+
+
+test("B2 Dossier mapper persists the exact Motion attention snapshot used by System 2", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  const motionAttention = [{
+    motion_id: "motion:rates",
+    headline: "Long-end yields remain firm",
+    what_happened: "10Y and 30Y yields stayed elevated.",
+    market_reaction: "Duration remained under pressure.",
+    why_interesting: "Tests the current rate regime.",
+    big_picture_bridge: "Long-end pressure -> financing conditions -> valuation.",
+    next_test: "Decompose real yields, supply and term premium.",
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+    packet_evidence_id: packet.observed_evidence[0].evidence_id,
+    verification_state: "VERIFIED" as const,
+    materiality: 92,
+    relevance: 94,
+    novelty: 80,
+  }];
+
+  const dossierInput = buildMarketDossierV2InputFromResearchBrain(packet, output, motionAttention);
+
+  assert.deepEqual(dossierInput.payload.motion_attention_snapshot, motionAttention);
+});

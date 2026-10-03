@@ -27,7 +27,7 @@ test("Dossier workspace keeps Dossier V2 authoritative while admitting only prom
   assert.match(page, /PROMOTED MARKET MOTION/);
   assert.match(page, /full Primary\/Secondary Motion tape stays in Journey/);
   assert.match(page, /does not become a second Motion feed/);
-  assert.match(page, /does not guess a fuzzy Story mapping/);
+  assert.match(page, /regime-only Motion stays Story-null/);
   assert.doesNotMatch(page, /journeyMode/);
 
   assert.doesNotMatch(page, /openai/i);

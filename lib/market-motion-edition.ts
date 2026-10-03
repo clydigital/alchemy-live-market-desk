@@ -44,9 +44,9 @@ export type MarketMotionEditionItem = {
   occurredAt: string;
   observedAt: string;
   expiresAt: string;
-  storyId: string;
-  storySlug: string;
-  storyTitle: string;
+  storyId: string | null;
+  storySlug: string | null;
+  storyTitle: string | null;
   regimeSlug: RegimeSlug | null;
   regimeLabel: string | null;
 };
@@ -126,7 +126,9 @@ export function buildMarketMotionEditionAttachment(input: {
     .filter((row) => row.research_run_id === input.researchRunId)
     .filter((row) => row.lifecycle_state === "PROMOTED")
     .filter((row) => marketMotionEffectiveState(row, new Date(capturedAt)) === "PROMOTED")
-    .filter((row) => row.primary_story_id && storyById.has(row.primary_story_id))
+    .filter((row) => row.primary_story_id
+      ? storyById.has(row.primary_story_id)
+      : Boolean(row.primary_regime_slug && getRegimeDefinition(row.primary_regime_slug)))
     .sort(priority)
     .slice(0, Math.max(0, input.limit ?? MARKET_MOTION_EDITION_LIMIT))
     .sort((left, right) => Date.parse(left.occurred_at) - Date.parse(right.occurred_at) || left.id.localeCompare(right.id));
@@ -136,7 +138,7 @@ export function buildMarketMotionEditionAttachment(input: {
     capturedAt,
     researchRunId: input.researchRunId,
     items: selected.map((row) => {
-      const story = storyById.get(row.primary_story_id!)!;
+      const story = row.primary_story_id ? storyById.get(row.primary_story_id) || null : null;
       const regime = row.primary_regime_slug ? getRegimeDefinition(row.primary_regime_slug) : null;
       return {
         id: row.id,
@@ -162,9 +164,9 @@ export function buildMarketMotionEditionAttachment(input: {
         occurredAt: new Date(row.occurred_at).toISOString(),
         observedAt: new Date(row.observed_at).toISOString(),
         expiresAt: new Date(row.expires_at).toISOString(),
-        storyId: story.id,
-        storySlug: story.slug,
-        storyTitle: story.title,
+        storyId: story?.id || null,
+        storySlug: story?.slug || null,
+        storyTitle: story?.title || null,
         regimeSlug: row.primary_regime_slug,
         regimeLabel: regime?.shortTitle || null,
       };
@@ -204,22 +206,22 @@ export async function captureMarketMotionEditionAttachment(input: {
 
   const motionRows = (rows || []) as MarketMotionRecord[];
   const storyIds = [...new Set(motionRows.map((row) => row.primary_story_id).filter((id): id is string => Boolean(id)))];
-  if (!storyIds.length) {
-    return emptyMarketMotionEditionAttachment(input.researchRunId, input.capturedAt);
+  let stories: MarketMotionEditionStoryRef[] = [];
+  if (storyIds.length) {
+    const { data, error: storyError } = await db
+      .from("stories")
+      .select("id,slug,title")
+      .in("id", storyIds);
+
+    if (storyError) throw new Error(`Market Motion edition Story lookup failed: ${storyError.message}`);
+    stories = (data || []) as MarketMotionEditionStoryRef[];
   }
-
-  const { data: stories, error: storyError } = await db
-    .from("stories")
-    .select("id,slug,title")
-    .in("id", storyIds);
-
-  if (storyError) throw new Error(`Market Motion edition Story lookup failed: ${storyError.message}`);
 
   return buildMarketMotionEditionAttachment({
     researchRunId: input.researchRunId,
     capturedAt: input.capturedAt,
     rows: motionRows,
-    stories: (stories || []) as MarketMotionEditionStoryRef[],
+    stories,
   });
 }
 
@@ -246,10 +248,14 @@ function parseItem(value: unknown): MarketMotionEditionItem | null {
 
   if (
     !id || !motionKey || !headline || !whatHappened || !whyInteresting || !bigPictureBridge
-    || !sourceName || !sourceUrl || !storyId || !storySlug || !storyTitle
+    || !sourceName || !sourceUrl
     || !occurredAt || !observedAt || !expiresAt || !category || !verificationState
     || item.lifecycleState !== "PROMOTED"
   ) return null;
+  const hasAnyStoryRef = Boolean(storyId || storySlug || storyTitle);
+  const hasCompleteStoryRef = Boolean(storyId && storySlug && storyTitle);
+  if (hasAnyStoryRef && !hasCompleteStoryRef) return null;
+  if (!hasCompleteStoryRef && !regimeSlug) return null;
   if (!validIso(occurredAt) || !validIso(observedAt) || !validIso(expiresAt)) return null;
 
   const versionNumber = Number(item.versionNumber);

@@ -472,9 +472,30 @@ export function validateResearchBrainOutput(
     const investigationNext = typeof assessment.investigation_next === "string"
       ? assessment.investigation_next.trim()
       : null;
+    const refinedHeadline = typeof assessment.refined_headline === "string"
+      ? assessment.refined_headline.trim()
+      : null;
+    const refinedWhyInteresting = typeof assessment.refined_why_interesting === "string"
+      ? assessment.refined_why_interesting.trim()
+      : null;
+    const refinedBigPictureBridge = typeof assessment.refined_big_picture_bridge === "string"
+      ? assessment.refined_big_picture_bridge.trim()
+      : null;
 
+    if (storyImplication && !expected.primary_story_id) {
+      errors.push(`motion_attention_assessments[${index}] cannot emit a Story implication without an exact primary_story_id on the Motion.`);
+    }
+    if (regimeImplication && !expected.primary_regime_slug) {
+      errors.push(`motion_attention_assessments[${index}] cannot emit a Regime implication without an exact primary_regime_slug on the Motion.`);
+    }
     if ((decision === "ACCEPT" || decision === "REFINE") && !storyImplication && !regimeImplication) {
       errors.push(`motion_attention_assessments[${index}] ${String(decision)} requires a Story or Regime implication.`);
+    }
+    if (decision === "REFINE" && (!refinedHeadline || !refinedWhyInteresting || !refinedBigPictureBridge)) {
+      errors.push(`motion_attention_assessments[${index}] REFINE requires corrected headline, why-interesting and big-picture bridge wording.`);
+    }
+    if (decision !== "REFINE" && (refinedHeadline || refinedWhyInteresting || refinedBigPictureBridge)) {
+      errors.push(`motion_attention_assessments[${index}] may supply refined wording only when decision is REFINE.`);
     }
     if (decision === "UNRESOLVED" && !investigationNext) {
       errors.push(`motion_attention_assessments[${index}] UNRESOLVED requires investigation_next.`);

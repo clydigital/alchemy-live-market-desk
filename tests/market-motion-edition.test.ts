@@ -55,7 +55,7 @@ const stories = [
   { id: "story-2", slug: "energy-security", title: "Energy Security" },
 ];
 
-test("edition attachment freezes only fresh PROMOTED Motion with exact Story identity", () => {
+test("edition attachment freezes fresh promoted Story-scoped and regime-only Motion", () => {
   const attachment = buildMarketMotionEditionAttachment({
     researchRunId: "run-1",
     capturedAt: CAPTURED_AT,
@@ -66,15 +66,19 @@ test("edition attachment freezes only fresh PROMOTED Motion with exact Story ide
       record({ id: "wrong-run", motion_key: "wrong-run", research_run_id: "run-2" }),
       record({ id: "plain-motion", motion_key: "plain-motion", lifecycle_state: "MOTION", effective_state: "MOTION" }),
       record({ id: "expired", motion_key: "expired", expires_at: "2026-10-01T02:30:00.000Z" }),
-      record({ id: "no-story", motion_key: "no-story", primary_story_id: null }),
+      record({ id: "regime-only", motion_key: "regime-only", primary_story_id: null, primary_regime_slug: "us-china-ai", occurred_at: "2026-10-01T01:00:00.000Z" }),
+      record({ id: "unlinked", motion_key: "unlinked", primary_story_id: null, primary_regime_slug: null }),
     ],
   });
 
   assert.equal(attachment.contractVersion, MARKET_MOTION_EDITION_V1);
   assert.equal(attachment.researchRunId, "run-1");
-  assert.deepEqual(attachment.items.map((item) => item.id), ["earlier", "later"]);
+  assert.deepEqual(attachment.items.map((item) => item.id), ["earlier", "regime-only", "later"]);
   assert.equal(attachment.items[0].storySlug, "china-us-ai-war");
-  assert.equal(attachment.items[0].regimeLabel, "US–China AI");
+  assert.equal(attachment.items[1].storyId, null);
+  assert.equal(attachment.items[1].storySlug, null);
+  assert.equal(attachment.items[1].regimeSlug, "us-china-ai");
+  assert.equal(attachment.items[1].regimeLabel, "US–China AI");
 });
 
 test("edition parser rejects missing or wrong contracts and preserves snapshot identity", () => {
@@ -93,6 +97,16 @@ test("edition parser rejects missing or wrong contracts and preserves snapshot i
   assert.equal(parsed?.items[0].id, "motion-a");
   assert.equal(parsed?.items[0].versionNumber, 2);
   assert.equal(parsed?.items[0].storyTitle, "China–US AI War");
+
+  const regimeOnly = buildMarketMotionEditionAttachment({
+    researchRunId: "run-1",
+    capturedAt: CAPTURED_AT,
+    stories,
+    rows: [record({ primary_story_id: null, primary_regime_slug: "us-china-ai" })],
+  });
+  const parsedRegimeOnly = marketMotionFromEditionPayload({ marketMotion: regimeOnly });
+  assert.equal(parsedRegimeOnly?.items[0].storyId, null);
+  assert.equal(parsedRegimeOnly?.items[0].regimeSlug, "us-china-ai");
 });
 
 test("Hybrid context can prioritise an exact deep-linked Story or Regime without fuzzy matching", () => {
@@ -103,6 +117,7 @@ test("Hybrid context can prioritise an exact deep-linked Story or Regime without
     rows: [
       record({ id: "ai", motion_key: "ai", primary_story_id: "story-1", primary_regime_slug: "us-china-ai", materiality: 82 }),
       record({ id: "energy", motion_key: "energy", primary_story_id: "story-2", primary_regime_slug: "energy-security-inflation", materiality: 98 }),
+      record({ id: "regime-only", motion_key: "regime-only", primary_story_id: null, primary_regime_slug: "us-china-ai", materiality: 99 }),
     ],
   });
 
@@ -122,5 +137,14 @@ test("Hybrid context can prioritise an exact deep-linked Story or Regime without
       limit: 2,
     })[0].id,
     "energy",
+  );
+
+  assert.equal(
+    selectMarketMotionEditionContext({
+      attachment,
+      preferredRegimeSlug: "us-china-ai",
+      limit: 3,
+    })[0].id,
+    "regime-only",
   );
 });

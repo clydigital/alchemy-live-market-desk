@@ -570,7 +570,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
             items={promotedMotion}
             eyebrow="PROMOTED MARKET MOTION"
             title="Fresh hooks attached to this Dossier"
-            description="Only fresh Motion accepted by validated Dossier reasoning and promoted with an exact canonical Story link is admitted here; exact Regime links are shown when present. The full Primary/Secondary Motion tape stays in Journey, so Dossier does not become a second Motion feed, does not guess a fuzzy Story mapping, and does not rewrite the persisted thesis."
+            description="Only fresh Motion accepted or explicitly refined by validated Dossier reasoning is admitted here. Story-scoped Motion keeps an exact Story link; regime-only Motion stays Story-null with an exact Regime link. The full Primary/Secondary Motion tape stays in Journey, so Dossier does not become a second Motion feed or rewrite the persisted thesis."
             showFullTapeLink
           />
         ) : null}
