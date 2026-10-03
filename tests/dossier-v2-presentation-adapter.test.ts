@@ -915,3 +915,49 @@ test("presentation hides non-material refinement gaps and keeps material blocker
   assert.deepEqual(result.health.researchGaps.map((gap) => gap.id), ["gap-blocker"]);
   assert.equal(result.health.researchGaps[0]?.severity, "MATERIAL");
 });
+
+
+test("B2 presentation exposes immutable Dossier Motion decisions without a mutable Motion read", () => {
+  const analytical = output({
+    motion_attention_assessments: [{
+      motion_id: "motion-regime",
+      decision: "REFINE",
+      reason: "The event is supported but the original Story-level framing was too broad.",
+      evidence_references: ["ev-us10y"],
+      story_implication: null,
+      regime_implication: "Persistent long-end pressure remains relevant to the rate regime.",
+      investigation_next: "Separate real-yield, supply and term-premium channels.",
+      refined_headline: "Long-end pressure persists after softer inflation evidence",
+      refined_why_interesting: "The move keeps a rate-regime question alive without establishing a Story conclusion.",
+      refined_big_picture_bridge: "Long-end pressure -> financing conditions -> valuation sensitivity.",
+    }],
+  });
+  const current = dossier("motion-dossier", analytical);
+  current.payload.motion_attention_snapshot = [{
+    motion_id: "motion-regime",
+    headline: "Original over-broad Motion headline",
+    what_happened: "Long-end yields stayed elevated after softer inflation evidence.",
+    market_reaction: "10Y and 30Y remained firm.",
+    why_interesting: "Original over-broad explanation.",
+    big_picture_bridge: "Original broad bridge.",
+    next_test: "Test the long-end drivers.",
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+    packet_evidence_id: "ev-us10y",
+    verification_state: "VERIFIED",
+    materiality: 92,
+    relevance: 94,
+    novelty: 82,
+  }];
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.equal(result.motionAttention.length, 1);
+  assert.equal(result.motionAttention[0].decision, "REFINE");
+  assert.equal(result.motionAttention[0].scope, "REGIME");
+  assert.equal(result.motionAttention[0].storyId, null);
+  assert.equal(result.motionAttention[0].regimeSlug, "global-cost-of-capital");
+  assert.equal(result.motionAttention[0].headline, "Long-end pressure persists after softer inflation evidence");
+  assert.match(result.motionAttention[0].whyInteresting, /without establishing a Story conclusion/);
+  assert.deepEqual(result.motionAttention[0].evidenceRefs, ["ev-us10y"]);
+});
