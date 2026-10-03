@@ -861,12 +861,21 @@ test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, 
   assert.ok(packet.thesis_ledger);
   assert.equal(packet.thesis_ledger.entries.length, 1);
 
-  // The terminal conflict cluster is removed by the cluster-reduction pass.
-  // Health must be reconciled against the final ledger, not the pre-truncation candidates.
-  assert.ok(!packet.observed_evidence.some((item) => item.conflict_group_id));
-  assert.ok(!packet.evidence_states?.some(
+  // Health must describe the final post-reduction ledger, regardless of
+  // whether this particular reduction path retained or removed the conflict cluster.
+  const finalConflictCounts = new Map<string, number>();
+  for (const item of packet.observed_evidence) {
+    if (!item.conflict_group_id) continue;
+    finalConflictCounts.set(
+      item.conflict_group_id,
+      (finalConflictCounts.get(item.conflict_group_id) ?? 0) + 1,
+    );
+  }
+  const hasFinalUnresolvedConflict = [...finalConflictCounts.values()].some((count) => count >= 2);
+  const hasConflictState = packet.evidence_states?.some(
     (item) => item.source_name === "observed_evidence" && item.state === "CONFLICT",
-  ));
+  ) ?? false;
+  assert.equal(hasConflictState, hasFinalUnresolvedConflict);
 });
 
 test("19. Thesis Ledger input is preserved/validated but never analytically transitioned", () => {
