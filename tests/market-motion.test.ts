@@ -83,6 +83,7 @@ test("Motion investigation eligibility is explicit and shared across Journey and
     reason: "ELIGIBLE",
     nextTest: "Check whether credit confirms the rates move.",
     storyId: "story-rates",
+    regimeSlug: null,
   });
 
   assert.equal(marketMotionInvestigationEligibility({
@@ -117,13 +118,30 @@ test("Motion investigation eligibility is explicit and shared across Journey and
     storyId: "story-rates",
   }, now).reason, "NO_NEXT_TEST");
 
+  const regimeOnly = marketMotionInvestigationEligibility({
+    lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED",
+    expiresAt: "2026-10-01T02:00:00Z",
+    nextTest: "Check auctions and global duration.",
+    storyId: null,
+    regimeSlug: "global-cost-of-capital",
+  }, now);
+  assert.deepEqual(regimeOnly, {
+    eligible: true,
+    reason: "ELIGIBLE",
+    nextTest: "Check auctions and global duration.",
+    storyId: null,
+    regimeSlug: "global-cost-of-capital",
+  });
+
   assert.equal(marketMotionInvestigationEligibility({
     lifecycleState: "PROMOTED",
     verificationState: "VERIFIED",
     expiresAt: "2026-10-01T02:00:00Z",
     nextTest: "Check credit.",
     storyId: null,
-  }, now).reason, "NO_STORY_LINK");
+    regimeSlug: null,
+  }, now).reason, "NO_CANONICAL_ROUTE");
 });
 
 test("Overview selection keeps every fresh qualifying item up to the safety ceiling", () => {
