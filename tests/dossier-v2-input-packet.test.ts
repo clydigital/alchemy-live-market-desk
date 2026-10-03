@@ -823,6 +823,22 @@ test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, 
         source_type: "SEC_FILING",
         provenance: hugeProvenance,
       },
+      {
+        claim_or_fact: "Conflicting terminal cluster value A",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "zz-conflict",
+        conflict_key: "terminal-conflict",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "conflict-a" }],
+      },
+      {
+        claim_or_fact: "Conflicting terminal cluster value B",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "zz-conflict",
+        conflict_key: "terminal-conflict",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "conflict-b" }],
+      },
     ],
     sources_status: {
       huge_source: {
@@ -844,6 +860,13 @@ test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, 
   assert.equal(packet.diagnostics.byte_limit_truncation_applied, true);
   assert.ok(packet.thesis_ledger);
   assert.equal(packet.thesis_ledger.entries.length, 1);
+
+  // The terminal conflict cluster is removed by the cluster-reduction pass.
+  // Health must be reconciled against the final ledger, not the pre-truncation candidates.
+  assert.ok(!packet.observed_evidence.some((item) => item.conflict_group_id));
+  assert.ok(!packet.evidence_states?.some(
+    (item) => item.source_name === "observed_evidence" && item.state === "CONFLICT",
+  ));
 });
 
 test("19. Thesis Ledger input is preserved/validated but never analytically transitioned", () => {
