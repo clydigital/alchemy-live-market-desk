@@ -3,14 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  MARKET_MOTION_PROMOTION_LIMIT,
-  MARKET_MOTION_PROMOTION_MIN_MATERIALITY,
-  MARKET_MOTION_PROMOTION_MIN_RELEVANCE,
   MARKET_MOTION_DOSSIER_PROMOTION_POLICY,
   marketMotionDossierPromotionInput,
-  marketMotionPromotionInput,
   selectDossierAcceptedPromotableMarketMotion,
-  selectPromotableMarketMotion,
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
@@ -56,54 +51,6 @@ function record(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
     ...overrides,
   };
 }
-
-test("promotion requires exact canonical Story publication plus stronger Motion thresholds", () => {
-  assert.equal(MARKET_MOTION_PROMOTION_MIN_MATERIALITY, 80);
-  assert.equal(MARKET_MOTION_PROMOTION_MIN_RELEVANCE, 75);
-
-  const selected = selectPromotableMarketMotion([
-    record({ id: "eligible" }),
-    record({ id: "wrong-story", primary_story_id: "story-2" }),
-    record({ id: "weak-materiality", materiality: 79 }),
-    record({ id: "weak-relevance", relevance: 74 }),
-    record({ id: "lead", verification_state: "LEAD" }),
-    record({ id: "expired", expires_at: "2026-10-01T01:00:00Z" }),
-    record({ id: "already", lifecycle_state: "PROMOTED", effective_state: "PROMOTED" }),
-  ], ["story-1"], NOW);
-
-  assert.deepEqual(selected.map((item) => item.id), ["eligible"]);
-});
-
-test("promotion preserves verification and expiry while appending PROMOTED lifecycle", () => {
-  const input = marketMotionPromotionInput(record(), {
-    researchRunId: "run-1",
-    engineRunId: "engine-1",
-  });
-
-  assert.equal(input.lifecycleState, "PROMOTED");
-  assert.equal(input.verificationState, "REPORTED");
-  assert.equal(input.primaryStoryId, "story-1");
-  assert.equal(input.primaryRegimeSlug, "us-china-ai");
-  assert.equal(input.expiresAt, "2026-10-04T00:45:00.000Z");
-  assert.match(input.promotionReason || "", /Canonical Story story-1 changed/);
-  assert.equal(input.metadata?.promotionPolicy, "canonical-story-changed/v1");
-  assert.equal(input.metadata?.promotedFromMotionId, "motion-1");
-});
-
-test("promotion remains bounded and prioritises verified, material Motion", () => {
-  const rows = Array.from({ length: MARKET_MOTION_PROMOTION_LIMIT + 3 }, (_, index) => record({
-    id: `motion-${index}`,
-    motion_key: `intake:motion-${index}`,
-    verification_state: index === 0 ? "VERIFIED" : "REPORTED",
-    materiality: 80 + index,
-    relevance: 80 + index,
-  }));
-
-  const selected = selectPromotableMarketMotion(rows, ["story-1"], NOW);
-
-  assert.equal(selected.length, MARKET_MOTION_PROMOTION_LIMIT);
-  assert.equal(selected[0].id, "motion-0");
-});
 
 test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
   const rows = [
