@@ -242,3 +242,27 @@ test("distinct Research Now actions sharing one investigation are not collapsed"
   assert.deepEqual(result.selected.map((item) => item.workId), ["rn-duration-1", "rn-duration-2"]);
   assert.equal(result.suppressed.length, 0);
 });
+
+
+test("regime-only Market Motion receives exact-route linkage credit without a synthetic Story", () => {
+  const scored = scoreResearchGapCandidate(candidate("regime-motion", "market_motion", {
+    linkedStoryIds: [],
+    blockingRefs: ["MOTION:motion-1", "REGIME:global-cost-of-capital"],
+    evidenceNeeded: ["Check auctions and global duration."],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: null,
+      motionAttentionTier: "PRIMARY",
+      motionAttentionScore: 90,
+      motionWritingPotential: "HIGH",
+    },
+  }));
+
+  assert.equal(scored.scoreBreakdown.linkage, 4);
+  assert.ok(scored.selectionReason.includes("linked to exact Regime"));
+  assert.ok(!scored.selectionReason.includes("linked to persistent Story"));
+});
