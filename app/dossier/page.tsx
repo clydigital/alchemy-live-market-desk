@@ -154,6 +154,13 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           title={selection.notice.label}
           detail={selection.notice.detail}
         />
+        {!requestedId && selection.lastValidDossierId ? (
+          <div className={styles.historyReturn}>
+            <Link href={`/dossier?id=${selection.lastValidDossierId}`}>
+              View last valid Dossier{selection.lastValidAsOf ? ` · ${formatDeskDate(selection.lastValidAsOf)}` : ""}
+            </Link>
+          </div>
+        ) : null}
         {requestedId ? (
           <div className={styles.historyReturn}>
             <Link href="/dossier">Return to current Dossier</Link>
@@ -214,12 +221,88 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           </div>
         </section>
 
+        <section className={styles.primarySection}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span>02 / EXPECTED VS HAPPENED</span>
+              <h3>Preserved expectation versus observed tape</h3>
+            </div>
+            <small>{dossier.watchNext.length} active comparison{dossier.watchNext.length === 1 ? "" : "s"}</small>
+          </div>
+          {dossier.watchNext.length ? (
+            <div className={styles.investigationList}>
+              {dossier.watchNext.map((item) => (
+                <article className={styles.investigation} key={`expected:${item.id}`}>
+                  <header>
+                    <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
+                    <h4>{item.question}</h4>
+                  </header>
+                  <div className={styles.divergenceCompare}>
+                    <div>
+                      <small>{item.journey.previousExpectedReaction ? "PRIOR / PRE-TAPE EXPECTATION" : "EXPECTED / BEFORE TAPE"}</small>
+                      <p>{item.journey.previousExpectedReaction || item.expectedReaction || "No canonical pre-event expectation is available."}</p>
+                    </div>
+                    <div>
+                      <small>OBSERVED / ACTUAL TAPE</small>
+                      <p>{item.observedReaction || "No comparable post-trigger reaction is available yet."}</p>
+                    </div>
+                    <div className={styles.divergenceStatus}>
+                      <small>DIVERGENCE</small>
+                      <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState
+              state="ready"
+              title="No active expectation comparison"
+              detail="This Dossier vintage has no open investigation with a preserved expectation to compare."
+            />
+          )}
+        </section>
+
+        <section className={styles.primarySection}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span>03 / REACTION MAP</span>
+              <h3>Deterministic market reaction evidence</h3>
+            </div>
+            <small>
+              {dossier.watchNext.reduce((count, item) => count + item.reactionChecks.length, 0)} exact check(s)
+            </small>
+          </div>
+          {dossier.watchNext.some((item) => item.reactionChecks.length) ? (
+            <div className={styles.reactionAudit}>
+              <small>SYSTEM 1 ONLY · EXPECTED DIRECTION → OBSERVED DIRECTION</small>
+              <div>
+                {dossier.watchNext.flatMap((item) => item.reactionChecks).map((check) => (
+                  <span data-relation={check.relation.toLowerCase()} key={check.checkId}>
+                    {check.isProxy ? `${check.instrument} via ${check.observedInstrument}` : check.instrument}
+                    {" · expected "}{check.expectedDirection}
+                    {" · observed "}{check.observedDirection}
+                    {" · "}{check.relation}
+                    {check.reactionWindow ? ` · ${check.reactionWindow}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <DataState
+              state="warn"
+              title="Exact reaction map unresolved"
+              detail="No exact System 1 reaction window is available for the active investigations in this Dossier vintage."
+            />
+          )}
+        </section>
+
         <NarrativeSpine dossier={dossier} surface="dossier" />
 
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
             <div>
-              <span>01 / WHAT MATTERS NOW</span>
+              <span>04 / WHAT MATTERS NOW</span>
               <h3>The stories carrying the regime</h3>
             </div>
             <small>{dossier.whatMattersNow.stories.length} supported stories</small>
@@ -263,8 +346,8 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
             <div>
-              <span>02 / WATCH NEXT</span>
-              <h3>Open investigations</h3>
+              <span>05 / DIVERGENCE LAB</span>
+              <h3>Competing explanations for what did not behave normally</h3>
             </div>
             <small>{dossier.watchNext.length} active questions</small>
           </div>
@@ -444,8 +527,8 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
             <div>
-              <span>03 / RESEARCH NOW</span>
-              <h3>Highest-information next actions</h3>
+              <span>06 / WHAT CHANGES THE VIEW</span>
+              <h3>Falsifiers, discriminators and highest-information next actions</h3>
             </div>
             <small>{dossier.researchNow.length} actions</small>
           </div>
@@ -467,7 +550,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           <section className={styles.currentTape}>
             <div className={styles.currentTapeHead}>
               <div>
-                <span>CURRENT TAPE</span>
+                <span>07 / CURRENT TAPE</span>
                 <h3>What markets are doing now</h3>
               </div>
               <p>
@@ -678,6 +761,18 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
             </div>
             <small>View {Math.min(historyIndex.items.length, 10)} vintage{Math.min(historyIndex.items.length, 10) === 1 ? "" : "s"}</small>
           </summary>
+          <div className={styles.historyReturn}>
+            <span>
+              Structural predecessor: {dossier.memory.structuralPredecessorId ?? "none"}
+            </span>
+            <span>
+              Reasoning baseline: {dossier.memory.analyticalBaselineId ?? "none"}
+              {dossier.memory.analyticalBaselineAsOf ? ` · ${formatDeskDate(dossier.memory.analyticalBaselineAsOf)}` : ""}
+            </span>
+            <Badge tone={dossier.memory.state === "AVAILABLE" ? "ready" : dossier.memory.state === "PARTIAL" ? "warn" : "risk"}>
+              Memory {dossier.memory.state}
+            </Badge>
+          </div>
           {historicalMode ? (
             <div className={styles.historyReturn}>
               <Link href="/dossier">Return to current Dossier</Link>
@@ -829,6 +924,18 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
             <strong>{dossier.health.researchGaps.length} gaps · {dossier.evidenceIndex.length} evidence refs</strong>
           </summary>
           <div className={styles.auditBody}>
+            {dossier.health.evidenceStates.length ? (
+              <div className={styles.auditBlock}>
+                <h4>Evidence states</h4>
+                {dossier.health.evidenceStates.map((item) => (
+                  <p key={item.sourceName}>
+                    <strong>{item.sourceName}</strong> · {item.state}
+                    {item.lastAvailableAt ? ` · ${formatDeskDate(item.lastAvailableAt)}` : ""}
+                    {item.message ? ` · ${item.message}` : ""}
+                  </p>
+                ))}
+              </div>
+            ) : null}
             {dossier.health.freshnessWarnings.length ? (
               <div className={styles.auditBlock}>
                 <h4>Freshness warnings</h4>
