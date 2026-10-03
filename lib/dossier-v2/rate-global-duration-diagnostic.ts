@@ -209,10 +209,14 @@ export function buildRateGlobalDurationDiagnostic(
 
   const globalLabelEligible = Boolean(
     jgb
+    && jp10Change !== null
+    && jp30Change !== null
     && bund
     && gilt
     && metricNumber(bund, "observed_value") !== null
     && metricNumber(gilt, "observed_value") !== null
+    && metricNumber(bund, "change_5d_bp") !== null
+    && metricNumber(gilt, "change_5d_bp") !== null
   );
 
   const jpyLast = metricNumber(usdJpy, "last");
