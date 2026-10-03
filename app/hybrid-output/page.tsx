@@ -117,7 +117,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
   const dossierMotionDecisions = dossier.motionAttention
-    .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
+    .filter((item) => item.decision !== "REJECT")
     .map((item) => {
       const story = item.storyId ? data.stories.find((candidate) => candidate.id === item.storyId) || null : null;
       const regime = item.regimeSlug ? regimes.find((candidate) => candidate.slug === item.regimeSlug) || null : null;
@@ -244,7 +244,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         {dossierMotionDecisions.length ? (
           <Panel
             title="Dossier Motion decisions"
-            description="Latest accepted/refined Motion reasoning from the persisted Dossier. This can appear before the next immutable Journey edition freezes the promoted Motion; it never reads the mutable current Motion view."
+            description="Latest accepted, refined or unresolved Motion reasoning from the persisted Dossier. UNRESOLVED stays unpromoted and becomes a Research Gap branch; this surface never reads the mutable current Motion view."
             action={<Badge tone="ready">{dossierMotionDecisions.length} DOSSIER DECISION{dossierMotionDecisions.length === 1 ? "" : "S"}</Badge>}
           >
             <div className={styles.recordList}>
@@ -255,7 +255,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                       <span className={styles.kicker}>{item.decision} · {item.scope}</span>
                       <h3>{item.headline}</h3>
                     </div>
-                    <Badge tone={item.decision === "REFINE" ? "warn" : "ready"}>{item.decision}</Badge>
+                    <Badge tone={item.decision === "ACCEPT" ? "ready" : "warn"}>{item.decision}</Badge>
                   </div>
                   <p><strong>What happened:</strong> {item.whatHappened}</p>
                   <p><strong>Dossier read:</strong> {item.whyInteresting}</p>
