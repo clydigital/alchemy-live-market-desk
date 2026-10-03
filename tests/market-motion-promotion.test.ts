@@ -53,18 +53,19 @@ function record(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
   };
 }
 
-test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
+test("Dossier selector admits fresh promoted Story-scoped and regime-only Motion", () => {
   const rows = [
     record({ id: "promoted", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 92 }),
     record({ id: "plain-motion", lifecycle_state: "MOTION", effective_state: "MOTION", materiality: 99 }),
     record({ id: "other-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: "story-2", materiality: 89 }),
-    record({ id: "no-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, materiality: 99 }),
+    record({ id: "regime-only", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, materiality: 99 }),
+    record({ id: "unlinked", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, primary_regime_slug: null, materiality: 100 }),
     record({ id: "expired", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", expires_at: "2026-10-01T01:00:00Z" }),
   ];
 
   assert.deepEqual(
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
-    ["promoted", "other-story"],
+    ["regime-only", "promoted", "other-story"],
   );
 });
 
@@ -81,11 +82,14 @@ function assessment(
     story_implication: "The linked Story should carry this accepted short-horizon development.",
     regime_implication: "The development reinforces the current regime interpretation.",
     investigation_next: null,
+    refined_headline: decision === "REFINE" ? "HBM demand remains firm while the causal driver is narrowed" : null,
+    refined_why_interesting: decision === "REFINE" ? "The supported development remains material, but the original causal framing was too broad." : null,
+    refined_big_picture_bridge: decision === "REFINE" ? "HBM demand -> memory tightness -> test AI infrastructure cost transmission." : null,
     ...overrides,
   };
 }
 
-test("B1 promotion authority requires a Dossier ACCEPT assessment rather than Story publication", () => {
+test("B2 promotion authority admits ACCEPT and corrected REFINE without Story-first publication", () => {
   const rows = [
     record({ id: "accepted" }),
     record({ id: "refined", motion_key: "intake:refined" }),
@@ -109,10 +113,10 @@ test("B1 promotion authority requires a Dossier ACCEPT assessment rather than St
 
   const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
 
-  assert.deepEqual(selected.map((item) => item.id), ["accepted"]);
+  assert.deepEqual(selected.map((item) => item.id), ["accepted", "refined", "no-story", "regime-only"]);
 });
 
-test("B1 promoted version records Dossier acceptance as the authority", () => {
+test("B2 Story-scoped promoted version records Dossier acceptance as the authority", () => {
   const input = marketMotionDossierPromotionInput(
     record(),
     assessment(),
@@ -125,6 +129,7 @@ test("B1 promoted version records Dossier acceptance as the authority", () => {
   assert.equal(input.metadata?.promotionPolicy, MARKET_MOTION_DOSSIER_PROMOTION_POLICY);
   assert.equal(input.metadata?.promotionDossierId, "dossier-123");
   assert.equal(input.metadata?.promotionDecision, "ACCEPT");
+  assert.equal(input.metadata?.promotionScope, "STORY");
   assert.deepEqual(input.metadata?.promotionEvidenceRefs, ["research-intake:evidence-1"]);
   assert.match(input.promotionReason || "", /Validated Dossier dossier-123 accepted this Motion/i);
   assert.equal(
@@ -133,29 +138,64 @@ test("B1 promoted version records Dossier acceptance as the authority", () => {
   );
 });
 
-test("B1 defers regime-only ACCEPT until the regime-only promotion slice", () => {
-  assert.throws(
-    () => marketMotionDossierPromotionInput(
-      record(),
-      assessment("ACCEPT", { story_implication: null }),
-      { dossierId: "dossier-123" },
-    ),
-    /accepted Story implication/i,
+test("B2 regime-only ACCEPT promotes without inventing a Story conclusion", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment("ACCEPT", { story_implication: null }),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.lifecycleState, "PROMOTED");
+  assert.equal(input.primaryStoryId, null);
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.metadata?.promotionScope, "REGIME");
+  assert.equal(input.metadata?.originalPrimaryStoryId, "story-1");
+  assert.equal(
+    input.whyInteresting,
+    "The development reinforces the current regime interpretation.",
   );
 });
 
-test("B1 refuses to promote REFINE until a corrected append-only Motion version exists", () => {
+test("B2 REFINE promotes only the corrected append-only framing", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment("REFINE"),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.lifecycleState, "PROMOTED");
+  assert.equal(input.headline, "HBM demand remains firm while the causal driver is narrowed");
+  assert.equal(input.whyInteresting, "The supported development remains material, but the original causal framing was too broad.");
+  assert.equal(input.bigPictureBridge, "HBM demand -> memory tightness -> test AI infrastructure cost transmission.");
+  assert.equal(input.metadata?.promotionDecision, "REFINE");
+  assert.equal(input.metadata?.promotionScope, "STORY");
+  assert.equal(input.metadata?.refinedFromMotionId, "motion-1");
+  assert.match(input.promotionReason || "", /refined this Motion/i);
+});
+
+test("B2 refuses REFINE when corrected wording is incomplete", () => {
   assert.throws(
     () => marketMotionDossierPromotionInput(
       record(),
-      assessment("REFINE"),
+      assessment("REFINE", { refined_headline: null }),
       { dossierId: "dossier-123" },
     ),
-    /requires an ACCEPT assessment/i,
+    /corrected Motion wording/i,
   );
 });
 
-test("B1 removes Story-change promotion from the canonical intelligence runtime", () => {
+test("B2 requires an exact accepted Story or Regime link", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record({ primary_story_id: null, primary_regime_slug: null }),
+      assessment("ACCEPT"),
+      { dossierId: "dossier-123" },
+    ),
+    /accepted exact Story or Regime implication/i,
+  );
+});
+
+test("B2 keeps Story-change promotion removed from the canonical intelligence runtime", () => {
   const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
 
   assert.doesNotMatch(runtime, /promoteMarketMotionForPublishedStories/);
@@ -163,7 +203,7 @@ test("B1 removes Story-change promotion from the canonical intelligence runtime"
 });
 
 
-test("B1 Dossier execution owns promotion after persistence", () => {
+test("B2 Dossier execution owns promotion after persistence", () => {
   const execution = readFileSync(new URL("../lib/dossier-v2/execution.ts", import.meta.url), "utf8");
   const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
 
@@ -173,6 +213,6 @@ test("B1 Dossier execution owns promotion after persistence", () => {
   assert.doesNotMatch(runtime, /canonical-story-changed\/v1/);
 });
 
-test("B1 promoter is exported for the post-Dossier append-only path", () => {
+test("B2 promoter is exported for the post-Dossier append-only path", () => {
   assert.equal(typeof promoteMarketMotionFromDossierAssessments, "function");
 });
