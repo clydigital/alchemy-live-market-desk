@@ -420,7 +420,9 @@ test("fresh evidence-backed Motion wakes Dossier synthesis before canonical Stor
       warning: null,
       motionActivations: [{
         id: "motion-rates-1",
-        evidence_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        evidence_id: null,
+        research_run_id: "run-motion-1",
+        packet_evidence_id: "ev:rates:official",
         primary_story_id: "story-rates",
         primary_regime_slug: "global-cost-of-capital",
         lifecycle_state: "MOTION",
@@ -432,6 +434,7 @@ test("fresh evidence-backed Motion wakes Dossier synthesis before canonical Stor
         occurred_at: "2026-09-26T08:20:00.000Z",
         observed_at: "2026-09-26T08:32:00.000Z",
         expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item" },
       }],
     },
   });
@@ -454,17 +457,20 @@ test("Motion cannot wake Dossier synthesis without an underlying evidence refere
       motionActivations: [{
         id: "motion-headline-only",
         evidence_id: null,
+        research_run_id: "run-motion-2",
+        packet_evidence_id: null,
         primary_story_id: "story-rates",
         primary_regime_slug: "global-cost-of-capital",
         lifecycle_state: "MOTION",
         verification_state: "REPORTED",
-        headline: "Headline-only Motion",
+        headline: "Motion without canonical packet evidence",
         materiality: 99,
         relevance: 99,
         novelty: 99,
         occurred_at: "2026-09-26T08:20:00.000Z",
         observed_at: "2026-09-26T08:32:00.000Z",
         expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-2" },
       }],
     },
   });
@@ -484,7 +490,9 @@ test("expired Motion cannot wake Dossier synthesis", () => {
       warning: null,
       motionActivations: [{
         id: "motion-expired",
-        evidence_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        evidence_id: null,
+        research_run_id: "run-motion-3",
+        packet_evidence_id: "ev:rates:market",
         primary_story_id: null,
         primary_regime_slug: "global-cost-of-capital",
         lifecycle_state: "MOTION",
@@ -496,6 +504,7 @@ test("expired Motion cannot wake Dossier synthesis", () => {
         occurred_at: "2026-09-24T08:20:00.000Z",
         observed_at: "2026-09-24T08:32:00.000Z",
         expires_at: "2026-09-25T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-3" },
       }],
     },
   });
@@ -503,12 +512,8 @@ test("expired Motion cannot wake Dossier synthesis", () => {
   assert.equal(decision.action, "NO_CHANGE");
 });
 
-test("Motion activation still requires new observed evidence in the current Dossier packet", () => {
+test("Motion activation requires its exact canonical evidence to survive into the current Dossier packet", () => {
   const currentPacket = packet();
-  currentPacket.observed_evidence = currentPacket.observed_evidence.map((item) => ({
-    ...item,
-    available_at: "2026-09-25T12:00:00.000Z",
-  }));
 
   const decision = decideDossierDelta({
     packet: currentPacket,
@@ -520,7 +525,9 @@ test("Motion activation still requires new observed evidence in the current Doss
       warning: null,
       motionActivations: [{
         id: "motion-current",
-        evidence_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        evidence_id: null,
+        research_run_id: "run-motion-4",
+        packet_evidence_id: "ev:not-in-packet",
         primary_story_id: "story-rates",
         primary_regime_slug: "global-cost-of-capital",
         lifecycle_state: "MOTION",
@@ -532,10 +539,10 @@ test("Motion activation still requires new observed evidence in the current Doss
         occurred_at: "2026-09-26T08:20:00.000Z",
         observed_at: "2026-09-26T08:32:00.000Z",
         expires_at: "2026-09-28T08:32:00.000Z",
+        metadata: { itemKey: "motion-item-4" },
       }],
     },
   });
 
-  assert.equal(decision.newObservedEvidence, 0);
   assert.equal(decision.action, "NO_CHANGE");
 });
