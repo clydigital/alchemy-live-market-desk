@@ -270,6 +270,43 @@ test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without i
   assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["10Y real yield"]);
 });
 
+test("credit and funding remain separate canonical transmission rows", () => {
+  const regime = ratesRegime();
+  const credit = regime.subgroups.find((item) => item.key === "credit-financing");
+  assert.ok(credit);
+  credit.telemetry = [
+    {
+      key: "LIQUIDITY_FUNDING",
+      label: "Secured funding",
+      state: "NEUTRAL",
+      detail: "Secured overnight rates are +0.5 bp versus EFFR.",
+      asOf: "2026-10-03T01:00:00.000Z",
+      source: "system1-dollar-liquidity/1",
+    },
+    {
+      key: "LIQUIDITY_CREDIT",
+      label: "Credit transmission",
+      state: "TIGHTER",
+      detail: "HY OAS 5D +18.0 bp; IG OAS 5D +5.0 bp.",
+      asOf: "2026-10-03T01:00:00.000Z",
+      source: "system1-dollar-liquidity/1",
+    },
+  ];
+
+  const projection = buildRateEducationalProjection({
+    regime,
+    explanation,
+    investigations: [investigation()],
+    dossier: { dossierId: "dossier-credit", asOf: "2026-10-03T01:05:00.000Z" },
+  })!;
+
+  assert.equal(projection.creditFunding?.funding?.state, "NEUTRAL");
+  assert.match(projection.creditFunding?.funding?.detail ?? "", /Secured overnight rates/);
+  assert.equal(projection.creditFunding?.credit?.state, "TIGHTER");
+  assert.match(projection.creditFunding?.credit?.detail ?? "", /HY OAS 5D \+18\.0 bp/);
+  assert.deepEqual(projection.creditFunding?.coverage.missing, []);
+});
+
 test("state board keeps row-level System 1 / System 2 / unresolved ownership", () => {
   const projection = buildRateEducationalProjection({
     regime: ratesRegime(),
@@ -317,6 +354,8 @@ test("Live and Hybrid render the same shared educational projection instead of c
 
   assert.match(livePage, /buildRateEducationalProjection/);
   assert.match(workspace, /RateRegimeEducationalShell/);
+  assert.match(shell, /CREDIT \/ FUNDING TRANSMISSION · SYSTEM 1/);
+  assert.match(shell, /projection\.creditFunding/);
   assert.match(shell, /GOLD CROSS-CHECK · CANONICAL REACTION AUDIT/);
   assert.match(shell, /projection\.goldCrossCheck/);
   assert.match(hybrid, /buildRateEducationalProjection/);

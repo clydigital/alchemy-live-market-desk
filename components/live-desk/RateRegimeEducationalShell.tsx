@@ -214,6 +214,34 @@ export default function RateRegimeEducationalShell({
         </article>
       ) : null}
 
+      {projection.creditFunding ? (
+        <article className={styles.board}>
+          <header>
+            <span className={styles.kicker}>CREDIT / FUNDING TRANSMISSION · SYSTEM 1</span>
+            <small>{projection.creditFunding.coverage.present}/2 canonical legs observed.</small>
+          </header>
+          <div className={styles.boardGrid}>
+            {[projection.creditFunding.funding, projection.creditFunding.credit].map((row) => row ? (
+              <div className={styles.row} key={row.key}>
+                <div className={styles.rowHead}>
+                  <strong>{row.label}</strong>
+                  <span data-kind="system1">{row.state}</span>
+                </div>
+                <p>{row.detail}</p>
+                <small>System 1 · {row.source} · {dateLabel(row.asOf)}</small>
+              </div>
+            ) : null)}
+          </div>
+          {projection.creditFunding.coverage.missing.length ? (
+            <div className={styles.gaps}>
+              <strong>Still missing</strong>
+              {projection.creditFunding.coverage.missing.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+          <small>Funding stress and credit-spread transmission are separate checks. One may tighten while the other remains contained; this surface does not collapse them into one verdict.</small>
+        </article>
+      ) : null}
+
       {projection.goldCrossCheck ? (
         <article className={styles.longEnd}>
           <header>
