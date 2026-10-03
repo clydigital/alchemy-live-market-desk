@@ -19,6 +19,7 @@ type StoryRow = {
 
 type EvidenceRow = {
   id: string;
+  external_evidence_id?: string | null;
   claim_text: string;
   summary: string | null;
   affected_topics: string[] | null;
@@ -40,7 +41,7 @@ export type DossierStoryRefreshAgendaItem = {
   evidence_id: string;
   score: number;
   priority: number;
-  match_basis: "existing_story_evidence" | "affected_story_slug" | "dossier_story_match";
+  match_basis: "dossier_motion_story" | "existing_story_evidence" | "affected_story_slug" | "dossier_story_match";
   reason: string;
 };
 
@@ -65,6 +66,10 @@ const STOP_WORDS = new Set([
 
 function unique(values: string[]) {
   return [...new Set(values)];
+}
+
+function uuidText(value: string): boolean {
+  return isValidUuid(value);
 }
 
 function words(value: string) {
@@ -135,6 +140,110 @@ function dossierStoryMatchBonus(
 
 function evidenceQualityBonus(evidence: EvidenceRow) {
   return ["transcript", "research_analysis"].includes(evidence.evidence_class) ? 0 : 8;
+}
+function packetEvidenceRefsForRow(evidence: EvidenceRow) {
+  return new Set([
+    evidence.id,
+    evidence.external_evidence_id?.trim() || "",
+    isValidUuid(evidence.id) ? `ev:${evidence.id}` : "",
+  ].filter(Boolean));
+}
+function exactMotionStoryPacketEvidenceRefs(
+  dossier: MarketDossierV2,
+  analyticalOutput: ResearchBrainOutputV1,
+) {
+  const payload = dossier.payload && typeof dossier.payload === "object" && !Array.isArray(dossier.payload)
+    ? dossier.payload as Record<string, unknown>
+    : {};
+  const rawSnapshot = Array.isArray(payload.motion_attention_snapshot)
+    ? payload.motion_attention_snapshot
+    : [];
+  const snapshotByMotionId = new Map(
+    rawSnapshot.flatMap((raw) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+      const item = raw as Record<string, unknown>;
+      const motionId = typeof item.motion_id === "string" ? item.motion_id.trim() : "";
+      return motionId ? [[motionId, item] as const] : [];
+    }),
+  );
+
+  return unique((analyticalOutput.motion_attention_assessments ?? []).flatMap((assessment) => {
+    if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") return [];
+    if (!assessment.story_implication?.trim()) return [];
+    const snapshot = snapshotByMotionId.get(assessment.motion_id);
+    if (!snapshot) return [];
+    const storyId = typeof snapshot.primary_story_id === "string"
+      ? snapshot.primary_story_id.trim()
+      : "";
+    const packetEvidenceId = typeof snapshot.packet_evidence_id === "string"
+      ? snapshot.packet_evidence_id.trim()
+      : "";
+    if (!storyId || !packetEvidenceId || !assessment.evidence_references.includes(packetEvidenceId)) return [];
+    return [packetEvidenceId];
+  }));
+}
+
+function exactMotionStoryRefreshItems(input: {
+  dossierId: string;
+  dossier: MarketDossierV2;
+  analyticalOutput: ResearchBrainOutputV1;
+  stories: StoryRow[];
+  evidenceRows: EvidenceRow[];
+}): DossierStoryRefreshAgendaItem[] {
+  const payload = input.dossier.payload && typeof input.dossier.payload === "object" && !Array.isArray(input.dossier.payload)
+    ? input.dossier.payload as Record<string, unknown>
+    : {};
+  const rawSnapshot = Array.isArray(payload.motion_attention_snapshot)
+    ? payload.motion_attention_snapshot
+    : [];
+  const snapshotByMotionId = new Map(
+    rawSnapshot.flatMap((raw) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+      const item = raw as Record<string, unknown>;
+      const motionId = typeof item.motion_id === "string" ? item.motion_id.trim() : "";
+      return motionId ? [[motionId, item] as const] : [];
+    }),
+  );
+  const storyById = new Map(input.stories.map((story) => [story.id, story]));
+  const evidenceByPacketRef = new Map<string, EvidenceRow>();
+  for (const evidence of input.evidenceRows) {
+    for (const ref of packetEvidenceRefsForRow(evidence)) {
+      if (!evidenceByPacketRef.has(ref)) evidenceByPacketRef.set(ref, evidence);
+    }
+  }
+
+  return (input.analyticalOutput.motion_attention_assessments ?? []).flatMap((assessment) => {
+    if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") return [];
+    if (!assessment.story_implication?.trim()) return [];
+
+    const snapshot = snapshotByMotionId.get(assessment.motion_id);
+    if (!snapshot) return [];
+    const storyId = typeof snapshot.primary_story_id === "string"
+      ? snapshot.primary_story_id.trim()
+      : "";
+    const packetEvidenceId = typeof snapshot.packet_evidence_id === "string"
+      ? snapshot.packet_evidence_id.trim()
+      : "";
+    if (!storyId || !packetEvidenceId) return [];
+
+    const story = storyById.get(storyId);
+    if (!story || story.status === "discarded") return [];
+    if (!assessment.evidence_references.includes(packetEvidenceId)) return [];
+
+    const evidence = evidenceByPacketRef.get(packetEvidenceId);
+    if (!evidence || !isValidUuid(evidence.id)) return [];
+
+    return [{
+      story_id: story.id,
+      story_slug: story.slug,
+      story_status: story.status,
+      evidence_id: evidence.id,
+      score: 140,
+      priority: 95,
+      match_basis: "dossier_motion_story" as const,
+      reason: `dossier_motion_refresh:${input.dossierId}:${assessment.motion_id}:${assessment.decision.toLowerCase()}`,
+    }];
+  });
 }
 
 function attentionText(output: ResearchBrainOutputV1) {
@@ -207,6 +316,7 @@ function evidenceAttentionScore(
 
 export function buildDossierStoryRefreshAgenda(input: {
   dossierId: string;
+  dossier: MarketDossierV2;
   packet: DossierV2InputPacket;
   analyticalOutput: ResearchBrainOutputV1;
   stories: StoryRow[];
@@ -232,6 +342,15 @@ export function buildDossierStoryRefreshAgenda(input: {
   }
 
   const bestByStory = new Map<string, DossierStoryRefreshAgendaItem>();
+  for (const item of exactMotionStoryRefreshItems({
+    dossierId: input.dossierId,
+    dossier: input.dossier,
+    analyticalOutput: input.analyticalOutput,
+    stories: input.stories,
+    evidenceRows: input.evidenceRows,
+  })) {
+    bestByStory.set(item.story_id, item);
+  }
 
   for (const [evidenceId, evidenceRow] of evidenceById) {
     const attentionScore = evidenceAttentionScore(evidenceRow, explicitRefs, attentionTerms);
@@ -277,8 +396,14 @@ export function buildDossierStoryRefreshAgenda(input: {
         reason: `dossier_refresh:${input.dossierId}:${matchBasis}`,
       };
       const current = bestByStory.get(story.id);
-      if (!current || candidate.score > current.score
-        || (candidate.score === current.score && candidate.evidence_id < current.evidence_id)) {
+      if (!current
+        || (current.match_basis !== "dossier_motion_story" && candidate.score > current.score)
+        || (
+          current.match_basis !== "dossier_motion_story"
+          && candidate.score === current.score
+          && candidate.evidence_id < current.evidence_id
+        )
+      ) {
         bestByStory.set(story.id, candidate);
       }
     }
@@ -311,7 +436,7 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
         .neq("status", "discarded"),
       input.client
         .from("intelligence_evidence")
-        .select("id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .select("id,external_evidence_id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
         .gte("received_at", since)
         .lte("received_at", input.packet.as_of)
         .in("freshness_status", ["current", "aging"])
@@ -322,7 +447,42 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
     if (storyError) throw new Error(`Failed to load Story registry: ${storyError.message}`);
     if (evidenceError) throw new Error(`Failed to load bounded canonical Story-refresh evidence: ${evidenceError.message}`);
 
-    const boundedEvidenceRows = (evidenceRows ?? []) as EvidenceRow[];
+    const exactPacketRefs = exactMotionStoryPacketEvidenceRefs(
+      input.dossier,
+      input.analyticalOutput,
+    );
+    const exactIds = exactPacketRefs.flatMap((ref) => {
+      if (uuidText(ref)) return [ref];
+      if (ref.startsWith("ev:") && uuidText(ref.slice(3))) return [ref.slice(3)];
+      return [];
+    });
+    const exactExternalIds = exactPacketRefs.filter((ref) =>
+      !uuidText(ref) && !(ref.startsWith("ev:") && uuidText(ref.slice(3)))
+    );
+
+    const exactRows: EvidenceRow[] = [];
+    if (exactIds.length) {
+      const { data: rows, error: exactIdError } = await input.client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .in("id", unique(exactIds));
+      if (exactIdError) throw new Error(`Failed to load exact Dossier Motion evidence IDs: ${exactIdError.message}`);
+      exactRows.push(...((rows ?? []) as EvidenceRow[]));
+    }
+    if (exactExternalIds.length) {
+      const { data: rows, error: exactExternalError } = await input.client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .in("external_evidence_id", unique(exactExternalIds));
+      if (exactExternalError) throw new Error(`Failed to load exact Dossier Motion external evidence IDs: ${exactExternalError.message}`);
+      exactRows.push(...((rows ?? []) as EvidenceRow[]));
+    }
+
+    const evidenceByCanonicalId = new Map<string, EvidenceRow>();
+    for (const row of [...((evidenceRows ?? []) as EvidenceRow[]), ...exactRows]) {
+      if (isValidUuid(row.id)) evidenceByCanonicalId.set(row.id, row);
+    }
+    const boundedEvidenceRows = [...evidenceByCanonicalId.values()];
     const evidenceIds = unique(boundedEvidenceRows.map((row) => row.id).filter((id) => isValidUuid(id)));
     if (!evidenceIds.length) {
       return {
@@ -344,6 +504,7 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
 
     const items = buildDossierStoryRefreshAgenda({
       dossierId: input.dossier.id,
+      dossier: input.dossier,
       packet: input.packet,
       analyticalOutput: input.analyticalOutput,
       stories: (stories ?? []) as StoryRow[],

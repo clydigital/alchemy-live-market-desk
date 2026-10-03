@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import {
   RESEARCH_BRAIN_CONTRACT_VERSION,
@@ -54,6 +55,27 @@ function packet() {
       ],
     },
   );
+}
+
+function dossierRecord(
+  id: string,
+  inputPacket: ReturnType<typeof packet>,
+  analyticalOutput: ResearchBrainOutputV1,
+  motionAttentionSnapshot: Array<Record<string, unknown>> = [],
+): MarketDossierV2 {
+  return {
+    id,
+    contract_version: "market-dossier-v2/1",
+    previous_dossier_id: null,
+    as_of: inputPacket.as_of,
+    freshness: { warnings: [] },
+    research_gaps: [],
+    payload: {
+      analytical_output: analyticalOutput,
+      motion_attention_snapshot: motionAttentionSnapshot,
+    },
+    created_at: inputPacket.as_of,
+  };
 }
 
 function output(inputPacket: ReturnType<typeof packet>): ResearchBrainOutputV1 {
@@ -155,10 +177,12 @@ function output(inputPacket: ReturnType<typeof packet>): ResearchBrainOutputV1 {
 
 test("Dossier attention wakes matching archived Stories through canonical evidence topics", () => {
   const inputPacket = packet();
+  const analyticalOutput = output(inputPacket);
   const agenda = buildDossierStoryRefreshAgenda({
     dossierId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    dossier: dossierRecord("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", inputPacket, analyticalOutput),
     packet: inputPacket,
-    analyticalOutput: output(inputPacket),
+    analyticalOutput,
     stories: [
       { id: "story-fed", slug: "fed-rate-repricing", title: "Fed rate repricing", thesis: "Front-end yields reprice as policy expectations change.", market_question: null, assets: ["US02Y"], status: "archived" },
       { id: "story-oil", slug: "refining-crack-spread-stress", title: "Refining crack spread stress", thesis: "Diesel and distillate supply tightness can keep refining cracks elevated.", market_question: null, assets: ["ULSD"], status: "archived" },
@@ -185,6 +209,7 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
 
   const agenda = buildDossierStoryRefreshAgenda({
     dossierId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    dossier: dossierRecord("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", inputPacket, analyticalOutput),
     packet: inputPacket,
     analyticalOutput,
     stories: [
@@ -205,10 +230,12 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
 
 test("Dossier can pair an untagged credible news item with an archived Story when both match the current regime", () => {
   const inputPacket = packet();
+  const analyticalOutput = output(inputPacket);
   const agenda = buildDossierStoryRefreshAgenda({
     dossierId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    dossier: dossierRecord("dddddddd-dddd-4ddd-8ddd-dddddddddddd", inputPacket, analyticalOutput),
     packet: inputPacket,
-    analyticalOutput: output(inputPacket),
+    analyticalOutput,
     stories: [
       {
         id: "story-diesel",
@@ -238,6 +265,185 @@ test("Dossier can pair an untagged credible news item with an archived Story whe
   assert.equal(agenda[0]?.match_basis, "dossier_story_match");
 });
 
+test("B4 ACCEPT wakes the exact Story from the Dossier Motion snapshot without lexical matching", () => {
+  const inputPacket = packet();
+  const externalEvidenceId = "verified-macro:rates-b4";
+  const analyticalOutput = output(inputPacket);
+  const motionId = "motion:b4:rates";
+  const storyId = "44444444-4444-4444-8444-444444444444";
+  analyticalOutput.motion_attention_assessments = [{
+    motion_id: motionId,
+    decision: "ACCEPT",
+    reason: "Canonical evidence supports an exact Story-level reassessment.",
+    evidence_references: [externalEvidenceId],
+    story_implication: "Reassess the exact rates Story for persistent long-end pressure.",
+    regime_implication: "Rates remain restrictive.",
+    investigation_next: null,
+    refined_headline: null,
+    refined_why_interesting: null,
+    refined_big_picture_bridge: null,
+  }];
+  const dossier = dossierRecord(
+    "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    inputPacket,
+    analyticalOutput,
+    [{
+      motion_id: motionId,
+      primary_story_id: storyId,
+      primary_regime_slug: "global-cost-of-capital",
+      packet_evidence_id: externalEvidenceId,
+    }],
+  );
+
+  const agenda = buildDossierStoryRefreshAgenda({
+    dossierId: dossier.id,
+    dossier,
+    packet: inputPacket,
+    analyticalOutput,
+    stories: [{
+      id: storyId,
+      slug: "rates-long-end-pressure",
+      title: "Unrelated display wording",
+      thesis: "A canonical rates thesis.",
+      market_question: null,
+      assets: [],
+      status: "developing",
+    }],
+    evidenceRows: [{
+      id: FED_EVIDENCE_ID,
+      external_evidence_id: externalEvidenceId,
+      claim_text: "Evidence wording intentionally has no lexical overlap with the Story.",
+      summary: null,
+      affected_topics: [],
+      affected_assets: [],
+      evidence_class: "official_release",
+    }],
+    storyEvidenceLinks: [],
+  });
+
+  assert.equal(agenda.length, 1);
+  assert.equal(agenda[0]?.story_id, storyId);
+  assert.equal(agenda[0]?.evidence_id, FED_EVIDENCE_ID);
+  assert.equal(agenda[0]?.match_basis, "dossier_motion_story");
+  assert.equal(agenda[0]?.priority, 95);
+  assert.match(agenda[0]?.reason || "", new RegExp(motionId));
+});
+
+test("B4 REFINE wakes the same exact Story using corrected Dossier reasoning", () => {
+  const inputPacket = packet();
+  const analyticalOutput = output(inputPacket);
+  const motionId = "motion:b4:refine";
+  const storyId = "55555555-5555-4555-8555-555555555555";
+  analyticalOutput.motion_attention_assessments = [{
+    motion_id: motionId,
+    decision: "REFINE",
+    reason: "The development is supported but the original framing was too broad.",
+    evidence_references: [FED_EVIDENCE_ID],
+    story_implication: "The exact Story should be re-evaluated using the narrower framing.",
+    regime_implication: null,
+    investigation_next: "Test the narrower channel.",
+    refined_headline: "Narrower evidence-bounded rates development",
+    refined_why_interesting: "The event matters without proving the original broad cause.",
+    refined_big_picture_bridge: "Observed move -> narrower rates channel -> Story reassessment.",
+  }];
+  const dossier = dossierRecord(
+    "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    inputPacket,
+    analyticalOutput,
+    [{
+      motion_id: motionId,
+      primary_story_id: storyId,
+      primary_regime_slug: "global-cost-of-capital",
+      packet_evidence_id: FED_EVIDENCE_ID,
+    }],
+  );
+
+  const agenda = buildDossierStoryRefreshAgenda({
+    dossierId: dossier.id,
+    dossier,
+    packet: inputPacket,
+    analyticalOutput,
+    stories: [{
+      id: storyId,
+      slug: "exact-refined-story",
+      title: "Exact refined Story",
+      thesis: "Existing thesis.",
+      market_question: null,
+      assets: [],
+      status: "developing",
+    }],
+    evidenceRows: [{
+      id: FED_EVIDENCE_ID,
+      claim_text: "Canonical evidence.",
+      summary: null,
+      affected_topics: [],
+      affected_assets: [],
+      evidence_class: "official_release",
+    }],
+    storyEvidenceLinks: [],
+  });
+
+  assert.equal(agenda[0]?.story_id, storyId);
+  assert.equal(agenda[0]?.match_basis, "dossier_motion_story");
+  assert.match(agenda[0]?.reason || "", /:refine$/);
+});
+
+test("B4 regime-only ACCEPT does not manufacture a Story refresh target", () => {
+  const inputPacket = packet();
+  const analyticalOutput = output(inputPacket);
+  const motionId = "motion:b4:regime-only";
+  analyticalOutput.motion_attention_assessments = [{
+    motion_id: motionId,
+    decision: "ACCEPT",
+    reason: "Evidence supports Regime context only.",
+    evidence_references: [FED_EVIDENCE_ID],
+    story_implication: null,
+    regime_implication: "The rate regime remains restrictive.",
+    investigation_next: null,
+    refined_headline: null,
+    refined_why_interesting: null,
+    refined_big_picture_bridge: null,
+  }];
+  const dossier = dossierRecord(
+    "99999999-9999-4999-8999-999999999999",
+    inputPacket,
+    analyticalOutput,
+    [{
+      motion_id: motionId,
+      primary_story_id: null,
+      primary_regime_slug: "global-cost-of-capital",
+      packet_evidence_id: FED_EVIDENCE_ID,
+    }],
+  );
+
+  const agenda = buildDossierStoryRefreshAgenda({
+    dossierId: dossier.id,
+    dossier,
+    packet: inputPacket,
+    analyticalOutput,
+    stories: [{
+      id: "66666666-6666-4666-8666-666666666666",
+      slug: "should-not-be-invented",
+      title: "Should not be invented",
+      thesis: "No exact Motion Story identity.",
+      market_question: null,
+      assets: [],
+      status: "developing",
+    }],
+    evidenceRows: [{
+      id: FED_EVIDENCE_ID,
+      claim_text: "Generic evidence with no relevant lexical match.",
+      summary: null,
+      affected_topics: [],
+      affected_assets: [],
+      evidence_class: "official_release",
+    }],
+    storyEvidenceLinks: [],
+  });
+
+  assert.equal(agenda.some((item) => item.match_basis === "dossier_motion_story"), false);
+});
+
 test("Dossier Story refresh agenda is bounded to the existing Story-review budget", () => {
   const inputPacket = packet();
   const analyticalOutput = output(inputPacket);
@@ -254,6 +460,7 @@ test("Dossier Story refresh agenda is bounded to the existing Story-review budge
   }));
   const agenda = buildDossierStoryRefreshAgenda({
     dossierId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    dossier: dossierRecord("cccccccc-cccc-4ccc-8ccc-cccccccccccc", inputPacket, analyticalOutput),
     packet: inputPacket,
     analyticalOutput,
     stories,

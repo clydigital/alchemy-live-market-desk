@@ -8,6 +8,8 @@ Implementation must also satisfy the binding failure-mode and rollout constraint
 
 A Regime is the durable market environment. A Story is the current living interpretation of one branch inside that Regime. **What's New** is the dated delta that caused a Story or Regime state to change. Hybrid is the presentation and learning layer that explains the causal chain without becoming a second research brain.
 
+For Market Motion, Dossier reasoning is the analytical handoff before canonical Story mutation. An evidence-backed Dossier `ACCEPT` or `REFINE` with an exact Story identity must queue that exact Story for canonical re-evaluation using the exact packet evidence; lexical Story matching is fallback only. Regime-only acceptance must not invent a Story link. Canonical Story acceptance remains the boundary consumed by the Regime projector.
+
 The user-facing hierarchy is:
 
 ```text
