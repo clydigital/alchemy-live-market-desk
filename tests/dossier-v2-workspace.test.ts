@@ -11,8 +11,10 @@ test("Dossier workspace keeps Dossier V2 authoritative while admitting only prom
 
   assert.match(page, /getDossierV2PresentationSelection/);
   assert.match(page, /CURRENT MARKET DOSSIER/);
+  assert.match(page, /EXPECTED VS HAPPENED/);
+  assert.match(page, /REACTION MAP/);
   assert.match(page, /WHAT MATTERS NOW/);
-  assert.match(page, /WATCH NEXT/);
+  assert.match(page, /05 \/ DIVERGENCE LAB/);
   assert.match(page, /buildDivergenceLabPresentation/);
   assert.match(page, /DIVERGENCE LAB — CANDIDATE MECHANISMS/);
   assert.match(page, /MECHANISM UNRESOLVED/);
@@ -20,7 +22,7 @@ test("Dossier workspace keeps Dossier V2 authoritative while admitting only prom
   assert.match(page, /candidate\.evidenceForRefs\.length/);
   assert.match(page, /candidate\.displayDiscriminator/);
   assert.doesNotMatch(page, /item\.candidateExplanations\.map/);
-  assert.match(page, /RESEARCH NOW/);
+  assert.match(page, /WHAT CHANGES THE VIEW/);
   assert.match(page, /TRADINGVIEW INVESTIGATIONS/);
   assert.match(page, /getCurrentMarketMotion/);
   assert.match(page, /selectPromotedMarketMotionForDossier/);
@@ -50,11 +52,13 @@ test("Dossier is a primary Live Desk navigation destination", () => {
   assert.match(routes, /href: "\/dossier"/);
 });
 
-test("Dossier workspace retains healthy/fallback state and lower-priority audit surfaces", () => {
+test("Dossier workspace exposes degraded/current state without silently substituting prior reasoning", () => {
   const page = source("../app/dossier/page.tsx");
 
-  assert.match(page, /selection\.usingFallback/);
+  assert.doesNotMatch(page, /selection\.usingFallback/);
   assert.match(page, /selection\.notice\.detail/);
+  assert.match(page, /selection\.lastValidDossierId/);
+  assert.match(page, /View last valid Dossier/);
   assert.match(page, /RESEARCH HEALTH & GAPS/);
   assert.match(page, /THESIS CHANGES/);
   assert.match(page, /DEVELOPING THEMES/);

@@ -25,11 +25,19 @@ import type {
 
 export const DOSSIER_PRESENTATION_V1 = "dossier-presentation/1" as const;
 
+export type DossierPresentationEvidenceState = {
+  sourceName: string;
+  state: "FRESH" | "STALE" | "PARTIAL" | "MISSING" | "CONFLICT" | "UNKNOWN";
+  lastAvailableAt: string | null;
+  message: string | null;
+};
+
 export type DossierPresentationHealth = {
   state: "healthy" | "degraded";
   degraded: boolean;
   repairUsed: boolean;
   freshnessWarnings: string[];
+  evidenceStates: DossierPresentationEvidenceState[];
   researchGaps: Array<{
     id: string;
     category: string;
@@ -240,6 +248,14 @@ export type DossierPresentationEvidenceRef = {
   usedIn: string[];
 };
 
+export type DossierPresentationMemory = {
+  state: "AVAILABLE" | "PARTIAL" | "MISSING" | "BROKEN_LINEAGE";
+  structuralPredecessorId: string | null;
+  analyticalBaselineId: string | null;
+  analyticalBaselineAsOf: string | null;
+  sameAsStructuralPredecessor: boolean;
+};
+
 export type DossierPresentationV1 = {
   contractVersion: typeof DOSSIER_PRESENTATION_V1;
   dossierId: string;
@@ -248,6 +264,7 @@ export type DossierPresentationV1 = {
   createdAt: string;
 
   health: DossierPresentationHealth;
+  memory: DossierPresentationMemory;
 
   header: {
     headline: string;
@@ -322,6 +339,86 @@ function analyticalOutput(dossier: MarketDossierV2): ResearchBrainOutputV1 {
   }
 
   return value as unknown as ResearchBrainOutputV1;
+}
+
+function evidenceStates(dossier: MarketDossierV2): DossierPresentationEvidenceState[] {
+  const raw = Array.isArray(dossier.freshness.evidence_states)
+    ? dossier.freshness.evidence_states
+    : [];
+  const validStates = new Set(["FRESH", "STALE", "PARTIAL", "MISSING", "CONFLICT", "UNKNOWN"]);
+
+  return raw.flatMap((item) => {
+    if (!isObject(item) || typeof item.source_name !== "string") return [];
+    const state = String(item.state ?? "").toUpperCase();
+    if (!validStates.has(state)) return [];
+    return [{
+      sourceName: item.source_name,
+      state: state as DossierPresentationEvidenceState["state"],
+      lastAvailableAt: typeof item.last_available_at === "string" ? item.last_available_at : null,
+      message: typeof item.message === "string" ? item.message : null,
+    }];
+  }).sort((left, right) => left.sourceName.localeCompare(right.sourceName));
+}
+
+function memoryControl(
+  dossier: MarketDossierV2,
+  analyticalBaseline: MarketDossierV2 | null,
+  structuralPredecessor: MarketDossierV2 | null,
+): DossierPresentationMemory {
+  const raw = isObject(dossier.payload.memory_control)
+    ? dossier.payload.memory_control
+    : null;
+
+  const structuralPredecessorId = dossier.previous_dossier_id;
+  const rawBaselineId = raw?.analytical_baseline_id;
+  const malformedBaselineId =
+    raw !== null
+    && rawBaselineId !== undefined
+    && rawBaselineId !== null
+    && typeof rawBaselineId !== "string";
+  const analyticalBaselineId = malformedBaselineId
+    ? null
+    : typeof rawBaselineId === "string"
+      ? rawBaselineId
+      : rawBaselineId === null
+        ? null
+        : structuralPredecessorId;
+  const analyticalBaselineAsOf =
+    typeof raw?.analytical_baseline_as_of === "string"
+      ? raw.analytical_baseline_as_of
+      : analyticalBaseline?.as_of ?? null;
+
+  const structuralResolved =
+    structuralPredecessorId === null
+    || structuralPredecessor?.id === structuralPredecessorId
+    || analyticalBaseline?.id === structuralPredecessorId;
+  const baselineResolved =
+    analyticalBaselineId === null
+    || analyticalBaseline?.id === analyticalBaselineId;
+  const cycleDetected =
+    structuralPredecessorId === dossier.id
+    || analyticalBaselineId === dossier.id;
+
+  const state: DossierPresentationMemory["state"] =
+    malformedBaselineId || cycleDetected
+      ? "BROKEN_LINEAGE"
+      : structuralPredecessorId !== null && analyticalBaselineId === null
+        ? "MISSING"
+        : analyticalBaselineId !== null && !baselineResolved
+          ? "MISSING"
+          : structuralPredecessorId !== null && !structuralResolved
+            ? "PARTIAL"
+            : "AVAILABLE";
+
+  return {
+    state,
+    structuralPredecessorId,
+    analyticalBaselineId,
+    analyticalBaselineAsOf,
+    sameAsStructuralPredecessor:
+      structuralPredecessorId !== null
+      && structuralPredecessorId === analyticalBaselineId,
+  };
 }
 
 function freshnessWarnings(dossier: MarketDossierV2): string[] {
@@ -994,13 +1091,21 @@ function evidenceIndex(output: ResearchBrainOutputV1): DossierPresentationEviden
 export function buildDossierV2Presentation(
   dossier: MarketDossierV2,
   previousDossier?: MarketDossierV2 | null,
+  structuralPredecessor?: MarketDossierV2 | null,
 ): DossierPresentationV1 {
   const output = analyticalOutput(dossier);
   const previousOutput = previousDossier ? analyticalOutput(previousDossier) : null;
+  const memory = memoryControl(
+    dossier,
+    previousDossier ?? null,
+    structuralPredecessor ?? previousDossier ?? null,
+  );
 
   const warnings = freshnessWarnings(dossier);
   const gaps = researchGaps(dossier);
-  const degraded = Boolean(output.diagnostics.degraded);
+  const degraded =
+    Boolean(output.diagnostics.degraded)
+    || gaps.some((gap) => gap.severity === "MATERIAL");
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
   const reactionAssessments = system1ReactionAssessments(dossier);
@@ -1040,9 +1145,12 @@ export function buildDossierV2Presentation(
       degraded,
       repairUsed: Boolean(output.diagnostics.model_repair_used),
       freshnessWarnings: warnings,
+      evidenceStates: evidenceStates(dossier),
       researchGaps: gaps,
       missingInputCategories: [...output.diagnostics.missing_input_categories],
     },
+
+    memory,
 
     header: {
       headline: output.main_thread.headline,
@@ -1112,7 +1220,10 @@ export function buildDossierV2Presentation(
       creator_claims_referenced: [...item.creator_claims_referenced],
     })),
 
-    thesisChanges: thesisChanges(output, previousOutput),
+    thesisChanges:
+      memory.analyticalBaselineId !== null && memory.state === "MISSING"
+        ? []
+        : thesisChanges(output, previousOutput),
 
     evidenceIndex: evidenceIndex(output),
 

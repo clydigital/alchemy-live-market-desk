@@ -133,6 +133,25 @@ test("2. optional-source failures remain non-blocking", () => {
   assert.ok(packet.packet_id);
   assert.equal(packet.freshness_warnings.length, 1);
   assert.equal(packet.freshness_warnings[0].source_name, "news_wire");
+
+  const evidenceStates = (packet as typeof packet & {
+    evidence_states?: Array<{
+      source_name: string;
+      state: "FRESH" | "STALE" | "PARTIAL" | "MISSING" | "CONFLICT" | "UNKNOWN";
+      last_available_at?: string;
+      message?: string;
+    }>;
+  }).evidence_states;
+
+  assert.deepEqual(
+    evidenceStates?.map((item) => [item.source_name, item.state]),
+    [
+      ["macro_data", "MISSING"],
+      ["news_wire", "STALE"],
+      ["price_data", "UNKNOWN"],
+    ],
+  );
+
   assert.equal(packet.research_gaps.length, 2);
   const gapCategories = packet.research_gaps.map((g) => g.category);
   assert.ok(gapCategories.includes("PRICE_DATA"));
@@ -511,6 +530,12 @@ test("11. explicit conflict key produces conflict group; distinct non-conflictin
   assert.ok(cpi1 && cpi2);
   assert.ok(cpi1.conflict_group_id);
   assert.equal(cpi1.conflict_group_id, cpi2.conflict_group_id);
+
+  const conflictState = packet.evidence_states?.find(
+    (item) => item.source_name === "observed_evidence",
+  );
+  assert.equal(conflictState?.state, "CONFLICT");
+  assert.match(conflictState?.message ?? "", /1 unresolved canonical conflict group/i);
 });
 
 test("12. transitive supersession lineage chains and cycle detection", () => {
@@ -798,6 +823,22 @@ test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, 
         source_type: "SEC_FILING",
         provenance: hugeProvenance,
       },
+      {
+        claim_or_fact: "Conflicting terminal cluster value A",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "zz-conflict",
+        conflict_key: "terminal-conflict",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "conflict-a" }],
+      },
+      {
+        claim_or_fact: "Conflicting terminal cluster value B",
+        available_at: IN_WINDOW_TIME,
+        grouping_key: "zz-conflict",
+        conflict_key: "terminal-conflict",
+        source_type: "SEC_FILING",
+        provenance: [{ source_type: "SEC", source_id: "conflict-b" }],
+      },
     ],
     sources_status: {
       huge_source: {
@@ -819,6 +860,22 @@ test("18. graceful non-fatal 200,000-byte reduction for oversized Thesis title, 
   assert.equal(packet.diagnostics.byte_limit_truncation_applied, true);
   assert.ok(packet.thesis_ledger);
   assert.equal(packet.thesis_ledger.entries.length, 1);
+
+  // Health must describe the final post-reduction ledger, regardless of
+  // whether this particular reduction path retained or removed the conflict cluster.
+  const finalConflictCounts = new Map<string, number>();
+  for (const item of packet.observed_evidence) {
+    if (!item.conflict_group_id) continue;
+    finalConflictCounts.set(
+      item.conflict_group_id,
+      (finalConflictCounts.get(item.conflict_group_id) ?? 0) + 1,
+    );
+  }
+  const hasFinalUnresolvedConflict = [...finalConflictCounts.values()].some((count) => count >= 2);
+  const hasConflictState = packet.evidence_states?.some(
+    (item) => item.source_name === "observed_evidence" && item.state === "CONFLICT",
+  ) ?? false;
+  assert.equal(hasConflictState, hasFinalUnresolvedConflict);
 });
 
 test("19. Thesis Ledger input is preserved/validated but never analytically transitioned", () => {

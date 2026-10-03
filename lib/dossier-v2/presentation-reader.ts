@@ -113,6 +113,8 @@ export type DossierPresentationSelection = {
   latestAsOf: string | null;
   selectedAsOf: string | null;
   usingFallback: boolean;
+  lastValidDossierId?: string | null;
+  lastValidAsOf?: string | null;
   calibrationHistory: DossierCalibrationHistoryEntry[];
   calibrationLineages: DossierCalibrationCaseLineage[];
   notice: {
@@ -133,7 +135,7 @@ function byNewest(left: MarketDossierV2, right: MarketDossierV2) {
   return rightTime - leftTime || right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id);
 }
 
-function priorDossier(
+function structuralPredecessor(
   dossier: MarketDossierV2,
   dossiersById: Map<string, MarketDossierV2>,
 ) {
@@ -142,21 +144,44 @@ function priorDossier(
     : null;
 }
 
+function analyticalBaselineId(dossier: MarketDossierV2): string | null {
+  const raw = dossier.payload.memory_control;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const value = (raw as { analytical_baseline_id?: unknown }).analytical_baseline_id;
+    if (value === null) return null;
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return dossier.previous_dossier_id;
+}
+
 function buildCandidate(
   dossier: MarketDossierV2,
   dossiersById: Map<string, MarketDossierV2>,
 ): CandidatePresentation | null {
+  const structural = structuralPredecessor(dossier, dossiersById);
+  const baselineId = analyticalBaselineId(dossier);
+  const analyticalBaseline = baselineId
+    ? dossiersById.get(baselineId) ?? null
+    : null;
+
   try {
-    const previous = priorDossier(dossier, dossiersById);
     return {
       dossier,
-      presentation: buildDossierV2Presentation(dossier, previous),
+      presentation: buildDossierV2Presentation(
+        dossier,
+        analyticalBaseline,
+        structural,
+      ),
     };
   } catch {
     try {
       return {
         dossier,
-        presentation: buildDossierV2Presentation(dossier),
+        presentation: buildDossierV2Presentation(
+          dossier,
+          null,
+          structural,
+        ),
       };
     } catch {
       return null;
@@ -332,7 +357,8 @@ function calibrationLineages(
   };
 
   for (const { dossier, presentation } of built) {
-    if (!dossier.previous_dossier_id) continue;
+    const baselineId = presentation.memory.analyticalBaselineId;
+    if (!baselineId) continue;
     for (const item of presentation.investigationAudit) {
       if (
         !item.journey.previousId
@@ -341,7 +367,7 @@ function calibrationLineages(
 
       union(
         nodeKey(dossier.id, item.id),
-        nodeKey(dossier.previous_dossier_id, item.journey.previousId),
+        nodeKey(baselineId, item.journey.previousId),
       );
     }
   }
@@ -404,6 +430,7 @@ export function selectExactDossierV2Presentation(
   dossier: MarketDossierV2 | null,
   previousDossier: MarketDossierV2 | null = null,
   requestedDossierId: string | null = dossier?.id ?? null,
+  analyticalBaselineDossier: MarketDossierV2 | null = null,
 ): DossierPresentationSelection {
   if (!dossier) {
     return {
@@ -415,6 +442,8 @@ export function selectExactDossierV2Presentation(
       latestAsOf: null,
       selectedAsOf: null,
       usingFallback: false,
+      lastValidDossierId: null,
+      lastValidAsOf: null,
       calibrationHistory: [],
       calibrationLineages: [],
       notice: {
@@ -427,6 +456,9 @@ export function selectExactDossierV2Presentation(
 
   const dossiersById = new Map<string, MarketDossierV2>([[dossier.id, dossier]]);
   if (previousDossier) dossiersById.set(previousDossier.id, previousDossier);
+  if (analyticalBaselineDossier) {
+    dossiersById.set(analyticalBaselineDossier.id, analyticalBaselineDossier);
+  }
 
   const exact = buildCandidate(dossier, dossiersById);
   if (!exact) {
@@ -439,6 +471,8 @@ export function selectExactDossierV2Presentation(
       latestAsOf: null,
       selectedAsOf: null,
       usingFallback: false,
+      lastValidDossierId: null,
+      lastValidAsOf: null,
       calibrationHistory: [],
       calibrationLineages: [],
       notice: {
@@ -449,11 +483,13 @@ export function selectExactDossierV2Presentation(
     };
   }
 
-  const built = [exact];
-  if (previousDossier) {
-    const previous = buildCandidate(previousDossier, dossiersById);
-    if (previous) built.push(previous);
+  const builtMap = new Map<string, CandidatePresentation>([[exact.dossier.id, exact]]);
+  for (const related of [previousDossier, analyticalBaselineDossier]) {
+    if (!related || builtMap.has(related.id)) continue;
+    const candidate = buildCandidate(related, dossiersById);
+    if (candidate) builtMap.set(candidate.dossier.id, candidate);
   }
+  const built = [...builtMap.values()];
   const history = calibrationHistory(built);
   const lineages = calibrationLineages(built, history);
   const degraded = !presentationIsHealthy(exact.presentation);
@@ -467,6 +503,8 @@ export function selectExactDossierV2Presentation(
     latestAsOf: null,
     selectedAsOf: dossier.as_of,
     usingFallback: false,
+    lastValidDossierId: dossier.id,
+    lastValidAsOf: dossier.as_of,
     calibrationHistory: history,
     calibrationLineages: lineages,
     notice: {
@@ -491,6 +529,8 @@ export function selectDossierV2Presentation(
       latestAsOf: null,
       selectedAsOf: null,
       usingFallback: false,
+      lastValidDossierId: null,
+      lastValidAsOf: null,
       calibrationHistory: [],
       calibrationLineages: [],
       notice: {
@@ -509,66 +549,30 @@ export function selectDossierV2Presentation(
     .filter((candidate): candidate is CandidatePresentation => Boolean(candidate));
 
   const latestCandidate = built.find((candidate) => candidate.dossier.id === latest.id) ?? null;
-  const healthy = built.find((candidate) => presentationIsHealthy(candidate.presentation)) ?? null;
+  const lastValid = built[0] ?? null;
   const history = calibrationHistory(built);
   const lineages = calibrationLineages(built, history);
 
-  if (healthy?.dossier.id === latest.id) {
-    return {
-      status: "current",
-      presentation: healthy.presentation,
-      latestDossierId: latest.id,
-      selectedDossierId: healthy.dossier.id,
-      latestAsOf: latest.as_of,
-      selectedAsOf: healthy.dossier.as_of,
-      usingFallback: false,
-      calibrationHistory: history,
-      calibrationLineages: lineages,
-      notice: {
-        tone: "ready",
-        label: "Current Dossier",
-        detail: "Showing the latest healthy persisted Dossier V2.",
-      },
-    };
-  }
-
-  if (healthy) {
-    const latestReason = latestCandidate
-      ? "The latest Dossier is degraded."
-      : "The latest Dossier payload could not be rendered safely.";
-    return {
-      status: "fallback_previous_healthy",
-      presentation: healthy.presentation,
-      latestDossierId: latest.id,
-      selectedDossierId: healthy.dossier.id,
-      latestAsOf: latest.as_of,
-      selectedAsOf: healthy.dossier.as_of,
-      usingFallback: true,
-      calibrationHistory: history,
-      calibrationLineages: lineages,
-      notice: {
-        tone: "warn",
-        label: "Using prior healthy Dossier",
-        detail: `${latestReason} Showing the most recent healthy persisted Dossier instead.`,
-      },
-    };
-  }
-
   if (latestCandidate) {
+    const healthy = presentationIsHealthy(latestCandidate.presentation);
     return {
-      status: "degraded_latest",
+      status: healthy ? "current" : "degraded_latest",
       presentation: latestCandidate.presentation,
       latestDossierId: latest.id,
       selectedDossierId: latest.id,
       latestAsOf: latest.as_of,
       selectedAsOf: latest.as_of,
       usingFallback: false,
+      lastValidDossierId: latest.id,
+      lastValidAsOf: latest.as_of,
       calibrationHistory: history,
       calibrationLineages: lineages,
       notice: {
-        tone: "warn",
-        label: "Degraded Dossier",
-        detail: "No prior healthy Dossier is available, so the latest degraded Dossier is shown with its gaps intact.",
+        tone: healthy ? "ready" : "warn",
+        label: healthy ? "Current Dossier" : "Current Dossier · degraded",
+        detail: healthy
+          ? "Showing the latest persisted Dossier V2."
+          : "Showing the latest structurally valid Dossier with its degradation and research gaps visible. No older interpretation has been substituted.",
       },
     };
   }
@@ -581,12 +585,16 @@ export function selectDossierV2Presentation(
     latestAsOf: latest.as_of,
     selectedAsOf: null,
     usingFallback: false,
+    lastValidDossierId: lastValid?.dossier.id ?? null,
+    lastValidAsOf: lastValid?.dossier.as_of ?? null,
     calibrationHistory: history,
     calibrationLineages: lineages,
     notice: {
       tone: "error",
-      label: "Dossier unavailable",
-      detail: "Persisted Dossier records exist, but none can be rendered safely.",
+      label: "Current Dossier unavailable",
+      detail: lastValid
+        ? "The latest persisted Dossier cannot be rendered safely. The last valid Dossier remains available as historical reference and has not been substituted as current."
+        : "Persisted Dossier records exist, but the latest record cannot be rendered safely and no valid historical reference is available.",
     },
   };
 }
@@ -606,13 +614,63 @@ export async function getDossierV2PresentationSelection(
     throw new Error(`Failed to load Market Dossier V2 presentations: ${error.message}`);
   }
 
+  const rows = data ?? [];
+  if (rows.length === 0) return selectDossierV2Presentation([]);
+
   const valid: MarketDossierV2[] = [];
-  for (const row of data ?? []) {
+  let latestIsValid = false;
+
+  rows.forEach((row, index) => {
     try {
-      valid.push(validateMarketDossierV2Record(row));
+      const dossier = validateMarketDossierV2Record(row);
+      valid.push(dossier);
+      if (index === 0) latestIsValid = true;
     } catch {
-      // Fail closed per record. A malformed latest row must not prevent a prior
-      // healthy immutable Dossier from remaining available to Live/Hybrid.
+      // Malformed records remain visible as an explicit current failure when
+      // they are the newest row; older malformed rows are omitted from history.
+    }
+  });
+
+  if (!latestIsValid) {
+    const historical = selectDossierV2Presentation(valid);
+    const rawLatest = rows[0] as Record<string, unknown>;
+    return {
+      status: "unavailable",
+      presentation: null,
+      latestDossierId: typeof rawLatest.id === "string" ? rawLatest.id : null,
+      selectedDossierId: null,
+      latestAsOf: typeof rawLatest.as_of === "string" ? rawLatest.as_of : null,
+      selectedAsOf: null,
+      usingFallback: false,
+      lastValidDossierId: historical.selectedDossierId ?? historical.lastValidDossierId ?? null,
+      lastValidAsOf: historical.selectedAsOf ?? historical.lastValidAsOf ?? null,
+      calibrationHistory: historical.calibrationHistory,
+      calibrationLineages: historical.calibrationLineages,
+      notice: {
+        tone: "error",
+        label: "Current Dossier unavailable",
+        detail: "The latest persisted Dossier cannot be rendered safely. The last valid Dossier remains historical reference only and has not been substituted as current.",
+      },
+    };
+  }
+
+  const dossiersById = new Map(valid.map((dossier) => [dossier.id, dossier]));
+  const latest = [...valid].sort(byNewest)[0];
+  const requiredIds = [
+    latest.previous_dossier_id,
+    analyticalBaselineId(latest),
+  ].filter((id): id is string => Boolean(id));
+
+  for (const id of [...new Set(requiredIds)]) {
+    if (dossiersById.has(id)) continue;
+    try {
+      const related = await getMarketDossierV2ById(id, dbClient);
+      if (related) {
+        valid.push(related);
+        dossiersById.set(related.id, related);
+      }
+    } catch {
+      // Exact lineage resolution fails closed in presentation.memory.
     }
   }
 
@@ -639,7 +697,24 @@ export async function getDossierV2PresentationSelectionById(
     }
   }
 
-  return selectExactDossierV2Presentation(dossier, previous, id);
+  const baselineId = analyticalBaselineId(dossier);
+  let analyticalBaseline: MarketDossierV2 | null =
+    baselineId && previous?.id === baselineId ? previous : null;
+
+  if (baselineId && !analyticalBaseline) {
+    try {
+      analyticalBaseline = await getMarketDossierV2ById(baselineId, dbClient);
+    } catch {
+      analyticalBaseline = null;
+    }
+  }
+
+  return selectExactDossierV2Presentation(
+    dossier,
+    previous,
+    id,
+    analyticalBaseline,
+  );
 }
 
 export async function getDossierV2HistoryIndex(

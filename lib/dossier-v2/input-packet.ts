@@ -157,6 +157,21 @@ export interface FreshnessWarning {
   message: string;
 }
 
+export type EvidenceState =
+  | "FRESH"
+  | "STALE"
+  | "PARTIAL"
+  | "MISSING"
+  | "CONFLICT"
+  | "UNKNOWN";
+
+export interface SourceEvidenceState {
+  source_name: string;
+  state: EvidenceState;
+  last_available_at?: string;
+  message?: string;
+}
+
 export interface OmissionDiagnostics {
   omitted_clusters_count: number;
   omitted_evidence_count: number;
@@ -231,6 +246,7 @@ export interface DossierV2InputPacket {
   rate_context?: RateContextSnapshot;
 
   freshness_warnings: FreshnessWarning[];
+  evidence_states?: SourceEvidenceState[];
   research_gaps: ResearchGap[];
   diagnostics: OmissionDiagnostics;
 }
@@ -783,7 +799,41 @@ export function assembleDossierV2InputPacket(
 
   const notes: string[] = [];
   const freshnessWarnings: FreshnessWarning[] = [];
+  const evidenceStates: SourceEvidenceState[] = [];
   const researchGaps: ResearchGap[] = [];
+
+  const normaliseEvidenceState = (status: unknown): EvidenceState => {
+    const value = String(status ?? "").trim().toUpperCase();
+    if (value === "OK" || value === "FRESH" || value === "READY") return "FRESH";
+    if (value === "STALE" || value === "WARNING") return "STALE";
+    if (value === "PARTIAL" || value === "INCOMPLETE") return "PARTIAL";
+    if (value === "MISSING" || value === "NOT_FOUND") return "MISSING";
+    if (value === "CONFLICT" || value === "CONFLICTED") return "CONFLICT";
+    if (
+      value === "FAILED"
+      || value === "ERROR"
+      || value === "UNAVAILABLE"
+      || value === "TIMEOUT"
+      || value === "UNKNOWN"
+    ) return "UNKNOWN";
+    return "UNKNOWN";
+  };
+
+  const addEvidenceState = (
+    sourceName: string,
+    status: unknown,
+    availableAt?: string,
+    message?: string,
+  ) => {
+    evidenceStates.push({
+      source_name: truncateString(sourceName, 100, markTruncated),
+      state: normaliseEvidenceState(status),
+      last_available_at: availableAt,
+      message: message
+        ? truncateString(message, LIMIT_GENERAL_TEXT, markTruncated)
+        : undefined,
+    });
+  };
 
   let omittedClustersCount = 0;
   let omittedEvidenceCount = 0;
@@ -796,6 +846,12 @@ export function assembleDossierV2InputPacket(
   let omittedResearchGapsCount = 0;
 
   const priceData = snapshot.price_data as SourceDataStatus | undefined;
+  addEvidenceState(
+    "price_data",
+    priceData?.status ?? "MISSING",
+    priceData?.available_at,
+    priceData ? undefined : "Price data not provided in candidate snapshot.",
+  );
   if (priceData) {
     if (priceData.status === "STALE") {
       freshnessWarnings.push({
@@ -821,6 +877,12 @@ export function assembleDossierV2InputPacket(
   }
 
   const macroData = snapshot.macro_data as SourceDataStatus | undefined;
+  addEvidenceState(
+    "macro_data",
+    macroData?.status ?? "MISSING",
+    macroData?.available_at,
+    macroData ? undefined : "Macro data not provided in candidate snapshot.",
+  );
   if (macroData) {
     if (macroData.status === "STALE") {
       freshnessWarnings.push({
@@ -847,6 +909,9 @@ export function assembleDossierV2InputPacket(
 
   if (snapshot.sources_status) {
     for (const [srcName, statusObj] of Object.entries(snapshot.sources_status)) {
+      if (statusObj) {
+        addEvidenceState(srcName, statusObj.status, statusObj.available_at, statusObj.message);
+      }
       if (statusObj && (statusObj.status === "STALE" || statusObj.status === "WARNING")) {
         freshnessWarnings.push({
           source_name: truncateString(srcName, 100, markTruncated),
@@ -1583,6 +1648,24 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  const unresolvedConflictGroups = [...new Set(
+    observedEvidence
+      .map((item) => item.conflict_group_id)
+      .filter((value): value is string => typeof value === "string" && Boolean(value)),
+  )].sort();
+
+  if (unresolvedConflictGroups.length > 0) {
+    evidenceStates.push({
+      source_name: "observed_evidence",
+      state: "CONFLICT",
+      last_available_at: observedEvidence
+        .filter((item) => Boolean(item.conflict_group_id))
+        .map((item) => item.available_at)
+        .sort((left, right) => right.localeCompare(left))[0],
+      message: `${unresolvedConflictGroups.length} unresolved canonical conflict group(s) preserved in the evidence ledger.`,
+    });
+  }
+
   for (const gap of researchGaps) {
     gap.category = truncateString(gap.category, 100, markTruncated);
     gap.description = truncateString(gap.description, LIMIT_GENERAL_TEXT, markTruncated);
@@ -1596,6 +1679,7 @@ export function assembleDossierV2InputPacket(
   }
 
   freshnessWarnings.sort((a, b) => a.source_name.localeCompare(b.source_name));
+  evidenceStates.sort((a, b) => a.source_name.localeCompare(b.source_name));
 
   if (protectedDollarLiquidityEvidence.length) {
     notes.push(
@@ -1639,6 +1723,7 @@ export function assembleDossierV2InputPacket(
     rate_context: { evidence: rateContextEvidence },
 
     freshness_warnings: freshnessWarnings,
+    evidence_states: evidenceStates,
     research_gaps: finalResearchGaps,
     diagnostics: initialDiagnostics,
   };
@@ -1786,6 +1871,7 @@ export function assembleDossierV2InputPacket(
         dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;
         dummyPacketForSizeCheck.research_gaps = packetWithoutId.research_gaps;
         dummyPacketForSizeCheck.freshness_warnings = packetWithoutId.freshness_warnings;
+        dummyPacketForSizeCheck.evidence_states = packetWithoutId.evidence_states;
         dummyPacketForSizeCheck.diagnostics = packetWithoutId.diagnostics;
 
         canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
@@ -1793,6 +1879,39 @@ export function assembleDossierV2InputPacket(
       }
     }
   }
+
+  // Reconcile CONFLICT against the final post-truncation evidence ledger.
+  // The size-reduction passes may remove an entire conflict cluster; the
+  // evidence-state contract must describe the packet that is actually hashed
+  // and handed to System 2, not the pre-truncation candidate set.
+  const finalConflictGroups = new Map<string, ObservedEvidence[]>();
+  for (const item of packetWithoutId.observed_evidence) {
+    if (!item.conflict_group_id) continue;
+    const group = finalConflictGroups.get(item.conflict_group_id) ?? [];
+    group.push(item);
+    finalConflictGroups.set(item.conflict_group_id, group);
+  }
+  const finalUnresolvedConflictGroups = [...finalConflictGroups.entries()]
+    .filter(([, items]) => new Set(items.map((item) => item.evidence_id)).size >= 2)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  packetWithoutId.evidence_states = (packetWithoutId.evidence_states ?? [])
+    .filter((item) => item.source_name !== "observed_evidence");
+
+  if (finalUnresolvedConflictGroups.length > 0) {
+    const conflictingEvidence = finalUnresolvedConflictGroups.flatMap(([, items]) => items);
+    packetWithoutId.evidence_states.push({
+      source_name: "observed_evidence",
+      state: "CONFLICT",
+      last_available_at: conflictingEvidence
+        .map((item) => item.available_at)
+        .sort((left, right) => right.localeCompare(left))[0],
+      message: `${finalUnresolvedConflictGroups.length} unresolved canonical conflict group(s) preserved in the evidence ledger.`,
+    });
+  }
+  packetWithoutId.evidence_states.sort((left, right) =>
+    left.source_name.localeCompare(right.source_name)
+  );
 
   // Compute packet_id from canonical JSON of packetWithoutId
   const canonicalWithoutId = toCanonicalJson(packetWithoutId);

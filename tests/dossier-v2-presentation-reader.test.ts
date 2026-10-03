@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import type { ResearchBrainOutputV1 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import {
+  getDossierV2PresentationSelection,
   selectDossierV2Presentation,
   selectExactDossierV2Presentation,
 } from "../lib/dossier-v2/presentation-reader.ts";
@@ -209,7 +211,7 @@ test("reader selects the latest healthy Dossier as current", () => {
   assert.equal(result.notice.tone, "ready");
 });
 
-test("reader falls back to the previous healthy Dossier when latest is degraded", () => {
+test("reader keeps the latest structurally valid degraded Dossier canonical", () => {
   const healthy = dossier({
     id: HEALTHY_ID,
     asOf: "2026-09-21T12:45:00Z",
@@ -223,15 +225,16 @@ test("reader falls back to the previous healthy Dossier when latest is degraded"
 
   const result = selectDossierV2Presentation([healthy, degraded]);
 
-  assert.equal(result.status, "fallback_previous_healthy");
+  assert.equal(result.status, "degraded_latest");
   assert.equal(result.latestDossierId, DEGRADED_ID);
-  assert.equal(result.selectedDossierId, HEALTHY_ID);
-  assert.equal(result.usingFallback, true);
+  assert.equal(result.selectedDossierId, DEGRADED_ID);
+  assert.equal(result.usingFallback, false);
+  assert.equal(result.presentation?.health.degraded, true);
   assert.equal(result.notice.tone, "warn");
-  assert.match(result.notice.detail, /latest Dossier is degraded/i);
+  assert.match(result.notice.detail, /latest|current/i);
 });
 
-test("reader falls back when latest analytical payload is malformed", () => {
+test("reader reports an invalid latest Dossier explicitly instead of substituting prior healthy reasoning", () => {
   const healthy = dossier({
     id: HEALTHY_ID,
     asOf: "2026-09-21T12:45:00Z",
@@ -244,11 +247,18 @@ test("reader falls back when latest analytical payload is malformed", () => {
   malformed.payload = {};
 
   const result = selectDossierV2Presentation([healthy, malformed]);
+  const lineage = result as typeof result & {
+    lastValidDossierId?: string | null;
+    lastValidAsOf?: string | null;
+  };
 
-  assert.equal(result.status, "fallback_previous_healthy");
+  assert.equal(result.status, "unavailable");
   assert.equal(result.latestDossierId, DEGRADED_ID);
-  assert.equal(result.selectedDossierId, HEALTHY_ID);
-  assert.match(result.notice.detail, /could not be rendered safely/i);
+  assert.equal(result.selectedDossierId, null);
+  assert.equal(result.usingFallback, false);
+  assert.equal(lineage.lastValidDossierId, HEALTHY_ID);
+  assert.equal(lineage.lastValidAsOf, healthy.as_of);
+  assert.match(result.notice.detail, /failed|cannot|could not|unavailable/i);
 });
 
 test("reader exposes the degraded latest Dossier only when no healthy fallback exists", () => {
@@ -557,4 +567,158 @@ test("missing exact historical Dossier fails closed instead of substituting curr
   assert.equal(result.presentation, null);
   assert.equal(result.usingFallback, false);
   assert.deepEqual(result.calibrationHistory, []);
+});
+
+
+test("reader separates immutable structural predecessor from the analytical baseline actually used", () => {
+  const analyticalBaseline = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-21T10:00:00Z",
+    output: brain({ state: "unresolved", version: 1 }),
+  });
+  const degradedPredecessor = dossier({
+    id: DEGRADED_ID,
+    asOf: "2026-09-21T11:00:00Z",
+    previousDossierId: OLDER_ID,
+    output: brain({ degraded: true, state: "weakened", version: 2 }),
+  });
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: DEGRADED_ID,
+    output: brain({ state: "confirmed", version: 3 }),
+  });
+  current.payload.memory_control = {
+    contract_version: "dossier-memory-control/1",
+    analytical_baseline_id: OLDER_ID,
+    analytical_baseline_as_of: analyticalBaseline.as_of,
+  };
+
+  const result = selectDossierV2Presentation([
+    current,
+    degradedPredecessor,
+    analyticalBaseline,
+  ]);
+  const memory = (result.presentation as unknown as {
+    memory?: {
+      state: string;
+      structuralPredecessorId: string | null;
+      analyticalBaselineId: string | null;
+      analyticalBaselineAsOf: string | null;
+    };
+  } | null)?.memory;
+
+  assert.equal(result.status, "current");
+  assert.equal(result.selectedDossierId, HEALTHY_ID);
+  assert.equal(memory?.state, "AVAILABLE");
+  assert.equal(memory?.structuralPredecessorId, DEGRADED_ID);
+  assert.equal(memory?.analyticalBaselineId, OLDER_ID);
+  assert.equal(memory?.analyticalBaselineAsOf, analyticalBaseline.as_of);
+  assert.equal(result.presentation?.thesisChanges[0]?.previousState, "unresolved");
+  assert.equal(result.presentation?.thesisChanges[0]?.state, "confirmed");
+});
+
+test("reader fails closed with explicit missing memory when a recorded analytical baseline cannot be resolved", () => {
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: DEGRADED_ID,
+    output: brain({ state: "confirmed", version: 3 }),
+  });
+  current.payload.memory_control = {
+    contract_version: "dossier-memory-control/1",
+    analytical_baseline_id: OLDER_ID,
+    analytical_baseline_as_of: "2026-09-21T10:00:00Z",
+  };
+
+  const result = selectDossierV2Presentation([current]);
+  const memory = (result.presentation as unknown as {
+    memory?: {
+      state: string;
+      structuralPredecessorId: string | null;
+      analyticalBaselineId: string | null;
+    };
+  } | null)?.memory;
+
+  assert.equal(result.status, "current");
+  assert.equal(memory?.state, "MISSING");
+  assert.equal(memory?.structuralPredecessorId, DEGRADED_ID);
+  assert.equal(memory?.analyticalBaselineId, OLDER_ID);
+  assert.equal(result.presentation?.thesisChanges.length, 0);
+});
+
+
+test("database reader resolves the analytical baseline by exact ID when it falls outside the 12-row browse window", async () => {
+  const baseline = dossier({
+    id: OLDER_ID,
+    asOf: "2026-09-20T08:00:00Z",
+    output: brain({ state: "unresolved", version: 1 }),
+  });
+  const predecessor = dossier({
+    id: DEGRADED_ID,
+    asOf: "2026-09-21T11:00:00Z",
+    previousDossierId: OLDER_ID,
+    output: brain({ degraded: true, state: "weakened", version: 2 }),
+  });
+  const current = dossier({
+    id: HEALTHY_ID,
+    asOf: "2026-09-21T12:45:00Z",
+    previousDossierId: DEGRADED_ID,
+    output: brain({ state: "confirmed", version: 3 }),
+  });
+  current.payload.memory_control = {
+    contract_version: "dossier-memory-control/1",
+    structural_predecessor_id: DEGRADED_ID,
+    analytical_baseline_id: OLDER_ID,
+    analytical_baseline_as_of: baseline.as_of,
+  };
+
+  const filler = Array.from({ length: 10 }, (_, index) => dossier({
+    id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    asOf: `2026-09-21T${String(10 - index).padStart(2, "0")}:00:00Z`,
+  }));
+  const browseRows = [current, predecessor, ...filler];
+  assert.equal(browseRows.length, 12);
+  assert.ok(!browseRows.some((item) => item.id === OLDER_ID));
+
+  const fetchedIds: string[] = [];
+  const client = {
+    from(table: string) {
+      assert.equal(table, "market_dossiers_v2");
+      return {
+        select() {
+          return {
+            order() {
+              return {
+                async limit(limit: number) {
+                  assert.equal(limit, 12);
+                  return { data: browseRows, error: null };
+                },
+              };
+            },
+            eq(column: string, id: string) {
+              assert.equal(column, "id");
+              fetchedIds.push(id);
+              return {
+                async maybeSingle() {
+                  return { data: id === OLDER_ID ? baseline : null, error: null };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  const result = await getDossierV2PresentationSelection(client);
+
+  assert.equal(result.status, "current");
+  assert.equal(result.selectedDossierId, HEALTHY_ID);
+  assert.ok(fetchedIds.includes(OLDER_ID));
+  assert.equal(result.presentation?.memory.state, "AVAILABLE");
+  assert.equal(result.presentation?.memory.structuralPredecessorId, DEGRADED_ID);
+  assert.equal(result.presentation?.memory.analyticalBaselineId, OLDER_ID);
+  assert.equal(result.presentation?.thesisChanges[0]?.previousState, "unresolved");
+  assert.equal(result.presentation?.thesisChanges[0]?.state, "confirmed");
 });
