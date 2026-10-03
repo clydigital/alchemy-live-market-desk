@@ -29,16 +29,6 @@ function normaliseText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function allCandidatesUnresolvedAndUnevidenced(
-  candidates: DossierPresentationCandidateExplanation[],
-) {
-  return candidates.length > 0 && candidates.every((candidate) =>
-    candidate.confidence === "UNRESOLVED"
-    && candidate.evidenceForRefs.length === 0
-    && candidate.evidenceAgainstRefs.length === 0
-  );
-}
-
 function sharedCandidateDiscriminator(
   candidates: DossierPresentationCandidateExplanation[],
 ) {
@@ -58,14 +48,8 @@ export function buildDivergenceLabPresentation(
   investigation: DossierPresentationInvestigation,
 ): DivergenceLabPresentation {
   const structured = investigation.candidateExplanations;
-  const unresolvedCompact =
-    investigation.divergence === "UNRESOLVED"
-    && (
-      structured.length === 0
-      || allCandidatesUnresolvedAndUnevidenced(structured)
-    );
 
-  if (unresolvedCompact) {
+  if (investigation.divergence === "UNRESOLVED") {
     const alternatives = structured.length
       ? structured.map((candidate) => ({
           rank: candidate.rank,
