@@ -482,6 +482,12 @@ export function validateResearchBrainOutput(
       ? assessment.refined_big_picture_bridge.trim()
       : null;
 
+    if (storyImplication && !expected.primary_story_id) {
+      errors.push(`motion_attention_assessments[${index}] cannot emit a Story implication without an exact primary_story_id on the Motion.`);
+    }
+    if (regimeImplication && !expected.primary_regime_slug) {
+      errors.push(`motion_attention_assessments[${index}] cannot emit a Regime implication without an exact primary_regime_slug on the Motion.`);
+    }
     if ((decision === "ACCEPT" || decision === "REFINE") && !storyImplication && !regimeImplication) {
       errors.push(`motion_attention_assessments[${index}] ${String(decision)} requires a Story or Regime implication.`);
     }
