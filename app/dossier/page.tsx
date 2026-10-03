@@ -176,53 +176,20 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
       }
     >
       <div className={styles.workspace}>
-        {dailyAssetState ? (
-          <DailyAssetStateBoard
-            state={dailyAssetState}
-            dollarLiquidity={dossier.dollarLiquidity ?? null}
-            policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
-            compact
-          />
-        ) : null}
         <section className={[styles.notice, selection.usingFallback ? styles.noticeWarn : ""].filter(Boolean).join(" ")}>
           <div>
             <span>DESK STATE</span>
             <strong>{selection.notice.label}</strong>
           </div>
-          <p>{selection.notice.detail}</p>
-        </section>
-
-        <section className={styles.historyNav}>
-          <div className={styles.historyNavHead}>
-            <div>
-              <span>DOSSIER MEMORY</span>
-              <strong>{historicalMode ? "Exact historical replay" : "Immutable history"}</strong>
-            </div>
-            {historicalMode ? <Link href="/dossier">Return to current</Link> : null}
-          </div>
-          <div className={styles.historyNavList}>
-            {historyIndex.items.slice(0, 10).map((item) => (
-              <Link
-                href={`/dossier?id=${item.id}`}
-                className={[
-                  styles.historyNavItem,
-                  selection.selectedDossierId === item.id ? styles.historyNavItemActive : "",
-                ].filter(Boolean).join(" ")}
-                key={item.id}
-              >
-                <small>{formatDeskDate(item.asOf)}</small>
-                <strong>{item.headline}</strong>
-                <span>
-                  {item.health} · {item.investigationCount} investigations · {item.divergentInvestigationCount} divergent
-                </span>
-              </Link>
-            ))}
-          </div>
-          {historyIndex.omittedInvalidCount ? (
-            <small className={styles.historyNavWarning}>
-              {historyIndex.omittedInvalidCount} malformed vintage(s) omitted from replay navigation.
-            </small>
-          ) : null}
+          <aside className={styles.noticeCopy}>
+            <p>{selection.notice.detail}</p>
+            {selection.usingFallback && !historicalMode ? (
+              <small>
+                Canonical interpretation is frozen at {formatDeskDate(dossier.asOf)}. Current tape below may contain newer live observations.
+              </small>
+            ) : null}
+            {historicalMode ? <Link href="/dossier">Return to current Dossier</Link> : null}
+          </aside>
         </section>
 
         <section className={styles.hero}>
@@ -247,93 +214,6 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
         </section>
 
         <NarrativeSpine dossier={dossier} surface="dossier" />
-
-        {promotedMotion.length ? (
-          <MarketMotionOverview
-            items={promotedMotion}
-            eyebrow="PROMOTED MARKET MOTION"
-            title="Fresh hooks attached to this Dossier"
-            description="Only fresh Motion already promoted by a canonical Story change is admitted here; exact Regime links are shown when present. The full Primary/Secondary Motion tape stays in Journey, so Dossier does not become a second Motion feed, does not guess a fuzzy Story mapping, and does not rewrite the persisted thesis."
-            showFullTapeLink
-          />
-        ) : null}
-
-        <section className={styles.regimeSection}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span>CONTEXT STRIP</span>
-              <h3>Cross-asset regime</h3>
-            </div>
-            <small>{dossier.regimeStrip.filter((lens) => lens.observed).length} observed lenses</small>
-          </div>
-          <div className={styles.regimeGrid}>
-            {dossier.regimeStrip.map((lens) => (
-              <article className={styles.regimeItem} key={lens.key} data-observed={lens.observed}>
-                <header>
-                  <strong>{lens.label.replaceAll("_", " ")}</strong>
-                  <span>{lens.observed ? "Observed" : "Unresolved"}</span>
-                </header>
-                {lens.reaction ? <p className={styles.reaction}>{lens.reaction}</p> : null}
-                <p>{lens.interpretation}</p>
-                {lens.unresolvedSignals.length ? (
-                  <small>{lens.unresolvedSignals.join(" · ")}</small>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {dossier.policyOutlook.length ? (
-          <section className={styles.primarySection}>
-            <div className={styles.sectionHead}>
-              <div>
-                <span>SYSTEM 1 / POLICY OUTLOOK</span>
-                <h3>Macro surprise → rate path → market confirmation</h3>
-              </div>
-              <small>{dossier.policyOutlook.length} active deterministic check{dossier.policyOutlook.length === 1 ? "" : "s"}</small>
-            </div>
-            <div className={styles.investigationList}>
-              {dossier.policyOutlook.map((item) => (
-                <article className={styles.investigation} key={item.id}>
-                  <header>
-                    <Badge tone={item.policyImpulse === "HAWKISH" ? "warn" : "ready"}>{item.policyImpulse}</Badge>
-                    <h4>{item.trigger}</h4>
-                  </header>
-                  <div className={styles.investigationGrid}>
-                    <div>
-                      <small>NEXT-MEETING OUTLOOK</small>
-                      <p>{item.nextMeetingRateOutlook.replaceAll("_", " ")}</p>
-                    </div>
-                    <div>
-                      <small>FEDWATCH EXPECTATION</small>
-                      <p>{item.fedWatchExpectedDirection.replaceAll("_", " ")}</p>
-                    </div>
-                    <div>
-                      <small>EXPECTED TAPE</small>
-                      <p>{item.expectedMarketReactions.map((reaction) => `${reaction.instrument} ${reaction.direction === "UP" ? "↑" : "↓"}`).join(" · ")}</p>
-                    </div>
-                    <div>
-                      <small>OBSERVED RATE PRICING</small>
-                      <p>{item.observedRatePricing || "Current post-trigger probability not yet captured."}</p>
-                    </div>
-                  </div>
-                  {item.observedConfirmation ? (
-                    <div className={styles.mechanism}>
-                      <small>OBSERVED CONFIRMATION</small>
-                      <p>{item.observedConfirmation}</p>
-                    </div>
-                  ) : null}
-                  {item.gaps.length ? (
-                    <div className={styles.competing}>
-                      <small>STILL MISSING</small>
-                      <span>{item.gaps.join(" · ")}</span>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         <section className={styles.primarySection}>
           <div className={styles.sectionHead}>
@@ -519,6 +399,273 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           ) : null}
         </section>
 
+        <section className={styles.primarySection}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span>03 / RESEARCH NOW</span>
+              <h3>Highest-information next actions</h3>
+            </div>
+            <small>{dossier.researchNow.length} actions</small>
+          </div>
+          <div className={styles.actionList}>
+            {dossier.researchNow.map((item) => (
+              <article className={styles.action} key={item.rank + "-" + item.action}>
+                <b>{String(item.rank).padStart(2, "0")}</b>
+                <div>
+                  <h4>{item.action}</h4>
+                  <p>{item.reason}</p>
+                  <small>Information gain: {item.expected_information_gain}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {!historicalMode ? (
+          <section className={styles.currentTape}>
+            <div className={styles.currentTapeHead}>
+              <div>
+                <span>CURRENT TAPE</span>
+                <h3>What markets are doing now</h3>
+              </div>
+              <p>
+                {selection.usingFallback
+                  ? `Live observations may be newer than the accepted Dossier from ${formatDeskDate(dossier.asOf)}.`
+                  : "Live-owned observations and deterministic checks shown as context beneath the accepted Dossier interpretation."}
+              </p>
+            </div>
+
+        {dailyAssetState ? (
+          <DailyAssetStateBoard
+            state={dailyAssetState}
+            dollarLiquidity={dossier.dollarLiquidity ?? null}
+            policyLiquidityInteraction={dossier.policyLiquidityInteraction ?? null}
+            compact
+            showStockRadar={false}
+            heading="Current market tape"
+          />
+        ) : null}
+
+        {dossier.policyOutlook.length ? (
+          <section className={styles.primarySection}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span>SYSTEM 1 / POLICY OUTLOOK</span>
+                <h3>Macro surprise → rate path → market confirmation</h3>
+              </div>
+              <small>{dossier.policyOutlook.length} active deterministic check{dossier.policyOutlook.length === 1 ? "" : "s"}</small>
+            </div>
+            <div className={styles.investigationList}>
+              {dossier.policyOutlook.map((item) => (
+                <article className={styles.investigation} key={item.id}>
+                  <header>
+                    <Badge tone={item.policyImpulse === "HAWKISH" ? "warn" : "ready"}>{item.policyImpulse}</Badge>
+                    <h4>{item.trigger}</h4>
+                  </header>
+                  <div className={styles.investigationGrid}>
+                    <div>
+                      <small>NEXT-MEETING OUTLOOK</small>
+                      <p>{item.nextMeetingRateOutlook.replaceAll("_", " ")}</p>
+                    </div>
+                    <div>
+                      <small>FEDWATCH EXPECTATION</small>
+                      <p>{item.fedWatchExpectedDirection.replaceAll("_", " ")}</p>
+                    </div>
+                    <div>
+                      <small>EXPECTED TAPE</small>
+                      <p>{item.expectedMarketReactions.map((reaction) => `${reaction.instrument} ${reaction.direction === "UP" ? "↑" : "↓"}`).join(" · ")}</p>
+                    </div>
+                    <div>
+                      <small>OBSERVED RATE PRICING</small>
+                      <p>{item.observedRatePricing || "Current post-trigger probability not yet captured."}</p>
+                    </div>
+                  </div>
+                  {item.observedConfirmation ? (
+                    <div className={styles.mechanism}>
+                      <small>OBSERVED CONFIRMATION</small>
+                      <p>{item.observedConfirmation}</p>
+                    </div>
+                  ) : null}
+                  {item.gaps.length ? (
+                    <div className={styles.competing}>
+                      <small>STILL MISSING</small>
+                      <span>{item.gaps.join(" · ")}</span>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className={styles.regimeSection}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span>CONTEXT STRIP</span>
+              <h3>Cross-asset regime</h3>
+            </div>
+            <small>{dossier.regimeStrip.filter((lens) => lens.observed).length} observed lenses</small>
+          </div>
+          <div className={styles.regimeGrid}>
+            {dossier.regimeStrip.map((lens) => (
+              <article className={styles.regimeItem} key={lens.key} data-observed={lens.observed}>
+                <header>
+                  <strong>{lens.label.replaceAll("_", " ")}</strong>
+                  <span>{lens.observed ? "Observed" : "Unresolved"}</span>
+                </header>
+                {lens.reaction ? <p className={styles.reaction}>{lens.reaction}</p> : null}
+                <p>{lens.interpretation}</p>
+                {lens.unresolvedSignals.length ? (
+                  <small>{lens.unresolvedSignals.join(" · ")}</small>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {promotedMotion.length ? (
+          <MarketMotionOverview
+            items={promotedMotion}
+            eyebrow="PROMOTED MARKET MOTION"
+            title="Fresh hooks attached to this Dossier"
+            description="Only fresh Motion already promoted by a canonical Story change is admitted here; exact Regime links are shown when present. The full Primary/Secondary Motion tape stays in Journey, so Dossier does not become a second Motion feed, does not guess a fuzzy Story mapping, and does not rewrite the persisted thesis."
+            showFullTapeLink
+          />
+        ) : null}
+          </section>
+        ) : null}
+
+        <details className={styles.more}>
+          <summary>
+            <span>MORE / CHARTS, RADAR & THEMES</span>
+            <strong>Supporting workbench</strong>
+          </summary>
+
+          <div className={styles.moreGrid}>
+            <section className={styles.lowerSection}>
+              <div className={styles.lowerHead}>
+                <span>TRADINGVIEW INVESTIGATIONS</span>
+                <strong>{dossier.charts.core.length} core charts</strong>
+              </div>
+              <div className={styles.lowerList}>
+                {dossier.charts.core.map((chart) => (
+                  <article key={chart.chart_id}>
+                    <header>
+                      <b>{chart.ticker_or_instrument}</b>
+                      <span>{chart.timeframe}</span>
+                    </header>
+                    <p>{chart.exact_question}</p>
+                    <small>Confirm: {chart.confirmation_condition}</small>
+                    <small>Contradict: {chart.contradiction_condition}</small>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.lowerSection}>
+              <div className={styles.lowerHead}>
+                <span>STOCK RADAR</span>
+                <strong>{dossier.stockRadar.length} linked instruments</strong>
+              </div>
+              <div className={styles.lowerList}>
+                {dossier.stockRadar.map((item) => (
+                  <article key={item.symbol}>
+                    <header>
+                      <b>{item.symbol}</b>
+                      <span>{item.linkage_type.replaceAll("_", " ")}</span>
+                    </header>
+                    <p>{item.why_relevant}</p>
+                    <small>Research: {item.research_question}</small>
+                    <small>Invalidate: {item.invalidating_signal}</small>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.lowerSection}>
+              <div className={styles.lowerHead}>
+                <span>DEVELOPING THEMES</span>
+                <strong>{dossier.themes.length}</strong>
+              </div>
+              <div className={styles.lowerList}>
+                {dossier.themes.map((theme) => (
+                  <article key={theme.theme_id}>
+                    <header>
+                      <b>{theme.title}</b>
+                      <span>{theme.supporting_evidence_ids.length} refs</span>
+                    </header>
+                    <p>{theme.summary}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className={styles.lowerSection}>
+              <div className={styles.lowerHead}>
+                <span>THESIS CHANGES</span>
+                <strong>{dossier.thesisChanges.length}</strong>
+              </div>
+              {dossier.thesisChanges.length ? (
+                <div className={styles.lowerList}>
+                  {dossier.thesisChanges.map((change) => (
+                    <article key={change.thesisId}>
+                      <header>
+                        <b>{change.title}</b>
+                        <span>{change.change.replaceAll("_", " ")}</span>
+                      </header>
+                      <p>{change.reason}</p>
+                      <small>
+                        {change.previousState ? change.previousState + " → " : ""}
+                        {change.state} · v{change.version}
+                      </small>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.emptyText}>No thesis state changed in this Dossier.</p>
+              )}
+            </section>
+          </div>
+        </details>
+
+        <details className={styles.historyNav}>
+          <summary className={styles.historyNavSummary}>
+            <div>
+              <span>DOSSIER MEMORY</span>
+              <strong>{historicalMode ? "Exact historical replay" : `Current: ${formatDeskDate(dossier.asOf)}`}</strong>
+            </div>
+            <small>View {Math.min(historyIndex.items.length, 10)} vintage{Math.min(historyIndex.items.length, 10) === 1 ? "" : "s"}</small>
+          </summary>
+          {historicalMode ? (
+            <div className={styles.historyReturn}>
+              <Link href="/dossier">Return to current Dossier</Link>
+            </div>
+          ) : null}
+          <div className={styles.historyNavList}>
+            {historyIndex.items.slice(0, 10).map((item) => (
+              <Link
+                href={`/dossier?id=${item.id}`}
+                className={[
+                  styles.historyNavItem,
+                  selection.selectedDossierId === item.id ? styles.historyNavItemActive : "",
+                ].filter(Boolean).join(" ")}
+                key={item.id}
+              >
+                <small>{formatDeskDate(item.asOf)}</small>
+                <strong>{item.headline}</strong>
+                <span>
+                  {item.health} · {item.investigationCount} investigations · {item.divergentInvestigationCount} divergent
+                </span>
+              </Link>
+            ))}
+          </div>
+          {historyIndex.omittedInvalidCount ? (
+            <small className={styles.historyNavWarning}>
+              {historyIndex.omittedInvalidCount} malformed vintage(s) omitted from replay navigation.
+            </small>
+          ) : null}
+        </details>
+
         {selection.calibrationHistory.length ? (
           <section className={styles.primarySection}>
             <div className={styles.sectionHead}>
@@ -633,121 +780,6 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
             </div>
           </section>
         ) : null}
-
-        <section className={styles.primarySection}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span>03 / RESEARCH NOW</span>
-              <h3>Highest-information next actions</h3>
-            </div>
-            <small>{dossier.researchNow.length} actions</small>
-          </div>
-          <div className={styles.actionList}>
-            {dossier.researchNow.map((item) => (
-              <article className={styles.action} key={item.rank + "-" + item.action}>
-                <b>{String(item.rank).padStart(2, "0")}</b>
-                <div>
-                  <h4>{item.action}</h4>
-                  <p>{item.reason}</p>
-                  <small>Information gain: {item.expected_information_gain}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <details className={styles.more} open>
-          <summary>
-            <span>MORE / CHARTS, RADAR & THEMES</span>
-            <strong>Supporting workbench</strong>
-          </summary>
-
-          <div className={styles.moreGrid}>
-            <section className={styles.lowerSection}>
-              <div className={styles.lowerHead}>
-                <span>TRADINGVIEW INVESTIGATIONS</span>
-                <strong>{dossier.charts.core.length} core charts</strong>
-              </div>
-              <div className={styles.lowerList}>
-                {dossier.charts.core.map((chart) => (
-                  <article key={chart.chart_id}>
-                    <header>
-                      <b>{chart.ticker_or_instrument}</b>
-                      <span>{chart.timeframe}</span>
-                    </header>
-                    <p>{chart.exact_question}</p>
-                    <small>Confirm: {chart.confirmation_condition}</small>
-                    <small>Contradict: {chart.contradiction_condition}</small>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className={styles.lowerSection}>
-              <div className={styles.lowerHead}>
-                <span>STOCK RADAR</span>
-                <strong>{dossier.stockRadar.length} linked instruments</strong>
-              </div>
-              <div className={styles.lowerList}>
-                {dossier.stockRadar.map((item) => (
-                  <article key={item.symbol}>
-                    <header>
-                      <b>{item.symbol}</b>
-                      <span>{item.linkage_type.replaceAll("_", " ")}</span>
-                    </header>
-                    <p>{item.why_relevant}</p>
-                    <small>Research: {item.research_question}</small>
-                    <small>Invalidate: {item.invalidating_signal}</small>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className={styles.lowerSection}>
-              <div className={styles.lowerHead}>
-                <span>DEVELOPING THEMES</span>
-                <strong>{dossier.themes.length}</strong>
-              </div>
-              <div className={styles.lowerList}>
-                {dossier.themes.map((theme) => (
-                  <article key={theme.theme_id}>
-                    <header>
-                      <b>{theme.title}</b>
-                      <span>{theme.supporting_evidence_ids.length} refs</span>
-                    </header>
-                    <p>{theme.summary}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className={styles.lowerSection}>
-              <div className={styles.lowerHead}>
-                <span>THESIS CHANGES</span>
-                <strong>{dossier.thesisChanges.length}</strong>
-              </div>
-              {dossier.thesisChanges.length ? (
-                <div className={styles.lowerList}>
-                  {dossier.thesisChanges.map((change) => (
-                    <article key={change.thesisId}>
-                      <header>
-                        <b>{change.title}</b>
-                        <span>{change.change.replaceAll("_", " ")}</span>
-                      </header>
-                      <p>{change.reason}</p>
-                      <small>
-                        {change.previousState ? change.previousState + " → " : ""}
-                        {change.state} · v{change.version}
-                      </small>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className={styles.emptyText}>No thesis state changed in this Dossier.</p>
-              )}
-            </section>
-          </div>
-        </details>
 
         <details className={styles.audit}>
           <summary>

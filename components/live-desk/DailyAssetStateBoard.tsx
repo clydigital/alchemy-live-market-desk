@@ -33,11 +33,15 @@ export default function DailyAssetStateBoard({
   dollarLiquidity = null,
   policyLiquidityInteraction = null,
   compact = false,
+  showStockRadar = true,
+  heading = "What the desk thinks matters right now",
 }: {
   state: DailyAssetStateV1 | null;
   dollarLiquidity?: System1DollarLiquiditySnapshot | null;
   policyLiquidityInteraction?: PolicyLiquidityInteraction | null;
   compact?: boolean;
+  showStockRadar?: boolean;
+  heading?: string;
 }) {
   if (!state) return null;
 
@@ -46,7 +50,7 @@ export default function DailyAssetStateBoard({
       <header className={styles.header}>
         <div>
           <span>DAILY ASSET STATE</span>
-          <h2>What the desk thinks matters right now</h2>
+          <h2>{heading}</h2>
         </div>
         <small>Live-owned · {state.contractVersion}</small>
       </header>
@@ -84,7 +88,7 @@ export default function DailyAssetStateBoard({
         ))}
       </div>
 
-      {state.stockRadar.length ? (
+      {showStockRadar && state.stockRadar.length ? (
         <div className={styles.radar}>
           <div className={styles.radarHead}>
             <div>
