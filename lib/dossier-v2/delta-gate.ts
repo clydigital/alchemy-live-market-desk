@@ -56,10 +56,31 @@ export type DossierStoryRecord = {
   confidence: number | null;
 };
 
+export type DossierMotionActivation = {
+  id: string;
+  evidence_id: string | null;
+  primary_story_id: string | null;
+  primary_regime_slug: string | null;
+  lifecycle_state: string;
+  verification_state: string;
+  headline: string;
+  materiality: number;
+  relevance: number;
+  novelty: number;
+  occurred_at: string;
+  observed_at: string;
+  expires_at: string;
+};
+
 export type DossierDeltaContext = {
   available: boolean;
   states: DossierIntelligenceState[];
   stories: DossierStoryRecord[];
+  /**
+   * Fresh Market Motion may recruit Dossier reasoning, but is never canonical
+   * evidence and cannot directly mutate Story or Regime state.
+   */
+  motionActivations?: DossierMotionActivation[];
   warning: string | null;
 };
 
@@ -219,10 +240,35 @@ export async function loadDossierDeltaContext(
   previousDossier: MarketDossierV2 | null,
 ): Promise<DossierDeltaContext> {
   if (!previousDossier) {
-    return { available: true, states: [], stories: [], warning: null };
+    return { available: true, states: [], stories: [], motionActivations: [], warning: null };
   }
 
   try {
+    const { data: motionRows, error: motionError } = await client
+      .from("current_market_motion_items")
+      .select(
+        "id,evidence_id,primary_story_id,primary_regime_slug,lifecycle_state,verification_state,headline,materiality,relevance,novelty,occurred_at,observed_at,expires_at",
+      )
+      .eq("lifecycle_state", "MOTION")
+      .in("verification_state", ["REPORTED", "VERIFIED"])
+      .gte("materiality", 80)
+      .gte("relevance", 75)
+      .gt("observed_at", previousDossier.as_of)
+      .order("observed_at", { ascending: false })
+      .limit(6);
+
+    if (motionError) {
+      return {
+        available: false,
+        states: [],
+        stories: [],
+        motionActivations: [],
+        warning: `Failed to read fresh Market Motion activation context: ${motionError.message}`,
+      };
+    }
+
+    const motionActivations = (motionRows ?? []) as DossierMotionActivation[];
+
     const { data: states, error } = await client
       .from("intelligence_story_states")
       .select(
@@ -277,7 +323,7 @@ export async function loadDossierDeltaContext(
     }));
     const ids = [...new Set(mappedStates.map((state) => state.story_id).filter(Boolean))];
     if (ids.length === 0) {
-      return { available: true, states: [], stories: [], warning: null };
+      return { available: true, states: [], stories: [], motionActivations, warning: null };
     }
 
     const { data: stories, error: storyError } = await client
@@ -300,6 +346,7 @@ export async function loadDossierDeltaContext(
       available: true,
       states: mappedStates,
       stories: (stories ?? []) as DossierStoryRecord[],
+      motionActivations,
       warning: null,
     };
   } catch (error) {
@@ -310,6 +357,25 @@ export async function loadDossierDeltaContext(
       warning: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function eligibleMotionActivations(
+  context: DossierDeltaContext,
+  packet: DossierV2InputPacket,
+): DossierMotionActivation[] {
+  const asOf = Date.parse(packet.as_of);
+  if (!Number.isFinite(asOf)) return [];
+
+  return (context.motionActivations ?? [])
+    .filter((item) => item.lifecycle_state === "MOTION")
+    .filter((item) => item.verification_state === "REPORTED" || item.verification_state === "VERIFIED")
+    .filter((item) => Boolean(item.evidence_id))
+    .filter((item) => item.materiality >= 80 && item.relevance >= 75)
+    .filter((item) => {
+      const expiry = Date.parse(item.expires_at);
+      return Number.isFinite(expiry) && expiry > asOf;
+    })
+    .slice(0, 6);
 }
 
 export function decideDossierDelta({
@@ -351,6 +417,19 @@ export function decideDossierDelta({
 
   const relevant = changedRelevantStates(context, priorStoryIds);
   const changedStoryIds = relevant.map((state) => state.story_id);
+  const motionActivations = eligibleMotionActivations(context, packet);
+
+  if (relevant.length === 0 && motionActivations.length > 0 && newEvidence > 0) {
+    return {
+      action: "REBASE",
+      reason: `${motionActivations.length} fresh evidence-backed Market Motion candidate(s) require Dossier synthesis before Story promotion.`,
+      previousDossierId: previousDossier.id,
+      previousAsOf: previousDossier.as_of,
+      changedStoryIds: [],
+      newObservedEvidence: newEvidence,
+      postIntelligenceModelCallBudget: 2,
+    };
+  }
 
   if (relevant.length === 0) {
     return {
