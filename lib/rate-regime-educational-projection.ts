@@ -87,6 +87,15 @@ export type RateEducationalProjection = {
     gaps: string[];
     asOf: string;
   } | null;
+  creditFunding: {
+    funding: RateEducationalStateRow | null;
+    credit: RateEducationalStateRow | null;
+    coverage: {
+      present: number;
+      total: 2;
+      missing: string[];
+    };
+  } | null;
   goldCrossCheck: {
     realYield10y: {
       levelPct: number | null;
@@ -255,6 +264,43 @@ function boardRow(subgroup: ProjectedRegimeSubgroup): RateEducationalStateRow {
   };
 }
 
+function creditFundingFor(regime: ProjectedRegime): RateEducationalProjection["creditFunding"] {
+  const subgroup = subgroupByKey(regime, "credit-financing");
+  if (!subgroup) return null;
+
+  const telemetryRow = (key: "LIQUIDITY_FUNDING" | "LIQUIDITY_CREDIT") => {
+    const item = subgroup.telemetry.find((row) => row.key === key);
+    return item ? {
+      key: item.key,
+      label: item.label,
+      state: item.state,
+      stateKind: "system1" as const,
+      detail: item.detail,
+      asOf: item.asOf,
+      source: item.source,
+    } : null;
+  };
+
+  const funding = telemetryRow("LIQUIDITY_FUNDING");
+  const credit = telemetryRow("LIQUIDITY_CREDIT");
+  if (!funding && !credit) return null;
+
+  const missing = [
+    ...(!funding ? ["Secured funding"] : []),
+    ...(!credit ? ["Credit transmission"] : []),
+  ];
+
+  return {
+    funding,
+    credit,
+    coverage: {
+      present: 2 - missing.length,
+      total: 2,
+      missing,
+    },
+  };
+}
+
 function goldCrossCheckFor(
   investigation: RoutedDossierInvestigation | null,
   dossier: {
@@ -408,6 +454,7 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    creditFunding: creditFundingFor(regime),
     goldCrossCheck: goldCrossCheckFor(investigation, dossier),
     globalDuration: dossier?.rateRegime?.globalDurationDiagnostic ? {
       state: dossier.rateRegime.globalDurationDiagnostic.relativeRates.state,
