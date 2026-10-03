@@ -33,6 +33,31 @@ export type WhatsNewDelta = {
     nextTest: string | null;
     lifecycleState: string;
   } | null;
+  motionBundle?: {
+    sourceName: string;
+    videoTitle: string;
+    underlyingCount: number;
+    promotedCount: number;
+    leadCount: number;
+    previewClaimIds: string[];
+    storyLinks: Array<{ title: string; href: string }>;
+    children: Array<{
+      id: string;
+      title: string;
+      whatHappened: string;
+      whyInteresting: string;
+      bigPictureBridge: string;
+      nextTest: string | null;
+      lifecycleState: string;
+      verificationState: string;
+      sourceName: string;
+      sourceUrl: string;
+      tickers: string[];
+      storyTitle: string | null;
+      storyHref: string | null;
+      regimes: Array<{ slug: string; label: string; subgroup: string }>;
+    }>;
+  } | null;
   ageState: "current" | "historical";
   ageLabel: string | null;
 };
@@ -86,6 +111,10 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
     News: enriched.filter((delta) => delta.stream === "News").length,
   }), [enriched]);
 
+  const motionClaimCount = useMemo(() => enriched
+    .filter((delta) => delta.stream === "Motion")
+    .reduce((total, delta) => total + (delta.motionBundle?.underlyingCount ?? 1), 0), [enriched]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return enriched.filter((delta) => {
@@ -106,10 +135,31 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         delta.motion?.nextTest || "",
         ...(delta.breakdown?.affectedMarkets || []),
         ...delta.regimes.flatMap((regime) => [regime.label, regime.subgroup]),
+        ...(delta.motionBundle?.storyLinks.flatMap((story) => [story.title, story.href]) || []),
+        ...(delta.motionBundle?.children.flatMap((child) => [
+          child.title,
+          child.whatHappened,
+          child.whyInteresting,
+          child.bigPictureBridge,
+          child.nextTest || "",
+          child.verificationState,
+          child.lifecycleState,
+          child.sourceName,
+          child.sourceUrl,
+          child.storyTitle || "",
+          ...child.tickers,
+          ...child.regimes.flatMap((regime) => [regime.label, regime.subgroup]),
+        ]) || []),
         ...delta.traderFlags.map((flag) => flag.label),
       ].some((value) => value.toLowerCase().includes(needle));
     });
   }, [enriched, query, stream]);
+
+  const filteredMotionUnits = filtered.filter((delta) => delta.stream === "Motion");
+  const filteredMotionClaims = filteredMotionUnits.reduce(
+    (total, delta) => total + (delta.motionBundle?.underlyingCount ?? 1),
+    0,
+  );
 
   return (
     <div className={styles.workspace}>
@@ -118,6 +168,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
           {(["All", "Motion", "Story", "Statement", "News"] as const).map((item) => (
             <button key={item} className={stream === item ? styles.active : ""} onClick={() => setStream(item)}>
               {item} <b>{counts[item]}</b>
+              {item === "Motion" && motionClaimCount !== counts.Motion ? <small>{motionClaimCount} claims</small> : null}
             </button>
           ))}
         </div>
@@ -127,7 +178,10 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         </label>
       </div>
 
-      <div className={styles.resultLine}>{filtered.length} record{filtered.length === 1 ? "" : "s"} shown</div>
+      <div className={styles.resultLine}>
+        {filtered.length} presentation unit{filtered.length === 1 ? "" : "s"} shown
+        {filteredMotionUnits.length ? ` · ${filteredMotionUnits.length} Motion unit${filteredMotionUnits.length === 1 ? "" : "s"} · ${filteredMotionClaims} underlying claim${filteredMotionClaims === 1 ? "" : "s"}` : ""}
+      </div>
 
       <div className={styles.feed}>
         {filtered.map((delta) => (
@@ -156,15 +210,57 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                   {delta.verification ? <span data-tone={tone(delta.verification)}>{delta.verification}</span> : null}
                 </div>
               </header>
-              <p><TraderText text={delta.detail} /></p>
+              {delta.motionBundle ? (
+                <div className={styles.bundleSummary}>
+                  <div className={styles.bundleMeta}>
+                    <strong>{delta.motionBundle.underlyingCount} claims from one reviewed video</strong>
+                    <span>{delta.motionBundle.promotedCount} promoted · {delta.motionBundle.leadCount} lead</span>
+                  </div>
+                  <ol>
+                    {delta.motionBundle.children
+                      .filter((child) => delta.motionBundle?.previewClaimIds.includes(child.id))
+                      .map((child) => <li key={child.id}>{child.title}</li>)}
+                  </ol>
+                </div>
+              ) : (
+                <p><TraderText text={delta.detail} /></p>
+              )}
               {delta.motion ? (
                 <div className={styles.motionBreakdown}>
-                  <p><strong>What happened:</strong> {delta.motion.whatHappened}</p>
+                  {!delta.motionBundle ? <p><strong>What happened:</strong> {delta.motion.whatHappened}</p> : null}
                   {delta.motion.marketReaction ? <p><strong>Reaction:</strong> {delta.motion.marketReaction}</p> : null}
                   <p><strong>Why it matters:</strong> {delta.motion.whyInteresting}</p>
                   <div><strong>Big-picture bridge</strong><span>{delta.motion.bigPictureBridge}</span></div>
-                  {delta.motion.nextTest ? <p><strong>Next test:</strong> {delta.motion.nextTest}</p> : null}
+                  {delta.motion.nextTest ? <p><strong>{delta.motionBundle ? "Research next:" : "Next test:"}</strong> {delta.motion.nextTest}</p> : null}
                 </div>
+              ) : null}
+              {delta.motionBundle ? (
+                <details className={styles.bundleDetails}>
+                  <summary>Show all {delta.motionBundle.underlyingCount} underlying claims</summary>
+                  <div className={styles.bundleClaims}>
+                    {delta.motionBundle.children.map((child) => (
+                      <article className={styles.bundleClaim} id={`record-${child.id}`} key={child.id}>
+                        <div className={styles.bundleClaimHead}>
+                          <strong>{child.title}</strong>
+                          <span>{child.lifecycleState} · {child.verificationState}</span>
+                        </div>
+                        <p><b>What happened:</b> {child.whatHappened}</p>
+                        <p><b>Why it matters:</b> {child.whyInteresting}</p>
+                        {child.nextTest ? <p><b>Next test:</b> {child.nextTest}</p> : null}
+                        <div className={styles.bundleClaimLinks}>
+                          {child.storyHref && child.storyTitle ? <a href={child.storyHref}>Story · {child.storyTitle}</a> : null}
+                          {child.regimes.map((regime) => (
+                            <a key={`${child.id}:${regime.slug}:${regime.subgroup}`} href={`/regimes/${regime.slug}${regime.subgroup ? `?subgroup=${regime.subgroup}` : ""}`}>
+                              {regime.label}{regime.subgroup ? ` → ${regime.subgroup.replaceAll("-", " ")}` : ""}
+                            </a>
+                          ))}
+                          <a href={child.sourceUrl} target="_blank" rel="noreferrer">{child.sourceName} ↗</a>
+                          <a href={`#record-${child.id}`}>#{child.id.slice(0, 8)}</a>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </details>
               ) : null}
               {delta.breakdown ? (
                 <div className={styles.breakdown}>
@@ -178,7 +274,9 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
               ) : null}
               <footer>
                 <div className={styles.contextLinks}>
-                  <span>{delta.storyTitle || "Independent source record"}</span>
+                  {delta.motionBundle?.storyLinks.length
+                    ? delta.motionBundle.storyLinks.map((story) => <a key={story.href} href={story.href}>Story · {story.title}</a>)
+                    : <span>{delta.storyTitle || "Independent source record"}</span>}
                   {delta.interpretationState === "observed_pending" ? <span className={styles.pending}>Observed · interpretation pending</span> : null}
                   {delta.regimes.map((regime) => (
                     <a key={`${regime.slug}:${regime.subgroup}`} href={`/regimes/${regime.slug}?subgroup=${regime.subgroup}`}>
