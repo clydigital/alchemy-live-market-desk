@@ -1648,6 +1648,24 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  const unresolvedConflictGroups = [...new Set(
+    observedEvidence
+      .map((item) => item.conflict_group_id)
+      .filter((value): value is string => typeof value === "string" && Boolean(value)),
+  )].sort();
+
+  if (unresolvedConflictGroups.length > 0) {
+    evidenceStates.push({
+      source_name: "observed_evidence",
+      state: "CONFLICT",
+      last_available_at: observedEvidence
+        .filter((item) => Boolean(item.conflict_group_id))
+        .map((item) => item.available_at)
+        .sort((left, right) => right.localeCompare(left))[0],
+      message: `${unresolvedConflictGroups.length} unresolved canonical conflict group(s) preserved in the evidence ledger.`,
+    });
+  }
+
   for (const gap of researchGaps) {
     gap.category = truncateString(gap.category, 100, markTruncated);
     gap.description = truncateString(gap.description, LIMIT_GENERAL_TEXT, markTruncated);
