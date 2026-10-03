@@ -8,6 +8,7 @@ import type { System1ReactionAssessment, System1ReactionPathPoint } from "./syst
 import type { RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
 import type { RateLongEndDiagnostic } from "./rate-long-end-diagnostic.ts";
 import type { RateGlobalDurationDiagnostic } from "./rate-global-duration-diagnostic.ts";
+import type { RateCrossAssetTransmission } from "./rate-cross-asset-transmission.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -73,6 +74,7 @@ export type DossierRateRegime = {
   curveDiagnostic?: RateCurveDiagnostic;
   longEndDiagnostic?: RateLongEndDiagnostic;
   globalDurationDiagnostic?: RateGlobalDurationDiagnostic;
+  crossAssetTransmission?: RateCrossAssetTransmission;
   signals?: Array<{
     key: string;
     label: string;
