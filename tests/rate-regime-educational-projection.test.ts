@@ -219,6 +219,53 @@ test("adaptive explanation preserves prior expectation, observed tape and exact 
   assert.equal(projection.currentTest?.candidateCount, 1);
 });
 
+test("gold cross-check reuses canonical DXY and XAUUSD reaction checks without inferring causality", () => {
+  const item = investigation();
+  item.reactionChecks = [
+    {
+      checkId: "system1:soft-inflation:dxy",
+      instrument: "DXY",
+      expectedDirection: "DOWN",
+      observedDirection: "UP",
+      observedChangePct: 0.6,
+      observedInstrument: "UUP",
+      isProxy: true,
+      reactionWindow: "30m",
+      reactionPath: [],
+      relation: "DIVERGENT",
+      timingPrecision: "INTRADAY",
+    },
+    {
+      checkId: "system1:soft-inflation:gold",
+      instrument: "XAUUSD",
+      expectedDirection: "UP",
+      observedDirection: "DOWN",
+      observedChangePct: -0.8,
+      observedInstrument: "GLD",
+      isProxy: true,
+      reactionWindow: "30m",
+      reactionPath: [],
+      relation: "DIVERGENT",
+      timingPrecision: "INTRADAY",
+    },
+  ];
+
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [item],
+    dossier: { dossierId: "dossier-gold", asOf: "2026-10-03T01:05:00.000Z" },
+  })!;
+
+  assert.ok(projection.goldCrossCheck);
+  assert.equal(projection.goldCrossCheck?.realYield10y, null);
+  assert.equal(projection.goldCrossCheck?.dxyReaction?.observedInstrument, "UUP");
+  assert.equal(projection.goldCrossCheck?.dxyReaction?.relation, "DIVERGENT");
+  assert.equal(projection.goldCrossCheck?.goldReaction?.observedInstrument, "GLD");
+  assert.equal(projection.goldCrossCheck?.goldReaction?.observedChangePct, -0.8);
+  assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["10Y real yield"]);
+});
+
 test("state board keeps row-level System 1 / System 2 / unresolved ownership", () => {
   const projection = buildRateEducationalProjection({
     regime: ratesRegime(),
@@ -243,6 +290,7 @@ test("projection fails closed when the current Dossier has no exact linked inves
 
   assert.equal(projection.currentTest, null);
   assert.equal(projection.dominantDriver, null);
+  assert.equal(projection.goldCrossCheck, null);
   assert.match(projection.quickRead[1], /still being tested rather than assumed/);
 });
 
@@ -418,6 +466,9 @@ test("educational projection exposes observed long-end decomposition while prese
   assert.equal(projection.longEnd?.residualBp, 0);
   assert.equal(projection.longEnd?.termPremiumAvailability, "UNRESOLVED");
   assert.match(projection.longEnd?.marketStructureDetail ?? "", /uninterpreted/i);
+  assert.equal(projection.goldCrossCheck?.realYield10y?.levelPct, 2.30);
+  assert.equal(projection.goldCrossCheck?.realYield10y?.change5dBp, 8);
+  assert.deepEqual(projection.goldCrossCheck?.coverage.missing, ["DXY reaction", "Gold reaction"]);
 });
 
 
