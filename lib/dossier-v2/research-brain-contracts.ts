@@ -54,6 +54,13 @@ export interface ResearchBrainMotionAssessment {
   story_implication: string | null;
   regime_implication: string | null;
   investigation_next: string | null;
+  /**
+   * Required when decision=REFINE so the corrected append-only Motion version
+   * does not silently reuse the over-broad original framing.
+   */
+  refined_headline?: string | null;
+  refined_why_interesting?: string | null;
+  refined_big_picture_bridge?: string | null;
 }
 
 export interface MainThread {
