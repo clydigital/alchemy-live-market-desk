@@ -39,6 +39,54 @@ export type RateEducationalProjection = {
     subgroupKey: string;
     subgroupLabel: string;
   } | null;
+  globalDuration: {
+    state: string;
+    globalLabelEligible: boolean;
+    jgb: {
+      asOf: string | null;
+      y2: number | null;
+      y10: number | null;
+      y30: number | null;
+      change2y5dBp: number | null;
+      change10y5dBp: number | null;
+      change30y5dBp: number | null;
+    };
+    relative: {
+      ustJgb2yBp: number | null;
+      ustJgb10yBp: number | null;
+      ustJgb30yBp: number | null;
+      ustJgb2yChange5dBp: number | null;
+      ustJgb10yChange5dBp: number | null;
+      ustJgb30yChange5dBp: number | null;
+      detail: string;
+    };
+    fx: {
+      usdJpy: number | null;
+      change5dPct: number | null;
+      detail: string;
+    };
+    tic: {
+      period: string | null;
+      japanHoldingsUsdBn: number | null;
+      japanPreviousUsdBn: number | null;
+      japanMonthlyChangeUsdBn: number | null;
+      direction: string;
+      totalForeignHoldingsUsdBn: number | null;
+      foreignOfficialHoldingsUsdBn: number | null;
+      custodyAttributionCaveat: string | null;
+      detail: string;
+    };
+    japanFlows: {
+      periodLabel: string | null;
+      outwardLongTermDebtNetPurchaseJpyBn: number | null;
+      outwardTotalNetPurchaseJpyBn: number | null;
+      direction: string;
+      detail: string;
+    };
+    comparabilityDetail: string;
+    gaps: string[];
+    asOf: string;
+  } | null;
   longEnd: {
     observedState: string;
     nominal10y: { levelPct: number | null; change5dBp: number | null };
@@ -279,6 +327,54 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    globalDuration: dossier?.rateRegime?.globalDurationDiagnostic ? {
+      state: dossier.rateRegime.globalDurationDiagnostic.relativeRates.state,
+      globalLabelEligible: dossier.rateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
+      jgb: {
+        asOf: dossier.rateRegime.globalDurationDiagnostic.japanRates.asOf,
+        y2: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb2yPct,
+        y10: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb10yPct,
+        y30: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb30yPct,
+        change2y5dBp: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb2yChange5dBp,
+        change10y5dBp: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb10yChange5dBp,
+        change30y5dBp: dossier.rateRegime.globalDurationDiagnostic.japanRates.jgb30yChange5dBp,
+      },
+      relative: {
+        ustJgb2yBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb2yBp,
+        ustJgb10yBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yBp,
+        ustJgb30yBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yBp,
+        ustJgb2yChange5dBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb2yChange5dBp,
+        ustJgb10yChange5dBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yChange5dBp,
+        ustJgb30yChange5dBp: dossier.rateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yChange5dBp,
+        detail: dossier.rateRegime.globalDurationDiagnostic.relativeRates.detail,
+      },
+      fx: {
+        usdJpy: dossier.rateRegime.globalDurationDiagnostic.fx.usdJpy,
+        change5dPct: dossier.rateRegime.globalDurationDiagnostic.fx.change5dPct,
+        detail: dossier.rateRegime.globalDurationDiagnostic.fx.detail,
+      },
+      tic: {
+        period: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.period,
+        japanHoldingsUsdBn: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsUsdBn,
+        japanPreviousUsdBn: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanPreviousUsdBn,
+        japanMonthlyChangeUsdBn: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanMonthlyChangeUsdBn,
+        direction: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsDirection,
+        totalForeignHoldingsUsdBn: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.totalForeignHoldingsUsdBn,
+        foreignOfficialHoldingsUsdBn: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.foreignOfficialHoldingsUsdBn,
+        custodyAttributionCaveat: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.custodyAttributionCaveat,
+        detail: dossier.rateRegime.globalDurationDiagnostic.foreignTreasuryDemand.detail,
+      },
+      japanFlows: {
+        periodLabel: dossier.rateRegime.globalDurationDiagnostic.japanPortfolioFlows.periodLabel,
+        outwardLongTermDebtNetPurchaseJpyBn: dossier.rateRegime.globalDurationDiagnostic.japanPortfolioFlows.outwardLongTermDebtNetPurchaseJpyBn,
+        outwardTotalNetPurchaseJpyBn: dossier.rateRegime.globalDurationDiagnostic.japanPortfolioFlows.outwardTotalNetPurchaseJpyBn,
+        direction: dossier.rateRegime.globalDurationDiagnostic.japanPortfolioFlows.direction,
+        detail: dossier.rateRegime.globalDurationDiagnostic.japanPortfolioFlows.detail,
+      },
+      comparabilityDetail: dossier.rateRegime.globalDurationDiagnostic.comparability.detail,
+      gaps: [...dossier.rateRegime.globalDurationDiagnostic.gaps],
+      asOf: dossier.rateRegime.globalDurationDiagnostic.asOf,
+    } : null,
     longEnd: dossier?.rateRegime?.longEndDiagnostic ? {
       observedState: dossier.rateRegime.longEndDiagnostic.observedDecomposition.state,
       nominal10y: {

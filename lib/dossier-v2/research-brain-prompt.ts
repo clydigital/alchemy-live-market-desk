@@ -149,6 +149,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 35. DIVERGENCE LAB CANDIDATES: candidate_explanations is the structured hypothesis set behind each Investigation. For a continued investigation, prior_analytical_state.prior_investigations[*].candidate_explanations is historical hypothesis memory: preserve it as the prior state and change ranking, confidence or mechanism wording only when current supplied evidence justifies the change. Prior candidate evidence is intentionally not carried forward as current evidence. For PARTIAL or MATERIAL divergence, emit 2-4 ranked candidates rather than presenting one post-hoc cause as settled. Rank 1 must be the current leading mechanism and current_explanation should summarise it. For each candidate, evidence_for_ids and evidence_against_ids may contain ONLY IDs already present in that Investigation's observed_evidence; an empty side is allowed when the packet lacks discriminating evidence. confidence is confidence in that mechanism, not confidence that the price move occurred. PRICED_IN, SHORT_COVERING, LONG_LIQUIDATION, DEALER_GAMMA, OPTIONS_EXPIRY and CTA_FLOW at MEDIUM or HIGH confidence require mechanism-specific evidence that bears on pricing/positioning/options/systematic flows; generic price direction alone may establish the move but cannot establish those causes. discriminating_test must name the observable that would separate that candidate from the alternatives. If the mechanism is not established, use LOW or UNRESOLVED. For NONE or UNRESOLVED, candidate_explanations may be empty when there is no genuine mechanism contest. Keep competing_explanations for compact backwards-compatible prose, but do not let it substitute for candidate_explanations when a material divergence exists.
 36. OUTPUT BREVITY BUDGET: Stay well below the provider output ceiling. Do not fill array caps merely because capacity exists. Prefer 2-3 Major Stories, exactly the material investigations, zero optional charts unless they add distinct information, and zero creator expansions unless directly material. Keep each prose field to one concise sentence unless the schema requires more. Main-thread answer <= 60 words; Story mechanism <= 55 words; other Story prose <= 40 words; lens reaction/interpretation <= 35 words each; investigation explanation <= 50 words; expected/observed reaction <= 40 words; each candidate explanation <= 24 words; each discriminating test <= 24 words; each competing explanation <= 24 words; research-next <= 45 words; stock-radar prose <= 30 words; developing-theme summary <= 40 words; thesis statement/state reason <= 45 words. Preserve evidence IDs and analytical distinctions; remove repetition, not substance.
 37. CHRONOLOGY-FIRST ASSEMBLY: Organise the reader-facing analysis so a person can reconstruct how the market arrived at the current state. The preferred sequence is baseline/current starting condition → new catalyst or changed evidence → policy/rates transmission → cross-asset reaction → divergence/counter-force → current provisional interpretation → next decision point. Major Stories should follow that causal/time sequence where the supplied evidence allows it, rather than grouping unrelated facts by asset class. Do not invent event timestamps or a false chronology; when ordering cannot be established, say the sequencing is unresolved.
+38A. FOREIGN-DEMAND SCOPE DISCIPLINE: Treasury TIC country holdings and Japan MOF weekly outward securities flows are different datasets. TIC is monthly reported U.S. Treasury holdings by country/custody location; a monthly holdings change is not a same-week transaction measure and custody geography is not perfect beneficial-owner attribution. Japan MOF weekly outward long-term debt covers Japanese residents' foreign long-term debt securities generally and is not U.S.-Treasury-specific. Never merge these into one synthetic flow series, never infer that a weekly MOF foreign-debt purchase was a Treasury purchase, and never call TIC month-over-month holdings change a contemporaneous auction-flow signal.
+
 38. FX / JAPAN BRIDGE DISCIPLINE: Treat FX as a cross-asset confirmation layer, not an isolated add-on. When supplied evidence covers Japan, JGBs, the yen or global sovereign duration, explicitly test whether UST–JGB relative rates, policy-path differences, funding/carry incentives and verified capital-flow evidence are consistent with USDJPY. Distinguish broad USD strength from JPY-specific weakness using supplied FX evidence. TIC holdings, repatriation, intervention and hedging-cost narratives remain hypotheses unless current observed evidence supports them. When Japan/FX evidence is missing but material to a duration thesis, put the exact UST/JGB/FX comparison in research_now or the Investigation missing-evidence list rather than asserting the mechanism.
 39. HISTORICAL STATISTICS DISCIPLINE: Historical base rates, seasonality and event-window analogues are contextual evidence only; they are not causal proof and must not determine the forecast by themselves. Quote a historical hit rate, average return or similar numerical historical statistic only when supplied evidence provides the relevant sample window and sample size. If those details are absent, keep the historical comparison qualitative and preserve current-cycle differences and uncertainty.`;
 }
@@ -214,6 +216,47 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
         gaps: system1RateRegime.longEndDiagnostic.gaps.slice(0, 4),
         evidence_refs: system1RateRegime.longEndDiagnostic.evidenceRefs.slice(0, 10),
       },
+      ...((
+        system1RateRegime.globalDurationDiagnostic.japanRates.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.fx.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.evidenceRef
+        || system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.evidenceRef
+      )
+        ? {
+            global_duration_diagnostic: {
+              contract_version: system1RateRegime.globalDurationDiagnostic.contractVersion,
+              state: system1RateRegime.globalDurationDiagnostic.relativeRates.state,
+              global_label_eligible: system1RateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
+              jgb: {
+                as_of: system1RateRegime.globalDurationDiagnostic.japanRates.asOf,
+                y10_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yPct,
+                y30_pct: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yPct,
+                y10_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb10yChange5dBp,
+                y30_change_5d_bp: system1RateRegime.globalDurationDiagnostic.japanRates.jgb30yChange5dBp,
+              },
+              ust_jgb: {
+                y10_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb10yBp,
+                y30_bp: system1RateRegime.globalDurationDiagnostic.relativeRates.ustJgb30yBp,
+              },
+              usdjpy: {
+                last: system1RateRegime.globalDurationDiagnostic.fx.usdJpy,
+                change_5d_pct: system1RateRegime.globalDurationDiagnostic.fx.change5dPct,
+              },
+              tic_japan: {
+                period: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.period,
+                holdings_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanHoldingsUsdBn,
+                monthly_change_usd_bn: system1RateRegime.globalDurationDiagnostic.foreignTreasuryDemand.japanMonthlyChangeUsdBn,
+              },
+              japan_mof_outward_long_term_debt: {
+                period: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.periodLabel,
+                net_purchase_jpy_bn: system1RateRegime.globalDurationDiagnostic.japanPortfolioFlows.outwardLongTermDebtNetPurchaseJpyBn,
+                treasury_specific: false,
+              },
+              comparable_as_same_flow: false,
+              evidence_refs: system1RateRegime.globalDurationDiagnostic.evidenceRefs.slice(0, 6),
+            },
+          }
+        : {}),
       drivers: system1RateRegime.drivers.slice(0, 3),
       contradictions: system1RateRegime.contradictions.slice(0, 2),
       evidence_refs: system1RateRegime.evidenceRefs.slice(0, 8),

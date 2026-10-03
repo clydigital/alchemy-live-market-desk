@@ -159,3 +159,54 @@ test("global rates FX bridge upgrades only the links with canonical evidence", (
   );
   assert.equal(bridge.steps[4].asOf, "2026-09-30T10:00:00Z");
 });
+
+
+test("global rates FX bridge consumes the new canonical telemetry without inventing a second bridge", () => {
+  const bridge = buildGlobalRatesFxBridge({
+    regime: regime({
+      telemetry: [
+        {
+          key: "UST_JGB_RELATIVE_RATES",
+          label: "UST ↔ JGB relative rates",
+          state: "US JAPAN TIGHTENING",
+          detail: "UST–JGB 10Y +230 bp and 30Y +230 bp; both US and Japan long ends tightened over the same 5D window.",
+          asOf: "2026-10-03T08:00:00Z",
+          source: "rate-global-duration-diagnostic/1",
+        },
+        {
+          key: "USDJPY_RATE_BRIDGE",
+          label: "USDJPY",
+          state: "Observed",
+          detail: "USDJPY 147.500; 5D +1.72%.",
+          asOf: "2026-10-03T08:00:00Z",
+          source: "rate-global-duration-diagnostic/1",
+        },
+        {
+          key: "TIC_FOREIGN_TREASURY_DEMAND",
+          label: "TIC foreign Treasury holdings",
+          state: "DECREASED",
+          detail: "TIC Japan Treasury holdings decreased month over month; custody attribution remains imperfect.",
+          asOf: "2026-10-03T08:00:00Z",
+          source: "rate-global-duration-diagnostic/1",
+        },
+        {
+          key: "JAPAN_MOF_PORTFOLIO_FLOWS",
+          label: "Japan MOF foreign securities flows",
+          state: "NET PURCHASE",
+          detail: "Japan MOF weekly data show residents bought foreign long-term debt securities; this is not Treasury-specific.",
+          asOf: "2026-10-03T08:00:00Z",
+          source: "rate-global-duration-diagnostic/1",
+        },
+      ],
+      latestAt: "2026-10-03T08:00:00Z",
+    }),
+    investigations: [],
+    liveReasoning: [],
+  });
+
+  assert.ok(bridge);
+  assert.equal(bridge.steps.find((step) => step.key === "ust-jgb-gap")?.state, "observed");
+  assert.equal(bridge.steps.find((step) => step.key === "usdjpy")?.state, "observed");
+  assert.equal(bridge.steps.find((step) => step.key === "japan-flows")?.state, "observed");
+  assert.match(bridge.steps.find((step) => step.key === "japan-flows")?.detail ?? "", /TIC|Japan MOF/i);
+});
