@@ -214,6 +214,63 @@ export default function RateRegimeEducationalShell({
         </article>
       ) : null}
 
+      {projection.transmission ? (
+        <article className={styles.transmission}>
+          <header>
+            <div>
+              <span className={styles.kicker}>RATES TRANSMISSION · IS ANYTHING BREAKING?</span>
+              <h3>Are markets absorbing these rates, or is stress spreading?</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.transmission.state.replaceAll("_", " ")}</span>
+              <span>{projection.transmission.ratePressure.restrictive ? "RATE PRESSURE ACTIVE" : projection.transmission.ratePressure.easingImpulse ? "RATE RELIEF ACTIVE" : "RATE IMPULSE MIXED"}</span>
+            </div>
+          </header>
+
+          <p>{projection.transmission.detail}</p>
+
+          <div className={styles.transmissionGrid}>
+            <div className={styles.transmissionCard}>
+              <small>GOLD / REAL YIELD</small>
+              <strong>{projection.transmission.gold.state.replaceAll("_", " ")}</strong>
+              <span>Gold {formatMovePct(projection.transmission.gold.goldChange5dPct)} · real yield {formatBp(projection.transmission.gold.realYieldChange5dBp)} · DXY {formatMovePct(projection.transmission.gold.dxyChange5dPct)}</span>
+              <p>{projection.transmission.gold.detail}</p>
+            </div>
+
+            <div className={styles.transmissionCard}>
+              <small>CREDIT</small>
+              <strong>{projection.transmission.credit.state.replaceAll("_", " ")}</strong>
+              <span>HY OAS {formatBp(projection.transmission.credit.hyOasChange5dBp)} · IG OAS {formatBp(projection.transmission.credit.igOasChange5dBp)}</span>
+              <p>{projection.transmission.credit.detail}</p>
+            </div>
+
+            <div className={styles.transmissionCard}>
+              <small>EQUITY DURATION / AI</small>
+              <strong>{projection.transmission.equityDuration.state.replaceAll("_", " ")}</strong>
+              <span>NDX {formatMovePct(projection.transmission.equityDuration.ndxChange5dPct)} · RSP {formatMovePct(projection.transmission.equityDuration.rspChange5dPct)} · NDX vs RSP {formatMovePct(projection.transmission.equityDuration.ndxVsRsp5dPct)}</span>
+              <span>SPX {formatMovePct(projection.transmission.equityDuration.spxChange5dPct)} · IWM {formatMovePct(projection.transmission.equityDuration.iwmChange5dPct)} · SMH {formatMovePct(projection.transmission.equityDuration.smhChange5dPct)}</span>
+              <p>{projection.transmission.equityDuration.detail}</p>
+            </div>
+
+            <div className={styles.transmissionCard}>
+              <small>CARRY / USDJPY</small>
+              <strong>{projection.transmission.carry.state.replaceAll("_", " ")}</strong>
+              <span>UST–JGB 10Y gap {formatBp(projection.transmission.carry.ustJgb10yGapChange5dBp)} · USDJPY {formatMovePct(projection.transmission.carry.usdJpyChange5dPct)}</span>
+              <p>{projection.transmission.carry.detail}</p>
+            </div>
+          </div>
+
+          {projection.transmission.gaps.length ? (
+            <div className={styles.gaps}>
+              <strong>Transmission gaps</strong>
+              {projection.transmission.gaps.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+
+          <small>System 1 classifies observed co-movement and stress. It does not prove that rates caused every asset move, explain a gold divergence, or turn this panel into a trade-sizing signal. As of {dateLabel(projection.transmission.asOf)}.</small>
+        </article>
+      ) : null}
+
       {projection.globalDuration ? (
         <article className={styles.globalDuration}>
           <header>
