@@ -144,6 +144,40 @@ function packetEvidenceRefsForRow(evidence: EvidenceRow) {
     isValidUuid(evidence.id) ? `ev:${evidence.id}` : "",
   ].filter(Boolean));
 }
+function exactMotionStoryPacketEvidenceRefs(
+  dossier: MarketDossierV2,
+  analyticalOutput: ResearchBrainOutputV1,
+) {
+  const payload = dossier.payload && typeof dossier.payload === "object" && !Array.isArray(dossier.payload)
+    ? dossier.payload as Record<string, unknown>
+    : {};
+  const rawSnapshot = Array.isArray(payload.motion_attention_snapshot)
+    ? payload.motion_attention_snapshot
+    : [];
+  const snapshotByMotionId = new Map(
+    rawSnapshot.flatMap((raw) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+      const item = raw as Record<string, unknown>;
+      const motionId = typeof item.motion_id === "string" ? item.motion_id.trim() : "";
+      return motionId ? [[motionId, item] as const] : [];
+    }),
+  );
+
+  return unique((analyticalOutput.motion_attention_assessments ?? []).flatMap((assessment) => {
+    if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") return [];
+    if (!assessment.story_implication?.trim()) return [];
+    const snapshot = snapshotByMotionId.get(assessment.motion_id);
+    if (!snapshot) return [];
+    const storyId = typeof snapshot.primary_story_id === "string"
+      ? snapshot.primary_story_id.trim()
+      : "";
+    const packetEvidenceId = typeof snapshot.packet_evidence_id === "string"
+      ? snapshot.packet_evidence_id.trim()
+      : "";
+    if (!storyId || !packetEvidenceId || !assessment.evidence_references.includes(packetEvidenceId)) return [];
+    return [packetEvidenceId];
+  }));
+}
 
 function exactMotionStoryRefreshItems(input: {
   dossierId: string;
@@ -409,7 +443,42 @@ export async function enqueueDossierStoryRefreshAgenda(input: {
     if (storyError) throw new Error(`Failed to load Story registry: ${storyError.message}`);
     if (evidenceError) throw new Error(`Failed to load bounded canonical Story-refresh evidence: ${evidenceError.message}`);
 
-    const boundedEvidenceRows = (evidenceRows ?? []) as EvidenceRow[];
+    const exactPacketRefs = exactMotionStoryPacketEvidenceRefs(
+      input.dossier,
+      input.analyticalOutput,
+    );
+    const exactIds = exactPacketRefs.flatMap((ref) => {
+      if (isValidUuid(ref)) return [ref];
+      if (ref.startsWith("ev:") && isValidUuid(ref.slice(3))) return [ref.slice(3)];
+      return [];
+    });
+    const exactExternalIds = exactPacketRefs.filter((ref) =>
+      !isValidUuid(ref) && !(ref.startsWith("ev:") && isValidUuid(ref.slice(3)))
+    );
+
+    const exactRows: EvidenceRow[] = [];
+    if (exactIds.length) {
+      const { data: rows, error: exactIdError } = await input.client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .in("id", unique(exactIds));
+      if (exactIdError) throw new Error(`Failed to load exact Dossier Motion evidence IDs: ${exactIdError.message}`);
+      exactRows.push(...((rows ?? []) as EvidenceRow[]));
+    }
+    if (exactExternalIds.length) {
+      const { data: rows, error: exactExternalError } = await input.client
+        .from("intelligence_evidence")
+        .select("id,external_evidence_id,claim_text,summary,affected_topics,affected_assets,evidence_class,received_at,event_at")
+        .in("external_evidence_id", unique(exactExternalIds));
+      if (exactExternalError) throw new Error(`Failed to load exact Dossier Motion external evidence IDs: ${exactExternalError.message}`);
+      exactRows.push(...((rows ?? []) as EvidenceRow[]));
+    }
+
+    const evidenceByCanonicalId = new Map<string, EvidenceRow>();
+    for (const row of [...((evidenceRows ?? []) as EvidenceRow[]), ...exactRows]) {
+      if (isValidUuid(row.id)) evidenceByCanonicalId.set(row.id, row);
+    }
+    const boundedEvidenceRows = [...evidenceByCanonicalId.values()];
     const evidenceIds = unique(boundedEvidenceRows.map((row) => row.id).filter((id) => isValidUuid(id)));
     if (!evidenceIds.length) {
       return {
