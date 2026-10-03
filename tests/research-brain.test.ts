@@ -1701,3 +1701,34 @@ test("degraded Research Brain leaves Motion attention unresolved rather than acc
     [motionAttention[0].packet_evidence_id],
   );
 });
+
+
+test("B2 Motion assessment cannot invent a Story or Regime route absent from Motion attention", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+  motionAttention[0].primary_story_id = null;
+  motionAttention[0].primary_regime_slug = "global-cost-of-capital";
+
+  const output = createValidOutput(packet);
+  output.motion_attention_assessments = [{
+    motion_id: motionAttention[0].motion_id,
+    decision: "ACCEPT",
+    reason: "The development matters, but the Motion has no exact Story identity.",
+    evidence_references: [motionAttention[0].packet_evidence_id],
+    story_implication: "Invented Story implication should fail.",
+    regime_implication: null,
+    investigation_next: null,
+    refined_headline: null,
+    refined_why_interesting: null,
+    refined_big_picture_bridge: null,
+  }];
+
+  const storyValidation = validateResearchBrainOutput(output, packet, motionAttention);
+  assert.equal(storyValidation.isValid, false);
+  assert.ok(storyValidation.errors.some((error) => /without an exact primary_story_id/i.test(error)));
+
+  output.motion_attention_assessments[0].story_implication = null;
+  output.motion_attention_assessments[0].regime_implication = "Exact rate-regime implication is allowed.";
+  const regimeValidation = validateResearchBrainOutput(output, packet, motionAttention);
+  assert.equal(regimeValidation.isValid, true, regimeValidation.errors.join("\n"));
+});
