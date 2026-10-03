@@ -35,6 +35,7 @@ export type RateGlobalDurationDiagnostic = {
     ustJgb30yChange5dBp: number | null;
     state: GlobalDurationState;
     globalLabelEligible: boolean;
+    comparisonWindowAligned: boolean;
     detail: string;
   };
   fx: {
@@ -150,6 +151,25 @@ function globalDurationState(
   return "MIXED";
 }
 
+function evidenceDay(item: ObservedEvidence | null | undefined) {
+  const value = item?.occurrence_time ?? metricString(item, "source_date");
+  if (!value) return null;
+  const parsed = Date.parse(value.length === 10 ? `${value}T00:00:00Z` : value);
+  return Number.isFinite(parsed) ? Math.floor(parsed / 86_400_000) : null;
+}
+
+function sourceWindowAligned(items: Array<ObservedEvidence | null | undefined>, maxDays = 3) {
+  const days = items.map(evidenceDay);
+  if (days.some((day) => day === null)) return false;
+  const present = days as number[];
+  return Math.max(...present) - Math.min(...present) <= maxDays;
+}
+
+function providerUsable(item: ObservedEvidence | null | undefined) {
+  const status = metricString(item, "provider_status")?.toUpperCase();
+  return Boolean(item) && status !== "STALE" && status !== "UNAVAILABLE";
+}
+
 function holdingsDirection(value: number | null): HoldingsDirection {
   if (value === null) return "UNRESOLVED";
   if (value > 0.5) return "INCREASED";
@@ -207,16 +227,18 @@ export function buildRateGlobalDurationDiagnostic(
     jp30Change,
   );
 
+  const comparisonWindowAligned = sourceWindowAligned([jgb, bund, gilt]);
   const globalLabelEligible = Boolean(
-    jgb
+    providerUsable(jgb)
     && jp10Change !== null
     && jp30Change !== null
-    && bund
-    && gilt
+    && providerUsable(bund)
+    && providerUsable(gilt)
     && metricNumber(bund, "observed_value") !== null
     && metricNumber(gilt, "observed_value") !== null
     && metricNumber(bund, "change_5d_bp") !== null
     && metricNumber(gilt, "change_5d_bp") !== null
+    && comparisonWindowAligned
   );
 
   const jpyLast = metricNumber(usdJpy, "last");
@@ -239,6 +261,7 @@ export function buildRateGlobalDurationDiagnostic(
   if (!usdJpy) gaps.push("Explicit USDJPY market evidence is unavailable; DXY is not a substitute.");
   if (!bund) gaps.push("Comparable Bund long-end evidence is missing, so a broad global-duration label is not fully confirmed.");
   if (!gilt) gaps.push("Comparable gilt long-end evidence is missing, so a broad global-duration label is not fully confirmed.");
+  if (bund && gilt && jgb && !comparisonWindowAligned) gaps.push("JGB, Bund and gilt source dates are not aligned closely enough to confirm one global-duration window.");
 
   const evidenceRefs = [
     jgb?.evidence_id,
@@ -272,14 +295,17 @@ export function buildRateGlobalDurationDiagnostic(
       ustJgb30yChange5dBp: spreadChangeBp(us30?.change5dBp ?? null, jp30Change),
       state,
       globalLabelEligible,
+      comparisonWindowAligned,
       detail: [
         `UST–JGB 2Y ${fmtBp(spreadBp(us2?.yieldPct ?? null, jp2))}`,
         `10Y ${fmtBp(spreadBp(us10?.yieldPct ?? null, jp10))}`,
         `30Y ${fmtBp(spreadBp(us30?.yieldPct ?? null, jp30))}`,
         `US/Japan long-end state: ${state.replaceAll("_", " ").toLowerCase()}`,
         globalLabelEligible
-          ? "Bund and gilt evidence are also present, so a broader global-duration label has cross-sovereign support."
-          : "Bund/gilt confirmation is incomplete, so this is US–Japan evidence rather than a complete global-duration verdict.",
+          ? "Bund and gilt evidence are also present in a comparable source window, so a broader global-duration label has cross-sovereign support."
+          : comparisonWindowAligned
+            ? "Bund/gilt confirmation is incomplete, so this is US–Japan evidence rather than a complete global-duration verdict."
+            : "Foreign sovereign source dates are not aligned closely enough, so this remains US–Japan evidence rather than a complete global-duration verdict.",
       ].join(". ") + ".",
     },
     fx: {
