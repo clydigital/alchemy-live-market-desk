@@ -283,7 +283,7 @@ export async function loadDossierDeltaContext(
         .from("intelligence_evidence")
         .select("id,external_evidence_id,research_run_id,structured_payload")
         .in("research_run_id", motionRunIds)
-        .limit(240);
+        .limit(600);
 
       if (motionEvidenceError) {
         return {
