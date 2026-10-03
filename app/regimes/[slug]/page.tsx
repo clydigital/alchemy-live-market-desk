@@ -8,6 +8,7 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
+import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,12 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
     dossier?.watchNext ?? [],
     dossier?.whatMattersNow.stories ?? [],
   );
+  const rateEducation = buildRateEducationalProjection({
+    regime,
+    explanation,
+    investigations,
+    dossier: dossier ? { dossierId: dossier.dossierId, asOf: dossier.asOf } : null,
+  });
 
   return (
     <LiveDeskShell
@@ -63,6 +70,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         explanation={explanation}
         liveReasoning={liveReasoning}
         investigations={investigations}
+        rateEducation={rateEducation}
       />
     </LiveDeskShell>
   );
