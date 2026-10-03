@@ -348,3 +348,73 @@ test("historical educational projection stays valid when an old Dossier has no c
   assert.equal(projection.ratePath, null);
   assert.equal(projection.dossierId, "historical-pre-curve");
 });
+
+
+test("educational projection exposes observed long-end decomposition while preserving unresolved mechanisms", () => {
+  const projection = buildRateEducationalProjection({
+    regime: ratesRegime(),
+    explanation,
+    investigations: [investigation()],
+    dossier: {
+      dossierId: "dossier-long-end",
+      asOf: "2026-10-03T01:05:00.000Z",
+      rateRegime: {
+        state: "MIXED",
+        nextMeetingRateOutlook: "MORE_DOVISH",
+        fedWatchExpectedDirection: "HIKE_ODDS_DOWN",
+        trigger: null,
+        observedRatePricing: null,
+        observedConfirmation: null,
+        usRatesReaction: null,
+        usRatesInterpretation: null,
+        fredBacked: true,
+        evidenceRefs: ["market-monitor:us10y:2026-10-03"],
+        gaps: [],
+        longEndDiagnostic: {
+          contractVersion: "rate-long-end-diagnostic/1",
+          asOf: "2026-10-03T01:05:00.000Z",
+          nominal10y: { levelPct: 5.30, change5dBp: 10, evidenceRef: "market-monitor:us10y:2026-10-03" },
+          real10y: { levelPct: 2.30, change5dBp: 8, evidenceRef: "market-monitor:us10y-real:2026-10-03" },
+          breakeven10y: { levelPct: 3.00, change5dBp: 2, evidenceRef: "market-monitor:us10y-breakeven:2026-10-03" },
+          observedDecomposition: {
+            state: "REAL_YIELD_LED",
+            accountedChangeBp: 10,
+            residualBp: 0,
+            detail: "Observed real yields account for most of the move.",
+          },
+          termPremium: {
+            availability: "UNRESOLVED",
+            levelPct: null,
+            change5dBp: null,
+            evidenceRef: null,
+            detail: "Term premium is unresolved.",
+          },
+          marketStructure: {
+            treasurySupplyEvidenceRef: null,
+            dealerEvidenceRef: "system1-dollar:dealer-balance-sheet:2026-10-01",
+            auctionEvidenceRef: null,
+            dealerNetPositionMillions: 125000,
+            dealerNetPositionWeeklyChangeMillions: 15000,
+            failsDeliverMillions: 28000,
+            failsReceiveMillions: 24000,
+            detail: "Dealer evidence is observed but direction remains uninterpreted.",
+          },
+          volatility: {
+            moveEvidenceRef: null,
+            level: null,
+            change5dPct: null,
+            detail: "MOVE is unresolved.",
+          },
+          evidenceRefs: ["market-monitor:us10y:2026-10-03"],
+          gaps: ["No governed term-premium observation is present.", "MOVE is unavailable."],
+        },
+      },
+    },
+  });
+
+  assert.ok(projection?.longEnd);
+  assert.equal(projection.longEnd?.observedState, "REAL_YIELD_LED");
+  assert.equal(projection.longEnd?.residualBp, 0);
+  assert.equal(projection.longEnd?.termPremiumAvailability, "UNRESOLVED");
+  assert.match(projection.longEnd?.marketStructureDetail ?? "", /uninterpreted/i);
+});
