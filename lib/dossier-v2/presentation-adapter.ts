@@ -635,26 +635,7 @@ function presentationInvestigation(
         }))
         .sort((left, right) => left.rank - right.rank)
         .slice(0, 4)
-      : item.divergence === "NONE"
-        ? []
-        : [
-          {
-            rank: 1,
-            explanation: item.current_explanation,
-            evidenceForRefs: [],
-            evidenceAgainstRefs: [],
-            confidence: "UNRESOLVED" as const,
-            discriminatingTest: item.research_next,
-          },
-          ...item.competing_explanations.slice(0, 3).map((explanation, index) => ({
-            rank: index + 2,
-            explanation,
-            evidenceForRefs: [],
-            evidenceAgainstRefs: [],
-            confidence: "UNRESOLVED" as const,
-            discriminatingTest: item.research_next,
-          })),
-        ];
+      : [];
 
   return {
     id: item.investigation_id,
