@@ -41,6 +41,8 @@ test("Journey chronology consumes only the immutable edition Motion snapshot", (
 test("Hybrid reads Motion from the immutable edition instead of the mutable current view", () => {
   assert.match(hybrid, /marketMotionFromEditionPayload\(currentEdition\?\.payload\)/);
   assert.match(hybrid, /selectMarketMotionEditionContext/);
+  assert.match(hybrid, /dossier\.motionAttention/);
+  assert.match(hybrid, /Dossier Motion decisions/);
   assert.doesNotMatch(hybrid, /getCurrentMarketMotion/);
   assert.doesNotMatch(hybrid, /current_market_motion_items/);
 });
