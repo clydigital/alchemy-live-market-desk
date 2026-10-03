@@ -22,6 +22,14 @@ import {
   type TreasuryBillSnapshot,
 } from "../providers/treasury-bills.ts";
 import {
+  fetchBundesbankBund10,
+  type BundesbankBund10Snapshot,
+} from "../providers/bundesbank-bund10.ts";
+import {
+  fetchBoeGilt10,
+  type BoeGilt10Snapshot,
+} from "../providers/boe-gilt10.ts";
+import {
   fetchJapanMofJgbYields,
   type JapanMofJgbSnapshot,
 } from "../providers/japan-mof-jgb-yields.ts";
@@ -960,6 +968,8 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
   tic: TreasuryTicSnapshot,
   japanFlows: JapanMofWeeklySnapshot,
   options: LoadCanonicalSnapshotOptions,
+  bund10?: BundesbankBund10Snapshot,
+  gilt10?: BoeGilt10Snapshot,
 ): CanonicalSnapshotResult {
   const observed = [...(result.snapshot.observed_evidence ?? [])];
 
@@ -1028,6 +1038,60 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
+  if (bund10?.latest && bund10.status !== "UNAVAILABLE") {
+    observed.push({
+      evidence_id: `global-rates:bund:${bund10.latest.date}`,
+      claim_or_fact: `Deutsche Bundesbank 10Y current Federal bond yield for ${bund10.latest.date}: ${bund10.latest.yieldPct}%.`,
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${bund10.latest.date}T00:00:00.000Z`,
+      grouping_key: "global-rates:bund",
+      rank: 12,
+      metrics: {
+        signal_kind: "global_rates",
+        signal_context: "bund_10y",
+        observed_value: bund10.latest.yieldPct,
+        change_5d_bp: bund10.change5dBp,
+        provider_status: bund10.status,
+        source_date: bund10.latest.date,
+      },
+      provenance: [{
+        source_type: "BUNDESBANK",
+        source_id: bund10.series,
+        url: bund10.sourceUrl,
+        publisher: bund10.sourceName,
+      }],
+    });
+  }
+
+  if (gilt10?.latest && gilt10.status !== "UNAVAILABLE") {
+    observed.push({
+      evidence_id: `global-rates:gilt:${gilt10.latest.date}`,
+      claim_or_fact: `Bank of England 10Y nominal gilt par yield for ${gilt10.latest.date}: ${gilt10.latest.yieldPct}%.`,
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${gilt10.latest.date}T00:00:00.000Z`,
+      grouping_key: "global-rates:gilt",
+      rank: 12,
+      metrics: {
+        signal_kind: "global_rates",
+        signal_context: "gilt_10y",
+        observed_value: gilt10.latest.yieldPct,
+        change_5d_bp: gilt10.change5dBp,
+        provider_status: gilt10.status,
+        source_date: gilt10.latest.date,
+      },
+      provenance: [{
+        source_type: "BANK_OF_ENGLAND",
+        source_id: gilt10.series,
+        url: gilt10.sourceUrl,
+        publisher: gilt10.sourceName,
+      }],
+    });
+  }
+
   if (japanFlows.state === "ready" && japanFlows.latest) {
     observed.push({
       evidence_id: `global-rates:japan-mof-flows:${flowEvidenceKey(japanFlows.latest.periodLabel)}`,
@@ -1077,6 +1141,16 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
           status: japanFlows.state === "ready" ? "OK" : "OPTIONAL_UNAVAILABLE",
           available_at: japanFlows.retrievedAt ?? undefined,
           message: japanFlows.note ?? "Japan MOF weekly flow enrichment unavailable.",
+        },
+        bundesbank_bund10: {
+          status: bund10?.status ?? "OPTIONAL_UNAVAILABLE",
+          available_at: bund10?.latest ? `${bund10.latest.date}T00:00:00.000Z` : undefined,
+          message: bund10?.warnings.join(" ") || "Bundesbank 10Y Bund enrichment is optional and currently unavailable.",
+        },
+        boe_gilt10: {
+          status: gilt10?.status ?? "OPTIONAL_UNAVAILABLE",
+          available_at: gilt10?.latest ? `${gilt10.latest.date}T00:00:00.000Z` : undefined,
+          message: gilt10?.warnings.join(" ") || "Bank of England 10Y gilt enrichment is optional and currently unavailable.",
         },
       },
     },
@@ -1521,6 +1595,8 @@ export async function loadCanonicalCandidateSnapshot(
     japanJgbResult,
     treasuryTicResult,
     japanMofFlowsResult,
+    bundesbankBundResult,
+    boeGiltResult,
   ] = await Promise.allSettled([
     import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
     fetchEiaWeeklyPetroleumSnapshot(),
@@ -1534,6 +1610,8 @@ export async function loadCanonicalCandidateSnapshot(
     fetchJapanMofJgbYields(new Date(asOfMs)),
     fetchTreasuryTicTable5(),
     fetchJapanMofWeeklyFlows(),
+    fetchBundesbankBund10(new Date(asOfMs)),
+    fetchBoeGilt10(new Date(asOfMs)),
   ]);
 
   if (marketMonitorResult.status === "fulfilled") {
@@ -1556,6 +1634,8 @@ export async function loadCanonicalCandidateSnapshot(
     japanJgbResult.status === "fulfilled"
     && treasuryTicResult.status === "fulfilled"
     && japanMofFlowsResult.status === "fulfilled"
+    && bundesbankBundResult.status === "fulfilled"
+    && boeGiltResult.status === "fulfilled"
   ) {
     result = augmentCandidateSnapshotWithGlobalRatesEvidence(
       result,
@@ -1563,6 +1643,8 @@ export async function loadCanonicalCandidateSnapshot(
       treasuryTicResult.value,
       japanMofFlowsResult.value,
       options,
+      bundesbankBundResult.value,
+      boeGiltResult.value,
     );
   } else {
     result.snapshot.sources_status = {
