@@ -1,4 +1,8 @@
 import { persistRegimeShadowProjectionSafely } from "../regime-engine.ts";
+import {
+  promoteMarketMotionFromDossierAssessments,
+  type MarketMotionPromotionResult,
+} from "../market-motion-promotion.ts";
 import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -59,6 +63,7 @@ export interface DossierV2ExecutionResult {
   dossier_input: MarketDossierV2Input | null;
   dossier: MarketDossierV2;
   story_refresh_agenda: DossierStoryRefreshAgendaResult;
+  motion_promotion: MarketMotionPromotionResult;
   persisted: boolean;
   delta_decision: DossierDeltaDecision;
 }
@@ -566,6 +571,14 @@ export async function executeAndPersistDossierV2(
             skipped_existing: 0,
             items: [],
           },
+          motion_promotion: {
+            considered: 0,
+            eligible: 0,
+            promoted: 0,
+            skippedAlreadyPromoted: 0,
+            motionIds: [],
+            warnings: [],
+          },
           persisted: false,
           delta_decision: decision,
         };
@@ -633,6 +646,32 @@ export async function executeAndPersistDossierV2(
   );
 
   const dossier = await persistMarketDossierV2(dossierInput, options.client);
+
+  const motionPromotion = analyticalOutput.motion_attention_assessments?.some(
+    (assessment) => assessment.decision === "ACCEPT",
+  )
+    ? await promoteMarketMotionFromDossierAssessments({
+        dossierId: dossier.id,
+        assessments: analyticalOutput.motion_attention_assessments,
+        client: options.client,
+      })
+    : {
+        considered: 0,
+        eligible: 0,
+        promoted: 0,
+        skippedAlreadyPromoted: 0,
+        motionIds: [],
+        warnings: [],
+      };
+
+  if (motionPromotion.warnings.length) {
+    console.warn(JSON.stringify({
+      event: "dossier_motion_promotion_warning",
+      dossierId: dossier.id,
+      warnings: motionPromotion.warnings,
+    }));
+  }
+
   const storyRefreshAgenda = options.client
     ? await enqueueDossierStoryRefreshAgenda({
         client: options.client,
@@ -668,6 +707,7 @@ export async function executeAndPersistDossierV2(
     dossier_input: dossierInput,
     dossier,
     story_refresh_agenda: storyRefreshAgenda,
+    motion_promotion: motionPromotion,
     persisted: true,
     delta_decision: decision,
   };
