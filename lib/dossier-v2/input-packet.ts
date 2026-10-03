@@ -246,7 +246,7 @@ export interface DossierV2InputPacket {
   rate_context?: RateContextSnapshot;
 
   freshness_warnings: FreshnessWarning[];
-  evidence_states: SourceEvidenceState[];
+  evidence_states?: SourceEvidenceState[];
   research_gaps: ResearchGap[];
   diagnostics: OmissionDiagnostics;
 }
