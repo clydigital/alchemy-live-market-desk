@@ -147,6 +147,59 @@ export default function RateRegimeEducationalShell({
         </article>
       ) : null}
 
+      {projection.longEnd ? (
+        <article className={styles.longEnd}>
+          <header>
+            <div>
+              <span className={styles.kicker}>WHY ARE LONG YIELDS MOVING? · OBSERVED FIRST</span>
+              <h3>10Y nominal versus real yield and inflation compensation</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.longEnd.observedState.replaceAll("_", " ")}</span>
+              <span>Term premium: {projection.longEnd.termPremiumAvailability}</span>
+            </div>
+          </header>
+
+          <div className={styles.decompositionGrid}>
+            <div>
+              <small>10Y NOMINAL</small>
+              <strong>{formatPct(projection.longEnd.nominal10y.levelPct)}</strong>
+              <span>{formatBp(projection.longEnd.nominal10y.change5dBp)} · 5D</span>
+            </div>
+            <div>
+              <small>10Y REAL YIELD</small>
+              <strong>{formatPct(projection.longEnd.real10y.levelPct)}</strong>
+              <span>{formatBp(projection.longEnd.real10y.change5dBp)} · 5D</span>
+            </div>
+            <div>
+              <small>10Y BREAKEVEN</small>
+              <strong>{formatPct(projection.longEnd.breakeven10y.levelPct)}</strong>
+              <span>{formatBp(projection.longEnd.breakeven10y.change5dBp)} · 5D</span>
+            </div>
+            <div>
+              <small>UNASSIGNED RESIDUAL</small>
+              <strong>{formatBp(projection.longEnd.residualBp)}</strong>
+              <span>Not automatically “term premium”</span>
+            </div>
+          </div>
+
+          <div className={styles.longEndNotes}>
+            <p><strong>Observed decomposition:</strong> real yield + breakeven account for {formatBp(projection.longEnd.accountedChangeBp)} of the 10Y move when both are available.</p>
+            <p><strong>Term premium:</strong> {projection.longEnd.termPremiumDetail}</p>
+            <p><strong>Treasury market structure:</strong> {projection.longEnd.marketStructureDetail}</p>
+            <p><strong>Volatility:</strong> {projection.longEnd.volatilityDetail}</p>
+          </div>
+
+          {projection.longEnd.gaps.length ? (
+            <div className={styles.gaps}>
+              <strong>Still missing</strong>
+              {projection.longEnd.gaps.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+          <small>Observed components are System 1. Assigning the remaining move to supply, term premium, foreign demand or positioning requires specific evidence / System 2 reasoning. As of {dateLabel(projection.longEnd.asOf)}.</small>
+        </article>
+      ) : null}
+
       <article className={styles.board}>
         <header>
           <span className={styles.kicker}>WHAT THE MARKET IS SAYING</span>

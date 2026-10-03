@@ -6,6 +6,7 @@ import type {
 } from "./system1-dollar-liquidity.ts";
 import type { System1ReactionAssessment, System1ReactionPathPoint } from "./system1-divergence.ts";
 import type { RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
+import type { RateLongEndDiagnostic } from "./rate-long-end-diagnostic.ts";
 import type {
   ChartTask,
   CreatorThemeExpansion,
@@ -69,6 +70,7 @@ export type DossierRateRegime = {
     evidenceRefs: string[];
   };
   curveDiagnostic?: RateCurveDiagnostic;
+  longEndDiagnostic?: RateLongEndDiagnostic;
   signals?: Array<{
     key: string;
     label: string;

@@ -133,6 +133,8 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 21. STREAM-READY SYNTHESIS: The reader-facing sequence should be usable as a briefing: regime → what changed → dominant drivers → strongest countercase/relief valve → what confirms or breaks the regime → asset implications. Preserve uncertainty and competing mechanisms rather than collapsing every development into one narrative.
 22. TOP-LEVEL RESEARCH GAP DISCIPLINE: research_gaps is reserved ONLY for missing input that materially blocks, invalidates, or makes unsafe a current regime conclusion, Major Story conclusion, or required desk-health claim. Classify each emitted item as gap_class BLOCKER or REFINEMENT. A BLOCKER must use severity MATERIAL and blocking_refs must name at least one exact canonical target: MAIN_THREAD, REGIME:CURRENT, or STORY:<story_id>. A REFINEMENT must use severity INFORMATIONAL and blocking_refs must be empty. Missing dealer positioning, intraday flow, options skew, terminal logistics, freight detail, higher-frequency decomposition, or other evidence that would only refine mechanism, durability, timing, or confidence is NOT a blocker when the current conclusion is already evidence-supported. Put every refinement in investigations[*].missing_evidence and/or research_now as well. If no conclusion-blocking gap exists, return research_gaps: [].
 23. DURATION-STRESS DECOMPOSITION: When supplied evidence shows pressure extending from the front end into 10Y/30Y yields, do not explain the move only with the next Fed meeting. Separate the policy-path channel from long-end real-yield, inflation-compensation, term-premium/fiscal-supply and global-sovereign channels. A 30Y breakout is first-class evidence that duration pressure has broadened, but do not claim a specific decomposition unless the packet supplies it.
+24A. LONG-END DECOMPOSITION DISCIPLINE: system1_rate_regime.long_end_diagnostic separates observed nominal 10Y movement into supplied real-yield and breakeven changes. Treat the arithmetic residual as UNASSIGNED. Never label that residual term premium, Treasury supply, dealer stress or foreign selling unless the packet contains specific evidence for that mechanism. A governed term-premium observation may support a term-premium claim; nominal yields alone may not. Primary-dealer positions/fails are observed market-structure context and remain directionless unless a validated rule establishes stress. Treasury buybacks are debt-management/liquidity operations, not QE or yield control. One weak auction metric alone is not sufficient to assert structural demand failure.
+
 24. GLOBAL LABEL DISCIPLINE: Use "global duration shock" only when supplied non-US sovereign evidence confirms comparable long-end pressure. With strong US evidence but incomplete foreign sovereign confirmation, prefer "US-led duration stress", "duration stress broadening", or similarly bounded language. Put JGB/Bund/gilt confirmation in research_now rather than research_gaps unless the global label itself is required for a material conclusion.
 25. CREDIT-BREADTH-VOL CONFIRMATION: Do not equate a Treasury sell-off with systemic risk-off. Test whether credit spreads/proxies, breadth and equity volatility confirm transmission. High MOVE alongside contained VIX and still-tight credit is evidence of a rates-volatility shock with incomplete transmission, not proof of a credit event. Treat surviving AI/semiconductor leadership as a counterweight when supplied evidence supports it.
 26. ENERGY-INFLATION TRANSMISSION: When crude and refined-product stress coexist, distinguish geopolitical crude premium from physical product tightness using supplied cracks, curve/backwardation, inventories, refinery utilisation and freight/flow evidence. Rising crude plus product stress can reinforce the inflation/rates channel; do not infer physical scarcity from crude price alone.
@@ -192,6 +194,25 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
           .filter((item) => item.key === "2s10s" || item.key === "2s30s")
           .map((item) => ({ key: item.key, bps: item.bps, change_5d_bp: item.change5dBp })),
         evidence_refs: system1RateRegime.curveDiagnostic.evidenceRefs.slice(0, 8),
+      },
+      long_end_diagnostic: {
+        contract_version: system1RateRegime.longEndDiagnostic.contractVersion,
+        observed_state: system1RateRegime.longEndDiagnostic.observedDecomposition.state,
+        nominal_10y: system1RateRegime.longEndDiagnostic.nominal10y,
+        real_10y: system1RateRegime.longEndDiagnostic.real10y,
+        breakeven_10y: system1RateRegime.longEndDiagnostic.breakeven10y,
+        accounted_change_bp: system1RateRegime.longEndDiagnostic.observedDecomposition.accountedChangeBp,
+        residual_bp: system1RateRegime.longEndDiagnostic.observedDecomposition.residualBp,
+        term_premium: system1RateRegime.longEndDiagnostic.termPremium,
+        market_structure: {
+          treasury_supply_evidence_ref: system1RateRegime.longEndDiagnostic.marketStructure.treasurySupplyEvidenceRef,
+          dealer_evidence_ref: system1RateRegime.longEndDiagnostic.marketStructure.dealerEvidenceRef,
+          auction_evidence_ref: system1RateRegime.longEndDiagnostic.marketStructure.auctionEvidenceRef,
+          detail: system1RateRegime.longEndDiagnostic.marketStructure.detail,
+        },
+        volatility: system1RateRegime.longEndDiagnostic.volatility,
+        gaps: system1RateRegime.longEndDiagnostic.gaps.slice(0, 4),
+        evidence_refs: system1RateRegime.longEndDiagnostic.evidenceRefs.slice(0, 10),
       },
       drivers: system1RateRegime.drivers.slice(0, 3),
       contradictions: system1RateRegime.contradictions.slice(0, 2),

@@ -665,6 +665,36 @@ export function buildRegimeProjection(input: {
             source: input.dossier.rateRegime.curveDiagnostic.contractVersion,
           });
         }
+        if (input.dossier.rateRegime.longEndDiagnostic && subgroup.key === "long-end") {
+          telemetry.push({
+            key: "LONG_END_DECOMPOSITION",
+            label: "Observed long-end decomposition",
+            state: input.dossier.rateRegime.longEndDiagnostic.observedDecomposition.state.replaceAll("_", " "),
+            detail: input.dossier.rateRegime.longEndDiagnostic.observedDecomposition.detail,
+            asOf: input.dossier.rateRegime.longEndDiagnostic.asOf,
+            source: input.dossier.rateRegime.longEndDiagnostic.contractVersion,
+          });
+          telemetry.push({
+            key: "TERM_PREMIUM_EVIDENCE",
+            label: "Term-premium evidence",
+            state: input.dossier.rateRegime.longEndDiagnostic.termPremium.availability,
+            detail: input.dossier.rateRegime.longEndDiagnostic.termPremium.detail,
+            asOf: input.dossier.rateRegime.longEndDiagnostic.asOf,
+            source: input.dossier.rateRegime.longEndDiagnostic.contractVersion,
+          });
+        }
+        if (input.dossier.rateRegime.longEndDiagnostic && subgroup.key === "treasury-fiscal") {
+          telemetry.push({
+            key: "TREASURY_MARKET_STRUCTURE",
+            label: "Treasury market structure",
+            state: input.dossier.rateRegime.longEndDiagnostic.marketStructure.auctionEvidenceRef || input.dossier.rateRegime.longEndDiagnostic.marketStructure.dealerEvidenceRef
+              ? "Observed / interpretation pending"
+              : "Unresolved",
+            detail: input.dossier.rateRegime.longEndDiagnostic.marketStructure.detail,
+            asOf: input.dossier.rateRegime.longEndDiagnostic.asOf,
+            source: input.dossier.rateRegime.longEndDiagnostic.contractVersion,
+          });
+        }
         if (subgroup.key === "credit-financing" && input.dossier.dollarLiquidity) {
           for (const component of input.dossier.dollarLiquidity.components.filter((component) => component.key === "CREDIT" || component.key === "FUNDING")) {
             telemetry.push({
