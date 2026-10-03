@@ -1880,6 +1880,39 @@ export function assembleDossierV2InputPacket(
     }
   }
 
+  // Reconcile CONFLICT against the final post-truncation evidence ledger.
+  // The size-reduction passes may remove an entire conflict cluster; the
+  // evidence-state contract must describe the packet that is actually hashed
+  // and handed to System 2, not the pre-truncation candidate set.
+  const finalConflictGroups = new Map<string, ObservedEvidence[]>();
+  for (const item of packetWithoutId.observed_evidence) {
+    if (!item.conflict_group_id) continue;
+    const group = finalConflictGroups.get(item.conflict_group_id) ?? [];
+    group.push(item);
+    finalConflictGroups.set(item.conflict_group_id, group);
+  }
+  const finalUnresolvedConflictGroups = [...finalConflictGroups.entries()]
+    .filter(([, items]) => new Set(items.map((item) => item.evidence_id)).size >= 2)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  packetWithoutId.evidence_states = (packetWithoutId.evidence_states ?? [])
+    .filter((item) => item.source_name !== "observed_evidence");
+
+  if (finalUnresolvedConflictGroups.length > 0) {
+    const conflictingEvidence = finalUnresolvedConflictGroups.flatMap(([, items]) => items);
+    packetWithoutId.evidence_states.push({
+      source_name: "observed_evidence",
+      state: "CONFLICT",
+      last_available_at: conflictingEvidence
+        .map((item) => item.available_at)
+        .sort((left, right) => right.localeCompare(left))[0],
+      message: `${finalUnresolvedConflictGroups.length} unresolved canonical conflict group(s) preserved in the evidence ledger.`,
+    });
+  }
+  packetWithoutId.evidence_states.sort((left, right) =>
+    left.source_name.localeCompare(right.source_name)
+  );
+
   // Compute packet_id from canonical JSON of packetWithoutId
   const canonicalWithoutId = toCanonicalJson(packetWithoutId);
   const packetId = createHash("sha256").update(canonicalWithoutId, "utf8").digest("hex");
