@@ -1012,6 +1012,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       "thesis_ledger",
       "contradictions_detected",
       "research_gaps",
+      "motion_attention_assessments",
       "diagnostics",
     ],
     additionalProperties: false,
