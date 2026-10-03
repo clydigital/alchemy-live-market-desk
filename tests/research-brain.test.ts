@@ -8,6 +8,7 @@ import {
 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import type {
   ResearchBrainInputV1,
+  ResearchBrainMotionAttention,
   ResearchBrainOutputV1,
   ThesisLedgerEntryV2,
 } from "../lib/dossier-v2/research-brain-contracts.ts";
@@ -1705,7 +1706,7 @@ test("degraded Research Brain leaves Motion attention unresolved rather than acc
 
 test("B2 Motion assessment cannot invent a Story or Regime route absent from Motion attention", () => {
   const packet = createValidBasePacket();
-  const motionAttention = motionAttentionFixture(packet);
+  const motionAttention: ResearchBrainMotionAttention[] = motionAttentionFixture(packet);
   motionAttention[0].primary_story_id = null;
   motionAttention[0].primary_regime_slug = "global-cost-of-capital";
 
