@@ -157,6 +157,21 @@ export interface FreshnessWarning {
   message: string;
 }
 
+export type EvidenceState =
+  | "FRESH"
+  | "STALE"
+  | "PARTIAL"
+  | "MISSING"
+  | "CONFLICT"
+  | "UNKNOWN";
+
+export interface SourceEvidenceState {
+  source_name: string;
+  state: EvidenceState;
+  last_available_at?: string;
+  message?: string;
+}
+
 export interface OmissionDiagnostics {
   omitted_clusters_count: number;
   omitted_evidence_count: number;
@@ -231,6 +246,7 @@ export interface DossierV2InputPacket {
   rate_context?: RateContextSnapshot;
 
   freshness_warnings: FreshnessWarning[];
+  evidence_states: SourceEvidenceState[];
   research_gaps: ResearchGap[];
   diagnostics: OmissionDiagnostics;
 }
@@ -783,7 +799,41 @@ export function assembleDossierV2InputPacket(
 
   const notes: string[] = [];
   const freshnessWarnings: FreshnessWarning[] = [];
+  const evidenceStates: SourceEvidenceState[] = [];
   const researchGaps: ResearchGap[] = [];
+
+  const normaliseEvidenceState = (status: unknown): EvidenceState => {
+    const value = String(status ?? "").trim().toUpperCase();
+    if (value === "OK" || value === "FRESH" || value === "READY") return "FRESH";
+    if (value === "STALE" || value === "WARNING") return "STALE";
+    if (value === "PARTIAL" || value === "INCOMPLETE") return "PARTIAL";
+    if (value === "MISSING" || value === "NOT_FOUND") return "MISSING";
+    if (value === "CONFLICT" || value === "CONFLICTED") return "CONFLICT";
+    if (
+      value === "FAILED"
+      || value === "ERROR"
+      || value === "UNAVAILABLE"
+      || value === "TIMEOUT"
+      || value === "UNKNOWN"
+    ) return "UNKNOWN";
+    return "UNKNOWN";
+  };
+
+  const addEvidenceState = (
+    sourceName: string,
+    status: unknown,
+    availableAt?: string,
+    message?: string,
+  ) => {
+    evidenceStates.push({
+      source_name: truncateString(sourceName, 100, markTruncated),
+      state: normaliseEvidenceState(status),
+      last_available_at: availableAt,
+      message: message
+        ? truncateString(message, LIMIT_GENERAL_TEXT, markTruncated)
+        : undefined,
+    });
+  };
 
   let omittedClustersCount = 0;
   let omittedEvidenceCount = 0;
@@ -796,6 +846,12 @@ export function assembleDossierV2InputPacket(
   let omittedResearchGapsCount = 0;
 
   const priceData = snapshot.price_data as SourceDataStatus | undefined;
+  addEvidenceState(
+    "price_data",
+    priceData?.status ?? "MISSING",
+    priceData?.available_at,
+    priceData ? undefined : "Price data not provided in candidate snapshot.",
+  );
   if (priceData) {
     if (priceData.status === "STALE") {
       freshnessWarnings.push({
@@ -821,6 +877,12 @@ export function assembleDossierV2InputPacket(
   }
 
   const macroData = snapshot.macro_data as SourceDataStatus | undefined;
+  addEvidenceState(
+    "macro_data",
+    macroData?.status ?? "MISSING",
+    macroData?.available_at,
+    macroData ? undefined : "Macro data not provided in candidate snapshot.",
+  );
   if (macroData) {
     if (macroData.status === "STALE") {
       freshnessWarnings.push({
@@ -847,6 +909,9 @@ export function assembleDossierV2InputPacket(
 
   if (snapshot.sources_status) {
     for (const [srcName, statusObj] of Object.entries(snapshot.sources_status)) {
+      if (statusObj) {
+        addEvidenceState(srcName, statusObj.status, statusObj.available_at, statusObj.message);
+      }
       if (statusObj && (statusObj.status === "STALE" || statusObj.status === "WARNING")) {
         freshnessWarnings.push({
           source_name: truncateString(srcName, 100, markTruncated),
@@ -1596,6 +1661,7 @@ export function assembleDossierV2InputPacket(
   }
 
   freshnessWarnings.sort((a, b) => a.source_name.localeCompare(b.source_name));
+  evidenceStates.sort((a, b) => a.source_name.localeCompare(b.source_name));
 
   if (protectedDollarLiquidityEvidence.length) {
     notes.push(
@@ -1639,6 +1705,7 @@ export function assembleDossierV2InputPacket(
     rate_context: { evidence: rateContextEvidence },
 
     freshness_warnings: freshnessWarnings,
+    evidence_states: evidenceStates,
     research_gaps: finalResearchGaps,
     diagnostics: initialDiagnostics,
   };
@@ -1786,6 +1853,7 @@ export function assembleDossierV2InputPacket(
         dummyPacketForSizeCheck.thesis_ledger = packetWithoutId.thesis_ledger;
         dummyPacketForSizeCheck.research_gaps = packetWithoutId.research_gaps;
         dummyPacketForSizeCheck.freshness_warnings = packetWithoutId.freshness_warnings;
+        dummyPacketForSizeCheck.evidence_states = packetWithoutId.evidence_states;
         dummyPacketForSizeCheck.diagnostics = packetWithoutId.diagnostics;
 
         canonicalJson = toCanonicalJson(dummyPacketForSizeCheck);
