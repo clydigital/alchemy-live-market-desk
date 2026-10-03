@@ -268,7 +268,6 @@ test("Dossier can pair an untagged credible news item with an archived Story whe
 test("B4 ACCEPT wakes the exact Story from the Dossier Motion snapshot without lexical matching", () => {
   const inputPacket = packet();
   const externalEvidenceId = "verified-macro:rates-b4";
-  inputPacket.observed_evidence[0]!.evidence_id = externalEvidenceId;
   const analyticalOutput = output(inputPacket);
   const motionId = "motion:b4:rates";
   const storyId = "44444444-4444-4444-8444-444444444444";
