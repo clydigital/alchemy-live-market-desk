@@ -354,6 +354,88 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
   assert.ok(calls.some(([name, value]) => name === "motion:limit" && value === 18));
 });
 
+test("B3 loader fetches exact immutable UNRESOLVED Motion rows from the Dossier snapshot", async () => {
+  const row = unresolvedMotionDossier();
+  const unresolvedRow = motion({
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    motion_key: "event:rates:unresolved-long-end",
+    lifecycle_state: "MOTION",
+    effective_state: "MOTION",
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+  });
+  const calls: Array<[string, unknown]> = [];
+
+  const dossierQuery = {
+    select(value: string) {
+      calls.push(["dossier:select", value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`dossier:order:${column}`, options]);
+      return this;
+    },
+    limit(value: number) {
+      calls.push(["dossier:limit", value]);
+      return this;
+    },
+    async maybeSingle() {
+      return { data: row, error: null };
+    },
+  };
+  const promotedQuery = {
+    select(value: string) {
+      calls.push(["promoted:select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`promoted:eq:${column}`, value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`promoted:order:${column}`, options]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["promoted:limit", value]);
+      return { data: [], error: null };
+    },
+  };
+  const exactMotionQuery = {
+    select(value: string) {
+      calls.push(["exact:select", value]);
+      return this;
+    },
+    async in(column: string, ids: string[]) {
+      calls.push([`exact:in:${column}`, ids]);
+      return { data: [unresolvedRow], error: null };
+    },
+  };
+  const fakeClient = {
+    from(table: string) {
+      if (table === "market_dossiers_v2") return dossierQuery;
+      if (table === "current_market_motion_items") return promotedQuery;
+      if (table === "market_motion_items") return exactMotionQuery;
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+
+  const queue = await loadLatestResearchGapWorkQueue(
+    fakeClient as never,
+    new Date("2026-10-01T01:00:00Z"),
+  );
+
+  const candidate = queue?.candidates.find((item) => item.sourceRef === unresolvedRow.id);
+  assert.ok(candidate);
+  assert.equal(candidate?.sourceKind, "market_motion");
+  assert.equal(candidate?.nativeSignals.divergence, "UNRESOLVED");
+  assert.ok(calls.some(([name, value]) =>
+    name === "exact:in:id"
+    && Array.isArray(value)
+    && value.includes(unresolvedRow.id)
+  ));
+});
+
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {
   const config = readFileSync(new URL("../lib/supabase/config.ts", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/api/research-gap/queue/route.ts", import.meta.url), "utf8");
