@@ -5,6 +5,7 @@ import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import { Badge, DataState, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
+import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
 import {
   getDossierV2HistoryIndex,
   getDossierV2PresentationSelection,
@@ -283,7 +284,9 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           </div>
           {dossier.watchNext.length ? (
             <div className={styles.investigationList}>
-              {dossier.watchNext.map((item) => (
+              {dossier.watchNext.map((item) => {
+                const lab = buildDivergenceLabPresentation(item);
+                return (
                 <article className={styles.investigation} key={item.id}>
                   <header>
                     <Badge tone={item.status === "weakened" ? "warn" : "default"}>{item.status}</Badge>
@@ -338,23 +341,61 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
                     <small className={styles.postMortemLabel}>SYSTEM 2 POST-MORTEM / CURRENT HYPOTHESIS</small>
                   ) : null}
                   <p className={styles.explanation}>{item.currentExplanation}</p>
-                  {item.candidateExplanations.length ? (
+                  {lab.mode === "full" ? (
                     <div className={styles.competing}>
                       <small>DIVERGENCE LAB — CANDIDATE MECHANISMS</small>
                       <div className={styles.investigationGrid}>
-                        {item.candidateExplanations.map((candidate) => (
+                        {lab.candidates.map((candidate) => (
                           <div key={`${item.id}:candidate:${candidate.rank}`}>
                             <small>#{candidate.rank} · {candidate.confidence} CONFIDENCE</small>
                             <p>{candidate.explanation}</p>
-                            <span>
-                              Evidence for {candidate.evidenceForRefs.length} · against {candidate.evidenceAgainstRefs.length}
-                            </span>
-                            <p><strong>Discriminator:</strong> {candidate.discriminatingTest}</p>
+                            {candidate.evidenceForRefs.length || candidate.evidenceAgainstRefs.length ? (
+                              <span className={styles.candidateEvidence}>
+                                {candidate.evidenceForRefs.length ? `Evidence for ${candidate.evidenceForRefs.length}` : ""}
+                                {candidate.evidenceForRefs.length && candidate.evidenceAgainstRefs.length ? " · " : ""}
+                                {candidate.evidenceAgainstRefs.length ? `Evidence against ${candidate.evidenceAgainstRefs.length}` : ""}
+                              </span>
+                            ) : (
+                              <span className={styles.candidateEvidencePending}>Candidate-specific evidence not yet attached.</span>
+                            )}
+                            {candidate.displayDiscriminator ? (
+                              <p><strong>Discriminator:</strong> {candidate.displayDiscriminator}</p>
+                            ) : null}
                           </div>
                         ))}
                       </div>
+                      {lab.sharedDiscriminator !== item.researchNext ? (
+                        <div className={styles.sharedDiscriminator}>
+                          <small>SHARED DISCRIMINATOR</small>
+                          <p>{lab.sharedDiscriminator}</p>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className={styles.compactMechanisms}>
+                      <small>
+                        {lab.mode === "compact_unresolved"
+                          ? "MECHANISM UNRESOLVED"
+                          : "Structured mechanism evidence was not preserved"}
+                      </small>
+                      <p>
+                        {lab.mode === "compact_unresolved"
+                          ? "Current evidence does not yet discriminate between the available explanations."
+                          : "This Dossier vintage preserved compact competing explanations but not structured candidate evidence."}
+                      </p>
+                      {lab.alternatives.length ? (
+                        <ul>
+                          {lab.alternatives.map((alternative, index) => (
+                            <li key={`${item.id}:alternative:${alternative.rank ?? index}`}>
+                              {alternative.explanation}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span>No competing mechanism set was preserved for this investigation.</span>
+                      )}
+                    </div>
+                  )}
                   <div className={styles.investigationGrid}>
                     <div>
                       <small>WHY IT MATTERS</small>
@@ -375,7 +416,8 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
                   </div>
 
                 </article>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <DataState

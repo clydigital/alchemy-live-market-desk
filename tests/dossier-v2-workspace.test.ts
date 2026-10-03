@@ -13,9 +13,13 @@ test("Dossier workspace keeps Dossier V2 authoritative while admitting only prom
   assert.match(page, /CURRENT MARKET DOSSIER/);
   assert.match(page, /WHAT MATTERS NOW/);
   assert.match(page, /WATCH NEXT/);
+  assert.match(page, /buildDivergenceLabPresentation/);
   assert.match(page, /DIVERGENCE LAB — CANDIDATE MECHANISMS/);
+  assert.match(page, /MECHANISM UNRESOLVED/);
+  assert.match(page, /Structured mechanism evidence was not preserved/);
   assert.match(page, /candidate\.evidenceForRefs\.length/);
-  assert.match(page, /candidate\.discriminatingTest/);
+  assert.match(page, /candidate\.displayDiscriminator/);
+  assert.doesNotMatch(page, /item\.candidateExplanations\.map/);
   assert.match(page, /RESEARCH NOW/);
   assert.match(page, /TRADINGVIEW INVESTIGATIONS/);
   assert.match(page, /getCurrentMarketMotion/);
