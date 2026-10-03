@@ -399,6 +399,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
     freshness: {
       as_of: packet.as_of,
       warnings: cloneJson(packet.freshness_warnings),
+      evidence_states: cloneJson(packet.evidence_states),
       input_diagnostics: cloneJson(packet.diagnostics),
     },
     research_gaps: mergeResearchGaps(
@@ -415,6 +416,12 @@ export function buildMarketDossierV2InputFromResearchBrain(
       system1_policy_liquidity_interaction: cloneJson(policyLiquidityInteraction),
       system1_reaction_assessments: cloneJson(reactionAssessments),
       system1_divergence_candidates: cloneJson(divergenceCandidates),
+      memory_control: {
+        contract_version: "dossier-memory-control/1",
+        structural_predecessor_id: packet.previous_dossier_id,
+        analytical_baseline_id: packet.prior_analytical_state.previous_dossier_id,
+        analytical_baseline_as_of: packet.prior_analytical_state.as_of,
+      },
       analytical_output: cloneJson(normalized.analyticalOutput),
     },
   };
