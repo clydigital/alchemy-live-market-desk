@@ -12,7 +12,9 @@ import type { ResearchBrainMotionAssessment } from "./dossier-v2/research-brain-
 export const MARKET_MOTION_PROMOTION_MIN_MATERIALITY = 80;
 export const MARKET_MOTION_PROMOTION_MIN_RELEVANCE = 75;
 export const MARKET_MOTION_PROMOTION_LIMIT = 6;
-export const MARKET_MOTION_DOSSIER_PROMOTION_POLICY = "dossier-motion-assessment/v1" as const;
+export const MARKET_MOTION_DOSSIER_PROMOTION_POLICY = "dossier-motion-assessment/v2" as const;
+
+export type MarketMotionPromotionScope = "STORY" | "REGIME";
 
 export type MarketMotionPromotionResult = {
   considered: number;
@@ -33,7 +35,7 @@ export function selectPromotedMarketMotion(
   limit = 3,
 ) {
   return items
-    .filter((item) => Boolean(item.primary_story_id))
+    .filter((item) => Boolean(item.primary_story_id || item.primary_regime_slug))
     .filter((item) => marketMotionEffectiveState(item, now) === "PROMOTED")
     .sort((left, right) => {
       const materialityDelta = right.materiality - left.materiality;
@@ -56,33 +58,54 @@ export function selectPromotedMarketMotionForDossier(
   return selectPromotedMarketMotion(items, now, limit);
 }
 
+function dossierPromotionScope(
+  item: MarketMotionRecord,
+  assessment: ResearchBrainMotionAssessment,
+): MarketMotionPromotionScope | null {
+  const storyAccepted = Boolean(assessment.story_implication?.trim() && item.primary_story_id);
+  const regimeAccepted = Boolean(assessment.regime_implication?.trim() && item.primary_regime_slug);
+
+  if (storyAccepted) return "STORY";
+  if (regimeAccepted) return "REGIME";
+  return null;
+}
+
+function hasRequiredRefinement(assessment: ResearchBrainMotionAssessment) {
+  if (assessment.decision !== "REFINE") return true;
+  return Boolean(
+    assessment.refined_headline?.trim()
+    && assessment.refined_why_interesting?.trim()
+    && assessment.refined_big_picture_bridge?.trim(),
+  );
+}
+
 export function selectDossierAcceptedPromotableMarketMotion(
   items: MarketMotionRecord[],
   assessments: ResearchBrainMotionAssessment[],
   now = new Date(),
   limit = MARKET_MOTION_PROMOTION_LIMIT,
 ) {
-  const acceptedByMotionId = new Map(
+  const assessedByMotionId = new Map(
     assessments
-      .filter((assessment) => assessment.decision === "ACCEPT")
+      .filter((assessment) => assessment.decision === "ACCEPT" || assessment.decision === "REFINE")
       .map((assessment) => [assessment.motion_id, assessment] as const),
   );
 
   return items
-    .filter((item) => acceptedByMotionId.has(item.id))
-    .filter((item) => Boolean(item.primary_story_id))
+    .filter((item) => assessedByMotionId.has(item.id))
     .filter((item) => marketMotionEffectiveState(item, now) !== "EXPIRED")
     .filter((item) => item.lifecycle_state === "MOTION")
     .filter(promotableVerification)
     .filter((item) => item.materiality >= MARKET_MOTION_PROMOTION_MIN_MATERIALITY)
     .filter((item) => item.relevance >= MARKET_MOTION_PROMOTION_MIN_RELEVANCE)
     .filter((item) => {
-      const assessment = acceptedByMotionId.get(item.id);
+      const assessment = assessedByMotionId.get(item.id);
       return Boolean(
         assessment
         && assessment.evidence_references.length > 0
         && assessment.reason.trim()
-        && assessment.story_implication?.trim(),
+        && hasRequiredRefinement(assessment)
+        && dossierPromotionScope(item, assessment),
       );
     })
     .sort((left, right) => {
@@ -102,38 +125,51 @@ export function marketMotionDossierPromotionInput(
   assessment: ResearchBrainMotionAssessment,
   input: { dossierId: string },
 ): MarketMotionInput {
-  if (assessment.decision !== "ACCEPT") {
-    throw new Error("Dossier Motion promotion requires an ACCEPT assessment.");
+  if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") {
+    throw new Error("Dossier Motion promotion requires an ACCEPT or REFINE assessment.");
   }
   if (assessment.motion_id !== item.id) {
     throw new Error("Dossier Motion promotion assessment must target the exact Motion row.");
   }
-  if (!item.primary_story_id) {
-    throw new Error("B1 Dossier Motion promotion requires an exact canonical Story link.");
-  }
   if (!assessment.evidence_references.length) {
     throw new Error("Dossier Motion promotion requires canonical evidence references.");
   }
-  if (!assessment.story_implication?.trim()) {
-    throw new Error("B1 Dossier Motion promotion requires an accepted Story implication.");
+  if (!hasRequiredRefinement(assessment)) {
+    throw new Error("REFINE promotion requires corrected Motion wording.");
   }
+
+  const scope = dossierPromotionScope(item, assessment);
+  if (!scope) {
+    throw new Error("Dossier Motion promotion requires an accepted exact Story or Regime implication.");
+  }
+
+  const refined = assessment.decision === "REFINE";
+  const headline = refined ? assessment.refined_headline!.trim() : item.headline;
+  const whyInteresting = refined
+    ? assessment.refined_why_interesting!.trim()
+    : scope === "STORY"
+      ? assessment.story_implication!.trim()
+      : assessment.regime_implication!.trim();
+  const bigPictureBridge = refined
+    ? assessment.refined_big_picture_bridge!.trim()
+    : assessment.regime_implication?.trim()
+      || assessment.story_implication?.trim()
+      || item.big_picture_bridge;
 
   return {
     motionKey: item.motion_key,
     lifecycleState: "PROMOTED",
     category: item.category,
     verificationState: item.verification_state,
-    headline: item.headline,
+    headline,
     whatHappened: item.what_happened,
     marketReaction: item.market_reaction,
-    whyInteresting: assessment.story_implication?.trim()
-      || assessment.regime_implication?.trim()
-      || item.why_interesting,
-    bigPictureBridge: assessment.regime_implication?.trim()
-      || assessment.story_implication?.trim()
-      || item.big_picture_bridge,
+    whyInteresting,
+    bigPictureBridge,
     nextTest: assessment.investigation_next?.trim() || item.next_test,
-    promotionReason: `Validated Dossier ${input.dossierId} accepted this Motion against canonical packet evidence; promotion preserves the exact Story link and does not itself mutate Story or Regime state.`,
+    promotionReason: refined
+      ? `Validated Dossier ${input.dossierId} refined this Motion against canonical packet evidence; only the corrected append-only framing is promoted.`
+      : `Validated Dossier ${input.dossierId} accepted this Motion against canonical packet evidence as ${scope.toLowerCase()} context.`,
     tickers: [...item.tickers],
     sourceName: item.source_name,
     sourceUrl: item.source_url,
@@ -147,13 +183,16 @@ export function marketMotionDossierPromotionInput(
     researchRunId: item.research_run_id,
     sourceId: item.source_id,
     evidenceId: item.evidence_id,
-    primaryStoryId: item.primary_story_id,
+    primaryStoryId: scope === "STORY" ? item.primary_story_id : null,
     primaryRegimeSlug: item.primary_regime_slug,
     metadata: {
       ...(item.metadata || {}),
       promotedFromMotionId: item.id,
+      ...(refined ? { refinedFromMotionId: item.id } : {}),
+      ...(scope === "REGIME" && item.primary_story_id ? { originalPrimaryStoryId: item.primary_story_id } : {}),
       promotionDossierId: input.dossierId,
       promotionDecision: assessment.decision,
+      promotionScope: scope,
       promotionEvidenceRefs: [...assessment.evidence_references],
       promotionAssessmentReason: assessment.reason,
       promotionPolicy: MARKET_MOTION_DOSSIER_PROMOTION_POLICY,
@@ -167,8 +206,10 @@ export async function promoteMarketMotionFromDossierAssessments(input: {
   now?: Date;
   client?: SupabaseClient;
 }): Promise<MarketMotionPromotionResult> {
-  const accepted = input.assessments.filter((assessment) => assessment.decision === "ACCEPT");
-  if (!accepted.length) {
+  const assessed = input.assessments.filter(
+    (assessment) => assessment.decision === "ACCEPT" || assessment.decision === "REFINE",
+  );
+  if (!assessed.length) {
     return {
       considered: 0,
       eligible: 0,
@@ -180,7 +221,7 @@ export async function promoteMarketMotionFromDossierAssessments(input: {
   }
 
   const db = input.client ?? createSupabaseAdminClient();
-  const assessedIds = [...new Set(accepted.map((assessment) => assessment.motion_id).filter(Boolean))];
+  const assessedIds = [...new Set(assessed.map((assessment) => assessment.motion_id).filter(Boolean))];
   const { data, error } = await db
     .from("current_market_motion_items")
     .select("*")
@@ -193,10 +234,10 @@ export async function promoteMarketMotionFromDossierAssessments(input: {
   const rows = (data || []) as MarketMotionRecord[];
   const eligible = selectDossierAcceptedPromotableMarketMotion(
     rows,
-    accepted,
+    assessed,
     input.now,
   );
-  const assessmentByMotionId = new Map(accepted.map((assessment) => [assessment.motion_id, assessment] as const));
+  const assessmentByMotionId = new Map(assessed.map((assessment) => [assessment.motion_id, assessment] as const));
   const warnings: string[] = [];
   const motionIds: string[] = [];
 
