@@ -25,9 +25,10 @@ test("Journey exposes an exact Motion investigation path without creating a seco
   assert.match(hybrid, /Motion investigation path/);
   assert.match(hybrid, /INVESTIGATION ELIGIBLE/);
   assert.match(hybrid, /Motion → exact accepted Story and\/or Regime context/);
-  assert.match(hybrid, /Story-linked Motion may enter Research Gap investigation when eligible/);
-  assert.match(hybrid, /regime-only Motion remains context-only/);
-  assert.match(hybrid, /Dossier\/regime state changes only through their canonical reasoning paths/);
+  assert.match(hybrid, /Story-scoped and regime-only promoted Motion may enter Research Gap/);
+  assert.match(hybrid, /concrete next test/);
+  assert.match(hybrid, /Research remains operational context/);
+  assert.match(hybrid, /Dossier\/Regime state changes only through their canonical reasoning paths/);
   assert.match(hybrid, /exact immutable Motion snapshot attached to the current canonical edition/);
   assert.match(hybrid, /Dossier Motion decisions/);
   assert.match(hybrid, /persisted Dossier/);
