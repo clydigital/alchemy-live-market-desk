@@ -1,5 +1,6 @@
 import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
+import { buildRateCurveDiagnostic, type RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
 
 export const RATE_REGIME_CONTRACT_VERSION = "rate-regime/1" as const;
 
@@ -42,6 +43,7 @@ export type DossierRateRegimeSnapshot = {
     detail: string;
     evidenceRefs: string[];
   };
+  curveDiagnostic: RateCurveDiagnostic;
   signals: RateRegimeSignal[];
   drivers: string[];
   contradictions: string[];
@@ -231,6 +233,7 @@ export function buildDossierRateRegime(
   policyOutlook: DossierPolicyOutlookItem[],
 ): DossierRateRegimeSnapshot {
   const evidence = rateEvidence(packet);
+  const curveDiagnostic = buildRateCurveDiagnostic(evidence, packet.as_of);
   const us2y = monitorEvidence(evidence, "us2y");
   const us5y = monitorEvidence(evidence, "us5y-fred");
   const us10yCash = monitorEvidence(evidence, "us10y");
@@ -435,17 +438,10 @@ export function buildDossierRateRegime(
         : present >= 3 ? "MEDIUM"
           : "LOW";
 
-  const curveSpreadBps =
-    us10yLevel !== null && us2yLevel !== null
-      ? (us10yLevel - us2yLevel) * 100
-      : null;
-  const curveState =
-    curveSpreadBps === null ? "UNRESOLVED" as const
-      : curveSpreadBps < -10 ? "INVERTED" as const
-        : curveSpreadBps > 10 ? "POSITIVE" as const
-          : "FLAT" as const;
-  const curveEvidenceRefs = [us2y?.evidence_id, us5y?.evidence_id, us10y?.evidence_id, us20y?.evidence_id, us30y?.evidence_id]
-    .filter((value): value is string => Boolean(value));
+  const curve2s10s = curveDiagnostic.spreads.find((item) => item.key === "2s10s") ?? null;
+  const curveSpreadBps = curve2s10s?.bps ?? null;
+  const curveState = curveDiagnostic.shape;
+  const curveEvidenceRefs = curveDiagnostic.evidenceRefs;
 
   const primary = policyOutlook[0] ?? null;
   const fallbackNextMeetingOutlook = primary?.nextMeetingRateOutlook
@@ -513,18 +509,10 @@ export function buildDossierRateRegime(
     curve: {
       spreadBps: round(curveSpreadBps),
       state: curveState,
-      detail: curveSpreadBps === null
-        ? "The 2Y/10Y curve cannot be computed from current evidence."
-        : [
-            `2Y ${formatPct(us2yLevel)}`,
-            us5yLevel === null ? null : `5Y ${formatPct(us5yLevel)}`,
-            `10Y ${formatPct(us10yLevel)}`,
-            us20yLevel === null ? null : `20Y ${formatPct(us20yLevel)}`,
-            us30yLevel === null ? null : `30Y ${formatPct(us30yLevel)}`,
-            `10Y minus 2Y ${formatBp(curveSpreadBps)} (${curveState.toLowerCase()})`,
-          ].filter((value): value is string => Boolean(value)).join(" · ") + ".",
+      detail: curveDiagnostic.detail,
       evidenceRefs: curveEvidenceRefs,
     },
+    curveDiagnostic,
     signals,
     drivers,
     contradictions,
