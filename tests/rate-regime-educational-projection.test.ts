@@ -354,6 +354,8 @@ test("Live and Hybrid render the same shared educational projection instead of c
 
   assert.match(livePage, /buildRateEducationalProjection/);
   assert.match(workspace, /RateRegimeEducationalShell/);
+  assert.match(shell, /CREDIT \/ FUNDING TRANSMISSION · SYSTEM 1/);
+  assert.match(shell, /projection\.creditFunding/);
   assert.match(shell, /GOLD CROSS-CHECK · CANONICAL REACTION AUDIT/);
   assert.match(shell, /projection\.goldCrossCheck/);
   assert.match(hybrid, /buildRateEducationalProjection/);
