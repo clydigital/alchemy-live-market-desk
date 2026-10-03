@@ -23,7 +23,7 @@ A Research Gap handoff is explicitly excluded from Market Motion ingestion, incl
 
 ## Stable identity
 
-Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`) or a fresh promoted `market_motion` item with an exact Story link and concrete `next_test`:
+Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`), a fresh Story-linked promoted `market_motion` item with a concrete `next_test`, or an unpromoted Motion that the persisted Dossier explicitly assessed as `UNRESOLVED` with exact snapshot lineage and a concrete `investigation_next`:
 
 - `workId` — identifies the exact work item in one Dossier;
 - `gapKey` — identifies the durable research case across Dossiers.
@@ -77,7 +77,7 @@ If a stable case appears again:
 
 Older unresolved queued cases therefore remain claimable even when a later Dossier no longer emits the exact work card.
 
-For Motion-origin work, the occurrence keeps the exact immutable Motion row ID while the durable gap key uses the Motion key + research branch. The current canonical Dossier still anchors the case; Motion is frozen into the plan as `context_only`, never as a second analytical authority.
+For Motion-origin work, the occurrence keeps the exact immutable Motion row ID while the durable gap key uses the Motion key + research branch. The current canonical Dossier still anchors the case; Motion is frozen into the plan as `context_only`, never as a second analytical authority. An `UNRESOLVED` Dossier assessment does not promote the Motion: it only opens the research branch. The assessment must match the exact Motion ID preserved in that Dossier's `motion_attention_snapshot`, cite canonical evidence, and carry a concrete `investigation_next`.
 
 ## Claiming
 

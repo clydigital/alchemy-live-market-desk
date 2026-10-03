@@ -260,7 +260,7 @@ export function prioritiseResearchGapWork(
         "Expected information gain and native Research Now rank are preserved as strong priority signals.",
         "Unresolved/divergent investigations gain priority but do not outrank a true material blocker.",
         "A lower-ranked candidate linked to an investigation already covered by a selected item is suppressed for this Dossier.",
-        "Fresh promoted Market Motion may compete for funding when it carries a concrete unresolved next test; Motion attention adds urgency but cannot outrank a true material blocker by itself.",
+        "Fresh Market Motion may compete for funding when either a Story-linked promoted version carries a concrete next test or the persisted Dossier explicitly marks the original Motion UNRESOLVED with an investigation_next; Motion attention adds urgency but cannot outrank a true material blocker by itself.",
         "At most three candidates are selected per Dossier.",
       ],
     },

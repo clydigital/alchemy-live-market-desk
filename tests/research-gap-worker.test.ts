@@ -61,6 +61,51 @@ function dossier(overrides: Partial<MarketDossierV2> = {}): MarketDossierV2 {
   };
 }
 
+function unresolvedMotionDossier(
+  overrides: Partial<MarketDossierV2> = {},
+): MarketDossierV2 {
+  const base = dossier();
+  const unresolvedMotionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  return {
+    ...base,
+    payload: {
+      ...base.payload,
+      motion_attention_snapshot: [{
+        motion_id: unresolvedMotionId,
+        headline: "Long-end yields remain firm after softer inflation evidence",
+        what_happened: "The long end stayed elevated.",
+        market_reaction: "US10Y and US30Y remained firm.",
+        why_interesting: "Tests whether duration pressure is broader than the inflation impulse.",
+        big_picture_bridge: "Long-end pressure -> financing conditions -> valuation.",
+        next_test: "Separate real-yield, Treasury supply and term-premium channels.",
+        primary_story_id: null,
+        primary_regime_slug: "global-cost-of-capital",
+        packet_evidence_id: "verified-macro:rates-1",
+        verification_state: "VERIFIED",
+        materiality: 94,
+        relevance: 93,
+        novelty: 86,
+      }],
+      analytical_output: {
+        ...((base.payload.analytical_output || {}) as Record<string, unknown>),
+        motion_attention_assessments: [{
+          motion_id: unresolvedMotionId,
+          decision: "UNRESOLVED",
+          reason: "Current evidence confirms the move but cannot yet discriminate the dominant long-end driver.",
+          evidence_references: ["verified-macro:rates-1"],
+          story_implication: null,
+          regime_implication: null,
+          investigation_next: "Separate real-yield, Treasury supply and term-premium channels.",
+          refined_headline: null,
+          refined_why_interesting: null,
+          refined_big_picture_bridge: null,
+        }],
+      },
+    },
+    ...overrides,
+  };
+}
+
 function motion(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord {
   return {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -146,6 +191,60 @@ test("fresh promoted Motion opens one traceable research candidate without becom
   assert.ok(candidates[0]?.gapKey.startsWith("gap:motion:event:rates:term-premium:branch:"));
   assert.equal(candidates[0]?.nativeSignals.motionAttentionTier, "PRIMARY");
   assert.ok((candidates[0]?.nativeSignals.motionAttentionScore ?? 0) >= 82);
+});
+
+test("B3 Dossier-UNRESOLVED Motion enters Research Gap without promotion or a Story link", () => {
+  const unresolvedRow = motion({
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    motion_key: "event:rates:unresolved-long-end",
+    lifecycle_state: "MOTION",
+    effective_state: "MOTION",
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+    promotion_reason: null,
+    next_test: "Original Motion next test should not override the Dossier assessment.",
+  });
+  const queue = buildResearchGapWorkQueue(
+    unresolvedMotionDossier(),
+    new Date("2026-10-01T01:00:00.000Z"),
+    [],
+    [unresolvedRow],
+  );
+
+  const candidates = queue.candidates.filter((item) => item.sourceKind === "market_motion");
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0]?.sourceRef, unresolvedRow.id);
+  assert.equal(
+    candidates[0]?.question,
+    "Separate real-yield, Treasury supply and term-premium channels.",
+  );
+  assert.deepEqual(candidates[0]?.linkedStoryIds, []);
+  assert.deepEqual(candidates[0]?.blockingRefs, [
+    `MOTION:${unresolvedRow.id}`,
+    "REGIME:global-cost-of-capital",
+  ]);
+  assert.equal(candidates[0]?.nativeSignals.divergence, "UNRESOLVED");
+  assert.ok(candidates[0]?.gapKey.startsWith("gap:motion:event:rates:unresolved-long-end:branch:"));
+  assert.equal(unresolvedRow.lifecycle_state, "MOTION");
+});
+
+test("B3 unresolved Motion fails closed without exact Dossier snapshot lineage", () => {
+  const broken = unresolvedMotionDossier();
+  broken.payload.motion_attention_snapshot = [];
+  const unresolvedRow = motion({
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    lifecycle_state: "MOTION",
+    effective_state: "MOTION",
+  });
+
+  const queue = buildResearchGapWorkQueue(
+    broken,
+    new Date("2026-10-01T01:00:00.000Z"),
+    [],
+    [unresolvedRow],
+  );
+
+  assert.equal(queue.sourceCounts.marketMotion, 0);
 });
 
 test("native urgency and linkage signals survive normalisation", () => {
@@ -253,6 +352,88 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
   assert.ok(calls.some(([name, value]) => name === "motion:eq:lifecycle_state" && value === "PROMOTED"));
   assert.ok(calls.some(([name, value]) => name === "motion:eq:effective_state" && value === "PROMOTED"));
   assert.ok(calls.some(([name, value]) => name === "motion:limit" && value === 18));
+});
+
+test("B3 loader fetches exact immutable UNRESOLVED Motion rows from the Dossier snapshot", async () => {
+  const row = unresolvedMotionDossier();
+  const unresolvedRow = motion({
+    id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    motion_key: "event:rates:unresolved-long-end",
+    lifecycle_state: "MOTION",
+    effective_state: "MOTION",
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+  });
+  const calls: Array<[string, unknown]> = [];
+
+  const dossierQuery = {
+    select(value: string) {
+      calls.push(["dossier:select", value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`dossier:order:${column}`, options]);
+      return this;
+    },
+    limit(value: number) {
+      calls.push(["dossier:limit", value]);
+      return this;
+    },
+    async maybeSingle() {
+      return { data: row, error: null };
+    },
+  };
+  const promotedQuery = {
+    select(value: string) {
+      calls.push(["promoted:select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`promoted:eq:${column}`, value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`promoted:order:${column}`, options]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["promoted:limit", value]);
+      return { data: [], error: null };
+    },
+  };
+  const exactMotionQuery = {
+    select(value: string) {
+      calls.push(["exact:select", value]);
+      return this;
+    },
+    async in(column: string, ids: string[]) {
+      calls.push([`exact:in:${column}`, ids]);
+      return { data: [unresolvedRow], error: null };
+    },
+  };
+  const fakeClient = {
+    from(table: string) {
+      if (table === "market_dossiers_v2") return dossierQuery;
+      if (table === "current_market_motion_items") return promotedQuery;
+      if (table === "market_motion_items") return exactMotionQuery;
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+
+  const queue = await loadLatestResearchGapWorkQueue(
+    fakeClient as never,
+    new Date("2026-10-01T01:00:00Z"),
+  );
+
+  const candidate = queue?.candidates.find((item) => item.sourceRef === unresolvedRow.id);
+  assert.ok(candidate);
+  assert.equal(candidate?.sourceKind, "market_motion");
+  assert.equal(candidate?.nativeSignals.divergence, "UNRESOLVED");
+  assert.ok(calls.some(([name, value]) =>
+    name === "exact:in:id"
+    && Array.isArray(value)
+    && value.includes(unresolvedRow.id)
+  ));
 });
 
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {

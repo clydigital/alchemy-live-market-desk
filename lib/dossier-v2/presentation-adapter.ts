@@ -406,7 +406,11 @@ function motionAttentionPresentation(
           || bigPictureBridge,
       nextTest: assessment.investigation_next?.trim()
         || (typeof item.next_test === "string" && item.next_test.trim() ? item.next_test.trim() : null),
-      storyId: scope === "STORY" ? storyId : null,
+      storyId: assessment.decision === "UNRESOLVED"
+        ? storyId
+        : scope === "STORY"
+          ? storyId
+          : null,
       regimeSlug,
       evidenceRefs: [...assessment.evidence_references],
       reason: assessment.reason,
