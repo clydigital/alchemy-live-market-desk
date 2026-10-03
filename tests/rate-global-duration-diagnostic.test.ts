@@ -148,6 +148,7 @@ test("explicit comparable Bund and gilt evidence can make broader global label e
   const result = buildRateGlobalDurationDiagnostic(input, curve);
 
   assert.equal(result.relativeRates.globalLabelEligible, true);
+  assert.equal(result.relativeRates.comparisonWindowAligned, true);
   assert.ok(!result.gaps.some((gap) => /Bund/));
   assert.ok(!result.gaps.some((gap) => /gilt/));
 });
@@ -195,4 +196,57 @@ test("missing global data fails closed instead of inferring foreign demand from 
   assert.equal(result.japanPortfolioFlows.direction, "UNRESOLVED");
   assert.equal(result.fx.usdJpy, null);
   assert.ok(result.gaps.length >= 5);
+});
+
+
+test("misaligned sovereign source dates cannot confirm a global-duration window", () => {
+  const oldBund = {
+    ...evidence(
+      "global-rates:bund:2026-09-20",
+      "global-rates:bund",
+      { signal_context: "bund_10y", observed_value: 3.8, change_5d_bp: 6, provider_status: "OK" },
+      "German 10Y Bund yield.",
+    ),
+    occurrence_time: "2026-09-20T00:00:00.000Z",
+  };
+  const currentGilt = {
+    ...evidence(
+      "global-rates:gilt:2026-10-03",
+      "global-rates:gilt",
+      { signal_context: "gilt_10y", observed_value: 5.1, change_5d_bp: 7, provider_status: "OK" },
+      "UK 10Y gilt yield.",
+    ),
+    occurrence_time: "2026-10-03T00:00:00.000Z",
+  };
+
+  const input = packet([oldBund, currentGilt]);
+  const curve = buildRateCurveDiagnostic(input.observed_evidence, AS_OF);
+  const result = buildRateGlobalDurationDiagnostic(input, curve);
+
+  assert.equal(result.relativeRates.comparisonWindowAligned, false);
+  assert.equal(result.relativeRates.globalLabelEligible, false);
+  assert.ok(result.gaps.some((gap) => /source dates are not aligned/i));
+});
+
+test("stale Bund or gilt evidence remains visible but cannot confirm global duration", () => {
+  const input = packet([
+    evidence(
+      "global-rates:bund:2026-10-03",
+      "global-rates:bund",
+      { signal_context: "bund_10y", observed_value: 3.8, change_5d_bp: 6, provider_status: "STALE" },
+      "German 10Y Bund yield.",
+    ),
+    evidence(
+      "global-rates:gilt:2026-10-03",
+      "global-rates:gilt",
+      { signal_context: "gilt_10y", observed_value: 5.1, change_5d_bp: 7, provider_status: "OK" },
+      "UK 10Y gilt yield.",
+    ),
+  ]);
+  const curve = buildRateCurveDiagnostic(input.observed_evidence, AS_OF);
+  const result = buildRateGlobalDurationDiagnostic(input, curve);
+
+  assert.equal(result.relativeRates.comparisonWindowAligned, true);
+  assert.equal(result.relativeRates.globalLabelEligible, false);
+  assert.ok(result.evidenceRefs.includes("global-rates:bund:2026-10-03"));
 });
