@@ -166,7 +166,11 @@ export function buildRateEducationalProjection(input: {
   regime: ProjectedRegime;
   explanation: RegimeExplanation | null;
   investigations: RoutedDossierInvestigation[];
-  dossier: Pick<DossierPresentationV1, "dossierId" | "asOf" | "rateRegime"> | null;
+  dossier: {
+    dossierId: string;
+    asOf: string;
+    rateRegime?: DossierPresentationV1["rateRegime"] | null;
+  } | null;
 }): RateEducationalProjection | null {
   const { regime, explanation, dossier } = input;
   if (regime.slug !== "global-cost-of-capital") return null;
@@ -261,24 +265,24 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
-    ratePath: dossier?.rateRegime.curveDiagnostic ? {
-      shape: dossier.rateRegime.curveDiagnostic.shape,
-      moveClass: dossier.rateRegime.curveDiagnostic.moveClass,
-      separationState: dossier.rateRegime.curveDiagnostic.separationState,
-      frontEndDirection: dossier.rateRegime.curveDiagnostic.frontEndDirection,
-      longEndDirection: dossier.rateRegime.curveDiagnostic.longEndDirection,
-      frontEndChange5dBp: dossier.rateRegime.curveDiagnostic.frontEndChange5dBp,
-      longEndAverageChange5dBp: dossier.rateRegime.curveDiagnostic.longEndAverageChange5dBp,
-      detail: dossier.rateRegime.curveDiagnostic.detail,
-      points: dossier.rateRegime.curveDiagnostic.points.map((item) => ({
+    ratePath: dossier?.rateRegime?.curveDiagnostic ? {
+      shape: dossier.rateRegime!.curveDiagnostic!.shape,
+      moveClass: dossier.rateRegime!.curveDiagnostic!.moveClass,
+      separationState: dossier.rateRegime!.curveDiagnostic!.separationState,
+      frontEndDirection: dossier.rateRegime!.curveDiagnostic!.frontEndDirection,
+      longEndDirection: dossier.rateRegime!.curveDiagnostic!.longEndDirection,
+      frontEndChange5dBp: dossier.rateRegime!.curveDiagnostic!.frontEndChange5dBp,
+      longEndAverageChange5dBp: dossier.rateRegime!.curveDiagnostic!.longEndAverageChange5dBp,
+      detail: dossier.rateRegime!.curveDiagnostic!.detail,
+      points: dossier.rateRegime!.curveDiagnostic!.points.map((item) => ({
         maturity: item.maturity,
         yieldPct: item.yieldPct,
         change5dBp: item.change5dBp,
       })),
-      spreads: dossier.rateRegime.curveDiagnostic.spreads
+      spreads: dossier.rateRegime!.curveDiagnostic!.spreads
         .filter((item) => item.key === "2s10s" || item.key === "2s30s" || item.key === "10s30s")
         .map((item) => ({ key: item.key, bps: item.bps, change5dBp: item.change5dBp })),
-      asOf: dossier.rateRegime.curveDiagnostic.asOf,
+      asOf: dossier.rateRegime!.curveDiagnostic!.asOf,
     } : null,
     stateBoard,
     currentTest: investigation ? {
