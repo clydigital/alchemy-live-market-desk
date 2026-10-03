@@ -6,14 +6,18 @@ function source(path: string) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
-test("Regime LIVE preserves structured Divergence Lab candidate mechanisms", () => {
+test("Regime LIVE uses the shared Divergence Lab presentation classifier", () => {
   const workspace = source("../components/live-desk/RegimeDetailWorkspace.tsx");
 
+  assert.match(workspace, /buildDivergenceLabPresentation/);
   assert.match(workspace, /Divergence Lab — candidate mechanisms/);
-  assert.match(workspace, /item\.candidateExplanations\.map/);
+  assert.match(workspace, /lab\.mode === "full"/);
+  assert.match(workspace, /lab\.candidates\.map/);
   assert.match(workspace, /candidate\.confidence/);
   assert.match(workspace, /candidate\.evidenceForRefs\.length/);
   assert.match(workspace, /candidate\.evidenceAgainstRefs\.length/);
-  assert.match(workspace, /candidate\.discriminatingTest/);
-  assert.match(workspace, /item\.competingExplanations\.length/);
+  assert.match(workspace, /candidate\.displayDiscriminator/);
+  assert.match(workspace, /lab\.mode === "compact_unresolved"/);
+  assert.match(workspace, /Mechanism unresolved/);
+  assert.doesNotMatch(workspace, /item\.candidateExplanations\.map/);
 });
