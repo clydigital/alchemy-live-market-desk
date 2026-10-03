@@ -530,6 +530,12 @@ test("11. explicit conflict key produces conflict group; distinct non-conflictin
   assert.ok(cpi1 && cpi2);
   assert.ok(cpi1.conflict_group_id);
   assert.equal(cpi1.conflict_group_id, cpi2.conflict_group_id);
+
+  const conflictState = packet.evidence_states?.find(
+    (item) => item.source_name === "observed_evidence",
+  );
+  assert.equal(conflictState?.state, "CONFLICT");
+  assert.match(conflictState?.message ?? "", /1 unresolved canonical conflict group/i);
 });
 
 test("12. transitive supersession lineage chains and cycle detection", () => {
