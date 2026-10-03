@@ -10,6 +10,7 @@
 .test,
 .explanation,
 .ratePath,
+.longEnd,
 .board,
 .education {
   border: 1px solid rgba(184, 172, 216, .15);
@@ -104,6 +105,7 @@
 .test,
 .explanation,
 .ratePath,
+.longEnd,
 .board,
 .education {
   padding: 14px;
@@ -125,6 +127,7 @@
 .test p,
 .explanation p,
 .ratePath p,
+.longEnd p,
 .row p,
 .education p {
   margin: 0;
@@ -137,6 +140,7 @@
 .test small,
 .explanation small,
 .ratePath small,
+.longEnd small,
 .board small,
 .education small,
 .row small {
@@ -338,5 +342,82 @@
 
   .spreadGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+.longEnd {
+  display: grid;
+  gap: 12px;
+  border-color: rgba(224, 168, 91, .22);
+}
+
+.longEnd > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.longEnd h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.decompositionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.decompositionGrid > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(224, 168, 91, .12);
+  border-radius: 9px;
+  background: rgba(45, 29, 14, .2);
+}
+
+.decompositionGrid strong {
+  font-size: 13px;
+}
+
+.decompositionGrid span {
+  color: #948a7f;
+  font-size: 9px;
+}
+
+.longEndNotes {
+  display: grid;
+  gap: 7px;
+}
+
+.gaps {
+  display: grid;
+  gap: 5px;
+  padding: 9px;
+  border: 1px dashed rgba(224, 168, 91, .2);
+  border-radius: 9px;
+}
+
+.gaps strong {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: #c7a66d;
+}
+
+.gaps span {
+  color: #92887b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+@media (max-width: 950px) {
+  .longEnd > header {
+    flex-direction: column;
+  }
+
+  .decompositionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
