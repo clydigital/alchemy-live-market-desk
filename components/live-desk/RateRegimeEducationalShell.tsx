@@ -11,6 +11,20 @@ function formatPct(value: number | null) {
   return value === null ? "n/a" : `${value.toFixed(2)}%`;
 }
 
+function formatMovePct(value: number | null) {
+  if (value === null) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatUsdBn(value: number | null) {
+  return value === null ? "n/a" : `${value.toFixed(1)}bn`;
+}
+
+function formatJpyBn(value: number | null) {
+  if (value === null) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)} JPY bn`;
+}
+
 function dateLabel(value: string | null) {
   if (!value) return "No current timestamp";
   const date = new Date(value);
@@ -197,6 +211,80 @@ export default function RateRegimeEducationalShell({
             </div>
           ) : null}
           <small>Observed components are System 1. Assigning the remaining move to supply, term premium, foreign demand or positioning requires specific evidence / System 2 reasoning. As of {dateLabel(projection.longEnd.asOf)}.</small>
+        </article>
+      ) : null}
+
+      {projection.globalDuration ? (
+        <article className={styles.globalDuration}>
+          <header>
+            <div>
+              <span className={styles.kicker}>GLOBAL DURATION / JAPAN / FOREIGN TREASURY DEMAND</span>
+              <h3>Are U.S. rates moving alone?</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.globalDuration.state.replaceAll("_", " ")}</span>
+              <span>{projection.globalDuration.globalLabelEligible ? "GLOBAL LABEL CONFIRMED" : "US–JAPAN ONLY"}</span>
+            </div>
+          </header>
+
+          <p>{projection.globalDuration.relative.detail}</p>
+
+          <div className={styles.globalGrid}>
+            <div className={styles.globalCard}>
+              <small>JGB CURVE · DAILY</small>
+              <strong>2Y {formatPct(projection.globalDuration.jgb.y2)} · 10Y {formatPct(projection.globalDuration.jgb.y10)} · 30Y {formatPct(projection.globalDuration.jgb.y30)}</strong>
+              <span>5D: {formatBp(projection.globalDuration.jgb.change2y5dBp)} / {formatBp(projection.globalDuration.jgb.change10y5dBp)} / {formatBp(projection.globalDuration.jgb.change30y5dBp)}</span>
+              <span>Source date {projection.globalDuration.jgb.asOf || "unresolved"}</span>
+            </div>
+
+            <div className={styles.globalCard}>
+              <small>UST ↔ JGB GAP · COMPARABLE TENORS</small>
+              <strong>10Y {formatBp(projection.globalDuration.relative.ustJgb10yBp)} · 30Y {formatBp(projection.globalDuration.relative.ustJgb30yBp)}</strong>
+              <span>5D gap change: 10Y {formatBp(projection.globalDuration.relative.ustJgb10yChange5dBp)} · 30Y {formatBp(projection.globalDuration.relative.ustJgb30yChange5dBp)}</span>
+            </div>
+
+            <div className={styles.globalCard}>
+              <small>USDJPY · DAILY</small>
+              <strong>{projection.globalDuration.fx.usdJpy === null ? "n/a" : projection.globalDuration.fx.usdJpy.toFixed(3)}</strong>
+              <span>{formatMovePct(projection.globalDuration.fx.change5dPct)} · 5D</span>
+              <span>{projection.globalDuration.fx.detail}</span>
+            </div>
+
+            <div className={styles.globalCard}>
+              <small>TIC JAPAN TREASURY HOLDINGS · MONTHLY</small>
+              <strong>{formatUsdBn(projection.globalDuration.tic.japanHoldingsUsdBn)}</strong>
+              <span>{projection.globalDuration.tic.direction.replaceAll("_", " ")} · monthly change {formatUsdBn(projection.globalDuration.tic.japanMonthlyChangeUsdBn)}</span>
+              <span>Period {projection.globalDuration.tic.period || "unresolved"}</span>
+            </div>
+
+            <div className={styles.globalCard}>
+              <small>JAPAN MOF OUTWARD LONG-TERM DEBT · WEEKLY</small>
+              <strong>{formatJpyBn(projection.globalDuration.japanFlows.outwardLongTermDebtNetPurchaseJpyBn)}</strong>
+              <span>{projection.globalDuration.japanFlows.direction.replaceAll("_", " ")}</span>
+              <span>{projection.globalDuration.japanFlows.periodLabel || "Period unresolved"} · foreign long-term debt generally, not Treasury-specific</span>
+            </div>
+          </div>
+
+          <div className={styles.comparability}>
+            <strong>Do not merge these clocks.</strong>
+            <p>{projection.globalDuration.comparabilityDetail}</p>
+            {projection.globalDuration.tic.custodyAttributionCaveat ? (
+              <small><strong>TIC attribution caveat:</strong> {projection.globalDuration.tic.custodyAttributionCaveat}</small>
+            ) : null}
+          </div>
+
+          {!projection.globalDuration.globalLabelEligible ? (
+            <small>Current evidence supports a U.S.–Japan rates comparison. A broader “global duration” label still needs comparable Bund and gilt confirmation.</small>
+          ) : null}
+
+          {projection.globalDuration.gaps.length ? (
+            <div className={styles.gaps}>
+              <strong>Still missing</strong>
+              {projection.globalDuration.gaps.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+
+          <small>System 1 reports the observations and comparable-tenor spreads. Causal claims about repatriation, hedging, foreign demand or carry require the canonical Dossier / System 2. As of {dateLabel(projection.globalDuration.asOf)}.</small>
         </article>
       ) : null}
 
