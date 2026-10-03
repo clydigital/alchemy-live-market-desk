@@ -366,8 +366,7 @@ export default function RegimeDetailWorkspace({
                             <p>{item.detail}</p>
                             <small>{item.source} · {displayDate(item.asOf)}</small>
                           </article>
-                          );
-                        })}
+                        ))}
                       </div>
                     ) : (
                       <div className={styles.empty}>No deterministic System 1 sensor is wired for this subgroup yet. The state below is Story-led; it is not being presented as a measured score.</div>
@@ -452,7 +451,8 @@ export default function RegimeDetailWorkspace({
                               <span><strong>Invalidate:</strong> {item.invalidationCondition}</span>
                             </div>
                           </article>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className={styles.empty}>No canonical expected-vs-actual investigation is linked to the durable Stories in this subgroup. LIVE will not manufacture a divergence from missing or non-comparable tape.</div>
