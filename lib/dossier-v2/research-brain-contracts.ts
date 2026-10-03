@@ -27,6 +27,34 @@ export type RegimeFamily = "RATES_LED_TIGHTENING" | "GROWTH_SCARE_RISK_OFF" | "M
 export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved";
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 export type InvestigationDivergence = "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
+export type MotionAttentionDecision = "ACCEPT" | "REFINE" | "UNRESOLVED" | "REJECT";
+
+export interface ResearchBrainMotionAttention {
+  motion_id: string;
+  headline: string;
+  what_happened: string;
+  market_reaction: string | null;
+  why_interesting: string;
+  big_picture_bridge: string;
+  next_test: string | null;
+  primary_story_id: string | null;
+  primary_regime_slug: string | null;
+  packet_evidence_id: string;
+  verification_state: "REPORTED" | "VERIFIED";
+  materiality: number;
+  relevance: number;
+  novelty: number;
+}
+
+export interface ResearchBrainMotionAssessment {
+  motion_id: string;
+  decision: MotionAttentionDecision;
+  reason: string;
+  evidence_references: string[];
+  story_implication: string | null;
+  regime_implication: string | null;
+  investigation_next: string | null;
+}
 
 export interface MainThread {
   thread_id: string;
@@ -229,6 +257,11 @@ export interface ResearchBrainOutputV1 {
   thesis_ledger: ThesisLedgerV2;
   contradictions_detected: ContradictionDetected[];
   research_gaps: ResearchGap[];
+  /**
+   * New Dossiers may carry bounded Motion-attention assessments.
+   * Optional for backwards compatibility with immutable historical vintages.
+   */
+  motion_attention_assessments?: ResearchBrainMotionAssessment[];
   diagnostics: ResearchBrainDiagnostics;
 }
 
@@ -236,4 +269,9 @@ export interface ResearchBrainInputV1 {
   contract_version?: typeof RESEARCH_BRAIN_INPUT_CONTRACT_VERSION | string;
   as_of: string;
   packet: DossierV2InputPacket;
+  /**
+   * Non-evidentiary framing that can recruit/focus System 2. Facts must still
+   * come only from the packet evidence referenced by packet_evidence_id.
+   */
+  motion_attention?: ResearchBrainMotionAttention[];
 }
