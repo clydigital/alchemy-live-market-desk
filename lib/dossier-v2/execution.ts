@@ -399,7 +399,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
     freshness: {
       as_of: packet.as_of,
       warnings: cloneJson(packet.freshness_warnings),
-      evidence_states: cloneJson(packet.evidence_states),
+      evidence_states: cloneJson(packet.evidence_states ?? []),
       input_diagnostics: cloneJson(packet.diagnostics),
     },
     research_gaps: mergeResearchGaps(
