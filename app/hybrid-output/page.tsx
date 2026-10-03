@@ -170,7 +170,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyId: item.storyId,
       storySlug: item.storySlug,
       storyTitle: item.storyTitle,
-      storyHref: `/stories/${item.storySlug}`,
+      storyHref: item.storySlug ? `/stories/${item.storySlug}` : null,
       regimeSlug: item.regimeSlug,
       regimeLabel: item.regimeLabel,
       regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
@@ -249,12 +249,16 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                 <p><strong>Big-picture bridge:</strong> {focusedMotion.bigPictureBridge}</p>
                 <p><strong>Investigation next:</strong> {focusedMotion.nextTest || "No exact next test is persisted; this Motion stays context-only."}</p>
                 <p>
-                  <strong>Routing:</strong> Motion → exact linked Story/Regime → Research Gap investigation when eligible.
-                  Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
+                  <strong>Routing:</strong> Motion → exact accepted Story and/or Regime context. Story-linked Motion may enter Research Gap investigation when eligible; regime-only Motion remains context-only until a canonical Story or investigation owns the next test.
+                  Dossier/regime state changes only through their canonical reasoning paths.
                 </p>
                 <p>
-                  <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
-                  {" · "}
+                  {focusedMotion.storyHref && focusedMotion.storyTitle ? (
+                    <>
+                      <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
+                      {" · "}
+                    </>
+                  ) : null}
                   {focusedMotion.regimeHref && focusedMotion.regimeLabel ? (
                     <>
                       <a className={styles.link} href={focusedMotion.regimeHref}>Regime · {focusedMotion.regimeLabel}</a>
