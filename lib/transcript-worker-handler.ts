@@ -2,7 +2,7 @@ import { NextResponse } from "next/server.js";
 
 import { persistMarketMotionFromCreatorReviews } from "./market-motion-ingestion.ts";
 import { acceptsResearchAuthorization } from "./research-auth.ts";
-import { retrieveSupadataVideo } from "./supadata.ts";
+import { retrieveTranscriptForWorker } from "./transcript-worker-retrieval.ts";
 import { SupabaseTranscriptWorkerStore } from "./supabase-transcript-worker-store.ts";
 import { reviewCreatorTranscript } from "./transcript-research-review.ts";
 import {
@@ -17,7 +17,7 @@ export type TranscriptWorkerHandlerDependencies = {
   authenticate: (request: Request) => boolean;
   run: typeof runTranscriptWorker;
   createStore: () => SupabaseTranscriptWorkerStore;
-  extract: typeof retrieveSupadataVideo;
+  extract: typeof retrieveTranscriptForWorker;
   interpret: typeof reviewCreatorTranscript;
   refreshMarketMotion: typeof persistMarketMotionFromCreatorReviews;
 };
@@ -30,7 +30,7 @@ const defaultDependencies: TranscriptWorkerHandlerDependencies = {
   ]),
   run: runTranscriptWorker,
   createStore: () => new SupabaseTranscriptWorkerStore(),
-  extract: retrieveSupadataVideo,
+  extract: retrieveTranscriptForWorker,
   interpret: reviewCreatorTranscript,
   refreshMarketMotion: persistMarketMotionFromCreatorReviews,
 };
@@ -53,7 +53,7 @@ export async function handleTranscriptWorkerRequest(
       claimHeadroomMs: DEFAULT_CLAIM_HEADROOM_MS,
       leaseSeconds: 300,
       maxAttempts: 6,
-      extract: (videoId) => dependencies.extract(videoId, apiKey, { timeoutMs: 12_000 }),
+      extract: (videoId) => dependencies.extract(videoId, apiKey),
       interpret: (job) => dependencies.interpret({
         video: {
           id: job.id,
