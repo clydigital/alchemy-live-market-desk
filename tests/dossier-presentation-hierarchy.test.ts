@@ -43,8 +43,8 @@ test("live tape is secondary, current-only context and cannot lead the Dossier",
   assert.ok(hero < currentTape);
   assert.ok(currentTape < assetBoard);
   assert.match(page, /!historicalMode \? \(\s*<section className=\{styles\.currentTape\}>/);
-  assert.match(page, /Live observations may be newer than the accepted Dossier/);
-  assert.match(page, /Canonical interpretation is frozen at \{formatDeskDate\(dossier\.asOf\)\}/);
+  assert.match(page, /Live-owned observations may be newer than the frozen Dossier/);
+  assert.match(page, /do not rewrite the persisted interpretation/);
 });
 
 test("Dossier suppresses duplicate Daily Asset State stock radar while Overview keeps the default", () => {
