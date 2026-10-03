@@ -242,6 +242,46 @@ export default function RateRegimeEducationalShell({
         </article>
       ) : null}
 
+      {projection.growthSemisCrossCheck ? (
+        <article className={styles.longEnd}>
+          <header>
+            <div>
+              <span className={styles.kicker}>GROWTH / SEMIS CROSS-CHECK · CANONICAL REACTION AUDIT</span>
+              <h3>Real yields versus semiconductor reaction</h3>
+            </div>
+            <div className={styles.pathBadges}>
+              <span>{projection.growthSemisCrossCheck.coverage.present}/2 legs observed</span>
+            </div>
+          </header>
+
+          <div className={styles.decompositionGrid}>
+            <div>
+              <small>10Y REAL YIELD</small>
+              <strong>{projection.growthSemisCrossCheck.realYield10y ? formatPct(projection.growthSemisCrossCheck.realYield10y.levelPct) : "Unresolved"}</strong>
+              <span>{projection.growthSemisCrossCheck.realYield10y ? `${formatBp(projection.growthSemisCrossCheck.realYield10y.change5dBp)} · 5D` : "No canonical real-yield leg"}</span>
+            </div>
+            <div>
+              <small>SMH REACTION</small>
+              <strong>{projection.growthSemisCrossCheck.smhReaction ? projection.growthSemisCrossCheck.smhReaction.relation : "Unresolved"}</strong>
+              <span>
+                {projection.growthSemisCrossCheck.smhReaction
+                  ? `Expected ${projection.growthSemisCrossCheck.smhReaction.expectedDirection.toLowerCase()} · observed ${projection.growthSemisCrossCheck.smhReaction.observedDirection.toLowerCase()} ${formatMovePct(projection.growthSemisCrossCheck.smhReaction.observedChangePct)} via ${projection.growthSemisCrossCheck.smhReaction.observedInstrument}`
+                  : "No exact SMH post-trigger reaction attached"}
+              </span>
+            </div>
+          </div>
+
+          {projection.growthSemisCrossCheck.coverage.missing.length ? (
+            <div className={styles.gaps}>
+              <strong>Still missing</strong>
+              {projection.growthSemisCrossCheck.coverage.missing.map((gap) => <span key={gap}>{gap}</span>)}
+            </div>
+          ) : null}
+
+          <small>SMH is a direct semiconductor / AI-sensitive equity check. It is not being presented as QQQ, NDX or broad-equity confirmation. The card reports reaction evidence only and does not infer causality.</small>
+        </article>
+      ) : null}
+
       {projection.goldCrossCheck ? (
         <article className={styles.longEnd}>
           <header>
