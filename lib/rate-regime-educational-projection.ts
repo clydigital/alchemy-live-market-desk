@@ -87,6 +87,32 @@ export type RateEducationalProjection = {
     gaps: string[];
     asOf: string;
   } | null;
+  dollarLiquidityContext: {
+    contractVersion: string;
+    asOf: string;
+    state: string;
+    confidence: string;
+    summary: string;
+    components: Array<{
+      key: string;
+      label: string;
+      direction: string;
+      detail: string;
+    }>;
+    coverage: {
+      resolved: number;
+      scoredTotal: number;
+      offshoreUsd: string;
+    };
+    gaps: string[];
+    policyInteraction: {
+      policyState: string;
+      liquidityState: string;
+      alignment: string;
+      priority: string;
+      question: string;
+    } | null;
+  } | null;
   creditFunding: {
     funding: RateEducationalStateRow | null;
     credit: RateEducationalStateRow | null;
@@ -285,6 +311,44 @@ function boardRow(subgroup: ProjectedRegimeSubgroup): RateEducationalStateRow {
   };
 }
 
+function dollarLiquidityContextFor(
+  dossier: {
+    dollarLiquidity?: DossierPresentationV1["dollarLiquidity"];
+    policyLiquidityInteraction?: DossierPresentationV1["policyLiquidityInteraction"];
+  } | null,
+): RateEducationalProjection["dollarLiquidityContext"] {
+  const liquidity = dossier?.dollarLiquidity ?? null;
+  if (!liquidity) return null;
+
+  const interaction = dossier?.policyLiquidityInteraction ?? null;
+  return {
+    contractVersion: liquidity.contractVersion,
+    asOf: liquidity.asOf,
+    state: liquidity.state,
+    confidence: liquidity.confidence,
+    summary: liquidity.summary,
+    components: liquidity.components.map((item) => ({
+      key: item.key,
+      label: item.label,
+      direction: item.direction,
+      detail: item.detail,
+    })),
+    coverage: {
+      resolved: liquidity.coverage.resolved,
+      scoredTotal: liquidity.coverage.scoredTotal,
+      offshoreUsd: liquidity.coverage.offshoreUsd,
+    },
+    gaps: [...liquidity.gaps],
+    policyInteraction: interaction ? {
+      policyState: interaction.policyState,
+      liquidityState: interaction.liquidityState,
+      alignment: interaction.alignment,
+      priority: interaction.priority,
+      question: interaction.question,
+    } : null,
+  };
+}
+
 function creditFundingFor(regime: ProjectedRegime): RateEducationalProjection["creditFunding"] {
   const subgroup = subgroupByKey(regime, "credit-financing");
   if (!subgroup) return null;
@@ -427,6 +491,8 @@ export function buildRateEducationalProjection(input: {
     dossierId: string;
     asOf: string;
     rateRegime?: DossierPresentationV1["rateRegime"] | null;
+    dollarLiquidity?: DossierPresentationV1["dollarLiquidity"];
+    policyLiquidityInteraction?: DossierPresentationV1["policyLiquidityInteraction"];
   } | null;
 }): RateEducationalProjection | null {
   const { regime, explanation, dossier } = input;
@@ -522,6 +588,7 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    dollarLiquidityContext: dollarLiquidityContextFor(dossier),
     creditFunding: creditFundingFor(regime),
     growthSemisCrossCheck: growthSemisCrossCheckFor(investigation, dossier),
     goldCrossCheck: goldCrossCheckFor(investigation, dossier),
