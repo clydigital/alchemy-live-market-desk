@@ -87,6 +87,37 @@ export type RateEducationalProjection = {
     gaps: string[];
     asOf: string;
   } | null;
+  goldCrossCheck: {
+    realYield10y: {
+      levelPct: number | null;
+      change5dBp: number | null;
+    } | null;
+    dxyReaction: {
+      expectedDirection: "UP" | "DOWN";
+      observedDirection: "UP" | "DOWN";
+      observedChangePct: number;
+      observedInstrument: string;
+      isProxy: boolean;
+      reactionWindow: "5m" | "30m" | "4h" | "close" | "next_session" | null;
+      relation: "ALIGNED" | "DIVERGENT";
+      timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+    } | null;
+    goldReaction: {
+      expectedDirection: "UP" | "DOWN";
+      observedDirection: "UP" | "DOWN";
+      observedChangePct: number;
+      observedInstrument: string;
+      isProxy: boolean;
+      reactionWindow: "5m" | "30m" | "4h" | "close" | "next_session" | null;
+      relation: "ALIGNED" | "DIVERGENT";
+      timingPrecision: "INTRADAY" | "DAILY_POST_EVENT";
+    } | null;
+    coverage: {
+      present: number;
+      total: 3;
+      missing: string[];
+    };
+  } | null;
   longEnd: {
     observedState: string;
     nominal10y: { levelPct: number | null; change5dBp: number | null };
@@ -224,6 +255,56 @@ function boardRow(subgroup: ProjectedRegimeSubgroup): RateEducationalStateRow {
   };
 }
 
+function goldCrossCheckFor(
+  investigation: RoutedDossierInvestigation | null,
+  dossier: {
+    rateRegime?: DossierPresentationV1["rateRegime"] | null;
+  } | null,
+): RateEducationalProjection["goldCrossCheck"] {
+  const realYield = dossier?.rateRegime?.longEndDiagnostic?.real10y ?? null;
+  const hasRealYield = Boolean(
+    realYield
+    && (realYield.levelPct !== null || realYield.change5dBp !== null),
+  );
+  const dxy = investigation?.reactionChecks.find((item) => item.instrument === "DXY") ?? null;
+  const gold = investigation?.reactionChecks.find((item) => item.instrument === "XAUUSD") ?? null;
+
+  if (!hasRealYield && !dxy && !gold) return null;
+
+  const reaction = (item: NonNullable<typeof dxy>) => ({
+    expectedDirection: item.expectedDirection,
+    observedDirection: item.observedDirection,
+    observedChangePct: item.observedChangePct,
+    observedInstrument: item.observedInstrument,
+    isProxy: item.isProxy,
+    reactionWindow: item.reactionWindow,
+    relation: item.relation,
+    timingPrecision: item.timingPrecision,
+  });
+
+  const missing = [
+    ...(!hasRealYield ? ["10Y real yield"] : []),
+    ...(!dxy ? ["DXY reaction"] : []),
+    ...(!gold ? ["Gold reaction"] : []),
+  ];
+
+  return {
+    realYield10y: hasRealYield
+      ? {
+          levelPct: realYield!.levelPct,
+          change5dBp: realYield!.change5dBp,
+        }
+      : null,
+    dxyReaction: dxy ? reaction(dxy) : null,
+    goldReaction: gold ? reaction(gold) : null,
+    coverage: {
+      present: 3 - missing.length,
+      total: 3,
+      missing,
+    },
+  };
+}
+
 export function buildRateEducationalProjection(input: {
   regime: ProjectedRegime;
   explanation: RegimeExplanation | null;
@@ -327,6 +408,7 @@ export function buildRateEducationalProjection(input: {
     latestCatalyst,
     adaptiveExplanation: adaptiveExplanation.slice(0, 5),
     dominantDriver: dominantDriverFor(regime, investigation),
+    goldCrossCheck: goldCrossCheckFor(investigation, dossier),
     globalDuration: dossier?.rateRegime?.globalDurationDiagnostic ? {
       state: dossier.rateRegime.globalDurationDiagnostic.relativeRates.state,
       globalLabelEligible: dossier.rateRegime.globalDurationDiagnostic.relativeRates.globalLabelEligible,
