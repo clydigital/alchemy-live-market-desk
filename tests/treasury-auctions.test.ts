@@ -207,6 +207,13 @@ test("official auction evidence survives packet assembly and reaches long-end re
   assert.ok(packet.rate_context?.evidence.some((item) =>
     item.evidence_id === "treasury-auction:91282CZZ1:2026-09-30"
   ));
+  assert.equal(
+    packet.observed_evidence.some((item) =>
+      item.evidence_id === "treasury-auction:91282CZZ1:2026-09-30"
+    ),
+    false,
+    "older auction context must not masquerade as fresh observed evidence",
+  );
   const diagnostic = buildRateLongEndDiagnostic(packet);
   assert.equal(diagnostic.marketStructure.auctionEvidenceRef, "treasury-auction:91282CZZ1:2026-09-30");
   assert.match(diagnostic.marketStructure.detail, /System 2 review/);
@@ -217,4 +224,46 @@ test("Treasury auction acquisition fails closed", async () => {
   assert.equal(snapshot.status, "UNAVAILABLE");
   assert.equal(snapshot.auctions.length, 0);
   assert.match(snapshot.warnings[0] ?? "", /HTTP 503/);
+});
+
+
+test("Treasury auction context expires from protected rate memory after 45 days", () => {
+  const oldAuction = parseTreasuryAuctionSnapshot({
+    data: [
+      row({ auction_date: "2026-08-01" }),
+      row({
+        cusip: "912810OLD",
+        security_type: "Bond",
+        security_term: "30-Year",
+        original_security_term: "30-Year",
+        auction_date: "2026-08-01",
+      }),
+      row({
+        cusip: "91282COLD",
+        security_type: "Note",
+        security_term: "5-Year",
+        original_security_term: "5-Year",
+        auction_date: "2026-08-01",
+      }),
+    ],
+  }, new Date("2026-08-02T00:00:00.000Z"));
+
+  const augmented = augmentCandidateSnapshotWithTreasuryAuctions(
+    baseResult(),
+    oldAuction,
+    { asOf: "2026-10-04T00:00:00.000Z" },
+  );
+  const packet = assembleDossierV2InputPacket(
+    { as_of: "2026-10-04T00:00:00.000Z" },
+    augmented.snapshot,
+  );
+
+  assert.equal(
+    packet.rate_context?.evidence.some((item) => item.evidence_id.startsWith("treasury-auction:")),
+    false,
+  );
+  assert.equal(
+    packet.observed_evidence.some((item) => item.evidence_id.startsWith("treasury-auction:")),
+    false,
+  );
 });
