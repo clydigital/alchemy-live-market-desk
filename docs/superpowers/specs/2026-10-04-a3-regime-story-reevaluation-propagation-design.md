@@ -198,6 +198,16 @@ A3 never derives a new evidence ID from:
 
 The only queue evidence pointer is an ID from the validated A2 `canonical_evidence_refs` array.
 
+A2 canonical evidence IDs are broader than the Story queue's database foreign key. Some Dossier evidence, especially derived market-monitor / rates evidence, uses deterministic non-UUID IDs such as `market-monitor:...`. A3 must never translate, hash, or substitute those IDs into a queueable evidence record.
+
+For durable Story propagation, an evidence ref is queueable only when:
+
+1. it is present in the validated A2 `canonical_evidence_refs`;
+2. it is a valid UUID;
+3. the same UUID exists in `intelligence_evidence`.
+
+If an ACCEPT/REFINE decision has no queueable canonical evidence ref, A3 records a warning and does not enqueue a Story review from that decision. The Dossier conclusion remains valid inside the Dossier; A3 simply lacks a canonical Story-queue evidence pointer.
+
 ## Destination routing
 
 ### 1. Explicit Story destination
@@ -210,7 +220,15 @@ and that Story exists, is not discarded, and is present in the persistent Story 
 
 The canonical evidence ID is paired with that Story.
 
-### 2. Regime destination
+### 2. Exact Motion Story link
+
+A2 currently receives only fresh `PROMOTED` Motion with an exact upstream `primary_story_id`. If an eligible ACCEPT/REFINE decision does not contain an explicit `STORY:<id>` destination, A3 may use that exact `primary_story_id` as the primary Story target.
+
+This is not inference. It reuses the already-resolved canonical Story identity carried into A2.
+
+The Story must still exist in the persistent Story registry and must not be discarded.
+
+### 3. Regime destination
 
 If an eligible decision contains `REGIME:CURRENT`, A3 uses the corresponding Motion item's `primary_regime_slug`.
 
@@ -219,7 +237,7 @@ A3 then reads existing Regime↔Story links from the persisted Regime routing la
 Candidates are ranked by:
 
 1. route role: `core` before `bridge` before `supporting`;
-2. existing route score, descending;
+2. active Regime↔Story link `confidence`, descending;
 3. current Story thesis confidence, descending;
 4. Story ID as deterministic tie-break.
 
@@ -230,7 +248,7 @@ Automatic fan-out for one Regime-routed decision is capped at:
 
 If no Regime link clears the existing routing relationship, A3 records a warning and does not force a weak Story mapping.
 
-### 3. Other destinations
+### 4. Other destinations
 
 For A3:
 
@@ -460,14 +478,18 @@ Do not modify for A3:
 
 ## Database expectation
 
-A3 should not require a migration if the current Regime Story-link table exposes:
+A3 does not require a migration for Regime routing. The current `market_regime_story_links` schema already exposes:
 
-- Story ID;
-- Regime identity/slug relation;
-- role;
-- route score or equivalent ranking field.
+- `regime_id`;
+- `story_id`;
+- `role`;
+- `confidence`;
+- `effective_to`;
+- `last_projection_run_id`.
 
-If the current link schema lacks enough information for deterministic bounded routing, implementation must stop and amend this spec before adding a migration. Do not infer routing from prose when a canonical link is unavailable.
+`market_regimes` supplies the stable Regime slug. A3 uses active links only (`effective_to is null`) and ranks with `role` then `confidence`.
+
+No prose-based Regime routing is allowed.
 
 ## Test requirements
 
@@ -487,6 +509,8 @@ Prove:
 - a Motion ID cannot become `requested_by_evidence_id`;
 - a Motion `origin_evidence_ref` absent from the validated A2 decision cannot become queue evidence;
 - every planned queue evidence ID is present in the Dossier packet canonical evidence set;
+- non-UUID canonical Dossier evidence is never converted into a Story-queue evidence UUID;
+- a UUID absent from `intelligence_evidence` is not queued;
 - Motion market-reaction prose does not create an evidence pointer.
 
 ### Routing
