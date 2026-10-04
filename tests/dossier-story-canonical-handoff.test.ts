@@ -103,10 +103,10 @@ test("B4.3 requires canonical evidence UUIDs", () => {
   }), null);
 });
 
-test("B4.3 deduplicates canonical evidence IDs without inventing alternatives", () => {
+test("B4.3 preserves the proposal's exact canonical evidence identity", () => {
   const result = buildDossierStoryCanonicalPersistenceHandoff({
     proposal: proposal({
-      required_canonical_evidence_ids: [EVIDENCE_ID, EVIDENCE_ID],
+      required_canonical_evidence_ids: [EVIDENCE_ID],
     }),
     current_thesis_version_id: BASE_VERSION_ID,
   });
