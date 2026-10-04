@@ -261,6 +261,39 @@ export default function RegimeDetailWorkspace({
 
       {view === "live" ? (
         <>
+          {regime.dossierContext.length ? (
+            <section className={styles.section} aria-label="Dossier System 2 Regime context">
+              <header className={styles.sectionHead}>
+                <div>
+                  <span className={styles.kicker}>SYSTEM 2 · DOSSIER CONTEXT</span>
+                  <h2>Accepted analytical context for this Regime</h2>
+                </div>
+                <small>Context only · does not change Regime state by itself</small>
+              </header>
+              <p className={styles.why}>
+                These items were accepted or refined by the Dossier against canonical evidence and routed to this exact Regime. Structural state still comes from durable Stories and System 1 telemetry.
+              </p>
+              <div className={styles.liveGrid}>
+                {regime.dossierContext.map((node) => (
+                  <article className={styles.latest} key={node.id}>
+                    <small>{node.verification?.replaceAll("_", " ") || "dossier-system2"}</small>
+                    <strong>{node.title}</strong>
+                    <p className={styles.summary}>{node.detail}</p>
+                    <div className={styles.heroMeta}>
+                      <span>{displayDate(node.timestamp)}</span>
+                      <span>Non-state Regime context</span>
+                    </div>
+                    {node.hybridHref ? (
+                      <div className={styles.linkRow}>
+                        <Link href={node.hybridHref}>Explain in Hybrid →</Link>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section className={styles.section}>
             <header className={styles.sectionHead}>
               <div>
