@@ -141,7 +141,7 @@ export type DossierReevaluationPropagationItem = {
   target_regime_slug: string | null;
   route_kind: "explicit_story" | "regime_core" | "regime_bridge";
   priority: number;
-  reason: string;
+  route_reason: string;
 };
 ```
 
@@ -310,8 +310,12 @@ Optional route detail may follow after `|`.
 Example:
 
 ```text
-dossier_motion_acceptance:7dd...:4ea...:REFINE | regime:us-rate-regime | role:core
+dossier_motion_acceptance:7dd...:4ea...:REFINE | regime:global-cost-of-capital | role:core
 ```
+
+The final queue reason is constructed only after the Dossier has been persisted and its UUID is known.
+
+The immutable propagation plan stores `route_reason`, which contains only routing/audit detail such as `explicit_story`, `motion_primary_story`, or `regime:global-cost-of-capital|role:core`. It does not pretend the final queue row already exists.
 
 The reason string must never be interpreted as evidence.
 
@@ -332,7 +336,7 @@ A prior System 1 activation row with `requested_by_evidence_id = null` does not 
 
 ## Dossier audit persistence
 
-The Dossier should retain the A3 propagation intent before execution so the immutable Dossier explains why later Story reevaluation was requested.
+The Dossier should retain the A3 propagation intent before queue execution so the immutable Dossier explains why later Story reevaluation was requested.
 
 Add:
 
