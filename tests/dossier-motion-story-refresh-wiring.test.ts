@@ -12,10 +12,10 @@ const manualRun = readFileSync(
 );
 
 test("C1.2b exact Motion Story refresh runs only after persisted Dossier and before broad refresh agenda", () => {
-  const persistAt = execution.indexOf("persistMarketDossierV2");
-  const requestAt = execution.indexOf("buildDossierMotionStoryRefreshRequests");
-  const exactQueueAt = execution.indexOf("enqueueDossierMotionStoryRefreshRequests");
-  const broadAgendaAt = execution.indexOf("enqueueDossierStoryRefreshAgenda");
+  const persistAt = execution.lastIndexOf("persistMarketDossierV2(");
+  const requestAt = execution.lastIndexOf("buildDossierMotionStoryRefreshRequests({");
+  const exactQueueAt = execution.lastIndexOf("enqueueDossierMotionStoryRefreshRequests({");
+  const broadAgendaAt = execution.lastIndexOf("enqueueDossierStoryRefreshAgenda({");
 
   assert.ok(persistAt >= 0);
   assert.ok(requestAt > persistAt);
