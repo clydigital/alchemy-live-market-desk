@@ -27,6 +27,7 @@ function request(
     story_id: STORY_ID,
     packet_evidence_id: PACKET_EVIDENCE_ID,
     decision: "ACCEPT",
+    canonical_reassessment_scope: "STORY",
     reason: "System 2 accepted the exact Story implication.",
     evidence_references: [PACKET_EVIDENCE_ID],
     story_implication: "Reassess the exact linked Story.",
