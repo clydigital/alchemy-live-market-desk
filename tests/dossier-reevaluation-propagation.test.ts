@@ -148,6 +148,7 @@ test("A3 ACCEPT with canonical evidence plans an explicit persistent Story", () 
   assert.deepEqual(plan.items[0], {
     motion_id: "motion-a3",
     decision: "ACCEPT",
+    canonical_evidence_ref: EVIDENCE_A,
     canonical_evidence_id: EVIDENCE_A,
     target_story_id: STORY_B,
     target_story_slug: "story-b",
@@ -494,6 +495,7 @@ function queueItem(overrides: Partial<DossierReevaluationPropagationPlan["items"
   return {
     motion_id: "motion-a3",
     decision: "ACCEPT" as const,
+    canonical_evidence_ref: EVIDENCE_A,
     canonical_evidence_id: EVIDENCE_A,
     target_story_id: STORY_A,
     target_story_slug: "story-a",
