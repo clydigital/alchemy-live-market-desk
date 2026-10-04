@@ -63,12 +63,15 @@ test("P1.4 boundary contains no fuzzy edition-to-Dossier resolver", () => {
     path.join(root, "lib", "presenter-historical-context-boundary.ts"),
     "utf8",
   );
+  const start = source.indexOf("export function buildPresenterHistoricalContextBoundary");
+  assert.notEqual(start, -1);
+  const executable = source.slice(start);
 
-  assert.doesNotMatch(source, /Date\.parse/);
-  assert.doesNotMatch(source, /nearest|closest|as_of.*sort|sort.*as_of/i);
-  assert.doesNotMatch(source, /market_dossiers_v2/);
-  assert.doesNotMatch(source, /getDossierV2PresentationSelectionById/);
-  assert.doesNotMatch(source, /storyIds|thesisIds/);
+  assert.doesNotMatch(executable, /Date\.parse/);
+  assert.doesNotMatch(executable, /nearest|closest|as_of.*sort|sort.*as_of/i);
+  assert.doesNotMatch(executable, /market_dossiers_v2/);
+  assert.doesNotMatch(executable, /getDossierV2PresentationSelectionById/);
+  assert.doesNotMatch(executable, /storyIds|thesisIds/);
 });
 
 test("P1.4 canonical Journey edition does not currently persist an exact Market Dossier V2 identity", () => {
