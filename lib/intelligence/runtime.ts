@@ -87,6 +87,10 @@ import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identit
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import {
+  parseDossierMotionRefreshReason,
+  resolveDossierMotionStoryReviewContexts,
+} from "@/lib/intelligence/story-review-motion-context";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -1202,6 +1206,36 @@ async function loadOrCreateStoryReviewTargets(
       requested_by_evidence_id: string | null;
     }>>("intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at,requested_by_evidence_id&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()"),
   ]);
+  const motionQueueRows = queued.filter((item) =>
+    Boolean(parseDossierMotionRefreshReason(item.reason) && item.requested_by_evidence_id),
+  );
+  const motionDossierIds = unique(motionQueueRows.flatMap((item) => {
+    const parsed = parseDossierMotionRefreshReason(item.reason);
+    return parsed ? [parsed.dossierId] : [];
+  }));
+  const motionEvidenceIds = unique(
+    motionQueueRows
+      .map((item) => item.requested_by_evidence_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const [motionDossiers, motionEvidenceRows] = await Promise.all([
+    motionDossierIds.length
+      ? intelligenceRest<Array<{ id: string; payload: unknown }>>(
+        "market_dossiers_v2?select=id,payload&id=in.(" + motionDossierIds.join(",") + ")",
+      ).catch(() => [])
+      : Promise.resolve([]),
+    motionEvidenceIds.length
+      ? intelligenceRest<Array<{ id: string; external_evidence_id: string | null }>>(
+        "intelligence_evidence?select=id,external_evidence_id&id=in.(" + motionEvidenceIds.join(",") + ")",
+      ).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const motionContextByQueueId = resolveDossierMotionStoryReviewContexts({
+    queueRows: motionQueueRows,
+    dossiers: motionDossiers,
+    evidenceRows: motionEvidenceRows,
+  });
+
   const stateByStory = new Map(states.map((state) => [state.story_id, state]));
   const packedById = new Map(existingStoryPack(stories).map((story) => [story.id, story]));
   const selectableStories: StoryReviewStory[] = stories.map((story) => {
@@ -1223,6 +1257,7 @@ async function loadOrCreateStoryReviewTargets(
     availableAt: item.available_at,
     createdAt: item.created_at,
     requestedEvidenceId: item.requested_by_evidence_id,
+    motionReassessment: motionContextByQueueId.get(item.id) ?? null,
   }));
   const evidenceLinks: StoryEvidenceLink[] = links.map((link) => ({
     storyId: link.story_id,
