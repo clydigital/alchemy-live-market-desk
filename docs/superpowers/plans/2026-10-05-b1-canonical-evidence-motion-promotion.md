@@ -124,7 +124,7 @@ Fixtures must include:
 Assertions:
 - selector returns `MarketMotionPromotionCandidate`, not bare Motion rows;
 - `selectedEvidence.id` is the exact expected canonical UUID;
-- `matchingEvidenceIds` is deterministic and capped at 8;
+- `matchingEvidenceIds` is deduplicated in corroborator-ranking order and capped at 8; `matchingOriginItemKeys` follows the same selected Evidence order.
 - LEAD is allowed;
 - Story-publication input is no longer part of the selector signature.
 
