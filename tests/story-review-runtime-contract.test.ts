@@ -155,3 +155,20 @@ test("C1.4b Story review runtime resolves Motion context only from exact queued 
   assert.match(runtime, /resolveDossierMotionStoryReviewContexts/);
   assert.match(runtime, /motionReassessment: motionContextByQueueId\.get\(item\.id\) \?\? null/);
 });
+
+
+test("C1.4c Market Belief treats Motion reassessment framing as context only", () => {
+  assert.match(runtime, /reviewContext\.motionReassessments is present, it is prior Dossier ANALYTICAL CONTEXT ONLY, not evidence/);
+  assert.match(runtime, /every storyAssessments\[\*\]\.evidenceIds value must still come only from that target's relevantEvidence/);
+  assert.match(runtime, /Do not reconstruct, revive, or guess the original Motion wording/);
+  assert.match(runtime, /disposition="reframed"[\s\S]*exact canonicalEvidenceId/);
+  assert.match(runtime, /do not reframe merely because Dossier requested a test/);
+});
+
+test("C1.4c server enforcement can suppress REFINE-driven reframing without exact trigger evidence", () => {
+  assert.match(runtime, /materialAssessmentHasEligibleEvidence\(assessment\.disposition, evidenceIds, target\)/);
+  const storyReview = fs.readFileSync(path.join(root, "lib", "intelligence", "story-review.ts"), "utf8");
+  assert.match(storyReview, /disposition === "reframed"/);
+  assert.match(storyReview, /context\.decision === "REFINE"/);
+  assert.match(storyReview, /selected\.has\(context\.canonicalEvidenceId\)/);
+});
