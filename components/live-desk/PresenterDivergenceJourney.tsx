@@ -9,10 +9,23 @@ import { buildPresenterDivergenceJourney } from "@/lib/presenter-divergence-jour
 import { Badge, DataState } from "./LiveDeskUi";
 import styles from "./presenter-divergence-journey.module.css";
 
+type PresenterEditionContext = {
+  selectedSnapshotId: string | null;
+  currentSnapshotId: string | null;
+  status: "current" | "historical" | "invalid_fallback_current";
+  options: Array<{
+    snapshotId: string;
+    label: string;
+    freshness: "current" | "historical";
+    href: string;
+  }>;
+};
+
 type Props = {
   investigations: DossierPresentationInvestigation[];
   calibration: DossierPresentationCalibrationSummary;
   canonicalCases?: PresenterCanonicalStoryCase[];
+  editionContext?: PresenterEditionContext;
 };
 
 function divergenceTone(value: string): "default" | "ready" | "warn" | "risk" {
@@ -53,6 +66,7 @@ export default function PresenterDivergenceJourney({
   investigations,
   calibration,
   canonicalCases = [],
+  editionContext,
 }: Props) {
   const cases = buildPresenterDivergenceJourney(investigations);
   const labById = new Map(
@@ -75,16 +89,44 @@ export default function PresenterDivergenceJourney({
   }
 
   return (
-    <section className={styles.workspace}>
+    <section className={styles.workspace} id="presenter-reasoning">
       <div className={styles.summary}>
         <div>
           <small>PRESENTER REASONING</small>
           <strong>Expected → tape → divergence → mechanisms → next test</strong>
+          {editionContext?.status === "historical" ? (
+            <p className={styles.editionNotice}>
+              Historical Story reasoning is pinned to edition {editionContext.selectedSnapshotId}. Expectation, tape and divergence still come from the current Dossier investigation.
+            </p>
+          ) : editionContext?.status === "invalid_fallback_current" ? (
+            <p className={styles.editionNotice}>
+              Requested Presenter edition was unavailable; canonical Story reasoning fell back to the current immutable edition.
+            </p>
+          ) : null}
         </div>
         <span>
           {calibration.evaluatedInvestigations} evaluated · {calibration.divergentInvestigations} divergent · {calibration.mixedInvestigations} mixed · {calibration.unresolvedInvestigations} unresolved
         </span>
       </div>
+
+      {editionContext?.options.length ? (
+        <nav className={styles.editionRail} aria-label="Presenter reasoning edition">
+          {editionContext.options.map((edition) => {
+            const selected = edition.snapshotId === editionContext.selectedSnapshotId;
+            return (
+              <a
+                href={edition.href}
+                key={edition.snapshotId}
+                aria-current={selected ? "page" : undefined}
+                className={selected ? styles.editionSelected : undefined}
+              >
+                <span>{edition.freshness === "current" ? "CURRENT" : "HISTORICAL"}</span>
+                <strong>{edition.label}</strong>
+              </a>
+            );
+          })}
+        </nav>
+      ) : null}
 
       <div className={styles.stageRail} aria-label="Presenter divergence reasoning stages">
         {["01 EXPECTATION", "02 TAPE", "03 DIVERGENCE", "04 MECHANISMS", "05 NEXT TEST"].map((label) => (
@@ -124,7 +166,11 @@ export default function PresenterDivergenceJourney({
                 <p>{item.whyItMatters}</p>
               </div>
               <div className={styles.badges}>
-                {canonical ? <Badge tone="ready">CANONICAL STORY</Badge> : <Badge> DOSSIER FALLBACK </Badge>}
+                {canonical ? (
+                  <Badge tone={editionContext?.status === "historical" ? "warn" : "ready"}>
+                    {editionContext?.status === "historical" ? "HISTORICAL STORY" : "CANONICAL STORY"}
+                  </Badge>
+                ) : <Badge>DOSSIER FALLBACK</Badge>}
                 <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                 <Badge tone={calibrationTone(item.calibrationOutcome)}>{item.calibrationOutcome}</Badge>
               </div>
