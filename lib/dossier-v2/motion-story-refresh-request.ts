@@ -43,6 +43,10 @@ function validAssessment(
   if (!assessment) return false;
   if (assessment.motion_id !== motion.motion_id) return false;
   if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") return false;
+  if (
+    assessment.canonical_reassessment_scope !== "STORY"
+    && assessment.canonical_reassessment_scope !== "STORY_AND_REGIME"
+  ) return false;
   if (!clean(motion.primary_story_id)) return false;
   if (!clean(motion.packet_evidence_id)) return false;
   if (!clean(assessment.story_implication)) return false;
