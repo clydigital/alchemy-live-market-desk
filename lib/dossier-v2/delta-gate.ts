@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MarketDossierV2 } from "./contracts.ts";
 import type { DossierV2InputPacket } from "./input-packet.ts";
 import {
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   MAX_MAJOR_STORIES,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
   type MajorStory,
@@ -145,6 +146,22 @@ function previousMajorStoryIds(output: ResearchBrainOutputV1 | null): Set<string
     ...(output?.major_stories ?? []).map((story) => story.story_id),
     ...(output?.main_thread?.supporting_story_ids ?? []),
   ]);
+}
+
+function pendingMotionContextIds(
+  packet: DossierV2InputPacket,
+  output: ResearchBrainOutputV1 | null,
+): string[] {
+  const current = packet.motion_context?.items ?? [];
+  if (current.length === 0) return [];
+  const adjudicated = new Set(
+    output?.motion_acceptance?.decisions
+      ?.map((decision) => decision.motion_id)
+      .filter(Boolean) ?? [],
+  );
+  return current
+    .map((item) => item.motion_id)
+    .filter((motionId) => !adjudicated.has(motionId));
 }
 
 function hasAnalyticalStoryDelta(state: DossierIntelligenceState): boolean {
@@ -349,6 +366,19 @@ export function decideDossierDelta({
     };
   }
 
+  const pendingMotionIds = pendingMotionContextIds(packet, previousOutput);
+  if (pendingMotionIds.length > 0) {
+    return {
+      action: "REBASE",
+      reason: `New bounded Market Motion context requires explicit System 2 adjudication before it can influence the Dossier: ${pendingMotionIds.join(", ")}.`,
+      previousDossierId: previousDossier.id,
+      previousAsOf: previousDossier.as_of,
+      changedStoryIds: [],
+      newObservedEvidence: newEvidence,
+      postIntelligenceModelCallBudget: 2,
+    };
+  }
+
   const relevant = changedRelevantStates(context, priorStoryIds);
   const changedStoryIds = relevant.map((state) => state.story_id);
 
@@ -469,6 +499,16 @@ function pruneOutputToPacket(
   );
 
   next.main_thread.evidence_references = validEvidence(next.main_thread.evidence_references);
+  const validMotionIds = new Set((packet.motion_context?.items ?? []).map((item) => item.motion_id));
+  next.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: (next.motion_acceptance?.decisions ?? [])
+      .filter((decision) => validMotionIds.has(decision.motion_id))
+      .map((decision) => ({
+        ...decision,
+        canonical_evidence_refs: validEvidence(decision.canonical_evidence_refs),
+      })),
+  };
   next.major_stories = next.major_stories.flatMap((story) => {
     const evidenceIds = validEvidence(story.evidence_ids);
     const confirming = validEvidence(story.market_evidence.confirming);

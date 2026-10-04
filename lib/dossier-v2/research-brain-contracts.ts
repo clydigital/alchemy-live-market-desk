@@ -7,6 +7,7 @@ import type {
 export const RESEARCH_BRAIN_CONTRACT_VERSION = "research-brain/1";
 export const RESEARCH_BRAIN_INPUT_CONTRACT_VERSION = "research-brain-input/1";
 export const THESIS_LEDGER_V2_CONTRACT_VERSION = "thesis-ledger/2";
+export const DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION = "dossier-motion-acceptance/1";
 
 // Reconciled attention budget caps matching accepted Task 7 design
 export const MAX_MAJOR_STORIES = 4;
@@ -27,6 +28,22 @@ export type RegimeFamily = "RATES_LED_TIGHTENING" | "GROWTH_SCARE_RISK_OFF" | "M
 export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolved" | "evolved";
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 export type InvestigationDivergence = "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
+export type MotionSynthesisDecision = "ACCEPT" | "REFINE" | "UNRESOLVED" | "REJECT";
+
+export interface MotionAcceptanceDecision {
+  motion_id: string;
+  decision: MotionSynthesisDecision;
+  conclusion: string | null;
+  canonical_evidence_refs: string[];
+  destination_refs: string[];
+  rationale: string;
+  next_test: string | null;
+}
+
+export interface MotionAcceptance {
+  contract_version: typeof DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION | string;
+  decisions: MotionAcceptanceDecision[];
+}
 
 export interface MainThread {
   thread_id: string;
@@ -222,6 +239,11 @@ export interface ResearchBrainOutputV1 {
   chart_investigation_queue: ChartInvestigationQueue;
   investigations: Investigation[];
   market_verdict: MarketVerdict;
+  /**
+   * Optional at the TypeScript boundary so immutable historical Dossiers stay
+   * readable. New Research Brain outputs are required to emit this field.
+   */
+  motion_acceptance?: MotionAcceptance;
   research_now: ResearchNowAction[];
   stock_radar: StockRadarItem[];
   developing_themes: DevelopingTheme[];

@@ -235,6 +235,10 @@ function createValidBrainOutput(
       dominant_confirmation: "Official policy release.",
       dominant_contradiction: "Cross-asset confirmation is not supplied in this fixture.",
     },
+    motion_acceptance: {
+      contract_version: "dossier-motion-acceptance/1",
+      decisions: [],
+    },
     research_now: [],
     stock_radar: [],
     developing_themes: [],
