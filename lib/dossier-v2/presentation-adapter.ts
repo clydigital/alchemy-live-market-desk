@@ -245,7 +245,7 @@ export type DossierPresentationEvidenceRef = {
 export type DossierPresentationMotionAttention = {
   motionId: string;
   decision: ResearchBrainMotionAssessment["decision"];
-  scope: "STORY" | "REGIME" | "UNROUTED";
+  scope: "STORY" | "REGIME" | "STORY_AND_REGIME" | "UNROUTED";
   headline: string;
   whatHappened: string;
   marketReaction: string | null;
@@ -372,13 +372,15 @@ function motionAttentionPresentation(
     const regimeSlug = typeof item.primary_regime_slug === "string" && item.primary_regime_slug.trim()
       ? item.primary_regime_slug.trim()
       : null;
-    const storyAccepted = Boolean(assessment.story_implication?.trim() && storyId);
-    const regimeAccepted = Boolean(assessment.regime_implication?.trim() && regimeSlug);
-    const scope: DossierPresentationMotionAttention["scope"] = storyAccepted
-      ? "STORY"
-      : regimeAccepted
-        ? "REGIME"
-        : "UNROUTED";
+    const assessedScope = assessment.canonical_reassessment_scope;
+    const scope: DossierPresentationMotionAttention["scope"] =
+      assessedScope === "STORY" && storyId
+        ? "STORY"
+        : assessedScope === "REGIME" && regimeSlug
+          ? "REGIME"
+          : assessedScope === "STORY_AND_REGIME" && storyId && regimeSlug
+            ? "STORY_AND_REGIME"
+            : "UNROUTED";
     const refined = assessment.decision === "REFINE";
 
     return [{
@@ -394,10 +396,10 @@ function motionAttentionPresentation(
         : null,
       whyInteresting: refined && assessment.refined_why_interesting?.trim()
         ? assessment.refined_why_interesting.trim()
-        : scope === "STORY"
-          ? assessment.story_implication?.trim() || whyInteresting
-          : scope === "REGIME"
-            ? assessment.regime_implication?.trim() || whyInteresting
+        : scope === "REGIME"
+          ? assessment.regime_implication?.trim() || whyInteresting
+          : scope === "STORY" || scope === "STORY_AND_REGIME"
+            ? assessment.story_implication?.trim() || whyInteresting
             : whyInteresting,
       bigPictureBridge: refined && assessment.refined_big_picture_bridge?.trim()
         ? assessment.refined_big_picture_bridge.trim()
@@ -406,7 +408,7 @@ function motionAttentionPresentation(
           || bigPictureBridge,
       nextTest: assessment.investigation_next?.trim()
         || (typeof item.next_test === "string" && item.next_test.trim() ? item.next_test.trim() : null),
-      storyId: scope === "STORY" ? storyId : null,
+      storyId: scope === "STORY" || scope === "STORY_AND_REGIME" ? storyId : null,
       regimeSlug,
       evidenceRefs: [...assessment.evidence_references],
       reason: assessment.reason,
