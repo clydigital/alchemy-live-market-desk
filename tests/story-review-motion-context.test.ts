@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   extractDossierMotionStoryReviewContext,
   parseDossierMotionRefreshReason,
+  resolveDossierMotionStoryReviewContexts,
   STORY_REVIEW_MOTION_CONTEXT_VERSION,
 } from "../lib/intelligence/story-review-motion-context.ts";
 
@@ -190,4 +191,53 @@ test("C1.4a only admits Story-bearing canonical scopes", () => {
   });
 
   assert.equal(result, null);
+});
+
+
+test("C1.4b resolver joins queue row to exact Dossier payload and canonical packet evidence identity", () => {
+  const queueId = "queue-1";
+  const result = resolveDossierMotionStoryReviewContexts({
+    queueRows: [{
+      id: queueId,
+      target_id: STORY_ID,
+      reason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
+      requested_by_evidence_id: "44444444-4444-4444-8444-444444444444",
+    }],
+    dossiers: [{
+      id: DOSSIER_ID,
+      payload: payload({ decision: "REFINE" }),
+    }],
+    evidenceRows: [{
+      id: "44444444-4444-4444-8444-444444444444",
+      external_evidence_id: PACKET_EVIDENCE_ID,
+    }],
+  });
+
+  assert.equal(result.size, 1);
+  assert.equal(result.get(queueId)?.motionId, MOTION_ID);
+  assert.equal(result.get(queueId)?.framing.headline, "Corrected evidence-bounded headline");
+});
+
+test("C1.4b resolver fails closed on missing Dossier or evidence identity", () => {
+  const row = {
+    id: "queue-1",
+    target_id: STORY_ID,
+    reason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
+    requested_by_evidence_id: "44444444-4444-4444-8444-444444444444",
+  };
+
+  assert.equal(resolveDossierMotionStoryReviewContexts({
+    queueRows: [row],
+    dossiers: [],
+    evidenceRows: [{
+      id: "44444444-4444-4444-8444-444444444444",
+      external_evidence_id: PACKET_EVIDENCE_ID,
+    }],
+  }).size, 0);
+
+  assert.equal(resolveDossierMotionStoryReviewContexts({
+    queueRows: [row],
+    dossiers: [{ id: DOSSIER_ID, payload: payload({ decision: "REFINE" }) }],
+    evidenceRows: [],
+  }).size, 0);
 });
