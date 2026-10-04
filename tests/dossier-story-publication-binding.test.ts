@@ -144,6 +144,10 @@ test("B4.6 source chain binds B4.5 result pointer to publication pointer semanti
   const root = path.resolve(import.meta.dirname, "..");
   const runtime = fs.readFileSync(path.join(root, "lib", "intelligence", "runtime.ts"), "utf8");
   const publication = fs.readFileSync(path.join(root, "lib", "hybrid-publication.ts"), "utf8");
+  const selector = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "story-publication-version.ts"),
+    "utf8",
+  );
 
   assert.match(
     runtime,
@@ -151,10 +155,10 @@ test("B4.6 source chain binds B4.5 result pointer to publication pointer semanti
   );
   assert.match(
     publication,
-    /authoritativeThesisForStory\(story, versionById, newestVersionByStory\)/,
+    /authoritativePublicationVersionForStory\(story, versionById, newestVersionByStory\)/,
   );
   assert.match(
-    publication,
+    selector,
     /const pointer = story\.current_thesis_version_id\?\.trim\(\) \|\| "";/,
   );
 });
