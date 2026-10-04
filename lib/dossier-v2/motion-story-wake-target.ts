@@ -36,6 +36,13 @@ function clean(value: string | null | undefined) {
   return (value ?? "").trim();
 }
 
+// Deliberately boolean rather than a type predicate. The shared isValidUuid()
+// narrows a failed string check to never, which is undesirable when we still
+// need to inspect alternate reference forms such as ev:<uuid>.
+function uuidText(value: string): boolean {
+  return isValidUuid(value);
+}
+
 function canonicalEvidenceIdForReference(
   reference: string,
   evidenceRows: DossierMotionStoryWakeEvidence[],
@@ -44,17 +51,17 @@ function canonicalEvidenceIdForReference(
   if (!packetReference) return null;
 
   let canonicalIdReference: string | null = null;
-  if (isValidUuid(packetReference)) {
+  if (uuidText(packetReference)) {
     canonicalIdReference = packetReference;
   } else if (packetReference.startsWith("ev:")) {
     const candidate = packetReference.slice(3);
-    if (isValidUuid(candidate)) canonicalIdReference = candidate;
+    if (uuidText(candidate)) canonicalIdReference = candidate;
   }
 
   if (canonicalIdReference) {
     const canonicalIds = new Set(
       evidenceRows
-        .filter((row) => row.id === canonicalIdReference && isValidUuid(row.id))
+        .filter((row) => row.id === canonicalIdReference && uuidText(row.id))
         .map((row) => row.id),
     );
     return canonicalIds.size === 1 ? [...canonicalIds][0] ?? null : null;
@@ -64,7 +71,7 @@ function canonicalEvidenceIdForReference(
     evidenceRows
       .filter((row) => clean(row.external_evidence_id) === packetReference)
       .map((row) => row.id)
-      .filter((id) => isValidUuid(id)),
+      .filter((id) => uuidText(id)),
   );
 
   return canonicalIds.size === 1 ? [...canonicalIds][0] ?? null : null;
