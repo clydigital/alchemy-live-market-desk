@@ -17,6 +17,7 @@ import {
   MAX_RESEARCH_GAPS,
   MAX_RESEARCH_NOW_ACTIONS,
   MAX_STOCK_RADAR_ITEMS,
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
@@ -45,6 +46,7 @@ export interface ValidationIndexes {
   validLeadIds: Set<string>;
   validPriorClaimIds: Set<string>;
   validCreatorClaimIds: Set<string>;
+  validMotionIds: Set<string>;
   validConflictGroupIds: Set<string>;
   validPriorThesisIds: Set<string>;
   evidenceSourceMap: Map<string, EvidenceSourceInfo>;
@@ -106,6 +108,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
   const validLeadIds = new Set<string>();
   const validPriorClaimIds = new Set<string>();
   const validCreatorClaimIds = new Set<string>();
+  const validMotionIds = new Set<string>();
   const validConflictGroupIds = new Set<string>();
   const validPriorThesisIds = new Set<string>();
   const evidenceSourceMap = new Map<string, EvidenceSourceInfo>();
@@ -169,6 +172,14 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     }
   }
 
+  if (Array.isArray(packet.motion_context?.items)) {
+    for (const item of packet.motion_context.items) {
+      if (item && typeof item.motion_id === "string") {
+        validMotionIds.add(item.motion_id);
+      }
+    }
+  }
+
   if (Array.isArray(packet.creator_themes)) {
     for (const theme of packet.creator_themes) {
       if (theme && Array.isArray(theme.claims)) {
@@ -205,6 +216,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     validLeadIds,
     validPriorClaimIds,
     validCreatorClaimIds,
+    validMotionIds,
     validConflictGroupIds,
     validPriorThesisIds,
     evidenceSourceMap,
@@ -462,6 +474,134 @@ export function validateResearchBrainOutput(
   const contradictions = Array.isArray(brainOutput.contradictions_detected) ? brainOutput.contradictions_detected : [];
   if (contradictions.length > MAX_CONTRADICTIONS) {
     errors.push(`contradictions_detected count (${contradictions.length}) exceeds limit of ${MAX_CONTRADICTIONS}.`);
+  }
+
+  const motionContextItems = Array.isArray(packet.motion_context?.items)
+    ? packet.motion_context!.items
+    : [];
+  const motionAcceptance = isPlainObject(brainOutput.motion_acceptance)
+    ? brainOutput.motion_acceptance as Record<string, unknown>
+    : null;
+  const motionDecisions = motionAcceptance && Array.isArray(motionAcceptance.decisions)
+    ? motionAcceptance.decisions
+    : [];
+
+  if (!motionAcceptance) {
+    errors.push("motion_acceptance is missing or not a plain object.");
+  } else if (motionAcceptance.contract_version !== DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION) {
+    errors.push(
+      `motion_acceptance.contract_version must equal "${DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION}".`,
+    );
+  }
+
+  if (motionDecisions.length !== motionContextItems.length) {
+    errors.push(
+      `motion_acceptance must contain exactly one decision for each supplied Motion item (expected ${motionContextItems.length}, got ${motionDecisions.length}).`,
+    );
+  }
+
+  const validMotionDestinations = new Set([
+    "MAIN_THREAD",
+    "REGIME:CURRENT",
+    "RESEARCH_NOW",
+    ...majorStories
+      .filter(isPlainObject)
+      .map((story) => typeof story.story_id === "string" ? `STORY:${story.story_id}` : "")
+      .filter(Boolean),
+    ...investigations
+      .filter(isPlainObject)
+      .map((item) => typeof item.investigation_id === "string" ? `INVESTIGATION:${item.investigation_id}` : "")
+      .filter(Boolean),
+    ...thesisEntries
+      .filter(isPlainObject)
+      .map((entry) => typeof entry.thesis_id === "string" ? `THESIS:${entry.thesis_id}` : "")
+      .filter(Boolean),
+  ]);
+  const seenMotionIds = new Set<string>();
+  for (let motionIndex = 0; motionIndex < motionDecisions.length; motionIndex++) {
+    const rawDecision = motionDecisions[motionIndex];
+    if (!isPlainObject(rawDecision)) {
+      errors.push(`motion_acceptance.decisions[${motionIndex}] is not a plain object.`);
+      continue;
+    }
+    const motionId = typeof rawDecision.motion_id === "string" ? rawDecision.motion_id : "";
+    const decision = rawDecision.decision;
+    const conclusion = typeof rawDecision.conclusion === "string" && rawDecision.conclusion.trim()
+      ? rawDecision.conclusion.trim()
+      : null;
+    const evidenceRefs = Array.isArray(rawDecision.canonical_evidence_refs)
+      ? rawDecision.canonical_evidence_refs
+      : [];
+    const destinationRefs = Array.isArray(rawDecision.destination_refs)
+      ? rawDecision.destination_refs
+      : [];
+    const rationale = typeof rawDecision.rationale === "string"
+      ? rawDecision.rationale.trim()
+      : "";
+    const nextTest = typeof rawDecision.next_test === "string" && rawDecision.next_test.trim()
+      ? rawDecision.next_test.trim()
+      : null;
+
+    if (!motionId || !indexes.validMotionIds.has(motionId)) {
+      errors.push(
+        `motion_acceptance.decisions[${motionIndex}] references unknown Motion ID "${String(rawDecision.motion_id)}".`,
+      );
+    } else if (seenMotionIds.has(motionId)) {
+      errors.push(`motion_acceptance contains duplicate decision for Motion "${motionId}".`);
+    } else {
+      seenMotionIds.add(motionId);
+    }
+
+    if (!["ACCEPT", "REFINE", "UNRESOLVED", "REJECT"].includes(String(decision))) {
+      errors.push(
+        `motion_acceptance.decisions[${motionIndex}] has invalid decision "${String(decision)}".`,
+      );
+    }
+    if (!rationale) {
+      errors.push(`motion_acceptance.decisions[${motionIndex}] requires rationale.`);
+    }
+    for (const ref of evidenceRefs) {
+      if (typeof ref !== "string" || !indexes.validEvidenceIds.has(ref)) {
+        errors.push(
+          `motion_acceptance.decisions[${motionIndex}] canonical_evidence_refs references unsupported evidence_id "${String(ref)}".`,
+        );
+      }
+    }
+    for (const ref of destinationRefs) {
+      if (typeof ref !== "string" || !validMotionDestinations.has(ref)) {
+        errors.push(
+          `motion_acceptance.decisions[${motionIndex}] destination_refs references unknown destination "${String(ref)}".`,
+        );
+      }
+    }
+
+    if (decision === "ACCEPT" || decision === "REFINE") {
+      if (!conclusion) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} requires a non-null conclusion.`);
+      }
+      if (evidenceRefs.length === 0) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} requires canonical evidence.`);
+      }
+      if (destinationRefs.length === 0) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} requires at least one destination_ref.`);
+      }
+      if (decision === "REFINE" && !nextTest) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] REFINE requires a concrete next_test.`);
+      }
+    } else if (decision === "UNRESOLVED" || decision === "REJECT") {
+      if (conclusion !== null) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} must use conclusion=null.`);
+      }
+      if (decision === "REJECT" && destinationRefs.length > 0) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] REJECT must use destination_refs=[].`);
+      }
+    }
+  }
+
+  for (const item of motionContextItems) {
+    if (!seenMotionIds.has(item.motion_id)) {
+      errors.push(`motion_acceptance is missing a decision for Motion "${item.motion_id}".`);
+    }
   }
 
   const researchGaps = Array.isArray(brainOutput.research_gaps) ? brainOutput.research_gaps : [];
