@@ -1,4 +1,5 @@
 import type { EvidencePackItem, ExistingStoryPackItem, StoryReviewTargetPackItem } from "./schemas.ts";
+import type { StoryReviewMotionContext } from "./story-review-motion-context.ts";
 import { isCanonicalEligibleEvidence, isScheduledEvidence } from "./source-verification.ts";
 import {
   assessStoryCatalyst,
@@ -34,6 +35,7 @@ export type StoryReviewQueueItem = {
   availableAt: string;
   createdAt: string;
   requestedEvidenceId?: string | null;
+  motionReassessment?: StoryReviewMotionContext | null;
 };
 
 export type StoryReviewDebt = {
@@ -71,6 +73,7 @@ export type StoryReviewContext = {
     catalystRef: string | null;
     evidenceNature?: "scheduled_event";
   }>;
+  motionReassessments?: StoryReviewMotionContext[];
 };
 
 const REASON_RANK: Record<StoryReviewReason, number> = {
@@ -287,6 +290,18 @@ export function selectStoryReviewTargets(input: {
     if (!reasons.length) return [];
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
+    const motionReassessments = [
+      ...new Map(
+        availableQueue
+          .filter((item) => item.motionReassessment)
+          .sort((left, right) =>
+            right.priority - left.priority
+            || (milliseconds(left.createdAt) ?? 0) - (milliseconds(right.createdAt) ?? 0)
+            || left.id.localeCompare(right.id))
+          .map((item) => [item.motionReassessment!.motionId, item.motionReassessment!] as const),
+      ).values(),
+    ].slice(0, 3);
+
     const reviewContext: StoryReviewContext = {
       queueReasons: [...new Set(availableQueue.map((item) => item.reason).filter(Boolean))],
       researchDebt: relevantDebt.map((debt) => ({
@@ -304,6 +319,7 @@ export function selectStoryReviewTargets(input: {
         ...requestedEvidenceIds,
       ])],
       catalystCandidates,
+      ...(motionReassessments.length ? { motionReassessments } : {}),
     };
     return [{
       story,
