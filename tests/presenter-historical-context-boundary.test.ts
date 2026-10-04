@@ -24,7 +24,7 @@ test("P1.4 historical Presenter mode is explicitly Story-reasoning-only", () => 
   assert.equal(boundary.dossierSource, "CURRENT_DOSSIER");
   assert.equal(boundary.dossierId, "11111111-1111-4111-8111-111111111111");
   assert.equal(boundary.dossierAsOf, "2026-10-05T02:00:00.000Z");
-  assert.match(boundary.reason, /does not freeze the exact Market Dossier V2 ID/);
+  assert.match(boundary.reason, /no valid publication-frozen Dossier identity could be replayed/);
 });
 
 test("P1.4 current Presenter mode stays a current case", () => {
