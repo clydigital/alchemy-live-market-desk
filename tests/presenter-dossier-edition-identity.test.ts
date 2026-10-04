@@ -6,6 +6,7 @@ import test from "node:test";
 import type { DossierPresentationSelection } from "../lib/dossier-v2/presentation-reader.ts";
 import {
   buildPresenterDossierEditionContext,
+  presenterDossierEditionContextFromPayload,
   presenterDossierEditionSourceRef,
   PRESENTER_DOSSIER_EDITION_CONTEXT_VERSION,
 } from "../lib/presenter-dossier-edition-context.ts";
@@ -189,4 +190,49 @@ test("P1.5 does not yet enable historical Dossier replay", () => {
   assert.match(boundary, /historicalDossierReplayAvailable: false/);
   assert.doesNotMatch(page, /getDossierV2PresentationSelectionById/);
   assert.doesNotMatch(page, /presenterDossierContext.*getDossierV2PresentationSelectionById/);
+});
+
+
+test("P1.6 parses only exact BOUND Dossier identity from an immutable edition payload", () => {
+  const parsed = presenterDossierEditionContextFromPayload({
+    presenterDossierContext: {
+      contractVersion: "presenter-dossier-edition-context/1",
+      status: "BOUND",
+      dossierId: "11111111-1111-4111-8111-111111111111",
+      dossierAsOf: "2026-10-05T03:00:00.000Z",
+      latestDossierId: "22222222-2222-4222-8222-222222222222",
+      latestAsOf: "2026-10-05T03:02:00.000Z",
+      selectionStatus: "fallback_previous_healthy",
+      usingFallback: true,
+      capturedAt: "2026-10-05T03:05:00.000Z",
+    },
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.dossierId, "11111111-1111-4111-8111-111111111111");
+  assert.equal(parsed.dossierAsOf, "2026-10-05T03:00:00.000Z");
+  assert.equal(parsed.selectionStatus, "fallback_previous_healthy");
+  assert.equal(parsed.usingFallback, true);
+});
+
+test("P1.6 rejects legacy, unavailable, or malformed frozen Dossier context", () => {
+  assert.equal(presenterDossierEditionContextFromPayload({}), null);
+  assert.equal(presenterDossierEditionContextFromPayload({
+    presenterDossierContext: {
+      contractVersion: "presenter-dossier-edition-context/1",
+      status: "UNAVAILABLE",
+    },
+  }), null);
+  assert.equal(presenterDossierEditionContextFromPayload({
+    presenterDossierContext: {
+      contractVersion: "presenter-dossier-edition-context/1",
+      status: "BOUND",
+      dossierId: "not-a-uuid",
+      dossierAsOf: "2026-10-05T03:00:00.000Z",
+      latestDossierId: null,
+      latestAsOf: null,
+      selectionStatus: "current",
+      usingFallback: false,
+      capturedAt: "2026-10-05T03:05:00.000Z",
+    },
+  }), null);
 });
