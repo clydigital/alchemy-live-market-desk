@@ -44,6 +44,7 @@ function regime(globalOverrides: Partial<ProjectedRegimeSubgroup> = {}): Project
     durableStories: [],
     contextStories: [],
     latestNode: null,
+    dossierContext: [],
     subgroups: [
       subgroup("fed-front-end", {
         telemetry: [{
