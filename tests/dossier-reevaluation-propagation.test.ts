@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { DossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import type { ResearchBrainOutputV1 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import {
   DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
   MAX_DOSSIER_REEVALUATION_PROPAGATION_TARGETS,
   buildDossierReevaluationPropagationPlan,
+  enqueueDossierReevaluationPropagation,
+  prepareDossierReevaluationPropagationPlan,
+  type DossierReevaluationPropagationPlan,
 } from "../lib/dossier-v2/reevaluation-propagation.ts";
 
 const EVIDENCE_A = "11111111-1111-4111-8111-111111111111";
@@ -319,4 +324,193 @@ test("A3 does not invent a substitute when the exact Motion primary Story is mis
 
   assert.deepEqual(plan.items, []);
   assert.ok(plan.warnings.some((warning) => /primary Story.*unavailable/i.test(warning)));
+});
+
+
+function awaitableQuery<T>(
+  data: T,
+  error: { message: string } | null = null,
+) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "neq", "in", "is", "order", "limit", "gte", "lte"]) {
+    builder[method] = () => builder;
+  }
+  builder.then = (
+    resolve: (value: { data: T; error: { message: string } | null }) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) => Promise.resolve({ data, error }).then(resolve, reject);
+  return builder;
+}
+
+function preparationClient(input: {
+  evidenceIds?: string[];
+  stories?: typeof stories;
+  regimeLinks?: Array<{
+    regime_id: string;
+    story_id: string;
+    role: string;
+    confidence: number;
+    effective_to: string | null;
+  }>;
+}) {
+  const regimeId = "99999999-9999-4999-8999-999999999999";
+  const tables: Record<string, unknown[]> = {
+    stories: input.stories ?? stories,
+    intelligence_evidence: (input.evidenceIds ?? [EVIDENCE_A]).map((id) => ({ id })),
+    market_regimes: [{ id: regimeId, slug: "global-cost-of-capital" }],
+    market_regime_story_links: input.regimeLinks ?? [
+      { regime_id: regimeId, story_id: STORY_C, role: "core", confidence: 91, effective_to: null },
+    ],
+  };
+
+  return {
+    from(table: string) {
+      if (!(table in tables)) throw new Error(`Unexpected preparation table ${table}`);
+      return awaitableQuery(tables[table]);
+    },
+  } as unknown as SupabaseClient;
+}
+
+test("A3 preparation admits only canonical UUID refs that exist in intelligence_evidence", async () => {
+  const prepared = await prepareDossierReevaluationPropagationPlan({
+    client: preparationClient({ evidenceIds: [EVIDENCE_B] }),
+    packet: packet({ primaryStoryId: STORY_A }),
+    analyticalOutput: output([decision({
+      canonical_evidence_refs: [EVIDENCE_A, EVIDENCE_B, "market-monitor:us2y:2026-10-04"],
+      destination_refs: [`STORY:${STORY_B}`],
+    })]),
+  });
+
+  assert.equal(prepared.items.length, 1);
+  assert.equal(prepared.items[0]?.canonical_evidence_id, EVIDENCE_B);
+  assert.equal(prepared.items[0]?.target_story_id, STORY_B);
+});
+
+test("A3 preparation resolves active Regime links through market_regimes slug and link role/confidence", async () => {
+  const regimeId = "99999999-9999-4999-8999-999999999999";
+  const prepared = await prepareDossierReevaluationPropagationPlan({
+    client: preparationClient({
+      evidenceIds: [EVIDENCE_A],
+      regimeLinks: [
+        { regime_id: regimeId, story_id: STORY_A, role: "core", confidence: 75, effective_to: null },
+        { regime_id: regimeId, story_id: STORY_B, role: "core", confidence: 95, effective_to: null },
+        { regime_id: regimeId, story_id: STORY_C, role: "bridge", confidence: 90, effective_to: null },
+        { regime_id: regimeId, story_id: STORY_D, role: "supporting", confidence: 98, effective_to: null },
+      ],
+    }),
+    packet: packet({ primaryStoryId: null, primaryRegimeSlug: "global-cost-of-capital" }),
+    analyticalOutput: output([decision({
+      destination_refs: ["REGIME:CURRENT"],
+    })]),
+  });
+
+  assert.deepEqual(
+    prepared.items.map((item) => [item.target_story_id, item.route_kind]),
+    [
+      [STORY_B, "regime_core"],
+      [STORY_C, "regime_bridge"],
+      [STORY_D, "regime_bridge"],
+    ],
+  );
+});
+
+function propagationPlan(
+  items: DossierReevaluationPropagationPlan["items"],
+): DossierReevaluationPropagationPlan {
+  return {
+    contract_version: DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+    items,
+    omitted_count: 0,
+    warnings: [],
+  };
+}
+
+function queueItem(overrides: Partial<DossierReevaluationPropagationPlan["items"][number]> = {}) {
+  return {
+    motion_id: "motion-a3",
+    decision: "ACCEPT" as const,
+    canonical_evidence_id: EVIDENCE_A,
+    target_story_id: STORY_A,
+    target_story_slug: "story-a",
+    target_regime_slug: null,
+    route_kind: "explicit_story" as const,
+    priority: 95,
+    route_reason: "explicit_story",
+    ...overrides,
+  };
+}
+
+function queueClient(input: {
+  existing?: Array<{
+    target_id: string;
+    requested_by_evidence_id: string | null;
+    status: string;
+  }>;
+  insertError?: string | null;
+}) {
+  const inserted: Array<Record<string, unknown>> = [];
+
+  const client = {
+    from(table: string) {
+      assert.equal(table, "intelligence_reevaluation_queue");
+      const builder = awaitableQuery(input.existing ?? []) as Record<string, unknown>;
+      builder.insert = (rows: Array<Record<string, unknown>>) => {
+        inserted.push(...rows);
+        return awaitableQuery(null, input.insertError ? { message: input.insertError } : null);
+      };
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, inserted };
+}
+
+test("A3 queue skips the same Story/evidence pair but allows new evidence and ignores null-evidence System 1 rows", async () => {
+  const { client, inserted } = queueClient({
+    existing: [
+      { target_id: STORY_A, requested_by_evidence_id: EVIDENCE_A, status: "pending" },
+      { target_id: STORY_A, requested_by_evidence_id: null, status: "pending" },
+    ],
+  });
+  const plan = propagationPlan([
+    queueItem(),
+    queueItem({
+      canonical_evidence_id: EVIDENCE_B,
+      motion_id: "motion-b",
+      decision: "REFINE",
+      priority: 90,
+    }),
+  ]);
+
+  const result = await enqueueDossierReevaluationPropagation({
+    client,
+    dossierId: "77777777-7777-4777-8777-777777777777",
+    asOf: "2026-10-04T07:30:00.000Z",
+    plan,
+  });
+
+  assert.equal(result.planned, 2);
+  assert.equal(result.enqueued, 1);
+  assert.equal(result.skipped_existing, 1);
+  assert.equal(inserted.length, 1);
+  assert.equal(inserted[0]?.requested_by_evidence_id, EVIDENCE_B);
+  assert.equal(inserted[0]?.available_at, "2026-10-04T07:30:00.000Z");
+  assert.match(
+    String(inserted[0]?.reason),
+    /^dossier_motion_acceptance:77777777-7777-4777-8777-777777777777:motion-b:REFINE/,
+  );
+});
+
+test("A3 queue insertion failure returns an auditable warning without false success", async () => {
+  const { client } = queueClient({ insertError: "forced A3 queue failure" });
+  const result = await enqueueDossierReevaluationPropagation({
+    client,
+    dossierId: "77777777-7777-4777-8777-777777777777",
+    asOf: "2026-10-04T07:30:00.000Z",
+    plan: propagationPlan([queueItem()]),
+  });
+
+  assert.equal(result.enqueued, 0);
+  assert.equal(result.skipped_existing, 0);
+  assert.ok(result.warnings.some((warning) => /forced A3 queue failure/i.test(warning)));
 });
