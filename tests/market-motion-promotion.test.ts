@@ -11,6 +11,7 @@ import {
 } from "../lib/market-motion-promotion.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
 import type { EvidencePackItem } from "../lib/intelligence/schemas.ts";
+import * as promotionModule from "../lib/market-motion-promotion.ts";
 
 const NOW = new Date("2026-10-01T02:00:00Z");
 
@@ -235,4 +236,164 @@ test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
     ["promoted", "other-story"],
   );
+});
+
+
+function promotionAdapter() {
+  const fn = (promotionModule as Record<string, unknown>).promoteMarketMotionFromCanonicalEvidence;
+  assert.equal(typeof fn, "function", "B1 canonical-evidence promotion adapter must exist");
+  return fn as (input: {
+    researchRunId: string | null;
+    engineRunId: string;
+    evidence: EvidencePackItem[];
+    now?: Date;
+    client?: unknown;
+  }) => Promise<{
+    considered: number;
+    eligible: number;
+    promoted: number;
+    skippedAlreadyPromoted: number;
+    motionIds: string[];
+    warnings: string[];
+  }>;
+}
+
+function mockPromotionClient(rows: MarketMotionRecord[], failMotionKeys: string[] = []) {
+  const inserted: Array<Record<string, unknown>> = [];
+  const calls: string[] = [];
+  const fail = new Set(failMotionKeys);
+  const client = {
+    from(table: string) {
+      calls.push("from:" + table);
+      if (table === "current_market_motion_items") {
+        return {
+          select(columns: string) {
+            calls.push("select:" + columns);
+            return Promise.resolve({ data: rows, error: null });
+          },
+        };
+      }
+      if (table === "market_motion_items") {
+        return {
+          insert(payload: Record<string, unknown>) {
+            inserted.push(payload);
+            calls.push("insert:" + String(payload.motion_key || ""));
+            return {
+              select(columns: string) {
+                calls.push("insert-select:" + columns);
+                return {
+                  single() {
+                    const motionKey = String(payload.motion_key || "");
+                    if (fail.has(motionKey)) {
+                      return Promise.resolve({
+                        data: null,
+                        error: { message: "forced persistence failure for " + motionKey },
+                      });
+                    }
+                    return Promise.resolve({
+                      data: {
+                        ...record({
+                          id: "promoted-" + inserted.length,
+                          motion_key: motionKey,
+                          lifecycle_state: "PROMOTED",
+                          evidence_id: String(payload.evidence_id || ""),
+                        }),
+                      },
+                      error: null,
+                    });
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      throw new Error("Unexpected table " + table);
+    },
+  };
+
+  return { client, inserted, calls };
+}
+
+test("B1 adapter promotes fresh Motion across research runs from canonical Evidence", async () => {
+  const motion = record({
+    research_run_id: "run-creator",
+    metadata: { originItemKeys: ["reuters:mu-hbm"] },
+  });
+  const db = mockPromotionClient([motion]);
+  const promote = promotionAdapter();
+
+  const result = await promote({
+    researchRunId: "run-reporting",
+    engineRunId: "engine-b1",
+    evidence: [evidence()],
+    now: NOW,
+    client: db.client,
+  });
+
+  assert.equal(result.considered, 1);
+  assert.equal(result.eligible, 1);
+  assert.equal(result.promoted, 1);
+  assert.equal(result.skippedAlreadyPromoted, 0);
+  assert.equal(db.inserted.length, 1);
+  assert.equal(db.inserted[0].evidence_id, "evidence-reporting");
+  assert.equal(db.inserted[0].research_run_id, "run-reporting");
+  assert.ok(!db.calls.some((call) => call.includes("research_run_id")));
+});
+
+test("B1 adapter skips already-promoted current Motion on replay", async () => {
+  const db = mockPromotionClient([
+    record({
+      id: "already-promoted",
+      lifecycle_state: "PROMOTED",
+      effective_state: "PROMOTED",
+      evidence_id: "evidence-reporting",
+      metadata: { originItemKeys: ["reuters:mu-hbm"] },
+    }),
+  ]);
+  const promote = promotionAdapter();
+
+  const result = await promote({
+    researchRunId: "run-replay",
+    engineRunId: "engine-replay",
+    evidence: [evidence()],
+    now: NOW,
+    client: db.client,
+  });
+
+  assert.equal(result.eligible, 0);
+  assert.equal(result.promoted, 0);
+  assert.equal(result.skippedAlreadyPromoted, 1);
+  assert.equal(db.inserted.length, 0);
+});
+
+test("B1 adapter caps writes at six and isolates one persistence failure", async () => {
+  const rows = Array.from({ length: MARKET_MOTION_PROMOTION_LIMIT + 2 }, (_, index) => record({
+    id: "adapter-motion-" + index,
+    motion_key: "event:adapter:" + index,
+    materiality: 90 + index,
+    relevance: 90 + index,
+    metadata: { originItemKeys: ["reporting:adapter-" + index] },
+  }));
+  const evidenceRows = rows.map((row, index) => evidence({
+    id: "adapter-evidence-" + index,
+    structuredPayload: { itemKey: "reporting:adapter-" + index },
+  }));
+  const failKey = "event:adapter:" + (MARKET_MOTION_PROMOTION_LIMIT + 1);
+  const db = mockPromotionClient(rows, [failKey]);
+  const promote = promotionAdapter();
+
+  const result = await promote({
+    researchRunId: "run-adapter",
+    engineRunId: "engine-adapter",
+    evidence: evidenceRows,
+    now: NOW,
+    client: db.client,
+  });
+
+  assert.equal(result.eligible, MARKET_MOTION_PROMOTION_LIMIT);
+  assert.equal(db.inserted.length, MARKET_MOTION_PROMOTION_LIMIT);
+  assert.equal(result.promoted, MARKET_MOTION_PROMOTION_LIMIT - 1);
+  assert.equal(result.warnings.length, 1);
+  assert.match(result.warnings[0], /forced persistence failure/);
 });
