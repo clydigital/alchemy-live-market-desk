@@ -3,131 +3,70 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import type { Story } from "../lib/data.ts";
-import type { StoryThesisVersion } from "../lib/persistence/contracts.ts";
-import { selectHybridPublicationStoryStates } from "../lib/hybrid-publication.ts";
+import {
+  authoritativePublicationVersionForStory,
+  newestPublicationVersionByStory,
+  publicationVersionById,
+} from "../lib/intelligence/story-publication-version.ts";
 
 const STORY_ID = "story-rates";
 const CURRENT_VERSION_ID = "11111111-1111-4111-8111-111111111111";
 const NEWER_NON_CURRENT_VERSION_ID = "22222222-2222-4222-8222-222222222222";
 
-function story(overrides: Partial<Story> = {}): Story {
-  return {
-    id: STORY_ID,
-    slug: "rates-cost-of-capital",
-    title: "Mutable current Story title",
-    thesis: "Mutable current Story thesis",
-    status: "develop",
-    confidence: 70,
-    rank: 1,
-    market_question: "Are long-end yields a durable financing constraint?",
-    dominant_narrative: "Rates remain restrictive.",
-    best_explanation: "Higher yields raise financing costs.",
-    strongest_support: "Current support",
-    strongest_contradiction: "Current contradiction",
-    priced_assessment: null,
-    confirmation_trigger: "Yields remain elevated.",
-    invalidation_trigger: "Yields fall materially.",
-    next_catalyst: null,
-    article_angle: null,
-    provisional_title: null,
-    article_verdict: "develop",
-    assets: ["US10Y"],
-    source_quality: 80,
-    novelty: 70,
-    persistence: 80,
-    trader_relevance: 80,
-    article_potential: 70,
-    current_thesis_version_id: CURRENT_VERSION_ID,
-    ...overrides,
-  };
-}
-
-function version(
+function publicationVersion(
   id: string,
   versionNumber: number,
   thesis: string,
-  confidence: number,
-): StoryThesisVersion {
+) {
   return {
     id,
     story_id: STORY_ID,
-    event_id: null,
     version_number: versionNumber,
-    title: `Version ${versionNumber} title`,
-    thesis,
-    status: "develop",
-    confidence,
-    market_question: "Are long-end yields a durable financing constraint?",
-    dominant_narrative: "Version narrative",
-    best_explanation: "Version explanation",
-    strongest_support: "Version support",
-    strongest_contradiction: "Version contradiction",
-    priced_assessment: null,
-    confirmation_trigger: "Yields remain elevated.",
-    invalidation_trigger: "Yields fall materially.",
-    next_catalyst: null,
-    article_angle: null,
-    provisional_title: null,
-    article_verdict: "develop",
-    assets: ["US10Y"],
-    portfolio_map: {},
-    snapshot: {},
-    change_reason: "fixture",
     effective_at: `2026-10-05T0${versionNumber}:00:00.000Z`,
-    created_at: `2026-10-05T0${versionNumber}:00:00.000Z`,
-    created_by: null,
+    thesis,
   };
 }
 
 test("B4.6 authoritative current pointer wins over a newer non-current thesis row", () => {
-  const result = selectHybridPublicationStoryStates({
-    stories: [story()],
-    records: {
-      thesisVersions: [
-        version(
-          NEWER_NON_CURRENT_VERSION_ID,
-          2,
-          "Newer row that is not the authoritative current pointer.",
-          88,
-        ),
-        version(
-          CURRENT_VERSION_ID,
-          1,
-          "Exact current-pointer thesis returned by the canonical mutation.",
-          76,
-        ),
-      ],
-      events: [],
-      intelligenceStates: [],
-    },
-  });
+  const versions = [
+    publicationVersion(
+      NEWER_NON_CURRENT_VERSION_ID,
+      2,
+      "Newer row that is not the authoritative current pointer.",
+    ),
+    publicationVersion(
+      CURRENT_VERSION_ID,
+      1,
+      "Exact current-pointer thesis returned by the canonical mutation.",
+    ),
+  ];
+  const selected = authoritativePublicationVersionForStory(
+    { id: STORY_ID, current_thesis_version_id: CURRENT_VERSION_ID },
+    publicationVersionById(versions),
+    newestPublicationVersionByStory(versions),
+  );
 
-  assert.equal(result.storyStates.length, 1);
-  const state = result.storyStates[0]!;
-  assert.equal(state.thesisVersion?.id, CURRENT_VERSION_ID);
-  assert.equal(state.thesisVersion?.version, 1);
-  assert.equal(state.thesis, "Exact current-pointer thesis returned by the canonical mutation.");
-  assert.equal(state.confidence, 76);
-  assert.notEqual(state.thesisVersion?.id, NEWER_NON_CURRENT_VERSION_ID);
+  assert.ok(selected);
+  assert.equal(selected.id, CURRENT_VERSION_ID);
+  assert.equal(selected.version_number, 1);
+  assert.equal(selected.thesis, "Exact current-pointer thesis returned by the canonical mutation.");
+  assert.notEqual(selected.id, NEWER_NON_CURRENT_VERSION_ID);
 });
 
-test("B4.6 generic selector retains legacy newest-version fallback when no pointer exists", () => {
-  const result = selectHybridPublicationStoryStates({
-    stories: [story({ current_thesis_version_id: null })],
-    records: {
-      thesisVersions: [
-        version(CURRENT_VERSION_ID, 1, "Older version.", 70),
-        version(NEWER_NON_CURRENT_VERSION_ID, 2, "Legacy newest fallback.", 81),
-      ],
-      events: [],
-      intelligenceStates: [],
-    },
-  });
+test("B4.6 pure selector retains legacy newest-version fallback when no pointer exists", () => {
+  const versions = [
+    publicationVersion(CURRENT_VERSION_ID, 1, "Older version."),
+    publicationVersion(NEWER_NON_CURRENT_VERSION_ID, 2, "Legacy newest fallback."),
+  ];
+  const selected = authoritativePublicationVersionForStory(
+    { id: STORY_ID, current_thesis_version_id: null },
+    publicationVersionById(versions),
+    newestPublicationVersionByStory(versions),
+  );
 
-  assert.equal(result.storyStates.length, 1);
-  assert.equal(result.storyStates[0]!.thesisVersion?.id, NEWER_NON_CURRENT_VERSION_ID);
-  assert.equal(result.storyStates[0]!.thesis, "Legacy newest fallback.");
+  assert.ok(selected);
+  assert.equal(selected.id, NEWER_NON_CURRENT_VERSION_ID);
+  assert.equal(selected.thesis, "Legacy newest fallback.");
 });
 
 test("B4.6 canonical capture loads only exact current Story thesis pointers and fails closed", () => {
