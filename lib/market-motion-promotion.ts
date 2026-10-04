@@ -14,7 +14,7 @@ export const MARKET_MOTION_PROMOTION_MIN_RELEVANCE = 75;
 export const MARKET_MOTION_PROMOTION_LIMIT = 6;
 export const MARKET_MOTION_DOSSIER_PROMOTION_POLICY = "dossier-motion-assessment/v2" as const;
 
-export type MarketMotionPromotionScope = "STORY" | "REGIME";
+export type MarketMotionPromotionScope = "STORY" | "REGIME" | "STORY_AND_REGIME";
 
 export type MarketMotionPromotionResult = {
   considered: number;
@@ -62,11 +62,25 @@ function dossierPromotionScope(
   item: MarketMotionRecord,
   assessment: ResearchBrainMotionAssessment,
 ): MarketMotionPromotionScope | null {
-  const storyAccepted = Boolean(assessment.story_implication?.trim() && item.primary_story_id);
-  const regimeAccepted = Boolean(assessment.regime_implication?.trim() && item.primary_regime_slug);
-
-  if (storyAccepted) return "STORY";
-  if (regimeAccepted) return "REGIME";
+  const scope = assessment.canonical_reassessment_scope;
+  if (scope === "STORY") {
+    return assessment.story_implication?.trim() && item.primary_story_id
+      ? "STORY"
+      : null;
+  }
+  if (scope === "REGIME") {
+    return assessment.regime_implication?.trim() && item.primary_regime_slug
+      ? "REGIME"
+      : null;
+  }
+  if (scope === "STORY_AND_REGIME") {
+    return assessment.story_implication?.trim()
+      && item.primary_story_id
+      && assessment.regime_implication?.trim()
+      && item.primary_regime_slug
+      ? "STORY_AND_REGIME"
+      : null;
+  }
   return null;
 }
 
@@ -140,16 +154,16 @@ export function marketMotionDossierPromotionInput(
 
   const scope = dossierPromotionScope(item, assessment);
   if (!scope) {
-    throw new Error("Dossier Motion promotion requires an accepted exact Story or Regime implication.");
+    throw new Error("Dossier Motion promotion requires an explicit canonical reassessment scope with its exact route and implication.");
   }
 
   const refined = assessment.decision === "REFINE";
   const headline = refined ? assessment.refined_headline!.trim() : item.headline;
   const whyInteresting = refined
     ? assessment.refined_why_interesting!.trim()
-    : scope === "STORY"
-      ? assessment.story_implication!.trim()
-      : assessment.regime_implication!.trim();
+    : scope === "REGIME"
+      ? assessment.regime_implication!.trim()
+      : assessment.story_implication!.trim();
   const bigPictureBridge = refined
     ? assessment.refined_big_picture_bridge!.trim()
     : assessment.regime_implication?.trim()
@@ -183,13 +197,14 @@ export function marketMotionDossierPromotionInput(
     researchRunId: item.research_run_id,
     sourceId: item.source_id,
     evidenceId: item.evidence_id,
-    primaryStoryId: scope === "STORY" ? item.primary_story_id : null,
+    primaryStoryId: scope === "REGIME" ? null : item.primary_story_id,
     primaryRegimeSlug: item.primary_regime_slug,
     metadata: {
       ...(item.metadata || {}),
       promotedFromMotionId: item.id,
       ...(refined ? { refinedFromMotionId: item.id } : {}),
       ...(scope === "REGIME" && item.primary_story_id ? { originalPrimaryStoryId: item.primary_story_id } : {}),
+      canonicalReassessmentScope: scope,
       promotionDossierId: input.dossierId,
       promotionDecision: assessment.decision,
       promotionScope: scope,
