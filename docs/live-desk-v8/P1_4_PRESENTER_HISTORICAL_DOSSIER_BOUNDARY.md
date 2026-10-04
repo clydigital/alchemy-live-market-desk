@@ -76,3 +76,22 @@ It must fail closed for:
 - mismatched Dossier identity
 
 It must never derive the Dossier from timestamp proximity or mutable current state.
+
+
+## P1.6 exact historical case replay
+
+P1.6 consumes the frozen `presenterDossierContext` only when all identity checks pass.
+
+For a selected historical edition:
+1. parse the frozen context;
+2. require a valid UUID and publication-time `as_of`;
+3. load that exact immutable Dossier with `getDossierV2PresentationSelectionById`;
+4. require `historical_exact`;
+5. require the returned Dossier ID to equal the frozen ID;
+6. require the returned `selectedAsOf` to equal the frozen `dossierAsOf`.
+
+Only then does Presenter use the historical Dossier for expectation, measured tape, divergence, missing evidence and calibration alongside the already-pinned Story reasoning.
+
+The resulting scope is `HISTORICAL_FULL_CASE`.
+
+Older editions, unavailable Dossiers, malformed contexts, or ID/`as_of` mismatches remain `HISTORICAL_STORY_REASONING_ONLY`. They never fall back to a guessed historical Dossier.
