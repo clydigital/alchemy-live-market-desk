@@ -31,6 +31,7 @@ export type CanonicalEditionIndexEntry = {
 export type HistoricalEditionReplay = {
   storyStates: Array<Record<string, unknown>>;
   featuredStoryStates: Array<Record<string, unknown>>;
+  storyReasoningByStoryId: Record<string, Record<string, unknown>>;
   limitation: string | null;
 };
 
@@ -112,7 +113,12 @@ function manifestReplay(payload: Record<string, unknown>): HistoricalEditionRepl
   if (!Array.isArray(manifest)) return null;
   const entries = manifest.map(record);
   if (entries.some((entry) => !entry)) {
-    return { storyStates: [], featuredStoryStates: [], limitation: "The persisted edition manifest is malformed; no Story state was replayed." };
+    return {
+      storyStates: [],
+      featuredStoryStates: [],
+      storyReasoningByStoryId: {},
+      limitation: "The persisted edition manifest is malformed; no Story state was replayed.",
+    };
   }
   const ordered = (entries as Record<string, unknown>[])
     .map((entry, index) => ({ entry, index, position: typeof entry.position === "number" ? entry.position : index + 1 }))
@@ -122,12 +128,50 @@ function manifestReplay(payload: Record<string, unknown>): HistoricalEditionRepl
     return state ? { ...state } : null;
   });
   if (storyStates.some((state) => !state)) {
-    return { storyStates: [], featuredStoryStates: [], limitation: "The persisted edition manifest has no complete immutable Story presentation state." };
+    return {
+      storyStates: [],
+      featuredStoryStates: [],
+      storyReasoningByStoryId: {},
+      limitation: "The persisted edition manifest has no complete immutable Story presentation state.",
+    };
   }
   const exactStates = storyStates as Array<Record<string, unknown>>;
+  const storyReasoningByStoryId: Record<string, Record<string, unknown>> = {};
+  for (const { entry } of ordered) {
+    if (entry.reasoning === null || entry.reasoning === undefined) continue;
+    const reasoning = record(entry.reasoning);
+    const state = record(entry.state);
+    const storyId = typeof entry.storyId === "string"
+      ? entry.storyId
+      : typeof state?.id === "string"
+        ? state.id
+        : null;
+    const thesisVersionId = typeof entry.thesisVersionId === "string"
+      ? entry.thesisVersionId
+      : record(state?.thesisVersion)?.id;
+    if (
+      !reasoning
+      || reasoning.contractVersion !== "canonical-story-reasoning/v1"
+      || typeof storyId !== "string"
+      || reasoning.storyId !== storyId
+      || (
+        typeof thesisVersionId === "string"
+        && reasoning.storyVersionId !== thesisVersionId
+      )
+    ) {
+      return {
+        storyStates: [],
+        featuredStoryStates: [],
+        storyReasoningByStoryId: {},
+        limitation: "The persisted edition manifest contains reasoning that does not match its immutable Story/version identity.",
+      };
+    }
+    storyReasoningByStoryId[storyId] = structuredClone(reasoning);
+  }
   return {
     storyStates: exactStates,
     featuredStoryStates: exactStates.filter((state) => state.featuredRank !== null && state.featuredRank !== undefined),
+    storyReasoningByStoryId,
     limitation: null,
   };
 }
@@ -143,6 +187,7 @@ function legacyReplay(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): 
     return {
       storyStates: [],
       featuredStoryStates: [],
+      storyReasoningByStoryId: {},
       limitation: "Legacy edition: immutable Story membership and order were not persisted, so Story state cannot be replayed exactly.",
     };
   }
@@ -150,6 +195,7 @@ function legacyReplay(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): 
     return {
       storyStates: [],
       featuredStoryStates: [],
+      storyReasoningByStoryId: {},
       limitation: "Legacy edition: canonicalStoryIds exist but no persisted research-run identity proves the matching immutable Story snapshots.",
     };
   }
@@ -171,6 +217,7 @@ function legacyReplay(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): 
     return {
       storyStates: [],
       featuredStoryStates: [],
+      storyReasoningByStoryId: {},
       limitation: "Legacy edition: one or more persisted canonicalStoryIds have no matching immutable Story snapshot, so no partial replay was fabricated.",
     };
   }
@@ -178,6 +225,7 @@ function legacyReplay(snapshot: EditionSnapshot, snapshots: EditionSnapshot[]): 
   return {
     storyStates,
     featuredStoryStates: storyStates.filter((state) => state.featuredRank !== null && state.featuredRank !== undefined),
+    storyReasoningByStoryId: {},
     limitation: null,
   };
 }
@@ -257,6 +305,7 @@ export function buildCanonicalEditionResponseContract({
       snapshotId: selectedEdition?.snapshotId || null,
       storyStates: isHistoricalReplay ? replay!.storyStates : currentStoryStates,
       featuredStoryStates: isHistoricalReplay ? replay!.featuredStoryStates : currentFeaturedStoryStates,
+      storyReasoningByStoryId: isHistoricalReplay ? replay!.storyReasoningByStoryId : {},
     },
     selectedSnapshot,
     replay,
