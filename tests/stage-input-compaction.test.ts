@@ -124,6 +124,7 @@ test("Story review projection preserves Story/review context and compacts only e
         canonicalReassessmentScope: "STORY",
         storyId: "story-1",
         packetEvidenceId: "research-intake:motion-1",
+        canonicalEvidenceId: "ev-1",
         evidenceReferences: ["research-intake:motion-1"],
         framing: {
           headline: "Corrected Motion headline",
