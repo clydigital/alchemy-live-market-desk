@@ -14,8 +14,9 @@
 
 - Motion remains non-evidentiary.
 - Only `ACCEPT` and `REFINE` decisions may propagate automatically.
-- Every queue row must use a canonical evidence UUID that is both referenced by A2 and present in `intelligence_evidence`.
-- Never translate/hash a non-UUID Dossier evidence ID into a queueable evidence record.
+- Every queue row must use an existing `intelligence_evidence.id` UUID resolved from the exact A2/Dossier evidence identity.
+- Preserve the exact A2 `canonical_evidence_ref` separately from the queue UUID.
+- Exact identity resolution may use `id`, `external_evidence_id`, or the canonical `ev:<id>` fallback; never hash, fuzzy-match, or invent an evidence row.
 - Reuse `intelligence_reevaluation_queue`; do not create a second Story or Regime reasoning path.
 - A3 may target at most four unique Stories per Dossier execution.
 - One Regime-routed decision may fan out to at most one core plus two bridge/supporting Stories.
@@ -25,7 +26,7 @@
 
 ## Review Focus
 
-- A2 decision contains only non-UUID canonical Dossier evidence: Dossier still persists and A3 queues nothing.
+- A2 decision uses an external canonical evidence ref: queue only when it resolves to exactly one existing canonical row; ambiguous or derived-only refs fail closed.
 - Exact Motion Story link points to a discarded/missing Story: no weak substitute Story is invented.
 - Explicit Story and Regime routing hit the same Story: collapse deterministically without duplicate target/evidence rows.
 - Same Story has an open System 1 null-evidence activation row: A3 evidence-backed row is still allowed.
@@ -54,8 +55,11 @@ Add tests proving:
 - ACCEPT + canonical UUID + explicit `STORY:<id>` plans that Story.
 - REFINE + canonical UUID + exact Motion `primary_story_id` plans that Story when no explicit Story destination exists.
 - UNRESOLVED and REJECT plan nothing.
-- a Motion ID cannot become `canonical_evidence_id`.
-- non-UUID canonical Dossier evidence is ignored for propagation.
+- a Motion ID cannot become `canonical_evidence_ref` or queue UUID.
+- exact external evidence refs resolve only to the matching canonical row UUID.
+- ambiguous external evidence refs fail closed.
+- `ev:<row-uuid>` resolves only to that existing canonical row.
+- derived-only non-UUID Dossier evidence is ignored for propagation.
 - `origin_evidence_ref` absent from A2 `canonical_evidence_refs` is ignored.
 - explicit Story routing outranks Motion Story fallback.
 - `REGIME:CURRENT` adds active linked Stories ordered core → bridge/supporting by confidence.
@@ -121,7 +125,8 @@ Commit message: `Add A3 Dossier reevaluation propagation planner`
 - [ ] **Step 1: Write failing adapter tests**
 
 Add tests proving:
-- only UUID refs that exist in `intelligence_evidence` become `queueableEvidenceIds`;
+- A2 evidence refs resolve to queue UUIDs only through exact canonical row identity (`id`, `external_evidence_id`, or `ev:<id>`);
+- ambiguous or missing canonical row identities are not queueable;
 - active Regime links use `market_regimes.slug`, `market_regime_story_links.role`, and `confidence`;
 - same Story + same evidence open row is skipped;
 - same Story + different evidence is inserted;
