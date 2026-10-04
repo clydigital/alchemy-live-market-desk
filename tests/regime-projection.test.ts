@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import type { Story } from "../lib/data.ts";
 import type { DossierPresentationV1 } from "../lib/dossier-v2/presentation-adapter.ts";
@@ -70,7 +71,9 @@ function event(overrides: Partial<StoryEvent> = {}): StoryEvent {
 
 function dossier(): DossierPresentationV1 {
   return {
+    dossierId: "dossier-base",
     asOf: "2026-09-28T01:05:00Z",
+    motionAttention: [],
     rateRegime: {
       contractVersion: "rate-regime/1",
       asOf: "2026-09-28T01:05:00Z",
@@ -126,6 +129,30 @@ function dossier(): DossierPresentationV1 {
     },
     dollarLiquidity: null,
   } as unknown as DossierPresentationV1;
+}
+
+function dossierWithMotion(
+  scope: "STORY" | "REGIME" | "STORY_AND_REGIME",
+  regimeSlug: string | null = "global-cost-of-capital",
+): DossierPresentationV1 {
+  const value = dossier() as DossierPresentationV1;
+  value.dossierId = "dossier-motion";
+  value.motionAttention = [{
+    motionId: "motion-regime-1",
+    decision: "REFINE",
+    scope,
+    headline: "Long-end pressure persists after softer inflation evidence",
+    whatHappened: "Long yields remained elevated after softer inflation evidence.",
+    marketReaction: "The long end remained firm.",
+    whyInteresting: "The accepted narrower framing keeps a Regime-level duration question alive.",
+    bigPictureBridge: "Long-end pressure -> financing conditions -> valuation sensitivity.",
+    nextTest: "Separate real-yield, supply and term-premium channels.",
+    storyId: scope === "STORY_AND_REGIME" || scope === "STORY" ? "story-1" : null,
+    regimeSlug,
+    evidenceRefs: ["research-intake:rates-1"],
+    reason: "System 2 accepted only the evidence-bounded Regime implication.",
+  }];
+  return value;
 }
 
 test("exact Story routing preserves core and bridge Regime membership", () => {
@@ -245,6 +272,68 @@ test("pending news refreshes the live projection without changing the material R
       .flatMap((subgroup) => subgroup.nodes)
       .some((node) => node.id === "news:news-pending" && node.state === "interpretation_pending"),
   );
+});
+
+test("C1.5a Dossier REGIME Motion is projected only as exact non-state Regime context", () => {
+  const base = buildRegimeProjection({
+    stories: [story()],
+    events: [event()],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: dossier(),
+  });
+  const withContext = buildRegimeProjection({
+    stories: [story()],
+    events: [event()],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: dossierWithMotion("REGIME"),
+  });
+
+  const baseRates = base.find((item) => item.slug === "global-cost-of-capital");
+  const contextRates = withContext.find((item) => item.slug === "global-cost-of-capital");
+  const ai = withContext.find((item) => item.slug === "us-china-ai");
+  assert.ok(baseRates);
+  assert.ok(contextRates);
+  assert.ok(ai);
+
+  assert.equal(contextRates.dossierContext.length, 1);
+  assert.equal(contextRates.dossierContext[0]?.sourceKind, "dossier_motion");
+  assert.equal(contextRates.dossierContext[0]?.state, "context");
+  assert.equal(contextRates.dossierContext[0]?.verification, "dossier-system2:refine");
+  assert.equal(contextRates.latestNode?.id, "dossier-motion:dossier-motion:motion-regime-1");
+  assert.deepEqual(ai.dossierContext, []);
+  assert.equal(contextRates.state, baseRates.state);
+  assert.equal(contextRates.stateKind, baseRates.stateKind);
+  assert.equal(contextRates.confidence, baseRates.confidence);
+  assert.deepEqual(
+    materialProjectionSignature(contextRates),
+    materialProjectionSignature(baseRates),
+  );
+});
+
+test("C1.5a STORY-only Motion cannot leak into Regime context", () => {
+  const projection = buildRegimeProjection({
+    stories: [story()],
+    events: [],
+    versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: dossierWithMotion("STORY"),
+  });
+  const rates = projection.find((item) => item.slug === "global-cost-of-capital");
+  assert.ok(rates);
+  assert.deepEqual(rates.dossierContext, []);
+});
+
+test("C1.5a Regime projection manifest pins accepted Dossier Motion context without adding it to material signature", () => {
+  const engine = readFileSync(new URL("../lib/regime-engine.ts", import.meta.url), "utf8");
+  assert.match(engine, /motionRegimeContext/);
+  assert.match(engine, /scope === "REGIME" \|\| item\.scope === "STORY_AND_REGIME"/);
+  assert.match(engine, /dossierMotionContextIds: regime\.dossierContext\.map/);
+  assert.doesNotMatch(materialProjectionSignature.toString(), /dossierContext/);
 });
 
 test("accepted Story-state changes alter the material Regime signature", () => {
