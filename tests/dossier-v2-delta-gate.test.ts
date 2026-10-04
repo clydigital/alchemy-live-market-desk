@@ -9,6 +9,7 @@ import {
 } from "../lib/dossier-v2/delta-gate.ts";
 import type { DossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import {
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
   type MarketLens,
@@ -175,6 +176,10 @@ function priorOutput(): ResearchBrainOutputV1 {
       dominant_confirmation: "Rates remain elevated.",
       dominant_contradiction: "Credit transmission remains incomplete.",
     },
+    motion_acceptance: {
+      contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+      decisions: [],
+    },
     research_now: [],
     stock_radar: [],
     developing_themes: [],
@@ -285,6 +290,66 @@ test("Dossier delta gate returns NO_CHANGE when evidence changes but canonical S
   assert.equal(decision.action, "NO_CHANGE");
   assert.equal(decision.postIntelligenceModelCallBudget, 0);
   assert.equal(decision.newObservedEvidence, 2);
+});
+
+test("A2 forces full System 2 synthesis for unadjudicated bounded Motion context", () => {
+  const currentPacket = packet();
+  currentPacket.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      motion_id: "motion:a2:delta",
+      motion_key: "event:rates:a2-delta",
+      version_number: 1,
+      occurred_at: "2026-09-26T08:35:00.000Z",
+      observed_at: "2026-09-26T08:36:00.000Z",
+      expires_at: "2026-09-28T08:36:00.000Z",
+      category: "RATES",
+      verification_state: "VERIFIED",
+      headline: "Fresh rates Motion",
+      what_happened: "A fresh short-horizon rates framing entered Motion.",
+      market_reaction: null,
+      why_interesting: "It may change what System 2 should inspect.",
+      big_picture_bridge: "Rates → financial conditions",
+      next_test: "Adjudicate against canonical rates evidence.",
+      primary_story_id: "story-rates",
+      primary_regime_slug: "us-rate-regime",
+      attention: { materiality: 91, relevance: 92, novelty: 80 },
+      origin_evidence_ref: "ev:rates:official",
+    }],
+  };
+
+  const dossier = previousDossier();
+  let decision = decideDossierDelta({
+    packet: currentPacket,
+    previousDossier: dossier,
+    context: { available: true, states: [], stories: [], warning: null },
+  });
+  assert.equal(decision.action, "REBASE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 2);
+  assert.match(decision.reason, /explicit System 2 adjudication/i);
+
+  const analytical = dossier.payload.analytical_output as ResearchBrainOutputV1;
+  analytical.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:a2:delta",
+      decision: "ACCEPT",
+      conclusion: "Canonical rates evidence supports carrying the framing forward.",
+      canonical_evidence_refs: ["ev:rates:official"],
+      destination_refs: ["STORY:story-rates"],
+      rationale: "The Motion framing was independently checked against canonical evidence.",
+      next_test: null,
+    }],
+  };
+
+  decision = decideDossierDelta({
+    packet: currentPacket,
+    previousDossier: dossier,
+    context: { available: true, states: [], stories: [], warning: null },
+  });
+  assert.equal(decision.action, "NO_CHANGE");
+  assert.equal(decision.postIntelligenceModelCallBudget, 0);
 });
 
 test("Dossier delta gate ignores a structurally publishable new Story with no analytical delta", () => {
