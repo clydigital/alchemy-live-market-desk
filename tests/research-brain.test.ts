@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import {
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
@@ -83,6 +84,8 @@ test("Research Brain schema enforces Dossier attention budgets before generation
   assert.equal(properties.stock_radar.maxItems, 3);
   assert.equal(properties.developing_themes.maxItems, 5);
   assert.equal(properties.creator_theme_expansions.maxItems, 2);
+  const motionAcceptance = properties.motion_acceptance.properties as Record<string, Record<string, unknown>>;
+  assert.equal(motionAcceptance.decisions.maxItems, 3);
   assert.equal(thesisLedger.entries.maxItems, 12);
   assert.equal(properties.contradictions_detected.maxItems, 10);
   assert.equal(properties.research_gaps.maxItems, 12);
@@ -419,6 +422,10 @@ function createValidOutput(packet: ReturnType<typeof createValidBasePacket>): Re
       dominant_confirmation: "2Y yield rally and CPI 2.5% print.",
       dominant_contradiction: "Middle East oil supply uncertainty.",
     },
+    motion_acceptance: {
+      contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+      decisions: [],
+    },
     research_now: [
       {
         rank: 1,
@@ -522,6 +529,117 @@ test("2. Valid Reconciled Output Pass Validation", () => {
   assert.equal(val.isValid, true);
   assert.equal(val.errors.length, 0);
   assert.ok(val.output);
+});
+
+test("2A. A2 Motion acceptance cannot turn Motion into evidence", () => {
+  const packet = createValidBasePacket();
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      motion_id: "motion:a2:1",
+      motion_key: "event:gold:a2",
+      version_number: 2,
+      occurred_at: "2026-09-18T11:20:00Z",
+      observed_at: "2026-09-18T11:25:00Z",
+      expires_at: "2026-09-20T11:25:00Z",
+      category: "MACRO",
+      verification_state: "VERIFIED",
+      headline: "Gold rally may reflect safe-haven demand",
+      what_happened: "Gold rallied after the catalyst.",
+      market_reaction: "Gold rallied.",
+      why_interesting: "The framing may matter for the current cross-asset read.",
+      big_picture_bridge: "Gold → real yields / USD / risk-off",
+      next_test: "Check real yields, DXY and canonical risk-off evidence.",
+      primary_story_id: "story:fed_easing",
+      primary_regime_slug: "us-rate-regime",
+      attention: { materiality: 90, relevance: 88, novelty: 75 },
+      origin_evidence_ref: null,
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:a2:1",
+      decision: "ACCEPT",
+      conclusion: "Gold strength is currently consistent with the supplied macro evidence.",
+      canonical_evidence_refs: [],
+      destination_refs: ["STORY:story:fed_easing"],
+      rationale: "Motion highlighted the question but has not supplied canonical proof.",
+      next_test: null,
+    }],
+  };
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /ACCEPT requires canonical evidence/i.test(error)));
+
+  output.motion_acceptance.decisions[0].canonical_evidence_refs = ["ev:fed:2026-09"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.main_thread.evidence_references = ["motion:a2:1"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /unsupported evidence_id "motion:a2:1"/i.test(error)));
+});
+
+test("2B. A2 REFINE and UNRESOLVED preserve the evidence boundary", () => {
+  const packet = createValidBasePacket();
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      motion_id: "motion:a2:2",
+      motion_key: "event:rates:a2",
+      version_number: 1,
+      occurred_at: "2026-09-18T11:20:00Z",
+      observed_at: "2026-09-18T11:25:00Z",
+      expires_at: "2026-09-20T11:25:00Z",
+      category: "RATES",
+      verification_state: "REPORTED",
+      headline: "Rates move may be positioning-driven",
+      what_happened: "Rates moved sharply.",
+      market_reaction: "Front-end yields moved.",
+      why_interesting: "The mechanism needs testing.",
+      big_picture_bridge: "Rates → positioning → risk assets",
+      next_test: "Check positioning-specific canonical evidence.",
+      primary_story_id: "story:fed_easing",
+      primary_regime_slug: "us-rate-regime",
+      attention: { materiality: 86, relevance: 90, novelty: 70 },
+      origin_evidence_ref: null,
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:a2:2",
+      decision: "REFINE",
+      conclusion: "The rates move is observed, but a positioning mechanism is not established.",
+      canonical_evidence_refs: ["ev:yields:2026-09"],
+      destination_refs: ["INVESTIGATION:inv:oil_risk"],
+      rationale: "Canonical price evidence establishes the move, not the proposed positioning cause.",
+      next_test: null,
+    }],
+  };
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REFINE requires a concrete next_test/i.test(error)));
+
+  output.motion_acceptance.decisions[0] = {
+    ...output.motion_acceptance.decisions[0],
+    decision: "UNRESOLVED",
+    conclusion: null,
+    canonical_evidence_refs: [],
+    next_test: "Obtain positioning-specific evidence before assigning a mechanism.",
+  };
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
 });
 
 test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection", () => {
@@ -1369,6 +1487,7 @@ test("8. Bounded Reference Index in Structural Repair Prompt", () => {
   const refIndex = repairPrompt.boundedInput.allowed_reference_index as Record<string, unknown>;
 
   assert.equal(refIndex.packet_id, packet.packet_id);
+  assert.deepEqual(refIndex.valid_motion_ids, []);
   assert.ok(Array.isArray(refIndex.valid_observed_evidence_ids));
   assert.ok((refIndex.valid_observed_evidence_ids as string[]).includes("ev:cpi:2026-09"));
 });

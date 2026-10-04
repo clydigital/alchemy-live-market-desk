@@ -212,6 +212,40 @@ export interface RateContextSnapshot {
   evidence: ObservedEvidence[];
 }
 
+export const DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION = "dossier-motion-context/1";
+export const MAX_DOSSIER_MOTION_CONTEXT = 3;
+
+export interface DossierMotionContextItem {
+  motion_id: string;
+  motion_key: string;
+  version_number: number;
+  occurred_at: string;
+  observed_at: string;
+  expires_at: string;
+  category: string;
+  verification_state: string;
+  headline: string;
+  what_happened: string;
+  market_reaction: string | null;
+  why_interesting: string;
+  big_picture_bridge: string;
+  next_test: string | null;
+  primary_story_id: string | null;
+  primary_regime_slug: string | null;
+  attention: {
+    materiality: number;
+    relevance: number;
+    novelty: number;
+  };
+  origin_evidence_ref: string | null;
+}
+
+export interface DossierMotionContext {
+  contract_version: typeof DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION | string;
+  items: DossierMotionContextItem[];
+  omitted_count: number;
+}
+
 export interface CandidateSnapshot {
   observed_evidence?: Array<Record<string, unknown>>;
   research_leads?: Array<Record<string, unknown>>;
@@ -244,6 +278,8 @@ export interface DossierV2InputPacket {
   catalysts: CatalystItem[];
   thesis_ledger: ThesisLedger | null;
   rate_context?: RateContextSnapshot;
+  /** System 1 attention/framing only; never canonical evidence. */
+  motion_context?: DossierMotionContext;
 
   freshness_warnings: FreshnessWarning[];
   evidence_states?: SourceEvidenceState[];

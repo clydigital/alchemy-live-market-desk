@@ -19,6 +19,7 @@ import {
   executeAndPersistDossierV2,
   type DossierV2ExecutionResult,
 } from "./execution.ts";
+import { attachCurrentMarketMotionContext } from "./motion-context.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
 import type {
   DossierDeltaDecision,
@@ -524,7 +525,8 @@ export async function runManualDossierV2(
     previousResolution.dossier,
     previousResolution.analyticalBaseline,
   );
-  const packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
+  let packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
+  packet = await attachCurrentMarketMotionContext(packet, client);
 
   if (options.persist) {
     if (!previousResolution.persistenceAvailable) {

@@ -10,6 +10,7 @@ import type {
   ThesisLedgerV2,
 } from "./research-brain-contracts.ts";
 import {
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
@@ -563,6 +564,18 @@ export function produceDegradedOutput(
       epistemic_label: "SPECULATIVE",
       dominant_confirmation: "None",
       dominant_contradiction: "None",
+    },
+    motion_acceptance: {
+      contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+      decisions: (packet.motion_context?.items ?? []).map((item) => ({
+        motion_id: item.motion_id,
+        decision: "UNRESOLVED" as const,
+        conclusion: null,
+        canonical_evidence_refs: [],
+        destination_refs: [],
+        rationale: "Research Brain degraded before Motion framing could be adjudicated against canonical evidence.",
+        next_test: item.next_test ?? "Re-run full Dossier synthesis with a healthy Research Brain.",
+      })),
     },
     research_now: [],
     stock_radar: [],
