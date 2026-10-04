@@ -48,6 +48,11 @@ import {
   enqueueDossierStoryRefreshAgenda,
   type DossierStoryRefreshAgendaResult,
 } from "./story-refresh-agenda.ts";
+import { buildDossierMotionStoryRefreshRequests } from "./motion-story-refresh-request.ts";
+import {
+  enqueueDossierMotionStoryRefreshRequests,
+  type DossierMotionStoryRefreshQueueResult,
+} from "./motion-story-refresh-queue.ts";
 
 export interface DossierV2ExecutionOptions {
   client?: SupabaseClient;
@@ -63,6 +68,7 @@ export interface DossierV2ExecutionResult {
   dossier_input: MarketDossierV2Input | null;
   dossier: MarketDossierV2;
   story_refresh_agenda: DossierStoryRefreshAgendaResult;
+  motion_story_refresh: DossierMotionStoryRefreshQueueResult;
   motion_promotion: MarketMotionPromotionResult;
   persisted: boolean;
   delta_decision: DossierDeltaDecision;
@@ -573,6 +579,15 @@ export async function executeAndPersistDossierV2(
             skipped_existing: 0,
             items: [],
           },
+          motion_story_refresh: {
+            status: "empty" as const,
+            considered: 0,
+            resolved: 0,
+            enqueued: 0,
+            skipped_existing: 0,
+            rejected: [],
+            queue_rows: [],
+          },
           motion_promotion: {
             considered: 0,
             eligible: 0,
@@ -685,6 +700,37 @@ export async function executeAndPersistDossierV2(
     }));
   }
 
+  const motionStoryRefreshRequests = buildDossierMotionStoryRefreshRequests({
+    dossierId: dossier.id,
+    motionAttention,
+    assessments: analyticalOutput.motion_attention_assessments ?? [],
+  });
+  const motionStoryRefresh: DossierMotionStoryRefreshQueueResult = options.client
+    ? await enqueueDossierMotionStoryRefreshRequests({
+        client: options.client,
+        requests: motionStoryRefreshRequests,
+        availableAt: packet.as_of,
+      })
+    : {
+        status: "empty",
+        considered: motionStoryRefreshRequests.length,
+        resolved: 0,
+        enqueued: 0,
+        skipped_existing: 0,
+        rejected: [],
+        queue_rows: [],
+      };
+
+  if (motionStoryRefresh.status === "failed" || motionStoryRefresh.rejected.length) {
+    console.warn(JSON.stringify({
+      event: "dossier_motion_story_refresh_warning",
+      dossierId: dossier.id,
+      status: motionStoryRefresh.status,
+      rejected: motionStoryRefresh.rejected,
+      error: motionStoryRefresh.error ?? null,
+    }));
+  }
+
   const storyRefreshAgenda = options.client
     ? await enqueueDossierStoryRefreshAgenda({
         client: options.client,
@@ -720,6 +766,7 @@ export async function executeAndPersistDossierV2(
     dossier_input: dossierInput,
     dossier,
     story_refresh_agenda: storyRefreshAgenda,
+    motion_story_refresh: motionStoryRefresh,
     motion_promotion: motionPromotion,
     persisted: true,
     delta_decision: decision,

@@ -20,6 +20,7 @@ import {
   type DossierV2ExecutionResult,
 } from "./execution.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
+import type { DossierMotionStoryRefreshQueueResult } from "./motion-story-refresh-queue.ts";
 import type {
   DossierDeltaDecision,
   DossierDeltaMode,
@@ -55,6 +56,7 @@ export interface ManualDossierV2RunResult {
   analytical_output: ResearchBrainOutputV1;
   dossier?: MarketDossierV2;
   story_refresh_agenda?: DossierStoryRefreshAgendaResult;
+  motion_story_refresh?: DossierMotionStoryRefreshQueueResult;
   delta_decision?: DossierDeltaDecision;
 }
 
@@ -552,6 +554,7 @@ export async function runManualDossierV2(
       analytical_output: result.analytical_output,
       dossier: result.dossier,
       story_refresh_agenda: result.story_refresh_agenda,
+      motion_story_refresh: result.motion_story_refresh,
       delta_decision: result.delta_decision,
     };
   }
