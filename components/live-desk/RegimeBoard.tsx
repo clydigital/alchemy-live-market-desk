@@ -43,7 +43,11 @@ export default function RegimeBoard({ regimes }: { regimes: ProjectedRegime[] })
 
               {regime.latestNode ? (
                 <div className={styles.latest}>
-                  <small>LATEST CONTRIBUTION · {regime.latestNode.state.replaceAll("_", " ")}</small>
+                  <small>
+                    {regime.latestNode.sourceKind === "dossier_motion"
+                      ? "SYSTEM 2 DOSSIER CONTEXT · NON-STATE"
+                      : `LATEST CONTRIBUTION · ${regime.latestNode.state.replaceAll("_", " ")}`}
+                  </small>
                   <strong>{regime.latestNode.title}</strong>
                   <p className={styles.summary}>{regime.latestNode.detail}</p>
                 </div>
