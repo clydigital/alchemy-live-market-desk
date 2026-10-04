@@ -121,8 +121,9 @@ test("P1.4 UI labels the historical boundary without claiming full case replay",
   assert.match(component, /HISTORICAL_STORY_REASONING_ONLY/);
   assert.match(component, /STORY REASONING ONLY/);
   assert.match(component, /historicalContextBoundary\.reason/);
-  assert.doesNotMatch(component, /HISTORICAL DOSSIER/);
-  assert.doesNotMatch(component, /FULL HISTORICAL CASE/);
+  assert.match(component, /HISTORICAL DOSSIER/);
+  assert.match(component, /HISTORICAL CASE/);
+  assert.match(component, /EXACT DOSSIER/);
 });
 
 test("P1.4 remains read-only and adds no persistence or reasoning path", () => {
@@ -138,4 +139,25 @@ test("P1.4 remains read-only and adds no persistence or reasoning path", () => {
   assert.doesNotMatch(combined, /persistMarketDossierV2/);
   assert.doesNotMatch(combined, /persistCanonicalStoryReasoning/);
   assert.doesNotMatch(combined, /runIntelligenceEngine|executeResearchBrain/);
+});
+
+
+test("P1.6 exact frozen Dossier identity upgrades Presenter to full historical case replay", () => {
+  const boundary = buildPresenterHistoricalContextBoundary({
+    editionSelectionStatus: "historical",
+    selectedEditionId: "edition-old",
+    currentEditionId: "edition-current",
+    dossierId: "99999999-9999-4999-8999-999999999999",
+    dossierAsOf: "2026-10-05T04:00:00.000Z",
+    exactHistoricalDossier: {
+      dossierId: "11111111-1111-4111-8111-111111111111",
+      dossierAsOf: "2026-10-05T02:00:00.000Z",
+    },
+  });
+  assert.equal(boundary.scope, "HISTORICAL_FULL_CASE");
+  assert.equal(boundary.historicalStoryReasoning, true);
+  assert.equal(boundary.historicalDossierReplayAvailable, true);
+  assert.equal(boundary.dossierSource, "FROZEN_EDITION_DOSSIER");
+  assert.equal(boundary.dossierId, "11111111-1111-4111-8111-111111111111");
+  assert.equal(boundary.dossierAsOf, "2026-10-05T02:00:00.000Z");
 });
