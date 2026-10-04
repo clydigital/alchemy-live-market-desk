@@ -129,14 +129,14 @@ function assessment(
   return {
     motion_id: "motion-1",
     decision,
+    canonical_reassessment_scope:
+      decision === "ACCEPT" || decision === "REFINE" ? "STORY" : "NONE",
     reason: "System 2 evaluated the Motion against canonical packet evidence.",
     evidence_references: [PACKET_EVIDENCE_ID],
     story_implication: decision === "ACCEPT" || decision === "REFINE"
       ? "The linked Story should incorporate the evidence-supported development."
       : null,
-    regime_implication: decision === "ACCEPT" || decision === "REFINE"
-      ? "The exact rate regime remains restrictive while the driver mix is reassessed."
-      : null,
+    regime_implication: null,
     investigation_next: decision === "UNRESOLVED"
       ? "Separate real yields, supply and term premium."
       : null,
@@ -264,6 +264,7 @@ test("B3c Regime ACCEPT: promotion stays Story-null while edition, Hybrid gate a
   const motion = activation({ primary_story_id: null });
   const record = motionRecord({ primary_story_id: null });
   const result = assessment("ACCEPT", {
+    canonical_reassessment_scope: "REGIME",
     story_implication: null,
     regime_implication: "Long-end pressure remains material to the exact rate regime.",
   });
