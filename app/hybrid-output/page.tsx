@@ -172,6 +172,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const selectedPresenterEdition = presenterEditionSelection.selected
     ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
     : null;
+  const presenterEditionStatus = presenterEditionSelection.status === "invalid_fallback_current"
+    ? "invalid_fallback_current" as const
+    : presenterEditionSelection.selected?.snapshotId
+      && presenterEditionSelection.selected.snapshotId !== presenterEditionSelection.current?.snapshotId
+        ? "historical" as const
+        : "current" as const;
   const presenterStorySources = presenterStorySourcesFromEditionPayload(selectedPresenterEdition?.payload);
   const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
     investigations: dossier.watchNext,
@@ -600,7 +606,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
               editionContext={{
                 selectedSnapshotId: presenterEditionSelection.selected?.snapshotId ?? null,
                 currentSnapshotId: presenterEditionSelection.current?.snapshotId ?? null,
-                status: presenterEditionSelection.status,
+                status: presenterEditionStatus,
                 options: presenterEditionOptions,
               }}
             />
