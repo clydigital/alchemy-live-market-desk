@@ -79,6 +79,7 @@ function ratesRegime(): ProjectedRegime {
     stories: [story],
     durableStories: [story],
     contextStories: [],
+    dossierContext: [],
     latestNode: {
       id: "news:nfp",
       title: "Weak payrolls reduce near-term Fed pressure",
