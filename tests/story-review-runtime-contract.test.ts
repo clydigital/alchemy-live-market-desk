@@ -146,3 +146,12 @@ test("Macro stale_error requires an explicit exhausted retry and source health i
   assert.match(macroPage, /Latest Macro source attempt degraded/);
   assert.match(macroPage, /prior COMPLETE snapshot remains canonical/);
 });
+
+
+test("C1.4b Story review runtime resolves Motion context only from exact queued Dossier and evidence IDs", () => {
+  assert.match(runtime, /parseDossierMotionRefreshReason/);
+  assert.match(runtime, /market_dossiers_v2\?select=id,payload&id=in\.\(/);
+  assert.match(runtime, /intelligence_evidence\?select=id,external_evidence_id&id=in\.\(/);
+  assert.match(runtime, /resolveDossierMotionStoryReviewContexts/);
+  assert.match(runtime, /motionReassessment: motionContextByQueueId\.get\(item\.id\) \?\? null/);
+});
