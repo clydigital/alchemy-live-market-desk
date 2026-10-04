@@ -359,8 +359,9 @@ function marketMotionCandidates(
       expiresAt: item.expires_at,
       nextTest: item.next_test,
       storyId: item.primary_story_id,
+      regimeSlug: item.primary_regime_slug,
     }, now);
-    if (!investigation.eligible || !investigation.nextTest || !investigation.storyId) return [];
+    if (!investigation.eligible || !investigation.nextTest) return [];
 
     const nextTest = investigation.nextTest;
     const attention = deriveMarketMotionAttention({
@@ -376,8 +377,12 @@ function marketMotionCandidates(
     });
     const action = `Investigate Motion: ${nextTest}`;
     const reason = clean(item.why_interesting) || clean(item.big_picture_bridge) || null;
-    const linkedStoryIds = [investigation.storyId];
-    const blockingRefs = [`MOTION:${item.id}`, `STORY:${investigation.storyId}`];
+    const linkedStoryIds = investigation.storyId ? [investigation.storyId] : [];
+    const blockingRefs = [
+      `MOTION:${item.id}`,
+      ...(investigation.storyId ? [`STORY:${investigation.storyId}`] : []),
+      ...(investigation.regimeSlug ? [`REGIME:${investigation.regimeSlug}`] : []),
+    ];
 
     return [{
       workId: workId(dossier.id, "market_motion", item.id),

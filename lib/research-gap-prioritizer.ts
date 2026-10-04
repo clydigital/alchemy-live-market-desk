@@ -106,6 +106,7 @@ function linkageScore(candidate: ResearchGapWorkCandidate) {
   if (candidate.linkedInvestigationIds.length > 0) score += 4;
   if (candidate.blockingRefs.includes("MAIN_THREAD")) score += 5;
   if (candidate.blockingRefs.includes("REGIME:CURRENT")) score += 5;
+  else if (candidate.blockingRefs.some((ref) => ref.startsWith("REGIME:") && ref.length > "REGIME:".length)) score += 4;
   return Math.min(score, 12);
 }
 
@@ -156,6 +157,7 @@ export function scoreResearchGapCandidate(candidate: ResearchGapWorkCandidate) {
   if (scoreBreakdown.investigationState >= 11) selectionReason.push("unresolved/divergent investigation");
   if (candidate.blockingRefs.includes("MAIN_THREAD")) selectionReason.push("blocks main thread");
   if (candidate.blockingRefs.includes("REGIME:CURRENT")) selectionReason.push("blocks current regime");
+  else if (candidate.blockingRefs.some((ref) => ref.startsWith("REGIME:") && ref.length > "REGIME:".length)) selectionReason.push("linked to exact Regime");
   if (candidate.linkedStoryIds.length > 0) selectionReason.push("linked to persistent Story");
   if (candidate.evidenceNeeded.length > 0) selectionReason.push("specific missing evidence identified");
   if (scoreBreakdown.motionAttention >= 16) selectionReason.push("Primary Market Motion with unresolved next test");

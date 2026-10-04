@@ -24,7 +24,7 @@ A Research Gap handoff is explicitly excluded from Market Motion ingestion, incl
 
 ## Stable identity
 
-Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`), a fresh promoted `market_motion`, or a Dossier-assessed `UNRESOLVED` Motion carrying a concrete `investigation_next`. An unresolved Motion does not need promotion to become research work because promotion would falsely imply analytical acceptance.
+Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`), a fresh promoted `market_motion` with an exact Story or Regime route, or a Dossier-assessed `UNRESOLVED` Motion carrying a concrete `investigation_next`. An unresolved Motion does not need promotion to become research work because promotion would falsely imply analytical acceptance.
 
 - `workId` — identifies the exact work item in one Dossier;
 - `gapKey` — identifies the durable research case across Dossiers.
@@ -78,7 +78,7 @@ If a stable case appears again:
 
 Older unresolved queued cases therefore remain claimable even when a later Dossier no longer emits the exact work card.
 
-For Motion-origin work, the occurrence keeps the exact immutable Motion row ID while the durable gap key uses the Motion key + research branch. The current canonical Dossier still anchors the case; Motion is frozen into the plan as `context_only`, never as a second analytical authority.
+For Motion-origin work, the occurrence keeps the exact immutable Motion row ID while the durable gap key uses the Motion key + research branch when available. Story-scoped Motion keeps its exact Story ID; regime-only Motion keeps the exact Regime route in blocking/audit refs while `linked_story_ids` remains empty. The current canonical Dossier still anchors the case; Motion is frozen into the plan as `context_only`, never as a second analytical authority.
 
 ## Claiming
 

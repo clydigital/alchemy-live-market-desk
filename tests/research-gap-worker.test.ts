@@ -124,7 +124,7 @@ test("worker reads research gaps, Research Now and unresolved investigations wit
   assert.equal(queue.diagnostics.excludedResolvedInvestigations, 1);
 });
 
-test("fresh promoted Motion opens one traceable research candidate without becoming a second authority", () => {
+test("fresh promoted Motion opens traceable Story or Regime research candidates without becoming a second authority", () => {
   const queue = buildResearchGapWorkQueue(
     dossier(),
     new Date("2026-10-01T01:00:00.000Z"),
@@ -133,19 +133,35 @@ test("fresh promoted Motion opens one traceable research candidate without becom
       motion({ id: "expired", motion_key: "expired", expires_at: "2026-10-01T00:59:00.000Z" }),
       motion({ id: "plain", motion_key: "plain", lifecycle_state: "MOTION", effective_state: "MOTION" }),
       motion({ id: "no-test", motion_key: "no-test", next_test: null }),
-      motion({ id: "no-story", motion_key: "no-story", primary_story_id: null }),
+      motion({ id: "regime-only", motion_key: "regime-only", primary_story_id: null }),
+      motion({ id: "unlinked", motion_key: "unlinked", primary_story_id: null, primary_regime_slug: null }),
     ],
   );
 
   const candidates = queue.candidates.filter((item) => item.sourceKind === "market_motion");
-  assert.equal(candidates.length, 1);
-  assert.equal(queue.sourceCounts.marketMotion, 1);
-  assert.equal(candidates[0]?.sourceRef, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
-  assert.equal(candidates[0]?.question, motion().next_test);
-  assert.deepEqual(candidates[0]?.linkedStoryIds, ["story:rates-duration-stress"]);
-  assert.ok(candidates[0]?.gapKey.startsWith("gap:motion:event:rates:term-premium:branch:"));
-  assert.equal(candidates[0]?.nativeSignals.motionAttentionTier, "PRIMARY");
-  assert.ok((candidates[0]?.nativeSignals.motionAttentionScore ?? 0) >= 82);
+  assert.equal(candidates.length, 2);
+  assert.equal(queue.sourceCounts.marketMotion, 2);
+
+  const storyScoped = candidates.find((item) => item.sourceRef === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  assert.ok(storyScoped);
+  assert.equal(storyScoped?.question, motion().next_test);
+  assert.deepEqual(storyScoped?.linkedStoryIds, ["story:rates-duration-stress"]);
+  assert.deepEqual(storyScoped?.blockingRefs, [
+    "MOTION:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "STORY:story:rates-duration-stress",
+    "REGIME:global-cost-of-capital",
+  ]);
+  assert.ok(storyScoped?.gapKey.startsWith("gap:motion:event:rates:term-premium:branch:"));
+  assert.equal(storyScoped?.nativeSignals.motionAttentionTier, "PRIMARY");
+  assert.ok((storyScoped?.nativeSignals.motionAttentionScore ?? 0) >= 82);
+
+  const regimeOnly = candidates.find((item) => item.sourceRef === "regime-only");
+  assert.ok(regimeOnly);
+  assert.deepEqual(regimeOnly?.linkedStoryIds, []);
+  assert.deepEqual(regimeOnly?.blockingRefs, [
+    "MOTION:regime-only",
+    "REGIME:global-cost-of-capital",
+  ]);
 });
 
 test("native urgency and linkage signals survive normalisation", () => {

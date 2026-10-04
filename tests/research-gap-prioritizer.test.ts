@@ -242,3 +242,72 @@ test("distinct Research Now actions sharing one investigation are not collapsed"
   assert.deepEqual(result.selected.map((item) => item.workId), ["rn-duration-1", "rn-duration-2"]);
   assert.equal(result.suppressed.length, 0);
 });
+
+
+test("regime-only Market Motion receives exact-route linkage credit without a synthetic Story", () => {
+  const scored = scoreResearchGapCandidate(candidate("regime-motion", "market_motion", {
+    linkedStoryIds: [],
+    blockingRefs: ["MOTION:motion-1", "REGIME:global-cost-of-capital"],
+    evidenceNeeded: ["Check auctions and global duration."],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: null,
+      motionAttentionTier: "PRIMARY",
+      motionAttentionScore: 90,
+      motionWritingPotential: "HIGH",
+    },
+  }));
+
+  assert.equal(scored.scoreBreakdown.linkage, 4);
+  assert.ok(scored.selectionReason.includes("linked to exact Regime"));
+  assert.ok(!scored.selectionReason.includes("linked to persistent Story"));
+});
+
+
+test("B3b.1 exact Regime routing receives linkage parity with exact Story routing", () => {
+  const storyScoped = candidate("story-motion", "market_motion", {
+    linkedStoryIds: ["story:rates"],
+    blockingRefs: ["MOTION:story-motion"],
+    evidenceNeeded: ["Check duration confirmation."],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: "UNRESOLVED",
+      motionAttentionTier: "PRIMARY",
+      motionAttentionScore: 88,
+      motionWritingPotential: "MEDIUM",
+    },
+  });
+  const regimeOnly = candidate("regime-motion", "market_motion", {
+    linkedStoryIds: [],
+    blockingRefs: ["MOTION:regime-motion", "REGIME:global-cost-of-capital"],
+    evidenceNeeded: ["Check duration confirmation."],
+    nativeSignals: {
+      severity: null,
+      gapClass: null,
+      expectedInformationGain: null,
+      researchNowRank: null,
+      investigationStatus: null,
+      divergence: "UNRESOLVED",
+      motionAttentionTier: "PRIMARY",
+      motionAttentionScore: 88,
+      motionWritingPotential: "MEDIUM",
+    },
+  });
+
+  const storyScore = scoreResearchGapCandidate(storyScoped);
+  const regimeScore = scoreResearchGapCandidate(regimeOnly);
+
+  assert.equal(storyScore.scoreBreakdown.linkage, 4);
+  assert.equal(regimeScore.scoreBreakdown.linkage, 4);
+  assert.equal(storyScore.priorityScore, regimeScore.priorityScore);
+  assert.ok(storyScore.selectionReason.includes("linked to persistent Story"));
+  assert.ok(regimeScore.selectionReason.includes("linked to exact Regime"));
+});

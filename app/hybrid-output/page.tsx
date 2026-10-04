@@ -160,6 +160,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       expiresAt: item.expiresAt,
       nextTest: item.nextTest,
       storyId: item.storyId,
+      regimeSlug: item.regimeSlug,
     });
     return {
       id: item.id,
@@ -301,8 +302,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                 <p><strong>Big-picture bridge:</strong> {focusedMotion.bigPictureBridge}</p>
                 <p><strong>Investigation next:</strong> {focusedMotion.nextTest || "No exact next test is persisted; this Motion stays context-only."}</p>
                 <p>
-                  <strong>Routing:</strong> Motion → exact accepted Story and/or Regime context. Story-linked Motion may enter Research Gap investigation when eligible; regime-only Motion remains context-only until a canonical Story or investigation owns the next test.
-                  Dossier/regime state changes only through their canonical reasoning paths.
+                  <strong>Routing:</strong> Motion → exact accepted Story and/or Regime context. Story-scoped and regime-only promoted Motion may enter Research Gap when they carry a concrete next test and clear the same freshness/verification gate.
+                  Research remains operational context; Dossier/Regime state changes only through their canonical reasoning paths.
                 </p>
                 <p>
                   {focusedMotion.storyHref && focusedMotion.storyTitle ? (
