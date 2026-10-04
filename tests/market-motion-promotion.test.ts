@@ -77,10 +77,15 @@ function assessment(
   return {
     motion_id: "motion-1",
     decision,
+    canonical_reassessment_scope:
+      decision === "ACCEPT" || decision === "REFINE" ? "STORY" : "NONE",
     reason: "Canonical Dossier evidence supports the Motion as current analytical context.",
     evidence_references: ["research-intake:evidence-1"],
-    story_implication: "The linked Story should carry this accepted short-horizon development.",
-    regime_implication: "The development reinforces the current regime interpretation.",
+    story_implication:
+      decision === "ACCEPT" || decision === "REFINE"
+        ? "The linked Story should carry this accepted short-horizon development."
+        : null,
+    regime_implication: null,
     investigation_next: null,
     refined_headline: decision === "REFINE" ? "HBM demand remains firm while the causal driver is narrowed" : null,
     refined_why_interesting: decision === "REFINE" ? "The supported development remains material, but the original causal framing was too broad." : null,
@@ -108,12 +113,17 @@ test("B2 promotion authority admits ACCEPT and corrected REFINE without Story-fi
     assessment("ACCEPT", { motion_id: "no-story" }),
     assessment("ACCEPT", { motion_id: "expired" }),
     assessment("ACCEPT", { motion_id: "weak" }),
-    assessment("ACCEPT", { motion_id: "regime-only", story_implication: null }),
+    assessment("ACCEPT", {
+      motion_id: "regime-only",
+      canonical_reassessment_scope: "REGIME",
+      story_implication: null,
+      regime_implication: "The development reinforces the current regime interpretation.",
+    }),
   ];
 
   const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
 
-  assert.deepEqual(selected.map((item) => item.id), ["accepted", "refined", "no-story", "regime-only"]);
+  assert.deepEqual(selected.map((item) => item.id), ["accepted", "refined", "regime-only"]);
 });
 
 test("B2 Story-scoped promoted version records Dossier acceptance as the authority", () => {
@@ -138,10 +148,29 @@ test("B2 Story-scoped promoted version records Dossier acceptance as the authori
   );
 });
 
+test("C1.3b STORY_AND_REGIME promotion preserves both exact canonical routes", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment("ACCEPT", {
+      canonical_reassessment_scope: "STORY_AND_REGIME",
+      regime_implication: "The broader AI regime also requires reassessment.",
+    }),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.primaryStoryId, "story-1");
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.metadata?.promotionScope, "STORY_AND_REGIME");
+});
+
 test("B2 regime-only ACCEPT promotes without inventing a Story conclusion", () => {
   const input = marketMotionDossierPromotionInput(
     record(),
-    assessment("ACCEPT", { story_implication: null }),
+    assessment("ACCEPT", {
+      canonical_reassessment_scope: "REGIME",
+      story_implication: null,
+      regime_implication: "The development reinforces the current regime interpretation.",
+    }),
     { dossierId: "dossier-123" },
   );
 
