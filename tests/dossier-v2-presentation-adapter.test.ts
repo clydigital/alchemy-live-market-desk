@@ -962,3 +962,85 @@ test("B2 presentation exposes immutable Dossier Motion decisions without a mutab
   assert.match(result.motionAttention[0].whyInteresting, /without establishing a Story conclusion/);
   assert.deepEqual(result.motionAttention[0].evidenceRefs, ["ev-us10y"]);
 });
+
+
+test("C1.3b presentation preserves explicit STORY_AND_REGIME scope", () => {
+  const analytical = output({
+    motion_attention_assessments: [{
+      motion_id: "motion-both",
+      decision: "ACCEPT",
+      canonical_reassessment_scope: "STORY_AND_REGIME",
+      reason: "Both exact canonical surfaces independently require reassessment.",
+      evidence_references: ["ev-both"],
+      story_implication: "Reassess the exact linked Story.",
+      regime_implication: "Reassess the exact linked Regime.",
+      investigation_next: null,
+      refined_headline: null,
+      refined_why_interesting: null,
+      refined_big_picture_bridge: null,
+    }],
+  });
+  const current = dossier("motion-both-dossier", analytical);
+  current.payload.motion_attention_snapshot = [{
+    motion_id: "motion-both",
+    headline: "Shared Motion",
+    what_happened: "A supported development changed both the Story and Regime read.",
+    market_reaction: null,
+    why_interesting: "Tests both canonical surfaces.",
+    big_picture_bridge: "Evidence -> Story + Regime.",
+    next_test: null,
+    primary_story_id: "story:rates",
+    primary_regime_slug: "global-cost-of-capital",
+    packet_evidence_id: "ev-both",
+    verification_state: "VERIFIED",
+    materiality: 95,
+    relevance: 95,
+    novelty: 85,
+  }];
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.equal(result.motionAttention[0]?.scope, "STORY_AND_REGIME");
+  assert.equal(result.motionAttention[0]?.storyId, "story:rates");
+  assert.equal(result.motionAttention[0]?.regimeSlug, "global-cost-of-capital");
+});
+
+test("C1.3b malformed explicit scope fails closed instead of falling back to prose inference", () => {
+  const analytical = output({
+    motion_attention_assessments: [{
+      motion_id: "motion-malformed",
+      decision: "ACCEPT",
+      canonical_reassessment_scope: "STORY",
+      reason: "Malformed persisted assessment for fail-closed presentation testing.",
+      evidence_references: ["ev-malformed"],
+      story_implication: null,
+      regime_implication: "Leftover Regime prose must not override explicit STORY scope.",
+      investigation_next: null,
+      refined_headline: null,
+      refined_why_interesting: null,
+      refined_big_picture_bridge: null,
+    }],
+  });
+  const current = dossier("motion-malformed-dossier", analytical);
+  current.payload.motion_attention_snapshot = [{
+    motion_id: "motion-malformed",
+    headline: "Malformed Motion",
+    what_happened: "A development occurred.",
+    market_reaction: null,
+    why_interesting: "Tests fail-closed rendering.",
+    big_picture_bridge: "Evidence -> route.",
+    next_test: null,
+    primary_story_id: null,
+    primary_regime_slug: "global-cost-of-capital",
+    packet_evidence_id: "ev-malformed",
+    verification_state: "VERIFIED",
+    materiality: 90,
+    relevance: 90,
+    novelty: 80,
+  }];
+
+  const result = buildDossierV2Presentation(current);
+
+  assert.equal(result.motionAttention[0]?.scope, "UNROUTED");
+  assert.equal(result.motionAttention[0]?.storyId, null);
+});
