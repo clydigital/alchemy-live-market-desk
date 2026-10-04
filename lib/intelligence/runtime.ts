@@ -2492,7 +2492,14 @@ async function persistCanonicalStoryManifest({
       ? candidateReasoning as CanonicalStoryReasoningV1
       : null;
     return {
-      manifest: { position: index + 1, snapshotId: snapshot.id, storyId: story.id, thesisVersionId, state },
+      manifest: {
+        position: index + 1,
+        snapshotId: snapshot.id,
+        storyId: story.id,
+        thesisVersionId,
+        state,
+        reasoning,
+      },
       journeySource: reasoning && thesisVersionId ? {
         position: index + 1,
         publicationSnapshotId: snapshot.id,
