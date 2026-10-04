@@ -922,6 +922,7 @@ test("B2 presentation exposes immutable Dossier Motion decisions without a mutab
     motion_attention_assessments: [{
       motion_id: "motion-regime",
       decision: "REFINE",
+      canonical_reassessment_scope: "REGIME",
       reason: "The event is supported but the original Story-level framing was too broad.",
       evidence_references: ["ev-us10y"],
       story_implication: null,
