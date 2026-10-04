@@ -86,6 +86,20 @@ function rehashPacket(
     next.motion_context = context;
   }
 
+  if (
+    Buffer.byteLength(toCanonicalJson(next), "utf8") > MAX_DOSSIER_PACKET_BYTES
+    && diagnosticNote
+  ) {
+    next.diagnostics = {
+      ...next.diagnostics,
+      notes: [...packet.diagnostics.notes],
+    };
+  }
+
+  if (Buffer.byteLength(toCanonicalJson(next), "utf8") > MAX_DOSSIER_PACKET_BYTES) {
+    delete next.motion_context;
+  }
+
   const { packet_id: _packetId, ...withoutId } = next;
   const packetId = createHash("sha256")
     .update(toCanonicalJson(withoutId), "utf8")
