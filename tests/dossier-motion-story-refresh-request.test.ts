@@ -42,14 +42,14 @@ function assessment(
   return {
     motion_id: id,
     decision,
+    canonical_reassessment_scope:
+      decision === "ACCEPT" || decision === "REFINE" ? "STORY" : "NONE",
     reason: "System 2 assessed the Motion against exact canonical packet evidence.",
     evidence_references: [`ev:${id}`],
     story_implication: decision === "ACCEPT" || decision === "REFINE"
       ? "Reassess the exact linked Story using this evidence-supported development."
       : null,
-    regime_implication: decision === "ACCEPT" || decision === "REFINE"
-      ? "Keep the exact Regime implication under review."
-      : null,
+    regime_implication: null,
     investigation_next: null,
     refined_headline: decision === "REFINE" ? "Corrected evidence-bounded Motion" : null,
     refined_why_interesting: decision === "REFINE" ? "The narrower framing survives the evidence test." : null,
@@ -81,8 +81,39 @@ test("C1.1 regime-only ACCEPT does not manufacture a Story refresh request", () 
     dossierId: "dossier-1",
     motionAttention: [motion("motion-regime", { primary_story_id: null })],
     assessments: [assessment("motion-regime", "ACCEPT", {
+      canonical_reassessment_scope: "REGIME",
       story_implication: null,
       regime_implication: "Reassess only the exact Regime.",
+    })],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("C1.3b STORY_AND_REGIME emits a Story request because Story reassessment is explicitly in scope", () => {
+  const result = buildDossierMotionStoryRefreshRequests({
+    dossierId: "dossier-1",
+    motionAttention: [motion("motion-both")],
+    assessments: [assessment("motion-both", "ACCEPT", {
+      canonical_reassessment_scope: "STORY_AND_REGIME",
+      regime_implication: "The exact Regime also requires reassessment.",
+    })],
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.canonical_reassessment_scope, "STORY_AND_REGIME");
+  assert.equal(result[0]?.story_id, "story-rates");
+  assert.equal(result[0]?.regime_implication, "The exact Regime also requires reassessment.");
+});
+
+test("C1.3b Story refresh fails closed when prose implies Story but explicit scope does not", () => {
+  const result = buildDossierMotionStoryRefreshRequests({
+    dossierId: "dossier-1",
+    motionAttention: [motion("motion-regime")],
+    assessments: [assessment("motion-regime", "ACCEPT", {
+      canonical_reassessment_scope: "REGIME",
+      story_implication: "Stale Story prose must not override the explicit scope.",
+      regime_implication: "Only the Regime is in scope.",
     })],
   });
 
