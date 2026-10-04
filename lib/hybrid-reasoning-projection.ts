@@ -1,7 +1,7 @@
-import type { Story } from "@/lib/data";
-import type { DossierPresentationV1 } from "@/lib/dossier-v2/presentation-adapter";
-import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
-import { routeStoryToRegimes } from "@/lib/regimes";
+import type { Story } from "./data.ts";
+import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts";
+import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
+import { routeStoryToRegimes } from "./regimes.ts";
 
 export const HYBRID_REASONING_PROJECTION_V1 = "hybrid-reasoning-projection/1" as const;
 
