@@ -69,7 +69,7 @@ export type StoryReviewTargetPackItem = {
       catalystRef: string | null;
       evidenceNature?: "scheduled_event";
     }>;
-    motionReassessment?: StoryReviewMotionContext;
+    motionReassessments?: StoryReviewMotionContext[];
   };
 };
 
