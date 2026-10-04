@@ -463,6 +463,12 @@ export function validateResearchBrainOutput(
       }
     }
 
+    const scope = assessment.canonical_reassessment_scope;
+    const validScope = ["NONE", "STORY", "REGIME", "STORY_AND_REGIME"].includes(String(scope));
+    if (!validScope) {
+      errors.push(`motion_attention_assessments[${index}] requires canonical_reassessment_scope NONE, STORY, REGIME or STORY_AND_REGIME.`);
+    }
+
     const storyImplication = typeof assessment.story_implication === "string"
       ? assessment.story_implication.trim()
       : null;
@@ -488,9 +494,40 @@ export function validateResearchBrainOutput(
     if (regimeImplication && !expected.primary_regime_slug) {
       errors.push(`motion_attention_assessments[${index}] cannot emit a Regime implication without an exact primary_regime_slug on the Motion.`);
     }
-    if ((decision === "ACCEPT" || decision === "REFINE") && !storyImplication && !regimeImplication) {
-      errors.push(`motion_attention_assessments[${index}] ${String(decision)} requires a Story or Regime implication.`);
+
+    if (decision === "ACCEPT" || decision === "REFINE") {
+      if (scope === "NONE") {
+        errors.push(`motion_attention_assessments[${index}] ${String(decision)} cannot use canonical_reassessment_scope NONE.`);
+      } else if (scope === "STORY") {
+        if (!storyImplication || !expected.primary_story_id) {
+          errors.push(`motion_attention_assessments[${index}] STORY scope requires an exact Story route and Story implication.`);
+        }
+        if (regimeImplication) {
+          errors.push(`motion_attention_assessments[${index}] STORY scope must not emit a Regime implication.`);
+        }
+      } else if (scope === "REGIME") {
+        if (!regimeImplication || !expected.primary_regime_slug) {
+          errors.push(`motion_attention_assessments[${index}] REGIME scope requires an exact Regime route and Regime implication.`);
+        }
+        if (storyImplication) {
+          errors.push(`motion_attention_assessments[${index}] REGIME scope must not emit a Story implication.`);
+        }
+      } else if (scope === "STORY_AND_REGIME") {
+        if (!storyImplication || !expected.primary_story_id || !regimeImplication || !expected.primary_regime_slug) {
+          errors.push(`motion_attention_assessments[${index}] STORY_AND_REGIME scope requires exact Story and Regime routes plus both implications.`);
+        }
+      }
     }
+
+    if (decision === "UNRESOLVED" || decision === "REJECT") {
+      if (scope !== "NONE") {
+        errors.push(`motion_attention_assessments[${index}] ${String(decision)} must use canonical_reassessment_scope NONE.`);
+      }
+      if (storyImplication || regimeImplication) {
+        errors.push(`motion_attention_assessments[${index}] ${String(decision)} must not emit canonical Story or Regime implications.`);
+      }
+    }
+
     if (decision === "REFINE" && (!refinedHeadline || !refinedWhyInteresting || !refinedBigPictureBridge)) {
       errors.push(`motion_attention_assessments[${index}] REFINE requires corrected headline, why-interesting and big-picture bridge wording.`);
     }

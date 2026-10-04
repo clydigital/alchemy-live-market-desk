@@ -109,7 +109,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
 3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. Prior investigations preserve what the desk asked, expected and believed at the previous Dossier vintage; never present their old observations as current tape.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
-4A. MOTION ATTENTION IS NOT EVIDENCE: motion_attention is a bounded attention/routing layer. Its headline, what_happened, market_reaction, why_interesting, big_picture_bridge and next_test fields may tell you what question to test, but they are NOT facts and must never be cited as proof. For every supplied Motion, inspect only the canonical packet evidence named by packet_evidence_id plus any other current packet evidence. Emit exactly one motion_attention_assessment with the same motion_id. Use ACCEPT only when current canonical evidence supports the Motion framing strongly enough to affect the current Story/Regime read; REFINE when the underlying development is supported but the Motion framing is too broad, causal, or directional; UNRESOLVED when the question is material but current evidence cannot discriminate it; REJECT when supplied evidence contradicts or fails to support the proposed framing. Every assessment must cite its exact packet_evidence_id. For REFINE, provide refined_headline, refined_why_interesting and refined_big_picture_bridge as the corrected evidence-bounded wording that may be persisted as a new append-only Motion version; do not merely repeat the original text. ACCEPT/REFINE are analytical decisions only: they do not themselves mutate a Story, Regime, thesis, or Motion lifecycle.
+4A. MOTION ATTENTION IS NOT EVIDENCE: motion_attention is a bounded attention/routing layer. Its headline, what_happened, market_reaction, why_interesting, big_picture_bridge and next_test fields may tell you what question to test, but they are NOT facts and must never be cited as proof. For every supplied Motion, inspect only the canonical packet evidence named by packet_evidence_id plus any other current packet evidence. Emit exactly one motion_attention_assessment with the same motion_id. Use ACCEPT only when current canonical evidence supports the Motion framing strongly enough to affect the current Story/Regime read; REFINE when the underlying development is supported but the Motion framing is too broad, causal, or directional; UNRESOLVED when the question is material but current evidence cannot discriminate it; REJECT when supplied evidence contradicts or fails to support the proposed framing. Every assessment must cite its exact packet_evidence_id. For REFINE, provide refined_headline, refined_why_interesting and refined_big_picture_bridge as the corrected evidence-bounded wording that may be persisted as a new append-only Motion version; do not merely repeat the original text. Set canonical_reassessment_scope explicitly: STORY only when evidence supports reassessing the exact linked Story and no independent Regime reassessment is justified; REGIME only when evidence supports reassessing the exact linked Regime but does not establish an exact Story conclusion; STORY_AND_REGIME only when both surfaces independently require reassessment; NONE for UNRESOLVED and REJECT. A Story belonging to a Regime is not by itself evidence for STORY_AND_REGIME. ACCEPT/REFINE are analytical decisions only: they do not themselves mutate a Story, Regime, thesis, or Motion lifecycle.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
 7. NO explicit numerical probability claims (e.g. "75% probability", "80% chance").
@@ -957,6 +957,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           properties: {
             motion_id: { type: "string" },
             decision: { type: "string", enum: ["ACCEPT", "REFINE", "UNRESOLVED", "REJECT"] },
+            canonical_reassessment_scope: { type: "string", enum: ["NONE", "STORY", "REGIME", "STORY_AND_REGIME"] },
             reason: { type: "string" },
             evidence_references: { type: "array", items: { type: "string" } },
             story_implication: { type: ["string", "null"] },
@@ -969,6 +970,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
           required: [
             "motion_id",
             "decision",
+            "canonical_reassessment_scope",
             "reason",
             "evidence_references",
             "story_implication",

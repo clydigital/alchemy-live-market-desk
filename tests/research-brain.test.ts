@@ -1623,6 +1623,7 @@ test("Motion attention assessment must cite exact canonical evidence and cover e
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "REFINE",
+    canonical_reassessment_scope: "STORY",
     reason: "The underlying development is observed, but the broader causal framing remains too strong.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "Narrow the rates explanation to the evidence-supported channel.",
@@ -1662,6 +1663,7 @@ test("executeResearchBrain passes Motion attention to System 2 and persists its 
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "ACCEPT",
+    canonical_reassessment_scope: "STORY_AND_REGIME",
     reason: "Current canonical evidence supports using the Motion as a live analytical prompt.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "The current Story should explicitly test the broader duration-pressure channel.",
@@ -1697,6 +1699,7 @@ test("degraded Research Brain leaves Motion attention unresolved rather than acc
   const degraded = produceDegradedOutput(packet, "forced failure", false, motionAttention);
 
   assert.equal(degraded.motion_attention_assessments?.[0]?.decision, "UNRESOLVED");
+  assert.equal(degraded.motion_attention_assessments?.[0]?.canonical_reassessment_scope, "NONE");
   assert.deepEqual(
     degraded.motion_attention_assessments?.[0]?.evidence_references,
     [motionAttention[0].packet_evidence_id],
@@ -1714,6 +1717,7 @@ test("B2 Motion assessment cannot invent a Story or Regime route absent from Mot
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "ACCEPT",
+    canonical_reassessment_scope: "STORY",
     reason: "The development matters, but the Motion has no exact Story identity.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "Invented Story implication should fail.",
@@ -1730,6 +1734,83 @@ test("B2 Motion assessment cannot invent a Story or Regime route absent from Mot
 
   output.motion_attention_assessments[0].story_implication = null;
   output.motion_attention_assessments[0].regime_implication = "Exact rate-regime implication is allowed.";
+  output.motion_attention_assessments[0].canonical_reassessment_scope = "REGIME";
   const regimeValidation = validateResearchBrainOutput(output, packet, motionAttention);
   assert.equal(regimeValidation.isValid, true, regimeValidation.errors.join("\n"));
+});
+
+
+test("C1.3a System 2 must explicitly choose the narrowest Motion canonical reassessment scope", () => {
+  const packet = createValidBasePacket();
+  const motionAttention = motionAttentionFixture(packet);
+
+  function assessment(
+    scope: "NONE" | "STORY" | "REGIME" | "STORY_AND_REGIME",
+    decision: "ACCEPT" | "REFINE" | "UNRESOLVED" | "REJECT" = "ACCEPT",
+  ) {
+    return {
+      motion_id: motionAttention[0].motion_id,
+      decision,
+      canonical_reassessment_scope: scope,
+      reason: "Scope is selected from the evidence-supported canonical surface.",
+      evidence_references: [motionAttention[0].packet_evidence_id],
+      story_implication: scope === "STORY" || scope === "STORY_AND_REGIME"
+        ? "Reassess the exact linked Story."
+        : null,
+      regime_implication: scope === "REGIME" || scope === "STORY_AND_REGIME"
+        ? "Reassess the exact linked Regime."
+        : null,
+      investigation_next: decision === "UNRESOLVED" ? "Run the next discriminator." : null,
+      refined_headline: decision === "REFINE" ? "Corrected Motion framing" : null,
+      refined_why_interesting: decision === "REFINE" ? "The narrower implication survives." : null,
+      refined_big_picture_bridge: decision === "REFINE" ? "Evidence -> corrected implication." : null,
+    };
+  }
+
+  for (const scope of ["STORY", "REGIME", "STORY_AND_REGIME"] as const) {
+    const output = createValidOutput(packet);
+    output.motion_attention_assessments = [assessment(scope)];
+    const validation = validateResearchBrainOutput(output, packet, motionAttention);
+    assert.equal(validation.isValid, true, `${scope}: ${validation.errors.join("\n")}`);
+  }
+
+  const storyOverreach = createValidOutput(packet);
+  storyOverreach.motion_attention_assessments = [assessment("STORY")];
+  storyOverreach.motion_attention_assessments[0].regime_implication = "Over-broad Regime implication.";
+  const storyOverreachValidation = validateResearchBrainOutput(storyOverreach, packet, motionAttention);
+  assert.equal(storyOverreachValidation.isValid, false);
+  assert.ok(storyOverreachValidation.errors.some((error) => /STORY scope must not emit a Regime implication/i.test(error)));
+
+  const regimeOverreach = createValidOutput(packet);
+  regimeOverreach.motion_attention_assessments = [assessment("REGIME")];
+  regimeOverreach.motion_attention_assessments[0].story_implication = "Over-broad Story implication.";
+  const regimeOverreachValidation = validateResearchBrainOutput(regimeOverreach, packet, motionAttention);
+  assert.equal(regimeOverreachValidation.isValid, false);
+  assert.ok(regimeOverreachValidation.errors.some((error) => /REGIME scope must not emit a Story implication/i.test(error)));
+
+  const unresolved = createValidOutput(packet);
+  unresolved.motion_attention_assessments = [assessment("NONE", "UNRESOLVED")];
+  const unresolvedValidation = validateResearchBrainOutput(unresolved, packet, motionAttention);
+  assert.equal(unresolvedValidation.isValid, true, unresolvedValidation.errors.join("\n"));
+
+  unresolved.motion_attention_assessments[0].canonical_reassessment_scope = "STORY";
+  const unresolvedOverreach = validateResearchBrainOutput(unresolved, packet, motionAttention);
+  assert.equal(unresolvedOverreach.isValid, false);
+  assert.ok(unresolvedOverreach.errors.some((error) => /UNRESOLVED must use canonical_reassessment_scope NONE/i.test(error)));
+});
+
+test("C1.3a prompt and strict schema force an explicit canonical reassessment routing decision", () => {
+  const packet = createValidBasePacket();
+  const prompt = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+    motion_attention: motionAttentionFixture(packet),
+  });
+  const schema = JSON.stringify(getResearchBrainJsonSchema());
+
+  assert.match(prompt.instructions, /canonical_reassessment_scope explicitly/);
+  assert.match(prompt.instructions, /A Story belonging to a Regime is not by itself evidence for STORY_AND_REGIME/);
+  assert.match(schema, /canonical_reassessment_scope/);
+  assert.match(schema, /STORY_AND_REGIME/);
 });

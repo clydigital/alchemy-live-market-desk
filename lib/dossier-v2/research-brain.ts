@@ -576,6 +576,7 @@ export function produceDegradedOutput(
     motion_attention_assessments: motionAttention.map((item) => ({
       motion_id: item.motion_id,
       decision: "UNRESOLVED",
+      canonical_reassessment_scope: "NONE",
       reason: "Research Brain is degraded, so Motion framing cannot be accepted or rejected safely.",
       evidence_references: [item.packet_evidence_id],
       story_implication: null,

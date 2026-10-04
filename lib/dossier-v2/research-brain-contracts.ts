@@ -28,6 +28,7 @@ export type ThesisStateV2 = "confirmed" | "weakened" | "invalidated" | "unresolv
 export type InvestigationStatus = "open" | "strengthened" | "weakened" | "resolved" | "parked";
 export type InvestigationDivergence = "NONE" | "PARTIAL" | "MATERIAL" | "UNRESOLVED";
 export type MotionAttentionDecision = "ACCEPT" | "REFINE" | "UNRESOLVED" | "REJECT";
+export type MotionCanonicalReassessmentScope = "NONE" | "STORY" | "REGIME" | "STORY_AND_REGIME";
 
 export interface ResearchBrainMotionAttention {
   motion_id: string;
@@ -49,6 +50,12 @@ export interface ResearchBrainMotionAttention {
 export interface ResearchBrainMotionAssessment {
   motion_id: string;
   decision: MotionAttentionDecision;
+  /**
+   * Explicit System-2 routing decision. New Motion assessments must state the
+   * narrowest canonical reassessment surface supported by evidence.
+   * Optional only for backwards compatibility with immutable old Dossiers.
+   */
+  canonical_reassessment_scope?: MotionCanonicalReassessmentScope;
   reason: string;
   evidence_references: string[];
   story_implication: string | null;
