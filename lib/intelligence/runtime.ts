@@ -86,7 +86,7 @@ import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intellig
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, motionReassessmentEvidenceComplete, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import {
   parseDossierMotionRefreshReason,
   resolveDossierMotionStoryReviewContexts,
@@ -1286,7 +1286,11 @@ async function loadOrCreateStoryReviewTargets(
   return persisted;
 }
 
-async function markStoryReviewRetryable(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
+async function markStoryReviewRetryable(
+  engineRunId: string,
+  targets: StoryReviewTargetPackItem[],
+  lastError = "The Market Belief response omitted or duplicated the required Story assessment.",
+) {
   const queueIds = unique(targets.flatMap((target) => target.queueIds));
   if (!queueIds.length) return;
   await intelligenceRest("intelligence_reevaluation_queue?id=in.(" + queueIds.join(",") + ")&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId), {
@@ -1295,7 +1299,7 @@ async function markStoryReviewRetryable(engineRunId: string, targets: StoryRevie
     body: JSON.stringify({
       status: "retryable",
       available_at: new Date(Date.now() + 15 * 60 * 1_000).toISOString(),
-      last_error: "The Market Belief response omitted or duplicated the required Story assessment.",
+      last_error: lastError,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -1359,6 +1363,22 @@ async function persistStoryAssessments(input: {
     const matches = grouped.get(target.story.id) ?? [];
     if (matches.length !== 1) continue;
     const assessment = matches[0];
+    if (!motionReassessmentEvidenceComplete(assessment.evidenceIds, target)) {
+      await markStoryReviewRetryable(
+        input.engineRunId,
+        [target],
+        "The Market Belief Story assessment did not cite every exact canonical Motion-trigger evidence record.",
+      );
+      console.warn(JSON.stringify({
+        event: "motion_story_review_evidence_incomplete",
+        engineRunId: input.engineRunId,
+        storyId: target.story.id,
+        queueIds: target.queueIds,
+        requiredEvidenceIds: (target.reviewContext?.motionReassessments ?? []).map((item) => item.canonicalEvidenceId),
+        citedEvidenceIds: assessment.evidenceIds,
+      }));
+      continue;
+    }
     const allowedEvidence = new Map(target.relevantEvidence.map((item) => [item.id, item]));
     const evidenceIds = unique(assessment.evidenceIds.filter((id) => allowedEvidence.has(id)));
     const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
