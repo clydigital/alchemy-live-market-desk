@@ -20,6 +20,9 @@ export type DossierReevaluationPropagationRouteKind =
 export type DossierReevaluationPropagationItem = {
   motion_id: string;
   decision: Extract<MotionSynthesisDecision, "ACCEPT" | "REFINE">;
+  /** Exact evidence reference emitted by A2 and present in the Dossier packet. */
+  canonical_evidence_ref: string;
+  /** Internal intelligence_evidence.id UUID used by the durable Story queue FK. */
   canonical_evidence_id: string;
   target_story_id: string;
   target_story_slug: string;
@@ -56,6 +59,8 @@ type PlannerInput = {
   stories: DossierPropagationStoryRow[];
   regimeLinks: DossierPropagationRegimeLinkRow[];
   queueableEvidenceIds: ReadonlySet<string>;
+  queueEvidenceIdByCanonicalRef?: ReadonlyMap<string, string>;
+  evidenceIdentityWarnings?: string[];
 };
 
 type RankedItem = DossierReevaluationPropagationItem & {
@@ -111,15 +116,23 @@ function canonicalPacketEvidenceIds(packet: DossierV2InputPacket) {
   ]);
 }
 
-function firstQueueableEvidenceRef(
+function firstQueueableEvidenceIdentity(
   refs: string[],
   packetEvidenceIds: ReadonlySet<string>,
   queueableEvidenceIds: ReadonlySet<string>,
+  queueEvidenceIdByCanonicalRef?: ReadonlyMap<string, string>,
 ) {
-  return refs.find((ref) =>
-    isValidUuid(ref)
-    && packetEvidenceIds.has(ref)
-    && queueableEvidenceIds.has(ref)) ?? null;
+  for (const ref of refs) {
+    if (!packetEvidenceIds.has(ref)) continue;
+    const mapped = queueEvidenceIdByCanonicalRef?.get(ref);
+    if (mapped && isValidUuid(mapped) && queueableEvidenceIds.has(mapped)) {
+      return { ref, id: mapped };
+    }
+    if (isValidUuid(ref) && queueableEvidenceIds.has(ref)) {
+      return { ref, id: ref };
+    }
+  }
+  return null;
 }
 
 function validStory(
@@ -151,6 +164,7 @@ function addCandidate(
   input: {
     motionId: string;
     decision: Extract<MotionSynthesisDecision, "ACCEPT" | "REFINE">;
+    evidenceRef: string;
     evidenceId: string;
     story: DossierPropagationStoryRow;
     regimeSlug: string | null;
@@ -164,6 +178,7 @@ function addCandidate(
   candidates.push({
     motion_id: input.motionId,
     decision: input.decision,
+    canonical_evidence_ref: input.evidenceRef,
     canonical_evidence_id: input.evidenceId,
     target_story_id: input.story.id,
     target_story_slug: input.story.slug,
@@ -186,7 +201,7 @@ export function buildDossierReevaluationPropagationPlan(
   const motionById = new Map(motionItems.map((item) => [item.motion_id, item]));
   const storyById = new Map(input.stories.map((story) => [story.id, story]));
   const packetEvidenceIds = canonicalPacketEvidenceIds(input.packet);
-  const warnings: string[] = [];
+  const warnings: string[] = [...(input.evidenceIdentityWarnings ?? [])];
   const candidates: RankedItem[] = [];
   const decisions = input.analyticalOutput.motion_acceptance?.decisions ?? [];
 
@@ -202,12 +217,13 @@ export function buildDossierReevaluationPropagationPlan(
       continue;
     }
 
-    const evidenceId = firstQueueableEvidenceRef(
+    const evidenceIdentity = firstQueueableEvidenceIdentity(
       acceptance.canonical_evidence_refs,
       packetEvidenceIds,
       input.queueableEvidenceIds,
+      input.queueEvidenceIdByCanonicalRef,
     );
-    if (!evidenceId) {
+    if (!evidenceIdentity) {
       warnings.push(
         `Motion ${acceptance.motion_id} ${acceptance.decision} has no queueable canonical evidence UUID in intelligence_evidence; propagation skipped.`,
       );
@@ -232,7 +248,8 @@ export function buildDossierReevaluationPropagationPlan(
         addCandidate(candidates, {
           motionId: acceptance.motion_id,
           decision,
-          evidenceId,
+          evidenceRef: evidenceIdentity.ref,
+          evidenceId: evidenceIdentity.id,
           story,
           regimeSlug: null,
           routeKind: "explicit_story",
@@ -250,7 +267,8 @@ export function buildDossierReevaluationPropagationPlan(
         addCandidate(candidates, {
           motionId: acceptance.motion_id,
           decision,
-          evidenceId,
+          evidenceRef: evidenceIdentity.ref,
+          evidenceId: evidenceIdentity.id,
           story,
           regimeSlug: null,
           routeKind: "motion_primary_story",
@@ -293,7 +311,8 @@ export function buildDossierReevaluationPropagationPlan(
         addCandidate(candidates, {
           motionId: acceptance.motion_id,
           decision,
-          evidenceId,
+          evidenceRef: evidenceIdentity.ref,
+          evidenceId: evidenceIdentity.id,
           story,
           regimeSlug,
           routeKind: coreRoute ? "regime_core" : "regime_bridge",
@@ -374,15 +393,59 @@ type RegimeStoryLinkDbRow = {
   effective_to?: string | null;
 };
 
-function candidateCanonicalEvidenceUuids(
+function candidateCanonicalEvidenceRefs(
   analyticalOutput: ResearchBrainOutputV1,
 ) {
   return [...new Set(
     (analyticalOutput.motion_acceptance?.decisions ?? [])
       .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
       .flatMap((item) => item.canonical_evidence_refs)
-      .filter(isValidUuid),
+      .filter((ref) => typeof ref === "string" && Boolean(ref.trim()))
+      .map((ref) => ref.trim()),
   )];
+}
+
+type CanonicalEvidenceIdentityRow = {
+  id: string;
+  external_evidence_id: string | null;
+};
+
+function fallbackEvidenceRowId(ref: string) {
+  if (!ref.startsWith("ev:")) return null;
+  const candidate = ref.slice(3);
+  return isValidUuid(candidate) ? candidate : null;
+}
+
+function resolveCanonicalEvidenceIdentities(
+  refs: string[],
+  rows: CanonicalEvidenceIdentityRow[],
+) {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const identity = new Map<string, string>();
+  const warnings: string[] = [];
+
+  for (const ref of refs) {
+    const candidateIds = new Set<string>();
+
+    if (isValidUuid(ref) && byId.has(ref)) candidateIds.add(ref);
+
+    const fallbackId = fallbackEvidenceRowId(ref);
+    if (fallbackId && byId.has(fallbackId)) candidateIds.add(fallbackId);
+
+    for (const row of rows) {
+      if (row.external_evidence_id === ref) candidateIds.add(row.id);
+    }
+
+    if (candidateIds.size === 1) {
+      identity.set(ref, [...candidateIds][0]);
+    } else if (candidateIds.size > 1) {
+      warnings.push(
+        `A3 ambiguous canonical evidence identity for "${ref}"; matched ${candidateIds.size} intelligence_evidence rows, so propagation for this ref was suppressed.`,
+      );
+    }
+  }
+
+  return { identity, warnings };
 }
 
 export async function prepareDossierReevaluationPropagationPlan(input: {
@@ -391,20 +454,41 @@ export async function prepareDossierReevaluationPropagationPlan(input: {
   analyticalOutput: ResearchBrainOutputV1;
 }): Promise<DossierReevaluationPropagationPlan> {
   try {
-    const evidenceIds = candidateCanonicalEvidenceUuids(input.analyticalOutput);
-    const evidencePromise = evidenceIds.length
+    const evidenceRefs = candidateCanonicalEvidenceRefs(input.analyticalOutput);
+    const rowIdCandidates = [...new Set(evidenceRefs.flatMap((ref) => {
+      const ids: string[] = [];
+      if (isValidUuid(ref)) ids.push(ref);
+      const fallbackId = fallbackEvidenceRowId(ref);
+      if (fallbackId) ids.push(fallbackId);
+      return ids;
+    }))];
+
+    const evidenceByIdPromise = rowIdCandidates.length
       ? input.client
           .from("intelligence_evidence")
-          .select("id")
-          .in("id", evidenceIds)
+          .select("id,external_evidence_id")
+          .in("id", rowIdCandidates)
+      : Promise.resolve({ data: [], error: null });
+    const evidenceByExternalPromise = evidenceRefs.length
+      ? input.client
+          .from("intelligence_evidence")
+          .select("id,external_evidence_id")
+          .in("external_evidence_id", evidenceRefs)
       : Promise.resolve({ data: [], error: null });
 
-    const [storyResult, evidenceResult, regimeResult, linkResult] = await Promise.all([
+    const [
+      storyResult,
+      evidenceByIdResult,
+      evidenceByExternalResult,
+      regimeResult,
+      linkResult,
+    ] = await Promise.all([
       input.client
         .from("stories")
         .select("id,slug,status,confidence")
         .neq("status", "discarded"),
-      evidencePromise,
+      evidenceByIdPromise,
+      evidenceByExternalPromise,
       input.client
         .from("market_regimes")
         .select("id,slug")
@@ -418,8 +502,14 @@ export async function prepareDossierReevaluationPropagationPlan(input: {
     if (storyResult.error) {
       throw new Error(`Failed to load A3 Story registry: ${storyResult.error.message}`);
     }
-    if (evidenceResult.error) {
-      throw new Error(`Failed to resolve A3 canonical queue evidence: ${evidenceResult.error.message}`);
+    if (evidenceByIdResult.error || evidenceByExternalResult.error) {
+      throw new Error(
+        `Failed to resolve A3 canonical queue evidence: ${
+          evidenceByIdResult.error?.message
+          ?? evidenceByExternalResult.error?.message
+          ?? "unknown evidence identity error"
+        }`,
+      );
     }
     if (regimeResult.error) {
       throw new Error(`Failed to load A3 Regime identities: ${regimeResult.error.message}`);
@@ -427,6 +517,18 @@ export async function prepareDossierReevaluationPropagationPlan(input: {
     if (linkResult.error) {
       throw new Error(`Failed to load A3 Regime Story links: ${linkResult.error.message}`);
     }
+
+    const evidenceRowsById = new Map<string, CanonicalEvidenceIdentityRow>();
+    for (const row of [
+      ...((evidenceByIdResult.data ?? []) as CanonicalEvidenceIdentityRow[]),
+      ...((evidenceByExternalResult.data ?? []) as CanonicalEvidenceIdentityRow[]),
+    ]) {
+      if (row?.id && isValidUuid(row.id)) evidenceRowsById.set(row.id, row);
+    }
+    const evidenceResolution = resolveCanonicalEvidenceIdentities(
+      evidenceRefs,
+      [...evidenceRowsById.values()],
+    );
 
     const regimes = (regimeResult.data ?? []) as RegimeIdentityRow[];
     const slugByRegimeId = new Map(regimes.map((row) => [row.id, row.slug]));
@@ -448,9 +550,9 @@ export async function prepareDossierReevaluationPropagationPlan(input: {
       analyticalOutput: input.analyticalOutput,
       stories: (storyResult.data ?? []) as DossierPropagationStoryRow[],
       regimeLinks,
-      queueableEvidenceIds: new Set(
-        ((evidenceResult.data ?? []) as Array<{ id: string }>).map((row) => row.id),
-      ),
+      queueableEvidenceIds: new Set(evidenceRowsById.keys()),
+      queueEvidenceIdByCanonicalRef: evidenceResolution.identity,
+      evidenceIdentityWarnings: evidenceResolution.warnings,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
