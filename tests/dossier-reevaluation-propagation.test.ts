@@ -232,7 +232,7 @@ test("A3 explicit Story destination outranks Motion primary Story fallback", () 
   assert.equal(plan.items[0]?.route_kind, "explicit_story");
 });
 
-test("A3 REGIME:CURRENT uses one highest-confidence core plus up to two bridge/supporting links", () => {
+test("A3 REGIME:CURRENT uses one core plus bridge/supporting links ranked by role then confidence", () => {
   const plan = buildDossierReevaluationPropagationPlan({
     packet: packet({ primaryStoryId: null, primaryRegimeSlug: "global-cost-of-capital" }),
     analyticalOutput: output([decision({ destination_refs: ["REGIME:CURRENT"] })]),
@@ -247,7 +247,7 @@ test("A3 REGIME:CURRENT uses one highest-confidence core plus up to two bridge/s
     queueableEvidenceIds: new Set([EVIDENCE_A]),
   });
 
-  assert.deepEqual(plan.items.map((item) => item.target_story_id), [STORY_B, STORY_D, STORY_C]);
+  assert.deepEqual(plan.items.map((item) => item.target_story_id), [STORY_B, STORY_C, STORY_E]);
   assert.deepEqual(plan.items.map((item) => item.route_kind), ["regime_core", "regime_bridge", "regime_bridge"]);
   assert.ok(plan.items.every((item) => item.target_regime_slug === "global-cost-of-capital"));
 });
