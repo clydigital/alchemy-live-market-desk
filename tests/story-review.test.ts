@@ -5,6 +5,7 @@ import { explicitlyMentionedAssets } from "../lib/instrument-mentions.ts";
 import {
   MAX_STORY_REVIEW_EVIDENCE,
   materialAssessmentHasEligibleEvidence,
+  motionReassessmentEvidenceComplete,
   planStoryReviewQueueHygiene,
   selectStoryReviewTargets,
   type StoryEvidenceLink,
@@ -516,6 +517,7 @@ test("C1.4b Story target freezes bounded corrected Motion reassessment contexts"
     canonicalReassessmentScope: "STORY" as const,
     storyId: "rates",
     packetEvidenceId: "research-intake:motion-1",
+    canonicalEvidenceId: "ev-motion",
     evidenceReferences: ["research-intake:motion-1"],
     framing: {
       headline: "Corrected duration-pressure framing",
@@ -569,4 +571,81 @@ test("C1.4b Story target freezes bounded corrected Motion reassessment contexts"
     selected[0]?.reviewContext?.motionReassessments?.[0]?.framing.headline,
     "Original over-broad Motion headline",
   );
+});
+
+
+test("C1.4c Motion-triggered Story review requires every exact canonical Motion evidence UUID", () => {
+  const target = selectStoryReviewTargets({
+    stories: [story("rates")],
+    evidence: [evidence("ev-a", "rates"), evidence("ev-b", "rates")],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "queue-a",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_refresh:dossier-1:motion-a:ACCEPT",
+        priority: 95,
+        availableAt: now.toISOString(),
+        createdAt: now.toISOString(),
+        requestedEvidenceId: "ev-a",
+        motionReassessment: {
+          contractVersion: "story-review-motion-context/1",
+          authority: "CONTEXT_ONLY",
+          dossierId: "dossier-1",
+          motionId: "motion-a",
+          decision: "ACCEPT",
+          canonicalReassessmentScope: "STORY",
+          storyId: "rates",
+          packetEvidenceId: "research-intake:a",
+          canonicalEvidenceId: "ev-a",
+          evidenceReferences: ["research-intake:a"],
+          framing: {
+            headline: "Accepted A",
+            whyInteresting: "A matters.",
+            bigPictureBridge: "A -> Story.",
+          },
+          storyImplication: "Reassess Story from A.",
+          regimeImplication: null,
+          investigationNext: null,
+        },
+      },
+      {
+        id: "queue-b",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_refresh:dossier-2:motion-b:REFINE",
+        priority: 94,
+        availableAt: now.toISOString(),
+        createdAt: now.toISOString(),
+        requestedEvidenceId: "ev-b",
+        motionReassessment: {
+          contractVersion: "story-review-motion-context/1",
+          authority: "CONTEXT_ONLY",
+          dossierId: "dossier-2",
+          motionId: "motion-b",
+          decision: "REFINE",
+          canonicalReassessmentScope: "STORY",
+          storyId: "rates",
+          packetEvidenceId: "research-intake:b",
+          canonicalEvidenceId: "ev-b",
+          evidenceReferences: ["research-intake:b"],
+          framing: {
+            headline: "Corrected B",
+            whyInteresting: "B matters after refinement.",
+            bigPictureBridge: "B -> corrected Story question.",
+          },
+          storyImplication: "Reassess Story from corrected B.",
+          regimeImplication: null,
+          investigationNext: "Test B.",
+        },
+      },
+    ],
+    debt: [],
+    now,
+  })[0]!;
+
+  assert.equal(motionReassessmentEvidenceComplete(["ev-a"], target), false);
+  assert.equal(motionReassessmentEvidenceComplete(["ev-b"], target), false);
+  assert.equal(motionReassessmentEvidenceComplete(["ev-a", "ev-b"], target), true);
 });
