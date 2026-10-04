@@ -97,7 +97,14 @@ export default function PresenterDivergenceJourney({
         <div>
           <small>PRESENTER REASONING</small>
           <strong>Expected → tape → divergence → mechanisms → next test</strong>
-          {historicalContextBoundary?.scope === "HISTORICAL_STORY_REASONING_ONLY" ? (
+          {historicalContextBoundary?.scope === "HISTORICAL_FULL_CASE" ? (
+            <p className={styles.editionNotice}>
+              {historicalContextBoundary.reason}
+              {historicalContextBoundary.dossierId
+                ? ` Historical Dossier: ${historicalContextBoundary.dossierId}${historicalContextBoundary.dossierAsOf ? ` · as of ${historicalContextBoundary.dossierAsOf}` : ""}.`
+                : ""}
+            </p>
+          ) : historicalContextBoundary?.scope === "HISTORICAL_STORY_REASONING_ONLY" ? (
             <p className={styles.editionNotice}>
               {historicalContextBoundary.reason}
               {historicalContextBoundary.dossierId
@@ -173,13 +180,23 @@ export default function PresenterDivergenceJourney({
                 {canonical ? (
                   <>
                     <Badge tone={historicalContextBoundary?.historicalStoryReasoning ? "warn" : "ready"}>
-                      {historicalContextBoundary?.historicalStoryReasoning ? "HISTORICAL STORY" : "CANONICAL STORY"}
+                      {historicalContextBoundary?.scope === "HISTORICAL_FULL_CASE"
+                        ? "HISTORICAL CASE"
+                        : historicalContextBoundary?.historicalStoryReasoning
+                          ? "HISTORICAL STORY"
+                          : "CANONICAL STORY"}
                     </Badge>
-                    {historicalContextBoundary?.historicalStoryReasoning ? (
+                    {historicalContextBoundary?.scope === "HISTORICAL_STORY_REASONING_ONLY" ? (
                       <Badge tone="warn">STORY REASONING ONLY</Badge>
+                    ) : historicalContextBoundary?.scope === "HISTORICAL_FULL_CASE" ? (
+                      <Badge tone="ready">EXACT DOSSIER</Badge>
                     ) : null}
                   </>
-                ) : <Badge>DOSSIER FALLBACK</Badge>}
+                ) : (
+                  <Badge tone={historicalContextBoundary?.scope === "HISTORICAL_FULL_CASE" ? "warn" : "default"}>
+                    {historicalContextBoundary?.scope === "HISTORICAL_FULL_CASE" ? "HISTORICAL DOSSIER" : "DOSSIER FALLBACK"}
+                  </Badge>
+                )}
                 <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                 <Badge tone={calibrationTone(item.calibrationOutcome)}>{item.calibrationOutcome}</Badge>
               </div>
