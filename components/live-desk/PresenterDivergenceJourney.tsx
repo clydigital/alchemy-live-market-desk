@@ -3,6 +3,7 @@ import type {
   DossierPresentationInvestigation,
 } from "@/lib/dossier-v2/presentation-adapter";
 import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
+import type { PresenterCanonicalStoryCase } from "@/lib/presenter-canonical-story-bridge";
 import { buildPresenterDivergenceJourney } from "@/lib/presenter-divergence-journey";
 
 import { Badge, DataState } from "./LiveDeskUi";
@@ -11,6 +12,7 @@ import styles from "./presenter-divergence-journey.module.css";
 type Props = {
   investigations: DossierPresentationInvestigation[];
   calibration: DossierPresentationCalibrationSummary;
+  canonicalCases?: PresenterCanonicalStoryCase[];
 };
 
 function divergenceTone(value: string): "default" | "ready" | "warn" | "risk" {
@@ -27,6 +29,12 @@ function calibrationTone(value: string): "default" | "ready" | "warn" | "risk" {
   return "default";
 }
 
+function canonicalConfidenceTone(value: number): "default" | "ready" | "warn" {
+  if (value >= 70) return "ready";
+  if (value < 45) return "warn";
+  return "default";
+}
+
 function directionGlyph(value: "UP" | "DOWN" | "FLAT") {
   if (value === "UP") return "↑";
   if (value === "DOWN") return "↓";
@@ -37,9 +45,14 @@ function signed(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function joined(values: string[]) {
+  return values.filter(Boolean).join("; ");
+}
+
 export default function PresenterDivergenceJourney({
   investigations,
   calibration,
+  canonicalCases = [],
 }: Props) {
   const cases = buildPresenterDivergenceJourney(investigations);
   const labById = new Map(
@@ -47,6 +60,9 @@ export default function PresenterDivergenceJourney({
       investigation.id,
       buildDivergenceLabPresentation(investigation),
     ]),
+  );
+  const canonicalByInvestigationId = new Map(
+    canonicalCases.map((item) => [item.investigationId, item] as const),
   );
 
   if (!cases.length) {
@@ -80,6 +96,24 @@ export default function PresenterDivergenceJourney({
         {cases.map((item) => {
           const lab = labById.get(item.id);
           if (!lab) return null;
+          const canonical = canonicalByInvestigationId.get(item.id) ?? null;
+
+          const explanation = canonical?.currentExplanation ?? item.provisionalConclusion;
+          const nextDiscriminator = canonical
+            ? canonical.whatToInspectNext.canonical
+              ?? canonical.whatToInspectNext.dossierFallback
+              ?? lab.sharedDiscriminator
+            : lab.sharedDiscriminator;
+          const confirmation = canonical
+            ? joined(canonical.confirmation.canonical)
+              || canonical.confirmation.dossierFallback
+              || item.confirmationCondition
+            : item.confirmationCondition;
+          const invalidation = canonical
+            ? joined(canonical.invalidation.canonical)
+              || canonical.invalidation.dossierFallback
+              || item.invalidationCondition
+            : item.invalidationCondition;
 
           return (
           <article className={styles.caseCard} key={item.id}>
@@ -90,6 +124,7 @@ export default function PresenterDivergenceJourney({
                 <p>{item.whyItMatters}</p>
               </div>
               <div className={styles.badges}>
+                {canonical ? <Badge tone="ready">CANONICAL STORY</Badge> : <Badge> DOSSIER FALLBACK </Badge>}
                 <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                 <Badge tone={calibrationTone(item.calibrationOutcome)}>{item.calibrationOutcome}</Badge>
               </div>
@@ -109,6 +144,12 @@ export default function PresenterDivergenceJourney({
               <section>
                 <small>02 / MEASURED TAPE</small>
                 <p>{item.observedReaction ?? "No comparable post-trigger reaction is available yet."}</p>
+                {canonical?.canonicalMarketReaction
+                  && canonical.canonicalMarketReaction !== item.observedReaction ? (
+                  <div className={styles.annotation}>
+                    Canonical Story reaction summary: {canonical.canonicalMarketReaction}
+                  </div>
+                ) : null}
                 <div className={styles.metaLine}>
                   {item.calibrationPrecision.toLowerCase().replaceAll("_", " ")}
                   {item.reactionWindows.length ? ` · ${item.reactionWindows.join(" → ")}` : ""}
@@ -116,10 +157,12 @@ export default function PresenterDivergenceJourney({
               </section>
 
               <section>
-                <small>03 / DIVERGENCE</small>
-                <p>{item.provisionalConclusion}</p>
+                <small>03 / CURRENT EXPLANATION</small>
+                <p>{explanation}</p>
                 <div className={styles.metaLine}>
-                  Calibration: {item.calibrationOutcome.toLowerCase()}
+                  {canonical
+                    ? `Canonical Story · thesis version ${canonical.thesisVersionId}`
+                    : `Dossier fallback · calibration ${item.calibrationOutcome.toLowerCase()}`}
                 </div>
               </section>
             </div>
@@ -159,11 +202,15 @@ export default function PresenterDivergenceJourney({
                 <div>
                   <small>04 / COMPETING MECHANISMS</small>
                   <strong>
-                    {lab.mode === "full"
-                      ? "Evidence-linked hypotheses"
-                      : lab.mode === "compact_unresolved"
-                        ? "MECHANISM UNRESOLVED"
-                        : "Structured mechanism evidence was not preserved"}
+                    {canonical
+                      ? canonical.competingExplanations.length
+                        ? "Canonical Story competing hypotheses"
+                        : "No non-leading canonical hypothesis is preserved"
+                      : lab.mode === "full"
+                        ? "Dossier evidence-linked hypotheses"
+                        : lab.mode === "compact_unresolved"
+                          ? "MECHANISM UNRESOLVED"
+                          : "Structured mechanism evidence was not preserved"}
                   </strong>
                 </div>
                 {item.missingEvidence.length ? (
@@ -171,7 +218,49 @@ export default function PresenterDivergenceJourney({
                 ) : null}
               </div>
 
-              {lab.mode === "full" ? (
+              {canonical ? (
+                canonical.competingExplanations.length ? (
+                  <div className={styles.mechanismGrid}>
+                    {canonical.competingExplanations.map((candidate, index) => (
+                      <article className={styles.mechanismCard} key={candidate.hypothesisId}>
+                        <header>
+                          <span>#{index + 1} · {candidate.mechanismCode.replaceAll("_", " ")}</span>
+                          <Badge tone={canonicalConfidenceTone(candidate.confidence)}>
+                            {Math.round(candidate.confidence)}%
+                          </Badge>
+                        </header>
+                        <p>{candidate.statement}</p>
+                        {candidate.evidenceForIds.length || candidate.evidenceAgainstIds.length ? (
+                          <div className={styles.evidenceGrid}>
+                            {candidate.evidenceForIds.length ? (
+                              <div>
+                                <small>EVIDENCE FOR</small>
+                                <span>{candidate.evidenceForIds.join(" · ")}</span>
+                              </div>
+                            ) : null}
+                            {candidate.evidenceAgainstIds.length ? (
+                              <div>
+                                <small>EVIDENCE AGAINST</small>
+                                <span>{candidate.evidenceAgainstIds.join(" · ")}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <small className={styles.evidencePending}>Canonical candidate-specific evidence is not attached.</small>
+                        )}
+                        <div className={styles.discriminator}>
+                          <small>CAUSAL MECHANISM</small>
+                          <strong>{candidate.causalMechanism}</strong>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.emptyMechanism}>
+                    The exact canonical Story version has no non-leading competing hypothesis. Hybrid does not revive older Dossier candidates.
+                  </p>
+                )
+              ) : lab.mode === "full" ? (
                 <div className={styles.mechanismGrid}>
                   {lab.candidates.map((candidate) => (
                     <article className={styles.mechanismCard} key={`${item.id}:mechanism:${candidate.rank}`}>
@@ -226,7 +315,7 @@ export default function PresenterDivergenceJourney({
                 </div>
               ) : (
                 <p className={styles.emptyMechanism}>
-                  The canonical Dossier has not established competing mechanisms. Hybrid does not invent one.
+                  The Dossier has not established competing mechanisms. Hybrid does not invent one.
                 </p>
               )}
             </section>
@@ -234,15 +323,15 @@ export default function PresenterDivergenceJourney({
             <section className={styles.nextTest}>
               <div>
                 <small>05 / NEXT DISCRIMINATOR</small>
-                <strong>{lab.sharedDiscriminator}</strong>
+                <strong>{nextDiscriminator}</strong>
               </div>
               <div>
                 <small>CONFIRM</small>
-                <span>{item.confirmationCondition}</span>
+                <span>{confirmation}</span>
               </div>
               <div>
                 <small>INVALIDATE</small>
-                <span>{item.invalidationCondition}</span>
+                <span>{invalidation}</span>
               </div>
             </section>
           </article>
