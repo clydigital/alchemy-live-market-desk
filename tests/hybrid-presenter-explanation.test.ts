@@ -63,3 +63,13 @@ test("Hybrid still uses a bounded recent immutable edition window", () => {
   assert.match(publication, /limit=24/);
   assert.doesNotMatch(hybrid, /publicationRecords\.dailyBriefArchive/);
 });
+
+
+test("B3d.1 Hybrid shows unresolved Dossier Motion as research pending without implying promotion", () => {
+  assert.match(hybrid, /item\.decision === "UNRESOLVED"/);
+  assert.match(hybrid, /RESEARCH PENDING/);
+  assert.match(hybrid, /Research pending\. No Motion promotion or canonical Story\/Regime conclusion has been inferred/);
+  assert.match(hybrid, /Research next/);
+  assert.match(hybrid, /ACCEPT\/REFINE may become promoted context; UNRESOLVED stays explicitly research-pending/);
+  assert.doesNotMatch(hybrid, /item\.decision === "REJECT" \|\|/);
+});
