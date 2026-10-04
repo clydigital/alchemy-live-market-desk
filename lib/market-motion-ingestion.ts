@@ -351,10 +351,27 @@ function mergedMetadata(primary: MarketMotionInput, secondary: MarketMotionInput
   };
 }
 
+function promotionMetadata(candidate: MarketMotionInput | null) {
+  if (!candidate?.metadata) return {};
+  return Object.fromEntries(
+    Object.entries(candidate.metadata).filter(([key]) => (
+      key === "promotedFromMotionId" || key.startsWith("promotion")
+    )),
+  );
+}
+
 function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): MarketMotionInput {
   const primary = candidateStrength(left) >= candidateStrength(right) ? left : right;
   const secondary = primary === left ? right : left;
-  const metadata = mergedMetadata(primary, secondary);
+  const promoted = left.lifecycleState === "PROMOTED"
+    ? left
+    : right.lifecycleState === "PROMOTED"
+      ? right
+      : null;
+  const metadata = {
+    ...mergedMetadata(primary, secondary),
+    ...promotionMetadata(promoted),
+  };
   const researchQuestions = metadataStrings(metadata, "researchQuestions");
   const primaryHasSpecificTest = Boolean(primary.nextTest && !/^Seek independent|^Check whether/i.test(primary.nextTest));
   return {
@@ -371,6 +388,11 @@ function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): 
     primaryStoryId: primary.primaryStoryId || secondary.primaryStoryId || null,
     primaryRegimeSlug: primary.primaryRegimeSlug || secondary.primaryRegimeSlug || null,
     researchRunId: primary.researchRunId || secondary.researchRunId || null,
+    ...(promoted ? {
+      lifecycleState: "PROMOTED" as const,
+      evidenceId: promoted.evidenceId ?? null,
+      promotionReason: promoted.promotionReason ?? null,
+    } : {}),
     metadata,
   };
 }
