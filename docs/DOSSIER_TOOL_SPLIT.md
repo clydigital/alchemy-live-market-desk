@@ -216,3 +216,10 @@ When lanes disagree:
 - **publication decision -> Work High after review**
 
 This process does not change the canonical Live Desk evidence architecture. Model outputs are reasoning artifacts and must never masquerade as canonical evidence.
+
+
+## Active research brief
+
+Current first-pass Chat High brief: `research/stress-model/briefs/AI_CREDIT_MONETISATION_RECOURSE.md`.
+
+Work High should complete this evidence block before Jules results are treated as useful market outputs. Jules may build/test the engine against fixtures while the live evidence registry remains empty.
