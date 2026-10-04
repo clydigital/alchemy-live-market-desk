@@ -21,6 +21,7 @@ import {
 } from "./execution.ts";
 import { attachCurrentMarketMotionContext } from "./motion-context.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
+import type { DossierReevaluationPropagationResult } from "./reevaluation-propagation.ts";
 import type {
   DossierDeltaDecision,
   DossierDeltaMode,
@@ -56,6 +57,7 @@ export interface ManualDossierV2RunResult {
   analytical_output: ResearchBrainOutputV1;
   dossier?: MarketDossierV2;
   story_refresh_agenda?: DossierStoryRefreshAgendaResult;
+  reevaluation_propagation?: DossierReevaluationPropagationResult;
   delta_decision?: DossierDeltaDecision;
 }
 
@@ -554,6 +556,7 @@ export async function runManualDossierV2(
       analytical_output: result.analytical_output,
       dossier: result.dossier,
       story_refresh_agenda: result.story_refresh_agenda,
+      reevaluation_propagation: result.reevaluation_propagation,
       delta_decision: result.delta_decision,
     };
   }

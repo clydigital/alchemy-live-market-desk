@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -773,5 +774,21 @@ test("Task 9 persist mode fails closed when the production Dossier V2 table is a
       });
     },
     /market_dossiers_v2 is not deployed/,
+  );
+});
+
+test("A3 manual persisted result surface exposes reevaluation propagation", () => {
+  const source = readFileSync(
+    new URL("../lib/dossier-v2/manual-run.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /reevaluation_propagation\?:\s*DossierReevaluationPropagationResult/,
+  );
+  assert.match(
+    source,
+    /reevaluation_propagation:\s*result\.reevaluation_propagation/,
   );
 });

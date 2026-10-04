@@ -135,11 +135,16 @@ export const DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION =
 export type DossierReevaluationPropagationItem = {
   motion_id: string;
   decision: "ACCEPT" | "REFINE";
-  canonical_evidence_id: string;
+  canonical_evidence_ref: string; // exact A2 / Dossier evidence reference
+  canonical_evidence_id: string;  // exact intelligence_evidence.id UUID
   target_story_id: string;
   target_story_slug: string;
   target_regime_slug: string | null;
-  route_kind: "explicit_story" | "regime_core" | "regime_bridge";
+  route_kind:
+    | "explicit_story"
+    | "motion_primary_story"
+    | "regime_core"
+    | "regime_bridge";
   priority: number;
   route_reason: string;
 };
@@ -196,17 +201,32 @@ A3 never derives a new evidence ID from:
 - Motion prose;
 - Motion market reaction.
 
-The only queue evidence pointer is an ID from the validated A2 `canonical_evidence_refs` array.
+The A2 decision must retain the exact Dossier evidence reference that justified ACCEPT/REFINE. The Story queue, however, stores a foreign key to the internal `intelligence_evidence.id` UUID.
 
-A2 canonical evidence IDs are broader than the Story queue's database foreign key. Some Dossier evidence, especially derived market-monitor / rates evidence, uses deterministic non-UUID IDs such as `market-monitor:...`. A3 must never translate, hash, or substitute those IDs into a queueable evidence record.
+Canonical snapshot evidence references can take three forms:
+
+1. the internal UUID itself;
+2. an exact `external_evidence_id` supplied by the canonical evidence row;
+3. the canonical snapshot fallback `ev:<intelligence_evidence.id>`.
+
+A3 may resolve those forms only to the same canonical `intelligence_evidence` row. It must never hash, synthesize, fuzzy-match, or create an evidence row to make a Dossier reference queueable.
 
 For durable Story propagation, an evidence ref is queueable only when:
 
-1. it is present in the validated A2 `canonical_evidence_refs`;
-2. it is a valid UUID;
-3. the same UUID exists in `intelligence_evidence`.
+1. it is present in validated A2 `canonical_evidence_refs`;
+2. it is present in the Dossier packet's canonical evidence set;
+3. it resolves to exactly one existing `intelligence_evidence` row by one of the exact identity rules above.
 
-If an ACCEPT/REFINE decision has no queueable canonical evidence ref, A3 records a warning and does not enqueue a Story review from that decision. The Dossier conclusion remains valid inside the Dossier; A3 simply lacks a canonical Story-queue evidence pointer.
+The propagation plan stores both identities:
+
+- `canonical_evidence_ref` = the exact A2 / Dossier reference;
+- `canonical_evidence_id` = the resolved internal `intelligence_evidence.id` UUID used by `requested_by_evidence_id`.
+
+If an external reference matches more than one canonical row, A3 fails closed for that reference and records an ambiguity warning.
+
+Derived Dossier-only observations such as `market-monitor:...`, Twelve Data reaction IDs, or other evidence with no exact `intelligence_evidence` row remain non-queueable.
+
+If an ACCEPT/REFINE decision has no queueable canonical evidence identity, A3 records a warning and does not enqueue a Story review from that decision. The Dossier conclusion remains valid inside the Dossier; A3 simply lacks a durable Story-queue evidence pointer.
 
 ## Destination routing
 
@@ -513,7 +533,10 @@ Prove:
 - a Motion ID cannot become `requested_by_evidence_id`;
 - a Motion `origin_evidence_ref` absent from the validated A2 decision cannot become queue evidence;
 - every planned queue evidence ID is present in the Dossier packet canonical evidence set;
-- non-UUID canonical Dossier evidence is never converted into a Story-queue evidence UUID;
+- an exact non-UUID `external_evidence_id` can resolve only to its existing canonical row UUID;
+- ambiguous external evidence identity fails closed;
+- the `ev:<row-uuid>` canonical snapshot fallback resolves only to that existing row;
+- derived Dossier-only evidence with no exact canonical row is never converted into a Story-queue UUID;
 - a UUID absent from `intelligence_evidence` is not queued;
 - Motion market-reaction prose does not create an evidence pointer.
 

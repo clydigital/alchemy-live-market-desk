@@ -21,6 +21,7 @@ import {
   type ResearchBrainOutputV1,
 } from "../lib/dossier-v2/research-brain-contracts.ts";
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
+import { DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION } from "../lib/dossier-v2/reevaluation-propagation.ts";
 
 const REQUIRED_LENSES = [
   "US_RATES",
@@ -95,6 +96,108 @@ function createFailingDossierClient(): SupabaseClient {
       };
     },
   } as unknown as SupabaseClient;
+}
+
+
+function a3Awaitable<T>(data: T, error: { message: string } | null = null) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "neq", "in", "is", "gte", "lte", "order", "limit"]) {
+    builder[method] = () => builder;
+  }
+  builder.then = (
+    resolve: (value: { data: T; error: { message: string } | null }) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) => Promise.resolve({ data, error }).then(resolve, reject);
+  return builder;
+}
+
+function createA3QueueFailingClient(input: {
+  storyId: string;
+  evidenceId: string;
+}) {
+  const store = new Map<string, MarketDossierV2>();
+  const insertedQueueRows: Array<Record<string, unknown>> = [];
+
+  const client = {
+    from(table: string) {
+      if (table === "market_dossiers_v2") {
+        return {
+          insert(payload: Record<string, unknown>) {
+            return {
+              select(_fields: string) {
+                return {
+                  async single() {
+                    const id = randomUUID();
+                    const record: MarketDossierV2 = {
+                      id,
+                      contract_version: String(payload.contract_version),
+                      previous_dossier_id: payload.previous_dossier_id
+                        ? String(payload.previous_dossier_id)
+                        : null,
+                      as_of: String(payload.as_of),
+                      freshness: payload.freshness as Record<string, unknown>,
+                      research_gaps: payload.research_gaps as unknown[],
+                      payload: payload.payload as Record<string, unknown>,
+                      created_at: "2026-10-04T08:00:00.000Z",
+                    };
+                    store.set(id, record);
+                    return { data: record, error: null };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+
+      if (table === "stories") {
+        return a3Awaitable([{
+          id: input.storyId,
+          slug: "a3-story",
+          title: "A3 Story",
+          thesis: "Persistent Story used by A3 execution test.",
+          market_question: null,
+          assets: ["US02Y"],
+          status: "developing",
+          confidence: 80,
+        }]);
+      }
+
+      if (table === "intelligence_evidence") {
+        return a3Awaitable([{
+          id: input.evidenceId,
+          claim_text: "Canonical A3 execution evidence.",
+          summary: null,
+          affected_topics: ["a3-story"],
+          affected_assets: ["US02Y"],
+          evidence_class: "official_release",
+          received_at: "2026-10-04T07:00:00.000Z",
+          event_at: "2026-10-04T07:00:00.000Z",
+        }]);
+      }
+
+      if (table === "market_regimes") {
+        return a3Awaitable([]);
+      }
+
+      if (table === "market_regime_story_links") {
+        return a3Awaitable([]);
+      }
+
+      if (table === "intelligence_reevaluation_queue") {
+        const builder = a3Awaitable([]) as Record<string, unknown>;
+        builder.insert = (rows: Array<Record<string, unknown>>) => {
+          insertedQueueRows.push(...rows);
+          return a3Awaitable(null, { message: "forced A3 queue failure" });
+        };
+        return builder;
+      }
+
+      throw new Error(`A3 execution test does not implement table ${table}`);
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, store, insertedQueueRows };
 }
 
 function createPacket(previousDossierId: string | null = null) {
@@ -349,6 +452,17 @@ test("Task 8 bridge executes Research Brain and persists one immutable MarketDos
   assert.equal(analyticalOutput.as_of, packet.as_of);
   assert.equal(analyticalOutput.diagnostics.degraded, false);
 
+  const propagationPlan = result.dossier.payload.reevaluation_propagation as Record<string, unknown>;
+  assert.equal(
+    propagationPlan.contract_version,
+    DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+  );
+  assert.ok(Array.isArray(propagationPlan.items));
+  assert.equal(
+    result.reevaluation_propagation.contract_version,
+    DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+  );
+
   const freshnessWarnings = result.dossier.freshness.warnings as unknown[];
   assert.equal(freshnessWarnings.length, 1);
   assert.deepEqual(
@@ -390,6 +504,116 @@ test("Task 8 bridge persists safe degraded Research Brain output instead of drop
       : undefined,
   );
   assert.ok(persistedGapCategories.includes("RESEARCH_BRAIN_DEGRADED"));
+});
+
+test("A3 persists reevaluation intent before queue insertion failure and keeps the Dossier successful", async () => {
+  const storyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const evidenceId = "11111111-1111-4111-8111-111111111111";
+  const packet = createPacket();
+  packet.observed_evidence[0].evidence_id = evidenceId;
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      motion_id: "motion-a3-execution",
+      motion_key: "event:a3-execution",
+      version_number: 1,
+      occurred_at: "2026-10-04T06:00:00.000Z",
+      observed_at: "2026-10-04T06:05:00.000Z",
+      expires_at: "2026-10-06T06:05:00.000Z",
+      category: "MACRO",
+      verification_state: "VERIFIED",
+      headline: "A3 execution Motion",
+      what_happened: "System 2 should route this accepted framing to the exact persistent Story.",
+      market_reaction: null,
+      why_interesting: "It tests durable Story propagation.",
+      big_picture_bridge: "Motion → Story → Regime",
+      next_test: "Use canonical evidence.",
+      primary_story_id: storyId,
+      primary_regime_slug: null,
+      attention: { materiality: 90, relevance: 90, novelty: 80 },
+      origin_evidence_ref: evidenceId,
+    }],
+  };
+
+  const validOutput = createValidBrainOutput(packet);
+  validOutput.motion_acceptance = {
+    contract_version: "dossier-motion-acceptance/1",
+    decisions: [{
+      motion_id: "motion-a3-execution",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports Story reevaluation.",
+      canonical_evidence_refs: [evidenceId],
+      destination_refs: ["MAIN_THREAD"],
+      rationale: "The framing survives canonical evidence review.",
+      next_test: null,
+    }],
+  };
+
+  const { client, store, insertedQueueRows } = createA3QueueFailingClient({
+    storyId,
+    evidenceId,
+  });
+  const modelRunner: ModelRunner = async () => ({ data: validOutput });
+
+  const result = await executeAndPersistDossierV2(packet, {
+    client,
+    researchBrainOptions: { modelRunner },
+  });
+
+  assert.equal(store.size, 1);
+  assert.equal(result.persisted, true);
+  const persistedPlan = result.dossier.payload.reevaluation_propagation as {
+    contract_version: string;
+    items: Array<{ target_story_id: string; canonical_evidence_id: string }>;
+  };
+  assert.equal(
+    persistedPlan.contract_version,
+    DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+  );
+  assert.equal(persistedPlan.items.length, 1);
+  assert.equal(persistedPlan.items[0]?.target_story_id, storyId);
+  assert.equal(persistedPlan.items[0]?.canonical_evidence_id, evidenceId);
+  assert.equal(insertedQueueRows.length >= 1, true);
+  assert.equal(result.reevaluation_propagation.enqueued, 0);
+  assert.ok(
+    result.reevaluation_propagation.warnings.some((warning) =>
+      /forced A3 queue failure/i.test(warning)),
+  );
+});
+
+test("A3 NO_CHANGE returns an empty propagation result without inventing queue work", async () => {
+  const previousDossierId = randomUUID();
+  const packet = createPacket(previousDossierId);
+  const output = createValidBrainOutput(packet);
+  const priorInput = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const previous: MarketDossierV2 = {
+    id: previousDossierId,
+    contract_version: MARKET_DOSSIER_V2_CONTRACT_VERSION,
+    previous_dossier_id: null,
+    as_of: packet.as_of,
+    freshness: priorInput.freshness,
+    research_gaps: priorInput.research_gaps,
+    payload: priorInput.payload,
+    created_at: packet.as_of,
+  };
+
+  const result = await executeAndPersistDossierV2(packet, {
+    previousDossier: previous,
+    deltaMode: "auto",
+    deltaContext: {
+      available: true,
+      states: [],
+      stories: [],
+      warning: null,
+    },
+  });
+
+  assert.equal(result.persisted, false);
+  assert.equal(result.dossier.id, previousDossierId);
+  assert.equal(result.reevaluation_propagation.planned, 0);
+  assert.equal(result.reevaluation_propagation.enqueued, 0);
+  assert.equal(result.reevaluation_propagation.dossier_id, previousDossierId);
 });
 
 test("Task 8 mapper rejects analytical output from a different packet or as_of", () => {
