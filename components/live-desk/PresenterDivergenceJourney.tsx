@@ -4,6 +4,7 @@ import type {
 } from "@/lib/dossier-v2/presentation-adapter";
 import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
 import type { PresenterCanonicalStoryCase } from "@/lib/presenter-canonical-story-bridge";
+import type { PresenterHistoricalContextBoundary } from "@/lib/presenter-historical-context-boundary";
 import { buildPresenterDivergenceJourney } from "@/lib/presenter-divergence-journey";
 
 import { Badge, DataState } from "./LiveDeskUi";
@@ -26,6 +27,7 @@ type Props = {
   calibration: DossierPresentationCalibrationSummary;
   canonicalCases?: PresenterCanonicalStoryCase[];
   editionContext?: PresenterEditionContext;
+  historicalContextBoundary?: PresenterHistoricalContextBoundary;
 };
 
 function divergenceTone(value: string): "default" | "ready" | "warn" | "risk" {
@@ -67,6 +69,7 @@ export default function PresenterDivergenceJourney({
   calibration,
   canonicalCases = [],
   editionContext,
+  historicalContextBoundary,
 }: Props) {
   const cases = buildPresenterDivergenceJourney(investigations);
   const labById = new Map(
@@ -94,14 +97,15 @@ export default function PresenterDivergenceJourney({
         <div>
           <small>PRESENTER REASONING</small>
           <strong>Expected → tape → divergence → mechanisms → next test</strong>
-          {editionContext?.status === "historical" ? (
+          {historicalContextBoundary?.scope === "HISTORICAL_STORY_REASONING_ONLY" ? (
             <p className={styles.editionNotice}>
-              Historical Story reasoning is pinned to edition {editionContext.selectedSnapshotId}. Expectation, tape and divergence still come from the current Dossier investigation.
+              {historicalContextBoundary.reason}
+              {historicalContextBoundary.dossierId
+                ? ` Current Dossier: ${historicalContextBoundary.dossierId}${historicalContextBoundary.dossierAsOf ? ` · as of ${historicalContextBoundary.dossierAsOf}` : ""}.`
+                : ""}
             </p>
-          ) : editionContext?.status === "invalid_fallback_current" ? (
-            <p className={styles.editionNotice}>
-              Requested Presenter edition was unavailable; canonical Story reasoning fell back to the current immutable edition.
-            </p>
+          ) : historicalContextBoundary?.editionSelectionStatus === "invalid_fallback_current" ? (
+            <p className={styles.editionNotice}>{historicalContextBoundary.reason}</p>
           ) : null}
         </div>
         <span>
@@ -167,9 +171,14 @@ export default function PresenterDivergenceJourney({
               </div>
               <div className={styles.badges}>
                 {canonical ? (
-                  <Badge tone={editionContext?.status === "historical" ? "warn" : "ready"}>
-                    {editionContext?.status === "historical" ? "HISTORICAL STORY" : "CANONICAL STORY"}
-                  </Badge>
+                  <>
+                    <Badge tone={historicalContextBoundary?.historicalStoryReasoning ? "warn" : "ready"}>
+                      {historicalContextBoundary?.historicalStoryReasoning ? "HISTORICAL STORY" : "CANONICAL STORY"}
+                    </Badge>
+                    {historicalContextBoundary?.historicalStoryReasoning ? (
+                      <Badge tone="warn">STORY REASONING ONLY</Badge>
+                    ) : null}
+                  </>
                 ) : <Badge>DOSSIER FALLBACK</Badge>}
                 <Badge tone={divergenceTone(item.divergence)}>{item.divergence}</Badge>
                 <Badge tone={calibrationTone(item.calibrationOutcome)}>{item.calibrationOutcome}</Badge>
