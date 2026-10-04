@@ -81,6 +81,7 @@ test("C1.4a REFINE Story context exposes only corrected framing", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: "44444444-4444-4444-8444-444444444444",
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
     dossierPayload: payload({ decision: "REFINE" }),
   });
@@ -89,6 +90,7 @@ test("C1.4a REFINE Story context exposes only corrected framing", () => {
   assert.equal(result?.contractVersion, STORY_REVIEW_MOTION_CONTEXT_VERSION);
   assert.equal(result?.authority, "CONTEXT_ONLY");
   assert.equal(result?.decision, "REFINE");
+  assert.equal(result?.canonicalEvidenceId, "44444444-4444-4444-8444-444444444444");
   assert.deepEqual(result?.framing, {
     headline: "Corrected evidence-bounded headline",
     whyInteresting: "Corrected evidence-bounded why.",
@@ -104,6 +106,7 @@ test("C1.4a ACCEPT may carry the already accepted original Motion framing", () =
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: "44444444-4444-4444-8444-444444444444",
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:ACCEPT`,
     dossierPayload: payload({ decision: "ACCEPT" }),
   });
@@ -120,6 +123,7 @@ test("C1.4a fails closed on exact Dossier, Story, Motion-evidence or assessment 
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: "44444444-4444-4444-8444-444444444444",
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
   };
 
@@ -157,6 +161,7 @@ test("C1.4a fails closed if REFINE corrected framing is incomplete", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: "44444444-4444-4444-8444-444444444444",
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
     dossierPayload: payload({ decision: "REFINE", refinedHeadline: null }),
   });
@@ -169,6 +174,7 @@ test("C1.4a only admits Story-bearing canonical scopes", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: "44444444-4444-4444-8444-444444444444",
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:ACCEPT`,
     dossierPayload: {
       ...payload({ decision: "ACCEPT" }),
