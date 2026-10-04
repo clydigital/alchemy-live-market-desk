@@ -67,7 +67,7 @@ function motion(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
     primary_regime_slug: "us-china-ai",
     lifecycle_state: "PROMOTED",
     effective_state: "PROMOTED",
-    category: "RATES",
+    category: "MACRO",
     verification_state: "VERIFIED",
     headline: "Rates framing deserves attention",
     what_happened: "A promoted Motion item points System 2 toward the rates move.",
