@@ -1,3 +1,4 @@
+import type { StoryReviewMotionContext } from "./story-review-motion-context.ts";
 import type { JsonSchema } from "./openai.ts";
 import { STABLE_REQUIREMENT_IDS } from "./research-state.ts";
 
@@ -68,6 +69,7 @@ export type StoryReviewTargetPackItem = {
       catalystRef: string | null;
       evidenceNature?: "scheduled_event";
     }>;
+    motionReassessment?: StoryReviewMotionContext;
   };
 };
 
