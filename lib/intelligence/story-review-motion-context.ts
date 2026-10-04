@@ -9,6 +9,7 @@ export type StoryReviewMotionContext = {
   canonicalReassessmentScope: "STORY" | "STORY_AND_REGIME";
   storyId: string;
   packetEvidenceId: string;
+  canonicalEvidenceId: string;
   evidenceReferences: string[];
   framing: {
     headline: string;
@@ -66,11 +67,13 @@ export function extractDossierMotionStoryReviewContext(input: {
   dossierId: string;
   storyId: string;
   packetEvidenceId: string;
+  canonicalEvidenceId: string;
   queueReason: string;
   dossierPayload: unknown;
 }): StoryReviewMotionContext | null {
   const parsed = parseDossierMotionRefreshReason(input.queueReason);
   if (!parsed || parsed.dossierId !== input.dossierId) return null;
+  if (!clean(input.canonicalEvidenceId)) return null;
 
   const payload = object(input.dossierPayload);
   if (!payload) return null;
@@ -131,6 +134,7 @@ export function extractDossierMotionStoryReviewContext(input: {
     canonicalReassessmentScope: scope,
     storyId,
     packetEvidenceId,
+    canonicalEvidenceId: clean(input.canonicalEvidenceId),
     evidenceReferences,
     framing,
     storyImplication,
@@ -178,6 +182,7 @@ export function resolveDossierMotionStoryReviewContexts(input: {
       dossierId: parsed.dossierId,
       storyId: row.target_id,
       packetEvidenceId,
+      canonicalEvidenceId: evidence.id,
       queueReason: row.reason,
       dossierPayload: dossier.payload,
     });
