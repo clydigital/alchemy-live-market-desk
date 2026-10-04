@@ -351,10 +351,48 @@ function mergedMetadata(primary: MarketMotionInput, secondary: MarketMotionInput
   };
 }
 
+function promotionMetadata(candidate: MarketMotionInput | null) {
+  if (!candidate?.metadata) return {};
+  return Object.fromEntries(
+    Object.entries(candidate.metadata).filter(([key]) => (
+      key === "promotedFromMotionId" || key.startsWith("promotion")
+    )),
+  );
+}
+
+function promotionStillFresh(candidate: MarketMotionInput, mergeAt: number) {
+  if (candidate.lifecycleState !== "PROMOTED") return false;
+  if (!candidate.expiresAt) return true;
+  const expiry = Date.parse(candidate.expiresAt);
+  return !Number.isFinite(expiry) || expiry > mergeAt;
+}
+
+function stripPromotionMetadata(metadata: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => (
+      key !== "promotedFromMotionId" && !key.startsWith("promotion")
+    )),
+  );
+}
+
 function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): MarketMotionInput {
   const primary = candidateStrength(left) >= candidateStrength(right) ? left : right;
   const secondary = primary === left ? right : left;
-  const metadata = mergedMetadata(primary, secondary);
+  const mergeAt = Math.max(
+    Date.parse(left.observedAt || left.occurredAt),
+    Date.parse(right.observedAt || right.occurredAt),
+  );
+  const promoted = promotionStillFresh(left, mergeAt)
+    ? left
+    : promotionStillFresh(right, mergeAt)
+      ? right
+      : null;
+  const primaryExpiredPromotion = primary.lifecycleState === "PROMOTED"
+    && !promotionStillFresh(primary, mergeAt);
+  const metadata = {
+    ...stripPromotionMetadata(mergedMetadata(primary, secondary)),
+    ...promotionMetadata(promoted),
+  };
   const researchQuestions = metadataStrings(metadata, "researchQuestions");
   const primaryHasSpecificTest = Boolean(primary.nextTest && !/^Seek independent|^Check whether/i.test(primary.nextTest));
   return {
@@ -371,6 +409,15 @@ function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): 
     primaryStoryId: primary.primaryStoryId || secondary.primaryStoryId || null,
     primaryRegimeSlug: primary.primaryRegimeSlug || secondary.primaryRegimeSlug || null,
     researchRunId: primary.researchRunId || secondary.researchRunId || null,
+    ...(promoted ? {
+      lifecycleState: "PROMOTED" as const,
+      evidenceId: promoted.evidenceId ?? null,
+      promotionReason: promoted.promotionReason ?? null,
+    } : primaryExpiredPromotion ? {
+      lifecycleState: "MOTION" as const,
+      evidenceId: null,
+      promotionReason: null,
+    } : {}),
     metadata,
   };
 }

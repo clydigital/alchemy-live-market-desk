@@ -332,3 +332,152 @@ test("unrelated events remain separate even when they share the same source wind
 
   assert.equal(unified.length, 2);
 });
+
+
+test("later independent reporting preserves exact origin keys for the unified Motion event", () => {
+  const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
+  const [reuters] = buildMarketMotionCandidates([
+    item({
+      itemKey: "reuters:anthropic-ipo",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+      summary: "Anthropic's IPO prospectus disclosed large operating losses alongside rapid revenue growth and major compute commitments.",
+      evidence: [{
+        title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+        url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+        publisher: "Reuters",
+        publishedAt: "2026-10-01T00:40:00Z",
+        claim: "Anthropic's IPO prospectus disclosed large operating losses.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "run-reporting" });
+
+  const [merged] = unifyMarketMotionCandidates([creator, reuters], { researchRunId: "run-reporting" });
+
+  assert.deepEqual(merged.metadata?.originItemKeys, [
+    "reuters:anthropic-ipo",
+    "youtube:stockedup:anthropic001",
+  ]);
+});
+
+test("later event merge cannot demote an already PROMOTED Motion", () => {
+  const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
+  const [reuters] = buildMarketMotionCandidates([
+    item({
+      itemKey: "reuters:anthropic-ipo",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+      summary: "Anthropic's IPO prospectus disclosed large operating losses alongside rapid revenue growth and major compute commitments.",
+      evidence: [{
+        title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+        url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-example",
+        publisher: "Reuters",
+        publishedAt: "2026-10-01T00:40:00Z",
+        claim: "Anthropic's IPO prospectus disclosed large operating losses.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "run-reporting" });
+  const [base] = unifyMarketMotionCandidates([creator, reuters], { researchRunId: "run-reporting" });
+  const promoted = {
+    ...base,
+    lifecycleState: "PROMOTED" as const,
+    evidenceId: "evidence-anthropic",
+    promotionReason: "Canonical evidence corroborated this Motion.",
+    metadata: {
+      ...(base.metadata || {}),
+      promotionPolicy: "canonical-evidence-corroborated/v1",
+      promotionEvidenceId: "evidence-anthropic",
+      promotionEvidenceItemKey: "reuters:anthropic-ipo",
+    },
+  };
+  const [official] = buildMarketMotionCandidates([
+    item({
+      itemKey: "sec:anthropic-ipo",
+      publisher: "SEC",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.sec.gov/Archives/edgar/data/example/anthropic.htm",
+      summary: "Anthropic filed IPO materials disclosing operating losses and compute commitments.",
+      sourceQuality: 98,
+      evidence: [{
+        title: "Anthropic IPO filing",
+        url: "https://www.sec.gov/Archives/edgar/data/example/anthropic.htm",
+        publisher: "SEC",
+        publishedAt: "2026-10-01T00:50:00Z",
+        claim: "Anthropic filed IPO materials.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "run-official" });
+
+  const [merged] = unifyMarketMotionCandidates([promoted, official], { researchRunId: "run-official" });
+
+  assert.equal(merged.sourceKind, "filing");
+  assert.equal(merged.verificationState, "VERIFIED");
+  assert.equal(merged.lifecycleState, "PROMOTED");
+  assert.equal(merged.evidenceId, "evidence-anthropic");
+  assert.equal(merged.promotionReason, "Canonical evidence corroborated this Motion.");
+  assert.equal(merged.metadata?.promotionPolicy, "canonical-evidence-corroborated/v1");
+  assert.equal(merged.metadata?.promotionEvidenceId, "evidence-anthropic");
+  assert.deepEqual(merged.metadata?.originItemKeys, [
+    "sec:anthropic-ipo",
+    "reuters:anthropic-ipo",
+    "youtube:stockedup:anthropic001",
+  ]);
+});
+
+
+test("expired promoted Motion is not revived by sticky merge preservation", () => {
+  const creator = buildTranscriptMotionCandidates([reviewedTranscriptRow()], [], { now: NOW })[0];
+  const [reuters] = buildMarketMotionCandidates([
+    item({
+      itemKey: "reuters:anthropic-ipo-expired",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-expired",
+      summary: "Anthropic's IPO prospectus disclosed large operating losses alongside rapid revenue growth and major compute commitments.",
+      evidence: [{
+        title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+        url: "https://www.reuters.com/technology/artificial-intelligence/anthropic-ipo-expired",
+        publisher: "Reuters",
+        publishedAt: "2026-10-01T00:40:00Z",
+        claim: "Anthropic's IPO prospectus disclosed large operating losses.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "run-reporting-expired" });
+  const [base] = unifyMarketMotionCandidates([creator, reuters], { researchRunId: "run-reporting-expired" });
+  const expiredPromoted = {
+    ...base,
+    lifecycleState: "PROMOTED" as const,
+    evidenceId: "evidence-expired",
+    promotionReason: "Old corroboration.",
+    expiresAt: "2026-10-01T01:00:00.000Z",
+    metadata: {
+      ...(base.metadata || {}),
+      promotionPolicy: "canonical-evidence-corroborated/v1",
+      promotionEvidenceId: "evidence-expired",
+    },
+  };
+  const [official] = buildMarketMotionCandidates([
+    item({
+      itemKey: "sec:anthropic-ipo-fresh",
+      publisher: "SEC",
+      title: "Anthropic IPO filing reveals heavy losses and compute commitments",
+      url: "https://www.sec.gov/Archives/edgar/data/example/anthropic-fresh.htm",
+      summary: "Anthropic filed fresh IPO materials disclosing operating losses and compute commitments.",
+      sourceQuality: 98,
+      evidence: [{
+        title: "Anthropic IPO filing",
+        url: "https://www.sec.gov/Archives/edgar/data/example/anthropic-fresh.htm",
+        publisher: "SEC",
+        publishedAt: "2026-10-01T01:30:00Z",
+        claim: "Anthropic filed fresh IPO materials.",
+      }],
+    }),
+  ], [], { now: NOW, researchRunId: "run-official-fresh" });
+
+  const [merged] = unifyMarketMotionCandidates([expiredPromoted, official], { researchRunId: "run-official-fresh" });
+
+  assert.equal(merged.lifecycleState, "MOTION");
+  assert.equal(merged.evidenceId ?? null, null);
+  assert.equal(merged.promotionReason ?? null, null);
+  assert.equal(merged.metadata?.promotionPolicy ?? null, null);
+  assert.equal(merged.metadata?.promotionEvidenceId ?? null, null);
+});

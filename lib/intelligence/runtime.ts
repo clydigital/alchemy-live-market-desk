@@ -101,7 +101,7 @@ import {
 } from "@/lib/intelligence/story-recruitment";
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
-import { promoteMarketMotionForPublishedStories } from "@/lib/market-motion-promotion";
+import { promoteMarketMotionFromCanonicalEvidence } from "@/lib/market-motion-promotion";
 import {
   captureMarketMotionEditionAttachment,
   emptyMarketMotionEditionAttachment,
@@ -2772,6 +2772,22 @@ export async function runIntelligenceEngine({
       ...queuedArchivedReview.triggerEvidenceIds,
     ]);
     const evidence = await loadEvidence(requiredEvidenceIds);
+    if (!dryRun) {
+      try {
+        const motionPromotion = await promoteMarketMotionFromCanonicalEvidence({
+          researchRunId,
+          engineRunId,
+          evidence,
+          now: new Date(analysisAsOf),
+        });
+        if (motionPromotion.promoted > 0) {
+          warnings.push(`Market Motion promoted ${motionPromotion.promoted} item(s) from exact canonical Evidence corroboration.`);
+        }
+        warnings.push(...motionPromotion.warnings.map((warning) => `Market Motion promotion: ${warning}`));
+      } catch (error) {
+        warnings.push(`Market Motion promotion unavailable: ${error instanceof Error ? error.message : "unknown failure"}`);
+      }
+    }
     const recruitment = buildFreshNewsRecruitment(evidence.filter((item) => !isRatesContext(item)), analysisAsOf);
     const system1Attention = buildSystem1ResearchAttention(recruitment);
     const fullFreshEvidence = attachRatesContext(
@@ -3268,22 +3284,6 @@ export async function runIntelligenceEngine({
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
-    }
-
-    if (!dryRun && researchRunId && publishedStories.length) {
-      try {
-        const motionPromotion = await promoteMarketMotionForPublishedStories({
-          researchRunId,
-          engineRunId,
-          storyIds: publishedStories.map((story) => story.id),
-        });
-        if (motionPromotion.promoted > 0) {
-          warnings.push(`Market Motion promoted ${motionPromotion.promoted} item(s) because the linked canonical Story changed in this intelligence run.`);
-        }
-        warnings.push(...motionPromotion.warnings.map((warning) => `Market Motion promotion: ${warning}`));
-      } catch (error) {
-        warnings.push(`Market Motion promotion unavailable: ${error instanceof Error ? error.message : "unknown failure"}`);
-      }
     }
 
     if (!dryRun && editionStories.length) {
