@@ -206,7 +206,7 @@ test("P1.2 Presenter prefers exact canonical Story reasoning and keeps Dossier f
   assert.match(component, /CANONICAL STORY/);
   assert.match(component, /DOSSIER FALLBACK/);
 
-  assert.match(page, /presenterStorySourcesFromEditionPayload\(currentEdition\?\.payload\)/);
+  assert.match(page, /presenterStorySourcesFromEditionPayload\(selectedPresenterEdition\?\.payload\)/);
   assert.match(page, /buildPresenterCanonicalStoryCases\(\{/);
   assert.match(page, /canonicalCases=\{presenterCanonicalCases\}/);
 });
