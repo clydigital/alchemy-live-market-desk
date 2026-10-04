@@ -7,6 +7,10 @@ import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import {
+  buildPresenterCanonicalStoryCases,
+  presenterStorySourcesFromEditionPayload,
+} from "@/lib/presenter-canonical-story-bridge";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
@@ -159,6 +163,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
+  const presenterStorySources = presenterStorySourcesFromEditionPayload(currentEdition?.payload);
+  const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
+    investigations: dossier.watchNext,
+    storySources: presenterStorySources,
+  });
   const marketMotionAttachment = marketMotionFromEditionPayload(currentEdition?.payload);
   const motionJourney = selectMarketMotionEditionContext({
     attachment: marketMotionAttachment,
@@ -557,6 +566,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             <PresenterDivergenceJourney
               investigations={dossier.watchNext}
               calibration={dossier.reactionCalibration}
+              canonicalCases={presenterCanonicalCases}
             />
 
             {dossier.investigationJourney.some((item) => item.transition === "NOT_CARRIED_FORWARD") ? (
