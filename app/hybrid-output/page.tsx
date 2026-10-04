@@ -117,7 +117,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
   const dossierMotionDecisions = dossier.motionAttention
-    .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
+    .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE" || item.decision === "UNRESOLVED")
     .map((item) => {
       const story = item.storyId ? data.stories.find((candidate) => candidate.id === item.storyId) || null : null;
       const regime = item.regimeSlug ? regimes.find((candidate) => candidate.slug === item.regimeSlug) || null : null;
@@ -245,25 +245,30 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         {dossierMotionDecisions.length ? (
           <Panel
             title="Dossier Motion decisions"
-            description="Latest accepted/refined Motion reasoning from the persisted Dossier. This can appear before the next immutable Journey edition freezes the promoted Motion; it never reads the mutable current Motion view."
-            action={<Badge tone="ready">{dossierMotionDecisions.length} DOSSIER DECISION{dossierMotionDecisions.length === 1 ? "" : "S"}</Badge>}
+            description="Latest accepted, refined, or unresolved Motion reasoning from the persisted Dossier. ACCEPT/REFINE may become promoted context; UNRESOLVED stays explicitly research-pending. This can appear before the next immutable Journey edition freezes promoted Motion and never reads the mutable current Motion view."
+            action={<Badge tone={dossierMotionDecisions.some((item) => item.decision === "UNRESOLVED") ? "warn" : "ready"}>{dossierMotionDecisions.length} DOSSIER DECISION{dossierMotionDecisions.length === 1 ? "" : "S"}</Badge>}
           >
             <div className={styles.recordList}>
               {dossierMotionDecisions.map((item) => (
                 <article className={styles.record} key={item.motionId}>
                   <div className={styles.recordHeader}>
                     <div>
-                      <span className={styles.kicker}>{item.decision} · {item.scope}</span>
+                      <span className={styles.kicker}>{item.decision === "UNRESOLVED" ? "RESEARCH PENDING" : item.decision} · {item.scope}</span>
                       <h3>{item.headline}</h3>
                     </div>
-                    <Badge tone={item.decision === "REFINE" ? "warn" : "ready"}>{item.decision}</Badge>
+                    <Badge tone={item.decision === "ACCEPT" ? "ready" : "warn"}>
+                      {item.decision === "UNRESOLVED" ? "RESEARCH PENDING" : item.decision}
+                    </Badge>
                   </div>
                   <p><strong>What happened:</strong> {item.whatHappened}</p>
                   <p><strong>Dossier read:</strong> {item.whyInteresting}</p>
                   {item.marketReaction ? <p><strong>Market reaction:</strong> {item.marketReaction}</p> : null}
                   <p><strong>Bridge:</strong> {item.bigPictureBridge}</p>
-                  {item.nextTest ? <p><strong>Next test:</strong> {item.nextTest}</p> : null}
+                  {item.nextTest ? <p><strong>{item.decision === "UNRESOLVED" ? "Research next" : "Next test"}:</strong> {item.nextTest}</p> : null}
                   <p><strong>Assessment:</strong> {item.reason}</p>
+                  {item.decision === "UNRESOLVED" ? (
+                    <p><strong>Status:</strong> Research pending. No Motion promotion or canonical Story/Regime conclusion has been inferred from this unresolved assessment.</p>
+                  ) : null}
                   <p>
                     {item.storyHref && item.storyTitle ? (
                       <>
