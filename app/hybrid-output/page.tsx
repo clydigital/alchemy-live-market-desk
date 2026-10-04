@@ -12,6 +12,7 @@ import {
   presenterStorySourcesFromEditionPayload,
 } from "@/lib/presenter-canonical-story-bridge";
 import { buildPresenterHistoricalContextBoundary } from "@/lib/presenter-historical-context-boundary";
+import { loadPresenterHistoricalDossierReplay } from "@/lib/presenter-historical-dossier-replay";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
@@ -179,16 +180,30 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       && presenterEditionSelection.selected.snapshotId !== presenterEditionSelection.current?.snapshotId
         ? "historical" as const
         : "current" as const;
+  const presenterHistoricalDossierReplay = presenterEditionStatus === "historical"
+    ? await loadPresenterHistoricalDossierReplay(selectedPresenterEdition?.payload)
+    : null;
+  const presenterDossier = presenterHistoricalDossierReplay?.status === "BOUND"
+    && presenterHistoricalDossierReplay.selection?.presentation
+      ? presenterHistoricalDossierReplay.selection.presentation
+      : dossier;
   const presenterHistoricalContextBoundary = buildPresenterHistoricalContextBoundary({
     editionSelectionStatus: presenterEditionStatus,
     selectedEditionId: presenterEditionSelection.selected?.snapshotId ?? null,
     currentEditionId: presenterEditionSelection.current?.snapshotId ?? null,
     dossierId: selection.selectedDossierId,
     dossierAsOf: selection.selectedAsOf,
+    exactHistoricalDossier: presenterHistoricalDossierReplay?.status === "BOUND"
+      && presenterHistoricalDossierReplay.selection
+      ? {
+          dossierId: presenterHistoricalDossierReplay.selection.selectedDossierId!,
+          dossierAsOf: presenterHistoricalDossierReplay.selection.selectedAsOf!,
+        }
+      : null,
   });
   const presenterStorySources = presenterStorySourcesFromEditionPayload(selectedPresenterEdition?.payload);
   const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
-    investigations: dossier.watchNext,
+    investigations: presenterDossier.watchNext,
     storySources: presenterStorySources,
   });
   const presenterEditionOptions = presenterEditionIndex.slice(0, 8).map((edition) => {
@@ -608,8 +623,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             description="A read-only reasoning journey from the preserved expectation to measured tape, competing mechanisms and the next discriminator. Hybrid presents canonical reasoning; it does not create a new explanation."
           >
             <PresenterDivergenceJourney
-              investigations={dossier.watchNext}
-              calibration={dossier.reactionCalibration}
+              investigations={presenterDossier.watchNext}
+              calibration={presenterDossier.reactionCalibration}
               canonicalCases={presenterCanonicalCases}
               editionContext={{
                 selectedSnapshotId: presenterEditionSelection.selected?.snapshotId ?? null,
