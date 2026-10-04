@@ -9,9 +9,9 @@ Macro Pulse
   -> explicit notable candidate
   -> Market Motion LEAD
   -> unified Motion dedupe
-  -> independent reporting / official evidence may corroborate
-  -> canonical Story change may PROMOTE Motion
-  -> Hybrid / Research Gap can consume the promoted canonical context
+  -> independent reporting / official research intake may corroborate
+  -> exact eligible canonical Evidence may PROMOTE Motion
+  -> Dossier / Hybrid / Research Gap can consume the promoted short-horizon context
 ```
 
 The bridge never writes a Story, Regime, Dossier, confidence change or thesis.
@@ -35,6 +35,19 @@ Every candidate must:
 - use Macro Pulse and any carried URLs as discovery references only.
 
 Primary, official or market-data links carried inside a Pulse do not become verified merely because Macro Pulse cited them. The normal research path must independently admit/corroborate them.
+
+## Promotion boundary
+
+B1 promotion is evidence-backed, not Story-change-backed. A Motion may become `PROMOTED` only when:
+
+- the normal research path has created eligible canonical Evidence for the same exact origin item identity;
+- the Evidence passes the existing canonical source-verification rules;
+- the Motion still has an exact persistent `primary_story_id`;
+- the Motion is fresh and clears the B1 materiality / relevance thresholds.
+
+A shared Story, Regime, ticker, headline or similar prose is not corroboration. Macro Pulse references and creator transcripts remain discovery context unless the underlying event independently enters canonical Evidence through the normal research path.
+
+Promotion stores the selected canonical Evidence UUID on the Motion for provenance, but Motion itself remains non-evidentiary. Regime-only or Investigation-only promotion without an exact Story identity is outside B1 and remains B2 work.
 
 ## Endpoint
 
