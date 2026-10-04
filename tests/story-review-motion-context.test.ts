@@ -12,6 +12,7 @@ const DOSSIER_ID = "55555555-5555-4555-8555-555555555555";
 const MOTION_ID = "11111111-1111-4111-8111-111111111111";
 const STORY_ID = "22222222-2222-4222-8222-222222222222";
 const PACKET_EVIDENCE_ID = "research-intake:exact-item";
+const CANONICAL_EVIDENCE_ID = "44444444-4444-4444-8444-444444444444";
 
 function payload(input: {
   decision?: "ACCEPT" | "REFINE";
@@ -81,6 +82,7 @@ test("C1.4a REFINE Story context exposes only corrected framing", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
     dossierPayload: payload({ decision: "REFINE" }),
   });
@@ -104,6 +106,7 @@ test("C1.4a ACCEPT may carry the already accepted original Motion framing", () =
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:ACCEPT`,
     dossierPayload: payload({ decision: "ACCEPT" }),
   });
@@ -120,6 +123,7 @@ test("C1.4a fails closed on exact Dossier, Story, Motion-evidence or assessment 
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
   };
 
@@ -138,6 +142,7 @@ test("C1.4a fails closed on exact Dossier, Story, Motion-evidence or assessment 
   assert.equal(extractDossierMotionStoryReviewContext({
     ...common,
     packetEvidenceId: "ev:other",
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     dossierPayload: payload({ decision: "REFINE" }),
   }), null);
 
@@ -157,6 +162,7 @@ test("C1.4a fails closed if REFINE corrected framing is incomplete", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:REFINE`,
     dossierPayload: payload({ decision: "REFINE", refinedHeadline: null }),
   });
@@ -169,6 +175,7 @@ test("C1.4a only admits Story-bearing canonical scopes", () => {
     dossierId: DOSSIER_ID,
     storyId: STORY_ID,
     packetEvidenceId: PACKET_EVIDENCE_ID,
+    canonicalEvidenceId: CANONICAL_EVIDENCE_ID,
     queueReason: `dossier_motion_refresh:${DOSSIER_ID}:${MOTION_ID}:ACCEPT`,
     dossierPayload: {
       ...payload({ decision: "ACCEPT" }),
@@ -215,6 +222,7 @@ test("C1.4b resolver joins queue row to exact Dossier payload and canonical pack
 
   assert.equal(result.size, 1);
   assert.equal(result.get(queueId)?.motionId, MOTION_ID);
+  assert.equal(result.get(queueId)?.canonicalEvidenceId, CANONICAL_EVIDENCE_ID);
   assert.equal(result.get(queueId)?.framing.headline, "Corrected evidence-bounded headline");
 });
 
