@@ -138,3 +138,51 @@ export function extractDossierMotionStoryReviewContext(input: {
     investigationNext: clean(assessment.investigation_next) || null,
   };
 }
+
+
+export type StoryReviewMotionQueueRow = {
+  id: string;
+  target_id: string;
+  reason: string;
+  requested_by_evidence_id: string | null;
+};
+
+export type StoryReviewMotionDossierRow = {
+  id: string;
+  payload: unknown;
+};
+
+export type StoryReviewMotionEvidenceIdentityRow = {
+  id: string;
+  external_evidence_id: string | null;
+};
+
+export function resolveDossierMotionStoryReviewContexts(input: {
+  queueRows: StoryReviewMotionQueueRow[];
+  dossiers: StoryReviewMotionDossierRow[];
+  evidenceRows: StoryReviewMotionEvidenceIdentityRow[];
+}): Map<string, StoryReviewMotionContext> {
+  const dossierById = new Map(input.dossiers.map((row) => [row.id, row] as const));
+  const evidenceById = new Map(input.evidenceRows.map((row) => [row.id, row] as const));
+  const result = new Map<string, StoryReviewMotionContext>();
+
+  for (const row of input.queueRows) {
+    const parsed = parseDossierMotionRefreshReason(row.reason);
+    if (!parsed || !row.requested_by_evidence_id) continue;
+    const dossier = dossierById.get(parsed.dossierId);
+    const evidence = evidenceById.get(row.requested_by_evidence_id);
+    if (!dossier || !evidence) continue;
+
+    const packetEvidenceId = clean(evidence.external_evidence_id) || `ev:${evidence.id}`;
+    const context = extractDossierMotionStoryReviewContext({
+      dossierId: parsed.dossierId,
+      storyId: row.target_id,
+      packetEvidenceId,
+      queueReason: row.reason,
+      dossierPayload: dossier.payload,
+    });
+    if (context) result.set(row.id, context);
+  }
+
+  return result;
+}
