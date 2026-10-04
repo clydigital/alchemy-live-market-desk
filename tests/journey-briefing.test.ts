@@ -384,7 +384,7 @@ test("canonical Story freeze excludes archive replay and remote image acquisitio
   const boundedCapture = hybrid.slice(start, end);
 
   assert.match(boundedCapture, /optionalQuery<Story>\("stories"/);
-  assert.match(boundedCapture, /optionalQuery<ThesisVersion>\("story_thesis_versions"/);
+  assert.match(boundedCapture, /exactCurrentThesisVersionsForPublication\(stories, options\)/);
   assert.match(boundedCapture, /optionalQuery<StoryEvent>\("story_events"/);
   assert.match(boundedCapture, /optionalIntelligenceStates\(\)/);
   assert.doesNotMatch(boundedCapture, /dailyBriefArchive|hybrid_publication_snapshots|getStoryHeaderImages|ResearchSource/);
