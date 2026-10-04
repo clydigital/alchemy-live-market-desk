@@ -345,6 +345,7 @@ function awaitableQuery<T>(
 
 function preparationClient(input: {
   evidenceIds?: string[];
+  evidenceRows?: Array<{ id: string; external_evidence_id?: string | null }>;
   stories?: typeof stories;
   regimeLinks?: Array<{
     regime_id: string;
@@ -357,7 +358,8 @@ function preparationClient(input: {
   const regimeId = "99999999-9999-4999-8999-999999999999";
   const tables: Record<string, unknown[]> = {
     stories: input.stories ?? stories,
-    intelligence_evidence: (input.evidenceIds ?? [EVIDENCE_A]).map((id) => ({ id })),
+    intelligence_evidence: input.evidenceRows
+      ?? (input.evidenceIds ?? [EVIDENCE_A]).map((id) => ({ id, external_evidence_id: null })),
     market_regimes: [{ id: regimeId, slug: "global-cost-of-capital" }],
     market_regime_story_links: input.regimeLinks ?? [
       { regime_id: regimeId, story_id: STORY_C, role: "core", confidence: 91, effective_to: null },
@@ -385,6 +387,68 @@ test("A3 preparation admits only canonical UUID refs that exist in intelligence_
   assert.equal(prepared.items.length, 1);
   assert.equal(prepared.items[0]?.canonical_evidence_id, EVIDENCE_B);
   assert.equal(prepared.items[0]?.target_story_id, STORY_B);
+});
+
+test("A3 resolves an exact Dossier external evidence ref to its canonical intelligence_evidence UUID", async () => {
+  const externalRef = "fed-release:2026-10-04:a3";
+  const inputPacket = packet({ evidenceIds: [externalRef] });
+
+  const prepared = await prepareDossierReevaluationPropagationPlan({
+    client: preparationClient({
+      evidenceRows: [{ id: EVIDENCE_A, external_evidence_id: externalRef }],
+    }),
+    packet: inputPacket,
+    analyticalOutput: output([decision({
+      canonical_evidence_refs: [externalRef],
+      destination_refs: [`STORY:${STORY_B}`],
+    })]),
+  });
+
+  assert.equal(prepared.items.length, 1);
+  assert.equal(prepared.items[0]?.canonical_evidence_ref, externalRef);
+  assert.equal(prepared.items[0]?.canonical_evidence_id, EVIDENCE_A);
+});
+
+test("A3 fails closed when an external Dossier evidence ref resolves to multiple canonical rows", async () => {
+  const externalRef = "ambiguous-external:a3";
+  const inputPacket = packet({ evidenceIds: [externalRef] });
+
+  const prepared = await prepareDossierReevaluationPropagationPlan({
+    client: preparationClient({
+      evidenceRows: [
+        { id: EVIDENCE_A, external_evidence_id: externalRef },
+        { id: EVIDENCE_B, external_evidence_id: externalRef },
+      ],
+    }),
+    packet: inputPacket,
+    analyticalOutput: output([decision({
+      canonical_evidence_refs: [externalRef],
+      destination_refs: [`STORY:${STORY_B}`],
+    })]),
+  });
+
+  assert.equal(prepared.items.length, 0);
+  assert.ok(prepared.warnings.some((warning) => /ambiguous canonical evidence identity/i.test(warning)));
+});
+
+test("A3 resolves the canonical snapshot ev:<row-uuid> fallback without inventing an evidence row", async () => {
+  const fallbackRef = `ev:${EVIDENCE_A}`;
+  const inputPacket = packet({ evidenceIds: [fallbackRef] });
+
+  const prepared = await prepareDossierReevaluationPropagationPlan({
+    client: preparationClient({
+      evidenceRows: [{ id: EVIDENCE_A, external_evidence_id: null }],
+    }),
+    packet: inputPacket,
+    analyticalOutput: output([decision({
+      canonical_evidence_refs: [fallbackRef],
+      destination_refs: [`STORY:${STORY_B}`],
+    })]),
+  });
+
+  assert.equal(prepared.items.length, 1);
+  assert.equal(prepared.items[0]?.canonical_evidence_ref, fallbackRef);
+  assert.equal(prepared.items[0]?.canonical_evidence_id, EVIDENCE_A);
 });
 
 test("A3 preparation resolves active Regime links through market_regimes slug and link role/confidence", async () => {
