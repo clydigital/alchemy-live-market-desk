@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved design direction. This spec is implementation-authoritative for B1 only.
+Draft from the approved in-chat design direction. Awaiting written-spec review. Once approved, this spec becomes implementation-authoritative for B1 only.
 
 ## Goal
 
