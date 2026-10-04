@@ -11,6 +11,7 @@ import {
   buildPresenterCanonicalStoryCases,
   presenterStorySourcesFromEditionPayload,
 } from "@/lib/presenter-canonical-story-bridge";
+import { buildPresenterHistoricalContextBoundary } from "@/lib/presenter-historical-context-boundary";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
@@ -178,6 +179,13 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       && presenterEditionSelection.selected.snapshotId !== presenterEditionSelection.current?.snapshotId
         ? "historical" as const
         : "current" as const;
+  const presenterHistoricalContextBoundary = buildPresenterHistoricalContextBoundary({
+    editionSelectionStatus: presenterEditionStatus,
+    selectedEditionId: presenterEditionSelection.selected?.snapshotId ?? null,
+    currentEditionId: presenterEditionSelection.current?.snapshotId ?? null,
+    dossierId: selection.selectedDossierId,
+    dossierAsOf: selection.selectedAsOf,
+  });
   const presenterStorySources = presenterStorySourcesFromEditionPayload(selectedPresenterEdition?.payload);
   const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
     investigations: dossier.watchNext,
@@ -609,6 +617,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                 status: presenterEditionStatus,
                 options: presenterEditionOptions,
               }}
+              historicalContextBoundary={presenterHistoricalContextBoundary}
             />
 
             {dossier.investigationJourney.some((item) => item.transition === "NOT_CARRIED_FORWARD") ? (
