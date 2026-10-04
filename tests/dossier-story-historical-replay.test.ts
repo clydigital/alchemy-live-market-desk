@@ -225,14 +225,15 @@ test("B4.7 legacy manifests without raw reasoning remain presentation-replayable
 
 test("B4.7 both canonical edition writers persist reasoning from the frozen Story publication snapshot", () => {
   const root = path.resolve(import.meta.dirname, "..");
-  for (const relative of [
-    ["lib", "intelligence", "runtime.ts"],
-    ["lib", "intelligence", "canonical-journey-edition.ts"],
-  ]) {
+  for (const [relative, endAnchor] of [
+    [["lib", "intelligence", "runtime.ts"], "/**\n * The research publisher"],
+    [["lib", "intelligence", "canonical-journey-edition.ts"], "/**\n * Ensure every completed"],
+  ] as const) {
     const source = fs.readFileSync(path.join(root, ...relative), "utf8");
     const start = source.indexOf("async function persistCanonicalStoryManifest");
+    const end = source.indexOf(endAnchor, start);
     assert.notEqual(start, -1, relative.join("/"));
-    const end = source.indexOf("\n}\n", start) + 3;
+    assert.ok(end > start, relative.join("/"));
     const section = source.slice(start, end);
 
     assert.match(section, /const candidateReasoning = snapshot\.payload\.canonicalStoryReasoning/);
