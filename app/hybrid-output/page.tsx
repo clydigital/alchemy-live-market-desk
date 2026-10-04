@@ -18,6 +18,7 @@ import {
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 } from "@/lib/market-motion";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { findResearchGapCasesForMotionIds } from "@/lib/research-gap-lifecycle";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection } from "@/lib/regimes";
@@ -95,6 +96,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const regimeSlug = typeof query.regime === "string" ? query.regime : null;
   const eventId = typeof query.event === "string" ? query.event : null;
   const motionId = typeof query.motion === "string" ? query.motion : null;
+  const gapId = typeof query.gap === "string" ? query.gap : null;
   const focusedStory = storySlug ? data.stories.find((story) => story.slug === storySlug) || null : null;
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
@@ -116,6 +118,25 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const dossierStory = (focusedStory || focusedEventStory)
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
+  const unresolvedMotionIds = dossier.motionAttention
+    .filter((item) => item.decision === "UNRESOLVED")
+    .map((item) => item.motionId);
+  const motionGapCases = unresolvedMotionIds.length
+    ? await findResearchGapCasesForMotionIds({
+        motionIds: unresolvedMotionIds,
+        dossierId: dossier.dossierId,
+      })
+    : [];
+  const gapCasesByMotionId = new Map<string, typeof motionGapCases>();
+  for (const gapCase of motionGapCases) {
+    const rows = gapCasesByMotionId.get(gapCase.source_ref) ?? [];
+    rows.push(gapCase);
+    gapCasesByMotionId.set(gapCase.source_ref, rows);
+  }
+  const focusedGapCase = gapId
+    ? motionGapCases.find((gapCase) => gapCase.id === gapId) || null
+    : null;
+
   const dossierMotionDecisions = dossier.motionAttention
     .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE" || item.decision === "UNRESOLVED")
     .map((item) => {
@@ -127,6 +148,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         storyHref: story ? `/stories/${story.slug}` : null,
         regimeLabel: regime?.shortTitle || null,
         regimeHref: regime ? `/regimes/${regime.slug}` : null,
+        researchGapCases: gapCasesByMotionId.get(item.motionId) ?? [],
       };
     });
 
@@ -267,7 +289,24 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   {item.nextTest ? <p><strong>{item.decision === "UNRESOLVED" ? "Research next" : "Next test"}:</strong> {item.nextTest}</p> : null}
                   <p><strong>Assessment:</strong> {item.reason}</p>
                   {item.decision === "UNRESOLVED" ? (
-                    <p><strong>Status:</strong> Research pending. No Motion promotion or canonical Story/Regime conclusion has been inferred from this unresolved assessment.</p>
+                    <>
+                      <p><strong>Status:</strong> Research pending. No Motion promotion or canonical Story/Regime conclusion has been inferred from this unresolved assessment.</p>
+                      {item.researchGapCases.length ? (
+                        <p>
+                          <strong>Research Gap:</strong>{" "}
+                          {item.researchGapCases.map((gapCase, index) => (
+                            <span key={gapCase.id}>
+                              {index ? " · " : ""}
+                              <a className={styles.link} href={`/hybrid-output?gap=${encodeURIComponent(gapCase.id)}#research-gap-case`}>
+                                {gapCase.status} · {gapCase.id.slice(0, 8)}
+                              </a>
+                            </span>
+                          ))}
+                        </p>
+                      ) : (
+                        <p><strong>Research Gap:</strong> Materialisation pending; no durable case is linked to this Motion and Dossier yet.</p>
+                      )}
+                    </>
                   ) : null}
                   <p>
                     {item.storyHref && item.storyTitle ? (
@@ -284,6 +323,37 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
               ))}
             </div>
           </Panel>
+        ) : null}
+
+        {gapId ? (
+          focusedGapCase ? (
+            <Panel
+              title="Research Gap case"
+              description="Exact durable research case matched by Market Motion source_ref and the current Dossier identity. Hybrid reads status only; it does not claim, execute, resolve, or hand off the case."
+              action={<Badge tone={focusedGapCase.status === "COMPLETED" || focusedGapCase.status === "HANDED_OFF" ? "ready" : "warn"}>{focusedGapCase.status}</Badge>}
+            >
+              <article className={styles.record} id="research-gap-case">
+                <div className={styles.recordHeader}>
+                  <div>
+                    <span className={styles.kicker}>RESEARCH GAP · {focusedGapCase.source_kind.replaceAll("_", " ")}</span>
+                    <h3>{focusedGapCase.question || focusedGapCase.action}</h3>
+                  </div>
+                  <Badge>{focusedGapCase.research_outcome || "PENDING"}</Badge>
+                </div>
+                <p><strong>Case:</strong> {focusedGapCase.id}</p>
+                <p><strong>Motion:</strong> {focusedGapCase.source_ref}</p>
+                <p><strong>Action:</strong> {focusedGapCase.action}</p>
+                {focusedGapCase.reason ? <p><strong>Why funded:</strong> {focusedGapCase.reason}</p> : null}
+                <p><strong>Priority:</strong> {focusedGapCase.latest_priority_rank ?? "—"} · score {focusedGapCase.latest_priority_score ?? "—"}</p>
+                <p><strong>Current Dossier:</strong> {focusedGapCase.latest_dossier_id}</p>
+              </article>
+            </Panel>
+          ) : (
+            <DataState
+              title="Research Gap case is not linked to this Dossier"
+              detail="Hybrid will not recover a stale or fuzzy Gap match. Open the current unresolved Motion decision and wait for exact lifecycle materialisation."
+            />
+          )
         ) : null}
 
         {motionId ? (

@@ -73,3 +73,17 @@ test("B3d.1 Hybrid shows unresolved Dossier Motion as research pending without i
   assert.match(hybrid, /ACCEPT\/REFINE may become promoted context; UNRESOLVED stays explicitly research-pending/);
   assert.doesNotMatch(hybrid, /item\.decision === "REJECT" \|\|/);
 });
+
+
+test("B3d.2 Hybrid links research-pending Motion only to exact durable Gap cases", () => {
+  assert.match(hybrid, /findResearchGapCasesForMotionIds/);
+  assert.match(hybrid, /motionIds: unresolvedMotionIds/);
+  assert.match(hybrid, /dossierId: dossier\.dossierId/);
+  assert.match(hybrid, /researchGapCases/);
+  assert.match(hybrid, /Materialisation pending; no durable case is linked to this Motion and Dossier yet/);
+  assert.match(hybrid, /\/hybrid-output\?gap=/);
+  assert.match(hybrid, /id="research-gap-case"/);
+  assert.match(hybrid, /Exact durable research case matched by Market Motion source_ref and the current Dossier identity/);
+  assert.match(hybrid, /does not claim, execute, resolve, or hand off the case/);
+  assert.doesNotMatch(hybrid, /syncResearchGapPriorityQueue|claimResearchGapCases|startResearchGapCase|completeResearchGapCase|markResearchGapCaseHandedOff/);
+});

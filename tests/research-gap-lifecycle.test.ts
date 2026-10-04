@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   claimResearchGapCases,
+  findResearchGapCasesForMotionIds,
   releaseResearchGapCase,
   syncResearchGapPriorityQueue,
 } from "../lib/research-gap-lifecycle.ts";
@@ -150,4 +151,79 @@ test("lifecycle machine endpoint is whitelisted and supports sync, claim and rel
   assert.match(route, /input\.action === "claim"/);
   assert.match(route, /input\.action === "release"/);
   assert.match(route, /acceptsResearchAuthorization/);
+});
+
+
+test("B3d.2 exact Motion Gap lookup fences source kind, Motion IDs and current Dossier", async () => {
+  const calls: Array<[string, unknown]> = [];
+  const rows = [{
+    id: "gap-case-1",
+    source_kind: "market_motion",
+    source_ref: "motion-1",
+    latest_dossier_id: "dossier-1",
+    status: "QUEUED",
+  }];
+
+  const query = {
+    select(value: string) {
+      calls.push(["select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`eq:${column}`, value]);
+      return this;
+    },
+    in(column: string, value: unknown) {
+      calls.push([`in:${column}`, value]);
+      return this;
+    },
+    neq(column: string, value: unknown) {
+      calls.push([`neq:${column}`, value]);
+      return this;
+    },
+    order(column: string, value: unknown) {
+      calls.push([`order:${column}`, value]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["limit", value]);
+      return { data: rows, error: null };
+    },
+  };
+
+  const fakeClient = {
+    from(table: string) {
+      assert.equal(table, "research_gap_cases");
+      return query;
+    },
+  };
+
+  const result = await findResearchGapCasesForMotionIds({
+    motionIds: ["motion-1", "motion-1", " ", "motion-2"],
+    dossierId: "dossier-1",
+  }, fakeClient as never);
+
+  assert.deepEqual(result, rows);
+  assert.ok(calls.some(([name, value]) => name === "eq:source_kind" && value === "market_motion"));
+  assert.ok(calls.some(([name, value]) => name === "in:source_ref" && JSON.stringify(value) === JSON.stringify(["motion-1", "motion-2"])));
+  assert.ok(calls.some(([name, value]) => name === "eq:latest_dossier_id" && value === "dossier-1"));
+  assert.ok(calls.some(([name, value]) => name === "neq:status" && value === "CLOSED"));
+});
+
+test("B3d.2 exact Motion Gap lookup performs no database read for an empty Motion set", async () => {
+  let touched = false;
+  const fakeClient = {
+    from() {
+      touched = true;
+      throw new Error("should not query");
+    },
+  };
+
+  const result = await findResearchGapCasesForMotionIds({
+    motionIds: [],
+    dossierId: "dossier-1",
+  }, fakeClient as never);
+
+  assert.deepEqual(result, []);
+  assert.equal(touched, false);
 });
