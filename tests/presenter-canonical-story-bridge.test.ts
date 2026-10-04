@@ -9,6 +9,7 @@ import type { CanonicalStoryReasoningV1 } from "../lib/intelligence/story-reason
 import {
   buildPresenterCanonicalStoryCase,
   buildPresenterCanonicalStoryCases,
+  presenterStorySourcesFromEditionPayload,
   PRESENTER_CANONICAL_STORY_BRIDGE_VERSION,
 } from "../lib/presenter-canonical-story-bridge.ts";
 
@@ -313,4 +314,73 @@ test("P1.1 bridge is pure, read-only and contains no model or persistence path",
   assert.doesNotMatch(sourceText, /intelligenceRest|supabase|insert\s+into|update\s+public\./i);
   assert.doesNotMatch(sourceText, /apply_intelligence_story_assessment_v2/);
   assert.doesNotMatch(sourceText, /persist_canonical_story_reasoning/);
+});
+
+
+test("P1.2 recovers exact immutable Journey Story sources from the selected edition manifest", () => {
+  const sources = presenterStorySourcesFromEditionPayload({
+    canonicalStoryManifest: [{
+      position: 1,
+      snapshotId: "snapshot-rates",
+      storyId: STORY_ID,
+      thesisVersionId: VERSION_ID,
+      state: { id: STORY_ID },
+      reasoning: reasoning(),
+    }],
+  });
+
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0]?.publicationSnapshotId, "snapshot-rates");
+  assert.equal(sources[0]?.storyId, STORY_ID);
+  assert.equal(sources[0]?.thesisVersionId, VERSION_ID);
+  assert.equal(sources[0]?.reasoning.storyVersionId, VERSION_ID);
+});
+
+test("P1.2 ignores malformed, cross-Story and cross-version manifest reasoning", () => {
+  const sources = presenterStorySourcesFromEditionPayload({
+    canonicalStoryManifest: [
+      {
+        position: 1,
+        snapshotId: "missing-reasoning",
+        storyId: STORY_ID,
+        thesisVersionId: VERSION_ID,
+      },
+      {
+        position: 2,
+        snapshotId: "wrong-story",
+        storyId: STORY_ID,
+        thesisVersionId: VERSION_ID,
+        reasoning: reasoning({ storyId: "story-other" }),
+      },
+      {
+        position: 3,
+        snapshotId: "wrong-version",
+        storyId: STORY_ID,
+        thesisVersionId: VERSION_ID,
+        reasoning: reasoning({ storyVersionId: "55555555-5555-4555-8555-555555555555" }),
+      },
+    ],
+  });
+
+  assert.deepEqual(sources, []);
+});
+
+test("P1.2 edition source recovery never consults mutable Story/version persistence", () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const sourceText = fs.readFileSync(
+    path.join(root, "lib", "presenter-canonical-story-bridge.ts"),
+    "utf8",
+  );
+  const start = sourceText.indexOf("export function presenterStorySourcesFromEditionPayload");
+  const end = sourceText.indexOf("export function buildPresenterCanonicalStoryCases", start);
+  assert.notEqual(start, -1);
+  assert.ok(end > start);
+  const section = sourceText.slice(start, end);
+
+  assert.match(section, /canonicalStoryManifest/);
+  assert.match(section, /entry\.reasoning/);
+  assert.doesNotMatch(section, /stories\?/);
+  assert.doesNotMatch(section, /story_thesis_versions/);
+  assert.doesNotMatch(section, /fetch\(/);
+  assert.doesNotMatch(section, /intelligenceRest|supabase/i);
 });
