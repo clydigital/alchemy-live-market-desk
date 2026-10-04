@@ -388,6 +388,18 @@ export function materialAssessmentHasEligibleEvidence(
   const credible = target.relevantEvidence.filter((item) => selected.has(item.id)
     && isCanonicalEligibleEvidence(item));
   if (!credible.length) return false;
+
+  if (disposition === "reframed") {
+    const refineContexts = (target.reviewContext?.motionReassessments ?? [])
+      .filter((context) => context.decision === "REFINE");
+    if (
+      refineContexts.length
+      && !refineContexts.some((context) => selected.has(context.canonicalEvidenceId))
+    ) {
+      return false;
+    }
+  }
+
   if (disposition !== "invalidated") return true;
   if (credible.some((item) => item.sourceTier <= 2)) return true;
   return new Set(credible.map(independentGroup)).size >= 2;
