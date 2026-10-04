@@ -73,8 +73,13 @@ function metricString(item: ObservedEvidence | null | undefined, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function allEvidence(packet: DossierV2InputPacket) {
+  const merged = [...(packet.rate_context?.evidence ?? []), ...packet.observed_evidence];
+  return [...new Map(merged.map((item) => [item.evidence_id, item])).values()];
+}
+
 function latestByPrefix(packet: DossierV2InputPacket, prefix: string) {
-  return packet.observed_evidence
+  return allEvidence(packet)
     .filter((item) => item.evidence_id.startsWith(prefix))
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
@@ -84,15 +89,13 @@ function monitor(packet: DossierV2InputPacket, id: string) {
 }
 
 function signalContext(packet: DossierV2InputPacket, context: string) {
-  const merged = [...(packet.rate_context?.evidence ?? []), ...packet.observed_evidence];
-  return merged
+  return allEvidence(packet)
     .filter((item) => metricString(item, "signal_context")?.toLowerCase() === context.toLowerCase())
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
 function claimMatch(packet: DossierV2InputPacket, pattern: RegExp) {
-  const merged = [...(packet.rate_context?.evidence ?? []), ...packet.observed_evidence];
-  return merged
+  return allEvidence(packet)
     .filter((item) => pattern.test(item.claim_or_fact))
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
