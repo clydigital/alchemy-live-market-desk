@@ -375,20 +375,21 @@ function motionAttentionPresentation(
     const explicitScope = assessment.canonical_reassessment_scope;
     const storyAccepted = Boolean(assessment.story_implication?.trim() && storyId);
     const regimeAccepted = Boolean(assessment.regime_implication?.trim() && regimeSlug);
-    const scope: DossierPresentationMotionAttention["scope"] =
-      explicitScope === "STORY" && storyAccepted
-        ? "STORY"
-        : explicitScope === "REGIME" && regimeAccepted
-          ? "REGIME"
-          : explicitScope === "STORY_AND_REGIME" && storyAccepted && regimeAccepted
-            ? "STORY_AND_REGIME"
-            : explicitScope === "NONE"
-              ? "UNROUTED"
-              : storyAccepted
-                ? "STORY"
-                : regimeAccepted
-                  ? "REGIME"
-                  : "UNROUTED";
+    let scope: DossierPresentationMotionAttention["scope"];
+    if (explicitScope === "STORY") {
+      scope = storyAccepted ? "STORY" : "UNROUTED";
+    } else if (explicitScope === "REGIME") {
+      scope = regimeAccepted ? "REGIME" : "UNROUTED";
+    } else if (explicitScope === "STORY_AND_REGIME") {
+      scope = storyAccepted && regimeAccepted ? "STORY_AND_REGIME" : "UNROUTED";
+    } else if (explicitScope === "NONE") {
+      scope = "UNROUTED";
+    } else if (explicitScope === undefined) {
+      // Historical immutable Dossiers predate C1.3a and may not carry the field.
+      scope = storyAccepted ? "STORY" : regimeAccepted ? "REGIME" : "UNROUTED";
+    } else {
+      scope = "UNROUTED";
+    }
     const refined = assessment.decision === "REFINE";
 
     return [{
