@@ -155,3 +155,22 @@ test("C1.4b Story review runtime resolves Motion context only from exact queued 
   assert.match(runtime, /resolveDossierMotionStoryReviewContexts/);
   assert.match(runtime, /motionReassessment: motionContextByQueueId\.get\(item\.id\) \?\? null/);
 });
+
+
+test("C1.4c Market Belief treats Motion reassessment framing as context-only and evidence-bound", () => {
+  assert.match(runtime, /reviewContext\.motionReassessments is present/);
+  assert.match(runtime, /CONTEXT ONLY, never as evidence/);
+  assert.match(runtime, /canonicalEvidenceId/);
+  assert.match(runtime, /server will retry the review/);
+  assert.match(runtime, /decision=REFINE/);
+  assert.match(runtime, /use only that corrected framing/);
+  assert.match(runtime, /never reconstruct, recover or reintroduce the original Motion headline/);
+  assert.match(runtime, /STORY_AND_REGIME means the Story is in scope here but this stage still has no authority to mutate Regime state/);
+});
+
+test("C1.4c server retries Motion-triggered Story review when exact canonical Motion evidence is not cited", () => {
+  assert.match(runtime, /motionReassessmentEvidenceComplete\(assessment\.evidenceIds, target\)/);
+  assert.match(runtime, /The Market Belief Story assessment did not cite every exact canonical Motion-trigger evidence record/);
+  assert.match(runtime, /motion_story_review_evidence_incomplete/);
+  assert.match(runtime, /continue;/);
+});
