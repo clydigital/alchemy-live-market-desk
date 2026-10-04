@@ -1,4 +1,9 @@
-import { MAX_THESIS_LEDGER_ENTRIES, type DossierV2InputPacket } from "./input-packet.ts";
+import {
+  DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
+  MAX_DOSSIER_MOTION_CONTEXT,
+  MAX_THESIS_LEDGER_ENTRIES,
+  type DossierV2InputPacket,
+} from "./input-packet.ts";
 import {
   EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
@@ -10,6 +15,7 @@ import {
   MAX_RESEARCH_GAPS,
   MAX_RESEARCH_NOW_ACTIONS,
   MAX_STOCK_RADAR_ITEMS,
+  DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
   THESIS_LEDGER_V2_CONTRACT_VERSION,
 } from "./research-brain-contracts.ts";
@@ -108,6 +114,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 1. Current facts come ONLY from packet.observed_evidence and packet.rate_context.evidence. rate_context is a bounded protected OBSERVED subset for rates/policy continuity when cluster caps would otherwise omit those facts.
 2. Research leads (packet.research_leads) are questions/leads, NOT facts. Do not convert leads to facts without corresponding observed_evidence.
 3. Prior analytical claims, prior investigations and prior Thesis Ledger entries are historical state, NOT current facts. Prior investigations preserve what the desk asked, expected and believed at the previous Dossier vintage; never present their old observations as current tape.
+3A. MOTION ACCEPTANCE BOUNDARY: packet.motion_context is bounded System 1 attention/framing context, NOT evidence and NOT a factual source. Emit exactly one motion_acceptance decision for every supplied Motion item. ACCEPT means the framing survives System 2 review and is supported by current canonical evidence. REFINE means the idea is useful but its conclusion/mechanism must be narrowed or corrected by current canonical evidence. UNRESOLVED means it deserves attention but current canonical evidence cannot establish or reject it. REJECT means it is contradicted, unsupported, duplicative or not decision-relevant. ACCEPT and REFINE MUST cite at least one current canonical evidence ID in canonical_evidence_refs and MUST provide a non-null conclusion; REFINE MUST also provide a concrete next_test. UNRESOLVED and REJECT MUST use conclusion=null. REJECT MUST use destination_refs=[]. Motion verification_state, lifecycle/promotion, materiality, relevance, source labels, headline, market_reaction and prose do not establish facts. Never place a Motion ID in an evidence-reference field, never turn Motion market_reaction into observed tape without canonical market/pricing evidence, and never infer the inverse thesis merely because a Motion is rejected. destination_refs are routing/audit links only; they do not relax any existing evidence, provenance, corroboration or Thesis Ledger rule.
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
@@ -281,6 +288,11 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     },
     system1_policy_liquidity_interaction: system1PolicyLiquidityInteraction,
     research_leads: compactResearchLeads(packet),
+    motion_context: packet.motion_context ?? {
+      contract_version: DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
+      items: [],
+      omitted_count: 0,
+    },
     prior_analytical_state: compactPriorState(packet),
     development_clusters: packet.development_clusters.map((c) => ({
       cluster_id: c.cluster_id,
@@ -395,6 +407,9 @@ export function buildResearchBrainRepairPrompt(
       ? packet.creator_themes.flatMap((t) => (Array.isArray(t.claims) ? t.claims.map((c) => c.claim_id) : []))
       : [],
     valid_catalyst_ids: Array.isArray(packet.catalysts) ? packet.catalysts.map((c) => c.catalyst_id) : [],
+    valid_motion_ids: Array.isArray(packet.motion_context?.items)
+      ? packet.motion_context!.items.map((item) => item.motion_id)
+      : [],
     valid_conflict_group_ids: Array.isArray(packet.observed_evidence)
       ? Array.from(new Set(packet.observed_evidence.map((e) => e.conflict_group_id).filter(Boolean) as string[]))
       : [],
@@ -746,6 +761,46 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
         ],
         additionalProperties: false,
       },
+      motion_acceptance: {
+        type: "object",
+        properties: {
+          contract_version: {
+            type: "string",
+            enum: [DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION],
+          },
+          decisions: {
+            type: "array",
+            maxItems: MAX_DOSSIER_MOTION_CONTEXT,
+            items: {
+              type: "object",
+              properties: {
+                motion_id: { type: "string" },
+                decision: {
+                  type: "string",
+                  enum: ["ACCEPT", "REFINE", "UNRESOLVED", "REJECT"],
+                },
+                conclusion: { type: ["string", "null"] },
+                canonical_evidence_refs: { type: "array", items: { type: "string" } },
+                destination_refs: { type: "array", items: { type: "string" } },
+                rationale: { type: "string" },
+                next_test: { type: ["string", "null"] },
+              },
+              required: [
+                "motion_id",
+                "decision",
+                "conclusion",
+                "canonical_evidence_refs",
+                "destination_refs",
+                "rationale",
+                "next_test",
+              ],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["contract_version", "decisions"],
+        additionalProperties: false,
+      },
       research_now: {
         type: "array",
         maxItems: MAX_RESEARCH_NOW_ACTIONS,
@@ -957,6 +1012,7 @@ export function getResearchBrainJsonSchema(): Record<string, unknown> {
       "chart_investigation_queue",
       "investigations",
       "market_verdict",
+      "motion_acceptance",
       "research_now",
       "stock_radar",
       "developing_themes",
