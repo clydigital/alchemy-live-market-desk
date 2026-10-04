@@ -115,6 +115,25 @@ test("Story review projection preserves Story/review context and compacts only e
       dueCatalysts: ["CPI"],
       triggerEvidenceIds: ["ev-1"],
       catalystCandidates: [{ label: "CPI", catalystRef: null }],
+      motionReassessments: [{
+        contractVersion: "story-review-motion-context/1",
+        authority: "CONTEXT_ONLY",
+        dossierId: "dossier-1",
+        motionId: "motion-1",
+        decision: "REFINE",
+        canonicalReassessmentScope: "STORY",
+        storyId: "story-1",
+        packetEvidenceId: "research-intake:motion-1",
+        evidenceReferences: ["research-intake:motion-1"],
+        framing: {
+          headline: "Corrected Motion headline",
+          whyInteresting: "Corrected why.",
+          bigPictureBridge: "Corrected bridge.",
+        },
+        storyImplication: "Reassess Story 1.",
+        regimeImplication: null,
+        investigationNext: "Check persistence.",
+      }],
     },
   };
 
