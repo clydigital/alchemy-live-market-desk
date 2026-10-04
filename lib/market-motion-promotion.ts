@@ -225,6 +225,60 @@ export function marketMotionPromotionInput(
   };
 }
 
+export async function promoteMarketMotionFromCanonicalEvidence(input: {
+  researchRunId: string | null;
+  engineRunId: string;
+  evidence: EvidencePackItem[];
+  now?: Date;
+  client?: SupabaseClient;
+}): Promise<MarketMotionPromotionResult> {
+  const db = input.client ?? createSupabaseAdminClient();
+  const { data, error } = await db
+    .from("current_market_motion_items")
+    .select("*");
+
+  if (error) {
+    throw new Error(`Market Motion promotion read failed: ${error.message}`);
+  }
+
+  const rows = (data || []) as MarketMotionRecord[];
+  const skippedAlreadyPromoted = rows.filter((item) => (
+    Boolean(item.primary_story_id)
+    && marketMotionEffectiveState(item, input.now) === "PROMOTED"
+  )).length;
+  const eligible = selectPromotableMarketMotion(rows, input.evidence, input.now);
+  const warnings: string[] = [];
+  const motionIds: string[] = [];
+
+  for (const candidate of eligible) {
+    try {
+      const promoted = await persistMarketMotion(
+        marketMotionPromotionInput(candidate, {
+          researchRunId: input.researchRunId,
+          engineRunId: input.engineRunId,
+        }),
+        db,
+      );
+      motionIds.push(promoted.id);
+    } catch (error) {
+      warnings.push(
+        error instanceof Error
+          ? error.message
+          : `Market Motion promotion failed for ${candidate.motion.motion_key}.`,
+      );
+    }
+  }
+
+  return {
+    considered: rows.length,
+    eligible: eligible.length,
+    promoted: motionIds.length,
+    skippedAlreadyPromoted,
+    motionIds,
+    warnings,
+  };
+}
+
 // Temporary compatibility path retained only until B1 runtime integration replaces
 // Story-change-driven promotion in Task 3.
 function selectLegacyStoryChangedMotion(
