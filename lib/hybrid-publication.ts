@@ -9,6 +9,11 @@ import {
   type StoryLifecycleStatus,
 } from "@/lib/intelligence/contracts";
 import { canonicalStoryEventSignature, selectFeaturedStories, selectQualifiedStories } from "@/lib/intelligence/deduplication";
+import {
+  authoritativePublicationVersionForStory,
+  newestPublicationVersionByStory,
+  publicationVersionById,
+} from "@/lib/intelligence/story-publication-version";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import type { StoryHeaderImage } from "@/lib/story-images";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -256,30 +261,6 @@ export async function getHybridPublicationRecords(options: PublicationQueryOptio
   return { snapshots, dailyBriefArchive, editionSnapshots, thesisVersions, events, causalEdges, assetImpacts, toneVersions, intelligenceStates };
 }
 
-function newestThesisByStory(versions: ThesisVersion[]) {
-  const result = new Map<string, ThesisVersion>();
-  for (const version of versions) {
-    const current = result.get(version.story_id);
-    if (!current || version.version_number > current.version_number || (version.version_number === current.version_number && version.effective_at > current.effective_at)) {
-      result.set(version.story_id, version);
-    }
-  }
-  return result;
-}
-
-
-function thesisVersionById(versions: ThesisVersion[]) {
-  return new Map(versions.map((version) => [version.id, version] as const));
-}
-
-function authoritativeThesisForStory(
-  story: Story,
-  byId: ReadonlyMap<string, ThesisVersion>,
-  newestByStory: ReadonlyMap<string, ThesisVersion>,
-) {
-  const pointer = story.current_thesis_version_id?.trim() || "";
-  return pointer ? byId.get(pointer) : newestByStory.get(story.id);
-}
 
 function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined, intelligence: IntelligenceStoryState | undefined) {
   const fallback = getStableStoryFallbackImage(story.id);
@@ -460,7 +441,7 @@ export function selectLegacyStoriesForLive(
   versions: StoryThesisVersion[] = [],
 ) {
   const byId = new Map(stories.map((story) => [story.id, story]));
-  const newest = newestThesisByStory(versions);
+  const newest = newestPublicationVersionByStory(versions);
   const freshStories = stories.filter((story) => {
     const state = storyPresentationState({ story, version: newest.get(story.id) || null }).state;
     return state !== "needs_reframe" && state !== "archived";
@@ -564,12 +545,12 @@ export function selectHybridPublicationStoryStates({
   records: Pick<Awaited<ReturnType<typeof getHybridPublicationRecords>>, "thesisVersions" | "events" | "intelligenceStates">;
   storyImages?: Map<string, StoryHeaderImage>;
 }) {
-  const newestVersionByStory = newestThesisByStory(records.thesisVersions);
-  const versionById = thesisVersionById(records.thesisVersions);
+  const newestVersionByStory = newestPublicationVersionByStory(records.thesisVersions);
+  const versionById = publicationVersionById(records.thesisVersions);
   const intelligenceByStory = new Map(records.intelligenceStates.map((state) => [state.story_id, state]));
   const allStoryStates = stories.map((story) => storyState(
     story,
-    authoritativeThesisForStory(story, versionById, newestVersionByStory),
+    authoritativePublicationVersionForStory(story, versionById, newestVersionByStory),
     storyImages?.get(story.id),
     intelligenceByStory.get(story.id),
   ));
@@ -615,7 +596,7 @@ async function exactCurrentThesisVersionsForPublication(
     ));
   }
 
-  const byId = thesisVersionById(versions);
+  const byId = publicationVersionById(versions);
   for (const story of stories) {
     const pointer = story.current_thesis_version_id!.trim();
     const version = byId.get(pointer);
