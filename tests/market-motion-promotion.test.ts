@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   MARKET_MOTION_PROMOTION_LIMIT,
@@ -396,4 +397,21 @@ test("B1 adapter caps writes at six and isolates one persistence failure", async
   assert.equal(result.promoted, MARKET_MOTION_PROMOTION_LIMIT - 1);
   assert.equal(result.warnings.length, 1);
   assert.match(result.warnings[0], /forced persistence failure/);
+});
+
+
+test("runtime runs B1 promotion after canonical Evidence load and before System 1 without Story publication gate", () => {
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
+  const loadIndex = runtime.indexOf("const evidence = await loadEvidence(requiredEvidenceIds)");
+  const callIndex = runtime.indexOf("await promoteMarketMotionFromCanonicalEvidence", loadIndex);
+  const recruitmentIndex = runtime.indexOf("const recruitment = buildFreshNewsRecruitment", loadIndex);
+
+  assert.ok(loadIndex >= 0, "canonical Evidence load must remain present");
+  assert.ok(callIndex > loadIndex, "B1 promotion must run after canonical Evidence loads");
+  assert.ok(recruitmentIndex > callIndex, "B1 promotion must run before fresh-news/System 1 recruitment");
+  assert.equal(runtime.includes("promoteMarketMotionForPublishedStories"), false);
+
+  const promotionWindow = runtime.slice(loadIndex, recruitmentIndex);
+  assert.match(promotionWindow, /if \(!dryRun\)/);
+  assert.doesNotMatch(promotionWindow, /publishedStories\.length/);
 });
