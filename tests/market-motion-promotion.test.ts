@@ -10,6 +10,7 @@ import {
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
+import type { EvidencePackItem } from "../lib/intelligence/schemas.ts";
 
 const NOW = new Date("2026-10-01T02:00:00Z");
 
@@ -113,4 +114,53 @@ test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
     ["promoted", "other-story"],
   );
+});
+
+
+function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
+  return {
+    id: "evidence-reporting",
+    claim: "Independent reporting corroborates the event.",
+    summary: null,
+    evidenceClass: "news",
+    sourceName: "Reuters",
+    sourceTier: 2,
+    reliabilityScore: 92,
+    ancestryGroupId: "ancestry-reuters",
+    supportDirection: "context",
+    eventAt: "2026-10-01T00:40:00.000Z",
+    publishedAt: "2026-10-01T00:40:00.000Z",
+    availableAt: "2026-10-01T00:40:00.000Z",
+    receivedAt: "2026-10-01T00:41:00.000Z",
+    freshnessStatus: "current",
+    affectedAssets: ["MU"],
+    affectedTopics: ["china-us-ai-war"],
+    provenanceUrls: ["https://www.reuters.com/technology/example"],
+    providerKey: "research_intake",
+    sourceVerificationRole: "canonical",
+    structuredPayload: { itemKey: "reuters:mu-hbm" },
+    ...overrides,
+  };
+}
+
+test("B1 promotion requires exact eligible canonical Evidence, not Story publication", () => {
+  const rows = [
+    record({
+      id: "motion-corroborated",
+      verification_state: "LEAD",
+      metadata: {
+        originItemKeys: ["youtube:stockedup:mu-hbm", "reuters:mu-hbm"],
+      },
+    }),
+  ];
+
+  const selected = selectPromotableMarketMotion(
+    rows,
+    [evidence()],
+    NOW,
+  );
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].motion.id, "motion-corroborated");
+  assert.equal(selected[0].selectedEvidence.id, "evidence-reporting");
 });
