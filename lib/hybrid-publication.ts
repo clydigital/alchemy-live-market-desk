@@ -267,6 +267,20 @@ function newestThesisByStory(versions: ThesisVersion[]) {
   return result;
 }
 
+
+function thesisVersionById(versions: ThesisVersion[]) {
+  return new Map(versions.map((version) => [version.id, version] as const));
+}
+
+function authoritativeThesisForStory(
+  story: Story,
+  byId: ReadonlyMap<string, ThesisVersion>,
+  newestByStory: ReadonlyMap<string, ThesisVersion>,
+) {
+  const pointer = story.current_thesis_version_id?.trim() || "";
+  return pointer ? byId.get(pointer) : newestByStory.get(story.id);
+}
+
 function storyState(story: Story, version: ThesisVersion | undefined, image: StoryHeaderImage | undefined, intelligence: IntelligenceStoryState | undefined) {
   const fallback = getStableStoryFallbackImage(story.id);
   const storyBreakdown = buildStoryBreakdown({ story, version });
@@ -550,9 +564,15 @@ export function selectHybridPublicationStoryStates({
   records: Pick<Awaited<ReturnType<typeof getHybridPublicationRecords>>, "thesisVersions" | "events" | "intelligenceStates">;
   storyImages?: Map<string, StoryHeaderImage>;
 }) {
-  const versionByStory = newestThesisByStory(records.thesisVersions);
+  const newestVersionByStory = newestThesisByStory(records.thesisVersions);
+  const versionById = thesisVersionById(records.thesisVersions);
   const intelligenceByStory = new Map(records.intelligenceStates.map((state) => [state.story_id, state]));
-  const allStoryStates = stories.map((story) => storyState(story, versionByStory.get(story.id), storyImages?.get(story.id), intelligenceByStory.get(story.id)));
+  const allStoryStates = stories.map((story) => storyState(
+    story,
+    authoritativeThesisForStory(story, versionById, newestVersionByStory),
+    storyImages?.get(story.id),
+    intelligenceByStory.get(story.id),
+  ));
   const selection = selectQualifiedStories(allStoryStates.map((state) => publicationCandidate(state, records.events)), MAX_PUBLISHED_STORIES);
   const featured = selectFeaturedStories(selection.selected, MAX_FEATURED_STORIES);
   const stateById = new Map(allStoryStates.map((state) => [state.id, state]));
@@ -572,15 +592,53 @@ export function selectHybridPublicationStoryStates({
  * inputs. Archive replay data and remote header images are not part of Story
  * qualification and must not block canonical publication.
  */
+async function exactCurrentThesisVersionsForPublication(
+  stories: Story[],
+  options: PublicationQueryOptions,
+) {
+  const pointers = [...new Set(stories.map((story) => story.current_thesis_version_id?.trim() || "").filter(Boolean))];
+  const missingPointers = stories.filter((story) => !story.current_thesis_version_id?.trim());
+  if (missingPointers.length) {
+    throw new Error(
+      `Canonical publication cannot freeze Story(s) without current thesis version pointers: ${missingPointers.map((story) => story.id).join(", ")}`,
+    );
+  }
+
+  const versions: ThesisVersion[] = [];
+  const batchSize = 100;
+  for (let start = 0; start < pointers.length; start += batchSize) {
+    const batch = pointers.slice(start, start + batchSize).map(encodeURIComponent).join(",");
+    versions.push(...await optionalQuery<ThesisVersion>(
+      "story_thesis_versions",
+      `select=*&id=in.(${batch})`,
+      options,
+    ));
+  }
+
+  const byId = thesisVersionById(versions);
+  for (const story of stories) {
+    const pointer = story.current_thesis_version_id!.trim();
+    const version = byId.get(pointer);
+    if (!version) {
+      throw new Error(`Canonical publication could not load current thesis version ${pointer} for Story ${story.id}.`);
+    }
+    if (version.story_id !== story.id) {
+      throw new Error(`Canonical publication thesis version ${pointer} does not belong to Story ${story.id}.`);
+    }
+  }
+
+  return versions;
+}
+
 export async function captureCanonicalPublicationStoryStates(
   options: PublicationQueryOptions = { fresh: true },
 ) {
-  const [stories, thesisVersions, events, intelligenceStates] = await Promise.all([
+  const [stories, events, intelligenceStates] = await Promise.all([
     optionalQuery<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc", options),
-    optionalQuery<ThesisVersion>("story_thesis_versions", "select=*&order=effective_at.desc,version_number.desc&limit=240", options),
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
     optionalIntelligenceStates(),
   ]);
+  const thesisVersions = await exactCurrentThesisVersionsForPublication(stories, options);
   return selectHybridPublicationStoryStates({
     stories,
     records: { thesisVersions, events, intelligenceStates },
