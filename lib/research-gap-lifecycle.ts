@@ -293,6 +293,33 @@ export async function markResearchGapCaseHandedOff(
   return rows[0] || null;
 }
 
+export async function findResearchGapCasesForMotionIds(
+  input: { motionIds: string[]; dossierId: string },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const motionIds = [...new Set(
+    input.motionIds.map((value) => value.trim()).filter(Boolean),
+  )].slice(0, 20);
+  const dossierId = input.dossierId.trim();
+
+  if (!motionIds.length) return [] as ResearchGapCaseRow[];
+  if (!dossierId) throw new Error("dossierId is required.");
+
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
+    .eq("source_kind", "market_motion")
+    .in("source_ref", motionIds)
+    .eq("latest_dossier_id", dossierId)
+    .neq("status", "CLOSED")
+    .order("last_seen_at", { ascending: false })
+    .limit(Math.max(1, Math.min(motionIds.length * 3, 60)));
+
+  message(error, "Could not load Motion-linked Research Gap cases");
+
+  return (data ?? []) as ResearchGapCaseRow[];
+}
+
 export async function listResearchGapCases(
   client: SupabaseClient = createSupabaseAdminClient(),
   limit = 50,
