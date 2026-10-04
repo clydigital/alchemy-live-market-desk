@@ -129,6 +129,62 @@ export function buildPresenterCanonicalStoryCase(input: {
   };
 }
 
+
+function object(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+/**
+ * Recover only exact immutable Story reasoning sources already frozen into the
+ * selected canonical edition. This never falls back to mutable Story/version
+ * tables.
+ */
+export function presenterStorySourcesFromEditionPayload(
+  payload: Record<string, unknown> | null | undefined,
+): JourneyStorySource[] {
+  const manifest = payload?.canonicalStoryManifest;
+  if (!Array.isArray(manifest)) return [];
+
+  return manifest.flatMap((rawEntry) => {
+    const entry = object(rawEntry);
+    if (!entry) return [];
+
+    const position = typeof entry.position === "number" && Number.isFinite(entry.position)
+      ? entry.position
+      : null;
+    const publicationSnapshotId = typeof entry.snapshotId === "string"
+      ? entry.snapshotId.trim()
+      : "";
+    const storyId = typeof entry.storyId === "string" ? entry.storyId.trim() : "";
+    const thesisVersionId = typeof entry.thesisVersionId === "string"
+      ? entry.thesisVersionId.trim()
+      : "";
+    const reasoning = object(entry.reasoning);
+
+    if (
+      !position
+      || position <= 0
+      || !publicationSnapshotId
+      || !storyId
+      || !thesisVersionId
+      || !reasoning
+      || reasoning.contractVersion !== CANONICAL_STORY_REASONING_V1
+      || reasoning.storyId !== storyId
+      || reasoning.storyVersionId !== thesisVersionId
+    ) return [];
+
+    return [{
+      position,
+      publicationSnapshotId,
+      storyId,
+      thesisVersionId,
+      reasoning: reasoning as unknown as JourneyStorySource["reasoning"],
+    }];
+  });
+}
+
 export function buildPresenterCanonicalStoryCases(input: {
   investigations: DossierPresentationInvestigation[];
   storySources: JourneyStorySource[];
