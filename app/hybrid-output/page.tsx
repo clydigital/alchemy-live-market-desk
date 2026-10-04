@@ -5,7 +5,7 @@ import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducati
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
-import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
+import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import {
   buildPresenterCanonicalStoryCases,
@@ -101,6 +101,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const eventId = typeof query.event === "string" ? query.event : null;
   const motionId = typeof query.motion === "string" ? query.motion : null;
   const gapId = typeof query.gap === "string" ? query.gap : null;
+  const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
   const focusedStory = storySlug ? data.stories.find((story) => story.slug === storySlug) || null : null;
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
@@ -156,17 +157,46 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       };
     });
 
-  const currentEditionPointer = buildCanonicalEditionIndex(
+  const presenterEditionIndex = buildCanonicalEditionIndex(
     presenterEditions,
     data.researchRuns,
-  )[0] || null;
+  );
+  const presenterEditionSelection = selectCanonicalEdition(
+    presenterEditionIndex,
+    requestedEditionId,
+  );
+  const currentEditionPointer = presenterEditionSelection.current;
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
-  const presenterStorySources = presenterStorySourcesFromEditionPayload(currentEdition?.payload);
+  const selectedPresenterEdition = presenterEditionSelection.selected
+    ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
+    : null;
+  const presenterStorySources = presenterStorySourcesFromEditionPayload(selectedPresenterEdition?.payload);
   const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
     investigations: dossier.watchNext,
     storySources: presenterStorySources,
+  });
+  const presenterEditionOptions = presenterEditionIndex.slice(0, 8).map((edition) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (key === "edition" || value === undefined) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) params.append(key, item);
+      } else {
+        params.set(key, value);
+      }
+    }
+    if (edition.snapshotId !== currentEditionPointer?.snapshotId) {
+      params.set("edition", edition.snapshotId);
+    }
+    const search = params.toString();
+    return {
+      snapshotId: edition.snapshotId,
+      label: `${edition.slot || "Journey"} · ${formatDeskDate(edition.scheduledFor || edition.publishedAt)}`,
+      freshness: edition.freshness,
+      href: `/hybrid-output${search ? `?${search}` : ""}#presenter-reasoning`,
+    };
   });
   const marketMotionAttachment = marketMotionFromEditionPayload(currentEdition?.payload);
   const motionJourney = selectMarketMotionEditionContext({
@@ -567,6 +597,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
               investigations={dossier.watchNext}
               calibration={dossier.reactionCalibration}
               canonicalCases={presenterCanonicalCases}
+              editionContext={{
+                selectedSnapshotId: presenterEditionSelection.selected?.snapshotId ?? null,
+                currentSnapshotId: presenterEditionSelection.current?.snapshotId ?? null,
+                status: presenterEditionSelection.status,
+                options: presenterEditionOptions,
+              }}
             />
 
             {dossier.investigationJourney.some((item) => item.transition === "NOT_CARRIED_FORWARD") ? (
