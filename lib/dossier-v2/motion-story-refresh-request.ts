@@ -15,6 +15,7 @@ export type DossierMotionStoryRefreshRequest = {
   story_id: string;
   packet_evidence_id: string;
   decision: "ACCEPT" | "REFINE";
+  canonical_reassessment_scope: "STORY" | "STORY_AND_REGIME";
   reason: string;
   evidence_references: string[];
   story_implication: string;
@@ -43,6 +44,10 @@ function validAssessment(
   if (!assessment) return false;
   if (assessment.motion_id !== motion.motion_id) return false;
   if (assessment.decision !== "ACCEPT" && assessment.decision !== "REFINE") return false;
+  if (
+    assessment.canonical_reassessment_scope !== "STORY"
+    && assessment.canonical_reassessment_scope !== "STORY_AND_REGIME"
+  ) return false;
   if (!clean(motion.primary_story_id)) return false;
   if (!clean(motion.packet_evidence_id)) return false;
   if (!clean(assessment.story_implication)) return false;
@@ -104,6 +109,7 @@ export function buildDossierMotionStoryRefreshRequests(input: {
         story_id: clean(motion.primary_story_id),
         packet_evidence_id: motion.packet_evidence_id,
         decision,
+        canonical_reassessment_scope: assessment!.canonical_reassessment_scope as "STORY" | "STORY_AND_REGIME",
         reason: assessment!.reason.trim(),
         evidence_references: [...new Set(assessment!.evidence_references)],
         story_implication: clean(assessment!.story_implication),
