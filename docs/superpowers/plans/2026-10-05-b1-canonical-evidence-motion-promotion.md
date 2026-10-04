@@ -21,6 +21,7 @@
 - Preserve `MARKET_MOTION_PROMOTION_MIN_MATERIALITY = 80`.
 - Preserve `MARKET_MOTION_PROMOTION_MIN_RELEVANCE = 75`.
 - Preserve `MARKET_MOTION_PROMOTION_LIMIT = 6`.
+- Add `MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT = 8` for bounded corroboration audit metadata.
 - LEAD / REPORTED / VERIFIED Motion may be promoted when exact eligible canonical Evidence exists.
 - CONTRADICTED / UNRESOLVED / PARTIAL Motion may not be promoted in B1.
 - Promotion does not upgrade the Motion verification state.
@@ -83,6 +84,7 @@
   - `sourceVerificationWeight(item: EvidencePackItem): number`
 - Produces:
   - `MARKET_MOTION_PROMOTION_POLICY = "canonical-evidence-corroborated/v1"`
+  - `MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT = 8`
   - `MarketMotionPromotionCandidate`
   - `selectPromotableMarketMotion(rows: MarketMotionRecord[], evidence: EvidencePackItem[], now?: Date): MarketMotionPromotionCandidate[]`
   - updated `marketMotionPromotionInput(candidate: MarketMotionPromotionCandidate, context: { researchRunId: string | null; engineRunId: string }): MarketMotionInput`
@@ -122,7 +124,7 @@ Fixtures must include:
 Assertions:
 - selector returns `MarketMotionPromotionCandidate`, not bare Motion rows;
 - `selectedEvidence.id` is the exact expected canonical UUID;
-- `matchingEvidenceIds` is deterministic and bounded;
+- `matchingEvidenceIds` is deterministic and capped at 8;
 - LEAD is allowed;
 - Story-publication input is no longer part of the selector signature.
 
@@ -210,8 +212,8 @@ Required output:
   - `promotionResearchRunId`;
   - `promotionEvidenceId`;
   - `promotionEvidenceItemKey`;
-  - bounded deterministic `promotionEvidenceIds`;
-  - bounded deterministic `promotionEvidenceItemKeys`.
+  - deterministic `promotionEvidenceIds`, capped at 8;
+  - deterministic `promotionEvidenceItemKeys`, capped at 8.
 
 Do not change Motion verification state.
 
