@@ -57,6 +57,36 @@ test("long-end diagnostic decomposes the observed 10Y move without assigning the
   assert.match(result.termPremium.detail, /not sufficient evidence/i);
 });
 
+test("production regression: long-end decomposition reads real yield and breakeven from preserved rate_context", () => {
+  const assembled = packet([
+    monitor("us10y", 5.28, 5.17),
+    monitor("us10y-real", 2.88, 2.85),
+    monitor("us10y-breakeven", 2.36, 2.34),
+  ]);
+
+  const real = assembled.observed_evidence.find((item) =>
+    item.evidence_id.startsWith("market-monitor:us10y-real:"));
+  const breakeven = assembled.observed_evidence.find((item) =>
+    item.evidence_id.startsWith("market-monitor:us10y-breakeven:"));
+  assert.ok(real);
+  assert.ok(breakeven);
+
+  // Reproduce the production packet shape where these protected rate facts are
+  // preserved in rate_context but omitted from the bounded general evidence set.
+  assembled.rate_context = { evidence: [real, breakeven] };
+  assembled.observed_evidence = assembled.observed_evidence.filter((item) =>
+    item !== real && item !== breakeven);
+
+  const result = buildRateLongEndDiagnostic(assembled);
+
+  assert.equal(result.real10y.levelPct, 2.88);
+  assert.equal(result.breakeven10y.levelPct, 2.36);
+  assert.equal(result.real10y.evidenceRef, real.evidence_id);
+  assert.equal(result.breakeven10y.evidenceRef, breakeven.evidence_id);
+  assert.notEqual(result.observedDecomposition.state, "NOMINAL_MOVE_ONLY");
+  assert.equal(result.observedDecomposition.accountedChangeBp, 5);
+});
+
 test("breakeven-led and mixed observed states remain descriptive rather than causal", () => {
   const breakevenLed = buildRateLongEndDiagnostic(packet([
     monitor("us10y", 5.30, 5.20),
