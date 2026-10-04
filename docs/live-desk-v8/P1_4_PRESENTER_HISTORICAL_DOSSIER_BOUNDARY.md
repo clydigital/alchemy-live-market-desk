@@ -47,10 +47,32 @@ When historical Story reasoning is selected:
 
 Invalid edition requests fall back to the current immutable edition and never trigger a Dossier-history lookup.
 
-## What would be required for full historical-case replay
+## P1.5 publication identity
 
-A future publisher would need to freeze an exact immutable Dossier identity into the Journey edition at publication time, or freeze the full bounded Presenter investigation context directly.
+P1.5 now freezes the exact Dossier presentation identity into newly published Journey base editions as `presenterDossierContext`.
 
-Only after that exact identity is persisted should Presenter load the historical Dossier with `getDossierV2PresentationSelectionById`.
+The frozen contract records:
+- selected immutable Dossier ID
+- selected Dossier `as_of`
+- latest Dossier ID / `as_of` at capture time
+- selection status
+- whether Hybrid had selected a prior healthy fallback
+- publication-boundary capture time
 
-That future change must not derive the Dossier from timestamp proximity or mutable current state.
+The selected Dossier is also included in immutable `source_record_refs`.
+
+Composed editions inherit the frozen context from their immutable base edition.
+
+This is intentionally **not yet consumed for historical Dossier replay**. P1.4's UI boundary remains active until the replay reader validates and loads that exact ID. Older editions that predate P1.5 also remain Story-reasoning-only.
+
+## What is still required for full historical-case replay
+
+A subsequent replay partition may use `getDossierV2PresentationSelectionById` only when a selected historical edition contains a valid frozen `presenterDossierContext` with an exact Dossier ID.
+
+It must fail closed for:
+- older editions without the context
+- malformed context
+- unavailable referenced Dossier rows
+- mismatched Dossier identity
+
+It must never derive the Dossier from timestamp proximity or mutable current state.
