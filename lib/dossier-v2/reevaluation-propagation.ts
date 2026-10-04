@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { DossierV2InputPacket } from "./input-packet.ts";
 import type {
   MotionSynthesisDecision,
@@ -345,4 +347,237 @@ export function buildDossierReevaluationPropagationPlan(
     omitted_count: omittedStories.size,
     warnings,
   };
+}
+
+
+export type DossierReevaluationPropagationResult = {
+  contract_version: typeof DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION;
+  dossier_id: string;
+  planned: number;
+  enqueued: number;
+  skipped_existing: number;
+  omitted_count: number;
+  items: DossierReevaluationPropagationItem[];
+  warnings: string[];
+};
+
+type RegimeIdentityRow = {
+  id: string;
+  slug: string;
+};
+
+type RegimeStoryLinkDbRow = {
+  regime_id: string;
+  story_id: string;
+  role: string;
+  confidence: number;
+  effective_to?: string | null;
+};
+
+function candidateCanonicalEvidenceUuids(
+  analyticalOutput: ResearchBrainOutputV1,
+) {
+  return [...new Set(
+    (analyticalOutput.motion_acceptance?.decisions ?? [])
+      .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
+      .flatMap((item) => item.canonical_evidence_refs)
+      .filter(isValidUuid),
+  )];
+}
+
+export async function prepareDossierReevaluationPropagationPlan(input: {
+  client: SupabaseClient;
+  packet: DossierV2InputPacket;
+  analyticalOutput: ResearchBrainOutputV1;
+}): Promise<DossierReevaluationPropagationPlan> {
+  try {
+    const evidenceIds = candidateCanonicalEvidenceUuids(input.analyticalOutput);
+    const evidencePromise = evidenceIds.length
+      ? input.client
+          .from("intelligence_evidence")
+          .select("id")
+          .in("id", evidenceIds)
+      : Promise.resolve({ data: [], error: null });
+
+    const [storyResult, evidenceResult, regimeResult, linkResult] = await Promise.all([
+      input.client
+        .from("stories")
+        .select("id,slug,status,confidence")
+        .neq("status", "discarded"),
+      evidencePromise,
+      input.client
+        .from("market_regimes")
+        .select("id,slug")
+        .eq("status", "active"),
+      input.client
+        .from("market_regime_story_links")
+        .select("regime_id,story_id,role,confidence,effective_to")
+        .is("effective_to", null),
+    ]);
+
+    if (storyResult.error) {
+      throw new Error(`Failed to load A3 Story registry: ${storyResult.error.message}`);
+    }
+    if (evidenceResult.error) {
+      throw new Error(`Failed to resolve A3 canonical queue evidence: ${evidenceResult.error.message}`);
+    }
+    if (regimeResult.error) {
+      throw new Error(`Failed to load A3 Regime identities: ${regimeResult.error.message}`);
+    }
+    if (linkResult.error) {
+      throw new Error(`Failed to load A3 Regime Story links: ${linkResult.error.message}`);
+    }
+
+    const regimes = (regimeResult.data ?? []) as RegimeIdentityRow[];
+    const slugByRegimeId = new Map(regimes.map((row) => [row.id, row.slug]));
+    const regimeLinks: DossierPropagationRegimeLinkRow[] = (
+      (linkResult.data ?? []) as RegimeStoryLinkDbRow[]
+    ).flatMap((row) => {
+      const regimeSlug = slugByRegimeId.get(row.regime_id);
+      if (!regimeSlug) return [];
+      return [{
+        regime_slug: regimeSlug,
+        story_id: row.story_id,
+        role: row.role,
+        confidence: Number(row.confidence || 0),
+      }];
+    });
+
+    return buildDossierReevaluationPropagationPlan({
+      packet: input.packet,
+      analyticalOutput: input.analyticalOutput,
+      stories: (storyResult.data ?? []) as DossierPropagationStoryRow[],
+      regimeLinks,
+      queueableEvidenceIds: new Set(
+        ((evidenceResult.data ?? []) as Array<{ id: string }>).map((row) => row.id),
+      ),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return emptyPlan([
+      `A3 reevaluation propagation plan unavailable; Dossier remains evidence-first: ${message}`,
+    ]);
+  }
+}
+
+type ExistingPropagationQueueRow = {
+  target_id: string;
+  requested_by_evidence_id: string | null;
+  status?: string;
+};
+
+function propagationPair(storyId: string, evidenceId: string) {
+  return `${storyId}:${evidenceId}`;
+}
+
+export function missingDossierReevaluationPropagationItems(
+  items: DossierReevaluationPropagationItem[],
+  existingRows: ExistingPropagationQueueRow[],
+) {
+  const existing = new Set(
+    existingRows.flatMap((row) =>
+      row.requested_by_evidence_id
+        ? [propagationPair(row.target_id, row.requested_by_evidence_id)]
+        : []),
+  );
+  return items.filter((item) =>
+    !existing.has(propagationPair(item.target_story_id, item.canonical_evidence_id)));
+}
+
+function propagationQueueReason(
+  dossierId: string,
+  item: DossierReevaluationPropagationItem,
+) {
+  const prefix =
+    `dossier_motion_acceptance:${dossierId}:${item.motion_id}:${item.decision}`;
+  return item.route_reason ? `${prefix} | ${item.route_reason}` : prefix;
+}
+
+export async function enqueueDossierReevaluationPropagation(input: {
+  client: SupabaseClient;
+  dossierId: string;
+  asOf: string;
+  plan: DossierReevaluationPropagationPlan;
+}): Promise<DossierReevaluationPropagationResult> {
+  const base: DossierReevaluationPropagationResult = {
+    contract_version: DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+    dossier_id: input.dossierId,
+    planned: input.plan.items.length,
+    enqueued: 0,
+    skipped_existing: 0,
+    omitted_count: input.plan.omitted_count,
+    items: input.plan.items.map((item) => ({ ...item })),
+    warnings: [...input.plan.warnings],
+  };
+
+  if (!input.plan.items.length) return base;
+
+  try {
+    const storyIds = [...new Set(input.plan.items.map((item) => item.target_story_id))];
+    const evidenceIds = [...new Set(input.plan.items.map((item) => item.canonical_evidence_id))];
+
+    const { data: existingRows, error: existingError } = await input.client
+      .from("intelligence_reevaluation_queue")
+      .select("target_id,requested_by_evidence_id,status")
+      .eq("target_kind", "story")
+      .in("target_id", storyIds)
+      .in("requested_by_evidence_id", evidenceIds)
+      .in("status", ["pending", "processing", "retryable"]);
+
+    if (existingError) {
+      throw new Error(`Failed to inspect A3 Story reevaluation queue: ${existingError.message}`);
+    }
+
+    const missing = missingDossierReevaluationPropagationItems(
+      input.plan.items,
+      (existingRows ?? []) as ExistingPropagationQueueRow[],
+    );
+    const skippedExisting = input.plan.items.length - missing.length;
+
+    if (missing.length) {
+      const { error: insertError } = await input.client
+        .from("intelligence_reevaluation_queue")
+        .insert(missing.map((item) => ({
+          target_kind: "story",
+          target_id: item.target_story_id,
+          requested_by_evidence_id: item.canonical_evidence_id,
+          reason: propagationQueueReason(input.dossierId, item),
+          priority: item.priority,
+          status: "pending",
+          available_at: input.asOf,
+        })));
+
+      if (insertError) {
+        throw new Error(`Failed to enqueue A3 Story reevaluation: ${insertError.message}`);
+      }
+    }
+
+    console.info(JSON.stringify({
+      event: "dossier_reevaluation_propagation",
+      dossierId: input.dossierId,
+      planned: input.plan.items.length,
+      enqueued: missing.length,
+      skippedExisting,
+      omittedCount: input.plan.omitted_count,
+    }));
+
+    return {
+      ...base,
+      enqueued: missing.length,
+      skipped_existing: skippedExisting,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(JSON.stringify({
+      event: "dossier_reevaluation_propagation_failed",
+      dossierId: input.dossierId,
+      error: message.slice(0, 500),
+    }));
+    return {
+      ...base,
+      enqueued: 0,
+      skipped_existing: 0,
+      warnings: [...base.warnings, message],
+    };
+  }
 }
