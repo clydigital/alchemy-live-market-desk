@@ -215,8 +215,24 @@ Use `INVESTIGATION_CANDIDATE` when:
 ```text
 primary_story_id == null
 primary_regime_slug == null
-next_test is concrete and non-empty
+next_test passes isConcreteMarketMotionNextTest(...)
 ```
+
+Add one pure Motion-domain helper:
+
+```ts
+export function isConcreteMarketMotionNextTest(value: string | null | undefined): boolean
+```
+
+It returns false for blank input and for the two current ingestion fallback strings, compared after trim and case normalisation:
+
+```text
+Check whether the linked assets and broader Story / Regime reaction confirm the information.
+
+Seek independent or primary-source confirmation, then test whether the market reaction persists.
+```
+
+All other non-empty `next_test` values qualify structurally. B2 does not use semantic scoring to decide whether a question “sounds” specific.
 
 This class means only: “the canonically corroborated Motion is worth System 2 investigation but lacks a safe persistent Story/Regime route.”
 
@@ -567,6 +583,7 @@ No new table, foreign key, RPC, queue or persistence engine is added.
 
 Likely modify:
 
+- `lib/market-motion.ts` — routing-class derivation and concrete-next-test helper
 - `lib/market-motion-promotion.ts`
 - `lib/dossier-v2/input-packet.ts`
 - `lib/dossier-v2/motion-context.ts`
@@ -578,7 +595,7 @@ Likely modify:
 - `tests/dossier-reevaluation-propagation.test.ts`
 - `docs/MACRO_PULSE_MOTION_BRIDGE.md`
 
-Potentially add a focused pure helper for routing-class derivation if keeping it in `market-motion-promotion.ts` would blur responsibilities.
+Routing-class derivation should live as a focused pure Motion-domain helper in `lib/market-motion.ts`; promotion and Dossier adapters reuse it rather than duplicating the rules.
 
 Do not modify for B2:
 
@@ -599,6 +616,8 @@ Prove:
 - no Story + exact Regime → `REGIME`;
 - no Story + no Regime + concrete next test → `INVESTIGATION_CANDIDATE`;
 - no identities + no next test → not promotable;
+- either known generic fallback next-test string → not promotable as INVESTIGATION_CANDIDATE;
+- a non-empty non-fallback next test → eligible for INVESTIGATION_CANDIDATE routing;
 - Story identity wins when Story and Regime both exist.
 
 ### Evidence firewall
