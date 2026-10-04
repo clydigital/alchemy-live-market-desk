@@ -135,6 +135,10 @@ function output(inputPacket: ReturnType<typeof packet>): ResearchBrainOutputV1 {
       dominant_confirmation: "Energy and front-end rates remain elevated.",
       dominant_contradiction: "Long-end yields are less decisive.",
     },
+    motion_acceptance: {
+      contract_version: "dossier-motion-acceptance/1",
+      decisions: [],
+    },
     research_now: [],
     stock_radar: [],
     developing_themes: [],
