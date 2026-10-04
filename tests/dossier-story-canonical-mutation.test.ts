@@ -269,3 +269,44 @@ test("B4.5 mutation planner is pure and has no database writer", () => {
   assert.doesNotMatch(source, /insert\s+into/i);
   assert.doesNotMatch(source, /apply_intelligence_story_assessment_v2/);
 });
+
+
+test("B4.5 runtime bridge re-reads the exact Story then uses the existing canonical writer", () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const runtime = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "runtime.ts"),
+    "utf8",
+  );
+  const start = runtime.indexOf("export async function executeDossierStoryCanonicalMutation");
+  const end = runtime.indexOf("async function persistDerivedStoryThemes", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const section = runtime.slice(start, end);
+
+  assert.match(section, /stories\?select=id,current_thesis_version_id/);
+  assert.match(section, /buildDossierStoryCanonicalMutationPlan\(\{/);
+  assert.match(section, /persistCanonicalStoryReasoning\(\{/);
+  assert.match(section, /mutationKey: plan\.mutation_key/);
+  assert.match(section, /storyId: plan\.story_id/);
+  assert.match(section, /storyPayload: plan\.story_payload/);
+  assert.match(section, /reasoning: plan\.reasoning/);
+  assert.match(section, /event: plan\.event/);
+  assert.doesNotMatch(section, /apply_intelligence_story_assessment_v2/);
+  assert.doesNotMatch(section, /story_thesis_versions/);
+});
+
+test("B4.5 canonical writer accepts the shared canonical reasoning snapshot type", () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const runtime = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "runtime.ts"),
+    "utf8",
+  );
+  const start = runtime.indexOf("async function persistCanonicalStoryReasoning");
+  const end = runtime.indexOf("export async function executeDossierStoryCanonicalMutation", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const section = runtime.slice(start, end);
+
+  assert.match(section, /reasoning: CanonicalStoryReasoningSnapshotV1/);
+  assert.match(section, /"rpc\/persist_canonical_story_reasoning"/);
+});
