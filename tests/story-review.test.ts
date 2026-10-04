@@ -501,3 +501,72 @@ test("queue hygiene never collapses distinct fresh evidence for the same Story",
   assert.deepEqual(plan.duplicateIds, []);
   assert.deepEqual(plan.agedIds, []);
 });
+
+
+test("C1.4b Story target freezes bounded corrected Motion reassessment contexts", () => {
+  const requested = evidence("ev-motion", "rates", {
+    claim: "Canonical evidence for the Motion-triggered Story review.",
+  });
+  const motionContext = {
+    contractVersion: "story-review-motion-context/1" as const,
+    authority: "CONTEXT_ONLY" as const,
+    dossierId: "dossier-1",
+    motionId: "motion-1",
+    decision: "REFINE" as const,
+    canonicalReassessmentScope: "STORY" as const,
+    storyId: "rates",
+    packetEvidenceId: "research-intake:motion-1",
+    evidenceReferences: ["research-intake:motion-1"],
+    framing: {
+      headline: "Corrected duration-pressure framing",
+      whyInteresting: "The narrower framing remains relevant.",
+      bigPictureBridge: "Duration pressure -> financing conditions.",
+    },
+    storyImplication: "Reassess the exact rates Story using the corrected framing.",
+    regimeImplication: null,
+    investigationNext: "Test whether duration pressure persists.",
+  };
+
+  const selected = selectStoryReviewTargets({
+    stories: [story("rates")],
+    evidence: [requested],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "queue-motion-1",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_refresh:dossier-1:motion-1:REFINE",
+        priority: 94,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:00:00Z",
+        requestedEvidenceId: requested.id,
+        motionReassessment: motionContext,
+      },
+      {
+        id: "queue-motion-duplicate",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_refresh:dossier-1:motion-1:REFINE",
+        priority: 90,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:01:00Z",
+        requestedEvidenceId: requested.id,
+        motionReassessment: motionContext,
+      },
+    ],
+    debt: [],
+    now,
+  });
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.reviewContext?.motionReassessments?.length, 1);
+  assert.equal(
+    selected[0]?.reviewContext?.motionReassessments?.[0]?.framing.headline,
+    "Corrected duration-pressure framing",
+  );
+  assert.notEqual(
+    selected[0]?.reviewContext?.motionReassessments?.[0]?.framing.headline,
+    "Original over-broad Motion headline",
+  );
+});
