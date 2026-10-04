@@ -42,6 +42,13 @@ import {
   enqueueDossierStoryRefreshAgenda,
   type DossierStoryRefreshAgendaResult,
 } from "./story-refresh-agenda.ts";
+import {
+  DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+  enqueueDossierReevaluationPropagation,
+  prepareDossierReevaluationPropagationPlan,
+  type DossierReevaluationPropagationPlan,
+  type DossierReevaluationPropagationResult,
+} from "./reevaluation-propagation.ts";
 
 export interface DossierV2ExecutionOptions {
   client?: SupabaseClient;
@@ -57,12 +64,38 @@ export interface DossierV2ExecutionResult {
   dossier_input: MarketDossierV2Input | null;
   dossier: MarketDossierV2;
   story_refresh_agenda: DossierStoryRefreshAgendaResult;
+  reevaluation_propagation: DossierReevaluationPropagationResult;
   persisted: boolean;
   delta_decision: DossierDeltaDecision;
 }
 
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function emptyPropagationPlan(warning?: string): DossierReevaluationPropagationPlan {
+  return {
+    contract_version: DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+    items: [],
+    omitted_count: 0,
+    warnings: warning ? [warning] : [],
+  };
+}
+
+function emptyPropagationResult(
+  dossierId: string,
+  plan: DossierReevaluationPropagationPlan = emptyPropagationPlan(),
+): DossierReevaluationPropagationResult {
+  return {
+    contract_version: DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION,
+    dossier_id: dossierId,
+    planned: plan.items.length,
+    enqueued: 0,
+    skipped_existing: 0,
+    omitted_count: plan.omitted_count,
+    items: cloneJson(plan.items),
+    warnings: [...plan.warnings],
+  };
 }
 
 function hashText(value: string): string {
@@ -549,6 +582,7 @@ export async function executeAndPersistDossierV2(
             skipped_existing: 0,
             items: [],
           },
+          reevaluation_propagation: emptyPropagationResult(previousDossier.id),
           persisted: false,
           delta_decision: decision,
         };
@@ -613,7 +647,27 @@ export async function executeAndPersistDossierV2(
     analyticalOutput,
   );
 
+  const propagationPlan = options.client
+    ? await prepareDossierReevaluationPropagationPlan({
+        client: options.client,
+        packet,
+        analyticalOutput,
+      })
+    : emptyPropagationPlan(
+        "A3 reevaluation propagation was not prepared because no execution Supabase client was supplied.",
+      );
+  dossierInput.payload.reevaluation_propagation = cloneJson(propagationPlan);
+
   const dossier = await persistMarketDossierV2(dossierInput, options.client);
+  const reevaluationPropagation = options.client
+    ? await enqueueDossierReevaluationPropagation({
+        client: options.client,
+        dossierId: dossier.id,
+        asOf: packet.as_of,
+        plan: propagationPlan,
+      })
+    : emptyPropagationResult(dossier.id, propagationPlan);
+
   const storyRefreshAgenda = options.client
     ? await enqueueDossierStoryRefreshAgenda({
         client: options.client,
@@ -649,6 +703,7 @@ export async function executeAndPersistDossierV2(
     dossier_input: dossierInput,
     dossier,
     story_refresh_agenda: storyRefreshAgenda,
+    reevaluation_propagation: reevaluationPropagation,
     persisted: true,
     delta_decision: decision,
   };
