@@ -1623,6 +1623,7 @@ test("Motion attention assessment must cite exact canonical evidence and cover e
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "REFINE",
+    canonical_reassessment_scope: "STORY",
     reason: "The underlying development is observed, but the broader causal framing remains too strong.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "Narrow the rates explanation to the evidence-supported channel.",
@@ -1662,6 +1663,7 @@ test("executeResearchBrain passes Motion attention to System 2 and persists its 
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "ACCEPT",
+    canonical_reassessment_scope: "STORY_AND_REGIME",
     reason: "Current canonical evidence supports using the Motion as a live analytical prompt.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "The current Story should explicitly test the broader duration-pressure channel.",
@@ -1697,6 +1699,7 @@ test("degraded Research Brain leaves Motion attention unresolved rather than acc
   const degraded = produceDegradedOutput(packet, "forced failure", false, motionAttention);
 
   assert.equal(degraded.motion_attention_assessments?.[0]?.decision, "UNRESOLVED");
+  assert.equal(degraded.motion_attention_assessments?.[0]?.canonical_reassessment_scope, "NONE");
   assert.deepEqual(
     degraded.motion_attention_assessments?.[0]?.evidence_references,
     [motionAttention[0].packet_evidence_id],
@@ -1714,6 +1717,7 @@ test("B2 Motion assessment cannot invent a Story or Regime route absent from Mot
   output.motion_attention_assessments = [{
     motion_id: motionAttention[0].motion_id,
     decision: "ACCEPT",
+    canonical_reassessment_scope: "STORY",
     reason: "The development matters, but the Motion has no exact Story identity.",
     evidence_references: [motionAttention[0].packet_evidence_id],
     story_implication: "Invented Story implication should fail.",
@@ -1730,6 +1734,7 @@ test("B2 Motion assessment cannot invent a Story or Regime route absent from Mot
 
   output.motion_attention_assessments[0].story_implication = null;
   output.motion_attention_assessments[0].regime_implication = "Exact rate-regime implication is allowed.";
+  output.motion_attention_assessments[0].canonical_reassessment_scope = "REGIME";
   const regimeValidation = validateResearchBrainOutput(output, packet, motionAttention);
   assert.equal(regimeValidation.isValid, true, regimeValidation.errors.join("\n"));
 });
