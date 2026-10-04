@@ -356,6 +356,22 @@ export function selectStoryReviewTargets(input: {
   return selected.map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
+export function motionReassessmentEvidenceComplete(
+  evidenceIds: string[],
+  target: StoryReviewTargetPackItem,
+) {
+  const required = [
+    ...new Set(
+      (target.reviewContext?.motionReassessments ?? [])
+        .map((item) => item.canonicalEvidenceId)
+        .filter(Boolean),
+    ),
+  ];
+  if (!required.length) return true;
+  const cited = new Set(evidenceIds);
+  return required.every((id) => cited.has(id));
+}
+
 function independentGroup(item: EvidencePackItem) {
   return item.ancestryGroupId || `source:${item.sourceName.trim().toLowerCase()}`;
 }
