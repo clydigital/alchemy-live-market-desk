@@ -61,14 +61,18 @@ begin
 end;
 $$;
 
-if exists (
-  select 1
-  from public.stories
-  where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-    and thesis = 'This stale update must not commit'
-) then
-  raise exception 'Stale-base Story mutation committed unexpectedly';
-end if;
+do $
+begin
+  if exists (
+    select 1
+    from public.stories
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and thesis = 'This stale update must not commit'
+  ) then
+    raise exception 'Stale-base Story mutation committed unexpectedly';
+  end if;
+end;
+$;
 
 select set_config('alchemy.story_reasoning_context', '', true);
 
@@ -76,13 +80,17 @@ update public.stories
 set current_thesis_version_id = '33333333-3333-4333-8333-333333333333'
 where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-if not exists (
-  select 1
-  from public.stories
-  where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-    and current_thesis_version_id = '33333333-3333-4333-8333-333333333333'
-) then
-  raise exception 'Context-free Story pointer update was blocked unexpectedly';
-end if;
+do $
+begin
+  if not exists (
+    select 1
+    from public.stories
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and current_thesis_version_id = '33333333-3333-4333-8333-333333333333'
+  ) then
+    raise exception 'Context-free Story pointer update was blocked unexpectedly';
+  end if;
+end;
+$;
 
 rollback;
