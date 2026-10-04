@@ -84,7 +84,10 @@ export function buildDossierMotionStoryRefreshRequests(input: {
       const assessment = assessmentByMotionId.get(motion.motion_id);
       if (!validAssessment(motion, assessment)) return [];
 
-      const refinedMotion = assessment!.decision === "REFINE"
+      const decision: "ACCEPT" | "REFINE" = assessment!.decision === "REFINE"
+        ? "REFINE"
+        : "ACCEPT";
+      const refinedMotion = decision === "REFINE"
         ? {
             headline: clean(assessment!.refined_headline),
             why_interesting: clean(assessment!.refined_why_interesting),
@@ -100,7 +103,7 @@ export function buildDossierMotionStoryRefreshRequests(input: {
         motion_id: motion.motion_id,
         story_id: clean(motion.primary_story_id),
         packet_evidence_id: motion.packet_evidence_id,
-        decision: assessment!.decision,
+        decision,
         reason: assessment!.reason.trim(),
         evidence_references: [...new Set(assessment!.evidence_references)],
         story_implication: clean(assessment!.story_implication),
