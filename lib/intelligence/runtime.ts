@@ -91,6 +91,11 @@ import {
   parseDossierMotionRefreshReason,
   resolveDossierMotionStoryReviewContexts,
 } from "@/lib/intelligence/story-review-motion-context";
+import {
+  buildDossierStoryCanonicalMutationPlan,
+  type DossierStoryCanonicalMutationCurrentStory,
+} from "@/lib/dossier-v2/story-reassessment-canonical-mutation";
+import type { DossierStoryReasoningMaterialisation } from "@/lib/dossier-v2/story-reassessment-reasoning-materialisation";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -114,6 +119,7 @@ import {
   buildCanonicalStoryReasoningSnapshotV1,
   CANONICAL_STORY_REASONING_V1,
   canonicalCausalEdgeId,
+  type CanonicalStoryReasoningSnapshotV1,
   type CanonicalStoryReasoningV1,
   type EvidenceState,
   type StoryReasoningEvidence,
@@ -1999,7 +2005,7 @@ async function persistCanonicalStoryReasoning({
   mutationKey: string;
   storyId: string | null;
   storyPayload: Record<string, unknown>;
-  reasoning: ReturnType<typeof buildStoryReasoningSnapshot>;
+  reasoning: CanonicalStoryReasoningSnapshotV1;
   event: { headline: string; detail: string; eventAt: string; metadata: Record<string, unknown> };
 }) {
   const rows = await intelligenceRest<CanonicalStoryPersistenceResult[]>("rpc/persist_canonical_story_reasoning", {
@@ -2026,6 +2032,42 @@ async function persistCanonicalStoryReasoning({
     throw new Error(`Canonical Story mutation ${mutationKey} returned a stale Story thesis version pointer.`);
   }
   return result;
+}
+
+export async function executeDossierStoryCanonicalMutation(input: {
+  materialisation: DossierStoryReasoningMaterialisation;
+  eventAt: string;
+}) {
+  const storyId = input.materialisation.story_id.trim();
+  if (!storyId) throw new Error("Dossier Story canonical mutation requires an exact Story id.");
+
+  const rows = await intelligenceRest<DossierStoryCanonicalMutationCurrentStory[]>(
+    "stories?select=id,current_thesis_version_id,title,thesis,status,confidence,market_question,dominant_narrative,best_explanation,strongest_support,strongest_contradiction,priced_assessment,confirmation_trigger,invalidation_trigger,next_catalyst,article_angle,provisional_title,article_verdict,assets&id=eq."
+      + encodeURIComponent(storyId)
+      + "&limit=2",
+  );
+  if (rows.length !== 1) {
+    throw new Error(`Dossier Story canonical mutation could not resolve one exact current Story ${storyId}.`);
+  }
+
+  const plan = buildDossierStoryCanonicalMutationPlan({
+    materialisation: input.materialisation,
+    currentStory: rows[0]!,
+    eventAt: input.eventAt,
+  });
+  if (!plan) {
+    throw new Error(
+      `Dossier Story canonical mutation ${input.materialisation.mutation_key} failed the fresh Story/base-version guard.`,
+    );
+  }
+
+  return persistCanonicalStoryReasoning({
+    mutationKey: plan.mutation_key,
+    storyId: plan.story_id,
+    storyPayload: plan.story_payload,
+    reasoning: plan.reasoning,
+    event: plan.event,
+  });
 }
 
 async function persistDerivedStoryThemes(storyId: string, input: { title: string; thesis: string; causalMechanism: string; assets: string[] }) {
