@@ -516,6 +516,7 @@ test("C1.4b Story target freezes bounded corrected Motion reassessment contexts"
     canonicalReassessmentScope: "STORY" as const,
     storyId: "rates",
     packetEvidenceId: "research-intake:motion-1",
+    canonicalEvidenceId: requested.id,
     evidenceReferences: ["research-intake:motion-1"],
     framing: {
       headline: "Corrected duration-pressure framing",
@@ -568,5 +569,67 @@ test("C1.4b Story target freezes bounded corrected Motion reassessment contexts"
   assert.notEqual(
     selected[0]?.reviewContext?.motionReassessments?.[0]?.framing.headline,
     "Original over-broad Motion headline",
+  );
+});
+
+
+test("C1.4c REFINE-driven Story reframing requires the exact Motion canonical evidence", () => {
+  const trigger = evidence("motion-trigger", "rates", {
+    evidenceClass: "official_release",
+    sourceTier: 1,
+  });
+  const unrelated = evidence("other-evidence", "rates", {
+    evidenceClass: "official_release",
+    sourceTier: 1,
+  });
+  const target = {
+    story: story("rates"),
+    reason: "explicit_queue",
+    reasonRank: 1,
+    reasons: ["explicit_queue"],
+    queueIds: ["queue-motion"],
+    selectedAt: now.toISOString(),
+    relevantEvidence: [trigger, unrelated],
+    reviewContext: {
+      queueReasons: ["dossier_motion_refresh:dossier-1:motion-1:REFINE"],
+      researchDebt: [],
+      dueCatalysts: [],
+      triggerEvidenceIds: [trigger.id],
+      catalystCandidates: [],
+      motionReassessments: [{
+        contractVersion: "story-review-motion-context/1" as const,
+        authority: "CONTEXT_ONLY" as const,
+        dossierId: "dossier-1",
+        motionId: "motion-1",
+        decision: "REFINE" as const,
+        canonicalReassessmentScope: "STORY" as const,
+        storyId: "rates",
+        packetEvidenceId: "research-intake:motion-1",
+        canonicalEvidenceId: trigger.id,
+        evidenceReferences: ["research-intake:motion-1"],
+        framing: {
+          headline: "Corrected rates framing",
+          whyInteresting: "Corrected why.",
+          bigPictureBridge: "Corrected bridge.",
+        },
+        storyImplication: "Reassess the exact Story.",
+        regimeImplication: null,
+        investigationNext: "Check persistence.",
+      }],
+    },
+  };
+
+  assert.equal(
+    materialAssessmentHasEligibleEvidence("reframed", [unrelated.id], target),
+    false,
+  );
+  assert.equal(
+    materialAssessmentHasEligibleEvidence("reframed", [trigger.id], target),
+    true,
+  );
+  assert.equal(
+    materialAssessmentHasEligibleEvidence("reinforced", [unrelated.id], target),
+    true,
+    "non-reframe dispositions still use the existing canonical evidence policy",
   );
 });
