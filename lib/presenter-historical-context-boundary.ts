@@ -16,12 +16,12 @@ export type PresenterHistoricalContextBoundary = {
 };
 
 /**
- * Presenter can replay the exact immutable Story reasoning from an older
- * Journey edition, but a Journey edition does not currently persist the exact
- * Market Dossier V2 ID that supplied the investigation.
+ * Historical Presenter replay is exact only when both halves are immutable:
+ * the selected Journey edition's Story reasoning and its publication-frozen
+ * Market Dossier V2 identity. Older/malformed editions remain Story-only.
  *
- * Therefore historical expectation/tape/divergence must not be inferred by
- * timestamp, nearest Dossier, latest Dossier, Story linkage, or prose matching.
+ * Historical Dossier context is never inferred by timestamp, latest state,
+ * Story linkage, thesis linkage, or prose matching.
  */
 export function buildPresenterHistoricalContextBoundary(input: {
   editionSelectionStatus: "current" | "historical" | "invalid_fallback_current";
