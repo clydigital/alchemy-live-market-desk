@@ -11,6 +11,7 @@ import {
 import {
   buildRegimeProjection,
   classifyRegimeStory,
+  REGIME_DEFINITIONS,
   routeStoryToRegimes,
   routeTextToRegimes,
 } from "../lib/regimes.ts";
