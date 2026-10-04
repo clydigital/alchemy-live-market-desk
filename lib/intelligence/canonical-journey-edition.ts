@@ -241,6 +241,7 @@ async function persistCanonicalStoryManifest({
         storyId: story.id,
         thesisVersionId,
         state,
+        reasoning,
       },
       journeySource: reasoning && thesisVersionId ? {
         position: index + 1,
