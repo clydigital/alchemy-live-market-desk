@@ -539,10 +539,10 @@ test("A3 cycle guard keeps Regime persistence downstream and non-evidentiary", (
     /requested_by_evidence_id:\s*null/,
   );
 
-  const persistIndex = executionSource.indexOf("persistMarketDossierV2(dossierInput");
-  const propagationIndex = executionSource.indexOf("enqueueDossierReevaluationPropagation");
-  const refreshIndex = executionSource.indexOf("enqueueDossierStoryRefreshAgenda({");
-  const regimeIndex = executionSource.indexOf("persistRegimeShadowProjectionSafely({");
+  const persistIndex = executionSource.indexOf("await persistMarketDossierV2(dossierInput");
+  const propagationIndex = executionSource.indexOf("await enqueueDossierReevaluationPropagation({");
+  const refreshIndex = executionSource.indexOf("await enqueueDossierStoryRefreshAgenda({");
+  const regimeIndex = executionSource.indexOf("await persistRegimeShadowProjectionSafely({");
 
   assert.ok(persistIndex >= 0);
   assert.ok(propagationIndex > persistIndex);
