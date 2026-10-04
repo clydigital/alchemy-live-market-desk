@@ -78,6 +78,7 @@ export type Story = {
   persistence: number;
   trader_relevance: number;
   article_potential: number;
+  current_thesis_version_id?: string | null;
 };
 
 export type EarningsCall = {
