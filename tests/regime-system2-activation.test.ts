@@ -48,6 +48,7 @@ function regime(): ProjectedRegime {
     durableStories: [core, support],
     contextStories: [],
     latestNode: null,
+    dossierContext: [],
     hybridHref: "/hybrid-output?regime=global-cost-of-capital",
     subgroups: [{
       key: "long-end",
