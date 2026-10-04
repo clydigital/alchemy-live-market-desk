@@ -14,7 +14,7 @@ export const MARKET_MOTION_PROMOTION_MIN_RELEVANCE = 75;
 export const MARKET_MOTION_PROMOTION_LIMIT = 6;
 export const MARKET_MOTION_DOSSIER_PROMOTION_POLICY = "dossier-motion-assessment/v2" as const;
 
-export type MarketMotionPromotionScope = "STORY" | "REGIME";
+export type MarketMotionPromotionScope = "STORY" | "REGIME" | "STORY_AND_REGIME";
 
 export type MarketMotionPromotionResult = {
   considered: number;
@@ -62,11 +62,13 @@ function dossierPromotionScope(
   item: MarketMotionRecord,
   assessment: ResearchBrainMotionAssessment,
 ): MarketMotionPromotionScope | null {
+  const scope = assessment.canonical_reassessment_scope;
   const storyAccepted = Boolean(assessment.story_implication?.trim() && item.primary_story_id);
   const regimeAccepted = Boolean(assessment.regime_implication?.trim() && item.primary_regime_slug);
 
-  if (storyAccepted) return "STORY";
-  if (regimeAccepted) return "REGIME";
+  if (scope === "STORY" && storyAccepted && !assessment.regime_implication?.trim()) return "STORY";
+  if (scope === "REGIME" && regimeAccepted && !assessment.story_implication?.trim()) return "REGIME";
+  if (scope === "STORY_AND_REGIME" && storyAccepted && regimeAccepted) return "STORY_AND_REGIME";
   return null;
 }
 
@@ -147,9 +149,9 @@ export function marketMotionDossierPromotionInput(
   const headline = refined ? assessment.refined_headline!.trim() : item.headline;
   const whyInteresting = refined
     ? assessment.refined_why_interesting!.trim()
-    : scope === "STORY"
-      ? assessment.story_implication!.trim()
-      : assessment.regime_implication!.trim();
+    : scope === "REGIME"
+      ? assessment.regime_implication!.trim()
+      : assessment.story_implication!.trim();
   const bigPictureBridge = refined
     ? assessment.refined_big_picture_bridge!.trim()
     : assessment.regime_implication?.trim()
@@ -183,7 +185,7 @@ export function marketMotionDossierPromotionInput(
     researchRunId: item.research_run_id,
     sourceId: item.source_id,
     evidenceId: item.evidence_id,
-    primaryStoryId: scope === "STORY" ? item.primary_story_id : null,
+    primaryStoryId: scope === "REGIME" ? null : item.primary_story_id,
     primaryRegimeSlug: item.primary_regime_slug,
     metadata: {
       ...(item.metadata || {}),
