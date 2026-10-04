@@ -360,16 +360,37 @@ function promotionMetadata(candidate: MarketMotionInput | null) {
   );
 }
 
+function promotionStillFresh(candidate: MarketMotionInput, mergeAt: number) {
+  if (candidate.lifecycleState !== "PROMOTED") return false;
+  if (!candidate.expiresAt) return true;
+  const expiry = Date.parse(candidate.expiresAt);
+  return !Number.isFinite(expiry) || expiry > mergeAt;
+}
+
+function stripPromotionMetadata(metadata: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => (
+      key !== "promotedFromMotionId" && !key.startsWith("promotion")
+    )),
+  );
+}
+
 function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): MarketMotionInput {
   const primary = candidateStrength(left) >= candidateStrength(right) ? left : right;
   const secondary = primary === left ? right : left;
-  const promoted = left.lifecycleState === "PROMOTED"
+  const mergeAt = Math.max(
+    Date.parse(left.observedAt || left.occurredAt),
+    Date.parse(right.observedAt || right.occurredAt),
+  );
+  const promoted = promotionStillFresh(left, mergeAt)
     ? left
-    : right.lifecycleState === "PROMOTED"
+    : promotionStillFresh(right, mergeAt)
       ? right
       : null;
+  const primaryExpiredPromotion = primary.lifecycleState === "PROMOTED"
+    && !promotionStillFresh(primary, mergeAt);
   const metadata = {
-    ...mergedMetadata(primary, secondary),
+    ...stripPromotionMetadata(mergedMetadata(primary, secondary)),
     ...promotionMetadata(promoted),
   };
   const researchQuestions = metadataStrings(metadata, "researchQuestions");
@@ -392,6 +413,10 @@ function mergeCandidatePair(left: MarketMotionInput, right: MarketMotionInput): 
       lifecycleState: "PROMOTED" as const,
       evidenceId: promoted.evidenceId ?? null,
       promotionReason: promoted.promotionReason ?? null,
+    } : primaryExpiredPromotion ? {
+      lifecycleState: "MOTION" as const,
+      evidenceId: null,
+      promotionReason: null,
     } : {}),
     metadata,
   };
