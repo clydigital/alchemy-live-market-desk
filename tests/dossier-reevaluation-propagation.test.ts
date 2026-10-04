@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -513,4 +514,38 @@ test("A3 queue insertion failure returns an auditable warning without false succ
   assert.equal(result.enqueued, 0);
   assert.equal(result.skipped_existing, 0);
   assert.ok(result.warnings.some((warning) => /forced A3 queue failure/i.test(warning)));
+});
+
+
+test("A3 cycle guard keeps Regime persistence downstream and non-evidentiary", () => {
+  const propagationSource = readFileSync(
+    new URL("../lib/dossier-v2/reevaluation-propagation.ts", import.meta.url),
+    "utf8",
+  );
+  const regimeSource = readFileSync(
+    new URL("../lib/regime-engine.ts", import.meta.url),
+    "utf8",
+  );
+  const executionSource = readFileSync(
+    new URL("../lib/dossier-v2/execution.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(propagationSource, /\.from\(["']market_regime_current["']\)/);
+  assert.doesNotMatch(propagationSource, /\.from\(["']market_regime_versions["']\)/);
+  assert.doesNotMatch(propagationSource, /persist_market_regime_projection_v1/);
+  assert.match(
+    regimeSource,
+    /requested_by_evidence_id:\s*null/,
+  );
+
+  const persistIndex = executionSource.indexOf("persistMarketDossierV2(dossierInput");
+  const propagationIndex = executionSource.indexOf("enqueueDossierReevaluationPropagation");
+  const refreshIndex = executionSource.indexOf("enqueueDossierStoryRefreshAgenda({");
+  const regimeIndex = executionSource.indexOf("persistRegimeShadowProjectionSafely({");
+
+  assert.ok(persistIndex >= 0);
+  assert.ok(propagationIndex > persistIndex);
+  assert.ok(refreshIndex > propagationIndex);
+  assert.ok(regimeIndex > refreshIndex);
 });
