@@ -184,3 +184,51 @@ test("Hybrid Presenter surface stays read-only and does not call reasoning or Re
   assert.doesNotMatch(combined, /executeResearchBrain|runIntelligenceEngine|persistMarketDossierV2/);
   assert.doesNotMatch(combined, /\/api\/research-gap|\/api\/admin\/research-gap/);
 });
+
+
+test("P1.2 Presenter prefers exact canonical Story reasoning and keeps Dossier fields as fallback only", () => {
+  const component = readFileSync(
+    new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url),
+    "utf8",
+  );
+  const page = readFileSync(
+    new URL("../app/hybrid-output/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(component, /canonicalByInvestigationId/);
+  assert.match(component, /canonical\?\.currentExplanation \?\? item\.provisionalConclusion/);
+  assert.match(component, /canonical\.competingExplanations/);
+  assert.match(component, /Hybrid does not revive older Dossier candidates/);
+  assert.match(component, /canonical\.whatToInspectNext\.canonical/);
+  assert.match(component, /canonical\.confirmation\.canonical/);
+  assert.match(component, /canonical\.invalidation\.canonical/);
+  assert.match(component, /CANONICAL STORY/);
+  assert.match(component, /DOSSIER FALLBACK/);
+
+  assert.match(page, /presenterStorySourcesFromEditionPayload\(currentEdition\?\.payload\)/);
+  assert.match(page, /buildPresenterCanonicalStoryCases\(\{/);
+  assert.match(page, /canonicalCases=\{presenterCanonicalCases\}/);
+});
+
+test("P1.2 Presenter canonical wiring remains read-only and edition-bound", () => {
+  const page = readFileSync(
+    new URL("../app/hybrid-output/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const component = readFileSync(
+    new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url),
+    "utf8",
+  );
+  const bridge = readFileSync(
+    new URL("../lib/presenter-canonical-story-bridge.ts", import.meta.url),
+    "utf8",
+  );
+  const combined = [page, component, bridge].join("\n");
+
+  assert.match(page, /currentEdition\?\.payload/);
+  assert.doesNotMatch(combined, /executeDossierStoryCanonicalMutation/);
+  assert.doesNotMatch(combined, /persistCanonicalStoryReasoning/);
+  assert.doesNotMatch(combined, /apply_intelligence_story_assessment_v2/);
+  assert.doesNotMatch(combined, /runIntelligenceEngine|executeResearchBrain/);
+});
