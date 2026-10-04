@@ -74,7 +74,7 @@ test("P1.4 boundary contains no fuzzy edition-to-Dossier resolver", () => {
   assert.doesNotMatch(executable, /storyIds|thesisIds/);
 });
 
-test("P1.4 canonical Journey edition does not currently persist an exact Market Dossier V2 identity", () => {
+test("P1.5 canonical Journey editions now freeze exact Dossier identity without changing Dossier schema", () => {
   const root = path.resolve(import.meta.dirname, "..");
   const writer = fs.readFileSync(
     path.join(root, "lib", "intelligence", "canonical-journey-edition.ts"),
@@ -92,9 +92,10 @@ test("P1.4 canonical Journey edition does not currently persist an exact Market 
   const baseEditionWriter = writer.slice(start, end);
 
   assert.match(baseEditionWriter, /canonicalStoryManifest/);
+  assert.match(baseEditionWriter, /capturePresenterDossierEditionContext\(generatedAt\)/);
+  assert.match(baseEditionWriter, /presenterDossierContext/);
+  assert.match(baseEditionWriter, /presenterDossierSourceRef/);
   assert.doesNotMatch(baseEditionWriter, /market_dossiers_v2/);
-  assert.doesNotMatch(baseEditionWriter, /presenterDossierContext/);
-  assert.doesNotMatch(baseEditionWriter, /dossierId:/);
   assert.doesNotMatch(schema, /research_run_id/);
 });
 
