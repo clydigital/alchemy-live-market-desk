@@ -289,12 +289,17 @@ test("P1.3 UI identifies partial historical replay scope instead of claiming the
     path.join(root, "components", "live-desk", "PresenterDivergenceJourney.tsx"),
     "utf8",
   );
+  const boundary = fs.readFileSync(
+    path.join(root, "lib", "presenter-historical-context-boundary.ts"),
+    "utf8",
+  );
 
-  assert.match(component, /Historical Story reasoning is pinned to edition/);
-  assert.match(component, /Expectation, tape and divergence still come from the current Dossier investigation/);
+  assert.match(component, /historicalContextBoundary/);
   assert.match(component, /HISTORICAL STORY/);
+  assert.match(component, /STORY REASONING ONLY/);
   assert.match(component, /Presenter reasoning edition/);
   assert.match(component, /aria-current=\{selected \? "page" : undefined\}/);
+  assert.match(boundary, /Expectation, tape, divergence, and missing-evidence context therefore remain current-Dossier context/);
 });
 
 test("P1.3 remains read-only and does not reconstruct historical reasoning from mutable Story state", () => {
