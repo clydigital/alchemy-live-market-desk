@@ -77,10 +77,15 @@ function assessment(
   return {
     motion_id: "motion-1",
     decision,
+    canonical_reassessment_scope:
+      decision === "ACCEPT" || decision === "REFINE" ? "STORY" : "NONE",
     reason: "Canonical Dossier evidence supports the Motion as current analytical context.",
     evidence_references: ["research-intake:evidence-1"],
-    story_implication: "The linked Story should carry this accepted short-horizon development.",
-    regime_implication: "The development reinforces the current regime interpretation.",
+    story_implication:
+      decision === "ACCEPT" || decision === "REFINE"
+        ? "The linked Story should carry this accepted short-horizon development."
+        : null,
+    regime_implication: null,
     investigation_next: null,
     refined_headline: decision === "REFINE" ? "HBM demand remains firm while the causal driver is narrowed" : null,
     refined_why_interesting: decision === "REFINE" ? "The supported development remains material, but the original causal framing was too broad." : null,
@@ -103,17 +108,22 @@ test("B2 promotion authority admits ACCEPT and corrected REFINE without Story-fi
   const assessments = [
     assessment("ACCEPT", { motion_id: "accepted" }),
     assessment("REFINE", { motion_id: "refined" }),
-    assessment("UNRESOLVED", { motion_id: "unresolved", story_implication: null, regime_implication: null, investigation_next: "Test the unresolved branch." }),
-    assessment("REJECT", { motion_id: "rejected", story_implication: null, regime_implication: null }),
+    assessment("UNRESOLVED", { motion_id: "unresolved", investigation_next: "Test the unresolved branch." }),
+    assessment("REJECT", { motion_id: "rejected" }),
     assessment("ACCEPT", { motion_id: "no-story" }),
     assessment("ACCEPT", { motion_id: "expired" }),
     assessment("ACCEPT", { motion_id: "weak" }),
-    assessment("ACCEPT", { motion_id: "regime-only", story_implication: null }),
+    assessment("ACCEPT", {
+      motion_id: "regime-only",
+      canonical_reassessment_scope: "REGIME",
+      story_implication: null,
+      regime_implication: "The development reinforces the current regime interpretation.",
+    }),
   ];
 
   const selected = selectDossierAcceptedPromotableMarketMotion(rows, assessments, NOW);
 
-  assert.deepEqual(selected.map((item) => item.id), ["accepted", "refined", "no-story", "regime-only"]);
+  assert.deepEqual(selected.map((item) => item.id), ["accepted", "refined", "regime-only"]);
 });
 
 test("B2 Story-scoped promoted version records Dossier acceptance as the authority", () => {
@@ -141,7 +151,11 @@ test("B2 Story-scoped promoted version records Dossier acceptance as the authori
 test("B2 regime-only ACCEPT promotes without inventing a Story conclusion", () => {
   const input = marketMotionDossierPromotionInput(
     record(),
-    assessment("ACCEPT", { story_implication: null }),
+    assessment("ACCEPT", {
+      canonical_reassessment_scope: "REGIME",
+      story_implication: null,
+      regime_implication: "The development reinforces the current regime interpretation.",
+    }),
     { dossierId: "dossier-123" },
   );
 
@@ -153,6 +167,37 @@ test("B2 regime-only ACCEPT promotes without inventing a Story conclusion", () =
   assert.equal(
     input.whyInteresting,
     "The development reinforces the current regime interpretation.",
+  );
+});
+
+test("C1.3b STORY_AND_REGIME promotion preserves both exact canonical routes", () => {
+  const input = marketMotionDossierPromotionInput(
+    record(),
+    assessment("ACCEPT", {
+      canonical_reassessment_scope: "STORY_AND_REGIME",
+      regime_implication: "The evidence independently requires reassessing the linked Regime too.",
+    }),
+    { dossierId: "dossier-123" },
+  );
+
+  assert.equal(input.primaryStoryId, "story-1");
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.metadata?.promotionScope, "STORY_AND_REGIME");
+  assert.equal(input.metadata?.canonicalReassessmentScope, "STORY_AND_REGIME");
+});
+
+test("C1.3b promotion fails closed when canonical scope is absent even if prose implications exist", () => {
+  assert.throws(
+    () => marketMotionDossierPromotionInput(
+      record(),
+      assessment("ACCEPT", {
+        canonical_reassessment_scope: undefined,
+        story_implication: "Story prose exists.",
+        regime_implication: "Regime prose exists.",
+      }),
+      { dossierId: "dossier-123" },
+    ),
+    /explicit canonical reassessment scope/i,
   );
 });
 
@@ -191,7 +236,7 @@ test("B2 requires an exact accepted Story or Regime link", () => {
       assessment("ACCEPT"),
       { dossierId: "dossier-123" },
     ),
-    /accepted exact Story or Regime implication/i,
+    /explicit canonical reassessment scope/i,
   );
 });
 
