@@ -21,6 +21,7 @@ import type { JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import { buildStageFailurePersistencePayload } from "./openai-core.ts";
+import { IntelligenceDatabaseError } from "./database-error.ts";
 import {
   completedStageCheckpoints,
   hasReusableStagePayload,
@@ -1342,6 +1343,60 @@ async function resolveCreatorOnlyStoryReviewQueues(
   return resolved.length;
 }
 
+function isStaleStoryMaintenanceMutation(error: unknown) {
+  return error instanceof IntelligenceDatabaseError
+    && error.detail.includes("Stale Story maintenance assessment");
+}
+
+async function resolveStaleStoryMaintenanceAssessment(input: {
+  engineRunId: string;
+  assessmentId: string;
+  target: StoryReviewTargetPackItem;
+  rationale: string;
+}) {
+  const resolvedAt = new Date().toISOString();
+  await intelligenceRest(
+    "intelligence_story_assessments?id=eq." + encodeURIComponent(input.assessmentId)
+      + "&applied_at=is.null",
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        disposition: "unchanged",
+        rationale: input.rationale + " Story assessment was superseded by a newer canonical Story thesis version.",
+        material_change_applied: false,
+        applied_at: resolvedAt,
+      }),
+    },
+  );
+
+  if (input.target.queueIds.length) {
+    await intelligenceRest(
+      "intelligence_reevaluation_queue?id=in.(" + input.target.queueIds.join(",") + ")"
+        + "&claimed_by_engine_run_id=eq." + encodeURIComponent(input.engineRunId)
+        + "&status=eq.processing",
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "completed",
+          completed_at: resolvedAt,
+          last_error: null,
+          updated_at: resolvedAt,
+        }),
+      },
+    );
+  }
+
+  console.info(JSON.stringify({
+    event: "stale_story_maintenance_resolved",
+    engineRunId: input.engineRunId,
+    storyId: input.target.story.id,
+    assessmentId: input.assessmentId,
+    queueIds: input.target.queueIds,
+  }));
+}
+
 async function persistStoryAssessments(input: {
   engineRunId: string;
   stageRunId: string;
@@ -1415,11 +1470,21 @@ async function persistStoryAssessments(input: {
     }
     const row = rows[0];
     if (!row || row.applied_at) continue;
-    await intelligenceRest("rpc/apply_intelligence_story_assessment_v2", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ p_assessment_id: row.id }),
-    });
+    try {
+      await intelligenceRest("rpc/apply_intelligence_story_assessment_v2", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ p_assessment_id: row.id }),
+      });
+    } catch (error) {
+      if (!isStaleStoryMaintenanceMutation(error)) throw error;
+      await resolveStaleStoryMaintenanceAssessment({
+        engineRunId: input.engineRunId,
+        assessmentId: row.id,
+        target,
+        rationale: payload.rationale,
+      });
+    }
   }
 }
 
