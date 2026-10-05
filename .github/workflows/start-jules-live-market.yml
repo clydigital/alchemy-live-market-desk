@@ -21,6 +21,16 @@ on:
         required: true
         type: string
         default: "Live Market: presenter divergence review"
+      require_plan_approval:
+        description: "Require manual approval before Jules executes?"
+        required: true
+        default: true
+        type: boolean
+      auto_create_pr:
+        description: "Automatically create a PR when Jules finishes?"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -39,6 +49,8 @@ jobs:
       JULES_LYC: ${{ secrets.JULES_LYC }}
       JULES_TASK: ${{ inputs.task }}
       JULES_TITLE: ${{ inputs.title }}
+      JULES_REQUIRE_PLAN_APPROVAL: ${{ inputs.require_plan_approval }}
+      JULES_AUTO_CREATE_PR: ${{ inputs.auto_create_pr }}
     steps:
       - name: Select Jules account and validate inputs
         shell: bash
@@ -102,7 +114,7 @@ jobs:
           fi
           echo "name=$source_name" >> "$GITHUB_OUTPUT"
 
-      - name: Create approval-gated Jules session
+      - name: Create Jules session
         shell: bash
         env:
           JULES_SOURCE: ${{ steps.source.outputs.name }}
@@ -113,7 +125,10 @@ jobs:
             --arg title "$JULES_TITLE" \
             --arg source "$JULES_SOURCE" \
             --arg branch "$GITHUB_REF_NAME" \
-            '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:true}')"
+            --argjson require_plan_approval "$JULES_REQUIRE_PLAN_APPROVAL" \
+            --arg auto_create_pr "$JULES_AUTO_CREATE_PR" \
+            '{prompt:$prompt,title:$title,sourceContext:{source:$source,githubRepoContext:{startingBranch:$branch}},requirePlanApproval:$require_plan_approval}
+             + (if $auto_create_pr == "true" then {automationMode:"AUTO_CREATE_PR"} else {} end)')"
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
           status="$(curl --silent --show-error \
@@ -132,11 +147,12 @@ jobs:
             echo "Jules returned an unexpected session identifier." >&2
             exit 1
           fi
-          echo "Created Jules $session_name (plan approval required)."
+          echo "Created Jules $session_name."
           {
             echo "### Jules Live Market"
-            echo "Account: `$JULES_ACCOUNT`"
-            echo "Session: `$session_name`"
-            echo "Source: `$JULES_SOURCE`"
-            echo "Plan approval is required before Jules executes the task."
+            printf 'Account: %s\n' "$JULES_ACCOUNT"
+            printf 'Session: %s\n' "$session_name"
+            printf 'Source: %s\n' "$JULES_SOURCE"
+            printf 'Plan approval required: %s\n' "$JULES_REQUIRE_PLAN_APPROVAL"
+            printf 'Auto-create PR: %s\n' "$JULES_AUTO_CREATE_PR"
           } >> "$GITHUB_STEP_SUMMARY"
