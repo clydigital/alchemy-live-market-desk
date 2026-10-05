@@ -240,7 +240,7 @@ test("global credit amplification shifts B toward C but cannot invent systemic o
   assert.equal(result.scenarios.eligibility.E, "CAPPED");
 });
 
-test("Scenario D is unlocked when both canonical credit acceleration AND dollar liquidity stress are present", () => {
+test("Scenario D remains capped when credit accelerates and dollar liquidity tightens without a structured tail trigger", () => {
   const credit = story("story-credit", "global-credit-transmission", "Global credit transmission");
   const stressedDossier = dossier(
     [{ id: "analytical-credit", persistentStoryId: credit.id, title: credit.title, evidenceRefs: ["ev-credit-1", "ev-credit-2"] }],
@@ -252,13 +252,13 @@ test("Scenario D is unlocked when both canonical credit acceleration AND dollar 
         state: "TIGHTENING",
         score: 75,
         confidence: "HIGH",
-        summary: "Dollar liquidity tightening",
+        summary: "Dollar liquidity tightening and severe forced-selling pressure",
         components: [],
         drivers: [],
         contradictions: [],
         evidenceRefs: ["ev-liq-1"],
         coverage: { resolved: 4, scoredTotal: 4, offshoreUsd: "UNRESOLVED" },
-        gaps: [],
+        gaps: ["Forced selling, collateral stress, covenant stress"],
       },
     },
   );
@@ -273,14 +273,12 @@ test("Scenario D is unlocked when both canonical credit acceleration AND dollar 
     versions: [version(credit.id)],
   });
 
-  assert.equal(result.scenarios.eligibility.D, "ELIGIBLE_TO_INCREASE");
-  assert.equal(result.scenarios.current.D, 10);
-  const dTransfer = result.scenarios.transfers.find((t) => t.recipient === "D");
-  assert.ok(dTransfer);
-  assert.match(dTransfer.reason, /forced-selling \/ liquidity stress/i);
+  assert.equal(result.scenarios.eligibility.D, "CAPPED");
+  assert.equal(result.scenarios.current.D, 8);
+  assert.equal(result.scenarios.transfers.some((item) => item.recipient === "D"), false);
 });
 
-test("Scenario E is unlocked when yields up, USD down, and auction demand failure are present", () => {
+test("Scenario E remains capped when only rate, USD, and gap prose suggest a confidence break", () => {
   const confidenceDossier = dossier([], "RATES_LED_TIGHTENING", {
     rateRegime: {
       state: "HAWKISH",
@@ -290,7 +288,7 @@ test("Scenario E is unlocked when yields up, USD down, and auction demand failur
       observedRatePricing: null,
       observedConfirmation: null,
       usRatesReaction: null,
-      usRatesInterpretation: null,
+      usRatesInterpretation: "Treasury yields are surging and confidence is breaking.",
       fredBacked: true,
       evidenceRefs: ["ev-rates-1"],
       gaps: ["Auction demand failure detected"],
@@ -301,11 +299,17 @@ test("Scenario E is unlocked when yields up, USD down, and auction demand failur
         label: "USD",
         observed: true,
         reaction: "sharp down",
-        interpretation: "USD weakening despite rate hikes",
+        interpretation: "USD confidence collapse and auction stress",
         evidenceRefs: ["ev-usd-1"],
         unresolvedSignals: [],
       },
     ],
+    policyOutlook: [{
+      title: "Confidence risk",
+      summary: "Systemic confidence break is imminent.",
+      evidenceRefs: [],
+      gaps: ["Demand failure", "auction failure", "reserve diversification"],
+    }] as DossierPresentationV1["policyOutlook"],
   });
 
   const result = buildHybridReasoningProjection({
@@ -315,20 +319,18 @@ test("Scenario E is unlocked when yields up, USD down, and auction demand failur
     versions: [],
   });
 
-  assert.equal(result.scenarios.eligibility.E, "ELIGIBLE_TO_INCREASE");
-  assert.equal(result.scenarios.current.E, 4);
-  const eTransfer = result.scenarios.transfers.find((t) => t.recipient === "E");
-  assert.ok(eTransfer);
-  assert.match(eTransfer.reason, /US confidence break/i);
+  assert.equal(result.scenarios.eligibility.E, "CAPPED");
+  assert.equal(result.scenarios.current.E, 2);
+  assert.equal(result.scenarios.transfers.some((item) => item.recipient === "E"), false);
 });
 
-test("Scenario hard falsification sets current probability to 0 and reallocates to recipient with provenance", () => {
+test("an invalidating Story cannot by itself hard-falsify or zero a whole Hybrid scenario", () => {
   const ai = story("story-ai", "ai-financing-stress", "AI financing stress");
   const invalidatingEvent = event({
     story_id: ai.id,
     event_type: "invalidation",
     impact: "contradicts",
-    detail: "Divergence mechanism completely invalidated by Fed policy announcement",
+    detail: "This individual Story mechanism is invalidated.",
   });
 
   const result = buildHybridReasoningProjection({
@@ -338,39 +340,44 @@ test("Scenario hard falsification sets current probability to 0 and reallocates 
     versions: [version(ai.id, "invalidated")],
   });
 
-  assert.equal(result.scenarios.eligibility.A, "FALSIFIED");
-  assert.equal(result.scenarios.current.A, 0);
-  assert.ok(result.scenarios.current.B > result.scenarios.starting.B);
-
-  const falsificationTransfer = result.scenarios.transfers.find((t) => t.donor === "A");
-  assert.ok(falsificationTransfer);
-  assert.match(falsificationTransfer.reason, /FALSIFIED|invalidat/i);
+  assert.notEqual(result.scenarios.eligibility.A, "FALSIFIED");
+  assert.ok(result.scenarios.current.A > 0);
+  assert.equal(
+    result.scenarios.transfers.some((item) => /Scenario A FALSIFIED/i.test(item.reason)),
+    false,
+  );
 });
 
-test("Candidate vs Confirmed transition hysteresis caps candidate transfer amounts", () => {
+test("an existing thesis version alone does not upgrade ordinary confirmation to a confirmed transition", () => {
   const ai = story("story-ai", "ai-financing-stress", "AI financing stress");
-
-  const candidateResult = buildHybridReasoningProjection({
-    dossier: dossier([{ id: "analytical-ai", persistentStoryId: ai.id, title: ai.title, evidenceRefs: ["ev-1"] }]),
-    stories: [ai],
-    events: [event({ story_id: ai.id, impact: "supports", evidence_id: "ev-1" })],
-    versions: [],
-  });
-
-  const confirmedResult = buildHybridReasoningProjection({
+  const result = buildHybridReasoningProjection({
     dossier: dossier([{ id: "analytical-ai", persistentStoryId: ai.id, title: ai.title, evidenceRefs: ["ev-1", "ev-2"] }]),
     stories: [ai],
-    events: [
-      event({ story_id: ai.id, impact: "amplifies", evidence_id: "ev-1" }),
-      event({ id: "event-2", story_id: ai.id, impact: "supports", evidence_id: "ev-2" }),
-    ],
+    events: [event({ story_id: ai.id, impact: "supports", evidence_id: "ev-1" })],
     versions: [version(ai.id)],
   });
 
-  const candidateBShift = candidateResult.scenarios.current.B - candidateResult.scenarios.starting.B;
-  const confirmedBShift = confirmedResult.scenarios.current.B - confirmedResult.scenarios.starting.B;
+  const storyTransfer = result.scenarios.transfers.find((item) =>
+    item.reason.includes(ai.title),
+  );
+  assert.ok(storyTransfer);
+  assert.equal(storyTransfer.transitionState, "CANDIDATE");
+});
 
-  assert.ok(confirmedBShift >= candidateBShift);
+test("explicit acceleration may produce a confirmed transition without relying on thesis-version existence", () => {
+  const ai = story("story-ai", "ai-financing-stress", "AI financing stress");
+  const result = buildHybridReasoningProjection({
+    dossier: dossier([{ id: "analytical-ai", persistentStoryId: ai.id, title: ai.title, evidenceRefs: ["ev-1"] }]),
+    stories: [ai],
+    events: [event({ story_id: ai.id, impact: "amplifies", evidence_id: "ev-1" })],
+    versions: [],
+  });
+
+  const storyTransfer = result.scenarios.transfers.find((item) =>
+    item.reason.includes(ai.title),
+  );
+  assert.ok(storyTransfer);
+  assert.equal(storyTransfer.transitionState, "CONFIRMED");
 });
 
 test("Same-evidence replay is stable and idempotent (does not ratchet probabilities)", () => {
