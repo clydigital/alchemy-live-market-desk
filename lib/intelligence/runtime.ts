@@ -82,7 +82,7 @@ import {
 } from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
-import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { isCanonicalEligibleEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
@@ -1341,7 +1341,10 @@ async function persistStoryAssessments(input: {
       );
       continue;
     }
-    const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
+    const eligibleEvidenceIds = evidenceIds.filter((id) => {
+      const item = allowedEvidence.get(id);
+      return item ? isCanonicalEligibleEvidence(item) : false;
+    });
     const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
     const lastEvidenceAt = latestStoryEvidenceTimestamp(
