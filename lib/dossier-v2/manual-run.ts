@@ -13,6 +13,7 @@ import {
   type DossierV2InputRequest,
   type PriorAnalyticalClaim,
   type PriorInvestigationSnapshot,
+  type PersistentStoryBinding,
   type ThesisLedger,
 } from "./input-packet.ts";
 import {
@@ -35,7 +36,7 @@ import {
   executeResearchBrain,
   type ResearchBrainOptions,
 } from "./research-brain.ts";
-import { validateMarketDossierV2Record } from "./validation.ts";
+import { isValidUuid, validateMarketDossierV2Record } from "./validation.ts";
 
 export interface ManualDossierV2RunOptions {
   asOf: string;
@@ -381,6 +382,44 @@ export function buildPriorInvestigations(
   });
 }
 
+export function buildPriorPersistentStoryBindings(
+  dossier: MarketDossierV2,
+): PersistentStoryBinding[] {
+  const analytical =
+    dossier.payload.analytical_output
+    && typeof dossier.payload.analytical_output === "object"
+    && !Array.isArray(dossier.payload.analytical_output)
+      ? (dossier.payload.analytical_output as Record<string, unknown>)
+      : null;
+  const stories = Array.isArray(analytical?.major_stories)
+    ? analytical.major_stories
+    : [];
+
+  const byAnalyticalId = new Map<string, string>();
+  for (const item of stories) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const story = item as Record<string, unknown>;
+    const analyticalStoryId =
+      typeof story.story_id === "string" ? story.story_id.trim() : "";
+    const persistentStoryId =
+      typeof story.persistent_story_id === "string"
+        ? story.persistent_story_id.trim()
+        : "";
+    if (!analyticalStoryId || !isValidUuid(persistentStoryId)) continue;
+    const existing = byAnalyticalId.get(analyticalStoryId);
+    if (existing && existing !== persistentStoryId) continue;
+    byAnalyticalId.set(analyticalStoryId, persistentStoryId);
+  }
+
+  return [...byAnalyticalId.entries()]
+    .map(([analytical_story_id, persistent_story_id]) => ({
+      analytical_story_id,
+      persistent_story_id,
+    }))
+    .sort((left, right) =>
+      left.analytical_story_id.localeCompare(right.analytical_story_id));
+}
+
 function buildPriorThesisLedger(dossier: MarketDossierV2): ThesisLedger | undefined {
   const payload = dossier.payload;
   const analytical =
@@ -492,6 +531,9 @@ function buildInputRequest(
   return {
     as_of: asOf,
     previous_dossier_id: previousDossier.id,
+    persistent_story_bindings: analyticalBaseline
+      ? buildPriorPersistentStoryBindings(analyticalBaseline)
+      : [],
     previous_dossier: {
       id: previousDossier.id,
       as_of: previousDossier.as_of,
