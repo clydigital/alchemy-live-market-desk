@@ -11,6 +11,7 @@ import {
 import {
   buildRegimeProjection,
   classifyRegimeStory,
+  REGIME_DEFINITIONS,
   routeStoryToRegimes,
   routeTextToRegimes,
 } from "../lib/regimes.ts";
@@ -137,6 +138,41 @@ test("exact Story routing preserves core and bridge Regime membership", () => {
     ["us-china-ai", "financing", "core"],
     ["global-cost-of-capital", "credit-financing", "bridge"],
   ]);
+});
+
+test("dossier Live integration preserves AI regime identity while widening the capital-cycle scope", () => {
+  const ai = REGIME_DEFINITIONS.find((item) => item.slug === "us-china-ai");
+  assert.ok(ai);
+  assert.equal(ai.shortTitle, "AI Capital Cycle");
+  assert.ok(ai.subgroups.some((item) => item.key === "private-capital"));
+  assert.ok(ai.subgroups.some((item) => item.key === "control-governance"));
+});
+
+test("AI control and private-capital Stories route into dedicated AI Capital Cycle branches", () => {
+  const control = routeStoryToRegimes(story({ slug: "ai-control-risk", title: "AI control risk" }));
+  assert.ok(control.some((route) => route.regime === "us-china-ai" && route.subgroup === "control-governance" && route.role === "core"));
+
+  const privateCapital = routeStoryToRegimes(story({ slug: "private-ai-capital", title: "Private AI capital" }));
+  assert.ok(privateCapital.some((route) => route.regime === "us-china-ai" && route.subgroup === "private-capital" && route.role === "core"));
+});
+
+test("credit and sovereign transmission Stories keep exact durable routing", () => {
+  const credit = routeStoryToRegimes(story({ slug: "global-credit-transmission", title: "Global credit transmission" }));
+  assert.ok(credit.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "credit-financing" && route.role === "core"));
+
+  const sovereign = routeStoryToRegimes(story({ slug: "global-sovereign-stress", title: "Global sovereign stress" }));
+  assert.ok(sovereign.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "global-rates" && route.role === "core"));
+});
+
+test("dossier text routing recognises AI control, private capital and CRE transmission without asserting a Story", () => {
+  const control = routeTextToRegimes("Frontier AI agent incident triggers a deployment pause and containment review", 4);
+  assert.ok(control.some((route) => route.regime === "us-china-ai" && route.subgroup === "control-governance"));
+
+  const privateCapital = routeTextToRegimes("Late-stage AI tender offer shows a wider private secondary-market discount", 4);
+  assert.ok(privateCapital.some((route) => route.regime === "us-china-ai" && route.subgroup === "private-capital"));
+
+  const credit = routeTextToRegimes("CMBS delinquency rises as private credit redemptions and CRE refinancing pressure build", 4);
+  assert.ok(credit.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "credit-financing"));
 });
 
 test("deterministic text routing maps Treasury and long-end news without creating a Story", () => {

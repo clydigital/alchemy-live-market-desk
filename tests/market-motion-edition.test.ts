@@ -74,7 +74,7 @@ test("edition attachment freezes only fresh PROMOTED Motion with exact Story ide
   assert.equal(attachment.researchRunId, "run-1");
   assert.deepEqual(attachment.items.map((item) => item.id), ["earlier", "later"]);
   assert.equal(attachment.items[0].storySlug, "china-us-ai-war");
-  assert.equal(attachment.items[0].regimeLabel, "US–China AI");
+  assert.equal(attachment.items[0].regimeLabel, "AI Capital Cycle");
 });
 
 test("edition parser rejects missing or wrong contracts and preserves snapshot identity", () => {

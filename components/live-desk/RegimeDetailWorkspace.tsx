@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import RegimeUnderstandLiveBridge from "./RegimeUnderstandLiveBridge";
+import RegimeTriggerLadder from "./RegimeTriggerLadder";
 import RateRegimeEducationalShell from "./RateRegimeEducationalShell";
 
 import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
@@ -261,6 +262,8 @@ export default function RegimeDetailWorkspace({
 
       {view === "live" ? (
         <>
+          <RegimeTriggerLadder regimeSlug={regime.slug} />
+
           <section className={styles.section}>
             <header className={styles.sectionHead}>
               <div>

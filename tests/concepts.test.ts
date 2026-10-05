@@ -5,7 +5,7 @@ import { getConcept, listConcepts } from "../lib/concepts.ts";
 
 test("Concept registry exposes unique governed definitions", () => {
   const concepts = listConcepts();
-  assert.equal(concepts.length, 21);
+  assert.equal(concepts.length, 28);
   assert.equal(new Set(concepts.map((concept) => concept.key)).size, concepts.length);
   assert.ok(concepts.every((concept) => concept.version === 1));
   assert.ok(concepts.every((concept) => concept.status === "active"));
