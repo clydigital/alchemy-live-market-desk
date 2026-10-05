@@ -5,6 +5,7 @@ import HybridReasoningPanel from "@/components/live-desk/HybridReasoningPanel";
 import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducationalShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
+import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-divergence";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
@@ -273,6 +274,16 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     events: recordLayer.events,
     versions: recordLayer.thesisVersions,
   });
+  const crossLayerDivergence = buildD7CrossLayerDivergence({
+    dossier,
+    hybrid: hybridReasoning,
+    regimes,
+  });
+  const crossLayerAttention = crossLayerDivergence.cases.filter(
+    (item) => item.state !== "ALIGNMENT",
+  );
+  const crossLayerRiskCount = crossLayerDivergence.summary.CONTRADICTION;
+  const crossLayerLagCount = crossLayerDivergence.summary.LAG;
 
   return (
     <LiveDeskShell
@@ -358,6 +369,58 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         ) : null}
 
         <HybridReasoningPanel projection={hybridReasoning} />
+
+        <Panel
+          title="Cross-layer checks"
+          description="Deterministic D7 comparison of the current Dossier, exact persistent Stories, Regimes, Hybrid scenario transitions and measured market reactions. This panel is read-only; operational research is materialised by the backend Research Gap lifecycle."
+          action={
+            <Badge tone={crossLayerRiskCount > 0 ? "risk" : crossLayerLagCount > 0 ? "warn" : "ready"}>
+              {crossLayerRiskCount > 0
+                ? `${crossLayerRiskCount} CONTRADICTION`
+                : crossLayerLagCount > 0
+                  ? `${crossLayerLagCount} LAG`
+                  : "ALIGNED"}
+            </Badge>
+          }
+        >
+          <MetricGrid
+            items={[
+              { value: crossLayerDivergence.summary.ALIGNMENT, label: "Aligned" },
+              { value: crossLayerDivergence.summary.CONTRADICTION, label: "Contradiction" },
+              { value: crossLayerDivergence.summary.LAG, label: "Lag" },
+              { value: crossLayerDivergence.summary.UNRESOLVED, label: "Unresolved" },
+            ]}
+          />
+          {crossLayerAttention.length ? (
+            <div className={styles.recordList}>
+              {crossLayerAttention.slice(0, 8).map((item) => (
+                <article className={styles.record} key={item.id}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>{item.pair.replaceAll("_", " ")}</span>
+                      <h3>{item.state}</h3>
+                    </div>
+                    <Badge tone={item.state === "CONTRADICTION" ? "risk" : item.state === "LAG" ? "warn" : "default"}>
+                      {item.severity}
+                    </Badge>
+                  </div>
+                  <p>{item.reason}</p>
+                  <div className={styles.meta}>
+                    {item.persistentStoryId ? `Story ${item.persistentStoryId}` : "No persistent Story"}
+                    {item.investigationId ? ` · Investigation ${item.investigationId}` : ""}
+                    {item.regimeSlug ? ` · Regime ${item.regimeSlug}` : ""}
+                    {item.researchEligible ? " · Research eligible" : ""}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState
+              title="No cross-layer mismatch"
+              detail="The governed Dossier, Story, Regime, Hybrid and measured-reaction comparisons are aligned for the current snapshot."
+            />
+          )}
+        </Panel>
 
         <Panel
           title="Canonical context"
