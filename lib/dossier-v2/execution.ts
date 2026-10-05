@@ -9,7 +9,11 @@ import {
   type MarketDossierV2Input,
 } from "./contracts.ts";
 import { buildDossierEvidenceGovernance } from "./evidence-governance.ts";
-import type { DossierV2InputPacket, ResearchGap } from "./input-packet.ts";
+import {
+  DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
+  type DossierV2InputPacket,
+  type ResearchGap,
+} from "./input-packet.ts";
 import {
   buildDeterministicDossierPatch,
   decideDossierDelta,
@@ -452,6 +456,11 @@ export function buildMarketDossierV2InputFromResearchBrain(
       system1_reaction_assessments: cloneJson(reactionAssessments),
       system1_divergence_candidates: cloneJson(divergenceCandidates),
       evidence_governance: cloneJson(evidenceGovernance),
+      motion_context_snapshot: cloneJson(packet.motion_context ?? {
+        contract_version: DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
+        items: [],
+        omitted_count: 0,
+      }),
       memory_control: {
         contract_version: "dossier-memory-control/1",
         structural_predecessor_id: packet.previous_dossier_id,
