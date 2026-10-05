@@ -50,3 +50,5 @@ If no Dossier exists, the endpoint returns `404` with `status: empty`.
 If a Dossier exists but has no eligible work, the queue is valid with `candidates: []`.
 
 No database rows are written by this reader stage. The separate lifecycle sync persists only the prioritised maximum-three cases.
+
+The queue contract remains `research-gap-work-queue/1`. `sourceCounts.marketMotion` is retained for backward compatibility but is always `0` for newly built queues.
