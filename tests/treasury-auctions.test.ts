@@ -371,7 +371,7 @@ test("same-day announced supply remains unavailable before the conservative anno
     { asOf: "2026-10-04T19:00:00.000Z" },
   );
   assert.equal(
-    before.snapshot.observed_evidence?.some((item) => item.evidence_id.startsWith("treasury-supply:")),
+    before.snapshot.observed_evidence?.some((item) => String(item.evidence_id ?? "").startsWith("treasury-supply:")),
     false,
   );
 
