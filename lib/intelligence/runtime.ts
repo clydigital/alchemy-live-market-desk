@@ -86,7 +86,7 @@ import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intellig
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, storyAssessmentAcknowledgesQueuedEvidence, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -387,6 +387,7 @@ First inspect researchAttention and freshEvidenceCandidates without looking at e
 For every cluster, score current materiality, momentum, cross-source or cross-asset breadth, and time urgency separately from confidence. Use verdict "recruit" when a current cluster deserves causal research now, "context" when it helps interpret recruited news, and "defer" when it is not presently decision-relevant. Scheduled-only calendar entries are not in this packet and must never be reconstructed.
 Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
 Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
+When reviewContext.queueEvidenceIds is non-empty, include EVERY one of those IDs in the Story assessment evidenceIds array, including for an unchanged disposition. This records that each explicit canonical trigger was actually considered; it does not mean each item supports the Story.
 An unchanged assessment advances freshness and may perform catalyst housekeeping only. It must not rewrite thesis, confidence, mechanism or market question.
 If reviewContext.catalystRecalibrationRequired is true, the current dated catalyst has already expired. Never repeat anything in reviewContext.expiredCatalysts as proposedNextCatalyst. Choose one valid future catalystCandidate when the supplied evidence supports it; otherwise return proposedNextCatalyst as null so PostgreSQL can clear the stale catalyst without changing thesis or confidence.
 If an expired event is embedded in the Story title or market question, reframe that wording only when the target's current canonical evidence supports the same durable underlying mechanism. Do not refresh a title merely because it sounds old, and do not manufacture a replacement event.
@@ -1253,7 +1254,11 @@ async function loadOrCreateStoryReviewTargets(
   return persisted;
 }
 
-async function markStoryReviewRetryable(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
+async function markStoryReviewRetryable(
+  engineRunId: string,
+  targets: StoryReviewTargetPackItem[],
+  lastError = "The Market Belief response omitted or duplicated the required Story assessment.",
+) {
   const queueIds = unique(targets.flatMap((target) => target.queueIds));
   if (!queueIds.length) return;
   await intelligenceRest("intelligence_reevaluation_queue?id=in.(" + queueIds.join(",") + ")&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId), {
@@ -1262,7 +1267,7 @@ async function markStoryReviewRetryable(engineRunId: string, targets: StoryRevie
     body: JSON.stringify({
       status: "retryable",
       available_at: new Date(Date.now() + 15 * 60 * 1_000).toISOString(),
-      last_error: "The Market Belief response omitted or duplicated the required Story assessment.",
+      last_error: lastError,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -1328,6 +1333,14 @@ async function persistStoryAssessments(input: {
     const assessment = matches[0];
     const allowedEvidence = new Map(target.relevantEvidence.map((item) => [item.id, item]));
     const evidenceIds = unique(assessment.evidenceIds.filter((id) => allowedEvidence.has(id)));
+    if (!storyAssessmentAcknowledgesQueuedEvidence(evidenceIds, target)) {
+      await markStoryReviewRetryable(
+        input.engineRunId,
+        [target],
+        "The Market Belief assessment did not acknowledge every queued canonical trigger Evidence ID.",
+      );
+      continue;
+    }
     const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
     const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
     const disposition = materialAllowed ? assessment.disposition : "unchanged";

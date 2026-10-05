@@ -37,6 +37,12 @@ test("Market Belief structured output is bound to the frozen Story obligation co
   assert.match(schema, /itemProperties\.storyId = \{ type: "string", enum: uniqueStoryIds \}/);
 });
 
+test("evidence-backed Story queue completion requires explicit trigger acknowledgement", () => {
+  assert.match(runtime, /storyAssessmentAcknowledgesQueuedEvidence\(evidenceIds, target\)/);
+  assert.match(runtime, /did not acknowledge every queued canonical trigger Evidence ID/);
+  assert.match(runtime, /reviewContext\.queueEvidenceIds is non-empty[\s\S]*include EVERY one of those IDs/);
+});
+
 test("creator-only queued Story wakes are resolved before Market Belief capacity is spent", () => {
   assert.match(runtime, /resolveCreatorOnlyStoryReviewQueues/);
   assert.match(runtime, /creatorOnlyNonMaterialStoryReview/);
