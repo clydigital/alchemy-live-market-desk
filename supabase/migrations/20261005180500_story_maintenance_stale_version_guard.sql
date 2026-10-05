@@ -79,16 +79,7 @@ drop trigger if exists stories_guard_stale_story_maintenance
   on public.stories;
 
 create trigger stories_guard_stale_story_maintenance
-before update of
-  title,
-  thesis,
-  status,
-  confidence,
-  market_question,
-  confirmation_trigger,
-  invalidation_trigger,
-  next_catalyst
-on public.stories
+before update on public.stories
 for each row
 execute function public.guard_stale_story_maintenance_mutation();
 
