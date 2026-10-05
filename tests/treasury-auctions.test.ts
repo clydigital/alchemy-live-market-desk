@@ -345,6 +345,46 @@ test("official announced coupon sizes create governed supply context without inv
   );
 });
 
+test("partial long-end coupon coverage names only the maturities actually compared", () => {
+  const snapshot = parseTreasuryAuctionSnapshot({
+    data: [
+      row({
+        cusip: "91282C10N",
+        security_term: "10-Year",
+        original_security_term: "10-Year",
+        announcement_date: "2026-10-01",
+        auction_date: "2026-10-08",
+        offering_amt: "43000000000",
+        high_yield: null,
+        bid_to_cover_ratio: null,
+      }),
+      row({
+        cusip: "91282C10P",
+        security_term: "10-Year",
+        original_security_term: "10-Year",
+        announcement_date: "2026-09-03",
+        auction_date: "2026-09-10",
+        offering_amt: "39000000000",
+      }),
+    ],
+  }, NOW);
+
+  const augmented = augmentCandidateSnapshotWithTreasuryAuctions(
+    baseResult(),
+    snapshot,
+    { asOf: "2026-10-04T22:00:00.000Z" },
+  );
+  const supply = augmented.snapshot.observed_evidence?.find((item) =>
+    item.evidence_id === "treasury-supply:coupon-sizes:2026-10-01"
+  );
+  assert.ok(supply);
+  const metrics = (supply?.metrics ?? {}) as Record<string, unknown>;
+  assert.equal(metrics.long_end_maturities_compared, 1);
+  assert.equal(metrics.long_end_terms_compared, "10-Year");
+  assert.match(String(supply?.claim_or_fact ?? ""), /Long-end 10Y offering comparisons total 43\.0bn versus 39\.0bn/i);
+  assert.doesNotMatch(String(supply?.claim_or_fact ?? ""), /Long-end 10Y\/20Y\/30Y offerings/i);
+});
+
 test("same-day announced supply remains unavailable before the conservative announcement boundary", () => {
   const snapshot = parseTreasuryAuctionSnapshot({
     data: [
