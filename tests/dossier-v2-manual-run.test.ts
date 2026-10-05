@@ -331,6 +331,7 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
   const core = [
     ["us2y", "DGS2", "US 2Y Yield", "Rates"],
     ["us10y", "^TNX", "US 10Y Yield", "Rates"],
+    ["move", "$MOVE", "ICE BofA MOVE Index", "Rates"],
     ["spx", "^GSPC", "S&P 500", "Major Index"],
     ["smh", "SMH", "SMH Semiconductors", "AI / Semis"],
     ["dxy", "UUP", "US Dollar", "FX"],
@@ -371,8 +372,16 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
       change5d: 0,
       asOf: "2026-09-19",
       frequency: "daily" as const,
-      sourceName: id === "us2y" || id === "hy-oas" || id === "ig-oas" ? "Federal Reserve Economic Data" : "Canonical market source",
-      sourceUrl: id === "hy-oas" || id === "ig-oas" ? `https://fred.stlouisfed.org/series/${symbol}` : "https://example.com/market",
+      sourceName: id === "us2y" || id === "hy-oas" || id === "ig-oas"
+        ? "Federal Reserve Economic Data"
+        : id === "move"
+          ? "Barchart OnDemand · ICE BofA MOVE Index"
+          : "Canonical market source",
+      sourceUrl: id === "hy-oas" || id === "ig-oas"
+        ? `https://fred.stlouisfed.org/series/${symbol}`
+        : id === "move"
+          ? "https://www.barchart.com/stocks/quotes/$MOVE/historical-download"
+          : "https://example.com/market",
       attentionScore: 0,
     })),
   ];
