@@ -302,8 +302,43 @@ test("requested trigger ids never reference evidence omitted from the bounded re
 
   const packed = new Set(selected[0]?.relevantEvidence.map((item) => item.id) ?? []);
   const triggers = selected[0]?.reviewContext?.triggerEvidenceIds ?? [];
+  const consumedQueueIds = new Set(selected[0]?.queueIds ?? []);
   assert.equal(packed.size, MAX_STORY_REVIEW_EVIDENCE);
   assert.ok(triggers.every((id) => packed.has(id)));
+  assert.equal(consumedQueueIds.size, MAX_STORY_REVIEW_EVIDENCE);
+  for (const [index, item] of requested.entries()) {
+    assert.equal(
+      consumedQueueIds.has(`queue-${index}`),
+      packed.has(item.id),
+      `queue-${index} must be consumed only when its requested Evidence is in the bounded review pack`,
+    );
+  }
+  assert.ok(
+    requested.some((item, index) => !packed.has(item.id) && !consumedQueueIds.has(`queue-${index}`)),
+    "at least one overflow request must remain pending for a later review",
+  );
+});
+
+test("a dormant Story does not consume an evidence-backed queue whose requested Evidence is unavailable", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("archived-story", { status: "archived" })],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [{
+      id: "queue-missing",
+      storyId: "archived-story",
+      status: "pending",
+      reason: "dossier_motion_acceptance",
+      priority: 95,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: "missing-canonical-evidence",
+    }],
+    debt: [],
+    now,
+  });
+
+  assert.deepEqual(selected, []);
 });
 
 test("unrelated Story debt cannot make another fresh Story eligible", () => {
