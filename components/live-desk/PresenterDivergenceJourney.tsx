@@ -359,7 +359,8 @@ export default function PresenterDivergenceJourney({
                   <p className={styles.emptyMechanism}>
                     The exact canonical Story version has no mechanism candidate. Hybrid does not revive older Dossier candidates.
                   </p>
-                )              ) : lab.mode === "full" ? (
+                )
+              ) : lab.mode === "full" ? (
                 <div className={styles.mechanismGrid}>
                   {lab.candidates.map((candidate) => (
                     <article className={styles.mechanismCard} key={`${item.id}:mechanism:${candidate.rank}`}>
