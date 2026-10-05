@@ -22,3 +22,26 @@ test("Hybrid scenario tails stay guarded rather than inferred from prose", () =>
   assert.match(projection, /Scenario E does not gain probability automatically/);
   assert.doesNotMatch(projection, /marketReaction.*Scenario E|headline.*Scenario D/);
 });
+
+
+test("B3 Hybrid loads exact-Dossier Research Gap status without raw Motion eligibility", () => {
+  assert.match(page, /loadHybridResearchGapStatus/);
+  assert.match(page, /selection\.selectedDossierId/);
+  assert.doesNotMatch(page, /marketMotionInvestigationEligibility/);
+  assert.doesNotMatch(page, /operational Research Gap worker uses the same eligibility gate/i);
+  assert.doesNotMatch(page, /INVESTIGATION ELIGIBLE/);
+});
+
+test("B3 Hybrid renders Research Gap lifecycle as operational status only", () => {
+  assert.match(page, /Research complete; canonical handoff pending/);
+  assert.match(page, /Returned to canonical research; current Dossier remains authoritative/);
+  assert.doesNotMatch(page, /HANDED_OFF[^\n]*incorporated|incorporated[^\n]*HANDED_OFF/i);
+  assert.doesNotMatch(page, /researchGapStatus[^\n]*(CONFIRMING|CONTRADICTING|NO_CHANGE)/);
+});
+
+test("B3 Research Gap lifecycle does not enter Hybrid analytical reasoning inputs", () => {
+  const call = page.match(/buildHybridReasoningProjection\(\{[\s\S]*?\}\);/)?.[0] ?? "";
+  assert.ok(call);
+  assert.doesNotMatch(call, /researchGap|gapStatus|lifecycle/i);
+  assert.doesNotMatch(projection, /research_outcome|ResearchGapOutcome|HybridResearchGapStatus/);
+});
