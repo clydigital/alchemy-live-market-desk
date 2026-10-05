@@ -62,6 +62,11 @@ export interface PriorAnalyticalClaim {
   provenance: ProvenanceRef[];
 }
 
+export interface PersistentStoryBinding {
+  analytical_story_id: string;
+  persistent_story_id: string;
+}
+
 export interface PriorInvestigationCandidateExplanation {
   rank: number;
   explanation: string;
@@ -191,6 +196,11 @@ export interface DossierV2InputRequest {
   contract_version?: string;
   as_of: string;
   previous_dossier_id?: string | null;
+  /**
+   * Exact governed analytical→persistent Story bindings only.
+   * These are identity facts, never fuzzy/title/model-derived matches.
+   */
+  persistent_story_bindings?: PersistentStoryBinding[];
   previous_dossier?: {
     id: string;
     as_of: string;
@@ -264,6 +274,7 @@ export interface DossierV2InputPacket {
   contract_version: typeof INPUT_PACKET_CONTRACT_VERSION;
   as_of: string;
   previous_dossier_id: string | null;
+  persistent_story_bindings: PersistentStoryBinding[];
 
   observed_evidence: ObservedEvidence[];
   research_leads: ResearchLead[];
@@ -841,6 +852,40 @@ export function assembleDossierV2InputPacket(
       }
     }
   }
+
+  const persistentStoryBindingByAnalyticalId = new Map<string, string>();
+  for (const rawBinding of request.persistent_story_bindings ?? []) {
+    if (!isPlainObject(rawBinding)) {
+      throw new Error("Invalid persistent_story_bindings entry: expected plain object.");
+    }
+    const analyticalStoryId = String(rawBinding.analytical_story_id ?? "").trim();
+    const persistentStoryId = String(rawBinding.persistent_story_id ?? "").trim();
+    if (!analyticalStoryId) {
+      throw new Error("Invalid persistent_story_bindings entry: analytical_story_id is required.");
+    }
+    if (!isValidUuid(persistentStoryId)) {
+      throw new Error(
+        `Invalid persistent_story_bindings entry for "${analyticalStoryId}": persistent_story_id must be a UUID.`,
+      );
+    }
+    const existing = persistentStoryBindingByAnalyticalId.get(analyticalStoryId);
+    if (existing && existing !== persistentStoryId) {
+      throw new Error(
+        `Ambiguous persistent Story binding for analytical story "${analyticalStoryId}".`,
+      );
+    }
+    persistentStoryBindingByAnalyticalId.set(analyticalStoryId, persistentStoryId);
+  }
+  const persistentStoryBindings: PersistentStoryBinding[] = [
+    ...persistentStoryBindingByAnalyticalId.entries(),
+  ]
+    .map(([analytical_story_id, persistent_story_id]) => ({
+      analytical_story_id,
+      persistent_story_id,
+    }))
+    .sort((left, right) =>
+      left.analytical_story_id.localeCompare(right.analytical_story_id)
+      || left.persistent_story_id.localeCompare(right.persistent_story_id));
 
   let truncationOccurred = false;
   const markTruncated = () => {
@@ -1775,6 +1820,7 @@ export function assembleDossierV2InputPacket(
     contract_version: INPUT_PACKET_CONTRACT_VERSION,
     as_of: asOf,
     previous_dossier_id: previousDossierId,
+    persistent_story_bindings: persistentStoryBindings,
 
     observed_evidence: observedEvidence,
     research_leads: researchLeads,
