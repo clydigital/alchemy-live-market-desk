@@ -36,18 +36,29 @@ Every candidate must:
 
 Primary, official or market-data links carried inside a Pulse do not become verified merely because Macro Pulse cited them. The normal research path must independently admit/corroborate them.
 
-## Promotion boundary
+## Promotion and routing boundary
 
-B1 promotion is evidence-backed, not Story-change-backed. A Motion may become `PROMOTED` only when:
+B2 keeps B1 promotion evidence-backed, not Story-change-backed. A Motion may become `PROMOTED` only when:
 
 - the normal research path has created eligible canonical Evidence for the same exact origin item identity;
 - the Evidence passes the existing canonical source-verification rules;
-- the Motion still has an exact persistent `primary_story_id`;
-- the Motion is fresh and clears the B1 materiality / relevance thresholds.
+- the Motion is fresh and clears the existing materiality / relevance thresholds;
+- the Motion has a deterministic routing class: `STORY`, `REGIME` or `INVESTIGATION_CANDIDATE`.
+
+The post-B2 flow is:
+
+```text
+exact eligible canonical Evidence
+→ PROMOTED Motion
+→ STORY / REGIME / INVESTIGATION_CANDIDATE
+→ Dossier System 2
+```
+
+`STORY` behavior remains unchanged. `REGIME` Motion may be accepted into `REGIME:CURRENT` or a bounded Investigation; any Story reevaluation still uses the existing Regime→Story links and canonical A3 queue. `INVESTIGATION_CANDIDATE` Motion stays inside Dossier analytical state and must route to an Investigation; it cannot jump directly to a Story, Thesis, Main Thread or Regime.
 
 A shared Story, Regime, ticker, headline or similar prose is not corroboration. Macro Pulse references and creator transcripts remain discovery context unless the underlying event independently enters canonical Evidence through the normal research path.
 
-Promotion stores the selected canonical Evidence UUID on the Motion for provenance, but Motion itself remains non-evidentiary. Regime-only or Investigation-only promotion without an exact Story identity is outside B1 and remains B2 work.
+Promotion stores the selected canonical Evidence UUID on the Motion for provenance, but Motion itself remains non-evidentiary. Deliberate Research Gap / Hybrid propagation from Investigation or Research Now outcomes remains B3 work.
 
 ## Endpoint
 
