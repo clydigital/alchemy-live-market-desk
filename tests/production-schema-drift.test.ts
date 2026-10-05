@@ -11,6 +11,7 @@ import {
 import {
   PRODUCTION_SCHEMA_ENFORCEMENT_START,
   assessProductionSchemaDrift,
+  assessProductionSchemaInvariants,
   handleProductionSchemaDriftWithDependencies,
 } from "../lib/production-schema-drift.ts";
 
@@ -32,6 +33,21 @@ function request(body: unknown) {
     },
     body: JSON.stringify(body),
   });
+}
+
+function healthySchemaInvariants() {
+  return [
+    {
+      invariant_key: "research_schedule_slots",
+      healthy: true,
+      detail: { morning: "09:30:00", evening: "21:30:00" },
+    },
+    {
+      invariant_key: "story_maintenance_evidence_provenance",
+      healthy: true,
+      detail: { functionExists: true, triggerExists: true },
+    },
+  ];
 }
 
 function manifest() {
@@ -71,6 +87,7 @@ test("schema guard fails closed when a checked-in migration is missing", async (
         { version: "20260930224033", name: "research_gap_lifecycle" },
         { version: "20261002010000", name: "production_schema_drift_guard" },
       ],
+      loadSchemaInvariants: async () => healthySchemaInvariants(),
       logger: () => undefined,
     },
   );
@@ -96,6 +113,7 @@ test("schema guard does not infer unexpected migrations from unreliable remote t
         { version: "20261002010000", name: "production_schema_drift_guard" },
         { version: "20261002020000", name: "dashboard_hotfix_not_in_git" },
       ],
+      loadSchemaInvariants: async () => healthySchemaInvariants(),
       logger: () => undefined,
     },
   );
@@ -105,6 +123,87 @@ test("schema guard does not infer unexpected migrations from unreliable remote t
   assert.equal(body.status, "healthy");
   assert.deepEqual(body.unexpected, []);
   assert.equal(body.productionHistoryCount, 5);
+});
+
+test("schema invariant assessment fails closed when a required invariant is unhealthy", () => {
+  const assessment = assessProductionSchemaInvariants([
+    ...healthySchemaInvariants().map((item) => ({ ...item })),
+  ]);
+  assert.equal(assessment.healthy, true);
+
+  const drifted = assessProductionSchemaInvariants([
+    {
+      invariant_key: "research_schedule_slots",
+      healthy: false,
+      detail: { morning: "09:15:00", evening: "21:15:00" },
+    },
+    {
+      invariant_key: "story_maintenance_evidence_provenance",
+      healthy: true,
+      detail: { functionExists: true, triggerExists: true },
+    },
+  ]);
+  assert.equal(drifted.healthy, false);
+  assert.deepEqual(
+    drifted.invariantFailures.map((item) => item.invariant_key),
+    ["research_schedule_slots"],
+  );
+});
+
+test("schema invariant assessment fails closed when a required invariant is missing", () => {
+  const assessment = assessProductionSchemaInvariants([
+    {
+      invariant_key: "research_schedule_slots",
+      healthy: true,
+      detail: { morning: "09:30:00", evening: "21:30:00" },
+    },
+  ]);
+
+  assert.equal(assessment.healthy, false);
+  assert.deepEqual(
+    assessment.invariantFailures.map((item) => item.invariant_key),
+    ["story_maintenance_evidence_provenance"],
+  );
+  assert.deepEqual(assessment.invariantFailures[0].detail, {
+    reason: "missing_invariant",
+  });
+});
+
+test("schema guard returns drift when production state invariants fail", async () => {
+  const response = await handleProductionSchemaDriftWithDependencies(
+    request({ expectedDeploymentSha: deployedSha, migrations: manifest() }),
+    {
+      authorize: authorized,
+      deploymentSha: () => deployedSha,
+      loadAppliedMigrations: async () => [
+        { version: "20260930181142", name: "market_motion_v1" },
+        { version: "20260930224033", name: "research_gap_lifecycle" },
+        { version: "20261001185600", name: "transcript_motion_leads" },
+        { version: "20261002010000", name: "production_schema_drift_guard" },
+      ],
+      loadSchemaInvariants: async () => [
+        {
+          invariant_key: "research_schedule_slots",
+          healthy: true,
+          detail: { morning: "09:30:00", evening: "21:30:00" },
+        },
+        {
+          invariant_key: "story_maintenance_evidence_provenance",
+          healthy: false,
+          detail: { functionExists: true, triggerExists: false },
+        },
+      ],
+      logger: () => undefined,
+    },
+  );
+
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.status, "drift");
+  assert.deepEqual(
+    body.invariantFailures.map((item: { invariant_key: string }) => item.invariant_key),
+    ["story_maintenance_evidence_provenance"],
+  );
 });
 
 test("schema guard waits for the exact production deployment before inspecting schema", async () => {
@@ -205,6 +304,10 @@ test("production schema guard wiring remains read-only and post-deploy", () => {
     "supabase/migrations/20261002024600_production_schema_drift_guard.sql",
     "utf8",
   );
+  const invariantMigration = readFileSync(
+    "supabase/migrations/20261006055000_production_schema_state_invariants.sql",
+    "utf8",
+  );
   const route = readFileSync(
     "app/api/admin/system/schema-drift/route.ts",
     "utf8",
@@ -217,5 +320,10 @@ test("production schema guard wiring remains read-only and post-deploy", () => {
   assert.match(migration, /security invoker/i);
   assert.ok(migration.includes("revoke all on function public.live_desk_applied_migrations()"));
   assert.doesNotMatch(migration, /security definer/i);
+  assert.match(invariantMigration, /live_desk_schema_invariants/);
+  assert.match(invariantMigration, /09:30:00/);
+  assert.match(invariantMigration, /21:30:00/);
+  assert.match(invariantMigration, /stories_enrich_maintenance_evidence_context/);
+  assert.match(invariantMigration, /security invoker/i);
   assert.match(route, /handleProductionSchemaDriftWithDependencies/);
 });
