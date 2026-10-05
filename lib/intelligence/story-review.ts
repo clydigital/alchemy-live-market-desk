@@ -66,6 +66,7 @@ export type StoryReviewContext = {
   expiredCatalysts: string[];
   catalystRecalibrationRequired: boolean;
   triggerEvidenceIds: string[];
+  queueEvidenceIds: string[];
   catalystCandidates: Array<{
     label: string;
     catalystRef: string | null;
@@ -318,6 +319,11 @@ export function selectStoryReviewTargets(input: {
           .filter((item) => requestedEvidenceIds.has(item.id))
           .map((item) => item.id),
       ])],
+      queueEvidenceIds: [...new Set(
+        processableQueue
+          .map((item) => item.requestedEvidenceId)
+          .filter((id): id is string => Boolean(id)),
+      )],
       catalystCandidates,
     };
     return [{
@@ -375,6 +381,16 @@ export function creatorOnlyNonMaterialStoryReview(target: StoryReviewTargetPackI
   if ((context.dueCatalysts?.length ?? 0) > 0) return false;
   if ((context.researchDebt?.length ?? 0) > 0) return false;
   return target.relevantEvidence.every((item) => item.evidenceClass === "transcript");
+}
+
+export function storyAssessmentAcknowledgesQueuedEvidence(
+  evidenceIds: string[],
+  target: StoryReviewTargetPackItem,
+) {
+  const required = target.reviewContext?.queueEvidenceIds ?? [];
+  if (!required.length) return true;
+  const acknowledged = new Set(evidenceIds);
+  return required.every((id) => acknowledged.has(id));
 }
 
 export function materialAssessmentHasEligibleEvidence(
