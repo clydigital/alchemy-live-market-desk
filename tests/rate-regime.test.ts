@@ -540,6 +540,46 @@ test("rate regime carries bounded global duration and foreign-demand evidence wi
 });
 
 
+test("official coupon-supply evidence is visible without mechanically assigning yield direction", () => {
+  const input = packet([
+    {
+      evidence_id: "treasury-supply:coupon-sizes:2026-10-01",
+      claim_or_fact: "Treasury announced nominal coupon offering sizes with 10Y/20Y/30Y totaling $86bn versus $74bn at the prior same-term auctions.",
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: "2026-10-01T21:00:00.000Z",
+      occurrence_time: "2026-10-01T21:00:00.000Z",
+      grouping_key: "rate-context:treasury-supply",
+      metrics: {
+        signal_kind: "treasury_supply",
+        signal_context: "treasury_supply",
+        supply_measure: "announced_nominal_coupon_offering_sizes",
+        observed_value: 86,
+        previous_value: 74,
+        measurement_unit: "USD billions",
+        long_end_change_usd_bn: 12,
+      },
+      provenance: [{ source_type: "US_TREASURY", source_id: "FISCALDATA_COUPON_SUPPLY" }],
+    },
+    fred("us2y", 4.8, 1.5),
+    fred("us10y-fred", 5.05, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
+
+  assert.equal(supply?.state, "UNRESOLVED");
+  assert.equal(supply?.score, 0);
+  assert.match(supply?.detail ?? "", /10Y\/20Y\/30Y nominal coupon offering sizes total 86\.0bn vs 74\.0bn/i);
+  assert.match(supply?.detail ?? "", /gross issuance-volume context only/i);
+  assert.match(supply?.detail ?? "", /does not deterministically establish/i);
+  assert.doesNotMatch(supply?.detail ?? "", /buyback maximum/i);
+  assert.deepEqual(supply?.evidenceRefs, ["treasury-supply:coupon-sizes:2026-10-01"]);
+});
+
 test("missing Treasury buyback evidence leaves supply direction explicitly unresolved rather than neutral", () => {
   const input = packet([
     fred("us2y", 4.8, 1.5),
