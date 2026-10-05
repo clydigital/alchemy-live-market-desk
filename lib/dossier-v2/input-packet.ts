@@ -343,6 +343,7 @@ const RATE_CONTEXT_GROUPING_KEYS = new Set([
   "market-monitor:us10y-breakeven",
   "market-monitor:fed-funds-effective",
   "rate-context:acm-term-premium",
+  "rate-context:treasury-supply",
 ]);
 
 const RATE_CONTEXT_FACT_PATTERN = /\b(?:fomc|federal reserve|fed funds|rate hike|rate cut|hawkish|dovish|cpi|ppi|pce|inflation|pmi|ism|gdp|retail sales|payroll|employment|unemployment|average hourly|wage growth)\b/i;
@@ -366,7 +367,7 @@ function isHistoricalRateContextCandidate(raw: Record<string, unknown>) {
   const context = typeof raw.metrics.signal_context === "string"
     ? raw.metrics.signal_context.trim().toLowerCase()
     : "";
-  return context === "treasury_auction";
+  return context === "treasury_auction" || context === "treasury_supply";
 }
 
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
