@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  deriveMarketMotionRoutingClass,
   getCurrentMarketMotion,
   type MarketMotionRecord,
 } from "../market-motion.ts";
@@ -45,6 +46,11 @@ function boundedMotionItem(
     next_test: clip(item.next_test, 700),
     primary_story_id: clip(item.primary_story_id, 120),
     primary_regime_slug: clip(item.primary_regime_slug, 120),
+    routing_class: deriveMarketMotionRoutingClass({
+      primaryStoryId: item.primary_story_id,
+      primaryRegimeSlug: item.primary_regime_slug,
+      nextTest: item.next_test,
+    }) ?? undefined,
     attention: {
       materiality: Number(item.materiality || 0),
       relevance: Number(item.relevance || 0),

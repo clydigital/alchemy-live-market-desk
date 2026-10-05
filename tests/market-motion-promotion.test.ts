@@ -10,7 +10,11 @@ import {
   selectPromotableMarketMotion,
   selectPromotedMarketMotionForDossier,
 } from "../lib/market-motion-promotion.ts";
-import type { MarketMotionRecord } from "../lib/market-motion.ts";
+import {
+  deriveMarketMotionRoutingClass,
+  isConcreteMarketMotionNextTest,
+  type MarketMotionRecord,
+} from "../lib/market-motion.ts";
 import type { EvidencePackItem } from "../lib/intelligence/schemas.ts";
 import * as promotionModule from "../lib/market-motion-promotion.ts";
 
@@ -84,6 +88,113 @@ function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
   };
 }
 
+
+test("B2 routing class prefers STORY over REGIME", () => {
+  assert.equal(deriveMarketMotionRoutingClass({
+    primaryStoryId: "story-1",
+    primaryRegimeSlug: "us-china-ai",
+    nextTest: "Test the durable thesis.",
+  }), "STORY");
+});
+
+test("B2 routing class admits REGIME without a Story", () => {
+  assert.equal(deriveMarketMotionRoutingClass({
+    primaryStoryId: null,
+    primaryRegimeSlug: "us-china-ai",
+    nextTest: null,
+  }), "REGIME");
+});
+
+test("B2 routing class admits concrete Investigation candidates", () => {
+  assert.equal(isConcreteMarketMotionNextTest("Compare independent capacity data with pricing and guidance."), true);
+  assert.equal(deriveMarketMotionRoutingClass({
+    primaryStoryId: null,
+    primaryRegimeSlug: null,
+    nextTest: "Compare independent capacity data with pricing and guidance.",
+  }), "INVESTIGATION_CANDIDATE");
+});
+
+test("B2 routing class rejects blank and generic fallback next tests", () => {
+  assert.equal(isConcreteMarketMotionNextTest(null), false);
+  assert.equal(isConcreteMarketMotionNextTest("   "), false);
+  assert.equal(
+    isConcreteMarketMotionNextTest("Check whether the linked assets and broader Story / Regime reaction confirm the information."),
+    false,
+  );
+  assert.equal(
+    isConcreteMarketMotionNextTest("Seek independent or primary-source confirmation, then test whether the market reaction persists."),
+    false,
+  );
+  assert.equal(deriveMarketMotionRoutingClass({
+    primaryStoryId: null,
+    primaryRegimeSlug: null,
+    nextTest: "Seek independent or primary-source confirmation, then test whether the market reaction persists.",
+  }), null);
+});
+
+test("B2 promotes canonically corroborated Regime-only Motion", () => {
+  const [selected] = selectPromotableMarketMotion([
+    record({
+      id: "regime-only",
+      primary_story_id: null,
+      primary_regime_slug: "us-china-ai",
+    }),
+  ], [evidence()], NOW);
+
+  assert.equal(selected.motion.id, "regime-only");
+  assert.equal(selected.routingClass, "REGIME");
+  assert.equal(selected.selectedEvidence.id, "evidence-reporting");
+});
+
+test("B2 promotes canonically corroborated Investigation-candidate Motion", () => {
+  const [selected] = selectPromotableMarketMotion([
+    record({
+      id: "investigation-only",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Compare company guidance with independent HBM capacity data.",
+    }),
+  ], [evidence()], NOW);
+
+  assert.equal(selected.motion.id, "investigation-only");
+  assert.equal(selected.routingClass, "INVESTIGATION_CANDIDATE");
+  assert.equal(selected.selectedEvidence.id, "evidence-reporting");
+});
+
+test("B2 keeps exact Evidence firewall for orphan Motion", () => {
+  const orphan = record({
+    id: "regime-no-exact-evidence",
+    primary_story_id: null,
+    primary_regime_slug: "us-china-ai",
+  });
+  const unrelated = evidence({
+    id: "same-regime-wrong-origin",
+    structuredPayload: { itemKey: "reuters:other-event" },
+    affectedTopics: ["china-us-ai-war"],
+  });
+
+  assert.deepEqual(selectPromotableMarketMotion([orphan], [unrelated], NOW), []);
+});
+
+test("B2 v2 promotion persists explicit routing class", () => {
+  const motion = record({
+    primary_story_id: null,
+    primary_regime_slug: "us-china-ai",
+  });
+  const [candidate] = selectPromotableMarketMotion([motion], [evidence()], NOW);
+  const input = marketMotionPromotionInput(candidate, {
+    researchRunId: "run-b2",
+    engineRunId: "engine-b2",
+  });
+
+  assert.equal(input.lifecycleState, "PROMOTED");
+  assert.equal(input.primaryStoryId, null);
+  assert.equal(input.primaryRegimeSlug, "us-china-ai");
+  assert.equal(input.evidenceId, "evidence-reporting");
+  assert.equal(input.metadata?.promotionPolicy, "canonical-evidence-corroborated/v2");
+  assert.equal(input.metadata?.promotionRoutingClass, "REGIME");
+});
+
 test("B1 promotion requires exact eligible canonical Evidence, not Story publication", () => {
   assert.equal(MARKET_MOTION_PROMOTION_MIN_MATERIALITY, 80);
   assert.equal(MARKET_MOTION_PROMOTION_MIN_RELEVANCE, 75);
@@ -108,7 +219,7 @@ test("B1 allows LEAD Motion after later independent canonical corroboration", ()
   assert.equal(selected[0].selectedEvidence.id, "independent-report");
 });
 
-test("B1 blocks contradicted unresolved partial expired weak and no-Story Motion", () => {
+test("B2 blocks contradicted unresolved partial expired weak and unroutable Motion", () => {
   const rows = [
     record({ id: "contradicted", verification_state: "CONTRADICTED" }),
     record({ id: "unresolved", verification_state: "UNRESOLVED" }),
@@ -116,7 +227,12 @@ test("B1 blocks contradicted unresolved partial expired weak and no-Story Motion
     record({ id: "expired", expires_at: "2026-10-01T01:00:00Z" }),
     record({ id: "weak-materiality", materiality: 79 }),
     record({ id: "weak-relevance", relevance: 74 }),
-    record({ id: "no-story", primary_story_id: null }),
+    record({
+      id: "unroutable",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Seek independent or primary-source confirmation, then test whether the market reaction persists.",
+    }),
     record({ id: "already", lifecycle_state: "PROMOTED", effective_state: "PROMOTED" }),
   ];
 
@@ -202,6 +318,7 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
     matchingEvidenceIds: ["evidence-reporting"],
     matchingOriginItemKeys: ["reuters:mu-hbm"],
     evidenceWeight: 0.782,
+    routingClass: "STORY" as const,
   };
 
   const input = marketMotionPromotionInput(candidate, {
@@ -217,25 +334,42 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
   assert.equal(input.expiresAt, "2026-10-04T00:45:00.000Z");
   assert.match(input.promotionReason || "", /Canonical Evidence evidence-reporting corroborated/);
   assert.match(input.promotionReason || "", /Motion is promoted as short-horizon Dossier context, not as canonical evidence/);
-  assert.equal(input.metadata?.promotionPolicy, "canonical-evidence-corroborated/v1");
+  assert.equal(input.metadata?.promotionPolicy, "canonical-evidence-corroborated/v2");
+  assert.equal(input.metadata?.promotionRoutingClass, "STORY");
   assert.equal(input.metadata?.promotionEvidenceId, "evidence-reporting");
   assert.equal(input.metadata?.promotionEvidenceItemKey, "reuters:mu-hbm");
   assert.deepEqual(input.metadata?.promotionEvidenceIds, ["evidence-reporting"]);
   assert.deepEqual(input.metadata?.promotionEvidenceItemKeys, ["reuters:mu-hbm"]);
 });
 
-test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
+test("B2 Dossier selector admits fresh PROMOTED Motion with any valid routing class", () => {
   const rows = [
     record({ id: "promoted", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 92 }),
     record({ id: "plain-motion", lifecycle_state: "MOTION", effective_state: "MOTION", materiality: 99 }),
     record({ id: "other-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: "story-2", materiality: 89 }),
-    record({ id: "no-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, materiality: 99 }),
+    record({
+      id: "regime-only",
+      lifecycle_state: "PROMOTED",
+      effective_state: "PROMOTED",
+      primary_story_id: null,
+      primary_regime_slug: "us-china-ai",
+      materiality: 99,
+    }),
+    record({
+      id: "unroutable",
+      lifecycle_state: "PROMOTED",
+      effective_state: "PROMOTED",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Seek independent or primary-source confirmation, then test whether the market reaction persists.",
+      materiality: 100,
+    }),
     record({ id: "expired", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", expires_at: "2026-10-01T01:00:00Z" }),
   ];
 
   assert.deepEqual(
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
-    ["promoted", "other-story"],
+    ["regime-only", "promoted", "other-story"],
   );
 });
 

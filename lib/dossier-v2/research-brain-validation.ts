@@ -3,8 +3,13 @@ import {
   isValidIsoTimestamp,
 } from "./validation.ts";
 import type {
+  DossierMotionContextItem,
   DossierV2InputPacket,
 } from "./input-packet.ts";
+import {
+  deriveMarketMotionRoutingClass,
+  type MarketMotionRoutingClass,
+} from "../market-motion.ts";
 import {
   EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
@@ -91,6 +96,27 @@ const REQUIRED_VERDICT_LENSES = [
   "CREDIT",
   "BREADTH",
 ];
+
+const VALID_MOTION_ROUTING_CLASSES = new Set<MarketMotionRoutingClass>(["STORY", "REGIME", "INVESTIGATION_CANDIDATE"]);
+
+function motionRoutingClass(item: DossierMotionContextItem): MarketMotionRoutingClass | null {
+  const structural = deriveMarketMotionRoutingClass({
+    primaryStoryId: item.primary_story_id,
+    primaryRegimeSlug: item.primary_regime_slug,
+    nextTest: item.next_test,
+  });
+  if (item.routing_class === undefined) return structural;
+  if (!VALID_MOTION_ROUTING_CLASSES.has(item.routing_class)) return null;
+  return item.routing_class === structural ? item.routing_class : null;
+}
+
+function routingDestinationAllowed(routingClass: MarketMotionRoutingClass, ref: string): boolean {
+  if (routingClass === "STORY") return true;
+  if (routingClass === "REGIME") {
+    return ref === "REGIME:CURRENT" || ref === "RESEARCH_NOW" || ref.startsWith("INVESTIGATION:");
+  }
+  return ref === "RESEARCH_NOW" || ref.startsWith("INVESTIGATION:");
+}
 
 const MARKET_SOURCE_CATEGORIES = new Set([
   "PRICING_FEED",
@@ -517,6 +543,9 @@ export function validateResearchBrainOutput(
       .map((entry) => typeof entry.thesis_id === "string" ? `THESIS:${entry.thesis_id}` : "")
       .filter(Boolean),
   ]);
+  const motionById = new Map(
+    motionContextItems.map((item) => [item.motion_id, item] as const),
+  );
   const seenMotionIds = new Set<string>();
   for (let motionIndex = 0; motionIndex < motionDecisions.length; motionIndex++) {
     const rawDecision = motionDecisions[motionIndex];
@@ -575,6 +604,19 @@ export function validateResearchBrainOutput(
       }
     }
 
+    const motionItem = motionId ? motionById.get(motionId) : undefined;
+    const routingClass = motionItem ? motionRoutingClass(motionItem) : null;
+    if (motionItem && !routingClass) {
+      errors.push(`motion_acceptance.decisions[${motionIndex}] Motion "${motionId}" has no valid routing_class; routing fails closed.`);
+    }
+    if (routingClass && routingClass !== "STORY") {
+      for (const ref of destinationRefs) {
+        if (typeof ref === "string" && !routingDestinationAllowed(routingClass, ref)) {
+          errors.push(`motion_acceptance.decisions[${motionIndex}] ${routingClass} routing does not allow destination ${ref}.`);
+        }
+      }
+    }
+
     if (decision === "ACCEPT" || decision === "REFINE") {
       if (!conclusion) {
         errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} requires a non-null conclusion.`);
@@ -584,6 +626,12 @@ export function validateResearchBrainOutput(
       }
       if (destinationRefs.length === 0) {
         errors.push(`motion_acceptance.decisions[${motionIndex}] ${String(decision)} requires at least one destination_ref.`);
+      }
+      if (routingClass === "REGIME" && !destinationRefs.some((ref) => ref === "REGIME:CURRENT" || (typeof ref === "string" && ref.startsWith("INVESTIGATION:")))) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] REGIME ${String(decision)} requires REGIME:CURRENT or INVESTIGATION:<id>; RESEARCH_NOW alone is not sufficient.`);
+      }
+      if (routingClass === "INVESTIGATION_CANDIDATE" && !destinationRefs.some((ref) => typeof ref === "string" && ref.startsWith("INVESTIGATION:"))) {
+        errors.push(`motion_acceptance.decisions[${motionIndex}] INVESTIGATION_CANDIDATE ${String(decision)} requires an INVESTIGATION:<id> destination; RESEARCH_NOW alone is not sufficient.`);
       }
       if (decision === "REFINE" && !nextTest) {
         errors.push(`motion_acceptance.decisions[${motionIndex}] REFINE requires a concrete next_test.`);

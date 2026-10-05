@@ -124,3 +124,63 @@ test("A2 Motion context excludes future and unpromoted rows", () => {
 
   assert.deepEqual(result.motion_context?.items.map((item) => item.motion_id), ["accepted"]);
 });
+
+
+test("B2 Dossier context admits Story Regime and Investigation-candidate promoted Motion", () => {
+  const result = attachDossierMotionContext(packet(), [
+    motion({
+      id: "story-route",
+      motion_key: "event:story",
+      primary_story_id: "story-rates",
+      primary_regime_slug: "global-cost-of-capital",
+      materiality: 93,
+    }),
+    motion({
+      id: "regime-route",
+      motion_key: "event:regime",
+      primary_story_id: null,
+      primary_regime_slug: "global-cost-of-capital",
+      materiality: 92,
+    }),
+    motion({
+      id: "investigation-route",
+      motion_key: "event:investigation",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Compare dealer positioning with independent duration and volatility evidence.",
+      materiality: 91,
+    }),
+  ]);
+
+  assert.deepEqual(
+    result.motion_context?.items.map((item) => [item.motion_id, item.routing_class]),
+    [
+      ["story-route", "STORY"],
+      ["regime-route", "REGIME"],
+      ["investigation-route", "INVESTIGATION_CANDIDATE"],
+    ],
+  );
+});
+
+test("B2 Dossier context excludes promoted Motion with no valid routing class", () => {
+  const result = attachDossierMotionContext(packet(), [
+    motion({
+      id: "generic-orphan",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Seek independent or primary-source confirmation, then test whether the market reaction persists.",
+    }),
+    motion({
+      id: "specific-orphan",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Compare primary evidence with the observed rates reaction.",
+    }),
+  ]);
+
+  assert.deepEqual(
+    result.motion_context?.items.map((item) => item.motion_id),
+    ["specific-orphan"],
+  );
+  assert.equal(result.motion_context?.items[0]?.routing_class, "INVESTIGATION_CANDIDATE");
+});

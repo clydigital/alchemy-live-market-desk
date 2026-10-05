@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { MarketMotionRoutingClass } from "../market-motion.ts";
 import {
   isValidIsoTimestamp,
   isValidUuid,
@@ -232,6 +233,7 @@ export interface DossierMotionContextItem {
   next_test: string | null;
   primary_story_id: string | null;
   primary_regime_slug: string | null;
+  routing_class?: MarketMotionRoutingClass;
   attention: {
     materiality: number;
     relevance: number;
