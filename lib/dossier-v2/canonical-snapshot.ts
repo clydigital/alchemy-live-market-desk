@@ -1343,6 +1343,13 @@ function treasuryAuctionAvailableAt(auctionDate: string) {
   return `${auctionDate}T21:00:00.000Z`;
 }
 
+function treasurySupplyAvailableAt(announcementDate: string) {
+  // Fiscal Data exposes the announcement date but not the publication time.
+  // Use the same conservative 21:00Z boundary so a same-day Dossier cannot
+  // see an offering amount before Treasury announced it.
+  return `${announcementDate}T21:00:00.000Z`;
+}
+
 export function augmentCandidateSnapshotWithTreasuryAuctions(
   result: CanonicalSnapshotResult,
   auctions: TreasuryAuctionSnapshot,
@@ -1409,6 +1416,71 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
     }
   }
 
+  const supplyComparisons = auctions.couponSupply.comparisons.filter((item) => {
+    const availableMs = parseTimestamp(treasurySupplyAvailableAt(item.currentAnnouncementDate));
+    return asOfMs !== null && availableMs !== null && availableMs <= asOfMs;
+  });
+  const supplyAsOf = supplyComparisons
+    .map((item) => item.currentAnnouncementDate)
+    .sort()
+    .at(-1) ?? null;
+
+  if (supplyAsOf) {
+    const allCurrentUsd = supplyComparisons.reduce((sum, item) => sum + item.currentOfferingAmountUsd, 0);
+    const allPreviousUsd = supplyComparisons.reduce((sum, item) => sum + item.previousOfferingAmountUsd, 0);
+    const longEnd = supplyComparisons.filter((item) =>
+      item.securityTerm === "10-Year" || item.securityTerm === "20-Year" || item.securityTerm === "30-Year"
+    );
+    const longEndCurrentUsd = longEnd.reduce((sum, item) => sum + item.currentOfferingAmountUsd, 0);
+    const longEndPreviousUsd = longEnd.reduce((sum, item) => sum + item.previousOfferingAmountUsd, 0);
+    const currentBn = allCurrentUsd / 1_000_000_000;
+    const previousBn = allPreviousUsd / 1_000_000_000;
+    const longEndCurrentBn = longEndCurrentUsd / 1_000_000_000;
+    const longEndPreviousBn = longEndPreviousUsd / 1_000_000_000;
+    const longEndChangeBn = longEndCurrentBn - longEndPreviousBn;
+    const termDetail = supplyComparisons
+      .sort((a, b) => a.securityTerm.localeCompare(b.securityTerm))
+      .map((item) =>
+        `${item.securityTerm} ${(item.currentOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn vs ${(item.previousOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn prior`
+      )
+      .join("; ");
+    const availableAt = treasurySupplyAvailableAt(supplyAsOf);
+
+    observed.push({
+      evidence_id: `treasury-supply:coupon-sizes:${supplyAsOf}`,
+      claim_or_fact: `Treasury's latest announced nominal coupon offering sizes across ${supplyComparisons.length} comparable maturities total ${currentBn.toFixed(1)}bn USD versus ${previousBn.toFixed(1)}bn at the previous same-term auctions. Long-end 10Y/20Y/30Y offerings total ${longEndCurrentBn.toFixed(1)}bn versus ${longEndPreviousBn.toFixed(1)}bn previously (change ${longEndChangeBn >= 0 ? "+" : ""}${longEndChangeBn.toFixed(1)}bn). ${termDetail}. This is announced gross coupon issuance context only; it does not by itself establish net borrowing, auction absorption, term-premium direction, or yield direction.`,
+      category: "RATES",
+      source_type: "OFFICIAL_DATA",
+      available_at: availableAt,
+      occurrence_time: availableAt,
+      grouping_key: "rate-context:treasury-supply",
+      rank: 10,
+      metrics: {
+        signal_kind: "treasury_supply",
+        signal_context: "treasury_supply",
+        supply_measure: "announced_nominal_coupon_offering_sizes",
+        comparable_maturities: supplyComparisons.length,
+        observed_value: longEndCurrentBn,
+        previous_value: longEndPreviousBn,
+        measurement_unit: "USD billions",
+        all_coupon_current_usd_bn: currentBn,
+        all_coupon_previous_usd_bn: previousBn,
+        all_coupon_change_usd_bn: currentBn - previousBn,
+        long_end_current_usd_bn: longEndCurrentBn,
+        long_end_previous_usd_bn: longEndPreviousBn,
+        long_end_change_usd_bn: longEndChangeBn,
+        long_end_maturities_compared: longEnd.length,
+      },
+      provenance: [{
+        source_type: "US_TREASURY",
+        source_id: `fiscaldata-coupon-supply:${supplyAsOf}`,
+        url: auctions.sourceUrl,
+        publisher: auctions.sourceName,
+      }],
+    });
+    added += 1;
+  }
+
   const sourcesStatus = {
     ...(result.snapshot.sources_status ?? {}),
     treasury_auctions: {
@@ -1416,7 +1488,14 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
       available_at: auctions.asOf ? treasuryAuctionAvailableAt(auctions.asOf) : undefined,
       message: auctions.status === "UNAVAILABLE"
         ? auctions.warnings.join(" ") || "Official Treasury auction results were unavailable."
-        : `${added} recent nominal coupon Treasury auction result(s) admitted as official rate context. Auction tail remains unresolved without when-issued evidence.`,
+        : `${auctions.auctions.length} recent nominal coupon Treasury auction result(s) available for official rate context. Auction tail remains unresolved without when-issued evidence.`,
+    },
+    treasury_coupon_supply: {
+      status: supplyAsOf ? auctions.couponSupply.status : "UNAVAILABLE",
+      available_at: supplyAsOf ? treasurySupplyAvailableAt(supplyAsOf) : undefined,
+      message: supplyAsOf
+        ? `${supplyComparisons.length} comparable announced nominal coupon offering-size pair(s) admitted as gross supply context; no deterministic yield-pressure verdict is assigned.`
+        : "Comparable announced nominal coupon offering sizes were unavailable by the Dossier as-of boundary.",
     },
   };
 
