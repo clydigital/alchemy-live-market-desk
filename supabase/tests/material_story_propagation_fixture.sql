@@ -24,6 +24,7 @@ create table public.intelligence_story_assessments (
   engine_run_id uuid not null references public.intelligence_engine_runs(id) on delete cascade,
   market_belief_stage_run_id uuid not null,
   story_id uuid not null references public.stories(id) on delete cascade,
+  queue_ids uuid[] not null default '{}',
   disposition text not null,
   rationale text not null,
   evidence_ids uuid[] not null default '{}',
@@ -34,6 +35,18 @@ create table public.intelligence_story_assessments (
   applied_at timestamptz,
   created_at timestamptz not null default now(),
   unique(engine_run_id, story_id)
+);
+
+create table public.intelligence_reevaluation_queue (
+  id uuid primary key default gen_random_uuid(),
+  target_kind text not null,
+  target_id uuid not null,
+  requested_by_evidence_id uuid references public.intelligence_evidence(id) on delete set null,
+  reason text not null,
+  status text not null default 'pending',
+  priority smallint not null default 50,
+  available_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 
 create table public.story_updates (
