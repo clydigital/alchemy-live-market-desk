@@ -274,7 +274,8 @@ export interface DossierV2InputPacket {
   contract_version: typeof INPUT_PACKET_CONTRACT_VERSION;
   as_of: string;
   previous_dossier_id: string | null;
-  persistent_story_bindings: PersistentStoryBinding[];
+  /** Optional at the TypeScript boundary so immutable historical packets stay readable. */
+  persistent_story_bindings?: PersistentStoryBinding[];
 
   observed_evidence: ObservedEvidence[];
   research_leads: ResearchLead[];
