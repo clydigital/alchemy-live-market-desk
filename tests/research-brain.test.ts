@@ -50,7 +50,7 @@ test("Research Brain runtime keeps full rebase output bounded by default", () =>
   assert.equal(primary.maxOutputTokens, 16_000);
   assert.equal(primary.reasoningEffort, "medium");
   assert.equal(primary.timeoutMs, 240_000);
-  assert.equal(repair.maxOutputTokens, 8_000);
+  assert.equal(repair.maxOutputTokens, 16_000);
   assert.equal(repair.reasoningEffort, "low");
   assert.equal(repair.timeoutMs, 240_000);
 });
