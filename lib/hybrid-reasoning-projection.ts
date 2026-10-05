@@ -187,33 +187,12 @@ function probabilitiesFor(
     E: "CAPPED",
   };
 
-  // 1. Check Hard Falsification for Scenario A (Divergence survives)
-  const aFalsifiedByStory = classifications.some((item) => {
-    if (item.classification !== "INVALIDATING") return false;
-    const story = storiesById.get(item.storyId);
-    if (!story) return false;
-    const family = scenarioFamily(story);
-    return family === "RATES" || family === "AI" || family === "OTHER";
-  });
-
-  if (aFalsifiedByStory) {
-    eligibility.A = "FALSIFIED";
-    const available = current.A;
-    if (available > 0) {
-      transfer(
-        current,
-        "A",
-        "B",
-        available,
-        "Scenario A FALSIFIED by canonical invalidation event/version; probability reallocated to Scenario B.",
-        "CONFIRMED",
-        transfers,
-      );
-    }
-  }
-
-  // 2. Regime family baseline shifts
-  if (eligibility.A !== "FALSIFIED" && dossier.header.regimeFamily === "RATES_LED_TIGHTENING") {
+  // 1. Regime family baseline shifts.
+  // Whole-scenario hard falsification remains fail-closed until an explicit
+  // scenario-specific canonical falsifier contract exists. Story invalidation
+  // may weaken/strengthen the appropriate family below, but cannot zero an
+  // entire Hybrid scenario by itself.
+  if (dossier.header.regimeFamily === "RATES_LED_TIGHTENING") {
     const moved = transfer(
       current,
       "A",
@@ -252,11 +231,15 @@ function probabilitiesFor(
     const weight = classificationWeight(item.classification);
     if (!weight) continue;
 
-    const isConfirmed =
-      item.canonicalEvidenceCount >= 2 ||
-      item.classification === "ACCELERATING" ||
-      item.latestVersionNumber !== null;
-    const transitionState: HybridTransitionState = isConfirmed ? "CONFIRMED" : "CANDIDATE";
+    // This projection has no persisted prior-scenario snapshot, so it must not
+    // manufacture time-based hysteresis from an old thesis version or raw
+    // evidence count. Only explicit strong directional Story states are
+    // treated as confirmed; ordinary confirmation/contradiction remains a
+    // candidate transition and same-evidence replay stays idempotent.
+    const transitionState: HybridTransitionState =
+      item.classification === "ACCELERATING" || item.classification === "INVALIDATING"
+        ? "CONFIRMED"
+        : "CANDIDATE";
 
     const family = scenarioFamily(story);
     if (family === "CREDIT") {
@@ -274,7 +257,7 @@ function probabilitiesFor(
           transfers,
         );
         if (moved > 0) {
-          if (eligibility.B !== "FALSIFIED") eligibility.B = "ELIGIBLE_TO_DECREASE";
+          eligibility.B = "ELIGIBLE_TO_DECREASE";
           eligibility.C = "ELIGIBLE_TO_INCREASE";
         }
       } else {
@@ -289,14 +272,14 @@ function probabilitiesFor(
         );
         if (moved > 0) {
           eligibility.C = "ELIGIBLE_TO_DECREASE";
-          if (eligibility.B !== "FALSIFIED") eligibility.B = "ELIGIBLE_TO_INCREASE";
+          eligibility.B = "ELIGIBLE_TO_INCREASE";
         }
       }
     } else if (family === "RATES" || family === "AI") {
       const baseAmount = Math.abs(weight);
       const amount = transitionState === "CANDIDATE" ? Math.min(baseAmount, 1) : baseAmount;
 
-      if (weight > 0 && eligibility.A !== "FALSIFIED") {
+      if (weight > 0) {
         const moved = transfer(
           current,
           "A",
@@ -310,7 +293,7 @@ function probabilitiesFor(
           eligibility.A = "ELIGIBLE_TO_DECREASE";
           eligibility.B = "ELIGIBLE_TO_INCREASE";
         }
-      } else if (weight < 0 && eligibility.A !== "FALSIFIED") {
+      } else if (weight < 0) {
         const moved = transfer(
           current,
           "B",
@@ -328,48 +311,15 @@ function probabilitiesFor(
     }
   }
 
-  // 4. Guarded Tail Checks for Scenario D and Scenario E
-  const creditAccelerating = classifications.some((item) => {
-    if (item.classification !== "ACCELERATING") return false;
-    const story = storiesById.get(item.storyId);
-    return story ? scenarioFamily(story) === "CREDIT" && item.canonicalEvidenceCount >= 2 : false;
-  });
-  const liquidityState = dossier.dollarLiquidity?.state;
-  const liquidityStress = liquidityState === "TIGHTENING" || liquidityState === "SLIGHTLY_TIGHTENING";
-
-  if (creditAccelerating && liquidityStress) {
-    eligibility.D = "ELIGIBLE_TO_INCREASE";
-    transfer(
-      current,
-      "C",
-      "D",
-      2,
-      "Canonical forced-selling / liquidity stress evidence unlocks Scenario D increase.",
-      "CONFIRMED",
-      transfers,
-    );
-  } else {
-    eligibility.D = "CAPPED";
-  }
-
-  const yieldsUp = dossier.rateRegime.state === "HAWKISH";
-  const usdDown = dossier.regimeStrip.some((lens) => lens.key === "USD" && (lens.reaction ?? "").toLowerCase().includes("down"));
-  const auctionDemandFailure = dossier.rateRegime.gaps.some((g) => g.toLowerCase().includes("auction")) || dossier.policyOutlook.some((p) => p.gaps.some((g) => g.toLowerCase().includes("demand")));
-
-  if (yieldsUp && usdDown && auctionDemandFailure) {
-    eligibility.E = "ELIGIBLE_TO_INCREASE";
-    transfer(
-      current,
-      "B",
-      "E",
-      2,
-      "Canonical US confidence break combination unlocked Scenario E increase.",
-      "CONFIRMED",
-      transfers,
-    );
-  } else {
-    eligibility.E = "CAPPED";
-  }
+  // 4. Guarded tails remain fail-closed.
+  //
+  // The current Dossier presentation does not expose a structured canonical
+  // contract proving the full Scenario D forced-selling/funding/collateral
+  // condition or the full Scenario E US-confidence combination. Narrative
+  // text, gap strings, missing-evidence labels, and keyword scans are not
+  // evidence and therefore cannot unlock D/E.
+  eligibility.D = "CAPPED";
+  eligibility.E = "CAPPED";
 
   if (eligibility.A === "HOLD") {
     if (current.A > STARTING_PRIORS.A) eligibility.A = "ELIGIBLE_TO_INCREASE";
@@ -402,8 +352,8 @@ function probabilitiesFor(
     transfers,
     reasons,
     guardedTails: [
-      "Scenario D does not gain probability automatically without canonical forced-selling, funding, redemption, collateral or covenant evidence.",
-      "Scenario E does not gain probability automatically without the US-confidence combination: Treasury yields up, USD down and deteriorating auction / demand evidence.",
+      "Scenario D remains capped until a structured canonical contract proves forced-selling, funding, redemption, collateral or covenant stress; narrative or gap text is insufficient.",
+      "Scenario E remains capped until a structured canonical contract proves the full US-confidence condition; rate, USD, auction or demand prose alone is insufficient.",
     ],
   };
 }
