@@ -37,6 +37,14 @@ test("Market Belief structured output is bound to the frozen Story obligation co
   assert.match(schema, /itemProperties\.storyId = \{ type: "string", enum: uniqueStoryIds \}/);
 });
 
+test("queue-backed Story review requires full queue ownership before System 2", () => {
+  assert.match(runtime, /partitionStoryReviewTargetsByQueueClaims/);
+  assert.match(runtime, /new Set\(claimed\.map\(\(row\) => row\.id\)\)/);
+  assert.match(runtime, /Story review target was only partially claimed; retry as one ownership unit\./);
+  assert.match(runtime, /story_review_queue_claim_incomplete/);
+  assert.match(runtime, /return ownership\.ownedTargets/);
+});
+
 test("evidence-backed Story queue completion requires explicit trigger acknowledgement", () => {
   assert.match(runtime, /storyAssessmentAcknowledgesQueuedEvidence\(evidenceIds, target\)/);
   assert.match(runtime, /did not acknowledge every queued canonical trigger Evidence ID/);
