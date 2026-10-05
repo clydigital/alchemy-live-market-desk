@@ -93,7 +93,7 @@ test("frozen Story targets cannot be overwritten back to JSON null by a stale co
 });
 
 test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
-  assert.match(runtime, /freezeStoryReviewTargets\(selected\)/);
+  assert.match(runtime, /freezeStoryReviewTargets\(owned\)/);
   assert.match(hardeningMigration, /freeze_intelligence_story_review_targets/);
   assert.match(hardeningMigration, /jsonb_array_length\(p_targets\) > 4/);
   assert.match(hardeningMigration, /jsonb_typeof\(existing_targets\) is distinct from 'array'/);
