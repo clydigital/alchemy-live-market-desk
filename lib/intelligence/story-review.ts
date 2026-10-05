@@ -391,6 +391,35 @@ export function selectStoryReviewTargets(input: {
   return selected.map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
+export function partitionStoryReviewTargetsByQueueClaims(
+  targets: StoryReviewTargetPackItem[],
+  claimedQueueIds: ReadonlySet<string>,
+) {
+  const ownedTargets: StoryReviewTargetPackItem[] = [];
+  const partialClaimIds = new Set<string>();
+  const droppedStoryIds: string[] = [];
+
+  for (const target of targets) {
+    if (!target.queueIds.length) {
+      ownedTargets.push(target);
+      continue;
+    }
+    const claimedForTarget = target.queueIds.filter((id) => claimedQueueIds.has(id));
+    if (claimedForTarget.length === target.queueIds.length) {
+      ownedTargets.push(target);
+      continue;
+    }
+    for (const id of claimedForTarget) partialClaimIds.add(id);
+    droppedStoryIds.push(target.story.id);
+  }
+
+  return {
+    ownedTargets,
+    partialClaimIds: [...partialClaimIds].sort(),
+    droppedStoryIds: [...new Set(droppedStoryIds)].sort(),
+  };
+}
+
 function independentGroup(item: EvidencePackItem) {
   return item.ancestryGroupId || `source:${item.sourceName.trim().toLowerCase()}`;
 }
