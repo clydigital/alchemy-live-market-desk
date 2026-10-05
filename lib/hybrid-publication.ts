@@ -1,5 +1,6 @@
 import type { Story, Update, ResearchRunStatus } from "@/lib/data";
 import type { StoryThesisVersion } from "@/lib/persistence/contracts";
+import { materialiseCanonicalStoryReasoningV1 } from "@/lib/intelligence/story-reasoning";
 import { buildStoryBreakdown, storyPresentationState } from "@/lib/story-breakdown";
 import { buildDeskMemory, type HistoricalToneVersion } from "@/lib/desk-memory";
 import {
@@ -581,10 +582,20 @@ export async function captureCanonicalPublicationStoryStates(
     optionalQuery<StoryEvent>("story_events", "select=*&order=event_at.desc&limit=240", options),
     optionalIntelligenceStates(),
   ]);
-  return selectHybridPublicationStoryStates({
+  const selected = selectHybridPublicationStoryStates({
     stories,
     records: { thesisVersions, events, intelligenceStates },
   }).storyStates;
+  const versionByStory = newestThesisByStory(thesisVersions);
+
+  return selected.map((story) => {
+    const exactVersion = versionByStory.get(story.id);
+    const canonicalStoryReasoning = exactVersion
+      && story.thesisVersion?.id === exactVersion.id
+      ? materialiseCanonicalStoryReasoningV1(exactVersion)
+      : null;
+    return { ...story, canonicalStoryReasoning };
+  });
 }
 
 export function buildHybridPublicationContract({
