@@ -8,8 +8,10 @@ function source(path: string) {
 
 test("Regime LIVE uses the shared Divergence Lab presentation classifier", () => {
   const workspace = source("../components/live-desk/RegimeDetailWorkspace.tsx");
+  const projection = source("../lib/regime-divergence-lab.ts");
 
-  assert.match(workspace, /buildDivergenceLabPresentation/);
+  assert.match(workspace, /buildRegimeDivergenceLabCases/);
+  assert.match(projection, /buildDivergenceLabPresentation/);
   assert.match(workspace, /Divergence Lab — candidate mechanisms/);
   assert.match(workspace, /lab\.mode === "full"/);
   assert.match(workspace, /lab\.candidates\.map/);
