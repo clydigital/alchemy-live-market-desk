@@ -204,7 +204,11 @@ function canonicalDivergenceDebtCandidates(
     const divergenceId = clean(metadata.divergenceId);
     const marketBeliefId = clean(metadata.marketBeliefId);
     const question = clean(metadata.question);
-    const evidenceNeeded = strings(metadata.evidenceNeeded, 4);
+    const plannedEvidenceNeeded = strings(metadata.evidenceNeeded, 4);
+    const activeEvidenceNeeded = strings(metadata.activeEvidenceNeeded, 1);
+    const evidenceNeeded = activeEvidenceNeeded.length
+      ? activeEvidenceNeeded
+      : plannedEvidenceNeeded.slice(0, 1);
     if (!divergenceId || !marketBeliefId || !question || !evidenceNeeded.length) return [];
 
     const ref = row.debt_key;
@@ -617,7 +621,7 @@ export function buildResearchGapWorkQueue(
         "This stage reads and normalises work only; it does not score, claim, research, resolve or mutate a gap.",
         "Native ranks, blocker labels, information-gain labels, investigation state and Motion attention are preserved for the prioritisation stage.",
         "Fresh promoted Motion may enter through its exact canonical route; Dossier-assessed UNRESOLVED Motion may enter directly from the persisted Motion-attention snapshot when it carries a concrete investigation_next.",
-        "Material canonical divergences enter only through bounded divergence:* research debt created after Hypothesis still cannot resolve the causal mechanism.",
+        "Material canonical divergences enter only through bounded divergence:* research debt created after Hypothesis still cannot resolve the causal mechanism; only the current active discriminator is exposed to the worker.",
       ],
     },
   };
