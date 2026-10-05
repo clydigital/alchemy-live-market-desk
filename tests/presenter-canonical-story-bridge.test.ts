@@ -221,6 +221,85 @@ test("P1.1 takes explanation, competing mechanisms and falsification from canoni
   );
 });
 
+test("P2.3 exposes the exact canonical leading mechanism and accepted-explanation evidence", () => {
+  const result = buildPresenterCanonicalStoryCase({
+    investigation: investigation(),
+    storySources: [source({
+      reasoning: reasoning({
+        claims: [
+          {
+            id: "claim-rates",
+            type: "fact",
+            text: "Long-end yields remained elevated.",
+            evidenceIds: ["ev-rates"],
+          },
+          {
+            id: "claim-accepted",
+            type: "interpretation",
+            text: "Persistent long-end yields continue to transmit through financing costs.",
+            evidenceIds: ["ev-recruited-real-yield"],
+          },
+        ],
+      }),
+    })],
+  });
+
+  assert.ok(result);
+  assert.equal(result.leadingExplanation?.hypothesisId, "hyp-leading");
+  assert.deepEqual(result.leadingExplanation?.evidenceForIds, ["ev-rates"]);
+  assert.equal(result.leadingExplanation?.causalMechanism, "Higher long-end yields raise the cost of capital.");
+  assert.deepEqual(result.currentExplanationEvidenceIds, ["ev-recruited-real-yield"]);
+  assert.equal(result.competingExplanations[0]?.hypothesisId, "hyp-competing");
+});
+
+test("P2.3 preserves canonical unresolved mechanism state instead of borrowing Dossier certainty", () => {
+  const result = buildPresenterCanonicalStoryCase({
+    investigation: investigation({
+      currentExplanation: "Dossier claims one clean explanation.",
+    }),
+    storySources: [source({
+      reasoning: reasoning({
+        acceptedExplanation: null,
+        claims: [{
+          id: "claim-rates",
+          type: "fact",
+          text: "Long-end yields remained elevated.",
+          evidenceIds: ["ev-rates"],
+        }],
+        explanationCandidates: [
+          {
+            hypothesisId: "hyp-leading",
+            mechanismCode: "UNKNOWN",
+            statement: "Long-end yields may be transmitting through financing costs.",
+            causalMechanism: "Higher long-end yields raise the cost of capital.",
+            confidence: 61,
+            evidenceForIds: ["ev-rates"],
+            evidenceAgainstIds: ["ev-positioning"],
+            isLeading: true,
+          },
+          {
+            hypothesisId: "hyp-competing",
+            mechanismCode: "PRICED_IN",
+            statement: "Positioning may still explain part of the move.",
+            causalMechanism: "Prior positioning may exaggerate the immediate reaction.",
+            confidence: 56,
+            evidenceForIds: ["ev-positioning"],
+            evidenceAgainstIds: [],
+            isLeading: false,
+          },
+        ],
+      }),
+    })],
+  });
+
+  assert.ok(result);
+  assert.equal(result.currentExplanation, null);
+  assert.deepEqual(result.currentExplanationEvidenceIds, []);
+  assert.equal(result.leadingExplanation?.hypothesisId, "hyp-leading");
+  assert.equal(result.competingExplanations[0]?.hypothesisId, "hyp-competing");
+  assert.notEqual(result.currentExplanation, "Dossier claims one clean explanation.");
+});
+
 test("P1.1 keeps Dossier research-next/confirmation/invalidation only as explicit fallback fields", () => {
   const result = buildPresenterCanonicalStoryCase({
     investigation: investigation(),
