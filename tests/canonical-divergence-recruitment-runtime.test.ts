@@ -75,7 +75,12 @@ test("P2.4 lifecycle closes, advances or exhausts debt only after canonical hand
   assert.match(runtime, /lastCanonicalHandoffCaseId/);
   assert.match(runtime, /terminalState/);
   assert.match(runtime, /BOUNDED_EXHAUSTED/);
-  assert.match(runtime, /RESOLVED_BY_CANONICAL_EVIDENCE/);
+
+  const lifecycle = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "divergence-recruitment-lifecycle.ts"),
+    "utf8",
+  );
+  assert.match(lifecycle, /RESOLVED_BY_CANONICAL_EVIDENCE/);
 });
 
 test("P2.4 unchanged exhausted plans are not reopened", () => {
