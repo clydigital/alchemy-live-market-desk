@@ -76,8 +76,10 @@ import {
   buildHypothesisStoryPack,
 } from "./hypothesis-core.ts";
 import {
+  mergeDivergenceRecruitmentContext,
   planDivergenceEvidenceRecruitment,
   type DivergenceEvidenceRecruitment,
+  type DivergenceRecruitmentContext,
 } from "./divergence-evidence-recruitment.ts";
 import {
   candidateOmissionDiagnostic,
@@ -1085,6 +1087,75 @@ async function loadResearchDebt() {
   return intelligenceRest<ResearchDebtRow[]>(
     "research_debt?select=story_id,debt_key,severity,status,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
   ).catch(() => []);
+}
+
+async function loadPersistentOpenDivergenceRecruitmentContext(): Promise<DivergenceRecruitmentContext> {
+  const divergences = await intelligenceRest<Array<{
+    id: string;
+    market_belief_id: string;
+    observed_change: string;
+    expected_change: string | null;
+    magnitude: number;
+    persistence_score: number;
+  }>>(
+    "intelligence_divergences?select=id,market_belief_id,observed_change,expected_change,magnitude,persistence_score&status=eq.open&magnitude=gte.50&order=detected_at.desc&limit=40",
+  ).catch(() => []);
+
+  if (!divergences.length) {
+    return { divergences: [], beliefs: [], hypotheses: [] };
+  }
+
+  const divergenceIds = unique(divergences.map((row) => row.id));
+  const beliefIds = unique(divergences.map((row) => row.market_belief_id));
+  const [beliefs, hypotheses] = await Promise.all([
+    intelligenceRest<Array<{
+      id: string;
+      statement: string;
+      affected_assets: string[];
+      primary_category: string | null;
+      themes: string[];
+    }>>(
+      `intelligence_market_beliefs?select=id,statement,affected_assets,primary_category,themes&id=in.(${beliefIds.join(",")})`,
+    ).catch(() => null),
+    intelligenceRest<Array<{
+      id: string;
+      divergence_id: string | null;
+      confidence: number;
+      evidence_for_ids: string[];
+      evidence_against_ids: string[];
+    }>>(
+      `intelligence_hypotheses?select=id,divergence_id,confidence,evidence_for_ids,evidence_against_ids&divergence_id=in.(${divergenceIds.join(",")})`,
+    ).catch(() => null),
+  ]);
+
+  if (!beliefs || !hypotheses) {
+    return { divergences: [], beliefs: [], hypotheses: [] };
+  }
+
+  return {
+    divergences: divergences.map((row) => ({
+      id: row.id,
+      marketBeliefId: row.market_belief_id,
+      observedChange: row.observed_change,
+      expectedChange: row.expected_change,
+      magnitude: row.magnitude,
+      persistenceScore: row.persistence_score,
+    })),
+    beliefs: beliefs.map((row) => ({
+      id: row.id,
+      statement: row.statement,
+      affectedAssets: row.affected_assets ?? [],
+      primaryCategory: row.primary_category,
+      themes: row.themes ?? [],
+    })),
+    hypotheses: hypotheses.map((row) => ({
+      id: row.id,
+      divergenceId: row.divergence_id,
+      confidence: row.confidence,
+      evidenceForIds: row.evidence_for_ids ?? [],
+      evidenceAgainstIds: row.evidence_against_ids ?? [],
+    })),
+  };
 }
 
 async function persistDivergenceEvidenceRecruitment(input: {
@@ -3286,30 +3357,37 @@ export async function runIntelligenceEngine({
       allowedHypothesisEvidenceIds,
       hypothesisEvidenceById,
     );
-    const divergenceRecruitment = planDivergenceEvidenceRecruitment({
-      divergences: divergences.map((item) => ({
-        id: item.id,
-        marketBeliefId: item.market_belief_id,
-        observedChange: item.observed_change,
-        expectedChange: item.expected_change,
-        magnitude: item.magnitude,
-        persistenceScore: item.persistence_score,
-      })),
-      beliefs: beliefs.map((item) => ({
-        id: item.id,
-        statement: item.statement,
-        affectedAssets: item.affected_assets,
-        primaryCategory: item.primary_category,
-        themes: item.themes,
-      })),
-      hypotheses: hypotheses.map((item) => ({
-        id: item.id,
-        divergenceId: item.divergence_id,
-        confidence: item.confidence,
-        evidenceForIds: item.evidence_for_ids,
-        evidenceAgainstIds: item.evidence_against_ids,
-      })),
-    });
+    const persistentDivergenceRecruitment =
+      await loadPersistentOpenDivergenceRecruitmentContext();
+    const divergenceRecruitment = planDivergenceEvidenceRecruitment(
+      mergeDivergenceRecruitmentContext(
+        persistentDivergenceRecruitment,
+        {
+          divergences: divergences.map((item) => ({
+            id: item.id,
+            marketBeliefId: item.market_belief_id,
+            observedChange: item.observed_change,
+            expectedChange: item.expected_change,
+            magnitude: item.magnitude,
+            persistenceScore: item.persistence_score,
+          })),
+          beliefs: beliefs.map((item) => ({
+            id: item.id,
+            statement: item.statement,
+            affectedAssets: item.affected_assets,
+            primaryCategory: item.primary_category,
+            themes: item.themes,
+          })),
+          hypotheses: hypotheses.map((item) => ({
+            id: item.id,
+            divergenceId: item.divergence_id,
+            confidence: item.confidence,
+            evidenceForIds: item.evidence_for_ids,
+            evidenceAgainstIds: item.evidence_against_ids,
+          })),
+        },
+      ),
+    );
     if (divergenceRecruitment.length) {
       if (!dryRun) {
         await persistDivergenceEvidenceRecruitment({
