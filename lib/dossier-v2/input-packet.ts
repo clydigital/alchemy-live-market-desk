@@ -308,6 +308,9 @@ const MAX_RESEARCH_GAPS = 12;
 const MAX_PROVENANCE_PER_ITEM = 5;
 const MAX_CANONICAL_BYTES = 200000;
 const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// Slow-moving official rate context may remain analytically relevant beyond the
+// 24h "what just happened" evidence window. Keep this narrow and context-only.
+const RATE_CONTEXT_HISTORY_MS = 45 * 24 * 60 * 60 * 1000;
 
 
 const MACRO_SPINE_GROUPING_KEYS = [
@@ -354,6 +357,15 @@ function isRateContextEvidence(
     return true;
   }
   return item.source_type !== "MARKET_DATA" && RATE_CONTEXT_FACT_PATTERN.test(item.claim_or_fact);
+}
+
+function isHistoricalRateContextCandidate(raw: Record<string, unknown>) {
+  if (String(raw.source_type ?? "").trim().toUpperCase() !== "OFFICIAL_DATA") return false;
+  if (!isPlainObject(raw.metrics)) return false;
+  const context = typeof raw.metrics.signal_context === "string"
+    ? raw.metrics.signal_context.trim().toLowerCase()
+    : "";
+  return context === "treasury_auction";
 }
 
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
@@ -980,13 +992,22 @@ export function assembleDossierV2InputPacket(
     raw: Record<string, unknown>;
     ev: ObservedEvidence & { grouping_key: string; conflict_key?: string; supersedes_id?: string };
   }> = [];
+  const historicalRateContextEvidence: Array<ObservedEvidence & { grouping_key: string }> = [];
 
   for (const raw of candidateEvidence) {
     if (!isPlainObject(raw)) continue;
     if (!isValidIsoTimestamp(raw.available_at)) continue;
 
     const availMs = Date.parse(raw.available_at as string);
-    if (availMs > asOfMs || availMs < windowStartMs) {
+    if (availMs > asOfMs) {
+      omittedEvidenceCount++;
+      continue;
+    }
+    const historicalRateContext =
+      availMs < windowStartMs
+      && availMs >= asOfMs - RATE_CONTEXT_HISTORY_MS
+      && isHistoricalRateContextCandidate(raw);
+    if (availMs < windowStartMs && !historicalRateContext) {
       omittedEvidenceCount++;
       continue;
     }
@@ -1013,23 +1034,30 @@ export function assembleDossierV2InputPacket(
     const supersedesId = typeof raw.supersedes_evidence_id === "string" && raw.supersedes_evidence_id ? truncateString(raw.supersedes_evidence_id, 100, markTruncated) : (typeof raw.supersedes_id === "string" && raw.supersedes_id ? truncateString(raw.supersedes_id, 100, markTruncated) : undefined);
     const sanitizedMetrics = sanitizeMetrics(raw.metrics, 1, markTruncated);
 
+    const normalizedEvidence = {
+      evidence_id: evId,
+      epistemic_label: "OBSERVED" as const,
+      claim_or_fact: claimText,
+      category: truncateString(String(raw.category ?? "GENERAL"), 100, markTruncated),
+      source_type: truncateString(String(raw.source_type ?? "FACT"), 100, markTruncated),
+      available_at: raw.available_at as string,
+      occurrence_time: typeof raw.occurrence_time === "string" ? raw.occurrence_time : undefined,
+      metrics: sanitizedMetrics,
+      provenance: sanitizeProvenance(raw.provenance, markTruncated),
+      rank: typeof raw.rank === "number" ? raw.rank : undefined,
+      grouping_key: groupingKey,
+      conflict_key: conflictKey,
+      supersedes_id: supersedesId,
+    };
+
+    if (historicalRateContext) {
+      historicalRateContextEvidence.push(normalizedEvidence);
+      continue;
+    }
+
     eligibleCandidateEvidence.push({
       raw,
-      ev: {
-        evidence_id: evId,
-        epistemic_label: "OBSERVED",
-        claim_or_fact: claimText,
-        category: truncateString(String(raw.category ?? "GENERAL"), 100, markTruncated),
-        source_type: truncateString(String(raw.source_type ?? "FACT"), 100, markTruncated),
-        available_at: raw.available_at as string,
-        occurrence_time: typeof raw.occurrence_time === "string" ? raw.occurrence_time : undefined,
-        metrics: sanitizedMetrics,
-        provenance: sanitizeProvenance(raw.provenance, markTruncated),
-        rank: typeof raw.rank === "number" ? raw.rank : undefined,
-        grouping_key: groupingKey,
-        conflict_key: conflictKey,
-        supersedes_id: supersedesId,
-      },
+      ev: normalizedEvidence,
     });
   }
 
@@ -1099,8 +1127,12 @@ export function assembleDossierV2InputPacket(
       || left.evidence_id.localeCompare(right.evidence_id))
     .slice(0, 3);
 
-  const rateContextEvidence = activeAdmittedEvidence
-    .filter((item) => isRateContextEvidence(item))
+  const rateContextEvidence = [...new Map(
+    [
+      ...activeAdmittedEvidence.filter((item) => isRateContextEvidence(item)),
+      ...historicalRateContextEvidence,
+    ].map((item) => [item.evidence_id, item] as const),
+  ).values()]
     .sort((left, right) =>
       right.available_at.localeCompare(left.available_at) ||
       left.evidence_id.localeCompare(right.evidence_id))
