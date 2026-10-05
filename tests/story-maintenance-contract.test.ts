@@ -19,6 +19,15 @@ const migrationPath = path.join(
   "20260823220916_existing_story_maintenance_contract_v1.sql",
 );
 const migration = fs.readFileSync(migrationPath, "utf8");
+const evidenceProvenanceMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase",
+    "migrations",
+    "20261005190500_story_maintenance_evidence_provenance.sql",
+  ),
+  "utf8",
+);
 const sqlContract = fs.readFileSync(
   path.join(root, "supabase", "tests", "existing_story_maintenance_contract.sql"),
   "utf8",
@@ -386,6 +395,15 @@ test("a later applied assessment makes an older pending assessment stale", () =>
   assert.match(migration, /newer\.applied_at is not null/);
   assert.match(migration, /row\(newer\.selected_at,newer\.created_at\)[\s\S]*row\(assessment\.selected_at,assessment\.created_at\)/);
   assert.match(migration, /Story assessment was superseded by a newer applied assessment/);
+});
+
+test("maintenance thesis snapshots distinguish reviewed Evidence from material-authorising Evidence", () => {
+  assert.match(evidenceProvenanceMigration, /assessment\.eligible_evidence_ids/);
+  assert.match(evidenceProvenanceMigration, /'eligibleIntelligenceEvidenceIds'/);
+  assert.match(evidenceProvenanceMigration, /alchemy\.story_maintenance_context/);
+  assert.match(migration, /version_snapshot := version_snapshot \|\| jsonb_build_object\('maintenanceContext', maintenance_context\)/);
+  assert.doesNotMatch(evidenceProvenanceMigration, /create table/i);
+  assert.doesNotMatch(evidenceProvenanceMigration, /insert into public\.story_thesis_versions/i);
 });
 
 test("maintenance versions preserve prior V1 reasoning and patch only lifecycle or criteria", () => {
