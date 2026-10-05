@@ -197,7 +197,8 @@ test("P1.2 Presenter prefers exact canonical Story reasoning and keeps Dossier f
   );
 
   assert.match(component, /canonicalByInvestigationId/);
-  assert.match(component, /canonical\?\.currentExplanation \?\? item\.provisionalConclusion/);
+  assert.match(component, /canonical\.currentExplanation \?\? "Canonical Story reasoning has not accepted a mechanism yet\."/);
+  assert.doesNotMatch(component, /canonical\?\.currentExplanation \?\? item\.provisionalConclusion/);
   assert.match(component, /canonical\.competingExplanations/);
   assert.match(component, /Hybrid does not revive older Dossier candidates/);
   assert.match(component, /canonical\.whatToInspectNext\.canonical/);
@@ -231,4 +232,31 @@ test("P1.2 Presenter canonical wiring remains read-only and edition-bound", () =
   assert.doesNotMatch(combined, /persistCanonicalStoryReasoning/);
   assert.doesNotMatch(combined, /apply_intelligence_story_assessment_v2/);
   assert.doesNotMatch(combined, /runIntelligenceEngine|executeResearchBrain/);
+});
+
+
+test("P2.3 Presenter renders exact canonical leading and alternative mechanisms with evidence IDs", () => {
+  const component = readFileSync(
+    new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(component, /canonical\.leadingExplanation/);
+  assert.match(component, /presenterRole: "LEADING"/);
+  assert.match(component, /presenterRole: "ALTERNATIVE"/);
+  assert.match(component, /canonical\.currentExplanationEvidenceIds\.join\(" · "\)/);
+  assert.match(component, /candidate\.evidenceForIds\.join\(" · "\)/);
+  assert.match(component, /candidate\.evidenceAgainstIds\.join\(" · "\)/);
+  assert.match(component, /candidate\.causalMechanism/);
+});
+
+test("P2.3 Presenter does not revive Dossier mechanism prose when canonical Story is unresolved", () => {
+  const component = readFileSync(
+    new URL("../components/live-desk/PresenterDivergenceJourney.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(component, /Canonical Story reasoning has not accepted a mechanism yet\./);
+  assert.match(component, /No accepted canonical mechanism is preserved in this Story version\./);
+  assert.doesNotMatch(component, /canonical\?\.currentExplanation \?\? item\.provisionalConclusion/);
 });
