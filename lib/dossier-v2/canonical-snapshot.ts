@@ -26,10 +26,6 @@ import {
   type TreasuryAuctionSnapshot,
 } from "../providers/treasury-auctions.ts";
 import {
-  fetchNyFedAcmTermPremium,
-  type NyFedAcmTermPremiumSnapshot,
-} from "../providers/ny-fed-acm-term-premium.ts";
-import {
   fetchBundesbankBund10,
   type BundesbankBund10Snapshot,
 } from "../providers/bundesbank-bund10.ts";
@@ -170,7 +166,6 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "us10y-real",
   "us10y-breakeven",
   "fed-funds-effective",
-  "move",
   "spx",
   "smh",
   "dxy",
@@ -1269,85 +1264,11 @@ export function augmentCandidateSnapshotWithEia(
   };
 }
 
-export function augmentCandidateSnapshotWithAcmTermPremium(
-  result: CanonicalSnapshotResult,
-  acm: NyFedAcmTermPremiumSnapshot,
-  options: LoadCanonicalSnapshotOptions,
-): CanonicalSnapshotResult {
-  const observed = [...(result.snapshot.observed_evidence ?? [])];
-
-  if (acm.status !== "UNAVAILABLE" && acm.latest) {
-    const latest = acm.latest;
-    const prior = acm.prior5Sessions;
-    const changeText = acm.change5dBp === null
-      ? ""
-      : `; five-session change ${acm.change5dBp >= 0 ? "+" : ""}${acm.change5dBp.toFixed(1)} bp`;
-
-    observed.push({
-      evidence_id: `ny-fed-acm:10y:${latest.date}`,
-      claim_or_fact: `The New York Fed ACM model estimated the 10-year Treasury term premium at ${latest.termPremium10yPct.toFixed(3)}% on ${latest.date}${changeText}. This is a model estimate published by the New York Fed, not an official estimate of the New York Fed, the Federal Reserve System, or the FOMC.`,
-      category: "RATES",
-      source_type: "VERIFIED_MACRO_DATA",
-      available_at: options.asOf,
-      occurrence_time: `${latest.date}T00:00:00.000Z`,
-      grouping_key: "rate-context:acm-term-premium",
-      rank: 11,
-      metrics: {
-        signal_kind: "term_structure_model",
-        signal_context: "acm_term_premium",
-        model: "Adrian-Crump-Moench",
-        series_id: "ACMTP10",
-        observed_value: latest.termPremium10yPct,
-        change_bps: acm.change5dBp,
-        prior_5_session_date: prior?.date ?? null,
-        prior_5_session_value: prior?.termPremium10yPct ?? null,
-        observation_date: latest.date,
-        provider_status: acm.status,
-        model_estimate_not_official_fed_estimate: true,
-      },
-      provenance: [{
-        source_type: "NY_FED_RESEARCH",
-        source_id: "ny-fed-acm:ACMTP10",
-        url: acm.sourceUrl,
-        publisher: acm.sourceName,
-      }],
-    });
-  }
-
-  return {
-    snapshot: {
-      ...result.snapshot,
-      observed_evidence: observed,
-      sources_status: {
-        ...(result.snapshot.sources_status ?? {}),
-        ny_fed_acm_term_premium: {
-          status: acm.status,
-          available_at: acm.fetchedAt,
-          message: acm.status === "UNAVAILABLE"
-            ? acm.warnings.join(" ") || "NY Fed ACM term-premium data were unavailable."
-            : `ACMTP10 ${acm.status === "STALE" ? "stale" : "current"} model estimate admitted from the New York Fed workbook${acm.change5dBp === null ? "; five-session change unavailable." : "."}`,
-        },
-      },
-    },
-    diagnostics: {
-      ...result.diagnostics,
-      observed_count: observed.length,
-    },
-  };
-}
-
 function treasuryAuctionAvailableAt(auctionDate: string) {
   // Fiscal Data exposes the auction date but not a machine-readable results
   // publication timestamp. Coupon results are intraday; use a conservative
   // 21:00Z same-day boundary and never admit the row before that timestamp.
   return `${auctionDate}T21:00:00.000Z`;
-}
-
-function treasurySupplyAvailableAt(announcementDate: string) {
-  // Fiscal Data exposes the announcement date but not the publication time.
-  // Use the same conservative 21:00Z boundary so a same-day Dossier cannot
-  // see an offering amount before Treasury announced it.
-  return `${announcementDate}T21:00:00.000Z`;
 }
 
 export function augmentCandidateSnapshotWithTreasuryAuctions(
@@ -1416,78 +1337,6 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
     }
   }
 
-  const supplyComparisons = auctions.couponSupply.comparisons.filter((item) => {
-    const availableMs = parseTimestamp(treasurySupplyAvailableAt(item.currentAnnouncementDate));
-    return asOfMs !== null && availableMs !== null && availableMs <= asOfMs;
-  });
-  const supplyAsOf = supplyComparisons
-    .map((item) => item.currentAnnouncementDate)
-    .sort()
-    .at(-1) ?? null;
-
-  if (supplyAsOf) {
-    const allCurrentUsd = supplyComparisons.reduce((sum, item) => sum + item.currentOfferingAmountUsd, 0);
-    const allPreviousUsd = supplyComparisons.reduce((sum, item) => sum + item.previousOfferingAmountUsd, 0);
-    const longEnd = supplyComparisons.filter((item) =>
-      item.securityTerm === "10-Year" || item.securityTerm === "20-Year" || item.securityTerm === "30-Year"
-    );
-    const longEndCurrentUsd = longEnd.reduce((sum, item) => sum + item.currentOfferingAmountUsd, 0);
-    const longEndPreviousUsd = longEnd.reduce((sum, item) => sum + item.previousOfferingAmountUsd, 0);
-    const currentBn = allCurrentUsd / 1_000_000_000;
-    const previousBn = allPreviousUsd / 1_000_000_000;
-    const longEndCurrentBn = longEndCurrentUsd / 1_000_000_000;
-    const longEndPreviousBn = longEndPreviousUsd / 1_000_000_000;
-    const longEndChangeBn = longEndCurrentBn - longEndPreviousBn;
-    const longEndTerms = longEnd
-      .map((item) => item.securityTerm)
-      .sort((left, right) => left.localeCompare(right));
-    const longEndScope = longEndTerms.length
-      ? longEndTerms.map((term) => term.replace("-Year", "Y")).join("/")
-      : null;
-    const termDetail = [...supplyComparisons]
-      .sort((a, b) => a.securityTerm.localeCompare(b.securityTerm))
-      .map((item) =>
-        `${item.securityTerm} ${(item.currentOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn vs ${(item.previousOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn prior`
-      )
-      .join("; ");
-    const availableAt = treasurySupplyAvailableAt(supplyAsOf);
-
-    observed.push({
-      evidence_id: `treasury-supply:coupon-sizes:${supplyAsOf}`,
-      claim_or_fact: `Treasury's latest announced nominal coupon offering sizes across ${supplyComparisons.length} comparable maturities total ${currentBn.toFixed(1)}bn USD versus ${previousBn.toFixed(1)}bn at the previous same-term auctions. ${longEndScope ? `Long-end ${longEndScope} offering comparisons total ${longEndCurrentBn.toFixed(1)}bn versus ${longEndPreviousBn.toFixed(1)}bn previously (change ${longEndChangeBn >= 0 ? "+" : ""}${longEndChangeBn.toFixed(1)}bn).` : "No comparable 10Y/20Y/30Y offering pair is available in this snapshot."} ${termDetail}. This is announced gross coupon issuance context only; it does not by itself establish net borrowing, auction absorption, term-premium direction, or yield direction.`,
-      category: "RATES",
-      source_type: "OFFICIAL_DATA",
-      available_at: availableAt,
-      occurrence_time: availableAt,
-      grouping_key: "rate-context:treasury-supply",
-      rank: 10,
-      metrics: {
-        signal_kind: "treasury_supply",
-        signal_context: "treasury_supply",
-        supply_measure: "announced_nominal_coupon_offering_sizes",
-        comparable_maturities: supplyComparisons.length,
-        observed_value: longEndCurrentBn,
-        previous_value: longEndPreviousBn,
-        measurement_unit: "USD billions",
-        all_coupon_current_usd_bn: currentBn,
-        all_coupon_previous_usd_bn: previousBn,
-        all_coupon_change_usd_bn: currentBn - previousBn,
-        long_end_current_usd_bn: longEndCurrentBn,
-        long_end_previous_usd_bn: longEndPreviousBn,
-        long_end_change_usd_bn: longEndChangeBn,
-        long_end_maturities_compared: longEnd.length,
-        long_end_terms_compared: longEndTerms.join(","),
-      },
-      provenance: [{
-        source_type: "US_TREASURY",
-        source_id: `fiscaldata-coupon-supply:${supplyAsOf}`,
-        url: auctions.sourceUrl,
-        publisher: auctions.sourceName,
-      }],
-    });
-    added += 1;
-  }
-
   const sourcesStatus = {
     ...(result.snapshot.sources_status ?? {}),
     treasury_auctions: {
@@ -1495,14 +1344,7 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
       available_at: auctions.asOf ? treasuryAuctionAvailableAt(auctions.asOf) : undefined,
       message: auctions.status === "UNAVAILABLE"
         ? auctions.warnings.join(" ") || "Official Treasury auction results were unavailable."
-        : `${auctions.auctions.length} recent nominal coupon Treasury auction result(s) available for official rate context. Auction tail remains unresolved without when-issued evidence.`,
-    },
-    treasury_coupon_supply: {
-      status: supplyAsOf ? auctions.couponSupply.status : "UNAVAILABLE",
-      available_at: supplyAsOf ? treasurySupplyAvailableAt(supplyAsOf) : undefined,
-      message: supplyAsOf
-        ? `${supplyComparisons.length} comparable announced nominal coupon offering-size pair(s) admitted as gross supply context; no deterministic yield-pressure verdict is assigned.`
-        : "Comparable announced nominal coupon offering sizes were unavailable by the Dossier as-of boundary.",
+        : `${added} recent nominal coupon Treasury auction result(s) admitted as official rate context. Auction tail remains unresolved without when-issued evidence.`,
     },
   };
 
@@ -1852,7 +1694,6 @@ export async function loadCanonicalCandidateSnapshot(
     dealerResult,
     treasuryBillsResult,
     treasuryAuctionsResult,
-    acmTermPremiumResult,
     japanJgbResult,
     treasuryTicResult,
     japanMofFlowsResult,
@@ -1869,10 +1710,6 @@ export async function loadCanonicalCandidateSnapshot(
     fetchNyFedPrimaryDealers(new Date(asOfMs)),
     fetchTreasuryBills(new Date(asOfMs)),
     fetchTreasuryAuctions(new Date(asOfMs)),
-    fetchNyFedAcmTermPremium({
-      asOf: new Date(asOfMs),
-      now: new Date(),
-    }),
     fetchJapanMofJgbYields(new Date(asOfMs)),
     fetchTreasuryTicTable5(),
     fetchJapanMofWeeklyFlows(),
@@ -1940,22 +1777,6 @@ export async function loadCanonicalCandidateSnapshot(
       dollar_liquidity_system1: {
         status: "WARNING",
         message: "One or more System 1 dollar-liquidity providers were unavailable; the classifier will fail closed to unresolved where necessary.",
-      },
-    };
-  }
-
-  if (acmTermPremiumResult.status === "fulfilled") {
-    result = augmentCandidateSnapshotWithAcmTermPremium(
-      result,
-      acmTermPremiumResult.value,
-      options,
-    );
-  } else {
-    result.snapshot.sources_status = {
-      ...(result.snapshot.sources_status ?? {}),
-      ny_fed_acm_term_premium: {
-        status: "UNAVAILABLE",
-        message: `NY Fed ACM term-premium enrichment failed closed: ${acmTermPremiumResult.reason instanceof Error ? acmTermPremiumResult.reason.message : String(acmTermPremiumResult.reason)}`,
       },
     };
   }

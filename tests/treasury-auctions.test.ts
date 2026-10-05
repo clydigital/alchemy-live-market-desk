@@ -24,7 +24,6 @@ function row(overrides: Record<string, string | null> = {}) {
     security_type: "Note",
     security_term: "10-Year",
     original_security_term: "10-Year",
-    announcement_date: "2026-09-23",
     auction_date: "2026-09-30",
     issue_date: "2026-10-05",
     maturity_date: "2036-09-30",
@@ -104,12 +103,11 @@ test("Treasury auction adapter keeps the latest nominal coupon result per maturi
 test("Treasury auction query is keyless, bounded and requests official result fields", () => {
   const url = treasuryAuctionQueryUrl(NOW);
   assert.match(url, /^https:\/\/api\.fiscaldata\.treasury\.gov\/services\/api\/fiscal_service\/v1\/accounting\/od\/auctions_query\?/);
-  assert.match(decodeURIComponent(url), /auction_date:gte:2026-06-06,auction_date:lte:2026-11-18/);
-  assert.match(decodeURIComponent(url), /announcement_date/);
+  assert.match(decodeURIComponent(url), /auction_date:gte:2026-08-20,auction_date:lte:2026-10-04/);
   assert.match(decodeURIComponent(url), /bid_to_cover_ratio/);
   assert.match(decodeURIComponent(url), /primary_dealer_accepted/);
   assert.match(decodeURIComponent(url), /comp_accepted/);
-  assert.match(decodeURIComponent(url), /page\[size\]=500/);
+  assert.match(decodeURIComponent(url), /page\[size\]=100/);
 });
 
 test("snapshot augmentation admits official auction facts without inventing a tail", () => {
@@ -220,210 +218,6 @@ test("official auction evidence survives packet assembly and reaches long-end re
   const diagnostic = buildRateLongEndDiagnostic(packet);
   assert.equal(diagnostic.marketStructure.auctionEvidenceRef, "treasury-auction:91282CZZ1:2026-09-30");
   assert.match(diagnostic.marketStructure.detail, /System 2 review/);
-});
-
-test("official announced coupon sizes create governed supply context without inventing yield direction", () => {
-  const snapshot = parseTreasuryAuctionSnapshot({
-    data: [
-      row({
-        cusip: "91282C10N",
-        security_term: "10-Year",
-        original_security_term: "10-Year",
-        announcement_date: "2026-10-01",
-        auction_date: "2026-10-08",
-        offering_amt: "43000000000",
-        high_yield: null,
-        bid_to_cover_ratio: null,
-        comp_accepted: null,
-        primary_dealer_accepted: null,
-        direct_bidder_accepted: null,
-        indirect_bidder_accepted: null,
-      }),
-      row({
-        cusip: "91282C10P",
-        security_term: "10-Year",
-        original_security_term: "10-Year",
-        announcement_date: "2026-09-03",
-        auction_date: "2026-09-10",
-        offering_amt: "39000000000",
-      }),
-      row({
-        cusip: "91281020N",
-        security_type: "Bond",
-        security_term: "20-Year",
-        original_security_term: "20-Year",
-        announcement_date: "2026-10-01",
-        auction_date: "2026-10-21",
-        offering_amt: "17000000000",
-        high_yield: null,
-        bid_to_cover_ratio: null,
-        comp_accepted: null,
-        primary_dealer_accepted: null,
-        direct_bidder_accepted: null,
-        indirect_bidder_accepted: null,
-      }),
-      row({
-        cusip: "91281020P",
-        security_type: "Bond",
-        security_term: "20-Year",
-        original_security_term: "20-Year",
-        announcement_date: "2026-09-10",
-        auction_date: "2026-09-17",
-        offering_amt: "13000000000",
-      }),
-      row({
-        cusip: "91281030N",
-        security_type: "Bond",
-        security_term: "30-Year",
-        original_security_term: "30-Year",
-        announcement_date: "2026-10-01",
-        auction_date: "2026-10-15",
-        offering_amt: "26000000000",
-        high_yield: null,
-        bid_to_cover_ratio: null,
-        comp_accepted: null,
-        primary_dealer_accepted: null,
-        direct_bidder_accepted: null,
-        indirect_bidder_accepted: null,
-      }),
-      row({
-        cusip: "91281030P",
-        security_type: "Bond",
-        security_term: "30-Year",
-        original_security_term: "30-Year",
-        announcement_date: "2026-09-03",
-        auction_date: "2026-09-10",
-        offering_amt: "22000000000",
-      }),
-    ],
-  }, NOW);
-
-  assert.equal(snapshot.couponSupply.status, "OK");
-  assert.equal(snapshot.couponSupply.asOf, "2026-10-01");
-  assert.equal(snapshot.couponSupply.comparisons.length, 3);
-  assert.equal(
-    snapshot.couponSupply.comparisons.find((item) => item.securityTerm === "10-Year")?.changeUsd,
-    4_000_000_000,
-  );
-
-  const augmented = augmentCandidateSnapshotWithTreasuryAuctions(
-    baseResult(),
-    snapshot,
-    { asOf: "2026-10-04T22:00:00.000Z" },
-  );
-  const supply = augmented.snapshot.observed_evidence?.find((item) =>
-    item.evidence_id === "treasury-supply:coupon-sizes:2026-10-01"
-  );
-  assert.ok(supply);
-  const metrics = (supply?.metrics ?? {}) as Record<string, unknown>;
-  assert.equal(supply?.source_type, "OFFICIAL_DATA");
-  assert.equal(metrics.signal_context, "treasury_supply");
-  assert.equal(metrics.supply_measure, "announced_nominal_coupon_offering_sizes");
-  assert.equal(metrics.observed_value, 86);
-  assert.equal(metrics.previous_value, 74);
-  assert.equal(metrics.long_end_change_usd_bn, 12);
-  assert.match(String(supply?.claim_or_fact ?? ""), /does not by itself establish net borrowing/i);
-
-  const packet = assembleDossierV2InputPacket(
-    { as_of: "2026-10-04T22:00:00.000Z" },
-    augmented.snapshot,
-  );
-  assert.ok(packet.rate_context?.evidence.some((item) =>
-    item.evidence_id === "treasury-supply:coupon-sizes:2026-10-01"
-  ));
-  assert.equal(
-    packet.observed_evidence.some((item) =>
-      item.evidence_id === "treasury-supply:coupon-sizes:2026-10-01"
-    ),
-    false,
-    "older supply context must remain protected rate memory rather than fresh news",
-  );
-  const diagnostic = buildRateLongEndDiagnostic(packet);
-  assert.equal(
-    diagnostic.marketStructure.treasurySupplyEvidenceRef,
-    "treasury-supply:coupon-sizes:2026-10-01",
-  );
-});
-
-test("partial long-end coupon coverage names only the maturities actually compared", () => {
-  const snapshot = parseTreasuryAuctionSnapshot({
-    data: [
-      row({
-        cusip: "91282C10N",
-        security_term: "10-Year",
-        original_security_term: "10-Year",
-        announcement_date: "2026-10-01",
-        auction_date: "2026-10-08",
-        offering_amt: "43000000000",
-        high_yield: null,
-        bid_to_cover_ratio: null,
-      }),
-      row({
-        cusip: "91282C10P",
-        security_term: "10-Year",
-        original_security_term: "10-Year",
-        announcement_date: "2026-09-03",
-        auction_date: "2026-09-10",
-        offering_amt: "39000000000",
-      }),
-    ],
-  }, NOW);
-
-  const augmented = augmentCandidateSnapshotWithTreasuryAuctions(
-    baseResult(),
-    snapshot,
-    { asOf: "2026-10-04T22:00:00.000Z" },
-  );
-  const supply = augmented.snapshot.observed_evidence?.find((item) =>
-    item.evidence_id === "treasury-supply:coupon-sizes:2026-10-01"
-  );
-  assert.ok(supply);
-  const metrics = (supply?.metrics ?? {}) as Record<string, unknown>;
-  assert.equal(metrics.long_end_maturities_compared, 1);
-  assert.equal(metrics.long_end_terms_compared, "10-Year");
-  assert.match(String(supply?.claim_or_fact ?? ""), /Long-end 10Y offering comparisons total 43\.0bn versus 39\.0bn/i);
-  assert.doesNotMatch(String(supply?.claim_or_fact ?? ""), /Long-end 10Y\/20Y\/30Y offerings/i);
-});
-
-test("same-day announced supply remains unavailable before the conservative announcement boundary", () => {
-  const snapshot = parseTreasuryAuctionSnapshot({
-    data: [
-      row({
-        cusip: "91282CSAME",
-        announcement_date: "2026-10-04",
-        auction_date: "2026-10-08",
-        offering_amt: "43000000000",
-        high_yield: null,
-        bid_to_cover_ratio: null,
-      }),
-      row({
-        cusip: "91282CPREV",
-        announcement_date: "2026-09-03",
-        auction_date: "2026-09-10",
-        offering_amt: "39000000000",
-      }),
-    ],
-  }, NOW);
-
-  const before = augmentCandidateSnapshotWithTreasuryAuctions(
-    baseResult(),
-    snapshot,
-    { asOf: "2026-10-04T19:00:00.000Z" },
-  );
-  assert.equal(
-    before.snapshot.observed_evidence?.some((item) => String(item.evidence_id ?? "").startsWith("treasury-supply:")),
-    false,
-  );
-
-  const after = augmentCandidateSnapshotWithTreasuryAuctions(
-    baseResult(),
-    snapshot,
-    { asOf: "2026-10-04T22:00:00.000Z" },
-  );
-  assert.equal(
-    after.snapshot.observed_evidence?.some((item) => item.evidence_id === "treasury-supply:coupon-sizes:2026-10-04"),
-    true,
-  );
 });
 
 test("Treasury auction acquisition fails closed", async () => {

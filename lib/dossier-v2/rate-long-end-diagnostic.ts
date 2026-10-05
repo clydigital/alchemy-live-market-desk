@@ -94,16 +94,6 @@ function signalContext(packet: DossierV2InputPacket, context: string) {
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
-function preferredTreasurySupply(packet: DossierV2InputPacket) {
-  return allEvidence(packet)
-    .filter((item) => metricString(item, "signal_context")?.toLowerCase() === "treasury_supply")
-    .sort((left, right) => {
-      const leftCoupon = metricString(left, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
-      const rightCoupon = metricString(right, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
-      return rightCoupon - leftCoupon || right.available_at.localeCompare(left.available_at);
-    })[0] ?? null;
-}
-
 function claimMatch(packet: DossierV2InputPacket, pattern: RegExp) {
   return allEvidence(packet)
     .filter((item) => pattern.test(item.claim_or_fact))
@@ -151,7 +141,7 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
   const real = monitor(packet, "us10y-real");
   const breakeven = monitor(packet, "us10y-breakeven");
   const termPremium = signalContext(packet, "term_premium") ?? signalContext(packet, "acm_term_premium");
-  const treasurySupply = preferredTreasurySupply(packet);
+  const treasurySupply = signalContext(packet, "treasury_supply");
   const dealers = latestByPrefix(packet, "system1-dollar:dealer-balance-sheet:");
   const auction = signalContext(packet, "treasury_auction")
     ?? claimMatch(packet, /\b(?:Treasury auction|auction tail|stop-through|bid-to-cover|indirect bidders?)\b/i);
@@ -244,11 +234,7 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
       failsDeliverMillions: failsDeliver,
       failsReceiveMillions: failsReceive,
       detail: [
-        treasurySupply
-          ? metricString(treasurySupply, "supply_measure") === "announced_nominal_coupon_offering_sizes"
-            ? "Official announced nominal coupon supply-volume evidence is present; market impact remains unresolved."
-            : "Treasury buyback/liquidity context is present; it is not net-supply evidence."
-          : "Treasury supply/buyback evidence is unresolved.",
+        treasurySupply ? "Current Treasury supply/buyback evidence is present." : "Treasury supply/buyback evidence is unresolved.",
         dealers ? `Dealer net Treasury position ${dealerPosition ?? "n/a"}m (WoW ${dealerPositionChange ?? "n/a"}m); fails deliver ${failsDeliver ?? "n/a"}m; fails receive ${failsReceive ?? "n/a"}m. Dealer direction remains intentionally uninterpreted.` : "Dealer balance-sheet evidence is unavailable.",
         auction ? "Current auction evidence is present for System 2 review." : "Structured auction evidence is missing.",
       ].join(" "),

@@ -37,24 +37,6 @@ test("Market Belief structured output is bound to the frozen Story obligation co
   assert.match(schema, /itemProperties\.storyId = \{ type: "string", enum: uniqueStoryIds \}/);
 });
 
-test("queue-backed Story review requires full queue ownership before System 2", () => {
-  assert.match(runtime, /partitionStoryReviewTargetsByQueueClaims/);
-  assert.match(runtime, /new Set\(claimed\.map\(\(row\) => row\.id\)\)/);
-  assert.match(runtime, /Story review target was only partially claimed; retry as one ownership unit\./);
-  assert.match(runtime, /story_review_queue_claim_incomplete/);
-  assert.match(runtime, /return ownership\.ownedTargets/);
-  assert.match(
-    runtime,
-    /const owned = await claimStoryReviewQueues\(engineRunId, selected\);[\s\S]*return freezeStoryReviewTargets\(owned\)/,
-  );
-});
-
-test("evidence-backed Story queue completion requires explicit trigger acknowledgement", () => {
-  assert.match(runtime, /storyAssessmentAcknowledgesQueuedEvidence\(evidenceIds, target\)/);
-  assert.match(runtime, /did not acknowledge every queued canonical trigger Evidence ID/);
-  assert.match(runtime, /reviewContext\.queueEvidenceIds is non-empty[\s\S]*include EVERY one of those IDs/);
-});
-
 test("creator-only queued Story wakes are resolved before Market Belief capacity is spent", () => {
   assert.match(runtime, /resolveCreatorOnlyStoryReviewQueues/);
   assert.match(runtime, /creatorOnlyNonMaterialStoryReview/);
@@ -93,7 +75,7 @@ test("frozen Story targets cannot be overwritten back to JSON null by a stale co
 });
 
 test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
-  assert.match(runtime, /freezeStoryReviewTargets\(owned\)/);
+  assert.match(runtime, /freezeStoryReviewTargets\(selected\)/);
   assert.match(hardeningMigration, /freeze_intelligence_story_review_targets/);
   assert.match(hardeningMigration, /jsonb_array_length\(p_targets\) > 4/);
   assert.match(hardeningMigration, /jsonb_typeof\(existing_targets\) is distinct from 'array'/);
@@ -127,59 +109,12 @@ test("unchanged and creator-only assessments advance freshness without rewriting
   assert.match(hardeningMigration, /if material_allowed then[\s\S]*update public\.stories story/);
 });
 
-test("persisted eligible Evidence IDs use the same canonical predicate as the runtime material gate", () => {
-  assert.match(runtime, /isCanonicalEligibleEvidence\(item\)/);
-  assert.doesNotMatch(runtime, /eligibleEvidenceIds = evidenceIds\.filter\(\(id\) => allowedEvidence\.get\(id\)\?\.evidenceClass !== "transcript"\)/);
-});
-
 test("automatic invalidation uses the strict evidence policy", () => {
   assert.match(hardeningMigration, /evidence\.evidence_class not in \('transcript', 'research_analysis'\)/);
   assert.match(hardeningMigration, /source\.source_tier <= 4/);
   assert.match(hardeningMigration, /assessment\.disposition <> 'invalidated'[\s\S]*has_tier_one_or_two[\s\S]*independent_groups >= 2/);
   assert.match(hardeningMigration, /when effective_status='invalidated' then 'archived'/);
   assert.match(hardeningMigration, /when effective_status='invalidated' then 'invalidated'/);
-});
-
-test("superseded queued Story Evidence is retired instead of becoming an unprocessable live request", () => {
-  assert.match(runtime, /intelligence_evidence\?select=id,freshness_status&id=in\.\(/);
-  assert.match(runtime, /requestedEvidenceFreshness/);
-  assert.match(runtime, /Requested canonical Evidence was superseded before Story review\./);
-  assert.match(runtime, /supersededQueueIds/);
-});
-
-test("Story apply-time ownership guard locks queue rows through transaction completion", () => {
-  const applyOwnershipMigration = fs.readFileSync(
-    path.join(root, "supabase", "migrations", "20261005185000_story_assessment_apply_ownership_guard.sql"),
-    "utf8",
-  );
-  assert.match(applyOwnershipMigration, /from public\.intelligence_reevaluation_queue queue[\s\S]*order by queue\.id[\s\S]*for update/);
-});
-
-test("Story apply-time queue ownership loss is recorded without consuming the assessment", () => {
-  assert.match(runtime, /isStoryQueueOwnershipLostBeforeApply/);
-  assert.match(runtime, /Story assessment lost queue ownership before apply/);
-  assert.match(runtime, /recordStoryQueueOwnershipLostBeforeApply/);
-  assert.match(runtime, /this assessment remains unapplied/);
-  assert.match(runtime, /story_review_queue_ownership_lost_before_apply/);
-  const recorder = runtime.match(/async function recordStoryQueueOwnershipLostBeforeApply[\s\S]*?\n}\n/)?.[0] ?? "";
-  assert.doesNotMatch(recorder, /applied_at:/);
-  assert.doesNotMatch(recorder, /intelligence_reevaluation_queue/);
-});
-
-test("stale frozen Story maintenance is blocked and its exact queue obligation is retried", () => {
-  assert.match(runtime, /IntelligenceDatabaseError/);
-  assert.match(runtime, /Stale Story maintenance assessment/);
-  assert.match(runtime, /resolveStaleStoryMaintenanceAssessment/);
-  assert.match(runtime, /must be retried against the current Story/);
-  assert.match(runtime, /status: "retryable"/);
-  assert.match(runtime, /claimed_by_engine_run_id: null/);
-  assert.match(runtime, /completed_at: null/);
-  assert.match(runtime, /Story changed after this review was frozen; retry against the current canonical Story thesis version\./);
-  assert.match(runtime, /stale_story_maintenance_requeued/);
-  assert.doesNotMatch(
-    runtime.match(/async function resolveStaleStoryMaintenanceAssessment[\s\S]*?async function persistStoryAssessments/)?.[0] ?? "",
-    /applied_at: resolvedAt/,
-  );
 });
 
 test("abandoned reevaluation queue claims recover without another cron", () => {

@@ -21,7 +21,6 @@ import type { JourneyStorySource } from "@/lib/intelligence/journey-briefing";
 import { startIntelligenceEngineRun } from "@/lib/intelligence/engine-run";
 import { OpenAIStageError, openAIIntelligenceEnabled, runStructuredStage } from "@/lib/intelligence/openai";
 import { buildStageFailurePersistencePayload } from "./openai-core.ts";
-import { IntelligenceDatabaseError } from "./database-error.ts";
 import {
   completedStageCheckpoints,
   hasReusableStagePayload,
@@ -83,11 +82,11 @@ import {
 } from "./candidate-evidence-contract.ts";
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
-import { isCanonicalEligibleEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, partitionStoryReviewTargetsByQueueClaims, planStoryReviewQueueHygiene, selectStoryReviewTargets, storyAssessmentAcknowledgesQueuedEvidence, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -388,7 +387,6 @@ First inspect researchAttention and freshEvidenceCandidates without looking at e
 For every cluster, score current materiality, momentum, cross-source or cross-asset breadth, and time urgency separately from confidence. Use verdict "recruit" when a current cluster deserves causal research now, "context" when it helps interpret recruited news, and "defer" when it is not presently decision-relevant. Scheduled-only calendar entries are not in this packet and must never be reconstructed.
 Then produce market beliefs only for recruited clusters. Every belief must cite its exact recruitmentClusterKeys and may cite only evidence in those clusters. Do not begin from persistent Story memory.
 Finally produce exactly one existing-Story assessment for every supplied storyReviewTargets item. Use only that target's maximum-ten relevantEvidence records. Allowed dispositions are unchanged, reinforced, weakened, reframed and invalidated.
-When reviewContext.queueEvidenceIds is non-empty, include EVERY one of those IDs in the Story assessment evidenceIds array, including for an unchanged disposition. This records that each explicit canonical trigger was actually considered; it does not mean each item supports the Story.
 An unchanged assessment advances freshness and may perform catalyst housekeeping only. It must not rewrite thesis, confidence, mechanism or market question.
 If reviewContext.catalystRecalibrationRequired is true, the current dated catalyst has already expired. Never repeat anything in reviewContext.expiredCatalysts as proposedNextCatalyst. Choose one valid future catalystCandidate when the supplied evidence supports it; otherwise return proposedNextCatalyst as null so PostgreSQL can clear the stale catalyst without changing thesis or confidence.
 If an expired event is embedded in the Story title or market question, reframe that wording only when the target's current canonical evidence supports the same durable underlying mechanism. Do not refresh a title merely because it sounds old, and do not manufacture a replacement event.
@@ -767,10 +765,9 @@ async function loadExplicitlyQueuedArchivedReviewContext() {
   const stories = await intelligenceRest<StoryRow[]>(
     `stories?select=${STORY_REGISTRY_FIELDS}&id=in.(${targetIds.join(",")})&status=eq.archived&order=updated_at.desc`,
   );
-  // Pin requested canonical Evidence for every explicit Story queue row,
-  // including active Stories. Archived Stories need an extra registry load, but
-  // active queued Stories have the same evidence-fidelity requirement.
+  const archivedStoryIds = new Set(stories.map((story) => story.id));
   const triggerEvidenceIds = unique(queued
+    .filter((item) => archivedStoryIds.has(item.target_id))
     .map((item) => item.requested_by_evidence_id)
     .filter((id): id is string => Boolean(id)));
   return { stories, triggerEvidenceIds };
@@ -1083,14 +1080,11 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
   ).catch(() => []);
 
   if (!rows.length) {
-    return { openRows: 0, targetCount: 0, cancelled: 0, duplicates: 0, alreadyApplied: 0, superseded: 0, aged: 0 };
+    return { openRows: 0, targetCount: 0, cancelled: 0, duplicates: 0, alreadyApplied: 0, aged: 0 };
   }
 
   const targetIds = unique(rows.map((row) => row.target_id).filter(Boolean));
-  const requestedEvidenceIds = unique(
-    rows.map((row) => row.requested_by_evidence_id).filter((id): id is string => Boolean(id)),
-  );
-  const [states, assessments, requestedEvidence] = await Promise.all([
+  const [states, assessments] = await Promise.all([
     targetIds.length
       ? intelligenceRest<Array<{ story_id: string; lifecycle_status: string }>>(
         "intelligence_story_states?select=story_id,lifecycle_status&story_id=in.(" + targetIds.join(",") + ")",
@@ -1099,18 +1093,10 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     intelligenceRest<Array<{ queue_ids: string[] | null; applied_at: string | null }>>(
       "intelligence_story_assessments?select=queue_ids,applied_at&applied_at=not.is.null&order=applied_at.desc&limit=400",
     ).catch(() => []),
-    requestedEvidenceIds.length
-      ? intelligenceRest<Array<{ id: string; freshness_status: string }>>(
-        "intelligence_evidence?select=id,freshness_status&id=in.(" + requestedEvidenceIds.join(",") + ")",
-      ).catch(() => [])
-      : Promise.resolve([]),
   ]);
 
   const storyStatuses = new Map(states.map((state) => [state.story_id, state.lifecycle_status]));
   const appliedQueueIds = new Set(assessments.flatMap((assessment) => assessment.queue_ids ?? []));
-  const requestedEvidenceFreshness = new Map(
-    requestedEvidence.map((item) => [item.id, item.freshness_status]),
-  );
   const queue: StoryReviewQueueItem[] = rows.map((row) => ({
     id: row.id,
     storyId: row.target_id,
@@ -1125,15 +1111,12 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     queue,
     storyStatuses,
     appliedQueueIds,
-    requestedEvidenceFreshness,
     now,
   });
 
-  const supersededQueueIds = new Set(plan.supersededEvidenceIds);
-  const ordinaryCancelIds = plan.cancelIds.filter((id) => !supersededQueueIds.has(id));
-  if (ordinaryCancelIds.length) {
+  if (plan.cancelIds.length) {
     await intelligenceRest(
-      "intelligence_reevaluation_queue?id=in.(" + ordinaryCancelIds.join(",") + ")&status=in.(pending,retryable)",
+      "intelligence_reevaluation_queue?id=in.(" + plan.cancelIds.join(",") + ")&status=in.(pending,retryable)",
       {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1146,21 +1129,6 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
       },
     );
   }
-  if (plan.supersededEvidenceIds.length) {
-    await intelligenceRest(
-      "intelligence_reevaluation_queue?id=in.(" + plan.supersededEvidenceIds.join(",") + ")&status=in.(pending,retryable)",
-      {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status: "cancelled",
-          completed_at: now.toISOString(),
-          last_error: "Requested canonical Evidence was superseded before Story review.",
-          updated_at: now.toISOString(),
-        }),
-      },
-    );
-  }
 
   const result = {
     openRows: rows.length,
@@ -1168,14 +1136,12 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     cancelled: plan.cancelIds.length,
     duplicates: plan.duplicateIds.length,
     alreadyApplied: plan.alreadyAppliedIds.length,
-    superseded: plan.supersededEvidenceIds.length,
     aged: plan.agedIds.length,
   };
   console.info(JSON.stringify({
     event: "story_reevaluation_queue_hygiene",
     ...result,
     cancelledQueueIds: plan.cancelIds,
-    supersededQueueIds: plan.supersededEvidenceIds,
     agedQueueIds: plan.agedIds.slice(0, 20),
   }));
   return result;
@@ -1192,47 +1158,12 @@ function validFrozenStoryReviewTargets(value: unknown): value is StoryReviewTarg
 
 async function claimStoryReviewQueues(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
   const queueIds = unique(targets.flatMap((target) => target.queueIds));
-  if (!queueIds.length) return targets;
-  const claimed = await intelligenceRest<Array<{ id: string }>>("rpc/claim_intelligence_story_reevaluations", {
+  if (!queueIds.length) return;
+  await intelligenceRest("rpc/claim_intelligence_story_reevaluations", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ p_engine_run_id: engineRunId, p_queue_ids: queueIds }),
   });
-  const ownership = partitionStoryReviewTargetsByQueueClaims(
-    targets,
-    new Set(claimed.map((row) => row.id)),
-  );
-
-  if (ownership.partialClaimIds.length) {
-    const releasedAt = new Date().toISOString();
-    await intelligenceRest(
-      "intelligence_reevaluation_queue?id=in.(" + ownership.partialClaimIds.join(",") + ")"
-        + "&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId)
-        + "&status=eq.processing",
-      {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status: "retryable",
-          claimed_by_engine_run_id: null,
-          available_at: releasedAt,
-          completed_at: null,
-          last_error: "Story review target was only partially claimed; retry as one ownership unit.",
-          updated_at: releasedAt,
-        }),
-      },
-    );
-  }
-
-  if (ownership.droppedStoryIds.length) {
-    console.info(JSON.stringify({
-      event: "story_review_queue_claim_incomplete",
-      engineRunId,
-      droppedStoryIds: ownership.droppedStoryIds,
-      releasedQueueIds: ownership.partialClaimIds,
-    }));
-  }
-  return ownership.ownedTargets;
 }
 
 async function loadOrCreateStoryReviewTargets(
@@ -1244,7 +1175,8 @@ async function loadOrCreateStoryReviewTargets(
   const frozen = currentIntelligenceInvocation()?.frozenInputs?.storyReviewTargets;
   if (validFrozenStoryReviewTargets(frozen)) {
     const persisted = structuredClone(frozen);
-    return claimStoryReviewQueues(engineRunId, persisted);
+    await claimStoryReviewQueues(engineRunId, persisted);
+    return persisted;
   }
   if (!stories.length) return freezeStoryReviewTargets([]) as Promise<StoryReviewTargetPackItem[]>;
 
@@ -1315,15 +1247,12 @@ async function loadOrCreateStoryReviewTargets(
     debt,
     now: new Date(analysisAsOf),
   });
-  const owned = await claimStoryReviewQueues(engineRunId, selected);
-  return freezeStoryReviewTargets(owned) as Promise<StoryReviewTargetPackItem[]>;
+  const persisted = await freezeStoryReviewTargets(selected) as StoryReviewTargetPackItem[];
+  await claimStoryReviewQueues(engineRunId, persisted);
+  return persisted;
 }
 
-async function markStoryReviewRetryable(
-  engineRunId: string,
-  targets: StoryReviewTargetPackItem[],
-  lastError = "The Market Belief response omitted or duplicated the required Story assessment.",
-) {
+async function markStoryReviewRetryable(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
   const queueIds = unique(targets.flatMap((target) => target.queueIds));
   if (!queueIds.length) return;
   await intelligenceRest("intelligence_reevaluation_queue?id=in.(" + queueIds.join(",") + ")&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId), {
@@ -1332,7 +1261,7 @@ async function markStoryReviewRetryable(
     body: JSON.stringify({
       status: "retryable",
       available_at: new Date(Date.now() + 15 * 60 * 1_000).toISOString(),
-      last_error: lastError,
+      last_error: "The Market Belief response omitted or duplicated the required Story assessment.",
       updated_at: new Date().toISOString(),
     }),
   });
@@ -1376,96 +1305,6 @@ async function resolveCreatorOnlyStoryReviewQueues(
   return resolved.length;
 }
 
-function isStaleStoryMaintenanceMutation(error: unknown) {
-  return error instanceof IntelligenceDatabaseError
-    && error.detail.includes("Stale Story maintenance assessment");
-}
-
-function isStoryQueueOwnershipLostBeforeApply(error: unknown) {
-  return error instanceof IntelligenceDatabaseError
-    && error.detail.includes("Story assessment lost queue ownership before apply");
-}
-
-async function recordStoryQueueOwnershipLostBeforeApply(input: {
-  assessmentId: string;
-  storyId: string;
-  engineRunId: string;
-  rationale: string;
-  queueIds: string[];
-}) {
-  await intelligenceRest(
-    "intelligence_story_assessments?id=eq." + encodeURIComponent(input.assessmentId)
-      + "&applied_at=is.null",
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        disposition: "unchanged",
-        rationale: input.rationale + " Story queue ownership changed before apply; this assessment remains unapplied.",
-        material_change_applied: false,
-      }),
-    },
-  );
-
-  console.info(JSON.stringify({
-    event: "story_review_queue_ownership_lost_before_apply",
-    engineRunId: input.engineRunId,
-    storyId: input.storyId,
-    assessmentId: input.assessmentId,
-    queueIds: input.queueIds,
-  }));
-}
-
-async function resolveStaleStoryMaintenanceAssessment(input: {
-  engineRunId: string;
-  assessmentId: string;
-  target: StoryReviewTargetPackItem;
-  rationale: string;
-}) {
-  const resolvedAt = new Date().toISOString();
-  await intelligenceRest(
-    "intelligence_story_assessments?id=eq." + encodeURIComponent(input.assessmentId)
-      + "&applied_at=is.null",
-    {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({
-        disposition: "unchanged",
-        rationale: input.rationale + " Story assessment was superseded by a newer canonical Story thesis version and must be retried against the current Story.",
-        material_change_applied: false,
-      }),
-    },
-  );
-
-  if (input.target.queueIds.length) {
-    await intelligenceRest(
-      "intelligence_reevaluation_queue?id=in.(" + input.target.queueIds.join(",") + ")"
-        + "&claimed_by_engine_run_id=eq." + encodeURIComponent(input.engineRunId)
-        + "&status=eq.processing",
-      {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          status: "retryable",
-          claimed_by_engine_run_id: null,
-          available_at: resolvedAt,
-          completed_at: null,
-          last_error: "Story changed after this review was frozen; retry against the current canonical Story thesis version.",
-          updated_at: resolvedAt,
-        }),
-      },
-    );
-  }
-
-  console.info(JSON.stringify({
-    event: "stale_story_maintenance_requeued",
-    engineRunId: input.engineRunId,
-    storyId: input.target.story.id,
-    assessmentId: input.assessmentId,
-    queueIds: input.target.queueIds,
-  }));
-}
-
 async function persistStoryAssessments(input: {
   engineRunId: string;
   stageRunId: string;
@@ -1488,18 +1327,7 @@ async function persistStoryAssessments(input: {
     const assessment = matches[0];
     const allowedEvidence = new Map(target.relevantEvidence.map((item) => [item.id, item]));
     const evidenceIds = unique(assessment.evidenceIds.filter((id) => allowedEvidence.has(id)));
-    if (!storyAssessmentAcknowledgesQueuedEvidence(evidenceIds, target)) {
-      await markStoryReviewRetryable(
-        input.engineRunId,
-        [target],
-        "The Market Belief assessment did not acknowledge every queued canonical trigger Evidence ID.",
-      );
-      continue;
-    }
-    const eligibleEvidenceIds = evidenceIds.filter((id) => {
-      const item = allowedEvidence.get(id);
-      return item ? isCanonicalEligibleEvidence(item) : false;
-    });
+    const eligibleEvidenceIds = evidenceIds.filter((id) => allowedEvidence.get(id)?.evidenceClass !== "transcript");
     const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
     const lastEvidenceAt = latestStoryEvidenceTimestamp(
@@ -1539,34 +1367,11 @@ async function persistStoryAssessments(input: {
     }
     const row = rows[0];
     if (!row || row.applied_at) continue;
-    try {
-      await intelligenceRest("rpc/apply_intelligence_story_assessment_v2", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({ p_assessment_id: row.id }),
-      });
-    } catch (error) {
-      if (isStaleStoryMaintenanceMutation(error)) {
-        await resolveStaleStoryMaintenanceAssessment({
-          engineRunId: input.engineRunId,
-          assessmentId: row.id,
-          target,
-          rationale: payload.rationale,
-        });
-        continue;
-      }
-      if (isStoryQueueOwnershipLostBeforeApply(error)) {
-        await recordStoryQueueOwnershipLostBeforeApply({
-          assessmentId: row.id,
-          storyId: target.story.id,
-          engineRunId: input.engineRunId,
-          rationale: payload.rationale,
-          queueIds: target.queueIds,
-        });
-        continue;
-      }
-      throw error;
-    }
+    await intelligenceRest("rpc/apply_intelligence_story_assessment_v2", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ p_assessment_id: row.id }),
+    });
   }
 }
 

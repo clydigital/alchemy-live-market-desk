@@ -63,7 +63,6 @@ export type StoryReviewTargetPackItem = {
     expiredCatalysts?: string[];
     catalystRecalibrationRequired?: boolean;
     triggerEvidenceIds: string[];
-    queueEvidenceIds?: string[];
     catalystCandidates: Array<{
       label: string;
       catalystRef: string | null;

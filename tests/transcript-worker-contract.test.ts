@@ -155,7 +155,7 @@ test("historical creator leads are backfilled into archived Story links through 
   assert.match(creatorLinkBackfillMigration, /on conflict \(story_id, evidence_id, evidence_role\) do nothing/);
 });
 
-test("explicit Story queues pin trigger Evidence for active and archived Stories", () => {
+test("queued archived review pins its trigger Evidence even when normal recruitment capacity would drop it", () => {
   assert.match(
     intelligenceRuntime,
     /requiredEvidenceIds = unique\(\[[\s\S]*canonicalisedEvidenceIds[\s\S]*queuedArchivedReview\.triggerEvidenceIds/,
@@ -163,10 +163,6 @@ test("explicit Story queues pin trigger Evidence for active and archived Stories
   assert.match(
     intelligenceRuntime,
     /intelligence_evidence\?id=in\.\(\$\{requiredIds\.join\(","\)\}\)&select=\$\{EVIDENCE_PACK_FIELDS\}/,
-  );
-  assert.doesNotMatch(
-    intelligenceRuntime,
-    /triggerEvidenceIds = unique\(queued[\s\S]*filter\(\(item\) => archivedStoryIds\.has\(item\.target_id\)\)/,
   );
   assert.match(
     intelligenceRuntime,

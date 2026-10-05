@@ -19,8 +19,7 @@
     "jose": "6.2.9",
     "next": "15.5.18",
     "react": "19.1.7",
-    "react-dom": "19.1.7",
-    "@e965/xlsx": "0.20.3"
+    "react-dom": "19.1.7"
   },
   "devDependencies": {
     "@types/node": "22.15.30",

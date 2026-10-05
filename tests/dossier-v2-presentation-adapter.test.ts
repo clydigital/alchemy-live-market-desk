@@ -915,3 +915,116 @@ test("presentation hides non-material refinement gaps and keeps material blocker
   assert.deepEqual(result.health.researchGaps.map((gap) => gap.id), ["gap-blocker"]);
   assert.equal(result.health.researchGaps[0]?.severity, "MATERIAL");
 });
+
+
+test("D5 decision packet exposes governed Story evidence, regime delta and reversal conditions", () => {
+  const previousOutput = output();
+  previousOutput.main_thread = {
+    ...previousOutput.main_thread,
+    answer: "Rates were restrictive but stable.",
+    regime_family: "MIXED_TRANSITION",
+  };
+  previousOutput.major_stories[0] = {
+    ...previousOutput.major_stories[0],
+    persistent_story_id: "11111111-1111-4111-8111-111111111111",
+    conclusion: "Energy pressure was contained.",
+    market_evidence: {
+      confirming: ["ev-wti-old"],
+      contradicting: [],
+      accelerating: [],
+      unresolved: [],
+    },
+  };
+
+  const currentOutput = output();
+  currentOutput.major_stories[0] = {
+    ...currentOutput.major_stories[0],
+    persistent_story_id: "11111111-1111-4111-8111-111111111111",
+    conclusion: "Energy pressure is accelerating.",
+    market_evidence: {
+      confirming: ["ev-wti"],
+      contradicting: ["ev-demand"],
+      accelerating: ["ev-ulsd"],
+      unresolved: [],
+    },
+  };
+
+  const previous = dossier("decision-prior", previousOutput);
+  const current = dossier("decision-current", currentOutput, previous.id);
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(result.decisionPacket?.basis, "DOSSIER_READ_MODEL");
+  assert.equal(result.decisionPacket?.state, "UPDATED");
+  assert.deepEqual(result.decisionPacket?.evidence, {
+    confirming: ["ev-wti"],
+    contradicting: ["ev-demand"],
+    accelerating: ["ev-ulsd"],
+  });
+  assert.deepEqual(result.decisionPacket?.regimeImpact, {
+    previous: "MIXED_TRANSITION",
+    current: "RATES_LED_TIGHTENING",
+    changed: true,
+  });
+  assert.equal(result.decisionPacket?.hybridImpact, null);
+  assert.equal(result.decisionPacket?.storyImpact[0].change, "UPDATED");
+  assert.equal(
+    result.decisionPacket?.storyImpact[0].persistentStoryId,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  assert.ok(
+    result.decisionPacket?.reversalConditions.includes(
+      currentOutput.main_thread.what_would_change_mind,
+    ),
+  );
+});
+
+test("D6 longitudinal adjudication grades exact reaction evidence without pretending to prove the whole thesis", () => {
+  const previousOutput = output();
+  previousOutput.investigations[0] = {
+    ...previousOutput.investigations[0],
+    expected_reaction: "Rates should rise after the trigger.",
+  };
+
+  const currentOutput = output();
+  currentOutput.investigations[0] = {
+    ...currentOutput.investigations[0],
+    expected_reaction: "Rates should rise after the trigger.",
+    observed_reaction: "Rates fell over the measured window.",
+    divergence: "MATERIAL",
+    observed_evidence: ["ev-trigger", "ev-market"],
+  };
+
+  const previous = dossier("adjudication-prior", previousOutput);
+  const current = dossier("adjudication-current", currentOutput, previous.id);
+  current.payload.system1_reaction_assessments = [{
+    check_id: "system1:d6:rates",
+    rule_id: "TEST_RULE",
+    trigger_evidence_id: "ev-trigger",
+    market_evidence_id: "ev-market",
+    instrument: "US02Y",
+    expected_direction: "UP",
+    observed_direction: "DOWN",
+    observed_change_pct: -0.4,
+    observed_instrument: "US02Y",
+    is_proxy: false,
+    reaction_window: "30m",
+    timing_precision: "INTRADAY",
+    relation: "DIVERGENT",
+    severity: "MEDIUM",
+  }];
+
+  const result = buildDossierV2Presentation(current, previous);
+
+  assert.equal(
+    result.longitudinalAdjudication?.previousDossierId,
+    previous.id,
+  );
+  assert.equal(
+    result.longitudinalAdjudication?.reactionOutcome,
+    "CONTRADICTED",
+  );
+  assert.equal(result.longitudinalAdjudication?.evaluatedExpectations, 1);
+  assert.equal(result.longitudinalAdjudication?.alignedExpectations, 0);
+  assert.equal(result.longitudinalAdjudication?.divergentExpectations, 1);
+  assert.equal(result.longitudinalAdjudication?.unresolvedExpectations, 0);
+});

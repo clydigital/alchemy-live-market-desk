@@ -1,7 +1,6 @@
 import { unstable_cache } from "next/cache";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
-import { fetchBarchartMoveSnapshot } from "@/lib/providers/barchart-move";
 
 export type MarketMonitorType =
   | "Major Index"
@@ -459,23 +458,8 @@ export const loadExtras = unstable_cache(async () => {
       .then((row) => ({ ...row, frequency: "monthly" as const }))
       .catch(() => null),
   ]);
-  const moveRow = await fetchBarchartMoveSnapshot()
-    .then((snapshot): RawSeries | null => snapshot.state === "ready"
-      ? {
-          id: "move",
-          symbol: snapshot.symbol,
-          label: "ICE BofA MOVE Index",
-          type: "Rates",
-          benchmark: null,
-          points: snapshot.points,
-          sourceName: snapshot.sourceName,
-          sourceUrl: snapshot.sourceUrl,
-          frequency: "daily",
-        }
-      : null)
-    .catch(() => null);
-  return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows, moveRow].filter((row): row is RawSeries => Boolean(row));
-}, ["alchemy-market-monitor-extras-v6"], { revalidate: EXTRA_REVALIDATE });
+  return [...extraRows, ...rateRows, ...creditRows, ...globalRateRows].filter((row): row is RawSeries => Boolean(row));
+}, ["alchemy-market-monitor-extras-v5"], { revalidate: EXTRA_REVALIDATE });
 
 export const loadCashAnchors = unstable_cache(async () => {
   const rows = await Promise.all([

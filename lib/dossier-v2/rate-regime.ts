@@ -137,16 +137,6 @@ function signalContextEvidence(
     .sort((left, right) => right.available_at.localeCompare(left.available_at))[0] ?? null;
 }
 
-function preferredTreasurySupplyEvidence(evidence: ObservedEvidence[]) {
-  return evidence
-    .filter((item) => metricString(item, "signal_context")?.toLowerCase() === "treasury_supply")
-    .sort((left, right) => {
-      const leftCoupon = metricString(left, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
-      const rightCoupon = metricString(right, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
-      return rightCoupon - leftCoupon || right.available_at.localeCompare(left.available_at);
-    })[0] ?? null;
-}
-
 function monitorEvidence(
   evidence: ObservedEvidence[],
   id: string,
@@ -262,7 +252,7 @@ export function buildDossierRateRegime(
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
-  const treasurySupply = preferredTreasurySupplyEvidence(evidence);
+  const treasurySupply = signalContextEvidence(evidence, "treasury_supply");
 
   const us2yLevel = metricNumber(us2y, "last");
   const us5yLevel = metricNumber(us5y, "last");
@@ -272,17 +262,12 @@ export function buildDossierRateRegime(
   const real10yLevel = metricNumber(real10y, "last");
   const breakevenLevel = metricNumber(breakeven10y, "last");
   const effrLevel = metricNumber(effectiveFedFunds, "last");
-  const treasurySupplyMeasure = metricString(treasurySupply, "supply_measure");
-  const treasurySupplyObserved = metricNumber(treasurySupply, "observed_value");
-  const treasurySupplyPrevious = metricNumber(treasurySupply, "previous_value");
-  const treasurySupplyChange = metricNumber(treasurySupply, "long_end_change_usd_bn");
-  const treasuryLongEndMaturitiesCompared = metricNumber(treasurySupply, "long_end_maturities_compared");
-  const treasuryLongEndTermsCompared = metricString(treasurySupply, "long_end_terms_compared");
-  const treasuryBuybackMultiple = treasurySupplyMeasure !== "announced_nominal_coupon_offering_sizes"
-    && treasurySupplyObserved !== null
-    && treasurySupplyPrevious !== null
-    && treasurySupplyPrevious > 0
-      ? treasurySupplyObserved / treasurySupplyPrevious
+  const treasuryBuybackMax = metricNumber(treasurySupply, "observed_value");
+  const treasuryBuybackPreviousMax = metricNumber(treasurySupply, "previous_value");
+  const treasuryBuybackMultiple = treasuryBuybackMax !== null
+    && treasuryBuybackPreviousMax !== null
+    && treasuryBuybackPreviousMax > 0
+      ? treasuryBuybackMax / treasuryBuybackPreviousMax
       : null;
 
   const us2y5dBp = bpChange(us2y);
@@ -389,28 +374,23 @@ export function buildDossierRateRegime(
     evidenceRefs: [us10y?.evidence_id, us20y?.evidence_id, us30y?.evidence_id].filter((value): value is string => Boolean(value)),
   };
 
-  // Gross announced coupon offering sizes are genuine Treasury supply facts,
-  // but their market effect still depends on cash needs, maturities, demand and
-  // absorption. Preserve the observation without turning it into a mechanical
-  // term-premium or yield-direction verdict. Legacy buyback context remains
-  // explicitly non-evidentiary for net supply direction.
-  const treasuryCouponSupplyObserved = treasurySupplyMeasure === "announced_nominal_coupon_offering_sizes"
-    && treasurySupplyObserved !== null
-    && treasurySupplyPrevious !== null;
-  const treasuryBuybackObserved = treasurySupplyMeasure !== "announced_nominal_coupon_offering_sizes"
-    && treasurySupply !== null
-    && treasurySupplyObserved !== null
-    && treasurySupplyPrevious !== null;
+  // Treasury buybacks are debt-management/liquidity operations, not a
+  // deterministic measure of net Treasury supply. Elevated long-end yields may
+  // coexist with a larger buyback, but that correlation does not identify the
+  // causal supply/term-premium channel. Keep buyback evidence visible to System
+  // 2 while leaving the deterministic supply direction unresolved until a
+  // governed fiscal-supply / auction rule is wired.
+  const treasuryBuybackObserved = treasurySupply !== null
+    && treasuryBuybackMax !== null
+    && treasuryBuybackPreviousMax !== null;
   const treasurySupplySignal: RateRegimeSignal = {
     key: "TREASURY_SUPPLY",
     label: "Treasury supply / liquidity",
     state: "UNRESOLVED",
     score: 0,
-    detail: treasuryCouponSupplyObserved
-      ? `Official announced ${treasuryLongEndMaturitiesCompared === null || treasuryLongEndMaturitiesCompared === 3 ? "10Y/20Y/30Y" : treasuryLongEndTermsCompared ? treasuryLongEndTermsCompared.split(",").map((term) => term.replace("-Year", "Y")).join("/") + " partial long-end" : "partial long-end"} nominal coupon offering sizes total ${treasurySupplyObserved.toFixed(1)}bn vs ${treasurySupplyPrevious.toFixed(1)}bn at the previous same-term auctions${treasurySupplyChange === null ? "" : ` (change ${treasurySupplyChange >= 0 ? "+" : ""}${treasurySupplyChange.toFixed(1)}bn)`}. This establishes gross issuance-volume context only; it does not deterministically establish net borrowing, auction absorption, term-premium direction, or yield direction.`
-      : treasuryBuybackObserved
-        ? `Long-end liquidity-support buyback maximum ${treasurySupplyObserved.toFixed(1)}bn vs ${treasurySupplyPrevious.toFixed(1)}bn previously${treasuryBuybackMultiple === null ? "" : ` (${treasuryBuybackMultiple.toFixed(1)}×)`}. This is debt-management/liquidity context only: it does not establish net supply pressure, term-premium direction, or tightening even when long-end yields are elevated. Treasury buybacks are not QE.`
-        : "No governed current fiscal-supply or auction rule is present in the bounded rate context; Treasury supply direction remains unresolved.",
+    detail: treasuryBuybackObserved
+      ? `Long-end liquidity-support buyback maximum ${treasuryBuybackMax.toFixed(1)}bn vs ${treasuryBuybackPreviousMax.toFixed(1)}bn previously${treasuryBuybackMultiple === null ? "" : ` (${treasuryBuybackMultiple.toFixed(1)}×)`}. This is debt-management/liquidity context only: it does not establish net supply pressure, term-premium direction, or tightening even when long-end yields are elevated. Treasury buybacks are not QE.`
+      : "No governed current fiscal-supply or auction rule is present in the bounded rate context; Treasury supply direction remains unresolved.",
     evidenceRefs: [treasurySupply?.evidence_id].filter((value): value is string => Boolean(value)),
   };
 

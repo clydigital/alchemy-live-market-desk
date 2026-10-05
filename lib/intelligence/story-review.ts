@@ -66,7 +66,6 @@ export type StoryReviewContext = {
   expiredCatalysts: string[];
   catalystRecalibrationRequired: boolean;
   triggerEvidenceIds: string[];
-  queueEvidenceIds?: string[];
   catalystCandidates: Array<{
     label: string;
     catalystRef: string | null;
@@ -110,7 +109,6 @@ export type StoryReviewQueueHygienePlan = {
   cancelIds: string[];
   duplicateIds: string[];
   alreadyAppliedIds: string[];
-  supersededEvidenceIds: string[];
   agedIds: string[];
 };
 
@@ -118,7 +116,6 @@ export function planStoryReviewQueueHygiene(input: {
   queue: StoryReviewQueueItem[];
   storyStatuses: ReadonlyMap<string, string>;
   appliedQueueIds: ReadonlySet<string>;
-  requestedEvidenceFreshness?: ReadonlyMap<string, string>;
   now: Date;
 }): StoryReviewQueueHygienePlan {
   const actionable = input.queue.filter((item) =>
@@ -152,20 +149,7 @@ export function planStoryReviewQueueHygiene(input: {
   }
   duplicateIds.sort();
 
-  const freshnessByEvidence = input.requestedEvidenceFreshness ?? new Map<string, string>();
-  const supersededEvidenceIds = actionable
-    .filter((item) =>
-      Boolean(item.requestedEvidenceId)
-      && freshnessByEvidence.get(item.requestedEvidenceId!) === "superseded"
-      && !alreadyApplied.has(item.id))
-    .map((item) => item.id)
-    .sort();
-
-  const cancelIds = [...new Set([
-    ...alreadyAppliedIds,
-    ...duplicateIds,
-    ...supersededEvidenceIds,
-  ])].sort();
+  const cancelIds = [...new Set([...alreadyAppliedIds, ...duplicateIds])].sort();
   const cancelled = new Set(cancelIds);
   const nowMs = input.now.getTime();
   const agedIds = actionable
@@ -187,7 +171,6 @@ export function planStoryReviewQueueHygiene(input: {
     cancelIds,
     duplicateIds,
     alreadyAppliedIds,
-    supersededEvidenceIds,
     agedIds,
   };
 }
@@ -215,35 +198,22 @@ function relevantEvidenceForStory(
   story: StoryReviewStory,
   evidence: EvidencePackItem[],
   links: StoryEvidenceLink[],
-  requestedEvidenceOrder: string[],
+  requestedEvidenceIds: Set<string>,
 ) {
-  const requestedEvidenceIds = new Set(requestedEvidenceOrder);
   const linkByEvidence = new Map(links.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link]));
-  const compare = (left: EvidencePackItem, right: EvidencePackItem) => {
-    const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
-    const rightRole = linkByEvidence.get(right.id)?.evidenceRole ?? "context";
-    return (EVIDENCE_ROLE_RANK[leftRole] ?? 9) - (EVIDENCE_ROLE_RANK[rightRole] ?? 9)
-      || left.sourceTier - right.sourceTier
-      || (milliseconds(right.eventAt) ?? 0) - (milliseconds(left.eventAt) ?? 0)
-      || left.id.localeCompare(right.id);
-  };
-  const eligible = evidence.filter((item) => requestedEvidenceIds.has(item.id)
-    || linkByEvidence.has(item.id)
-    || item.affectedTopics.includes(story.slug));
-  const eligibleById = new Map(eligible.map((item) => [item.id, item]));
-
-  // Explicit queue obligations own the bounded trigger slots. Preserve the
-  // deterministic queue scheduler order supplied by the caller; evidence role,
-  // source tier and recency rank only non-queued Story context.
-  const requested = requestedEvidenceOrder.flatMap((id) => {
-    const item = eligibleById.get(id);
-    return item ? [item] : [];
-  });
-  const context = eligible
-    .filter((item) => !requestedEvidenceIds.has(item.id))
-    .sort(compare);
-
-  return [...requested, ...context].slice(0, MAX_STORY_REVIEW_EVIDENCE);
+  return evidence
+    .filter((item) => requestedEvidenceIds.has(item.id)
+      || linkByEvidence.has(item.id)
+      || item.affectedTopics.includes(story.slug))
+    .sort((left, right) => {
+      const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
+      const rightRole = linkByEvidence.get(right.id)?.evidenceRole ?? "context";
+      return (EVIDENCE_ROLE_RANK[leftRole] ?? 9) - (EVIDENCE_ROLE_RANK[rightRole] ?? 9)
+        || left.sourceTier - right.sourceTier
+        || (milliseconds(right.eventAt) ?? 0) - (milliseconds(left.eventAt) ?? 0)
+        || left.id.localeCompare(right.id);
+    })
+    .slice(0, MAX_STORY_REVIEW_EVIDENCE);
 }
 
 export function selectStoryReviewTargets(input: {
@@ -261,28 +231,20 @@ export function selectStoryReviewTargets(input: {
       && ["pending", "retryable"].includes(item.status)
       && (milliseconds(item.availableAt) ?? 0) <= nowMs);
     const dormant = ["archived", "invalidated", "discarded"].includes(story.status.toLowerCase());
+    if (dormant && !availableQueue.length) return [];
     const linkRoles = new Map(input.evidenceLinks.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link.evidenceRole]));
-    const requestedEvidenceOrder = [...new Set(
-      [...availableQueue]
-        .filter((item) => Boolean(item.requestedEvidenceId))
-        .sort((left, right) =>
-          right.priority - left.priority
-          || (milliseconds(left.createdAt) ?? 0) - (milliseconds(right.createdAt) ?? 0)
-          || left.id.localeCompare(right.id))
-        .map((item) => item.requestedEvidenceId as string),
-    )];
-    const requestedEvidenceIds = new Set(requestedEvidenceOrder);
+    const requestedEvidenceIds = new Set(
+      availableQueue
+        .map((item) => item.requestedEvidenceId)
+        .filter((id): id is string => Boolean(id)),
+    );
     const lastEvaluated = milliseconds(story.lastEvaluatedAt) ?? 0;
     const relevantEvidence = relevantEvidenceForStory(
       story,
       input.evidence,
       input.evidenceLinks,
-      requestedEvidenceOrder,
+      requestedEvidenceIds,
     );
-    const packedEvidenceIds = new Set(relevantEvidence.map((item) => item.id));
-    const processableQueue = availableQueue.filter((item) =>
-      !item.requestedEvidenceId || packedEvidenceIds.has(item.requestedEvidenceId));
-    if (dormant && !processableQueue.length) return [];
     const fresh = relevantEvidence.filter((item) => (milliseconds(item.eventAt ?? item.publishedAt) ?? 0) > lastEvaluated);
     const relevantDebt = input.debt.filter((debt) => debt.storyId === story.id && debt.status === "open");
     // Production obligations historically use both high and critical severity.
@@ -314,7 +276,7 @@ export function selectStoryReviewTargets(input: {
       }),
     ];
     const reasons: StoryReviewReason[] = [];
-    if (processableQueue.length) reasons.push("explicit_queue");
+    if (availableQueue.length) reasons.push("explicit_queue");
     if (catalystRecalibrationRequired) reasons.push("catalyst_expired");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");
     if (overdueCriticalDebt.length) reasons.push("overdue_critical_debt");
@@ -326,7 +288,7 @@ export function selectStoryReviewTargets(input: {
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
     const reviewContext: StoryReviewContext = {
-      queueReasons: [...new Set(processableQueue.map((item) => item.reason).filter(Boolean))],
+      queueReasons: [...new Set(availableQueue.map((item) => item.reason).filter(Boolean))],
       researchDebt: relevantDebt.map((debt) => ({
         debtKey: debt.debtKey,
         severity: debt.severity,
@@ -339,35 +301,22 @@ export function selectStoryReviewTargets(input: {
       catalystRecalibrationRequired,
       triggerEvidenceIds: [...new Set([
         ...fresh.map((item) => item.id),
-        ...relevantEvidence
-          .filter((item) => requestedEvidenceIds.has(item.id))
-          .map((item) => item.id),
+        ...requestedEvidenceIds,
       ])],
-      queueEvidenceIds: [...new Set(
-        processableQueue
-          .map((item) => item.requestedEvidenceId)
-          .filter((id): id is string => Boolean(id)),
-      )],
       catalystCandidates,
     };
-    const queuePriority = Math.max(0, ...processableQueue.map((item) => item.priority));
-    const priorityQueue = processableQueue.filter((item) => item.priority === queuePriority);
-    const dueAt = priorityQueue
-      .map((item) => milliseconds(item.createdAt) ?? nowMs)
-      .sort((left, right) => left - right)[0]
-      ?? lastEvaluated;
-
     return [{
       story,
       reason,
       reasonRank: REASON_RANK[reason],
       reasons: [...new Set(reasons)].sort((left, right) => REASON_RANK[left] - REASON_RANK[right]),
-      queueIds: processableQueue.map((item) => item.id).sort(),
+      queueIds: availableQueue.map((item) => item.id).sort(),
       relevantEvidence,
       selectedAt: input.now.toISOString(),
       reviewContext,
-      queuePriority,
-      dueAt,
+      queuePriority: Math.max(0, ...availableQueue.map((item) => item.priority)),
+      dueAt: availableQueue.map((item) => milliseconds(item.createdAt) ?? nowMs).sort((a, b) => a - b)[0]
+        ?? lastEvaluated,
     } as StoryReviewTargetPackItem & { reviewContext: StoryReviewContext; queuePriority: number; dueAt: number }];
   });
 
@@ -391,35 +340,6 @@ export function selectStoryReviewTargets(input: {
   return selected.map(({ queuePriority: _queuePriority, dueAt: _dueAt, ...target }) => target);
 }
 
-export function partitionStoryReviewTargetsByQueueClaims(
-  targets: StoryReviewTargetPackItem[],
-  claimedQueueIds: ReadonlySet<string>,
-) {
-  const ownedTargets: StoryReviewTargetPackItem[] = [];
-  const partialClaimIds = new Set<string>();
-  const droppedStoryIds: string[] = [];
-
-  for (const target of targets) {
-    if (!target.queueIds.length) {
-      ownedTargets.push(target);
-      continue;
-    }
-    const claimedForTarget = target.queueIds.filter((id) => claimedQueueIds.has(id));
-    if (claimedForTarget.length === target.queueIds.length) {
-      ownedTargets.push(target);
-      continue;
-    }
-    for (const id of claimedForTarget) partialClaimIds.add(id);
-    droppedStoryIds.push(target.story.id);
-  }
-
-  return {
-    ownedTargets,
-    partialClaimIds: [...partialClaimIds].sort(),
-    droppedStoryIds: [...new Set(droppedStoryIds)].sort(),
-  };
-}
-
 function independentGroup(item: EvidencePackItem) {
   return item.ancestryGroupId || `source:${item.sourceName.trim().toLowerCase()}`;
 }
@@ -440,16 +360,6 @@ export function creatorOnlyNonMaterialStoryReview(target: StoryReviewTargetPackI
   if ((context.dueCatalysts?.length ?? 0) > 0) return false;
   if ((context.researchDebt?.length ?? 0) > 0) return false;
   return target.relevantEvidence.every((item) => item.evidenceClass === "transcript");
-}
-
-export function storyAssessmentAcknowledgesQueuedEvidence(
-  evidenceIds: string[],
-  target: StoryReviewTargetPackItem,
-) {
-  const required = target.reviewContext?.queueEvidenceIds ?? [];
-  if (!required.length) return true;
-  const acknowledged = new Set(evidenceIds);
-  return required.every((id) => acknowledged.has(id));
 }
 
 export function materialAssessmentHasEligibleEvidence(
