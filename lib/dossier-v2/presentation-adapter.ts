@@ -311,6 +311,19 @@ export type DossierPresentationEvidenceRef = {
   usedIn: string[];
 };
 
+export type DossierPresentationMotionRegimeContext = {
+  motionId: string;
+  decision: "ACCEPT" | "REFINE";
+  regimeSlug: string;
+  storyId: string | null;
+  conclusion: string;
+  rationale: string;
+  nextTest: string | null;
+  canonicalEvidenceRefs: string[];
+  observedAt: string | null;
+  versionNumber: number | null;
+};
+
 export type DossierPresentationMemory = {
   state: "AVAILABLE" | "PARTIAL" | "MISSING" | "BROKEN_LINEAGE";
   structuralPredecessorId: string | null;
@@ -367,6 +380,12 @@ export type DossierPresentationV1 = {
   thesisChanges: DossierPresentationThesisChange[];
 
   evidenceIndex: DossierPresentationEvidenceRef[];
+  /**
+   * Exact immutable Dossier System-2 Motion judgements that explicitly target
+   * a Regime. New Dossiers always emit this; optional keeps historical callers
+   * and fixtures replay-compatible.
+   */
+  motionRegimeContext?: DossierPresentationMotionRegimeContext[];
   evidenceGovernance?: DossierEvidenceGovernanceSnapshot | null;
   evidenceSufficiency?: DossierEvidenceSufficiencySnapshot;
 
@@ -407,6 +426,76 @@ function analyticalOutput(dossier: MarketDossierV2): ResearchBrainOutputV1 {
   }
 
   return value as unknown as ResearchBrainOutputV1;
+}
+
+export function buildDossierMotionRegimeContext(
+  dossier: MarketDossierV2,
+  output: ResearchBrainOutputV1,
+): DossierPresentationMotionRegimeContext[] {
+  const snapshot = isObject(dossier.payload.motion_context_snapshot)
+    ? dossier.payload.motion_context_snapshot
+    : null;
+  const rawItems = snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+  const byMotionId = new Map<string, Record<string, unknown>>();
+
+  for (const raw of rawItems) {
+    if (!isObject(raw)) continue;
+    const motionId = typeof raw.motion_id === "string" ? raw.motion_id.trim() : "";
+    const regimeSlug = typeof raw.primary_regime_slug === "string"
+      ? raw.primary_regime_slug.trim()
+      : "";
+    if (!motionId || !regimeSlug || byMotionId.has(motionId)) continue;
+    byMotionId.set(motionId, raw);
+  }
+
+  const decisions = Array.isArray(output.motion_acceptance?.decisions)
+    ? output.motion_acceptance!.decisions
+    : [];
+
+  return decisions.flatMap((decision) => {
+    if (decision.decision !== "ACCEPT" && decision.decision !== "REFINE") return [];
+    if (!decision.destination_refs.includes("REGIME:CURRENT")) return [];
+
+    const motion = byMotionId.get(decision.motion_id);
+    if (!motion) return [];
+
+    const regimeSlug = typeof motion.primary_regime_slug === "string"
+      ? motion.primary_regime_slug.trim()
+      : "";
+    const conclusion = typeof decision.conclusion === "string"
+      ? decision.conclusion.trim()
+      : "";
+    if (!regimeSlug || !conclusion) return [];
+
+    const storyId = typeof motion.primary_story_id === "string"
+      ? motion.primary_story_id.trim() || null
+      : null;
+    const observedAt = typeof motion.observed_at === "string"
+      ? motion.observed_at.trim() || null
+      : null;
+    const versionNumber =
+      typeof motion.version_number === "number" && Number.isFinite(motion.version_number)
+        ? motion.version_number
+        : null;
+
+    return [{
+      motionId: decision.motion_id,
+      decision: decision.decision,
+      regimeSlug,
+      storyId,
+      conclusion,
+      rationale: decision.rationale.trim(),
+      nextTest: decision.next_test?.trim() || null,
+      canonicalEvidenceRefs: [...new Set(
+        decision.canonical_evidence_refs.map((ref) => ref.trim()).filter(Boolean),
+      )].sort(),
+      observedAt,
+      versionNumber,
+    }];
+  }).sort((left, right) =>
+    left.regimeSlug.localeCompare(right.regimeSlug)
+    || left.motionId.localeCompare(right.motionId)
+  );
 }
 
 function evidenceStates(dossier: MarketDossierV2): DossierPresentationEvidenceState[] {
@@ -1459,6 +1548,7 @@ export function buildDossierV2Presentation(
         : thesisChanges(output, previousOutput),
 
     evidenceIndex: evidenceIndex(output),
+    motionRegimeContext: buildDossierMotionRegimeContext(dossier, output),
     evidenceGovernance: governance,
     evidenceSufficiency: buildDossierEvidenceSufficiency({
       current: output,
