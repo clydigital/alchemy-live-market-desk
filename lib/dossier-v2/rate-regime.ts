@@ -137,6 +137,16 @@ function signalContextEvidence(
     .sort((left, right) => right.available_at.localeCompare(left.available_at))[0] ?? null;
 }
 
+function preferredTreasurySupplyEvidence(evidence: ObservedEvidence[]) {
+  return evidence
+    .filter((item) => metricString(item, "signal_context")?.toLowerCase() === "treasury_supply")
+    .sort((left, right) => {
+      const leftCoupon = metricString(left, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
+      const rightCoupon = metricString(right, "supply_measure") === "announced_nominal_coupon_offering_sizes" ? 1 : 0;
+      return rightCoupon - leftCoupon || right.available_at.localeCompare(left.available_at);
+    })[0] ?? null;
+}
+
 function monitorEvidence(
   evidence: ObservedEvidence[],
   id: string,
@@ -252,7 +262,7 @@ export function buildDossierRateRegime(
   const real10y = monitorEvidence(evidence, "us10y-real");
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
-  const treasurySupply = signalContextEvidence(evidence, "treasury_supply");
+  const treasurySupply = preferredTreasurySupplyEvidence(evidence);
 
   const us2yLevel = metricNumber(us2y, "last");
   const us5yLevel = metricNumber(us5y, "last");
@@ -266,6 +276,8 @@ export function buildDossierRateRegime(
   const treasurySupplyObserved = metricNumber(treasurySupply, "observed_value");
   const treasurySupplyPrevious = metricNumber(treasurySupply, "previous_value");
   const treasurySupplyChange = metricNumber(treasurySupply, "long_end_change_usd_bn");
+  const treasuryLongEndMaturitiesCompared = metricNumber(treasurySupply, "long_end_maturities_compared");
+  const treasuryLongEndTermsCompared = metricString(treasurySupply, "long_end_terms_compared");
   const treasuryBuybackMultiple = treasurySupplyMeasure !== "announced_nominal_coupon_offering_sizes"
     && treasurySupplyObserved !== null
     && treasurySupplyPrevious !== null
@@ -395,7 +407,7 @@ export function buildDossierRateRegime(
     state: "UNRESOLVED",
     score: 0,
     detail: treasuryCouponSupplyObserved
-      ? `Official announced 10Y/20Y/30Y nominal coupon offering sizes total ${treasurySupplyObserved.toFixed(1)}bn vs ${treasurySupplyPrevious.toFixed(1)}bn at the previous same-term auctions${treasurySupplyChange === null ? "" : ` (change ${treasurySupplyChange >= 0 ? "+" : ""}${treasurySupplyChange.toFixed(1)}bn)`}. This establishes gross issuance-volume context only; it does not deterministically establish net borrowing, auction absorption, term-premium direction, or yield direction.`
+      ? `Official announced ${treasuryLongEndMaturitiesCompared === 3 ? "10Y/20Y/30Y" : treasuryLongEndTermsCompared ? treasuryLongEndTermsCompared.split(",").map((term) => term.replace("-Year", "Y")).join("/") + " partial long-end" : "partial long-end"} nominal coupon offering sizes total ${treasurySupplyObserved.toFixed(1)}bn vs ${treasurySupplyPrevious.toFixed(1)}bn at the previous same-term auctions${treasurySupplyChange === null ? "" : ` (change ${treasurySupplyChange >= 0 ? "+" : ""}${treasurySupplyChange.toFixed(1)}bn)`}. This establishes gross issuance-volume context only; it does not deterministically establish net borrowing, auction absorption, term-premium direction, or yield direction.`
       : treasuryBuybackObserved
         ? `Long-end liquidity-support buyback maximum ${treasurySupplyObserved.toFixed(1)}bn vs ${treasurySupplyPrevious.toFixed(1)}bn previously${treasuryBuybackMultiple === null ? "" : ` (${treasuryBuybackMultiple.toFixed(1)}×)`}. This is debt-management/liquidity context only: it does not establish net supply pressure, term-premium direction, or tightening even when long-end yields are elevated. Treasury buybacks are not QE.`
         : "No governed current fiscal-supply or auction rule is present in the bounded rate context; Treasury supply direction remains unresolved.",
