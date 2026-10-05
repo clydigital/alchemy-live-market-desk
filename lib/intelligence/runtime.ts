@@ -3126,7 +3126,14 @@ export async function runIntelligenceEngine({
     });
     await persistStoryAssessments({ engineRunId, stageRunId: beliefStage.stageRunId, output: beliefStage.data, targets: modelStoryReviewTargets });
     if (maintenanceOnly) {
-      warnings.push(`Story maintenance-only run completed after Market Belief for ${storyReviewTargets.length} target(s); downstream reasoning and publication were intentionally skipped.`);
+      if (!dryRun) {
+        const regimeShadow = await persistRegimeShadowProjectionSafely({
+          trigger: "story_engine",
+          triggerRef: engineRunId,
+        });
+        warnings.push(...regimeShadow.warnings.map((warning) => `Regime shadow: ${warning}`));
+      }
+      warnings.push(`Story maintenance-only run completed after Market Belief for ${storyReviewTargets.length} target(s); downstream reasoning and publication were intentionally skipped after Regime projection.`);
       await persistEarlyEngineCompletion({
         engineRunId,
         dryRun,

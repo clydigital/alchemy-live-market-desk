@@ -65,16 +65,19 @@ test("creator-only queued Story wakes are resolved before Market Belief capacity
   assert.match(runtime, /no model-required Story review after deterministic creator-only triage/);
 });
 
-test("maintenance-only engine stops after canonical Story assessment without downstream reasoning or publication", () => {
+test("maintenance-only engine projects accepted Story state into Regimes then stops before downstream reasoning/publication", () => {
   assert.match(runtime, /maintenanceOnly = false/);
   assert.match(runtime, /maintenanceOnly\?: boolean/);
   assert.match(runtime, /if \(maintenanceOnly && !modelStoryReviewTargets\.length\)/);
   assert.match(
     runtime,
-    /persistStoryAssessments\([\s\S]*if \(maintenanceOnly\)[\s\S]*persistEarlyEngineCompletion/,
+    /persistStoryAssessments\([\s\S]*if \(maintenanceOnly\)[\s\S]*persistRegimeShadowProjectionSafely\([\s\S]*persistEarlyEngineCompletion/,
   );
   const maintenanceBlock = runtime.match(/if \(maintenanceOnly\) \{[\s\S]*?return \{[\s\S]*?warnings,[\s\S]*?\};[\s\S]*?\}/)?.[0] ?? "";
-  assert.doesNotMatch(maintenanceBlock, /stageKey: "divergence"|stageKey: "hypothesis"|persistDailyBrief/);
+  assert.match(maintenanceBlock, /if \(!dryRun\)/);
+  assert.match(maintenanceBlock, /persistRegimeShadowProjectionSafely\(\{[\s\S]*trigger: "story_engine",[\s\S]*triggerRef: engineRunId/);
+  assert.match(maintenanceBlock, /downstream reasoning and publication were intentionally skipped after Regime projection/);
+  assert.doesNotMatch(maintenanceBlock, /stageKey: "divergence"|stageKey: "hypothesis"|stageKey: "story_synthesis"|persistDailyBrief/);
 });
 
 test("frozen Story targets cannot be overwritten back to JSON null by a stale continuation", () => {
