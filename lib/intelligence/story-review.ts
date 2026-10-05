@@ -350,6 +350,13 @@ export function selectStoryReviewTargets(input: {
       )],
       catalystCandidates,
     };
+    const queuePriority = Math.max(0, ...processableQueue.map((item) => item.priority));
+    const priorityQueue = processableQueue.filter((item) => item.priority === queuePriority);
+    const dueAt = priorityQueue
+      .map((item) => milliseconds(item.createdAt) ?? nowMs)
+      .sort((left, right) => left - right)[0]
+      ?? lastEvaluated;
+
     return [{
       story,
       reason,
@@ -359,9 +366,8 @@ export function selectStoryReviewTargets(input: {
       relevantEvidence,
       selectedAt: input.now.toISOString(),
       reviewContext,
-      queuePriority: Math.max(0, ...processableQueue.map((item) => item.priority)),
-      dueAt: processableQueue.map((item) => milliseconds(item.createdAt) ?? nowMs).sort((a, b) => a - b)[0]
-        ?? lastEvaluated,
+      queuePriority,
+      dueAt,
     } as StoryReviewTargetPackItem & { reviewContext: StoryReviewContext; queuePriority: number; dueAt: number }];
   });
 
