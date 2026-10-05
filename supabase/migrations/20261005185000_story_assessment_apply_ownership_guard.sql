@@ -45,6 +45,14 @@ begin
     return new;
   end if;
 
+  -- Hold the queue rows through the rest of the apply transaction so ownership
+  -- cannot change between this validation and the canonical queue-completion update.
+  perform 1
+  from public.intelligence_reevaluation_queue queue
+  where queue.id = any(coalesce(new.queue_ids, '{}'::uuid[]))
+  order by queue.id
+  for update;
+
   if exists (
     select 1
     from unnest(coalesce(new.queue_ids, '{}'::uuid[])) assessment_queue(queue_id)
