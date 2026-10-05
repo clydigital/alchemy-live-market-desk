@@ -6,9 +6,9 @@ import { useMemo, useState } from "react";
 import RegimeUnderstandLiveBridge from "./RegimeUnderstandLiveBridge";
 import RateRegimeEducationalShell from "./RateRegimeEducationalShell";
 
-import { buildDivergenceLabPresentation } from "@/lib/divergence-lab-presentation";
 import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
-import { investigationMatchesRegimeSubgroup, type RoutedDossierInvestigation } from "@/lib/regime-investigations";
+import { buildRegimeDivergenceLabCases } from "@/lib/regime-divergence-lab";
+import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
 import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
@@ -66,16 +66,21 @@ export default function RegimeDetailWorkspace({
       return reasoning ? [{ story, reasoning }] : [];
     })
     : [];
-  const subgroupInvestigations = useMemo(() => {
-    if (!subgroup) return [];
-    return investigations.filter((item) =>
-      investigationMatchesRegimeSubgroup(item, {
-        regime: regime.slug,
-        subgroup: subgroup.key,
-        persistentStoryIds: subgroup.durableStories.map((story) => story.id),
-      })
-    );
-  }, [investigations, regime.slug, subgroup]);
+  const subgroupDivergenceCases = useMemo(
+    () => subgroup
+      ? buildRegimeDivergenceLabCases({
+          regime: regime.slug,
+          subgroup: subgroup.key,
+          persistentStoryIds: subgroup.durableStories.map((story) => story.id),
+          investigations,
+        })
+      : [],
+    [investigations, regime.slug, subgroup],
+  );
+  const subgroupInvestigations = useMemo(
+    () => subgroupDivergenceCases.map((item) => item.investigation),
+    [subgroupDivergenceCases],
+  );
   const understandLiveBridge = useMemo(
     () => subgroup
       ? buildUnderstandLiveBridge({
@@ -84,7 +89,7 @@ export default function RegimeDetailWorkspace({
           investigations: subgroupInvestigations,
         })
       : null,
-    [investigations, liveReasoning, subgroup, subgroupInvestigations],
+    [liveReasoning, subgroup, subgroupInvestigations],
   );
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
@@ -408,10 +413,11 @@ export default function RegimeDetailWorkspace({
 
                   <div>
                     <span className={styles.kicker}>EXPECTED → ACTUAL / DIVERGENCE LAB</span>
-                    {subgroupInvestigations.length ? (
+                    {subgroupDivergenceCases.length ? (
                       <div className={styles.divergenceList}>
-                        {subgroupInvestigations.map((item) => {
-                          const lab = buildDivergenceLabPresentation(item);
+                        {subgroupDivergenceCases.map((routedCase) => {
+                          const item = routedCase.investigation;
+                          const lab = routedCase.lab;
                           return (
                           <article className={styles.divergenceCard} data-divergence={item.divergence.toLowerCase()} key={item.id}>
                             <div className={styles.divergenceMeta}>
@@ -419,6 +425,12 @@ export default function RegimeDetailWorkspace({
                               <span className={styles.journeyState} data-transition={item.journey.transition.toLowerCase()}>
                                 {item.journey.transition.replaceAll("_", " ")}
                               </span>
+                              <span>
+                                {routedCase.routeBasis === "PERSISTENT_STORY_ID"
+                                  ? "exact Story route"
+                                  : "linked Dossier Story route"}
+                              </span>
+                              <span>context only</span>
                               <strong>{item.divergence} DIVERGENCE</strong>
                             </div>
                             <h4>{item.question}</h4>
@@ -488,7 +500,7 @@ export default function RegimeDetailWorkspace({
                         })}
                       </div>
                     ) : (
-                      <div className={styles.empty}>No canonical expected-vs-actual investigation is linked to the durable Stories in this subgroup. LIVE will not manufacture a divergence from missing or non-comparable tape.</div>
+                      <div className={styles.empty}>No exact persistent-Story or linked analytical-Story investigation route reaches this subgroup. LIVE will not manufacture a divergence from investigation prose or missing/non-comparable tape.</div>
                     )}
                   </div>
 
