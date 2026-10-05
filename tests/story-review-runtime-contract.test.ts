@@ -135,12 +135,20 @@ test("superseded queued Story Evidence is retired instead of becoming an unproce
   assert.match(runtime, /supersededQueueIds/);
 });
 
-test("stale frozen Story maintenance is blocked by current canonical version and resolved without mutation", () => {
+test("stale frozen Story maintenance is blocked and its exact queue obligation is retried", () => {
   assert.match(runtime, /IntelligenceDatabaseError/);
   assert.match(runtime, /Stale Story maintenance assessment/);
   assert.match(runtime, /resolveStaleStoryMaintenanceAssessment/);
-  assert.match(runtime, /Story assessment was superseded by a newer canonical Story thesis version/);
-  assert.match(runtime, /stale_story_maintenance_resolved/);
+  assert.match(runtime, /must be retried against the current Story/);
+  assert.match(runtime, /status: "retryable"/);
+  assert.match(runtime, /claimed_by_engine_run_id: null/);
+  assert.match(runtime, /completed_at: null/);
+  assert.match(runtime, /Story changed after this review was frozen; retry against the current canonical Story thesis version\./);
+  assert.match(runtime, /stale_story_maintenance_requeued/);
+  assert.doesNotMatch(
+    runtime.match(/async function resolveStaleStoryMaintenanceAssessment[\s\S]*?async function persistStoryAssessments/)?.[0] ?? "",
+    /applied_at: resolvedAt/,
+  );
 });
 
 test("abandoned reevaluation queue claims recover without another cron", () => {
