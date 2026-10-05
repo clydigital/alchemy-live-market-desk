@@ -1,6 +1,7 @@
 import {
   isPlainObject,
   isValidIsoTimestamp,
+  isValidUuid,
 } from "./validation.ts";
 import type {
   DossierMotionContextItem,
@@ -54,6 +55,7 @@ export interface ValidationIndexes {
   validMotionIds: Set<string>;
   validConflictGroupIds: Set<string>;
   validPriorThesisIds: Set<string>;
+  persistentStoryBindingByAnalyticalId: Map<string, string>;
   evidenceSourceMap: Map<string, EvidenceSourceInfo>;
   priorThesisMap: Map<
     string,
@@ -137,6 +139,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
   const validMotionIds = new Set<string>();
   const validConflictGroupIds = new Set<string>();
   const validPriorThesisIds = new Set<string>();
+  const persistentStoryBindingByAnalyticalId = new Map<string, string>();
   const evidenceSourceMap = new Map<string, EvidenceSourceInfo>();
   const priorThesisMap = new Map<
     string,
@@ -206,6 +209,19 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     }
   }
 
+  for (const binding of packet.persistent_story_bindings ?? []) {
+    if (
+      binding
+      && typeof binding.analytical_story_id === "string"
+      && isValidUuid(binding.persistent_story_id)
+    ) {
+      persistentStoryBindingByAnalyticalId.set(
+        binding.analytical_story_id,
+        binding.persistent_story_id,
+      );
+    }
+  }
+
   if (Array.isArray(packet.creator_themes)) {
     for (const theme of packet.creator_themes) {
       if (theme && Array.isArray(theme.claims)) {
@@ -245,6 +261,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
     validMotionIds,
     validConflictGroupIds,
     validPriorThesisIds,
+    persistentStoryBindingByAnalyticalId,
     evidenceSourceMap,
     priorThesisMap,
     priceDataAvailable,
@@ -707,6 +724,28 @@ export function validateResearchBrainOutput(
     }
 
     const storyId = typeof story.story_id === "string" ? story.story_id.trim() : `story-${sIdx}`;
+    const persistentStoryId =
+      typeof story.persistent_story_id === "string"
+        ? story.persistent_story_id.trim()
+        : null;
+    const boundPersistentStoryId =
+      indexes.persistentStoryBindingByAnalyticalId.get(storyId) ?? null;
+
+    if (persistentStoryId !== null) {
+      if (!isValidUuid(persistentStoryId)) {
+        errors.push(
+          `major_stories[${sIdx}] (${storyId}) persistent_story_id must be a UUID or null.`,
+        );
+      } else if (boundPersistentStoryId !== persistentStoryId) {
+        errors.push(
+          `major_stories[${sIdx}] (${storyId}) persistent_story_id "${persistentStoryId}" is not the exact packet binding for this analytical Story.`,
+        );
+      }
+    } else if (boundPersistentStoryId) {
+      errors.push(
+        `major_stories[${sIdx}] (${storyId}) must preserve exact packet persistent Story binding "${boundPersistentStoryId}".`,
+      );
+    }
 
     // Explicit Firewall Checks
     const title = typeof story.title === "string" ? story.title.trim() : "";
@@ -727,6 +766,7 @@ export function validateResearchBrainOutput(
     // Check market evidence decomposition
     let confirming: string[] = [];
     let contradicting: string[] = [];
+    let accelerating: string[] = [];
     let unresolved: string[] = [];
 
     if (!isPlainObject(story.market_evidence)) {
@@ -735,13 +775,14 @@ export function validateResearchBrainOutput(
       const me = story.market_evidence as Record<string, unknown>;
       confirming = Array.isArray(me.confirming) ? me.confirming : [];
       contradicting = Array.isArray(me.contradicting) ? me.contradicting : [];
+      accelerating = Array.isArray(me.accelerating) ? me.accelerating : [];
       unresolved = Array.isArray(me.unresolved) ? me.unresolved : [];
 
       if (confirming.length === 0) {
         errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence.confirming must not be empty.`);
       }
 
-      for (const evId of [...confirming, ...contradicting]) {
+      for (const evId of [...confirming, ...contradicting, ...accelerating]) {
         if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
           errors.push(`major_stories[${sIdx}] (${storyId}) market_evidence references unsupported evidence_id "${String(evId)}".`);
         }
