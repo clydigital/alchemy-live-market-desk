@@ -154,6 +154,7 @@ function investigation(divergence: RoutedDossierInvestigation["divergence"], id:
       question: "Is duration pressure transmitting into broader financial conditions?",
     },
     regimeRoutes: [],
+    regimeRoutingStoryIds: [],
   };
 }
 
