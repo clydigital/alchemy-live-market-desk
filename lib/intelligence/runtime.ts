@@ -108,6 +108,8 @@ import {
   emptyMarketMotionEditionAttachment,
   marketMotionEditionSourceRefs,
 } from "@/lib/market-motion-edition";
+import { capturePresenterDossierEditionContext } from "@/lib/presenter-dossier-edition-capture";
+import { presenterDossierEditionSourceRef } from "@/lib/presenter-dossier-edition-context";
 import {
   buildCanonicalStoryReasoningSnapshotV1,
   CANONICAL_STORY_REASONING_V1,
@@ -2590,7 +2592,7 @@ async function persistCanonicalStoryManifest({
       ? candidateReasoning as CanonicalStoryReasoningV1
       : null;
     return {
-      manifest: { position: index + 1, snapshotId: snapshot.id, storyId: story.id, thesisVersionId, state },
+      manifest: { position: index + 1, snapshotId: snapshot.id, storyId: story.id, thesisVersionId, state, reasoning },
       journeySource: reasoning && thesisVersionId ? {
         position: index + 1,
         publicationSnapshotId: snapshot.id,
@@ -2626,6 +2628,8 @@ export async function persistCanonicalEditionForResearchRun({
   if (existing[0]) return existing[0].id;
 
   const generatedAt = new Date().toISOString();
+  const presenterDossierContext = await capturePresenterDossierEditionContext(generatedAt);
+  const presenterDossierSourceRef = presenterDossierEditionSourceRef(presenterDossierContext);
   const researchRun = (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
     `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
   ))[0] || null;
@@ -2656,10 +2660,12 @@ export async function persistCanonicalEditionForResearchRun({
         scheduledFor: researchRun?.scheduled_for || null,
         runKey: researchRun?.run_key || runKey,
         canonicalStoryManifest,
+        presenterDossierContext,
         marketMotion,
       },
       source_record_refs: [
         ...canonicalStoryManifest.map((entry) => ({ type: "story", id: entry.storyId, snapshotId: entry.snapshotId })),
+        ...(presenterDossierSourceRef ? [presenterDossierSourceRef] : []),
         ...marketMotionEditionSourceRefs(marketMotion),
       ],
       redaction_log: [],
@@ -2699,6 +2705,8 @@ async function persistDailyBrief({
   );
   console.info(JSON.stringify({ event: "intelligence_publication_checkpoint", step: "prior_loaded", engineRunId, priorBriefCount: prior.length }));
   const generatedAt = new Date().toISOString();
+  const presenterDossierContext = await capturePresenterDossierEditionContext(generatedAt);
+  const presenterDossierSourceRef = presenterDossierEditionSourceRef(presenterDossierContext);
   const researchRun = researchRunId
     ? (await intelligenceRest<Array<{ run_key: string; schedule_slot: string; scheduled_for: string }>>(
         `research_runs?select=run_key,schedule_slot,scheduled_for&id=eq.${encodeURIComponent(researchRunId)}&limit=1`,
@@ -2793,11 +2801,13 @@ async function persistDailyBrief({
         scheduledFor: researchRun?.scheduled_for || null,
         runKey: researchRun?.run_key || runKey || null,
         canonicalStoryManifest,
+        presenterDossierContext,
         ...(marketMotion ? { marketMotion } : {}),
       },
       source_record_refs: [
         ...stories.map((story) => ({ type: "story", id: story.id })),
         ...evidence.flatMap((item) => item.id ? [{ type: "evidence", id: item.id }] : []),
+        ...(presenterDossierSourceRef ? [presenterDossierSourceRef] : []),
         ...(marketMotion ? marketMotionEditionSourceRefs(marketMotion) : []),
       ],
       redaction_log: [],
