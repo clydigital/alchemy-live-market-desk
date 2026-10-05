@@ -105,6 +105,8 @@ export default function RegimeDetailWorkspace({
     [investigations, liveReasoning, regime, subgroup?.key],
   );
 
+  const dossierContext = regime.dossierContext ?? [];
+
   return (
     <div className={styles.board}>
       <section className={styles.hero}>
@@ -267,6 +269,44 @@ export default function RegimeDetailWorkspace({
 
       {view === "live" ? (
         <>
+          {dossierContext.length ? (
+            <section className={styles.section} aria-label="Dossier System 2 Regime context">
+              <header className={styles.sectionHead}>
+                <div>
+                  <span className={styles.kicker}>SYSTEM 2 · DOSSIER CONTEXT</span>
+                  <h2>Accepted analytical context for this Regime</h2>
+                </div>
+                <small>Non-state · cannot change Regime state by itself</small>
+              </header>
+              <p className={styles.why}>
+                These are evidence-backed Dossier judgements routed to this exact Regime. They remain context only:
+                durable Stories and System 1 telemetry still determine the structural state.
+              </p>
+              <div className={styles.liveGrid}>
+                {dossierContext.map((node) => (
+                  <article className={styles.latest} key={node.id}>
+                    <small>
+                      {node.verification === "dossier-system2:refine"
+                        ? "SYSTEM 2 · REFINE"
+                        : "SYSTEM 2 · ACCEPT"}
+                    </small>
+                    <strong>{node.title}</strong>
+                    <p className={styles.summary}>{node.detail}</p>
+                    <div className={styles.heroMeta}>
+                      <span>{displayDate(node.timestamp)}</span>
+                      <span>Non-state Regime context</span>
+                    </div>
+                    {node.hybridHref ? (
+                      <div className={styles.linkRow}>
+                        <Link href={node.hybridHref}>Explain in Hybrid →</Link>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <RegimeTriggerLadder regimeSlug={regime.slug} />
 
           <section className={styles.section}>
