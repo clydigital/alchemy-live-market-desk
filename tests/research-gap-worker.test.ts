@@ -7,6 +7,7 @@ import type { MarketMotionRecord } from "../lib/market-motion.ts";
 import {
   buildResearchGapWorkQueue,
   loadLatestResearchGapWorkQueue,
+  type CanonicalDivergenceResearchDebtRow,
 } from "../lib/research-gap-worker.ts";
 
 function dossier(overrides: Partial<MarketDossierV2> = {}): MarketDossierV2 {
@@ -96,6 +97,34 @@ function motion(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
     expires_at: "2026-10-03T00:40:00.000Z",
     metadata: { writingAngles: ["Why the long end matters now"] },
     created_at: "2026-10-01T00:40:00.000Z",
+    ...overrides,
+  };
+}
+
+function divergenceDebt(
+  overrides: Partial<CanonicalDivergenceResearchDebtRow> = {},
+): CanonicalDivergenceResearchDebtRow {
+  return {
+    debt_key: "divergence:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    severity: "high",
+    status: "open",
+    reason: "Material canonical divergence remains causally unresolved after Hypothesis: COMPETING_HYPOTHESES.",
+    next_action: "Recruit only real yields and breakevens around the divergence window; if still unresolved, then recruit curve or term-premium context.",
+    next_check_at: "2026-10-01T01:00:00.000Z",
+    metadata: {
+      kind: "canonical_divergence_recruitment",
+      contractVersion: "divergence-evidence-recruitment/1",
+      divergenceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      marketBeliefId: "belief-rates",
+      question: "Why did long-end yields stay elevated when they were expected to ease?",
+      evidenceNeeded: [
+        "real yields and breakevens around the divergence window",
+        "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+      ],
+      magnitude: 82,
+      persistenceScore: 76,
+      resolutionState: "COMPETING_HYPOTHESES",
+    },
     ...overrides,
   };
 }
@@ -248,10 +277,33 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
       return { data: [motion()], error: null };
     },
   };
+  const debtQuery = {
+    select(value: string) {
+      calls.push(["debt:select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`debt:eq:${column}`, value]);
+      return this;
+    },
+    like(column: string, value: unknown) {
+      calls.push([`debt:like:${column}`, value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`debt:order:${column}`, options]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["debt:limit", value]);
+      return { data: [divergenceDebt()], error: null };
+    },
+  };
   const fakeClient = {
     from(table: string) {
       if (table === "market_dossiers_v2") return dossierQuery;
       if (table === "current_market_motion_items") return motionQuery;
+      if (table === "research_debt") return debtQuery;
       throw new Error(`unexpected table ${table}`);
     },
   };
@@ -269,6 +321,10 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
   assert.ok(calls.some(([name, value]) => name === "motion:eq:lifecycle_state" && value === "PROMOTED"));
   assert.ok(calls.some(([name, value]) => name === "motion:eq:effective_state" && value === "PROMOTED"));
   assert.ok(calls.some(([name, value]) => name === "motion:limit" && value === 18));
+  assert.ok(calls.some(([name, value]) => name === "debt:eq:status" && value === "open"));
+  assert.ok(calls.some(([name, value]) => name === "debt:like:debt_key" && value === "divergence:%"));
+  assert.ok(calls.some(([name, value]) => name === "debt:limit" && value === 12));
+  assert.equal(queue?.sourceCounts.researchGaps, 2);
 });
 
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {
@@ -456,4 +512,48 @@ test("B3a only UNRESOLVED Motion assessments open the pre-promotion research pat
 
   const queue = buildResearchGapWorkQueue(row, new Date("2026-10-01T01:00:00.000Z"));
   assert.equal(queue.sourceCounts.marketMotion, 0);
+});
+
+
+test("P2.2 canonical divergence debt enters the existing Research Gap queue as bounded research work", () => {
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T01:00:00.000Z"),
+    [],
+    [divergenceDebt()],
+  );
+
+  const candidate = queue.candidates.find((item) => item.sourceRef.startsWith("divergence:"));
+  assert.ok(candidate);
+  assert.equal(candidate?.sourceKind, "research_gap");
+  assert.equal(candidate?.nativeSignals.severity, "MATERIAL");
+  assert.equal(candidate?.nativeSignals.gapClass, "REFINEMENT");
+  assert.equal(candidate?.nativeSignals.divergence, "UNRESOLVED");
+  assert.equal(candidate?.nativeSignals.expectedInformationGain, "High");
+  assert.deepEqual(candidate?.blockingRefs, [
+    "DIVERGENCE:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "BELIEF:belief-rates",
+  ]);
+  assert.deepEqual(candidate?.evidenceNeeded, [
+    "real yields and breakevens around the divergence window",
+    "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+  ]);
+  assert.equal(queue.sourceCounts.researchGaps, 2);
+});
+
+test("P2.2 malformed or non-open divergence debt fails closed", () => {
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T01:00:00.000Z"),
+    [],
+    [
+      divergenceDebt({ status: "resolved" }),
+      divergenceDebt({ debt_key: "transcript:youtube:abc" }),
+      divergenceDebt({ metadata: { kind: "other" } }),
+      divergenceDebt({ metadata: { kind: "canonical_divergence_recruitment" } }),
+    ],
+  );
+
+  assert.equal(queue.sourceCounts.researchGaps, 1);
+  assert.equal(queue.candidates.some((item) => item.sourceRef.startsWith("divergence:")), false);
 });
