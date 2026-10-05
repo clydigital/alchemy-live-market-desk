@@ -6,6 +6,11 @@ import {
 
 export const PRODUCTION_SCHEMA_ENFORCEMENT_START = "20261001000000";
 
+export const REQUIRED_PRODUCTION_SCHEMA_INVARIANTS = [
+  "research_schedule_slots",
+  "story_maintenance_evidence_provenance",
+] as const;
+
 type ExpectedMigration = {
   version: string;
   name: string;
@@ -16,9 +21,16 @@ type AppliedMigration = {
   name: string;
 };
 
+export type ProductionSchemaInvariant = {
+  invariant_key: string;
+  healthy: boolean;
+  detail: unknown;
+};
+
 type Dependencies = {
   authorize?: (request: Request) => Promise<ProductionSchemaGuardAuthorization>;
   loadAppliedMigrations?: () => Promise<AppliedMigration[]>;
+  loadSchemaInvariants?: () => Promise<ProductionSchemaInvariant[]>;
   deploymentSha?: () => string | null;
   logger?: (event: Record<string, unknown>) => void;
 };
@@ -74,6 +86,27 @@ export function assessProductionSchemaDrift(
   };
 }
 
+export function assessProductionSchemaInvariants(
+  observed: ProductionSchemaInvariant[],
+) {
+  const byKey = new Map(observed.map((item) => [item.invariant_key, item]));
+  const invariants = REQUIRED_PRODUCTION_SCHEMA_INVARIANTS.map((invariantKey) => {
+    const item = byKey.get(invariantKey);
+    return item ?? {
+      invariant_key: invariantKey,
+      healthy: false,
+      detail: { reason: "missing_invariant" },
+    };
+  });
+  const invariantFailures = invariants.filter((item) => !item.healthy);
+
+  return {
+    healthy: invariantFailures.length === 0,
+    invariants,
+    invariantFailures,
+  };
+}
+
 export async function loadAppliedProductionMigrations(): Promise<AppliedMigration[]> {
   const client = createSupabaseAdminClient();
   const { data, error } = await client.rpc("live_desk_applied_migrations");
@@ -90,6 +123,36 @@ export async function loadAppliedProductionMigrations(): Promise<AppliedMigratio
       throw new Error("Production migration history contains an invalid row.");
     }
     return { version, name };
+  });
+}
+
+export async function loadProductionSchemaInvariants(): Promise<ProductionSchemaInvariant[]> {
+  const client = createSupabaseAdminClient();
+  const { data, error } = await client.rpc("live_desk_schema_invariants");
+  if (error) {
+    throw new Error(`Could not read production schema invariants: ${error.message}`);
+  }
+  if (!Array.isArray(data)) {
+    throw new Error("Production schema invariants returned an invalid payload.");
+  }
+
+  const keys = new Set<string>();
+  return data.map((row) => {
+    const invariantKey = (row as { invariant_key?: unknown }).invariant_key;
+    const healthy = (row as { healthy?: unknown }).healthy;
+    const detail = (row as { detail?: unknown }).detail;
+    if (!validName(invariantKey) || typeof healthy !== "boolean") {
+      throw new Error("Production schema invariants contain an invalid row.");
+    }
+    if (keys.has(invariantKey)) {
+      throw new Error(`Production schema invariant ${invariantKey} was returned more than once.`);
+    }
+    keys.add(invariantKey);
+    return {
+      invariant_key: invariantKey,
+      healthy,
+      detail: detail ?? null,
+    };
   });
 }
 
@@ -158,10 +221,13 @@ export async function handleProductionSchemaDriftWithDependencies(
   }
 
   try {
-    const applied = await (
-      dependencies.loadAppliedMigrations ?? loadAppliedProductionMigrations
-    )();
-    const assessment = assessProductionSchemaDrift(migrations, applied);
+    const [applied, observedInvariants] = await Promise.all([
+      (dependencies.loadAppliedMigrations ?? loadAppliedProductionMigrations)(),
+      (dependencies.loadSchemaInvariants ?? loadProductionSchemaInvariants)(),
+    ]);
+    const migrationAssessment = assessProductionSchemaDrift(migrations, applied);
+    const invariantAssessment = assessProductionSchemaInvariants(observedInvariants);
+    const healthy = migrationAssessment.healthy && invariantAssessment.healthy;
     const logger = dependencies.logger ?? ((event) => console.info(JSON.stringify(event)));
     logger({
       event: "production_schema_drift_checked",
@@ -170,20 +236,26 @@ export async function handleProductionSchemaDriftWithDependencies(
       workflowSha: authorization.workflowSha,
       deploymentSha,
       enforcementStart: PRODUCTION_SCHEMA_ENFORCEMENT_START,
-      expectedCount: assessment.expectedCount,
-      appliedCount: assessment.appliedCount,
-      missing: assessment.missing.map((migration) => migration.name),
-      unexpected: assessment.unexpected.map((migration) => migration.name),
-      healthy: assessment.healthy,
+      expectedCount: migrationAssessment.expectedCount,
+      appliedCount: migrationAssessment.appliedCount,
+      missing: migrationAssessment.missing.map((migration) => migration.name),
+      unexpected: migrationAssessment.unexpected.map((migration) => migration.name),
+      invariantFailures: invariantAssessment.invariantFailures.map(
+        (item) => item.invariant_key,
+      ),
+      healthy,
     });
 
     return Response.json({
-      status: assessment.healthy ? "healthy" : "drift",
+      status: healthy ? "healthy" : "drift",
       deploymentSha,
       enforcementStart: PRODUCTION_SCHEMA_ENFORCEMENT_START,
-      ...assessment,
+      ...migrationAssessment,
+      healthy,
+      schemaInvariants: invariantAssessment.invariants,
+      invariantFailures: invariantAssessment.invariantFailures,
     }, {
-      status: assessment.healthy ? 200 : 409,
+      status: healthy ? 200 : 409,
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
