@@ -1,0 +1,132 @@
+name: Control Jules Live Market session
+
+on:
+  workflow_dispatch:
+    inputs:
+      jules_account:
+        description: "Which Jules account owns this session?"
+        required: true
+        default: "AMLYC"
+        type: choice
+        options:
+          - AMLYC
+          - LYC
+      action:
+        description: "Session action"
+        required: true
+        default: "status"
+        type: choice
+        options:
+          - status
+          - message
+          - approve
+      session_id:
+        description: "Jules session ID (numeric/resource suffix only)"
+        required: true
+        type: string
+      message:
+        description: "Message to Jules; required only for action=message"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-jules-control-${{ inputs.session_id }}
+  cancel-in-progress: false
+
+jobs:
+  control-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      JULES_ACCOUNT: ${{ inputs.jules_account }}
+      JULES_ACTION: ${{ inputs.action }}
+      JULES_SESSION_ID: ${{ inputs.session_id }}
+      JULES_MESSAGE: ${{ inputs.message }}
+      JULES_AMLYC: ${{ secrets.JULES_AMLYC }}
+      JULES_LYC: ${{ secrets.JULES_LYC }}
+    steps:
+      - name: Select Jules account and validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$JULES_ACCOUNT" in
+            AMLYC) selected_key="$JULES_AMLYC" ;;
+            LYC) selected_key="$JULES_LYC" ;;
+            *)
+              echo "Unsupported Jules account: $JULES_ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "$selected_key" ]]; then
+            echo "The selected Jules account secret is not configured." >&2
+            exit 1
+          fi
+          if [[ ! "$JULES_SESSION_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "session_id must be the Jules session suffix only." >&2
+            exit 1
+          fi
+          if [[ "$JULES_ACTION" == "message" && -z "${JULES_MESSAGE//[[:space:]]/}" ]]; then
+            echo "message is required for action=message." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::$selected_key"
+          echo "JULES_API_KEY=$selected_key" >> "$GITHUB_ENV"
+
+      - name: Read current Jules session
+        id: before
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 2             -H "X-Goog-Api-Key: $JULES_API_KEY"             "https://jules.googleapis.com/v1alpha/sessions/$JULES_SESSION_ID")"
+          state="$(jq -r '.state // "UNKNOWN"' <<<"$response")"
+          url="$(jq -r '.url // empty' <<<"$response")"
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          echo "Current Jules state: $state"
+          {
+            echo "### Jules session"
+            echo "Session: sessions/$JULES_SESSION_ID"
+            echo "Before: $state"
+            [[ -n "$url" ]] && echo "URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Send message
+        if: inputs.action == 'message'
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(jq -cn --arg prompt "$JULES_MESSAGE" '{prompt:$prompt}')"
+          curl --fail --silent --show-error --retry 2             -X POST             -H "X-Goog-Api-Key: $JULES_API_KEY"             -H "Content-Type: application/json"             --data "$payload"             "https://jules.googleapis.com/v1alpha/sessions/$JULES_SESSION_ID:sendMessage" >/dev/null
+          echo "Message sent to Jules session."
+
+      - name: Approve plan
+        if: inputs.action == 'approve'
+        shell: bash
+        env:
+          BEFORE_STATE: ${{ steps.before.outputs.state }}
+        run: |
+          set -euo pipefail
+          if [[ "$BEFORE_STATE" != "AWAITING_PLAN_APPROVAL" ]]; then
+            echo "Refusing approval because session state is $BEFORE_STATE, not AWAITING_PLAN_APPROVAL." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 2             -X POST             -H "X-Goog-Api-Key: $JULES_API_KEY"             -H "Content-Type: application/json"             --data '{}'             "https://jules.googleapis.com/v1alpha/sessions/$JULES_SESSION_ID:approvePlan" >/dev/null
+          echo "Approved Jules plan."
+
+      - name: Read Jules session after action
+        if: inputs.action != 'status'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          response="$(curl --fail --silent --show-error --retry 2             -H "X-Goog-Api-Key: $JULES_API_KEY"             "https://jules.googleapis.com/v1alpha/sessions/$JULES_SESSION_ID")"
+          state="$(jq -r '.state // "UNKNOWN"' <<<"$response")"
+          echo "Jules state after action: $state"
+          {
+            echo "After: $state"
+          } >> "$GITHUB_STEP_SUMMARY"
