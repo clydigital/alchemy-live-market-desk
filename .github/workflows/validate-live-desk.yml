@@ -123,6 +123,12 @@ jobs:
       - name: Verify material Story propagation contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/material_story_propagation_contract.sql
 
+      - name: Apply Story queue trigger acknowledgement guard
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261005173500_story_queue_trigger_ack_guard.sql
+
+      - name: Verify Story queue trigger acknowledgement contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_queue_trigger_ack_contract.sql
+
       - name: Apply Market Dossiers V2 migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260915000000_market_dossiers_v2.sql
 
