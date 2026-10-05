@@ -3,8 +3,13 @@ import {
   isValidIsoTimestamp,
 } from "./validation.ts";
 import type {
+  DossierMotionContextItem,
   DossierV2InputPacket,
 } from "./input-packet.ts";
+import {
+  deriveMarketMotionRoutingClass,
+  type MarketMotionRoutingClass,
+} from "../market-motion.ts";
 import {
   EXACT_CORE_CHARTS,
   MAX_CONTRADICTIONS,
@@ -538,6 +543,9 @@ export function validateResearchBrainOutput(
       .map((entry) => typeof entry.thesis_id === "string" ? `THESIS:${entry.thesis_id}` : "")
       .filter(Boolean),
   ]);
+  const motionById = new Map(
+    motionContextItems.map((item) => [item.motion_id, item] as const),
+  );
   const seenMotionIds = new Set<string>();
   for (let motionIndex = 0; motionIndex < motionDecisions.length; motionIndex++) {
     const rawDecision = motionDecisions[motionIndex];
