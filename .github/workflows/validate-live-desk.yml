@@ -135,6 +135,12 @@ jobs:
       - name: Verify Story queue claim ownership contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_queue_claim_ownership_contract.sql
 
+      - name: Apply Story assessment apply-time ownership guard
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261005185000_story_assessment_apply_ownership_guard.sql
+
+      - name: Verify Story assessment apply-time ownership contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_assessment_apply_ownership_contract.sql
+
       - name: Apply stale Story maintenance version guard
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261005180500_story_maintenance_stale_version_guard.sql
 
