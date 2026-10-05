@@ -342,18 +342,34 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
   assert.deepEqual(input.metadata?.promotionEvidenceItemKeys, ["reuters:mu-hbm"]);
 });
 
-test("Dossier selector admits only fresh PROMOTED Motion with an exact canonical Story link", () => {
+test("B2 Dossier selector admits fresh PROMOTED Motion with any valid routing class", () => {
   const rows = [
     record({ id: "promoted", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 92 }),
     record({ id: "plain-motion", lifecycle_state: "MOTION", effective_state: "MOTION", materiality: 99 }),
     record({ id: "other-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: "story-2", materiality: 89 }),
-    record({ id: "no-story", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", primary_story_id: null, materiality: 99 }),
+    record({
+      id: "regime-only",
+      lifecycle_state: "PROMOTED",
+      effective_state: "PROMOTED",
+      primary_story_id: null,
+      primary_regime_slug: "us-china-ai",
+      materiality: 99,
+    }),
+    record({
+      id: "unroutable",
+      lifecycle_state: "PROMOTED",
+      effective_state: "PROMOTED",
+      primary_story_id: null,
+      primary_regime_slug: null,
+      next_test: "Seek independent or primary-source confirmation, then test whether the market reaction persists.",
+      materiality: 100,
+    }),
     record({ id: "expired", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", expires_at: "2026-10-01T01:00:00Z" }),
   ];
 
   assert.deepEqual(
     selectPromotedMarketMotionForDossier(rows, NOW).map((item) => item.id),
-    ["promoted", "other-story"],
+    ["regime-only", "promoted", "other-story"],
   );
 });
 
