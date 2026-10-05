@@ -1,4 +1,5 @@
 import type { EvidencePackItem, ExistingStoryPackItem, StoryReviewTargetPackItem } from "./schemas.ts";
+import type { DossierMotionStoryReviewContext } from "../dossier-v2/story-review-context.ts";
 import { isCanonicalEligibleEvidence, isScheduledEvidence } from "./source-verification.ts";
 import {
   assessStoryCatalyst,
@@ -34,6 +35,7 @@ export type StoryReviewQueueItem = {
   availableAt: string;
   createdAt: string;
   requestedEvidenceId?: string | null;
+  dossierMotionContext?: DossierMotionStoryReviewContext | null;
 };
 
 export type StoryReviewDebt = {
@@ -67,6 +69,7 @@ export type StoryReviewContext = {
   catalystRecalibrationRequired: boolean;
   triggerEvidenceIds: string[];
   queueEvidenceIds?: string[];
+  dossierMotionReassessments?: DossierMotionStoryReviewContext[];
   catalystCandidates: Array<{
     label: string;
     catalystRef: string | null;
@@ -325,6 +328,26 @@ export function selectStoryReviewTargets(input: {
     if (!reasons.length) return [];
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
+    const dossierMotionContextByKey = new Map<string, DossierMotionStoryReviewContext>();
+    for (const item of [...processableQueue].sort((left, right) =>
+      right.priority - left.priority
+      || (milliseconds(left.createdAt) ?? 0) - (milliseconds(right.createdAt) ?? 0)
+      || left.id.localeCompare(right.id)
+    )) {
+      const context = item.dossierMotionContext;
+      if (!context) continue;
+      const key = [
+        context.dossierId,
+        context.motionId,
+        context.targetStoryId,
+        context.canonicalEvidenceId,
+      ].join(":");
+      if (!dossierMotionContextByKey.has(key)) {
+        dossierMotionContextByKey.set(key, context);
+      }
+    }
+    const dossierMotionReassessments = [...dossierMotionContextByKey.values()].slice(0, 3);
+
     const reviewContext: StoryReviewContext = {
       queueReasons: [...new Set(processableQueue.map((item) => item.reason).filter(Boolean))],
       researchDebt: relevantDebt.map((debt) => ({
@@ -348,6 +371,7 @@ export function selectStoryReviewTargets(input: {
           .map((item) => item.requestedEvidenceId)
           .filter((id): id is string => Boolean(id)),
       )],
+      dossierMotionReassessments,
       catalystCandidates,
     };
     const queuePriority = Math.max(0, ...processableQueue.map((item) => item.priority));
