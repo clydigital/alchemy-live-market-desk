@@ -48,7 +48,9 @@ export interface ResearchBrainOptions {
 type ResearchBrainReasoningEffort = "none" | "low" | "medium" | "high";
 
 const RESEARCH_BRAIN_PRIMARY_OUTPUT_TOKENS = 16_000;
-const RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS = 8_000;
+// Compact recovery only runs after the primary pass fails or truncates. Keep
+// reasoning low, but give strict full-schema JSON the same completion ceiling.
+const RESEARCH_BRAIN_REPAIR_OUTPUT_TOKENS = 16_000;
 const RESEARCH_BRAIN_REQUEST_TIMEOUT_MS = 240_000;
 const VALID_RESEARCH_BRAIN_EFFORT = new Set<ResearchBrainReasoningEffort>(["none", "low", "medium", "high"]);
 
