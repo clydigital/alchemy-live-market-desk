@@ -145,12 +145,13 @@ test("snapshot augmentation admits official auction facts without inventing a ta
   assert.equal(evidence.length, 3);
   const tenYear = evidence.find((item) => item.evidence_id === "treasury-auction:91282CZZ1:2026-09-30");
   assert.ok(tenYear);
+  const tenYearMetrics = (tenYear?.metrics ?? {}) as Record<string, unknown>;
   assert.equal(tenYear?.source_type, "OFFICIAL_DATA");
   assert.equal(tenYear?.available_at, "2026-09-30T21:00:00.000Z");
-  assert.equal(tenYear?.metrics?.signal_context, "treasury_auction");
-  assert.equal(tenYear?.metrics?.tail_bps, null);
-  assert.equal(tenYear?.metrics?.when_issued_yield_pct, null);
-  assert.match(tenYear?.claim_or_fact ?? "", /tail or stop-through is not determined/i);
+  assert.equal(tenYearMetrics.signal_context, "treasury_auction");
+  assert.equal(tenYearMetrics.tail_bps, null);
+  assert.equal(tenYearMetrics.when_issued_yield_pct, null);
+  assert.match(String(tenYear?.claim_or_fact ?? ""), /tail or stop-through is not determined/i);
   assert.equal(result.snapshot.sources_status?.treasury_auctions?.status, "OK");
 });
 
