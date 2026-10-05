@@ -20,6 +20,8 @@ import {
   emptyMarketMotionEditionAttachment,
   marketMotionEditionSourceRefs,
 } from "@/lib/market-motion-edition";
+import { capturePresenterDossierEditionContext } from "@/lib/presenter-dossier-edition-capture";
+import { presenterDossierEditionSourceRef } from "@/lib/presenter-dossier-edition-context";
 
 type StorySnapshotRow = {
   id: string;
@@ -193,7 +195,10 @@ async function persistCanonicalStoryManifest({
           supersedes_snapshot_id: null,
           snapshot_type: "story",
           public_summary: story.title,
-          payload: { canonicalStoryState: story },
+          payload: {
+            canonicalStoryState: (({ canonicalStoryReasoning: _reasoning, ...state }) => state)(story),
+            ...(story.canonicalStoryReasoning ? { canonicalStoryReasoning: story.canonicalStoryReasoning } : {}),
+          },
           source_record_refs: [],
           redaction_log: [],
           confidence: story.confidence,
@@ -231,6 +236,7 @@ async function persistCanonicalStoryManifest({
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).contractVersion === CANONICAL_STORY_REASONING_V1
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyId === story.id
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyVersionId === thesisVersionId
+      && story.canonicalStoryReasoning?.storyVersionId === thesisVersionId
       ? candidateReasoning as CanonicalStoryReasoningV1
       : null;
 
@@ -241,6 +247,7 @@ async function persistCanonicalStoryManifest({
         storyId: story.id,
         thesisVersionId,
         state,
+        reasoning,
       },
       journeySource: reasoning && thesisVersionId ? {
         position: index + 1,
@@ -280,6 +287,8 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   if (isCanonicalBaseEdition(existing)) return existing.id;
 
   const generatedAt = new Date().toISOString();
+  const presenterDossierContext = await capturePresenterDossierEditionContext(generatedAt);
+  const presenterDossierSourceRef = presenterDossierEditionSourceRef(presenterDossierContext);
   const researchRun = (await intelligenceRest<Array<{
     run_key: string;
     schedule_slot: string;
@@ -373,6 +382,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
             scheduledFor: researchRun?.scheduled_for || null,
             runKey: researchRun?.run_key || runKey,
             canonicalStoryManifest,
+            presenterDossierContext,
             marketMotion,
           },
           source_record_refs: [
@@ -381,6 +391,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
               id: entry.storyId,
               snapshotId: entry.snapshotId,
             })),
+            ...(presenterDossierSourceRef ? [presenterDossierSourceRef] : []),
             ...marketMotionEditionSourceRefs(marketMotion),
           ],
           redaction_log: [],
