@@ -241,7 +241,6 @@ export function selectStoryReviewTargets(input: {
       && ["pending", "retryable"].includes(item.status)
       && (milliseconds(item.availableAt) ?? 0) <= nowMs);
     const dormant = ["archived", "invalidated", "discarded"].includes(story.status.toLowerCase());
-    if (dormant && !availableQueue.length) return [];
     const linkRoles = new Map(input.evidenceLinks.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link.evidenceRole]));
     const requestedEvidenceIds = new Set(
       availableQueue
@@ -255,6 +254,10 @@ export function selectStoryReviewTargets(input: {
       input.evidenceLinks,
       requestedEvidenceIds,
     );
+    const packedEvidenceIds = new Set(relevantEvidence.map((item) => item.id));
+    const processableQueue = availableQueue.filter((item) =>
+      !item.requestedEvidenceId || packedEvidenceIds.has(item.requestedEvidenceId));
+    if (dormant && !processableQueue.length) return [];
     const fresh = relevantEvidence.filter((item) => (milliseconds(item.eventAt ?? item.publishedAt) ?? 0) > lastEvaluated);
     const relevantDebt = input.debt.filter((debt) => debt.storyId === story.id && debt.status === "open");
     // Production obligations historically use both high and critical severity.
@@ -286,7 +289,7 @@ export function selectStoryReviewTargets(input: {
       }),
     ];
     const reasons: StoryReviewReason[] = [];
-    if (availableQueue.length) reasons.push("explicit_queue");
+    if (processableQueue.length) reasons.push("explicit_queue");
     if (catalystRecalibrationRequired) reasons.push("catalyst_expired");
     if (fresh.some((item) => ["confirmation", "invalidation"].includes(linkRoles.get(item.id) ?? ""))) reasons.push("criteria_evidence");
     if (overdueCriticalDebt.length) reasons.push("overdue_critical_debt");
@@ -298,7 +301,7 @@ export function selectStoryReviewTargets(input: {
 
     const reason = [...reasons].sort((left, right) => REASON_RANK[left] - REASON_RANK[right])[0];
     const reviewContext: StoryReviewContext = {
-      queueReasons: [...new Set(availableQueue.map((item) => item.reason).filter(Boolean))],
+      queueReasons: [...new Set(processableQueue.map((item) => item.reason).filter(Boolean))],
       researchDebt: relevantDebt.map((debt) => ({
         debtKey: debt.debtKey,
         severity: debt.severity,
@@ -322,12 +325,12 @@ export function selectStoryReviewTargets(input: {
       reason,
       reasonRank: REASON_RANK[reason],
       reasons: [...new Set(reasons)].sort((left, right) => REASON_RANK[left] - REASON_RANK[right]),
-      queueIds: availableQueue.map((item) => item.id).sort(),
+      queueIds: processableQueue.map((item) => item.id).sort(),
       relevantEvidence,
       selectedAt: input.now.toISOString(),
       reviewContext,
-      queuePriority: Math.max(0, ...availableQueue.map((item) => item.priority)),
-      dueAt: availableQueue.map((item) => milliseconds(item.createdAt) ?? nowMs).sort((a, b) => a - b)[0]
+      queuePriority: Math.max(0, ...processableQueue.map((item) => item.priority)),
+      dueAt: processableQueue.map((item) => milliseconds(item.createdAt) ?? nowMs).sort((a, b) => a - b)[0]
         ?? lastEvaluated,
     } as StoryReviewTargetPackItem & { reviewContext: StoryReviewContext; queuePriority: number; dueAt: number }];
   });
