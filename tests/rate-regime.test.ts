@@ -543,12 +543,12 @@ test("rate regime carries bounded global duration and foreign-demand evidence wi
 test("official coupon-supply evidence is visible without mechanically assigning yield direction", () => {
   const input = packet([
     {
-      evidence_id: "treasury-supply:coupon-sizes:2026-10-01",
+      evidence_id: "treasury-supply:coupon-sizes:2026-09-24",
       claim_or_fact: "Treasury announced nominal coupon offering sizes with 10Y/20Y/30Y totaling $86bn versus $74bn at the prior same-term auctions.",
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: "2026-10-01T21:00:00.000Z",
-      occurrence_time: "2026-10-01T21:00:00.000Z",
+      available_at: AVAILABLE_AT,
+      occurrence_time: "2026-09-24T10:00:00.000Z",
       grouping_key: "rate-context:treasury-supply",
       metrics: {
         signal_kind: "treasury_supply",
@@ -577,7 +577,7 @@ test("official coupon-supply evidence is visible without mechanically assigning 
   assert.match(supply?.detail ?? "", /gross issuance-volume context only/i);
   assert.match(supply?.detail ?? "", /does not deterministically establish/i);
   assert.doesNotMatch(supply?.detail ?? "", /buyback maximum/i);
-  assert.deepEqual(supply?.evidenceRefs, ["treasury-supply:coupon-sizes:2026-10-01"]);
+  assert.deepEqual(supply?.evidenceRefs, ["treasury-supply:coupon-sizes:2026-09-24"]);
 });
 
 test("missing Treasury buyback evidence leaves supply direction explicitly unresolved rather than neutral", () => {
