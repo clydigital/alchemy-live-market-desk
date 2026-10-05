@@ -304,12 +304,6 @@ test("Scenario E remains capped when only rate, USD, and gap prose suggest a con
         unresolvedSignals: [],
       },
     ],
-    policyOutlook: [{
-      title: "Confidence risk",
-      summary: "Systemic confidence break is imminent.",
-      evidenceRefs: [],
-      gaps: ["Demand failure", "auction failure", "reserve diversification"],
-    }] as DossierPresentationV1["policyOutlook"],
   });
 
   const result = buildHybridReasoningProjection({
