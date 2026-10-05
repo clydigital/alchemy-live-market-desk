@@ -304,7 +304,7 @@ test("Rate System 1 prefers the direct Treasury 10Y cash yield over FRED fallbac
 });
 
 
-test("Treasury liquidity support becomes restrictive only with independent long-end confirmation", () => {
+test("Treasury buyback remains context-only even when long-end yields are elevated", () => {
   const input = packet([
     {
       evidence_id: "verified-macro:treasury-long-end-buyback-2026-09-24",
@@ -349,14 +349,15 @@ test("Treasury liquidity support becomes restrictive only with independent long-
   const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
   const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
 
-  assert.equal(supply?.state, "HAWKISH");
-  assert.equal(supply?.score, 1);
+  assert.equal(supply?.state, "UNRESOLVED");
+  assert.equal(supply?.score, 0);
   assert.match(supply?.detail ?? "", /3\.0×/);
+  assert.match(supply?.detail ?? "", /does not establish net supply pressure/i);
   assert.match(supply?.detail ?? "", /not QE/i);
-  assert.ok(supply?.evidenceRefs.includes("verified-macro:treasury-long-end-buyback-2026-09-24"));
+  assert.deepEqual(supply?.evidenceRefs, ["verified-macro:treasury-long-end-buyback-2026-09-24"]);
 });
 
-test("a larger Treasury buyback does not manufacture tightening without elevated long-end yields", () => {
+test("a larger Treasury buyback never resolves deterministic supply direction by itself", () => {
   const input = packet([
     {
       evidence_id: "verified-macro:treasury-long-end-buyback-no-confirmation",
@@ -383,9 +384,10 @@ test("a larger Treasury buyback does not manufacture tightening without elevated
   const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
   const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
 
-  assert.equal(supply?.state, "NEUTRAL");
+  assert.equal(supply?.state, "UNRESOLVED");
   assert.equal(supply?.score, 0);
-  assert.match(supply?.detail ?? "", /not treated as tightening evidence by itself/i);
+  assert.match(supply?.detail ?? "", /debt-management\/liquidity context only/i);
+  assert.match(supply?.detail ?? "", /does not establish net supply pressure/i);
 });
 
 
@@ -535,4 +537,23 @@ test("rate regime carries bounded global duration and foreign-demand evidence wi
   assert.equal(regime.globalDurationDiagnostic.comparability.canCompareTicAndWeeklyMofAsSameFlow, false);
   assert.ok(regime.evidenceRefs.includes("global-rates:tic:2026-07"));
   assert.ok(regime.evidenceRefs.includes("global-rates:japan-mof-flows:2026-09-15-09-21"));
+});
+
+
+test("missing Treasury buyback evidence leaves supply direction explicitly unresolved rather than neutral", () => {
+  const input = packet([
+    fred("us2y", 4.8, 1.5),
+    fred("us10y-fred", 5.05, 1.0),
+    fred("us10y-real", 2.2, 3.0),
+    fred("us10y-breakeven", 2.6, 2.0),
+    fred("fed-funds-effective", 4.6, 0),
+  ]);
+
+  const regime = buildDossierRateRegime(input, buildDossierPolicyOutlook(input));
+  const supply = regime.signals.find((item) => item.key === "TREASURY_SUPPLY");
+
+  assert.equal(supply?.state, "UNRESOLVED");
+  assert.equal(supply?.score, 0);
+  assert.deepEqual(supply?.evidenceRefs, []);
+  assert.match(supply?.detail ?? "", /fiscal-supply or auction rule/i);
 });
