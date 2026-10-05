@@ -352,8 +352,8 @@ function probabilitiesFor(
     transfers,
     reasons,
     guardedTails: [
-      "Scenario D remains capped until a structured canonical contract proves forced-selling, funding, redemption, collateral or covenant stress; narrative or gap text is insufficient.",
-      "Scenario E remains capped until a structured canonical contract proves the full US-confidence condition; rate, USD, auction or demand prose alone is insufficient.",
+      "Scenario D does not gain probability automatically; it remains capped until a structured canonical contract proves forced-selling, funding, redemption, collateral or covenant stress. Narrative or gap text is insufficient.",
+      "Scenario E does not gain probability automatically; it remains capped until a structured canonical contract proves the full US-confidence condition. Rate, USD, auction or demand prose alone is insufficient.",
     ],
   };
 }
