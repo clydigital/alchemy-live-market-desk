@@ -5,6 +5,7 @@ import { explicitlyMentionedAssets } from "../lib/instrument-mentions.ts";
 import {
   MAX_STORY_REVIEW_EVIDENCE,
   materialAssessmentHasEligibleEvidence,
+  partitionStoryReviewTargetsByQueueClaims,
   planStoryReviewQueueHygiene,
   selectStoryReviewTargets,
   storyAssessmentAcknowledgesQueuedEvidence,
@@ -58,6 +59,43 @@ function evidence(id: string, topic: string, input: Partial<EvidencePackItem> = 
     ...input,
   };
 }
+
+test("queue-backed Story targets require full claim ownership while queue-less targets remain eligible", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [
+      story("partial"),
+      story("owned"),
+      story("age", { lastEvaluatedAt: "2026-08-18T00:00:00.000Z" }),
+    ],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "partial-a", storyId: "partial", status: "pending", reason: "explicit",
+        priority: 95, availableAt: "2026-08-21T10:00:00Z", createdAt: "2026-08-21T09:00:00Z",
+      },
+      {
+        id: "partial-b", storyId: "partial", status: "pending", reason: "explicit",
+        priority: 94, availableAt: "2026-08-21T10:00:00Z", createdAt: "2026-08-21T09:01:00Z",
+      },
+      {
+        id: "owned-a", storyId: "owned", status: "pending", reason: "explicit",
+        priority: 90, availableAt: "2026-08-21T10:00:00Z", createdAt: "2026-08-21T09:02:00Z",
+      },
+    ],
+    debt: [],
+    now,
+  });
+
+  const ownership = partitionStoryReviewTargetsByQueueClaims(
+    selected,
+    new Set(["partial-a", "owned-a"]),
+  );
+
+  assert.deepEqual(ownership.ownedTargets.map((target) => target.story.id), ["owned", "age"]);
+  assert.deepEqual(ownership.partialClaimIds, ["partial-a"]);
+  assert.deepEqual(ownership.droppedStoryIds, ["partial"]);
+});
 
 test("selector consumes queue, debt and evidence triggers in deterministic priority order", () => {
   const stories = ["queue", "criteria", "debt", "contradiction", "support", "catalyst", "age"].map((id) => story(id));

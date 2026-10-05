@@ -37,6 +37,18 @@ test("Market Belief structured output is bound to the frozen Story obligation co
   assert.match(schema, /itemProperties\.storyId = \{ type: "string", enum: uniqueStoryIds \}/);
 });
 
+test("queue-backed Story review requires full queue ownership before System 2", () => {
+  assert.match(runtime, /partitionStoryReviewTargetsByQueueClaims/);
+  assert.match(runtime, /new Set\(claimed\.map\(\(row\) => row\.id\)\)/);
+  assert.match(runtime, /Story review target was only partially claimed; retry as one ownership unit\./);
+  assert.match(runtime, /story_review_queue_claim_incomplete/);
+  assert.match(runtime, /return ownership\.ownedTargets/);
+  assert.match(
+    runtime,
+    /const owned = await claimStoryReviewQueues\(engineRunId, selected\);[\s\S]*return freezeStoryReviewTargets\(owned\)/,
+  );
+});
+
 test("evidence-backed Story queue completion requires explicit trigger acknowledgement", () => {
   assert.match(runtime, /storyAssessmentAcknowledgesQueuedEvidence\(evidenceIds, target\)/);
   assert.match(runtime, /did not acknowledge every queued canonical trigger Evidence ID/);
@@ -81,7 +93,7 @@ test("frozen Story targets cannot be overwritten back to JSON null by a stale co
 });
 
 test("target list and blocker context are frozen durably, including a fresh null metadata path", () => {
-  assert.match(runtime, /freezeStoryReviewTargets\(selected\)/);
+  assert.match(runtime, /freezeStoryReviewTargets\(owned\)/);
   assert.match(hardeningMigration, /freeze_intelligence_story_review_targets/);
   assert.match(hardeningMigration, /jsonb_array_length\(p_targets\) > 4/);
   assert.match(hardeningMigration, /jsonb_typeof\(existing_targets\) is distinct from 'array'/);
