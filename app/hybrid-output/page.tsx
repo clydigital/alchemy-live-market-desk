@@ -335,7 +335,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             <article className={styles.record} id="dossier-regime-context">
               <div className={styles.recordHeader}>
                 <div>
-                  <span className={styles.kicker}>SYSTEM 2 · ${focusedDossierRegimeContext.decision}</span>
+                  <span className={styles.kicker}>SYSTEM 2 · {focusedDossierRegimeContext.decision}</span>
                   <h3>{focusedDossierRegimeContext.conclusion}</h3>
                 </div>
                 <Badge>NON-STATE</Badge>
