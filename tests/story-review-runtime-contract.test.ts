@@ -128,6 +128,13 @@ test("automatic invalidation uses the strict evidence policy", () => {
   assert.match(hardeningMigration, /when effective_status='invalidated' then 'invalidated'/);
 });
 
+test("superseded queued Story Evidence is retired instead of becoming an unprocessable live request", () => {
+  assert.match(runtime, /intelligence_evidence\?select=id,freshness_status&id=in\.\(/);
+  assert.match(runtime, /requestedEvidenceFreshness/);
+  assert.match(runtime, /Requested canonical Evidence was superseded before Story review\./);
+  assert.match(runtime, /supersededQueueIds/);
+});
+
 test("abandoned reevaluation queue claims recover without another cron", () => {
   assert.match(baseMigration, /Recovered abandoned Story reevaluation claim/);
   assert.match(baseMigration, /queue\.updated_at < now\(\) - interval '20 minutes'/);

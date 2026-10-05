@@ -1082,11 +1082,14 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
   ).catch(() => []);
 
   if (!rows.length) {
-    return { openRows: 0, targetCount: 0, cancelled: 0, duplicates: 0, alreadyApplied: 0, aged: 0 };
+    return { openRows: 0, targetCount: 0, cancelled: 0, duplicates: 0, alreadyApplied: 0, superseded: 0, aged: 0 };
   }
 
   const targetIds = unique(rows.map((row) => row.target_id).filter(Boolean));
-  const [states, assessments] = await Promise.all([
+  const requestedEvidenceIds = unique(
+    rows.map((row) => row.requested_by_evidence_id).filter((id): id is string => Boolean(id)),
+  );
+  const [states, assessments, requestedEvidence] = await Promise.all([
     targetIds.length
       ? intelligenceRest<Array<{ story_id: string; lifecycle_status: string }>>(
         "intelligence_story_states?select=story_id,lifecycle_status&story_id=in.(" + targetIds.join(",") + ")",
@@ -1095,10 +1098,18 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     intelligenceRest<Array<{ queue_ids: string[] | null; applied_at: string | null }>>(
       "intelligence_story_assessments?select=queue_ids,applied_at&applied_at=not.is.null&order=applied_at.desc&limit=400",
     ).catch(() => []),
+    requestedEvidenceIds.length
+      ? intelligenceRest<Array<{ id: string; freshness_status: string }>>(
+        "intelligence_evidence?select=id,freshness_status&id=in.(" + requestedEvidenceIds.join(",") + ")",
+      ).catch(() => [])
+      : Promise.resolve([]),
   ]);
 
   const storyStatuses = new Map(states.map((state) => [state.story_id, state.lifecycle_status]));
   const appliedQueueIds = new Set(assessments.flatMap((assessment) => assessment.queue_ids ?? []));
+  const requestedEvidenceFreshness = new Map(
+    requestedEvidence.map((item) => [item.id, item.freshness_status]),
+  );
   const queue: StoryReviewQueueItem[] = rows.map((row) => ({
     id: row.id,
     storyId: row.target_id,
@@ -1113,12 +1124,15 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     queue,
     storyStatuses,
     appliedQueueIds,
+    requestedEvidenceFreshness,
     now,
   });
 
-  if (plan.cancelIds.length) {
+  const supersededQueueIds = new Set(plan.supersededEvidenceIds);
+  const ordinaryCancelIds = plan.cancelIds.filter((id) => !supersededQueueIds.has(id));
+  if (ordinaryCancelIds.length) {
     await intelligenceRest(
-      "intelligence_reevaluation_queue?id=in.(" + plan.cancelIds.join(",") + ")&status=in.(pending,retryable)",
+      "intelligence_reevaluation_queue?id=in.(" + ordinaryCancelIds.join(",") + ")&status=in.(pending,retryable)",
       {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
@@ -1131,6 +1145,21 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
       },
     );
   }
+  if (plan.supersededEvidenceIds.length) {
+    await intelligenceRest(
+      "intelligence_reevaluation_queue?id=in.(" + plan.supersededEvidenceIds.join(",") + ")&status=in.(pending,retryable)",
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "cancelled",
+          completed_at: now.toISOString(),
+          last_error: "Requested canonical Evidence was superseded before Story review.",
+          updated_at: now.toISOString(),
+        }),
+      },
+    );
+  }
 
   const result = {
     openRows: rows.length,
@@ -1138,12 +1167,14 @@ async function applyStoryReevaluationQueueHygiene(now: Date) {
     cancelled: plan.cancelIds.length,
     duplicates: plan.duplicateIds.length,
     alreadyApplied: plan.alreadyAppliedIds.length,
+    superseded: plan.supersededEvidenceIds.length,
     aged: plan.agedIds.length,
   };
   console.info(JSON.stringify({
     event: "story_reevaluation_queue_hygiene",
     ...result,
     cancelledQueueIds: plan.cancelIds,
+    supersededQueueIds: plan.supersededEvidenceIds,
     agedQueueIds: plan.agedIds.slice(0, 20),
   }));
   return result;

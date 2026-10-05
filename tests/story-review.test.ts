@@ -729,15 +729,92 @@ test("queue hygiene cancels only exact duplicates or already-applied requests", 
       ["ai", "publish"],
     ]),
     appliedQueueIds: new Set(["already-applied"]),
+    requestedEvidenceFreshness: new Map([
+      ["evidence-1", "current"],
+      ["evidence-2", "current"],
+      ["evidence-3", "current"],
+    ]),
     now,
   });
 
   assert.deepEqual(plan.duplicateIds, ["duplicate-low"]);
   assert.deepEqual(plan.alreadyAppliedIds, ["already-applied"]);
+  assert.deepEqual(plan.supersededEvidenceIds, []);
   assert.deepEqual(plan.cancelIds, ["already-applied", "duplicate-low"]);
   assert.deepEqual(plan.agedIds, ["distinct-aged", "keep-high"]);
   assert.equal(plan.cancelIds.includes("system1-live"), false);
   assert.equal(plan.agedIds.includes("system1-live"), false);
+});
+
+test("queue hygiene cancels an evidence-backed Story request when its exact canonical Evidence is superseded", () => {
+  const plan = planStoryReviewQueueHygiene({
+    queue: [
+      {
+        id: "dossier-superseded",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_acceptance:dossier:motion:ACCEPT",
+        priority: 95,
+        availableAt: "2026-08-21T11:00:00Z",
+        createdAt: "2026-08-21T11:00:00Z",
+        requestedEvidenceId: "old-evidence",
+      },
+      {
+        id: "dossier-current",
+        storyId: "rates",
+        status: "pending",
+        reason: "dossier_motion_acceptance:dossier:new-motion:ACCEPT",
+        priority: 95,
+        availableAt: "2026-08-21T11:01:00Z",
+        createdAt: "2026-08-21T11:01:00Z",
+        requestedEvidenceId: "new-evidence",
+      },
+      {
+        id: "system1-live",
+        storyId: "rates",
+        status: "pending",
+        reason: "system1_threshold_crossing",
+        priority: 80,
+        availableAt: "2026-08-21T11:02:00Z",
+        createdAt: "2026-08-21T11:02:00Z",
+        requestedEvidenceId: null,
+      },
+    ],
+    storyStatuses: new Map([["rates", "publish"]]),
+    appliedQueueIds: new Set(),
+    requestedEvidenceFreshness: new Map([
+      ["old-evidence", "superseded"],
+      ["new-evidence", "current"],
+    ]),
+    now,
+  });
+
+  assert.deepEqual(plan.supersededEvidenceIds, ["dossier-superseded"]);
+  assert.deepEqual(plan.cancelIds, ["dossier-superseded"]);
+  assert.equal(plan.cancelIds.includes("dossier-current"), false);
+  assert.equal(plan.cancelIds.includes("system1-live"), false);
+});
+
+test("queue hygiene does not cancel requested Evidence merely because freshness lookup is unavailable", () => {
+  const plan = planStoryReviewQueueHygiene({
+    queue: [{
+      id: "lookup-unavailable",
+      storyId: "oil",
+      status: "pending",
+      reason: "dossier_motion_acceptance",
+      priority: 95,
+      availableAt: "2026-08-21T11:00:00Z",
+      createdAt: "2026-08-21T11:00:00Z",
+      requestedEvidenceId: "unknown-evidence",
+    }],
+    storyStatuses: new Map([["oil", "publish"]]),
+    appliedQueueIds: new Set(),
+    requestedEvidenceFreshness: new Map(),
+    now,
+  });
+
+  assert.deepEqual(plan.supersededEvidenceIds, []);
+  assert.deepEqual(plan.cancelIds, []);
 });
 
 test("queue hygiene never collapses distinct fresh evidence for the same Story", () => {

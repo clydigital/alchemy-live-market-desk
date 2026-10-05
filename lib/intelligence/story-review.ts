@@ -110,6 +110,7 @@ export type StoryReviewQueueHygienePlan = {
   cancelIds: string[];
   duplicateIds: string[];
   alreadyAppliedIds: string[];
+  supersededEvidenceIds: string[];
   agedIds: string[];
 };
 
@@ -117,6 +118,7 @@ export function planStoryReviewQueueHygiene(input: {
   queue: StoryReviewQueueItem[];
   storyStatuses: ReadonlyMap<string, string>;
   appliedQueueIds: ReadonlySet<string>;
+  requestedEvidenceFreshness?: ReadonlyMap<string, string>;
   now: Date;
 }): StoryReviewQueueHygienePlan {
   const actionable = input.queue.filter((item) =>
@@ -150,7 +152,20 @@ export function planStoryReviewQueueHygiene(input: {
   }
   duplicateIds.sort();
 
-  const cancelIds = [...new Set([...alreadyAppliedIds, ...duplicateIds])].sort();
+  const freshnessByEvidence = input.requestedEvidenceFreshness ?? new Map<string, string>();
+  const supersededEvidenceIds = actionable
+    .filter((item) =>
+      Boolean(item.requestedEvidenceId)
+      && freshnessByEvidence.get(item.requestedEvidenceId!) === "superseded"
+      && !alreadyApplied.has(item.id))
+    .map((item) => item.id)
+    .sort();
+
+  const cancelIds = [...new Set([
+    ...alreadyAppliedIds,
+    ...duplicateIds,
+    ...supersededEvidenceIds,
+  ])].sort();
   const cancelled = new Set(cancelIds);
   const nowMs = input.now.getTime();
   const agedIds = actionable
@@ -172,6 +187,7 @@ export function planStoryReviewQueueHygiene(input: {
     cancelIds,
     duplicateIds,
     alreadyAppliedIds,
+    supersededEvidenceIds,
     agedIds,
   };
 }
