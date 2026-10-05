@@ -121,6 +121,15 @@ function divergenceDebt(
         "real yields and breakevens around the divergence window",
         "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
       ],
+      activeEvidenceIndex: 0,
+      activeEvidenceNeeded: [
+        "real yields and breakevens around the divergence window",
+      ],
+      remainingEvidenceNeeded: [
+        "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+      ],
+      processedCaseIds: [],
+      planSignature: "plan-rates-v1",
       magnitude: 82,
       persistenceScore: 76,
       resolutionState: "COMPETING_HYPOTHESES",
@@ -536,7 +545,6 @@ test("P2.2 canonical divergence debt enters the existing Research Gap queue as b
   ]);
   assert.deepEqual(candidate?.evidenceNeeded, [
     "real yields and breakevens around the divergence window",
-    "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
   ]);
   assert.equal(queue.sourceCounts.researchGaps, 2);
 });
@@ -556,4 +564,60 @@ test("P2.2 malformed or non-open divergence debt fails closed", () => {
 
   assert.equal(queue.sourceCounts.researchGaps, 1);
   assert.equal(queue.candidates.some((item) => item.sourceRef.startsWith("divergence:")), false);
+});
+
+
+test("P2.4 Research Gap sees only the active advanced discriminator", () => {
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T02:00:00.000Z"),
+    [],
+    [divergenceDebt({
+      next_action: "Recruit only curve, term-premium or meeting-pricing context.",
+      metadata: {
+        ...divergenceDebt().metadata,
+        activeEvidenceIndex: 1,
+        activeEvidenceNeeded: [
+          "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+        ],
+        remainingEvidenceNeeded: [],
+        processedCaseIds: ["case-first"],
+      },
+    })],
+  );
+
+  const candidate = queue.candidates.find((item) => item.sourceRef.startsWith("divergence:"));
+  assert.ok(candidate);
+  assert.deepEqual(candidate?.evidenceNeeded, [
+    "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+  ]);
+});
+
+test("P2.4 pre-lifecycle P2.2 debt also fails safe to the first discriminator only", () => {
+  const oldMetadata = {
+    kind: "canonical_divergence_recruitment",
+    contractVersion: "divergence-evidence-recruitment/1",
+    divergenceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    marketBeliefId: "belief-rates",
+    question: "Why did long-end yields stay elevated when they were expected to ease?",
+    evidenceNeeded: [
+      "real yields and breakevens around the divergence window",
+      "curve, term-premium or meeting-pricing context only if the first test remains unresolved",
+    ],
+    magnitude: 82,
+    persistenceScore: 76,
+    resolutionState: "COMPETING_HYPOTHESES",
+  };
+
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T02:00:00.000Z"),
+    [],
+    [divergenceDebt({ metadata: oldMetadata })],
+  );
+
+  const candidate = queue.candidates.find((item) => item.sourceRef.startsWith("divergence:"));
+  assert.deepEqual(candidate?.evidenceNeeded, [
+    "real yields and breakevens around the divergence window",
+  ]);
 });
