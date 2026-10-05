@@ -26,6 +26,10 @@ import {
   type TreasuryAuctionSnapshot,
 } from "../providers/treasury-auctions.ts";
 import {
+  fetchNyFedAcmTermPremium,
+  type NyFedAcmTermPremiumSnapshot,
+} from "../providers/ny-fed-acm-term-premium.ts";
+import {
   fetchBundesbankBund10,
   type BundesbankBund10Snapshot,
 } from "../providers/bundesbank-bund10.ts";
@@ -1265,6 +1269,73 @@ export function augmentCandidateSnapshotWithEia(
   };
 }
 
+export function augmentCandidateSnapshotWithAcmTermPremium(
+  result: CanonicalSnapshotResult,
+  acm: NyFedAcmTermPremiumSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+
+  if (acm.status !== "UNAVAILABLE" && acm.latest) {
+    const latest = acm.latest;
+    const prior = acm.prior5Sessions;
+    const changeText = acm.change5dBp === null
+      ? ""
+      : `; five-session change ${acm.change5dBp >= 0 ? "+" : ""}${acm.change5dBp.toFixed(1)} bp`;
+
+    observed.push({
+      evidence_id: `ny-fed-acm:10y:${latest.date}`,
+      claim_or_fact: `The New York Fed ACM model estimated the 10-year Treasury term premium at ${latest.termPremium10yPct.toFixed(3)}% on ${latest.date}${changeText}. This is a model estimate published by the New York Fed, not an official estimate of the New York Fed, the Federal Reserve System, or the FOMC.`,
+      category: "RATES",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: options.asOf,
+      occurrence_time: `${latest.date}T00:00:00.000Z`,
+      grouping_key: "rate-context:acm-term-premium",
+      rank: 11,
+      metrics: {
+        signal_kind: "term_structure_model",
+        signal_context: "acm_term_premium",
+        model: "Adrian-Crump-Moench",
+        series_id: "ACMTP10",
+        observed_value: latest.termPremium10yPct,
+        change_bps: acm.change5dBp,
+        prior_5_session_date: prior?.date ?? null,
+        prior_5_session_value: prior?.termPremium10yPct ?? null,
+        observation_date: latest.date,
+        provider_status: acm.status,
+        model_estimate_not_official_fed_estimate: true,
+      },
+      provenance: [{
+        source_type: "NY_FED_RESEARCH",
+        source_id: "ny-fed-acm:ACMTP10",
+        url: acm.sourceUrl,
+        publisher: acm.sourceName,
+      }],
+    });
+  }
+
+  return {
+    snapshot: {
+      ...result.snapshot,
+      observed_evidence: observed,
+      sources_status: {
+        ...(result.snapshot.sources_status ?? {}),
+        ny_fed_acm_term_premium: {
+          status: acm.status,
+          available_at: acm.fetchedAt,
+          message: acm.status === "UNAVAILABLE"
+            ? acm.warnings.join(" ") || "NY Fed ACM term-premium data were unavailable."
+            : `ACMTP10 ${acm.status === "STALE" ? "stale" : "current"} model estimate admitted from the New York Fed workbook${acm.change5dBp === null ? "; five-session change unavailable." : "."}`,
+        },
+      },
+    },
+    diagnostics: {
+      ...result.diagnostics,
+      observed_count: observed.length,
+    },
+  };
+}
+
 function treasuryAuctionAvailableAt(auctionDate: string) {
   // Fiscal Data exposes the auction date but not a machine-readable results
   // publication timestamp. Coupon results are intraday; use a conservative
@@ -1695,6 +1766,7 @@ export async function loadCanonicalCandidateSnapshot(
     dealerResult,
     treasuryBillsResult,
     treasuryAuctionsResult,
+    acmTermPremiumResult,
     japanJgbResult,
     treasuryTicResult,
     japanMofFlowsResult,
@@ -1711,6 +1783,10 @@ export async function loadCanonicalCandidateSnapshot(
     fetchNyFedPrimaryDealers(new Date(asOfMs)),
     fetchTreasuryBills(new Date(asOfMs)),
     fetchTreasuryAuctions(new Date(asOfMs)),
+    fetchNyFedAcmTermPremium({
+      asOf: new Date(asOfMs),
+      now: new Date(),
+    }),
     fetchJapanMofJgbYields(new Date(asOfMs)),
     fetchTreasuryTicTable5(),
     fetchJapanMofWeeklyFlows(),
@@ -1778,6 +1854,22 @@ export async function loadCanonicalCandidateSnapshot(
       dollar_liquidity_system1: {
         status: "WARNING",
         message: "One or more System 1 dollar-liquidity providers were unavailable; the classifier will fail closed to unresolved where necessary.",
+      },
+    };
+  }
+
+  if (acmTermPremiumResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithAcmTermPremium(
+      result,
+      acmTermPremiumResult.value,
+      options,
+    );
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      ny_fed_acm_term_premium: {
+        status: "UNAVAILABLE",
+        message: `NY Fed ACM term-premium enrichment failed closed: ${acmTermPremiumResult.reason instanceof Error ? acmTermPremiumResult.reason.message : String(acmTermPremiumResult.reason)}`,
       },
     };
   }
