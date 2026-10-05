@@ -1,6 +1,7 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import PresenterDivergenceJourney from "@/components/live-desk/PresenterDivergenceJourney";
+import HybridReasoningPanel from "@/components/live-desk/HybridReasoningPanel";
 import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducationalShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
@@ -21,6 +22,7 @@ import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection } from "@/lib/regimes";
+import { buildHybridReasoningProjection } from "@/lib/hybrid-reasoning-projection";
 
 export const dynamic = "force-dynamic";
 
@@ -189,6 +191,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   ).length;
   const openInvestigations = dossier.watchNext.length;
   const requiredCharts = dossier.charts.core.length;
+  const hybridReasoning = buildHybridReasoningProjection({
+    dossier,
+    stories: data.stories,
+    events: recordLayer.events,
+    versions: recordLayer.thesisVersions,
+  });
 
   return (
     <LiveDeskShell
@@ -272,6 +280,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             />
           )
         ) : null}
+
+        <HybridReasoningPanel projection={hybridReasoning} />
 
         <Panel
           title="Canonical context"
