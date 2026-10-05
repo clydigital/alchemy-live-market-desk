@@ -79,6 +79,12 @@ import {
   type DivergenceEvidenceRecruitment,
 } from "./divergence-evidence-recruitment.ts";
 import {
+  planDivergenceRecruitmentLifecycle,
+  type DivergenceRecruitmentDebtState,
+  type DivergenceRecruitmentHandoffCase,
+  type DivergenceRecruitmentLifecycleAction,
+} from "./divergence-recruitment-lifecycle.ts";
+import {
   candidateOmissionDiagnostic,
   isRecoverableStoryContractFailure,
   normalizeStorySynthesisCandidate,
@@ -1094,6 +1100,59 @@ async function loadResearchDebt() {
   ).catch(() => []);
 }
 
+type DivergenceRecruitmentDebtRow = {
+  id: string;
+  debt_key: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
+};
+
+type DivergenceRecruitmentCaseRow = {
+  id: string;
+  source_ref: string;
+  status: string;
+  handed_off_at: string | null;
+  evidence_needed: string[] | null;
+};
+
+async function loadDivergenceRecruitmentLifecycleState() {
+  const [debts, cases] = await Promise.all([
+    intelligenceRest<DivergenceRecruitmentDebtRow[]>(
+      "research_debt?select=id,debt_key,status,metadata&debt_key=like.divergence:*&order=updated_at.asc&limit=50",
+    ).catch(() => []),
+    intelligenceRest<DivergenceRecruitmentCaseRow[]>(
+      "research_gap_cases?select=id,source_ref,status,handed_off_at,evidence_needed&source_ref=like.divergence:*&status=eq.HANDED_OFF&order=handed_off_at.asc.nullslast&limit=80",
+    ).catch(() => []),
+  ]);
+
+  return {
+    debts: debts.map((row): DivergenceRecruitmentDebtState => ({
+      id: row.id,
+      debtKey: row.debt_key,
+      status: row.status,
+      metadata: row.metadata,
+    })),
+    handoffCases: cases.map((row): DivergenceRecruitmentHandoffCase => ({
+      id: row.id,
+      sourceRef: row.source_ref,
+      status: row.status,
+      handedOffAt: row.handed_off_at,
+      evidenceNeeded: row.evidence_needed ?? [],
+    })),
+  };
+}
+
+function canonicalResearchGapCaseIds(evidence: EvidencePackItem[]) {
+  const ids = new Set<string>();
+  for (const item of evidence) {
+    const raw = item.structuredPayload?.researchGapHandoff;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const gapId = (raw as { gapId?: unknown }).gapId;
+    if (typeof gapId === "string" && gapId.trim()) ids.add(gapId.trim());
+  }
+  return ids;
+}
+
 async function persistDivergenceEvidenceRecruitment(input: {
   engineRunId: string;
   researchRunId: string | null;
@@ -1101,10 +1160,28 @@ async function persistDivergenceEvidenceRecruitment(input: {
   plans: DivergenceEvidenceRecruitment[];
 }) {
   for (const plan of input.plans) {
-    const existing = await intelligenceRest<Array<{ id: string; status: string }>>(
-      `research_debt?select=id,status&debt_key=eq.${encodeURIComponent(plan.debtKey)}&order=updated_at.desc&limit=1`,
+    const existing = await intelligenceRest<Array<{
+      id: string;
+      status: string;
+      metadata: Record<string, unknown> | null;
+    }>>(
+      `research_debt?select=id,status,metadata&debt_key=eq.${encodeURIComponent(plan.debtKey)}&order=updated_at.desc&limit=1`,
     ).catch(() => []);
 
+    const row = existing[0] ?? null;
+    const metadata = row?.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata
+      : {};
+    const samePlan = metadata.planSignature === plan.planSignature;
+    const boundedExhausted = row?.status === "resolved"
+      && metadata.terminalState === "BOUNDED_EXHAUSTED"
+      && metadata.terminalPlanSignature === plan.planSignature;
+
+    if (boundedExhausted) continue;
+    if (row?.status === "open" && samePlan) continue;
+
+    const activeEvidenceNeeded = plan.evidenceNeeded.slice(0, 1);
+    const remainingEvidenceNeeded = plan.evidenceNeeded.slice(1);
     const payload = {
       ...(input.researchRunId ? { research_run_id: input.researchRunId } : {}),
       story_id: null,
@@ -1112,7 +1189,11 @@ async function persistDivergenceEvidenceRecruitment(input: {
       severity: plan.severity,
       status: "open",
       reason: plan.reason,
-      next_action: plan.nextAction,
+      next_action: activeEvidenceNeeded.length
+        ? remainingEvidenceNeeded.length
+          ? `Recruit only ${activeEvidenceNeeded[0]}; if still unresolved, then recruit ${remainingEvidenceNeeded[0]}.`
+          : `Recruit only ${activeEvidenceNeeded[0]}.`
+        : plan.nextAction,
       next_check_at: input.analysisAsOf,
       resolved_at: null,
       resolution_note: null,
@@ -1124,6 +1205,11 @@ async function persistDivergenceEvidenceRecruitment(input: {
         marketBeliefId: plan.marketBeliefId,
         question: plan.question,
         evidenceNeeded: plan.evidenceNeeded,
+        activeEvidenceIndex: 0,
+        activeEvidenceNeeded,
+        remainingEvidenceNeeded,
+        processedCaseIds: [],
+        planSignature: plan.planSignature,
         magnitude: plan.magnitude,
         persistenceScore: plan.persistenceScore,
         resolutionState: plan.resolutionState,
@@ -1131,8 +1217,8 @@ async function persistDivergenceEvidenceRecruitment(input: {
       updated_at: input.analysisAsOf,
     };
 
-    if (existing[0]?.id) {
-      await intelligenceRest(`research_debt?id=eq.${existing[0].id}`, {
+    if (row?.id) {
+      await intelligenceRest(`research_debt?id=eq.${row.id}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify(payload),
@@ -1144,6 +1230,65 @@ async function persistDivergenceEvidenceRecruitment(input: {
         body: JSON.stringify(payload),
       });
     }
+  }
+}
+
+async function persistDivergenceRecruitmentLifecycleActions(input: {
+  actions: DivergenceRecruitmentLifecycleAction[];
+  debts: DivergenceRecruitmentDebtState[];
+  analysisAsOf: string;
+}) {
+  const debtById = new Map(input.debts.map((debt) => [debt.id, debt]));
+
+  for (const action of input.actions) {
+    const debt = debtById.get(action.debtId);
+    if (!debt) continue;
+    const metadata = debt.metadata && typeof debt.metadata === "object" && !Array.isArray(debt.metadata)
+      ? debt.metadata
+      : {};
+
+    if (action.kind === "ADVANCE") {
+      await intelligenceRest(`research_debt?id=eq.${action.debtId}&status=eq.open`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          next_action: action.nextAction,
+          next_check_at: input.analysisAsOf,
+          metadata: {
+            ...metadata,
+            planSignature: action.planSignature,
+            activeEvidenceIndex: action.activeEvidenceIndex,
+            activeEvidenceNeeded: action.activeEvidenceNeeded,
+            remainingEvidenceNeeded: action.remainingEvidenceNeeded,
+            processedCaseIds: action.processedCaseIds,
+            lastCanonicalHandoffCaseId: action.caseId,
+            lastLifecycleTransition: "ADVANCE",
+          },
+          updated_at: input.analysisAsOf,
+        }),
+      });
+      continue;
+    }
+
+    await intelligenceRest(`research_debt?id=eq.${action.debtId}&status=eq.open`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        status: "resolved",
+        next_check_at: null,
+        resolved_at: input.analysisAsOf,
+        resolution_note: action.resolutionNote,
+        metadata: {
+          ...metadata,
+          processedCaseIds: action.processedCaseIds,
+          lastCanonicalHandoffCaseId: action.caseId,
+          lastLifecycleTransition: action.kind,
+          terminalState: action.terminalState,
+          terminalPlanSignature: action.terminalPlanSignature,
+        },
+        updated_at: input.analysisAsOf,
+      }),
+    });
   }
 }
 
@@ -3192,6 +3337,28 @@ export async function runIntelligenceEngine({
         evidenceAgainstIds: item.evidence_against_ids,
       })),
     });
+    const divergenceLifecycleState = await loadDivergenceRecruitmentLifecycleState();
+    const divergenceLifecycleActions = planDivergenceRecruitmentLifecycle({
+      debts: divergenceLifecycleState.debts,
+      handoffCases: divergenceLifecycleState.handoffCases,
+      canonicalHandoffCaseIds: canonicalResearchGapCaseIds(evidence),
+      currentPlans: divergenceRecruitment,
+    });
+    if (divergenceLifecycleActions.length && !dryRun) {
+      await persistDivergenceRecruitmentLifecycleActions({
+        actions: divergenceLifecycleActions,
+        debts: divergenceLifecycleState.debts,
+        analysisAsOf,
+      });
+    }
+    if (divergenceLifecycleActions.length) {
+      const resolved = divergenceLifecycleActions.filter((action) => action.kind === "RESOLVE").length;
+      const advanced = divergenceLifecycleActions.filter((action) => action.kind === "ADVANCE").length;
+      const exhausted = divergenceLifecycleActions.filter((action) => action.kind === "EXHAUST").length;
+      warnings.push(
+        `Divergence recruitment lifecycle: ${resolved} resolved, ${advanced} advanced to the next discriminator, ${exhausted} exhausted after bounded canonical evidence return.`,
+      );
+    }
     if (divergenceRecruitment.length) {
       if (!dryRun) {
         await persistDivergenceEvidenceRecruitment({
@@ -3202,7 +3369,7 @@ export async function runIntelligenceEngine({
         });
       }
       warnings.push(
-        `${divergenceRecruitment.length} material unresolved divergence(s) opened bounded evidence-recruitment debt for the existing Research Gap worker.`,
+        `${divergenceRecruitment.length} material unresolved divergence(s) remain eligible for bounded evidence recruitment through the existing Research Gap worker.`,
       );
     }
     const rejectedHypothesisCount = Math.max(0, hypothesisStage.data.hypotheses.length - hypotheses.length);
