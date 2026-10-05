@@ -12,6 +12,8 @@ It reads only the latest persisted `market_dossiers_v2` record and normalises wo
 
 Resolved and parked investigations are excluded.
 
+B3 removed the legacy direct `current_market_motion_items → Research Gap` producer. Raw Motion must first pass through canonical Dossier/System 2 and surface as Dossier `research_gaps`, `research_now`, or `investigations` before it can create new Research Gap work. Historical `market_motion` lifecycle cases remain readable and operational.
+
 The worker intentionally does **not** score, claim, research, resolve or mutate a gap. Prioritisation and durable lifecycle are separate stages.
 
 ## Machine endpoint
