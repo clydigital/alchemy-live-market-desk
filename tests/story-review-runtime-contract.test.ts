@@ -115,6 +115,11 @@ test("unchanged and creator-only assessments advance freshness without rewriting
   assert.match(hardeningMigration, /if material_allowed then[\s\S]*update public\.stories story/);
 });
 
+test("persisted eligible Evidence IDs use the same canonical predicate as the runtime material gate", () => {
+  assert.match(runtime, /isCanonicalEligibleEvidence\(item\)/);
+  assert.doesNotMatch(runtime, /eligibleEvidenceIds = evidenceIds\.filter\(\(id\) => allowedEvidence\.get\(id\)\?\.evidenceClass !== "transcript"\)/);
+});
+
 test("automatic invalidation uses the strict evidence policy", () => {
   assert.match(hardeningMigration, /evidence\.evidence_class not in \('transcript', 'research_analysis'\)/);
   assert.match(hardeningMigration, /source\.source_tier <= 4/);
