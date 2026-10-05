@@ -124,28 +124,32 @@ test("worker reads research gaps, Research Now and unresolved investigations wit
   assert.equal(queue.diagnostics.excludedResolvedInvestigations, 1);
 });
 
-test("fresh promoted Motion opens one traceable research candidate without becoming a second authority", () => {
+test("B3 raw promoted Motion cannot create Research Gap work outside the Dossier", () => {
+  const sameNextTest = "Pull MOVE/VIX, HY/IG, global long yields and FX basis.";
   const queue = buildResearchGapWorkQueue(
     dossier(),
     new Date("2026-10-01T01:00:00.000Z"),
     [
-      motion(),
+      motion({ next_test: sameNextTest }),
       motion({ id: "expired", motion_key: "expired", expires_at: "2026-10-01T00:59:00.000Z" }),
       motion({ id: "plain", motion_key: "plain", lifecycle_state: "MOTION", effective_state: "MOTION" }),
-      motion({ id: "no-test", motion_key: "no-test", next_test: null }),
-      motion({ id: "no-story", motion_key: "no-story", primary_story_id: null }),
     ],
   );
 
-  const candidates = queue.candidates.filter((item) => item.sourceKind === "market_motion");
-  assert.equal(candidates.length, 1);
-  assert.equal(queue.sourceCounts.marketMotion, 1);
-  assert.equal(candidates[0]?.sourceRef, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
-  assert.equal(candidates[0]?.question, motion().next_test);
-  assert.deepEqual(candidates[0]?.linkedStoryIds, ["story:rates-duration-stress"]);
-  assert.ok(candidates[0]?.gapKey.startsWith("gap:motion:event:rates:term-premium:branch:"));
-  assert.equal(candidates[0]?.nativeSignals.motionAttentionTier, "PRIMARY");
-  assert.ok((candidates[0]?.nativeSignals.motionAttentionScore ?? 0) >= 82);
+  assert.equal(queue.sourceCounts.marketMotion, 0);
+  assert.equal(queue.candidates.some((item) => item.sourceKind === "market_motion"), false);
+  assert.deepEqual(queue.candidates.map((item) => item.sourceKind), [
+    "research_gap",
+    "research_now",
+    "investigation",
+  ]);
+
+  const matchingQuestion = queue.candidates.filter((item) => item.question === sameNextTest);
+  assert.equal(matchingQuestion.length, 0);
+  assert.equal(
+    queue.candidates.filter((item) => item.sourceKind === "investigation").length,
+    1,
+  );
 });
 
 test("native urgency and linkage signals survive normalisation", () => {
@@ -193,7 +197,7 @@ test("work IDs stay Dossier-scoped while gap keys persist across Dossiers", () =
   );
 });
 
-test("latest-Dossier loader adds current promoted Motion as a bounded secondary work source", async () => {
+test("B3 latest-Dossier loader does not query current Market Motion", async () => {
   const row = dossier();
   const calls: Array<[string, unknown]> = [];
   const dossierQuery = {
@@ -214,28 +218,9 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
       return { data: row, error: null };
     },
   };
-  const motionQuery = {
-    select(value: string) {
-      calls.push(["motion:select", value]);
-      return this;
-    },
-    eq(column: string, value: unknown) {
-      calls.push([`motion:eq:${column}`, value]);
-      return this;
-    },
-    order(column: string, options: unknown) {
-      calls.push([`motion:order:${column}`, options]);
-      return this;
-    },
-    async limit(value: number) {
-      calls.push(["motion:limit", value]);
-      return { data: [motion()], error: null };
-    },
-  };
   const fakeClient = {
     from(table: string) {
       if (table === "market_dossiers_v2") return dossierQuery;
-      if (table === "current_market_motion_items") return motionQuery;
       throw new Error(`unexpected table ${table}`);
     },
   };
@@ -245,14 +230,12 @@ test("latest-Dossier loader adds current promoted Motion as a bounded secondary 
     new Date("2026-10-01T01:00:00Z"),
   );
   assert.equal(queue?.dossierId, row.id);
-  assert.equal(queue?.sourceCounts.marketMotion, 1);
+  assert.equal(queue?.sourceCounts.marketMotion, 0);
   assert.deepEqual(calls.filter(([name]) => String(name).startsWith("dossier:order:")), [
     ["dossier:order:as_of", { ascending: false }],
     ["dossier:order:created_at", { ascending: false }],
   ]);
-  assert.ok(calls.some(([name, value]) => name === "motion:eq:lifecycle_state" && value === "PROMOTED"));
-  assert.ok(calls.some(([name, value]) => name === "motion:eq:effective_state" && value === "PROMOTED"));
-  assert.ok(calls.some(([name, value]) => name === "motion:limit" && value === 18));
+  assert.equal(calls.some(([name]) => String(name).startsWith("motion:")), false);
 });
 
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {
@@ -261,4 +244,25 @@ test("machine-authenticated queue endpoint is whitelisted before dashboard sessi
   assert.match(config, /MACHINE_AUTH_PATHS[\s\S]*"\/api\/research-gap\/queue"/);
   assert.match(route, /acceptsResearchAuthorization/);
   assert.match(route, /loadLatestResearchGapWorkQueue/);
+});
+
+
+test("B3 Dossier Investigation and Research Now remain Research Gap sources when raw Motion collides", () => {
+  const raw = motion({
+    next_test: "Pull MOVE/VIX, HY/IG, global long yields and FX basis.",
+  });
+  const queue = buildResearchGapWorkQueue(
+    dossier(),
+    new Date("2026-10-01T01:00:00.000Z"),
+    [raw],
+  );
+
+  const investigation = queue.candidates.find((item) => item.sourceKind === "investigation");
+  const researchNow = queue.candidates.find((item) => item.sourceKind === "research_now");
+
+  assert.equal(investigation?.sourceRef, "inv:duration-transmission");
+  assert.deepEqual(investigation?.linkedInvestigationIds, ["inv:duration-transmission"]);
+  assert.equal(researchNow?.nativeSignals.researchNowRank, 1);
+  assert.ok(researchNow?.gapKey);
+  assert.equal(queue.candidates.some((item) => item.sourceKind === "market_motion"), false);
 });

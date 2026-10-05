@@ -11,7 +11,8 @@ Macro Pulse
   -> unified Motion dedupe
   -> independent reporting / official research intake may corroborate
   -> exact eligible canonical Evidence may PROMOTE Motion
-  -> Dossier / Hybrid / Research Gap can consume the promoted short-horizon context
+  -> Dossier / Hybrid can consume the promoted short-horizon context
+  -> only Dossier research_gaps / research_now / investigations may create new Research Gap work
 ```
 
 The bridge never writes a Story, Regime, Dossier, confidence change or thesis.
@@ -58,7 +59,7 @@ exact eligible canonical Evidence
 
 A shared Story, Regime, ticker, headline or similar prose is not corroboration. Macro Pulse references and creator transcripts remain discovery context unless the underlying event independently enters canonical Evidence through the normal research path.
 
-Promotion stores the selected canonical Evidence UUID on the Motion for provenance, but Motion itself remains non-evidentiary. Deliberate Research Gap / Hybrid propagation from Investigation or Research Now outcomes remains B3 work.
+Promotion stores the selected canonical Evidence UUID on the Motion for provenance, but Motion itself remains non-evidentiary. B3 routes new Research Gap work only from canonical Dossier research/investigation outputs. Hybrid may show exact Research Gap lifecycle status, but never Research Gap outcomes or verdicts before a later canonical Dossier incorporates them.
 
 ## Endpoint
 
