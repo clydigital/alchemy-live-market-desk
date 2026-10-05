@@ -27,6 +27,8 @@ export type PresenterCanonicalStoryCase = {
   divergence: DossierPresentationInvestigation["divergence"];
   canonicalMarketReaction: string | null;
   currentExplanation: string | null;
+  currentExplanationEvidenceIds: string[];
+  leadingExplanation: CanonicalExplanationCandidateV1 | null;
   competingExplanations: CanonicalExplanationCandidateV1[];
   evidenceMissing: string[];
   whatToInspectNext: {
@@ -89,13 +91,30 @@ export function buildPresenterCanonicalStoryCase(input: {
   const priorExpectation = clean(investigation.journey.previousExpectedReaction) || null;
   const currentExpectation = clean(investigation.expectedReaction) || null;
 
-  const competingExplanations = (reasoning.explanationCandidates ?? [])
+  const explanationCandidates = reasoning.explanationCandidates ?? [];
+  const leadingCandidates = explanationCandidates.filter((candidate) => candidate.isLeading);
+  const leadingExplanation = leadingCandidates.length === 1
+    ? {
+        ...leadingCandidates[0]!,
+        evidenceForIds: [...leadingCandidates[0]!.evidenceForIds],
+        evidenceAgainstIds: [...leadingCandidates[0]!.evidenceAgainstIds],
+      }
+    : null;
+  const competingExplanations = explanationCandidates
     .filter((candidate) => !candidate.isLeading)
     .map((candidate) => ({
       ...candidate,
       evidenceForIds: [...candidate.evidenceForIds],
       evidenceAgainstIds: [...candidate.evidenceAgainstIds],
     }));
+  const acceptedExplanation = clean(reasoning.acceptedExplanation) || null;
+  const currentExplanationEvidenceIds = acceptedExplanation
+    ? [...new Set(
+        reasoning.claims
+          .filter((claim) => claim.type === "interpretation" && clean(claim.text) === acceptedExplanation)
+          .flatMap((claim) => claim.evidenceIds),
+      )]
+    : [];
 
   return {
     contractVersion: PRESENTER_CANONICAL_STORY_BRIDGE_VERSION,
@@ -111,7 +130,9 @@ export function buildPresenterCanonicalStoryCase(input: {
     observedReaction: clean(investigation.observedReaction) || null,
     divergence: investigation.divergence,
     canonicalMarketReaction: clean(reasoning.marketReaction) || null,
-    currentExplanation: clean(reasoning.acceptedExplanation) || null,
+    currentExplanation: acceptedExplanation,
+    currentExplanationEvidenceIds,
+    leadingExplanation,
     competingExplanations,
     evidenceMissing: [...new Set(investigation.missingEvidence.map(clean).filter(Boolean))],
     whatToInspectNext: {
