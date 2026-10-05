@@ -178,3 +178,32 @@ test("scheduled Research Gap cycle is one-case, retry-first and non-overlapping"
   assert.match(cycle, /pending canonical handoff; no new case will be researched/);
   assert.doesNotMatch(cycle, /for attempt|while |until /);
 });
+
+
+test("B3 canonical Research Gap handoff does not trigger Dossier V2", () => {
+  const automatic = readFileSync(new URL("../lib/research-gap-auto-handoff.ts", import.meta.url), "utf8");
+  const manual = readFileSync(new URL("../lib/research-gap-manual-handoff-run.ts", import.meta.url), "utf8");
+  const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
+
+  assert.match(automatic, /\/api\/research-update/);
+  assert.doesNotMatch(automatic, /runManualDossierV2|api\/admin\/dossier-v2\/run|syncLatestPrioritisedResearchGapCases/);
+  assert.doesNotMatch(manual, /runManualDossierV2|api\/admin\/dossier-v2\/run|syncLatestPrioritisedResearchGapCases/);
+
+  const cycleStart = workflow.indexOf("- name: Run one scheduled Research Gap cycle");
+  const dossierStart = workflow.indexOf("- name: Run Dossier V2 production dry-run", cycleStart);
+  assert.ok(cycleStart >= 0 && dossierStart > cycleStart);
+  const cycle = workflow.slice(cycleStart, dossierStart);
+  assert.match(cycle, /api\/admin\/research-gap\/handoff-one/);
+  assert.doesNotMatch(cycle, /dossier_v2_persist|api\/admin\/dossier-v2\/run/);
+});
+
+test("B3 preserves historical market_motion Research Gap lifecycle compatibility", () => {
+  const worker = readFileSync(new URL("../lib/research-gap-worker.ts", import.meta.url), "utf8");
+  const lifecycle = readFileSync(new URL("../lib/research-gap-lifecycle.ts", import.meta.url), "utf8");
+  const automatic = readFileSync(new URL("../lib/research-gap-auto-handoff.ts", import.meta.url), "utf8");
+
+  assert.match(worker, /ResearchGapWorkSource[\s\S]*"market_motion"/);
+  assert.match(lifecycle, /source_kind:\s*PrioritisedResearchGap\["sourceKind"\]/);
+  assert.doesNotMatch(lifecycle, /source_kind\s*===\s*["']market_motion["']|source_kind\s*!==\s*["']market_motion["']/);
+  assert.doesNotMatch(automatic, /source_kind\s*===\s*["']market_motion["']|source_kind\s*!==\s*["']market_motion["']/);
+});
