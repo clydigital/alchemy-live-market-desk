@@ -1363,9 +1363,8 @@ async function resolveStaleStoryMaintenanceAssessment(input: {
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         disposition: "unchanged",
-        rationale: input.rationale + " Story assessment was superseded by a newer canonical Story thesis version.",
+        rationale: input.rationale + " Story assessment was superseded by a newer canonical Story thesis version and must be retried against the current Story.",
         material_change_applied: false,
-        applied_at: resolvedAt,
       }),
     },
   );
@@ -1379,9 +1378,11 @@ async function resolveStaleStoryMaintenanceAssessment(input: {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
-          status: "completed",
-          completed_at: resolvedAt,
-          last_error: null,
+          status: "retryable",
+          claimed_by_engine_run_id: null,
+          available_at: resolvedAt,
+          completed_at: null,
+          last_error: "Story changed after this review was frozen; retry against the current canonical Story thesis version.",
           updated_at: resolvedAt,
         }),
       },
@@ -1389,7 +1390,7 @@ async function resolveStaleStoryMaintenanceAssessment(input: {
   }
 
   console.info(JSON.stringify({
-    event: "stale_story_maintenance_resolved",
+    event: "stale_story_maintenance_requeued",
     engineRunId: input.engineRunId,
     storyId: input.target.story.id,
     assessmentId: input.assessmentId,
