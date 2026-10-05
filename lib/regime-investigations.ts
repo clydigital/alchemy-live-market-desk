@@ -6,6 +6,7 @@ import { routeTextToRegimes, type RegimeRoute } from "./regimes.ts";
 
 export type RoutedDossierInvestigation = DossierPresentationInvestigation & {
   regimeRoutes: RegimeRoute[];
+  regimeRoutingStoryIds: string[];
 };
 
 function storyRoutingText(story: DossierPresentationStory) {
@@ -24,12 +25,14 @@ function routeThroughLinkedStories(
   item: DossierPresentationInvestigation,
   storyById: Map<string, DossierPresentationStory>,
   limit: number,
-): RegimeRoute[] {
+): { routes: RegimeRoute[]; routingStoryIds: string[] } {
   const routesByKey = new Map<string, RegimeRoute>();
+  const routingStoryIds = new Set<string>();
 
   for (const storyId of item.storyIds) {
     const story = storyById.get(storyId);
     if (!story) continue;
+    routingStoryIds.add(storyId);
 
     for (const route of routeTextToRegimes(storyRoutingText(story), limit)) {
       const key = `${route.regime}:${route.subgroup}`;
@@ -40,13 +43,16 @@ function routeThroughLinkedStories(
     }
   }
 
-  return [...routesByKey.values()]
-    .sort((a, b) =>
-      b.score - a.score
-      || a.regime.localeCompare(b.regime)
-      || a.subgroup.localeCompare(b.subgroup)
-    )
-    .slice(0, limit);
+  return {
+    routes: [...routesByKey.values()]
+      .sort((a, b) =>
+        b.score - a.score
+        || a.regime.localeCompare(b.regime)
+        || a.subgroup.localeCompare(b.subgroup)
+      )
+      .slice(0, limit),
+    routingStoryIds: [...routingStoryIds].sort(),
+  };
 }
 
 /**
@@ -66,7 +72,7 @@ export function routeDossierInvestigationToRegimes(
     item,
     new Map(stories.map((story) => [story.id, story])),
     limit,
-  );
+  ).routes;
 }
 
 export function routeDossierInvestigations(
@@ -75,10 +81,14 @@ export function routeDossierInvestigations(
 ): RoutedDossierInvestigation[] {
   const storyById = new Map(stories.map((story) => [story.id, story]));
 
-  return items.map((item) => ({
-    ...item,
-    regimeRoutes: routeThroughLinkedStories(item, storyById, 4),
-  }));
+  return items.map((item) => {
+    const routed = routeThroughLinkedStories(item, storyById, 4);
+    return {
+      ...item,
+      regimeRoutes: routed.routes,
+      regimeRoutingStoryIds: routed.routingStoryIds,
+    };
+  });
 }
 
 export function investigationMatchesRegimeSubgroup(
