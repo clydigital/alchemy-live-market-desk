@@ -8,6 +8,7 @@ import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
@@ -15,7 +16,6 @@ import {
 } from "@/lib/market-motion-edition";
 import {
   deriveMarketMotionAttention,
-  marketMotionInvestigationEligibility,
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 } from "@/lib/market-motion";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
@@ -59,6 +59,17 @@ function reactionReadLabel(value: string) {
   return "Not exactly measured";
 }
 
+function researchGapLifecycleDetail(status: string) {
+  if (status === "COMPLETED") return "Research complete; canonical handoff pending";
+  if (status === "HANDED_OFF") return "Returned to canonical research; current Dossier remains authoritative";
+  if (status === "RESEARCHING") return "Research in progress";
+  if (status === "CLAIMED") return "Claimed by the Research Gap worker";
+  if (status === "QUEUED") return "Waiting for research";
+  if (status === "NEW") return "Materialised research item";
+  if (status === "CLOSED") return "Lifecycle case closed";
+  return "Research lifecycle status unavailable";
+}
+
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
   const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
     getDossierV2PresentationSelection(),
@@ -83,6 +94,15 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         />
       </LiveDeskShell>
     );
+  }
+
+  let researchGapStatus = null;
+  if (selection.selectedDossierId) {
+    try {
+      researchGapStatus = await loadHybridResearchGapStatus(selection.selectedDossierId);
+    } catch {
+      researchGapStatus = null;
+    }
   }
 
   const regimes = buildRegimeProjection({
@@ -143,13 +163,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       tickers: item.tickers,
       marketReaction: item.marketReaction,
     });
-    const investigation = marketMotionInvestigationEligibility({
-      lifecycleState: item.lifecycleState,
-      verificationState: item.verificationState,
-      expiresAt: item.expiresAt,
-      nextTest: item.nextTest,
-      storyId: item.storyId,
-    });
     return {
       id: item.id,
       attentionTier: attention.tier,
@@ -176,11 +189,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeSlug: item.regimeSlug,
       regimeLabel: item.regimeLabel,
       regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
-      investigationEligible: investigation.eligible,
-      investigationReason: investigation.reason,
-      investigationHref: investigation.eligible
-        ? `/hybrid-output?motion=${encodeURIComponent(item.id)}#motion-investigation`
-        : null,
     };
   });
   const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
@@ -239,9 +247,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         {motionId ? (
           focusedMotion ? (
             <Panel
-              title="Motion investigation path"
-              description="Exact Journey handoff for one immutable Motion item. The operational Research Gap worker uses the same eligibility gate; this surface does not create a new thesis or regime."
-              action={<Badge tone={focusedMotion.investigationEligible ? "ready" : "warn"}>{focusedMotion.investigationEligible ? "INVESTIGATION ELIGIBLE" : "CONTEXT ONLY"}</Badge>}
+              title="Motion context path"
+              description="Exact Journey context for one immutable Motion item. Operational Research Gap work begins only from canonical Dossier research and investigation outputs."
+              action={<Badge>DISCOVERY CONTEXT</Badge>}
             >
               <article className={styles.record} id="motion-investigation">
                 <div className={styles.recordHeader}>
@@ -257,8 +265,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                 <p><strong>Big-picture bridge:</strong> {focusedMotion.bigPictureBridge}</p>
                 <p><strong>Investigation next:</strong> {focusedMotion.nextTest || "No exact next test is persisted; this Motion stays context-only."}</p>
                 <p>
-                  <strong>Routing:</strong> Motion → exact linked Story/Regime → Research Gap investigation when eligible.
-                  Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
+                  <strong>Routing:</strong> Motion → canonical Dossier System 2 → Dossier research/investigation output → Research Gap lifecycle.
+                  Raw Motion does not create Research Gap work directly; Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
                 </p>
                 <p>
                   <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
@@ -571,6 +579,24 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
               <article className={styles.record}>
                 <h3>Required chart work</h3>
                 <p>{requiredCharts} core chart investigation(s) are attached to the current Dossier.</p>
+              </article>
+              <article className={styles.record}>
+                <h3>Research Gap lifecycle</h3>
+                {researchGapStatus?.items.length ? (
+                  <div className={styles.recordList}>
+                    {researchGapStatus.items.map((item) => (
+                      <div key={item.gapKey}>
+                        <div className={styles.recordHeader}>
+                          <strong>{item.sourceKind.replaceAll("_", " ")}</strong>
+                          <Badge>{item.lifecycleStatus}</Badge>
+                        </div>
+                        <p>{researchGapLifecycleDetail(item.lifecycleStatus)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No materialised Research Gap lifecycle for this Dossier.</p>
+                )}
               </article>
             </div>
           </Panel>
