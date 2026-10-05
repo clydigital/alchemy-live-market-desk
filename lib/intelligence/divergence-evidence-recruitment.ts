@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const DIVERGENCE_EVIDENCE_RECRUITMENT_VERSION =
   "divergence-evidence-recruitment/1" as const;
 
@@ -43,6 +45,7 @@ export type DivergenceEvidenceRecruitment = {
     | "COMPETING_HYPOTHESES"
     | "LOW_CONFIDENCE"
     | "CONFLICTED_EVIDENCE";
+  planSignature: string;
 };
 
 function clean(value: string | null | undefined) {
@@ -145,6 +148,22 @@ function stablePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
+export function divergenceRecruitmentPlanSignature(input: {
+  divergenceId: string;
+  marketBeliefId: string;
+  resolutionState: DivergenceEvidenceRecruitment["resolutionState"];
+  evidenceNeeded: string[];
+}) {
+  const basis = [
+    input.divergenceId,
+    input.marketBeliefId,
+    input.resolutionState,
+    ...input.evidenceNeeded,
+  ].map((value) => value.trim().toLowerCase()).join("\n");
+
+  return createHash("sha256").update(basis).digest("hex").slice(0, 24);
+}
+
 export function planDivergenceEvidenceRecruitment(input: {
   divergences: DivergenceRecruitmentDivergence[];
   beliefs: DivergenceRecruitmentBelief[];
@@ -171,6 +190,12 @@ export function planDivergenceEvidenceRecruitment(input: {
     const nextAction = evidenceNeeded.length > 1
       ? `Recruit only ${evidenceNeeded[0]}; if still unresolved, then recruit ${evidenceNeeded[1]}.`
       : `Recruit only ${evidenceNeeded[0]}.`;
+    const planSignature = divergenceRecruitmentPlanSignature({
+      divergenceId: divergence.id,
+      marketBeliefId: divergence.marketBeliefId,
+      resolutionState: state,
+      evidenceNeeded,
+    });
 
     return [{
       contractVersion: DIVERGENCE_EVIDENCE_RECRUITMENT_VERSION,
@@ -185,6 +210,7 @@ export function planDivergenceEvidenceRecruitment(input: {
       magnitude: divergence.magnitude,
       persistenceScore: divergence.persistenceScore,
       resolutionState: state,
+      planSignature,
     }];
   }).slice(0, 4);
 }
