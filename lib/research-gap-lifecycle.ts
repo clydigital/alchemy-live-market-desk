@@ -6,6 +6,10 @@ import {
   type ResearchGapPriorityQueue,
 } from "./research-gap-prioritizer.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import {
+  decideResearchGapDiscriminatorLifecycle,
+  type ResearchGapDiscriminatorLifecycleSnapshot,
+} from "./research-gap-discriminator-lifecycle.ts";
 
 export const RESEARCH_GAP_CASE_STATUSES = [
   "NEW",
@@ -79,7 +83,10 @@ function message(error: { message: string } | null, context: string) {
   if (error) throw new Error(`${context}: ${error.message}`);
 }
 
-function snapshot(item: PrioritisedResearchGap) {
+function snapshot(
+  item: PrioritisedResearchGap,
+  causalDiscriminator?: ResearchGapDiscriminatorLifecycleSnapshot | null,
+) {
   return {
     contractVersion: "research-gap-case-snapshot/1",
     workId: item.workId,
@@ -98,7 +105,87 @@ function snapshot(item: PrioritisedResearchGap) {
     priorityScore: item.priorityScore,
     scoreBreakdown: item.scoreBreakdown,
     selectionReason: item.selectionReason,
+    ...(causalDiscriminator ? { causalDiscriminator } : {}),
   };
+}
+
+async function loadResearchGapCaseByGapKey(
+  gapKey: string,
+  client: SupabaseClient,
+) {
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
+    .eq("gap_key", gapKey)
+    .maybeSingle();
+  message(error, `Could not load Research Gap case ${gapKey}`);
+  return (data || null) as ResearchGapCaseRow | null;
+}
+
+export async function hasCanonicalResearchGapHandoff(
+  caseId: string,
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const { data, error } = await client
+    .from("intelligence_evidence")
+    .select("id")
+    .contains("structured_payload", {
+      researchGapHandoff: { gapId: caseId },
+    })
+    .limit(1)
+    .maybeSingle();
+  message(error, `Could not verify canonical Research Gap handoff ${caseId}`);
+  return Boolean(data);
+}
+
+async function transitionResearchGapCase(
+  input: {
+    caseId: string;
+    expectedStatus: "HANDED_OFF" | "CLOSED";
+    action: "REQUEUE" | "CLOSE";
+    at: string;
+  },
+  client: SupabaseClient,
+) {
+  const patch = input.action === "REQUEUE"
+    ? {
+        status: "QUEUED",
+        research_outcome: null,
+        claim_token: null,
+        claimed_by: null,
+        claimed_at: null,
+        claim_expires_at: null,
+        completed_at: null,
+        handed_off_at: null,
+        closed_at: null,
+        research_plan_version: null,
+        research_plan: null,
+        research_started_at: null,
+        verdict_version: null,
+        verdict: null,
+        handoff_run_key: null,
+        handoff_canonical_status: null,
+        updated_at: input.at,
+      }
+    : {
+        status: "CLOSED",
+        claim_token: null,
+        claimed_by: null,
+        claimed_at: null,
+        claim_expires_at: null,
+        closed_at: input.at,
+        updated_at: input.at,
+      };
+
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .update(patch)
+    .eq("id", input.caseId)
+    .eq("status", input.expectedStatus)
+    .select("id,status")
+    .maybeSingle();
+  message(error, `Could not ${input.action.toLowerCase()} Research Gap discriminator case ${input.caseId}`);
+  return Boolean(data);
 }
 
 async function syncOne(
@@ -106,6 +193,47 @@ async function syncOne(
   client: SupabaseClient,
   observedAt: string,
 ) {
+  let evidenceNeeded = item.evidenceNeeded;
+  let causalDiscriminator: ResearchGapDiscriminatorLifecycleSnapshot | null = null;
+
+  if (item.causalDiscriminatorPlan) {
+    const existing = await loadResearchGapCaseByGapKey(item.gapKey, client);
+    const canonicalHandoffAdmitted = existing?.status === "HANDED_OFF"
+      ? await hasCanonicalResearchGapHandoff(existing.id, client)
+      : false;
+    const discriminatorDecision = decideResearchGapDiscriminatorLifecycle({
+      candidatePlan: item.causalDiscriminatorPlan,
+      existingStatus: existing?.status ?? null,
+      existingResearchPlan: existing?.research_plan ?? null,
+      canonicalHandoffAdmitted,
+    });
+    evidenceNeeded = discriminatorDecision.evidenceNeeded;
+    causalDiscriminator = discriminatorDecision.lifecycle;
+
+    if (existing && discriminatorDecision.shouldRequeue) {
+      const expectedStatus = existing.status === "CLOSED" ? "CLOSED" : "HANDED_OFF";
+      const requeued = await transitionResearchGapCase({
+        caseId: existing.id,
+        expectedStatus,
+        action: "REQUEUE",
+        at: observedAt,
+      }, client);
+      if (!requeued) {
+        throw new Error(`Research Gap discriminator case ${existing.id} changed state before requeue.`);
+      }
+    } else if (existing && discriminatorDecision.shouldClose && existing.status === "HANDED_OFF") {
+      const closed = await transitionResearchGapCase({
+        caseId: existing.id,
+        expectedStatus: "HANDED_OFF",
+        action: "CLOSE",
+        at: observedAt,
+      }, client);
+      if (!closed) {
+        throw new Error(`Research Gap discriminator case ${existing.id} changed state before close.`);
+      }
+    }
+  }
+
   const { data, error } = await client.rpc("upsert_research_gap_case", {
     p_gap_key: item.gapKey,
     p_dossier_id: item.dossierId,
@@ -116,13 +244,13 @@ async function syncOne(
     p_question: item.question,
     p_action: item.action,
     p_reason: item.reason,
-    p_evidence_needed: item.evidenceNeeded,
+    p_evidence_needed: evidenceNeeded,
     p_linked_investigation_ids: item.linkedInvestigationIds,
     p_linked_story_ids: item.linkedStoryIds,
     p_blocking_refs: item.blockingRefs,
     p_priority_rank: item.priorityRank,
     p_priority_score: item.priorityScore,
-    p_snapshot: snapshot(item),
+    p_snapshot: snapshot({ ...item, evidenceNeeded }, causalDiscriminator),
     p_observed_at: observedAt,
   });
   message(error, `Could not persist Research Gap case ${item.gapKey}`);
