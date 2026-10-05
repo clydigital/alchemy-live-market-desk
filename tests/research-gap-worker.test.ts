@@ -42,6 +42,21 @@ function dossier(overrides: Partial<MarketDossierV2> = {}): MarketDossierV2 {
           research_next: "Pull MOVE/VIX, HY/IG, global long yields and FX basis.",
           why_it_matters: "Tests whether a rates shock is becoming broader financial tightening.",
           missing_evidence: ["MOVE/VIX", "HY/IG"],
+          candidate_explanations: [{
+            rank: 1,
+            explanation: "Duration pressure is transmitting through credit.",
+            evidence_for_ids: [],
+            evidence_against_ids: [],
+            confidence: "UNRESOLVED",
+            discriminating_test: "Compare HY/IG spread widening with MOVE and long-end yield persistence.",
+          }, {
+            rank: 2,
+            explanation: "The move is valuation-only rather than credit transmission.",
+            evidence_for_ids: [],
+            evidence_against_ids: [],
+            confidence: "UNRESOLVED",
+            discriminating_test: "Check whether credit spreads remain contained while duration-sensitive equities lag.",
+          }],
           linked_story_ids: ["story:rates-duration-stress"],
           divergence: "UNRESOLVED",
         }, {
@@ -171,7 +186,42 @@ test("native urgency and linkage signals survive normalisation", () => {
   assert.equal(investigation.question, "Is duration stress transmitting into credit and volatility?");
   assert.equal(investigation.nativeSignals.investigationStatus, "open");
   assert.equal(investigation.nativeSignals.divergence, "UNRESOLVED");
-  assert.deepEqual(investigation.evidenceNeeded, ["MOVE/VIX", "HY/IG"]);
+  assert.deepEqual(investigation.evidenceNeeded, [
+    "MOVE/VIX",
+    "HY/IG",
+    "Compare HY/IG spread widening with MOVE and long-end yield persistence.",
+    "Check whether credit spreads remain contained while duration-sensitive equities lag.",
+  ]);
+});
+
+test("causal discriminating tests do not churn persistent Investigation gap identity", () => {
+  const first = buildResearchGapWorkQueue(dossier());
+  const changed = dossier();
+  const analytical = changed.payload.analytical_output as Record<string, unknown>;
+  const investigations = analytical.investigations as Array<Record<string, unknown>>;
+  investigations[0] = {
+    ...investigations[0],
+    candidate_explanations: [{
+      rank: 1,
+      explanation: "A different mechanism is now plausible.",
+      evidence_for_ids: [],
+      evidence_against_ids: [],
+      confidence: "LOW",
+      discriminating_test: "Test a newly identified cross-asset transmission channel.",
+    }],
+  };
+
+  const second = buildResearchGapWorkQueue(changed);
+  const firstInvestigation = first.candidates.find((item) => item.sourceKind === "investigation");
+  const secondInvestigation = second.candidates.find((item) => item.sourceKind === "investigation");
+
+  assert.equal(firstInvestigation?.gapKey, "gap:investigation:inv:duration-transmission");
+  assert.equal(secondInvestigation?.gapKey, firstInvestigation?.gapKey);
+  assert.deepEqual(secondInvestigation?.evidenceNeeded, [
+    "MOVE/VIX",
+    "HY/IG",
+    "Test a newly identified cross-asset transmission channel.",
+  ]);
 });
 
 test("work IDs stay Dossier-scoped while gap keys persist across Dossiers", () => {
