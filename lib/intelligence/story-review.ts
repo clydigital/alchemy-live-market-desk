@@ -201,19 +201,29 @@ function relevantEvidenceForStory(
   requestedEvidenceIds: Set<string>,
 ) {
   const linkByEvidence = new Map(links.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link]));
-  return evidence
-    .filter((item) => requestedEvidenceIds.has(item.id)
-      || linkByEvidence.has(item.id)
-      || item.affectedTopics.includes(story.slug))
-    .sort((left, right) => {
-      const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
-      const rightRole = linkByEvidence.get(right.id)?.evidenceRole ?? "context";
-      return (EVIDENCE_ROLE_RANK[leftRole] ?? 9) - (EVIDENCE_ROLE_RANK[rightRole] ?? 9)
-        || left.sourceTier - right.sourceTier
-        || (milliseconds(right.eventAt) ?? 0) - (milliseconds(left.eventAt) ?? 0)
-        || left.id.localeCompare(right.id);
-    })
-    .slice(0, MAX_STORY_REVIEW_EVIDENCE);
+  const compare = (left: EvidencePackItem, right: EvidencePackItem) => {
+    const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
+    const rightRole = linkByEvidence.get(right.id)?.evidenceRole ?? "context";
+    return (EVIDENCE_ROLE_RANK[leftRole] ?? 9) - (EVIDENCE_ROLE_RANK[rightRole] ?? 9)
+      || left.sourceTier - right.sourceTier
+      || (milliseconds(right.eventAt) ?? 0) - (milliseconds(left.eventAt) ?? 0)
+      || left.id.localeCompare(right.id);
+  };
+  const eligible = evidence.filter((item) => requestedEvidenceIds.has(item.id)
+    || linkByEvidence.has(item.id)
+    || item.affectedTopics.includes(story.slug));
+
+  // An explicit reevaluation queue row names the canonical evidence that woke
+  // this exact Story. Reserve those rows before filling the bounded context so
+  // stronger unrelated/older Story context cannot crowd the trigger out.
+  const requested = eligible
+    .filter((item) => requestedEvidenceIds.has(item.id))
+    .sort(compare);
+  const context = eligible
+    .filter((item) => !requestedEvidenceIds.has(item.id))
+    .sort(compare);
+
+  return [...requested, ...context].slice(0, MAX_STORY_REVIEW_EVIDENCE);
 }
 
 export function selectStoryReviewTargets(input: {
@@ -301,7 +311,9 @@ export function selectStoryReviewTargets(input: {
       catalystRecalibrationRequired,
       triggerEvidenceIds: [...new Set([
         ...fresh.map((item) => item.id),
-        ...requestedEvidenceIds,
+        ...relevantEvidence
+          .filter((item) => requestedEvidenceIds.has(item.id))
+          .map((item) => item.id),
       ])],
       catalystCandidates,
     };

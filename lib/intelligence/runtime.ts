@@ -765,9 +765,10 @@ async function loadExplicitlyQueuedArchivedReviewContext() {
   const stories = await intelligenceRest<StoryRow[]>(
     `stories?select=${STORY_REGISTRY_FIELDS}&id=in.(${targetIds.join(",")})&status=eq.archived&order=updated_at.desc`,
   );
-  const archivedStoryIds = new Set(stories.map((story) => story.id));
+  // Pin requested canonical Evidence for every explicit Story queue row,
+  // including active Stories. Archived Stories need an extra registry load, but
+  // active queued Stories have the same evidence-fidelity requirement.
   const triggerEvidenceIds = unique(queued
-    .filter((item) => archivedStoryIds.has(item.target_id))
     .map((item) => item.requested_by_evidence_id)
     .filter((id): id is string => Boolean(id)));
   return { stories, triggerEvidenceIds };
