@@ -166,6 +166,7 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "us10y-real",
   "us10y-breakeven",
   "fed-funds-effective",
+  "move",
   "spx",
   "smh",
   "dxy",
