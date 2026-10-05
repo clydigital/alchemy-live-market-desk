@@ -7,7 +7,9 @@ import {
   type ManualDossierV2RunResult,
 } from "./manual-run.ts";
 import type { DossierDeltaMode } from "./delta-gate.ts";
-import { syncLatestPrioritisedResearchGapCases } from "../research-gap-lifecycle.ts";
+import {
+  syncLatestPrioritisedResearchGapCasesWithD7 as syncLatestPrioritisedResearchGapCases,
+} from "../d7-research-gap-runtime.ts";
 
 type PersistAuthorization = ManualLiveTriggerAuthorization;
 type ResearchGapSyncResult = Awaited<ReturnType<typeof syncLatestPrioritisedResearchGapCases>>;
