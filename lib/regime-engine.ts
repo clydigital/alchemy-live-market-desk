@@ -228,6 +228,20 @@ function buildInputManifest(input: ProjectionInput) {
       rateRegimeAsOf: dossier?.rateRegime?.asOf ?? null,
       dollarLiquidityContract: dossier?.dollarLiquidity?.contractVersion ?? null,
       dollarLiquidityAsOf: dossier?.dollarLiquidity?.asOf ?? null,
+      motionRegimeContext: (dossier?.motionRegimeContext ?? [])
+        .map((item) => ({
+          motionId: item.motionId,
+          decision: item.decision,
+          regimeSlug: item.regimeSlug,
+          storyId: item.storyId,
+          canonicalEvidenceRefs: [...item.canonicalEvidenceRefs].sort(),
+          observedAt: item.observedAt,
+          versionNumber: item.versionNumber,
+        }))
+        .sort((left, right) =>
+          left.regimeSlug.localeCompare(right.regimeSlug)
+          || left.motionId.localeCompare(right.motionId)
+        ),
     },
   };
 }
@@ -617,6 +631,9 @@ export async function persistRegimeShadowProjection(input: {
         system1Contracts: regime.subgroups.flatMap((subgroup) =>
           subgroup.telemetry.map((item) => ({ key: item.key, source: item.source, asOf: item.asOf })),
         ),
+        dossierMotionContextIds: (regime.dossierContext ?? [])
+          .map((item) => item.id)
+          .sort(),
       };
 
       const { data, error } = await client.rpc("persist_market_regime_projection_v1", {
