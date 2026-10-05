@@ -45,6 +45,7 @@ create table public.intelligence_reevaluation_queue (
   requested_by_evidence_id uuid references public.intelligence_evidence(id) on delete set null,
   reason text not null,
   status text not null default 'pending',
+  claimed_by_engine_run_id uuid references public.intelligence_engine_runs(id) on delete set null,
   priority smallint not null default 50,
   available_at timestamptz not null default now(),
   created_at timestamptz not null default now()
