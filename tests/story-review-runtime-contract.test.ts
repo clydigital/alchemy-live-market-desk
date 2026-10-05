@@ -135,6 +135,14 @@ test("superseded queued Story Evidence is retired instead of becoming an unproce
   assert.match(runtime, /supersededQueueIds/);
 });
 
+test("stale frozen Story maintenance is blocked by current canonical version and resolved without mutation", () => {
+  assert.match(runtime, /IntelligenceDatabaseError/);
+  assert.match(runtime, /Stale Story maintenance assessment/);
+  assert.match(runtime, /resolveStaleStoryMaintenanceAssessment/);
+  assert.match(runtime, /Story assessment was superseded by a newer canonical Story thesis version/);
+  assert.match(runtime, /stale_story_maintenance_resolved/);
+});
+
 test("abandoned reevaluation queue claims recover without another cron", () => {
   assert.match(baseMigration, /Recovered abandoned Story reevaluation claim/);
   assert.match(baseMigration, /queue\.updated_at < now\(\) - interval '20 minutes'/);
