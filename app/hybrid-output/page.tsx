@@ -6,9 +6,15 @@ import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducati
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
-import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
+import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
+import {
+  buildPresenterCanonicalStoryCases,
+  presenterStorySourcesFromEditionPayload,
+} from "@/lib/presenter-canonical-story-bridge";
+import { buildPresenterHistoricalContextBoundary } from "@/lib/presenter-historical-context-boundary";
+import { loadPresenterHistoricalDossierReplay } from "@/lib/presenter-historical-dossier-replay";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import {
   marketMotionFromEditionPayload,
@@ -117,6 +123,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const regimeSlug = typeof query.regime === "string" ? query.regime : null;
   const eventId = typeof query.event === "string" ? query.event : null;
   const motionId = typeof query.motion === "string" ? query.motion : null;
+  const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
   const focusedStory = storySlug ? data.stories.find((story) => story.slug === storySlug) || null : null;
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
@@ -139,13 +146,74 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
 
-  const currentEditionPointer = buildCanonicalEditionIndex(
+  const presenterEditionIndex = buildCanonicalEditionIndex(
     presenterEditions,
     data.researchRuns,
-  )[0] || null;
+  );
+  const presenterEditionSelection = selectCanonicalEdition(
+    presenterEditionIndex,
+    requestedEditionId,
+  );
+  const currentEditionPointer = presenterEditionSelection.current;
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
+  const selectedPresenterEdition = presenterEditionSelection.selected
+    ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
+    : null;
+  const presenterEditionStatus = presenterEditionSelection.status === "invalid_fallback_current"
+    ? "invalid_fallback_current" as const
+    : presenterEditionSelection.selected?.snapshotId
+      && presenterEditionSelection.selected.snapshotId !== presenterEditionSelection.current?.snapshotId
+        ? "historical" as const
+        : "current" as const;
+  const presenterHistoricalDossierReplay = presenterEditionStatus === "historical"
+    ? await loadPresenterHistoricalDossierReplay(selectedPresenterEdition?.payload)
+    : null;
+  const presenterDossier = presenterHistoricalDossierReplay?.status === "BOUND"
+    && presenterHistoricalDossierReplay.selection?.presentation
+      ? presenterHistoricalDossierReplay.selection.presentation
+      : dossier;
+  const presenterHistoricalContextBoundary = buildPresenterHistoricalContextBoundary({
+    editionSelectionStatus: presenterEditionStatus,
+    selectedEditionId: presenterEditionSelection.selected?.snapshotId ?? null,
+    currentEditionId: presenterEditionSelection.current?.snapshotId ?? null,
+    dossierId: selection.selectedDossierId,
+    dossierAsOf: selection.selectedAsOf,
+    exactHistoricalDossier: presenterHistoricalDossierReplay?.status === "BOUND"
+      && presenterHistoricalDossierReplay.selection
+      ? {
+          dossierId: presenterHistoricalDossierReplay.selection.selectedDossierId!,
+          dossierAsOf: presenterHistoricalDossierReplay.selection.selectedAsOf!,
+        }
+      : null,
+  });
+  const presenterStorySources = presenterStorySourcesFromEditionPayload(selectedPresenterEdition?.payload);
+  const presenterCanonicalCases = buildPresenterCanonicalStoryCases({
+    investigations: presenterDossier.watchNext,
+    storySources: presenterStorySources,
+  });
+  const presenterEditionOptions = presenterEditionIndex.slice(0, 8).map((edition) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (key === "edition" || value === undefined) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) params.append(key, item);
+      } else {
+        params.set(key, value);
+      }
+    }
+    if (edition.snapshotId !== currentEditionPointer?.snapshotId) {
+      params.set("edition", edition.snapshotId);
+    }
+    const search = params.toString();
+    return {
+      snapshotId: edition.snapshotId,
+      label: `${edition.slot || "Journey"} · ${formatDeskDate(edition.scheduledFor || edition.publishedAt)}`,
+      freshness: edition.freshness,
+      href: `/hybrid-output${search ? `?${search}` : ""}#presenter-reasoning`,
+    };
+  });
   const marketMotionAttachment = marketMotionFromEditionPayload(currentEdition?.payload);
   const motionJourney = selectMarketMotionEditionContext({
     attachment: marketMotionAttachment,
@@ -441,8 +509,16 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             description="A read-only reasoning journey from the preserved expectation to measured tape, competing mechanisms and the next discriminator. Hybrid presents canonical reasoning; it does not create a new explanation."
           >
             <PresenterDivergenceJourney
-              investigations={dossier.watchNext}
-              calibration={dossier.reactionCalibration}
+              investigations={presenterDossier.watchNext}
+              calibration={presenterDossier.reactionCalibration}
+              canonicalCases={presenterCanonicalCases}
+              editionContext={{
+                selectedSnapshotId: presenterEditionSelection.selected?.snapshotId ?? null,
+                currentSnapshotId: presenterEditionSelection.current?.snapshotId ?? null,
+                status: presenterEditionStatus,
+                options: presenterEditionOptions,
+              }}
+              historicalContextBoundary={presenterHistoricalContextBoundary}
             />
 
             {dossier.investigationJourney.some((item) => item.transition === "NOT_CARRIED_FORWARD") ? (
