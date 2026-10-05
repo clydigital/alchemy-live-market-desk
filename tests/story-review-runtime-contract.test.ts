@@ -43,6 +43,10 @@ test("queue-backed Story review requires full queue ownership before System 2", 
   assert.match(runtime, /Story review target was only partially claimed; retry as one ownership unit\./);
   assert.match(runtime, /story_review_queue_claim_incomplete/);
   assert.match(runtime, /return ownership\.ownedTargets/);
+  assert.match(
+    runtime,
+    /const owned = await claimStoryReviewQueues\(engineRunId, selected\);[\s\S]*return freezeStoryReviewTargets\(owned\)/,
+  );
 });
 
 test("evidence-backed Story queue completion requires explicit trigger acknowledgement", () => {
