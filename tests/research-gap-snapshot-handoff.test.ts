@@ -130,6 +130,20 @@ test("persisted verdict snapshot becomes a deterministic completed handoff resul
   assert.equal(undated.relevance, 85);
 });
 
+test("snapshot adapter keeps traceable evidence when the source page has no durable title", () => {
+  const row = completedCase();
+  const verdict = structuredClone(row.verdict as Record<string, unknown>) as any;
+  verdict.evidenceSnapshot[0].sourceTitle = null;
+  verdict.evidenceSnapshot[0].publisher = "SEC EDGAR";
+
+  const result = completedResearchGapResultFromSnapshot(completedCase({ verdict }));
+
+  assert.equal(result.evidence[0]?.title, "SEC EDGAR source");
+  assert.equal(result.evidence[0]?.publisher, "SEC EDGAR");
+  assert.equal(result.evidence[0]?.url, "https://www.federalreserve.gov/example");
+  assert.match(result.evidence[0]?.claim ?? "", /Official source confirms/);
+});
+
 test("snapshot adapter fails closed without durable traceable evidence", () => {
   assert.throws(
     () => completedResearchGapResultFromSnapshot(completedCase({

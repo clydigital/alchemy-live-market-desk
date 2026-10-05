@@ -98,12 +98,12 @@ function evidenceToHandoff(
 ): AutomaticGapEvidence {
   const sourceId = clean(item.evidenceId);
   const publisher = clean(item.publisher);
-  const title = clean(item.sourceTitle);
   const url = requireHttps(item.sourceUrl);
+  const title = clean(item.sourceTitle) || (publisher ? `${publisher} source` : "");
   const claim = clean(item.claim);
   const quality = numberInRange(item.quality, 0, 100);
 
-  if (!sourceId || !publisher || !title || !url || !claim || quality === null || item.traceable !== true) {
+  if (!sourceId || !publisher || !url || !claim || quality === null || item.traceable !== true) {
     throw new Error("Persisted Research Gap evidence is missing traceable source metadata required for canonical handoff.");
   }
 
