@@ -55,6 +55,16 @@ test("evidence-backed Story queue completion requires explicit trigger acknowled
   assert.match(runtime, /reviewContext\.queueEvidenceIds is non-empty[\s\S]*include EVERY one of those IDs/);
 });
 
+test("Dossier Motion reassessment framing is context-only inside Market Belief", () => {
+  assert.match(runtime, /reviewContext\.dossierMotionReassessments is non-empty/);
+  assert.match(runtime, /treat every item as CONTEXT ONLY/);
+  assert.match(runtime, /Use only relevantEvidence for proof/);
+  assert.match(runtime, /canonicalEvidenceId in evidenceIds through the normal queueEvidenceIds rule/);
+  assert.match(runtime, /never the Dossier ID, Motion ID, System-2 conclusion, rationale or next-test wording as proof/);
+  assert.match(runtime, /For a REFINE context[\s\S]*Do not reconstruct the earlier raw Motion wording/);
+  assert.match(runtime, /cannot create a new Story identity, change Regime state, or authorize a Story mutation by itself/);
+});
+
 test("creator-only queued Story wakes are resolved before Market Belief capacity is spent", () => {
   assert.match(runtime, /resolveCreatorOnlyStoryReviewQueues/);
   assert.match(runtime, /creatorOnlyNonMaterialStoryReview/);
