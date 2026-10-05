@@ -237,3 +237,39 @@ jobs:
 
       - name: Verify production schema drift guard contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/production_schema_drift_guard_contract.sql
+
+      - name: Bootstrap production schema state invariant fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create table if not exists public.research_schedule_slots (
+            slot_key text primary key,
+            local_time time not null,
+            timezone text not null default 'Asia/Kuala_Lumpur',
+            purpose text not null,
+            is_enabled boolean not null default true,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          insert into public.research_schedule_slots (
+            slot_key,
+            local_time,
+            timezone,
+            purpose,
+            is_enabled
+          )
+          values
+            ('morning', '09:30:00', 'Asia/Kuala_Lumpur', 'CI canonical morning slot', true),
+            ('evening', '21:30:00', 'Asia/Kuala_Lumpur', 'CI canonical evening slot', true)
+          on conflict (slot_key) do update
+          set local_time = excluded.local_time,
+              timezone = excluded.timezone,
+              purpose = excluded.purpose,
+              is_enabled = excluded.is_enabled,
+              updated_at = now();
+          SQL
+
+      - name: Apply production schema state invariants
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261006055000_production_schema_state_invariants.sql
+
+      - name: Verify production schema state invariant contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/production_schema_state_invariants_contract.sql
