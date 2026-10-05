@@ -100,14 +100,14 @@ const REQUIRED_VERDICT_LENSES = [
 const VALID_MOTION_ROUTING_CLASSES = new Set<MarketMotionRoutingClass>(["STORY", "REGIME", "INVESTIGATION_CANDIDATE"]);
 
 function motionRoutingClass(item: DossierMotionContextItem): MarketMotionRoutingClass | null {
-  if (item.routing_class !== undefined) {
-    return VALID_MOTION_ROUTING_CLASSES.has(item.routing_class) ? item.routing_class : null;
-  }
-  return deriveMarketMotionRoutingClass({
+  const structural = deriveMarketMotionRoutingClass({
     primaryStoryId: item.primary_story_id,
     primaryRegimeSlug: item.primary_regime_slug,
     nextTest: item.next_test,
   });
+  if (item.routing_class === undefined) return structural;
+  if (!VALID_MOTION_ROUTING_CLASSES.has(item.routing_class)) return null;
+  return item.routing_class === structural ? item.routing_class : null;
 }
 
 function routingDestinationAllowed(routingClass: MarketMotionRoutingClass, ref: string): boolean {
