@@ -1,5 +1,10 @@
 import { parseRatesContext } from "../rates-research-plan.ts";
 import { parseResearchGapHandoffContext } from "../research-gap-handoff.ts";
+import {
+  buildDossierMotionStoryReviewContext,
+  parseDossierMotionQueueReason,
+} from "../dossier-v2/story-review-context.ts";
+import { validateMarketDossierV2Record } from "../dossier-v2/validation.ts";
 import { classifyPresenterMechanism } from "./presenter-mechanism-codes.ts";
 import { ratesSourceClass } from "../rates-research-acquisition.ts";
 import { attachRatesContext, isRatesContext } from "./rates-context.ts";
@@ -1414,6 +1419,30 @@ async function loadOrCreateStoryReviewTargets(
       requested_by_evidence_id: string | null;
     }>>("intelligence_reevaluation_queue?select=id,target_id,status,reason,priority,available_at,created_at,requested_by_evidence_id&target_kind=eq.story&status=in.(pending,retryable)&available_at=lte.now()"),
   ]);
+
+  const dossierIds = unique(
+    queued.flatMap((item) => {
+      if (!item.requested_by_evidence_id) return [];
+      const parsed = parseDossierMotionQueueReason(item.reason);
+      return parsed ? [parsed.dossierId] : [];
+    }),
+  );
+  const rawDossierRows = dossierIds.length
+    ? await intelligenceRest<unknown[]>(
+      "market_dossiers_v2?select=id,contract_version,previous_dossier_id,as_of,freshness,research_gaps,payload,created_at&id=in.("
+        + dossierIds.join(",")
+        + ")",
+    ).catch(() => [])
+    : [];
+  const dossierRows = rawDossierRows.flatMap((row) => {
+    try {
+      return [validateMarketDossierV2Record(row)];
+    } catch {
+      return [];
+    }
+  });
+  const dossierById = new Map(dossierRows.map((dossier) => [dossier.id, dossier]));
+
   const stateByStory = new Map(states.map((state) => [state.story_id, state]));
   const packedById = new Map(existingStoryPack(stories).map((story) => [story.id, story]));
   const selectableStories: StoryReviewStory[] = stories.map((story) => {
@@ -1426,16 +1455,32 @@ async function loadOrCreateStoryReviewTargets(
       nextCatalysts: unique([...(state?.next_catalysts ?? []), ...(story.next_catalyst ? [story.next_catalyst] : [])]),
     };
   });
-  const queue: StoryReviewQueueItem[] = queued.map((item) => ({
-    id: item.id,
-    storyId: item.target_id,
-    status: item.status,
-    reason: item.reason,
-    priority: item.priority,
-    availableAt: item.available_at,
-    createdAt: item.created_at,
-    requestedEvidenceId: item.requested_by_evidence_id,
-  }));
+  const queue: StoryReviewQueueItem[] = queued.map((item) => {
+    const parsed = item.requested_by_evidence_id
+      ? parseDossierMotionQueueReason(item.reason)
+      : null;
+    const dossier = parsed ? dossierById.get(parsed.dossierId) : null;
+    const dossierMotionContext = dossier && item.requested_by_evidence_id
+      ? buildDossierMotionStoryReviewContext({
+        dossier,
+        queueReason: item.reason,
+        targetStoryId: item.target_id,
+        canonicalEvidenceId: item.requested_by_evidence_id,
+      })
+      : null;
+
+    return {
+      id: item.id,
+      storyId: item.target_id,
+      status: item.status,
+      reason: item.reason,
+      priority: item.priority,
+      availableAt: item.available_at,
+      createdAt: item.created_at,
+      requestedEvidenceId: item.requested_by_evidence_id,
+      dossierMotionContext,
+    };
+  });
   const evidenceLinks: StoryEvidenceLink[] = links.map((link) => ({
     storyId: link.story_id,
     evidenceId: link.evidence_id,
