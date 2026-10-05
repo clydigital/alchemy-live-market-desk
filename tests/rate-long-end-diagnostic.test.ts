@@ -198,6 +198,54 @@ test("MOVE is an explicit gap until canonical volatility evidence exists", () =>
   assert.equal(observed.volatility.moveEvidenceRef, "market-monitor:move:2026-10-03");
 });
 
+test("genuine coupon-supply evidence outranks newer buyback context in long-end review", () => {
+  const result = buildRateLongEndDiagnostic(packet([
+    monitor("us10y", 5.30, 5.20),
+    {
+      evidence_id: "treasury-supply:coupon-sizes:2026-10-01",
+      claim_or_fact: "Treasury announced larger nominal coupon offering sizes.",
+      category: "Rates",
+      source_type: "OFFICIAL_DATA",
+      available_at: "2026-10-02T12:00:00.000Z",
+      occurrence_time: "2026-10-01T21:00:00.000Z",
+      grouping_key: "rate-context:treasury-supply",
+      metrics: {
+        signal_kind: "treasury_supply",
+        signal_context: "treasury_supply",
+        supply_measure: "announced_nominal_coupon_offering_sizes",
+        observed_value: 86,
+        previous_value: 74,
+        long_end_maturities_compared: 3,
+        long_end_terms_compared: "10-Year,20-Year,30-Year",
+      },
+      provenance: [{ source_type: "TEST", source_id: "coupon-supply" }],
+    },
+    {
+      evidence_id: "verified-macro:treasury-buyback:newer",
+      claim_or_fact: "Treasury announced a newer buyback operation.",
+      category: "Rates",
+      source_type: "VERIFIED_MACRO_DATA",
+      available_at: AS_OF,
+      occurrence_time: AS_OF,
+      grouping_key: "rate-context:treasury-supply",
+      metrics: {
+        signal_kind: "market_reaction",
+        signal_context: "treasury_supply",
+        observed_value: 6,
+        previous_value: 2,
+      },
+      provenance: [{ source_type: "TEST", source_id: "buyback" }],
+    },
+  ]));
+
+  assert.equal(
+    result.marketStructure.treasurySupplyEvidenceRef,
+    "treasury-supply:coupon-sizes:2026-10-01",
+  );
+  assert.match(result.marketStructure.detail, /coupon supply-volume evidence/i);
+  assert.doesNotMatch(result.marketStructure.detail, /not net-supply evidence/i);
+});
+
 test("missing real yield and breakeven does not invent a decomposition", () => {
   const result = buildRateLongEndDiagnostic(packet([
     monitor("us10y", 5.30, 5.20),
