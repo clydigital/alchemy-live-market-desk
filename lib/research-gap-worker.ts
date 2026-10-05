@@ -53,6 +53,16 @@ export type ResearchGapWorkCandidate = {
   };
 };
 
+export type CanonicalDivergenceResearchDebtRow = {
+  debt_key: string;
+  severity: string;
+  status: string;
+  reason: string;
+  next_action: string | null;
+  next_check_at: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
 export type ResearchGapWorkQueue = {
   contractVersion: typeof RESEARCH_GAP_WORK_QUEUE_VERSION;
   generatedAt: string;
@@ -180,6 +190,80 @@ function researchGapCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
         researchNowRank: null,
         investigationStatus: null,
         divergence: null,
+        motionAttentionTier: null,
+        motionAttentionScore: null,
+        motionWritingPotential: null,
+      },
+    }];
+  });
+}
+
+function canonicalDivergenceDebtCandidates(
+  dossier: MarketDossierV2,
+  rows: CanonicalDivergenceResearchDebtRow[],
+): ResearchGapWorkCandidate[] {
+  return rows.flatMap((row) => {
+    if (row.status !== "open" || !row.debt_key.startsWith("divergence:")) return [];
+
+    const metadata = object(row.metadata);
+    if (metadata?.kind !== "canonical_divergence_recruitment") return [];
+
+    const divergenceId = clean(metadata.divergenceId);
+    const marketBeliefId = clean(metadata.marketBeliefId);
+    const question = clean(metadata.question);
+    const discriminators = strings(metadata.evidenceNeeded, 2);
+    if (!divergenceId || !marketBeliefId || !question || !discriminators.length) return [];
+
+    const causalPlan = causalDiscriminatorPlan({
+      investigationId: divergenceId,
+      divergence: "UNRESOLVED",
+      baseEvidenceNeeded: [],
+      discriminators,
+    });
+    if (!causalPlan?.discriminators[0]) return [];
+
+    const ref = row.debt_key;
+    const evidenceNeeded = [causalPlan.discriminators[0]];
+    const action = clean(row.next_action) || `Investigate unresolved divergence: ${question}`;
+    const reason = clean(row.reason) || "CANONICAL_DIVERGENCE";
+    const blockingRefs = [
+      `DIVERGENCE:${divergenceId}`,
+      `BELIEF:${marketBeliefId}`,
+    ];
+
+    return [{
+      workId: workId(dossier.id, "research_gap", ref),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "research_gap",
+        sourceRef: ref,
+        nativeId: ref,
+        question,
+        action,
+        reason,
+        evidenceNeeded,
+        linkedInvestigationIds: [],
+        linkedStoryIds: [],
+        blockingRefs,
+      }),
+      sourceKind: "research_gap" as const,
+      sourceRef: ref,
+      dossierId: dossier.id,
+      dossierAsOf: dossier.as_of,
+      question,
+      action,
+      reason,
+      evidenceNeeded,
+      causalDiscriminatorPlan: causalPlan,
+      linkedInvestigationIds: [],
+      linkedStoryIds: [],
+      blockingRefs,
+      nativeSignals: {
+        severity: row.severity === "high" || row.severity === "critical" ? "MATERIAL" : "INFORMATIONAL",
+        gapClass: "REFINEMENT",
+        expectedInformationGain: "High",
+        researchNowRank: null,
+        investigationStatus: "open",
+        divergence: "UNRESOLVED",
         motionAttentionTier: null,
         motionAttentionScore: null,
         motionWritingPotential: null,
@@ -381,8 +465,12 @@ export function buildResearchGapWorkQueue(
   dossier: MarketDossierV2,
   now = new Date(),
   motionRows: MarketMotionRecord[] = [],
+  divergenceDebtRows: CanonicalDivergenceResearchDebtRow[] = [],
 ): ResearchGapWorkQueue {
-  const researchGaps = researchGapCandidates(dossier);
+  const researchGaps = [
+    ...researchGapCandidates(dossier),
+    ...canonicalDivergenceDebtCandidates(dossier, divergenceDebtRows),
+  ];
   const researchNow = researchNowCandidates(dossier);
   const investigations = investigationCandidates(dossier);
   void motionRows;
@@ -416,6 +504,7 @@ export function buildResearchGapWorkQueue(
         "Native ranks, blocker labels, information-gain labels and investigation state are preserved for the prioritisation stage.",
         "New Research Gap work is Dossier-authoritative: research_gaps, research_now and investigations only; raw Motion cannot enter directly.",
         "Divergent Investigation candidate mechanisms carry a bounded causal-discriminator plan, but only the first discriminator is exposed as active Research Gap work at ingestion.",
+        "Material canonical divergence debt reuses the same bounded causal-discriminator lifecycle; only its first discriminator is active at ingestion.",
       ],
     },
   };
@@ -439,8 +528,22 @@ export async function loadLatestResearchGapWorkQueue(
   }
   if (!data) return null;
 
+  const { data: divergenceDebtRows, error: divergenceDebtError } = await db
+    .from("research_debt")
+    .select("debt_key,severity,status,reason,next_action,next_check_at,metadata")
+    .eq("status", "open")
+    .like("debt_key", "divergence:%")
+    .order("next_check_at", { ascending: true, nullsFirst: false })
+    .limit(12);
+
+  if (divergenceDebtError) {
+    throw new Error(`Failed to load canonical divergence Research Gap debt: ${divergenceDebtError.message}`);
+  }
+
   return buildResearchGapWorkQueue(
     validateMarketDossierV2Record(data),
     now,
+    [],
+    (divergenceDebtRows || []) as CanonicalDivergenceResearchDebtRow[],
   );
 }
