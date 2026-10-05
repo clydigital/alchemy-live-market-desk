@@ -263,6 +263,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
   const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
   const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
+  const focusedDossierRegimeContext = motionId
+    ? (dossier.motionRegimeContext ?? []).find((item) => item.motionId === motionId) || null
+    : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -323,6 +326,41 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           />
         )}
 
+        {focusedDossierRegimeContext ? (
+          <Panel
+            title="Dossier System 2 Regime context"
+            description="Immutable accepted/refined Dossier judgement for this exact Motion and Regime. This is analytical context only; it does not change Regime state by itself."
+            action={<Badge>{focusedDossierRegimeContext.decision}</Badge>}
+          >
+            <article className={styles.record} id="dossier-regime-context">
+              <div className={styles.recordHeader}>
+                <div>
+                  <span className={styles.kicker}>SYSTEM 2 · ${focusedDossierRegimeContext.decision}</span>
+                  <h3>{focusedDossierRegimeContext.conclusion}</h3>
+                </div>
+                <Badge>NON-STATE</Badge>
+              </div>
+              <p><strong>Why System 2 kept it:</strong> {focusedDossierRegimeContext.rationale}</p>
+              <p><strong>Next test:</strong> {focusedDossierRegimeContext.nextTest || "No additional discriminator was persisted."}</p>
+              <p>
+                <strong>Authority:</strong> the conclusion above is the persisted Dossier judgement. The original Motion remains discovery context and cannot become Regime state or evidence by itself.
+              </p>
+              <p className={styles.meta}>
+                Regime {focusedDossierRegimeContext.regimeSlug}
+                {focusedDossierRegimeContext.storyId ? ` · Story ${focusedDossierRegimeContext.storyId}` : ""}
+                {focusedDossierRegimeContext.canonicalEvidenceRefs.length
+                  ? ` · ${focusedDossierRegimeContext.canonicalEvidenceRefs.length} canonical evidence ref${focusedDossierRegimeContext.canonicalEvidenceRefs.length === 1 ? "" : "s"}`
+                  : ""}
+              </p>
+              <p>
+                <a className={styles.link} href={`/regimes/${focusedDossierRegimeContext.regimeSlug}`}>
+                  Open exact Regime →
+                </a>
+              </p>
+            </article>
+          </Panel>
+        ) : null}
+
         {motionId ? (
           focusedMotion ? (
             <Panel
@@ -363,7 +401,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           ) : (
             <DataState
               title="Motion is not in the current Journey edition"
-              detail="Hybrid only opens investigation paths from the exact immutable Motion snapshot attached to the current canonical edition. It will not recover a stale or fuzzy match."
+              detail={focusedDossierRegimeContext
+                ? "The raw discovery Motion has aged out of the current Journey edition. The immutable Dossier System 2 judgement above remains the authoritative explanation for this link."
+                : "Hybrid only opens investigation paths from the exact immutable Motion snapshot attached to the current canonical edition. It will not recover a stale or fuzzy match."}
             />
           )
         ) : null}
