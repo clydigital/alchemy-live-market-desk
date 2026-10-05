@@ -70,7 +70,7 @@ export type RegimeContributionNode = {
   detail: string;
   timestamp: string | null;
   state: RegimeNodeState;
-  sourceKind: "story_event" | "news" | "statement";
+  sourceKind: "story_event" | "news" | "statement" | "dossier_motion";
   verification: string | null;
   storyId: string | null;
   storySlug: string | null;
@@ -107,6 +107,11 @@ export type ProjectedRegime = Omit<RegimeDefinition, "subgroups"> & {
   durableStories: ProjectedStory[];
   contextStories: ProjectedStory[];
   latestNode: RegimeContributionNode | null;
+  /**
+   * Read-only Dossier System-2 context. Optional for historical snapshots and
+   * legacy test fixtures; current projections always emit an array.
+   */
+  dossierContext?: RegimeContributionNode[];
   subgroups: ProjectedRegimeSubgroup[];
   hybridHref: string;
 };
@@ -556,6 +561,34 @@ function candidateNewsNodes(news: NewsThread[], statements: PublicStatement[]) {
   return output;
 }
 
+function dossierRegimeContextNodes(
+  dossier: DossierPresentationV1 | null,
+  regimeSlug: RegimeSlug,
+): RegimeContributionNode[] {
+  if (!dossier) return [];
+
+  return (dossier.motionRegimeContext ?? [])
+    .filter((item) => item.regimeSlug === regimeSlug)
+    .map((item) => ({
+      id: `dossier-motion:${dossier.dossierId}:${item.motionId}`,
+      title: item.conclusion,
+      detail: item.rationale,
+      timestamp: item.observedAt || dossier.asOf,
+      state: "context" as const,
+      sourceKind: "dossier_motion" as const,
+      verification: `dossier-system2:${item.decision.toLowerCase()}`,
+      storyId: item.storyId,
+      storySlug: null,
+      href: null,
+      hybridHref: `/hybrid-output?regime=${encodeURIComponent(regimeSlug)}`,
+    }))
+    .sort((left, right) =>
+      Date.parse(right.timestamp || "") - Date.parse(left.timestamp || "")
+      || left.id.localeCompare(right.id)
+    )
+    .slice(0, 4);
+}
+
 export function buildRegimeProjection(input: {
   stories: Story[];
   events: StoryEvent[];
@@ -794,8 +827,14 @@ export function buildRegimeProjection(input: {
 
     const durableRegimeStories = regimeStories.filter((story) => story.contributesToState);
     const contextRegimeStories = regimeStories.filter((story) => !story.contributesToState);
-    const allNodes = subgroups.flatMap((subgroup) => subgroup.nodes)
-      .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""));
+    const dossierContext = dossierRegimeContextNodes(input.dossier, definition.slug);
+    const allNodes = [
+      ...dossierContext,
+      ...subgroups.flatMap((subgroup) => subgroup.nodes),
+    ].sort((a, b) =>
+      Date.parse(b.timestamp || "") - Date.parse(a.timestamp || "")
+      || a.id.localeCompare(b.id)
+    );
     const isRates = definition.slug === "global-cost-of-capital" && input.dossier?.rateRegime;
     const rateSensorState = isRates ? rateStateLabel(input.dossier!.rateRegime.state) : null;
 
@@ -830,12 +869,14 @@ export function buildRegimeProjection(input: {
       confidence,
       asOf: timestampMax([
         ...(isRates ? [input.dossier!.rateRegime.asOf || input.dossier!.asOf] : []),
+        ...dossierContext.map((node) => node.timestamp),
         ...subgroups.map((subgroup) => subgroup.latestAt),
       ]),
       stories: regimeStories,
       durableStories: durableRegimeStories,
       contextStories: contextRegimeStories,
       latestNode: allNodes[0] || null,
+      dossierContext,
       subgroups,
       hybridHref: `/hybrid-output?regime=${encodeURIComponent(definition.slug)}`,
     };
