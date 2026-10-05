@@ -7,7 +7,7 @@ This layer makes prioritised Research Gap work persistent across Market Dossiers
 Research Gap lifecycle owns operational work state only:
 
 ```text
-Dossier work + eligible promoted Market Motion
+Dossier research_gaps / research_now / investigations
   -> stable gap identity
   -> one shared priority queue / claim / lease
   -> research execution
@@ -23,7 +23,7 @@ A Research Gap handoff is explicitly excluded from Market Motion ingestion, incl
 
 ## Stable identity
 
-Every normalised work candidate now has two IDs. Sources may be Dossier-native (`research_gap`, `research_now`, `investigation`) or a fresh promoted `market_motion` item with an exact Story link and concrete `next_test`:
+Every newly normalised work candidate has two IDs and comes from Dossier-native `research_gap`, `research_now` or `investigation` output. Historical lifecycle rows may still have `source_kind = market_motion`; those rows remain claimable, researchable and handoff-capable but no new direct Motion cases are produced:
 
 - `workId` — identifies the exact work item in one Dossier;
 - `gapKey` — identifies the durable research case across Dossiers.
@@ -33,8 +33,9 @@ Identity policy:
 1. canonical investigation IDs are preferred;
 2. Research Now work linked to one investigation keeps a branch hash so distinct evidence tests are not collapsed;
 3. explicit top-level `gap_id` values are preserved;
-4. Market Motion uses the stable `motion_key` plus a hash of its unresolved research branch, so a replay stays one durable case while a materially different next test becomes a new branch;
-5. only when canonical IDs are unavailable does the system use a conservative normalised-text fingerprint.
+4. only when canonical IDs are unavailable does the system use a conservative normalised-text fingerprint.
+
+Historical Motion-origin cases keep their existing stable key and source metadata unchanged.
 
 The fallback is intentionally not fuzzy. The lifecycle layer must not invent semantic equivalence that canonical research has not established.
 
@@ -77,7 +78,7 @@ If a stable case appears again:
 
 Older unresolved queued cases therefore remain claimable even when a later Dossier no longer emits the exact work card.
 
-For Motion-origin work, the occurrence keeps the exact immutable Motion row ID while the durable gap key uses the Motion key + research branch. The current canonical Dossier still anchors the case; Motion is frozen into the plan as `context_only`, never as a second analytical authority.
+Historical Motion-origin occurrences keep their exact immutable Motion row IDs and durable keys. B3 does not migrate, rewrite, auto-close or reject them. New lifecycle materialisation is Dossier-authoritative only.
 
 ## Claiming
 
@@ -184,4 +185,4 @@ Only after `/api/research-update` returns a 2xx acknowledgement does the case tr
 
 The lifecycle stores the deterministic handoff run key and canonical HTTP status. A failed canonical handoff leaves the case `COMPLETED`.
 
-`HANDED_OFF` still does not mean the Story changed. It means the evidence packet was admitted into the canonical Live research path. Closing/reopening remains a later feedback step.
+`HANDED_OFF` still does not mean the Story changed or that the current Dossier incorporated the result. It means the evidence packet was admitted into the canonical Live research path. Hybrid may show this lifecycle status, but analytical conclusions remain the current canonical Dossier until a later Dossier run incorporates any changed canonical state.
