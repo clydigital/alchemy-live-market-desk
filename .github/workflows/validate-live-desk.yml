@@ -129,6 +129,12 @@ jobs:
       - name: Verify Story queue trigger acknowledgement contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_queue_trigger_ack_contract.sql
 
+      - name: Apply stale Story maintenance version guard
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261005180500_story_maintenance_stale_version_guard.sql
+
+      - name: Verify stale Story maintenance version guard
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_maintenance_stale_version_contract.sql
+
       - name: Apply Market Dossiers V2 migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260915000000_market_dossiers_v2.sql
 
