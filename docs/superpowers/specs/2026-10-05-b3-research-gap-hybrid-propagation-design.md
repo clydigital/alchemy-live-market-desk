@@ -365,6 +365,15 @@ type HybridResearchGapLifecycleRow = {
 };
 ```
 
+The Hybrid status adapter must use its own narrow lifecycle query/type.
+
+It must not reuse:
+
+- `listResearchGapCases(...)`;
+- `ResearchGapCaseRow`;
+
+because those existing lifecycle APIs intentionally load operational research fields that B3 must keep out of Hybrid's status projection.
+
 The Hybrid status adapter must not select:
 
 - `research_outcome`;
@@ -677,6 +686,7 @@ Prove:
 
 - loader accepts current Dossier-derived gap keys;
 - database query selects only the approved safe lifecycle columns;
+- adapter does not reuse `listResearchGapCases(...)` or `ResearchGapCaseRow`;
 - query does not select `research_outcome`, `verdict`, `research_plan` or research findings;
 - exact `gap_key` match is required;
 - unrelated lifecycle cases are excluded;
