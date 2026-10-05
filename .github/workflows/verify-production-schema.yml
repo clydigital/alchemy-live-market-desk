@@ -84,7 +84,7 @@ jobs:
             status="$(jq -r '.status // empty' "$RESPONSE_FILE" 2>/dev/null || true)"
 
             if [[ "$http_status" == "200" && "$status" == "healthy" ]]; then
-              jq -c '{status,deploymentSha,enforcementStart,expectedCount,appliedCount,missing,unexpected}' "$RESPONSE_FILE"
+              jq -c '{status,deploymentSha,enforcementStart,expectedCount,appliedCount,missing,unexpected,schemaInvariants,invariantFailures}' "$RESPONSE_FILE"
               exit 0
             fi
 
