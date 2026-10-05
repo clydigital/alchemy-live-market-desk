@@ -7,6 +7,7 @@ import {
   materialAssessmentHasEligibleEvidence,
   planStoryReviewQueueHygiene,
   selectStoryReviewTargets,
+  storyAssessmentAcknowledgesQueuedEvidence,
   type StoryEvidenceLink,
   type StoryReviewStory,
 } from "../lib/intelligence/story-review.ts";
@@ -303,9 +304,11 @@ test("requested trigger ids never reference evidence omitted from the bounded re
   const packed = new Set(selected[0]?.relevantEvidence.map((item) => item.id) ?? []);
   const triggers = selected[0]?.reviewContext?.triggerEvidenceIds ?? [];
   const consumedQueueIds = new Set(selected[0]?.queueIds ?? []);
+  const queueEvidenceIds = new Set(selected[0]?.reviewContext?.queueEvidenceIds ?? []);
   assert.equal(packed.size, MAX_STORY_REVIEW_EVIDENCE);
   assert.ok(triggers.every((id) => packed.has(id)));
   assert.equal(consumedQueueIds.size, MAX_STORY_REVIEW_EVIDENCE);
+  assert.deepEqual(queueEvidenceIds, packed);
   for (const [index, item] of requested.entries()) {
     assert.equal(
       consumedQueueIds.has(`queue-${index}`),
@@ -339,6 +342,54 @@ test("a dormant Story does not consume an evidence-backed queue whose requested 
   });
 
   assert.deepEqual(selected, []);
+});
+
+test("evidence-backed Story assessment must acknowledge every queued canonical trigger", () => {
+  const requested = [evidence("trigger-a", "story"), evidence("trigger-b", "story")];
+  const selected = selectStoryReviewTargets({
+    stories: [story("story")],
+    evidence: requested,
+    evidenceLinks: [],
+    queue: requested.map((item, index) => ({
+      id: `queue-${index}`,
+      storyId: "story",
+      status: "pending",
+      reason: "dossier_motion_acceptance",
+      priority: 95 - index,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: item.id,
+    })),
+    debt: [],
+    now,
+  });
+  const target = selected[0]!;
+  assert.deepEqual(target.reviewContext?.queueEvidenceIds, ["trigger-a", "trigger-b"]);
+  assert.equal(storyAssessmentAcknowledgesQueuedEvidence(["trigger-a"], target), false);
+  assert.equal(storyAssessmentAcknowledgesQueuedEvidence(["trigger-a", "trigger-b"], target), true);
+});
+
+test("evidence-less operational Story queues do not create a trigger acknowledgement obligation", () => {
+  const selected = selectStoryReviewTargets({
+    stories: [story("rates")],
+    evidence: [],
+    evidenceLinks: [],
+    queue: [{
+      id: "system1-rates",
+      storyId: "rates",
+      status: "pending",
+      reason: "system1_threshold_crossing",
+      priority: 80,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: null,
+    }],
+    debt: [],
+    now,
+  });
+  const target = selected[0]!;
+  assert.deepEqual(target.reviewContext?.queueEvidenceIds, []);
+  assert.equal(storyAssessmentAcknowledgesQueuedEvidence([], target), true);
 });
 
 test("unrelated Story debt cannot make another fresh Story eligible", () => {
