@@ -922,3 +922,25 @@ test("Partition 5 persists structural predecessor, analytical baseline and evide
     ["price_data", "FRESH"],
   ]);
 });
+
+
+test("Dossier execution snapshot persists evidence governance without a new table", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+
+  const governance = input.payload.evidence_governance as {
+    contractVersion?: string;
+    asOf?: string;
+    items?: Array<{ evidenceId?: string; temporalState?: string }>;
+    conflictGroups?: unknown[];
+  };
+
+  assert.equal(governance.contractVersion, "dossier-evidence-governance/1");
+  assert.equal(governance.asOf, packet.as_of);
+  assert.ok(Array.isArray(governance.items));
+  assert.ok(
+    governance.items?.some((item) => item.evidenceId === "ev:fed:task8"),
+  );
+  assert.ok(Array.isArray(governance.conflictGroups));
+});
