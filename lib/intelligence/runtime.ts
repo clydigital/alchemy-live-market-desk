@@ -87,7 +87,7 @@ import { isCanonicalEligibleEvidence, sourceVerificationRole, sourceVerification
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
-import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, planStoryReviewQueueHygiene, selectStoryReviewTargets, storyAssessmentAcknowledgesQueuedEvidence, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
+import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, partitionStoryReviewTargetsByQueueClaims, planStoryReviewQueueHygiene, selectStoryReviewTargets, storyAssessmentAcknowledgesQueuedEvidence, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
 import { explicitlyMentionedAssets, explicitlyMentionedInstrumentSpecs, normaliseInstrument } from "@/lib/instrument-mentions";
 import {
   buildFreshNewsRecruitment,
@@ -1192,12 +1192,47 @@ function validFrozenStoryReviewTargets(value: unknown): value is StoryReviewTarg
 
 async function claimStoryReviewQueues(engineRunId: string, targets: StoryReviewTargetPackItem[]) {
   const queueIds = unique(targets.flatMap((target) => target.queueIds));
-  if (!queueIds.length) return;
-  await intelligenceRest("rpc/claim_intelligence_story_reevaluations", {
+  if (!queueIds.length) return targets;
+  const claimed = await intelligenceRest<Array<{ id: string }>>("rpc/claim_intelligence_story_reevaluations", {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ p_engine_run_id: engineRunId, p_queue_ids: queueIds }),
   });
+  const ownership = partitionStoryReviewTargetsByQueueClaims(
+    targets,
+    new Set(claimed.map((row) => row.id)),
+  );
+
+  if (ownership.partialClaimIds.length) {
+    const releasedAt = new Date().toISOString();
+    await intelligenceRest(
+      "intelligence_reevaluation_queue?id=in.(" + ownership.partialClaimIds.join(",") + ")"
+        + "&claimed_by_engine_run_id=eq." + encodeURIComponent(engineRunId)
+        + "&status=eq.processing",
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "retryable",
+          claimed_by_engine_run_id: null,
+          available_at: releasedAt,
+          completed_at: null,
+          last_error: "Story review target was only partially claimed; retry as one ownership unit.",
+          updated_at: releasedAt,
+        }),
+      },
+    );
+  }
+
+  if (ownership.droppedStoryIds.length) {
+    console.info(JSON.stringify({
+      event: "story_review_queue_claim_incomplete",
+      engineRunId,
+      droppedStoryIds: ownership.droppedStoryIds,
+      releasedQueueIds: ownership.partialClaimIds,
+    }));
+  }
+  return ownership.ownedTargets;
 }
 
 async function loadOrCreateStoryReviewTargets(
@@ -1209,8 +1244,7 @@ async function loadOrCreateStoryReviewTargets(
   const frozen = currentIntelligenceInvocation()?.frozenInputs?.storyReviewTargets;
   if (validFrozenStoryReviewTargets(frozen)) {
     const persisted = structuredClone(frozen);
-    await claimStoryReviewQueues(engineRunId, persisted);
-    return persisted;
+    return claimStoryReviewQueues(engineRunId, persisted);
   }
   if (!stories.length) return freezeStoryReviewTargets([]) as Promise<StoryReviewTargetPackItem[]>;
 
@@ -1282,8 +1316,7 @@ async function loadOrCreateStoryReviewTargets(
     now: new Date(analysisAsOf),
   });
   const persisted = await freezeStoryReviewTargets(selected) as StoryReviewTargetPackItem[];
-  await claimStoryReviewQueues(engineRunId, persisted);
-  return persisted;
+  return claimStoryReviewQueues(engineRunId, persisted);
 }
 
 async function markStoryReviewRetryable(
