@@ -153,7 +153,11 @@ export function selectPromotedMarketMotion(
   limit = 3,
 ) {
   return items
-    .filter((item) => Boolean(item.primary_story_id))
+    .filter((item) => deriveMarketMotionRoutingClass({
+      primaryStoryId: item.primary_story_id,
+      primaryRegimeSlug: item.primary_regime_slug,
+      nextTest: item.next_test,
+    }) !== null)
     .filter((item) => marketMotionEffectiveState(item, now) === "PROMOTED")
     .sort((left, right) => {
       const materialityDelta = right.materiality - left.materiality;
