@@ -65,3 +65,48 @@ test("P2.2 adds no model stage, provider adapter, or schema migration", () => {
   );
   assert.doesNotMatch(planner, /fetch\(|supabase|intelligenceRest|runStructuredStage|modelStage/i);
 });
+
+
+test("P2.4 lifecycle closes, advances or exhausts debt only after canonical handoff correlation", () => {
+  assert.match(runtime, /loadDivergenceRecruitmentLifecycleState/);
+  assert.match(runtime, /canonicalResearchGapCaseIds\(evidence\)/);
+  assert.match(runtime, /planDivergenceRecruitmentLifecycle/);
+  assert.match(runtime, /persistDivergenceRecruitmentLifecycleActions/);
+  assert.match(runtime, /lastCanonicalHandoffCaseId/);
+  assert.match(runtime, /terminalState/);
+  assert.match(runtime, /BOUNDED_EXHAUSTED/);
+  assert.match(runtime, /RESOLVED_BY_CANONICAL_EVIDENCE/);
+});
+
+test("P2.4 unchanged exhausted plans are not reopened", () => {
+  const start = runtime.indexOf("async function persistDivergenceEvidenceRecruitment");
+  const end = runtime.indexOf("async function persistDivergenceRecruitmentLifecycleActions", start);
+  assert.ok(start >= 0 && end > start);
+  const section = runtime.slice(start, end);
+
+  assert.match(section, /metadata\.terminalState === "BOUNDED_EXHAUSTED"/);
+  assert.match(section, /metadata\.terminalPlanSignature === plan\.planSignature/);
+  assert.match(section, /if \(boundedExhausted\) continue/);
+  assert.match(section, /if \(row\?\.status === "open" && samePlan\) continue/);
+});
+
+test("P2.4 initial debt exposes one active discriminator and preserves the bounded remainder", () => {
+  assert.match(runtime, /activeEvidenceNeeded = plan\.evidenceNeeded\.slice\(0, 1\)/);
+  assert.match(runtime, /remainingEvidenceNeeded = plan\.evidenceNeeded\.slice\(1\)/);
+  assert.match(runtime, /activeEvidenceIndex: 0/);
+  assert.match(runtime, /planSignature: plan\.planSignature/);
+
+  assert.match(worker, /activeEvidenceNeeded = strings\(metadata\.activeEvidenceNeeded, 1\)/);
+  assert.match(worker, /plannedEvidenceNeeded\.slice\(0, 1\)/);
+});
+
+test("P2.4 lifecycle remains inside existing debt and Research Gap tables", () => {
+  const lifecycle = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "divergence-recruitment-lifecycle.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(lifecycle, /fetch\(|intelligenceRest|supabase/i);
+  assert.doesNotMatch(runtime, /divergence_recruitment_(?:queue|cases|events)/i);
+  assert.doesNotMatch(runtime, /stageKey:\s*"divergence_recruitment_lifecycle"/);
+});
