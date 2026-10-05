@@ -392,6 +392,115 @@ test("evidence-less operational Story queues do not create a trigger acknowledge
   assert.equal(storyAssessmentAcknowledgesQueuedEvidence([], target), true);
 });
 
+test("bounded requested Evidence pack follows queue priority before evidence quality", () => {
+  const highPriority = evidence("priority-trigger", "priority-story", {
+    sourceTier: 5,
+    eventAt: "2026-08-21T11:01:00.000Z",
+    publishedAt: "2026-08-21T11:01:00.000Z",
+  });
+  const lowerPriority = Array.from({ length: 10 }, (_, index) => evidence(
+    `quality-${String(index).padStart(2, "0")}`,
+    "priority-story",
+    {
+      sourceTier: 1,
+      eventAt: `2026-08-21T11:${String(50 - index).padStart(2, "0")}:00.000Z`,
+      publishedAt: `2026-08-21T11:${String(50 - index).padStart(2, "0")}:00.000Z`,
+    },
+  ));
+  const selected = selectStoryReviewTargets({
+    stories: [story("priority-story")],
+    evidence: [...lowerPriority, highPriority],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "queue-priority",
+        storyId: "priority-story",
+        status: "pending",
+        reason: "dossier_motion_acceptance",
+        priority: 95,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:10:00Z",
+        requestedEvidenceId: highPriority.id,
+      },
+      ...lowerPriority.map((item, index) => ({
+        id: `queue-quality-${index}`,
+        storyId: "priority-story",
+        status: "pending",
+        reason: "dossier_refresh",
+        priority: 80,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: `2026-08-21T10:${String(20 + index).padStart(2, "0")}:00Z`,
+        requestedEvidenceId: item.id,
+      })),
+    ],
+    debt: [],
+    now,
+  });
+
+  const target = selected[0]!;
+  assert.equal(target.relevantEvidence.length, MAX_STORY_REVIEW_EVIDENCE);
+  assert.equal(target.relevantEvidence[0]?.id, highPriority.id);
+  assert.ok(target.queueIds.includes("queue-priority"));
+  assert.ok(target.reviewContext?.queueEvidenceIds?.includes(highPriority.id));
+  assert.equal(
+    lowerPriority.filter((item) => target.relevantEvidence.some((packed) => packed.id === item.id)).length,
+    MAX_STORY_REVIEW_EVIDENCE - 1,
+  );
+});
+
+test("equal-priority queued Evidence uses oldest request before evidence quality", () => {
+  const older = evidence("older-request", "queue-age", { sourceTier: 5 });
+  const newer = evidence("newer-request", "queue-age", { sourceTier: 1 });
+  const fillers = Array.from({ length: 9 }, (_, index) => evidence(
+    `age-fill-${index}`,
+    "queue-age",
+    { sourceTier: 1 },
+  ));
+  const selected = selectStoryReviewTargets({
+    stories: [story("queue-age")],
+    evidence: [newer, ...fillers, older],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "queue-older",
+        storyId: "queue-age",
+        status: "pending",
+        reason: "dossier_motion_acceptance",
+        priority: 90,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T09:00:00Z",
+        requestedEvidenceId: older.id,
+      },
+      {
+        id: "queue-newer",
+        storyId: "queue-age",
+        status: "pending",
+        reason: "dossier_motion_acceptance",
+        priority: 90,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:00:00Z",
+        requestedEvidenceId: newer.id,
+      },
+      ...fillers.map((item, index) => ({
+        id: `queue-fill-${index}`,
+        storyId: "queue-age",
+        status: "pending",
+        reason: "dossier_refresh",
+        priority: 90,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: `2026-08-21T10:${String(index + 1).padStart(2, "0")}:00Z`,
+        requestedEvidenceId: item.id,
+      })),
+    ],
+    debt: [],
+    now,
+  });
+  const target = selected[0]!;
+  assert.ok(target.relevantEvidence.some((item) => item.id === older.id));
+  assert.equal(target.relevantEvidence[0]?.id, older.id);
+  assert.ok(target.queueIds.includes("queue-older"));
+});
+
 test("unrelated Story debt cannot make another fresh Story eligible", () => {
   const selected = selectStoryReviewTargets({
     stories: [story("unrelated")],

@@ -199,8 +199,9 @@ function relevantEvidenceForStory(
   story: StoryReviewStory,
   evidence: EvidencePackItem[],
   links: StoryEvidenceLink[],
-  requestedEvidenceIds: Set<string>,
+  requestedEvidenceOrder: string[],
 ) {
+  const requestedEvidenceIds = new Set(requestedEvidenceOrder);
   const linkByEvidence = new Map(links.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link]));
   const compare = (left: EvidencePackItem, right: EvidencePackItem) => {
     const leftRole = linkByEvidence.get(left.id)?.evidenceRole ?? "context";
@@ -213,13 +214,15 @@ function relevantEvidenceForStory(
   const eligible = evidence.filter((item) => requestedEvidenceIds.has(item.id)
     || linkByEvidence.has(item.id)
     || item.affectedTopics.includes(story.slug));
+  const eligibleById = new Map(eligible.map((item) => [item.id, item]));
 
-  // An explicit reevaluation queue row names the canonical evidence that woke
-  // this exact Story. Reserve those rows before filling the bounded context so
-  // stronger unrelated/older Story context cannot crowd the trigger out.
-  const requested = eligible
-    .filter((item) => requestedEvidenceIds.has(item.id))
-    .sort(compare);
+  // Explicit queue obligations own the bounded trigger slots. Preserve the
+  // deterministic queue scheduler order supplied by the caller; evidence role,
+  // source tier and recency rank only non-queued Story context.
+  const requested = requestedEvidenceOrder.flatMap((id) => {
+    const item = eligibleById.get(id);
+    return item ? [item] : [];
+  });
   const context = eligible
     .filter((item) => !requestedEvidenceIds.has(item.id))
     .sort(compare);
@@ -243,17 +246,22 @@ export function selectStoryReviewTargets(input: {
       && (milliseconds(item.availableAt) ?? 0) <= nowMs);
     const dormant = ["archived", "invalidated", "discarded"].includes(story.status.toLowerCase());
     const linkRoles = new Map(input.evidenceLinks.filter((link) => link.storyId === story.id).map((link) => [link.evidenceId, link.evidenceRole]));
-    const requestedEvidenceIds = new Set(
-      availableQueue
-        .map((item) => item.requestedEvidenceId)
-        .filter((id): id is string => Boolean(id)),
-    );
+    const requestedEvidenceOrder = [...new Set(
+      [...availableQueue]
+        .filter((item) => Boolean(item.requestedEvidenceId))
+        .sort((left, right) =>
+          right.priority - left.priority
+          || (milliseconds(left.createdAt) ?? 0) - (milliseconds(right.createdAt) ?? 0)
+          || left.id.localeCompare(right.id))
+        .map((item) => item.requestedEvidenceId as string),
+    )];
+    const requestedEvidenceIds = new Set(requestedEvidenceOrder);
     const lastEvaluated = milliseconds(story.lastEvaluatedAt) ?? 0;
     const relevantEvidence = relevantEvidenceForStory(
       story,
       input.evidence,
       input.evidenceLinks,
-      requestedEvidenceIds,
+      requestedEvidenceOrder,
     );
     const packedEvidenceIds = new Set(relevantEvidence.map((item) => item.id));
     const processableQueue = availableQueue.filter((item) =>
