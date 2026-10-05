@@ -8,6 +8,7 @@ export type TreasuryAuctionObservation = {
   securityType: "Note" | "Bond";
   securityTerm: string;
   auctionDate: string;
+  announcementDate: string | null;
   issueDate: string | null;
   maturityDate: string | null;
   highYieldPct: number | null;
@@ -22,6 +23,22 @@ export type TreasuryAuctionObservation = {
   indirectBidderAcceptedPct: number | null;
 };
 
+export type TreasuryCouponSupplyComparison = {
+  securityTerm: string;
+  currentAuctionDate: string;
+  currentAnnouncementDate: string;
+  currentOfferingAmountUsd: number;
+  previousAuctionDate: string;
+  previousOfferingAmountUsd: number;
+  changeUsd: number;
+};
+
+export type TreasuryCouponSupplySnapshot = {
+  status: TreasuryAuctionProviderStatus;
+  asOf: string | null;
+  comparisons: TreasuryCouponSupplyComparison[];
+};
+
 export type TreasuryAuctionSnapshot = {
   status: TreasuryAuctionProviderStatus;
   fetchedAt: string;
@@ -29,6 +46,7 @@ export type TreasuryAuctionSnapshot = {
   sourceName: "U.S. Department of the Treasury · Fiscal Data";
   sourceUrl: string;
   auctions: TreasuryAuctionObservation[];
+  couponSupply: TreasuryCouponSupplySnapshot;
   warnings: string[];
 };
 
@@ -66,18 +84,13 @@ const NOMINAL_TERMS = new Set([
   "30-Year",
 ]);
 
-export function parseTreasuryAuctionSnapshot(
-  payload: unknown,
-  now = new Date(),
-  sourceUrl = TREASURY_AUCTIONS_API_URL,
-): TreasuryAuctionSnapshot {
-  const fetchedAt = now.toISOString();
+function parseNominalRows(payload: unknown): TreasuryAuctionObservation[] {
   const rows = payload && typeof payload === "object" && !Array.isArray(payload)
     && Array.isArray((payload as { data?: unknown }).data)
     ? ((payload as { data: FiscalDataAuctionRow[] }).data)
     : [];
 
-  const observations = rows.flatMap((row) => {
+  return rows.flatMap((row) => {
     const securityType = row.security_type === "Note" || row.security_type === "Bond"
       ? row.security_type
       : null;
@@ -98,6 +111,7 @@ export function parseTreasuryAuctionSnapshot(
       securityType,
       securityTerm,
       auctionDate,
+      announcementDate: dateOnly(row.announcement_date),
       issueDate: dateOnly(row.issue_date),
       maturityDate: dateOnly(row.maturity_date),
       highYieldPct: numeric(row.high_yield),
@@ -111,26 +125,102 @@ export function parseTreasuryAuctionSnapshot(
       directBidderAcceptedPct: pctOf(directBidderAccepted, competitiveAccepted),
       indirectBidderAcceptedPct: pctOf(indirectBidderAccepted, competitiveAccepted),
     } satisfies TreasuryAuctionObservation];
-  })
-    .sort((a, b) => b.auctionDate.localeCompare(a.auctionDate));
+  }).sort((a, b) => b.auctionDate.localeCompare(a.auctionDate));
+}
 
-  // Preserve the latest nominal coupon auction for each governed maturity so a
-  // busy bill calendar cannot crowd out long-end demand evidence.
+function buildCouponSupply(
+  observations: TreasuryAuctionObservation[],
+  now: Date,
+): TreasuryCouponSupplySnapshot {
+  const today = now.toISOString().slice(0, 10);
+  const announced = observations.filter((item) =>
+    item.announcementDate !== null
+    && item.announcementDate <= today
+    && item.offeringAmountUsd !== null
+  );
+  const byTerm = new Map<string, TreasuryAuctionObservation[]>();
+  for (const item of announced) {
+    const items = byTerm.get(item.securityTerm) ?? [];
+    items.push(item);
+    byTerm.set(item.securityTerm, items);
+  }
+
+  const comparisons: TreasuryCouponSupplyComparison[] = [];
+  for (const [securityTerm, items] of byTerm.entries()) {
+    const ordered = items.sort((a, b) =>
+      b.auctionDate.localeCompare(a.auctionDate)
+      || String(b.announcementDate).localeCompare(String(a.announcementDate))
+    );
+    const current = ordered[0];
+    const previous = ordered[1];
+    if (
+      !current?.announcementDate
+      || current.offeringAmountUsd === null
+      || !previous
+      || previous.offeringAmountUsd === null
+    ) continue;
+    comparisons.push({
+      securityTerm,
+      currentAuctionDate: current.auctionDate,
+      currentAnnouncementDate: current.announcementDate,
+      currentOfferingAmountUsd: current.offeringAmountUsd,
+      previousAuctionDate: previous.auctionDate,
+      previousOfferingAmountUsd: previous.offeringAmountUsd,
+      changeUsd: current.offeringAmountUsd - previous.offeringAmountUsd,
+    });
+  }
+
+  comparisons.sort((a, b) =>
+    b.currentAnnouncementDate.localeCompare(a.currentAnnouncementDate)
+    || a.securityTerm.localeCompare(b.securityTerm)
+  );
+  const asOf = comparisons.map((item) => item.currentAnnouncementDate).sort().at(-1) ?? null;
+  const stale = ageDays(asOf, now) > 45;
+  const status: TreasuryAuctionProviderStatus = comparisons.length === 0
+    ? "UNAVAILABLE"
+    : stale
+      ? "STALE"
+      : comparisons.length < 3
+        ? "PARTIAL"
+        : "OK";
+
+  return { status, asOf, comparisons };
+}
+
+export function parseTreasuryAuctionSnapshot(
+  payload: unknown,
+  now = new Date(),
+  sourceUrl = TREASURY_AUCTIONS_API_URL,
+): TreasuryAuctionSnapshot {
+  const fetchedAt = now.toISOString();
+  const today = now.toISOString().slice(0, 10);
+  const observations = parseNominalRows(payload);
+
+  // Auction-result evidence uses completed auctions only. Announced future
+  // offerings remain separate coupon-supply context until the auction occurs.
+  const completed = observations.filter((item) =>
+    item.auctionDate <= today
+    && (item.highYieldPct !== null || item.bidToCover !== null)
+  );
   const byTerm = new Map<string, TreasuryAuctionObservation>();
-  for (const item of observations) {
+  for (const item of completed) {
     if (!byTerm.has(item.securityTerm)) byTerm.set(item.securityTerm, item);
   }
   const auctions = [...byTerm.values()]
     .sort((a, b) => b.auctionDate.localeCompare(a.auctionDate))
     .slice(0, 7);
   const asOf = auctions[0]?.auctionDate ?? null;
+  const couponSupply = buildCouponSupply(observations, now);
   const warnings: string[] = [];
 
-  if (!auctions.length) warnings.push("No recent nominal coupon Treasury auctions were returned.");
+  if (!auctions.length) warnings.push("No recent completed nominal coupon Treasury auctions were returned.");
   const stale = ageDays(asOf, now) > 45;
-  if (stale && asOf) warnings.push(`Latest nominal coupon auction ${asOf} is more than 45 calendar days old.`);
+  if (stale && asOf) warnings.push(`Latest completed nominal coupon auction ${asOf} is more than 45 calendar days old.`);
   if (auctions.some((item) => item.highYieldPct === null || item.bidToCover === null)) {
-    warnings.push("One or more Treasury auction rows are missing high-yield or bid-to-cover fields.");
+    warnings.push("One or more completed Treasury auction rows are missing high-yield or bid-to-cover fields.");
+  }
+  if (couponSupply.status === "UNAVAILABLE") {
+    warnings.push("No comparable announced nominal coupon offering sizes were available.");
   }
 
   const status: TreasuryAuctionProviderStatus = !auctions.length
@@ -148,18 +238,20 @@ export function parseTreasuryAuctionSnapshot(
     sourceName: "U.S. Department of the Treasury · Fiscal Data",
     sourceUrl,
     auctions,
+    couponSupply,
     warnings,
   };
 }
 
 export function treasuryAuctionQueryUrl(now = new Date()) {
-  const end = now.toISOString().slice(0, 10);
-  const start = new Date(now.getTime() - 45 * 86_400_000).toISOString().slice(0, 10);
+  const end = new Date(now.getTime() + 45 * 86_400_000).toISOString().slice(0, 10);
+  const start = new Date(now.getTime() - 120 * 86_400_000).toISOString().slice(0, 10);
   const fields = [
     "cusip",
     "security_type",
     "security_term",
     "original_security_term",
+    "announcement_date",
     "auction_date",
     "issue_date",
     "maturity_date",
@@ -177,7 +269,7 @@ export function treasuryAuctionQueryUrl(now = new Date()) {
     fields,
     filter: `auction_date:gte:${start},auction_date:lte:${end}`,
     sort: "-auction_date",
-    "page[size]": "100",
+    "page[size]": "500",
   });
   return `${TREASURY_AUCTIONS_API_URL}?${params.toString()}`;
 }
@@ -206,6 +298,11 @@ export async function fetchTreasuryAuctions(
       sourceName: "U.S. Department of the Treasury · Fiscal Data",
       sourceUrl,
       auctions: [],
+      couponSupply: {
+        status: "UNAVAILABLE",
+        asOf: null,
+        comparisons: [],
+      },
       warnings: [`Treasury auction acquisition failed: ${error instanceof Error ? error.message : String(error)}`],
     };
   }
