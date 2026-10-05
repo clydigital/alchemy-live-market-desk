@@ -229,6 +229,83 @@ test("relevant evidence is prioritised before the maximum-ten truncation", () =>
   assert.equal(selected[0]?.relevantEvidence[0]?.id, "ev-13");
 });
 
+test("explicitly requested canonical evidence survives the ten-item Story-review cap", () => {
+  const requested = evidence("requested-canonical", "unrelated-topic", {
+    evidenceClass: "news_report",
+    sourceTier: 5,
+    eventAt: "2026-08-21T11:01:00.000Z",
+    publishedAt: "2026-08-21T11:01:00.000Z",
+  });
+  const strongerContext = Array.from({ length: 12 }, (_, index) => evidence(
+    `linked-${String(index).padStart(2, "0")}`,
+    "busy-story",
+    {
+      sourceTier: 1,
+      supportDirection: "supporting",
+      eventAt: `2026-08-21T11:${String(59 - index).padStart(2, "0")}:00.000Z`,
+      publishedAt: `2026-08-21T11:${String(59 - index).padStart(2, "0")}:00.000Z`,
+    },
+  ));
+  const selected = selectStoryReviewTargets({
+    stories: [story("busy-story")],
+    evidence: [...strongerContext, requested],
+    evidenceLinks: strongerContext.map((item) => ({
+      storyId: "busy-story",
+      evidenceId: item.id,
+      evidenceRole: "supporting",
+      linkedAt: item.eventAt!,
+    })),
+    queue: [{
+      id: "queue-requested",
+      storyId: "busy-story",
+      status: "pending",
+      reason: "dossier_motion_acceptance",
+      priority: 95,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: requested.id,
+    }],
+    debt: [],
+    now,
+  });
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.relevantEvidence.length, MAX_STORY_REVIEW_EVIDENCE);
+  assert.equal(selected[0]?.relevantEvidence[0]?.id, requested.id);
+  assert.ok(selected[0]?.relevantEvidence.some((item) => item.id === requested.id));
+  assert.ok(selected[0]?.reviewContext?.triggerEvidenceIds.includes(requested.id));
+});
+
+test("requested trigger ids never reference evidence omitted from the bounded review pack", () => {
+  const requested = Array.from({ length: 11 }, (_, index) => evidence(
+    `requested-${String(index).padStart(2, "0")}`,
+    "other",
+    { sourceTier: 3 + (index % 2) },
+  ));
+  const selected = selectStoryReviewTargets({
+    stories: [story("cap-story")],
+    evidence: requested,
+    evidenceLinks: [],
+    queue: requested.map((item, index) => ({
+      id: `queue-${index}`,
+      storyId: "cap-story",
+      status: "pending",
+      reason: "dossier_motion_acceptance",
+      priority: 95 - index,
+      availableAt: "2026-08-21T10:00:00Z",
+      createdAt: "2026-08-21T10:00:00Z",
+      requestedEvidenceId: item.id,
+    })),
+    debt: [],
+    now,
+  });
+
+  const packed = new Set(selected[0]?.relevantEvidence.map((item) => item.id) ?? []);
+  const triggers = selected[0]?.reviewContext?.triggerEvidenceIds ?? [];
+  assert.equal(packed.size, MAX_STORY_REVIEW_EVIDENCE);
+  assert.ok(triggers.every((id) => packed.has(id)));
+});
+
 test("unrelated Story debt cannot make another fresh Story eligible", () => {
   const selected = selectStoryReviewTargets({
     stories: [story("unrelated")],
