@@ -61,11 +61,16 @@ export interface MainThread {
 export interface MarketEvidenceDecomposition {
   confirming: string[];
   contradicting: string[];
+  /** Canonical evidence that strengthens the rate/severity/transmission of an existing Story. */
+  accelerating?: string[];
   unresolved: string[];
 }
 
 export interface MajorStory {
+  /** Analytical Dossier identity; never used as a persistent Story key. */
   story_id: string;
+  /** Exact governed persistent Story UUID when supplied by packet binding; otherwise null/omitted. */
+  persistent_story_id?: string | null;
   title: string;
   what_changed: string;
   why_it_matters: string;
