@@ -1,3 +1,5 @@
+import type { DossierMotionStoryReviewContext } from "../dossier-v2/story-review-context.ts";
+
 import type { JsonSchema } from "./openai.ts";
 import { STABLE_REQUIREMENT_IDS } from "./research-state.ts";
 
@@ -64,6 +66,7 @@ export type StoryReviewTargetPackItem = {
     catalystRecalibrationRequired?: boolean;
     triggerEvidenceIds: string[];
     queueEvidenceIds?: string[];
+    dossierMotionReassessments?: DossierMotionStoryReviewContext[];
     catalystCandidates: Array<{
       label: string;
       catalystRef: string | null;
