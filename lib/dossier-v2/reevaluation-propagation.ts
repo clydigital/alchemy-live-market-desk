@@ -12,14 +12,24 @@ export const DOSSIER_REEVALUATION_PROPAGATION_CONTRACT_VERSION =
 export const MAX_DOSSIER_REEVALUATION_PROPAGATION_TARGETS = 4;
 
 export type DossierReevaluationPropagationRouteKind =
+  | "dossier_persistent_story"
   | "explicit_story"
   | "motion_primary_story"
   | "regime_core"
   | "regime_bridge";
 
+export type DossierPersistentStoryEvidenceClassification =
+  | "CONFIRMING"
+  | "CONTRADICTING"
+  | "ACCELERATING";
+
 export type DossierReevaluationPropagationItem = {
-  motion_id: string;
-  decision: Extract<MotionSynthesisDecision, "ACCEPT" | "REFINE">;
+  /** Present for A2 Motion-originated A3 items; null for direct Dossier Story evidence items. */
+  motion_id: string | null;
+  decision: Extract<MotionSynthesisDecision, "ACCEPT" | "REFINE"> | null;
+  source_kind?: "dossier_story_evidence";
+  source_ref?: string;
+  evidence_classification?: DossierPersistentStoryEvidenceClassification;
   /** Exact evidence reference emitted by A2 and present in the Dossier packet. */
   canonical_evidence_ref: string;
   /** Internal intelligence_evidence.id UUID used by the durable Story queue FK. */
@@ -92,10 +102,26 @@ function decisionPriority(
 }
 
 function routeRank(route: DossierReevaluationPropagationRouteKind, sourceRole?: string) {
-  if (route === "explicit_story") return 0;
+  if (route === "dossier_persistent_story" || route === "explicit_story") return 0;
   if (route === "motion_primary_story") return 1;
   if (route === "regime_core") return 2;
   return sourceRole === "supporting" ? 4 : 3;
+}
+
+function persistentStoryEvidencePriority(
+  classification: DossierPersistentStoryEvidenceClassification,
+) {
+  if (classification === "ACCELERATING") return 93;
+  if (classification === "CONTRADICTING") return 90;
+  return 85;
+}
+
+function persistentStoryEvidenceRank(
+  classification: DossierPersistentStoryEvidenceClassification,
+) {
+  if (classification === "ACCELERATING") return 0;
+  if (classification === "CONTRADICTING") return 1;
+  return 2;
 }
 
 function rankedItemCompare(left: RankedItem, right: RankedItem) {
@@ -189,6 +215,40 @@ function addCandidate(
     route_rank: routeRank(input.routeKind, input.sourceRole),
     decision_rank: input.decision === "ACCEPT" ? 0 : 1,
     link_confidence: input.linkConfidence ?? 0,
+    story_confidence: Number(input.story.confidence ?? 0),
+    sequence: input.sequence,
+  });
+}
+
+function addPersistentStoryCandidate(
+  candidates: RankedItem[],
+  input: {
+    analyticalStoryId: string;
+    classification: DossierPersistentStoryEvidenceClassification;
+    evidenceRef: string;
+    evidenceId: string;
+    story: DossierPropagationStoryRow;
+    sequence: number;
+  },
+) {
+  candidates.push({
+    motion_id: null,
+    decision: null,
+    source_kind: "dossier_story_evidence",
+    source_ref: input.analyticalStoryId,
+    evidence_classification: input.classification,
+    canonical_evidence_ref: input.evidenceRef,
+    canonical_evidence_id: input.evidenceId,
+    target_story_id: input.story.id,
+    target_story_slug: input.story.slug,
+    target_regime_slug: null,
+    route_kind: "dossier_persistent_story",
+    priority: persistentStoryEvidencePriority(input.classification),
+    route_reason:
+      `dossier_story:${input.analyticalStoryId}|classification:${input.classification}`,
+    route_rank: routeRank("dossier_persistent_story"),
+    decision_rank: persistentStoryEvidenceRank(input.classification),
+    link_confidence: 0,
     story_confidence: Number(input.story.confidence ?? 0),
     sequence: input.sequence,
   });
@@ -325,6 +385,89 @@ export function buildDossierReevaluationPropagationPlan(
     }
   }
 
+  const bindingByAnalyticalStoryId = new Map(
+    (input.packet.persistent_story_bindings ?? []).map((binding) => [
+      binding.analytical_story_id,
+      binding.persistent_story_id,
+    ]),
+  );
+
+  for (
+    let storyIndex = 0;
+    storyIndex < input.analyticalOutput.major_stories.length;
+    storyIndex++
+  ) {
+    const majorStory = input.analyticalOutput.major_stories[storyIndex];
+    const persistentStoryId = majorStory.persistent_story_id ?? null;
+    if (!persistentStoryId) continue;
+
+    const exactBinding = bindingByAnalyticalStoryId.get(majorStory.story_id) ?? null;
+    if (exactBinding !== persistentStoryId) {
+      warnings.push(
+        `Dossier analytical Story ${majorStory.story_id} persistent Story target ${persistentStoryId} is not backed by the exact packet binding; A3 propagation skipped.`,
+      );
+      continue;
+    }
+
+    const story = validStory(storyById, persistentStoryId);
+    if (!story) {
+      warnings.push(
+        `Dossier analytical Story ${majorStory.story_id} exact persistent Story ${persistentStoryId} is unavailable or discarded; A3 propagation skipped.`,
+      );
+      continue;
+    }
+
+    const evidenceBuckets: Array<[
+      DossierPersistentStoryEvidenceClassification,
+      string[],
+    ]> = [
+      ["ACCELERATING", majorStory.market_evidence.accelerating ?? []],
+      ["CONTRADICTING", majorStory.market_evidence.contradicting ?? []],
+      ["CONFIRMING", majorStory.market_evidence.confirming ?? []],
+    ];
+    const classificationsByRef = new Map<
+      string,
+      Set<DossierPersistentStoryEvidenceClassification>
+    >();
+    for (const [classification, refs] of evidenceBuckets) {
+      for (const ref of refs) {
+        const classes = classificationsByRef.get(ref) ?? new Set();
+        classes.add(classification);
+        classificationsByRef.set(ref, classes);
+      }
+    }
+
+    for (const [ref, classifications] of classificationsByRef) {
+      if (classifications.size !== 1) {
+        warnings.push(
+          `Dossier analytical Story ${majorStory.story_id} classifies canonical evidence "${ref}" into multiple Story evidence buckets; A3 propagation for this ref was suppressed.`,
+        );
+        continue;
+      }
+      const classification = [...classifications][0];
+      const evidenceIdentity = firstQueueableEvidenceIdentity(
+        [ref],
+        packetEvidenceIds,
+        input.queueableEvidenceIds,
+        input.queueEvidenceIdByCanonicalRef,
+      );
+      if (!evidenceIdentity) {
+        warnings.push(
+          `Dossier analytical Story ${majorStory.story_id} ${classification} evidence "${ref}" has no queueable canonical evidence UUID in intelligence_evidence; A3 propagation skipped.`,
+        );
+        continue;
+      }
+      addPersistentStoryCandidate(candidates, {
+        analyticalStoryId: majorStory.story_id,
+        classification,
+        evidenceRef: evidenceIdentity.ref,
+        evidenceId: evidenceIdentity.id,
+        story,
+        sequence: decisions.length + storyIndex,
+      });
+    }
+  }
+
   if (!candidates.length) return emptyPlan(warnings);
 
   const bestByPair = new Map<string, RankedItem>();
@@ -396,10 +539,19 @@ type RegimeStoryLinkDbRow = {
 function candidateCanonicalEvidenceRefs(
   analyticalOutput: ResearchBrainOutputV1,
 ) {
+  const motionRefs = (analyticalOutput.motion_acceptance?.decisions ?? [])
+    .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
+    .flatMap((item) => item.canonical_evidence_refs);
+  const dossierStoryRefs = analyticalOutput.major_stories
+    .filter((story) => Boolean(story.persistent_story_id))
+    .flatMap((story) => [
+      ...(story.market_evidence.confirming ?? []),
+      ...(story.market_evidence.contradicting ?? []),
+      ...(story.market_evidence.accelerating ?? []),
+    ]);
+
   return [...new Set(
-    (analyticalOutput.motion_acceptance?.decisions ?? [])
-      .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
-      .flatMap((item) => item.canonical_evidence_refs)
+    [...motionRefs, ...dossierStoryRefs]
       .filter((ref) => typeof ref === "string" && Boolean(ref.trim()))
       .map((ref) => ref.trim()),
   )];
@@ -590,8 +742,9 @@ function propagationQueueReason(
   dossierId: string,
   item: DossierReevaluationPropagationItem,
 ) {
-  const prefix =
-    `dossier_motion_acceptance:${dossierId}:${item.motion_id}:${item.decision}`;
+  const prefix = item.source_kind === "dossier_story_evidence"
+    ? `dossier_story_evidence:${dossierId}:${item.source_ref ?? "unknown"}:${item.evidence_classification ?? "UNRESOLVED"}`
+    : `dossier_motion_acceptance:${dossierId}:${item.motion_id}:${item.decision}`;
   return item.route_reason ? `${prefix} | ${item.route_reason}` : prefix;
 }
 
