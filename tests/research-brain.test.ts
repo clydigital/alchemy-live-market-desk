@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
+import { assembleDossierV2InputPacket, type DossierMotionContextItem } from "../lib/dossier-v2/input-packet.ts";
 import {
   DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
   RESEARCH_BRAIN_CONTRACT_VERSION,
@@ -531,6 +531,45 @@ test("2. Valid Reconciled Output Pass Validation", () => {
   assert.ok(val.output);
 });
 
+
+function b2MotionContextItem(
+  routingClass: "STORY" | "REGIME" | "INVESTIGATION_CANDIDATE",
+): DossierMotionContextItem {
+  return {
+    motion_id: `motion:b2:${routingClass.toLowerCase()}`,
+    motion_key: `event:b2:${routingClass.toLowerCase()}`,
+    version_number: 1,
+    occurred_at: "2026-09-18T11:20:00Z",
+    observed_at: "2026-09-18T11:25:00Z",
+    expires_at: "2026-09-20T11:25:00Z",
+    category: "MACRO",
+    verification_state: "REPORTED",
+    headline: "B2 routing policy test",
+    what_happened: "Canonical evidence supports testing this Motion framing.",
+    market_reaction: null,
+    why_interesting: "The route boundary must remain explicit.",
+    big_picture_bridge: "Evidence → Motion → bounded System 2 destination",
+    next_test: "Test the bounded routing destination against canonical evidence.",
+    primary_story_id: routingClass === "STORY" ? "story:fed_easing" : null,
+    primary_regime_slug: routingClass === "REGIME" ? "us-rate-regime" : null,
+    routing_class: routingClass,
+    attention: { materiality: 90, relevance: 90, novelty: 80 },
+    origin_evidence_ref: "ev:yields:2026-09",
+  };
+}
+
+function setSingleB2Motion(
+  packet: ReturnType<typeof createValidBasePacket>,
+  routingClass: "STORY" | "REGIME" | "INVESTIGATION_CANDIDATE",
+) {
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [b2MotionContextItem(routingClass)],
+  };
+  return packet.motion_context.items[0];
+}
+
 test("2A. A2 Motion acceptance cannot turn Motion into evidence", () => {
   const packet = createValidBasePacket();
   packet.motion_context = {
@@ -640,6 +679,153 @@ test("2B. A2 REFINE and UNRESOLVED preserve the evidence boundary", () => {
   };
   val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, true, val.errors.join("\n"));
+});
+
+
+test("2C. B2 REGIME Motion enforces bounded destination policy", () => {
+  const packet = createValidBasePacket();
+  const motion = setSingleB2Motion(packet, "REGIME");
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: motion.motion_id,
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports a current-regime implication.",
+      canonical_evidence_refs: ["ev:yields:2026-09"],
+      destination_refs: ["REGIME:CURRENT"],
+      rationale: "The Motion has an exact Regime identity but no Story identity.",
+      next_test: null,
+    }],
+  };
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["INVESTIGATION:inv:oil_risk"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["REGIME:CURRENT", "RESEARCH_NOW"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["RESEARCH_NOW"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REGIME.*requires.*REGIME:CURRENT.*INVESTIGATION/i.test(error)));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["STORY:story:fed_easing"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REGIME.*does not allow.*STORY/i.test(error)));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["MAIN_THREAD"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REGIME.*does not allow.*MAIN_THREAD/i.test(error)));
+
+  output.motion_acceptance.decisions[0].canonical_evidence_refs = [];
+  output.motion_acceptance.decisions[0].destination_refs = ["REGIME:CURRENT"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /ACCEPT requires canonical evidence/i.test(error)));
+});
+
+test("2D. B2 INVESTIGATION_CANDIDATE requires an exact Investigation destination", () => {
+  const packet = createValidBasePacket();
+  const motion = setSingleB2Motion(packet, "INVESTIGATION_CANDIDATE");
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: motion.motion_id,
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports opening a bounded Investigation.",
+      canonical_evidence_refs: ["ev:yields:2026-09"],
+      destination_refs: ["INVESTIGATION:inv:oil_risk"],
+      rationale: "No safe Story or Regime identity exists.",
+      next_test: null,
+    }],
+  };
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["INVESTIGATION:inv:oil_risk", "RESEARCH_NOW"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["RESEARCH_NOW"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /INVESTIGATION_CANDIDATE.*requires.*INVESTIGATION/i.test(error)));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["REGIME:CURRENT"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /INVESTIGATION_CANDIDATE.*does not allow.*REGIME:CURRENT/i.test(error)));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["STORY:story:fed_easing"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /INVESTIGATION_CANDIDATE.*does not allow.*STORY/i.test(error)));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["INVESTIGATION:missing"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /unknown destination/i.test(error)));
+});
+
+test("2E. B2 UNRESOLVED and REJECT still obey routing boundaries", () => {
+  const packet = createValidBasePacket();
+  const motion = setSingleB2Motion(packet, "INVESTIGATION_CANDIDATE");
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: motion.motion_id,
+      decision: "UNRESOLVED",
+      conclusion: null,
+      canonical_evidence_refs: [],
+      destination_refs: [],
+      rationale: "Evidence is insufficient for a conclusion.",
+      next_test: "Obtain more canonical evidence.",
+    }],
+  };
+
+  let val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, true, val.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0].destination_refs = ["STORY:story:fed_easing"];
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /INVESTIGATION_CANDIDATE.*does not allow.*STORY/i.test(error)));
+
+  output.motion_acceptance.decisions[0] = {
+    ...output.motion_acceptance.decisions[0],
+    decision: "REJECT",
+    destination_refs: ["INVESTIGATION:inv:oil_risk"],
+  };
+  val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /REJECT must use destination_refs=\[\]/i.test(error)));
+});
+
+test("2F. Research Brain prompt states B2 routing classes and orphan restrictions", () => {
+  const packet = createValidBasePacket();
+  setSingleB2Motion(packet, "REGIME");
+  const prompt = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+
+  assert.match(prompt.instructions, /STORY/);
+  assert.match(prompt.instructions, /REGIME/);
+  assert.match(prompt.instructions, /INVESTIGATION_CANDIDATE/);
+  assert.match(prompt.instructions, /orphan Motion.*Story/i);
+  assert.match(prompt.instructions, /RESEARCH_NOW.*not sufficient|not sufficient.*RESEARCH_NOW/i);
 });
 
 test("3. Epistemic Label Validation - SUPPORTED Same-Source Duplicate Rejection", () => {
