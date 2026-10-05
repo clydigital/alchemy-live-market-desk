@@ -1,4 +1,5 @@
 import type { MarketDossierV2 } from "./contracts.ts";
+import type { DossierEvidenceGovernanceSnapshot } from "./evidence-governance.ts";
 import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
 import type {
   PolicyLiquidityInteraction,
@@ -362,6 +363,7 @@ export type DossierPresentationV1 = {
   thesisChanges: DossierPresentationThesisChange[];
 
   evidenceIndex: DossierPresentationEvidenceRef[];
+  evidenceGovernance?: DossierEvidenceGovernanceSnapshot | null;
 
   decisionPacket?: DossierPresentationDecisionPacket;
   longitudinalAdjudication?: DossierPresentationLongitudinalAdjudication;
@@ -1251,6 +1253,19 @@ function thesisChanges(
   );
 }
 
+function evidenceGovernance(
+  dossier: MarketDossierV2,
+): DossierEvidenceGovernanceSnapshot | null {
+  const value = dossier.payload.evidence_governance;
+  if (
+    !isObject(value)
+    || value.contractVersion !== "dossier-evidence-governance/1"
+    || !Array.isArray(value.items)
+    || !Array.isArray(value.conflictGroups)
+  ) return null;
+  return value as unknown as DossierEvidenceGovernanceSnapshot;
+}
+
 function evidenceIndex(output: ResearchBrainOutputV1): DossierPresentationEvidenceRef[] {
   const usage = new Map<string, Set<string>>();
   const add = (ids: string[], section: string) => {
@@ -1438,6 +1453,7 @@ export function buildDossierV2Presentation(
         : thesisChanges(output, previousOutput),
 
     evidenceIndex: evidenceIndex(output),
+    evidenceGovernance: evidenceGovernance(dossier),
 
     decisionPacket: buildDecisionPacket(output, previousOutput),
     longitudinalAdjudication: buildLongitudinalAdjudication(

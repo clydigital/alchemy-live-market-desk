@@ -8,6 +8,7 @@ import {
   type MarketDossierV2,
   type MarketDossierV2Input,
 } from "./contracts.ts";
+import { buildDossierEvidenceGovernance } from "./evidence-governance.ts";
 import type { DossierV2InputPacket, ResearchGap } from "./input-packet.ts";
 import {
   buildDeterministicDossierPatch,
@@ -422,6 +423,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
   );
   const reactionAssessments = buildSystem1ReactionAssessments(packet);
   const divergenceCandidates = buildSystem1DivergenceCandidates(packet);
+  const evidenceGovernance = buildDossierEvidenceGovernance(packet);
   const normalized = applyAnalyticalGapPolicy(analyticalOutput);
   const refinementGaps = deriveResearchRefinementGaps(normalized.analyticalOutput);
 
@@ -449,6 +451,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
       system1_policy_liquidity_interaction: cloneJson(policyLiquidityInteraction),
       system1_reaction_assessments: cloneJson(reactionAssessments),
       system1_divergence_candidates: cloneJson(divergenceCandidates),
+      evidence_governance: cloneJson(evidenceGovernance),
       memory_control: {
         contract_version: "dossier-memory-control/1",
         structural_predecessor_id: packet.previous_dossier_id,
