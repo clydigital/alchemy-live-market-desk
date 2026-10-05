@@ -147,6 +147,14 @@ test("superseded queued Story Evidence is retired instead of becoming an unproce
   assert.match(runtime, /supersededQueueIds/);
 });
 
+test("Story apply-time ownership guard locks queue rows through transaction completion", () => {
+  const applyOwnershipMigration = fs.readFileSync(
+    path.join(root, "supabase", "migrations", "20261005185000_story_assessment_apply_ownership_guard.sql"),
+    "utf8",
+  );
+  assert.match(applyOwnershipMigration, /from public\.intelligence_reevaluation_queue queue[\s\S]*order by queue\.id[\s\S]*for update/);
+});
+
 test("Story apply-time queue ownership loss is recorded without consuming the assessment", () => {
   assert.match(runtime, /isStoryQueueOwnershipLostBeforeApply/);
   assert.match(runtime, /Story assessment lost queue ownership before apply/);
