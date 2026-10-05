@@ -392,6 +392,56 @@ test("evidence-less operational Story queues do not create a trigger acknowledge
   assert.equal(storyAssessmentAcknowledgesQueuedEvidence([], target), true);
 });
 
+test("Story target age is measured within its highest-priority queue class", () => {
+  const aHigh = evidence("a-high", "story-a");
+  const aLow = evidence("a-low", "story-a");
+  const bHigh = evidence("b-high", "story-b");
+  const selected = selectStoryReviewTargets({
+    stories: [story("story-a"), story("story-b")],
+    evidence: [aHigh, aLow, bHigh],
+    evidenceLinks: [],
+    queue: [
+      {
+        id: "a-low-old",
+        storyId: "story-a",
+        status: "pending",
+        reason: "dossier_refresh",
+        priority: 70,
+        availableAt: "2026-08-21T08:00:00Z",
+        createdAt: "2026-08-21T08:00:00Z",
+        requestedEvidenceId: aLow.id,
+      },
+      {
+        id: "a-high-new",
+        storyId: "story-a",
+        status: "pending",
+        reason: "dossier_motion_acceptance",
+        priority: 95,
+        availableAt: "2026-08-21T10:30:00Z",
+        createdAt: "2026-08-21T10:30:00Z",
+        requestedEvidenceId: aHigh.id,
+      },
+      {
+        id: "b-high-older",
+        storyId: "story-b",
+        status: "pending",
+        reason: "dossier_motion_acceptance",
+        priority: 95,
+        availableAt: "2026-08-21T10:00:00Z",
+        createdAt: "2026-08-21T10:00:00Z",
+        requestedEvidenceId: bHigh.id,
+      },
+    ],
+    debt: [],
+    now,
+    maxTargets: 1,
+  });
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0]?.story.id, "story-b");
+  assert.ok(selected[0]?.queueIds.includes("b-high-older"));
+});
+
 test("bounded requested Evidence pack follows queue priority before evidence quality", () => {
   const highPriority = evidence("priority-trigger", "priority-story", {
     sourceTier: 5,
