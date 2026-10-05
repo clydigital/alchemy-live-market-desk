@@ -38,7 +38,7 @@ begin
 
   -- Compatibility boundary: older frozen targets predate B4c and have no
   -- queueEvidenceIds contract. New targets always persist an array, including [].
-  if jsonb_typeof(required_evidence) <> 'array' then
+  if coalesce(jsonb_typeof(required_evidence), 'null') <> 'array' then
     return new;
   end if;
 
