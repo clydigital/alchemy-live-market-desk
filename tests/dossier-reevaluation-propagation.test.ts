@@ -31,6 +31,7 @@ function packet(input: {
   primaryRegimeSlug?: string | null;
   originEvidenceRef?: string | null;
   evidenceIds?: string[];
+  routingClass?: "STORY" | "REGIME" | "INVESTIGATION_CANDIDATE";
 } = {}): DossierV2InputPacket {
   const evidenceIds = input.evidenceIds ?? [EVIDENCE_A, EVIDENCE_B, "market-monitor:us2y:2026-10-04"];
   return {
@@ -81,6 +82,7 @@ function packet(input: {
         primary_regime_slug: input.primaryRegimeSlug === undefined
           ? "global-cost-of-capital"
           : input.primaryRegimeSlug,
+        routing_class: input.routingClass,
         attention: { materiality: 90, relevance: 90, novelty: 80 },
         origin_evidence_ref: input.originEvidenceRef ?? null,
       }],
@@ -257,6 +259,67 @@ test("A3 REGIME:CURRENT uses one core plus bridge/supporting links ranked by rol
   assert.deepEqual(plan.items.map((item) => item.target_story_id), [STORY_B, STORY_C, STORY_E]);
   assert.deepEqual(plan.items.map((item) => item.route_kind), ["regime_core", "regime_bridge", "regime_bridge"]);
   assert.ok(plan.items.every((item) => item.target_regime_slug === "global-cost-of-capital"));
+});
+
+
+test("B2 REGIME ACCEPT reuses existing A3 Regime to Story links with canonical Evidence", () => {
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: packet({
+      primaryStoryId: null,
+      primaryRegimeSlug: "global-cost-of-capital",
+      routingClass: "REGIME",
+    }),
+    analyticalOutput: output([decision({ destination_refs: ["REGIME:CURRENT"] })]),
+    stories,
+    regimeLinks: [
+      { regime_slug: "global-cost-of-capital", story_id: STORY_B, role: "core", confidence: 95 },
+      { regime_slug: "global-cost-of-capital", story_id: STORY_C, role: "bridge", confidence: 90 },
+    ],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
+  });
+
+  assert.deepEqual(plan.items.map((item) => item.target_story_id), [STORY_B, STORY_C]);
+  assert.deepEqual(plan.items.map((item) => item.route_kind), ["regime_core", "regime_bridge"]);
+  assert.ok(plan.items.every((item) => item.canonical_evidence_id === EVIDENCE_A));
+});
+
+test("B2 REGIME acceptance routed only to Investigation creates no Story queue work", () => {
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: packet({
+      primaryStoryId: null,
+      primaryRegimeSlug: "global-cost-of-capital",
+      routingClass: "REGIME",
+    }),
+    analyticalOutput: output([decision({
+      destination_refs: ["INVESTIGATION:inv:b2-regime"],
+    })]),
+    stories,
+    regimeLinks: [
+      { regime_slug: "global-cost-of-capital", story_id: STORY_B, role: "core", confidence: 95 },
+    ],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
+  });
+
+  assert.deepEqual(plan.items, []);
+});
+
+test("B2 INVESTIGATION_CANDIDATE acceptance creates no Story queue work or fuzzy substitute", () => {
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: packet({
+      primaryStoryId: null,
+      primaryRegimeSlug: null,
+      routingClass: "INVESTIGATION_CANDIDATE",
+    }),
+    analyticalOutput: output([decision({
+      destination_refs: ["INVESTIGATION:inv:b2-orphan"],
+    })]),
+    stories,
+    regimeLinks: [],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
+  });
+
+  assert.deepEqual(plan.items, []);
+  assert.equal(plan.warnings.some((warning) => /substitute Story/i.test(warning)), false);
 });
 
 test("A3 caps total unique Story targets at the existing four-target Story review budget", () => {
