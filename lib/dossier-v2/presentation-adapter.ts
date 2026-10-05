@@ -101,7 +101,10 @@ export type DossierRateRegime = {
 };
 
 export type DossierPresentationStory = {
+  /** Analytical Dossier Story identity. */
   id: string;
+  /** Exact persistent Story UUID when governed binding exists. */
+  persistentStoryId?: string | null;
   title: string;
   whatChanged: string;
   whyItMatters: string;
@@ -110,8 +113,63 @@ export type DossierPresentationStory = {
   whatWouldChangeMind: string;
   epistemicLabel: EpistemicLabel;
   evidenceRefs: string[];
+  confirmingEvidenceRefs?: string[];
+  contradictingEvidenceRefs?: string[];
+  acceleratingEvidenceRefs?: string[];
+  unresolvedEvidenceRefs?: string[];
   investigationIds: string[];
   chartIds: string[];
+};
+
+export type DossierPresentationDecisionStoryImpact = {
+  analyticalStoryId: string;
+  persistentStoryId: string | null;
+  change: "NEW" | "UNCHANGED" | "UPDATED" | "UNLINKED";
+  previousConclusion: string | null;
+  currentConclusion: string;
+  confirmingEvidenceRefs: string[];
+  contradictingEvidenceRefs: string[];
+  acceleratingEvidenceRefs: string[];
+  reversalCondition: string;
+};
+
+export type DossierPresentationDecisionPacket = {
+  basis: "DOSSIER_READ_MODEL";
+  state: "BASELINE" | "UNCHANGED" | "UPDATED";
+  whatChanged: string;
+  evidence: {
+    confirming: string[];
+    contradicting: string[];
+    accelerating: string[];
+  };
+  storyImpact: DossierPresentationDecisionStoryImpact[];
+  regimeImpact: {
+    previous: RegimeFamily | null;
+    current: RegimeFamily;
+    changed: boolean;
+  };
+  /**
+   * Hybrid probabilities are projected downstream from this read model and are
+   * intentionally not invented or copied into the immutable Dossier.
+   */
+  hybridImpact: null;
+  reversalConditions: string[];
+};
+
+export type DossierPresentationLongitudinalAdjudication = {
+  basis: "EXACT_PRIOR_DOSSIER";
+  previousDossierId: string | null;
+  reactionOutcome:
+    | "BASELINE"
+    | "CONFIRMED"
+    | "PARTIALLY_CONFIRMED"
+    | "UNRESOLVED"
+    | "CONTRADICTED";
+  evaluatedExpectations: number;
+  alignedExpectations: number;
+  divergentExpectations: number;
+  unresolvedExpectations: number;
+  storyChanges: DossierPresentationDecisionStoryImpact[];
 };
 
 export type DossierPresentationReactionPathPoint = {
@@ -304,6 +362,9 @@ export type DossierPresentationV1 = {
   thesisChanges: DossierPresentationThesisChange[];
 
   evidenceIndex: DossierPresentationEvidenceRef[];
+
+  decisionPacket?: DossierPresentationDecisionPacket;
+  longitudinalAdjudication?: DossierPresentationLongitudinalAdjudication;
 
   diagnostics: {
     modelRepairUsed: boolean;
@@ -619,6 +680,7 @@ function researchGaps(dossier: MarketDossierV2) {
 function presentationStory(story: MajorStory): DossierPresentationStory {
   return {
     id: story.story_id,
+    persistentStoryId: story.persistent_story_id ?? null,
     title: story.title,
     whatChanged: story.what_changed,
     whyItMatters: story.why_it_matters,
@@ -627,8 +689,154 @@ function presentationStory(story: MajorStory): DossierPresentationStory {
     whatWouldChangeMind: story.what_would_change_mind,
     epistemicLabel: story.epistemic_label,
     evidenceRefs: [...story.evidence_ids],
+    confirmingEvidenceRefs: [...story.market_evidence.confirming],
+    contradictingEvidenceRefs: [...story.market_evidence.contradicting],
+    acceleratingEvidenceRefs: [...(story.market_evidence.accelerating ?? [])],
+    unresolvedEvidenceRefs: [...story.market_evidence.unresolved],
     investigationIds: [...story.linked_investigation_ids],
     chartIds: [...story.linked_chart_task_ids],
+  };
+}
+
+function uniqueSorted(values: string[]) {
+  return [...new Set(values.filter(Boolean))].sort();
+}
+
+function decisionStoryImpact(
+  current: ResearchBrainOutputV1,
+  previous: ResearchBrainOutputV1 | null,
+): DossierPresentationDecisionStoryImpact[] {
+  const priorByAnalyticalId = new Map(
+    (previous?.major_stories ?? []).map((story) => [story.story_id, story]),
+  );
+
+  return current.major_stories.map((story) => {
+    const prior = priorByAnalyticalId.get(story.story_id) ?? null;
+    const persistentStoryId = story.persistent_story_id ?? null;
+    const change: DossierPresentationDecisionStoryImpact["change"] =
+      !persistentStoryId
+        ? "UNLINKED"
+        : !prior
+          ? "NEW"
+          : prior.conclusion === story.conclusion
+            && prior.what_would_change_mind === story.what_would_change_mind
+            && (prior.persistent_story_id ?? null) === persistentStoryId
+            ? "UNCHANGED"
+            : "UPDATED";
+
+    return {
+      analyticalStoryId: story.story_id,
+      persistentStoryId,
+      change,
+      previousConclusion: prior?.conclusion ?? null,
+      currentConclusion: story.conclusion,
+      confirmingEvidenceRefs: uniqueSorted(story.market_evidence.confirming),
+      contradictingEvidenceRefs: uniqueSorted(story.market_evidence.contradicting),
+      acceleratingEvidenceRefs: uniqueSorted(
+        story.market_evidence.accelerating ?? [],
+      ),
+      reversalCondition: story.what_would_change_mind,
+    };
+  });
+}
+
+function buildDecisionPacket(
+  current: ResearchBrainOutputV1,
+  previous: ResearchBrainOutputV1 | null,
+): DossierPresentationDecisionPacket {
+  const storyImpact = decisionStoryImpact(current, previous);
+  const previousRegime = previous?.main_thread.regime_family ?? null;
+  const regimeChanged =
+    previousRegime !== null
+    && previousRegime !== current.main_thread.regime_family;
+  const changed =
+    previous === null
+    || regimeChanged
+    || previous.main_thread.answer !== current.main_thread.answer
+    || storyImpact.some((story) => story.change === "NEW" || story.change === "UPDATED");
+
+  return {
+    basis: "DOSSIER_READ_MODEL",
+    state: previous === null ? "BASELINE" : changed ? "UPDATED" : "UNCHANGED",
+    whatChanged: current.main_thread.answer,
+    evidence: {
+      confirming: uniqueSorted(
+        current.major_stories.flatMap((story) => story.market_evidence.confirming),
+      ),
+      contradicting: uniqueSorted(
+        current.major_stories.flatMap((story) => story.market_evidence.contradicting),
+      ),
+      accelerating: uniqueSorted(
+        current.major_stories.flatMap(
+          (story) => story.market_evidence.accelerating ?? [],
+        ),
+      ),
+    },
+    storyImpact,
+    regimeImpact: {
+      previous: previousRegime,
+      current: current.main_thread.regime_family,
+      changed: regimeChanged,
+    },
+    hybridImpact: null,
+    reversalConditions: uniqueSorted([
+      current.main_thread.what_would_change_mind,
+      ...current.major_stories.map((story) => story.what_would_change_mind),
+    ]),
+  };
+}
+
+function buildLongitudinalAdjudication(
+  current: ResearchBrainOutputV1,
+  previous: ResearchBrainOutputV1 | null,
+  previousDossierId: string | null,
+  investigations: DossierPresentationInvestigation[],
+): DossierPresentationLongitudinalAdjudication {
+  if (!previous) {
+    return {
+      basis: "EXACT_PRIOR_DOSSIER",
+      previousDossierId: null,
+      reactionOutcome: "BASELINE",
+      evaluatedExpectations: 0,
+      alignedExpectations: 0,
+      divergentExpectations: 0,
+      unresolvedExpectations: investigations.length,
+      storyChanges: decisionStoryImpact(current, null),
+    };
+  }
+
+  const aligned = investigations.filter(
+    (item) => item.reactionCalibration.outcome === "ALIGNED",
+  ).length;
+  const divergent = investigations.filter(
+    (item) =>
+      item.reactionCalibration.outcome === "DIVERGENT"
+      || item.reactionCalibration.outcome === "MIXED",
+  ).length;
+  const unresolved = investigations.filter(
+    (item) => item.reactionCalibration.outcome === "UNRESOLVED",
+  ).length;
+  const evaluated = aligned + divergent;
+
+  const reactionOutcome:
+    DossierPresentationLongitudinalAdjudication["reactionOutcome"] =
+      evaluated === 0
+        ? "UNRESOLVED"
+        : divergent > 0 && aligned === 0
+          ? "CONTRADICTED"
+          : divergent > 0 || unresolved > 0
+            ? "PARTIALLY_CONFIRMED"
+            : "CONFIRMED";
+
+  return {
+    basis: "EXACT_PRIOR_DOSSIER",
+    previousDossierId,
+    reactionOutcome,
+    evaluatedExpectations: evaluated,
+    alignedExpectations: aligned,
+    divergentExpectations: divergent,
+    unresolvedExpectations: unresolved,
+    storyChanges: decisionStoryImpact(current, previous),
   };
 }
 
@@ -1226,6 +1434,14 @@ export function buildDossierV2Presentation(
         : thesisChanges(output, previousOutput),
 
     evidenceIndex: evidenceIndex(output),
+
+    decisionPacket: buildDecisionPacket(output, previousOutput),
+    longitudinalAdjudication: buildLongitudinalAdjudication(
+      output,
+      previousOutput,
+      previousDossier?.id ?? null,
+      presentedInvestigations,
+    ),
 
     diagnostics: {
       modelRepairUsed: Boolean(output.diagnostics.model_repair_used),
