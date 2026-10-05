@@ -812,7 +812,32 @@ test("2E. B2 UNRESOLVED and REJECT still obey routing boundaries", () => {
   assert.ok(val.errors.some((error) => /REJECT must use destination_refs=\[\]/i.test(error)));
 });
 
-test("2F. Research Brain prompt states B2 routing classes and orphan restrictions", () => {
+
+test("2F. B2 fails closed when explicit routing_class contradicts structural Motion identity", () => {
+  const packet = createValidBasePacket();
+  const motion = setSingleB2Motion(packet, "REGIME");
+  motion.routing_class = "STORY";
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: motion.motion_id,
+      decision: "ACCEPT",
+      conclusion: "This malformed route must not be allowed to jump to a Story.",
+      canonical_evidence_refs: ["ev:yields:2026-09"],
+      destination_refs: ["STORY:story:fed_easing"],
+      rationale: "The explicit label contradicts the Motion's structural Regime-only identity.",
+      next_test: null,
+    }],
+  };
+
+  const val = validateResearchBrainOutput(output, packet);
+  assert.equal(val.isValid, false);
+  assert.ok(val.errors.some((error) => /no valid routing_class|routing.*fails closed/i.test(error)));
+});
+
+test("2G. Research Brain prompt states B2 routing classes and orphan restrictions", () => {
   const packet = createValidBasePacket();
   setSingleB2Motion(packet, "REGIME");
   const prompt = buildResearchBrainPrompt({
