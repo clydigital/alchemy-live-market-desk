@@ -80,6 +80,8 @@ $function$;
 
 revoke all on function public.live_desk_schema_invariants()
   from public, anon, authenticated;
+grant select on table public.research_schedule_slots
+  to service_role;
 grant execute on function public.live_desk_schema_invariants()
   to service_role;
 
