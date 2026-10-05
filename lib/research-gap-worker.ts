@@ -241,6 +241,17 @@ function researchNowCandidates(dossier: MarketDossierV2): ResearchGapWorkCandida
   });
 }
 
+function candidateDiscriminatingTests(value: unknown, limit = 4) {
+  if (!Array.isArray(value)) return [];
+  const tests = value.flatMap((raw) => {
+    const candidate = object(raw);
+    if (!candidate) return [];
+    const discriminatingTest = clean(candidate.discriminating_test);
+    return discriminatingTest ? [discriminatingTest] : [];
+  });
+  return [...new Set(tests)].slice(0, limit);
+}
+
 function investigationCandidates(dossier: MarketDossierV2) {
   const analytical = analyticalOutput(dossier);
   const rows = Array.isArray(analytical?.investigations) ? analytical.investigations : [];
@@ -270,7 +281,15 @@ function investigationCandidates(dossier: MarketDossierV2) {
 
     const action = researchNext || `Investigate: ${question}`;
     const reason = clean(item.why_it_matters) || null;
-    const evidenceNeeded = strings(item.missing_evidence);
+    const divergence = clean(item.divergence).toUpperCase();
+    const discriminatingTests =
+      divergence && divergence !== "NONE"
+        ? candidateDiscriminatingTests(item.candidate_explanations)
+        : [];
+    const evidenceNeeded = strings([
+      ...strings(item.missing_evidence),
+      ...discriminatingTests,
+    ]);
     const linkedInvestigationIds = explicitId ? [explicitId] : [];
     const linkedStoryIds = strings(item.linked_story_ids);
 
@@ -295,7 +314,7 @@ function investigationCandidates(dossier: MarketDossierV2) {
       question: question || null,
       action: researchNext || `Investigate: ${question}`,
       reason: clean(item.why_it_matters) || null,
-      evidenceNeeded: strings(item.missing_evidence),
+      evidenceNeeded,
       linkedInvestigationIds: explicitId ? [explicitId] : [],
       linkedStoryIds: strings(item.linked_story_ids),
       blockingRefs: [],
@@ -305,7 +324,7 @@ function investigationCandidates(dossier: MarketDossierV2) {
         expectedInformationGain: null,
         researchNowRank: null,
         investigationStatus: status || null,
-        divergence: clean(item.divergence) || null,
+        divergence: divergence || null,
         motionAttentionTier: null,
         motionAttentionScore: null,
         motionWritingPotential: null,
