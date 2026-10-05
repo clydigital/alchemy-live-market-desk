@@ -342,6 +342,7 @@ const RATE_CONTEXT_GROUPING_KEYS = new Set([
   "market-monitor:us10y-real",
   "market-monitor:us10y-breakeven",
   "market-monitor:fed-funds-effective",
+  "rate-context:acm-term-premium",
 ]);
 
 const RATE_CONTEXT_FACT_PATTERN = /\b(?:fomc|federal reserve|fed funds|rate hike|rate cut|hawkish|dovish|cpi|ppi|pce|inflation|pmi|ism|gdp|retail sales|payroll|employment|unemployment|average hourly|wage growth)\b/i;
@@ -353,7 +354,7 @@ function isRateContextEvidence(
   const signalKind = typeof item.metrics?.signal_kind === "string"
     ? item.metrics.signal_kind
     : null;
-  if (["economic_release", "rate_expectation", "market_reaction"].includes(signalKind ?? "")) {
+  if (["economic_release", "rate_expectation", "market_reaction", "term_structure_model"].includes(signalKind ?? "")) {
     return true;
   }
   return item.source_type !== "MARKET_DATA" && RATE_CONTEXT_FACT_PATTERN.test(item.claim_or_fact);
