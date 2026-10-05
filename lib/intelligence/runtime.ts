@@ -1381,6 +1381,41 @@ function isStaleStoryMaintenanceMutation(error: unknown) {
     && error.detail.includes("Stale Story maintenance assessment");
 }
 
+function isStoryQueueOwnershipLostBeforeApply(error: unknown) {
+  return error instanceof IntelligenceDatabaseError
+    && error.detail.includes("Story assessment lost queue ownership before apply");
+}
+
+async function recordStoryQueueOwnershipLostBeforeApply(input: {
+  assessmentId: string;
+  storyId: string;
+  engineRunId: string;
+  rationale: string;
+  queueIds: string[];
+}) {
+  await intelligenceRest(
+    "intelligence_story_assessments?id=eq." + encodeURIComponent(input.assessmentId)
+      + "&applied_at=is.null",
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        disposition: "unchanged",
+        rationale: input.rationale + " Story queue ownership changed before apply; this assessment remains unapplied.",
+        material_change_applied: false,
+      }),
+    },
+  );
+
+  console.info(JSON.stringify({
+    event: "story_review_queue_ownership_lost_before_apply",
+    engineRunId: input.engineRunId,
+    storyId: input.storyId,
+    assessmentId: input.assessmentId,
+    queueIds: input.queueIds,
+  }));
+}
+
 async function resolveStaleStoryMaintenanceAssessment(input: {
   engineRunId: string;
   assessmentId: string;
@@ -1511,13 +1546,26 @@ async function persistStoryAssessments(input: {
         body: JSON.stringify({ p_assessment_id: row.id }),
       });
     } catch (error) {
-      if (!isStaleStoryMaintenanceMutation(error)) throw error;
-      await resolveStaleStoryMaintenanceAssessment({
-        engineRunId: input.engineRunId,
-        assessmentId: row.id,
-        target,
-        rationale: payload.rationale,
-      });
+      if (isStaleStoryMaintenanceMutation(error)) {
+        await resolveStaleStoryMaintenanceAssessment({
+          engineRunId: input.engineRunId,
+          assessmentId: row.id,
+          target,
+          rationale: payload.rationale,
+        });
+        continue;
+      }
+      if (isStoryQueueOwnershipLostBeforeApply(error)) {
+        await recordStoryQueueOwnershipLostBeforeApply({
+          assessmentId: row.id,
+          storyId: target.story.id,
+          engineRunId: input.engineRunId,
+          rationale: payload.rationale,
+          queueIds: target.queueIds,
+        });
+        continue;
+      }
+      throw error;
     }
   }
 }
