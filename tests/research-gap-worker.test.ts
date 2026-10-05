@@ -279,9 +279,33 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
       return { data: row, error: null };
     },
   };
+  const debtQuery = {
+    select(value: string) {
+      calls.push(["debt:select", value]);
+      return this;
+    },
+    eq(column: string, value: unknown) {
+      calls.push([`debt:eq:${column}`, value]);
+      return this;
+    },
+    like(column: string, value: unknown) {
+      calls.push([`debt:like:${column}`, value]);
+      return this;
+    },
+    order(column: string, options: unknown) {
+      calls.push([`debt:order:${column}`, options]);
+      return this;
+    },
+    async limit(value: number) {
+      calls.push(["debt:limit", value]);
+      return { data: [], error: null };
+    },
+  };
   const fakeClient = {
     from(table: string) {
+      calls.push(["from", table]);
       if (table === "market_dossiers_v2") return dossierQuery;
+      if (table === "research_debt") return debtQuery;
       throw new Error(`unexpected table ${table}`);
     },
   };
@@ -296,7 +320,12 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
     ["dossier:order:as_of", { ascending: false }],
     ["dossier:order:created_at", { ascending: false }],
   ]);
-  assert.equal(calls.some(([name]) => String(name).startsWith("motion:")), false);
+  assert.ok(calls.some(([name, value]) => name === "debt:eq:status" && value === "open"));
+  assert.ok(calls.some(([name, value]) => name === "debt:like:debt_key" && value === "divergence:%"));
+  assert.equal(
+    calls.some(([name, value]) => name === "from" && value === "current_market_motion_items"),
+    false,
+  );
 });
 
 test("machine-authenticated queue endpoint is whitelisted before dashboard session auth", () => {
