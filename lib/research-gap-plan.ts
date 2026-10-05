@@ -5,6 +5,10 @@ import type {
   ResearchGapOutcome,
 } from "./research-gap-lifecycle.ts";
 import type { ResearchGapPlanContext } from "./research-gap-context.ts";
+import {
+  researchGapDiscriminatorLifecycleFromPlan,
+  type ResearchGapDiscriminatorLifecycleSnapshot,
+} from "./research-gap-discriminator-lifecycle.ts";
 
 export const RESEARCH_GAP_PLAN_VERSION = "research-gap-plan/1" as const;
 export const RESEARCH_GAP_VERDICT_VERSION = "research-gap-verdict/1" as const;
@@ -71,6 +75,7 @@ export type ResearchGapPlan = {
     rules: string[];
   };
   context?: ResearchGapPlanContextMetadata;
+  causalDiscriminator?: ResearchGapDiscriminatorLifecycleSnapshot;
 };
 
 export type ResearchGapEvidenceAssessment = {
@@ -204,6 +209,15 @@ function contextMetadata(context: ResearchGapPlanContext): ResearchGapPlanContex
   };
 }
 
+function causalDiscriminatorFromContext(
+  context?: ResearchGapPlanContext,
+): ResearchGapDiscriminatorLifecycleSnapshot | null {
+  if (!context) return null;
+  return researchGapDiscriminatorLifecycleFromPlan({
+    causalDiscriminator: context.occurrence.snapshot.causalDiscriminator,
+  });
+}
+
 function assertContextMatchesGap(gap: ResearchGapCaseRow, context: ResearchGapPlanContext) {
   if (
     context.gap.id !== gap.id
@@ -225,6 +239,7 @@ export function buildResearchGapPlan(
   context?: ResearchGapPlanContext,
 ): ResearchGapPlan {
   if (context) assertContextMatchesGap(gap, context);
+  const causalDiscriminator = causalDiscriminatorFromContext(context);
   const investigations = linkedAuthoritativeInvestigations(gap, context);
   const primaryInvestigation = investigations[0];
   const researchQuestion = clean(primaryInvestigation?.question) || clean(gap.question) || clean(gap.action);
@@ -294,6 +309,7 @@ export function buildResearchGapPlan(
       ],
     },
     ...(context ? { context: contextMetadata(context) } : {}),
+    ...(causalDiscriminator ? { causalDiscriminator } : {}),
   };
 }
 
@@ -342,6 +358,12 @@ export function isResearchGapPlan(value: unknown): value is ResearchGapPlan {
     && Boolean(plan.budget)
     && Boolean(plan.stopPolicy)
     && (plan.context === undefined || isResearchGapPlanContextMetadata(plan.context))
+    && (
+      plan.causalDiscriminator === undefined
+      || Boolean(researchGapDiscriminatorLifecycleFromPlan({
+        causalDiscriminator: plan.causalDiscriminator,
+      }))
+    )
   );
 }
 
