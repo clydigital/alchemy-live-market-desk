@@ -392,12 +392,11 @@ export function buildDossierReevaluationPropagationPlan(
     ]),
   );
 
-  for (
-    let storyIndex = 0;
-    storyIndex < input.analyticalOutput.major_stories.length;
-    storyIndex++
-  ) {
-    const majorStory = input.analyticalOutput.major_stories[storyIndex];
+  const majorStories = Array.isArray(input.analyticalOutput.major_stories)
+    ? input.analyticalOutput.major_stories
+    : [];
+  for (let storyIndex = 0; storyIndex < majorStories.length; storyIndex++) {
+    const majorStory = majorStories[storyIndex];
     const persistentStoryId = majorStory.persistent_story_id ?? null;
     if (!persistentStoryId) continue;
 
@@ -542,7 +541,11 @@ function candidateCanonicalEvidenceRefs(
   const motionRefs = (analyticalOutput.motion_acceptance?.decisions ?? [])
     .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
     .flatMap((item) => item.canonical_evidence_refs);
-  const dossierStoryRefs = analyticalOutput.major_stories
+  const dossierStoryRefs = (
+    Array.isArray(analyticalOutput.major_stories)
+      ? analyticalOutput.major_stories
+      : []
+  )
     .filter((story) => Boolean(story.persistent_story_id))
     .flatMap((story) => [
       ...(story.market_evidence.confirming ?? []),
