@@ -502,7 +502,7 @@ export function buildResearchGapWorkQueue(
       notes: [
         "This stage reads and normalises work only; it does not score, claim, research, resolve or mutate a gap.",
         "Native ranks, blocker labels, information-gain labels and investigation state are preserved for the prioritisation stage.",
-        "New Research Gap work is Dossier-authoritative: research_gaps, research_now and investigations only; raw Motion cannot enter directly.",
+        "Dossier-derived Research Gap work remains Dossier-authoritative; raw Motion cannot enter directly.",
         "Divergent Investigation candidate mechanisms carry a bounded causal-discriminator plan, but only the first discriminator is exposed as active Research Gap work at ingestion.",
         "Material canonical divergence debt reuses the same bounded causal-discriminator lifecycle; only its first discriminator is active at ingestion.",
       ],
