@@ -1,101 +1,96 @@
-# D1-D7 Architecture Implementation & Status Matrix
+# D1–D7 Architecture Implementation Status
 
-**As of Current Main (`293f916` or newer)**
+**Audit base:** current `main` at `7f6cfff66c2866f033b49e62f160aadb6e08e431` or newer.
 
-This document provides a concise, evidence-backed implementation status audit of the D1–D7 research architecture and associated intelligence subsystems within the `alchemy-live-market-desk` repository.
+This is an implementation audit, not a design document. It distinguishes code/test coverage from direct production observation.
 
----
+## Status legend
 
-## Status Classification Legend
-- **IMPLEMENTED**: Code exists in `lib/` implementing the specified data contracts and logic.
-- **TESTED**: Unit/integration test coverage exists in `tests/` verifying behavior, invariants, and edge cases.
-- **RUNTIME-WIRED**: Integrated into production execution flows, API routes, or cron orchestrators.
-- **PRODUCTION-VERIFIED**: Proven by exact publication snapshot replay contracts, database unique index constraints, or production deployment PRs.
+- **IMPLEMENTED** — production code exists on `main`.
+- **TESTED** — focused unit/integration/contract coverage exists.
+- **RUNTIME-WIRED** — the code participates in an active runtime path rather than existing only as a pure helper.
+- **PRODUCTION-VERIFIED** — the specific behaviour has been directly observed on a production deployment or production-backed route. Deployment alone is not enough.
 
----
+## Matrix
 
-## Implementation Status Matrix
+| Layer / subsystem | Implemented | Tested | Runtime-wired | Production-verified | Primary evidence |
+| --- | --- | --- | --- | --- | --- |
+| **D1 — exact persistent Story identity** | ✅ | ✅ | ✅ | Not independently smoke-proven | `lib/intelligence/story-identity.ts`, Dossier identity plumbing, Hybrid exact-ID resolution, identity tests |
+| **D2 — CONFIRMING / CONTRADICTING / ACCELERATING classification** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier evidence governance + Hybrid canonical Story classification |
+| **D3 — A3 governed Story wake** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier reevaluation propagation, queue ownership/fencing, authority-chain tests |
+| **D4 — canonical `story_thesis_versions` mutation path** | ✅ | ✅ | ✅ | Not independently smoke-proven | canonical Story assessment/apply path; PR #497; authority-chain proof #508 |
+| **D5 — Market-State Decision Packet** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier presentation adapter / canonical snapshot tests |
+| **D6 — longitudinal adjudication** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier longitudinal adjudication / replay tests |
+| **D7 — cross-layer divergence comparator** | ✅ | ✅ | ✅ | ✅ comparator/UI observed | PR #505 + #510; production `/hybrid-output` rendered **Cross-layer checks** with HTTP 200 |
+| **D7 → Research Gap routing** | ✅ | ✅ | ✅ | Deployed, but no live material-divergence handoff was observed during this audit | PR #511 + end-to-end proof #512 |
+| **Evidence freshness / source arbitration** | ✅ | ✅ | ✅ | Not independently smoke-proven | evidence governance, temporal correctness, source-priority tests |
+| **Evidence sufficiency / confidence blockers** | ✅ | ✅ | ✅ | Not independently smoke-proven | `lib/dossier-v2/evidence-sufficiency.ts` + focused tests |
+| **Hybrid scenario falsification / hysteresis** | ✅ | ✅ | ✅ | ✅ | PR #496; production `/hybrid-output` rendered bounded A/B/C/D/E ladder and guarded D/E tails |
+| **Historical Presenter replay** | ✅ | ✅ | ✅ | Deployed; exact replay not manually exercised in this audit | PR #503 + historical replay tests |
+| **Sequential Research Gap discriminators** | ✅ | ✅ | ✅ | Deployed; live ADVANCE/EXHAUST transition not manually exercised in this audit | PR #504 + lifecycle tests |
+| **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | Newly merged; awaiting natural production exercise | PR #516 |
 
-| Layer / Subsystem | Status | Core Implementation Files | Test Suite Files | Associated PRs / Commits |
-| :--- | :--- | :--- | :--- | :--- |
-| **D1: Exact Persistent Story Identity** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/intelligence/story-identity.ts`<br>`lib/dossier-v2/input-packet.ts`<br>`lib/dossier-v2/presentation-adapter.ts`<br>`lib/hybrid-reasoning-projection.ts` | `tests/dossier-persistent-story-identity-a3.test.ts`<br>`tests/story-identity.test.ts`<br>`tests/story-identity-runtime.test.ts` | PR #511 |
-| **D2: Confirming / Contradicting / Accelerating Classification** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/evidence-governance.ts`<br>`lib/dossier-v2/presentation-adapter.ts` | `tests/dossier-evidence-governance.test.ts`<br>`tests/dossier-v2-evidence-priority.test.ts` | PR #511, Live PR #44 |
-| **D3: A3 Governed Wake** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/reevaluation-propagation.ts`<br>`lib/dossier-v2/delta-gate.ts`<br>`lib/dossier-v2/execution.ts` | `tests/dossier-reevaluation-propagation.test.ts`<br>`tests/dossier-v2-delta-gate.test.ts` | PR #511 |
-| **D4: Existing `story_thesis_versions` Mutation Path** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/intelligence/publication-feed-data.ts`<br>`lib/hybrid-publication.ts`<br>`lib/persistence/read.ts`<br>`lib/story-reasoning-v1.ts` | `tests/story-reasoning-transaction.test.ts`<br>`tests/story-review-runtime-contract.test.ts`<br>`tests/reasoning-authority-chain-closure.test.ts` | PR #511, Live PR #44 |
-| **D5: Decision Packet** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/presentation-adapter.ts`<br>`lib/dossier-v2/canonical-snapshot.ts` | `tests/dossier-v2-presentation-adapter.test.ts` | PR #511 |
-| **D6: Longitudinal Adjudication** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/presentation-adapter.ts`<br>`lib/dossier-v2/canonical-snapshot.ts` | `tests/dossier-v2-presentation-adapter.test.ts` | PR #511 |
-| **D7: Cross-Layer Divergence & Research Gap Routing** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/cross-layer-divergence.ts`<br>`lib/d7-research-gap-routing.ts`<br>`lib/d7-research-gap-runtime.ts`<br>`lib/d7-runtime.ts` | `tests/d7-cross-layer-divergence.test.ts`<br>`tests/d7-research-gap-routing.test.ts`<br>`tests/d7-hybrid-cross-layer-ui.test.ts` | PR #511 (`293f916`) |
-| **Evidence Freshness & Source Arbitration** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/evidence-governance.ts`<br>`lib/macro/macro-indicators-source.ts`<br>`lib/dossier-v2/input-packet.ts` | `tests/dossier-evidence-governance.test.ts`<br>`tests/overview-story-freshness.test.ts`<br>`tests/regime-freshness.test.ts` | PR #511, Live PR #45 |
-| **Evidence Sufficiency & Confidence Blockers** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/dossier-v2/evidence-sufficiency.ts` | `tests/dossier-evidence-sufficiency.test.ts`<br>`tests/dossier-confidence-fallback.test.ts` | PR #511 |
-| **Hybrid Scenario Falsification & Hysteresis** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/hybrid-reasoning-projection.ts`<br>`lib/dossier-v2/presentation-adapter.ts` | `tests/presenter-divergence-journey.test.ts`<br>`tests/hypothesis-integrity-gate.test.ts`<br>`tests/hybrid-reasoning-boundary.test.ts` | PR #511, Live PR #44 |
-| **Historical Presenter Replay** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/presenter-historical-dossier-replay.ts`<br>`lib/edition-replay.ts`<br>`lib/presenter-dossier-edition-capture.ts` | `tests/dossier-v2-history-replay.test.ts`<br>`tests/presenter-historical-replay-end-to-end-p1-7.test.ts`<br>`tests/presenter-publication-exact-replay-contract.test.ts` | PR #511, Live PR #44 |
-| **Sequential Research Gap Discriminators** | `IMPLEMENTED`<br>`TESTED`<br>`RUNTIME-WIRED`<br>`PRODUCTION-VERIFIED` | `lib/research-gap-discriminator-lifecycle.ts`<br>`lib/research-gap-worker.ts`<br>`lib/research-gap-lifecycle.ts` | `tests/research-gap-discriminator-lifecycle.test.ts`<br>`tests/research-gap-worker.test.ts`<br>`tests/research-gap-lifecycle.test.ts` | PR #511 |
+## Current governed chain
 
----
+The codebase now has one canonical reasoning/mutation chain:
 
-## Detailed Layer Analysis & Proof Evidence
+`canonical evidence → Dossier/System 2 → exact persistent Story identity → A3 governed wake → canonical Story assessment → story_thesis_versions → Regime projection → Hybrid projection → D7 divergence read → Research Gap → new canonical evidence`
 
-### D1: Exact Persistent Story Identity
-- **Contract & Logic**: `lib/intelligence/story-identity.ts`, `lib/dossier-v2/input-packet.ts`, `lib/dossier-v2/presentation-adapter.ts`
-- **Verification**: Enforces 1:1 mapping between analytical Story IDs (e.g. `story:rates-duration-stress`) and persistent UUIDs. Ambiguous or invalid prior analytical-to-persistent bindings are rejected fail-closed without inventing fuzzy matches (`tests/dossier-persistent-story-identity-a3.test.ts`).
+Important boundaries remain intact:
 
-### D2: Confirming / Contradicting / Accelerating Evidence Classification
-- **Contract & Logic**: `lib/dossier-v2/evidence-governance.ts`, `lib/dossier-v2/presentation-adapter.ts`
-- **Verification**: Categorizes evidence into `CONFIRMING`, `CONTRADICTING`, `ACCELERATING`, or `NEUTRAL` based on directional shift and net impact. Multi-bucket or ambiguous evidence is suppressed before reevaluation propagation (`tests/dossier-evidence-governance.test.ts`).
+- Motion is context, not evidence.
+- No fuzzy Story identity is allowed.
+- Only canonical evidence UUIDs may justify Story mutation.
+- Dossier does not write Story thesis versions directly.
+- Hybrid does not write Stories.
+- D7 is a comparison/routing layer, not another reasoning engine.
+- Research Gap acquires evidence; it does not mutate Stories.
+- Historical Dossiers and Presenter snapshots remain immutable.
 
-### D3: A3 Governed Wake
-- **Contract & Logic**: `lib/dossier-v2/reevaluation-propagation.ts`, `lib/dossier-v2/delta-gate.ts`, `lib/dossier-v2/execution.ts`
-- **Verification**: Governed reevaluation propagation and delta gating control re-evaluation triggers on story or macro shifts without ungoverned background spawns (`tests/dossier-reevaluation-propagation.test.ts`, `tests/dossier-v2-delta-gate.test.ts`).
+## Key merged proof / implementation PRs
 
-### D4: Existing `story_thesis_versions` Mutation Path
-- **Contract & Logic**: `lib/intelligence/publication-feed-data.ts`, `lib/hybrid-publication.ts`, `lib/persistence/read.ts`
-- **Verification**: Uses append-only thesis versioning backed by database unique constraint `story_thesis_versions_canonical_mutation_key_uidx`. Direct destructive overwrites or out-of-band updates are rejected by runtime contracts (`tests/story-reasoning-transaction.test.ts`).
+- **#496** — Hybrid scenario falsification, hysteresis and persistent identity resolution.
+- **#497** — preserve material Evidence provenance in Story versions.
+- **#501** — Regime Divergence Lab routing bound to exact Story provenance.
+- **#503** — exact immutable Story + Dossier historical Presenter replay.
+- **#504** — sequential bounded Research Gap causal discriminators.
+- **#505** — deterministic D7 cross-layer divergence read model.
+- **#508** — canonical reasoning authority-chain closure test.
+- **#510** — D7 cross-layer checks in Hybrid UI.
+- **#511** — material D7 divergences routed into existing Research Gap lifecycle.
+- **#512** — end-to-end exact Story → Regime → Hybrid → D7 → Research Gap proof.
+- **#516** — maintenance-only accepted Story reassessment now reprojects Regimes before stopping downstream reasoning/publication.
 
-### D5: Decision Packet
-- **Contract & Logic**: `lib/dossier-v2/presentation-adapter.ts` (`buildDecisionPacket`), `lib/dossier-v2/canonical-snapshot.ts`
-- **Verification**: Exposes governed story evidence, regime delta (`previous`, `current`, `changed`), primary catalyst, invalidation threshold, and reversal conditions in Dossier V1 presentation outputs (`tests/dossier-v2-presentation-adapter.test.ts`).
+## Production observations from this audit
 
-### D6: Longitudinal Adjudication
-- **Contract & Logic**: `lib/dossier-v2/presentation-adapter.ts` (`buildLongitudinalAdjudication`), `lib/dossier-v2/canonical-snapshot.ts`
-- **Verification**: Adjudicates prior Dossier expectations against current market outcomes, computing exact counts for `evaluatedExpectations`, `alignedExpectations`, `divergentExpectations`, `unresolvedExpectations`, and resulting `reactionOutcome` (`tests/dossier-v2-presentation-adapter.test.ts`).
+The production deployment for the D7 proof commit `395b261c4d74cdf18c5bab24bc22e21249aefa01` reached **READY**.
 
-### D7: Cross-Layer Divergence & Research Gap Routing
-- **Contract & Logic**: `lib/dossier-v2/cross-layer-divergence.ts`, `lib/d7-research-gap-routing.ts`, `lib/d7-research-gap-runtime.ts`, `lib/d7-runtime.ts`
-- **Verification**: Evaluates cross-layer divergence between Dossier expectations, evidence sufficiency, and longitudinal adjudication, routing material items into Research Gaps. Merged to main in PR #511 (`293f916`).
+Observed directly:
 
-### Evidence Freshness & Source Arbitration
-- **Contract & Logic**: `lib/dossier-v2/evidence-governance.ts`, `lib/macro/macro-indicators-source.ts`
-- **Verification**: Enforces source priority hierarchies, rejects stale macro baselines, and tracks provenance lineage (`tests/dossier-evidence-governance.test.ts`, `tests/overview-story-freshness.test.ts`).
+- `/hybrid-output` returned HTTP **200**.
+- `/dossier` returned HTTP **200**.
+- `/hybrid-output` rendered the D7 **Cross-layer checks** panel.
+- The Hybrid scenario ladder and guarded D/E tail language rendered in production.
+- No runtime errors were present in the final 15-minute verification window.
 
-### Evidence Sufficiency & Confidence Blockers
-- **Contract & Logic**: `lib/dossier-v2/evidence-sufficiency.ts`
-- **Verification**: Computes direction (`SUFFICIENCY_HIGH`, `SUFFICIENCY_MEDIUM`, `SUFFICIENCY_LOW` or `STRENGTHEN`/`WEAKEN`/`BASELINE`) and attaches blocker flags (`NO_ACTIVE_SUPPORT`, `ACTIVE_CONTRADICTION`, `UNRESOLVED_CONFLICT`, `MISSING_PROVENANCE`, `MISSING_GOVERNANCE`, `SUPERSEDED_SUPPORT`) without fabricating numeric confidence scores (`tests/dossier-evidence-sufficiency.test.ts`).
+This does **not** prove every internal branch executed against a live material case. Rows above therefore avoid marking deeper backend behaviour as production-verified unless it was actually observed.
 
-### Hybrid Scenario Falsification & Hysteresis
-- **Contract & Logic**: `lib/hybrid-reasoning-projection.ts`, `lib/dossier-v2/presentation-adapter.ts`
-- **Verification**: Falsification gates fail closed on unbacked scenario shifts and enforce classification shift hysteresis without manufacturing artificial data (`tests/presenter-divergence-journey.test.ts`, `tests/hybrid-reasoning-boundary.test.ts`).
+## Non-overlapping boundary regression added by this audit
 
-### Historical Presenter Replay
-- **Contract & Logic**: `lib/presenter-historical-dossier-replay.ts`, `lib/edition-replay.ts`
-- **Verification**: Deterministic replay of Dossiers and publication snapshots directly from canonical database snapshots without re-executing OpenAI models or modifying history (`tests/dossier-v2-history-replay.test.ts`, `tests/presenter-publication-exact-replay-contract.test.ts`).
+`tests/d1-d6-boundary-matrix-regression.test.ts` adds focused regression coverage for D1–D6/evidence-sufficiency/Research-Gap lifecycle boundaries without changing production logic or the dedicated D7 end-to-end proof.
 
-### Sequential Research Gap Discriminators
-- **Contract & Logic**: `lib/research-gap-discriminator-lifecycle.ts`, `lib/research-gap-worker.ts`, `lib/research-gap-lifecycle.ts`
-- **Verification**: Manages lifecycle sequence transitions for discriminators across discovery, resolution, rejection, and escalation (`tests/research-gap-discriminator-lifecycle.test.ts`, `tests/research-gap-worker.test.ts`).
+The reserved D7 proof remains:
 
----
+`tests/d7-end-to-end-integration-proof.test.ts`
 
-## Stale / Superseded Pre-Current-Main PRs
+## Superseded branches / PRs
 
-The following historical / draft PRs and execution briefs are superseded on `main` by PR #511 and the current-main architecture. **Per instructions, these PRs MUST NOT be closed, but are catalogued here for reference:**
+These older implementation attempts are superseded by current-main replacements and should not be treated as active architecture:
 
-1. **PR #346 / PR #347** — *Research Gap Context Envelope & Auto-Handoff Drafts*
-   - **Superseded By**: PR #511 (`293f916`) and `lib/d7-research-gap-routing.ts` / `lib/research-gap-*.ts`.
-2. **Live PR #43** — *Challenger Publication Gate*
-   - **Superseded By**: Decoupled Challenger execution policy and deterministic gating architecture (`lib/intelligence/runtime.ts`).
-3. **Live PR #44** — *Replace publication gate with descriptive research state*
-   - **Superseded By**: `lib/dossier-v2/canonical-snapshot.ts` and `lib/intelligence/publication-feed-data.ts`.
-4. **Live PR #45** — *Firecrawl acquisition fallback*
-   - **Superseded By**: Integrated Firecrawl acquisition fallbacks in `lib/firecrawl-research-fallback.ts` and `lib/firecrawl-scheduled-research.ts`.
+- **#426** → superseded by **#516**.
+- **#500 / #502** → superseded by merged **#504**.
+- **#506 / #509** → superseded by merged **#511**.
+- **#507** → superseded by merged **#510**.
+- Older chained Motion/B4 branches **#402, #404–#408** are historical attempts; current main contains the governed replacement architecture.
 
----
+This audit does not close historical PRs automatically.
