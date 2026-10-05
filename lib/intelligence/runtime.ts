@@ -1315,8 +1315,8 @@ async function loadOrCreateStoryReviewTargets(
     debt,
     now: new Date(analysisAsOf),
   });
-  const persisted = await freezeStoryReviewTargets(selected) as StoryReviewTargetPackItem[];
-  return claimStoryReviewQueues(engineRunId, persisted);
+  const owned = await claimStoryReviewQueues(engineRunId, selected);
+  return freezeStoryReviewTargets(owned) as Promise<StoryReviewTargetPackItem[]>;
 }
 
 async function markStoryReviewRetryable(
