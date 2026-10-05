@@ -156,6 +156,26 @@ test("exact persistent Story identity still links an investigation when analytic
   );
 });
 
+test("routed investigation preserves the exact analytical Dossier Story identities used for Regime placement", () => {
+  const linkedStory = story(
+    "story:duration-broadening",
+    "Duration and real-yield pressure has risen sharply",
+    "Higher 10Y and 30Y real yields raise the long-end discount rate and tighten credit.",
+  );
+  const [routed] = routeDossierInvestigations(
+    [investigation({
+      id: "investigation:duration-provenance",
+      storyIds: [linkedStory.id, "story:missing"],
+    })],
+    [linkedStory],
+  );
+
+  assert.deepEqual(routed?.regimeRoutingStoryIds, [linkedStory.id]);
+  assert.ok(routed?.regimeRoutes.some((route) =>
+    route.regime === "global-cost-of-capital" && route.subgroup === "long-end"
+  ));
+});
+
 test("missing analytical and persistent Story identity fails closed", () => {
   const [routed] = routeDossierInvestigations(
     [investigation({
