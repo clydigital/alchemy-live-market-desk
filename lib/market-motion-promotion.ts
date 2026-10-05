@@ -6,10 +6,12 @@ import {
   sourceVerificationWeight,
 } from "./intelligence/source-verification.ts";
 import {
+  deriveMarketMotionRoutingClass,
   marketMotionEffectiveState,
   persistMarketMotion,
   type MarketMotionInput,
   type MarketMotionRecord,
+  type MarketMotionRoutingClass,
 } from "./market-motion.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
@@ -17,10 +19,11 @@ export const MARKET_MOTION_PROMOTION_MIN_MATERIALITY = 80;
 export const MARKET_MOTION_PROMOTION_MIN_RELEVANCE = 75;
 export const MARKET_MOTION_PROMOTION_LIMIT = 6;
 export const MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT = 8;
-export const MARKET_MOTION_PROMOTION_POLICY = "canonical-evidence-corroborated/v1" as const;
+export const MARKET_MOTION_PROMOTION_POLICY = "canonical-evidence-corroborated/v2" as const;
 
 export type MarketMotionPromotionCandidate = {
   motion: MarketMotionRecord;
+  routingClass: MarketMotionRoutingClass;
   selectedEvidence: EvidencePackItem;
   matchingEvidenceIds: string[];
   matchingOriginItemKeys: string[];
@@ -99,19 +102,25 @@ export function selectPromotableMarketMotion(
   now = new Date(),
 ): MarketMotionPromotionCandidate[] {
   return items
-    .filter((item) => Boolean(item.primary_story_id))
     .filter((item) => marketMotionEffectiveState(item, now) !== "EXPIRED")
     .filter((item) => item.lifecycle_state === "MOTION")
     .filter(promotableVerification)
     .filter((item) => item.materiality >= MARKET_MOTION_PROMOTION_MIN_MATERIALITY)
     .filter((item) => item.relevance >= MARKET_MOTION_PROMOTION_MIN_RELEVANCE)
     .flatMap((motion): MarketMotionPromotionCandidate[] => {
+      const routingClass = deriveMarketMotionRoutingClass({
+        primaryStoryId: motion.primary_story_id,
+        primaryRegimeSlug: motion.primary_regime_slug,
+        nextTest: motion.next_test,
+      });
+      if (!routingClass) return [];
       const corroborators = eligibleCorroborators(motion, evidence);
       const selectedEvidence = corroborators[0];
       if (!selectedEvidence) return [];
       const bounded = corroborators.slice(0, MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT);
       return [{
         motion,
+        routingClass,
         selectedEvidence,
         matchingEvidenceIds: bounded.map((item) => item.id),
         matchingOriginItemKeys: [...new Set(
@@ -172,9 +181,6 @@ export function marketMotionPromotionInput(
   input: { researchRunId: string | null; engineRunId: string },
 ): MarketMotionInput {
   const item = candidate.motion;
-  if (!item.primary_story_id) {
-    throw new Error("Market Motion promotion requires an exact canonical Story link.");
-  }
   const selectedItemKey = evidenceItemKey(candidate.selectedEvidence);
   if (!selectedItemKey) {
     throw new Error("Market Motion promotion requires exact canonical Evidence item identity.");
@@ -191,7 +197,7 @@ export function marketMotionPromotionInput(
     whyInteresting: item.why_interesting,
     bigPictureBridge: item.big_picture_bridge,
     nextTest: item.next_test,
-    promotionReason: `Canonical Evidence ${candidate.selectedEvidence.id} corroborated this Motion during intelligence run ${input.engineRunId}; Story ${item.primary_story_id} remains the exact routing identity. Motion is promoted as short-horizon Dossier context, not as canonical evidence.`,
+    promotionReason: `Canonical Evidence ${candidate.selectedEvidence.id} corroborated this Motion during intelligence run ${input.engineRunId}; routing class ${candidate.routingClass} bounds where System 2 may use it. Motion is promoted as short-horizon Dossier context, not as canonical evidence.`,
     tickers: [...item.tickers],
     sourceName: item.source_name,
     sourceUrl: item.source_url,
@@ -213,6 +219,7 @@ export function marketMotionPromotionInput(
       promotionEngineRunId: input.engineRunId,
       promotionResearchRunId: input.researchRunId,
       promotionPolicy: MARKET_MOTION_PROMOTION_POLICY,
+      promotionRoutingClass: candidate.routingClass,
       promotionEvidenceId: candidate.selectedEvidence.id,
       promotionEvidenceItemKey: selectedItemKey,
       promotionEvidenceIds: candidate.matchingEvidenceIds.slice(0, MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT),
@@ -239,7 +246,11 @@ export async function promoteMarketMotionFromCanonicalEvidence(input: {
 
   const rows = (data || []) as MarketMotionRecord[];
   const skippedAlreadyPromoted = rows.filter((item) => (
-    Boolean(item.primary_story_id)
+    deriveMarketMotionRoutingClass({
+      primaryStoryId: item.primary_story_id,
+      primaryRegimeSlug: item.primary_regime_slug,
+      nextTest: item.next_test,
+    }) !== null
     && marketMotionEffectiveState(item, input.now) === "PROMOTED"
   )).length;
   const eligible = selectPromotableMarketMotion(rows, input.evidence, input.now);
