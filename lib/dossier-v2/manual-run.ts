@@ -47,6 +47,8 @@ export interface ManualDossierV2RunOptions {
   researchBrainOptions?: ResearchBrainOptions;
   snapshotResult?: CanonicalSnapshotResult;
   deltaMode?: DossierDeltaMode;
+  /** Explicit governed analytical→persistent Story bindings; never inferred. */
+  persistentStoryBindings?: PersistentStoryBinding[];
 }
 
 export interface ManualDossierV2RunResult {
@@ -396,6 +398,7 @@ export function buildPriorPersistentStoryBindings(
     : [];
 
   const byAnalyticalId = new Map<string, string>();
+  const ambiguousAnalyticalIds = new Set<string>();
   for (const item of stories) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const story = item as Record<string, unknown>;
@@ -406,8 +409,13 @@ export function buildPriorPersistentStoryBindings(
         ? story.persistent_story_id.trim()
         : "";
     if (!analyticalStoryId || !isValidUuid(persistentStoryId)) continue;
+    if (ambiguousAnalyticalIds.has(analyticalStoryId)) continue;
     const existing = byAnalyticalId.get(analyticalStoryId);
-    if (existing && existing !== persistentStoryId) continue;
+    if (existing && existing !== persistentStoryId) {
+      byAnalyticalId.delete(analyticalStoryId);
+      ambiguousAnalyticalIds.add(analyticalStoryId);
+      continue;
+    }
     byAnalyticalId.set(analyticalStoryId, persistentStoryId);
   }
 
@@ -519,11 +527,13 @@ function buildInputRequest(
   asOf: string,
   previousDossier: MarketDossierV2 | null,
   analyticalBaseline: MarketDossierV2 | null,
+  explicitBindings: PersistentStoryBinding[] = [],
 ): DossierV2InputRequest {
   if (!previousDossier) {
     return {
       as_of: asOf,
       previous_dossier_id: null,
+      persistent_story_bindings: explicitBindings,
       previous_dossier: null,
     };
   }
@@ -531,9 +541,12 @@ function buildInputRequest(
   return {
     as_of: asOf,
     previous_dossier_id: previousDossier.id,
-    persistent_story_bindings: analyticalBaseline
-      ? buildPriorPersistentStoryBindings(analyticalBaseline)
-      : [],
+    persistent_story_bindings: [
+      ...(analyticalBaseline
+        ? buildPriorPersistentStoryBindings(analyticalBaseline)
+        : []),
+      ...explicitBindings,
+    ],
     previous_dossier: {
       id: previousDossier.id,
       as_of: previousDossier.as_of,
@@ -568,6 +581,7 @@ export async function runManualDossierV2(
     options.asOf,
     previousResolution.dossier,
     previousResolution.analyticalBaseline,
+    options.persistentStoryBindings ?? [],
   );
   let packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
   packet = await attachCurrentMarketMotionContext(packet, client);
