@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  mergeDivergenceRecruitmentContext,
   planDivergenceEvidenceRecruitment,
   DIVERGENCE_EVIDENCE_RECRUITMENT_VERSION,
   type DivergenceRecruitmentBelief,
@@ -95,6 +96,58 @@ test("P2.2 recruits only material divergences that remain causally unresolved af
     hypotheses: [],
   });
   assert.deepEqual(immaterial, []);
+});
+
+test("P2.2 carries unresolved persisted divergence context into later runs and lets current rows win", () => {
+  const persisted = {
+    divergences: [divergence()],
+    beliefs: [belief()],
+    hypotheses: [hypothesis({ confidence: 55 })],
+  };
+
+  const carried = mergeDivergenceRecruitmentContext(
+    persisted,
+    { divergences: [], beliefs: [], hypotheses: [] },
+  );
+  assert.equal(carried.divergences.length, 1);
+  assert.equal(
+    planDivergenceEvidenceRecruitment(carried)[0]?.resolutionState,
+    "LOW_CONFIDENCE",
+  );
+
+  const current = mergeDivergenceRecruitmentContext(
+    persisted,
+    {
+      divergences: [divergence({ observedChange: "US10Y reversed lower.", persistenceScore: 90 })],
+      beliefs: [belief({ statement: "Current-run belief wording." })],
+      hypotheses: [hypothesis({ confidence: 82 })],
+    },
+  );
+  assert.equal(current.divergences.length, 1);
+  assert.equal(current.divergences[0]?.observedChange, "US10Y reversed lower.");
+  assert.equal(current.beliefs[0]?.statement, "Current-run belief wording.");
+  assert.equal(current.hypotheses[0]?.confidence, 82);
+  assert.deepEqual(planDivergenceEvidenceRecruitment(current), []);
+});
+
+test("P2.2 runtime reloads persisted open divergences without creating another research path", () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const runtime = fs.readFileSync(
+    path.join(root, "lib", "intelligence", "runtime.ts"),
+    "utf8",
+  );
+
+  assert.match(runtime, /loadPersistentOpenDivergenceRecruitmentContext/);
+  assert.match(runtime, /intelligence_divergences\?select=[^"]*status=eq\.open&magnitude=gte\.50/);
+  assert.match(runtime, /intelligence_market_beliefs\?select=/);
+  assert.match(runtime, /intelligence_hypotheses\?select=/);
+  assert.match(runtime, /mergeDivergenceRecruitmentContext/);
+
+  const start = runtime.indexOf("async function loadPersistentOpenDivergenceRecruitmentContext");
+  const end = runtime.indexOf("async function persistDivergenceEvidenceRecruitment", start);
+  assert.ok(start >= 0 && end > start);
+  const section = runtime.slice(start, end);
+  assert.doesNotMatch(section, /fetch\(|modelStage|runStructuredStage|research-gap\/run-one|research-gap\/handoff/);
 });
 
 test("P2.2 rates recruitment is bounded and sequential", () => {

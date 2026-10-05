@@ -26,6 +26,31 @@ export type DivergenceRecruitmentHypothesis = {
   evidenceAgainstIds: string[];
 };
 
+export type DivergenceRecruitmentContext = {
+  divergences: DivergenceRecruitmentDivergence[];
+  beliefs: DivergenceRecruitmentBelief[];
+  hypotheses: DivergenceRecruitmentHypothesis[];
+};
+
+export function mergeDivergenceRecruitmentContext(
+  persisted: DivergenceRecruitmentContext,
+  current: DivergenceRecruitmentContext,
+): DivergenceRecruitmentContext {
+  const mergeById = <T extends { id: string }>(older: T[], newer: T[]) => {
+    const rows = new Map<string, T>(
+      older.map((row) => [row.id, row] as const),
+    );
+    for (const row of newer) rows.set(row.id, row);
+    return [...rows.values()];
+  };
+
+  return {
+    divergences: mergeById(persisted.divergences, current.divergences),
+    beliefs: mergeById(persisted.beliefs, current.beliefs),
+    hypotheses: mergeById(persisted.hypotheses, current.hypotheses),
+  };
+}
+
 export type DivergenceEvidenceRecruitment = {
   contractVersion: typeof DIVERGENCE_EVIDENCE_RECRUITMENT_VERSION;
   divergenceId: string;
