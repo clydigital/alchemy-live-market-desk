@@ -190,7 +190,14 @@ test("native urgency and linkage signals survive normalisation", () => {
     "MOVE/VIX",
     "HY/IG",
     "Compare HY/IG spread widening with MOVE and long-end yield persistence.",
+  ]);
+  assert.deepEqual(investigation.causalDiscriminatorPlan?.discriminators, [
+    "Compare HY/IG spread widening with MOVE and long-end yield persistence.",
     "Check whether credit spreads remain contained while duration-sensitive equities lag.",
+  ]);
+  assert.deepEqual(investigation.causalDiscriminatorPlan?.baseEvidenceNeeded, [
+    "MOVE/VIX",
+    "HY/IG",
   ]);
 });
 
@@ -222,6 +229,10 @@ test("causal discriminating tests do not churn persistent Investigation gap iden
     "HY/IG",
     "Test a newly identified cross-asset transmission channel.",
   ]);
+  assert.notEqual(
+    secondInvestigation?.causalDiscriminatorPlan?.planSignature,
+    firstInvestigation?.causalDiscriminatorPlan?.planSignature,
+  );
 });
 
 test("work IDs stay Dossier-scoped while gap keys persist across Dossiers", () => {

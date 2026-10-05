@@ -16,6 +16,15 @@ export type ResearchGapWorkSource =
   | "investigation"
   | "market_motion";
 
+export const RESEARCH_GAP_CAUSAL_DISCRIMINATOR_VERSION = "research-gap-causal-discriminator/1" as const;
+
+export type ResearchGapCausalDiscriminatorPlan = {
+  contractVersion: typeof RESEARCH_GAP_CAUSAL_DISCRIMINATOR_VERSION;
+  planSignature: string;
+  baseEvidenceNeeded: string[];
+  discriminators: string[];
+};
+
 export type ResearchGapWorkCandidate = {
   workId: string;
   gapKey: string;
@@ -27,6 +36,7 @@ export type ResearchGapWorkCandidate = {
   action: string;
   reason: string | null;
   evidenceNeeded: string[];
+  causalDiscriminatorPlan?: ResearchGapCausalDiscriminatorPlan | null;
   linkedInvestigationIds: string[];
   linkedStoryIds: string[];
   blockingRefs: string[];
@@ -252,6 +262,30 @@ function candidateDiscriminatingTests(value: unknown, limit = 4) {
   return [...new Set(tests)].slice(0, limit);
 }
 
+function causalDiscriminatorPlan(input: {
+  investigationId: string;
+  divergence: string;
+  baseEvidenceNeeded: string[];
+  discriminators: string[];
+}): ResearchGapCausalDiscriminatorPlan | null {
+  if (!input.investigationId || !input.divergence || input.divergence === "NONE" || input.discriminators.length === 0) {
+    return null;
+  }
+  const baseEvidenceNeeded = strings(input.baseEvidenceNeeded, 12);
+  const discriminators = strings(input.discriminators, 4);
+  const planSignature = stableHash([
+    input.investigationId,
+    input.divergence,
+    ...discriminators,
+  ].join("\n"));
+  return {
+    contractVersion: RESEARCH_GAP_CAUSAL_DISCRIMINATOR_VERSION,
+    planSignature,
+    baseEvidenceNeeded,
+    discriminators,
+  };
+}
+
 function investigationCandidates(dossier: MarketDossierV2) {
   const analytical = analyticalOutput(dossier);
   const rows = Array.isArray(analytical?.investigations) ? analytical.investigations : [];
@@ -282,13 +316,20 @@ function investigationCandidates(dossier: MarketDossierV2) {
     const action = researchNext || `Investigate: ${question}`;
     const reason = clean(item.why_it_matters) || null;
     const divergence = clean(item.divergence).toUpperCase();
+    const baseEvidenceNeeded = strings(item.missing_evidence);
     const discriminatingTests =
       divergence && divergence !== "NONE"
         ? candidateDiscriminatingTests(item.candidate_explanations)
         : [];
+    const causalPlan = causalDiscriminatorPlan({
+      investigationId: explicitId,
+      divergence,
+      baseEvidenceNeeded,
+      discriminators: discriminatingTests,
+    });
     const evidenceNeeded = strings([
-      ...strings(item.missing_evidence),
-      ...discriminatingTests,
+      ...baseEvidenceNeeded,
+      ...(causalPlan?.discriminators[0] ? [causalPlan.discriminators[0]] : []),
     ]);
     const linkedInvestigationIds = explicitId ? [explicitId] : [];
     const linkedStoryIds = strings(item.linked_story_ids);
@@ -315,6 +356,7 @@ function investigationCandidates(dossier: MarketDossierV2) {
       action: researchNext || `Investigate: ${question}`,
       reason: clean(item.why_it_matters) || null,
       evidenceNeeded,
+      causalDiscriminatorPlan: causalPlan,
       linkedInvestigationIds: explicitId ? [explicitId] : [],
       linkedStoryIds: strings(item.linked_story_ids),
       blockingRefs: [],
@@ -373,6 +415,7 @@ export function buildResearchGapWorkQueue(
         "This stage reads and normalises work only; it does not score, claim, research, resolve or mutate a gap.",
         "Native ranks, blocker labels, information-gain labels and investigation state are preserved for the prioritisation stage.",
         "New Research Gap work is Dossier-authoritative: research_gaps, research_now and investigations only; raw Motion cannot enter directly.",
+        "Divergent Investigation candidate mechanisms carry a bounded causal-discriminator plan, but only the first discriminator is exposed as active Research Gap work at ingestion.",
       ],
     },
   };
