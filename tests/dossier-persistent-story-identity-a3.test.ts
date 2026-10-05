@@ -102,6 +102,27 @@ function analyticalOutput(story = majorStory()) {
   } as any;
 }
 
+test("D1 fails closed on ambiguous prior analytical→persistent Story bindings", () => {
+  const dossier = {
+    payload: {
+      analytical_output: {
+        major_stories: [
+          {
+            story_id: ANALYTICAL_STORY_ID,
+            persistent_story_id: STORY_ID,
+          },
+          {
+            story_id: ANALYTICAL_STORY_ID,
+            persistent_story_id: OTHER_STORY_ID,
+          },
+        ],
+      },
+    },
+  } as any;
+
+  assert.deepEqual(buildPriorPersistentStoryBindings(dossier), []);
+});
+
 test("D1 carries only exact valid persistent Story UUID bindings from prior Dossiers", () => {
   const dossier = {
     payload: {
