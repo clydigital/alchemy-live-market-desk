@@ -16,6 +16,24 @@ export type HybridScenarioKey = "A" | "B" | "C" | "D" | "E";
 
 export type HybridScenarioProbabilities = Record<HybridScenarioKey, number>;
 
+export type HybridScenarioEligibility =
+  | "ELIGIBLE_TO_INCREASE"
+  | "ELIGIBLE_TO_DECREASE"
+  | "HOLD"
+  | "CAPPED"
+  | "FALSIFIED"
+  | "UNRESOLVED";
+
+export type HybridTransitionState = "CANDIDATE" | "CONFIRMED" | "NONE";
+
+export type HybridProbabilityTransfer = {
+  donor: HybridScenarioKey;
+  recipient: HybridScenarioKey;
+  amount: number;
+  reason: string;
+  transitionState: HybridTransitionState;
+};
+
 export type HybridStoryClassification = {
   storyId: string;
   storySlug: string;
@@ -31,6 +49,8 @@ export type HybridScenarioProjection = {
   starting: HybridScenarioProbabilities;
   current: HybridScenarioProbabilities;
   delta: HybridScenarioProbabilities;
+  eligibility: Record<HybridScenarioKey, HybridScenarioEligibility>;
+  transfers: HybridProbabilityTransfer[];
   reasons: string[];
   guardedTails: string[];
 };
@@ -105,11 +125,25 @@ function transfer(
   from: HybridScenarioKey,
   to: HybridScenarioKey,
   requested: number,
-) {
+  reason: string,
+  transitionState: HybridTransitionState,
+  transfers: HybridProbabilityTransfer[],
+): number {
   if (requested <= 0) return 0;
   const amount = Math.min(requested, probabilities[from]);
+  if (amount <= 0) return 0;
+
   probabilities[from] -= amount;
   probabilities[to] += amount;
+
+  transfers.push({
+    donor: from,
+    recipient: to,
+    amount,
+    reason,
+    transitionState,
+  });
+
   return amount;
 }
 
@@ -144,36 +178,210 @@ function probabilitiesFor(
   storiesById: ReadonlyMap<string, Story>,
 ): HybridScenarioProjection {
   const current = { ...STARTING_PRIORS };
-  const reasons: string[] = [];
+  const transfers: HybridProbabilityTransfer[] = [];
+  const eligibility: Record<HybridScenarioKey, HybridScenarioEligibility> = {
+    A: "HOLD",
+    B: "HOLD",
+    C: "HOLD",
+    D: "CAPPED",
+    E: "CAPPED",
+  };
 
-  if (dossier.header.regimeFamily === "RATES_LED_TIGHTENING") {
-    const moved = transfer(current, "A", "B", 5);
-    if (moved) reasons.push("Rates-led tightening moves " + moved + " pp from A to B.");
-  } else if (dossier.header.regimeFamily === "GROWTH_SCARE_RISK_OFF") {
-    const moved = transfer(current, "B", "C", 5);
-    if (moved) reasons.push("Growth-scare risk-off moves " + moved + " pp from B to C.");
+  // 1. Check Hard Falsification for Scenario A (Divergence survives)
+  const aFalsifiedByStory = classifications.some((item) => {
+    if (item.classification !== "INVALIDATING") return false;
+    const story = storiesById.get(item.storyId);
+    if (!story) return false;
+    const family = scenarioFamily(story);
+    return family === "RATES" || family === "AI" || family === "OTHER";
+  });
+
+  if (aFalsifiedByStory) {
+    eligibility.A = "FALSIFIED";
+    const available = current.A;
+    if (available > 0) {
+      transfer(
+        current,
+        "A",
+        "B",
+        available,
+        "Scenario A FALSIFIED by canonical invalidation event/version; probability reallocated to Scenario B.",
+        "CONFIRMED",
+        transfers,
+      );
+    }
   }
 
+  // 2. Regime family baseline shifts
+  if (eligibility.A !== "FALSIFIED" && dossier.header.regimeFamily === "RATES_LED_TIGHTENING") {
+    const moved = transfer(
+      current,
+      "A",
+      "B",
+      5,
+      "Rates-led tightening moves 5 pp from A to B.",
+      "CONFIRMED",
+      transfers,
+    );
+    if (moved > 0) {
+      eligibility.A = "ELIGIBLE_TO_DECREASE";
+      eligibility.B = "ELIGIBLE_TO_INCREASE";
+    }
+  } else if (dossier.header.regimeFamily === "GROWTH_SCARE_RISK_OFF") {
+    const moved = transfer(
+      current,
+      "B",
+      "C",
+      5,
+      "Growth-scare risk-off moves 5 pp from B to C.",
+      "CONFIRMED",
+      transfers,
+    );
+    if (moved > 0) {
+      eligibility.B = "ELIGIBLE_TO_DECREASE";
+      eligibility.C = "ELIGIBLE_TO_INCREASE";
+    }
+  }
+
+  // 3. Per-Story classification shifts & hysteresis
   for (const item of classifications) {
+    if (item.classification === "UNRESOLVED") continue;
     const story = storiesById.get(item.storyId);
     if (!story) continue;
+
     const weight = classificationWeight(item.classification);
     if (!weight) continue;
 
+    const isConfirmed =
+      item.canonicalEvidenceCount >= 2 ||
+      item.classification === "ACCELERATING" ||
+      item.latestVersionNumber !== null;
+    const transitionState: HybridTransitionState = isConfirmed ? "CONFIRMED" : "CANDIDATE";
+
     const family = scenarioFamily(story);
     if (family === "CREDIT") {
-      const amount = Math.abs(weight) * 2;
-      const moved = weight > 0
-        ? transfer(current, "B", "C", amount)
-        : transfer(current, "C", "B", amount);
-      if (moved) reasons.push(story.title + ": " + item.classification + " moves " + moved + " pp " + (weight > 0 ? "B → C." : "C → B."));
+      const baseAmount = Math.abs(weight) * 2;
+      const amount = transitionState === "CANDIDATE" ? Math.min(baseAmount, 2) : baseAmount;
+
+      if (weight > 0) {
+        const moved = transfer(
+          current,
+          "B",
+          "C",
+          amount,
+          `${story.title}: ${item.classification} moves ${amount} pp B → C (${transitionState.toLowerCase()}).`,
+          transitionState,
+          transfers,
+        );
+        if (moved > 0) {
+          if (eligibility.B !== "FALSIFIED") eligibility.B = "ELIGIBLE_TO_DECREASE";
+          eligibility.C = "ELIGIBLE_TO_INCREASE";
+        }
+      } else {
+        const moved = transfer(
+          current,
+          "C",
+          "B",
+          amount,
+          `${story.title}: ${item.classification} moves ${amount} pp C → B (${transitionState.toLowerCase()}).`,
+          transitionState,
+          transfers,
+        );
+        if (moved > 0) {
+          eligibility.C = "ELIGIBLE_TO_DECREASE";
+          if (eligibility.B !== "FALSIFIED") eligibility.B = "ELIGIBLE_TO_INCREASE";
+        }
+      }
     } else if (family === "RATES" || family === "AI") {
-      const amount = Math.abs(weight);
-      const moved = weight > 0
-        ? transfer(current, "A", "B", amount)
-        : transfer(current, "B", "A", amount);
-      if (moved) reasons.push(story.title + ": " + item.classification + " moves " + moved + " pp " + (weight > 0 ? "A → B." : "B → A."));
+      const baseAmount = Math.abs(weight);
+      const amount = transitionState === "CANDIDATE" ? Math.min(baseAmount, 1) : baseAmount;
+
+      if (weight > 0 && eligibility.A !== "FALSIFIED") {
+        const moved = transfer(
+          current,
+          "A",
+          "B",
+          amount,
+          `${story.title}: ${item.classification} moves ${amount} pp A → B (${transitionState.toLowerCase()}).`,
+          transitionState,
+          transfers,
+        );
+        if (moved > 0) {
+          eligibility.A = "ELIGIBLE_TO_DECREASE";
+          eligibility.B = "ELIGIBLE_TO_INCREASE";
+        }
+      } else if (weight < 0 && eligibility.A !== "FALSIFIED") {
+        const moved = transfer(
+          current,
+          "B",
+          "A",
+          amount,
+          `${story.title}: ${item.classification} moves ${amount} pp B → A (${transitionState.toLowerCase()}).`,
+          transitionState,
+          transfers,
+        );
+        if (moved > 0) {
+          eligibility.B = "ELIGIBLE_TO_DECREASE";
+          eligibility.A = "ELIGIBLE_TO_INCREASE";
+        }
+      }
     }
+  }
+
+  // 4. Guarded Tail Checks for Scenario D and Scenario E
+  const creditAccelerating = classifications.some((item) => {
+    if (item.classification !== "ACCELERATING") return false;
+    const story = storiesById.get(item.storyId);
+    return story ? scenarioFamily(story) === "CREDIT" && item.canonicalEvidenceCount >= 2 : false;
+  });
+  const liquidityState = dossier.dollarLiquidity?.state;
+  const liquidityStress = liquidityState === "TIGHTENING" || liquidityState === "SLIGHTLY_TIGHTENING";
+
+  if (creditAccelerating && liquidityStress) {
+    eligibility.D = "ELIGIBLE_TO_INCREASE";
+    transfer(
+      current,
+      "C",
+      "D",
+      2,
+      "Canonical forced-selling / liquidity stress evidence unlocks Scenario D increase.",
+      "CONFIRMED",
+      transfers,
+    );
+  } else {
+    eligibility.D = "CAPPED";
+  }
+
+  const yieldsUp = dossier.rateRegime.state === "HAWKISH";
+  const usdDown = dossier.regimeStrip.some((lens) => lens.key === "USD" && (lens.reaction ?? "").toLowerCase().includes("down"));
+  const auctionDemandFailure = dossier.rateRegime.gaps.some((g) => g.toLowerCase().includes("auction")) || dossier.policyOutlook.some((p) => p.gaps.some((g) => g.toLowerCase().includes("demand")));
+
+  if (yieldsUp && usdDown && auctionDemandFailure) {
+    eligibility.E = "ELIGIBLE_TO_INCREASE";
+    transfer(
+      current,
+      "B",
+      "E",
+      2,
+      "Canonical US confidence break combination unlocked Scenario E increase.",
+      "CONFIRMED",
+      transfers,
+    );
+  } else {
+    eligibility.E = "CAPPED";
+  }
+
+  if (eligibility.A === "HOLD") {
+    if (current.A > STARTING_PRIORS.A) eligibility.A = "ELIGIBLE_TO_INCREASE";
+    else if (current.A < STARTING_PRIORS.A) eligibility.A = "ELIGIBLE_TO_DECREASE";
+  }
+  if (eligibility.B === "HOLD") {
+    if (current.B > STARTING_PRIORS.B) eligibility.B = "ELIGIBLE_TO_INCREASE";
+    else if (current.B < STARTING_PRIORS.B) eligibility.B = "ELIGIBLE_TO_DECREASE";
+  }
+  if (eligibility.C === "HOLD") {
+    if (current.C > STARTING_PRIORS.C) eligibility.C = "ELIGIBLE_TO_INCREASE";
+    else if (current.C < STARTING_PRIORS.C) eligibility.C = "ELIGIBLE_TO_DECREASE";
   }
 
   const delta = {
@@ -184,10 +392,14 @@ function probabilitiesFor(
     E: current.E - STARTING_PRIORS.E,
   };
 
+  const reasons = transfers.map((t) => t.reason);
+
   return {
     starting: { ...STARTING_PRIORS },
     current,
     delta,
+    eligibility,
+    transfers,
     reasons,
     guardedTails: [
       "Scenario D does not gain probability automatically without canonical forced-selling, funding, redemption, collateral or covenant evidence.",
@@ -203,29 +415,56 @@ export function buildHybridReasoningProjection(input: {
   versions: StoryThesisVersion[];
 }): HybridReasoningProjection {
   const storiesById = new Map(input.stories.map((story) => [story.id, story]));
-  const classifications = input.dossier.whatMattersNow.stories.flatMap((dossierStory) => {
-    const story = storiesById.get(dossierStory.id);
-    if (!story) return [];
+  const classifications: HybridStoryClassification[] = input.dossier.whatMattersNow.stories.flatMap(
+    (dossierStory): HybridStoryClassification[] => {
+      const persistentStoryId = dossierStory.persistentStoryId ?? null;
+      if (!persistentStoryId) {
+        return [{
+          storyId: dossierStory.id,
+          storySlug: "",
+          title: dossierStory.title,
+          classification: "UNRESOLVED",
+          reason: "Dossier story has no persistentStoryId binding; leaving unlinked.",
+          canonicalEvidenceCount: dossierStory.evidenceRefs.length,
+          latestEventAt: null,
+          latestVersionNumber: null,
+        }];
+      }
 
-    const event = latestEvent(input.events, story.id, input.dossier.asOf);
-    const version = latestVersion(input.versions, story.id, input.dossier.asOf);
-    const result = classify(event, version);
-    const evidenceCount = new Set([
-      ...dossierStory.evidenceRefs,
-      ...(event?.evidence_id ? [event.evidence_id] : []),
-    ]).size;
+      const story = storiesById.get(persistentStoryId);
+      if (!story) {
+        return [{
+          storyId: persistentStoryId,
+          storySlug: "",
+          title: dossierStory.title,
+          classification: "UNRESOLVED",
+          reason: "Bound persistentStoryId is not available in canonical research store.",
+          canonicalEvidenceCount: dossierStory.evidenceRefs.length,
+          latestEventAt: null,
+          latestVersionNumber: null,
+        }];
+      }
 
-    return [{
-      storyId: story.id,
-      storySlug: story.slug,
-      title: dossierStory.title || story.title,
-      classification: result.classification,
-      reason: result.reason,
-      canonicalEvidenceCount: evidenceCount,
-      latestEventAt: event?.event_at ?? null,
-      latestVersionNumber: version?.version_number ?? null,
-    } satisfies HybridStoryClassification];
-  });
+      const event = latestEvent(input.events, story.id, input.dossier.asOf);
+      const version = latestVersion(input.versions, story.id, input.dossier.asOf);
+      const result = classify(event, version);
+      const evidenceCount = new Set([
+        ...dossierStory.evidenceRefs,
+        ...(event?.evidence_id ? [event.evidence_id] : []),
+      ]).size;
+
+      return [{
+        storyId: story.id,
+        storySlug: story.slug,
+        title: dossierStory.title || story.title,
+        classification: result.classification,
+        reason: result.reason,
+        canonicalEvidenceCount: evidenceCount,
+        latestEventAt: event?.event_at ?? null,
+        latestVersionNumber: version?.version_number ?? null,
+      }];
+    },
+  );
 
   return {
     contractVersion: HYBRID_REASONING_PROJECTION_V1,
