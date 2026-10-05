@@ -147,6 +147,25 @@ test("superseded queued Story Evidence is retired instead of becoming an unproce
   assert.match(runtime, /supersededQueueIds/);
 });
 
+test("Story apply-time ownership guard locks queue rows through transaction completion", () => {
+  const applyOwnershipMigration = fs.readFileSync(
+    path.join(root, "supabase", "migrations", "20261005185000_story_assessment_apply_ownership_guard.sql"),
+    "utf8",
+  );
+  assert.match(applyOwnershipMigration, /from public\.intelligence_reevaluation_queue queue[\s\S]*order by queue\.id[\s\S]*for update/);
+});
+
+test("Story apply-time queue ownership loss is recorded without consuming the assessment", () => {
+  assert.match(runtime, /isStoryQueueOwnershipLostBeforeApply/);
+  assert.match(runtime, /Story assessment lost queue ownership before apply/);
+  assert.match(runtime, /recordStoryQueueOwnershipLostBeforeApply/);
+  assert.match(runtime, /this assessment remains unapplied/);
+  assert.match(runtime, /story_review_queue_ownership_lost_before_apply/);
+  const recorder = runtime.match(/async function recordStoryQueueOwnershipLostBeforeApply[\s\S]*?\n}\n/)?.[0] ?? "";
+  assert.doesNotMatch(recorder, /applied_at:/);
+  assert.doesNotMatch(recorder, /intelligence_reevaluation_queue/);
+});
+
 test("stale frozen Story maintenance is blocked and its exact queue obligation is retried", () => {
   assert.match(runtime, /IntelligenceDatabaseError/);
   assert.match(runtime, /Stale Story maintenance assessment/);
