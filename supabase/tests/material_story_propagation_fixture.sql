@@ -3,7 +3,8 @@
 
 alter table public.stories
   add column article_verdict text,
-  add column next_catalyst text;
+  add column next_catalyst text,
+  add column current_thesis_version_id uuid;
 
 create table public.intelligence_engine_runs (
   id uuid primary key default gen_random_uuid(),
