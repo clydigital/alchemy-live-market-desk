@@ -36,6 +36,39 @@ export const MARKET_MOTION_CATEGORIES = [
 ] as const;
 export type MarketMotionCategory = typeof MARKET_MOTION_CATEGORIES[number];
 
+
+export type MarketMotionRoutingClass =
+  | "STORY"
+  | "REGIME"
+  | "INVESTIGATION_CANDIDATE";
+
+const GENERIC_MARKET_MOTION_NEXT_TESTS = new Set([
+  "check whether the linked assets and broader story / regime reaction confirm the information.",
+  "seek independent or primary-source confirmation, then test whether the market reaction persists.",
+]);
+
+function normalizedMotionRoutingText(value: string | null | undefined) {
+  return value?.trim() || "";
+}
+
+export function isConcreteMarketMotionNextTest(
+  value: string | null | undefined,
+): boolean {
+  const clean = normalizedMotionRoutingText(value);
+  return Boolean(clean) && !GENERIC_MARKET_MOTION_NEXT_TESTS.has(clean.toLowerCase());
+}
+
+export function deriveMarketMotionRoutingClass(input: {
+  primaryStoryId?: string | null;
+  primaryRegimeSlug?: string | null;
+  nextTest?: string | null;
+}): MarketMotionRoutingClass | null {
+  if (normalizedMotionRoutingText(input.primaryStoryId)) return "STORY";
+  if (normalizedMotionRoutingText(input.primaryRegimeSlug)) return "REGIME";
+  if (isConcreteMarketMotionNextTest(input.nextTest)) return "INVESTIGATION_CANDIDATE";
+  return null;
+}
+
 export type MarketMotionAttentionTier = "PRIMARY" | "SECONDARY";
 export type MarketMotionWritingPotential = "HIGH" | "MEDIUM" | "LOW";
 
