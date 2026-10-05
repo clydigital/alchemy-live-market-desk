@@ -76,6 +76,10 @@ import {
   buildHypothesisStoryPack,
 } from "./hypothesis-core.ts";
 import {
+  planDivergenceEvidenceRecruitment,
+  type DivergenceEvidenceRecruitment,
+} from "./divergence-evidence-recruitment.ts";
+import {
   candidateOmissionDiagnostic,
   isRecoverableStoryContractFailure,
   normalizeStorySynthesisCandidate,
@@ -1081,6 +1085,59 @@ async function loadResearchDebt() {
   return intelligenceRest<ResearchDebtRow[]>(
     "research_debt?select=story_id,debt_key,severity,status,reason,next_action,next_check_at&status=eq.open&order=next_check_at.asc.nullslast&limit=30",
   ).catch(() => []);
+}
+
+async function persistDivergenceEvidenceRecruitment(input: {
+  engineRunId: string;
+  researchRunId: string | null;
+  analysisAsOf: string;
+  plans: DivergenceEvidenceRecruitment[];
+}) {
+  for (const plan of input.plans) {
+    const existing = await intelligenceRest<Array<{ id: string; status: string }>>(
+      `research_debt?select=id,status&debt_key=eq.${encodeURIComponent(plan.debtKey)}&order=updated_at.desc&limit=1`,
+    ).catch(() => []);
+
+    const payload = {
+      ...(input.researchRunId ? { research_run_id: input.researchRunId } : {}),
+      story_id: null,
+      debt_key: plan.debtKey,
+      severity: plan.severity,
+      status: "open",
+      reason: plan.reason,
+      next_action: plan.nextAction,
+      next_check_at: input.analysisAsOf,
+      resolved_at: null,
+      resolution_note: null,
+      metadata: {
+        kind: "canonical_divergence_recruitment",
+        contractVersion: plan.contractVersion,
+        engineRunId: input.engineRunId,
+        divergenceId: plan.divergenceId,
+        marketBeliefId: plan.marketBeliefId,
+        question: plan.question,
+        evidenceNeeded: plan.evidenceNeeded,
+        magnitude: plan.magnitude,
+        persistenceScore: plan.persistenceScore,
+        resolutionState: plan.resolutionState,
+      },
+      updated_at: input.analysisAsOf,
+    };
+
+    if (existing[0]?.id) {
+      await intelligenceRest(`research_debt?id=eq.${existing[0].id}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await intelligenceRest("research_debt", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload),
+      });
+    }
+  }
 }
 
 async function applyStoryReevaluationQueueHygiene(now: Date) {
@@ -3229,6 +3286,43 @@ export async function runIntelligenceEngine({
       allowedHypothesisEvidenceIds,
       hypothesisEvidenceById,
     );
+    const divergenceRecruitment = planDivergenceEvidenceRecruitment({
+      divergences: divergences.map((item) => ({
+        id: item.id,
+        marketBeliefId: item.market_belief_id,
+        observedChange: item.observed_change,
+        expectedChange: item.expected_change,
+        magnitude: item.magnitude,
+        persistenceScore: item.persistence_score,
+      })),
+      beliefs: beliefs.map((item) => ({
+        id: item.id,
+        statement: item.statement,
+        affectedAssets: item.affected_assets,
+        primaryCategory: item.primary_category,
+        themes: item.themes,
+      })),
+      hypotheses: hypotheses.map((item) => ({
+        id: item.id,
+        divergenceId: item.divergence_id,
+        confidence: item.confidence,
+        evidenceForIds: item.evidence_for_ids,
+        evidenceAgainstIds: item.evidence_against_ids,
+      })),
+    });
+    if (divergenceRecruitment.length) {
+      if (!dryRun) {
+        await persistDivergenceEvidenceRecruitment({
+          engineRunId,
+          researchRunId,
+          analysisAsOf,
+          plans: divergenceRecruitment,
+        });
+      }
+      warnings.push(
+        `${divergenceRecruitment.length} material unresolved divergence(s) opened bounded evidence-recruitment debt for the existing Research Gap worker.`,
+      );
+    }
     const rejectedHypothesisCount = Math.max(0, hypothesisStage.data.hypotheses.length - hypotheses.length);
     if (rejectedHypothesisCount) {
       warnings.push(`${rejectedHypothesisCount} hypothesis candidate(s) failed minimum reasoning integrity: supporting evidence, causal path, central question, confirmation and invalidation are required.`);
