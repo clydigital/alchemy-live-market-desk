@@ -167,6 +167,7 @@ function investigation(): RoutedDossierInvestigation {
     regimeRoutes: [
       { regime: "global-cost-of-capital", subgroup: "long-end", role: "core", score: 100 },
     ],
+    regimeRoutingStoryIds: ["story:duration-broadening"],
   };
 }
 
