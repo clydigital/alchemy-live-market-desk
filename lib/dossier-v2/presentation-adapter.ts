@@ -792,6 +792,10 @@ function buildLongitudinalAdjudication(
   previousDossierId: string | null,
   investigations: DossierPresentationInvestigation[],
 ): DossierPresentationLongitudinalAdjudication {
+  const expectationBearing = investigations.filter(
+    (item) => item.expectedReaction !== null,
+  );
+
   if (!previous) {
     return {
       basis: "EXACT_PRIOR_DOSSIER",
@@ -800,20 +804,20 @@ function buildLongitudinalAdjudication(
       evaluatedExpectations: 0,
       alignedExpectations: 0,
       divergentExpectations: 0,
-      unresolvedExpectations: investigations.length,
+      unresolvedExpectations: expectationBearing.length,
       storyChanges: decisionStoryImpact(current, null),
     };
   }
 
-  const aligned = investigations.filter(
+  const aligned = expectationBearing.filter(
     (item) => item.reactionCalibration.outcome === "ALIGNED",
   ).length;
-  const divergent = investigations.filter(
+  const divergent = expectationBearing.filter(
     (item) =>
       item.reactionCalibration.outcome === "DIVERGENT"
       || item.reactionCalibration.outcome === "MIXED",
   ).length;
-  const unresolved = investigations.filter(
+  const unresolved = expectationBearing.filter(
     (item) => item.reactionCalibration.outcome === "UNRESOLVED",
   ).length;
   const evaluated = aligned + divergent;
