@@ -2560,7 +2560,10 @@ async function persistCanonicalStoryManifest({
         supersedes_snapshot_id: null,
         snapshot_type: "story",
         public_summary: story.title,
-        payload: { canonicalStoryState: story },
+        payload: {
+          canonicalStoryState: (({ canonicalStoryReasoning: _reasoning, ...state }) => state)(story),
+          ...(story.canonicalStoryReasoning ? { canonicalStoryReasoning: story.canonicalStoryReasoning } : {}),
+        },
         source_record_refs: [],
         redaction_log: [],
         confidence: story.confidence,
@@ -2589,6 +2592,7 @@ async function persistCanonicalStoryManifest({
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).contractVersion === CANONICAL_STORY_REASONING_V1
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyId === story.id
       && (candidateReasoning as Partial<CanonicalStoryReasoningV1>).storyVersionId === thesisVersionId
+      && story.canonicalStoryReasoning?.storyVersionId === thesisVersionId
       ? candidateReasoning as CanonicalStoryReasoningV1
       : null;
     return {
