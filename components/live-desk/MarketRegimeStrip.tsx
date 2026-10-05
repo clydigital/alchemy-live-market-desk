@@ -45,7 +45,11 @@ export default function MarketRegimeStrip({
             </div>
             {regime.latestNode ? (
               <div className={styles.latest}>
-                <small>Latest contribution</small>
+                <small>
+                  {regime.latestNode.sourceKind === "dossier_motion"
+                    ? "System 2 Dossier context · non-state"
+                    : "Latest contribution"}
+                </small>
                 <strong>{regime.latestNode.title}</strong>
               </div>
             ) : (
