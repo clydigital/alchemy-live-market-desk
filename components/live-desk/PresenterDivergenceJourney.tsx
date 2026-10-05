@@ -151,7 +151,20 @@ export default function PresenterDivergenceJourney({
           if (!lab) return null;
           const canonical = canonicalByInvestigationId.get(item.id) ?? null;
 
-          const explanation = canonical?.currentExplanation ?? item.provisionalConclusion;
+          const explanation = canonical
+            ? canonical.currentExplanation ?? "Canonical Story reasoning has not accepted a mechanism yet."
+            : item.provisionalConclusion;
+          const canonicalMechanisms = canonical
+            ? [
+                ...(canonical.leadingExplanation
+                  ? [{ ...canonical.leadingExplanation, presenterRole: "LEADING" as const }]
+                  : []),
+                ...canonical.competingExplanations.map((candidate) => ({
+                  ...candidate,
+                  presenterRole: "ALTERNATIVE" as const,
+                })),
+              ]
+            : [];
           const nextDiscriminator = canonical
             ? canonical.whatToInspectNext.canonical
               ?? canonical.whatToInspectNext.dossierFallback
@@ -231,6 +244,15 @@ export default function PresenterDivergenceJourney({
               <section>
                 <small>03 / CURRENT EXPLANATION</small>
                 <p>{explanation}</p>
+                {canonical?.currentExplanationEvidenceIds.length ? (
+                  <div className={styles.annotation}>
+                    Canonical explanation evidence: {canonical.currentExplanationEvidenceIds.join(" · ")}
+                  </div>
+                ) : canonical && !canonical.currentExplanation ? (
+                  <div className={styles.annotation}>
+                    No accepted canonical mechanism is preserved in this Story version.
+                  </div>
+                ) : null}
                 <div className={styles.metaLine}>
                   {canonical
                     ? `Canonical Story · thesis version ${canonical.thesisVersionId}`
@@ -275,9 +297,13 @@ export default function PresenterDivergenceJourney({
                   <small>04 / COMPETING MECHANISMS</small>
                   <strong>
                     {canonical
-                      ? canonical.competingExplanations.length
-                        ? "Canonical Story competing hypotheses"
-                        : "No non-leading canonical hypothesis is preserved"
+                      ? canonical.leadingExplanation
+                        ? canonical.competingExplanations.length
+                          ? "Canonical Story leading + competing hypotheses"
+                          : "Canonical Story leading hypothesis"
+                        : canonical.competingExplanations.length
+                          ? "Canonical Story competing hypotheses; no unique leader"
+                          : "No canonical mechanism candidate is preserved"
                       : lab.mode === "full"
                         ? "Dossier evidence-linked hypotheses"
                         : lab.mode === "compact_unresolved"
@@ -291,12 +317,14 @@ export default function PresenterDivergenceJourney({
               </div>
 
               {canonical ? (
-                canonical.competingExplanations.length ? (
+                canonicalMechanisms.length ? (
                   <div className={styles.mechanismGrid}>
-                    {canonical.competingExplanations.map((candidate, index) => (
+                    {canonicalMechanisms.map((candidate, index) => (
                       <article className={styles.mechanismCard} key={candidate.hypothesisId}>
                         <header>
-                          <span>#{index + 1} · {candidate.mechanismCode.replaceAll("_", " ")}</span>
+                          <span>
+                            #{index + 1} · {candidate.presenterRole} · {candidate.mechanismCode.replaceAll("_", " ")}
+                          </span>
                           <Badge tone={canonicalConfidenceTone(candidate.confidence)}>
                             {Math.round(candidate.confidence)}%
                           </Badge>
@@ -329,10 +357,9 @@ export default function PresenterDivergenceJourney({
                   </div>
                 ) : (
                   <p className={styles.emptyMechanism}>
-                    The exact canonical Story version has no non-leading competing hypothesis. Hybrid does not revive older Dossier candidates.
+                    The exact canonical Story version has no mechanism candidate. Hybrid does not revive older Dossier candidates.
                   </p>
-                )
-              ) : lab.mode === "full" ? (
+                )              ) : lab.mode === "full" ? (
                 <div className={styles.mechanismGrid}>
                   {lab.candidates.map((candidate) => (
                     <article className={styles.mechanismCard} key={`${item.id}:mechanism:${candidate.rank}`}>
