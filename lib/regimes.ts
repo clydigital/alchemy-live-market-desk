@@ -580,7 +580,7 @@ function dossierRegimeContextNodes(
       storyId: item.storyId,
       storySlug: null,
       href: null,
-      hybridHref: `/hybrid-output?regime=${encodeURIComponent(regimeSlug)}`,
+      hybridHref: `/hybrid-output?regime=${encodeURIComponent(regimeSlug)}&motion=${encodeURIComponent(item.motionId)}#dossier-regime-context`,
     }))
     .sort((left, right) =>
       Date.parse(right.timestamp || "") - Date.parse(left.timestamp || "")
