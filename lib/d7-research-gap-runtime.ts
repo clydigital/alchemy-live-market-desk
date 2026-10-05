@@ -4,13 +4,20 @@ import {
   appendD7ResearchGapCandidates,
   buildD7ResearchGapCandidates,
 } from "./d7-research-gap-routing.ts";
-import { loadCurrentD7RuntimeSnapshot } from "./d7-runtime.ts";
 import { syncResearchGapPriorityQueue } from "./research-gap-lifecycle.ts";
 import { prioritiseResearchGapWork } from "./research-gap-prioritizer.ts";
 import { loadLatestResearchGapWorkQueue } from "./research-gap-worker.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
-type D7Loader = typeof loadCurrentD7RuntimeSnapshot;
+type D7RuntimeSnapshot = Awaited<
+  ReturnType<typeof import("./d7-runtime.ts")["loadCurrentD7RuntimeSnapshot"]>
+>;
+type D7Loader = () => Promise<D7RuntimeSnapshot>;
+
+async function loadDefaultD7RuntimeSnapshot(): Promise<D7RuntimeSnapshot> {
+  const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
+  return loadCurrentD7RuntimeSnapshot();
+}
 
 export async function syncLatestPrioritisedResearchGapCasesWithD7(
   client: SupabaseClient = createSupabaseAdminClient(),
@@ -22,7 +29,9 @@ export async function syncLatestPrioritisedResearchGapCasesWithD7(
 
   let queue = baseQueue;
   try {
-    const runtime = await (dependencies.loadD7 ?? loadCurrentD7RuntimeSnapshot)();
+    const runtime = await (
+      dependencies.loadD7 ?? loadDefaultD7RuntimeSnapshot
+    )();
     if (
       runtime
       && runtime.dossierId === baseQueue.dossierId
