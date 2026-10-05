@@ -363,6 +363,13 @@ Rank sources in this order: official releases; company filings, earnings release
 Treat political and social statements as evidence of messaging or intent unless independent evidence verifies the real-world condition.
 Use British English, calm probabilistic language and short grade-8 sentences. Return only the requested structured output.`;
 
+const DIVERGENCE_ROLE_RULES = `For stage "divergence": Divergence owns expected-versus-observed mismatch detection only.
+- Compare the reaction implied by the supplied Market Belief with supplied observed canonical evidence. Do not force a divergence when the expected relationship is unsupported, the observation is not comparable, or the move is immaterial.
+- Treat timing and sequencing as evidence. A later headline cannot explain an earlier price move unless supplied evidence supports an anticipatory mechanism.
+- Record the mismatch, magnitude, persistence and decisive evidence only. Do NOT choose the causal explanation here; causal formation belongs to Hypothesis.
+- Historical base rates, seasonality and prior event windows may establish context for unusualness but are not deterministic forecasts.
+- If the supplied evidence cannot establish a defensible expected-versus-observed comparison, return no divergence rather than inventing one.`;
+
 const HYPOTHESIS_ROLE_RULES = `For stage "hypothesis": Hypothesis owns causal-thesis formation and idea generation.
 Start from every material supplied Market Belief that has enough canonical evidence to support a useful causal question. A divergence is ONE high-value trigger, not a prerequisite.
 Useful hypothesis origins include:
@@ -375,6 +382,10 @@ Useful hypothesis origins include:
 For every hypothesis, return marketBeliefId for the belief it explains. Return divergenceId only when an actual supplied divergence is central to the thesis; otherwise return null.
 affectedAssets may broaden beyond the originating Market Belief only when that receiving asset is explicitly present in canonical evidence cited by the hypothesis in evidenceForIds or its causalChain. Never introduce an unsupported ticker or instrument from general knowledge.
 Produce exactly ONE primary causal hypothesis for a Market Belief by default. A second is permitted only when it is a genuinely different competing mechanism.
+When an actual supplied divergence is central to the hypothesis:
+- Test only mechanisms relevant to supplied evidence, including expectation/pricing, rates or real yields, FX, positioning or short covering, options or other mechanical flows, technical conditions, cross-asset transmission, safe-haven demand, and physical-versus-financial market differences.
+- Treat every such mechanism as inferred or speculative until supplied canonical evidence directly supports the causal link. Never promote short covering, dealer gamma, positioning, real yields, safe-haven demand or physical-market stress to an observed or strongly-supported explanation without evidence that directly bears on that mechanism.
+- Prefer the explanation best supported by chronology, direct-market evidence and cross-asset confirmation. If evidence cannot discriminate between competing mechanisms, keep confidence bounded and use confirmation, invalidation and next catalysts to identify the next discriminating evidence.
 IDEA QUALITY GATE: Prefer a few strong hypotheses over broad coverage. A hypothesis should survive only when the supplied evidence supports (1) a specific causal mechanism, (2) a decision-relevant market or economic implication, and (3) an observable confirmation or invalidation path. A headline restatement, generic theme label or unsupported clever connection is not a good idea and should be omitted.
 Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable. The analytical edge may be a causal connection, second-order effect, transmission path, structural shift, or repricing rather than a disagreement with consensus.
 FORBIDDEN: Do not create opposite yes/no, bullish/bearish, or degree variants of the same mechanism. Those conditional branches belong in Scenario.
@@ -406,6 +417,8 @@ Divergence and contrarian annotations are OPTIONAL:
 - overlookedVariable: use null unless the evidence supports a distinct measurable variable that genuinely improves the thesis; when null, use overlookedVariableEvidenceStatus=null and overlookedVariableEvidenceIds=[].
 - marketMayBeRight: use null unless there is a meaningful supplied alternative interpretation worth preserving.
 Do not manufacture any of these fields to make the Story sound more original. A strong confirming or convergent thesis is valid.
+When supplied evidence cannot discriminate between plausible causal mechanisms, acceptedExplanation must preserve that unresolved state rather than manufacture certainty. Use confirmation, invalidation, overlookedVariable when genuinely supported, and nextTestSelection to state what evidence would resolve the mechanism.
+Do not promote a speculative mechanism merely because it is the most narratively convenient explanation for a divergence.
 Explain causal arrows one at a time and label each mechanism step observed, strongly_supported, inferred or speculative. Plain-English wording may improve comprehension but must not change thesis, confidence, evidence status, confirmation or invalidation.
 Reader-facing Story prose must never contain raw evidence IDs, source IDs, UUIDs, filenames, ingestion keys, provider handles, or provenance tokens such as "ASDA-file...". Keep those only in structured evidence/reference fields and audit metadata. Do not append source-key lists in parentheses to thesis, explanation, support, contradiction, catalyst or article wording.
 Populate changeKinds only when canonical evidence shows a material change in evidence, catalyst, price confirmation or invalidation, probability, cross-asset transmission, official or management communication, or watchlist state. Leave it empty for an unchanged recurring Story.
@@ -691,7 +704,7 @@ async function modelStage<T>({
     const result = await runStructuredStage<T>({
       stageKey,
       instructions: withRatesResearchLens(
-        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}${stageKey === "semantic_deduplication" ? `\n\n${SEMANTIC_DEDUPLICATION_REFERENCE_RULES}` : ""}`,
+        `${CORE_RULES}\n\nStage mandate: ${prompt?.prompt_text || stageKey}.${stageKey === "market_belief" ? `\n\n${MARKET_BELIEF_STORY_REVIEW_RULES}` : ""}${stageKey === "divergence" ? `\n\n${DIVERGENCE_ROLE_RULES}` : ""}${stageKey === "hypothesis" ? `\n\n${HYPOTHESIS_ROLE_RULES}` : ""}${stageKey === "challenger" ? `\n\n${CHALLENGER_REQUIREMENT_RULES}` : ""}${stageKey === "story_synthesis" ? `\n\n${STORY_SYNTHESIS_METHOD_RULES}` : ""}${stageKey === "semantic_deduplication" ? `\n\n${SEMANTIC_DEDUPLICATION_REFERENCE_RULES}` : ""}`,
         stageKey,
         true,
       ),
