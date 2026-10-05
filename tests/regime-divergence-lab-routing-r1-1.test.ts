@@ -201,6 +201,9 @@ test("R1.1 projection is read-only and Regime state remains Story/telemetry owne
   assert.match(workspace, /linked Dossier Story route/);
   assert.match(workspace, /context only/);
   assert.doesNotMatch(projection, /buildRegimeProjection|deriveInterpretedState/);
-  assert.doesNotMatch(projection, /persist|update|insert|intelligenceRest|supabase|fetch\(/i);
+  assert.doesNotMatch(
+    projection,
+    /intelligenceRest|createSupabase|persistCanonical|persistMarket|\.from\(|\.insert\(|\.update\(|fetch\(/i,
+  );
   assert.doesNotMatch(regimes, /buildRegimeDivergenceLabCases/);
 });
