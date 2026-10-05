@@ -80,10 +80,7 @@ export function buildD7ResearchGapCandidates(input: {
       const sourceRef = `d7:${item.id}`;
       const nativeId = `d7:${item.id}`;
       const action = actionFor(item);
-      const evidenceNeeded = unique([
-        ...item.evidenceRefs,
-        diagnosticNeed(item),
-      ]);
+      const evidenceNeeded = [diagnosticNeed(item)];
       const linkedInvestigationIds = item.investigationId
         ? [item.investigationId]
         : [];
@@ -95,6 +92,7 @@ export function buildD7ResearchGapCandidates(input: {
           ? [`STORY:${item.persistentStoryId}`]
           : []),
         ...(item.regimeSlug ? ["REGIME:CURRENT"] : []),
+        ...item.evidenceRefs.map((ref) => `EVIDENCE:${ref}`),
       ]);
 
       return {
@@ -161,6 +159,16 @@ export function appendD7ResearchGapCandidates(
 
   const merged = [...byGapKey.values()];
   const bounded = merged.slice(0, MAX_RESEARCH_GAP_WORK_CANDIDATES);
+  const existingD7Count = queue.candidates.filter(
+    (item) =>
+      item.sourceKind === "research_gap"
+      && item.sourceRef.startsWith("d7:"),
+  ).length;
+  const boundedD7Count = bounded.filter(
+    (item) =>
+      item.sourceKind === "research_gap"
+      && item.sourceRef.startsWith("d7:"),
+  ).length;
 
   return {
     ...queue,
@@ -169,10 +177,7 @@ export function appendD7ResearchGapCandidates(
       ...queue.sourceCounts,
       researchGaps:
         queue.sourceCounts.researchGaps
-        + bounded.filter((item) =>
-          item.sourceKind === "research_gap"
-          && item.sourceRef.startsWith("d7:")
-        ).length,
+        + Math.max(0, boundedD7Count - existingD7Count),
     },
     diagnostics: {
       ...queue.diagnostics,
