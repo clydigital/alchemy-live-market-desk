@@ -44,6 +44,7 @@ test("MOVE query is bounded to direct daily $MOVE history", () => {
   assert.equal(url.searchParams.get("apikey"), "test-key");
   assert.equal(url.searchParams.get("symbol"), "$MOVE");
   assert.equal(url.searchParams.get("type"), "daily");
+  assert.equal(url.searchParams.get("startDate"), "20260607");
   assert.equal(url.searchParams.get("endDate"), "20261005");
   assert.equal(url.searchParams.get("maxRecords"), "180");
   assert.equal(url.searchParams.get("order"), "asc");
