@@ -1438,7 +1438,13 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
     const longEndCurrentBn = longEndCurrentUsd / 1_000_000_000;
     const longEndPreviousBn = longEndPreviousUsd / 1_000_000_000;
     const longEndChangeBn = longEndCurrentBn - longEndPreviousBn;
-    const termDetail = supplyComparisons
+    const longEndTerms = longEnd
+      .map((item) => item.securityTerm)
+      .sort((left, right) => left.localeCompare(right));
+    const longEndScope = longEndTerms.length
+      ? longEndTerms.map((term) => term.replace("-Year", "Y")).join("/")
+      : null;
+    const termDetail = [...supplyComparisons]
       .sort((a, b) => a.securityTerm.localeCompare(b.securityTerm))
       .map((item) =>
         `${item.securityTerm} ${(item.currentOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn vs ${(item.previousOfferingAmountUsd / 1_000_000_000).toFixed(0)}bn prior`
@@ -1448,7 +1454,7 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
 
     observed.push({
       evidence_id: `treasury-supply:coupon-sizes:${supplyAsOf}`,
-      claim_or_fact: `Treasury's latest announced nominal coupon offering sizes across ${supplyComparisons.length} comparable maturities total ${currentBn.toFixed(1)}bn USD versus ${previousBn.toFixed(1)}bn at the previous same-term auctions. Long-end 10Y/20Y/30Y offerings total ${longEndCurrentBn.toFixed(1)}bn versus ${longEndPreviousBn.toFixed(1)}bn previously (change ${longEndChangeBn >= 0 ? "+" : ""}${longEndChangeBn.toFixed(1)}bn). ${termDetail}. This is announced gross coupon issuance context only; it does not by itself establish net borrowing, auction absorption, term-premium direction, or yield direction.`,
+      claim_or_fact: `Treasury's latest announced nominal coupon offering sizes across ${supplyComparisons.length} comparable maturities total ${currentBn.toFixed(1)}bn USD versus ${previousBn.toFixed(1)}bn at the previous same-term auctions. ${longEndScope ? `Long-end ${longEndScope} offering comparisons total ${longEndCurrentBn.toFixed(1)}bn versus ${longEndPreviousBn.toFixed(1)}bn previously (change ${longEndChangeBn >= 0 ? "+" : ""}${longEndChangeBn.toFixed(1)}bn).` : "No comparable 10Y/20Y/30Y offering pair is available in this snapshot."} ${termDetail}. This is announced gross coupon issuance context only; it does not by itself establish net borrowing, auction absorption, term-premium direction, or yield direction.`,
       category: "RATES",
       source_type: "OFFICIAL_DATA",
       available_at: availableAt,
@@ -1470,6 +1476,7 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
         long_end_previous_usd_bn: longEndPreviousBn,
         long_end_change_usd_bn: longEndChangeBn,
         long_end_maturities_compared: longEnd.length,
+        long_end_terms_compared: longEndTerms.join(","),
       },
       provenance: [{
         source_type: "US_TREASURY",
