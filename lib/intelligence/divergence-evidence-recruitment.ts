@@ -165,18 +165,18 @@ export function planDivergenceEvidenceRecruitment(input: {
     const expected = clean(divergence.expectedChange);
     const observed = clean(divergence.observedChange);
     const question = expected
-      ? \`Why did the observed reaction (\${observed}) diverge from the expected reaction (\${expected})?\`
-      : \`What mechanism best explains the material observed reaction (\${observed})?\`;
-    const reason = \`Material canonical divergence remains causally unresolved after Hypothesis: \${state}.\`;
+      ? `Why did the observed reaction (${observed}) diverge from the expected reaction (${expected})?`
+      : `What mechanism best explains the material observed reaction (${observed})?`;
+    const reason = `Material canonical divergence remains causally unresolved after Hypothesis: ${state}.`;
     const nextAction = evidenceNeeded.length > 1
-      ? \`Recruit only \${evidenceNeeded[0]}; if still unresolved, then recruit \${evidenceNeeded[1]}.\`
-      : \`Recruit only \${evidenceNeeded[0]}.\`;
+      ? `Recruit only ${evidenceNeeded[0]}; if still unresolved, then recruit ${evidenceNeeded[1]}.`
+      : `Recruit only ${evidenceNeeded[0]}.`;
 
     return [{
       contractVersion: DIVERGENCE_EVIDENCE_RECRUITMENT_VERSION,
       divergenceId: divergence.id,
       marketBeliefId: divergence.marketBeliefId,
-      debtKey: \`divergence:\${stablePart(divergence.id)}\`,
+      debtKey: `divergence:${stablePart(divergence.id)}`,
       severity: "high" as const,
       question,
       reason,
