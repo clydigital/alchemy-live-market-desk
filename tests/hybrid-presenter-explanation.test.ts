@@ -18,13 +18,14 @@ test("Hybrid opens from the full bounded Market Motion stream instead of three D
   assert.match(hybrid, /journeyMode/);
 });
 
-test("Journey exposes an exact Motion investigation path without creating a second Dossier", () => {
-  assert.match(hybrid, /marketMotionInvestigationEligibility/);
+test("Journey keeps Motion as discovery context while Research Gap starts from the Dossier", () => {
+  assert.doesNotMatch(hybrid, /marketMotionInvestigationEligibility/);
   assert.match(hybrid, /motionId/);
-  assert.match(hybrid, /investigationHref/);
-  assert.match(hybrid, /Motion investigation path/);
-  assert.match(hybrid, /INVESTIGATION ELIGIBLE/);
-  assert.match(hybrid, /Motion → exact linked Story\/Regime → Research Gap investigation when eligible/);
+  assert.doesNotMatch(hybrid, /investigationHref/);
+  assert.match(hybrid, /Motion context path/);
+  assert.match(hybrid, /DISCOVERY CONTEXT/);
+  assert.match(hybrid, /Motion → canonical Dossier System 2 → Dossier research\/investigation output → Research Gap lifecycle/);
+  assert.match(hybrid, /Raw Motion does not create Research Gap work directly/);
   assert.match(hybrid, /Dossier\/regime state changes only if later canonical evidence changes the accepted interpretation/);
   assert.match(hybrid, /exact immutable Motion snapshot attached to the current canonical edition/);
 });
