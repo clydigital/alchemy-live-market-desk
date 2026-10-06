@@ -40,7 +40,7 @@ const FROZEN_STORIES = [
 
 function decision(
   reference: string | null,
-  noveltyClass: "existing_story_update" | "duplicate" | "new_story" = "existing_story_update",
+  noveltyClass: "existing_story_update" | "duplicate" | "related_distinct" | "new_story" = "existing_story_update",
 ) {
   return {
     candidateKey: "candidate-1",
@@ -126,6 +126,26 @@ test("non-matching novelty classes never retain a Story identity", () => {
 
   assert.equal(output.decisions[0]?.noveltyClass, "new_story");
   assert.equal(output.decisions[0]?.matchedStoryId, null);
+});
+
+test("related-distinct Story splits retain exact frozen lineage and fail closed without it", () => {
+  const references = buildFrozenStoryReferenceSet(FROZEN_STORIES);
+
+  const related = resolveDeduplicationStoryReferences(
+    { decisions: [decision("STORY_0002", "related_distinct")] },
+    references,
+  );
+  assert.equal(related.decisions[0]?.noveltyClass, "related_distinct");
+  assert.equal(related.decisions[0]?.matchedStoryId, UUID_B);
+
+  for (const invalidRef of [null, "STORY_9999", UUID_B]) {
+    const invalid = resolveDeduplicationStoryReferences(
+      { decisions: [decision(invalidRef, "related_distinct")] },
+      references,
+    );
+    assert.equal(invalid.decisions[0]?.noveltyClass, "insufficient_novelty");
+    assert.equal(invalid.decisions[0]?.matchedStoryId, null);
+  }
 });
 
 test("legacy UUID checkpoints recover only when reused and present in the frozen Story set", async () => {
