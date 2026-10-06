@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { attachDossierMotionContext } from "../lib/dossier-v2/motion-context.ts";
+import {
+  attachDossierMotionContext,
+  selectPromotedMotionEvidenceIdsForDossier,
+} from "../lib/dossier-v2/motion-context.ts";
 import type { DossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
 
@@ -111,17 +114,18 @@ test("A2 Motion context is bounded, rehashed and never manufactures an evidence 
   const canonicalLinked = result.motion_context?.items.find((item) => item.motion_id === "motion-2");
   assert.equal(canonicalLinked?.origin_evidence_ref, "ev:canonical:1");
 
-  const canonicalMetadataLinked = attachDossierMotionContext(before, [
-    motion({
-      id: "motion-metadata",
-      motion_key: "event:rates:motion-metadata",
-      evidence_id: null,
-      metadata: {
-        promotionEvidenceId: "raw-intelligence-evidence-uuid",
-        promotionEvidencePacketRef: "ev:canonical:1",
-      },
-    }),
-  ]).motion_context?.items[0];
+  const canonicalMetadataLinked = attachDossierMotionContext(
+    before,
+    [
+      motion({
+        id: "motion-metadata",
+        motion_key: "event:rates:motion-metadata",
+        evidence_id: null,
+        metadata: { promotionEvidenceId: "canonical-uuid-1" },
+      }),
+    ],
+    new Map([["canonical-uuid-1", "ev:canonical:1"]]),
+  ).motion_context?.items[0];
   assert.equal(canonicalMetadataLinked?.origin_evidence_ref, "ev:canonical:1");
 
   const invalidMetadataLinked = attachDossierMotionContext(before, [
@@ -129,16 +133,53 @@ test("A2 Motion context is bounded, rehashed and never manufactures an evidence 
       id: "motion-metadata-invalid",
       motion_key: "event:rates:motion-metadata-invalid",
       evidence_id: null,
-      metadata: {
-        promotionEvidenceId: "raw-intelligence-evidence-uuid",
-        promotionEvidencePacketRef: "ev:not-in-packet",
-      },
+      metadata: { promotionEvidenceId: "ev:not-in-packet" },
     }),
   ]).motion_context?.items[0];
   assert.equal(invalidMetadataLinked?.origin_evidence_ref, null);
 
   assert.equal("source_url" in (first ?? {}), false);
   assert.equal("source_name" in (first ?? {}), false);
+});
+
+test("promoted Motion evidence selector pins only chronology-safe selected canonical UUIDs", () => {
+  const ids = selectPromotedMotionEvidenceIdsForDossier([
+    motion({
+      id: "selected-a",
+      materiality: 95,
+      metadata: { promotionEvidenceId: "canonical-a" },
+    }),
+    motion({
+      id: "selected-b",
+      materiality: 94,
+      metadata: { promotionEvidenceId: "canonical-b" },
+    }),
+    motion({
+      id: "selected-c",
+      materiality: 93,
+      metadata: { promotionEvidenceId: "canonical-c" },
+    }),
+    motion({
+      id: "below-cap",
+      materiality: 92,
+      metadata: { promotionEvidenceId: "canonical-d" },
+    }),
+    motion({
+      id: "future",
+      observed_at: "2026-10-04T04:00:00.000Z",
+      materiality: 99,
+      metadata: { promotionEvidenceId: "canonical-future" },
+    }),
+    motion({
+      id: "plain",
+      lifecycle_state: "MOTION",
+      effective_state: "MOTION",
+      materiality: 100,
+      metadata: { promotionEvidenceId: "canonical-plain" },
+    }),
+  ], AS_OF);
+
+  assert.deepEqual(ids, ["canonical-a", "canonical-b", "canonical-c"]);
 });
 
 test("A2 Motion context excludes future and unpromoted rows", () => {
