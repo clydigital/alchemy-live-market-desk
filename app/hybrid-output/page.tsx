@@ -306,7 +306,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyHref: item.storySlug ? `/stories/${item.storySlug}` : null,
       regimeSlug,
       regimeLabel: regime?.shortTitle || item.regimeLabel,
-      regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
+      regimeHref: regimeSlug
+        ? presenterEditionStatus === "current" && regimeContribution
+          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution ? "dossier-regime-context" : "dossier-story-readthrough"}`
+          : `/regimes/${regimeSlug}`
+        : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
       regimeContributionMode: directRegimeContribution
         ? "DIRECT" as const
@@ -365,7 +369,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyHref: story ? `/stories/${story.slug}` : null,
       regimeSlug,
       regimeLabel: regime?.shortTitle || null,
-      regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
+      regimeHref: regimeSlug
+        ? regimeContribution
+          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution ? "dossier-regime-context" : "dossier-story-readthrough"}`
+          : `/regimes/${regimeSlug}`
+        : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
       regimeContributionMode: directRegimeContribution
         ? "DIRECT" as const
