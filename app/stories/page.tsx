@@ -4,6 +4,7 @@ import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/Live
 import { getStoryRegistryData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -12,6 +13,7 @@ import { deriveStoryTags } from "@/lib/story-tags";
 export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
+  const showRegimeUi = regimeUiEnabled();
   const [data, recordLayer] = await Promise.all([getStoryRegistryData(), getStoryRecordLayer()]);
   const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
@@ -49,10 +51,12 @@ export default async function StoriesPage() {
       version,
       now,
     });
-    const regimes = routeStoryToRegimes(story, version)
-      .map((route) => getRegimeDefinition(route.regime))
-      .filter((regime, index, all): regime is NonNullable<typeof regime> => Boolean(regime) && all.findIndex((item) => item?.slug === regime?.slug) === index)
-      .map((regime) => ({ slug: regime.slug, label: regime.shortTitle }));
+    const regimes = showRegimeUi
+      ? routeStoryToRegimes(story, version)
+          .map((route) => getRegimeDefinition(route.regime))
+          .filter((regime, index, all): regime is NonNullable<typeof regime> => Boolean(regime) && all.findIndex((item) => item?.slug === regime?.slug) === index)
+          .map((regime) => ({ slug: regime.slug, label: regime.shortTitle }))
+      : [];
     return {
       id: story.id,
       slug: story.slug,
