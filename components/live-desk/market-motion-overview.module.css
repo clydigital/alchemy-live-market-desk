@@ -48,6 +48,119 @@
 }
 
 
+.regimeRollup {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 64%, #5c9cf5 36%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 90%, #5c9cf5 10%);
+}
+
+.regimeRollupIntro {
+  display: grid;
+  gap: 4px;
+}
+
+.regimeRollupIntro span,
+.regimeRollupHead span,
+.regimeRollupJudgements span {
+  color: var(--muted);
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .09em;
+}
+
+.regimeRollupIntro h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.regimeRollupIntro p {
+  margin: 0;
+  max-width: 880px;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.regimeRollupGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.regimeRollupCard {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+}
+
+.regimeRollupHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.regimeRollupHead > div {
+  display: grid;
+  gap: 2px;
+}
+
+.regimeRollupHead h4 {
+  margin: 0;
+  font-size: .88rem;
+}
+
+.regimeRollupHead h4 a {
+  color: var(--ink);
+}
+
+.regimeRollupHead > strong {
+  color: var(--muted);
+  font-size: .7rem;
+}
+
+.regimeRollupStats {
+  margin: 0;
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.4;
+}
+
+.regimeRollupJudgements {
+  display: grid;
+  gap: 6px;
+}
+
+.regimeRollupJudgements > div {
+  display: grid;
+  gap: 3px;
+  padding-left: 8px;
+  border-left: 2px solid color-mix(in srgb, var(--line) 68%, #5c9cf5 32%);
+}
+
+.regimeRollupJudgements > div[data-mode="read_through"] {
+  border-left-color: color-mix(in srgb, var(--line) 68%, #8f6edd 32%);
+}
+
+.regimeRollupJudgements p,
+.regimeRollupCard small {
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
+  font-size: .74rem;
+  line-height: 1.42;
+}
+
+.regimeRollupCard small {
+  color: var(--muted);
+}
+
 .tierGroup {
   display: grid;
   gap: 10px;
