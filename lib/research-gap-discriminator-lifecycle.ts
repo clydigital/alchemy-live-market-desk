@@ -123,14 +123,35 @@ export function researchGapDiscriminatorLifecycleFromPlan(
 export function selectResearchGapDiscriminatorLifecycleSource(input: {
   existingResearchPlan?: unknown;
   latestOccurrenceSnapshot?: unknown;
+  occurrenceSnapshots?: unknown[];
 }) {
   if (researchGapDiscriminatorLifecycleFromPlan(input.existingResearchPlan)) {
     return input.existingResearchPlan ?? null;
   }
-  if (researchGapDiscriminatorLifecycleFromPlan(input.latestOccurrenceSnapshot)) {
-    return input.latestOccurrenceSnapshot ?? null;
-  }
-  return null;
+
+  const occurrenceSources = [
+    ...(input.occurrenceSnapshots ?? []),
+    ...(input.latestOccurrenceSnapshot === undefined
+      ? []
+      : [input.latestOccurrenceSnapshot]),
+  ];
+  const validOccurrences = occurrenceSources.flatMap((source, index) => {
+    const lifecycle = researchGapDiscriminatorLifecycleFromPlan(source);
+    return lifecycle ? [{ source, lifecycle, index }] : [];
+  });
+  if (!validOccurrences.length) return null;
+
+  // Occurrence snapshots are supplied newest-first. A lifecycle is monotonic
+  // within one plan signature: only a changed plan is allowed to restart at 0.
+  // Recover the highest index ever frozen for the most recently observed
+  // signature so a QUEUED replay cannot regress after requeue clears
+  // research_plan.
+  const latestSignature = validOccurrences[0]!.lifecycle.planSignature;
+  return validOccurrences
+    .filter((item) => item.lifecycle.planSignature === latestSignature)
+    .sort((left, right) =>
+      right.lifecycle.activeIndex - left.lifecycle.activeIndex
+      || left.index - right.index)[0]!.source;
 }
 
 export function validateResearchGapCausalDiscriminatorPlan(
