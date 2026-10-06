@@ -159,6 +159,7 @@ const EVENT_FAMILIES: Array<[string, RegExp]> = [
   ["guidance", /\b(?:guidance|outlook|forecast raised|forecast cut)\b/i],
   ["acquisition", /\b(?:acquisition|acquire[ds]?|takeover|merger)\b/i],
   ["buyback", /\b(?:buyback|share repurchase|repurchase authori[sz]ation)\b/i],
+  ["record_high", /\b(?:all[- ]time high|record high|new high|fresh high|ath)\b/i],
   ["regulation", /\b(?:regulation|regulatory|nhtsa|ftc|doj|antitrust|certification deadline)\b/i],
   ["contract", /\b(?:contract win|awarded? .*contract|contract award)\b/i],
   ["launch", /\b(?:product launch|launched|roll(?:ing)? out|new platform)\b/i],
@@ -331,6 +332,11 @@ function ratesInstrumentSubject(text: string) {
     ?.toLowerCase() || null;
 }
 
+function explicitInstrumentSubject(text: string) {
+  return explicitlyMentionedInstrumentSpecs(normaliseEventIdentityText(text))[0]
+    ?.instrument.toLowerCase() || null;
+}
+
 function eventMotionKey(candidate: MarketMotionInput) {
   const metadata = candidate.metadata || {};
   const explicitFamily = typeof metadata.eventFamily === "string" ? metadata.eventFamily.trim() : "";
@@ -339,7 +345,11 @@ function eventMotionKey(candidate: MarketMotionInput) {
   if (!family) return candidate.motionKey;
   const entities = metadataStrings(metadata, "entities", 8);
   const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
-  const deterministicInstrument = family === "rates_move" ? ratesInstrumentSubject(eventText) : null;
+  const deterministicInstrument = family === "rates_move"
+    ? ratesInstrumentSubject(eventText)
+    : family === "record_high"
+      ? explicitInstrumentSubject(eventText)
+      : null;
   const subject = deterministicInstrument || entitySubject || properSubject(candidate.headline) || candidate.tickers?.map(normalizeSubject).find(Boolean) || null;
   if (!subject) {
     if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {
