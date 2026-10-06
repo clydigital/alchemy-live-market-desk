@@ -47,6 +47,10 @@ export type RegimeShadowHealth = {
   expectedProjectionCount: number;
   contractVersion: string | null;
   lagMinutes: number | null;
+  unassignedStoryCount: number;
+  highSeverityUnassignedStoryCount: number;
+  oldestUnassignedOpenedAt: string | null;
+  oldestUnassignedAgeMinutes: number | null;
   warning: string | null;
 };
 
@@ -804,7 +808,7 @@ export async function getRegimeShadowHealth(
 ): Promise<RegimeShadowHealth> {
   try {
     const db = client ?? createSupabaseAdminClient();
-    const [runResult, currentResult] = await Promise.all([
+    const [runResult, currentResult, routingDebtResult] = await Promise.all([
       db
         .from("market_regime_projection_runs")
         .select("id,status,input_hash,contract_version,completed_at")
@@ -816,10 +820,20 @@ export async function getRegimeShadowHealth(
         .from("market_regime_current")
         .select("regime_id")
         .eq("projection_mode", "shadow"),
+      db
+        .from("research_debt")
+        .select("story_id,severity,opened_at")
+        .eq("status", "open")
+        .like("debt_key", "regime-routing:%")
+        .eq("metadata->>kind", "regime_routing_debt")
+        .order("opened_at", { ascending: true }),
     ]);
 
-    if (runResult.error || currentResult.error) {
-      const message = runResult.error?.message || currentResult.error?.message || "Regime persistence unavailable.";
+    if (runResult.error || currentResult.error || routingDebtResult.error) {
+      const message = runResult.error?.message
+        || currentResult.error?.message
+        || routingDebtResult.error?.message
+        || "Regime persistence unavailable.";
       return {
         available: false,
         latestRunId: null,
@@ -830,6 +844,10 @@ export async function getRegimeShadowHealth(
         expectedProjectionCount: REGIME_DEFINITIONS.length,
         contractVersion: null,
         lagMinutes: null,
+        unassignedStoryCount: 0,
+        highSeverityUnassignedStoryCount: 0,
+        oldestUnassignedOpenedAt: null,
+        oldestUnassignedAgeMinutes: null,
         warning: message,
       };
     }
@@ -838,6 +856,11 @@ export async function getRegimeShadowHealth(
     const completedAt = row?.completed_at || null;
     const lagMinutes = completedAt && Number.isFinite(Date.parse(completedAt))
       ? Math.max(0, Math.round((Date.now() - Date.parse(completedAt)) / 60_000))
+      : null;
+    const routingDebt = routingDebtResult.data || [];
+    const oldestUnassignedOpenedAt = routingDebt[0]?.opened_at || null;
+    const oldestUnassignedAgeMinutes = oldestUnassignedOpenedAt && Number.isFinite(Date.parse(oldestUnassignedOpenedAt))
+      ? Math.max(0, Math.round((Date.now() - Date.parse(oldestUnassignedOpenedAt)) / 60_000))
       : null;
 
     return {
@@ -850,6 +873,10 @@ export async function getRegimeShadowHealth(
       expectedProjectionCount: REGIME_DEFINITIONS.length,
       contractVersion: row?.contract_version || null,
       lagMinutes,
+      unassignedStoryCount: routingDebt.length,
+      highSeverityUnassignedStoryCount: routingDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
+      oldestUnassignedOpenedAt,
+      oldestUnassignedAgeMinutes,
       warning: null,
     };
   } catch (error) {
@@ -863,6 +890,10 @@ export async function getRegimeShadowHealth(
       expectedProjectionCount: REGIME_DEFINITIONS.length,
       contractVersion: null,
       lagMinutes: null,
+      unassignedStoryCount: 0,
+      highSeverityUnassignedStoryCount: 0,
+      oldestUnassignedOpenedAt: null,
+      oldestUnassignedAgeMinutes: null,
       warning: error instanceof Error ? error.message : "Regime shadow health unavailable.",
     };
   }
