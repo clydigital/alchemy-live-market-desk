@@ -75,6 +75,13 @@ type PersistProjectionRpcRow = {
   created: boolean;
 };
 
+type RoutingDebtSyncRow = {
+  active_count: number;
+  upserted_count: number;
+  resolved_count: number;
+  stale: boolean;
+};
+
 type CurrentRegimeProjectionRow = {
   regime_id: string;
   projection_run_id: string;
@@ -592,6 +599,7 @@ export async function persistRegimeShadowProjection(input: {
       throw new Error(`Regime identity migration is incomplete: missing ${missingRegimes.join(", ")}.`);
     }
 
+    const warnings: string[] = [];
     const links = storyRoutes(regimes);
     const { error: linkError } = await client.rpc("sync_market_regime_story_links_v1", {
       p_projection_run_id: begun.row.id,
@@ -599,8 +607,37 @@ export async function persistRegimeShadowProjection(input: {
     });
     if (linkError) throw new Error(`Regime Story-link sync failed: ${linkError.message}`);
 
+    const routedStoryIds = [...new Set(links.map((link) => link.story_id))];
+    const { data: routingDebtRows, error: routingDebtError } = await client.rpc("sync_regime_routing_debt_v1", {
+      p_projection_run_id: begun.row.id,
+      p_considered_story_ids: source.stories.map((story) => story.id),
+      p_routed_story_ids: routedStoryIds,
+    });
+    if (routingDebtError) throw new Error(`Regime routing-debt sync failed: ${routingDebtError.message}`);
+
+    const routingDebt = ((routingDebtRows || []) as RoutingDebtSyncRow[])[0];
+    if (!routingDebt) throw new Error("Regime routing-debt sync returned no ownership result.");
+
+    if (routingDebt.stale) {
+      warnings.push("Stale Regime shadow worker stopped before projection persistence because a newer shadow run owns routing state.");
+      await completeProjectionRun(client, begun.row.id, [], warnings);
+      return {
+        enabled: true,
+        reused: false,
+        runId: begun.row.id,
+        runKey,
+        inputHash,
+        projectedRegimes: 0,
+        versionIds: [],
+        warnings,
+      };
+    }
+
+    if (routingDebt.active_count > 0) {
+      warnings.push(`${routingDebt.active_count} active Story routing debt item(s) remain unassigned; no weak Regime mapping was forced.`);
+    }
+
     const versionIds: string[] = [];
-    const warnings: string[] = [];
 
     for (const regime of regimes) {
       const identity = identities.regimesBySlug.get(regime.slug);
