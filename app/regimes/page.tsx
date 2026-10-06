@@ -19,6 +19,10 @@ function formatAge(minutes: number | null) {
   return `${Math.floor(hours / 24)} days`;
 }
 
+function formatAgeAgo(minutes: number | null) {
+  return minutes === null ? "unavailable" : `${formatAge(minutes)} ago`;
+}
+
 export default async function RegimesPage() {
   const [data, recordLayer, dossierSelection, shadowHealth] = await Promise.all([
     getDeskData(),
@@ -90,7 +94,7 @@ export default async function RegimesPage() {
           state={timingHealth.status === "current" ? "ready" : "warn"}
           title={timingHealth.status === "current" ? "Interpretation timing is current" : "Interpretation timing needs attention"}
           detail={
-            `System 1 latest ${formatAge(timingHealth.latestTelemetryAgeMinutes)} ago · System 2 latest ${formatAge(timingHealth.latestInterpretationAgeMinutes)} ago · projector ${formatAge(shadowHealth.lagMinutes)} ago. `
+            `System 1 latest ${formatAgeAgo(timingHealth.latestTelemetryAgeMinutes)} · System 2 latest ${formatAgeAgo(timingHealth.latestInterpretationAgeMinutes)} · projector ${formatAgeAgo(shadowHealth.lagMinutes)}. `
             + (timingHealth.status === "no_system1"
               ? "No timestamped System 1 subgroup telemetry is available, so measured freshness cannot be claimed."
               : timingHealth.status === "no_system2"
