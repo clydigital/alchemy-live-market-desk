@@ -213,6 +213,43 @@ test("Research Brain sees and validates protected rate-context evidence", () => 
   );
 });
 
+test("Research Brain prompt preserves canonical_record_backed for System 2 Motion adjudication", () => {
+  const packet = createValidBasePacket();
+  const primary = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+  const primaryEvidence = primary.boundedInput.observed_evidence as Array<{
+    evidence_id: string;
+    canonical_record_backed: boolean;
+  }>;
+
+  assert.equal(
+    primaryEvidence.find((item) => item.evidence_id === "ev:fed:2026-09")?.canonical_record_backed,
+    true,
+  );
+  assert.equal(
+    primaryEvidence.find((item) => item.evidence_id === "ev:cpi:2026-09")?.canonical_record_backed,
+    false,
+  );
+
+  const recovery = buildResearchBrainCompactRecoveryPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: packet.as_of,
+    packet,
+  });
+  const recoveryEvidence = recovery.boundedInput.observed_evidence as Array<{
+    evidence_id: string;
+    canonical_record_backed: boolean;
+  }>;
+
+  assert.equal(
+    recoveryEvidence.find((item) => item.evidence_id === "ev:fed:2026-09")?.canonical_record_backed,
+    true,
+  );
+});
+
 test("Research Brain prompt keeps evidence identity but strips redundant source URLs", () => {
   const packet = createValidBasePacket();
   packet.observed_evidence[0].provenance[0].url = "https://example.test/very-long-source-url";
