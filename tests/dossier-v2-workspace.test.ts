@@ -64,3 +64,17 @@ test("Dossier workspace exposes degraded/current state without silently substitu
   assert.match(page, /DEVELOPING THEMES/);
   assert.match(page, /STOCK RADAR/);
 });
+
+
+test("Dossier workspace gives every external read a terminal runtime budget", () => {
+  const page = source("../app/dossier/page.tsx");
+
+  assert.match(page, /withinTimeout/);
+  assert.match(page, /DOSSIER_CORE_READ_TIMEOUT_MS = 5_000/);
+  assert.match(page, /DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800/);
+  assert.match(page, /"Dossier presentation"[\s\S]*selectionWork[\s\S]*DOSSIER_CORE_READ_TIMEOUT_MS/);
+  assert.match(page, /"Dossier history"[\s\S]*getDossierV2HistoryIndex\(18\)[\s\S]*DOSSIER_OPTIONAL_READ_TIMEOUT_MS/);
+  assert.match(page, /"Dossier market monitor"[\s\S]*getMarketMonitor[\s\S]*DOSSIER_OPTIONAL_READ_TIMEOUT_MS/);
+  assert.match(page, /"Dossier Market Motion"[\s\S]*getCurrentMarketMotion[\s\S]*DOSSIER_OPTIONAL_READ_TIMEOUT_MS/);
+  assert.match(page, /selectDossierV2Presentation\(\[\]\)/);
+});

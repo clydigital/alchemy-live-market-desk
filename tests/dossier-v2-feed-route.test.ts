@@ -17,3 +17,13 @@ test("lightweight Dossier V2 endpoint is cacheable, CORS-readable and fails clos
   assert.match(source, /presentation:\s*null/);
   assert.match(source, /status:\s*503/);
 });
+
+
+test("lightweight Dossier V2 endpoint terminates stalled core and optional reads", () => {
+  assert.match(source, /withinTimeout/);
+  assert.match(source, /DOSSIER_CORE_READ_TIMEOUT_MS = 5_000/);
+  assert.match(source, /DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800/);
+  assert.match(source, /"Dossier presentation"[\s\S]*getDossierV2PresentationSelection[\s\S]*DOSSIER_CORE_READ_TIMEOUT_MS/);
+  assert.match(source, /"Dossier market monitor"[\s\S]*getMarketMonitor[\s\S]*DOSSIER_OPTIONAL_READ_TIMEOUT_MS/);
+  assert.match(source, /"Dossier StockedUp evidence"[\s\S]*getStockedUpEvidenceBrief[\s\S]*DOSSIER_OPTIONAL_READ_TIMEOUT_MS/);
+});
