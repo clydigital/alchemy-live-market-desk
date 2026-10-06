@@ -46,6 +46,7 @@ export default async function RegimesPage() {
     .filter((node) => node.state === "interpretation_pending").length;
   const system1Subgroups = regimes.flatMap((regime) => regime.subgroups).filter((subgroup) => subgroup.telemetry.length).length;
   const liveReasoning = await getRegimeLiveReasoning(regimes.flatMap((regime) => regime.durableStories.map((story) => story.id)));
+  const freshness = assessRegimeInterpretationFreshness({ telemetryAt: regimes.flatMap((regime) => regime.subgroups.flatMap((subgroup) => subgroup.telemetry.map((item) => item.asOf))), interpretationAt: liveReasoning.map((item) => item.updatedAt) });
 
   return (
     <LiveDeskShell
