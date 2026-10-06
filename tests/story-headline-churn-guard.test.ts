@@ -19,6 +19,8 @@ test("Story headline changes require a material immutable thesis-version change"
   assert.match(migration, /before insert on public\.story_thesis_versions/);
   assert.match(migration, /new\.title is not distinct from prior\.title/);
   assert.match(migration, /next_signature is not distinct from prior_signature/);
+  assert.match(sqlContract, /select max\(candidate\.version_number\)/);
+  assert.match(sqlContract, /candidate\.story_id = version\.story_id/);
   assert.match(sqlContract, /Headline-only thesis version unexpectedly succeeded/);
   assert.match(sqlContract, /when check_violation then/);
 });
