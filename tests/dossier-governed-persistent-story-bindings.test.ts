@@ -33,6 +33,10 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
       persistent_story_id: ENERGY_ID,
     },
     {
+      analytical_story_id: "story-duration-broadening",
+      persistent_story_id: RATES_ID,
+    },
+    {
       analytical_story_id: "story:rates-duration-stress",
       persistent_story_id: RATES_ID,
     },
@@ -62,7 +66,7 @@ test("D1 governed aliases fail closed for missing, ambiguous or discarded persis
 });
 
 test("D1 governed binding registry contains no title, prose or fuzzy matching surface", () => {
-  assert.equal(GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES.length, 5);
+  assert.equal(GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES.length, 6);
 
   const helper = readFileSync(
     new URL("../lib/dossier-v2/persistent-story-bindings.ts", import.meta.url),
