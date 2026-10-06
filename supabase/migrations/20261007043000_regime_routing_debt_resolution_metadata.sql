@@ -144,7 +144,7 @@ begin
 
   return query select v_active, v_upserted, v_resolved, false;
 end;
-$;
+$$;
 
 -- Backfill already-resolved routing debt created before this metadata contract.
 -- The canonical lifecycle columns remain authoritative; metadata is aligned
