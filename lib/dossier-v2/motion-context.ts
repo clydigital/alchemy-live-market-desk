@@ -165,7 +165,9 @@ export function promotedMarketMotionEvidencePins(
     const canonicalEvidenceId = typeof item.metadata?.promotionEvidenceId === "string"
       ? item.metadata.promotionEvidenceId.trim()
       : "";
-    return canonicalEvidenceId ? [canonicalEvidenceId] : [];
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(canonicalEvidenceId)
+      ? [canonicalEvidenceId]
+      : [];
   }))];
 }
 
@@ -175,12 +177,18 @@ export async function loadCurrentMarketMotionEvidencePins(
 ) {
   const asOfMs = Date.parse(asOf);
   const now = Number.isFinite(asOfMs) ? new Date(asOfMs) : new Date();
-  const rows = await getCurrentMarketMotion({
-    includeExpired: true,
-    limit: 60,
-    client,
-  });
-  return promotedMarketMotionEvidencePins(rows, now);
+  try {
+    const rows = await getCurrentMarketMotion({
+      includeExpired: true,
+      limit: 60,
+      client,
+    });
+    return promotedMarketMotionEvidencePins(rows, now);
+  } catch {
+    // Motion remains an optional attention layer; its pin lookup must never
+    // block the canonical evidence-first Dossier path.
+    return [];
+  }
 }
 
 export function attachDossierMotionContext(
