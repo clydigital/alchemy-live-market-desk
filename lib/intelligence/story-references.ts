@@ -26,7 +26,7 @@ type CompatibleDeduplicationOutput = {
   decisions: CompatibleDeduplicationDecision[];
 };
 
-const MATCHED_STORY_CLASSES = new Set(["duplicate", "existing_story_update"]);
+const MATCHED_STORY_CLASSES = new Set(["duplicate", "existing_story_update", "related_distinct"]);
 
 function storyReference(index: number) {
   return `STORY_${String(index + 1).padStart(4, "0")}`;
