@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { TranscriptMotionLead } from "./transcript-research-review-contract.ts";
 
 export const MARKET_MOTION_RUN_LIMIT = 18;
+const MARKET_MOTION_CORROBORATION_REPLAY_LIMIT = 240;
 export const MARKET_MOTION_MIN_SCORE = 72;
 export const MARKET_MOTION_MIN_MATERIALITY = 72;
 export const MARKET_MOTION_MIN_RELEVANCE = 70;
@@ -1250,7 +1251,7 @@ async function loadRecentCorroborationIntake(input: {
     .neq("item_type", "video")
     .gte("published_at", cutoff)
     .order("published_at", { ascending: false })
-    .limit(240);
+    .limit(MARKET_MOTION_CORROBORATION_REPLAY_LIMIT);
 
   if (error) throw new Error(`Market Motion could not read recent corroboration intake: ${error.message}`);
   return ((data || []) as PersistedCorroborationIntakeRow[]).map(persistedCorroborationItem);
