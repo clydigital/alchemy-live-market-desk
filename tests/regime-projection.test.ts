@@ -148,6 +148,22 @@ test("dossier Live integration preserves AI regime identity while widening the c
   assert.ok(ai.subgroups.some((item) => item.key === "control-governance"));
 });
 
+test("gated frontier-model rollout with delayed compute demand routes into AI Capital Cycle", () => {
+  const routes = routeStoryToRegimes(story({
+    slug: "openai-gates-frontier-model-and-delays-broad-compute-demand",
+    title: "OpenAI gates Astra while broad compute demand is delayed",
+    thesis: "OpenAI limited the highest-risk capabilities to trusted testers, concentrating early deployments while paid API and enterprise compute demand develop more slowly.",
+    market_question: "Why did the model release fail to produce the expected broad compute demand?",
+    assets: ["GOOGL"],
+  }));
+
+  assert.deepEqual(routes.map((route) => [route.regime, route.subgroup, route.role]), [
+    ["us-china-ai", "control-governance", "core"],
+    ["us-china-ai", "cloud-inference", "supporting"],
+    ["us-china-ai", "models", "supporting"],
+  ]);
+});
+
 test("AI control and private-capital Stories route into dedicated AI Capital Cycle branches", () => {
   const control = routeStoryToRegimes(story({ slug: "ai-control-risk", title: "AI control risk" }));
   assert.ok(control.some((route) => route.regime === "us-china-ai" && route.subgroup === "control-governance" && route.role === "core"));
