@@ -45,6 +45,7 @@ function compactProvenance(refs: Array<Record<string, unknown>> | undefined) {
 function compactEvidenceItems(items: DossierV2InputPacket["observed_evidence"]) {
   return items.map((e) => ({
     evidence_id: e.evidence_id,
+    canonical_record_backed: e.canonical_record_backed === true,
     claim_or_fact: e.claim_or_fact,
     category: e.category,
     source_type: e.source_type,
