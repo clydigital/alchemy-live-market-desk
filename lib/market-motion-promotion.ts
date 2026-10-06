@@ -68,6 +68,11 @@ function evidenceItemKey(item: EvidencePackItem) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function evidencePacketRef(item: EvidencePackItem) {
+  const external = item.externalEvidenceId?.trim();
+  return external || `ev:${item.id}`;
+}
+
 function evidenceTimestamp(item: EvidencePackItem) {
   const value = item.availableAt || item.eventAt;
   const timestamp = value ? Date.parse(value) : Number.NaN;
@@ -228,6 +233,7 @@ export function marketMotionPromotionInput(
       promotionPolicy: MARKET_MOTION_PROMOTION_POLICY,
       promotionRoutingClass: candidate.routingClass,
       promotionEvidenceId: candidate.selectedEvidence.id,
+      promotionEvidencePacketRef: evidencePacketRef(candidate.selectedEvidence),
       promotionEvidenceItemKey: selectedItemKey,
       promotionEvidenceIds: candidate.matchingEvidenceIds.slice(0, MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT),
       promotionEvidenceItemKeys: candidate.matchingOriginItemKeys.slice(0, MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT),
