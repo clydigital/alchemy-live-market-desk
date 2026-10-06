@@ -13,6 +13,7 @@ import {
 import {
   buildRegimeProjection,
   REGIME_DEFINITIONS,
+  REGIME_ROUTING_CONTRACT_VERSION,
   type ProjectedRegime,
   type RegimeRoute,
 } from "./regimes.ts";
@@ -208,6 +209,7 @@ function buildInputManifest(input: ProjectionInput) {
 
   return {
     contractVersion: REGIME_PROJECTOR_CONTRACT_VERSION,
+    routingContractVersion: REGIME_ROUTING_CONTRACT_VERSION,
     storyVersions: latest.map((version) => ({
       storyId: version.story_id,
       versionId: version.id,
@@ -342,17 +344,27 @@ function storyRoutes(regimes: ProjectedRegime[]) {
   return links;
 }
 
+async function loadPersistedRoutedStoryIds(client: SupabaseClient, storyIds: string[]) {
+  if (!storyIds.length) return [] as string[];
+  const { data, error } = await client
+    .from("market_regime_story_links")
+    .select("story_id")
+    .in("story_id", storyIds)
+    .is("effective_to", null);
+  if (error) throw new Error(`Regime persisted Story-link load failed: ${error.message}`);
+  return [...new Set((data || []).map((item) => item.story_id as string))];
+}
+
 async function reconcileRegimeRoutingDebt(input: {
   client: SupabaseClient;
   projectionRunId: string;
   stories: Story[];
-  links: ReturnType<typeof storyRoutes>;
+  routedStoryIds: string[];
 }) {
-  const routedStoryIds = [...new Set(input.links.map((link) => link.story_id))];
   const { data, error } = await input.client.rpc("sync_regime_routing_debt_v1", {
     p_projection_run_id: input.projectionRunId,
     p_considered_story_ids: input.stories.map((story) => story.id),
-    p_routed_story_ids: routedStoryIds,
+    p_routed_story_ids: input.routedStoryIds,
   });
   if (error) throw new Error(`Regime routing-debt sync failed: ${error.message}`);
 
@@ -583,20 +595,15 @@ export async function persistRegimeShadowProjection(input: {
   });
 
   if (begun.reused) {
-    const regimes = buildRegimeProjection({
-      stories: source.stories,
-      versions: source.versions,
-      events: source.events,
-      newsThreads: source.newsThreads,
-      statements: source.statements,
-      dossier: source.dossier.presentation,
-    });
-    const links = storyRoutes(regimes);
+    const routedStoryIds = await loadPersistedRoutedStoryIds(
+      client,
+      source.stories.map((story) => story.id),
+    );
     const routingDebt = await reconcileRegimeRoutingDebt({
       client,
       projectionRunId: begun.row.id,
       stories: source.stories,
-      links,
+      routedStoryIds,
     });
     const warnings: string[] = [];
     if (routingDebt.stale) {
@@ -652,11 +659,12 @@ export async function persistRegimeShadowProjection(input: {
     });
     if (linkError) throw new Error(`Regime Story-link sync failed: ${linkError.message}`);
 
+    const routedStoryIds = [...new Set(links.map((link) => link.story_id))];
     const routingDebt = await reconcileRegimeRoutingDebt({
       client,
       projectionRunId: begun.row.id,
       stories: source.stories,
-      links,
+      routedStoryIds,
     });
 
     if (routingDebt.stale) {
