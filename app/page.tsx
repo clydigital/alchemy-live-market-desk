@@ -24,6 +24,7 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
 import { buildRegimeProjection, classifyRegimeStory } from "@/lib/regimes";
 import { getRegimeDefinition } from "@/lib/regimes";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 import { getFourSlotResearchHealth } from "@/lib/research-schedule-health";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
 import { getStoryHeaderImages } from "@/lib/story-images";
@@ -226,6 +227,7 @@ function scheduleSystemDetail(slot: ReturnType<typeof getFourSlotResearchHealth>
 }
 
 export default async function Page({ searchParams }: PageProps) {
+  const showRegimeUi = regimeUiEnabled();
   const query = await searchParams;
   const tabValue = Array.isArray(query.tab) ? query.tab[0] : query.tab;
   const legacyTarget = legacyTabRedirect(tabValue);
@@ -273,7 +275,7 @@ export default async function Page({ searchParams }: PageProps) {
       storyHref: story ? `/stories/${story.slug}` : null,
       regimeSlug: regime?.slug || null,
       regimeLabel: regime?.shortTitle || null,
-      regimeHref: regime ? `/regimes/${regime.slug}` : null,
+      regimeHref: showRegimeUi && regime ? `/regimes/${regime.slug}` : null,
     };
   });
   const upcomingReleases = weeklyHighImpactReleases(data.macroReleases, calendar);
@@ -433,7 +435,7 @@ export default async function Page({ searchParams }: PageProps) {
           <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
         ) : null}
         <MarketMotionOverview items={marketMotion} />
-        <MarketRegimeStrip regimes={regimes} />
+        {showRegimeUi ? <MarketRegimeStrip regimes={regimes} /> : null}
         {reasoningInvestigation ? (
           <Panel
             title="Expected vs actual"
