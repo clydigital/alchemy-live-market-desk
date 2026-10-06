@@ -95,7 +95,7 @@ import {
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
 import { isCanonicalEligibleEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
-import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
+import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";\nimport { buildRelatedDistinctStoryRelation } from "@/lib/intelligence/story-relations";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { creatorOnlyNonMaterialStoryReview, materialAssessmentHasEligibleEvidence, partitionStoryReviewTargetsByQueueClaims, planStoryReviewQueueHygiene, selectStoryReviewTargets, storyAssessmentAcknowledgesQueuedEvidence, type StoryEvidenceLink, type StoryReviewDebt, type StoryReviewQueueItem, type StoryReviewStory } from "@/lib/intelligence/story-review";
@@ -442,9 +442,10 @@ For visualPlan, choose presentation form only. Every edge ID, claim ID, series I
 Visual IDs are non-authoritative placeholders and will be replaced deterministically. Do not use title, slug, theme, asset name or general market knowledge to manufacture a series, geography, entity, causal edge or expected relationship.`;
 
 const SEMANTIC_DEDUPLICATION_REFERENCE_RULES = `For stage "semantic_deduplication", existingStories contains run-local storyRef values rather than canonical database IDs.
-For noveltyClass "duplicate" or "existing_story_update", return exactly one storyRef supplied in existingStories as matchedStoryRef.
-For every other noveltyClass, return matchedStoryRef as null.
-Never invent, alter or reconstruct a Story UUID. If no supplied storyRef is an exact semantic match, fail closed rather than guessing.`;
+For noveltyClass "duplicate", "existing_story_update", or "related_distinct", return exactly one storyRef supplied in existingStories as matchedStoryRef.
+For "related_distinct", matchedStoryRef identifies the closest prior/adjacent durable Story that the new causal question is being split from; it preserves lineage and does not make the candidate a duplicate.
+For noveltyClass "new_story" or "insufficient_novelty", return matchedStoryRef as null.
+Never invent, alter or reconstruct a Story UUID. If a matched class cannot be tied to one supplied storyRef, fail closed rather than guessing.`;
 
 export { buildHypothesisEvidencePack, buildHypothesisStoryPack };
 
@@ -3731,6 +3732,16 @@ export async function runIntelligenceEngine({
         });
       }
       if (!promotedStory) continue;
+
+      const relatedDistinctRelation = buildRelatedDistinctStoryRelation(decision, promotedStory.id);
+      if (relatedDistinctRelation) {
+        await intelligenceRest("intelligence_story_relations?on_conflict=story_id,related_story_id,relation_type", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(relatedDistinctRelation),
+        });
+      }
+
       publishedStories.push(promotedStory);
       editionStories.push(editionStory(candidate, promotedStory, decision.matchedStoryId || promotedStory.id, lifecycle));
       if (!stories.some((story) => story.id === promotedStory.id)) stories.push(promotedStory);
