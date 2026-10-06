@@ -59,7 +59,8 @@ begin
   from public.story_thesis_versions version
   where version.id = '55555555-5555-4555-8555-555555555556'::uuid;
 
-  if first_snapshot ->> 'partitionNFixture' is distinct from 'v1'
+  if first_snapshot #>> '{reasoning,claims,0,text}'
+      is distinct from 'Fixture claim with canonical Evidence lineage.'
     or latest_snapshot ->> 'partitionNFixture' is distinct from 'v2' then
     raise exception 'Partition N mutated immutable thesis snapshots';
   end if;
