@@ -1,9 +1,12 @@
+import { notFound } from "next/navigation";
+
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import RegimeBoard from "@/components/live-desk/RegimeBoard";
 import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getRegimeShadowHealth } from "@/lib/regime-engine";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { buildRegimeOverviewTimingHealth } from "@/lib/regime-overview-timing-health";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
@@ -24,6 +27,7 @@ function formatAgeAgo(minutes: number | null) {
 }
 
 export default async function RegimesPage() {
+  if (!regimeUiEnabled()) notFound();
   const [data, recordLayer, dossierSelection, shadowHealth] = await Promise.all([
     getDeskData(),
     getStoryRecordLayer(),
