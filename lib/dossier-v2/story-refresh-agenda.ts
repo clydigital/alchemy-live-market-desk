@@ -67,6 +67,10 @@ function unique(values: string[]) {
   return [...new Set(values)];
 }
 
+function isDormantStoryStatus(status: string) {
+  return ["archived", "invalidated", "discarded"].includes(status.toLowerCase());
+}
+
 function words(value: string) {
   return value
     .toLowerCase()
@@ -251,7 +255,7 @@ export function buildDossierStoryRefreshAgenda(input: {
       }
     }
     for (const story of input.stories) {
-      if (story.status === "discarded" || mapped.has(story.id)) continue;
+      if (isDormantStoryStatus(story.status) || mapped.has(story.id)) continue;
       const bonus = dossierStoryMatchBonus(story, evidenceRow, attentionTerms);
       if (bonus > 0) mapped.set(story.id, { basis: "dossier_story_match", bonus });
     }
@@ -259,6 +263,10 @@ export function buildDossierStoryRefreshAgenda(input: {
     for (const [storyId, mapping] of mapped) {
       const story = storyById.get(storyId);
       if (!story || story.status === "discarded") continue;
+      if (
+        mapping.basis === "dossier_story_match"
+        && isDormantStoryStatus(story.status)
+      ) continue;
       const matchBasis = mapping.basis;
       const archiveBonus = story.status === "archived" ? 5 : 0;
       const score = Math.min(
