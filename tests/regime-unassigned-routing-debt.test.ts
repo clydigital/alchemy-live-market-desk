@@ -10,7 +10,7 @@ const migration = readFileSync(
 
 test("Regime projector records unrouted Stories as routing debt without forcing a route", () => {
   assert.match(runtime, /sync_regime_routing_debt_v1/);
-  assert.match(runtime, /p_considered_story_ids: source\.stories\.map\(\(story\) => story\.id\)/);
+  assert.match(runtime, /p_considered_story_ids: input\.stories\.map\(\(story\) => story\.id\)/);
   assert.match(runtime, /p_routed_story_ids: routedStoryIds/);
   assert.match(runtime, /active Story routing debt item\(s\) remain unassigned; no weak Regime mapping was forced/);
 
@@ -38,4 +38,20 @@ test("routing restoration resolves existing routing debt instead of creating par
   assert.match(migration, /A governed Regime route was restored by projection/);
   assert.match(migration, /debt\.story_id = any\(v_routed\)/);
   assert.match(migration, /on conflict \(debt_key\) where status = 'open'/);
+});
+
+
+test("idempotent Regime reuse still reconciles routing debt for unchanged market state", () => {
+  const reusedStart = runtime.indexOf("if (begun.reused) {");
+  const reusedEnd = runtime.indexOf("\n  try {", reusedStart);
+  assert.ok(reusedStart >= 0 && reusedEnd > reusedStart);
+
+  const reused = runtime.slice(reusedStart, reusedEnd);
+  assert.match(reused, /buildRegimeProjection\(/);
+  assert.match(reused, /storyRoutes\(regimes\)/);
+  assert.match(reused, /reconcileRegimeRoutingDebt\(/);
+  assert.match(reused, /projectionRunId: begun\.row\.id/);
+  assert.match(reused, /stories: source\.stories/);
+  assert.match(reused, /reused: true/);
+  assert.match(reused, /newer shadow run owns routing state/);
 });

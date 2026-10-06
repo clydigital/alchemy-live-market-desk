@@ -338,6 +338,25 @@ function storyRoutes(regimes: ProjectedRegime[]) {
   return links;
 }
 
+async function reconcileRegimeRoutingDebt(input: {
+  client: SupabaseClient;
+  projectionRunId: string;
+  stories: Story[];
+  links: ReturnType<typeof storyRoutes>;
+}) {
+  const routedStoryIds = [...new Set(input.links.map((link) => link.story_id))];
+  const { data, error } = await input.client.rpc("sync_regime_routing_debt_v1", {
+    p_projection_run_id: input.projectionRunId,
+    p_considered_story_ids: input.stories.map((story) => story.id),
+    p_routed_story_ids: routedStoryIds,
+  });
+  if (error) throw new Error(`Regime routing-debt sync failed: ${error.message}`);
+
+  const routingDebt = ((data || []) as RoutingDebtSyncRow[])[0];
+  if (!routingDebt) throw new Error("Regime routing-debt sync returned no ownership result.");
+  return routingDebt;
+}
+
 async function loadIdentities(client: SupabaseClient) {
   const [regimesResult, subgroupsResult] = await Promise.all([
     client.from("market_regimes").select("id,slug").eq("status", "active"),
@@ -560,6 +579,28 @@ export async function persistRegimeShadowProjection(input: {
   });
 
   if (begun.reused) {
+    const regimes = buildRegimeProjection({
+      stories: source.stories,
+      versions: source.versions,
+      events: source.events,
+      newsThreads: source.newsThreads,
+      statements: source.statements,
+      dossier: source.dossier.presentation,
+    });
+    const links = storyRoutes(regimes);
+    const routingDebt = await reconcileRegimeRoutingDebt({
+      client,
+      projectionRunId: begun.row.id,
+      stories: source.stories,
+      links,
+    });
+    const warnings: string[] = [];
+    if (routingDebt.stale) {
+      warnings.push("Reused Regime projection did not reconcile routing debt because a newer shadow run owns routing state.");
+    } else if (routingDebt.active_count > 0) {
+      warnings.push(`${routingDebt.active_count} active Story routing debt item(s) remain unassigned; no weak Regime mapping was forced.`);
+    }
+
     const { data: priorVersions } = await client
       .from("market_regime_versions")
       .select("id")
@@ -572,7 +613,7 @@ export async function persistRegimeShadowProjection(input: {
       inputHash,
       projectedRegimes: priorVersions?.length || 0,
       versionIds: (priorVersions || []).map((item) => item.id),
-      warnings: [],
+      warnings,
     };
   }
 
@@ -607,16 +648,12 @@ export async function persistRegimeShadowProjection(input: {
     });
     if (linkError) throw new Error(`Regime Story-link sync failed: ${linkError.message}`);
 
-    const routedStoryIds = [...new Set(links.map((link) => link.story_id))];
-    const { data: routingDebtRows, error: routingDebtError } = await client.rpc("sync_regime_routing_debt_v1", {
-      p_projection_run_id: begun.row.id,
-      p_considered_story_ids: source.stories.map((story) => story.id),
-      p_routed_story_ids: routedStoryIds,
+    const routingDebt = await reconcileRegimeRoutingDebt({
+      client,
+      projectionRunId: begun.row.id,
+      stories: source.stories,
+      links,
     });
-    if (routingDebtError) throw new Error(`Regime routing-debt sync failed: ${routingDebtError.message}`);
-
-    const routingDebt = ((routingDebtRows || []) as RoutingDebtSyncRow[])[0];
-    if (!routingDebt) throw new Error("Regime routing-debt sync returned no ownership result.");
 
     if (routingDebt.stale) {
       warnings.push("Stale Regime shadow worker stopped before projection persistence because a newer shadow run owns routing state.");
