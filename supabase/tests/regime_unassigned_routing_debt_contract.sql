@@ -164,10 +164,13 @@ begin
   where story_id = fixture_story
     and debt_key = 'regime-routing:' || fixture_story::text
     and status = 'resolved'
-    and resolution_note like 'A governed Regime route was restored%';
+    and resolution_note like 'A governed Regime route was restored%'
+    and metadata ->> 'routingStatus' = 'routed'
+    and metadata ->> 'resolvedByProjectionRunId' = routed_run::text
+    and metadata ? 'resolvedAt';
 
   if resolved_debt <> 1 then
-    raise exception 'Routing restoration did not resolve the Story routing debt';
+    raise exception 'Routing restoration did not resolve the Story routing debt with routed metadata';
   end if;
 
   insert into public.market_regime_projection_runs(
