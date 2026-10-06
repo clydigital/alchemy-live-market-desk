@@ -55,6 +55,7 @@ export default async function RegimesPage() {
             { value: pendingNodes, label: "Observed · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
             { value: shadowHealth.unassignedStoryCount, label: "Unassigned active Stories" },
+            { value: shadowHealth.quarantinedStoryCount, label: "Domain-quarantined Stories" },
           ]}
         />
 
@@ -86,6 +87,14 @@ export default async function RegimesPage() {
           detail={shadowHealth.unassignedStoryCount === 0
             ? "Every active Story currently clears a governed Regime route. No weak fallback mapping is required."
             : `${shadowHealth.unassignedStoryCount} active ${shadowHealth.unassignedStoryCount === 1 ? "Story remains" : "Stories remain"} intentionally unassigned · ${shadowHealth.highSeverityUnassignedStoryCount} high/critical · oldest open ${formatAge(shadowHealth.oldestUnassignedAgeMinutes)}. These Stories remain visible in Stories and are not forced into a weak Regime mapping.`}
+        />
+
+        <DataState
+          state={shadowHealth.quarantinedStoryCount === 0 ? "ready" : "warn"}
+          title={shadowHealth.quarantinedStoryCount === 0 ? "Story domain health" : "Story domain quarantine is open"}
+          detail={shadowHealth.quarantinedStoryCount === 0
+            ? "Every active Story currently describes a market, economic, corporate or policy mechanism."
+            : `${shadowHealth.quarantinedStoryCount} active ${shadowHealth.quarantinedStoryCount === 1 ? "Story is" : "Stories are"} preserved but quarantined from Regime routing · ${shadowHealth.highSeverityQuarantinedStoryCount} high/critical · oldest open ${formatAge(shadowHealth.oldestQuarantinedAgeMinutes)}. Quarantine is a governance scope flag, not evidence that the Story thesis is false.`}
         />
 
         <Panel

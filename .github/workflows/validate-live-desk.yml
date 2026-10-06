@@ -201,11 +201,17 @@ jobs:
       - name: Apply Regime routing debt resolution metadata repair
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261007043000_regime_routing_debt_resolution_metadata.sql
 
+      - name: Apply Story-domain quarantine
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261007051500_story_domain_quarantine.sql
+
       - name: Verify persistent Regime shadow engine contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/persistent_regime_shadow_engine_contract.sql
 
       - name: Verify Regime unassigned routing debt contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/regime_unassigned_routing_debt_contract.sql
+
+      - name: Verify Story-domain quarantine contract
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_domain_quarantine_contract.sql
 
       - name: Apply Market Motion v1 migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261001012000_market_motion_v1.sql

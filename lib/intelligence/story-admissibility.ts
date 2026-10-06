@@ -14,6 +14,18 @@ export type NewStoryMarketAdmissibility = {
   processSignals: string[];
 };
 
+export type ExistingStoryMarketDomainInput = {
+  title: string;
+  thesis: string;
+  marketQuestion?: string | null;
+  dominantNarrative?: string | null;
+  bestExplanation?: string | null;
+  articleAngle?: string | null;
+  assets: string[];
+};
+
+export const STORY_DOMAIN_CONTRACT_VERSION = "story-domain/1" as const;
+
 const MARKET_DOMAIN_RULES: Array<{ key: string; pattern: RegExp }> = [
   { key: "rates_policy", pattern: /\b(fed|fomc|central bank|interest rates?|policy rates?|rate cuts?|rate hikes?|yield|bond|treasury|sovereign|duration|term premium)\b/i },
   { key: "credit_financing", pattern: /\b(credit|credit spreads?|financing|refinanc|funding|liquidity|default|insolvenc|insurer|insurance|counterparty|debt|leverage|private credit|stable[- ]value|wrap providers?)\b/i },
@@ -98,4 +110,17 @@ export function evaluateNewStoryMarketAdmissibility(
     marketSignals,
     processSignals,
   };
+}
+
+export function evaluateExistingStoryMarketDomain(
+  input: ExistingStoryMarketDomainInput,
+): NewStoryMarketAdmissibility {
+  return evaluateNewStoryMarketAdmissibility({
+    title: input.title,
+    thesis: input.thesis,
+    question: input.marketQuestion ?? "",
+    causalMechanism: input.bestExplanation ?? "",
+    marketBelief: [input.dominantNarrative, input.articleAngle].filter(Boolean).join(" "),
+    affectedAssets: input.assets,
+  });
 }

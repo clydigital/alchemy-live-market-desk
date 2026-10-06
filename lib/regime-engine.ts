@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NewsThread, PublicStatement, Story } from "./data.ts";
+import {
+  evaluateExistingStoryMarketDomain,
+  STORY_DOMAIN_CONTRACT_VERSION,
+} from "./intelligence/story-admissibility.ts";
 import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-reader.ts";
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import {
@@ -52,6 +56,10 @@ export type RegimeShadowHealth = {
   highSeverityUnassignedStoryCount: number;
   oldestUnassignedOpenedAt: string | null;
   oldestUnassignedAgeMinutes: number | null;
+  quarantinedStoryCount: number;
+  highSeverityQuarantinedStoryCount: number;
+  oldestQuarantinedOpenedAt: string | null;
+  oldestQuarantinedAgeMinutes: number | null;
   warning: string | null;
 };
 
@@ -81,6 +89,13 @@ type PersistProjectionRpcRow = {
 };
 
 type RoutingDebtSyncRow = {
+  active_count: number;
+  upserted_count: number;
+  resolved_count: number;
+  stale: boolean;
+};
+
+type StoryDomainDebtSyncRow = {
   active_count: number;
   upserted_count: number;
   resolved_count: number;
@@ -210,6 +225,7 @@ function buildInputManifest(input: ProjectionInput) {
   return {
     contractVersion: REGIME_PROJECTOR_CONTRACT_VERSION,
     routingContractVersion: REGIME_ROUTING_CONTRACT_VERSION,
+    storyDomainContractVersion: STORY_DOMAIN_CONTRACT_VERSION,
     storyVersions: latest.map((version) => ({
       storyId: version.story_id,
       versionId: version.id,
@@ -312,6 +328,58 @@ export function materialProjectionSignature(regime: ProjectedRegime) {
       }))
       .sort((left, right) => left.key.localeCompare(right.key)),
   };
+}
+
+function partitionStoriesByMarketDomain(stories: Story[]) {
+  const admissible: Story[] = [];
+  const quarantined: Array<{
+    story: Story;
+    reason: ReturnType<typeof evaluateExistingStoryMarketDomain>["reason"];
+    marketSignals: string[];
+    processSignals: string[];
+  }> = [];
+
+  for (const story of stories) {
+    const result = evaluateExistingStoryMarketDomain({
+      title: story.title,
+      thesis: story.thesis,
+      marketQuestion: story.market_question,
+      dominantNarrative: story.dominant_narrative,
+      bestExplanation: story.best_explanation,
+      articleAngle: story.article_angle,
+      assets: story.assets || [],
+    });
+    if (result.admissible) {
+      admissible.push(story);
+    } else {
+      quarantined.push({
+        story,
+        reason: result.reason,
+        marketSignals: result.marketSignals,
+        processSignals: result.processSignals,
+      });
+    }
+  }
+
+  return { admissible, quarantined };
+}
+
+async function reconcileStoryDomainDebt(input: {
+  client: SupabaseClient;
+  projectionRunId: string;
+  evaluatedStories: Story[];
+  admissibleStories: Story[];
+}) {
+  const { data, error } = await input.client.rpc("sync_story_domain_debt_v1", {
+    p_projection_run_id: input.projectionRunId,
+    p_evaluated_story_ids: input.evaluatedStories.map((story) => story.id),
+    p_admissible_story_ids: input.admissibleStories.map((story) => story.id),
+  });
+  if (error) throw new Error(`Story-domain debt sync failed: ${error.message}`);
+
+  const domainDebt = ((data || []) as StoryDomainDebtSyncRow[])[0];
+  if (!domainDebt) throw new Error("Story-domain debt sync returned no ownership result.");
+  return domainDebt;
 }
 
 function storyRoutes(regimes: ProjectedRegime[]) {
@@ -582,6 +650,7 @@ export async function persistRegimeShadowProjection(input: {
 
   const client = input.client ?? createSupabaseAdminClient();
   const source = await loadProjectionInput(client);
+  const storyDomain = partitionStoriesByMarketDomain(source.stories);
   const inputManifest = buildInputManifest(source);
   const inputHash = hash(inputManifest);
   const runKey = `regime-shadow:${inputHash.slice(0, 40)}`;
@@ -595,17 +664,28 @@ export async function persistRegimeShadowProjection(input: {
   });
 
   if (begun.reused) {
+    const domainDebt = await reconcileStoryDomainDebt({
+      client,
+      projectionRunId: begun.row.id,
+      evaluatedStories: source.stories,
+      admissibleStories: storyDomain.admissible,
+    });
     const routedStoryIds = await loadPersistedRoutedStoryIds(
       client,
-      source.stories.map((story) => story.id),
+      storyDomain.admissible.map((story) => story.id),
     );
     const routingDebt = await reconcileRegimeRoutingDebt({
       client,
       projectionRunId: begun.row.id,
-      stories: source.stories,
+      stories: storyDomain.admissible,
       routedStoryIds,
     });
     const warnings: string[] = [];
+    if (domainDebt.stale) {
+      warnings.push("Reused Regime projection did not reconcile Story-domain debt because a newer shadow run owns governance state.");
+    } else if (domainDebt.active_count > 0) {
+      warnings.push(`${domainDebt.active_count} active Story domain quarantine item(s) remain outside the market routing universe; canonical Story history was preserved.`);
+    }
     if (routingDebt.stale) {
       warnings.push("Reused Regime projection did not reconcile routing debt because a newer shadow run owns routing state.");
     } else if (routingDebt.active_count > 0) {
@@ -630,7 +710,7 @@ export async function persistRegimeShadowProjection(input: {
 
   try {
     const regimes = buildRegimeProjection({
-      stories: source.stories,
+      stories: storyDomain.admissible,
       versions: source.versions,
       events: source.events,
       newsThreads: source.newsThreads,
@@ -652,6 +732,30 @@ export async function persistRegimeShadowProjection(input: {
     }
 
     const warnings: string[] = [];
+    const domainDebt = await reconcileStoryDomainDebt({
+      client,
+      projectionRunId: begun.row.id,
+      evaluatedStories: source.stories,
+      admissibleStories: storyDomain.admissible,
+    });
+    if (domainDebt.stale) {
+      warnings.push("Stale Regime shadow worker stopped before Story-domain quarantine persistence because a newer shadow run owns governance state.");
+      await completeProjectionRun(client, begun.row.id, [], warnings);
+      return {
+        enabled: true,
+        reused: false,
+        runId: begun.row.id,
+        runKey,
+        inputHash,
+        projectedRegimes: 0,
+        versionIds: [],
+        warnings,
+      };
+    }
+    if (domainDebt.active_count > 0) {
+      warnings.push(`${domainDebt.active_count} active Story domain quarantine item(s) remain outside the market routing universe; canonical Story history was preserved.`);
+    }
+
     const links = storyRoutes(regimes);
     const { error: linkError } = await client.rpc("sync_market_regime_story_links_v1", {
       p_projection_run_id: begun.row.id,
@@ -663,7 +767,7 @@ export async function persistRegimeShadowProjection(input: {
     const routingDebt = await reconcileRegimeRoutingDebt({
       client,
       projectionRunId: begun.row.id,
-      stories: source.stories,
+      stories: storyDomain.admissible,
       routedStoryIds,
     });
 
@@ -816,7 +920,7 @@ export async function getRegimeShadowHealth(
 ): Promise<RegimeShadowHealth> {
   try {
     const db = client ?? createSupabaseAdminClient();
-    const [runResult, currentResult, routingDebtResult] = await Promise.all([
+    const [runResult, currentResult, routingDebtResult, domainDebtResult] = await Promise.all([
       db
         .from("market_regime_projection_runs")
         .select("id,status,input_hash,contract_version,completed_at")
@@ -835,12 +939,20 @@ export async function getRegimeShadowHealth(
         .like("debt_key", "regime-routing:%")
         .eq("metadata->>kind", "regime_routing_debt")
         .order("opened_at", { ascending: true }),
+      db
+        .from("research_debt")
+        .select("story_id,severity,opened_at")
+        .eq("status", "open")
+        .like("debt_key", "story-domain:%")
+        .eq("metadata->>kind", "story_domain_debt")
+        .order("opened_at", { ascending: true }),
     ]);
 
-    if (runResult.error || currentResult.error || routingDebtResult.error) {
+    if (runResult.error || currentResult.error || routingDebtResult.error || domainDebtResult.error) {
       const message = runResult.error?.message
         || currentResult.error?.message
         || routingDebtResult.error?.message
+        || domainDebtResult.error?.message
         || "Regime persistence unavailable.";
       return {
         available: false,
@@ -856,6 +968,10 @@ export async function getRegimeShadowHealth(
         highSeverityUnassignedStoryCount: 0,
         oldestUnassignedOpenedAt: null,
         oldestUnassignedAgeMinutes: null,
+        quarantinedStoryCount: 0,
+        highSeverityQuarantinedStoryCount: 0,
+        oldestQuarantinedOpenedAt: null,
+        oldestQuarantinedAgeMinutes: null,
         warning: message,
       };
     }
@@ -869,6 +985,11 @@ export async function getRegimeShadowHealth(
     const oldestUnassignedOpenedAt = routingDebt[0]?.opened_at || null;
     const oldestUnassignedAgeMinutes = oldestUnassignedOpenedAt && Number.isFinite(Date.parse(oldestUnassignedOpenedAt))
       ? Math.max(0, Math.round((Date.now() - Date.parse(oldestUnassignedOpenedAt)) / 60_000))
+      : null;
+    const domainDebt = domainDebtResult.data || [];
+    const oldestQuarantinedOpenedAt = domainDebt[0]?.opened_at || null;
+    const oldestQuarantinedAgeMinutes = oldestQuarantinedOpenedAt && Number.isFinite(Date.parse(oldestQuarantinedOpenedAt))
+      ? Math.max(0, Math.round((Date.now() - Date.parse(oldestQuarantinedOpenedAt)) / 60_000))
       : null;
 
     return {
@@ -885,6 +1006,10 @@ export async function getRegimeShadowHealth(
       highSeverityUnassignedStoryCount: routingDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
       oldestUnassignedOpenedAt,
       oldestUnassignedAgeMinutes,
+      quarantinedStoryCount: domainDebt.length,
+      highSeverityQuarantinedStoryCount: domainDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
+      oldestQuarantinedOpenedAt,
+      oldestQuarantinedAgeMinutes,
       warning: null,
     };
   } catch (error) {
@@ -902,6 +1027,10 @@ export async function getRegimeShadowHealth(
       highSeverityUnassignedStoryCount: 0,
       oldestUnassignedOpenedAt: null,
       oldestUnassignedAgeMinutes: null,
+      quarantinedStoryCount: 0,
+      highSeverityQuarantinedStoryCount: 0,
+      oldestQuarantinedOpenedAt: null,
+      oldestQuarantinedAgeMinutes: null,
       warning: error instanceof Error ? error.message : "Regime shadow health unavailable.",
     };
   }
