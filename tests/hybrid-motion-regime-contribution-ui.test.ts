@@ -30,6 +30,13 @@ test("Hybrid keeps Motion primary while showing exact Dossier regime contributio
   assert.match(motion, /MOTION ONLY/);
   assert.match(motion, /MOTION HYPOTHESIS/);
   assert.match(motion, /current canonical Dossier has not/);
+  assert.match(motion, /buildMarketMotionRegimeRollup/);
+  assert.match(motion, /DOSSIER → REGIME ROLL-UP/);
+  assert.match(motion, /DIRECT REGIME ROUTE/);
+  assert.match(motion, /STORY READ-THROUGH/);
+  assert.match(motion, /does not authorise Regime mutation/);
+  assert.match(motion, /item\.regimeContributionState !== "ACCEPT"/);
+  assert.match(motion, /item\.regimeContributionMode !== "DIRECT"/);
 
   assert.doesNotMatch(
     [page, motion].join("\n"),
