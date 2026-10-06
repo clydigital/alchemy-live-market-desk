@@ -49,6 +49,9 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
     dossier?.watchNext ?? [],
     dossier?.whatMattersNow.stories ?? [],
   );
+  const dossierReadThrough = (dossier?.motionAdjudicationContext ?? []).filter(
+    (item) => item.regimeSlug === regime.slug && !item.directRegimeRoute,
+  );
   const rateEducation = buildRateEducationalProjection({
     regime,
     explanation,
@@ -70,6 +73,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         explanation={explanation}
         liveReasoning={liveReasoning}
         investigations={investigations}
+        dossierReadThrough={dossierReadThrough}
         rateEducation={rateEducation}
       />
     </LiveDeskShell>

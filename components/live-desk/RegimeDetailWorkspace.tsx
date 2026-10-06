@@ -9,6 +9,7 @@ import RateRegimeEducationalShell from "./RateRegimeEducationalShell";
 
  import { buildGlobalRatesFxBridge } from "@/lib/global-rates-fx-bridge";
 import { buildRegimeDivergenceLabCases } from "@/lib/regime-divergence-lab";
+import type { DossierPresentationMotionAdjudicationContext } from "@/lib/dossier-v2/presentation-adapter";
 import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
@@ -38,6 +39,7 @@ export default function RegimeDetailWorkspace({
   explanation,
   liveReasoning,
   investigations,
+  dossierReadThrough,
   rateEducation,
 }: {
   regime: ProjectedRegime;
@@ -46,6 +48,7 @@ export default function RegimeDetailWorkspace({
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
   investigations: RoutedDossierInvestigation[];
+  dossierReadThrough: DossierPresentationMotionAdjudicationContext[];
   rateEducation: RateEducationalProjection | null;
 }) {
   const defaultKey = regime.subgroups.some((item) => item.key === initialSubgroup)
@@ -269,6 +272,48 @@ export default function RegimeDetailWorkspace({
 
       {view === "live" ? (
         <>
+          {dossierReadThrough.length ? (
+            <section className={styles.section} aria-label="Story-routed Dossier Regime read-through">
+              <header className={styles.sectionHead}>
+                <div>
+                  <span className={styles.kicker}>SYSTEM 2 · STORY-ROUTED READ-THROUGH</span>
+                  <h2>Dossier judgements that inform this Regime without routing into it</h2>
+                </div>
+                <small>Presentation-only · excluded from Regime projection</small>
+              </header>
+              <p className={styles.why}>
+                These ACCEPT/REFINE judgements are backed by canonical evidence, but they route to
+                a Story rather than directly to this Regime. They stay visible here so the Hybrid
+                analytical trail is not lost. They do not change Regime state, confidence, as-of,
+                latest contribution or subgroup state.
+              </p>
+              <div className={styles.liveGrid}>
+                {dossierReadThrough.map((item) => (
+                  <article className={styles.latest} key={item.motionId}>
+                    <small>
+                      SYSTEM 2 · {item.decision} · STORY READ-THROUGH
+                    </small>
+                    <strong>{item.conclusion}</strong>
+                    <p className={styles.summary}>{item.rationale}</p>
+                    <div className={styles.heroMeta}>
+                      <span>{displayDate(item.observedAt)}</span>
+                      <span>{item.canonicalEvidenceRefs.length} canonical evidence ref{item.canonicalEvidenceRefs.length === 1 ? "" : "s"}</span>
+                      <span>Non-state Regime read-through</span>
+                    </div>
+                    {item.nextTest ? (
+                      <p className={styles.summary}><strong>Next test:</strong> {item.nextTest}</p>
+                    ) : null}
+                    <div className={styles.linkRow}>
+                      <Link href={`/hybrid-output?regime=${encodeURIComponent(item.regimeSlug)}&motion=${encodeURIComponent(item.motionId)}#presenter-reasoning`}>
+                        Open exact Hybrid judgement →
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {dossierContext.length ? (
             <section className={styles.section} aria-label="Dossier System 2 Regime context">
               <header className={styles.sectionHead}>
