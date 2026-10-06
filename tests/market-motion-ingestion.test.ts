@@ -520,10 +520,10 @@ function motionRecordFromCandidate(
     relevance: candidate.relevance || 0,
     novelty: candidate.novelty || 0,
     occurred_at: candidate.occurredAt,
-    observed_at: candidate.observedAt,
+    observed_at: candidate.observedAt || candidate.occurredAt,
     expires_at: candidate.expiresAt || "2026-10-03T02:00:00.000Z",
     metadata: candidate.metadata || {},
-    created_at: candidate.observedAt,
+    created_at: candidate.observedAt || candidate.occurredAt,
     ...overrides,
   };
 }
@@ -596,12 +596,13 @@ test("below-Motion-threshold reporting can corroborate an existing event without
   assert.equal(updates[0].motionKey, legacy.motion_key);
   assert.equal(updates[0].sourceKind, "creator");
   assert.equal(updates[0].lifecycleState, "MOTION");
-  assert.equal(updates[0].metadata?.corroborationPolicy, "exact-event-identity/v1");
+  const updateMetadata = updates[0].metadata as Record<string, unknown>;
+  assert.equal(updateMetadata.corroborationPolicy, "exact-event-identity/v1");
   assert.deepEqual(
-    [...((updates[0].metadata?.originItemKeys as string[]) || [])].sort(),
+    [...((updateMetadata.originItemKeys as string[]) || [])].sort(),
     ["reuters:rates-stress", "youtube:stockedup:anthropic001"].sort(),
   );
-  const refs = updates[0].metadata?.sourceRefs as Array<{ sourceKind: string; sourceItemKey: string | null }>;
+  const refs = updateMetadata.sourceRefs as Array<{ sourceKind: string; sourceItemKey: string | null }>;
   assert.ok(refs.some((ref) => ref.sourceKind === "creator"));
   assert.ok(refs.some((ref) => ref.sourceItemKey === "reuters:rates-stress"));
 });
