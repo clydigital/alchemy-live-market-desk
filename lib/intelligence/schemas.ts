@@ -5,6 +5,8 @@ import { STABLE_REQUIREMENT_IDS } from "./research-state.ts";
 
 export type EvidencePackItem = {
   id: string;
+  /** Canonical packet-facing evidence identity, when persisted separately from the row UUID. */
+  externalEvidenceId?: string | null;
   claim: string;
   summary: string | null;
   evidenceClass: string;
