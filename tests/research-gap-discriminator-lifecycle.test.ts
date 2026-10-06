@@ -83,6 +83,36 @@ test("queued carry-forward uses the latest occurrence when requeue cleared the w
   assert.equal(result.lifecycle.activeDiscriminator, "test second mechanism");
 });
 
+test("occurrence fallback preserves monotonic progress within the latest plan signature", () => {
+  const source = selectResearchGapDiscriminatorLifecycleSource({
+    existingResearchPlan: null,
+    occurrenceSnapshots: [
+      frozen("plan-a", 0),
+      frozen("plan-a", 1),
+      frozen("plan-a", 0),
+    ],
+  });
+
+  assert.equal(
+    researchGapDiscriminatorLifecycleFromPlan(source)?.activeIndex,
+    1,
+  );
+});
+
+test("a newer changed plan may legitimately restart at discriminator zero", () => {
+  const source = selectResearchGapDiscriminatorLifecycleSource({
+    existingResearchPlan: null,
+    occurrenceSnapshots: [
+      frozen("plan-b", 0, ["new first", "new second"]),
+      frozen("plan-a", 1),
+    ],
+  });
+
+  const lifecycle = researchGapDiscriminatorLifecycleFromPlan(source);
+  assert.equal(lifecycle?.planSignature, "plan-b");
+  assert.equal(lifecycle?.activeIndex, 0);
+});
+
 test("active worker plan remains authoritative over an older occurrence snapshot", () => {
   const workerPlan = frozen("plan-a", 1);
   const source = selectResearchGapDiscriminatorLifecycleSource({
