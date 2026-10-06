@@ -1,14 +1,16 @@
 import { assessRegimeInterpretationFreshness } from "./regime-freshness.ts";
-import type { RegimeLiveStoryReasoning } from "./regime-live-reasoning.ts";
+import type { RegimeStoryInterpretationClock } from "./regime-live-reasoning.ts";
 import type { ProjectedRegime } from "./regimes.ts";
 
 export type RegimeOverviewTimingHealth = {
-  status: "current" | "pending" | "no_system1" | "no_system2";
+  status: "current" | "pending" | "partial_coverage" | "no_system1" | "no_system2";
   latestTelemetryAt: string | null;
   latestTelemetryAgeMinutes: number | null;
   latestInterpretationAt: string | null;
   latestInterpretationAgeMinutes: number | null;
   telemetryBearingSubgroups: number;
+  storyBackedTelemetrySubgroups: number;
+  system1OnlySubgroups: number;
   pendingInterpretationSubgroups: number;
   noTimestampedInterpretationSubgroups: number;
   oldestPendingLagMinutes: number | null;
@@ -30,23 +32,34 @@ function ageMinutes(value: string | null, nowMs: number) {
 }
 
 /**
- * Read-only overview health. It reuses the same subgroup freshness comparison
- * as Regime LIVE and never mutates projection, Story or hypothesis state.
+ * Read-only overview health.
+ *
+ * System 2 freshness is the latest accepted Story evaluation clock, not merely
+ * the last time the persisted hypothesis wording changed. An unchanged Story
+ * reassessment is still a real System 2 read and advances last_evaluated_at.
+ *
+ * Telemetry-only subgroups are reported as coverage gaps rather than being
+ * mislabelled as stale interpretation. With no durable Story identity there is
+ * nothing exact to re-evaluate, and the Regime layer must not manufacture one.
  */
 export function buildRegimeOverviewTimingHealth(input: {
   regimes: ProjectedRegime[];
-  liveReasoning: RegimeLiveStoryReasoning[];
+  interpretationClocks: RegimeStoryInterpretationClock[];
   now?: string;
 }): RegimeOverviewTimingHealth {
   const nowMs = validTimestamp(input.now) ? Date.parse(input.now!) : Date.now();
-  const reasoningByStory = new Map(input.liveReasoning.map((item) => [item.storyId, item]));
+  const interpretationByStory = new Map(
+    input.interpretationClocks.map((item) => [item.storyId, item]),
+  );
 
   const telemetryAt = input.regimes.flatMap((regime) =>
     regime.subgroups.flatMap((subgroup) => subgroup.telemetry.map((item) => item.asOf))
   );
-  const interpretationAt = input.liveReasoning.map((item) => item.updatedAt);
+  const interpretationAt = input.interpretationClocks.map((item) => item.evaluatedAt);
 
   let telemetryBearingSubgroups = 0;
+  let storyBackedTelemetrySubgroups = 0;
+  let system1OnlySubgroups = 0;
   let pendingInterpretationSubgroups = 0;
   let noTimestampedInterpretationSubgroups = 0;
   let oldestPendingLagMinutes: number | null = null;
@@ -57,9 +70,15 @@ export function buildRegimeOverviewTimingHealth(input: {
       if (!subgroupTelemetry.some(validTimestamp)) continue;
       telemetryBearingSubgroups += 1;
 
+      if (!subgroup.durableStories.length) {
+        system1OnlySubgroups += 1;
+        continue;
+      }
+      storyBackedTelemetrySubgroups += 1;
+
       const subgroupInterpretation = subgroup.durableStories.flatMap((story) => {
-        const reasoning = reasoningByStory.get(story.id);
-        return reasoning ? [reasoning.updatedAt] : [];
+        const clock = interpretationByStory.get(story.id);
+        return clock ? [clock.evaluatedAt] : [];
       });
       const freshness = assessRegimeInterpretationFreshness({
         telemetryAt: subgroupTelemetry,
@@ -83,11 +102,13 @@ export function buildRegimeOverviewTimingHealth(input: {
 
   const status: RegimeOverviewTimingHealth["status"] = !latestTelemetryAt
     ? "no_system1"
-    : !latestInterpretationAt
+    : storyBackedTelemetrySubgroups > 0 && !latestInterpretationAt
       ? "no_system2"
       : pendingInterpretationSubgroups > 0
         ? "pending"
-        : "current";
+        : system1OnlySubgroups > 0
+          ? "partial_coverage"
+          : "current";
 
   return {
     status,
@@ -96,6 +117,8 @@ export function buildRegimeOverviewTimingHealth(input: {
     latestInterpretationAt,
     latestInterpretationAgeMinutes: ageMinutes(latestInterpretationAt, nowMs),
     telemetryBearingSubgroups,
+    storyBackedTelemetrySubgroups,
+    system1OnlySubgroups,
     pendingInterpretationSubgroups,
     noTimestampedInterpretationSubgroups,
     oldestPendingLagMinutes,
