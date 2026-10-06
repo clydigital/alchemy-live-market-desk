@@ -172,6 +172,20 @@ test("AI control and private-capital Stories route into dedicated AI Capital Cyc
   assert.ok(privateCapital.some((route) => route.regime === "us-china-ai" && route.subgroup === "private-capital" && route.role === "core"));
 });
 
+test("stable-value market structure routes into Cost of Capital credit financing", () => {
+  const routes = routeStoryToRegimes(story({
+    slug: "stable-value-market-contractual-structure-limits-industry-wide-stress",
+    title: "Stable-value market structure limits broad funding stress",
+    thesis: "Multiple wrap providers, separate accounts and crediting-rate mechanics reduce immediate participant liquidity pressure while counterparty and plan-level stress remain plausible.",
+    market_question: "Do wrap-provider and insurance-counterparty mitigants reduce stable-value funding stress?",
+    assets: [],
+  }));
+
+  assert.deepEqual(routes.map((route) => [route.regime, route.subgroup, route.role]), [
+    ["global-cost-of-capital", "credit-financing", "core"],
+  ]);
+});
+
 test("credit and sovereign transmission Stories keep exact durable routing", () => {
   const credit = routeStoryToRegimes(story({ slug: "global-credit-transmission", title: "Global credit transmission" }));
   assert.ok(credit.some((route) => route.regime === "global-cost-of-capital" && route.subgroup === "credit-financing" && route.role === "core"));
