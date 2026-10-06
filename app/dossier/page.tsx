@@ -10,9 +10,11 @@ import {
   getDossierV2HistoryIndex,
   getDossierV2PresentationSelection,
   getDossierV2PresentationSelectionById,
+  selectDossierV2Presentation,
   selectExactDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
+import { withinTimeout } from "@/lib/async-timeout";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention } from "@/lib/market-motion";
 import { selectPromotedMarketMotionForDossier } from "@/lib/market-motion-promotion";
@@ -21,6 +23,9 @@ import { getRegimeDefinition } from "@/lib/regimes";
 import styles from "./dossier.module.css";
 
 export const dynamic = "force-dynamic";
+
+const DOSSIER_CORE_READ_TIMEOUT_MS = 5_000;
+const DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800;
 
 function noticeTone(tone: "ready" | "warn" | "error"): "ready" | "warn" | "risk" {
   return tone === "ready" ? "ready" : tone === "error" ? "risk" : "warn";
@@ -81,15 +86,23 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
   const query = await searchParams;
   const rawRequestedId = Array.isArray(query.id) ? query.id[0] : query.id;
   const requestedId = rawRequestedId?.trim() || null;
-  const selectionPromise = requestedId
+  const selectionWork = () => requestedId
     ? isValidUuid(requestedId)
       ? getDossierV2PresentationSelectionById(requestedId)
       : Promise.resolve(selectExactDossierV2Presentation(null, null, requestedId))
     : getDossierV2PresentationSelection();
 
   const [selection, historyIndex] = await Promise.all([
-    selectionPromise,
-    getDossierV2HistoryIndex(18).catch(() => ({
+    withinTimeout(
+      "Dossier presentation",
+      selectionWork,
+      DOSSIER_CORE_READ_TIMEOUT_MS,
+    ).catch(() => selectDossierV2Presentation([])),
+    withinTimeout(
+      "Dossier history",
+      () => getDossierV2HistoryIndex(18),
+      DOSSIER_OPTIONAL_READ_TIMEOUT_MS,
+    ).catch(() => ({
       contractVersion: "dossier-history/1" as const,
       items: [],
       omittedInvalidCount: 0,
@@ -99,8 +112,16 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
   const [monitor, motionRecords] = requestedId
     ? [null, []]
     : await Promise.all([
-        getMarketMonitor().catch(() => null),
-        getCurrentMarketMotion({ limit: 60 }).catch(() => []),
+        withinTimeout(
+          "Dossier market monitor",
+          getMarketMonitor,
+          DOSSIER_OPTIONAL_READ_TIMEOUT_MS,
+        ).catch(() => null),
+        withinTimeout(
+          "Dossier Market Motion",
+          () => getCurrentMarketMotion({ limit: 60 }),
+          DOSSIER_OPTIONAL_READ_TIMEOUT_MS,
+        ).catch(() => []),
       ]);
   const dossier = selection.presentation;
   const dailyAssetState = monitor
