@@ -1363,11 +1363,35 @@ async function persistExistingMotionCorroboration(input: {
     return [] as string[];
   }
 
+  const rows = (data || []) as MarketMotionRecord[];
   const updates = buildExistingMotionCorroborationUpdates(
-    (data || []) as MarketMotionRecord[],
+    rows,
     input.corroborators,
     { now: input.now, researchRunId: input.researchRunId },
   );
+  const corroboratorIdentities = [...new Set(
+    input.corroborators
+      .map((candidate) => eventMotionKey(candidate))
+      .filter((identity) => identity.startsWith("event:")),
+  )].sort();
+  const currentMotionIdentities = [...new Set(
+    rows
+      .filter((row) => row.lifecycle_state === "MOTION")
+      .map((row) => eventMotionKey(recordAsInput(row)))
+      .filter((identity) => identity.startsWith("event:")),
+  )].sort();
+  const currentIdentitySet = new Set(currentMotionIdentities);
+  const matchedIdentities = corroboratorIdentities.filter((identity) => currentIdentitySet.has(identity));
+  console.info(JSON.stringify({
+    event: "market_motion_corroboration_replay",
+    researchRunId: input.researchRunId,
+    corroborators: input.corroborators.length,
+    corroboratorIdentities: corroboratorIdentities.slice(0, 24),
+    currentMotionRows: rows.length,
+    currentMotionIdentities: currentMotionIdentities.slice(0, 48),
+    matchedIdentities: matchedIdentities.slice(0, 24),
+    updates: updates.length,
+  }));
   const motionIds: string[] = [];
 
   for (const candidate of updates) {
