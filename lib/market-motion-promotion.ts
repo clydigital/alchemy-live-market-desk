@@ -152,6 +152,54 @@ export function selectPromotableMarketMotion(
     .slice(0, MARKET_MOTION_PROMOTION_LIMIT);
 }
 
+function selectPromotedPacketRefRepairs(
+  items: MarketMotionRecord[],
+  evidence: EvidencePackItem[],
+  now = new Date(),
+): MarketMotionPromotionCandidate[] {
+  return items
+    .filter((item) => marketMotionEffectiveState(item, now) === "PROMOTED")
+    .filter(promotableVerification)
+    .filter((item) => {
+      const packetRef = typeof item.metadata?.promotionEvidencePacketRef === "string"
+        ? item.metadata.promotionEvidencePacketRef.trim()
+        : "";
+      return !packetRef;
+    })
+    .flatMap((motion): MarketMotionPromotionCandidate[] => {
+      const promotionEvidenceId = typeof motion.metadata?.promotionEvidenceId === "string"
+        ? motion.metadata.promotionEvidenceId.trim()
+        : "";
+      if (!promotionEvidenceId) return [];
+
+      const routingClass = deriveMarketMotionRoutingClass({
+        primaryStoryId: motion.primary_story_id,
+        primaryRegimeSlug: motion.primary_regime_slug,
+        nextTest: motion.next_test,
+      });
+      if (!routingClass) return [];
+
+      const corroborators = eligibleCorroborators(motion, evidence);
+      const selectedEvidence = corroborators.find((item) => item.id === promotionEvidenceId);
+      if (!selectedEvidence) return [];
+
+      const bounded = corroborators.slice(0, MARKET_MOTION_PROMOTION_EVIDENCE_LIMIT);
+      return [{
+        motion,
+        routingClass,
+        selectedEvidence,
+        matchingEvidenceIds: bounded.map((item) => item.id),
+        matchingOriginItemKeys: [...new Set(
+          bounded
+            .map(evidenceItemKey)
+            .filter((itemKey): itemKey is string => Boolean(itemKey)),
+        )],
+        evidenceWeight: sourceVerificationWeight(selectedEvidence),
+      }];
+    })
+    .slice(0, MARKET_MOTION_PROMOTION_LIMIT);
+}
+
 export function selectPromotedMarketMotion(
   items: MarketMotionRecord[],
   now = new Date(),
@@ -258,6 +306,8 @@ export async function promoteMarketMotionFromCanonicalEvidence(input: {
   }
 
   const rows = (data || []) as MarketMotionRecord[];
+  const packetRefRepairs = selectPromotedPacketRefRepairs(rows, input.evidence, input.now);
+  const repairMotionIds = new Set(packetRefRepairs.map((candidate) => candidate.motion.id));
   const skippedAlreadyPromoted = rows.filter((item) => (
     deriveMarketMotionRoutingClass({
       primaryStoryId: item.primary_story_id,
@@ -265,6 +315,7 @@ export async function promoteMarketMotionFromCanonicalEvidence(input: {
       nextTest: item.next_test,
     }) !== null
     && marketMotionEffectiveState(item, input.now) === "PROMOTED"
+    && !repairMotionIds.has(item.id)
   )).length;
   const eligible = selectPromotableMarketMotion(rows, input.evidence, input.now);
   const warnings: string[] = [];
@@ -289,10 +340,39 @@ export async function promoteMarketMotionFromCanonicalEvidence(input: {
     }
   }
 
+  const newlyPromotedCount = motionIds.length;
+  let repairedPacketRefs = 0;
+
+  for (const candidate of packetRefRepairs) {
+    try {
+      const repaired = await persistMarketMotion(
+        marketMotionPromotionInput(candidate, {
+          researchRunId: input.researchRunId,
+          engineRunId: input.engineRunId,
+        }),
+        db,
+      );
+      motionIds.push(repaired.id);
+      repairedPacketRefs += 1;
+    } catch (error) {
+      warnings.push(
+        error instanceof Error
+          ? error.message
+          : `Market Motion packet-reference repair failed for ${candidate.motion.motion_key}.`,
+      );
+    }
+  }
+
+  if (repairedPacketRefs > 0) {
+    warnings.push(
+      `Repaired canonical Dossier Evidence packet reference on ${repairedPacketRefs} already-promoted Motion item(s).`,
+    );
+  }
+
   return {
     considered: rows.length,
     eligible: eligible.length,
-    promoted: motionIds.length,
+    promoted: newlyPromotedCount,
     skippedAlreadyPromoted,
     motionIds,
     warnings,
