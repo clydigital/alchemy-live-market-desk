@@ -136,9 +136,9 @@ const RATES_LED_RESEARCH_BUNDLES = [
   },
   {
     action:
-      "Test rates-shock transmission through dollar-liquidity plumbing (secured funding, front-end bills, USD), HY/IG credit, market breadth and MOVE/VIX volatility, while tracking whether narrow AI/semiconductor leadership survives.",
+      "Check whether higher yields are starting to hit dollar funding, HY/IG credit, market breadth and equity volatility, while tracking whether AI/semiconductor strength can keep holding on earnings and growth.",
     reason:
-      "Distinguishes a duration/rates shock with incomplete transmission from broader dollar-liquidity tightening or classic growth-scare risk-off.",
+      "Shows whether the pressure from higher yields is spreading across markets or whether credit remains calm and AI/semiconductors can keep carrying equities.",
   },
   {
     action:
@@ -185,7 +185,7 @@ function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1): v
       ...durationInvestigation.missing_evidence,
       "Bund, gilt and JGB long-end confirmation for any global-duration label",
       "gold versus real-yield and USD cross-check",
-      "HY/IG credit, breadth and MOVE/VIX transmission confirmation",
+      "HY/IG credit spreads, breadth and MOVE/VIX confirmation of whether higher yields are spreading",
     ].filter((item, index, items) => items.indexOf(item) === index);
     durationInvestigation.research_next = appendResearchDetail(
       durationInvestigation.research_next,
