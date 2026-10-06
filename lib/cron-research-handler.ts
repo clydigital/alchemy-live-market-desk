@@ -249,13 +249,17 @@ export async function handleScheduledResearchWithDependencies(
     // Daily Investment Brief remains a separate research-context collector.
     // Canonical Dossier macro/rates state comes from FRED and official providers,
     // so this collector never gates unrelated evidence or Story work.
-    const [input, macroCapture, officialActuals] = await Promise.all([
+    const macroCapturePromise = (dependencies.captureMacroContext ?? captureMacroContextSnapshot)({ now });
+    const officialActuals = await safeOfficialActualIngestion(
+      dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
+      now,
+    );
+    const [input, macroCapture] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
       }),
-      (dependencies.captureMacroContext ?? captureMacroContextSnapshot)({ now }),
-      safeOfficialActualIngestion(dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals, now),
+      macroCapturePromise,
     ]);
 
     let macroLineagePersisted = false;
