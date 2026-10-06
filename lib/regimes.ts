@@ -291,14 +291,15 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(credit|spread|refinanc|funding|bond issuance|project finance|leverage|debt-funded|cmbs|cre|commercial real estate|private credit|special servicing|non[- ]accrual|redemption|gate|bank provision|forced sell)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "housing", pattern: /\b(housing|mortgage|homebuilder|home sales|affordability)\b/i, weight: 5 },
 
-  { regime: "us-china-ai", subgroup: "models", pattern: /\b(deepseek|qwen|glm|minimax|model price|token price|open[- ]source ai|ai model|inference price)\b/i, weight: 6 },
+  { regime: "us-china-ai", subgroup: "models", pattern: /\b(openai|chatgpt|gpt[- ]?\d+|gemini|claude|deepseek|qwen|glm|minimax|frontier model|model release|model launch|model deployment|model price|token price|open[- ]source ai|ai model|inference price)\b/i, weight: 6 },
   { regime: "us-china-ai", subgroup: "chips", pattern: /\b(nvidia|nvda|ascend|accelerator|gpu|smic|ai chip|semiconductor)\b/i, weight: 5 },
   { regime: "us-china-ai", subgroup: "memory", pattern: /\b(hbm|high bandwidth memory|dram|cxmt|micron|sk hynix|memory chip)\b/i, weight: 6 },
+  { regime: "us-china-ai", subgroup: "cloud-inference", pattern: /\b(compute demand|compute usage|api demand|api usage|paid api|enterprise ai demand|enterprise ai contract|hyperscaler procurement)\b/i, weight: 7 },
   { regime: "us-china-ai", subgroup: "cloud-inference", pattern: /\b(inference|cloud|api price|token cost|ai usage|ai adoption)\b/i, weight: 4 },
   { regime: "us-china-ai", subgroup: "power", pattern: /\b(data cent(?:er|re)|power grid|electricity|cooling|ai infrastructure)\b/i, weight: 5 },
   { regime: "us-china-ai", subgroup: "financing", pattern: /\b(ai financ|ai capex|hyperscaler capex|ai debt|return on capital|roic|cash conversion|coreweave|oracle|anthropic|blue owl|beignet|spv|vendor financ|customer prepay|residual value guarantee|utilisation|coverage ratio)\b/i, weight: 7 },
   { regime: "us-china-ai", subgroup: "private-capital", pattern: /\b(private ai|private market|late[- ]stage|secondary market|tender offer|private valuation|down round|venture fund|employee liquidity|ai ipo|pre[- ]ipo)\b/i, weight: 7 },
-  { regime: "us-china-ai", subgroup: "control-governance", pattern: /\b(ai safety|frontier ai|agentic attack|ai agent incident|prompt injection|containment|sandbox escape|model escape|superintelligence|ai liability|ai insurance|training pause|release pause|deployment pause|ai governance)\b/i, weight: 8 },
+  { regime: "us-china-ai", subgroup: "control-governance", pattern: /\b(ai safety|frontier ai|agentic attack|ai agent incident|prompt injection|containment|sandbox escape|model escape|superintelligence|ai liability|ai insurance|training pause|release pause|deployment pause|restricted release|trusted tester|capability gate|safety gate|ai governance)\b/i, weight: 8 },
   { regime: "us-china-ai", subgroup: "policy", pattern: /\b(export control|chip ban|industrial policy|subsid|entity list|technology restriction)\b/i, weight: 5 },
 
   { regime: "energy-security-inflation", subgroup: "crude", pattern: /\b(wti|brent|crude|oil supply|opec|oil price)\b/i, weight: 5 },
