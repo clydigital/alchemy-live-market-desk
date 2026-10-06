@@ -4,6 +4,8 @@ import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/Live
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getRegimeShadowHealth } from "@/lib/regime-engine";
+import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
+import { buildRegimeOverviewTimingHealth } from "@/lib/regime-overview-timing-health";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { buildRegimeProjection } from "@/lib/regimes";
 
@@ -15,6 +17,10 @@ function formatAge(minutes: number | null) {
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return `${hours} hr`;
   return `${Math.floor(hours / 24)} days`;
+}
+
+function formatAgeAgo(minutes: number | null) {
+  return minutes === null ? "unavailable" : `${formatAge(minutes)} ago`;
 }
 
 export default async function RegimesPage() {
@@ -37,7 +43,9 @@ export default async function RegimesPage() {
   const mappedStoryIds = new Set(regimes.flatMap((regime) => regime.stories.map((story) => story.id)));
   const pendingNodes = regimes.flatMap((regime) => regime.subgroups.flatMap((subgroup) => subgroup.nodes))
     .filter((node) => node.state === "interpretation_pending").length;
-  const system1Subgroups = regimes.flatMap((regime) => regime.subgroups).filter((subgroup) => subgroup.telemetry.length).length;
+  const durableStoryIds = [...new Set(regimes.flatMap((regime) => regime.durableStories.map((story) => story.id)))];
+  const liveReasoning = await getRegimeLiveReasoning(durableStoryIds);
+  const timingHealth = buildRegimeOverviewTimingHealth({ regimes, liveReasoning });
 
   return (
     <LiveDeskShell
@@ -51,8 +59,9 @@ export default async function RegimesPage() {
           items={[
             { value: regimes.length, label: "Governed Regimes" },
             { value: mappedStoryIds.size, label: "Mapped Stories" },
-            { value: system1Subgroups, label: "System 1 subgroup sensors" },
-            { value: pendingNodes, label: "Observed · interpretation pending" },
+            { value: timingHealth.telemetryBearingSubgroups, label: "System 1 timestamped subgroups" },
+            { value: timingHealth.pendingInterpretationSubgroups, label: "Telemetry ahead of System 2" },
+            { value: pendingNodes, label: "Observed nodes · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
             { value: shadowHealth.unassignedStoryCount, label: "Unassigned active Stories" },
             { value: shadowHealth.quarantinedStoryCount, label: "Domain-quarantined Stories" },
@@ -79,6 +88,21 @@ export default async function RegimesPage() {
           detail={shadowHealth.available
             ? `${shadowHealth.currentProjectionCount}/${shadowHealth.expectedProjectionCount} persisted Regime projections · ${shadowHealth.contractVersion || "unknown contract"} · last completed ${shadowHealth.lagMinutes === null ? "time unavailable" : `${shadowHealth.lagMinutes} min ago`}. Shadow state is auditable but does not yet replace the live read model.`
             : `The persistence schema is deployed, but no shadow projector run has completed yet. ${shadowHealth.warning || "The next canonical Story or Dossier write will create the bootstrap projection."}`}
+        />
+
+        <DataState
+          state={timingHealth.status === "current" ? "ready" : "warn"}
+          title={timingHealth.status === "current" ? "Interpretation timing is current" : "Interpretation timing needs attention"}
+          detail={
+            `System 1 latest ${formatAgeAgo(timingHealth.latestTelemetryAgeMinutes)} · System 2 latest ${formatAgeAgo(timingHealth.latestInterpretationAgeMinutes)} · projector ${formatAgeAgo(shadowHealth.lagMinutes)}. `
+            + (timingHealth.status === "no_system1"
+              ? "No timestamped System 1 subgroup telemetry is available, so measured freshness cannot be claimed."
+              : timingHealth.status === "no_system2"
+                ? `${timingHealth.noTimestampedInterpretationSubgroups} telemetry-bearing subgroup${timingHealth.noTimestampedInterpretationSubgroups === 1 ? "" : "s"} have no timestamped canonical System 2 hypothesis.`
+                : timingHealth.pendingInterpretationSubgroups > 0
+                  ? `${timingHealth.pendingInterpretationSubgroups} telemetry-bearing subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest persisted System 2 read · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
+                  : "No timestamped System 1 subgroup is ahead of its latest persisted System 2 hypothesis.")
+          }
         />
 
         <DataState
