@@ -78,6 +78,7 @@ export type RegimeContributionNode = {
   storySlug: string | null;
   href: string | null;
   hybridHref: string | null;
+  motionId?: string | null;
 };
 
 export type RegimeTelemetryItem = {
@@ -585,6 +586,7 @@ function dossierRegimeContextNodes(
       storySlug: null,
       href: null,
       hybridHref: `/hybrid-output?regime=${encodeURIComponent(regimeSlug)}&motion=${encodeURIComponent(item.motionId)}#dossier-regime-context`,
+      motionId: item.motionId,
     }))
     .sort((left, right) =>
       Date.parse(right.timestamp || "") - Date.parse(left.timestamp || "")

@@ -289,7 +289,7 @@ export default function RegimeDetailWorkspace({
               </p>
               <div className={styles.liveGrid}>
                 {dossierReadThrough.map((item) => (
-                  <article className={styles.latest} key={item.motionId}>
+                  <article className={styles.latest} id={`dossier-story-readthrough-${item.motionId}`} key={item.motionId}>
                     <small>
                       SYSTEM 2 · {item.decision} · STORY READ-THROUGH
                     </small>
@@ -329,7 +329,11 @@ export default function RegimeDetailWorkspace({
               </p>
               <div className={styles.liveGrid}>
                 {dossierContext.map((node) => (
-                  <article className={styles.latest} key={node.id}>
+                  <article
+                    className={styles.latest}
+                    id={node.motionId ? `dossier-regime-context-${node.motionId}` : undefined}
+                    key={node.id}
+                  >
                     <small>
                       {node.verification === "dossier-system2:refine"
                         ? "SYSTEM 2 · REFINE"
