@@ -75,6 +75,7 @@ test("C1.5a2 projects exact Dossier Motion only into its frozen Regime as non-st
     storySlug: null,
     href: null,
     hybridHref: "/hybrid-output?regime=global-cost-of-capital&motion=motion-rates-1#dossier-regime-context",
+    motionId: "motion-rates-1",
   });
   assert.equal(rates.latestNode?.sourceKind, "dossier_motion");
   assert.equal(
