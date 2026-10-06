@@ -273,7 +273,7 @@ export default function RegimeDetailWorkspace({
       {view === "live" ? (
         <>
           {dossierReadThrough.length ? (
-            <section className={styles.section} aria-label="Story-routed Dossier Regime read-through">
+            <section className={styles.section} id="dossier-story-readthrough" aria-label="Story-routed Dossier Regime read-through">
               <header className={styles.sectionHead}>
                 <div>
                   <span className={styles.kicker}>SYSTEM 2 · STORY-ROUTED READ-THROUGH</span>
@@ -315,7 +315,7 @@ export default function RegimeDetailWorkspace({
           ) : null}
 
           {dossierContext.length ? (
-            <section className={styles.section} aria-label="Dossier System 2 Regime context">
+            <section className={styles.section} id="dossier-regime-context" aria-label="Dossier System 2 Regime context">
               <header className={styles.sectionHead}>
                 <div>
                   <span className={styles.kicker}>SYSTEM 2 · DOSSIER CONTEXT</span>
