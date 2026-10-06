@@ -26,6 +26,7 @@ import {
 import {
   executeResearchBrain,
   normalizeResearchBrainOutputReferences,
+  pinResearchBrainPersistentStoryIdentities,
   preservePriorInvestigationExpectedReactions,
   pruneInvalidStockRadarEvidenceReferences,
   produceDegradedOutput,
@@ -1722,6 +1723,58 @@ test("9. Model Orchestration: Single Provider Attempt per Pass (maxAttempts = 1)
   assert.equal(primaryCalls, 1);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.packet_id, packet.packet_id);
+});
+
+test("9A0. D1 exact persistent Story identity is pinned before validation without a repair pass", async () => {
+  const packet = createValidBasePacket();
+  const persistentStoryId = "11111111-1111-4111-8111-111111111111";
+  packet.persistent_story_bindings = [{
+    analytical_story_id: "story:fed_easing",
+    persistent_story_id: persistentStoryId,
+  }];
+
+  const output = createValidOutput(packet);
+  output.major_stories[0].persistent_story_id = null;
+
+  let calls = 0;
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      modelRunner: async (input) => {
+        calls++;
+        assert.equal(input.stageKey, "research_brain_primary");
+        return { data: structuredClone(output) };
+      },
+      allowRepair: true,
+    },
+  );
+
+  assert.equal(calls, 1);
+  assert.equal(result.major_stories[0]?.persistent_story_id, persistentStoryId);
+  assert.equal(result.diagnostics.model_repair_used, false);
+});
+
+test("9A1. D1 packet identity deterministically overrides model-emitted Story UUIDs and clears unbound UUIDs", () => {
+  const packet = createValidBasePacket();
+  const persistentStoryId = "11111111-1111-4111-8111-111111111111";
+  packet.persistent_story_bindings = [{
+    analytical_story_id: "story:fed_easing",
+    persistent_story_id: persistentStoryId,
+  }];
+
+  const output = createValidOutput(packet) as unknown as Record<string, unknown>;
+  const stories = output.major_stories as Array<Record<string, unknown>>;
+  stories[0].persistent_story_id = "22222222-2222-4222-8222-222222222222";
+  stories.push({
+    ...structuredClone(stories[0]),
+    story_id: "story:unbound",
+    persistent_story_id: "33333333-3333-4333-8333-333333333333",
+  });
+
+  pinResearchBrainPersistentStoryIdentities(output, packet);
+
+  assert.equal(stories[0].persistent_story_id, persistentStoryId);
+  assert.equal(stories[1].persistent_story_id, null);
 });
 
 test("9A. Primary model path cannot rewrite a continued investigation expectation", async () => {
