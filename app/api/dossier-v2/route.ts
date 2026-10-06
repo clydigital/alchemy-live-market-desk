@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { withinTimeout } from "@/lib/async-timeout";
+
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import {
   getDossierV2PresentationSelection,
@@ -12,6 +14,9 @@ import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
+
+const DOSSIER_CORE_READ_TIMEOUT_MS = 5_000;
+const DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800;
 
 export async function GET(request: Request) {
   try {
@@ -31,15 +36,27 @@ export async function GET(request: Request) {
       );
     }
 
-    const selection = requestedId
-      ? await getDossierV2PresentationSelectionById(requestedId)
-      : await getDossierV2PresentationSelection();
+    const selection = await withinTimeout(
+      "Dossier presentation",
+      () => requestedId
+        ? getDossierV2PresentationSelectionById(requestedId)
+        : getDossierV2PresentationSelection(),
+      DOSSIER_CORE_READ_TIMEOUT_MS,
+    );
     const historical = selection.status === "historical_exact";
     const [monitor, stockedUpEvidenceBrief] = historical
       ? [null, null]
       : await Promise.all([
-          getMarketMonitor().catch(() => null),
-          getStockedUpEvidenceBrief().catch(() => null),
+          withinTimeout(
+            "Dossier market monitor",
+            getMarketMonitor,
+            DOSSIER_OPTIONAL_READ_TIMEOUT_MS,
+          ).catch(() => null),
+          withinTimeout(
+            "Dossier StockedUp evidence",
+            getStockedUpEvidenceBrief,
+            DOSSIER_OPTIONAL_READ_TIMEOUT_MS,
+          ).catch(() => null),
         ]);
     const dailyAssetState = monitor
       ? buildDailyAssetState({ monitor, presentation: selection.presentation })
