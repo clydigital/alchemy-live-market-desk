@@ -4,6 +4,8 @@ import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/Live
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getRegimeShadowHealth } from "@/lib/regime-engine";
+import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
+import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { buildRegimeProjection } from "@/lib/regimes";
 
