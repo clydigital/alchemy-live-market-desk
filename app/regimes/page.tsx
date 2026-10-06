@@ -49,6 +49,7 @@ export default async function RegimesPage() {
   const freshness = assessRegimeInterpretationFreshness({ telemetryAt: regimes.flatMap((regime) => regime.subgroups.flatMap((subgroup) => subgroup.telemetry.map((item) => item.asOf))), interpretationAt: liveReasoning.map((item) => item.updatedAt) });
   const observedAgeMinutes = timestampAgeMinutes(freshness.telemetryAt);
   const interpretedAgeMinutes = timestampAgeMinutes(freshness.interpretationAt);
+  const freshnessDetail = ["System 1 observed", observedAgeMinutes, "System 2 accepted", interpretedAgeMinutes, "Regime projector completed", shadowHealth.lagMinutes].join(" · ");
 
   return (
     <LiveDeskShell
