@@ -136,7 +136,7 @@ const RATES_LED_RESEARCH_BUNDLES = [
   },
   {
     action:
-      "Check whether higher yields are starting to hit dollar funding, HY/IG credit, market breadth and equity volatility, while tracking whether AI/semiconductor strength can keep holding on earnings and growth.",
+      "Check whether higher yields are starting to hit dollar funding, HY/IG credit, market breadth and MOVE/VIX volatility, while tracking whether AI/semiconductor strength can keep holding on earnings and growth.",
     reason:
       "Shows whether the pressure from higher yields is spreading across markets or whether credit remains calm and AI/semiconductors can keep carrying equities.",
   },
