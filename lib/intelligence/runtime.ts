@@ -232,6 +232,7 @@ type CanonicalSource = {
 
 type CanonicalEvidenceRow = {
   id: string;
+  external_evidence_id: string | null;
   source_id: string;
   claim_text: string;
   summary: string | null;
@@ -550,6 +551,7 @@ function evidencePack(rows: CanonicalEvidenceRow[]): EvidencePackItem[] {
     const source = sourceFromEvidence(row);
     return {
       id: row.id,
+      externalEvidenceId: row.external_evidence_id,
       claim: row.claim_text,
       summary: row.summary,
       evidenceClass: row.evidence_class,
@@ -1063,7 +1065,7 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
 }
 
 const EVIDENCE_PACK_FIELDS =
-  "id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)";
+  "id,external_evidence_id,source_id,claim_text,summary,evidence_class,support_direction,event_at,published_at,available_at,received_at,freshness_status,affected_assets,affected_topics,provenance_urls,structured_payload,source:intelligence_evidence_sources(id,external_source_id,source_name,source_tier,reliability_score,ancestry_group_id,provider_key,metadata)";
 
 async function loadEvidence(includeIds: string[] = []) {
   const latestRows = await intelligenceRest<CanonicalEvidenceRow[]>(
