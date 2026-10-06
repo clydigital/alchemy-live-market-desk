@@ -9,6 +9,10 @@ import {
 import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-reader.ts";
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import {
+  regimeAutomaticRoutingEnabled,
+  regimeShadowPersistenceEnabled,
+} from "./regime-feature-flags.ts";
+import {
   detectSystem1TelemetryStateChanges,
   openSystem2ActivationStoryIds,
   selectSystem2ActivationTargets,
@@ -137,10 +141,6 @@ function stableJson(value: unknown) {
 
 function hash(value: unknown) {
   return createHash("sha256").update(stableJson(value)).digest("hex");
-}
-
-function projectionPersistenceEnabled() {
-  return process.env.REGIME_SHADOW_PERSISTENCE_ENABLED !== "false";
 }
 
 function latestVersions(versions: StoryThesisVersion[]) {
@@ -635,7 +635,7 @@ export async function persistRegimeShadowProjection(input: {
   triggerRef?: string | null;
   client?: SupabaseClient;
 }): Promise<RegimeShadowProjectionResult> {
-  if (!projectionPersistenceEnabled()) {
+  if (!regimeShadowPersistenceEnabled()) {
     return {
       enabled: false,
       reused: false,
@@ -670,25 +670,29 @@ export async function persistRegimeShadowProjection(input: {
       evaluatedStories: source.stories,
       admissibleStories: storyDomain.admissible,
     });
-    const routedStoryIds = await loadPersistedRoutedStoryIds(
-      client,
-      storyDomain.admissible.map((story) => story.id),
-    );
-    const routingDebt = await reconcileRegimeRoutingDebt({
-      client,
-      projectionRunId: begun.row.id,
-      stories: storyDomain.admissible,
-      routedStoryIds,
-    });
+    const routingDebt = regimeAutomaticRoutingEnabled()
+      ? await reconcileRegimeRoutingDebt({
+          client,
+          projectionRunId: begun.row.id,
+          stories: storyDomain.admissible,
+          routedStoryIds: await loadPersistedRoutedStoryIds(
+            client,
+            storyDomain.admissible.map((story) => story.id),
+          ),
+        })
+      : null;
     const warnings: string[] = [];
+    if (!routingDebt) {
+      warnings.push("Automatic Story-to-Regime routing persistence is disabled by REGIME_AUTO_ROUTING_ENABLED=false.");
+    }
     if (domainDebt.stale) {
       warnings.push("Reused Regime projection did not reconcile Story-domain debt because a newer shadow run owns governance state.");
     } else if (domainDebt.active_count > 0) {
       warnings.push(`${domainDebt.active_count} active Story domain quarantine item(s) remain outside the market routing universe; canonical Story history was preserved.`);
     }
-    if (routingDebt.stale) {
+    if (routingDebt?.stale) {
       warnings.push("Reused Regime projection did not reconcile routing debt because a newer shadow run owns routing state.");
-    } else if (routingDebt.active_count > 0) {
+    } else if (routingDebt && routingDebt.active_count > 0) {
       warnings.push(`${routingDebt.active_count} active Story routing debt item(s) remain unassigned; no weak Regime mapping was forced.`);
     }
 
@@ -757,21 +761,26 @@ export async function persistRegimeShadowProjection(input: {
     }
 
     const links = storyRoutes(regimes);
-    const { error: linkError } = await client.rpc("sync_market_regime_story_links_v1", {
-      p_projection_run_id: begun.row.id,
-      p_links: links,
-    });
-    if (linkError) throw new Error(`Regime Story-link sync failed: ${linkError.message}`);
+    const routingDebt = regimeAutomaticRoutingEnabled()
+      ? await (async () => {
+          const { error: linkError } = await client.rpc("sync_market_regime_story_links_v1", {
+            p_projection_run_id: begun.row.id,
+            p_links: links,
+          });
+          if (linkError) throw new Error(`Regime Story-link sync failed: ${linkError.message}`);
 
-    const routedStoryIds = [...new Set(links.map((link) => link.story_id))];
-    const routingDebt = await reconcileRegimeRoutingDebt({
-      client,
-      projectionRunId: begun.row.id,
-      stories: storyDomain.admissible,
-      routedStoryIds,
-    });
+          return reconcileRegimeRoutingDebt({
+            client,
+            projectionRunId: begun.row.id,
+            stories: storyDomain.admissible,
+            routedStoryIds: [...new Set(links.map((link) => link.story_id))],
+          });
+        })()
+      : null;
 
-    if (routingDebt.stale) {
+    if (!routingDebt) {
+      warnings.push("Automatic Story-to-Regime routing persistence is disabled by REGIME_AUTO_ROUTING_ENABLED=false.");
+    } else if (routingDebt.stale) {
       warnings.push("Stale Regime shadow worker stopped before projection persistence because a newer shadow run owns routing state.");
       await completeProjectionRun(client, begun.row.id, [], warnings);
       return {
@@ -784,9 +793,7 @@ export async function persistRegimeShadowProjection(input: {
         versionIds: [],
         warnings,
       };
-    }
-
-    if (routingDebt.active_count > 0) {
+    } else if (routingDebt.active_count > 0) {
       warnings.push(`${routingDebt.active_count} active Story routing debt item(s) remain unassigned; no weak Regime mapping was forced.`);
     }
 
@@ -903,7 +910,7 @@ export async function persistRegimeShadowProjectionSafely(input: {
       error: message,
     }));
     return {
-      enabled: projectionPersistenceEnabled(),
+      enabled: regimeShadowPersistenceEnabled(),
       reused: false,
       runId: null,
       runKey: null,
