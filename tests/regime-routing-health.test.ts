@@ -23,5 +23,7 @@ test("Regime board makes open routing debt visible without implying a fallback r
   assert.match(page, /high\/critical/);
   assert.match(page, /oldest open/);
   assert.match(page, /not forced into a weak Regime mapping/);
+  assert.match(page, /Every market-admissible active Story currently clears a governed Regime route/);
+  assert.doesNotMatch(page, /Every active Story currently clears a governed Regime route/);
   assert.doesNotMatch(page, /Storys remain/);
 });
