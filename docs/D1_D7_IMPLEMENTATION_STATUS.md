@@ -1,6 +1,6 @@
 # D1–D7 Architecture Implementation Status
 
-**Audit base:** current `main` at `c756848e4e2b71a4d639b7e70a36b98abc6c33c4` or newer.
+**Audit base:** current `main` at `66c19631cec0e3d2d13b59de96b33fbeba42c626` or newer.
 
 This is an implementation audit, not a design document. It distinguishes code/test coverage from direct production observation.
 
@@ -29,7 +29,8 @@ This is an implementation audit, not a design document. It distinguishes code/te
 | **Historical Presenter replay** | ✅ | ✅ | ✅ | ✅ exact UUID replay exercised on production; current overlays failed closed | PR #503 + historical replay tests; `93f35369-df1c-467b-9f27-fde1a573ad95` returned `historical_exact`, `dailyAssetState=null`, `stockedUpEvidenceBrief=null` |
 | **Sequential Research Gap discriminators** | ✅ | ✅ | ✅ | ✅ live ADVANCE and EXHAUST observed; production reset exposed and repaired | case `7b8a6e71-527a-4138-a874-428bccd85a90` advanced index 0→1; case `ab5f11c0-e351-49f1-95b9-f4304d345a81` exhausted to `CLOSED`; carry-forward repairs #565/#566 |
 | **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | ✅ production maintenance run `37422359132` created completed Regime projection `6b3bb1d3-a680-4b4b-a03d-963e6f5e7233` | PR #516; trigger `story_engine`, 5 persisted Regime versions, 0 warnings |
-| **Unassigned Story → Regime routing debt** | ✅ | ✅ | ✅ | ✅ live production created and then idempotently reconciled exactly 3 unrouted active Stories without forcing a weak Regime mapping | PR #578 + #583; projection `692377ff-296d-416b-99cd-5e23af0da6c3`, reused projection `bd2db8fc-956f-426a-b584-0c5b85106a79`, maintenance proof run `37514595584` |
+| **Unassigned Story → Regime routing debt** | ✅ | ✅ | ✅ | ✅ production progressed from 3 explicit unrouted Stories to **0 open routing debt** without weak fallback mappings | PR #578 + #583 + #589 + #590; initial projection `692377ff-296d-416b-99cd-5e23af0da6c3`, reuse proof `37514595584`, final manual projection `fb360236-5e3d-4e81-9944-69edfd489536` |
+| **Story-domain quarantine** | ✅ | ✅ | ✅ | ✅ provenance/process-only Story preserved in canonical history but removed from the market Regime routing universe | PR #603; manual Regime proof run `37544943061`, projection `fb360236-5e3d-4e81-9944-69edfd489536`, `story-domain/2` debt |
 
 ## Current governed chain
 
@@ -69,6 +70,12 @@ Important boundaries remain intact:
 - **#578** — unrouted active Stories now become explicit `research_debt` using `regime-routing:<story-id>`; routed restoration resolves the same debt, and zero-link newer projections own routing state.
 - **#580** — repaired stale Dossier LY-style build assertions exposed only after #578 merged on top of the parallel #579 reader-language rewrite.
 - **#583** — idempotently reused Regime projections now still reconcile routing debt from the identical deterministic input without creating a new projection/version or forcing a route.
+- **#589** — expanded deterministic AI routing vocabulary so gated frontier-model releases, compute/API demand and trusted-tester controls route to the existing AI Capital Cycle without Story-specific IDs.
+- **#590** — versions deterministic Regime routing semantics in projection identity and keeps reused-run routing debt consistent with persisted links.
+- **#592** — resolved Regime routing debt now records lifecycle-consistent metadata (`routingStatus=routed|inactive`, exact resolving projection ID, resolved timestamp) and backfills prior resolved rows.
+- **#602** — adds an audited GitHub-OIDC manual `regime_shadow` production trigger so exact Regime projection behaviour can be proven without coupling to the broader research workflow.
+- **#603** — tightens Story-domain classification to `story-domain/2`, preventing generic prose such as `authoritative guidance` from falsely making provenance/process Stories market-admissible.
+- **#605** — clarifies the live routing-health copy to apply to **market-admissible** active Stories, keeping routing health semantically consistent with separate domain-quarantine health.
 
 ## Production observations from this audit
 
@@ -104,7 +111,14 @@ Observed directly on production:
 - **Reuse gap found naturally:** Story-maintenance run `37513419180` completed successfully but initially could not backfill routing debt when the Regime projector reused an identical completed run; the `begun.reused` branch returned before the #578 reconciliation. This was a genuine idempotency/governance gap, not a synthetic test case.
 - **#583 repair:** reused projections rebuild the same deterministic projection in memory, derive the same Story routes, and run only the routing-debt sidecar reconciliation. They remain `reused: true`, create no new Regime run/version, and remain stale-owner guarded.
 - **Reuse production proof:** maintenance Actions run `37514595584` / engine run `04afedf1-64dc-4c14-9099-2ab1e4366b79` completed with the same Regime warning for three unassigned Stories. The newest persisted Regime run at the start of that maintenance invocation was already `bd2db8fc-956f-426a-b584-0c5b85106a79`, created at `18:56:27 UTC`; no newer projection row was created by maintenance. The three routing-debt rows were nevertheless refreshed at `18:57:35 UTC` and now reference that existing projection, directly proving the repaired **reused projection → routing-debt reconciliation** path.
-- **Current governed result:** exactly three active Stories remain intentionally unrouted and visible as debt. Their absence from Regime is explicit state, not silent omission; they are not forced into a weak Regime merely to eliminate the debt.
+- **AI routing debt resolved naturally:** the high-severity OpenAI Astra / Daybreak Story was not force-mapped. PR #589 expanded the general deterministic AI vocabulary; production then persisted the intended three routes: **AI Control / Governance core (80)**, **Cloud / Inference supporting (70)** and **Models supporting (60)**. Its routing debt is `resolved` with `routingStatus=routed`.
+- **Stable-value routing debt resolved naturally:** Story `stable-value-market-contractual-structure-limits-industry-wide-run-risk` later gained a governed route and its medium routing debt was resolved by projection `f50b81fc-6299-4511-8993-70e5a4780107`.
+- **Routing semantics are versioned:** PR #590 binds the deterministic routing contract version into Regime projection identity, so a routing-vocabulary change cannot be hidden behind an older idempotent run.
+- **Resolved debt metadata repaired:** PR #592 aligned relational lifecycle state with JSON audit metadata. The resolved OpenAI row now records `routingStatus=routed` and `resolvedByProjectionRunId=87b3c521-6114-4020-9c7a-bf0d017ad669`; the forward migration is present in production migration history.
+- **Audited manual proof path:** PR #602 added the GitHub-OIDC `regime_shadow` workflow mode. Manual Actions run `37544943061` executed against production main `383edb743fcff52db6ca2a3f7c9c9f363785c425` and completed successfully.
+- **Story-domain v2 production proof:** the same manual run created completed projection `fb360236-5e3d-4e81-9944-69edfd489536` with warning: `1 active Story domain quarantine item(s) remain outside the market routing universe; canonical Story history was preserved.` The provenance-only Story `primary-source-timestamps-as-the-decisive-evidence-for-record-reclassifi` had its old routing debt resolved as `domain_quarantined` and now has exactly one open `story-domain:*` governance item with `contractVersion=story-domain/2`.
+- **Live health surface:** production `/regimes` returned HTTP 200 and rendered **0 Unassigned active Stories**, **1 Domain-quarantined Story**, **0 high/critical** domain quarantine, and the separate Story-domain warning. PR #605 narrows the routing-ready copy to “Every market-admissible active Story…” so the two health surfaces do not contradict each other.
+- **Current governed result:** there is **zero open Regime routing debt**. Every market-admissible active Story clears a governed Regime route; one active provenance/process Story is deliberately preserved outside that market-routing universe under explicit Story-domain quarantine. No weak mapping was manufactured merely to reach zero routing debt.
 
 ### Earlier D7 / Hybrid production proof
 
