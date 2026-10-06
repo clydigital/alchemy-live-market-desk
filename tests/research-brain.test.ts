@@ -111,6 +111,7 @@ function createValidBasePacket() {
         },
         {
           evidence_id: "ev:fed:2026-09",
+          canonical_record_backed: true,
           available_at: "2026-09-18T11:00:00Z",
           claim_or_fact: "Federal Reserve cut interest rates by 25 basis points.",
           category: "MONETARY_POLICY",
@@ -121,6 +122,7 @@ function createValidBasePacket() {
         },
         {
           evidence_id: "ev:yields:2026-09",
+          canonical_record_backed: true,
           available_at: "2026-09-18T11:30:00Z",
           claim_or_fact: "US 2-Year Treasury yield fell 12 basis points to 3.85%.",
           category: "PRICING_FEED",
@@ -624,6 +626,85 @@ test("2A. A2 Motion acceptance cannot turn Motion into evidence", () => {
   val = validateResearchBrainOutput(output, packet);
   assert.equal(val.isValid, false);
   assert.ok(val.errors.some((error) => /unsupported evidence_id "motion:a2:1"/i.test(error)));
+});
+
+test("2A1. A2 authorizing decisions require a canonical record; non-authorizing decisions may cite derived evidence", () => {
+  const packet = createValidBasePacket();
+  const evidence = packet.observed_evidence.find((item) => item.evidence_id === "ev:fed:2026-09");
+  assert.ok(evidence);
+  delete evidence.canonical_record_backed;
+  for (const item of packet.rate_context?.evidence ?? []) {
+    if (item.evidence_id === "ev:fed:2026-09") delete item.canonical_record_backed;
+  }
+
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      motion_id: "motion:a2:canonical-gate",
+      motion_key: "event:rates:canonical-gate",
+      version_number: 1,
+      occurred_at: "2026-09-18T10:30:00Z",
+      observed_at: "2026-09-18T10:35:00Z",
+      expires_at: "2026-09-20T10:35:00Z",
+      category: "RATES",
+      verification_state: "VERIFIED",
+      headline: "Rates framing",
+      what_happened: "A Motion asks whether the Fed move changes the rates Story.",
+      market_reaction: null,
+      why_interesting: "The framing may affect the existing Story.",
+      big_picture_bridge: "Fed decision → rates Story",
+      next_test: "Check canonical evidence.",
+      primary_story_id: "story:fed_easing",
+      primary_regime_slug: null,
+      routing_class: "STORY",
+      attention: { materiality: 90, relevance: 90, novelty: 70 },
+      origin_evidence_ref: null,
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:a2:canonical-gate",
+      decision: "ACCEPT",
+      conclusion: "The rates framing is supported.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: ["STORY:story:fed_easing"],
+      rationale: "The cited observation supports the conclusion.",
+      next_test: null,
+    }],
+  };
+
+  let result = validateResearchBrainOutput(output, packet);
+  assert.equal(result.isValid, false);
+  assert.ok(result.errors.some((error) => /not backed by a canonical intelligence_evidence record/i.test(error)));
+
+  output.motion_acceptance.decisions[0] = {
+    ...output.motion_acceptance.decisions[0],
+    decision: "REFINE",
+    next_test: "Obtain a canonical intelligence_evidence record.",
+  };
+  result = validateResearchBrainOutput(output, packet);
+  assert.equal(result.isValid, false);
+  assert.ok(result.errors.some((error) => /not backed by a canonical intelligence_evidence record/i.test(error)));
+
+  output.motion_acceptance.decisions[0] = {
+    ...output.motion_acceptance.decisions[0],
+    decision: "UNRESOLVED",
+    conclusion: null,
+  };
+  result = validateResearchBrainOutput(output, packet);
+  assert.equal(result.isValid, true, result.errors.join("\n"));
+
+  output.motion_acceptance.decisions[0] = {
+    ...output.motion_acceptance.decisions[0],
+    decision: "REJECT",
+    destination_refs: [],
+  };
+  result = validateResearchBrainOutput(output, packet);
+  assert.equal(result.isValid, true, result.errors.join("\n"));
 });
 
 test("2B. A2 REFINE and UNRESOLVED preserve the evidence boundary", () => {

@@ -137,8 +137,12 @@ function rankedItemCompare(left: RankedItem, right: RankedItem) {
 
 function canonicalPacketEvidenceIds(packet: DossierV2InputPacket) {
   return new Set([
-    ...packet.observed_evidence.map((item) => item.evidence_id),
-    ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
+    ...packet.observed_evidence
+      .filter((item) => item.canonical_record_backed === true)
+      .map((item) => item.evidence_id),
+    ...(packet.rate_context?.evidence ?? [])
+      .filter((item) => item.canonical_record_backed === true)
+      .map((item) => item.evidence_id),
   ]);
 }
 
@@ -430,6 +434,7 @@ export function buildDossierReevaluationPropagationPlan(
     >();
     for (const [classification, refs] of evidenceBuckets) {
       for (const ref of refs) {
+        if (!packetEvidenceIds.has(ref)) continue;
         const classes = classificationsByRef.get(ref) ?? new Set();
         classes.add(classification);
         classificationsByRef.set(ref, classes);
@@ -536,8 +541,10 @@ type RegimeStoryLinkDbRow = {
 };
 
 function candidateCanonicalEvidenceRefs(
+  packet: DossierV2InputPacket,
   analyticalOutput: ResearchBrainOutputV1,
 ) {
+  const packetEvidenceIds = canonicalPacketEvidenceIds(packet);
   const motionRefs = (analyticalOutput.motion_acceptance?.decisions ?? [])
     .filter((item) => item.decision === "ACCEPT" || item.decision === "REFINE")
     .flatMap((item) => item.canonical_evidence_refs);
@@ -557,7 +564,7 @@ function candidateCanonicalEvidenceRefs(
     [...motionRefs, ...dossierStoryRefs]
       .filter((ref) => typeof ref === "string" && Boolean(ref.trim()))
       .map((ref) => ref.trim()),
-  )];
+  )].filter((ref) => packetEvidenceIds.has(ref));
 }
 
 type CanonicalEvidenceIdentityRow = {
@@ -609,7 +616,7 @@ export async function prepareDossierReevaluationPropagationPlan(input: {
   analyticalOutput: ResearchBrainOutputV1;
 }): Promise<DossierReevaluationPropagationPlan> {
   try {
-    const evidenceRefs = candidateCanonicalEvidenceRefs(input.analyticalOutput);
+    const evidenceRefs = candidateCanonicalEvidenceRefs(input.packet, input.analyticalOutput);
     const rowIdCandidates = [...new Set(evidenceRefs.flatMap((ref) => {
       const ids: string[] = [];
       if (isValidUuid(ref)) ids.push(ref);
