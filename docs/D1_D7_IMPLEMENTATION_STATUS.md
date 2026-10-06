@@ -29,6 +29,7 @@ This is an implementation audit, not a design document. It distinguishes code/te
 | **Historical Presenter replay** | ✅ | ✅ | ✅ | ✅ exact UUID replay exercised on production; current overlays failed closed | PR #503 + historical replay tests; `93f35369-df1c-467b-9f27-fde1a573ad95` returned `historical_exact`, `dailyAssetState=null`, `stockedUpEvidenceBrief=null` |
 | **Sequential Research Gap discriminators** | ✅ | ✅ | ✅ | ✅ live ADVANCE and EXHAUST observed; production reset exposed and repaired | case `7b8a6e71-527a-4138-a874-428bccd85a90` advanced index 0→1; case `ab5f11c0-e351-49f1-95b9-f4304d345a81` exhausted to `CLOSED`; carry-forward repairs #565/#566 |
 | **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | ✅ production maintenance run `37422359132` created completed Regime projection `6b3bb1d3-a680-4b4b-a03d-963e6f5e7233` | PR #516; trigger `story_engine`, 5 persisted Regime versions, 0 warnings |
+| **Unassigned Story → Regime routing debt** | ✅ | ✅ | ✅ | ✅ live production created and then idempotently reconciled exactly 3 unrouted active Stories without forcing a weak Regime mapping | PR #578 + #583; projection `692377ff-296d-416b-99cd-5e23af0da6c3`, reused projection `bd2db8fc-956f-426a-b584-0c5b85106a79`, maintenance proof run `37514595584` |
 
 ## Current governed chain
 
@@ -65,6 +66,9 @@ Important boundaries remain intact:
 - **#559** — dormant Stories cannot be revived by fuzzy Dossier Story matching alone; explicit canonical revival routes remain allowed.
 - **#565** — Research Gap discriminator state falls back to immutable occurrence history when requeue has cleared the active worker plan.
 - **#566** — discriminator recovery is monotonic within the latest plan signature, preventing a later Dossier sync from regressing an already-advanced discriminator.
+- **#578** — unrouted active Stories now become explicit `research_debt` using `regime-routing:<story-id>`; routed restoration resolves the same debt, and zero-link newer projections own routing state.
+- **#580** — repaired stale Dossier LY-style build assertions exposed only after #578 merged on top of the parallel #579 reader-language rewrite.
+- **#583** — idempotently reused Regime projections now still reconcile routing debt from the identical deterministic input without creating a new projection/version or forcing a route.
 
 ## Production observations from this audit
 
@@ -88,6 +92,19 @@ Observed directly on production:
 - **Sequential discriminator ADVANCE:** case `7b8a6e71-527a-4138-a874-428bccd85a90`, plan signature `73d8d58721fba4c946a1`, advanced from discriminator index 0 to index 1 in immutable occurrence history.
 - **Sequential discriminator EXHAUST:** one-discriminator case `ab5f11c0-e351-49f1-95b9-f4304d345a81` was canonically handed off and later closed, directly exercising the bounded EXHAUST path.
 - **Carry-forward repair:** the ADVANCE proof also exposed a production race: requeue clears `research_plan`, so a later Dossier sync could restart the same plan signature at index 0 before the worker rebuilt its plan. PR #565 added immutable-occurrence fallback; PR #566 made recovery monotonic within the latest plan signature. Production deployment `c756848e4e2b71a4d639b7e70a36b98abc6c33c4` reached **READY**. The already-regressed queued case was then repaired under a guarded predicate to discriminator 1 while still unclaimed; no active worker state was overwritten.
+
+### Unassigned Story → Regime routing-debt production proof · 7 October 2026
+
+Observed directly on production:
+
+- **#578 / schema contract:** the existing `research_debt` table is reused; there is no new routing/reasoning table. `sync_regime_routing_debt_v1` is service-role only. Newer shadow projection ownership includes legitimate zero-link projections, so an older worker cannot resurrect stale Story links.
+- **No forced routing:** production Regime projection `692377ff-296d-416b-99cd-5e23af0da6c3`, triggered by Story engine run `e1a21847-42f4-4b7a-80bb-c316a82fd1ff`, completed with warning: `3 active Story routing debt item(s) remain unassigned; no weak Regime mapping was forced.`
+- **Exact debt set:** production created exactly three open `regime-routing:*` obligations: two `monitor` Stories at medium severity and one `publish` Story at high severity. All three had no live Regime link; no routed active Story was incorrectly tagged.
+- **No duplicate debt:** the partial unique index and runtime reconciliation left exactly one open row per `regime-routing:<story-id>`; the production duplicate-open-key check returned none.
+- **Reuse gap found naturally:** Story-maintenance run `37513419180` completed successfully but initially could not backfill routing debt when the Regime projector reused an identical completed run; the `begun.reused` branch returned before the #578 reconciliation. This was a genuine idempotency/governance gap, not a synthetic test case.
+- **#583 repair:** reused projections rebuild the same deterministic projection in memory, derive the same Story routes, and run only the routing-debt sidecar reconciliation. They remain `reused: true`, create no new Regime run/version, and remain stale-owner guarded.
+- **Reuse production proof:** maintenance Actions run `37514595584` / engine run `04afedf1-64dc-4c14-9099-2ab1e4366b79` completed with the same Regime warning for three unassigned Stories. The newest persisted Regime run at the start of that maintenance invocation was already `bd2db8fc-956f-426a-b584-0c5b85106a79`, created at `18:56:27 UTC`; no newer projection row was created by maintenance. The three routing-debt rows were nevertheless refreshed at `18:57:35 UTC` and now reference that existing projection, directly proving the repaired **reused projection → routing-debt reconciliation** path.
+- **Current governed result:** exactly three active Stories remain intentionally unrouted and visible as debt. Their absence from Regime is explicit state, not silent omission; they are not forced into a weak Regime merely to eliminate the debt.
 
 ### Earlier D7 / Hybrid production proof
 
