@@ -20,7 +20,10 @@ import {
   executeAndPersistDossierV2,
   type DossierV2ExecutionResult,
 } from "./execution.ts";
-import { attachCurrentMarketMotionContext } from "./motion-context.ts";
+import {
+  attachCurrentMarketMotionContext,
+  loadCurrentPromotedMotionEvidenceIds,
+} from "./motion-context.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
 import type { DossierReevaluationPropagationResult } from "./reevaluation-propagation.ts";
 import type {
@@ -572,12 +575,26 @@ export async function runManualDossierV2(
 ): Promise<ManualDossierV2RunResult> {
   const client = options.client ?? createSupabaseAdminClient();
 
+  let requiredMotionEvidenceIds: string[] = [];
+  if (!options.snapshotResult) {
+    try {
+      requiredMotionEvidenceIds = await loadCurrentPromotedMotionEvidenceIds(
+        client,
+        options.asOf,
+      );
+    } catch {
+      // Market Motion is optional context. Canonical snapshot loading must remain
+      // evidence-first and continue when the Motion surface is unavailable.
+    }
+  }
+
   const snapshotResult =
     options.snapshotResult ??
     (await loadCanonicalCandidateSnapshot(client, {
       asOf: options.asOf,
       lookbackHours: options.lookbackHours,
       limit: options.evidenceLimit,
+      requiredEvidenceIds: requiredMotionEvidenceIds,
     }));
 
   const previousResolution = await resolveLatestDossier(client, options.asOf);
