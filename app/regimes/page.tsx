@@ -85,7 +85,7 @@ export default async function RegimesPage() {
           state={shadowHealth.unassignedStoryCount === 0 ? "ready" : "warn"}
           title={shadowHealth.unassignedStoryCount === 0 ? "Story routing health" : "Story routing debt is open"}
           detail={shadowHealth.unassignedStoryCount === 0
-            ? "Every active Story currently clears a governed Regime route. No weak fallback mapping is required."
+            ? "Every market-admissible active Story currently clears a governed Regime route. No weak fallback mapping is required."
             : `${shadowHealth.unassignedStoryCount} active ${shadowHealth.unassignedStoryCount === 1 ? "Story remains" : "Stories remain"} intentionally unassigned · ${shadowHealth.highSeverityUnassignedStoryCount} high/critical · oldest open ${formatAge(shadowHealth.oldestUnassignedAgeMinutes)}. These Stories remain visible in Stories and are not forced into a weak Regime mapping.`}
         />
 
