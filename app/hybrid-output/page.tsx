@@ -9,6 +9,7 @@ import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-diverg
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
+import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import {
@@ -84,9 +85,9 @@ function currentUpcoming(value: unknown): EditionUpcoming {
   }
   const candidate = value as Partial<EditionUpcoming>;
   return {
-    economicCalendar: Array.isArray(candidate.economicCalendar) ? candidate.economicCalendar : [],
-    earnings: Array.isArray(candidate.earnings) ? candidate.earnings : [],
-    geopoliticalClock: Array.isArray(candidate.geopoliticalClock) ? candidate.geopoliticalClock : [],
+    economicCalendar: sortUpcomingByTime(Array.isArray(candidate.economicCalendar) ? candidate.economicCalendar : []),
+    earnings: sortUpcomingByTime(Array.isArray(candidate.earnings) ? candidate.earnings : []),
+    geopoliticalClock: sortUpcomingByTime(Array.isArray(candidate.geopoliticalClock) ? candidate.geopoliticalClock : []),
   };
 }
 
