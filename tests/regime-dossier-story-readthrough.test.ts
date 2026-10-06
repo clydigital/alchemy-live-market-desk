@@ -26,6 +26,8 @@ test("Regime LIVE preserves Story-routed Dossier judgement as read-through only"
   assert.match(workspace, /do not change Regime state, confidence, as-of/);
   assert.match(workspace, /canonical evidence ref/);
   assert.match(workspace, /Open exact Hybrid judgement/);
+  assert.match(workspace, /#dossier-story-readthrough/);
+  assert.doesNotMatch(workspace, /motion=\$\{encodeURIComponent\(item\.motionId\)\}#presenter-reasoning/);
   assert.match(workspace, /id="dossier-story-readthrough"/);
   assert.match(workspace, /id="dossier-regime-context"/);
 
