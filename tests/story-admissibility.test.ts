@@ -67,7 +67,7 @@ test("runtime gates only new identities before canonical Story promotion", () =>
 });
 
 test("existing provenance Story is quarantined while existing stable-value Story stays in market domain", () => {
-  assert.equal(STORY_DOMAIN_CONTRACT_VERSION, "story-domain/1");
+  assert.equal(STORY_DOMAIN_CONTRACT_VERSION, "story-domain/2");
 
   const provenance = evaluateExistingStoryMarketDomain({
     title: "Primary-source timestamps as the decisive evidence for record reclassification",
@@ -80,6 +80,19 @@ test("existing provenance Story is quarantined while existing stable-value Story
   });
   assert.equal(provenance.admissible, false);
   assert.equal(provenance.reason, "research_process_without_market_mechanism");
+
+  const productionShapedProvenance = evaluateExistingStoryMarketDomain({
+    title: "Primary-source timestamps as the decisive evidence for record reclassification",
+    thesis: "Reversing prior classifications should require preserved primary-source creation/event timestamps and provenance; later interpretive products should not by themselves justify reversals.",
+    marketQuestion: "Should later interpretive products without preserved primary-source creation/event timestamps be sufficient to reverse prior record classifications?",
+    dominantNarrative: "Primary-source creation/event timestamps and preserved provenance are required evidence for record reclassification.",
+    bestExplanation: "Missing creation timestamps raise look-ahead bias, temporal-ordering uncertainty and misattribution risk.",
+    articleAngle: "Reclassification should await preserved primary timestamps or authoritative guidance that later interpretive products are sufficient.",
+    assets: [],
+  });
+  assert.equal(productionShapedProvenance.admissible, false);
+  assert.equal(productionShapedProvenance.reason, "research_process_without_market_mechanism");
+  assert.deepEqual(productionShapedProvenance.marketSignals, []);
 
   const stableValue = evaluateExistingStoryMarketDomain({
     title: "Stable-value market: contractual structure limits industry-wide run risk",
