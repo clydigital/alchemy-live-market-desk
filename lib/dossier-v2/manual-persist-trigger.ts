@@ -178,6 +178,15 @@ export async function handleDossierV2PersistRunWithDependencies(
       );
     }
 
+    logger({
+      event: "dossier_v2_persistent_story_bindings_resolved",
+      actor: authorization.actor,
+      githubRunId: authorization.githubRunId,
+      dossierId: result.dossier.id,
+      bindingCount: result.packet.persistent_story_bindings?.length ?? 0,
+      bindings: result.packet.persistent_story_bindings ?? [],
+    });
+
     const syncResearchGaps =
       dependencies.syncResearchGaps ?? (() => syncLatestPrioritisedResearchGapCases());
     let researchGapSync: {
@@ -249,6 +258,7 @@ export async function handleDossierV2PersistRunWithDependencies(
       packetSummary: {
         packetId: result.packet.packet_id,
         asOf: result.packet.as_of,
+        persistentStoryBindings: result.packet.persistent_story_bindings ?? [],
         observedEvidence: result.packet.observed_evidence.length,
         researchLeads: result.packet.research_leads.length,
         developmentClusters: result.packet.development_clusters.length,

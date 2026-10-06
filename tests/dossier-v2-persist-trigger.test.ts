@@ -49,6 +49,10 @@ function persistedResult(): ManualDossierV2RunResult {
       development_clusters: [],
       catalysts: [],
       creator_themes: [],
+      persistent_story_bindings: [{
+        analytical_story_id: "story:rates-duration-stress",
+        persistent_story_id: "93c3e32f-9168-49ec-aaa3-9ce678511c9b",
+      }],
       freshness_warnings: [],
       research_gaps: [],
       diagnostics: {},
@@ -113,6 +117,7 @@ test("Task 1 rejects persistence control fields from the request body", async ()
 
 test("Task 1 authorised request persists once with bounded options", async () => {
   const calls: Array<Record<string, unknown>> = [];
+  const logs: Array<Record<string, unknown>> = [];
   const response = await handleDossierV2PersistRunWithDependencies(
     request({
       asOf: "2026-09-21T00:00:00Z",
@@ -126,7 +131,7 @@ test("Task 1 authorised request persists once with bounded options", async () =>
         calls.push(options);
         return persistedResult();
       },
-      logger: () => undefined,
+      logger: (event) => logs.push(event),
     },
   );
 
@@ -144,6 +149,24 @@ test("Task 1 authorised request persists once with bounded options", async () =>
   assert.equal(
     body.persistedDossier.id,
     "11111111-1111-4111-8111-111111111111",
+  );
+  assert.deepEqual(body.packetSummary.persistentStoryBindings, [{
+    analytical_story_id: "story:rates-duration-stress",
+    persistent_story_id: "93c3e32f-9168-49ec-aaa3-9ce678511c9b",
+  }]);
+  assert.deepEqual(
+    logs.find((event) => event.event === "dossier_v2_persistent_story_bindings_resolved"),
+    {
+      event: "dossier_v2_persistent_story_bindings_resolved",
+      actor: "production-operator",
+      githubRunId: "12345",
+      dossierId: "11111111-1111-4111-8111-111111111111",
+      bindingCount: 1,
+      bindings: [{
+        analytical_story_id: "story:rates-duration-stress",
+        persistent_story_id: "93c3e32f-9168-49ec-aaa3-9ce678511c9b",
+      }],
+    },
   );
 });
 
