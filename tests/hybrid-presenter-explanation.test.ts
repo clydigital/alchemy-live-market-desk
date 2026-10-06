@@ -39,6 +39,7 @@ test("Hybrid makes upcoming catalysts a primary layer after Motion and before Do
   assert.ok(upcomingAt > motionAt);
   assert.ok(dossierAt > upcomingAt);
   assert.match(hybrid, /current immutable Journey edition/);
+  assert.match(hybrid, /sortUpcomingByTime/);
   assert.match(hybrid, /upcoming\.economicCalendar/);
   assert.match(hybrid, /upcoming\.earnings/);
   assert.match(hybrid, /upcoming\.geopoliticalClock/);
