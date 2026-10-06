@@ -308,7 +308,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "energy-security-inflation", subgroup: "crude", pattern: /\b(wti|brent|crude|oil supply|opec|oil price)\b/i, weight: 5 },
   { regime: "energy-security-inflation", subgroup: "products", pattern: /\b(diesel|ulsd|gasoline|refin|distillate|crack spread|padd)\b/i, weight: 6 },
   { regime: "energy-security-inflation", subgroup: "lng", pattern: /\b(lng|natural gas|qatar gas|ttf|jkm)\b/i, weight: 6 },
-  { regime: "energy-security-inflation", subgroup: "shipping", pattern: /\b(hormuz|shipping|freight|insurance|tanker|chokepoint|vessel)\b/i, weight: 6 },
+  { regime: "energy-security-inflation", subgroup: "shipping", pattern: /\b(hormuz|shipping|freight|marine insurance|shipping insurance|tanker insurance|tanker|chokepoint|vessel)\b/i, weight: 6 },
   { regime: "energy-security-inflation", subgroup: "power", pattern: /\b(electricity|power price|power grid|utility)\b/i, weight: 4 },
   { regime: "energy-security-inflation", subgroup: "inflation", pattern: /\b(energy inflation|fuel inflation|cpi|ppi|inflation expectations)\b/i, weight: 4 },
 
