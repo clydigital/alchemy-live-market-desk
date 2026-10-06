@@ -282,12 +282,12 @@ function learningFromCases(
 
   const transmissionRead =
     reactionRead === "DID_NOT_FOLLOW_EXPECTATION"
-      ? "The expected transmission failed or was offset in this measured window; the cause remains a post-mortem hypothesis."
+      ? "The market did not react as expected in this measured window; the cause remains a post-mortem hypothesis."
       : reactionRead === "MIXED_REACTION"
-        ? "Transmission was mixed across exact checks; no single causal explanation is established."
+        ? "The reaction was mixed across exact checks; no single causal explanation is established."
         : reactionRead === "FOLLOWED_EXPECTATION"
-          ? "The expected transmission appeared in the measured window, but that does not validate the full causal mechanism."
-          : "No exact reaction audit exists for the latest case, so transmission remains unresolved.";
+          ? "The market reacted as expected in the measured window, but that does not validate the full causal mechanism."
+          : "No exact reaction audit exists for the latest case, so the mechanism remains unresolved.";
 
   let learningSummary: string;
   if (evaluated.length === 0) {
@@ -298,7 +298,7 @@ function learningFromCases(
         : "This history is contextual, not calibrated.");
   } else if (latest.outcome === "DIVERGENT") {
     learningSummary =
-      "The latest exact reaction did not follow the preserved expectation. Review the failed/offset transmission link; do not infer that the entire mechanism is invalid.";
+      "The latest exact reaction did not follow the preserved expectation. Check which causal step failed, lagged or was offset; do not infer that the entire mechanism is invalid.";
   } else if (latest.outcome === "MIXED") {
     learningSummary =
       "Exact checks disagreed. The case remains a competing-mechanism problem rather than a clean success/failure verdict.";
