@@ -785,6 +785,63 @@ test("named-month company earnings stay earnings when no macro release is explic
   assert.doesNotMatch(unified.motionKey, /^event:jobs:/);
 });
 
+test("production September jobs replay text enriches the existing legacy Motion key", () => {
+  const creatorRow = reviewedTranscriptRow({
+    item_key: "youtube:fx-evolution:SBWKr5ryg_c",
+    publisher: "FX Evolution",
+    published_at: "2026-10-01T00:10:00Z",
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "September nonfarm payrolls: 29,000 vs. consensus ~90,000 with multiple backward revisions to prior months.",
+      tags: [],
+      entities: [],
+      verificationNeeded: true,
+      verificationTarget: "BLS NFP release and revision history for the referenced months (official BLS monthly employment situation)",
+      searchPrompt: "Verify September payrolls.",
+      articleHook: null,
+      priority: 86,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([creatorRow], [], { now: NOW })[0];
+  const legacy = motionRecordFromCandidate(creator, {
+    id: "prod-legacy-september-jobs",
+    motion_key: "event:jobs:september",
+    version_number: 10,
+    metadata: {
+      ...(creator.metadata || {}),
+      eventIdentity: "event:jobs:september",
+      originItemKeys: [
+        "youtube:fx-evolution:SBWKr5ryg_c",
+        "youtube:stockedup:Vt7iMl7JHFE",
+        "youtube:wall-street-truth-bombs:MpEPbDCsSE0",
+      ],
+    },
+  });
+
+  const reporting = item({
+    itemKey: "feed:zerohedge:c4065f3b8740e38aa4778432",
+    publisher: "ZeroHedge",
+    title: "Key Events This Week: FOMC Minutes, Umich, And FOMC Speakers Galore",
+    summary: "Given the high stress and high alert in bond markets, the main focus in the week ahead will be on central banks, with the minutes from the September FOMC meeting on Wednesday. In the US, the week begins in the shadow of Friday's important September employment report. Headline payrolls rose just +29k, compared with +133k expected, while private payrolls increased +46k versus +127k expected. There were also 60k of downward revisions to headline payrolls over the previous two months, and average hourly earnings rose only +0.1% against +0.3% expected.",
+    publishedAt: "2026-10-01T00:40:00Z",
+    candidateScore: 67,
+    sourceQuality: 64,
+    relevance: 68,
+    novelty: 72,
+    materiality: 64,
+    recommendedAction: "collect_evidence",
+  });
+
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+  const updates = buildExistingMotionCorroborationUpdates([legacy], corroborators, { now: NOW, researchRunId: "prod-replay-run" });
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].motionKey, "event:jobs:september");
+  const metadata = updates[0].metadata as Record<string, unknown>;
+  assert.equal(metadata.corroborationIdentity, "event:jobs:2026-09");
+  assert.ok(((metadata.originItemKeys as string[]) || []).includes("feed:zerohedge:c4065f3b8740e38aa4778432"));
+});
+
 test("macro release event identity keeps different named months separate", () => {
   const september = buildTranscriptMotionCandidates([reviewedTranscriptRow({
     item_key: "youtube:creator:jobs-september",
