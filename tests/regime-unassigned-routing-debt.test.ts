@@ -43,7 +43,7 @@ test("routing restoration resolves existing routing debt instead of creating par
 
 
 test("routing semantics are versioned into projection identity", () => {
-  assert.match(routing, /REGIME_ROUTING_CONTRACT_VERSION = "regime-routing\/1"/);
+  assert.match(routing, /REGIME_ROUTING_CONTRACT_VERSION = "regime-routing\/2"/);
   assert.match(runtime, /routingContractVersion: REGIME_ROUTING_CONTRACT_VERSION/);
 });
 
