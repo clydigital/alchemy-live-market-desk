@@ -12,6 +12,7 @@ import {
 } from "@/lib/market-events";
 import { marketEventFromRow, marketEventToRow, type MarketEventRow } from "@/lib/market-event-persistence";
 import type { EarningsItem, EditionUpcoming, EconomicCalendarItem, GeopoliticalClockItem } from "@/lib/intelligence/edition";
+import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
 import { intelligenceRest } from "@/lib/intelligence/supabase";
 
 type EarningsCallRow = EarningsCallMarketEventRow;
@@ -168,9 +169,9 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
     .map(calendarItem);
   return {
     upcoming: {
-      economicCalendar: [...scheduledCalendar, ...policyCalendar],
-      earnings,
-      geopoliticalClock: geopolitical,
+      economicCalendar: sortUpcomingByTime([...scheduledCalendar, ...policyCalendar]),
+      earnings: sortUpcomingByTime(earnings),
+      geopoliticalClock: sortUpcomingByTime(geopolitical),
     },
     events: allEvents,
     warnings: [...warnings, ...acquisition.warnings],
