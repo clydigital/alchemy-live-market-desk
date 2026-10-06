@@ -248,6 +248,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const motionRegimeContextById = new Map(
     motionRegimeContext.map((item) => [item.motionId, item] as const),
   );
+  const motionAdjudicationContext =
+    presenterEditionStatus === "historical"
+      && presenterHistoricalDossierReplay?.status !== "BOUND"
+      ? []
+      : presenterDossier.motionAdjudicationContext ?? [];
+  const motionAdjudicationContextById = new Map(
+    motionAdjudicationContext.map((item) => [item.motionId, item] as const),
+  );
   const motionEdition = presenterEditionStatus === "historical"
     ? selectedPresenterEdition
     : currentEdition;
@@ -258,7 +266,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     preferredRegimeSlug,
     limit: MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   }).map((item) => {
-    const regimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const directRegimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const dossierAdjudication = motionAdjudicationContextById.get(item.id) ?? null;
+    const regimeContribution = directRegimeContribution ?? dossierAdjudication;
     const regimeSlug = regimeContribution?.regimeSlug ?? item.regimeSlug;
     const regime = regimeSlug ? getRegimeDefinition(regimeSlug) : null;
     const attention = deriveMarketMotionAttention({
@@ -298,6 +308,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeLabel: regime?.shortTitle || item.regimeLabel,
       regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
+      regimeContributionMode: directRegimeContribution
+        ? "DIRECT" as const
+        : dossierAdjudication
+          ? "READ_THROUGH" as const
+          : null,
       regimeContribution: regimeContribution?.conclusion ?? null,
       regimeContributionRationale: regimeContribution?.rationale ?? null,
       regimeContributionNextTest: regimeContribution?.nextTest ?? null,
@@ -316,7 +331,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     new Date(),
     MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   ).map((item) => {
-    const regimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const directRegimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const dossierAdjudication = motionAdjudicationContextById.get(item.id) ?? null;
+    const regimeContribution = directRegimeContribution ?? dossierAdjudication;
     const regimeSlug = regimeContribution?.regimeSlug ?? item.primary_regime_slug;
     const attention = marketMotionAttention(item);
     const story = item.primary_story_id
@@ -350,6 +367,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeLabel: regime?.shortTitle || null,
       regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
+      regimeContributionMode: directRegimeContribution
+        ? "DIRECT" as const
+        : dossierAdjudication
+          ? "READ_THROUGH" as const
+          : null,
       regimeContribution: regimeContribution?.conclusion ?? null,
       regimeContributionRationale: regimeContribution?.rationale ?? null,
       regimeContributionNextTest: regimeContribution?.nextTest ?? null,
