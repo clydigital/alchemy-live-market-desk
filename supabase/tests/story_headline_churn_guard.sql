@@ -15,7 +15,12 @@ begin
   select version.*
   into prior
   from public.story_thesis_versions version
-  order by version.created_at, version.story_id, version.version_number
+  where version.version_number = (
+    select max(candidate.version_number)
+    from public.story_thesis_versions candidate
+    where candidate.story_id = version.story_id
+  )
+  order by version.created_at, version.story_id
   limit 1;
 
   if prior.id is null then
