@@ -308,7 +308,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeLabel: regime?.shortTitle || item.regimeLabel,
       regimeHref: regimeSlug
         ? presenterEditionStatus === "current" && regimeContribution
-          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution ? "dossier-regime-context" : "dossier-story-readthrough"}`
+          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution
+            ? `dossier-regime-context-${encodeURIComponent(item.id)}`
+            : `dossier-story-readthrough-${encodeURIComponent(item.id)}`}`
           : `/regimes/${regimeSlug}`
         : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
@@ -371,7 +373,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeLabel: regime?.shortTitle || null,
       regimeHref: regimeSlug
         ? regimeContribution
-          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution ? "dossier-regime-context" : "dossier-story-readthrough"}`
+          ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution
+            ? `dossier-regime-context-${encodeURIComponent(item.id)}`
+            : `dossier-story-readthrough-${encodeURIComponent(item.id)}`}`
           : `/regimes/${regimeSlug}`
         : null,
       regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
@@ -406,12 +410,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       : null;
   const focusedDirectRegimeHref = focusedDossierRegimeContext
     ? presenterEditionStatus === "current"
-      ? `/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context`
+      ? `/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context-${encodeURIComponent(focusedDossierRegimeContext.motionId)}`
       : `/regimes/${focusedDossierRegimeContext.regimeSlug}`
     : null;
   const focusedStoryReadThroughRegimeHref = focusedStoryRoutedDossierContext
     ? presenterEditionStatus === "current"
-      ? `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough`
+      ? `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough-${encodeURIComponent(focusedStoryRoutedDossierContext.motionId)}`
       : `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}`
     : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
