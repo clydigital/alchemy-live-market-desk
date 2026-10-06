@@ -59,6 +59,7 @@ import type {
   ObservedEvidence,
   SourceDataStatus,
 } from "./input-packet.ts";
+import { explicitlyMentionedInstrumentSpecs } from "../instrument-mentions.ts";
 import { isSystem1IntradayReactionTriggerEvidence } from "./system1-divergence.ts";
 
 export interface CanonicalEvidenceSourceRow {
@@ -463,9 +464,10 @@ function isArticleMarketObservation(row: CanonicalEvidenceRow): boolean {
 
   const statsSignal = structuredString(row.structured_payload, "statsSignal");
   const text = visibleText([row.claim_text, row.summary, statsSignal].filter(Boolean).join(" "));
-  const hasMarketSubject = /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text);
+  const hasMarketSubject = /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text)
+    || explicitlyMentionedInstrumentSpecs(text).length > 0;
   const hasMetric = /(?:[$€£¥]\s?\d|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:%|percent|bp|bps|basis points?|points?|dollars?|barrel|gallon)\b|\b(?:yield|price|index)\b.{0,48}\b\d+(?:\.\d+)?)/i.test(text);
-  const hasMoveOrLevel = /\b(?:rose|fell|rall(?:y|ied|ying)|surged|jumped|gained|climbed|slid|dropped|declined|lost|up|down|steady|hit|reached|traded|closed|opened|topped|support|resistance|high|low)\b/i.test(text);
+  const hasMoveOrLevel = /\b(?:rose|fell|rall(?:y|ied|ying)|surged|jumped|gained|climbed|slid|dropped|declined|lost|up|down|steady|hit|reached|traded|closed|opened|topped|support|resistance|high|low|ath|all[- ]time high|record high)\b/i.test(text);
   return Boolean(statsSignal) || (hasMarketSubject && hasMetric && hasMoveOrLevel);
 }
 
