@@ -120,6 +120,19 @@ export function researchGapDiscriminatorLifecycleFromPlan(
   };
 }
 
+export function selectResearchGapDiscriminatorLifecycleSource(input: {
+  existingResearchPlan?: unknown;
+  latestOccurrenceSnapshot?: unknown;
+}) {
+  if (researchGapDiscriminatorLifecycleFromPlan(input.existingResearchPlan)) {
+    return input.existingResearchPlan ?? null;
+  }
+  if (researchGapDiscriminatorLifecycleFromPlan(input.latestOccurrenceSnapshot)) {
+    return input.latestOccurrenceSnapshot ?? null;
+  }
+  return null;
+}
+
 export function validateResearchGapCausalDiscriminatorPlan(
   value: unknown,
 ): value is ResearchGapCausalDiscriminatorPlan {
