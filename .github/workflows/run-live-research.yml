@@ -20,6 +20,7 @@ on:
           - research
           - intelligence_only
           - story_maintenance
+          - regime_shadow
           - research_gap_one
           - research_gap_handoff_one
           - research_gap_cycle
@@ -380,6 +381,46 @@ jobs:
             echo "Story maintenance ended in state: ${state:-missing}" >&2
             exit 1
           fi
+
+      - name: Run Regime shadow projection
+        if: ${{ env.MODE == 'regime_shadow' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE_FILE="$RUNNER_TEMP/regime-shadow.json"
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          trigger_ref="github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
+          body="$(jq -cn --arg triggerRef "$trigger_ref" '{triggerRef:$triggerRef}')"
+          http_status="$(curl --silent --show-error --max-time 305 \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$body" \
+            "$PROD_URL/api/regime-shadow")"
+
+          jq -c '{
+            enabled,
+            reused,
+            runId,
+            runKey,
+            inputHash,
+            projectedRegimes,
+            versionIds,
+            warnings
+          }' "$RESPONSE_FILE"
+
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Regime shadow projection returned HTTP $http_status." >&2
+            exit 1
+          fi
+          jq -e '.enabled == true and (.runId | type == "string" and length > 0)' "$RESPONSE_FILE" >/dev/null
 
       - name: Run one Research Gap web case
         if: ${{ env.MODE == 'research_gap_one' }}
