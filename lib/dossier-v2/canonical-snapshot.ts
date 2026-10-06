@@ -970,6 +970,50 @@ function monthEndOccurrence(period: string | null) {
   return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) + "T00:00:00.000Z" : undefined;
 }
 
+function endOfUtcDay(date: string | null | undefined) {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const value = `${date}T23:59:59.999Z`;
+  return Number.isFinite(Date.parse(value)) ? value : undefined;
+}
+
+function isAvailableByAsOf(availableAt: string | undefined, asOf: string) {
+  if (!availableAt) return false;
+  const availableMs = Date.parse(availableAt);
+  const asOfMs = Date.parse(asOf);
+  return Number.isFinite(availableMs) && Number.isFinite(asOfMs) && availableMs <= asOfMs;
+}
+
+function latestDailyObservationByAsOf<T extends { date: string }>(
+  latest: T | null | undefined,
+  prior: T | null | undefined,
+  asOf: string,
+) {
+  return [latest, prior]
+    .filter((item): item is T => Boolean(item))
+    .filter((item) => isAvailableByAsOf(endOfUtcDay(item.date), asOf))
+    .sort((left, right) => right.date.localeCompare(left.date))[0] ?? null;
+}
+
+function japanMofFlowEndDate(
+  row: { periodLabel: string; inferredGregorianYear: number | null },
+) {
+  const fullDates = [...row.periodLabel.matchAll(/((?:19|20)\d{2})[\/-](\d{1,2})[\/-](\d{1,2})/g)];
+  if (fullDates.length > 0) {
+    const [, year, month, day] = fullDates[fullDates.length - 1];
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  if (row.inferredGregorianYear !== null) {
+    const monthDays = [...row.periodLabel.matchAll(/(\d{1,2})月(\d{1,2})日/g)];
+    if (monthDays.length > 0) {
+      const [, month, day] = monthDays[monthDays.length - 1];
+      return `${row.inferredGregorianYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+  }
+
+  return null;
+}
+
 function flowEvidenceKey(value: string) {
   return value.replace(/[^0-9A-Za-z]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "latest";
 }
@@ -985,26 +1029,41 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
 ): CanonicalSnapshotResult {
   const observed = [...(result.snapshot.observed_evidence ?? [])];
 
-  if (jgb.latest && jgb.asOf && jgb.status !== "UNAVAILABLE") {
+  const jgbObservation = latestDailyObservationByAsOf(
+    jgb.latest,
+    jgb.previous5,
+    options.asOf,
+  );
+  const jgbAvailableAt = endOfUtcDay(jgbObservation?.date);
+  const jgbIsLatest = Boolean(
+    jgbObservation
+    && jgb.latest
+    && jgbObservation.date === jgb.latest.date,
+  );
+  if (
+    jgbObservation
+    && jgbAvailableAt
+    && jgb.status !== "UNAVAILABLE"
+  ) {
     observed.push({
-      evidence_id: `global-rates:jgb:${jgb.asOf}`,
-      claim_or_fact: `Japan MOF constant-maturity JGB yields for ${jgb.asOf}: 2Y ${jgb.latest.y2 ?? "n/a"}%, 10Y ${jgb.latest.y10 ?? "n/a"}%, 30Y ${jgb.latest.y30 ?? "n/a"}%.`,
+      evidence_id: `global-rates:jgb:${jgbObservation.date}`,
+      claim_or_fact: `Japan MOF constant-maturity JGB yields for ${jgbObservation.date}: 2Y ${jgbObservation.y2 ?? "n/a"}%, 10Y ${jgbObservation.y10 ?? "n/a"}%, 30Y ${jgbObservation.y30 ?? "n/a"}%.`,
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: options.asOf,
-      occurrence_time: `${jgb.asOf}T00:00:00.000Z`,
+      available_at: jgbAvailableAt,
+      occurrence_time: `${jgbObservation.date}T00:00:00.000Z`,
       grouping_key: "global-rates:jgb",
       rank: 12,
       metrics: {
         signal_kind: "global_rates",
         signal_context: "jgb_curve",
-        jgb_2y_pct: jgb.latest.y2,
-        jgb_10y_pct: jgb.latest.y10,
-        jgb_30y_pct: jgb.latest.y30,
-        jgb_2y_change_5d_bp: jgb.changes5dBp.y2,
-        jgb_10y_change_5d_bp: jgb.changes5dBp.y10,
-        jgb_30y_change_5d_bp: jgb.changes5dBp.y30,
-        provider_status: jgb.status,
+        jgb_2y_pct: jgbObservation.y2,
+        jgb_10y_pct: jgbObservation.y10,
+        jgb_30y_pct: jgbObservation.y30,
+        jgb_2y_change_5d_bp: jgbIsLatest ? jgb.changes5dBp.y2 : null,
+        jgb_10y_change_5d_bp: jgbIsLatest ? jgb.changes5dBp.y10 : null,
+        jgb_30y_change_5d_bp: jgbIsLatest ? jgb.changes5dBp.y30 : null,
+        provider_status: jgbIsLatest ? jgb.status : "PARTIAL",
       },
       provenance: [{
         source_type: "JAPAN_MOF",
@@ -1018,14 +1077,24 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
   const japanTic = tic.countries.find((item) => item.country === "Japan") ?? null;
   const totalTic = tic.countries.find((item) => item.country === "Grand Total") ?? null;
   const officialTic = tic.countries.find((item) => item.country === "Of Which: Foreign Official") ?? null;
-  if (tic.latestPeriod && japanTic && tic.status !== "UNAVAILABLE") {
+  const ticOccurrence = monthEndOccurrence(tic.latestPeriod);
+  const ticAvailableAt = ticOccurrence
+    ? endOfUtcDay(ticOccurrence.slice(0, 10))
+    : undefined;
+  const ticEligible = Boolean(
+    tic.latestPeriod
+    && japanTic
+    && tic.status !== "UNAVAILABLE"
+    && isAvailableByAsOf(ticAvailableAt, options.asOf),
+  );
+  if (ticEligible && tic.latestPeriod && japanTic && ticAvailableAt) {
     observed.push({
       evidence_id: `global-rates:tic:${tic.latestPeriod}`,
       claim_or_fact: `Treasury TIC reported Japan Treasury holdings of ${japanTic.latestUsdBn ?? "n/a"}bn for ${tic.latestPeriod}; prior month ${japanTic.previousUsdBn ?? "n/a"}bn.`,
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: options.asOf,
-      occurrence_time: monthEndOccurrence(tic.latestPeriod),
+      available_at: ticAvailableAt,
+      occurrence_time: ticOccurrence,
       grouping_key: "global-rates:tic",
       rank: 13,
       metrics: {
@@ -1050,23 +1119,39 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
-  if (bund10?.latest && bund10.status !== "UNAVAILABLE") {
+  const bundObservation = latestDailyObservationByAsOf(
+    bund10?.latest,
+    bund10?.previous5,
+    options.asOf,
+  );
+  const bundAvailableAt = endOfUtcDay(bundObservation?.date);
+  const bundIsLatest = Boolean(
+    bundObservation
+    && bund10?.latest
+    && bundObservation.date === bund10.latest.date,
+  );
+  if (
+    bund10
+    && bundObservation
+    && bundAvailableAt
+    && bund10.status !== "UNAVAILABLE"
+  ) {
     observed.push({
-      evidence_id: `global-rates:bund:${bund10.latest.date}`,
-      claim_or_fact: `Deutsche Bundesbank 10Y current Federal bond yield for ${bund10.latest.date}: ${bund10.latest.yieldPct}%.`,
+      evidence_id: `global-rates:bund:${bundObservation.date}`,
+      claim_or_fact: `Deutsche Bundesbank 10Y current Federal bond yield for ${bundObservation.date}: ${bundObservation.yieldPct}%.`,
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: options.asOf,
-      occurrence_time: `${bund10.latest.date}T00:00:00.000Z`,
+      available_at: bundAvailableAt,
+      occurrence_time: `${bundObservation.date}T00:00:00.000Z`,
       grouping_key: "global-rates:bund",
       rank: 12,
       metrics: {
         signal_kind: "global_rates",
         signal_context: "bund_10y",
-        observed_value: bund10.latest.yieldPct,
-        change_5d_bp: bund10.change5dBp,
-        provider_status: bund10.status,
-        source_date: bund10.latest.date,
+        observed_value: bundObservation.yieldPct,
+        change_5d_bp: bundIsLatest ? bund10.change5dBp : null,
+        provider_status: bundIsLatest ? bund10.status : "PARTIAL",
+        source_date: bundObservation.date,
       },
       provenance: [{
         source_type: "BUNDESBANK",
@@ -1077,23 +1162,39 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
-  if (gilt10?.latest && gilt10.status !== "UNAVAILABLE") {
+  const giltObservation = latestDailyObservationByAsOf(
+    gilt10?.latest,
+    gilt10?.previous5,
+    options.asOf,
+  );
+  const giltAvailableAt = endOfUtcDay(giltObservation?.date);
+  const giltIsLatest = Boolean(
+    giltObservation
+    && gilt10?.latest
+    && giltObservation.date === gilt10.latest.date,
+  );
+  if (
+    gilt10
+    && giltObservation
+    && giltAvailableAt
+    && gilt10.status !== "UNAVAILABLE"
+  ) {
     observed.push({
-      evidence_id: `global-rates:gilt:${gilt10.latest.date}`,
-      claim_or_fact: `Bank of England 10Y nominal gilt par yield for ${gilt10.latest.date}: ${gilt10.latest.yieldPct}%.`,
+      evidence_id: `global-rates:gilt:${giltObservation.date}`,
+      claim_or_fact: `Bank of England 10Y nominal gilt par yield for ${giltObservation.date}: ${giltObservation.yieldPct}%.`,
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: options.asOf,
-      occurrence_time: `${gilt10.latest.date}T00:00:00.000Z`,
+      available_at: giltAvailableAt,
+      occurrence_time: `${giltObservation.date}T00:00:00.000Z`,
       grouping_key: "global-rates:gilt",
       rank: 12,
       metrics: {
         signal_kind: "global_rates",
         signal_context: "gilt_10y",
-        observed_value: gilt10.latest.yieldPct,
-        change_5d_bp: gilt10.change5dBp,
-        provider_status: gilt10.status,
-        source_date: gilt10.latest.date,
+        observed_value: giltObservation.yieldPct,
+        change_5d_bp: giltIsLatest ? gilt10.change5dBp : null,
+        provider_status: giltIsLatest ? gilt10.status : "PARTIAL",
+        source_date: giltObservation.date,
       },
       provenance: [{
         source_type: "BANK_OF_ENGLAND",
@@ -1104,23 +1205,46 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
     });
   }
 
-  if (japanFlows.state === "ready" && japanFlows.latest) {
+  const flowRows = [
+    ...(japanFlows.rows ?? []),
+    ...(japanFlows.latest ? [japanFlows.latest] : []),
+  ];
+  const flowByPeriod = new Map(flowRows.map((row) => [row.periodLabel, row]));
+  const flowObservation = [...flowByPeriod.values()]
+    .map((row) => ({
+      row,
+      endDate: japanMofFlowEndDate(row),
+    }))
+    .filter((item): item is { row: typeof japanFlows.latest extends infer _T ? NonNullable<typeof japanFlows.latest> : never; endDate: string } =>
+      Boolean(item.endDate),
+    )
+    .filter((item) => isAvailableByAsOf(endOfUtcDay(item.endDate), options.asOf))
+    .sort((left, right) => right.endDate.localeCompare(left.endDate))[0] ?? null;
+  const flowAvailableAt = endOfUtcDay(flowObservation?.endDate);
+
+  if (
+    japanFlows.state === "ready"
+    && flowObservation
+    && flowAvailableAt
+  ) {
+    const flow = flowObservation.row;
     observed.push({
-      evidence_id: `global-rates:japan-mof-flows:${flowEvidenceKey(japanFlows.latest.periodLabel)}`,
-      claim_or_fact: `Japan MOF weekly portfolio flows for ${japanFlows.latest.periodLabel}: residents' outward long-term debt net purchase ${japanFlows.latest.outwardLongTermDebtNetPurchaseJpyBn ?? "n/a"} JPY bn.`,
+      evidence_id: `global-rates:japan-mof-flows:${flowEvidenceKey(flow.periodLabel)}`,
+      claim_or_fact: `Japan MOF weekly portfolio flows for ${flow.periodLabel}: residents' outward long-term debt net purchase ${flow.outwardLongTermDebtNetPurchaseJpyBn ?? "n/a"} JPY bn.`,
       category: "Rates",
       source_type: "OFFICIAL_DATA",
-      available_at: options.asOf,
+      available_at: flowAvailableAt,
+      occurrence_time: `${flowObservation.endDate}T00:00:00.000Z`,
       grouping_key: "global-rates:japan-mof-flows",
       rank: 14,
       metrics: {
         signal_kind: "portfolio_flow",
         signal_context: "japan_mof_outward_securities",
-        period_label: japanFlows.latest.periodLabel,
-        outward_sign_convention: japanFlows.latest.outwardSignConvention,
-        outward_long_term_debt_net_purchase_jpy_bn: japanFlows.latest.outwardLongTermDebtNetPurchaseJpyBn,
-        outward_total_net_purchase_jpy_bn: japanFlows.latest.outwardTotalNetPurchaseJpyBn,
-        outward_equity_net_purchase_jpy_bn: japanFlows.latest.outwardEquityNetPurchaseJpyBn,
+        period_label: flow.periodLabel,
+        outward_sign_convention: flow.outwardSignConvention,
+        outward_long_term_debt_net_purchase_jpy_bn: flow.outwardLongTermDebtNetPurchaseJpyBn,
+        outward_total_net_purchase_jpy_bn: flow.outwardTotalNetPurchaseJpyBn,
+        outward_equity_net_purchase_jpy_bn: flow.outwardEquityNetPurchaseJpyBn,
         provider_status: japanFlows.state,
         treasury_specific: false,
       },
@@ -1140,29 +1264,39 @@ export function augmentCandidateSnapshotWithGlobalRatesEvidence(
       sources_status: {
         ...(result.snapshot.sources_status ?? {}),
         japan_mof_jgb_yields: {
-          status: jgb.status,
-          available_at: jgb.asOf ? `${jgb.asOf}T00:00:00.000Z` : undefined,
-          message: jgb.warnings.join(" ") || "Japan MOF JGB constant-maturity yields admitted.",
+          status: jgbObservation ? (jgbIsLatest ? jgb.status : "PARTIAL") : "OPTIONAL_UNAVAILABLE",
+          available_at: jgbAvailableAt,
+          message: jgbObservation
+            ? (jgb.warnings.join(" ") || "Japan MOF JGB constant-maturity yields admitted.")
+            : "No Japan MOF JGB observation at or before the requested asOf was available from the bounded provider snapshot.",
         },
         treasury_tic_foreign_holdings: {
-          status: tic.status,
-          available_at: tic.latestPeriod ? monthEndOccurrence(tic.latestPeriod) : undefined,
-          message: [tic.custodyAttributionCaveat, ...tic.warnings].join(" "),
+          status: ticEligible ? tic.status : "OPTIONAL_UNAVAILABLE",
+          available_at: ticEligible ? ticAvailableAt : undefined,
+          message: ticEligible
+            ? [tic.custodyAttributionCaveat, ...tic.warnings].join(" ")
+            : "Latest Treasury TIC period falls after the requested asOf or is unavailable.",
         },
         japan_mof_weekly_flows: {
-          status: japanFlows.state === "ready" ? "OK" : "OPTIONAL_UNAVAILABLE",
-          available_at: japanFlows.retrievedAt ?? undefined,
-          message: japanFlows.note ?? "Japan MOF weekly flow enrichment unavailable.",
+          status: flowObservation ? "OK" : "OPTIONAL_UNAVAILABLE",
+          available_at: flowAvailableAt,
+          message: flowObservation
+            ? japanFlows.note ?? "Japan MOF weekly flow enrichment admitted."
+            : "No Japan MOF weekly flow period ending at or before the requested asOf was available.",
         },
         bundesbank_bund10: {
-          status: bund10?.status ?? "OPTIONAL_UNAVAILABLE",
-          available_at: bund10?.latest ? `${bund10.latest.date}T00:00:00.000Z` : undefined,
-          message: bund10?.warnings.join(" ") || "Bundesbank 10Y Bund enrichment is optional and currently unavailable.",
+          status: bundObservation ? (bundIsLatest ? bund10?.status ?? "PARTIAL" : "PARTIAL") : "OPTIONAL_UNAVAILABLE",
+          available_at: bundAvailableAt,
+          message: bundObservation
+            ? (bund10?.warnings.join(" ") || "Bundesbank 10Y Bund enrichment admitted.")
+            : "No Bundesbank 10Y Bund observation at or before the requested asOf was available from the bounded provider snapshot.",
         },
         boe_gilt10: {
-          status: gilt10?.status ?? "OPTIONAL_UNAVAILABLE",
-          available_at: gilt10?.latest ? `${gilt10.latest.date}T00:00:00.000Z` : undefined,
-          message: gilt10?.warnings.join(" ") || "Bank of England 10Y gilt enrichment is optional and currently unavailable.",
+          status: giltObservation ? (giltIsLatest ? gilt10?.status ?? "PARTIAL" : "PARTIAL") : "OPTIONAL_UNAVAILABLE",
+          available_at: giltAvailableAt,
+          message: giltObservation
+            ? (gilt10?.warnings.join(" ") || "Bank of England 10Y gilt enrichment admitted.")
+            : "No Bank of England 10Y gilt observation at or before the requested asOf was available from the bounded provider snapshot.",
         },
       },
     },

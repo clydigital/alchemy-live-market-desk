@@ -195,3 +195,115 @@ test("global-rates enrichment admits official Bund and gilt observations as sepa
   assert.equal((giltEvidence?.metrics as Record<string, unknown>).signal_context, "gilt_10y");
   assert.equal((giltEvidence?.metrics as Record<string, unknown>).change_5d_bp, 7);
 });
+
+
+test("global-rates historical replay excludes future observations and uses only as-of-safe fallbacks", () => {
+  const historicalAsOf = "2026-09-25T13:10:00.000Z";
+  const jgb: JapanMofJgbSnapshot = {
+    status: "OK",
+    fetchedAt: AS_OF,
+    asOf: "2026-10-01",
+    sourceName: "Japan Ministry of Finance",
+    sourceUrls: ["history", "current"],
+    latest: { date: "2026-10-01", y2: 2.2, y10: 3, y30: 3.4 },
+    previous5: { date: "2026-09-24", y2: 2.1, y10: 2.9, y30: 3.3 },
+    changes5dBp: { y2: 10, y10: 10, y30: 10 },
+    warnings: [],
+  };
+  const tic: TreasuryTicSnapshot = {
+    status: "OK",
+    fetchedAt: AS_OF,
+    latestPeriod: "2026-07",
+    previousPeriod: "2026-06",
+    sourceName: "U.S. Department of the Treasury · Treasury International Capital",
+    sourceUrl: "https://ticdata.treasury.gov/resource-center/data-chart-center/tic/Documents/slt_table5.txt",
+    countries: [{ country: "Japan", latestUsdBn: 1103.9, previousUsdBn: 1116.7, monthlyChangeUsdBn: -12.8 }],
+    custodyAttributionCaveat: "Custody location may not equal beneficial owner.",
+    warnings: [],
+  };
+  const historicalFlow = {
+    periodLabel: "2026/09/13-2026/09/19",
+    inferredGregorianYear: 2026,
+    outwardSignConvention: "net_purchase_positive" as const,
+    outwardEquityNetJpyBn: 5,
+    outwardLongTermDebtNetJpyBn: 300,
+    outwardShortTermDebtNetJpyBn: 10,
+    outwardTotalNetJpyBn: 315,
+    outwardEquityNetPurchaseJpyBn: 5,
+    outwardLongTermDebtNetPurchaseJpyBn: 300,
+    outwardShortTermDebtNetPurchaseJpyBn: 10,
+    outwardTotalNetPurchaseJpyBn: 315,
+    inwardEquityNetJpyBn: 1,
+    inwardLongTermDebtNetJpyBn: 2,
+    inwardShortTermDebtNetJpyBn: 3,
+    inwardTotalNetJpyBn: 6,
+  };
+  const futureFlow = {
+    ...historicalFlow,
+    periodLabel: "2026/09/20-2026/09/26",
+    outwardLongTermDebtNetPurchaseJpyBn: 420,
+  };
+  const flows: JapanMofWeeklySnapshot = {
+    state: "ready",
+    retrievedAt: AS_OF,
+    rows: [historicalFlow, futureFlow],
+    latest: futureFlow,
+    sourceName: "Japan Ministry of Finance",
+    sourceUrl: "https://www.mof.go.jp/policy/international_policy/reference/itn_transactions_in_securities/week.csv",
+    sourceUnit: "JPY 100 million",
+    canonicalUnit: "JPY bn",
+    note: "Fixture.",
+  };
+  const bund: BundesbankBund10Snapshot = {
+    status: "OK",
+    fetchedAt: AS_OF,
+    sourceName: "Deutsche Bundesbank",
+    sourceUrl: "https://api.statistiken.bundesbank.de/rest/data/BBSSY/D.REN.EUR.A630.000000WT1010.A?format=text_csv&lang=en&detail=dataonly&lastNObservations=6",
+    series: "BBSSY.D.REN.EUR.A630.000000WT1010.A",
+    latest: { date: "2026-10-01", yieldPct: 3.8 },
+    previous5: { date: "2026-09-24", yieldPct: 3.72 },
+    change5dBp: 8,
+    warnings: [],
+  };
+  const gilt: BoeGilt10Snapshot = {
+    status: "OK",
+    fetchedAt: AS_OF,
+    sourceName: "Bank of England",
+    sourceUrl: "https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp?csv.x=yes",
+    series: "IUDMNPY",
+    latest: { date: "2026-10-01", yieldPct: 5.1 },
+    previous5: { date: "2026-09-24", yieldPct: 5.03 },
+    change5dBp: 7,
+    warnings: [],
+  };
+
+  const result = augmentCandidateSnapshotWithGlobalRatesEvidence(
+    base(),
+    jgb,
+    tic,
+    flows,
+    { asOf: historicalAsOf },
+    bund,
+    gilt,
+  );
+  const evidence = (result.snapshot.observed_evidence ?? []) as Array<{
+    evidence_id: string;
+    available_at: string;
+  }>;
+
+  assert.equal(evidence.some((item) => item.evidence_id.includes("2026-10-01")), false);
+  assert.equal(evidence.some((item) => item.evidence_id === "global-rates:jgb:2026-09-24"), true);
+  assert.equal(evidence.some((item) => item.evidence_id === "global-rates:bund:2026-09-24"), true);
+  assert.equal(evidence.some((item) => item.evidence_id === "global-rates:gilt:2026-09-24"), true);
+  assert.equal(
+    evidence.some((item) => item.evidence_id.includes("2026-09-20-2026-09-26")),
+    false,
+  );
+  assert.equal(
+    evidence.some((item) => item.evidence_id.includes("2026-09-13-2026-09-19")),
+    true,
+  );
+  for (const item of evidence) {
+    assert.ok(Date.parse(item.available_at) <= Date.parse(historicalAsOf));
+  }
+});
