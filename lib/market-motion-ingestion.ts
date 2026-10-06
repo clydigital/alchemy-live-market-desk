@@ -1144,15 +1144,16 @@ export function buildExistingMotionCorroborationUpdates(
   return [...strongestByEvent.entries()].flatMap(([eventIdentity, row]) => {
     const existing = recordAsInput(row);
     let metadata = existing.metadata || {};
-    let newestObservedAt = existing.observedAt;
+    let newestObservedAt = existing.observedAt || existing.occurredAt;
 
     for (const corroborator of corroboratorsByEvent.get(eventIdentity) || []) {
       metadata = mergedMetadata(
         { ...existing, metadata },
         corroborator,
       );
-      if (Date.parse(corroborator.observedAt) > Date.parse(newestObservedAt)) {
-        newestObservedAt = corroborator.observedAt;
+      const corroboratorObservedAt = corroborator.observedAt || corroborator.occurredAt;
+      if (Date.parse(corroboratorObservedAt) > Date.parse(newestObservedAt)) {
+        newestObservedAt = corroboratorObservedAt;
       }
     }
 
