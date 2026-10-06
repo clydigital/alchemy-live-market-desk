@@ -204,6 +204,9 @@ jobs:
       - name: Apply Story-domain quarantine
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261007051500_story_domain_quarantine.sql
 
+      - name: Apply Story-domain contract v2
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261007073000_story_domain_signal_contract_v2.sql
+
       - name: Verify persistent Regime shadow engine contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/persistent_regime_shadow_engine_contract.sql
 
