@@ -305,6 +305,40 @@ function properSubject(headline: string) {
   return null;
 }
 
+const MONTH_NUMBER_BY_TOKEN: Record<string, string> = {
+  jan: "01", january: "01",
+  feb: "02", february: "02",
+  mar: "03", march: "03",
+  apr: "04", april: "04",
+  may: "05",
+  jun: "06", june: "06",
+  jul: "07", july: "07",
+  aug: "08", august: "08",
+  sep: "09", sept: "09", september: "09",
+  oct: "10", october: "10",
+  nov: "11", november: "11",
+  dec: "12", december: "12",
+};
+
+function macroReleasePeriodSubject(text: string, occurredAt: string) {
+  const normalized = normaliseEventIdentityText(text);
+  const monthMatch = normalized.match(
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i,
+  );
+  if (!monthMatch?.[1]) return null;
+
+  const month = MONTH_NUMBER_BY_TOKEN[monthMatch[1].toLowerCase()];
+  if (!month) return null;
+
+  const explicitYear = normalized.match(/\b(20\d{2})\b/)?.[1] ?? null;
+  const occurred = Date.parse(occurredAt);
+  const fallbackYear = Number.isFinite(occurred) ? new Date(occurred).getUTCFullYear() : null;
+  const year = explicitYear ? Number(explicitYear) : fallbackYear;
+  if (!year) return null;
+
+  return `${year}-${month}`;
+}
+
 function normaliseEventIdentityText(text: string) {
   return text
     .normalize("NFKC")
@@ -343,6 +377,12 @@ function eventMotionKey(candidate: MarketMotionInput) {
   const eventText = normaliseEventIdentityText(`${candidate.headline} ${candidate.whatHappened}`);
   const family = explicitFamily || eventFamily(eventText);
   if (!family) return candidate.motionKey;
+
+  if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {
+    const releasePeriod = macroReleasePeriodSubject(eventText, candidate.occurredAt);
+    if (releasePeriod) return `event:${family}:${releasePeriod}`;
+  }
+
   const entities = metadataStrings(metadata, "entities", 8);
   const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
   const deterministicInstrument = family === "rates_move"
