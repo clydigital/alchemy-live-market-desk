@@ -321,11 +321,26 @@ const MONTH_NUMBER_BY_TOKEN: Record<string, string> = {
   dec: "12", december: "12",
 };
 
+const MONTH_TOKEN_PATTERN =
+  /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
+
+const EXPLICIT_MONTHLY_MACRO_FAMILIES: Array<[string, RegExp]> = [
+  ["cpi", /\b(?:consumer price index|cpi)\b/i],
+  ["ppi", /\b(?:producer price index|ppi)\b/i],
+  ["pce", /\b(?:personal consumption expenditures|pce)\b/i],
+  ["jobs", /\b(?:nonfarm payrolls?|nfp|jobs report|employment report|payrolls)\b/i],
+  ["fomc", /\b(?:fomc|fed decision|federal reserve decision)\b/i],
+];
+
+function explicitMonthlyMacroFamily(text: string) {
+  const normalized = normaliseEventIdentityText(text);
+  if (!MONTH_TOKEN_PATTERN.test(normalized)) return null;
+  return EXPLICIT_MONTHLY_MACRO_FAMILIES.find(([, pattern]) => pattern.test(normalized))?.[0] ?? null;
+}
+
 function macroReleasePeriodSubject(text: string, occurredAt: string) {
   const normalized = normaliseEventIdentityText(text);
-  const monthMatch = normalized.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i,
-  );
+  const monthMatch = normalized.match(MONTH_TOKEN_PATTERN);
   if (!monthMatch?.[1]) return null;
 
   const month = MONTH_NUMBER_BY_TOKEN[monthMatch[1].toLowerCase()];
@@ -376,7 +391,7 @@ function eventMotionKey(candidate: MarketMotionInput) {
   const metadata = candidate.metadata || {};
   const explicitFamily = typeof metadata.eventFamily === "string" ? metadata.eventFamily.trim() : "";
   const eventText = normaliseEventIdentityText(`${candidate.headline} ${candidate.whatHappened}`);
-  const family = explicitFamily || eventFamily(eventText);
+  const family = explicitFamily || explicitMonthlyMacroFamily(eventText) || eventFamily(eventText);
   if (!family) return candidate.motionKey;
 
   if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {

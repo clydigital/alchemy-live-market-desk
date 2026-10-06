@@ -748,6 +748,43 @@ test("September jobs creator lead and independent reporting share one canonical 
   assert.ok(((metadata.originItemKeys as string[]) || []).includes("feed:reporting:september-jobs"));
 });
 
+test("explicit September jobs report outranks incidental hourly earnings wording", () => {
+  const reporting = item({
+    itemKey: "feed:reporting:weekly-events-jobs",
+    title: "Key Events This Week: FOMC Minutes, Umich, And FOMC Speakers Galore",
+    summary: "The week begins in the shadow of Friday's important September employment report. Headline payrolls rose just +29k and average hourly earnings rose only +0.1% against +0.3% expected.",
+    publishedAt: "2026-10-01T00:40:00Z",
+    candidateScore: 67,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+  const [unified] = unifyMarketMotionCandidates(corroborators);
+  assert.equal(unified.motionKey, "event:jobs:2026-09");
+});
+
+test("named-month company earnings stay earnings when no macro release is explicit", () => {
+  const reporting = item({
+    itemKey: "feed:reporting:september-company-earnings",
+    title: "September earnings update shows stronger quarterly results",
+    summary: "The company reported quarterly earnings and raised guidance.",
+    publishedAt: "2026-10-01T00:40:00Z",
+    candidateScore: 67,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+  const [unified] = unifyMarketMotionCandidates(corroborators);
+  assert.match(unified.motionKey, /^event:earnings:/);
+  assert.doesNotMatch(unified.motionKey, /^event:jobs:/);
+});
+
 test("macro release event identity keeps different named months separate", () => {
   const september = buildTranscriptMotionCandidates([reviewedTranscriptRow({
     item_key: "youtube:creator:jobs-september",
