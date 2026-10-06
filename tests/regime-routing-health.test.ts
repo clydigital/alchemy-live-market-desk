@@ -23,4 +23,5 @@ test("Regime board makes open routing debt visible without implying a fallback r
   assert.match(page, /high\/critical/);
   assert.match(page, /oldest open/);
   assert.match(page, /not forced into a weak Regime mapping/);
+  assert.doesNotMatch(page, /Storys remain/);
 });
