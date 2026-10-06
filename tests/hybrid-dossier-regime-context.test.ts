@@ -28,7 +28,7 @@ test("C1.5c1 keeps Dossier judgement authoritative and raw Motion discovery-only
   );
   assert.match(
     page,
-    /The raw discovery Motion has aged out of the current Journey edition\. The immutable Dossier System 2 judgement above remains the authoritative explanation/,
+    /The raw discovery Motion is no longer in the selected Motion context\. The immutable Dossier System 2 judgement above remains the authoritative explanation/,
   );
 });
 
