@@ -286,7 +286,10 @@ test("global-rates historical replay excludes future observations and uses only 
     bund,
     gilt,
   );
-  const evidence = result.snapshot.observed_evidence ?? [];
+  const evidence = (result.snapshot.observed_evidence ?? []) as Array<{
+    evidence_id: string;
+    available_at: string;
+  }>;
 
   assert.equal(evidence.some((item) => item.evidence_id.includes("2026-10-01")), false);
   assert.equal(evidence.some((item) => item.evidence_id === "global-rates:jgb:2026-09-24"), true);
