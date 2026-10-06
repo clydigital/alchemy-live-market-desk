@@ -156,6 +156,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
       sourceUrl: item.source_url,
       storyTitle: null,
       storyHref: null,
+      regimeSlug: regime?.slug || null,
       regimeLabel: regime?.shortTitle || null,
       regimeHref: regime ? `/regimes/${regime.slug}` : null,
     };

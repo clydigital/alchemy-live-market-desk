@@ -271,6 +271,7 @@ export default async function Page({ searchParams }: PageProps) {
       sourceUrl: item.source_url,
       storyTitle: story?.title || null,
       storyHref: story ? `/stories/${story.slug}` : null,
+      regimeSlug: regime?.slug || null,
       regimeLabel: regime?.shortTitle || null,
       regimeHref: regime ? `/regimes/${regime.slug}` : null,
     };

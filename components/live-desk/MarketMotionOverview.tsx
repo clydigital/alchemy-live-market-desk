@@ -30,6 +30,7 @@ export type MarketMotionOverviewItem = {
   sourceUrl: string;
   storyTitle: string | null;
   storyHref: string | null;
+  regimeSlug: string | null;
   regimeLabel: string | null;
   regimeHref: string | null;
   regimeContributionState?: "ACCEPT" | "REFINE" | "PENDING" | null;
@@ -92,11 +93,12 @@ function buildMarketMotionRegimeRollup(
       continue;
     }
 
-    const key = item.regimeHref || item.regimeLabel;
+    const key = item.regimeSlug || item.regimeLabel;
+    const regimeHref = item.regimeHref?.split("#")[0] ?? null;
     const current = byRegime.get(key) ?? {
       key,
       regimeLabel: item.regimeLabel,
-      regimeHref: item.regimeHref,
+      regimeHref,
       directCount: 0,
       readThroughCount: 0,
       acceptCount: 0,
