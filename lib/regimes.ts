@@ -3,7 +3,7 @@ import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import { storyFramingDependsOnExpiredCatalyst } from "./story-hygiene.ts";
 
-export const REGIME_ROUTING_CONTRACT_VERSION = "regime-routing/1" as const;
+export const REGIME_ROUTING_CONTRACT_VERSION = "regime-routing/2" as const;
 
 export type RegimeSlug =
   | "global-cost-of-capital"
@@ -290,6 +290,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "global-cost-of-capital", subgroup: "treasury-fiscal", pattern: /\b(treasury|fiscal|deficit|debt supply|issuance|buyback|borrowing|tga|auction)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "long-end", pattern: /\b(10y|30y|long[- ]end|term premium|duration|real yield|breakeven|mortgage rate)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|japanese|yen|usd.?jpy|dollar[- ]?yen|carry trade|carry unwind|global yield|global rates|yield gap|rate differential|relative rates|repatriat|bund|oat|oat[- ]bund|france|french sovereign|gilt|uk 30y|sovereign spread|fragmentation|tic|foreign treasury|treasury holdings|foreign demand|capital flow|intervention|ministry of finance|mof|hedging cost|cross[- ]?currency basis|fx swap)\b/i, weight: 7 },
+  { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(stable[- ]value|wrap providers?|insurer insolvenc|insurance counterparty|liquidity run|participant liquidity|plan[- ]level stress|recordkeeper)\b/i, weight: 7 },
   { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(credit|spread|refinanc|funding|bond issuance|project finance|leverage|debt-funded|cmbs|cre|commercial real estate|private credit|special servicing|non[- ]accrual|redemption|gate|bank provision|forced sell)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "housing", pattern: /\b(housing|mortgage|homebuilder|home sales|affordability)\b/i, weight: 5 },
 
@@ -307,7 +308,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "energy-security-inflation", subgroup: "crude", pattern: /\b(wti|brent|crude|oil supply|opec|oil price)\b/i, weight: 5 },
   { regime: "energy-security-inflation", subgroup: "products", pattern: /\b(diesel|ulsd|gasoline|refin|distillate|crack spread|padd)\b/i, weight: 6 },
   { regime: "energy-security-inflation", subgroup: "lng", pattern: /\b(lng|natural gas|qatar gas|ttf|jkm)\b/i, weight: 6 },
-  { regime: "energy-security-inflation", subgroup: "shipping", pattern: /\b(hormuz|shipping|freight|insurance|tanker|chokepoint|vessel)\b/i, weight: 6 },
+  { regime: "energy-security-inflation", subgroup: "shipping", pattern: /\b(hormuz|shipping|freight|marine insurance|shipping insurance|tanker insurance|tanker|chokepoint|vessel)\b/i, weight: 6 },
   { regime: "energy-security-inflation", subgroup: "power", pattern: /\b(electricity|power price|power grid|utility)\b/i, weight: 4 },
   { regime: "energy-security-inflation", subgroup: "inflation", pattern: /\b(energy inflation|fuel inflation|cpi|ppi|inflation expectations)\b/i, weight: 4 },
 
