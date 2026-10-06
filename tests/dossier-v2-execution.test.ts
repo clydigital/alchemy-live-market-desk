@@ -877,7 +877,7 @@ test("Task 8 mapper completes the bounded rates-led research agenda without publ
   assert.match(agenda, /term.?premium/i);
   assert.match(agenda, /Bund.*gilt.*JGB/i);
   assert.match(agenda, /gold.*real.?yield.*USD/i);
-  assert.match(agenda, /HY.*IG.*MOVE.*VIX/i);
+  assert.match(agenda, /HY.*IG.*equity volatility/i);
   assert.match(agenda, /crude curve.*cracks/i);
   assert.match(agenda, /verified Trump.*Xi/i);
   assert.doesNotMatch(agenda, /Trump.*Xi (agreed|announced|signed)/i);
@@ -887,6 +887,7 @@ test("Task 8 mapper completes the bounded rates-led research agenda without publ
     .join(" ");
   assert.match(watchNext, /Bund.*gilt.*JGB/i);
   assert.match(watchNext, /gold.*real.?yield.*USD/i);
+  assert.match(watchNext, /HY.*IG.*MOVE.*VIX/i);
   assert.match(watchNext, /crude curve.*cracks/i);
   assert.match(watchNext, /verified Trump.*Xi/i);
   assert.equal(persistedOutput.research_now.length, 3);

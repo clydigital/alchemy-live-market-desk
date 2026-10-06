@@ -145,7 +145,8 @@ test("Research Brain frames the dossier around regime before asset calls", () =>
   assert.match(instructions, /REGIME-FIRST MARKET FRAME/);
   assert.match(instructions, /Do not infer risk-on or risk-off from SPX\/NDX alone/);
   assert.match(instructions, /higher yields are tightening conditions/);
-  assert.match(instructions, /mixed\/selective leadership/);
+  assert.match(instructions, /equity strength may be narrow/);
+  assert.match(instructions, /If the evidence is mixed, say so explicitly instead of forcing a binary label/);
   assert.match(instructions, /FUNDAMENTAL STORY ORDER/);
   assert.match(instructions, /Rank Major Stories by their ability to change the current regime/);
   assert.match(instructions, /BALANCED ASSET LENSES/);
