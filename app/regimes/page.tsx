@@ -19,6 +19,11 @@ function formatAge(minutes: number | null) {
   return `${Math.floor(hours / 24)} days`;
 }
 
+function timestampAgeMinutes(value: string | null) {
+  if (!value || !Number.isFinite(Date.parse(value))) return null;
+  const elapsed = new Date().getTime() - Date.parse(value);
+  return Math.max(0, Math.round(elapsed / 60_000));
+}
 export default async function RegimesPage() {
   const [data, recordLayer, dossierSelection, shadowHealth] = await Promise.all([
     getDeskData(),
