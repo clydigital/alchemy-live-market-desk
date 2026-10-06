@@ -78,6 +78,7 @@ test("5Y real-yield and breakeven remain a protected cross-check without changin
 
   const result = buildRateLongEndDiagnostic(assembled);
 
+  assert.ok(result.fiveYearCrossCheck);
   assert.equal(result.fiveYearCrossCheck.realYieldLevelPct, 2.05);
   assert.equal(result.fiveYearCrossCheck.breakevenLevelPct, 2.71);
   assert.equal(result.fiveYearCrossCheck.realYieldEvidenceRef, real5y.evidence_id);
@@ -284,6 +285,7 @@ test("missing real yield and breakeven does not invent a decomposition", () => {
   assert.equal(result.observedDecomposition.state, "NOMINAL_MOVE_ONLY");
   assert.equal(result.observedDecomposition.accountedChangeBp, null);
   assert.equal(result.observedDecomposition.residualBp, null);
+  assert.ok(result.fiveYearCrossCheck);
   assert.equal(result.fiveYearCrossCheck.realYieldEvidenceRef, null);
   assert.equal(result.fiveYearCrossCheck.breakevenEvidenceRef, null);
   assert.ok(result.gaps.some((gap) => /5Y real-yield\/breakeven cross-check is incomplete/i.test(gap)));
