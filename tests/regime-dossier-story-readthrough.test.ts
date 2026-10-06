@@ -30,6 +30,9 @@ test("Regime LIVE preserves Story-routed Dossier judgement as read-through only"
   assert.doesNotMatch(workspace, /motion=\$\{encodeURIComponent\(item\.motionId\)\}#presenter-reasoning/);
   assert.match(workspace, /id="dossier-story-readthrough"/);
   assert.match(workspace, /id="dossier-regime-context"/);
+  assert.match(workspace, /dossier-story-readthrough-\$\{item\.motionId\}/);
+  assert.match(workspace, /dossier-regime-context-\$\{node\.motionId\}/);
+  assert.match(regimes, /motionId: item\.motionId/);
 
   assert.match(regimes, /dossier\.motionRegimeContext/);
   assert.doesNotMatch(regimes, /motionAdjudicationContext/);
