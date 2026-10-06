@@ -191,6 +191,7 @@ export function normalizeResearchBrainOutputReferences(
   output: unknown,
   system1Candidates: unknown[] = [],
   system1ReactionAssessments: unknown[] = [],
+  packet?: DossierV2InputPacket,
 ): unknown {
   if (!output || typeof output !== "object" || Array.isArray(output)) return output;
 
@@ -199,6 +200,39 @@ export function normalizeResearchBrainOutputReferences(
     ? root.main_thread as Record<string, unknown>
     : null;
   const mainThreadId = typeof mainThread?.thread_id === "string" ? mainThread.thread_id : null;
+
+  let normalizedCount = 0;
+
+  if (packet) {
+    const bindingMap = new Map<string, string>();
+    for (const binding of packet.persistent_story_bindings ?? []) {
+      if (
+        binding &&
+        typeof binding.analytical_story_id === "string" &&
+        binding.analytical_story_id &&
+        typeof binding.persistent_story_id === "string" &&
+        binding.persistent_story_id
+      ) {
+        bindingMap.set(binding.analytical_story_id, binding.persistent_story_id);
+      }
+    }
+
+    if (Array.isArray(root.major_stories)) {
+      for (const story of root.major_stories) {
+        if (story && typeof story === "object" && !Array.isArray(story)) {
+          const storyObj = story as Record<string, unknown>;
+          const storyId = storyObj.story_id;
+          if (typeof storyId === "string" && storyId) {
+            const expectedPersistentId = bindingMap.get(storyId) ?? null;
+            if (storyObj.persistent_story_id !== expectedPersistentId) {
+              storyObj.persistent_story_id = expectedPersistentId;
+              normalizedCount++;
+            }
+          }
+        }
+      }
+    }
+  }
 
   const majorStoryIds = new Set<string>();
   if (Array.isArray(root.major_stories)) {
@@ -226,7 +260,6 @@ export function normalizeResearchBrainOutputReferences(
     return triggerId && marketId ? [{ triggerId, marketId }] : [];
   });
 
-  let normalizedCount = 0;
   if (Array.isArray(root.investigations)) {
     for (const item of root.investigations) {
       if (!item || typeof item !== "object" || Array.isArray(item)) continue;
@@ -675,6 +708,7 @@ export async function executeResearchBrain(
           recoveryRes.data,
           system1Candidates,
           system1ReactionAssessments,
+          packet,
         );
         normalizedRecovery = preservePriorInvestigationExpectedReactions(
           normalizedRecovery,
@@ -723,6 +757,7 @@ export async function executeResearchBrain(
     firstPassData,
     system1Candidates,
     system1ReactionAssessments,
+    packet,
   );
   firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
@@ -754,6 +789,7 @@ export async function executeResearchBrain(
         repairRes.data,
         system1Candidates,
         system1ReactionAssessments,
+        packet,
       );
       normalizedRepairData = preservePriorInvestigationExpectedReactions(
         normalizedRepairData,

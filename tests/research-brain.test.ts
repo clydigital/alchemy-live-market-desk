@@ -1888,3 +1888,93 @@ test("11. Deterministic Degradation Fallback & Traceability", async () => {
   assert.equal(result.investigations[0].leads_referenced![0], "lead:oil:supply");
   assert.equal(result.thesis_ledger.entries.length, 1);
 });
+
+test("12. Persistent Story Identity Normalization", async () => {
+  const BOUND_STORY_ID = "story:fed-long-end-stress";
+  const EXACT_UUID = "11111111-1111-4111-8111-111111111111";
+  const WRONG_UUID = "99999999-9999-4999-8999-999999999999";
+  const UNBOUND_STORY_ID = "story:unbound-new-discovery";
+
+  const packet = createValidBasePacket();
+  packet.persistent_story_bindings = [
+    {
+      analytical_story_id: BOUND_STORY_ID,
+      persistent_story_id: EXACT_UUID,
+    },
+  ];
+
+  // Test 1: Missing/null model ID is restored from exact packet binding
+  const outputMissingId = createValidOutput(packet);
+  outputMissingId.major_stories = [
+    {
+      ...outputMissingId.major_stories[0],
+      story_id: BOUND_STORY_ID,
+      persistent_story_id: null,
+    },
+  ];
+  const normalizedRestored = normalizeResearchBrainOutputReferences(outputMissingId, [], [], packet) as any;
+  assert.equal(normalizedRestored.major_stories[0].persistent_story_id, EXACT_UUID);
+
+  // Test 2: Wrong model ID is overwritten by exact packet binding
+  const outputWrongId = createValidOutput(packet);
+  outputWrongId.major_stories = [
+    {
+      ...outputWrongId.major_stories[0],
+      story_id: BOUND_STORY_ID,
+      persistent_story_id: WRONG_UUID,
+    },
+  ];
+  const normalizedOverwritten = normalizeResearchBrainOutputReferences(outputWrongId, [], [], packet) as any;
+  assert.equal(normalizedOverwritten.major_stories[0].persistent_story_id, EXACT_UUID);
+
+  // Test 3: No binding forces null
+  const outputUnbound = createValidOutput(packet);
+  outputUnbound.major_stories = [
+    {
+      ...outputUnbound.major_stories[0],
+      story_id: UNBOUND_STORY_ID,
+      persistent_story_id: WRONG_UUID,
+    },
+  ];
+  const normalizedUnbound = normalizeResearchBrainOutputReferences(outputUnbound, [], [], packet) as any;
+  assert.equal(normalizedUnbound.major_stories[0].persistent_story_id, null);
+
+  // Test 4: executeResearchBrain accepts primary output with missing/null ID without needing repair
+  let primaryPassCalls = 0;
+  let repairPassCalls = 0;
+
+  const mockRunner: ModelRunner = async ({ stageKey }) => {
+    if (stageKey === "research_brain_primary") {
+      primaryPassCalls++;
+      const primaryOutput = createValidOutput(packet);
+      primaryOutput.main_thread.supporting_story_ids = [BOUND_STORY_ID];
+      primaryOutput.major_stories = [
+        {
+          ...primaryOutput.major_stories[0],
+          story_id: BOUND_STORY_ID,
+          persistent_story_id: null,
+        },
+      ];
+      if (primaryOutput.stock_radar.length > 0) {
+        primaryOutput.stock_radar[0].linked_main_thread_or_story_id = BOUND_STORY_ID;
+      }
+      return { data: primaryOutput };
+    }
+    if (stageKey === "research_brain_repair") {
+      repairPassCalls++;
+      return { data: createValidOutput(packet) };
+    }
+    throw new Error(`Unexpected stageKey: ${stageKey}`);
+  };
+
+  const brainResult = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { modelRunner: mockRunner, allowRepair: true },
+  );
+
+  assert.equal(primaryPassCalls, 1);
+  assert.equal(repairPassCalls, 0);
+  assert.equal(brainResult.diagnostics.degraded, false);
+  assert.equal(brainResult.diagnostics.model_repair_used, false);
+  assert.equal(brainResult.major_stories[0].persistent_story_id, EXACT_UUID);
+});
