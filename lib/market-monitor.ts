@@ -125,6 +125,8 @@ const FRED_RATE_SPECS: FredSpec[] = [
   { id: "us10y-fred", seriesId: "DGS10", label: "US 10Y Yield · FRED" },
   { id: "us20y-fred", seriesId: "DGS20", label: "US 20Y Yield · FRED" },
   { id: "us30y-fred", seriesId: "DGS30", label: "US 30Y Yield · FRED" },
+  { id: "us5y-real", seriesId: "DFII5", label: "US 5Y Real Yield" },
+  { id: "us5y-breakeven", seriesId: "T5YIE", label: "US 5Y Breakeven Inflation" },
   { id: "us10y-real", seriesId: "DFII10", label: "US 10Y Real Yield" },
   { id: "us10y-breakeven", seriesId: "T10YIE", label: "US 10Y Breakeven Inflation" },
   { id: "fed-funds-effective", seriesId: "DFF", label: "Effective Federal Funds Rate" },
