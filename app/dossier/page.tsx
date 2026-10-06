@@ -19,6 +19,7 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention } from "@/lib/market-motion";
 import { selectPromotedMarketMotionForDossier } from "@/lib/market-motion-promotion";
 import { getRegimeDefinition } from "@/lib/regimes";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 
 import styles from "./dossier.module.css";
 
@@ -83,6 +84,7 @@ type DossierPageProps = {
 };
 
 export default async function DossierPage({ searchParams }: DossierPageProps) {
+  const showRegimeUi = regimeUiEnabled();
   const query = await searchParams;
   const rawRequestedId = Array.isArray(query.id) ? query.id[0] : query.id;
   const requestedId = rawRequestedId?.trim() || null;
@@ -158,7 +160,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
       storyHref: null,
       regimeSlug: regime?.slug || null,
       regimeLabel: regime?.shortTitle || null,
-      regimeHref: regime ? `/regimes/${regime.slug}` : null,
+      regimeHref: showRegimeUi && regime ? `/regimes/${regime.slug}` : null,
     };
   });
 
