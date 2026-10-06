@@ -37,6 +37,7 @@ import {
   type ResearchBrainOptions,
 } from "./research-brain.ts";
 import { isValidUuid, validateMarketDossierV2Record } from "./validation.ts";
+import { loadGovernedPersistentStoryBindings } from "./persistent-story-bindings.ts";
 
 export interface ManualDossierV2RunOptions {
   asOf: string;
@@ -577,11 +578,17 @@ export async function runManualDossierV2(
     }));
 
   const previousResolution = await resolveLatestDossier(client);
+  const governedPersistentStoryBindings = previousResolution.persistenceAvailable
+    ? await loadGovernedPersistentStoryBindings(client)
+    : [];
   const request = buildInputRequest(
     options.asOf,
     previousResolution.dossier,
     previousResolution.analyticalBaseline,
-    options.persistentStoryBindings ?? [],
+    [
+      ...governedPersistentStoryBindings,
+      ...(options.persistentStoryBindings ?? []),
+    ],
   );
   let packet = assembleDossierV2InputPacket(request, snapshotResult.snapshot);
   packet = await attachCurrentMarketMotionContext(packet, client);

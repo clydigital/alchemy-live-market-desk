@@ -679,6 +679,18 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
 
   const client = {
     from(table: string) {
+      if (table === "stories") {
+        return {
+          select(_fields: string) {
+            return {
+              in(_column: string, _values: string[]) {
+                return Promise.resolve({ data: [], error: null });
+              },
+            };
+          },
+        };
+      }
+
       assert.equal(table, "market_dossiers_v2");
       return {
         select(_fields: string) {
