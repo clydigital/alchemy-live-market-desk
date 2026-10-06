@@ -273,3 +273,34 @@ jobs:
 
       - name: Verify production schema state invariant contract
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/production_schema_state_invariants_contract.sql
+
+      - name: Bootstrap Partition N Story pointer repair fixture
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.story_thesis_versions (
+            id,
+            story_id,
+            version_number,
+            snapshot
+          )
+          values (
+            '55555555-5555-4555-8555-555555555556',
+            '11111111-1111-4111-8111-111111111111',
+            2,
+            jsonb_build_object('partitionNFixture', 'v2')
+          )
+          on conflict (id) do nothing;
+
+          update public.stories
+          set current_thesis_version_id = null
+          where id = '11111111-1111-4111-8111-111111111111';
+          SQL
+
+      - name: Apply Partition N Story thesis pointer repair
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261006081000_repair_story_thesis_current_pointer.sql
+
+      - name: Reapply Partition N Story thesis pointer repair
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261006081000_repair_story_thesis_current_pointer.sql
+
+      - name: Verify Partition N Story thesis pointer repair
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/story_thesis_current_pointer_repair_contract.sql
