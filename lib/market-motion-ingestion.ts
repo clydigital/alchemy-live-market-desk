@@ -172,7 +172,7 @@ const EVENT_FAMILIES: Array<[string, RegExp]> = [
   ["jobs", /\b(?:nonfarm payrolls?|nfp|jobs report|payrolls)\b/i],
   ["fomc", /\b(?:fomc|fed decision|federal reserve decision)\b/i],
   ["auction", /\b(?:treasury auction|auction tail|auction stop|bid-to-cover|indirect bidders?)\b/i],
-  ["rates_move", /\b(?:(?:2|5|10|20|30)[- ]?year treasury yield|(?:2y|5y|10y|20y|30y) yield|yield curve (?:steepen|flatten|bear|bull))\b/i],
+  ["rates_move", /\b(?:(?:2|5|10|20|30)[- ]?year(?: treasury)? yield|(?:2y|5y|10y|20y|30y) yield|yield curve (?:steepen|flatten|bear|bull))\b/i],
   ["oil_products", /\b(?:crude[- ]products? divergence|oil[- ]products? divergence|distillate divergence|gasoline divergence|refined products? divergence)\b/i],
   ["policy_surprise", /\b(?:policy surprise|unexpected policy|surprise tariff|surprise sanction|unexpected tariff|unexpected sanction)\b/i],
 ];
@@ -304,18 +304,43 @@ function properSubject(headline: string) {
   return null;
 }
 
+function normaliseEventIdentityText(text: string) {
+  return text
+    .normalize("NFKC")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\u00a0/g, " ");
+}
+
 function eventFamily(text: string) {
-  return EVENT_FAMILIES.find(([, pattern]) => pattern.test(text))?.[0] || null;
+  const normalized = normaliseEventIdentityText(text);
+  return EVENT_FAMILIES.find(([, pattern]) => pattern.test(normalized))?.[0] || null;
+}
+
+function ratesInstrumentSubject(text: string) {
+  const normalized = normaliseEventIdentityText(text);
+  const tenorMatch = normalized.match(/\b(2|5|10|20|30)[- ]?year(?: treasury)? yield\b/i)
+    || normalized.match(/\b(2|5|10|20|30)y yield\b/i);
+  if (tenorMatch?.[1]) {
+    const tenor = tenorMatch[1].padStart(2, "0");
+    return `us${tenor}y`;
+  }
+
+  return explicitlyMentionedInstrumentSpecs(normalized)
+    .map((spec) => spec.instrument)
+    .find((instrument) => /^US(?:02|05|10|20|30)Y$/.test(instrument))
+    ?.toLowerCase() || null;
 }
 
 function eventMotionKey(candidate: MarketMotionInput) {
   const metadata = candidate.metadata || {};
   const explicitFamily = typeof metadata.eventFamily === "string" ? metadata.eventFamily.trim() : "";
-  const family = explicitFamily || eventFamily(`${candidate.headline} ${candidate.whatHappened}`);
+  const eventText = normaliseEventIdentityText(`${candidate.headline} ${candidate.whatHappened}`);
+  const family = explicitFamily || eventFamily(eventText);
   if (!family) return candidate.motionKey;
   const entities = metadataStrings(metadata, "entities", 8);
   const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
-  const subject = entitySubject || properSubject(candidate.headline) || candidate.tickers?.map(normalizeSubject).find(Boolean) || null;
+  const deterministicInstrument = family === "rates_move" ? ratesInstrumentSubject(eventText) : null;
+  const subject = deterministicInstrument || entitySubject || properSubject(candidate.headline) || candidate.tickers?.map(normalizeSubject).find(Boolean) || null;
   if (!subject) {
     if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {
       return `event:${family}:${candidate.occurredAt.slice(0, 10)}`;
@@ -584,6 +609,78 @@ function whyInterestingFor(
   return "Fresh, high-materiality evidence cleared the intake gate and warrants short-horizon monitoring.";
 }
 
+function marketMotionCandidateFromItem(
+  item: ScoredIntakeItem,
+  stories: StoryRef[],
+  options: { now: Date; researchRunId?: string | null },
+): MarketMotionInput {
+  const text = [
+    item.title,
+    item.summary,
+    item.newsSignal || "",
+    item.statsSignal || "",
+    item.divergenceNote || "",
+    item.reviewReason || "",
+    ...(item.evidence || []).map((link) => link.claim),
+  ].join(" ");
+  const links = resolveMarketMotionLinks({
+    text,
+    affectedStorySlugs: item.affectedStorySlugs,
+    stories,
+  });
+  const story = exactStory(item, stories);
+  const kind = sourceKind(item);
+  const verification = verificationState(item, kind);
+  const tickers = explicitlyMentionedInstrumentSpecs(text).map((spec) => spec.instrument);
+
+  return {
+    motionKey: `intake:${item.itemKey}`,
+    lifecycleState: "MOTION",
+    category: categoryFor(text),
+    verificationState: verification,
+    headline: cleanText(item.title, 500),
+    whatHappened: cleanText(item.summary || item.evidence[0]?.claim, 3_600),
+    marketReaction: null,
+    whyInteresting: whyInterestingFor(item, story, links.primaryRegimeSlug),
+    bigPictureBridge: bridgeFor({
+      regimeSlug: links.primaryRegimeSlug,
+      story,
+    }),
+    nextTest: nextTestFor(item, verification),
+    tickers,
+    sourceName: cleanText(item.publisher, 300),
+    sourceUrl: item.url,
+    sourceKind: kind,
+    materiality: item.materiality,
+    relevance: item.relevance,
+    novelty: item.novelty,
+    occurredAt: item.publishedAt,
+    observedAt: options.now.toISOString(),
+    researchRunId: options.researchRunId || null,
+    primaryStoryId: links.primaryStoryId,
+    primaryRegimeSlug: links.primaryRegimeSlug,
+    metadata: {
+      itemKey: item.itemKey,
+      itemType: item.itemType,
+      candidateScore: item.candidateScore,
+      recommendedAction: item.recommendedAction,
+      affectedStorySlugs: item.affectedStorySlugs || [],
+      primaryRegimeSubgroup: links.primaryRegimeSubgroup,
+      evidenceUrls: item.evidence.map((link) => link.url).slice(0, 8),
+      sourceRefs: [{
+        sourceName: cleanText(item.publisher, 300),
+        sourceUrl: item.url,
+        sourceKind: kind,
+        verificationState: verification,
+        role: kind === "creator" ? "discovery" : "primary",
+        sourceItemKey: item.itemKey,
+      }],
+      originItemKeys: [item.itemKey],
+      ingestion: "research-update/v1",
+    },
+  };
+}
+
 export function buildMarketMotionCandidates(
   items: ScoredIntakeItem[],
   stories: StoryRef[],
@@ -600,75 +697,48 @@ export function buildMarketMotionCandidates(
       || right.novelty - left.novelty
       || Date.parse(right.publishedAt) - Date.parse(left.publishedAt))
     .slice(0, MARKET_MOTION_RUN_LIMIT)
-    .map((item) => {
-      const text = [
-        item.title,
-        item.summary,
-        item.newsSignal || "",
-        item.statsSignal || "",
-        item.divergenceNote || "",
-        item.reviewReason || "",
-        ...(item.evidence || []).map((link) => link.claim),
-      ].join(" ");
-      const links = resolveMarketMotionLinks({
-        text,
-        affectedStorySlugs: item.affectedStorySlugs,
-        stories,
-      });
-      const story = exactStory(item, stories);
-      const kind = sourceKind(item);
-      const verification = verificationState(item, kind);
-      const tickers = explicitlyMentionedInstrumentSpecs(text).map((spec) => spec.instrument);
-
-      return {
-        motionKey: `intake:${item.itemKey}`,
-        lifecycleState: "MOTION",
-        category: categoryFor(text),
-        verificationState: verification,
-        headline: cleanText(item.title, 500),
-        whatHappened: cleanText(item.summary || item.evidence[0]?.claim, 3_600),
-        marketReaction: null,
-        whyInteresting: whyInterestingFor(item, story, links.primaryRegimeSlug),
-        bigPictureBridge: bridgeFor({
-          regimeSlug: links.primaryRegimeSlug,
-          story,
-        }),
-        nextTest: nextTestFor(item, verification),
-        tickers,
-        sourceName: cleanText(item.publisher, 300),
-        sourceUrl: item.url,
-        sourceKind: kind,
-        materiality: item.materiality,
-        relevance: item.relevance,
-        novelty: item.novelty,
-        occurredAt: item.publishedAt,
-        observedAt: now.toISOString(),
-        researchRunId: options.researchRunId || null,
-        primaryStoryId: links.primaryStoryId,
-        primaryRegimeSlug: links.primaryRegimeSlug,
-        metadata: {
-          itemKey: item.itemKey,
-          itemType: item.itemType,
-          candidateScore: item.candidateScore,
-          recommendedAction: item.recommendedAction,
-          affectedStorySlugs: item.affectedStorySlugs || [],
-          primaryRegimeSubgroup: links.primaryRegimeSubgroup,
-          evidenceUrls: item.evidence.map((link) => link.url).slice(0, 8),
-          sourceRefs: [{
-            sourceName: cleanText(item.publisher, 300),
-            sourceUrl: item.url,
-            sourceKind: kind,
-            verificationState: verification,
-            role: kind === "creator" ? "discovery" : "primary",
-            sourceItemKey: item.itemKey,
-          }],
-          originItemKeys: [item.itemKey],
-          ingestion: "research-update/v1",
-        },
-      };
-    });
+    .map((item) => marketMotionCandidateFromItem(item, stories, {
+      now,
+      researchRunId: options.researchRunId,
+    }));
 }
 
+function corroborationCandidateEligible(item: ScoredIntakeItem, now: Date) {
+  if (parseResearchGapHandoffContext(item.divergenceNote)) return false;
+  if (item.itemType === "video" || !item.evidence.length) return false;
+  if (!["collect_evidence", "review_article", "recalibrate_story"].includes(item.recommendedAction)) return false;
+
+  const publishedAt = Date.parse(item.publishedAt);
+  if (!Number.isFinite(publishedAt)) return false;
+  if (publishedAt > now.getTime() + 5 * 60_000) return false;
+  if (now.getTime() - publishedAt > MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000) return false;
+
+  return sourceKind(item) !== "creator";
+}
+
+/**
+ * Primary/reporting intake that is too weak to become standalone Motion may still
+ * contribute its exact item identity to an already-existing Motion event.
+ * These candidates are match-only: callers must never persist them by themselves.
+ */
+export function buildMarketMotionCorroborationCandidates(
+  items: ScoredIntakeItem[],
+  stories: StoryRef[],
+  options: { now?: Date; researchRunId?: string | null } = {},
+): MarketMotionInput[] {
+  const now = options.now ?? new Date();
+
+  return items
+    .filter((item) => corroborationCandidateEligible(item, now))
+    .map((item) => marketMotionCandidateFromItem(item, stories, {
+      now,
+      researchRunId: options.researchRunId,
+    }))
+    .filter((candidate) => {
+      const identity = eventMotionKey(candidate);
+      return identity.startsWith("event:") && identity !== candidate.motionKey;
+    });
+}
 
 
 const MACRO_PULSE_MAX_CANDIDATES = MARKET_MOTION_RUN_LIMIT;
@@ -1042,6 +1112,118 @@ async function loadRecentReviewedTranscripts(input: {
   return (data || []) as ReviewedTranscriptMotionRow[];
 }
 
+export function buildExistingMotionCorroborationUpdates(
+  rows: MarketMotionRecord[],
+  corroborators: MarketMotionInput[],
+  options: { now?: Date; researchRunId?: string | null } = {},
+) {
+  const now = options.now ?? new Date();
+  const corroboratorsByEvent = new Map<string, MarketMotionInput[]>();
+
+  for (const corroborator of corroborators) {
+    const eventIdentity = eventMotionKey(corroborator);
+    if (!eventIdentity.startsWith("event:") || eventIdentity === corroborator.motionKey) continue;
+    const bucket = corroboratorsByEvent.get(eventIdentity) || [];
+    bucket.push(corroborator);
+    corroboratorsByEvent.set(eventIdentity, bucket);
+  }
+
+  const strongestByEvent = new Map<string, MarketMotionRecord>();
+  for (const row of rows) {
+    if (row.lifecycle_state !== "MOTION") continue;
+    const expiry = Date.parse(row.expires_at);
+    if (Number.isFinite(expiry) && expiry <= now.getTime()) continue;
+
+    const eventIdentity = eventMotionKey(recordAsInput(row));
+    if (!corroboratorsByEvent.has(eventIdentity)) continue;
+
+    const prior = strongestByEvent.get(eventIdentity);
+    const rank = (value: MarketMotionRecord) =>
+      value.materiality * 1_000_000
+      + value.relevance * 10_000
+      + value.novelty * 100
+      + Math.floor(Date.parse(value.observed_at) / 1_000_000_000);
+
+    if (!prior || rank(row) > rank(prior) || (rank(row) === rank(prior) && row.id < prior.id)) {
+      strongestByEvent.set(eventIdentity, row);
+    }
+  }
+
+  return [...strongestByEvent.entries()].flatMap(([eventIdentity, row]) => {
+    const existing = recordAsInput(row);
+    let metadata = existing.metadata || {};
+    let newestObservedAt = existing.observedAt || existing.occurredAt;
+
+    for (const corroborator of corroboratorsByEvent.get(eventIdentity) || []) {
+      metadata = mergedMetadata(
+        { ...existing, metadata },
+        corroborator,
+      );
+      const corroboratorObservedAt = corroborator.observedAt || corroborator.occurredAt;
+      if (Date.parse(corroboratorObservedAt) > Date.parse(newestObservedAt)) {
+        newestObservedAt = corroboratorObservedAt;
+      }
+    }
+
+    const beforeOrigins = JSON.stringify(metadataStrings(existing.metadata, "originItemKeys", 20).sort());
+    const afterOrigins = JSON.stringify(metadataStrings(metadata, "originItemKeys", 20).sort());
+    const beforeRefs = contextSignature(existing.metadata);
+    const afterRefs = contextSignature(metadata);
+    if (beforeOrigins === afterOrigins && beforeRefs === afterRefs) return [];
+
+    return [{
+      ...existing,
+      motionKey: row.motion_key,
+      researchRunId: options.researchRunId ?? existing.researchRunId ?? null,
+      observedAt: newestObservedAt,
+      expiresAt: null,
+      metadata: {
+        ...metadata,
+        corroborationIdentity: eventIdentity,
+        corroborationPolicy: "exact-event-identity/v1",
+      },
+    }];
+  });
+}
+
+async function persistExistingMotionCorroboration(input: {
+  corroborators: MarketMotionInput[];
+  db: SupabaseClient;
+  researchRunId: string | null;
+  now: Date;
+  warnings: string[];
+}) {
+  if (!input.corroborators.length) return [] as string[];
+
+  const { data, error } = await input.db
+    .from("current_market_motion_items")
+    .select("*");
+  if (error) {
+    input.warnings.push(`Market Motion corroboration could not inspect current Motion: ${error.message}`);
+    return [] as string[];
+  }
+
+  const updates = buildExistingMotionCorroborationUpdates(
+    (data || []) as MarketMotionRecord[],
+    input.corroborators,
+    { now: input.now, researchRunId: input.researchRunId },
+  );
+  const motionIds: string[] = [];
+
+  for (const candidate of updates) {
+    try {
+      const row = await persistMarketMotion(candidate, input.db);
+      motionIds.push(row.id);
+    } catch (error) {
+      input.warnings.push(error instanceof Error
+        ? `Market Motion corroboration: ${error.message}`
+        : `Market Motion corroboration failed for ${candidate.motionKey}.`);
+    }
+  }
+
+  return motionIds;
+}
+
 async function persistUnifiedCandidates(input: {
   candidates: MarketMotionInput[];
   db: SupabaseClient;
@@ -1157,8 +1339,13 @@ export async function persistMarketMotionFromResearchRun(input: {
     [...intakeCandidates, ...creatorCandidates],
     { researchRunId: input.researchRunId },
   );
+  const corroborators = buildMarketMotionCorroborationCandidates(
+    input.items,
+    stories,
+    { now, researchRunId: input.researchRunId },
+  );
 
-  return persistUnifiedCandidates({
+  const result = await persistUnifiedCandidates({
     candidates,
     db,
     considered: input.items.length + transcriptRows.length,
@@ -1166,6 +1353,19 @@ export async function persistMarketMotionFromResearchRun(input: {
     creatorLeadCandidates: creatorCandidates.length,
     warnings,
   });
+  const corroborationIds = await persistExistingMotionCorroboration({
+    corroborators,
+    db,
+    researchRunId: input.researchRunId,
+    now,
+    warnings,
+  });
+
+  return {
+    ...result,
+    inserted: result.inserted + corroborationIds.length,
+    motionIds: [...result.motionIds, ...corroborationIds],
+  };
 }
 
 export async function persistMarketMotionFromMacroPulseCandidates(input: {

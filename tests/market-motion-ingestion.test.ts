@@ -3,13 +3,16 @@ import assert from "node:assert/strict";
 
 import {
   MARKET_MOTION_RUN_LIMIT,
+  buildExistingMotionCorroborationUpdates,
   buildMarketMotionCandidates,
+  buildMarketMotionCorroborationCandidates,
   buildTranscriptMotionCandidates,
   unifyMarketMotionCandidates,
   type ReviewedTranscriptMotionRow,
 } from "../lib/market-motion-ingestion.ts";
 import { encodeResearchGapHandoffContext } from "../lib/research-gap-handoff.ts";
 import type { IntakeItemInput } from "../lib/research-update.ts";
+import type { MarketMotionInput, MarketMotionRecord } from "../lib/market-motion.ts";
 
 type ScoredItem = IntakeItemInput & {
   candidateScore: number;
@@ -480,4 +483,169 @@ test("expired promoted Motion is not revived by sticky merge preservation", () =
   assert.equal(merged.promotionReason ?? null, null);
   assert.equal(merged.metadata?.promotionPolicy ?? null, null);
   assert.equal(merged.metadata?.promotionEvidenceId ?? null, null);
+});
+
+
+function motionRecordFromCandidate(
+  candidate: MarketMotionInput,
+  overrides: Partial<MarketMotionRecord> = {},
+): MarketMotionRecord {
+  return {
+    id: "legacy-motion-1",
+    motion_key: candidate.motionKey,
+    version_number: 1,
+    previous_version_id: null,
+    contract_version: "market-motion/v1",
+    research_run_id: candidate.researchRunId || null,
+    source_id: null,
+    evidence_id: candidate.evidenceId || null,
+    primary_story_id: candidate.primaryStoryId || null,
+    primary_regime_slug: candidate.primaryRegimeSlug || null,
+    lifecycle_state: candidate.lifecycleState || "MOTION",
+    effective_state: candidate.lifecycleState || "MOTION",
+    category: candidate.category,
+    verification_state: candidate.verificationState || "LEAD",
+    headline: candidate.headline,
+    what_happened: candidate.whatHappened,
+    market_reaction: candidate.marketReaction || null,
+    why_interesting: candidate.whyInteresting,
+    big_picture_bridge: candidate.bigPictureBridge,
+    next_test: candidate.nextTest || null,
+    promotion_reason: candidate.promotionReason || null,
+    tickers: candidate.tickers || [],
+    source_name: candidate.sourceName,
+    source_url: candidate.sourceUrl,
+    source_kind: candidate.sourceKind || "other",
+    materiality: candidate.materiality || 0,
+    relevance: candidate.relevance || 0,
+    novelty: candidate.novelty || 0,
+    occurred_at: candidate.occurredAt,
+    observed_at: candidate.observedAt || candidate.occurredAt,
+    expires_at: candidate.expiresAt || "2026-10-03T02:00:00.000Z",
+    metadata: candidate.metadata || {},
+    created_at: candidate.observedAt || candidate.occurredAt,
+    ...overrides,
+  };
+}
+
+test("Unicode Treasury notation resolves to the same deterministic rates event identity", () => {
+  const rateRow = reviewedTranscriptRow({
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "10‑year Treasury yield pushed above 5.3%, its highest level in 24 years.",
+      tags: ["rates"],
+      entities: ["Treasury"],
+      verificationNeeded: true,
+      verificationTarget: "Verify the 10-year Treasury yield level.",
+      searchPrompt: "Verify the 10-year Treasury yield level with independent reporting.",
+      articleHook: null,
+      priority: 94,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([rateRow], [], { now: NOW })[0];
+  const [unified] = unifyMarketMotionCandidates([creator]);
+
+  assert.equal(unified.motionKey, "event:rates_move:us10y");
+});
+
+test("below-Motion-threshold reporting can corroborate an existing event without becoming standalone Motion", () => {
+  const reporting = item({
+    itemKey: "reuters:rates-stress",
+    title: "Bond stress persists as the US 10-year yield holds above 5.3%",
+    summary: "The US 10-year yield remains above 5.3% as investors reassess inflation and fiscal risk.",
+    candidateScore: 67,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+
+  assert.deepEqual(buildMarketMotionCandidates([reporting], [], { now: NOW }), []);
+
+  const corroborators = buildMarketMotionCorroborationCandidates(
+    [reporting],
+    [],
+    { now: NOW, researchRunId: "run-reporting" },
+  );
+  assert.equal(corroborators.length, 1);
+
+  const rateRow = reviewedTranscriptRow({
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "10‑year Treasury yield pushed above 5.3%, its highest level in 24 years.",
+      tags: ["rates"],
+      entities: ["Treasury"],
+      verificationNeeded: true,
+      verificationTarget: "Verify the 10-year Treasury yield level.",
+      searchPrompt: "Verify the 10-year Treasury yield level with independent reporting.",
+      articleHook: null,
+      priority: 94,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([rateRow], [], { now: NOW })[0];
+  const legacy = motionRecordFromCandidate(creator, {
+    motion_key: "creator:youtube:stockedup:legacy-rate:abcd1234",
+  });
+
+  const updates = buildExistingMotionCorroborationUpdates(
+    [legacy],
+    corroborators,
+    { now: NOW, researchRunId: "run-reporting" },
+  );
+
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].motionKey, legacy.motion_key);
+  assert.equal(updates[0].sourceKind, "creator");
+  assert.equal(updates[0].lifecycleState, "MOTION");
+  const updateMetadata = updates[0].metadata as Record<string, unknown>;
+  assert.equal(updateMetadata.corroborationPolicy, "exact-event-identity/v1");
+  assert.deepEqual(
+    [...((updateMetadata.originItemKeys as string[]) || [])].sort(),
+    ["reuters:rates-stress", "youtube:stockedup:anthropic001"].sort(),
+  );
+  const refs = updateMetadata.sourceRefs as Array<{ sourceKind: string; sourceItemKey: string | null }>;
+  assert.ok(refs.some((ref) => ref.sourceKind === "creator"));
+  assert.ok(refs.some((ref) => ref.sourceItemKey === "reuters:rates-stress"));
+});
+
+test("corroboration does not fan one reporting event into every duplicate legacy Motion", () => {
+  const reporting = item({
+    itemKey: "reuters:rates-stress",
+    title: "Bond stress persists as the US 10-year yield holds above 5.3%",
+    summary: "The US 10-year yield remains above 5.3% as investors reassess inflation and fiscal risk.",
+    candidateScore: 67,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+
+  const rateRow = reviewedTranscriptRow({
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "10‑year Treasury yield pushed above 5.3%, its highest level in 24 years.",
+      tags: ["rates"],
+      entities: ["Treasury"],
+      verificationNeeded: true,
+      verificationTarget: "Verify the 10-year Treasury yield level.",
+      searchPrompt: "Verify the 10-year Treasury yield level.",
+      articleHook: null,
+      priority: 94,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([rateRow], [], { now: NOW })[0];
+  const weaker = motionRecordFromCandidate(creator, {
+    id: "legacy-weaker",
+    motion_key: "creator:legacy:weaker",
+    materiality: 88,
+  });
+  const stronger = motionRecordFromCandidate(creator, {
+    id: "legacy-stronger",
+    motion_key: "creator:legacy:stronger",
+    materiality: 96,
+  });
+
+  const updates = buildExistingMotionCorroborationUpdates([weaker, stronger], corroborators, { now: NOW });
+
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].motionKey, "creator:legacy:stronger");
 });
