@@ -22,6 +22,7 @@ import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { TranscriptMotionLead } from "./transcript-research-review-contract.ts";
 
 export const MARKET_MOTION_RUN_LIMIT = 18;
+const MARKET_MOTION_CORROBORATION_REPLAY_LIMIT = 240;
 export const MARKET_MOTION_MIN_SCORE = 72;
 export const MARKET_MOTION_MIN_MATERIALITY = 72;
 export const MARKET_MOTION_MIN_RELEVANCE = 70;
@@ -305,6 +306,40 @@ function properSubject(headline: string) {
   return null;
 }
 
+const MONTH_NUMBER_BY_TOKEN: Record<string, string> = {
+  jan: "01", january: "01",
+  feb: "02", february: "02",
+  mar: "03", march: "03",
+  apr: "04", april: "04",
+  may: "05",
+  jun: "06", june: "06",
+  jul: "07", july: "07",
+  aug: "08", august: "08",
+  sep: "09", sept: "09", september: "09",
+  oct: "10", october: "10",
+  nov: "11", november: "11",
+  dec: "12", december: "12",
+};
+
+function macroReleasePeriodSubject(text: string, occurredAt: string) {
+  const normalized = normaliseEventIdentityText(text);
+  const monthMatch = normalized.match(
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i,
+  );
+  if (!monthMatch?.[1]) return null;
+
+  const month = MONTH_NUMBER_BY_TOKEN[monthMatch[1].toLowerCase()];
+  if (!month) return null;
+
+  const explicitYear = normalized.match(/\b(20\d{2})\b/)?.[1] ?? null;
+  const occurred = Date.parse(occurredAt);
+  const fallbackYear = Number.isFinite(occurred) ? new Date(occurred).getUTCFullYear() : null;
+  const year = explicitYear ? Number(explicitYear) : fallbackYear;
+  if (!year) return null;
+
+  return `${year}-${month}`;
+}
+
 function normaliseEventIdentityText(text: string) {
   return text
     .normalize("NFKC")
@@ -343,6 +378,12 @@ function eventMotionKey(candidate: MarketMotionInput) {
   const eventText = normaliseEventIdentityText(`${candidate.headline} ${candidate.whatHappened}`);
   const family = explicitFamily || eventFamily(eventText);
   if (!family) return candidate.motionKey;
+
+  if (["cpi", "ppi", "pce", "jobs", "fomc"].includes(family)) {
+    const releasePeriod = macroReleasePeriodSubject(eventText, candidate.occurredAt);
+    if (releasePeriod) return `event:${family}:${releasePeriod}`;
+  }
+
   const entities = metadataStrings(metadata, "entities", 8);
   const entitySubject = entities.map(normalizeSubject).find((value) => value && !SUBJECT_STOPWORDS.has(value)) || null;
   const deterministicInstrument = family === "rates_move"
@@ -750,6 +791,16 @@ export function buildMarketMotionCorroborationCandidates(
     });
 }
 
+export function mergeMarketMotionCorroborationItems(
+  currentRunItems: ScoredIntakeItem[],
+  recentReplayItems: ScoredIntakeItem[],
+) {
+  const byItemKey = new Map<string, ScoredIntakeItem>();
+  for (const item of recentReplayItems) byItemKey.set(item.itemKey, item);
+  for (const item of currentRunItems) byItemKey.set(item.itemKey, item);
+  return [...byItemKey.values()];
+}
+
 
 const MACRO_PULSE_MAX_CANDIDATES = MARKET_MOTION_RUN_LIMIT;
 
@@ -1122,6 +1173,90 @@ async function loadRecentReviewedTranscripts(input: {
   return (data || []) as ReviewedTranscriptMotionRow[];
 }
 
+type PersistedCorroborationIntakeRow = {
+  item_key: string;
+  item_type: ScoredIntakeItem["itemType"];
+  publisher: string;
+  external_id: string | null;
+  title: string;
+  url: string;
+  published_at: string;
+  article_position: number | null;
+  summary: string;
+  affected_story_slugs: string[] | null;
+  source_quality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  candidate_score: number;
+  recommended_action: ScoredIntakeItem["recommendedAction"];
+  stats_signal: string | null;
+  news_signal: string | null;
+  divergence_kind: ScoredIntakeItem["divergenceKind"] | null;
+  divergence_note: string | null;
+  evidence_links: unknown;
+  review_reason: string | null;
+};
+
+function persistedEvidenceLinks(value: unknown): ScoredIntakeItem["evidence"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): ScoredIntakeItem["evidence"] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>;
+    const title = typeof item.title === "string" ? item.title : "";
+    const url = typeof item.url === "string" ? item.url : "";
+    const publisher = typeof item.publisher === "string" ? item.publisher : "";
+    const publishedAt = typeof item.publishedAt === "string" ? item.publishedAt : "";
+    const claim = typeof item.claim === "string" ? item.claim : "";
+    if (!url || !claim) return [];
+    return [{ title, url, publisher, publishedAt, claim }];
+  });
+}
+
+function persistedCorroborationItem(row: PersistedCorroborationIntakeRow): ScoredIntakeItem {
+  return {
+    itemKey: row.item_key,
+    itemType: row.item_type,
+    publisher: row.publisher,
+    externalId: row.external_id || undefined,
+    title: row.title,
+    url: row.url,
+    publishedAt: row.published_at,
+    articlePosition: row.article_position ?? undefined,
+    summary: row.summary,
+    affectedStorySlugs: row.affected_story_slugs ?? [],
+    sourceQuality: row.source_quality,
+    relevance: row.relevance,
+    novelty: row.novelty,
+    materiality: row.materiality,
+    candidateScore: row.candidate_score,
+    recommendedAction: row.recommended_action,
+    statsSignal: row.stats_signal || undefined,
+    newsSignal: row.news_signal || undefined,
+    divergenceKind: row.divergence_kind || undefined,
+    divergenceNote: row.divergence_note || undefined,
+    evidence: persistedEvidenceLinks(row.evidence_links),
+    reviewReason: row.review_reason || undefined,
+  };
+}
+
+async function loadRecentCorroborationIntake(input: {
+  db: SupabaseClient;
+  now: Date;
+}): Promise<ScoredIntakeItem[]> {
+  const cutoff = new Date(input.now.getTime() - MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000).toISOString();
+  const { data, error } = await input.db
+    .from("research_intake_items")
+    .select("item_key,item_type,publisher,external_id,title,url,published_at,article_position,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,stats_signal,news_signal,divergence_kind,divergence_note,evidence_links,review_reason")
+    .neq("item_type", "video")
+    .gte("published_at", cutoff)
+    .order("published_at", { ascending: false })
+    .limit(MARKET_MOTION_CORROBORATION_REPLAY_LIMIT);
+
+  if (error) throw new Error(`Market Motion could not read recent corroboration intake: ${error.message}`);
+  return ((data || []) as PersistedCorroborationIntakeRow[]).map(persistedCorroborationItem);
+}
+
 export function buildExistingMotionCorroborationUpdates(
   rows: MarketMotionRecord[],
   corroborators: MarketMotionInput[],
@@ -1349,8 +1484,18 @@ export async function persistMarketMotionFromResearchRun(input: {
     [...intakeCandidates, ...creatorCandidates],
     { researchRunId: input.researchRunId },
   );
-  const corroborators = buildMarketMotionCorroborationCandidates(
+  let replayCorroborationItems: ScoredIntakeItem[] = [];
+  try {
+    replayCorroborationItems = await loadRecentCorroborationIntake({ db, now });
+  } catch (error) {
+    warnings.push(error instanceof Error ? error.message : "Market Motion recent corroboration replay failed.");
+  }
+  const corroborationItems = mergeMarketMotionCorroborationItems(
     input.items,
+    replayCorroborationItems,
+  );
+  const corroborators = buildMarketMotionCorroborationCandidates(
+    corroborationItems,
     stories,
     { now, researchRunId: input.researchRunId },
   );

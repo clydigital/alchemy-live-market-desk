@@ -7,6 +7,7 @@ import {
   buildMarketMotionCandidates,
   buildMarketMotionCorroborationCandidates,
   buildTranscriptMotionCandidates,
+  mergeMarketMotionCorroborationItems,
   unifyMarketMotionCandidates,
   type ReviewedTranscriptMotionRow,
 } from "../lib/market-motion-ingestion.ts";
@@ -697,6 +698,117 @@ test("record-high reporting and creator Motion converge on the explicit instrume
   const updateMetadata = updates[0].metadata as Record<string, unknown>;
   assert.equal(updateMetadata.corroborationIdentity, "event:record_high:nvda");
   assert.ok(((updateMetadata.originItemKeys as string[]) || []).includes("feed:investing-com:nvda-ath"));
+});
+
+test("September jobs creator lead and independent reporting share one canonical release-period identity", () => {
+  const creatorRow = reviewedTranscriptRow({
+    item_key: "youtube:fx-evolution:jobs-september",
+    publisher: "FX Evolution",
+    published_at: "2026-10-01T00:10:00Z",
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "September nonfarm payrolls: 29,000 vs. consensus about 90,000 with backward revisions.",
+      tags: ["macro"],
+      entities: ["NFP"],
+      verificationNeeded: true,
+      verificationTarget: "September employment report",
+      searchPrompt: "Verify the September payroll report.",
+      articleHook: null,
+      priority: 90,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([creatorRow], [], { now: NOW })[0];
+
+  const reporting = item({
+    itemKey: "feed:reporting:september-jobs",
+    title: "Navarro: The Jobs Report Reveals Federal Reserve Election Interference",
+    summary: "Friday's September employment report showed headline payrolls rose just 29k compared with expectations, with downward revisions to prior months.",
+    publishedAt: "2026-10-01T00:40:00Z",
+    candidateScore: 68,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+
+  const [creatorUnified] = unifyMarketMotionCandidates([creator]);
+  const [reportingUnified] = unifyMarketMotionCandidates(corroborators);
+  assert.equal(creatorUnified.motionKey, "event:jobs:2026-09");
+  assert.equal(reportingUnified.motionKey, "event:jobs:2026-09");
+
+  const legacy = motionRecordFromCandidate(creator, {
+    id: "legacy-september-jobs",
+    motion_key: "creator:legacy:september-jobs",
+  });
+  const updates = buildExistingMotionCorroborationUpdates([legacy], corroborators, { now: NOW });
+  assert.equal(updates.length, 1);
+  const metadata = updates[0].metadata as Record<string, unknown>;
+  assert.equal(metadata.corroborationIdentity, "event:jobs:2026-09");
+  assert.ok(((metadata.originItemKeys as string[]) || []).includes("feed:reporting:september-jobs"));
+});
+
+test("macro release event identity keeps different named months separate", () => {
+  const september = buildTranscriptMotionCandidates([reviewedTranscriptRow({
+    item_key: "youtube:creator:jobs-september",
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "September nonfarm payrolls rose 29,000.",
+      tags: ["macro"],
+      entities: ["NFP"],
+      verificationNeeded: true,
+      verificationTarget: "September jobs report",
+      searchPrompt: "Verify September payrolls.",
+      articleHook: null,
+      priority: 90,
+    }],
+  })], [], { now: NOW })[0];
+
+  const august = buildTranscriptMotionCandidates([reviewedTranscriptRow({
+    item_key: "youtube:creator:jobs-august",
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "August nonfarm payrolls were revised lower.",
+      tags: ["macro"],
+      entities: ["NFP"],
+      verificationNeeded: true,
+      verificationTarget: "August jobs report",
+      searchPrompt: "Verify August payrolls.",
+      articleHook: null,
+      priority: 90,
+    }],
+  })], [], { now: NOW })[0];
+
+  const unified = unifyMarketMotionCandidates([september, august]);
+  assert.equal(unified.length, 2);
+  assert.deepEqual(
+    unified.map((candidate) => candidate.motionKey).sort(),
+    ["event:jobs:2026-08", "event:jobs:2026-09"],
+  );
+});
+
+test("corroboration replay deduplicates prior-window intake and prefers the current-run item", () => {
+  const replay = item({
+    itemKey: "feed:reporting:september-jobs",
+    title: "Older replayed title",
+    candidateScore: 68,
+  });
+  const current = item({
+    itemKey: "feed:reporting:september-jobs",
+    title: "Current-run enriched title",
+    candidateScore: 74,
+  });
+  const otherReplay = item({
+    itemKey: "feed:reporting:fomc-minutes",
+    title: "September FOMC minutes preview",
+  });
+
+  const merged = mergeMarketMotionCorroborationItems([current], [replay, otherReplay]);
+  assert.equal(merged.length, 2);
+  assert.equal(
+    merged.find((candidate) => candidate.itemKey === "feed:reporting:september-jobs")?.title,
+    "Current-run enriched title",
+  );
 });
 
 test("record-high identity prefers the named instrument over unrelated creator entities", () => {
