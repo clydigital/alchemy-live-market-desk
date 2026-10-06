@@ -28,6 +28,7 @@ export interface ProvenanceRef {
 
 export interface ObservedEvidence {
   evidence_id: string;
+  canonical_record_backed?: boolean;
   epistemic_label: "OBSERVED";
   claim_or_fact: string;
   category: string;
@@ -1084,6 +1085,7 @@ export function assembleDossierV2InputPacket(
 
     const normalizedEvidence = {
       evidence_id: evId,
+      ...(raw.canonical_record_backed === true ? { canonical_record_backed: true } : {}),
       epistemic_label: "OBSERVED" as const,
       claim_or_fact: claimText,
       category: truncateString(String(raw.category ?? "GENERAL"), 100, markTruncated),
