@@ -57,6 +57,36 @@ test("long-end diagnostic decomposes the observed 10Y move without assigning the
   assert.match(result.termPremium.detail, /not sufficient evidence/i);
 });
 
+test("5Y real-yield and breakeven remain a protected cross-check without changing the 10Y state classifier", () => {
+  const assembled = packet([
+    monitor("us10y", 5.30, 5.20),
+    monitor("us10y-real", 2.30, 2.22),
+    monitor("us10y-breakeven", 3.00, 2.98),
+    monitor("us5y-real", 2.05, 2.01),
+    monitor("us5y-breakeven", 2.71, 2.68),
+  ]);
+  const real5y = assembled.observed_evidence.find((item) =>
+    item.evidence_id.startsWith("market-monitor:us5y-real:"));
+  const breakeven5y = assembled.observed_evidence.find((item) =>
+    item.evidence_id.startsWith("market-monitor:us5y-breakeven:"));
+  assert.ok(real5y);
+  assert.ok(breakeven5y);
+
+  assembled.rate_context = { evidence: [real5y, breakeven5y] };
+  assembled.observed_evidence = assembled.observed_evidence.filter((item) =>
+    item !== real5y && item !== breakeven5y);
+
+  const result = buildRateLongEndDiagnostic(assembled);
+
+  assert.equal(result.fiveYearCrossCheck.realYieldLevelPct, 2.05);
+  assert.equal(result.fiveYearCrossCheck.breakevenLevelPct, 2.71);
+  assert.equal(result.fiveYearCrossCheck.realYieldEvidenceRef, real5y.evidence_id);
+  assert.equal(result.fiveYearCrossCheck.breakevenEvidenceRef, breakeven5y.evidence_id);
+  assert.match(result.fiveYearCrossCheck.detail, /cross-check only/i);
+  assert.equal(result.observedDecomposition.state, "REAL_YIELD_LED");
+  assert.ok(!result.gaps.some((gap) => /5Y real-yield\/breakeven cross-check is incomplete/i.test(gap)));
+});
+
 test("production regression: long-end decomposition reads real yield and breakeven from preserved rate_context", () => {
   const assembled = packet([
     monitor("us10y", 5.28, 5.17),
@@ -254,4 +284,7 @@ test("missing real yield and breakeven does not invent a decomposition", () => {
   assert.equal(result.observedDecomposition.state, "NOMINAL_MOVE_ONLY");
   assert.equal(result.observedDecomposition.accountedChangeBp, null);
   assert.equal(result.observedDecomposition.residualBp, null);
+  assert.equal(result.fiveYearCrossCheck.realYieldEvidenceRef, null);
+  assert.equal(result.fiveYearCrossCheck.breakevenEvidenceRef, null);
+  assert.ok(result.gaps.some((gap) => /5Y real-yield\/breakeven cross-check is incomplete/i.test(gap)));
 });
