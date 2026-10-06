@@ -1,6 +1,6 @@
 # D1–D7 Architecture Implementation Status
 
-**Audit base:** current `main` at `7f6cfff66c2866f033b49e62f160aadb6e08e431` or newer.
+**Audit base:** current `main` at `03500453c93124376ca41daf2d58898d9a42b1ee` or newer.
 
 This is an implementation audit, not a design document. It distinguishes code/test coverage from direct production observation.
 
@@ -15,10 +15,10 @@ This is an implementation audit, not a design document. It distinguishes code/te
 
 | Layer / subsystem | Implemented | Tested | Runtime-wired | Production-verified | Primary evidence |
 | --- | --- | --- | --- | --- | --- |
-| **D1 — exact persistent Story identity** | ✅ | ✅ | ✅ | Not independently smoke-proven | `lib/intelligence/story-identity.ts`, Dossier identity plumbing, Hybrid exact-ID resolution, identity tests |
-| **D2 — CONFIRMING / CONTRADICTING / ACCELERATING classification** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier evidence governance + Hybrid canonical Story classification |
-| **D3 — A3 governed Story wake** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier reevaluation propagation, queue ownership/fencing, authority-chain tests |
-| **D4 — canonical `story_thesis_versions` mutation path** | ✅ | ✅ | ✅ | Not independently smoke-proven | canonical Story assessment/apply path; PR #497; authority-chain proof #508 |
+| **D1 — exact persistent Story identity** | ✅ | ✅ | ✅ | ✅ Sep 25 production replay pinned `story-duration-broadening` to exact Story UUID `93c3e32f-9168-49ec-aaa3-9ce678511c9b` | `lib/intelligence/story-identity.ts`, Dossier identity plumbing, Hybrid exact-ID resolution, identity tests |
+| **D2 — CONFIRMING / CONTRADICTING / ACCELERATING classification** | ✅ | ✅ | ✅ | ✅ production Dossier `dc8f2531-a889-4704-90a4-f08514162ebe` emitted all three classifications into exact Story evidence obligations | Dossier evidence governance + Hybrid canonical Story classification |
+| **D3 — A3 governed Story wake** | ✅ | ✅ | ✅ | ✅ production run `37421328562`: 5 planned, 5 enqueued, 0 skipped; all targeted exact Story `fed-long-end-stress` | Dossier reevaluation propagation, queue ownership/fencing, authority-chain tests |
+| **D4 — canonical `story_thesis_versions` mutation path** | ✅ | ✅ | ✅ | ⚠️ exact Dossier-triggered assessment/no-op guard production-proven; fresh material Dossier-triggered version write not forced | production run `37422359132` consumed the exact D3 queues; assessment `e2d95dd3-7822-4c72-88d8-7869fc62fdc3` returned `unchanged`, so v13 correctly remained canonical; historical v13 is an `existing_story_maintenance` thesis revision |
 | **D5 — Market-State Decision Packet** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier presentation adapter / canonical snapshot tests |
 | **D6 — longitudinal adjudication** | ✅ | ✅ | ✅ | Not independently smoke-proven | Dossier longitudinal adjudication / replay tests |
 | **D7 — cross-layer divergence comparator** | ✅ | ✅ | ✅ | ✅ comparator/UI observed | PR #505 + #510; production `/hybrid-output` rendered **Cross-layer checks** with HTTP 200 |
@@ -60,8 +60,24 @@ Important boundaries remain intact:
 - **#511** — material D7 divergences routed into existing Research Gap lifecycle.
 - **#512** — end-to-end exact Story → Regime → Hybrid → D7 → Research Gap proof.
 - **#516** — maintenance-only accepted Story reassessment now reprojects Regimes before stopping downstream reasoning/publication.
+- **#557** — historical Dossier global-rates enrichment is fenced by requested `asOf`.
+- **#558** — historical Dossier EIA weekly petroleum enrichment is fenced by requested `asOf`.
+- **#559** — dormant Stories cannot be revived by fuzzy Dossier Story matching alone; explicit canonical revival routes remain allowed.
 
 ## Production observations from this audit
+
+### D1–D4 Dossier → Story production proof · 6 October 2026
+
+Observed directly on production:
+
+- **Historical chronology fence:** PR **#557** fenced global-rates enrichment by Dossier `asOf`; PR **#558** did the same for EIA weekly petroleum. The repeated Sep 25 dry run then fell from 18 contaminated observations to **14 chronology-safe observations** while retaining the intended rates Story.
+- **D1:** the Sep 25 replay pinned analytical Story `story-duration-broadening` to exact persistent Story `93c3e32f-9168-49ec-aaa3-9ce678511c9b` / `fed-long-end-stress`.
+- **D2/D3:** production Dossier `dc8f2531-a889-4704-90a4-f08514162ebe` produced **5** governed evidence obligations across ACCELERATING / CONTRADICTING / CONFIRMING classifications. Runtime logged `planned=5, enqueued=5, skippedExisting=0`.
+- **D4:** maintenance run `37422359132`, engine run `2dc07169-69af-4abb-ab2b-b51bada93327`, claimed and completed all five exact D3 queues. Assessment `e2d95dd3-7822-4c72-88d8-7869fc62fdc3` returned `unchanged` with `material_change_applied=false`, so the canonical Story correctly remained on thesis **v13** rather than manufacturing v14.
+- **Refresh hygiene:** PR **#559** now prevents dormant Stories from being revived by fuzzy `dossier_story_match` alone. Explicit canonical links and exact affected-topic routes may still wake archived Stories. Eight stale fuzzy dormant queues created before the fix were cancelled; exact A3 queues were untouched.
+- Historical thesis **v13** is itself a real `existing_story_maintenance` `thesis_revision`, but its older event metadata predates the full current engine/evidence provenance shape. Therefore the audit does **not** claim that a fresh material Dossier-triggered version-write branch was exercised on 6 October.
+
+### Earlier D7 / Hybrid production proof
 
 The production deployment for the D7 proof commit `395b261c4d74cdf18c5bab24bc22e21249aefa01` reached **READY**.
 
