@@ -99,6 +99,48 @@ test("Treasury auction adapter keeps the latest nominal coupon result per maturi
   assert.equal(snapshot.auctions[0].primaryDealerAcceptedPct, 12.5);
   assert.equal(snapshot.auctions[0].directBidderAcceptedPct, 25);
   assert.equal(snapshot.auctions[0].indirectBidderAcceptedPct, 62.5);
+  assert.equal(snapshot.auctions[0].recentComparableNorms?.sampleSize, 1);
+});
+
+test("Treasury auction adapter computes recent same-term medians from prior completed auctions", () => {
+  const snapshot = parseTreasuryAuctionSnapshot({
+    data: [
+      row(),
+      row({
+        cusip: "91282CPR1",
+        auction_date: "2026-08-31",
+        bid_to_cover_ratio: "2.30",
+        primary_dealer_accepted: "6000000000",
+        direct_bidder_accepted: "9000000000",
+        indirect_bidder_accepted: "25000000000",
+      }),
+      row({
+        cusip: "91282CPR2",
+        auction_date: "2026-07-31",
+        bid_to_cover_ratio: "2.40",
+        primary_dealer_accepted: "5000000000",
+        direct_bidder_accepted: "10000000000",
+        indirect_bidder_accepted: "25000000000",
+      }),
+      row({
+        cusip: "91282CPR3",
+        auction_date: "2026-06-30",
+        bid_to_cover_ratio: "2.50",
+        primary_dealer_accepted: "4000000000",
+        direct_bidder_accepted: "11000000000",
+        indirect_bidder_accepted: "25000000000",
+      }),
+    ],
+  }, NOW);
+
+  const norms = snapshot.auctions[0].recentComparableNorms;
+  assert.ok(norms);
+  assert.equal(norms.sampleSize, 3);
+  assert.deepEqual(norms.auctionDates, ["2026-08-31", "2026-07-31", "2026-06-30"]);
+  assert.equal(norms.bidToCoverMedian, 2.4);
+  assert.equal(norms.primaryDealerAcceptedPctMedian, 12.5);
+  assert.equal(norms.directBidderAcceptedPctMedian, 25);
+  assert.equal(norms.indirectBidderAcceptedPctMedian, 62.5);
 });
 
 test("Treasury auction query is keyless, bounded and requests official result fields", () => {
@@ -116,6 +158,9 @@ test("snapshot augmentation admits official auction facts without inventing a ta
   const auctionSnapshot = parseTreasuryAuctionSnapshot({
     data: [
       row(),
+      row({ cusip: "91282CPR1", auction_date: "2026-08-31", bid_to_cover_ratio: "2.30" }),
+      row({ cusip: "91282CPR2", auction_date: "2026-07-31", bid_to_cover_ratio: "2.40" }),
+      row({ cusip: "91282CPR3", auction_date: "2026-06-30", bid_to_cover_ratio: "2.50" }),
       row({
         cusip: "912810ZZ3",
         security_type: "Bond",
@@ -153,6 +198,11 @@ test("snapshot augmentation admits official auction facts without inventing a ta
   assert.equal(tenYearMetrics.signal_context, "treasury_auction");
   assert.equal(tenYearMetrics.tail_bps, null);
   assert.equal(tenYearMetrics.when_issued_yield_pct, null);
+  assert.equal(tenYearMetrics.recent_comparable_auction_count, 3);
+  assert.equal(tenYearMetrics.recent_median_bid_to_cover_ratio, 2.4);
+  assert.equal(tenYearMetrics.auction_quality_state, "UNRESOLVED_WITHOUT_WHEN_ISSUED");
+  assert.match(String(tenYear?.claim_or_fact ?? ""), /Recent same-term median across 3 prior auctions/i);
+  assert.match(String(tenYear?.claim_or_fact ?? ""), /do not by themselves classify demand as weak or strong/i);
   assert.match(String(tenYear?.claim_or_fact ?? ""), /tail or stop-through is not determined/i);
   assert.equal(result.snapshot.sources_status?.treasury_auctions?.status, "OK");
 });
