@@ -503,6 +503,66 @@ test("B1 adapter promotes fresh Motion across research runs from canonical Evide
   assert.ok(!db.calls.some((call) => call.includes("research_run_id")));
 });
 
+test("B1 replay repairs a missing packet ref only against the exact original canonical Evidence UUID", async () => {
+  const promoted = record({
+    id: "already-promoted-missing-packet-ref",
+    lifecycle_state: "PROMOTED",
+    effective_state: "PROMOTED",
+    metadata: {
+      originItemKeys: ["reuters:mu-hbm"],
+      promotionEvidenceId: "evidence-reporting",
+      promotionEvidenceItemKey: "reuters:mu-hbm",
+    },
+  });
+  const db = mockPromotionClient([promoted]);
+  const promote = promotionAdapter();
+
+  const result = await promote({
+    researchRunId: "run-repair",
+    engineRunId: "engine-repair",
+    evidence: [evidence()],
+    now: NOW,
+    client: db.client,
+  });
+
+  assert.equal(result.eligible, 0);
+  assert.equal(result.promoted, 0);
+  assert.equal(result.skippedAlreadyPromoted, 0);
+  assert.equal(db.inserted.length, 1);
+  const metadata = db.inserted[0].metadata as Record<string, unknown>;
+  assert.equal(metadata.promotionEvidenceId, "evidence-reporting");
+  assert.equal(metadata.promotionEvidencePacketRef, "research-intake:reporting-1");
+  assert.ok(result.warnings.some((warning) => /Repaired canonical Dossier Evidence packet reference/.test(warning)));
+});
+
+test("B1 replay refuses packet-ref repair when the original canonical Evidence UUID is absent", async () => {
+  const promoted = record({
+    id: "already-promoted-no-anchor",
+    lifecycle_state: "PROMOTED",
+    effective_state: "PROMOTED",
+    metadata: {
+      originItemKeys: ["reuters:mu-hbm"],
+      promotionEvidenceId: "different-canonical-evidence",
+      promotionEvidenceItemKey: "reuters:mu-hbm",
+    },
+  });
+  const db = mockPromotionClient([promoted]);
+  const promote = promotionAdapter();
+
+  const result = await promote({
+    researchRunId: "run-no-repair",
+    engineRunId: "engine-no-repair",
+    evidence: [evidence()],
+    now: NOW,
+    client: db.client,
+  });
+
+  assert.equal(result.eligible, 0);
+  assert.equal(result.promoted, 0);
+  assert.equal(result.skippedAlreadyPromoted, 1);
+  assert.equal(db.inserted.length, 0);
+});
+
 test("B1 adapter skips already-promoted current Motion on replay", async () => {
   const db = mockPromotionClient([
     record({
