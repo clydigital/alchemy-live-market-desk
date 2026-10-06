@@ -20,6 +20,10 @@ export const GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES = [
     persistent_story_slug: "market-breadth-health",
   },
   {
+    analytical_story_id: "story:incomplete-transmission-ai-counterweight",
+    persistent_story_slug: "market-breadth-health",
+  },
+  {
     analytical_story_id: "story:tech-narrow-relief",
     persistent_story_slug: "market-breadth-health",
   },
