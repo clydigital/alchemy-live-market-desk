@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { evaluateNewStoryMarketAdmissibility } from "../lib/intelligence/story-admissibility.ts";
+import {
+  evaluateExistingStoryMarketDomain,
+  evaluateNewStoryMarketAdmissibility,
+  STORY_DOMAIN_CONTRACT_VERSION,
+} from "../lib/intelligence/story-admissibility.ts";
 
 test("research provenance methodology cannot become a new market Story by itself", () => {
   const result = evaluateNewStoryMarketAdmissibility({
@@ -60,4 +64,45 @@ test("runtime gates only new identities before canonical Story promotion", () =>
   assert.match(runtime, /new canonical Story requires a market\/economic mechanism/);
   assert.match(runtime, /MARKET-DOMAIN BOUNDARY: Do not create a market hypothesis/);
   assert.match(runtime, /MARKET-DOMAIN BOUNDARY: Every Story candidate/);
+});
+
+test("existing provenance Story is quarantined while existing stable-value Story stays in market domain", () => {
+  assert.equal(STORY_DOMAIN_CONTRACT_VERSION, "story-domain/1");
+
+  const provenance = evaluateExistingStoryMarketDomain({
+    title: "Primary-source timestamps as the decisive evidence for record reclassification",
+    thesis: "Reversing prior classifications should require preserved primary-source creation/event timestamps and provenance.",
+    marketQuestion: "Should later interpretive products reverse prior record classifications?",
+    dominantNarrative: "Archival provenance controls record reclassification.",
+    bestExplanation: "Missing creation timestamps raise look-ahead bias and temporal-ordering risk.",
+    articleAngle: "Research methodology for source handling.",
+    assets: [],
+  });
+  assert.equal(provenance.admissible, false);
+  assert.equal(provenance.reason, "research_process_without_market_mechanism");
+
+  const stableValue = evaluateExistingStoryMarketDomain({
+    title: "Stable-value market: contractual structure limits industry-wide run risk",
+    thesis: "Wrap providers and separate accounts reduce participant liquidity-run and insurer-contagion risk.",
+    marketQuestion: "Can stable-value fund structure contain participant outflows?",
+    dominantNarrative: "Contract design reduces immediate system-wide run risk.",
+    bestExplanation: "Counterparty dispersion and crediting-rate mechanics slow liquidity transmission.",
+    articleAngle: "Monitor insurer filings and wrap-provider credit spreads.",
+    assets: [],
+  });
+  assert.equal(stableValue.admissible, true);
+  assert.ok(stableValue.marketSignals.includes("credit_financing"));
+});
+
+test("Regime projector uses Story-domain quarantine as a governance sidecar", () => {
+  const engine = readFileSync(new URL("../lib/regime-engine.ts", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../app/regimes/page.tsx", import.meta.url), "utf8");
+
+  assert.match(engine, /storyDomainContractVersion: STORY_DOMAIN_CONTRACT_VERSION/);
+  assert.match(engine, /partitionStoriesByMarketDomain\(source\.stories\)/);
+  assert.match(engine, /sync_story_domain_debt_v1/);
+  assert.match(engine, /stories: storyDomain\.admissible/);
+  assert.match(engine, /active Story domain quarantine item/);
+  assert.match(page, /Domain-quarantined Stories/);
+  assert.match(page, /Quarantine is a governance scope flag, not evidence that the Story thesis is false/);
 });
