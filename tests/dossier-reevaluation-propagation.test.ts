@@ -162,6 +162,52 @@ test("A3 ACCEPT with canonical evidence plans an explicit persistent Story", () 
   });
 });
 
+test("A3 resolves validated analytical Story destinations through exact packet bindings", () => {
+  const analyticalStoryId = "story:incomplete-transmission-ai-counterweight";
+  const inputPacket = packet({ primaryStoryId: STORY_A });
+  inputPacket.persistent_story_bindings = [{
+    analytical_story_id: analyticalStoryId,
+    persistent_story_id: STORY_B,
+  }];
+
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: inputPacket,
+    analyticalOutput: output([decision({
+      destination_refs: [`STORY:${analyticalStoryId}`],
+    })]),
+    stories,
+    regimeLinks: [],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
+  });
+
+  assert.equal(plan.items.length, 1);
+  assert.equal(plan.items[0]?.target_story_id, STORY_B);
+  assert.equal(plan.items[0]?.route_kind, "explicit_story");
+  assert.equal(plan.warnings.length, 0);
+});
+
+test("A3 fails closed when an analytical Story destination has no exact persistent binding", () => {
+  const analyticalStoryId = "story:unbound-analytical-story";
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: packet({ primaryStoryId: STORY_A }),
+    analyticalOutput: output([decision({
+      destination_refs: [`STORY:${analyticalStoryId}`],
+    })]),
+    stories,
+    regimeLinks: [],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
+  });
+
+  assert.deepEqual(plan.items, []);
+  assert.ok(plan.warnings.some((warning) =>
+    warning.includes(`explicit analytical Story ${analyticalStoryId} has no exact persistent Story binding`)
+  ));
+  assert.equal(
+    plan.warnings.some((warning) => warning.includes("Motion primary Story")),
+    false,
+  );
+});
+
 test("A3 REFINE falls back to the exact Motion primary Story when no explicit Story destination exists", () => {
   const plan = buildDossierReevaluationPropagationPlan({
     packet: packet({ primaryStoryId: STORY_A }),
