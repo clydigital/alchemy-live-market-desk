@@ -523,6 +523,11 @@ test("P1.7 runtime path preserves exact-vintage separation between historical Pr
   assert.match(page, /marketMotionFromEditionPayload\(motionEdition\?\.payload\)/);
   assert.match(page, /presenterEditionStatus === "current"[\s\S]*getCurrentMarketMotion/);
   assert.match(page, /regimes = buildRegimeProjection\([\s\S]*dossier,/);
+  assert.match(page, /const focusedDirectRegimeHref = focusedDossierRegimeContext/);
+  assert.match(page, /const focusedStoryReadThroughRegimeHref = focusedStoryRoutedDossierContext/);
+  assert.match(page, /Open current Regime separately/);
+  assert.match(page, /Historical Dossier replay is immutable/);
+  assert.match(page, /current-state context and is not part of this historical replay/);
   assert.match(loader, /getDossierV2PresentationSelectionById\(context\.dossierId!\)/);
   assert.doesNotMatch(loader, /getDossierV2PresentationSelection\(\)/);
 });
