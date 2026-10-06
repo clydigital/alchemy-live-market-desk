@@ -25,6 +25,22 @@ function clip(value: string | null | undefined, max: number): string | null {
   return clean.length <= max ? clean : `${clean.slice(0, Math.max(0, max - 3))}...`;
 }
 
+function canonicalMotionEvidenceRef(
+  item: MarketMotionRecord,
+  validEvidenceIds: Set<string>,
+) {
+  const promotionEvidenceId = typeof item.metadata?.promotionEvidenceId === "string"
+    ? item.metadata.promotionEvidenceId.trim()
+    : "";
+  if (promotionEvidenceId && validEvidenceIds.has(promotionEvidenceId)) {
+    return promotionEvidenceId;
+  }
+  if (item.evidence_id && validEvidenceIds.has(item.evidence_id)) {
+    return item.evidence_id;
+  }
+  return null;
+}
+
 function boundedMotionItem(
   item: MarketMotionRecord,
   validEvidenceIds: Set<string>,
@@ -56,10 +72,7 @@ function boundedMotionItem(
       relevance: Number(item.relevance || 0),
       novelty: Number(item.novelty || 0),
     },
-    origin_evidence_ref:
-      item.evidence_id && validEvidenceIds.has(item.evidence_id)
-        ? item.evidence_id
-        : null,
+    origin_evidence_ref: canonicalMotionEvidenceRef(item, validEvidenceIds),
   };
 }
 

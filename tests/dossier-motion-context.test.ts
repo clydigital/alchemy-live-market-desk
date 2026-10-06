@@ -111,6 +111,26 @@ test("A2 Motion context is bounded, rehashed and never manufactures an evidence 
   const canonicalLinked = result.motion_context?.items.find((item) => item.motion_id === "motion-2");
   assert.equal(canonicalLinked?.origin_evidence_ref, "ev:canonical:1");
 
+  const canonicalMetadataLinked = attachDossierMotionContext(before, [
+    motion({
+      id: "motion-metadata",
+      motion_key: "event:rates:motion-metadata",
+      evidence_id: null,
+      metadata: { promotionEvidenceId: "ev:canonical:1" },
+    }),
+  ]).motion_context?.items[0];
+  assert.equal(canonicalMetadataLinked?.origin_evidence_ref, "ev:canonical:1");
+
+  const invalidMetadataLinked = attachDossierMotionContext(before, [
+    motion({
+      id: "motion-metadata-invalid",
+      motion_key: "event:rates:motion-metadata-invalid",
+      evidence_id: null,
+      metadata: { promotionEvidenceId: "ev:not-in-packet" },
+    }),
+  ]).motion_context?.items[0];
+  assert.equal(invalidMetadataLinked?.origin_evidence_ref, null);
+
   assert.equal("source_url" in (first ?? {}), false);
   assert.equal("source_name" in (first ?? {}), false);
 });

@@ -214,7 +214,10 @@ export function marketMotionPromotionInput(
     expiresAt: item.expires_at,
     researchRunId: input.researchRunId,
     sourceId: item.source_id,
-    evidenceId: candidate.selectedEvidence.id,
+    // market_motion_items.evidence_id is a legacy FK to public.evidence.
+    // Canonical intelligence Evidence identity is preserved in immutable
+    // promotion metadata and surfaced into Dossier context from there.
+    evidenceId: item.evidence_id,
     primaryStoryId: item.primary_story_id,
     primaryRegimeSlug: item.primary_regime_slug,
     metadata: {
