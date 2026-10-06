@@ -47,6 +47,7 @@ test("C1.5c1 keeps Dossier judgement authoritative and raw Motion discovery-only
 test("C1.5c1 preserves exact current Regime routing without contaminating historical replay", () => {
   assert.match(page, /const focusedDirectRegimeHref = focusedDossierRegimeContext/);
   assert.match(page, /focusedDossierRegimeContext\.regimeSlug\}\?view=live#dossier-regime-context/);
+  assert.match(page, /dossier-regime-context-\$\{encodeURIComponent\(focusedDossierRegimeContext\.motionId\)\}/);
   assert.match(page, /:\s*\`\/regimes\/\$\{focusedDossierRegimeContext\.regimeSlug\}\`/);
   assert.match(page, /Open current Regime separately/);
   assert.match(page, /Historical Dossier replay is immutable/);
