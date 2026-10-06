@@ -32,6 +32,7 @@ import {
   selectMarketMotionForOverview,
 } from "@/lib/market-motion";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { hybridRegimeDeepLinksEnabled, regimeUiEnabled } from "@/lib/regime-feature-flags";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
@@ -101,6 +102,7 @@ function upcomingTime(value: string | null | undefined) {
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
+  const showHybridRegimeLinks = hybridRegimeDeepLinksEnabled() && regimeUiEnabled();
   const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
     getDossierV2PresentationSelection(),
     getDeskData(),
@@ -306,7 +308,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyHref: item.storySlug ? `/stories/${item.storySlug}` : null,
       regimeSlug,
       regimeLabel: regime?.shortTitle || item.regimeLabel,
-      regimeHref: regimeSlug
+      regimeHref: showHybridRegimeLinks && regimeSlug
         ? presenterEditionStatus === "current" && regimeContribution
           ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution
             ? `dossier-regime-context-${encodeURIComponent(item.id)}`
@@ -371,7 +373,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyHref: story ? `/stories/${story.slug}` : null,
       regimeSlug,
       regimeLabel: regime?.shortTitle || null,
-      regimeHref: regimeSlug
+      regimeHref: showHybridRegimeLinks && regimeSlug
         ? regimeContribution
           ? `/regimes/${regimeSlug}?view=live#${directRegimeContribution
             ? `dossier-regime-context-${encodeURIComponent(item.id)}`
@@ -408,12 +410,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     focusedDossierAdjudicationContext && !focusedDossierAdjudicationContext.directRegimeRoute
       ? focusedDossierAdjudicationContext
       : null;
-  const focusedDirectRegimeHref = focusedDossierRegimeContext
+  const focusedDirectRegimeHref = showHybridRegimeLinks && focusedDossierRegimeContext
     ? presenterEditionStatus === "current"
       ? `/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context-${encodeURIComponent(focusedDossierRegimeContext.motionId)}`
       : `/regimes/${focusedDossierRegimeContext.regimeSlug}`
     : null;
-  const focusedStoryReadThroughRegimeHref = focusedStoryRoutedDossierContext
+  const focusedStoryReadThroughRegimeHref = showHybridRegimeLinks && focusedStoryRoutedDossierContext
     ? presenterEditionStatus === "current"
       ? `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough-${encodeURIComponent(focusedStoryRoutedDossierContext.motionId)}`
       : `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}`
@@ -799,7 +801,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                       <p>{focusedRegime.latestNode.detail}</p>
                     </article>
                   ) : null}
-                  <a className={styles.link} href={`/regimes/${focusedRegime.slug}`}>Back to Live Regime →</a>
+                  {showHybridRegimeLinks ? <a className={styles.link} href={`/regimes/${focusedRegime.slug}`}>Back to Live Regime →</a> : null}
                 </>
               ) : focusedEvent ? (
                 <>
