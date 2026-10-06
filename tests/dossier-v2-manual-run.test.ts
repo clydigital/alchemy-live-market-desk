@@ -242,6 +242,74 @@ test("Task 9 adapter admits explicit numerical market observations from reliable
   assert.equal(observed?.is_admitted_fact, true);
 });
 
+test("Task 9 adapter admits a numerical single-stock market observation when canonical affected_assets names the instrument", () => {
+  const result = buildCandidateSnapshotFromCanonicalEvidence([
+    baseRow({
+      id: "nvda-ath-row",
+      external_evidence_id: "research-intake:nvda-ath",
+      evidence_class: "news_report",
+      claim_text: "NVIDIA near ATH $243.35 with overextension risk: Live levels",
+      affected_assets: ["NVDA"],
+      source: source({
+        source_type: "news",
+        source_name: "Investing.com",
+        source_tier: 3,
+        reliability_score: 70,
+      }),
+    }),
+  ], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  const observed = result.snapshot.observed_evidence ?? [];
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0]?.evidence_id, "research-intake:nvda-ath");
+  assert.equal(observed[0]?.source_type, "NEWS_MARKET_CONTEXT");
+  assert.equal(observed[0]?.canonical_record_backed, true);
+});
+
+test("Task 9 adapter does not turn an unscoped numerical news headline into market evidence", () => {
+  const result = buildCandidateSnapshotFromCanonicalEvidence([
+    baseRow({
+      id: "unscoped-ath-row",
+      external_evidence_id: "research-intake:unscoped-ath",
+      evidence_class: "news_report",
+      claim_text: "Company near ATH $243.35 with overextension risk: Live levels",
+      affected_assets: [],
+      source: source({
+        source_type: "news",
+        source_name: "Investing.com",
+        source_tier: 3,
+        reliability_score: 70,
+      }),
+    }),
+  ], {
+    asOf: AS_OF,
+    lookbackHours: 168,
+  });
+
+  assert.equal(result.snapshot.observed_evidence?.length, 0);
+  assert.equal(result.snapshot.research_leads?.length, 1);
+});
+
+test("manual Dossier run pins exact promoted Motion evidence UUIDs before canonical packet assembly", () => {
+  const manualRunSource = readFileSync(
+    new URL("../lib/dossier-v2/manual-run.ts", import.meta.url),
+    "utf8",
+  );
+  const canonicalSnapshotSource = readFileSync(
+    new URL("../lib/dossier-v2/canonical-snapshot.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(manualRunSource, /loadCurrentPromotedMotionEvidenceIds/);
+  assert.match(manualRunSource, /requiredEvidenceIds:\s*requiredMotionEvidenceIds/);
+  assert.match(canonicalSnapshotSource, /\.in\("id", requiredEvidenceIds\)/);
+  assert.match(canonicalSnapshotSource, /\.lte\("received_at", options\.asOf\)/);
+  assert.match(canonicalSnapshotSource, /\.in\("freshness_status", \["current", "aging"\]\)/);
+});
+
 test("Task 9 adapter admits existing Live market monitor rows and marks FRED macro coverage", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,
