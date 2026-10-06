@@ -1363,3 +1363,40 @@ test("24. buildCandidateSnapshotFromCanonicalEvidence sets canonical_record_back
   assert.equal(result.snapshot.observed_evidence?.length, 1);
   assert.equal(result.snapshot.observed_evidence?.[0].canonical_record_backed, true);
 });
+
+
+test("25. explicit-instrument market news is admitted with its canonical packet evidence ID", () => {
+  const rows: CanonicalEvidenceRow[] = [{
+    id: "fa915c03-11d1-4da2-95b7-05a203b62c60",
+    external_evidence_id: "research-intake:8320cc56-36b8-4143-af50-60f23c361f4c",
+    claim_text: "NVIDIA near ATH $243.35 with overextension risk: Live levels",
+    summary: null,
+    evidence_class: "news_report",
+    published_at: IN_WINDOW_TIME,
+    available_at: IN_WINDOW_TIME,
+    received_at: IN_WINDOW_TIME,
+    freshness_status: "current",
+    affected_assets: ["NVDA"],
+    affected_topics: [],
+    provenance_urls: ["https://www.investing.com/news/example"],
+    structured_payload: {
+      itemKey: "feed:investing-com:nvda-ath",
+      evidenceNature: "fresh_news",
+    },
+    source: {
+      id: "src-investing",
+      source_name: "Investing.com",
+      source_type: "news",
+      source_tier: 3,
+      reliability_score: 70,
+    },
+  }];
+
+  const result = buildCandidateSnapshotFromCanonicalEvidence(rows, { asOf: TEST_AS_OF });
+  const observed = result.snapshot.observed_evidence ?? [];
+
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0].evidence_id, "research-intake:8320cc56-36b8-4143-af50-60f23c361f4c");
+  assert.equal(observed[0].source_type, "NEWS_MARKET_CONTEXT");
+  assert.equal(observed[0].canonical_record_backed, true);
+});

@@ -65,6 +65,7 @@ function record(overrides: Partial<MarketMotionRecord> = {}): MarketMotionRecord
 function evidence(overrides: Partial<EvidencePackItem> = {}): EvidencePackItem {
   return {
     id: "evidence-reporting",
+    externalEvidenceId: "research-intake:reporting-1",
     claim: "Independent reporting corroborates the event.",
     summary: null,
     evidenceClass: "news",
@@ -337,6 +338,7 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
   assert.equal(input.metadata?.promotionPolicy, "canonical-evidence-corroborated/v2");
   assert.equal(input.metadata?.promotionRoutingClass, "STORY");
   assert.equal(input.metadata?.promotionEvidenceId, "evidence-reporting");
+  assert.equal(input.metadata?.promotionEvidencePacketRef, "research-intake:reporting-1");
   assert.equal(input.metadata?.promotionEvidenceItemKey, "reuters:mu-hbm");
   assert.deepEqual(input.metadata?.promotionEvidenceIds, ["evidence-reporting"]);
   assert.deepEqual(input.metadata?.promotionEvidenceItemKeys, ["reuters:mu-hbm"]);
@@ -353,6 +355,18 @@ test("promotion preserves a valid legacy evidence FK while keeping canonical Evi
 
   assert.equal(input.evidenceId, "legacy-evidence-row");
   assert.equal(input.metadata?.promotionEvidenceId, "evidence-reporting");
+});
+
+test("promotion falls back to deterministic ev: UUID packet ref when external identity is absent", () => {
+  const [candidate] = selectPromotableMarketMotion([record()], [
+    evidence({ externalEvidenceId: null }),
+  ], NOW);
+  const input = marketMotionPromotionInput(candidate, {
+    researchRunId: "run-fallback",
+    engineRunId: "engine-fallback",
+  });
+
+  assert.equal(input.metadata?.promotionEvidencePacketRef, "ev:evidence-reporting");
 });
 
 test("B2 Dossier selector admits fresh PROMOTED Motion with any valid routing class", () => {

@@ -29,6 +29,13 @@ function canonicalMotionEvidenceRef(
   item: MarketMotionRecord,
   validEvidenceIds: Set<string>,
 ) {
+  const promotionEvidencePacketRef = typeof item.metadata?.promotionEvidencePacketRef === "string"
+    ? item.metadata.promotionEvidencePacketRef.trim()
+    : "";
+  if (promotionEvidencePacketRef && validEvidenceIds.has(promotionEvidencePacketRef)) {
+    return promotionEvidencePacketRef;
+  }
+
   const promotionEvidenceId = typeof item.metadata?.promotionEvidenceId === "string"
     ? item.metadata.promotionEvidenceId.trim()
     : "";

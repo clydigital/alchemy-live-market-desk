@@ -116,7 +116,10 @@ test("A2 Motion context is bounded, rehashed and never manufactures an evidence 
       id: "motion-metadata",
       motion_key: "event:rates:motion-metadata",
       evidence_id: null,
-      metadata: { promotionEvidenceId: "ev:canonical:1" },
+      metadata: {
+        promotionEvidenceId: "raw-intelligence-evidence-uuid",
+        promotionEvidencePacketRef: "ev:canonical:1",
+      },
     }),
   ]).motion_context?.items[0];
   assert.equal(canonicalMetadataLinked?.origin_evidence_ref, "ev:canonical:1");
@@ -126,7 +129,10 @@ test("A2 Motion context is bounded, rehashed and never manufactures an evidence 
       id: "motion-metadata-invalid",
       motion_key: "event:rates:motion-metadata-invalid",
       evidence_id: null,
-      metadata: { promotionEvidenceId: "ev:not-in-packet" },
+      metadata: {
+        promotionEvidenceId: "raw-intelligence-evidence-uuid",
+        promotionEvidencePacketRef: "ev:not-in-packet",
+      },
     }),
   ]).motion_context?.items[0];
   assert.equal(invalidMetadataLinked?.origin_evidence_ref, null);
