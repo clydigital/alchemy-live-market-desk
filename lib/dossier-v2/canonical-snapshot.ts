@@ -59,7 +59,6 @@ import type {
   ObservedEvidence,
   SourceDataStatus,
 } from "./input-packet.ts";
-import { explicitlyMentionedInstrumentSpecs } from "../instrument-mentions.ts";
 import { isSystem1IntradayReactionTriggerEvidence } from "./system1-divergence.ts";
 
 export interface CanonicalEvidenceSourceRow {
@@ -121,6 +120,8 @@ export interface LoadCanonicalSnapshotOptions {
   asOf: string;
   lookbackHours?: number;
   limit?: number;
+  /** Exact canonical intelligence_evidence UUIDs required by promoted Motion context. */
+  requiredEvidenceIds?: string[];
 }
 
 const DIRECT_EVIDENCE_SOURCE_BY_CLASS: Record<string, string> = {
@@ -464,8 +465,10 @@ function isArticleMarketObservation(row: CanonicalEvidenceRow): boolean {
 
   const statsSignal = structuredString(row.structured_payload, "statsSignal");
   const text = visibleText([row.claim_text, row.summary, statsSignal].filter(Boolean).join(" "));
-  const hasMarketSubject = /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text)
-    || explicitlyMentionedInstrumentSpecs(text).length > 0;
+  const hasAffectedMarketAsset = Array.isArray(row.affected_assets)
+    && row.affected_assets.some((asset) => typeof asset === "string" && Boolean(asset.trim()));
+  const hasMarketSubject = hasAffectedMarketAsset
+    || /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text);
   const hasMetric = /(?:[$€£¥]\s?\d|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:%|percent|bp|bps|basis points?|points?|dollars?|barrel|gallon)\b|\b(?:yield|price|index)\b.{0,48}\b\d+(?:\.\d+)?)/i.test(text);
   const hasMoveOrLevel = /\b(?:rose|fell|rall(?:y|ied|ying)|surged|jumped|gained|climbed|slid|dropped|declined|lost|up|down|steady|hit|reached|traded|closed|opened|topped|support|resistance|high|low|ath|all[- ]time high|record high)\b/i.test(text);
   return Boolean(statsSignal) || (hasMarketSubject && hasMetric && hasMoveOrLevel);
@@ -1977,32 +1980,32 @@ export async function loadCanonicalCandidateSnapshot(
   const since = new Date(asOfMs - lookbackHours * 3_600_000).toISOString();
   const limit = Math.max(1, Math.min(options.limit ?? 180, 500));
 
+  const canonicalEvidenceSelect = [
+    "id",
+    "external_evidence_id",
+    "claim_text",
+    "summary",
+    "evidence_class",
+    "support_direction",
+    "event_at",
+    "published_at",
+    "available_at",
+    "received_at",
+    "freshness_status",
+    "affected_assets",
+    "affected_topics",
+    "provenance_urls",
+    "structured_payload",
+    "measurement_unit",
+    "observed_value",
+    "expected_value",
+    "previous_value",
+    "source:intelligence_evidence_sources!inner(id,ancestry_group_id,external_source_id,source_name,source_type,source_url,source_tier,reliability_score,provider_key)",
+  ].join(",");
+
   const { data, error } = await client
     .from("intelligence_evidence")
-    .select(
-      [
-        "id",
-        "external_evidence_id",
-        "claim_text",
-        "summary",
-        "evidence_class",
-        "support_direction",
-        "event_at",
-        "published_at",
-        "available_at",
-        "received_at",
-        "freshness_status",
-        "affected_assets",
-        "affected_topics",
-        "provenance_urls",
-        "structured_payload",
-        "measurement_unit",
-        "observed_value",
-        "expected_value",
-        "previous_value",
-        "source:intelligence_evidence_sources!inner(id,ancestry_group_id,external_source_id,source_name,source_type,source_url,source_tier,reliability_score,provider_key)",
-      ].join(","),
-    )
+    .select(canonicalEvidenceSelect)
     .gte("received_at", since)
     .lte("received_at", options.asOf)
     .in("freshness_status", ["current", "aging"])
@@ -2013,8 +2016,37 @@ export async function loadCanonicalCandidateSnapshot(
     throw new Error(`Failed to load canonical evidence for Dossier V2: ${error.message}`);
   }
 
+  const requiredEvidenceIds = [...new Set(
+    (options.requiredEvidenceIds ?? [])
+      .filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
+      .map((id) => id.trim()),
+  )].slice(0, 8);
+
+  let requiredRows: CanonicalEvidenceRow[] = [];
+  if (requiredEvidenceIds.length) {
+    const { data: requiredData, error: requiredError } = await client
+      .from("intelligence_evidence")
+      .select(canonicalEvidenceSelect)
+      .in("id", requiredEvidenceIds)
+      .lte("received_at", options.asOf)
+      .in("freshness_status", ["current", "aging"]);
+
+    if (requiredError) {
+      throw new Error(`Failed to load promoted Motion canonical evidence for Dossier V2: ${requiredError.message}`);
+    }
+    requiredRows = (requiredData ?? []) as unknown as CanonicalEvidenceRow[];
+  }
+
+  const mergedRows = new Map<string, CanonicalEvidenceRow>();
+  for (const row of [
+    ...((data ?? []) as unknown as CanonicalEvidenceRow[]),
+    ...requiredRows,
+  ]) {
+    mergedRows.set(row.id, row);
+  }
+
   let result = buildCandidateSnapshotFromCanonicalEvidence(
-    (data ?? []) as unknown as CanonicalEvidenceRow[],
+    [...mergedRows.values()],
     options,
   );
 
