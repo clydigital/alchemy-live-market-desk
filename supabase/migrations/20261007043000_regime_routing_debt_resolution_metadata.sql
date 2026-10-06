@@ -144,7 +144,33 @@ begin
 
   return query select v_active, v_upserted, v_resolved, false;
 end;
-$$;
+$;
+
+-- Backfill already-resolved routing debt created before this metadata contract.
+-- The canonical lifecycle columns remain authoritative; metadata is aligned
+-- only when the prior row already proves how it resolved.
+update public.research_debt debt
+set metadata = debt.metadata || jsonb_build_object(
+      'routingStatus',
+      case
+        when debt.resolution_note like 'A governed Regime route was restored%' then 'routed'
+        else 'inactive'
+      end,
+      'resolvedByProjectionRunId',
+      case
+        when debt.resolution_note like 'A governed Regime route was restored%'
+          then debt.metadata ->> 'projectionRunId'
+        else null
+      end,
+      'resolvedAt',
+      debt.resolved_at
+    ),
+    updated_at = greatest(debt.updated_at, debt.resolved_at)
+where debt.status = 'resolved'
+  and debt.debt_key like 'regime-routing:%'
+  and debt.metadata ->> 'kind' = 'regime_routing_debt'
+  and coalesce(debt.metadata ->> 'routingStatus', 'unassigned') = 'unassigned'
+  and debt.resolved_at is not null;
 
 revoke all on function public.sync_regime_routing_debt_v1(uuid,uuid[],uuid[])
   from public, anon, authenticated;
