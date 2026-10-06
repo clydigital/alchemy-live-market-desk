@@ -1376,10 +1376,20 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
         auction.bidToCover === null ? null : `bid-to-cover ${auction.bidToCover.toFixed(2)}`,
         bidderMix.length ? bidderMix.join(", ") : null,
       ].filter((value): value is string => Boolean(value)).join("; ");
+      const norms = auction.recentComparableNorms;
+      const normDetail = norms
+        ? [
+            norms.highYieldPctMedian === null ? null : `high yield ${norms.highYieldPctMedian.toFixed(3)}%`,
+            norms.bidToCoverMedian === null ? null : `bid-to-cover ${norms.bidToCoverMedian.toFixed(2)}`,
+            norms.primaryDealerAcceptedPctMedian === null ? null : `primary dealers ${norms.primaryDealerAcceptedPctMedian.toFixed(1)}%`,
+            norms.directBidderAcceptedPctMedian === null ? null : `direct bidders ${norms.directBidderAcceptedPctMedian.toFixed(1)}%`,
+            norms.indirectBidderAcceptedPctMedian === null ? null : `indirect bidders ${norms.indirectBidderAcceptedPctMedian.toFixed(1)}%`,
+          ].filter((value): value is string => Boolean(value)).join(", ")
+        : "";
 
       observed.push({
         evidence_id: `treasury-auction:${auction.cusip}:${auction.auctionDate}`,
-        claim_or_fact: `${auction.securityTerm} U.S. Treasury auction on ${auction.auctionDate}${resultDetail ? `: ${resultDetail}` : ""}. Fiscal Data does not provide a when-issued yield here, so an auction tail or stop-through is not determined by this observation.`,
+        claim_or_fact: `${auction.securityTerm} U.S. Treasury auction on ${auction.auctionDate}${resultDetail ? `: ${resultDetail}` : ""}.${norms ? ` Recent same-term median across ${norms.sampleSize} prior auction${norms.sampleSize === 1 ? "" : "s"} (${norms.auctionDates.join(", ")})${normDetail ? `: ${normDetail}` : ""}.` : " No recent same-term comparison sample is available."} These historical comparisons are context only and do not by themselves classify demand as weak or strong. Fiscal Data does not provide a when-issued yield here, so an auction tail or stop-through is not determined by this observation.`,
         category: "RATES",
         source_type: "OFFICIAL_DATA",
         available_at: availableAt,
@@ -1402,6 +1412,15 @@ export function augmentCandidateSnapshotWithTreasuryAuctions(
           primary_dealer_accepted_pct: auction.primaryDealerAcceptedPct,
           direct_bidder_accepted_pct: auction.directBidderAcceptedPct,
           indirect_bidder_accepted_pct: auction.indirectBidderAcceptedPct,
+          recent_comparable_auction_count: norms?.sampleSize ?? 0,
+          recent_comparable_auction_dates: norms?.auctionDates ?? [],
+          recent_median_high_yield_pct: norms?.highYieldPctMedian ?? null,
+          recent_median_bid_to_cover_ratio: norms?.bidToCoverMedian ?? null,
+          recent_median_offering_amount_usd: norms?.offeringAmountUsdMedian ?? null,
+          recent_median_primary_dealer_accepted_pct: norms?.primaryDealerAcceptedPctMedian ?? null,
+          recent_median_direct_bidder_accepted_pct: norms?.directBidderAcceptedPctMedian ?? null,
+          recent_median_indirect_bidder_accepted_pct: norms?.indirectBidderAcceptedPctMedian ?? null,
+          auction_quality_state: "UNRESOLVED_WITHOUT_WHEN_ISSUED",
           when_issued_yield_pct: null,
           tail_bps: null,
         },

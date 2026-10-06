@@ -3,6 +3,17 @@ export const TREASURY_AUCTIONS_API_URL =
 
 export type TreasuryAuctionProviderStatus = "OK" | "STALE" | "PARTIAL" | "UNAVAILABLE";
 
+export type TreasuryAuctionComparableNorms = {
+  sampleSize: number;
+  auctionDates: string[];
+  highYieldPctMedian: number | null;
+  bidToCoverMedian: number | null;
+  offeringAmountUsdMedian: number | null;
+  primaryDealerAcceptedPctMedian: number | null;
+  directBidderAcceptedPctMedian: number | null;
+  indirectBidderAcceptedPctMedian: number | null;
+};
+
 export type TreasuryAuctionObservation = {
   cusip: string;
   securityType: "Note" | "Bond";
@@ -21,6 +32,7 @@ export type TreasuryAuctionObservation = {
   primaryDealerAcceptedPct: number | null;
   directBidderAcceptedPct: number | null;
   indirectBidderAcceptedPct: number | null;
+  recentComparableNorms: TreasuryAuctionComparableNorms | null;
 };
 
 export type TreasuryCouponSupplyComparison = {
@@ -124,8 +136,37 @@ function parseNominalRows(payload: unknown): TreasuryAuctionObservation[] {
       primaryDealerAcceptedPct: pctOf(primaryDealerAccepted, competitiveAccepted),
       directBidderAcceptedPct: pctOf(directBidderAccepted, competitiveAccepted),
       indirectBidderAcceptedPct: pctOf(indirectBidderAccepted, competitiveAccepted),
+      recentComparableNorms: null,
     } satisfies TreasuryAuctionObservation];
   }).sort((a, b) => b.auctionDate.localeCompare(a.auctionDate));
+}
+
+function median(values: Array<number | null>) {
+  const sorted = values
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
+}
+
+function buildRecentComparableNorms(
+  priorAuctions: TreasuryAuctionObservation[],
+): TreasuryAuctionComparableNorms | null {
+  const sample = priorAuctions.slice(0, 3);
+  if (!sample.length) return null;
+  return {
+    sampleSize: sample.length,
+    auctionDates: sample.map((item) => item.auctionDate),
+    highYieldPctMedian: median(sample.map((item) => item.highYieldPct)),
+    bidToCoverMedian: median(sample.map((item) => item.bidToCover)),
+    offeringAmountUsdMedian: median(sample.map((item) => item.offeringAmountUsd)),
+    primaryDealerAcceptedPctMedian: median(sample.map((item) => item.primaryDealerAcceptedPct)),
+    directBidderAcceptedPctMedian: median(sample.map((item) => item.directBidderAcceptedPct)),
+    indirectBidderAcceptedPctMedian: median(sample.map((item) => item.indirectBidderAcceptedPct)),
+  };
 }
 
 function buildCouponSupply(
@@ -202,11 +243,22 @@ export function parseTreasuryAuctionSnapshot(
     item.auctionDate <= today
     && (item.highYieldPct !== null || item.bidToCover !== null)
   );
-  const byTerm = new Map<string, TreasuryAuctionObservation>();
+  const byTerm = new Map<string, TreasuryAuctionObservation[]>();
   for (const item of completed) {
-    if (!byTerm.has(item.securityTerm)) byTerm.set(item.securityTerm, item);
+    const items = byTerm.get(item.securityTerm) ?? [];
+    items.push(item);
+    byTerm.set(item.securityTerm, items);
   }
   const auctions = [...byTerm.values()]
+    .flatMap((items) => {
+      const ordered = [...items].sort((a, b) => b.auctionDate.localeCompare(a.auctionDate));
+      const current = ordered[0];
+      if (!current) return [];
+      return [{
+        ...current,
+        recentComparableNorms: buildRecentComparableNorms(ordered.slice(1)),
+      } satisfies TreasuryAuctionObservation];
+    })
     .sort((a, b) => b.auctionDate.localeCompare(a.auctionDate))
     .slice(0, 7);
   const asOf = auctions[0]?.auctionDate ?? null;
