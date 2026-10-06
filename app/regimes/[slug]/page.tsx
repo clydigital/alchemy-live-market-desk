@@ -7,7 +7,10 @@ import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
-import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
+import {
+  getRegimeLiveReasoning,
+  getRegimeStoryInterpretationClocks,
+} from "@/lib/regime-live-reasoning";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 
@@ -43,7 +46,11 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
   const subgroup = typeof query.subgroup === "string" ? query.subgroup : null;
   const initialView = query.view === "live" ? "live" : "understand";
   const explanation = getRegimeExplanation(regime.slug);
-  const liveReasoning = await getRegimeLiveReasoning(regime.durableStories.map((story) => story.id));
+  const durableStoryIds = regime.durableStories.map((story) => story.id);
+  const [liveReasoning, interpretationClocks] = await Promise.all([
+    getRegimeLiveReasoning(durableStoryIds),
+    getRegimeStoryInterpretationClocks(durableStoryIds),
+  ]);
   const dossier = dossierSelection.presentation;
   const investigations = routeDossierInvestigations(
     dossier?.watchNext ?? [],
@@ -72,6 +79,7 @@ export default async function RegimePage({ params, searchParams }: RegimePagePro
         initialView={initialView}
         explanation={explanation}
         liveReasoning={liveReasoning}
+        interpretationClocks={interpretationClocks}
         investigations={investigations}
         dossierReadThrough={dossierReadThrough}
         rateEducation={rateEducation}
