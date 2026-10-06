@@ -6,6 +6,7 @@ import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
@@ -19,6 +20,7 @@ type RegimePageProps = {
 };
 
 export default async function RegimePage({ params, searchParams }: RegimePageProps) {
+  if (!regimeUiEnabled()) notFound();
   const [{ slug }, query, data, recordLayer, dossierSelection] = await Promise.all([
     params,
     searchParams,
