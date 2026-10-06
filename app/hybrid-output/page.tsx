@@ -404,6 +404,16 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     focusedDossierAdjudicationContext && !focusedDossierAdjudicationContext.directRegimeRoute
       ? focusedDossierAdjudicationContext
       : null;
+  const focusedDirectRegimeHref = focusedDossierRegimeContext
+    ? presenterEditionStatus === "current"
+      ? `/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context`
+      : `/regimes/${focusedDossierRegimeContext.regimeSlug}`
+    : null;
+  const focusedStoryReadThroughRegimeHref = focusedStoryRoutedDossierContext
+    ? presenterEditionStatus === "current"
+      ? `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough`
+      : `/regimes/${focusedStoryRoutedDossierContext.regimeSlug}`
+    : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -560,10 +570,19 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   : ""}
               </p>
               <p>
-                <a className={styles.link} href={`/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context`}>
-                  Open exact Regime →
-                </a>
+                {focusedDirectRegimeHref ? (
+                  <a className={styles.link} href={focusedDirectRegimeHref}>
+                    {presenterEditionStatus === "historical"
+                      ? "Open current Regime separately →"
+                      : "Open exact Regime →"}
+                  </a>
+                ) : null}
               </p>
+              {presenterEditionStatus === "historical" ? (
+                <p className={styles.meta}>
+                  Historical Dossier replay is immutable. The Regime page is current-state context and is not part of this historical replay.
+                </p>
+              ) : null}
             </article>
           </Panel>
         ) : null}
@@ -596,10 +615,19 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   : ""}
               </p>
               <p>
-                <a className={styles.link} href={`/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough`}>
-                  Open exact Regime read-through →
-                </a>
+                {focusedStoryReadThroughRegimeHref ? (
+                  <a className={styles.link} href={focusedStoryReadThroughRegimeHref}>
+                    {presenterEditionStatus === "historical"
+                      ? "Open current Regime separately →"
+                      : "Open exact Regime read-through →"}
+                  </a>
+                ) : null}
               </p>
+              {presenterEditionStatus === "historical" ? (
+                <p className={styles.meta}>
+                  Historical Dossier replay is immutable. The Regime page is current-state context and is not part of this historical replay.
+                </p>
+              ) : null}
             </article>
           </Panel>
         ) : null}
