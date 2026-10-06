@@ -8,6 +8,8 @@ import {
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import {
   decideResearchGapDiscriminatorLifecycle,
+  researchGapDiscriminatorLifecycleFromPlan,
+  selectResearchGapDiscriminatorLifecycleSource,
   type ResearchGapDiscriminatorLifecycleSnapshot,
 } from "./research-gap-discriminator-lifecycle.ts";
 
@@ -122,6 +124,22 @@ async function loadResearchGapCaseByGapKey(
   return (data || null) as ResearchGapCaseRow | null;
 }
 
+async function loadLatestResearchGapOccurrenceSnapshot(
+  caseId: string,
+  client: SupabaseClient,
+) {
+  const { data, error } = await client
+    .from("research_gap_case_occurrences")
+    .select("snapshot")
+    .eq("gap_case_id", caseId)
+    .order("observed_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  message(error, `Could not load latest Research Gap occurrence ${caseId}`);
+  return data?.snapshot ?? null;
+}
+
 export async function hasCanonicalResearchGapHandoff(
   caseId: string,
   client: SupabaseClient = createSupabaseAdminClient(),
@@ -198,13 +216,24 @@ async function syncOne(
 
   if (item.causalDiscriminatorPlan) {
     const existing = await loadResearchGapCaseByGapKey(item.gapKey, client);
+    const needsOccurrenceFallback = Boolean(
+      existing
+      && !researchGapDiscriminatorLifecycleFromPlan(existing.research_plan),
+    );
+    const latestOccurrenceSnapshot = needsOccurrenceFallback && existing
+      ? await loadLatestResearchGapOccurrenceSnapshot(existing.id, client)
+      : null;
+    const existingLifecycleSource = selectResearchGapDiscriminatorLifecycleSource({
+      existingResearchPlan: existing?.research_plan ?? null,
+      latestOccurrenceSnapshot,
+    });
     const canonicalHandoffAdmitted = existing?.status === "HANDED_OFF"
       ? await hasCanonicalResearchGapHandoff(existing.id, client)
       : false;
     const discriminatorDecision = decideResearchGapDiscriminatorLifecycle({
       candidatePlan: item.causalDiscriminatorPlan,
       existingStatus: existing?.status ?? null,
-      existingResearchPlan: existing?.research_plan ?? null,
+      existingResearchPlan: existingLifecycleSource,
       canonicalHandoffAdmitted,
     });
     evidenceNeeded = discriminatorDecision.evidenceNeeded;

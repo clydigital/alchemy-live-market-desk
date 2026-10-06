@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   decideResearchGapDiscriminatorLifecycle,
   researchGapDiscriminatorLifecycleFromPlan,
+  selectResearchGapDiscriminatorLifecycleSource,
 } from "../lib/research-gap-discriminator-lifecycle.ts";
 import type { ResearchGapCausalDiscriminatorPlan } from "../lib/research-gap-worker.ts";
 
@@ -62,6 +63,59 @@ test("queued replay preserves the exact frozen active discriminator", () => {
   assert.equal(result.transition, "PRESERVE");
   assert.equal(result.lifecycle.activeIndex, 0);
   assert.equal(result.shouldRequeue, false);
+});
+
+test("queued carry-forward uses the latest occurrence when requeue cleared the worker plan", () => {
+  const occurrence = frozen("plan-a", 1);
+  const source = selectResearchGapDiscriminatorLifecycleSource({
+    existingResearchPlan: null,
+    latestOccurrenceSnapshot: occurrence,
+  });
+
+  const result = decideResearchGapDiscriminatorLifecycle({
+    candidatePlan: plan(),
+    existingStatus: "QUEUED",
+    existingResearchPlan: source,
+  });
+
+  assert.equal(result.transition, "PRESERVE");
+  assert.equal(result.lifecycle.activeIndex, 1);
+  assert.equal(result.lifecycle.activeDiscriminator, "test second mechanism");
+});
+
+test("active worker plan remains authoritative over an older occurrence snapshot", () => {
+  const workerPlan = frozen("plan-a", 1);
+  const source = selectResearchGapDiscriminatorLifecycleSource({
+    existingResearchPlan: workerPlan,
+    latestOccurrenceSnapshot: frozen("plan-a", 0),
+  });
+
+  assert.equal(source, workerPlan);
+  assert.equal(
+    researchGapDiscriminatorLifecycleFromPlan(source)?.activeIndex,
+    1,
+  );
+});
+
+test("malformed worker lifecycle falls back to a valid append-only occurrence", () => {
+  const source = selectResearchGapDiscriminatorLifecycleSource({
+    existingResearchPlan: {
+      causalDiscriminator: {
+        contractVersion: "research-gap-discriminator-lifecycle/1",
+        planSignature: "plan-a",
+        baseEvidenceNeeded: [],
+        discriminators: ["one", "two"],
+        activeIndex: 1,
+        activeDiscriminator: "one",
+      },
+    },
+    latestOccurrenceSnapshot: frozen("plan-a", 1),
+  });
+
+  assert.equal(
+    researchGapDiscriminatorLifecycleFromPlan(source)?.activeIndex,
+    1,
+  );
 });
 
 test("handed-off work cannot advance without exact canonical handoff admission", () => {
