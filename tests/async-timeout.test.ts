@@ -28,3 +28,37 @@ test("withinTimeout makes a never-settling dependency terminal", async () => {
 
   assert.ok(Date.now() - startedAt < 500);
 });
+
+
+test("withinTimeout invokes work only once when the deadline wins", async () => {
+  let calls = 0;
+
+  await assert.rejects(
+    withinTimeout(
+      "single invocation",
+      () => {
+        calls += 1;
+        return new Promise<never>(() => {});
+      },
+      20,
+    ),
+    OperationTimeoutError,
+  );
+
+  assert.equal(calls, 1);
+});
+
+test("withinTimeout preserves an immediate dependency failure", async () => {
+  const failure = new Error("reader failed");
+
+  await assert.rejects(
+    withinTimeout(
+      "failed read",
+      async () => {
+        throw failure;
+      },
+      100,
+    ),
+    (error: unknown) => error === failure,
+  );
+});
