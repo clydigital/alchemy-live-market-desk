@@ -9,6 +9,14 @@ import { buildRegimeProjection } from "@/lib/regimes";
 
 export const dynamic = "force-dynamic";
 
+function formatAge(minutes: number | null) {
+  if (minutes === null) return "age unavailable";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} hr`;
+  return `${Math.floor(hours / 24)} days`;
+}
+
 export default async function RegimesPage() {
   const [data, recordLayer, dossierSelection, shadowHealth] = await Promise.all([
     getDeskData(),
@@ -46,6 +54,7 @@ export default async function RegimesPage() {
             { value: system1Subgroups, label: "System 1 subgroup sensors" },
             { value: pendingNodes, label: "Observed · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
+            { value: shadowHealth.unassignedStoryCount, label: "Unassigned active Stories" },
           ]}
         />
 
@@ -69,6 +78,14 @@ export default async function RegimesPage() {
           detail={shadowHealth.available
             ? `${shadowHealth.currentProjectionCount}/${shadowHealth.expectedProjectionCount} persisted Regime projections · ${shadowHealth.contractVersion || "unknown contract"} · last completed ${shadowHealth.lagMinutes === null ? "time unavailable" : `${shadowHealth.lagMinutes} min ago`}. Shadow state is auditable but does not yet replace the live read model.`
             : `The persistence schema is deployed, but no shadow projector run has completed yet. ${shadowHealth.warning || "The next canonical Story or Dossier write will create the bootstrap projection."}`}
+        />
+
+        <DataState
+          state={shadowHealth.unassignedStoryCount === 0 ? "ready" : "warn"}
+          title={shadowHealth.unassignedStoryCount === 0 ? "Story routing health" : "Story routing debt is open"}
+          detail={shadowHealth.unassignedStoryCount === 0
+            ? "Every active Story currently clears a governed Regime route. No weak fallback mapping is required."
+            : `${shadowHealth.unassignedStoryCount} active Story${shadowHealth.unassignedStoryCount === 1 ? "" : "s"} remain intentionally unassigned · ${shadowHealth.highSeverityUnassignedStoryCount} high/critical · oldest open ${formatAge(shadowHealth.oldestUnassignedAgeMinutes)}. These Stories remain visible in Stories and are not forced into a weak Regime mapping.`}
         />
 
         <Panel
