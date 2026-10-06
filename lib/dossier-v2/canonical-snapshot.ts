@@ -551,6 +551,9 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 
   const lookbackHours = Math.max(1, Math.min(options.lookbackHours ?? 168, 24 * 30));
   const lookbackStartMs = asOfMs - lookbackHours * 3_600_000;
+  const pinnedEvidenceIdSet = new Set(
+    (options.pinnedEvidenceIds ?? []).map((value) => value.trim()).filter(Boolean),
+  );
 
   const observedEvidence: Array<Record<string, unknown>> = [];
   const researchLeads: Array<Record<string, unknown>> = [];
@@ -627,7 +630,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         available_at: availableAt,
         occurrence_time: row.event_at ?? row.published_at ?? undefined,
         grouping_key: groupingKeyForRow(row),
-        rank: new Set(options.pinnedEvidenceIds ?? []).has(row.id)
+        rank: pinnedEvidenceIdSet.has(row.id)
           ? 1
           : observedEvidenceRank(row, directSourceType),
         ...(articleMarketObservation ? { is_admitted_fact: true } : {}),
