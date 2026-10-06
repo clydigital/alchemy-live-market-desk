@@ -8,6 +8,7 @@ import { getDeskData } from "@/lib/data";
 import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-divergence";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
+import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import {
@@ -75,6 +76,23 @@ function researchGapLifecycleDetail(status: string) {
   if (status === "NEW") return "Materialised research item";
   if (status === "CLOSED") return "Lifecycle case closed";
   return "Research lifecycle status unavailable";
+}
+
+function currentUpcoming(value: unknown): EditionUpcoming {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { economicCalendar: [], earnings: [], geopoliticalClock: [] };
+  }
+  const candidate = value as Partial<EditionUpcoming>;
+  return {
+    economicCalendar: Array.isArray(candidate.economicCalendar) ? candidate.economicCalendar : [],
+    earnings: Array.isArray(candidate.earnings) ? candidate.earnings : [],
+    geopoliticalClock: Array.isArray(candidate.geopoliticalClock) ? candidate.geopoliticalClock : [],
+  };
+}
+
+function upcomingTime(value: string | null | undefined) {
+  if (!value) return "Time TBC";
+  return Number.isFinite(Date.parse(value)) ? formatDeskDate(value) : value;
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
@@ -159,6 +177,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
+  const upcoming = currentUpcoming(currentEdition?.payload.upcoming);
+  const upcomingCount = upcoming.economicCalendar.length + upcoming.earnings.length + upcoming.geopoliticalClock.length;
   const selectedPresenterEdition = presenterEditionSelection.selected
     ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
     : null;
@@ -292,8 +312,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     <LiveDeskShell
       activePath="/hybrid-output"
       title="Hybrid Output"
-      description="Start from fresh Market Motion, follow the implication into the linked Story or Regime, then use the canonical Dossier only when deeper reasoning is needed."
-      meta={`${motionJourney.length} fresh Motion · ${primaryMotionCount} primary · ${secondaryMotionCount} secondary · Dossier ${selection.selectedDossierId ? "linked" : "unavailable"}`}
+      description="Start from fresh Market Motion and the next scheduled catalysts. Use the canonical Dossier underneath for durable reasoning and regime context."
+      meta={`${motionJourney.length} fresh Motion · ${upcomingCount} upcoming · ${primaryMotionCount} primary · ${secondaryMotionCount} secondary`}
     >
       <div className={styles.grid}>
         <MetricGrid
@@ -301,13 +321,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             { value: motionJourney.length, label: "Fresh Motion" },
             { value: primaryMotionCount, label: "Primary Motion" },
             { value: secondaryMotionCount, label: "Secondary Motion" },
-            { value: openInvestigations, label: "Open investigations" },
+            { value: upcomingCount, label: "Upcoming catalysts" },
           ]}
-        />
-
-        <DataState
-          title={selection.notice.label}
-          detail={selection.notice.detail}
         />
 
         {motionJourney.length ? (
@@ -322,9 +337,82 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         ) : (
           <DataState
             title="No fresh Market Motion"
-            detail="Hybrid will not manufacture an opening from stale headlines. Open the canonical Dossier below for the latest durable market state."
+            detail="Hybrid will not manufacture an opening from stale headlines. The next scheduled catalysts are shown below, while the canonical Dossier remains the durable market state."
           />
         )}
+
+        <Panel
+          title="Upcoming news & catalysts"
+          description="What could move next. These scheduled macro, earnings and geopolitical events come from the current immutable Journey edition rather than being inferred from the Dossier."
+          action={<Badge tone={upcomingCount ? "ready" : "default"}>{upcomingCount ? `${upcomingCount} UPCOMING` : "NO UPCOMING EVENTS"}</Badge>}
+        >
+          {upcomingCount ? (
+            <div className={styles.recordList}>
+              {upcoming.economicCalendar.slice(0, 6).map((item, index) => (
+                <article className={styles.record} key={`macro:${item.event}:${item.time}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>MACRO / POLICY · {upcomingTime(item.time)}</span>
+                      <h3>{item.event}</h3>
+                    </div>
+                    <Badge>UPCOMING</Badge>
+                  </div>
+                  <p><strong>Why it matters:</strong> {item.whyItMatters}</p>
+                  <p className={styles.meta}>
+                    Consensus {item.consensus || "—"} · Prior {item.prior || "—"}
+                    {item.exposedAssets.length ? ` · ${item.exposedAssets.join(" · ")}` : ""}
+                  </p>
+                </article>
+              ))}
+              {upcoming.earnings.slice(0, 4).map((item, index) => (
+                <article className={styles.record} key={`earnings:${item.company}:${item.time}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>EARNINGS · {upcomingTime(item.time)}</span>
+                      <h3>{item.company}</h3>
+                    </div>
+                    <Badge>UPCOMING</Badge>
+                  </div>
+                  <p><strong>Decisive variable:</strong> {item.decisiveVariable}</p>
+                  <p><strong>Theme:</strong> {item.linkedTheme}</p>
+                  <p className={styles.meta}>Confirm: {item.confirmationCase} · Risk: {item.disappointmentCase}</p>
+                </article>
+              ))}
+              {upcoming.geopoliticalClock.slice(0, 4).map((item, index) => (
+                <article className={styles.record} key={`geopolitical:${item.event}:${item.time || "tbc"}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>GEOPOLITICAL CLOCK · {upcomingTime(item.time)}</span>
+                      <h3>{item.event}</h3>
+                    </div>
+                    <Badge>{item.verificationState?.toUpperCase() || "SCHEDULED"}</Badge>
+                  </div>
+                  <p><strong>Transmission:</strong> {item.transmission}</p>
+                  <p><strong>Decisive outcome:</strong> {item.decisiveOutcome}</p>
+                  <p className={styles.meta}>
+                    {item.participants.length ? item.participants.join(" · ") : "Participants unresolved"}
+                    {item.affectedAssets?.length ? ` · ${item.affectedAssets.join(" · ")}` : ""}
+                  </p>
+                  {item.sourceUrl && item.sourceName ? (
+                    <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">
+                      Source · {item.sourceName} ↗
+                    </a>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState
+              title="No scheduled catalyst in the current Journey edition"
+              detail="Hybrid will stay focused on fresh Market Motion until the canonical event horizon supplies the next macro, earnings or geopolitical event."
+            />
+          )}
+        </Panel>
+
+        <DataState
+          title={selection.notice.label}
+          detail={selection.notice.detail}
+        />
 
         {focusedDossierRegimeContext ? (
           <Panel
