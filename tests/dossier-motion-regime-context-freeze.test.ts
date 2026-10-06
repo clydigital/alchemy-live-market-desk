@@ -4,6 +4,7 @@ import test from "node:test";
 
 import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import {
+  buildDossierMotionAdjudicationContext,
   buildDossierMotionRegimeContext,
 } from "../lib/dossier-v2/presentation-adapter.ts";
 import type { ResearchBrainOutputV1 } from "../lib/dossier-v2/research-brain-contracts.ts";
@@ -131,6 +132,45 @@ test("C1.5a1 fails closed without exact immutable Regime identity or explicit RE
   );
 
   assert.deepEqual(rows, []);
+});
+
+test("Hybrid read-through can preserve Story-routed ACCEPT without promoting it into Regime context", () => {
+  const storyRouted = {
+    ...exactMotion,
+    routing_class: "STORY",
+  };
+  const decision = {
+    motion_id: "motion-rates-1",
+    decision: "ACCEPT",
+    conclusion: "The canonical claim is supported, but it does not by itself alter the rates Regime.",
+    canonical_evidence_refs: ["evidence-rates-1"],
+    destination_refs: ["STORY:story:rates-transmission"],
+    rationale: "Canonical evidence supports the claim while Regime state remains separately governed.",
+    next_test: null,
+  };
+
+  assert.deepEqual(
+    buildDossierMotionRegimeContext(dossier([storyRouted]), output([decision])),
+    [],
+  );
+
+  assert.deepEqual(
+    buildDossierMotionAdjudicationContext(dossier([storyRouted]), output([decision])),
+    [{
+      motionId: "motion-rates-1",
+      decision: "ACCEPT",
+      regimeSlug: "global-cost-of-capital",
+      storyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      conclusion: "The canonical claim is supported, but it does not by itself alter the rates Regime.",
+      rationale: "Canonical evidence supports the claim while Regime state remains separately governed.",
+      nextTest: null,
+      canonicalEvidenceRefs: ["evidence-rates-1"],
+      observedAt: "2026-10-05T23:05:00.000Z",
+      versionNumber: 3,
+      directRegimeRoute: false,
+      destinationRefs: ["STORY:story:rates-transmission"],
+    }],
+  );
 });
 
 test("C1.5a1 persists the bounded Motion packet snapshot instead of re-reading mutable Motion later", () => {

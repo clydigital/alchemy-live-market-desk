@@ -33,6 +33,7 @@ export type MarketMotionOverviewItem = {
   regimeLabel: string | null;
   regimeHref: string | null;
   regimeContributionState?: "ACCEPT" | "REFINE" | "PENDING" | null;
+  regimeContributionMode?: "DIRECT" | "READ_THROUGH" | null;
   regimeContribution?: string | null;
   regimeContributionRationale?: string | null;
   regimeContributionNextTest?: string | null;
@@ -113,7 +114,7 @@ function MotionCard({
         >
           <div className={styles.regimeContributionHead}>
             <div>
-              <span>REGIME CONTRIBUTION</span>
+              <span>{item.regimeContributionMode === "READ_THROUGH" ? "DOSSIER READ-THROUGH" : "REGIME CONTRIBUTION"}</span>
               <strong>{item.regimeLabel || "Regime link pending"}</strong>
             </div>
             <em>
@@ -126,7 +127,10 @@ function MotionCard({
           </div>
 
           {item.regimeContribution ? (
-            <p><strong>Contribution:</strong> {item.regimeContribution}</p>
+            <p>
+              <strong>{item.regimeContributionMode === "READ_THROUGH" ? "Regime read-through:" : "Contribution:"}</strong>{" "}
+              {item.regimeContribution}
+            </p>
           ) : (
             <p>
               This Motion is linked to the regime, but the current canonical Dossier has not
@@ -138,6 +142,12 @@ function MotionCard({
             <p><strong>Why:</strong> {item.regimeContributionRationale}</p>
           ) : null}
 
+          {item.regimeContributionMode === "READ_THROUGH" ? (
+            <small>
+              Story-routed Dossier judgement · shown as non-state Regime read-through only.
+            </small>
+          ) : null}
+
           {item.regimeContributionEvidenceCount ? (
             <small>
               {item.regimeContributionEvidenceCount} canonical evidence reference
@@ -146,7 +156,10 @@ function MotionCard({
           ) : null}
 
           {item.regimeContributionNextTest ? (
-            <p><strong>Regime next test:</strong> {item.regimeContributionNextTest}</p>
+            <p>
+              <strong>{item.regimeContributionMode === "READ_THROUGH" ? "Dossier next test:" : "Regime next test:"}</strong>{" "}
+              {item.regimeContributionNextTest}
+            </p>
           ) : null}
         </div>
       ) : null}

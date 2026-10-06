@@ -324,6 +324,18 @@ export type DossierPresentationMotionRegimeContext = {
   versionNumber: number | null;
 };
 
+/**
+ * Exact immutable System-2 Motion adjudication for Hybrid read-through.
+ * This may include Story-routed ACCEPT/REFINE decisions with a frozen Regime
+ * identity, but it is presentation context only and does not authorise Regime
+ * state mutation.
+ */
+export type DossierPresentationMotionAdjudicationContext =
+  DossierPresentationMotionRegimeContext & {
+    directRegimeRoute: boolean;
+    destinationRefs: string[];
+  };
+
 export type DossierPresentationMemory = {
   state: "AVAILABLE" | "PARTIAL" | "MISSING" | "BROKEN_LINEAGE";
   structuralPredecessorId: string | null;
@@ -386,6 +398,13 @@ export type DossierPresentationV1 = {
    * and fixtures replay-compatible.
    */
   motionRegimeContext?: DossierPresentationMotionRegimeContext[];
+  /**
+   * All exact immutable ACCEPT/REFINE Motion judgements that also preserve a
+   * frozen Regime identity. Hybrid may render Story-routed entries as
+   * read-through only; Regime projection must continue to use
+   * motionRegimeContext exclusively.
+   */
+  motionAdjudicationContext?: DossierPresentationMotionAdjudicationContext[];
   evidenceGovernance?: DossierEvidenceGovernanceSnapshot | null;
   evidenceSufficiency?: DossierEvidenceSufficiencySnapshot;
 
@@ -491,6 +510,82 @@ export function buildDossierMotionRegimeContext(
       )].sort(),
       observedAt,
       versionNumber,
+    }];
+  }).sort((left, right) =>
+    left.regimeSlug.localeCompare(right.regimeSlug)
+    || left.motionId.localeCompare(right.motionId)
+  );
+}
+
+
+export function buildDossierMotionAdjudicationContext(
+  dossier: MarketDossierV2,
+  output: ResearchBrainOutputV1,
+): DossierPresentationMotionAdjudicationContext[] {
+  const snapshot = isObject(dossier.payload.motion_context_snapshot)
+    ? dossier.payload.motion_context_snapshot
+    : null;
+  const rawItems = snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+  const byMotionId = new Map<string, Record<string, unknown>>();
+
+  for (const raw of rawItems) {
+    if (!isObject(raw)) continue;
+    const motionId = typeof raw.motion_id === "string" ? raw.motion_id.trim() : "";
+    const regimeSlug = typeof raw.primary_regime_slug === "string"
+      ? raw.primary_regime_slug.trim()
+      : "";
+    if (!motionId || !regimeSlug || byMotionId.has(motionId)) continue;
+    byMotionId.set(motionId, raw);
+  }
+
+  const decisions = Array.isArray(output.motion_acceptance?.decisions)
+    ? output.motion_acceptance!.decisions
+    : [];
+
+  return decisions.flatMap((decision) => {
+    if (decision.decision !== "ACCEPT" && decision.decision !== "REFINE") return [];
+
+    const motion = byMotionId.get(decision.motion_id);
+    if (!motion) return [];
+
+    const regimeSlug = typeof motion.primary_regime_slug === "string"
+      ? motion.primary_regime_slug.trim()
+      : "";
+    const conclusion = typeof decision.conclusion === "string"
+      ? decision.conclusion.trim()
+      : "";
+    if (!regimeSlug || !conclusion) return [];
+
+    const storyId = typeof motion.primary_story_id === "string"
+      ? motion.primary_story_id.trim() || null
+      : null;
+    const observedAt = typeof motion.observed_at === "string"
+      ? motion.observed_at.trim() || null
+      : null;
+    const versionNumber =
+      typeof motion.version_number === "number" && Number.isFinite(motion.version_number)
+        ? motion.version_number
+        : null;
+
+    const destinationRefs = [...new Set(
+      decision.destination_refs.map((ref) => ref.trim()).filter(Boolean),
+    )].sort();
+
+    return [{
+      motionId: decision.motion_id,
+      decision: decision.decision,
+      regimeSlug,
+      storyId,
+      conclusion,
+      rationale: decision.rationale.trim(),
+      nextTest: decision.next_test?.trim() || null,
+      canonicalEvidenceRefs: [...new Set(
+        decision.canonical_evidence_refs.map((ref) => ref.trim()).filter(Boolean),
+      )].sort(),
+      observedAt,
+      versionNumber,
+      directRegimeRoute: destinationRefs.includes("REGIME:CURRENT"),
+      destinationRefs,
     }];
   }).sort((left, right) =>
     left.regimeSlug.localeCompare(right.regimeSlug)
@@ -1549,6 +1644,7 @@ export function buildDossierV2Presentation(
 
     evidenceIndex: evidenceIndex(output),
     motionRegimeContext: buildDossierMotionRegimeContext(dossier, output),
+    motionAdjudicationContext: buildDossierMotionAdjudicationContext(dossier, output),
     evidenceGovernance: governance,
     evidenceSufficiency: buildDossierEvidenceSufficiency({
       current: output,
