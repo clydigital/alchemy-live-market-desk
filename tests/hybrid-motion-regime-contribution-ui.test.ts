@@ -24,6 +24,13 @@ test("Hybrid keeps Motion primary while showing exact Dossier regime contributio
   assert.match(page, /presenterEditionStatus === "current" && regimeContribution/);
   assert.match(page, /dossier-regime-context/);
   assert.match(page, /dossier-story-readthrough/);
+  assert.match(page, /focusedDossierAdjudicationContext/);
+  assert.match(page, /focusedStoryRoutedDossierContext/);
+  assert.match(page, /Dossier System 2 Story read-through/);
+  assert.match(page, /destination remains the Story/);
+  assert.match(page, /Regime association is read-through context only/);
+  assert.match(page, /view=live#dossier-story-readthrough/);
+  assert.match(page, /detail=\{focusedDossierAdjudicationContext/);
 
   assert.match(motion, /REGIME CONTRIBUTION/);
   assert.match(motion, /DOSSIER READ-THROUGH/);
