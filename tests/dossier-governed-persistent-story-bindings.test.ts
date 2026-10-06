@@ -25,16 +25,16 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
 
   assert.deepEqual(bindings, [
     {
+      analytical_story_id: "story-duration-broadening",
+      persistent_story_id: RATES_ID,
+    },
+    {
       analytical_story_id: "story:ai-leadership-counterweight",
       persistent_story_id: BREADTH_ID,
     },
     {
       analytical_story_id: "story:energy-product-stress",
       persistent_story_id: ENERGY_ID,
-    },
-    {
-      analytical_story_id: "story-duration-broadening",
-      persistent_story_id: RATES_ID,
     },
     {
       analytical_story_id: "story:rates-duration-stress",
