@@ -578,7 +578,9 @@ export async function runManualDossierV2(
     }));
 
   const previousResolution = await resolveLatestDossier(client);
-  const governedPersistentStoryBindings = await loadGovernedPersistentStoryBindings(client);
+  const governedPersistentStoryBindings = previousResolution.persistenceAvailable
+    ? await loadGovernedPersistentStoryBindings(client)
+    : [];
   const request = buildInputRequest(
     options.asOf,
     previousResolution.dossier,
