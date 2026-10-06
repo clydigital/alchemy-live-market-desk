@@ -649,3 +649,72 @@ test("corroboration does not fan one reporting event into every duplicate legacy
   assert.equal(updates.length, 1);
   assert.equal(updates[0].motionKey, "creator:legacy:stronger");
 });
+
+
+test("record-high reporting and creator Motion converge on the explicit instrument", () => {
+  const reporting = item({
+    itemKey: "feed:investing-com:nvda-ath",
+    publisher: "Investing.com",
+    title: "NVIDIA near ATH $243.35 with overextension risk: Live levels",
+    summary: "NVIDIA near ATH $243.35 with overextension risk: Live levels",
+    candidateScore: 68,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+
+  assert.deepEqual(buildMarketMotionCandidates([reporting], [], { now: NOW }), []);
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+
+  const creatorRow = reviewedTranscriptRow({
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "Nvidia hit all-time high 237.88 and market value roughly $5.7 trillion.",
+      tags: ["statistic", "market_reaction"],
+      entities: [],
+      verificationNeeded: true,
+      verificationTarget: "Verify Nvidia price history and market cap.",
+      searchPrompt: "Verify Nvidia all-time high with independent reporting.",
+      articleHook: null,
+      priority: 86,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([creatorRow], [], { now: NOW })[0];
+  const [creatorUnified] = unifyMarketMotionCandidates([creator]);
+  const [reportingUnified] = unifyMarketMotionCandidates(corroborators);
+
+  assert.equal(creatorUnified.motionKey, "event:record_high:nvda");
+  assert.equal(reportingUnified.motionKey, "event:record_high:nvda");
+
+  const legacy = motionRecordFromCandidate(creator, {
+    id: "legacy-nvda-ath",
+    motion_key: "creator:youtube:wall-street-truth-bombs:legacy-nvda-ath",
+  });
+  const updates = buildExistingMotionCorroborationUpdates([legacy], corroborators, { now: NOW });
+
+  assert.equal(updates.length, 1);
+  const updateMetadata = updates[0].metadata as Record<string, unknown>;
+  assert.equal(updateMetadata.corroborationIdentity, "event:record_high:nvda");
+  assert.ok(((updateMetadata.originItemKeys as string[]) || []).includes("feed:investing-com:nvda-ath"));
+});
+
+test("record-high identity prefers the named instrument over unrelated creator entities", () => {
+  const creatorRow = reviewedTranscriptRow({
+    transcript_motion_leads: [{
+      kind: "claim",
+      text: "NVDA reached an all-time high, closed at an all-time high weekly close, and there was an options call wall around 750-760 compressing upside.",
+      tags: ["market_reaction"],
+      entities: ["call wall"],
+      verificationNeeded: true,
+      verificationTarget: "Verify NVDA price history.",
+      searchPrompt: "Verify NVDA all-time high.",
+      articleHook: null,
+      priority: 86,
+    }],
+  });
+  const creator = buildTranscriptMotionCandidates([creatorRow], [], { now: NOW })[0];
+  const [unified] = unifyMarketMotionCandidates([creator]);
+
+  assert.equal(unified.motionKey, "event:record_high:nvda");
+});
