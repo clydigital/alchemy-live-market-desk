@@ -190,7 +190,7 @@ test("B2 v2 promotion persists explicit routing class", () => {
   assert.equal(input.lifecycleState, "PROMOTED");
   assert.equal(input.primaryStoryId, null);
   assert.equal(input.primaryRegimeSlug, "us-china-ai");
-  assert.equal(input.evidenceId, "evidence-reporting");
+  assert.equal(input.evidenceId, null);
   assert.equal(input.metadata?.promotionPolicy, "canonical-evidence-corroborated/v2");
   assert.equal(input.metadata?.promotionRoutingClass, "REGIME");
 });
@@ -328,7 +328,7 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
 
   assert.equal(input.lifecycleState, "PROMOTED");
   assert.equal(input.verificationState, "LEAD");
-  assert.equal(input.evidenceId, "evidence-reporting");
+  assert.equal(input.evidenceId, null);
   assert.equal(input.primaryStoryId, "story-1");
   assert.equal(input.primaryRegimeSlug, "us-china-ai");
   assert.equal(input.expiresAt, "2026-10-04T00:45:00.000Z");
@@ -340,6 +340,19 @@ test("promotion persists canonical Evidence identity while preserving Motion ver
   assert.equal(input.metadata?.promotionEvidenceItemKey, "reuters:mu-hbm");
   assert.deepEqual(input.metadata?.promotionEvidenceIds, ["evidence-reporting"]);
   assert.deepEqual(input.metadata?.promotionEvidenceItemKeys, ["reuters:mu-hbm"]);
+});
+
+test("promotion preserves a valid legacy evidence FK while keeping canonical Evidence in metadata", () => {
+  const [candidate] = selectPromotableMarketMotion([
+    record({ evidence_id: "legacy-evidence-row" }),
+  ], [evidence()], NOW);
+  const input = marketMotionPromotionInput(candidate, {
+    researchRunId: "run-reporting",
+    engineRunId: "engine-legacy-fk",
+  });
+
+  assert.equal(input.evidenceId, "legacy-evidence-row");
+  assert.equal(input.metadata?.promotionEvidenceId, "evidence-reporting");
 });
 
 test("B2 Dossier selector admits fresh PROMOTED Motion with any valid routing class", () => {
@@ -471,7 +484,7 @@ test("B1 adapter promotes fresh Motion across research runs from canonical Evide
   assert.equal(result.promoted, 1);
   assert.equal(result.skippedAlreadyPromoted, 0);
   assert.equal(db.inserted.length, 1);
-  assert.equal(db.inserted[0].evidence_id, "evidence-reporting");
+  assert.equal(db.inserted[0].evidence_id, null);
   assert.equal(db.inserted[0].research_run_id, "run-reporting");
   assert.ok(!db.calls.some((call) => call.includes("research_run_id")));
 });
