@@ -13,7 +13,10 @@ import type { DossierPresentationMotionAdjudicationContext } from "@/lib/dossier
 import type { RoutedDossierInvestigation } from "@/lib/regime-investigations";
 import type { RegimeExplanation } from "@/lib/regime-explanations";
 import { assessRegimeInterpretationFreshness } from "@/lib/regime-freshness";
-import type { RegimeLiveStoryReasoning } from "@/lib/regime-live-reasoning";
+import type {
+  RegimeLiveStoryReasoning,
+  RegimeStoryInterpretationClock,
+} from "@/lib/regime-live-reasoning";
 import type { RateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildUnderstandLiveBridge } from "@/lib/regime-understand-live-bridge";
 import type { ProjectedRegime } from "@/lib/regimes";
@@ -38,6 +41,7 @@ export default function RegimeDetailWorkspace({
   initialView = "understand",
   explanation,
   liveReasoning,
+  interpretationClocks,
   investigations,
   dossierReadThrough,
   rateEducation,
@@ -47,6 +51,7 @@ export default function RegimeDetailWorkspace({
   initialView?: "understand" | "live";
   explanation: RegimeExplanation | null;
   liveReasoning: RegimeLiveStoryReasoning[];
+  interpretationClocks: RegimeStoryInterpretationClock[];
   investigations: RoutedDossierInvestigation[];
   dossierReadThrough: DossierPresentationMotionAdjudicationContext[];
   rateEducation: RateEducationalProjection | null;
@@ -63,6 +68,10 @@ export default function RegimeDetailWorkspace({
   const reasoningByStory = useMemo(
     () => new Map(liveReasoning.map((item) => [item.storyId, item])),
     [liveReasoning],
+  );
+  const interpretationClockByStory = useMemo(
+    () => new Map(interpretationClocks.map((item) => [item.storyId, item])),
+    [interpretationClocks],
   );
   const subgroupReasoning = subgroup
     ? subgroup.durableStories.flatMap((story) => {
@@ -98,7 +107,9 @@ export default function RegimeDetailWorkspace({
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
-      interpretationAt: subgroupReasoning.map((item) => item.reasoning.updatedAt),
+      interpretationAt: subgroup.durableStories.map(
+        (story) => interpretationClockByStory.get(story.id)?.evaluatedAt ?? null,
+      ),
     })
     : null;
   const globalRatesFxBridge = useMemo(
@@ -436,17 +447,23 @@ export default function RegimeDetailWorkspace({
 
               {freshness?.status === "new_telemetry" ? (
                 <div className={styles.freshnessWarning}>
-                  <strong>NEW TELEMETRY — INTERPRETATION PENDING</strong>
+                  <strong>NEW TELEMETRY — STORY REVIEW PENDING</strong>
                   <span>
-                    Observed telemetry: {displayDate(freshness.telemetryAt)} · latest canonical System 2 hypothesis: {displayDate(freshness.interpretationAt)} · telemetry is {freshness.lagMinutes} min newer.
+                    Observed telemetry: {displayDate(freshness.telemetryAt)} · latest accepted Story review: {displayDate(freshness.interpretationAt)} · telemetry is {freshness.lagMinutes} min newer.
                   </span>
                   <p>The causal read below predates the newest deterministic observation. Keep the last accepted interpretation visible, but do not present it as though it already explains the new telemetry.</p>
                 </div>
+              ) : freshness?.status === "no_interpretation" && subgroup.durableStories.length === 0 ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>SYSTEM 1 ONLY — NO DURABLE STORY INTERPRETATION</strong>
+                  <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
+                  <p>This subgroup has deterministic telemetry but no durable Story identity. No Story reevaluation or interpretation is manufactured from Regime state alone.</p>
+                </div>
               ) : freshness?.status === "no_interpretation" ? (
                 <div className={styles.freshnessWarning}>
-                  <strong>OBSERVED TELEMETRY — NO TIMESTAMPED SYSTEM 2 READ</strong>
+                  <strong>OBSERVED TELEMETRY — NO TIMESTAMPED STORY REVIEW</strong>
                   <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
-                  <p>No current persisted primary hypothesis is available for comparison. The interface will not manufacture an interpretation.</p>
+                  <p>A durable Story exists, but no accepted System 2 evaluation timestamp is available. The interface will not manufacture an interpretation.</p>
                 </div>
               ) : null}
 
@@ -601,7 +618,8 @@ export default function RegimeDetailWorkspace({
                               <span>{story.title}</span>
                               <span>{reasoning.decisionState}</span>
                               <span>{Math.round(reasoning.confidence)}% hypothesis confidence</span>
-                              <span>updated {displayDate(reasoning.updatedAt)}</span>
+                              <span>reviewed {displayDate(interpretationClockByStory.get(story.id)?.evaluatedAt ?? null)}</span>
+                              <span>hypothesis updated {displayDate(reasoning.updatedAt)}</span>
                             </div>
                             <h4>{reasoning.question || reasoning.statement}</h4>
                             <p>{reasoning.mechanism}</p>

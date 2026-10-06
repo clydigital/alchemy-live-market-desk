@@ -4,7 +4,7 @@ import { Badge, DataState, MetricGrid, Panel } from "@/components/live-desk/Live
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { getRegimeShadowHealth } from "@/lib/regime-engine";
-import { getRegimeLiveReasoning } from "@/lib/regime-live-reasoning";
+import { getRegimeStoryInterpretationClocks } from "@/lib/regime-live-reasoning";
 import { buildRegimeOverviewTimingHealth } from "@/lib/regime-overview-timing-health";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { buildRegimeProjection } from "@/lib/regimes";
@@ -44,8 +44,8 @@ export default async function RegimesPage() {
   const pendingNodes = regimes.flatMap((regime) => regime.subgroups.flatMap((subgroup) => subgroup.nodes))
     .filter((node) => node.state === "interpretation_pending").length;
   const durableStoryIds = [...new Set(regimes.flatMap((regime) => regime.durableStories.map((story) => story.id)))];
-  const liveReasoning = await getRegimeLiveReasoning(durableStoryIds);
-  const timingHealth = buildRegimeOverviewTimingHealth({ regimes, liveReasoning });
+  const interpretationClocks = await getRegimeStoryInterpretationClocks(durableStoryIds);
+  const timingHealth = buildRegimeOverviewTimingHealth({ regimes, interpretationClocks });
 
   return (
     <LiveDeskShell
@@ -60,7 +60,8 @@ export default async function RegimesPage() {
             { value: regimes.length, label: "Governed Regimes" },
             { value: mappedStoryIds.size, label: "Mapped Stories" },
             { value: timingHealth.telemetryBearingSubgroups, label: "System 1 timestamped subgroups" },
-            { value: timingHealth.pendingInterpretationSubgroups, label: "Telemetry ahead of System 2" },
+            { value: timingHealth.pendingInterpretationSubgroups, label: "Telemetry ahead of Story review" },
+            { value: timingHealth.system1OnlySubgroups, label: "System 1-only subgroups" },
             { value: pendingNodes, label: "Observed nodes · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
             { value: shadowHealth.unassignedStoryCount, label: "Unassigned active Stories" },
@@ -92,16 +93,24 @@ export default async function RegimesPage() {
 
         <DataState
           state={timingHealth.status === "current" ? "ready" : "warn"}
-          title={timingHealth.status === "current" ? "Interpretation timing is current" : "Interpretation timing needs attention"}
+          title={
+            timingHealth.status === "current"
+              ? "Interpretation timing is current"
+              : timingHealth.status === "partial_coverage"
+                ? "Interpretation timing current · coverage partial"
+                : "Interpretation timing needs attention"
+          }
           detail={
-            `System 1 latest ${formatAgeAgo(timingHealth.latestTelemetryAgeMinutes)} · System 2 latest ${formatAgeAgo(timingHealth.latestInterpretationAgeMinutes)} · projector ${formatAgeAgo(shadowHealth.lagMinutes)}. `
+            `System 1 latest ${formatAgeAgo(timingHealth.latestTelemetryAgeMinutes)} · latest Story review ${formatAgeAgo(timingHealth.latestInterpretationAgeMinutes)} · projector ${formatAgeAgo(shadowHealth.lagMinutes)}. `
             + (timingHealth.status === "no_system1"
               ? "No timestamped System 1 subgroup telemetry is available, so measured freshness cannot be claimed."
               : timingHealth.status === "no_system2"
-                ? `${timingHealth.noTimestampedInterpretationSubgroups} telemetry-bearing subgroup${timingHealth.noTimestampedInterpretationSubgroups === 1 ? "" : "s"} have no timestamped canonical System 2 hypothesis.`
+                ? `${timingHealth.noTimestampedInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.noTimestampedInterpretationSubgroups === 1 ? "" : "s"} have no timestamped canonical System 2 review.`
                 : timingHealth.pendingInterpretationSubgroups > 0
-                  ? `${timingHealth.pendingInterpretationSubgroups} telemetry-bearing subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest persisted System 2 read · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
-                  : "No timestamped System 1 subgroup is ahead of its latest persisted System 2 hypothesis.")
+                  ? `${timingHealth.pendingInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest accepted Story review · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
+                  : timingHealth.system1OnlySubgroups > 0
+                    ? `All ${timingHealth.storyBackedTelemetrySubgroups} Story-backed telemetry subgroup${timingHealth.storyBackedTelemetrySubgroups === 1 ? " is" : "s are"} current. ${timingHealth.system1OnlySubgroups} telemetry subgroup${timingHealth.system1OnlySubgroups === 1 ? " is" : "s are"} System 1-only with no durable Story identity, so no Story reevaluation is manufactured.`
+                    : "No timestamped System 1 subgroup is ahead of its latest accepted Story review.")
           }
         />
 

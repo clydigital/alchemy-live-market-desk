@@ -22,6 +22,12 @@ export type RegimeLiveStoryReasoning = {
   causalChain: RegimeLiveCausalEdge[];
 };
 
+export type RegimeStoryInterpretationClock = {
+  storyId: string;
+  evaluatedAt: string | null;
+  basis: "story_review" | "hypothesis_update" | "unavailable";
+};
+
 const EVIDENCE_STATES = new Set(["observed", "strongly_supported", "inferred", "speculative"]);
 
 function parseCausalChain(value: unknown): RegimeLiveCausalEdge[] {
@@ -46,6 +52,64 @@ function parseCausalChain(value: unknown): RegimeLiveCausalEdge[] {
         : 0,
     }];
   });
+}
+
+export async function getRegimeStoryInterpretationClocks(
+  storyIds: string[],
+): Promise<RegimeStoryInterpretationClock[]> {
+  const ids = [...new Set(storyIds.filter(Boolean))];
+  if (!ids.length) return [];
+
+  try {
+    const client = createSupabaseAdminClient();
+    const { data: states, error: stateError } = await client
+      .from("intelligence_story_states")
+      .select("story_id,primary_hypothesis_id,last_evaluated_at")
+      .in("story_id", ids);
+
+    if (stateError || !states?.length) return [];
+
+    const hypothesisIds = [...new Set(states
+      .map((item) => item.primary_hypothesis_id)
+      .filter((item): item is string => typeof item === "string" && Boolean(item)))];
+    const hypothesisUpdatedAt = new Map<string, string | null>();
+
+    if (hypothesisIds.length) {
+      const { data: hypotheses, error: hypothesisError } = await client
+        .from("intelligence_hypotheses")
+        .select("id,updated_at")
+        .in("id", hypothesisIds);
+      if (!hypothesisError) {
+        for (const hypothesis of hypotheses || []) {
+          hypothesisUpdatedAt.set(
+            hypothesis.id,
+            typeof hypothesis.updated_at === "string" ? hypothesis.updated_at : null,
+          );
+        }
+      }
+    }
+
+    return states.map((state) => {
+      const reviewedAt = typeof state.last_evaluated_at === "string" ? state.last_evaluated_at : null;
+      if (reviewedAt) {
+        return {
+          storyId: state.story_id,
+          evaluatedAt: reviewedAt,
+          basis: "story_review" as const,
+        };
+      }
+      const hypothesisAt = state.primary_hypothesis_id
+        ? hypothesisUpdatedAt.get(state.primary_hypothesis_id) ?? null
+        : null;
+      return {
+        storyId: state.story_id,
+        evaluatedAt: hypothesisAt,
+        basis: hypothesisAt ? "hypothesis_update" as const : "unavailable" as const,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function getRegimeLiveReasoning(storyIds: string[]): Promise<RegimeLiveStoryReasoning[]> {
