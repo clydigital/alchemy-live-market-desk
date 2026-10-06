@@ -1989,6 +1989,7 @@ test("8Z2. structural repair can complete an ACCEPT with an exact STORY destinat
   assert.equal(calls, 2);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.diagnostics.model_repair_used, true);
+  assert.ok(result.motion_acceptance);
   assert.deepEqual(
     result.motion_acceptance.decisions[0].destination_refs,
     ["STORY:story:fed_easing"],
