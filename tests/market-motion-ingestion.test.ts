@@ -766,6 +766,24 @@ test("explicit September jobs report outranks incidental hourly earnings wording
   assert.equal(unified.motionKey, "event:jobs:2026-09");
 });
 
+test("adjacent release year overrides the article timestamp year without using unrelated years", () => {
+  const reporting = item({
+    itemKey: "feed:reporting:historical-september-jobs",
+    title: "Historical employment review",
+    summary: "Rates are still above their 2022 range. The September 2025 employment report showed weaker payroll growth.",
+    publishedAt: "2026-10-01T00:40:00Z",
+    candidateScore: 67,
+    materiality: 64,
+    relevance: 68,
+    novelty: 72,
+  });
+
+  const corroborators = buildMarketMotionCorroborationCandidates([reporting], [], { now: NOW });
+  assert.equal(corroborators.length, 1);
+  const [unified] = unifyMarketMotionCandidates(corroborators);
+  assert.equal(unified.motionKey, "event:jobs:2025-09");
+});
+
 test("named-month company earnings stay earnings when no macro release is explicit", () => {
   const reporting = item({
     itemKey: "feed:reporting:september-company-earnings",
@@ -822,7 +840,7 @@ test("production September jobs replay text enriches the existing legacy Motion 
     itemKey: "feed:zerohedge:c4065f3b8740e38aa4778432",
     publisher: "ZeroHedge",
     title: "Key Events This Week: FOMC Minutes, Umich, And FOMC Speakers Galore",
-    summary: "Given the high stress and high alert in bond markets, the main focus in the week ahead will be on central banks, with the minutes from the September FOMC meeting on Wednesday. In the US, the week begins in the shadow of Friday's important September employment report. Headline payrolls rose just +29k, compared with +133k expected, while private payrolls increased +46k versus +127k expected. There were also 60k of downward revisions to headline payrolls over the previous two months, and average hourly earnings rose only +0.1% against +0.3% expected.",
+    summary: "Given the high stress and high alert in bond markets, global 10Y yields are at their highest since 2022. The main focus in the week ahead will be on central banks, with the minutes from the September FOMC meeting on Wednesday. In the US, the week begins in the shadow of Friday's important September employment report. Headline payrolls rose just +29k, compared with +133k expected, while private payrolls increased +46k versus +127k expected. There were also 60k of downward revisions to headline payrolls over the previous two months, and average hourly earnings rose only +0.1% against +0.3% expected.",
     publishedAt: "2026-10-01T00:40:00Z",
     candidateScore: 67,
     sourceQuality: 64,
