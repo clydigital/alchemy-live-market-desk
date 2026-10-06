@@ -289,7 +289,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
-  const openInvestigations = dossier.watchNext.length;
   const requiredCharts = dossier.charts.core.length;
   const hybridReasoning = buildHybridReasoningProjection({
     dossier,
