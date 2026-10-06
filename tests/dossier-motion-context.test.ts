@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { attachDossierMotionContext } from "../lib/dossier-v2/motion-context.ts";
+import {
+  attachDossierMotionContext,
+  promotedMarketMotionEvidencePins,
+} from "../lib/dossier-v2/motion-context.ts";
 import type { DossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import type { MarketMotionRecord } from "../lib/market-motion.ts";
 
@@ -209,4 +212,43 @@ test("B2 Dossier context excludes promoted Motion with no valid routing class", 
     ["specific-orphan"],
   );
   assert.equal(result.motion_context?.items[0]?.routing_class, "INVESTIGATION_CANDIDATE");
+});
+
+
+test("promoted Motion exposes only exact canonical promotion Evidence UUIDs as Dossier pins", () => {
+  const rows = [
+    motion({
+      id: "promoted-with-pin",
+      metadata: {
+        promotionEvidenceId: "11111111-1111-4111-a111-111111111111",
+        promotionEvidencePacketRef: "research-intake:pin-1",
+      },
+    }),
+    motion({
+      id: "promoted-without-pin",
+      motion_key: "event:rates:no-pin",
+      metadata: {},
+      materiality: 91,
+    }),
+    motion({
+      id: "plain-motion-with-metadata",
+      motion_key: "event:rates:plain",
+      lifecycle_state: "MOTION",
+      effective_state: "MOTION",
+      metadata: { promotionEvidenceId: "22222222-2222-4222-a222-222222222222" },
+      materiality: 99,
+    }),
+    motion({
+      id: "future-promoted",
+      motion_key: "event:rates:future-pin",
+      observed_at: "2026-10-04T04:00:00.000Z",
+      metadata: { promotionEvidenceId: "33333333-3333-4333-a333-333333333333" },
+      materiality: 100,
+    }),
+  ];
+
+  assert.deepEqual(
+    promotedMarketMotionEvidencePins(rows, new Date(AS_OF)),
+    ["11111111-1111-4111-a111-111111111111"],
+  );
 });
