@@ -167,6 +167,8 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "us10y-fred",
   "us20y-fred",
   "us30y-fred",
+  "us5y-real",
+  "us5y-breakeven",
   "us10y-real",
   "us10y-breakeven",
   "fed-funds-effective",
