@@ -28,7 +28,7 @@ This is an implementation audit, not a design document. It distinguishes code/te
 | **Hybrid scenario falsification / hysteresis** | ✅ | ✅ | ✅ | ✅ | PR #496; production `/hybrid-output` rendered bounded A/B/C/D/E ladder and guarded D/E tails |
 | **Historical Presenter replay** | ✅ | ✅ | ✅ | Deployed; exact replay not manually exercised in this audit | PR #503 + historical replay tests |
 | **Sequential Research Gap discriminators** | ✅ | ✅ | ✅ | Deployed; live ADVANCE/EXHAUST transition not manually exercised in this audit | PR #504 + lifecycle tests |
-| **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | Newly merged; awaiting natural production exercise | PR #516 |
+| **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | ✅ production maintenance run `37422359132` created completed Regime projection `6b3bb1d3-a680-4b4b-a03d-963e6f5e7233` | PR #516; trigger `story_engine`, 5 persisted Regime versions, 0 warnings |
 
 ## Current governed chain
 
@@ -78,6 +78,7 @@ Observed directly on production:
 - Historical thesis **v13** is itself a real `existing_story_maintenance` `thesis_revision`, but its older event metadata predates the full current engine/evidence provenance shape. Therefore the audit does **not** claim that a fresh material Dossier-triggered version-write branch was exercised on 6 October.
 - **D5 live read model:** current production Dossier `0864d399-06d3-444c-8b37-b61bd6e00d13` returned `decisionPacket.basis=DOSSIER_READ_MODEL`, `state=UNCHANGED`, exact Story-level impacts, and `RATES_LED_TIGHTENING → RATES_LED_TIGHTENING` with `changed=false`.
 - **D6 exact-prior adjudication:** the same live response resolved `previousDossierId=93f35369-df1c-467b-9f27-fde1a573ad95` with `basis=EXACT_PRIOR_DOSSIER`. Because no exact reaction checks were available, it correctly returned `UNRESOLVED` with 0 evaluated and 2 unresolved expectations. A database scan found no persisted production Dossier with `system1_reaction_assessments` yet, so the measured CONFIRMED/PARTIALLY_CONFIRMED/CONTRADICTED branch remains naturally unexercised rather than synthetically forced.
+- **Maintenance → Regime:** the D4 maintenance engine run `2dc07169-69af-4abb-ab2b-b51bada93327` immediately produced Regime shadow projection run `6b3bb1d3-a680-4b4b-a03d-963e6f5e7233` with `trigger_kind=story_engine`, status `completed`, five persisted Regime version IDs, and no warnings.
 
 ### Earlier D7 / Hybrid production proof
 
