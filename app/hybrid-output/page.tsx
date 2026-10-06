@@ -8,6 +8,7 @@ import { getDeskData } from "@/lib/data";
 import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-divergence";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
+import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
@@ -25,12 +26,15 @@ import {
 } from "@/lib/market-motion-edition";
 import {
   deriveMarketMotionAttention,
+  getCurrentMarketMotion,
+  marketMotionAttention,
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
+  selectMarketMotionForOverview,
 } from "@/lib/market-motion";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
-import { buildRegimeProjection } from "@/lib/regimes";
+import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 import { buildHybridReasoningProjection } from "@/lib/hybrid-reasoning-projection";
 
 export const dynamic = "force-dynamic";
@@ -236,8 +240,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       href: `/hybrid-output${search ? `?${search}` : ""}#presenter-reasoning`,
     };
   });
-  const marketMotionAttachment = marketMotionFromEditionPayload(currentEdition?.payload);
-  const motionJourney = selectMarketMotionEditionContext({
+  const motionEdition = presenterEditionStatus === "historical"
+    ? selectedPresenterEdition
+    : currentEdition;
+  const marketMotionAttachment = marketMotionFromEditionPayload(motionEdition?.payload);
+  const editionMotionJourney = selectMarketMotionEditionContext({
     attachment: marketMotionAttachment,
     preferredStoryId,
     preferredRegimeSlug,
@@ -275,12 +282,62 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storyId: item.storyId,
       storySlug: item.storySlug,
       storyTitle: item.storyTitle,
-      storyHref: `/stories/${item.storySlug}`,
+      storyHref: item.storySlug ? `/stories/${item.storySlug}` : null,
       regimeSlug: item.regimeSlug,
       regimeLabel: item.regimeLabel,
       regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
     };
   });
+  const liveMotionRows = presenterEditionStatus === "current"
+    ? await withinTimeout(
+        "Hybrid Market Motion",
+        () => getCurrentMarketMotion({ limit: 60 }),
+        1_800,
+      ).catch(() => [])
+    : [];
+  const liveMotionJourney = selectMarketMotionForOverview(
+    liveMotionRows,
+    new Date(),
+    MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
+  ).map((item) => {
+    const attention = marketMotionAttention(item);
+    const story = item.primary_story_id
+      ? data.stories.find((candidate) => candidate.id === item.primary_story_id) || null
+      : null;
+    const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    return {
+      id: item.id,
+      attentionTier: attention.tier,
+      attentionScore: attention.score,
+      writingPotential: attention.writingPotential,
+      attentionReasons: attention.reasons,
+      headline: item.headline,
+      category: item.category,
+      lifecycleState: item.lifecycle_state,
+      verificationState: item.verification_state,
+      whatHappened: item.what_happened,
+      marketReaction: item.market_reaction,
+      whyInteresting: item.why_interesting,
+      bigPictureBridge: item.big_picture_bridge,
+      nextTest: item.next_test,
+      tickers: item.tickers,
+      occurredAt: item.occurred_at,
+      sourceName: item.source_name,
+      sourceUrl: item.source_url,
+      storyId: story?.id || null,
+      storySlug: story?.slug || null,
+      storyTitle: story?.title || null,
+      storyHref: story ? `/stories/${story.slug}` : null,
+      regimeSlug: item.primary_regime_slug,
+      regimeLabel: regime?.shortTitle || null,
+      regimeHref: item.primary_regime_slug ? `/regimes/${item.primary_regime_slug}` : null,
+    };
+  });
+  const motionJourney = presenterEditionStatus === "historical"
+    ? editionMotionJourney
+    : liveMotionJourney.length
+      ? liveMotionJourney
+      : editionMotionJourney;
   const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
   const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
   const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
@@ -330,7 +387,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             items={motionJourney}
             eyebrow="MARKET MOTION JOURNEY"
             title="What moved, why it matters, and what to do next"
-            description="The 48-hour Motion stream is the opening layer: event → why interesting → market reaction → Story/Regime bridge → what to investigate or write. Motion can direct attention, but it cannot create an independent regime or thesis."
+            description={presenterEditionStatus === "historical"
+              ? "Historical replay uses the exact immutable Motion snapshot captured with that Journey edition."
+              : "The live 48-hour Motion stream is the opening layer: event → why interesting → market reaction → Story/Regime bridge → what to investigate or write. Motion can direct attention, but it cannot create an independent regime or thesis."}
             showFullTapeLink
             journeyMode
           />
@@ -453,7 +512,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           focusedMotion ? (
             <Panel
               title="Motion context path"
-              description="Exact Journey context for one immutable Motion item. Operational Research Gap work begins only from canonical Dossier research and investigation outputs."
+              description={presenterEditionStatus === "historical"
+                ? "Exact immutable Motion context from the selected historical Journey edition. Operational Research Gap work begins only from canonical Dossier research and investigation outputs."
+                : "Exact context from the live 48-hour Motion stream. Operational Research Gap work begins only from canonical Dossier research and investigation outputs."}
               action={<Badge>DISCOVERY CONTEXT</Badge>}
             >
               <article className={styles.record} id="motion-investigation">
@@ -474,8 +535,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   Raw Motion does not create Research Gap work directly; Dossier/regime state changes only if later canonical evidence changes the accepted interpretation.
                 </p>
                 <p>
-                  <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
-                  {" · "}
+                  {focusedMotion.storyHref && focusedMotion.storyTitle ? (
+                    <>
+                      <a className={styles.link} href={focusedMotion.storyHref}>Story · {focusedMotion.storyTitle}</a>
+                      {" · "}
+                    </>
+                  ) : null}
                   {focusedMotion.regimeHref && focusedMotion.regimeLabel ? (
                     <>
                       <a className={styles.link} href={focusedMotion.regimeHref}>Regime · {focusedMotion.regimeLabel}</a>
@@ -488,10 +553,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             </Panel>
           ) : (
             <DataState
-              title="Motion is not in the current Journey edition"
+              title={presenterEditionStatus === "historical" ? "Motion is not in the selected Journey edition" : "Motion is not in the live 48-hour stream"}
               detail={focusedDossierRegimeContext
-                ? "The raw discovery Motion has aged out of the current Journey edition. The immutable Dossier System 2 judgement above remains the authoritative explanation for this link."
-                : "Hybrid only opens investigation paths from the exact immutable Motion snapshot attached to the current canonical edition. It will not recover a stale or fuzzy match."}
+                ? "The raw discovery Motion is no longer in the selected Motion context. The immutable Dossier System 2 judgement above remains the authoritative explanation for this link."
+                : presenterEditionStatus === "historical"
+                  ? "Historical replay only opens context from the exact immutable Motion snapshot attached to that Journey edition."
+                  : "The current Hybrid only opens context from fresh Market Motion. It will not recover an expired or fuzzy match."}
             />
           )
         ) : null}
