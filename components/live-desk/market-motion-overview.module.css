@@ -246,6 +246,76 @@
   line-height: 1.45;
 }
 
+.regimeContribution {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, #5c9cf5 28%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 92%, #5c9cf5 8%);
+}
+
+.regimeContribution[data-state="accept"] {
+  border-color: rgba(79, 209, 133, .34);
+}
+
+.regimeContribution[data-state="refine"] {
+  border-color: rgba(255, 187, 66, .34);
+}
+
+.regimeContributionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.regimeContributionHead > div {
+  display: grid;
+  gap: 3px;
+}
+
+.regimeContributionHead span {
+  color: var(--muted);
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .1em;
+}
+
+.regimeContributionHead strong {
+  color: var(--ink);
+  font-size: .82rem;
+}
+
+.regimeContributionHead em {
+  color: var(--muted);
+  font-size: .64rem;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-align: right;
+}
+
+.regimeContribution[data-state="accept"] .regimeContributionHead em {
+  color: #8fe1b2;
+}
+
+.regimeContribution[data-state="refine"] .regimeContributionHead em {
+  color: #ffd180;
+}
+
+.regimeContribution p,
+.regimeContribution small {
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 84%, var(--muted));
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+.regimeContribution p strong {
+  color: var(--ink);
+}
+
 .card footer {
   display: flex;
   align-items: flex-end;
