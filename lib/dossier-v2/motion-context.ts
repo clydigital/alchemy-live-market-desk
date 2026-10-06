@@ -28,19 +28,17 @@ function clip(value: string | null | undefined, max: number): string | null {
 function canonicalMotionEvidenceRef(
   item: MarketMotionRecord,
   validEvidenceIds: Set<string>,
+  canonicalEvidenceRefByRecordId: ReadonlyMap<string, string>,
 ) {
-  const promotionEvidencePacketRef = typeof item.metadata?.promotionEvidencePacketRef === "string"
-    ? item.metadata.promotionEvidencePacketRef.trim()
-    : "";
-  if (promotionEvidencePacketRef && validEvidenceIds.has(promotionEvidencePacketRef)) {
-    return promotionEvidencePacketRef;
-  }
-
   const promotionEvidenceId = typeof item.metadata?.promotionEvidenceId === "string"
     ? item.metadata.promotionEvidenceId.trim()
     : "";
-  if (promotionEvidenceId && validEvidenceIds.has(promotionEvidenceId)) {
-    return promotionEvidenceId;
+  if (promotionEvidenceId) {
+    const packetEvidenceRef = canonicalEvidenceRefByRecordId.get(promotionEvidenceId)
+      ?? promotionEvidenceId;
+    if (validEvidenceIds.has(packetEvidenceRef)) {
+      return packetEvidenceRef;
+    }
   }
   if (item.evidence_id && validEvidenceIds.has(item.evidence_id)) {
     return item.evidence_id;
@@ -51,6 +49,7 @@ function canonicalMotionEvidenceRef(
 function boundedMotionItem(
   item: MarketMotionRecord,
   validEvidenceIds: Set<string>,
+  canonicalEvidenceRefByRecordId: ReadonlyMap<string, string>,
 ): DossierMotionContextItem {
   return {
     motion_id: item.id,
@@ -79,7 +78,11 @@ function boundedMotionItem(
       relevance: Number(item.relevance || 0),
       novelty: Number(item.novelty || 0),
     },
-    origin_evidence_ref: canonicalMotionEvidenceRef(item, validEvidenceIds),
+    origin_evidence_ref: canonicalMotionEvidenceRef(
+      item,
+      validEvidenceIds,
+      canonicalEvidenceRefByRecordId,
+    ),
   };
 }
 
@@ -137,17 +140,12 @@ function rehashPacket(
   };
 }
 
-export function attachDossierMotionContext(
-  packet: DossierV2InputPacket,
+function selectedPromotedMotionRowsForDossier(
   rows: MarketMotionRecord[],
-): DossierV2InputPacket {
-  const asOfMs = Date.parse(packet.as_of);
+  asOf: string,
+) {
+  const asOfMs = Date.parse(asOf);
   const now = Number.isFinite(asOfMs) ? new Date(asOfMs) : new Date();
-  const validEvidenceIds = new Set([
-    ...packet.observed_evidence.map((item) => item.evidence_id),
-    ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
-  ]);
-
   const chronologySafeRows = rows.filter((item) => {
     const observedAt = Date.parse(item.observed_at);
     const occurredAt = Date.parse(item.occurred_at);
@@ -161,11 +159,86 @@ export function attachDossierMotionContext(
     now,
     Math.max(1, chronologySafeRows.length),
   );
-  const selected = eligible.slice(0, MAX_DOSSIER_MOTION_CONTEXT);
+  return {
+    eligible,
+    selected: eligible.slice(0, MAX_DOSSIER_MOTION_CONTEXT),
+  };
+}
+
+export function selectPromotedMotionEvidenceIdsForDossier(
+  rows: MarketMotionRecord[],
+  asOf: string,
+) {
+  const { selected } = selectedPromotedMotionRowsForDossier(rows, asOf);
+  return [...new Set(selected.flatMap((item) => {
+    const id = typeof item.metadata?.promotionEvidenceId === "string"
+      ? item.metadata.promotionEvidenceId.trim()
+      : "";
+    return id ? [id] : [];
+  }))];
+}
+
+export async function loadCurrentPromotedMotionEvidenceIds(
+  client: SupabaseClient,
+  asOf: string,
+) {
+  const rows = await getCurrentMarketMotion({
+    includeExpired: true,
+    limit: 60,
+    client,
+  });
+  return selectPromotedMotionEvidenceIdsForDossier(rows, asOf);
+}
+
+async function loadCanonicalEvidenceRefMap(
+  client: SupabaseClient,
+  rows: MarketMotionRecord[],
+  asOf: string,
+) {
+  const ids = selectPromotedMotionEvidenceIdsForDossier(rows, asOf);
+  if (!ids.length) return new Map<string, string>();
+
+  const { data, error } = await client
+    .from("intelligence_evidence")
+    .select("id,external_evidence_id")
+    .in("id", ids);
+
+  if (error) return new Map<string, string>();
+
+  return new Map(
+    (data ?? []).flatMap((row) => {
+      const id = typeof row.id === "string" ? row.id.trim() : "";
+      if (!id) return [];
+      const external = typeof row.external_evidence_id === "string"
+        ? row.external_evidence_id.trim()
+        : "";
+      return [[id, external || `ev:${id}`] as const];
+    }),
+  );
+}
+
+export function attachDossierMotionContext(
+  packet: DossierV2InputPacket,
+  rows: MarketMotionRecord[],
+  canonicalEvidenceRefByRecordId: ReadonlyMap<string, string> = new Map(),
+): DossierV2InputPacket {
+  const validEvidenceIds = new Set([
+    ...packet.observed_evidence.map((item) => item.evidence_id),
+    ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
+  ]);
+
+  const { eligible, selected } = selectedPromotedMotionRowsForDossier(
+    rows,
+    packet.as_of,
+  );
 
   return rehashPacket(packet, {
     contract_version: DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
-    items: selected.map((item) => boundedMotionItem(item, validEvidenceIds)),
+    items: selected.map((item) => boundedMotionItem(
+      item,
+      validEvidenceIds,
+      canonicalEvidenceRefByRecordId,
+    )),
     omitted_count: Math.max(0, eligible.length - selected.length),
   });
 }
@@ -180,7 +253,16 @@ export async function attachCurrentMarketMotionContext(
       limit: 60,
       client,
     });
-    return attachDossierMotionContext(packet, rows);
+    const canonicalEvidenceRefByRecordId = await loadCanonicalEvidenceRefMap(
+      client,
+      rows,
+      packet.as_of,
+    );
+    return attachDossierMotionContext(
+      packet,
+      rows,
+      canonicalEvidenceRefByRecordId,
+    );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return rehashPacket(
