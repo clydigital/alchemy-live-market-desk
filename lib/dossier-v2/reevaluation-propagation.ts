@@ -268,6 +268,12 @@ export function buildDossierReevaluationPropagationPlan(
   const warnings: string[] = [...(input.evidenceIdentityWarnings ?? [])];
   const candidates: RankedItem[] = [];
   const decisions = input.analyticalOutput.motion_acceptance?.decisions ?? [];
+  const bindingByAnalyticalStoryId = new Map(
+    (input.packet.persistent_story_bindings ?? []).map((binding) => [
+      binding.analytical_story_id,
+      binding.persistent_story_id,
+    ]),
+  );
 
   for (let decisionIndex = 0; decisionIndex < decisions.length; decisionIndex++) {
     const acceptance = decisions[decisionIndex];
@@ -301,11 +307,21 @@ export function buildDossierReevaluationPropagationPlan(
       .filter(Boolean);
 
     if (explicitStoryRefs.length) {
-      for (const storyId of [...new Set(explicitStoryRefs)]) {
-        const story = validStory(storyById, storyId);
+      for (const storyRef of [...new Set(explicitStoryRefs)]) {
+        const persistentStoryId =
+          bindingByAnalyticalStoryId.get(storyRef)
+          ?? (storyById.has(storyRef) ? storyRef : null);
+        if (!persistentStoryId) {
+          warnings.push(
+            `Motion ${acceptance.motion_id} explicit analytical Story ${storyRef} has no exact persistent Story binding; explicit route skipped.`,
+          );
+          continue;
+        }
+
+        const story = validStory(storyById, persistentStoryId);
         if (!story) {
           warnings.push(
-            `Motion ${acceptance.motion_id} explicit Story ${storyId} is unavailable or discarded; explicit route skipped.`,
+            `Motion ${acceptance.motion_id} explicit Story ${storyRef} resolves to unavailable or discarded persistent Story ${persistentStoryId}; explicit route skipped.`,
           );
           continue;
         }
@@ -388,13 +404,6 @@ export function buildDossierReevaluationPropagationPlan(
       }
     }
   }
-
-  const bindingByAnalyticalStoryId = new Map(
-    (input.packet.persistent_story_bindings ?? []).map((binding) => [
-      binding.analytical_story_id,
-      binding.persistent_story_id,
-    ]),
-  );
 
   const majorStories = Array.isArray(input.analyticalOutput.major_stories)
     ? input.analyticalOutput.major_stories
