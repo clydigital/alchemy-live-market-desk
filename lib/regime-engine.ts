@@ -56,6 +56,10 @@ export type RegimeShadowHealth = {
   highSeverityUnassignedStoryCount: number;
   oldestUnassignedOpenedAt: string | null;
   oldestUnassignedAgeMinutes: number | null;
+  quarantinedStoryCount: number;
+  highSeverityQuarantinedStoryCount: number;
+  oldestQuarantinedOpenedAt: string | null;
+  oldestQuarantinedAgeMinutes: number | null;
   warning: string | null;
 };
 
@@ -916,7 +920,7 @@ export async function getRegimeShadowHealth(
 ): Promise<RegimeShadowHealth> {
   try {
     const db = client ?? createSupabaseAdminClient();
-    const [runResult, currentResult, routingDebtResult] = await Promise.all([
+    const [runResult, currentResult, routingDebtResult, domainDebtResult] = await Promise.all([
       db
         .from("market_regime_projection_runs")
         .select("id,status,input_hash,contract_version,completed_at")
@@ -935,12 +939,20 @@ export async function getRegimeShadowHealth(
         .like("debt_key", "regime-routing:%")
         .eq("metadata->>kind", "regime_routing_debt")
         .order("opened_at", { ascending: true }),
+      db
+        .from("research_debt")
+        .select("story_id,severity,opened_at")
+        .eq("status", "open")
+        .like("debt_key", "story-domain:%")
+        .eq("metadata->>kind", "story_domain_debt")
+        .order("opened_at", { ascending: true }),
     ]);
 
-    if (runResult.error || currentResult.error || routingDebtResult.error) {
+    if (runResult.error || currentResult.error || routingDebtResult.error || domainDebtResult.error) {
       const message = runResult.error?.message
         || currentResult.error?.message
         || routingDebtResult.error?.message
+        || domainDebtResult.error?.message
         || "Regime persistence unavailable.";
       return {
         available: false,
@@ -956,6 +968,10 @@ export async function getRegimeShadowHealth(
         highSeverityUnassignedStoryCount: 0,
         oldestUnassignedOpenedAt: null,
         oldestUnassignedAgeMinutes: null,
+        quarantinedStoryCount: 0,
+        highSeverityQuarantinedStoryCount: 0,
+        oldestQuarantinedOpenedAt: null,
+        oldestQuarantinedAgeMinutes: null,
         warning: message,
       };
     }
@@ -969,6 +985,11 @@ export async function getRegimeShadowHealth(
     const oldestUnassignedOpenedAt = routingDebt[0]?.opened_at || null;
     const oldestUnassignedAgeMinutes = oldestUnassignedOpenedAt && Number.isFinite(Date.parse(oldestUnassignedOpenedAt))
       ? Math.max(0, Math.round((Date.now() - Date.parse(oldestUnassignedOpenedAt)) / 60_000))
+      : null;
+    const domainDebt = domainDebtResult.data || [];
+    const oldestQuarantinedOpenedAt = domainDebt[0]?.opened_at || null;
+    const oldestQuarantinedAgeMinutes = oldestQuarantinedOpenedAt && Number.isFinite(Date.parse(oldestQuarantinedOpenedAt))
+      ? Math.max(0, Math.round((Date.now() - Date.parse(oldestQuarantinedOpenedAt)) / 60_000))
       : null;
 
     return {
@@ -985,6 +1006,10 @@ export async function getRegimeShadowHealth(
       highSeverityUnassignedStoryCount: routingDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
       oldestUnassignedOpenedAt,
       oldestUnassignedAgeMinutes,
+      quarantinedStoryCount: domainDebt.length,
+      highSeverityQuarantinedStoryCount: domainDebt.filter((item) => item.severity === "high" || item.severity === "critical").length,
+      oldestQuarantinedOpenedAt,
+      oldestQuarantinedAgeMinutes,
       warning: null,
     };
   } catch (error) {
@@ -1002,6 +1027,10 @@ export async function getRegimeShadowHealth(
       highSeverityUnassignedStoryCount: 0,
       oldestUnassignedOpenedAt: null,
       oldestUnassignedAgeMinutes: null,
+      quarantinedStoryCount: 0,
+      highSeverityQuarantinedStoryCount: 0,
+      oldestQuarantinedOpenedAt: null,
+      oldestQuarantinedAgeMinutes: null,
       warning: error instanceof Error ? error.message : "Regime shadow health unavailable.",
     };
   }
