@@ -124,7 +124,7 @@ async function loadResearchGapCaseByGapKey(
   return (data || null) as ResearchGapCaseRow | null;
 }
 
-async function loadLatestResearchGapOccurrenceSnapshot(
+async function loadRecentResearchGapOccurrenceSnapshots(
   caseId: string,
   client: SupabaseClient,
 ) {
@@ -134,10 +134,9 @@ async function loadLatestResearchGapOccurrenceSnapshot(
     .eq("gap_case_id", caseId)
     .order("observed_at", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  message(error, `Could not load latest Research Gap occurrence ${caseId}`);
-  return data?.snapshot ?? null;
+    .limit(50);
+  message(error, `Could not load recent Research Gap occurrences ${caseId}`);
+  return (data ?? []).map((row) => row.snapshot);
 }
 
 export async function hasCanonicalResearchGapHandoff(
@@ -220,12 +219,12 @@ async function syncOne(
       existing
       && !researchGapDiscriminatorLifecycleFromPlan(existing.research_plan),
     );
-    const latestOccurrenceSnapshot = needsOccurrenceFallback && existing
-      ? await loadLatestResearchGapOccurrenceSnapshot(existing.id, client)
-      : null;
+    const occurrenceSnapshots = needsOccurrenceFallback && existing
+      ? await loadRecentResearchGapOccurrenceSnapshots(existing.id, client)
+      : [];
     const existingLifecycleSource = selectResearchGapDiscriminatorLifecycleSource({
       existingResearchPlan: existing?.research_plan ?? null,
-      latestOccurrenceSnapshot,
+      occurrenceSnapshots,
     });
     const canonicalHandoffAdmitted = existing?.status === "HANDED_OFF"
       ? await hasCanonicalResearchGapHandoff(existing.id, client)
