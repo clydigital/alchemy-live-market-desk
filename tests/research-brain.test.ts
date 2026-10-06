@@ -25,6 +25,7 @@ import {
 } from "../lib/dossier-v2/research-brain-validation.ts";
 import {
   executeResearchBrain,
+  normalizeResearchBrainMotionStoryDestinations,
   normalizeResearchBrainOutputReferences,
   pinResearchBrainPersistentStoryIdentities,
   preservePriorInvestigationExpectedReactions,
@@ -1841,6 +1842,157 @@ test("9. Model Orchestration: Single Provider Attempt per Pass (maxAttempts = 1)
   assert.equal(primaryCalls, 1);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.packet_id, packet.packet_id);
+});
+
+test("8Z. STORY Motion destinations normalize through exact persistent Story identity", () => {
+  const packet = createValidBasePacket();
+  const persistentStoryId = "11111111-1111-4111-8111-111111111111";
+  packet.persistent_story_bindings = [{
+    analytical_story_id: "story:fed_easing",
+    persistent_story_id: persistentStoryId,
+  }];
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      ...b2MotionContextItem("STORY"),
+      motion_id: "motion:story:normalize",
+      primary_story_id: persistentStoryId,
+      origin_evidence_ref: "ev:fed:2026-09",
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:story:normalize",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports the Story-linked Motion.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: [persistentStoryId],
+      rationale: "The emitted persistent UUID should be normalized clerically.",
+      next_test: null,
+    }],
+  };
+
+  pinResearchBrainPersistentStoryIdentities(output, packet);
+  normalizeResearchBrainMotionStoryDestinations(output, packet);
+  assert.deepEqual(
+    output.motion_acceptance.decisions[0].destination_refs,
+    ["STORY:story:fed_easing"],
+  );
+
+  output.motion_acceptance.decisions[0].destination_refs = [];
+  normalizeResearchBrainMotionStoryDestinations(output, packet);
+  assert.deepEqual(
+    output.motion_acceptance.decisions[0].destination_refs,
+    ["STORY:story:fed_easing"],
+  );
+});
+
+test("8Z1. STORY Motion destination normalization fails closed on ambiguous bindings", () => {
+  const packet = createValidBasePacket();
+  const persistentStoryId = "11111111-1111-4111-8111-111111111111";
+  packet.persistent_story_bindings = [
+    {
+      analytical_story_id: "story:fed_easing",
+      persistent_story_id: persistentStoryId,
+    },
+    {
+      analytical_story_id: "story:alternate",
+      persistent_story_id: persistentStoryId,
+    },
+  ];
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      ...b2MotionContextItem("STORY"),
+      motion_id: "motion:story:ambiguous",
+      primary_story_id: persistentStoryId,
+      origin_evidence_ref: "ev:fed:2026-09",
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.major_stories.push({
+    ...structuredClone(output.major_stories[0]),
+    story_id: "story:alternate",
+    title: "Alternate exact binding",
+  });
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:story:ambiguous",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports the Motion.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: [],
+      rationale: "Ambiguous Story identity must not be guessed.",
+      next_test: null,
+    }],
+  };
+
+  pinResearchBrainPersistentStoryIdentities(output, packet);
+  normalizeResearchBrainMotionStoryDestinations(output, packet);
+  assert.deepEqual(output.motion_acceptance.decisions[0].destination_refs, []);
+});
+
+test("8Z2. structural repair can complete an ACCEPT with an exact STORY destination", async () => {
+  const packet = createValidBasePacket();
+  const persistentStoryId = "11111111-1111-4111-8111-111111111111";
+  packet.persistent_story_bindings = [{
+    analytical_story_id: "story:fed_easing",
+    persistent_story_id: persistentStoryId,
+  }];
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      ...b2MotionContextItem("STORY"),
+      motion_id: "motion:story:repair-route",
+      primary_story_id: persistentStoryId,
+      origin_evidence_ref: "ev:fed:2026-09",
+    }],
+  };
+
+  const primary = createValidOutput(packet);
+  primary.major_stories[0].what_changed = "";
+
+  const repaired = createValidOutput(packet);
+  repaired.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:story:repair-route",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports the Story-linked Motion.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: [],
+      rationale: "The repair pass may omit a clerical destination that the exact binding can restore.",
+      next_test: null,
+    }],
+  };
+
+  let calls = 0;
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      modelRunner: async () => {
+        calls++;
+        return { data: structuredClone(calls === 1 ? primary : repaired) };
+      },
+      allowRepair: true,
+    },
+  );
+
+  assert.equal(calls, 2);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, true);
+  assert.deepEqual(
+    result.motion_acceptance.decisions[0].destination_refs,
+    ["STORY:story:fed_easing"],
+  );
 });
 
 test("9A0. D1 exact persistent Story identity is pinned before validation without a repair pass", async () => {
