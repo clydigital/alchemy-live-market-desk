@@ -202,6 +202,100 @@ export function pinResearchBrainPersistentStoryIdentities(
   return output;
 }
 
+export function normalizeResearchBrainMotionStoryDestinations(
+  output: unknown,
+  packet: DossierV2InputPacket,
+): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+
+  const root = output as Record<string, unknown>;
+  if (!Array.isArray(root.major_stories)) return output;
+  const motionDecisionsRoot =
+    root.motion_acceptance && typeof root.motion_acceptance === "object" && !Array.isArray(root.motion_acceptance)
+      ? root.motion_acceptance as Record<string, unknown>
+      : null;
+  if (!motionDecisionsRoot || !Array.isArray(motionDecisionsRoot.decisions)) return output;
+
+  const analyticalStoryIds = new Set<string>();
+  const analyticalByPersistent = new Map<string, string[]>();
+  for (const item of root.major_stories) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const story = item as Record<string, unknown>;
+    const analyticalStoryId = typeof story.story_id === "string" ? story.story_id.trim() : "";
+    if (!analyticalStoryId) continue;
+    analyticalStoryIds.add(analyticalStoryId);
+
+    const persistentStoryId =
+      typeof story.persistent_story_id === "string" ? story.persistent_story_id.trim() : "";
+    if (!persistentStoryId) continue;
+    const bucket = analyticalByPersistent.get(persistentStoryId) ?? [];
+    if (!bucket.includes(analyticalStoryId)) bucket.push(analyticalStoryId);
+    analyticalByPersistent.set(persistentStoryId, bucket);
+  }
+
+  const motionById = new Map(
+    (packet.motion_context?.items ?? []).map((item) => [item.motion_id, item] as const),
+  );
+
+  function exactAnalyticalStoryDestination(value: string | null | undefined) {
+    const candidate = value?.trim() ?? "";
+    if (!candidate) return null;
+    if (analyticalStoryIds.has(candidate)) return `STORY:${candidate}`;
+
+    const matches = analyticalByPersistent.get(candidate) ?? [];
+    return matches.length === 1 ? `STORY:${matches[0]}` : null;
+  }
+
+  let normalizedCount = 0;
+  for (const item of motionDecisionsRoot.decisions) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const decision = item as Record<string, unknown>;
+    if (decision.decision !== "ACCEPT" && decision.decision !== "REFINE") continue;
+
+    const motionId = typeof decision.motion_id === "string" ? decision.motion_id : "";
+    const motion = motionById.get(motionId);
+    if (!motion || motion.routing_class !== "STORY") continue;
+
+    const originalRefs = Array.isArray(decision.destination_refs)
+      ? decision.destination_refs.filter((ref): ref is string => typeof ref === "string")
+      : [];
+    const normalizedRefs: string[] = [];
+    for (const ref of originalRefs) {
+      const trimmed = ref.trim();
+      const storyPayload = trimmed.startsWith("STORY:") ? trimmed.slice("STORY:".length) : trimmed;
+      const exactStoryRef = exactAnalyticalStoryDestination(storyPayload);
+      const nextRef = exactStoryRef ?? trimmed;
+      if (!normalizedRefs.includes(nextRef)) normalizedRefs.push(nextRef);
+      if (nextRef !== trimmed) normalizedCount++;
+    }
+
+    if (normalizedRefs.length === 0) {
+      const exactPrimaryStoryRef = exactAnalyticalStoryDestination(motion.primary_story_id);
+      if (exactPrimaryStoryRef) {
+        normalizedRefs.push(exactPrimaryStoryRef);
+        normalizedCount++;
+      }
+    }
+
+    if (
+      normalizedRefs.length !== originalRefs.length
+      || normalizedRefs.some((ref, index) => ref !== originalRefs[index])
+    ) {
+      decision.destination_refs = normalizedRefs;
+    }
+  }
+
+  if (normalizedCount > 0) {
+    console.info(JSON.stringify({
+      event: "research_brain_motion_story_destination_normalized",
+      packetId: packet.packet_id,
+      normalizedCount,
+    }));
+  }
+
+  return output;
+}
+
 export function preservePriorInvestigationExpectedReactions(
   output: unknown,
   packet: DossierV2InputPacket,
@@ -738,6 +832,10 @@ export async function executeResearchBrain(
           normalizedRecovery,
           packet,
         );
+        normalizedRecovery = normalizeResearchBrainMotionStoryDestinations(
+          normalizedRecovery,
+          packet,
+        );
         normalizedRecovery = preservePriorInvestigationExpectedReactions(
           normalizedRecovery,
           packet,
@@ -787,6 +885,7 @@ export async function executeResearchBrain(
     system1ReactionAssessments,
   );
   firstPassData = pinResearchBrainPersistentStoryIdentities(firstPassData, packet);
+  firstPassData = normalizeResearchBrainMotionStoryDestinations(firstPassData, packet);
   firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
@@ -819,6 +918,10 @@ export async function executeResearchBrain(
         system1ReactionAssessments,
       );
       normalizedRepairData = pinResearchBrainPersistentStoryIdentities(
+        normalizedRepairData,
+        packet,
+      );
+      normalizedRepairData = normalizeResearchBrainMotionStoryDestinations(
         normalizedRepairData,
         packet,
       );
