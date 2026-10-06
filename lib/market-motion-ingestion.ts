@@ -790,6 +790,16 @@ export function buildMarketMotionCorroborationCandidates(
     });
 }
 
+export function mergeMarketMotionCorroborationItems(
+  currentRunItems: ScoredIntakeItem[],
+  recentReplayItems: ScoredIntakeItem[],
+) {
+  const byItemKey = new Map<string, ScoredIntakeItem>();
+  for (const item of recentReplayItems) byItemKey.set(item.itemKey, item);
+  for (const item of currentRunItems) byItemKey.set(item.itemKey, item);
+  return [...byItemKey.values()];
+}
+
 
 const MACRO_PULSE_MAX_CANDIDATES = MARKET_MOTION_RUN_LIMIT;
 
@@ -1162,6 +1172,90 @@ async function loadRecentReviewedTranscripts(input: {
   return (data || []) as ReviewedTranscriptMotionRow[];
 }
 
+type PersistedCorroborationIntakeRow = {
+  item_key: string;
+  item_type: ScoredIntakeItem["itemType"];
+  publisher: string;
+  external_id: string | null;
+  title: string;
+  url: string;
+  published_at: string;
+  article_position: number | null;
+  summary: string;
+  affected_story_slugs: string[] | null;
+  source_quality: number;
+  relevance: number;
+  novelty: number;
+  materiality: number;
+  candidate_score: number;
+  recommended_action: ScoredIntakeItem["recommendedAction"];
+  stats_signal: string | null;
+  news_signal: string | null;
+  divergence_kind: ScoredIntakeItem["divergenceKind"] | null;
+  divergence_note: string | null;
+  evidence_links: unknown;
+  review_reason: string | null;
+};
+
+function persistedEvidenceLinks(value: unknown): ScoredIntakeItem["evidence"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): ScoredIntakeItem["evidence"] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>;
+    const title = typeof item.title === "string" ? item.title : "";
+    const url = typeof item.url === "string" ? item.url : "";
+    const publisher = typeof item.publisher === "string" ? item.publisher : "";
+    const publishedAt = typeof item.publishedAt === "string" ? item.publishedAt : "";
+    const claim = typeof item.claim === "string" ? item.claim : "";
+    if (!url || !claim) return [];
+    return [{ title, url, publisher, publishedAt, claim }];
+  });
+}
+
+function persistedCorroborationItem(row: PersistedCorroborationIntakeRow): ScoredIntakeItem {
+  return {
+    itemKey: row.item_key,
+    itemType: row.item_type,
+    publisher: row.publisher,
+    externalId: row.external_id || undefined,
+    title: row.title,
+    url: row.url,
+    publishedAt: row.published_at,
+    articlePosition: row.article_position ?? undefined,
+    summary: row.summary,
+    affectedStorySlugs: row.affected_story_slugs ?? [],
+    sourceQuality: row.source_quality,
+    relevance: row.relevance,
+    novelty: row.novelty,
+    materiality: row.materiality,
+    candidateScore: row.candidate_score,
+    recommendedAction: row.recommended_action,
+    statsSignal: row.stats_signal || undefined,
+    newsSignal: row.news_signal || undefined,
+    divergenceKind: row.divergence_kind || undefined,
+    divergenceNote: row.divergence_note || undefined,
+    evidence: persistedEvidenceLinks(row.evidence_links),
+    reviewReason: row.review_reason || undefined,
+  };
+}
+
+async function loadRecentCorroborationIntake(input: {
+  db: SupabaseClient;
+  now: Date;
+}): Promise<ScoredIntakeItem[]> {
+  const cutoff = new Date(input.now.getTime() - MARKET_MOTION_FRESHNESS_HOURS * 60 * 60 * 1_000).toISOString();
+  const { data, error } = await input.db
+    .from("research_intake_items")
+    .select("item_key,item_type,publisher,external_id,title,url,published_at,article_position,summary,affected_story_slugs,source_quality,relevance,novelty,materiality,candidate_score,recommended_action,stats_signal,news_signal,divergence_kind,divergence_note,evidence_links,review_reason")
+    .neq("item_type", "video")
+    .gte("published_at", cutoff)
+    .order("published_at", { ascending: false })
+    .limit(240);
+
+  if (error) throw new Error(`Market Motion could not read recent corroboration intake: ${error.message}`);
+  return ((data || []) as PersistedCorroborationIntakeRow[]).map(persistedCorroborationItem);
+}
+
 export function buildExistingMotionCorroborationUpdates(
   rows: MarketMotionRecord[],
   corroborators: MarketMotionInput[],
@@ -1389,8 +1483,18 @@ export async function persistMarketMotionFromResearchRun(input: {
     [...intakeCandidates, ...creatorCandidates],
     { researchRunId: input.researchRunId },
   );
-  const corroborators = buildMarketMotionCorroborationCandidates(
+  let replayCorroborationItems: ScoredIntakeItem[] = [];
+  try {
+    replayCorroborationItems = await loadRecentCorroborationIntake({ db, now });
+  } catch (error) {
+    warnings.push(error instanceof Error ? error.message : "Market Motion recent corroboration replay failed.");
+  }
+  const corroborationItems = mergeMarketMotionCorroborationItems(
     input.items,
+    replayCorroborationItems,
+  );
+  const corroborators = buildMarketMotionCorroborationCandidates(
+    corroborationItems,
     stories,
     { now, researchRunId: input.researchRunId },
   );
