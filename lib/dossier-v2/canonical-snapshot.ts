@@ -2032,6 +2032,8 @@ export async function loadCanonicalCandidateSnapshot(
       .from("intelligence_evidence")
       .select(CANONICAL_EVIDENCE_SELECT)
       .in("id", pinnedEvidenceIds)
+      .gte("received_at", since)
+      .lte("received_at", options.asOf)
       .in("freshness_status", ["current", "aging"]);
 
     if (pinnedError) {
