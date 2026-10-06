@@ -144,6 +144,64 @@ export function pruneInvalidStockRadarEvidenceReferences(
   return output;
 }
 
+export function pinResearchBrainPersistentStoryIdentities(
+  output: unknown,
+  packet: DossierV2InputPacket,
+): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+
+  const bindings = new Map(
+    (packet.persistent_story_bindings ?? []).map((binding) => [
+      binding.analytical_story_id,
+      binding.persistent_story_id,
+    ]),
+  );
+  const root = output as Record<string, unknown>;
+  if (!Array.isArray(root.major_stories)) return output;
+
+  let pinnedCount = 0;
+  let clearedCount = 0;
+  for (const item of root.major_stories) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const story = item as Record<string, unknown>;
+    const analyticalStoryId =
+      typeof story.story_id === "string" ? story.story_id.trim() : "";
+    if (!analyticalStoryId) continue;
+
+    const exactPersistentStoryId = bindings.get(analyticalStoryId) ?? null;
+    const emittedPersistentStoryId =
+      typeof story.persistent_story_id === "string"
+        ? story.persistent_story_id.trim()
+        : story.persistent_story_id === null
+          ? null
+          : undefined;
+
+    if (exactPersistentStoryId) {
+      if (emittedPersistentStoryId !== exactPersistentStoryId) {
+        story.persistent_story_id = exactPersistentStoryId;
+        pinnedCount++;
+      }
+      continue;
+    }
+
+    if (emittedPersistentStoryId !== undefined && emittedPersistentStoryId !== null) {
+      story.persistent_story_id = null;
+      clearedCount++;
+    }
+  }
+
+  if (pinnedCount > 0 || clearedCount > 0) {
+    console.info(JSON.stringify({
+      event: "research_brain_persistent_story_identity_pinned",
+      packetId: packet.packet_id,
+      pinnedCount,
+      clearedCount,
+    }));
+  }
+
+  return output;
+}
+
 export function preservePriorInvestigationExpectedReactions(
   output: unknown,
   packet: DossierV2InputPacket,
@@ -676,6 +734,10 @@ export async function executeResearchBrain(
           system1Candidates,
           system1ReactionAssessments,
         );
+        normalizedRecovery = pinResearchBrainPersistentStoryIdentities(
+          normalizedRecovery,
+          packet,
+        );
         normalizedRecovery = preservePriorInvestigationExpectedReactions(
           normalizedRecovery,
           packet,
@@ -724,6 +786,7 @@ export async function executeResearchBrain(
     system1Candidates,
     system1ReactionAssessments,
   );
+  firstPassData = pinResearchBrainPersistentStoryIdentities(firstPassData, packet);
   firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
@@ -754,6 +817,10 @@ export async function executeResearchBrain(
         repairRes.data,
         system1Candidates,
         system1ReactionAssessments,
+      );
+      normalizedRepairData = pinResearchBrainPersistentStoryIdentities(
+        normalizedRepairData,
+        packet,
       );
       normalizedRepairData = preservePriorInvestigationExpectedReactions(
         normalizedRepairData,
