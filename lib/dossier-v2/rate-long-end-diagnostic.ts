@@ -30,6 +30,15 @@ export type RateLongEndDiagnostic = {
     change5dBp: number | null;
     evidenceRef: string | null;
   };
+  fiveYearCrossCheck: {
+    realYieldLevelPct: number | null;
+    realYieldChange5dBp: number | null;
+    breakevenLevelPct: number | null;
+    breakevenChange5dBp: number | null;
+    realYieldEvidenceRef: string | null;
+    breakevenEvidenceRef: string | null;
+    detail: string;
+  };
   observedDecomposition: {
     state: LongEndObservedDriverState;
     accountedChangeBp: number | null;
@@ -148,6 +157,8 @@ function fmtPct(value: number | null) {
 
 export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLongEndDiagnostic {
   const nominal = monitor(packet, "us10y") ?? monitor(packet, "us10y-fred");
+  const real5y = monitor(packet, "us5y-real");
+  const breakeven5y = monitor(packet, "us5y-breakeven");
   const real = monitor(packet, "us10y-real");
   const breakeven = monitor(packet, "us10y-breakeven");
   const termPremium = signalContext(packet, "term_premium") ?? signalContext(packet, "acm_term_premium");
@@ -158,9 +169,13 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
   const move = monitor(packet, "move");
 
   const nominalLevel = metricNumber(nominal, "last");
+  const real5yLevel = metricNumber(real5y, "last");
+  const breakeven5yLevel = metricNumber(breakeven5y, "last");
   const realLevel = metricNumber(real, "last");
   const breakevenLevel = metricNumber(breakeven, "last");
   const nominalChange = round(bpChange(nominal));
+  const real5yChange = round(bpChange(real5y));
+  const breakeven5yChange = round(bpChange(breakeven5y));
   const realChange = round(bpChange(real));
   const breakevenChange = round(bpChange(breakeven));
   const accounted = realChange !== null && breakevenChange !== null
@@ -187,6 +202,8 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
 
   const refs = [
     nominal?.evidence_id,
+    real5y?.evidence_id,
+    breakeven5y?.evidence_id,
     real?.evidence_id,
     breakeven?.evidence_id,
     termPremium?.evidence_id,
@@ -197,6 +214,7 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
   ].filter((value): value is string => Boolean(value));
 
   const gaps: string[] = [];
+  if (!real5y || !breakeven5y) gaps.push("5Y real-yield/breakeven cross-check is incomplete; do not infer the missing leg.");
   if (!termPremium) gaps.push("No governed term-premium observation is present; do not infer term premium from nominal yields alone.");
   if (!auction) gaps.push("No structured current Treasury-auction absorption evidence is present.");
   if (!move) gaps.push("MOVE/Treasury-volatility is not yet present in the canonical market-monitor sensor set.");
@@ -219,6 +237,17 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
       levelPct: round(breakevenLevel, 3),
       change5dBp: breakevenChange,
       evidenceRef: breakeven?.evidence_id ?? null,
+    },
+    fiveYearCrossCheck: {
+      realYieldLevelPct: round(real5yLevel, 3),
+      realYieldChange5dBp: real5yChange,
+      breakevenLevelPct: round(breakeven5yLevel, 3),
+      breakevenChange5dBp: breakeven5yChange,
+      realYieldEvidenceRef: real5y?.evidence_id ?? null,
+      breakevenEvidenceRef: breakeven5y?.evidence_id ?? null,
+      detail: real5y && breakeven5y
+        ? `5Y real yield ${fmtPct(real5yLevel)} (${fmtBp(real5yChange)} 5D); 5Y breakeven ${fmtPct(breakeven5yLevel)} (${fmtBp(breakeven5yChange)}). This is a cross-check only; the 10Y long-end decomposition remains the state classifier.`
+        : "5Y real-yield/breakeven cross-check is incomplete and remains unresolved.",
     },
     observedDecomposition: {
       state,
