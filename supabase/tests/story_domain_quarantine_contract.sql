@@ -81,7 +81,7 @@ begin
     and status = 'open'
     and metadata ->> 'kind' = 'story_domain_debt'
     and metadata ->> 'domainStatus' = 'quarantined'
-    and metadata ->> 'contractVersion' = 'story-domain/1';
+    and metadata ->> 'contractVersion' = 'story-domain/2';
 
   if open_domain <> 1 then
     raise exception 'Out-of-domain Story did not produce exactly one quarantine debt row';
