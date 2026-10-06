@@ -465,6 +465,52 @@ test("Task 9 adapter admits official EIA weekly energy evidence without making i
   );
 });
 
+
+test("Task 9 EIA enrichment excludes future weekly observations from historical Dossier replay", () => {
+  const historicalAsOf = "2026-09-25T13:10:00.000Z";
+  const base = buildCandidateSnapshotFromCanonicalEvidence([], {
+    asOf: historicalAsOf,
+    lookbackHours: 168,
+  });
+
+  const eia = parseEiaWeeklyPetroleumPayload(
+    {
+      response: {
+        data: [
+          { period: "2026-10-02", series: "WCESTUS1", value: 430000, units: "Thousand Barrels" },
+          { period: "2026-09-24", series: "WCESTUS1", value: 426398, units: "Thousand Barrels" },
+          { period: "2026-10-02", series: "WPULEUS3", value: 95.0, units: "Percent" },
+          { period: "2026-09-24", series: "WPULEUS3", value: 94.0, units: "Percent" },
+        ],
+      },
+    },
+    { retrievedAt: "2026-10-03T08:00:00.000Z" },
+  );
+
+  const result = augmentCandidateSnapshotWithEia(base, eia, {
+    asOf: historicalAsOf,
+    lookbackHours: 168,
+  });
+  const evidence = result.snapshot.observed_evidence ?? [];
+
+  assert.equal(evidence.length, 2);
+  assert.equal(
+    evidence.some((item) => String(item.evidence_id).includes("2026-10-02")),
+    false,
+  );
+  assert.ok(
+    evidence.every((item) => String(item.evidence_id).includes("2026-09-24")),
+  );
+  assert.ok(
+    evidence.every((item) =>
+      Date.parse(String(item.available_at)) <= Date.parse(historicalAsOf)),
+  );
+  assert.equal(
+    result.snapshot.sources_status?.eia_weekly_petroleum?.available_at,
+    "2026-09-24T23:59:59.999Z",
+  );
+});
+
 test("Task 9 adapter admits Trading Economics actual-consensus-previous as optional US surprise evidence", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,

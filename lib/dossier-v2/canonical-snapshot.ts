@@ -1338,33 +1338,43 @@ export function augmentCandidateSnapshotWithEia(
 ): CanonicalSnapshotResult {
   const observed = [...(result.snapshot.observed_evidence ?? [])];
   let added = 0;
+  let latestAdmittedAvailableAt: string | undefined;
 
   if (eia.state === "ready") {
     for (const [rawKey, metric] of Object.entries(eia.metrics)) {
       if (!metric) continue;
       const key = rawKey as EiaWeeklyMetricKey;
-      const latest = metric.latest;
-      const previous = metric.previous;
-      const delta = previous ? latest.value - previous.value : null;
-      const unit = latest.units ?? metric.canonicalUnit;
+      const selected = [metric.latest, metric.previous]
+        .filter((item): item is NonNullable<typeof metric.previous> => Boolean(item))
+        .filter((item) =>
+          isAvailableByAsOf(endOfUtcDay(item.period), options.asOf))
+        .sort((left, right) => right.period.localeCompare(left.period))[0] ?? null;
+      if (!selected) continue;
+
+      const selectedIsLatest = selected.period === metric.latest.period;
+      const previous = selectedIsLatest ? metric.previous : null;
+      const delta = previous ? selected.value - previous.value : null;
+      const unit = selected.units ?? metric.canonicalUnit;
+      const availableAt = endOfUtcDay(selected.period);
+      if (!availableAt) continue;
 
       const comparison = previous
         ? `, versus ${formatObservedMetric(previous.value)} ${previous.units ?? metric.canonicalUnit} the prior week${delta === null ? "" : ` (change ${delta >= 0 ? "+" : ""}${formatObservedMetric(delta)} ${unit})`}`
         : "";
 
       observed.push({
-        evidence_id: `eia:${metric.seriesId}:${latest.period}`,
-        claim_or_fact: `${metric.label} was ${formatObservedMetric(latest.value)} ${unit} for the week ending ${latest.period}${comparison}.`,
+        evidence_id: `eia:${metric.seriesId}:${selected.period}`,
+        claim_or_fact: `${metric.label} was ${formatObservedMetric(selected.value)} ${unit} for the week ending ${selected.period}${comparison}.`,
         category: "Energy",
         source_type: "OFFICIAL_DATA",
-        available_at: options.asOf,
-        occurrence_time: `${latest.period}T00:00:00.000Z`,
+        available_at: availableAt,
+        occurrence_time: `${selected.period}T00:00:00.000Z`,
         grouping_key: EIA_GROUPING_KEY_BY_METRIC[key],
         rank: 30 + added,
         metrics: {
           series_id: metric.seriesId,
-          period: latest.period,
-          latest_value: latest.value,
+          period: selected.period,
+          latest_value: selected.value,
           previous_value: previous?.value ?? null,
           delta,
           unit,
@@ -1377,19 +1387,28 @@ export function augmentCandidateSnapshotWithEia(
           publisher: eia.sourceName,
         }],
       });
+      latestAdmittedAvailableAt = !latestAdmittedAvailableAt
+        || availableAt > latestAdmittedAvailableAt
+        ? availableAt
+        : latestAdmittedAvailableAt;
       added += 1;
     }
   }
 
+  const effectiveState = eia.state === "ready" && added === 0
+    ? "unavailable"
+    : eia.state;
   const sourcesStatus = {
     ...(result.snapshot.sources_status ?? {}),
     eia_weekly_petroleum: {
-      status: optionalProviderState(eia.state),
-      available_at: eia.retrievedAt ?? undefined,
+      status: optionalProviderState(effectiveState),
+      available_at: latestAdmittedAvailableAt,
       message:
-        eia.state === "ready"
+        eia.state === "ready" && added > 0
           ? `${added} official EIA weekly petroleum observations admitted as optional energy evidence.`
-          : eia.note ?? "Optional EIA weekly petroleum enrichment was skipped.",
+          : eia.state === "ready"
+            ? "No EIA weekly petroleum observation at or before the requested asOf was available from the bounded provider snapshot."
+            : eia.note ?? "Optional EIA weekly petroleum enrichment was skipped.",
     },
   };
 
