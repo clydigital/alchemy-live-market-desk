@@ -60,6 +60,74 @@ function verificationTone(value: MarketMotionVerificationState) {
   return "reported";
 }
 
+type MarketMotionRegimeRollupItem = {
+  key: string;
+  regimeLabel: string;
+  regimeHref: string | null;
+  directCount: number;
+  readThroughCount: number;
+  acceptCount: number;
+  refineCount: number;
+  evidenceCount: number;
+  judgements: Array<{
+    id: string;
+    decision: "ACCEPT" | "REFINE";
+    mode: "DIRECT" | "READ_THROUGH";
+    conclusion: string;
+  }>;
+};
+
+function buildMarketMotionRegimeRollup(
+  items: MarketMotionOverviewItem[],
+): MarketMotionRegimeRollupItem[] {
+  const byRegime = new Map<string, MarketMotionRegimeRollupItem>();
+
+  for (const item of items) {
+    if (
+      !item.regimeLabel
+      || !item.regimeContribution
+      || (item.regimeContributionState !== "ACCEPT" && item.regimeContributionState !== "REFINE")
+      || (item.regimeContributionMode !== "DIRECT" && item.regimeContributionMode !== "READ_THROUGH")
+    ) {
+      continue;
+    }
+
+    const key = item.regimeHref || item.regimeLabel;
+    const current = byRegime.get(key) ?? {
+      key,
+      regimeLabel: item.regimeLabel,
+      regimeHref: item.regimeHref,
+      directCount: 0,
+      readThroughCount: 0,
+      acceptCount: 0,
+      refineCount: 0,
+      evidenceCount: 0,
+      judgements: [],
+    };
+
+    if (item.regimeContributionMode === "DIRECT") current.directCount += 1;
+    else current.readThroughCount += 1;
+
+    if (item.regimeContributionState === "ACCEPT") current.acceptCount += 1;
+    else current.refineCount += 1;
+
+    current.evidenceCount += item.regimeContributionEvidenceCount ?? 0;
+    current.judgements.push({
+      id: item.id,
+      decision: item.regimeContributionState,
+      mode: item.regimeContributionMode,
+      conclusion: item.regimeContribution,
+    });
+    byRegime.set(key, current);
+  }
+
+  return [...byRegime.values()].sort((left, right) =>
+    right.directCount - left.directCount
+    || right.judgements.length - left.judgements.length
+    || left.regimeLabel.localeCompare(right.regimeLabel)
+  );
+}
+
 function MotionCard({
   item,
   journeyMode = false,
@@ -209,6 +277,8 @@ export default function MarketMotionOverview({
   showFullTapeLink?: boolean;
   journeyMode?: boolean;
 }) {
+  const regimeRollup = journeyMode ? buildMarketMotionRegimeRollup(items) : [];
+
   const groups = [
     {
       tier: "PRIMARY" as const,
@@ -234,6 +304,62 @@ export default function MarketMotionOverview({
         </div>
         {showFullTapeLink ? <Link href="/whats-new">Open full motion tape →</Link> : null}
       </header>
+
+      {journeyMode && regimeRollup.length ? (
+        <div className={styles.regimeRollup}>
+          <div className={styles.regimeRollupIntro}>
+            <span>DOSSIER → REGIME ROLL-UP</span>
+            <h3>What fresh Motion is contributing to the regime map</h3>
+            <p>
+              Only canonical Dossier ACCEPT/REFINE judgements appear here. Direct Regime routes
+              stay separate from Story-routed read-through, and neither label turns raw Motion
+              into evidence or a Regime state change by itself.
+            </p>
+          </div>
+
+          <div className={styles.regimeRollupGrid}>
+            {regimeRollup.map((regime) => (
+              <article className={styles.regimeRollupCard} key={regime.key}>
+                <div className={styles.regimeRollupHead}>
+                  <div>
+                    <span>REGIME</span>
+                    <h4>
+                      {regime.regimeHref
+                        ? <Link href={regime.regimeHref}>{regime.regimeLabel}</Link>
+                        : regime.regimeLabel}
+                    </h4>
+                  </div>
+                  <strong>{regime.judgements.length} judged</strong>
+                </div>
+
+                <p className={styles.regimeRollupStats}>
+                  {regime.directCount} direct · {regime.readThroughCount} read-through ·{" "}
+                  {regime.acceptCount} accept · {regime.refineCount} refine
+                  {regime.evidenceCount ? " · " + regime.evidenceCount + " evidence refs" : ""}
+                </p>
+
+                <div className={styles.regimeRollupJudgements}>
+                  {regime.judgements.slice(0, 3).map((judgement) => (
+                    <div data-mode={judgement.mode.toLowerCase()} key={judgement.id}>
+                      <span>
+                        {judgement.decision} ·{" "}
+                        {judgement.mode === "DIRECT" ? "DIRECT REGIME ROUTE" : "STORY READ-THROUGH"}
+                      </span>
+                      <p>{judgement.conclusion}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {regime.readThroughCount ? (
+                  <small>
+                    Story read-through is Dossier context only. It does not authorise Regime mutation.
+                  </small>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {items.length ? groups.map((group) => (
         <div className={styles.tierGroup} key={group.tier}>
