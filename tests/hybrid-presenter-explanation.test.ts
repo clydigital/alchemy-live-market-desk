@@ -10,7 +10,8 @@ test("Hybrid opens from the full bounded Market Motion stream instead of three D
   assert.match(hybrid, /selectMarketMotionEditionContext/);
   assert.match(hybrid, /MARKET_MOTION_DISPLAY_SAFETY_LIMIT/);
   assert.doesNotMatch(hybrid, /limit:\s*3/);
-  assert.doesNotMatch(hybrid, /getCurrentMarketMotion/);
+  assert.match(hybrid, /getCurrentMarketMotion/);
+  assert.match(hybrid, /Hybrid Market Motion/);
   assert.match(hybrid, /MARKET MOTION JOURNEY/);
   assert.match(hybrid, /event → why interesting → market reaction → Story\/Regime bridge → what to investigate or write/);
   assert.match(hybrid, /Primary Motion/);
@@ -27,7 +28,8 @@ test("Journey keeps Motion as discovery context while Research Gap starts from t
   assert.match(hybrid, /Motion → canonical Dossier System 2 → Dossier research\/investigation output → Research Gap lifecycle/);
   assert.match(hybrid, /Raw Motion does not create Research Gap work directly/);
   assert.match(hybrid, /Dossier\/regime state changes only if later canonical evidence changes the accepted interpretation/);
-  assert.match(hybrid, /exact immutable Motion snapshot attached to the current canonical edition/);
+  assert.match(hybrid, /live 48-hour Motion stream/);
+  assert.match(hybrid, /exact immutable Motion snapshot attached to that Journey edition/);
 });
 
 test("Hybrid makes upcoming catalysts a primary layer after Motion and before Dossier context", () => {
