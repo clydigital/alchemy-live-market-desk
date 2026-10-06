@@ -121,7 +121,32 @@ export interface LoadCanonicalSnapshotOptions {
   asOf: string;
   lookbackHours?: number;
   limit?: number;
+  /** Exact canonical intelligence_evidence UUIDs required by promoted Motion context. */
+  pinnedEvidenceIds?: string[];
 }
+
+const CANONICAL_EVIDENCE_SELECT = [
+  "id",
+  "external_evidence_id",
+  "claim_text",
+  "summary",
+  "evidence_class",
+  "support_direction",
+  "event_at",
+  "published_at",
+  "available_at",
+  "received_at",
+  "freshness_status",
+  "affected_assets",
+  "affected_topics",
+  "provenance_urls",
+  "structured_payload",
+  "measurement_unit",
+  "observed_value",
+  "expected_value",
+  "previous_value",
+  "source:intelligence_evidence_sources!inner(id,ancestry_group_id,external_source_id,source_name,source_type,source_url,source_tier,reliability_score,provider_key)",
+].join(",");
 
 const DIRECT_EVIDENCE_SOURCE_BY_CLASS: Record<string, string> = {
   market_observation: "MARKET_DATA",
@@ -526,6 +551,9 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 
   const lookbackHours = Math.max(1, Math.min(options.lookbackHours ?? 168, 24 * 30));
   const lookbackStartMs = asOfMs - lookbackHours * 3_600_000;
+  const pinnedEvidenceIdSet = new Set(
+    (options.pinnedEvidenceIds ?? []).map((value) => value.trim()).filter(Boolean),
+  );
 
   const observedEvidence: Array<Record<string, unknown>> = [];
   const researchLeads: Array<Record<string, unknown>> = [];
@@ -602,7 +630,9 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         available_at: availableAt,
         occurrence_time: row.event_at ?? row.published_at ?? undefined,
         grouping_key: groupingKeyForRow(row),
-        rank: observedEvidenceRank(row, directSourceType),
+        rank: pinnedEvidenceIdSet.has(row.id)
+          ? 1
+          : observedEvidenceRank(row, directSourceType),
         ...(articleMarketObservation ? { is_admitted_fact: true } : {}),
         metrics: {
           support_direction: row.support_direction ?? "neutral",
@@ -1979,30 +2009,7 @@ export async function loadCanonicalCandidateSnapshot(
 
   const { data, error } = await client
     .from("intelligence_evidence")
-    .select(
-      [
-        "id",
-        "external_evidence_id",
-        "claim_text",
-        "summary",
-        "evidence_class",
-        "support_direction",
-        "event_at",
-        "published_at",
-        "available_at",
-        "received_at",
-        "freshness_status",
-        "affected_assets",
-        "affected_topics",
-        "provenance_urls",
-        "structured_payload",
-        "measurement_unit",
-        "observed_value",
-        "expected_value",
-        "previous_value",
-        "source:intelligence_evidence_sources!inner(id,ancestry_group_id,external_source_id,source_name,source_type,source_url,source_tier,reliability_score,provider_key)",
-      ].join(","),
-    )
+    .select(CANONICAL_EVIDENCE_SELECT)
     .gte("received_at", since)
     .lte("received_at", options.asOf)
     .in("freshness_status", ["current", "aging"])
@@ -2013,9 +2020,41 @@ export async function loadCanonicalCandidateSnapshot(
     throw new Error(`Failed to load canonical evidence for Dossier V2: ${error.message}`);
   }
 
+  const pinnedEvidenceIds = [...new Set(
+    (options.pinnedEvidenceIds ?? [])
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )].slice(0, 8);
+
+  let pinnedRows: CanonicalEvidenceRow[] = [];
+  if (pinnedEvidenceIds.length > 0) {
+    const { data: pinnedData, error: pinnedError } = await client
+      .from("intelligence_evidence")
+      .select(CANONICAL_EVIDENCE_SELECT)
+      .in("id", pinnedEvidenceIds)
+      .gte("received_at", since)
+      .lte("received_at", options.asOf)
+      .in("freshness_status", ["current", "aging"]);
+
+    if (pinnedError) {
+      throw new Error(`Failed to load promoted Motion canonical Evidence pins for Dossier V2: ${pinnedError.message}`);
+    }
+    pinnedRows = (pinnedData ?? []) as unknown as CanonicalEvidenceRow[];
+  }
+
+  const canonicalRows = [...new Map(
+    [
+      ...((data ?? []) as unknown as CanonicalEvidenceRow[]),
+      ...pinnedRows,
+    ].map((row) => [row.id, row]),
+  ).values()];
+
   let result = buildCandidateSnapshotFromCanonicalEvidence(
-    (data ?? []) as unknown as CanonicalEvidenceRow[],
-    options,
+    canonicalRows,
+    {
+      ...options,
+      pinnedEvidenceIds,
+    },
   );
 
   const calendarFrom = new Date(asOfMs - Math.min(72, lookbackHours) * 3_600_000);

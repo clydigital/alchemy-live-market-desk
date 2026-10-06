@@ -137,6 +137,60 @@ function rehashPacket(
   };
 }
 
+function chronologySafeMarketMotionRows(
+  rows: MarketMotionRecord[],
+  now: Date,
+) {
+  return rows.filter((item) => {
+    const observedAt = Date.parse(item.observed_at);
+    const occurredAt = Date.parse(item.occurred_at);
+    return Number.isFinite(observedAt)
+      && Number.isFinite(occurredAt)
+      && observedAt <= now.getTime()
+      && occurredAt <= now.getTime();
+  });
+}
+
+export function promotedMarketMotionEvidencePins(
+  rows: MarketMotionRecord[],
+  now = new Date(),
+) {
+  const selected = selectPromotedMarketMotionForDossier(
+    chronologySafeMarketMotionRows(rows, now),
+    now,
+    MAX_DOSSIER_MOTION_CONTEXT,
+  );
+
+  return [...new Set(selected.flatMap((item) => {
+    const canonicalEvidenceId = typeof item.metadata?.promotionEvidenceId === "string"
+      ? item.metadata.promotionEvidenceId.trim()
+      : "";
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(canonicalEvidenceId)
+      ? [canonicalEvidenceId]
+      : [];
+  }))];
+}
+
+export async function loadCurrentMarketMotionEvidencePins(
+  client: SupabaseClient,
+  asOf: string,
+) {
+  const asOfMs = Date.parse(asOf);
+  const now = Number.isFinite(asOfMs) ? new Date(asOfMs) : new Date();
+  try {
+    const rows = await getCurrentMarketMotion({
+      includeExpired: true,
+      limit: 60,
+      client,
+    });
+    return promotedMarketMotionEvidencePins(rows, now);
+  } catch {
+    // Motion remains an optional attention layer; its pin lookup must never
+    // block the canonical evidence-first Dossier path.
+    return [];
+  }
+}
+
 export function attachDossierMotionContext(
   packet: DossierV2InputPacket,
   rows: MarketMotionRecord[],
@@ -148,14 +202,7 @@ export function attachDossierMotionContext(
     ...(packet.rate_context?.evidence ?? []).map((item) => item.evidence_id),
   ]);
 
-  const chronologySafeRows = rows.filter((item) => {
-    const observedAt = Date.parse(item.observed_at);
-    const occurredAt = Date.parse(item.occurred_at);
-    return Number.isFinite(observedAt)
-      && Number.isFinite(occurredAt)
-      && observedAt <= now.getTime()
-      && occurredAt <= now.getTime();
-  });
+  const chronologySafeRows = chronologySafeMarketMotionRows(rows, now);
   const eligible = selectPromotedMarketMotionForDossier(
     chronologySafeRows,
     now,

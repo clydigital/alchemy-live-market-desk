@@ -1400,3 +1400,82 @@ test("25. explicit-instrument market news is admitted with its canonical packet 
   assert.equal(observed[0].source_type, "NEWS_MARKET_CONTEXT");
   assert.equal(observed[0].canonical_record_backed, true);
 });
+
+
+test("26. promoted Motion Evidence pin survives bounded Dossier cluster selection", () => {
+  const officialRows: CanonicalEvidenceRow[] = Array.from({ length: 30 }, (_, index) => ({
+    id: `official-${index}`,
+    external_evidence_id: `official:${index}`,
+    claim_text: `Official observation ${index} was 100 points.`,
+    evidence_class: "official_release",
+    published_at: IN_WINDOW_TIME,
+    available_at: IN_WINDOW_TIME,
+    received_at: IN_WINDOW_TIME,
+    freshness_status: "current",
+    affected_assets: [],
+    affected_topics: [`official-topic-${index}`],
+    provenance_urls: [`https://example.com/official/${index}`],
+    structured_payload: {},
+    source: {
+      id: `official-source-${index}`,
+      source_name: "Official Source",
+      source_type: "official",
+      source_tier: 1,
+      reliability_score: 99,
+    },
+  }));
+
+  const pinned: CanonicalEvidenceRow = {
+    id: "pinned-nvda-evidence",
+    external_evidence_id: "research-intake:nvda-ath",
+    claim_text: "NVIDIA near ATH $243.35 with overextension risk: Live levels",
+    evidence_class: "news_report",
+    published_at: IN_WINDOW_TIME,
+    available_at: IN_WINDOW_TIME,
+    received_at: IN_WINDOW_TIME,
+    freshness_status: "current",
+    affected_assets: ["NVDA"],
+    affected_topics: ["nvda-ath"],
+    provenance_urls: ["https://www.investing.com/news/example"],
+    structured_payload: {
+      itemKey: "feed:investing-com:nvda-ath",
+      evidenceNature: "fresh_news",
+    },
+    source: {
+      id: "src-investing",
+      source_name: "Investing.com",
+      source_type: "news",
+      source_tier: 3,
+      reliability_score: 70,
+    },
+  };
+
+  const unpinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
+    [...officialRows, pinned],
+    { asOf: TEST_AS_OF },
+  );
+  const unpinnedPacket = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    unpinnedSnapshot.snapshot,
+  );
+  assert.equal(
+    unpinnedPacket.observed_evidence.some((item) => item.evidence_id === "research-intake:nvda-ath"),
+    false,
+  );
+
+  const pinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
+    [...officialRows, pinned],
+    { asOf: TEST_AS_OF, pinnedEvidenceIds: ["pinned-nvda-evidence"] },
+  );
+  const pinnedPacket = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    pinnedSnapshot.snapshot,
+  );
+
+  const admitted = pinnedPacket.observed_evidence.find(
+    (item) => item.evidence_id === "research-intake:nvda-ath",
+  );
+  assert.ok(admitted);
+  assert.equal(admitted.rank, 1);
+  assert.equal(admitted.source_type, "NEWS_MARKET_CONTEXT");
+});

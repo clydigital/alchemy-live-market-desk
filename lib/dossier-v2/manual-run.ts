@@ -20,7 +20,10 @@ import {
   executeAndPersistDossierV2,
   type DossierV2ExecutionResult,
 } from "./execution.ts";
-import { attachCurrentMarketMotionContext } from "./motion-context.ts";
+import {
+  attachCurrentMarketMotionContext,
+  loadCurrentMarketMotionEvidencePins,
+} from "./motion-context.ts";
 import type { DossierStoryRefreshAgendaResult } from "./story-refresh-agenda.ts";
 import type { DossierReevaluationPropagationResult } from "./reevaluation-propagation.ts";
 import type {
@@ -572,12 +575,17 @@ export async function runManualDossierV2(
 ): Promise<ManualDossierV2RunResult> {
   const client = options.client ?? createSupabaseAdminClient();
 
+  const promotedMotionEvidencePins = options.snapshotResult
+    ? []
+    : await loadCurrentMarketMotionEvidencePins(client, options.asOf);
+
   const snapshotResult =
     options.snapshotResult ??
     (await loadCanonicalCandidateSnapshot(client, {
       asOf: options.asOf,
       lookbackHours: options.lookbackHours,
       limit: options.evidenceLimit,
+      pinnedEvidenceIds: promotedMotionEvidencePins,
     }));
 
   const previousResolution = await resolveLatestDossier(client, options.asOf);
