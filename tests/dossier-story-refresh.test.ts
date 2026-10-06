@@ -207,7 +207,7 @@ test("explicit Dossier evidence can wake a linked Story even without lexical ove
   assert.equal(agenda[0]?.match_basis, "existing_story_evidence");
 });
 
-test("Dossier can pair an untagged credible news item with an archived Story when both match the current regime", () => {
+test("Dossier fuzzy matching does not revive an archived Story without an explicit canonical link", () => {
   const inputPacket = packet();
   const agenda = buildDossierStoryRefreshAgenda({
     dossierId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
@@ -237,8 +237,41 @@ test("Dossier can pair an untagged credible news item with an archived Story whe
     storyEvidenceLinks: [],
   });
 
+  assert.deepEqual(agenda, []);
+});
+
+test("Dossier can fuzzy-match an active Story when canonical evidence and current attention overlap", () => {
+  const inputPacket = packet();
+  const agenda = buildDossierStoryRefreshAgenda({
+    dossierId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    packet: inputPacket,
+    analyticalOutput: output(inputPacket),
+    stories: [
+      {
+        id: "story-diesel-active",
+        slug: "refining-crack-spread-stress",
+        title: "Diesel remains tight as refining cracks stay elevated",
+        thesis: "Distillate supply tightness and refinery constraints can keep diesel prices elevated.",
+        market_question: "Can tight diesel supply sustain fuel-cost pressure?",
+        assets: ["ULSD", "DIESEL_CRACK"],
+        status: "develop",
+      },
+    ],
+    evidenceRows: [
+      {
+        id: OIL_EVIDENCE_ID,
+        claim_text: "Refinery attacks and tight diesel supply are keeping distillate markets under pressure.",
+        summary: null,
+        affected_topics: [],
+        affected_assets: ["ULSD"],
+        evidence_class: "news_report",
+      },
+    ],
+    storyEvidenceLinks: [],
+  });
+
   assert.equal(agenda.length, 1);
-  assert.equal(agenda[0]?.story_id, "story-diesel");
+  assert.equal(agenda[0]?.story_id, "story-diesel-active");
   assert.equal(agenda[0]?.match_basis, "dossier_story_match");
 });
 
