@@ -15,12 +15,16 @@ as $$
   select jsonb_build_object(
     'thesis', p_version.thesis,
     'marketQuestion', p_version.market_question,
-    'acceptedExplanation', p_version.best_explanation,
+    'acceptedExplanation', coalesce(
+      p_version.snapshot #>> '{reasoning,acceptedExplanation}',
+      p_version.snapshot #>> '{canonicalStoryReasoning,acceptedExplanation}',
+      p_version.best_explanation
+    ),
     'dominantNarrative', p_version.dominant_narrative,
+    'publicStatus', p_version.status,
     'lifecycle', coalesce(
       p_version.snapshot #>> '{reasoning,lifecycle}',
-      p_version.snapshot #>> '{canonicalStoryReasoning,lifecycle}',
-      p_version.status
+      p_version.snapshot #>> '{canonicalStoryReasoning,lifecycle}'
     ),
     'currentState', coalesce(
       p_version.snapshot #>> '{reasoning,currentState}',
