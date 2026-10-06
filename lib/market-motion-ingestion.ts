@@ -172,7 +172,7 @@ const EVENT_FAMILIES: Array<[string, RegExp]> = [
   ["jobs", /\b(?:nonfarm payrolls?|nfp|jobs report|payrolls)\b/i],
   ["fomc", /\b(?:fomc|fed decision|federal reserve decision)\b/i],
   ["auction", /\b(?:treasury auction|auction tail|auction stop|bid-to-cover|indirect bidders?)\b/i],
-  ["rates_move", /\b(?:(?:2|5|10|20|30)[- ]?year treasury yield|(?:2y|5y|10y|20y|30y) yield|yield curve (?:steepen|flatten|bear|bull))\b/i],
+  ["rates_move", /\b(?:(?:2|5|10|20|30)[- ]?year(?: treasury)? yield|(?:2y|5y|10y|20y|30y) yield|yield curve (?:steepen|flatten|bear|bull))\b/i],
   ["oil_products", /\b(?:crude[- ]products? divergence|oil[- ]products? divergence|distillate divergence|gasoline divergence|refined products? divergence)\b/i],
   ["policy_surprise", /\b(?:policy surprise|unexpected policy|surprise tariff|surprise sanction|unexpected tariff|unexpected sanction)\b/i],
 ];
@@ -317,7 +317,15 @@ function eventFamily(text: string) {
 }
 
 function ratesInstrumentSubject(text: string) {
-  return explicitlyMentionedInstrumentSpecs(normaliseEventIdentityText(text))
+  const normalized = normaliseEventIdentityText(text);
+  const tenorMatch = normalized.match(/\b(2|5|10|20|30)[- ]?year(?: treasury)? yield\b/i)
+    || normalized.match(/\b(2|5|10|20|30)y yield\b/i);
+  if (tenorMatch?.[1]) {
+    const tenor = tenorMatch[1].padStart(2, "0");
+    return `us${tenor}y`;
+  }
+
+  return explicitlyMentionedInstrumentSpecs(normalized)
     .map((spec) => spec.instrument)
     .find((instrument) => /^US(?:02|05|10|20|30)Y$/.test(instrument))
     ?.toLowerCase() || null;
