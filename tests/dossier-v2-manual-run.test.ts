@@ -322,6 +322,16 @@ test("Task 9 adapter admits existing Live market monitor rows and marks FRED mac
   assert.match(String(breadth?.claim_or_fact), /58% above the 50-day average/);
 });
 
+test("Rates C6a acquires official 5Y real-yield and breakeven FRED series", () => {
+  const source = readFileSync(
+    new URL("../lib/market-monitor.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /id:\s*"us5y-real",\s*seriesId:\s*"DFII5"/);
+  assert.match(source, /id:\s*"us5y-breakeven",\s*seriesId:\s*"T5YIE"/);
+});
+
 test("Task 9 market monitor admission preserves the cross-asset macro spine before the 28-row cap", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,
@@ -330,6 +340,8 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
 
   const core = [
     ["us2y", "DGS2", "US 2Y Yield", "Rates"],
+    ["us5y-real", "DFII5", "US 5Y Real Yield", "Rates"],
+    ["us5y-breakeven", "T5YIE", "US 5Y Breakeven Inflation", "Rates"],
     ["us10y", "^TNX", "US 10Y Yield", "Rates"],
     ["move", "$MOVE", "ICE BofA MOVE Index", "Rates"],
     ["spx", "^GSPC", "S&P 500", "Major Index"],
@@ -372,12 +384,12 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
       change5d: 0,
       asOf: "2026-09-19",
       frequency: "daily" as const,
-      sourceName: id === "us2y" || id === "hy-oas" || id === "ig-oas"
+      sourceName: id === "us2y" || id === "us5y-real" || id === "us5y-breakeven" || id === "hy-oas" || id === "ig-oas"
         ? "Federal Reserve Economic Data"
         : id === "move"
           ? "Barchart OnDemand · ICE BofA MOVE Index"
           : "Canonical market source",
-      sourceUrl: id === "hy-oas" || id === "ig-oas"
+      sourceUrl: id === "us2y" || id === "us5y-real" || id === "us5y-breakeven" || id === "hy-oas" || id === "ig-oas"
         ? `https://fred.stlouisfed.org/series/${symbol}`
         : id === "move"
           ? "https://www.barchart.com/stocks/quotes/$MOVE/historical-download"
