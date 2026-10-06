@@ -579,17 +579,23 @@ function missingDossierTableClient(): SupabaseClient {
       return {
         select(_fields: string) {
           return {
-            order(_column: string, _options: unknown) {
+            lt(column: string, value: string) {
+              assert.equal(column, "as_of");
+              assert.equal(value, AS_OF);
               return {
-                limit(_limit: number) {
+                order(_column: string, _options: unknown) {
                   return {
-                    async maybeSingle() {
+                    limit(_limit: number) {
                       return {
-                        data: null,
-                        error: {
-                          code: "PGRST205",
-                          message:
-                            "Could not find the table 'public.market_dossiers_v2' in the schema cache",
+                        async maybeSingle() {
+                          return {
+                            data: null,
+                            error: {
+                              code: "PGRST205",
+                              message:
+                                "Could not find the table 'public.market_dossiers_v2' in the schema cache",
+                            },
+                          };
                         },
                       };
                     },
@@ -624,6 +630,25 @@ function leadOnlySnapshot(): CanonicalSnapshotResult {
     },
   );
 }
+
+
+test("historical Dossier runs resolve their predecessor strictly before as_of", () => {
+  const source = readFileSync(
+    new URL("../lib/dossier-v2/manual-run.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /resolveLatestDossier\(\s*client:\s*SupabaseClient,\s*asOf:\s*string,\s*\)/,
+  );
+  const cutoffMatches = source.match(/\.lt\("as_of", asOf\)/g) ?? [];
+  assert.equal(cutoffMatches.length, 2);
+  assert.match(
+    source,
+    /resolveLatestDossier\(client, options\.asOf\)/,
+  );
+});
 
 test("Task C4 keeps the immutable predecessor while sourcing reasoning memory from the last healthy Dossier", async () => {
   const healthyId = "11111111-1111-4111-8111-111111111111";
@@ -707,18 +732,24 @@ test("Task C4 keeps the immutable predecessor while sourcing reasoning memory fr
       return {
         select(_fields: string) {
           return {
-            order(_column: string, _options: unknown) {
+            lt(column: string, value: string) {
+              assert.equal(column, "as_of");
+              assert.equal(value, "2026-09-28T15:00:00.000Z");
               return {
-                limit(limit: number) {
-                  if (limit === 1) {
-                    return {
-                      async maybeSingle() {
-                        return { data: degraded, error: null };
-                      },
-                    };
-                  }
-                  assert.equal(limit, 12);
-                  return Promise.resolve({ data: [degraded, healthy], error: null });
+                order(_column: string, _options: unknown) {
+                  return {
+                    limit(limit: number) {
+                      if (limit === 1) {
+                        return {
+                          async maybeSingle() {
+                            return { data: degraded, error: null };
+                          },
+                        };
+                      }
+                      assert.equal(limit, 12);
+                      return Promise.resolve({ data: [degraded, healthy], error: null });
+                    },
+                  };
                 },
               };
             },

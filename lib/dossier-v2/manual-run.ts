@@ -94,12 +94,14 @@ function isMissingDossierTableError(error: { code?: string | null; message?: str
 
 async function resolveLatestDossier(
   client: SupabaseClient,
+  asOf: string,
 ): Promise<PreviousDossierResolution> {
   const { data, error } = await client
     .from("market_dossiers_v2")
     .select(
       "id, contract_version, previous_dossier_id, as_of, freshness, research_gaps, payload, created_at",
     )
+    .lt("as_of", asOf)
     .order("as_of", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -154,6 +156,7 @@ async function resolveLatestDossier(
     .select(
       "id, contract_version, previous_dossier_id, as_of, freshness, research_gaps, payload, created_at",
     )
+    .lt("as_of", asOf)
     .order("as_of", { ascending: false })
     .limit(12);
 
@@ -577,7 +580,7 @@ export async function runManualDossierV2(
       limit: options.evidenceLimit,
     }));
 
-  const previousResolution = await resolveLatestDossier(client);
+  const previousResolution = await resolveLatestDossier(client, options.asOf);
   const governedPersistentStoryBindings = previousResolution.persistenceAvailable
     ? await loadGovernedPersistentStoryBindings(client)
     : [];
