@@ -12,6 +12,10 @@ import {
   type CandidateSnapshot,
   type ThesisLedger,
 } from "../lib/dossier-v2/input-packet.ts";
+import {
+  buildCandidateSnapshotFromCanonicalEvidence,
+  type CanonicalEvidenceRow,
+} from "../lib/dossier-v2/canonical-snapshot.ts";
 
 const TEST_AS_OF = "2026-03-31T12:00:00.000Z";
 const IN_WINDOW_TIME = "2026-03-31T08:00:00.000Z";
@@ -1254,4 +1258,108 @@ test("rate context survives development-cluster budget pressure without expandin
       (item) => item.evidence_id === "market-monitor:us10y-real:2026-03-31",
     ),
   );
+});
+
+test("23. canonical_record_backed marker behavior and dedup semantics", () => {
+  const request: DossierV2InputRequest = {
+    as_of: TEST_AS_OF,
+    previous_dossier_id: null,
+  };
+
+  const canonicalEvidence = {
+    evidence_id: "ev:db-backed-001",
+    canonical_record_backed: true,
+    claim_or_fact: "Treasury 10Y yield reached 4.25% according to official SEC report.",
+    available_at: IN_WINDOW_TIME,
+    grouping_key: "treasury-10y-sec",
+    source_type: "SEC_FILING",
+    provenance: [{ source_type: "SEC", source_id: "sec-doc-1" }],
+  };
+
+  const derivedEvidence = {
+    evidence_id: "market-monitor:us10y:2026-03-31",
+    claim_or_fact: "US 10Y Benchmark Yield was 4.25% as of 2026-03-31.",
+    available_at: IN_WINDOW_TIME,
+    grouping_key: "market-monitor:us10y",
+    source_type: "MARKET_DATA",
+    provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:us10y" }],
+  };
+
+  const historicalEvidence = {
+    evidence_id: "ev:historical-001",
+    claim_or_fact: "CPI increased 0.2% month-over-month in prior period.",
+    available_at: IN_WINDOW_TIME,
+    grouping_key: "cpi-historical",
+    source_type: "STATISTICAL_AGENCY",
+    provenance: [{ source_type: "BLS", source_id: "bls-historical" }],
+  };
+
+  const snapshot1: CandidateSnapshot = {
+    observed_evidence: [canonicalEvidence, derivedEvidence, historicalEvidence],
+  };
+
+  const packet1 = assembleDossierV2InputPacket(request, snapshot1);
+
+  const dbBackedItem = packet1.observed_evidence.find((item) => item.evidence_id === "ev:db-backed-001");
+  assert.ok(dbBackedItem);
+  assert.equal(dbBackedItem.canonical_record_backed, true);
+
+  const derivedItem = packet1.observed_evidence.find((item) => item.evidence_id === "market-monitor:us10y:2026-03-31");
+  assert.ok(derivedItem);
+  assert.equal(derivedItem.canonical_record_backed, undefined);
+
+  const historicalItem = packet1.observed_evidence.find((item) => item.evidence_id === "ev:historical-001");
+  assert.ok(historicalItem);
+  assert.equal(historicalItem.canonical_record_backed, undefined);
+
+  // Dedup test: derived-first + canonical-second with identical text
+  const derivedFirstColliding = {
+    evidence_id: "market-monitor:spx:2026-03-31",
+    claim_or_fact: "S&P 500 Index closed at 5200.00.",
+    available_at: IN_WINDOW_TIME,
+    grouping_key: "spx-close",
+    source_type: "MARKET_DATA",
+    provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:spx" }],
+  };
+
+  const canonicalSecondColliding = {
+    evidence_id: "ev:spx-canonical-db-row",
+    canonical_record_backed: true,
+    claim_or_fact: "S&P 500 Index closed at 5200.00.",
+    available_at: IN_WINDOW_TIME,
+    grouping_key: "spx-close",
+    source_type: "EXCHANGE_FEED",
+    provenance: [{ source_type: "EXCHANGE_FEED", source_id: "nyse-001" }],
+  };
+
+  const snapshot2: CandidateSnapshot = {
+    observed_evidence: [derivedFirstColliding, canonicalSecondColliding],
+  };
+
+  const packet2 = assembleDossierV2InputPacket(request, snapshot2);
+  assert.equal(packet2.observed_evidence.length, 1);
+  const survivingItem = packet2.observed_evidence[0];
+  assert.equal(survivingItem.evidence_id, "market-monitor:spx:2026-03-31");
+  assert.equal(survivingItem.canonical_record_backed, undefined);
+});
+
+test("24. buildCandidateSnapshotFromCanonicalEvidence sets canonical_record_backed: true on DB rows", () => {
+  const rows: CanonicalEvidenceRow[] = [
+    {
+      id: "db-row-100",
+      external_evidence_id: "ev:db-row-100",
+      claim_text: "Official Fed statement released.",
+      evidence_class: "official_release",
+      available_at: IN_WINDOW_TIME,
+      source: {
+        id: "src-fed-1",
+        source_name: "Federal Reserve",
+        source_type: "OFFICIAL_DATA",
+      },
+    },
+  ];
+
+  const result = buildCandidateSnapshotFromCanonicalEvidence(rows, { asOf: TEST_AS_OF });
+  assert.equal(result.snapshot.observed_evidence?.length, 1);
+  assert.equal(result.snapshot.observed_evidence?.[0].canonical_record_backed, true);
 });

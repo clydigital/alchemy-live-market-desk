@@ -593,6 +593,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
       const source = sourceFromRow(row);
       observedEvidence.push({
         evidence_id: row.external_evidence_id ?? `ev:${row.id}`,
+        canonical_record_backed: true,
         claim_or_fact: row.claim_text,
         category: categoryForRow(row),
         source_type: directSourceType,
