@@ -10,7 +10,19 @@ const page = readFileSync(
 test("C1.5c1 Hybrid resolves exact immutable Dossier Regime context by Motion ID", () => {
   assert.match(
     page,
-    /const focusedDossierRegimeContext = motionId[\s\S]*dossier\.motionRegimeContext[\s\S]*item\.motionId === motionId/,
+    /const motionRegimeContext =[\s\S]*presenterDossier\.motionRegimeContext/,
+  );
+  assert.match(
+    page,
+    /const motionRegimeContextById = new Map[\s\S]*item\.motionId/,
+  );
+  assert.match(
+    page,
+    /const focusedDossierRegimeContext = motionId[\s\S]*motionRegimeContextById\.get\(motionId\)/,
+  );
+  assert.match(
+    page,
+    /presenterEditionStatus === "historical"[\s\S]*presenterHistoricalDossierReplay\?\.status !== "BOUND"/,
   );
   assert.match(page, /title="Dossier System 2 Regime context"/);
   assert.match(page, /id="dossier-regime-context"/);

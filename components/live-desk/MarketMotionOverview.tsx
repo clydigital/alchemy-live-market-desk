@@ -32,6 +32,11 @@ export type MarketMotionOverviewItem = {
   storyHref: string | null;
   regimeLabel: string | null;
   regimeHref: string | null;
+  regimeContributionState?: "ACCEPT" | "REFINE" | "PENDING" | null;
+  regimeContribution?: string | null;
+  regimeContributionRationale?: string | null;
+  regimeContributionNextTest?: string | null;
+  regimeContributionEvidenceCount?: number;
   investigationHref?: string | null;
 };
 
@@ -97,9 +102,54 @@ function MotionCard({
       </div>
 
       <div className={styles.bridge}>
-        <span>BIG-PICTURE BRIDGE</span>
+        <span>{journeyMode ? "MOTION HYPOTHESIS" : "BIG-PICTURE BRIDGE"}</span>
         <strong>{item.bigPictureBridge}</strong>
       </div>
+
+      {journeyMode && (item.regimeLabel || item.regimeContributionState) ? (
+        <div
+          className={styles.regimeContribution}
+          data-state={(item.regimeContributionState || "PENDING").toLowerCase()}
+        >
+          <div className={styles.regimeContributionHead}>
+            <div>
+              <span>REGIME CONTRIBUTION</span>
+              <strong>{item.regimeLabel || "Regime link pending"}</strong>
+            </div>
+            <em>
+              {item.regimeContributionState === "ACCEPT"
+                ? "ACCEPTED BY DOSSIER"
+                : item.regimeContributionState === "REFINE"
+                  ? "REFINED BY DOSSIER"
+                  : "MOTION ONLY"}
+            </em>
+          </div>
+
+          {item.regimeContribution ? (
+            <p><strong>Contribution:</strong> {item.regimeContribution}</p>
+          ) : (
+            <p>
+              This Motion is linked to the regime, but the current canonical Dossier has not
+              accepted or refined it as a regime contribution yet.
+            </p>
+          )}
+
+          {item.regimeContributionRationale ? (
+            <p><strong>Why:</strong> {item.regimeContributionRationale}</p>
+          ) : null}
+
+          {item.regimeContributionEvidenceCount ? (
+            <small>
+              {item.regimeContributionEvidenceCount} canonical evidence reference
+              {item.regimeContributionEvidenceCount === 1 ? "" : "s"} support this Dossier judgement.
+            </small>
+          ) : null}
+
+          {item.regimeContributionNextTest ? (
+            <p><strong>Regime next test:</strong> {item.regimeContributionNextTest}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className={styles.utility}>
         <span>WRITING POTENTIAL · {item.writingPotential}</span>

@@ -240,6 +240,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       href: `/hybrid-output${search ? `?${search}` : ""}#presenter-reasoning`,
     };
   });
+  const motionRegimeContext =
+    presenterEditionStatus === "historical"
+      && presenterHistoricalDossierReplay?.status !== "BOUND"
+      ? []
+      : presenterDossier.motionRegimeContext ?? [];
+  const motionRegimeContextById = new Map(
+    motionRegimeContext.map((item) => [item.motionId, item] as const),
+  );
   const motionEdition = presenterEditionStatus === "historical"
     ? selectedPresenterEdition
     : currentEdition;
@@ -250,6 +258,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     preferredRegimeSlug,
     limit: MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   }).map((item) => {
+    const regimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const regimeSlug = regimeContribution?.regimeSlug ?? item.regimeSlug;
+    const regime = regimeSlug ? getRegimeDefinition(regimeSlug) : null;
     const attention = deriveMarketMotionAttention({
       materiality: item.materiality,
       relevance: item.relevance,
@@ -283,9 +294,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storySlug: item.storySlug,
       storyTitle: item.storyTitle,
       storyHref: item.storySlug ? `/stories/${item.storySlug}` : null,
-      regimeSlug: item.regimeSlug,
-      regimeLabel: item.regimeLabel,
-      regimeHref: item.regimeSlug ? `/regimes/${item.regimeSlug}` : null,
+      regimeSlug,
+      regimeLabel: regime?.shortTitle || item.regimeLabel,
+      regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
+      regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
+      regimeContribution: regimeContribution?.conclusion ?? null,
+      regimeContributionRationale: regimeContribution?.rationale ?? null,
+      regimeContributionNextTest: regimeContribution?.nextTest ?? null,
+      regimeContributionEvidenceCount: regimeContribution?.canonicalEvidenceRefs.length ?? 0,
     };
   });
   const liveMotionRows = presenterEditionStatus === "current"
@@ -300,11 +316,13 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     new Date(),
     MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   ).map((item) => {
+    const regimeContribution = motionRegimeContextById.get(item.id) ?? null;
+    const regimeSlug = regimeContribution?.regimeSlug ?? item.primary_regime_slug;
     const attention = marketMotionAttention(item);
     const story = item.primary_story_id
       ? data.stories.find((candidate) => candidate.id === item.primary_story_id) || null
       : null;
-    const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
+    const regime = regimeSlug ? getRegimeDefinition(regimeSlug) : null;
     return {
       id: item.id,
       attentionTier: attention.tier,
@@ -328,9 +346,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       storySlug: story?.slug || null,
       storyTitle: story?.title || null,
       storyHref: story ? `/stories/${story.slug}` : null,
-      regimeSlug: item.primary_regime_slug,
+      regimeSlug,
       regimeLabel: regime?.shortTitle || null,
-      regimeHref: item.primary_regime_slug ? `/regimes/${item.primary_regime_slug}` : null,
+      regimeHref: regimeSlug ? `/regimes/${regimeSlug}` : null,
+      regimeContributionState: regimeContribution?.decision ?? (regimeSlug ? "PENDING" as const : null),
+      regimeContribution: regimeContribution?.conclusion ?? null,
+      regimeContributionRationale: regimeContribution?.rationale ?? null,
+      regimeContributionNextTest: regimeContribution?.nextTest ?? null,
+      regimeContributionEvidenceCount: regimeContribution?.canonicalEvidenceRefs.length ?? 0,
     };
   });
   const motionJourney = presenterEditionStatus === "historical"
@@ -342,7 +365,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
   const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
   const focusedDossierRegimeContext = motionId
-    ? (dossier.motionRegimeContext ?? []).find((item) => item.motionId === motionId) || null
+    ? motionRegimeContextById.get(motionId) ?? null
     : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
