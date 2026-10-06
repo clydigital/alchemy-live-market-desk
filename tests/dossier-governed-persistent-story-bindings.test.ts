@@ -33,12 +33,12 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
       persistent_story_id: BREADTH_ID,
     },
     {
-      analytical_story_id: "story:incomplete-transmission-ai-counterweight",
-      persistent_story_id: BREADTH_ID,
-    },
-    {
       analytical_story_id: "story:energy-product-stress",
       persistent_story_id: ENERGY_ID,
+    },
+    {
+      analytical_story_id: "story:incomplete-transmission-ai-counterweight",
+      persistent_story_id: BREADTH_ID,
     },
     {
       analytical_story_id: "story:rates-duration-stress",
