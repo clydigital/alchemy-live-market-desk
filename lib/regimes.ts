@@ -290,6 +290,7 @@ const TEXT_ROUTE_RULES: TextRouteRule[] = [
   { regime: "global-cost-of-capital", subgroup: "treasury-fiscal", pattern: /\b(treasury|fiscal|deficit|debt supply|issuance|buyback|borrowing|tga|auction)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "long-end", pattern: /\b(10y|30y|long[- ]end|term premium|duration|real yield|breakeven|mortgage rate)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "global-rates", pattern: /\b(jgb|boj|japan|japanese|yen|usd.?jpy|dollar[- ]?yen|carry trade|carry unwind|global yield|global rates|yield gap|rate differential|relative rates|repatriat|bund|oat|oat[- ]bund|france|french sovereign|gilt|uk 30y|sovereign spread|fragmentation|tic|foreign treasury|treasury holdings|foreign demand|capital flow|intervention|ministry of finance|mof|hedging cost|cross[- ]?currency basis|fx swap)\b/i, weight: 7 },
+  { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(stable[- ]value|wrap providers?|insurer insolvenc|insurance counterparty|liquidity run|participant liquidity|plan[- ]level stress|recordkeeper)\b/i, weight: 7 },
   { regime: "global-cost-of-capital", subgroup: "credit-financing", pattern: /\b(credit|spread|refinanc|funding|bond issuance|project finance|leverage|debt-funded|cmbs|cre|commercial real estate|private credit|special servicing|non[- ]accrual|redemption|gate|bank provision|forced sell)\b/i, weight: 6 },
   { regime: "global-cost-of-capital", subgroup: "housing", pattern: /\b(housing|mortgage|homebuilder|home sales|affordability)\b/i, weight: 5 },
 
