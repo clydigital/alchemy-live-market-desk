@@ -67,6 +67,7 @@ import {
   STORY_SYNTHESIS_WITH_PLAN_SCHEMA,
   type StorySynthesisWithPlanOutputV1,
 } from "@/lib/intelligence/story-synthesis-contract-v1";
+import { evaluateNewStoryMarketAdmissibility } from "@/lib/intelligence/story-admissibility";
 import {
   STABLE_REQUIREMENT_IDS,
   evaluateCandidateIntegrity,
@@ -400,6 +401,7 @@ When an actual supplied divergence is central to the hypothesis:
 - Treat every such mechanism as inferred or speculative until supplied canonical evidence directly supports the causal link. Never promote short covering, dealer gamma, positioning, real yields, safe-haven demand or physical-market stress to an observed or strongly-supported explanation without evidence that directly bears on that mechanism.
 - Prefer the explanation best supported by chronology, direct-market evidence and cross-asset confirmation. If evidence cannot discriminate between competing mechanisms, keep confidence bounded and use confirmation, invalidation and next catalysts to identify the next discriminating evidence.
 IDEA QUALITY GATE: Prefer a few strong hypotheses over broad coverage. A hypothesis should survive only when the supplied evidence supports (1) a specific causal mechanism, (2) a decision-relevant market or economic implication, and (3) an observable confirmation or invalidation path. A headline restatement, generic theme label or unsupported clever connection is not a good idea and should be omitted.
+MARKET-DOMAIN BOUNDARY: Do not create a market hypothesis whose subject is only research process, source provenance, publication/creation timestamps, record classification, archival practice, prompt/transcript handling or other evidence-governance methodology. Those findings may remain Research Gap or operational context, but they are not a market Story unless the supplied evidence also establishes a specific market, economic, corporate, policy or investable transmission mechanism.
 Do not manufacture novelty, contrarianism or an overlooked variable merely to make an idea sound interesting. A well-supported confirming thesis can be valuable. The analytical edge may be a causal connection, second-order effect, transmission path, structural shift, or repricing rather than a disagreement with consensus.
 FORBIDDEN: Do not create opposite yes/no, bullish/bearish, or degree variants of the same mechanism. Those conditional branches belong in Scenario.
 Do not write full bull/base/bear cases, publication eligibility or customer prose. Focus on the central question, causal statement, mechanism, affected assets, supporting/conflicting evidence, bounded causal chain, confirmation/invalidation criteria, resolving catalysts and confidence.`;
@@ -425,6 +427,7 @@ Do not omit a supplied Story. Return an empty storyAssessments array only when s
 
 const STORY_SYNTHESIS_METHOD_RULES = `Apply the Alchemy Mixed Research Voice Method inside this existing Story Synthesis stage.
 QUALITY OVER QUANTITY: Return only hypotheses that are useful enough to become durable market research. Each candidate must have a specific evidence-backed mechanism, a material decision-relevant implication, and observable confirmation/invalidation. Omit candidates that merely restate a headline, repeat the Market Belief, or rely on a clever but unsupported connection.
+MARKET-DOMAIN BOUNDARY: Every Story candidate must explain a market, economic, corporate, policy or investable mechanism. Research-process findings about provenance, timestamps, record classification, archives, ingestion, prompts or evidence handling must remain research/operational context and must not be promoted into a canonical market Story by themselves.
 For every candidate, reuse question as the one central question. State the accepted explanation and the current evidence-backed implication.
 Divergence and contrarian annotations are OPTIONAL:
 - divergenceSummary: use null unless an actual supplied divergence is central to this Story.
@@ -3608,6 +3611,19 @@ export async function runIntelligenceEngine({
         decisiveEvidenceCount: researchContext.decisive.length,
         noveltyClass: decision.noveltyClass,
       });
+      const newIdentityMarketAdmissibility = (
+        decision.noveltyClass === "new_story"
+        || decision.noveltyClass === "related_distinct"
+      )
+        ? evaluateNewStoryMarketAdmissibility({
+            title: candidate.title,
+            thesis: candidate.thesis,
+            question: candidate.question,
+            causalMechanism: candidate.causalMechanism,
+            marketBelief: candidate.marketBelief,
+            affectedAssets: candidate.affectedAssets,
+          })
+        : null;
       // ZeroHedge Reads is allowed to surface a lead into this pack, but no
       // Story may become canonical until an independent primary/market source
       // corroborates the decisive claim.
@@ -3615,9 +3631,15 @@ export async function runIntelligenceEngine({
         const item = evidenceById.get(id);
         return item?.sourceVerificationRole !== "discovery_only" && (item?.sourceTier ?? 5) <= 2;
       });
-      const structurallyPublishable = integrity.publishable && hasPrimaryCorroboration;
+      const marketDomainAdmissible = newIdentityMarketAdmissibility?.admissible ?? true;
+      const structurallyPublishable = integrity.publishable && hasPrimaryCorroboration && marketDomainAdmissible;
       if (!integrity.publishable) warnings.push(`${candidate.title}: not published for structural reason: ${integrity.structuralReasons.join(", ")}.`);
       if (!hasPrimaryCorroboration) warnings.push(`${candidate.title}: not published because decisive claims lack primary or direct-market corroboration.`);
+      if (!marketDomainAdmissible && newIdentityMarketAdmissibility) {
+        warnings.push(
+          `${candidate.title}: not published because a new canonical Story requires a market/economic mechanism; ${newIdentityMarketAdmissibility.reason}.`,
+        );
+      }
       for (const warning of researchContext.research.warnings) warnings.push(`${candidate.title}: ${warning}.`);
 
       const rows = await intelligenceRest<Array<{ id: string; created_at: string; promoted_story_id: string | null }>>("intelligence_story_candidates?on_conflict=engine_run_id,novelty_fingerprint", {
