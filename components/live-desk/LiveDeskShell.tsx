@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { dashboardAuthRequired } from "@/lib/supabase/config";
 import { dataRoutes, deskRoutes, type LiveDeskRoute } from "@/lib/live-desk/routes";
+import { regimeUiEnabled } from "@/lib/regime-feature-flags";
 
 import DisplaySettings from "./DisplaySettings";
 import VideoResearchStatus from "./VideoResearchStatus";
@@ -42,6 +43,7 @@ function NavRow({ label, routes, activePath }: { label: string; routes: LiveDesk
 
 export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research Core", title, description, meta, children }: Props) {
   const authRequired = dashboardAuthRequired();
+  const visibleDeskRoutes = regimeUiEnabled() ? deskRoutes : deskRoutes.filter((route) => route.href !== "/regimes");
 
   return (
     <main className={styles.stage} data-live-desk-stage>
@@ -66,7 +68,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
         </header>
 
         <nav className={styles.navigation} aria-label="Live Desk sections">
-          <NavRow label="Desk" routes={deskRoutes} activePath={activePath} />
+          <NavRow label="Desk" routes={visibleDeskRoutes} activePath={activePath} />
           <NavRow label="Data & tools" routes={dataRoutes} activePath={activePath} />
         </nav>
 
