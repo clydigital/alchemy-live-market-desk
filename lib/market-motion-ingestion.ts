@@ -346,10 +346,16 @@ function macroReleasePeriodSubject(text: string, occurredAt: string) {
   const month = MONTH_NUMBER_BY_TOKEN[monthMatch[1].toLowerCase()];
   if (!month) return null;
 
-  const explicitYear = normalized.match(/\b(20\d{2})\b/)?.[1] ?? null;
+  const monthStart = monthMatch.index ?? 0;
+  const monthEnd = monthStart + monthMatch[0].length;
+  const beforeMonth = normalized.slice(Math.max(0, monthStart - 12), monthStart);
+  const afterMonth = normalized.slice(monthEnd, Math.min(normalized.length, monthEnd + 12));
+  const adjacentYear = afterMonth.match(/^[\s,./-]*(20\d{2})\b/)?.[1]
+    ?? beforeMonth.match(/\b(20\d{2})[\s,./-]*$/)?.[1]
+    ?? null;
   const occurred = Date.parse(occurredAt);
   const fallbackYear = Number.isFinite(occurred) ? new Date(occurred).getUTCFullYear() : null;
-  const year = explicitYear ? Number(explicitYear) : fallbackYear;
+  const year = adjacentYear ? Number(adjacentYear) : fallbackYear;
   if (!year) return null;
 
   return `${year}-${month}`;
