@@ -47,7 +47,7 @@ test("C1.5c1 keeps Dossier judgement authoritative and raw Motion discovery-only
 test("C1.5c1 preserves exact Regime routing without fuzzy recovery", () => {
   assert.match(
     page,
-    /href=\{\`\/regimes\/\$\{focusedDossierRegimeContext\.regimeSlug\}\`\}/,
+    /href=\{\`\/regimes\/\$\{focusedDossierRegimeContext\.regimeSlug\}\?view=live#dossier-regime-context\`\}/,
   );
   assert.doesNotMatch(
     page,

@@ -397,6 +397,13 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const focusedDossierRegimeContext = motionId
     ? motionRegimeContextById.get(motionId) ?? null
     : null;
+  const focusedDossierAdjudicationContext = motionId
+    ? motionAdjudicationContextById.get(motionId) ?? null
+    : null;
+  const focusedStoryRoutedDossierContext =
+    focusedDossierAdjudicationContext && !focusedDossierAdjudicationContext.directRegimeRoute
+      ? focusedDossierAdjudicationContext
+      : null;
   const unresolvedPolicyChecks = dossier.policyOutlook.filter(
     (item) => item.gaps.length > 0,
   ).length;
@@ -553,8 +560,44 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   : ""}
               </p>
               <p>
-                <a className={styles.link} href={`/regimes/${focusedDossierRegimeContext.regimeSlug}`}>
+                <a className={styles.link} href={`/regimes/${focusedDossierRegimeContext.regimeSlug}?view=live#dossier-regime-context`}>
                   Open exact Regime →
+                </a>
+              </p>
+            </article>
+          </Panel>
+        ) : null}
+
+        {focusedStoryRoutedDossierContext ? (
+          <Panel
+            title="Dossier System 2 Story read-through"
+            description="Immutable accepted/refined Dossier judgement routed to the Story while preserving this Regime as read-through context. It does not change Regime state by itself."
+            action={<Badge>{focusedStoryRoutedDossierContext.decision}</Badge>}
+          >
+            <article className={styles.record} id="dossier-story-readthrough">
+              <div className={styles.recordHeader}>
+                <div>
+                  <span className={styles.kicker}>SYSTEM 2 · {focusedStoryRoutedDossierContext.decision} · STORY READ-THROUGH</span>
+                  <h3>{focusedStoryRoutedDossierContext.conclusion}</h3>
+                </div>
+                <Badge>NON-STATE</Badge>
+              </div>
+              <p><strong>Why System 2 kept it:</strong> {focusedStoryRoutedDossierContext.rationale}</p>
+              <p><strong>Next test:</strong> {focusedStoryRoutedDossierContext.nextTest || "No additional discriminator was persisted."}</p>
+              <p>
+                <strong>Authority:</strong> canonical evidence supports this Dossier judgement, but its destination remains the Story.
+                The Regime association is read-through context only and cannot authorise a Regime mutation.
+              </p>
+              <p className={styles.meta}>
+                Regime {focusedStoryRoutedDossierContext.regimeSlug}
+                {focusedStoryRoutedDossierContext.storyId ? ` · Story ${focusedStoryRoutedDossierContext.storyId}` : ""}
+                {focusedStoryRoutedDossierContext.canonicalEvidenceRefs.length
+                  ? ` · ${focusedStoryRoutedDossierContext.canonicalEvidenceRefs.length} canonical evidence ref${focusedStoryRoutedDossierContext.canonicalEvidenceRefs.length === 1 ? "" : "s"}`
+                  : ""}
+              </p>
+              <p>
+                <a className={styles.link} href={`/regimes/${focusedStoryRoutedDossierContext.regimeSlug}?view=live#dossier-story-readthrough`}>
+                  Open exact Regime read-through →
                 </a>
               </p>
             </article>
@@ -607,7 +650,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           ) : (
             <DataState
               title={presenterEditionStatus === "historical" ? "Motion is not in the selected Journey edition" : "Motion is not in the live 48-hour stream"}
-              detail={focusedDossierRegimeContext
+              detail={focusedDossierAdjudicationContext
                 ? "The raw discovery Motion is no longer in the selected Motion context. The immutable Dossier System 2 judgement above remains the authoritative explanation for this link."
                 : presenterEditionStatus === "historical"
                   ? "Historical replay only opens context from the exact immutable Motion snapshot attached to that Journey edition."

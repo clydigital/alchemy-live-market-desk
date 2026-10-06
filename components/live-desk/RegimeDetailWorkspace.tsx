@@ -304,7 +304,7 @@ export default function RegimeDetailWorkspace({
                       <p className={styles.summary}><strong>Next test:</strong> {item.nextTest}</p>
                     ) : null}
                     <div className={styles.linkRow}>
-                      <Link href={`/hybrid-output?regime=${encodeURIComponent(item.regimeSlug)}&motion=${encodeURIComponent(item.motionId)}#presenter-reasoning`}>
+                      <Link href={`/hybrid-output?regime=${encodeURIComponent(item.regimeSlug)}&motion=${encodeURIComponent(item.motionId)}#dossier-story-readthrough`}>
                         Open exact Hybrid judgement →
                       </Link>
                     </div>
