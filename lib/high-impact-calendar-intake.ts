@@ -50,7 +50,8 @@ export function buildHighImpactCalendarIntake(
     .filter((event) => event.impact === "High")
     .filter((event) => {
       const distance = dayDistance(event.date, anchor);
-      return distance >= -2 && distance <= 8;
+      const releasedTopTierLookback = event.status === "Released" && TOP_TIER_RELEASE.test(event.event) ? -7 : -2;
+      return distance >= releasedTopTierLookback && distance <= 8;
     })
     .filter((event) => PRIORITY_RELEASE.test(event.event) || event.category === "Central bank")
     .map((event) => {
