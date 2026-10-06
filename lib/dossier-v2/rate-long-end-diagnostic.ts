@@ -30,7 +30,8 @@ export type RateLongEndDiagnostic = {
     change5dBp: number | null;
     evidenceRef: string | null;
   };
-  fiveYearCrossCheck: {
+  /** Optional at the TypeScript boundary so historical immutable diagnostics remain readable. */
+  fiveYearCrossCheck?: {
     realYieldLevelPct: number | null;
     realYieldChange5dBp: number | null;
     breakevenLevelPct: number | null;
