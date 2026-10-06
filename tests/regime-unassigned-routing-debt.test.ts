@@ -56,7 +56,9 @@ test("idempotent Regime reuse reconciles debt only from persisted active links",
   assert.match(reused, /loadPersistedRoutedStoryIds\(/);
   assert.match(reused, /reconcileRegimeRoutingDebt\(/);
   assert.match(reused, /projectionRunId: begun\.row\.id/);
-  assert.match(reused, /stories: source\.stories/);
+  assert.match(reused, /stories: storyDomain\.admissible/);
+  assert.match(reused, /reconcileStoryDomainDebt\(/);
+  assert.match(reused, /admissibleStories: storyDomain\.admissible/);
   assert.match(reused, /routedStoryIds/);
   assert.match(reused, /reused: true/);
   assert.match(reused, /newer shadow run owns routing state/);
