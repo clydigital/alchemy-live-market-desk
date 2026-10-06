@@ -38,9 +38,11 @@ test("Journey chronology consumes only the immutable edition Motion snapshot", (
   assert.match(journey, /motionId:\s*item\.id/);
 });
 
-test("Hybrid reads Motion from the immutable edition instead of the mutable current view", () => {
-  assert.match(hybrid, /marketMotionFromEditionPayload\(currentEdition\?\.payload\)/);
+test("Hybrid uses live Motion for current reporting and immutable Motion for historical replay", () => {
+  assert.match(hybrid, /getCurrentMarketMotion\(\{ limit: 60 \}\)/);
+  assert.match(hybrid, /presenterEditionStatus === "historical"/);
+  assert.match(hybrid, /marketMotionFromEditionPayload\(motionEdition\?\.payload\)/);
   assert.match(hybrid, /selectMarketMotionEditionContext/);
-  assert.doesNotMatch(hybrid, /getCurrentMarketMotion/);
+  assert.match(hybrid, /liveMotionJourney\.length[\s\S]*liveMotionJourney[\s\S]*editionMotionJourney/);
   assert.doesNotMatch(hybrid, /current_market_motion_items/);
 });

@@ -519,7 +519,9 @@ test("P1.7 runtime path preserves exact-vintage separation between historical Pr
   assert.match(page, /loadPresenterHistoricalDossierReplay\(selectedPresenterEdition\?\.payload\)/);
   assert.match(page, /const presenterDossier = presenterHistoricalDossierReplay\?\.status === "BOUND"/);
   assert.match(page, /investigations: presenterDossier\.watchNext/);
-  assert.match(page, /marketMotionFromEditionPayload\(currentEdition\?\.payload\)/);
+  assert.match(page, /const motionEdition = presenterEditionStatus === "historical"[\s\S]*selectedPresenterEdition[\s\S]*currentEdition/);
+  assert.match(page, /marketMotionFromEditionPayload\(motionEdition\?\.payload\)/);
+  assert.match(page, /presenterEditionStatus === "current"[\s\S]*getCurrentMarketMotion/);
   assert.match(page, /regimes = buildRegimeProjection\([\s\S]*dossier,/);
   assert.match(loader, /getDossierV2PresentationSelectionById\(context\.dossierId!\)/);
   assert.doesNotMatch(loader, /getDossierV2PresentationSelection\(\)/);

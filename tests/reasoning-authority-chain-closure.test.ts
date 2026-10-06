@@ -73,8 +73,9 @@ test("publication and Presenter replay preserve the exact immutable Story/Dossie
   assert.doesNotMatch(replay, /getDossierV2PresentationSelection\(\)/);
   assert.doesNotMatch(replay, /nearest|closest|fuzzy/i);
 
-  // Presenter may replay the selected immutable edition, while current Hybrid
-  // reasoning and Motion remain tied to the current Dossier/current edition.
+  // Presenter and historical Motion replay the selected immutable edition,
+  // while current Hybrid reasoning stays on the current Dossier and current
+  // Motion reporting uses the bounded live 48-hour view.
   assert.match(
     hybrid,
     /loadPresenterHistoricalDossierReplay\(selectedPresenterEdition\?\.payload\)/,
@@ -85,7 +86,15 @@ test("publication and Presenter replay preserve the exact immutable Story/Dossie
   );
   assert.match(
     hybrid,
-    /marketMotionFromEditionPayload\(currentEdition\?\.payload\)/,
+    /const motionEdition = presenterEditionStatus === "historical"[\s\S]*selectedPresenterEdition[\s\S]*currentEdition/,
+  );
+  assert.match(
+    hybrid,
+    /marketMotionFromEditionPayload\(motionEdition\?\.payload\)/,
+  );
+  assert.match(
+    hybrid,
+    /presenterEditionStatus === "current"[\s\S]*getCurrentMarketMotion/,
   );
   assert.match(
     hybrid,
