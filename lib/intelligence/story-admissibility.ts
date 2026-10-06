@@ -115,7 +115,7 @@ export function evaluateNewStoryMarketAdmissibility(
 export function evaluateExistingStoryMarketDomain(
   input: ExistingStoryMarketDomainInput,
 ): NewStoryMarketAdmissibility {
-  return evaluateNewStoryMarketAdmissibility({
+  const result = evaluateNewStoryMarketAdmissibility({
     title: input.title,
     thesis: input.thesis,
     question: input.marketQuestion ?? "",
@@ -123,4 +123,19 @@ export function evaluateExistingStoryMarketDomain(
     marketBelief: [input.dominantNarrative, input.articleAngle].filter(Boolean).join(" "),
     affectedAssets: input.assets,
   });
+
+  const explicitAssets = input.assets.map((asset) => normalise(asset)).filter(Boolean);
+  if (
+    explicitAssets.length === 0
+    && result.processSignals.length >= 2
+    && result.marketSignals.length <= 1
+  ) {
+    return {
+      ...result,
+      admissible: false,
+      reason: "research_process_without_market_mechanism",
+    };
+  }
+
+  return result;
 }
