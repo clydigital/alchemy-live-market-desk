@@ -1,0 +1,182 @@
+-- Keep routing-debt metadata consistent with the canonical debt lifecycle.
+-- Forward-only repair: resolved debt must not retain routingStatus=unassigned.
+
+create or replace function public.sync_regime_routing_debt_v1(
+  p_projection_run_id uuid,
+  p_considered_story_ids uuid[],
+  p_routed_story_ids uuid[]
+)
+returns table(
+  active_count integer,
+  upserted_count integer,
+  resolved_count integer,
+  stale boolean
+)
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_run_started_at timestamptz;
+  v_latest_shadow_run_at timestamptz;
+  v_active integer := 0;
+  v_upserted integer := 0;
+  v_resolved integer := 0;
+  v_considered uuid[] := coalesce(p_considered_story_ids, '{}'::uuid[]);
+  v_routed uuid[] := coalesce(p_routed_story_ids, '{}'::uuid[]);
+begin
+  select started_at into v_run_started_at
+  from public.market_regime_projection_runs
+  where id = p_projection_run_id
+    and projection_mode = 'shadow';
+
+  if v_run_started_at is null then
+    raise exception 'Unknown or non-shadow Regime projection run %', p_projection_run_id;
+  end if;
+
+  if exists (
+    select 1
+    from unnest(v_routed) routed(story_id)
+    where not (routed.story_id = any(v_considered))
+  ) then
+    raise exception 'Routed Story IDs must be a subset of considered Story IDs';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('market_regime_story_links:shadow', 0));
+
+  select max(run.started_at)
+  into v_latest_shadow_run_at
+  from public.market_regime_projection_runs run
+  where run.projection_mode = 'shadow';
+
+  if v_latest_shadow_run_at is not null and v_latest_shadow_run_at > v_run_started_at then
+    select count(*) into v_active
+    from public.research_debt debt
+    where debt.status = 'open'
+      and debt.debt_key like 'regime-routing:%'
+      and debt.metadata ->> 'kind' = 'regime_routing_debt';
+
+    return query select v_active, 0, 0, true;
+    return;
+  end if;
+
+  insert into public.research_debt(
+    story_id,
+    debt_key,
+    severity,
+    status,
+    reason,
+    next_action,
+    last_attempt_at,
+    next_check_at,
+    metadata,
+    updated_at
+  )
+  select
+    story.id,
+    'regime-routing:' || story.id::text,
+    case when lower(coalesce(story.status, '')) = 'publish' then 'high' else 'medium' end,
+    'open',
+    'No governed Regime route cleared the current deterministic routing contract. The Story remains visible but unassigned; no weak mapping was forced.',
+    'Review the Story causal question against the active Regime taxonomy. Add or approve a route only when the mechanism is sufficiently supported.',
+    now(),
+    now() + interval '24 hours',
+    jsonb_build_object(
+      'kind', 'regime_routing_debt',
+      'contractVersion', 'regime-routing-debt/1',
+      'routingStatus', 'unassigned',
+      'projectionRunId', p_projection_run_id,
+      'storySlug', story.slug,
+      'storyStatus', story.status,
+      'storyConfidence', story.confidence
+    ),
+    now()
+  from public.stories story
+  where story.id = any(v_considered)
+    and story.status <> 'archived'
+    and not (story.id = any(v_routed))
+  on conflict (debt_key) where status = 'open'
+  do update set
+    story_id = excluded.story_id,
+    severity = excluded.severity,
+    reason = excluded.reason,
+    next_action = excluded.next_action,
+    last_attempt_at = excluded.last_attempt_at,
+    next_check_at = excluded.next_check_at,
+    metadata = excluded.metadata,
+    updated_at = excluded.updated_at;
+  get diagnostics v_upserted = row_count;
+
+  update public.research_debt debt
+  set status = 'resolved',
+      resolved_at = now(),
+      resolution_note = case
+        when debt.story_id = any(v_routed)
+          then 'A governed Regime route was restored by projection ' || p_projection_run_id::text || '.'
+        else 'The Story is no longer active in the Regime routing universe.'
+      end,
+      next_check_at = null,
+      metadata = debt.metadata || jsonb_build_object(
+        'routingStatus',
+        case when debt.story_id = any(v_routed) then 'routed' else 'inactive' end,
+        'resolvedByProjectionRunId', p_projection_run_id,
+        'resolvedAt', now()
+      ),
+      updated_at = now()
+  where debt.status = 'open'
+    and debt.debt_key like 'regime-routing:%'
+    and debt.metadata ->> 'kind' = 'regime_routing_debt'
+    and (
+      debt.story_id = any(v_routed)
+      or exists (
+        select 1
+        from public.stories story
+        where story.id = debt.story_id
+          and story.status = 'archived'
+      )
+    );
+  get diagnostics v_resolved = row_count;
+
+  select count(*) into v_active
+  from public.research_debt debt
+  where debt.status = 'open'
+    and debt.debt_key like 'regime-routing:%'
+    and debt.metadata ->> 'kind' = 'regime_routing_debt';
+
+  return query select v_active, v_upserted, v_resolved, false;
+end;
+$$;
+
+-- Backfill already-resolved routing debt created before this metadata contract.
+-- The canonical lifecycle columns remain authoritative; metadata is aligned
+-- only when the prior row already proves how it resolved.
+update public.research_debt debt
+set metadata = debt.metadata || jsonb_build_object(
+      'routingStatus',
+      case
+        when debt.resolution_note like 'A governed Regime route was restored%' then 'routed'
+        else 'inactive'
+      end,
+      'resolvedByProjectionRunId',
+      case
+        when debt.resolution_note like 'A governed Regime route was restored%'
+          then debt.metadata ->> 'projectionRunId'
+        else null
+      end,
+      'resolvedAt',
+      debt.resolved_at
+    ),
+    updated_at = greatest(debt.updated_at, debt.resolved_at)
+where debt.status = 'resolved'
+  and debt.debt_key like 'regime-routing:%'
+  and debt.metadata ->> 'kind' = 'regime_routing_debt'
+  and coalesce(debt.metadata ->> 'routingStatus', 'unassigned') = 'unassigned'
+  and debt.resolved_at is not null;
+
+revoke all on function public.sync_regime_routing_debt_v1(uuid,uuid[],uuid[])
+  from public, anon, authenticated;
+
+grant execute on function public.sync_regime_routing_debt_v1(uuid,uuid[],uuid[])
+  to service_role;
+
+comment on function public.sync_regime_routing_debt_v1(uuid,uuid[],uuid[]) is
+  'Keeps unrouted active Stories visible as governed research debt, resolves debt when routing is restored, and records resolved routing state in metadata; stale shadow workers cannot change routing debt.';
