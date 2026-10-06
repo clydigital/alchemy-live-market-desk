@@ -178,6 +178,15 @@ export async function handleDossierV2PersistRunWithDependencies(
       );
     }
 
+    logger({
+      event: "dossier_v2_persistent_story_bindings_resolved",
+      actor: authorization.actor,
+      githubRunId: authorization.githubRunId,
+      dossierId: result.dossier.id,
+      bindingCount: result.packet.persistent_story_bindings?.length ?? 0,
+      bindings: result.packet.persistent_story_bindings ?? [],
+    });
+
     const syncResearchGaps =
       dependencies.syncResearchGaps ?? (() => syncLatestPrioritisedResearchGapCases());
     let researchGapSync: {
