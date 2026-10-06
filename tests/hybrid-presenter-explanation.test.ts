@@ -30,6 +30,21 @@ test("Journey keeps Motion as discovery context while Research Gap starts from t
   assert.match(hybrid, /exact immutable Motion snapshot attached to the current canonical edition/);
 });
 
+test("Hybrid makes upcoming catalysts a primary layer after Motion and before Dossier context", () => {
+  const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
+  const upcomingAt = hybrid.indexOf('title="Upcoming news & catalysts"');
+  const dossierAt = hybrid.indexOf('title="Canonical context"');
+
+  assert.ok(motionAt >= 0);
+  assert.ok(upcomingAt > motionAt);
+  assert.ok(dossierAt > upcomingAt);
+  assert.match(hybrid, /current immutable Journey edition/);
+  assert.match(hybrid, /upcoming\.economicCalendar/);
+  assert.match(hybrid, /upcoming\.earnings/);
+  assert.match(hybrid, /upcoming\.geopoliticalClock/);
+  assert.match(hybrid, /label: "Upcoming catalysts"/);
+});
+
 test("Hybrid links to canonical Dossier context instead of mirroring Presenter composition", () => {
   const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
   const dossierAt = hybrid.indexOf('title="Canonical context"');
