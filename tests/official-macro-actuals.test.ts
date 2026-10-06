@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildOfficialMacroReleaseSeedRows,
   officialActualSourceUrl,
   parseOfficialActual,
   resolveOfficialActual,
   type OfficialMacroRelease,
 } from "../lib/macro/official-actuals.ts";
+import type { EconomicCalendarEvent } from "../lib/calendar.ts";
 
 function release(overrides: Partial<OfficialMacroRelease>): OfficialMacroRelease {
   return {
@@ -45,6 +47,10 @@ test("BLS archive URLs remain the release provenance while machine retrieval use
   assert.equal(
     officialActualSourceUrl(release({ release_name: "JOLTS Job Openings", release_date: "2026-08-04T14:00:00.000Z", reference_period: "June 2026" })),
     "https://www.bls.gov/news.release/archives/jolts_08042026.htm",
+  );
+  assert.equal(
+    officialActualSourceUrl(release({ release_name: "Employment Situation for September 2026", release_date: "2026-10-02T12:30:00.000Z", reference_period: "September 2026" })),
+    "https://www.bls.gov/news.release/archives/empsit_10022026.htm",
   );
 });
 
@@ -123,6 +129,110 @@ test("BLS Public Data API resolves CPI, PPI and JOLTS without scraping blocked B
     blsFetcher([{ seriesID: "JTS000000000000000JOL", data: [{ year: "2026", period: "M06", value: "7359" }] }]),
   );
   assert.equal(jolts.actual, "Job openings 7.4M");
+});
+
+test("BLS Employment Situation adapter derives payroll change and headline labour metrics", async () => {
+  const employment = await resolveOfficialActual(
+    release({
+      release_name: "Employment Situation for September 2026",
+      release_date: "2026-10-02T12:30:00.000Z",
+      reference_period: "September 2026",
+    }),
+    blsFetcher([
+      {
+        seriesID: "CES0000000001",
+        data: [
+          { year: "2026", period: "M09", value: "159500" },
+          { year: "2026", period: "M08", value: "159471" },
+        ],
+      },
+      { seriesID: "LNS14000000", data: [{ year: "2026", period: "M09", value: "4.2" }] },
+      { seriesID: "LNS11300000", data: [{ year: "2026", period: "M09", value: "61.8" }] },
+      {
+        seriesID: "CES0500000003",
+        data: [
+          { year: "2026", period: "M09", value: "36.68" },
+          { year: "2025", period: "M09", value: "35.55" },
+        ],
+      },
+    ]),
+  );
+
+  assert.equal(
+    employment.actual,
+    "Nonfarm payrolls +29k; unemployment 4.2%; participation 61.8%; AHE +3.2% y/y",
+  );
+  assert.equal(
+    employment.sourceUrl,
+    "https://www.bls.gov/news.release/archives/empsit_10022026.htm",
+  );
+});
+
+test("official BLS schedule seeding is bounded and converts 08:30 ET to the release instant", () => {
+  const events: EconomicCalendarEvent[] = [
+    {
+      id: "us-bls-2026-10-02-employment-situation-for-september-2026",
+      date: "2026-10-02",
+      timeLabel: "08:30 ET",
+      country: "United States",
+      g7Markets: ["United States"],
+      event: "Employment Situation for September 2026",
+      category: "Labour",
+      impact: "High",
+      referencePeriod: "September 2026",
+      status: "Scheduled",
+      actual: null,
+      consensus: null,
+      previous: null,
+      decidingQuestion: "Are payrolls, unemployment and wages changing the Fed path?",
+      affectedAssets: ["USD", "US02Y", "SPX"],
+      sourceName: "U.S. Bureau of Labor Statistics",
+      sourceUrl: "https://www.bls.gov/schedule/news_release/empsit.htm",
+      sourceKind: "official-schedule",
+    },
+    {
+      id: "us-bls-2026-06-05-old-employment-situation",
+      date: "2026-06-05",
+      timeLabel: "08:30 ET",
+      country: "United States",
+      g7Markets: ["United States"],
+      event: "Employment Situation for May 2026",
+      category: "Labour",
+      impact: "High",
+      referencePeriod: "May 2026",
+      status: "Scheduled",
+      actual: null,
+      consensus: null,
+      previous: null,
+      decidingQuestion: "Are payrolls changing the Fed path?",
+      affectedAssets: ["USD", "US02Y", "SPX"],
+      sourceName: "U.S. Bureau of Labor Statistics",
+      sourceUrl: "https://www.bls.gov/schedule/news_release/empsit.htm",
+      sourceKind: "official-schedule",
+    },
+  ];
+
+  const rows = buildOfficialMacroReleaseSeedRows(events, new Date("2026-10-07T00:00:00Z"));
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0], {
+    id: "us-bls-2026-10-02-employment-situation-for-september-2026",
+    series_key: "bls-employment-situation",
+    release_name: "Employment Situation for September 2026",
+    agency: "U.S. Bureau of Labor Statistics",
+    category: "Labour",
+    release_date: "2026-10-02T12:30:00.000Z",
+    release_time_label: "08:30 ET",
+    reference_period: "September 2026",
+    frequency: "Monthly",
+    status: "released_pending_ingestion",
+    watch_question: "Are payrolls, unemployment and wages changing the Fed path?",
+    source_url: "https://www.bls.gov/schedule/news_release/empsit.htm",
+    source_classification: "official_government",
+    affected_assets: ["USD", "US02Y", "SPX"],
+    country: "United States",
+    impact: "High",
+    local_timezone: "America/New_York",
+  });
 });
 
 test("ISM acquisition falls back to a reader transport for the same first-party URL", async () => {
