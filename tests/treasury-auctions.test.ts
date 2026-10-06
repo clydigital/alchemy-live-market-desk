@@ -158,9 +158,9 @@ test("snapshot augmentation admits official auction facts without inventing a ta
   const auctionSnapshot = parseTreasuryAuctionSnapshot({
     data: [
       row(),
-      row({ cusip: "91282CPR1", auction_date: "2026-08-31", bid_to_cover_ratio: "2.30" }),
-      row({ cusip: "91282CPR2", auction_date: "2026-07-31", bid_to_cover_ratio: "2.40" }),
-      row({ cusip: "91282CPR3", auction_date: "2026-06-30", bid_to_cover_ratio: "2.50" }),
+      row({ cusip: "91282CPR1", auction_date: "2026-08-31", announcement_date: null, bid_to_cover_ratio: "2.30" }),
+      row({ cusip: "91282CPR2", auction_date: "2026-07-31", announcement_date: null, bid_to_cover_ratio: "2.40" }),
+      row({ cusip: "91282CPR3", auction_date: "2026-06-30", announcement_date: null, bid_to_cover_ratio: "2.50" }),
       row({
         cusip: "912810ZZ3",
         security_type: "Bond",
