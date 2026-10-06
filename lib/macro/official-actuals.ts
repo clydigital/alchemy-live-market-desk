@@ -1,4 +1,5 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
+import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 
 export type OfficialMacroRelease = {
@@ -61,6 +62,14 @@ const BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/";
 const CPI_SERIES = ["CUSR0000SA0", "CUUR0000SA0", "CUSR0000SA0L1E", "CUUR0000SA0L1E"] as const;
 const PPI_SERIES = ["WPSFD4", "WPUFD4"] as const;
 const JOLTS_SERIES = ["JTS000000000000000JOL"] as const;
+const EMPLOYMENT_SITUATION_SERIES = [
+  "CES0000000001",
+  "LNS14000000",
+  "LNS11300000",
+  "CES0500000003",
+] as const;
+const OFFICIAL_RELEASE_SEED_LOOKBACK_DAYS = 14;
+const OFFICIAL_RELEASE_SEED_FORWARD_DAYS = 45;
 
 function htmlToText(value: string) {
   return value
@@ -146,13 +155,14 @@ function signedPercent(value: number | null) {
 }
 
 function isBlsRelease(release: OfficialMacroRelease) {
-  return /consumer price index|producer price index|jolts|job openings/i.test(release.release_name);
+  return /consumer price index|producer price index|jolts|job openings|employment situation|nonfarm payroll/i.test(release.release_name);
 }
 
 function blsSeriesForRelease(release: OfficialMacroRelease): readonly string[] | null {
   if (/consumer price index/i.test(release.release_name)) return CPI_SERIES;
   if (/producer price index/i.test(release.release_name)) return PPI_SERIES;
   if (/jolts|job openings/i.test(release.release_name)) return JOLTS_SERIES;
+  if (/employment situation|nonfarm payroll/i.test(release.release_name)) return EMPLOYMENT_SITUATION_SERIES;
   return null;
 }
 
@@ -219,6 +229,30 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
     return { actual: `Final demand PPI ${mom}% m/m; ${yoy}% y/y`, sourceUrl };
   }
 
+  if (/employment situation|nonfarm payroll/i.test(release.release_name)) {
+    const payrollCurrent = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[0]), reference.year, reference.month);
+    const payrollPrevious = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[0]), priorMonth.year, priorMonth.month);
+    const unemployment = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[1]), reference.year, reference.month);
+    const participation = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[2]), reference.year, reference.month);
+    const earningsCurrent = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[3]), reference.year, reference.month);
+    const earningsYearAgo = pointValue(series.get(EMPLOYMENT_SITUATION_SERIES[3]), reference.year - 1, reference.month);
+    if ([payrollCurrent, payrollPrevious, unemployment, participation, earningsCurrent, earningsYearAgo].some((value) => value === null)) {
+      throw new Error(`BLS Public Data API did not return all Employment Situation observations required for ${release.reference_period}.`);
+    }
+    const payrollChange = Math.round(payrollCurrent! - payrollPrevious!);
+    const earningsYoy = signedPercent(percentChange(earningsCurrent!, earningsYearAgo!));
+    if (!earningsYoy) throw new Error(`Could not calculate average-hourly-earnings growth for ${release.reference_period}.`);
+    return {
+      actual: [
+        `Nonfarm payrolls ${payrollChange > 0 ? "+" : ""}${payrollChange}k`,
+        `unemployment ${unemployment!.toFixed(1)}%`,
+        `participation ${participation!.toFixed(1)}%`,
+        `AHE ${earningsYoy}% y/y`,
+      ].join("; "),
+      sourceUrl,
+    };
+  }
+
   const openings = pointValue(series.get(JOLTS_SERIES[0]), reference.year, reference.month);
   if (openings === null) throw new Error(`BLS Public Data API did not return JOLTS job openings for ${release.reference_period}.`);
   const millions = (openings / 1_000).toFixed(1).replace(/\.0$/, "");
@@ -235,6 +269,9 @@ export function officialActualSourceUrl(release: OfficialMacroRelease) {
   }
   if (/jolts|job openings/i.test(release.release_name) && archive) {
     return `https://www.bls.gov/news.release/archives/jolts_${archive}.htm`;
+  }
+  if (/employment situation|nonfarm payroll/i.test(release.release_name) && archive) {
+    return `https://www.bls.gov/news.release/archives/empsit_${archive}.htm`;
   }
   const month = referenceMonthName(release.reference_period);
   if (/ism manufacturing/i.test(release.release_name) && month) {
@@ -355,8 +392,135 @@ export async function resolveOfficialActual(
   throw new Error(`No deterministic official Actual adapter exists for ${release.release_name}.`);
 }
 
-export async function ingestOfficialMacroActuals(options: { now?: Date; fetcher?: typeof fetch } = {}): Promise<OfficialActualIngestionResult> {
+type OfficialMacroReleaseSeed = {
+  id: string;
+  series_key: string;
+  release_name: string;
+  agency: string;
+  category: string;
+  release_date: string;
+  release_time_label: string;
+  reference_period: string;
+  frequency: "Monthly";
+  status: "scheduled" | "released_pending_ingestion";
+  watch_question: string;
+  source_url: string;
+  source_classification: "official_government";
+  affected_assets: string[];
+  country: string;
+  impact: "High";
+  local_timezone: "America/New_York";
+};
+
+function blsSeriesKey(eventName: string) {
+  if (/employment situation|nonfarm payroll/i.test(eventName)) return "bls-employment-situation";
+  if (/consumer price index/i.test(eventName)) return "bls-cpi";
+  if (/producer price index/i.test(eventName)) return "bls-ppi";
+  if (/jolts|job openings/i.test(eventName)) return "bls-jolts";
+  return null;
+}
+
+function easternReleaseTimestamp(date: string, timeLabel: string) {
+  const match = timeLabel.match(/^(\d{1,2}):(\d{2})\s+ET$/i);
+  if (!match) return null;
+  const [year, month, day] = date.split("-").map(Number);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+
+  const localAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(localAsUtc));
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const representedLocal = Date.UTC(
+    Number(value.year),
+    Number(value.month) - 1,
+    Number(value.day),
+    Number(value.hour),
+    Number(value.minute),
+    Number(value.second),
+  );
+  const offset = representedLocal - localAsUtc;
+  return new Date(localAsUtc - offset).toISOString();
+}
+
+export function buildOfficialMacroReleaseSeedRows(
+  events: EconomicCalendarEvent[],
+  now = new Date(),
+): OfficialMacroReleaseSeed[] {
+  const lowerBound = now.getTime() - OFFICIAL_RELEASE_SEED_LOOKBACK_DAYS * 86_400_000;
+  const upperBound = now.getTime() + OFFICIAL_RELEASE_SEED_FORWARD_DAYS * 86_400_000;
+
+  return events.flatMap((event): OfficialMacroReleaseSeed[] => {
+    if (event.sourceName !== "U.S. Bureau of Labor Statistics") return [];
+    const seriesKey = blsSeriesKey(event.event);
+    const reference = parseReferenceMonth(event.referencePeriod);
+    const releaseDate = easternReleaseTimestamp(event.date, event.timeLabel);
+    if (!seriesKey || !reference || !releaseDate) return [];
+    const releaseMs = Date.parse(releaseDate);
+    if (releaseMs < lowerBound || releaseMs > upperBound) return [];
+
+    return [{
+      id: event.id,
+      series_key: seriesKey,
+      release_name: event.event,
+      agency: event.sourceName,
+      category: event.category,
+      release_date: releaseDate,
+      release_time_label: event.timeLabel,
+      reference_period: event.referencePeriod!,
+      frequency: "Monthly",
+      status: releaseMs <= now.getTime() ? "released_pending_ingestion" : "scheduled",
+      watch_question: event.decidingQuestion,
+      source_url: event.sourceUrl,
+      source_classification: "official_government",
+      affected_assets: event.affectedAssets,
+      country: event.country,
+      impact: "High",
+      local_timezone: "America/New_York",
+    }];
+  });
+}
+
+async function seedMissingOfficialMacroReleases(
+  events: EconomicCalendarEvent[],
+  now: Date,
+) {
+  const client = createSupabaseAdminClient();
+  const candidates = buildOfficialMacroReleaseSeedRows(events, now);
+  if (!candidates.length) return 0;
+
+  const ids = candidates.map((row) => row.id);
+  const { data: existing, error: readError } = await client
+    .from("macro_releases")
+    .select("id")
+    .in("id", ids);
+  if (readError) throw new Error(`Could not inspect official macro release schedule: ${readError.message}`);
+  const existingIds = new Set((existing ?? []).map((row) => row.id));
+  const missing = candidates.filter((row) => !existingIds.has(row.id));
+  if (!missing.length) return 0;
+
+  const { error: insertError } = await client.from("macro_releases").insert(missing);
+  if (insertError) throw new Error(`Could not seed official macro release schedule: ${insertError.message}`);
+  return missing.length;
+}
+
+export async function ingestOfficialMacroActuals(options: {
+  now?: Date;
+  fetcher?: typeof fetch;
+  calendarEvents?: EconomicCalendarEvent[];
+} = {}): Promise<OfficialActualIngestionResult> {
   const now = options.now ?? new Date();
+  const calendarEvents = options.calendarEvents ?? await getEconomicCalendar();
+  const seeded = await seedMissingOfficialMacroReleases(calendarEvents, now);
   const client = createSupabaseAdminClient();
   const { data, error } = await client
     .from("macro_releases")
@@ -432,7 +596,7 @@ export async function ingestOfficialMacroActuals(options: { now?: Date; fetcher?
     completedReleaseIds,
     failedReleaseIds,
     note: attempted
-      ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable.`
-      : "No supported overdue official Actuals required ingestion.",
+      ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable; ${seeded} missing official schedule row(s) seeded.`
+      : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`,
   };
 }
