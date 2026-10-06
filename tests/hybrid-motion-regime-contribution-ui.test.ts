@@ -21,6 +21,9 @@ test("Hybrid keeps Motion primary while showing exact Dossier regime contributio
   assert.match(page, /regimeContributionMode: directRegimeContribution/);
   assert.match(page, /regimeContributionState: regimeContribution\?\.decision/);
   assert.match(page, /regimeContributionEvidenceCount: regimeContribution\?\.canonicalEvidenceRefs\.length/);
+  assert.match(page, /presenterEditionStatus === "current" && regimeContribution/);
+  assert.match(page, /dossier-regime-context/);
+  assert.match(page, /dossier-story-readthrough/);
 
   assert.match(motion, /REGIME CONTRIBUTION/);
   assert.match(motion, /DOSSIER READ-THROUGH/);
@@ -37,6 +40,9 @@ test("Hybrid keeps Motion primary while showing exact Dossier regime contributio
   assert.match(motion, /does not authorise Regime mutation/);
   assert.match(motion, /item\.regimeContributionState !== "ACCEPT"/);
   assert.match(motion, /item\.regimeContributionMode !== "DIRECT"/);
+  assert.match(motion, /regimeSlug: string \| null/);
+  assert.match(motion, /const key = item\.regimeSlug \|\| item\.regimeLabel/);
+  assert.match(motion, /item\.regimeHref\?\.split\("#"\)\[0\]/);
 
   assert.doesNotMatch(
     [page, motion].join("\n"),
