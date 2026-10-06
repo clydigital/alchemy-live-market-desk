@@ -24,12 +24,12 @@ export type ExistingStoryMarketDomainInput = {
   assets: string[];
 };
 
-export const STORY_DOMAIN_CONTRACT_VERSION = "story-domain/1" as const;
+export const STORY_DOMAIN_CONTRACT_VERSION = "story-domain/2" as const;
 
 const MARKET_DOMAIN_RULES: Array<{ key: string; pattern: RegExp }> = [
-  { key: "rates_policy", pattern: /\b(fed|fomc|central bank|interest rates?|policy rates?|rate cuts?|rate hikes?|yield|bond|treasury|sovereign|duration|term premium)\b/i },
+  { key: "rates_policy", pattern: /\b(fed|fomc|central bank|interest rates?|policy rates?|rate cuts?|rate hikes?|forward guidance|yield|bond|treasury|sovereign|duration|term premium)\b/i },
   { key: "credit_financing", pattern: /\b(credit|credit spreads?|financing|refinanc|funding|liquidity|default|insolvenc|insurer|insurance|counterparty|debt|leverage|private credit|stable[- ]value|wrap providers?)\b/i },
-  { key: "equities_corporates", pattern: /\b(equit(?:y|ies)|stocks?|shares?|earnings|revenue|margins?|valuation|multiple|capex|buybacks?|dividend|merger|acquisition|ipo|guidance)\b/i },
+  { key: "equities_corporates", pattern: /\b(equit(?:y|ies)|stocks?|shares?|earnings|revenue|margins?|valuation|multiple|capex|buybacks?|dividend|merger|acquisition|ipo|earnings guidance|company guidance|corporate guidance|revenue guidance|eps guidance)\b/i },
   { key: "macro_economy", pattern: /\b(inflation|cpi|ppi|gdp|growth|recession|employment|unemployment|jobs?|payrolls?|wages?|consumer|retail sales|housing|mortgage)\b/i },
   { key: "fx_reserves", pattern: /\b(fx|forex|currency|dollar|dxy|yen|euro|sterling|reserve diversification|foreign reserves|capital flows?)\b/i },
   { key: "commodities_energy", pattern: /\b(oil|crude|brent|wti|diesel|gasoline|lng|natural gas|gold|silver|copper|commodity|commodities|fertili[sz]er|shipping|freight)\b/i },
