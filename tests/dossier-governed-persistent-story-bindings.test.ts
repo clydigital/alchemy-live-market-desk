@@ -80,7 +80,7 @@ test("D1 production Dossier path injects governed bindings before packet assembl
 
   assert.match(
     manualRun,
-    /const governedPersistentStoryBindings = await loadGovernedPersistentStoryBindings\(client\)/,
+    /const governedPersistentStoryBindings = previousResolution\.persistenceAvailable[\s\S]*\? await loadGovernedPersistentStoryBindings\(client\)[\s\S]*: \[\]/,
   );
   assert.match(
     manualRun,
