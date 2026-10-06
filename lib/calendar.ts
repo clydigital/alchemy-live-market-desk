@@ -752,12 +752,12 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
     const [releaseResponse, metricResponse] = await Promise.all([
       fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,release_time_label,reference_period,status,actual,consensus,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
         headers,
-        next: { revalidate: 60 },
+        cache: "no-store",
         signal: AbortSignal.timeout(5_000),
       }),
       fetch(`${baseUrl}/rest/v1/macro_release_metrics?select=release_id,label,unit,previous,revised_previous,consensus,alchemy_expectation,actual&order=updated_at.desc&limit=320`, {
         headers,
-        next: { revalidate: 60 },
+        cache: "no-store",
         signal: AbortSignal.timeout(5_000),
       }),
     ]);
