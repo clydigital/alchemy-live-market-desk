@@ -511,6 +511,7 @@ test("A3 persists reevaluation intent before queue insertion failure and keeps t
   const evidenceId = "11111111-1111-4111-8111-111111111111";
   const packet = createPacket();
   packet.observed_evidence[0].evidence_id = evidenceId;
+  packet.observed_evidence[0].canonical_record_backed = true;
   packet.motion_context = {
     contract_version: "dossier-motion-context/1",
     omitted_count: 0,

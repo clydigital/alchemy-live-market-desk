@@ -49,6 +49,7 @@ export interface EvidenceSourceInfo {
 
 export interface ValidationIndexes {
   validEvidenceIds: Set<string>;
+  canonicalRecordBackedEvidenceIds: Set<string>;
   validLeadIds: Set<string>;
   validPriorClaimIds: Set<string>;
   validCreatorClaimIds: Set<string>;
@@ -133,6 +134,7 @@ const MARKET_SOURCE_CATEGORIES = new Set([
 
 export function buildValidationIndexes(packet: DossierV2InputPacket): ValidationIndexes {
   const validEvidenceIds = new Set<string>();
+  const canonicalRecordBackedEvidenceIds = new Set<string>();
   const validLeadIds = new Set<string>();
   const validPriorClaimIds = new Set<string>();
   const validCreatorClaimIds = new Set<string>();
@@ -159,6 +161,9 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
   for (const ev of evidencePools) {
     if (ev && typeof ev.evidence_id === "string") {
       validEvidenceIds.add(ev.evidence_id);
+      if (ev.canonical_record_backed === true) {
+        canonicalRecordBackedEvidenceIds.add(ev.evidence_id);
+      }
       const prov = Array.isArray(ev.provenance) && ev.provenance[0] ? ev.provenance[0] : null;
       evidenceSourceMap.set(ev.evidence_id, {
         source_type: String(ev.source_type ?? "UNKNOWN").toUpperCase(),
@@ -255,6 +260,7 @@ export function buildValidationIndexes(packet: DossierV2InputPacket): Validation
 
   return {
     validEvidenceIds,
+    canonicalRecordBackedEvidenceIds,
     validLeadIds,
     validPriorClaimIds,
     validCreatorClaimIds,
@@ -610,6 +616,13 @@ export function validateResearchBrainOutput(
       if (typeof ref !== "string" || !indexes.validEvidenceIds.has(ref)) {
         errors.push(
           `motion_acceptance.decisions[${motionIndex}] canonical_evidence_refs references unsupported evidence_id "${String(ref)}".`,
+        );
+      } else if (
+        (decision === "ACCEPT" || decision === "REFINE")
+        && !indexes.canonicalRecordBackedEvidenceIds.has(ref)
+      ) {
+        errors.push(
+          `motion_acceptance.decisions[${motionIndex}] canonical_evidence_refs evidence_id "${ref}" is not backed by a canonical intelligence_evidence record.`,
         );
       }
     }

@@ -28,6 +28,7 @@ function packet(overrides: Record<string, unknown> = {}) {
     observed_evidence: [
       {
         evidence_id: CANONICAL_REF,
+        canonical_record_backed: true,
         source_type: "MARKET_DATA",
         category: "RATES",
         claim_or_fact: "Long-end yields remained elevated.",
@@ -280,4 +281,39 @@ test("D2 acceleration evidence receives a stronger A3 review priority without mu
   assert.equal(plan.items[0]?.evidence_classification, "ACCELERATING");
   assert.equal(plan.items[0]?.priority, 93);
   assert.equal(plan.items[0]?.route_kind, "dossier_persistent_story");
+});
+
+test("D2 keeps derived Story observations inside Dossier analysis but outside A3 propagation", () => {
+  const derivedRef = "market-monitor:us10y:2026-10-05";
+  const derivedPacket = packet({
+    observed_evidence: [{
+      evidence_id: derivedRef,
+      source_type: "MARKET_DATA",
+      category: "RATES",
+      claim_or_fact: "The 10Y yield rose during the session.",
+      metrics: {},
+      provenance: [{ source_type: "MARKET_DATA", source_id: "derived-rates" }],
+    }],
+  });
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: derivedPacket,
+    analyticalOutput: analyticalOutput(majorStory({
+      evidence_ids: [derivedRef],
+      market_evidence: {
+        confirming: [derivedRef],
+        contradicting: [],
+        accelerating: [],
+        unresolved: [],
+      },
+    })),
+    stories: [
+      { id: STORY_ID, slug: "us-rate-regime", status: "active", confidence: 0.8 },
+    ],
+    regimeLinks: [],
+    queueableEvidenceIds: new Set([EVIDENCE_ROW_ID]),
+    queueEvidenceIdByCanonicalRef: new Map([[derivedRef, EVIDENCE_ROW_ID]]),
+  });
+
+  assert.deepEqual(plan.items, []);
+  assert.equal(plan.warnings.some((warning) => warning.includes(derivedRef)), false);
 });

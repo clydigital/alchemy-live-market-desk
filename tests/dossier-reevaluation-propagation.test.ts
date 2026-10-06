@@ -41,6 +41,7 @@ function packet(input: {
     previous_dossier_id: null,
     observed_evidence: evidenceIds.map((evidenceId, index) => ({
       evidence_id: evidenceId,
+      ...(evidenceId.startsWith("market-monitor:") ? {} : { canonical_record_backed: true }),
       epistemic_label: "OBSERVED",
       claim_or_fact: `Canonical fact ${index + 1}`,
       category: "MACRO",
@@ -222,6 +223,22 @@ test("A3 does not convert non-UUID Dossier evidence into Story-queue evidence", 
     stories,
     regimeLinks: [],
     queueableEvidenceIds: new Set(),
+  });
+
+  assert.equal(plan.items.length, 0);
+  assert.ok(plan.warnings.some((warning) => /no queueable canonical evidence/i.test(warning)));
+});
+
+test("A3 rejects a queueable UUID when its packet observation lacks the canonical-record marker", () => {
+  const derivedPacket = packet({ evidenceIds: [EVIDENCE_A] });
+  delete derivedPacket.observed_evidence[0].canonical_record_backed;
+
+  const plan = buildDossierReevaluationPropagationPlan({
+    packet: derivedPacket,
+    analyticalOutput: output([decision()]),
+    stories,
+    regimeLinks: [],
+    queueableEvidenceIds: new Set([EVIDENCE_A]),
   });
 
   assert.equal(plan.items.length, 0);
