@@ -3,6 +3,8 @@ import type { DossierPresentationV1 } from "./dossier-v2/presentation-adapter.ts
 import type { StoryEvent, StoryThesisVersion } from "./persistence/contracts.ts";
 import { storyFramingDependsOnExpiredCatalyst } from "./story-hygiene.ts";
 
+export const REGIME_ROUTING_CONTRACT_VERSION = "regime-routing/1" as const;
+
 export type RegimeSlug =
   | "global-cost-of-capital"
   | "us-china-ai"
