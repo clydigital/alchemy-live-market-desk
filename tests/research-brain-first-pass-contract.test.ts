@@ -119,7 +119,7 @@ test("Research Brain uses prior investigation baselines for bounded divergence p
   assert.match(instructions, /A similar question, market mechanism, Regime or subgroup alone is NOT enough to inherit a prior expectation/);
   assert.match(instructions, /create a new investigation and leave the old one as historical context/);
   assert.match(instructions, /preserve the PRIOR expected_reaction as historical pre-tape context/);
-  assert.match(instructions, /identify the strongest evidence-supported transmission link that failed, lagged, was offset, or remains unproven/);
+  assert.match(instructions, /identify the strongest evidence-supported causal link that failed, lagged, was offset, or remains unproven/);
   assert.match(instructions, /research_next name the observable that would discriminate between the leading explanation and its alternatives/);
   assert.match(instructions, /never infer causality from price direction alone/);
   assert.match(instructions, /describe alignment neutrally rather than calling the prior view 'correct'/);
@@ -144,11 +144,22 @@ test("Research Brain frames the dossier around regime before asset calls", () =>
 
   assert.match(instructions, /REGIME-FIRST MARKET FRAME/);
   assert.match(instructions, /Do not infer risk-on or risk-off from SPX\/NDX alone/);
-  assert.match(instructions, /rates-led\/inflationary tightening/);
+  assert.match(instructions, /higher yields are tightening conditions/);
   assert.match(instructions, /mixed\/selective leadership/);
   assert.match(instructions, /FUNDAMENTAL STORY ORDER/);
   assert.match(instructions, /Rank Major Stories by their ability to change the current regime/);
   assert.match(instructions, /BALANCED ASSET LENSES/);
+});
+
+test("Research Brain keeps reader-facing Dossier language concrete and LY-style", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+
+  assert.match(instructions, /READER-FACING LY LANGUAGE/);
+  assert.match(instructions, /main_thread\.headline must carry the main market conclusion/);
+  assert.match(instructions, /Do not use internal regime labels such as "rates-led tightening" as reader-facing headlines or conclusions/);
+  assert.match(instructions, /Avoid "transmission", "transmitting", "transmission channel", "incomplete transmission"/);
+  assert.match(instructions, /AI stocks can keep pushing despite higher yields as earnings stay strong/);
+  assert.match(instructions, /Yields are rising, but credit spreads are still calm/);
 });
 
 test("Research Brain rolls completed policy meetings to the next live decision", () => {
@@ -163,7 +174,7 @@ test("Research Brain rolls completed policy meetings to the next live decision",
 test("Research Brain keeps diplomacy and geopolitics conditional on observed evidence", () => {
   const instructions = buildResearchBrainSystemInstructions();
 
-  assert.match(instructions, /trade, diplomatic or geopolitical developments as potential transmission or relief-valve branches only when observed evidence supports them/);
+  assert.match(instructions, /trade, diplomatic or geopolitical developments as potential market-effect or relief-valve branches only when observed evidence supports them/);
   assert.match(instructions, /never assume an announced meeting, negotiation or threat produced a market effect without reaction evidence/);
   assert.match(instructions, /STREAM-READY SYNTHESIS/);
 });
@@ -194,7 +205,7 @@ test("Research Brain distinguishes duration stress from systemic risk-off", () =
   assert.match(instructions, /Use "global duration shock" only when supplied non-US sovereign evidence confirms/);
   assert.match(instructions, /CREDIT-BREADTH-VOL CONFIRMATION/);
   assert.match(instructions, /High MOVE alongside contained VIX and still-tight credit/);
-  assert.match(instructions, /ENERGY-INFLATION TRANSMISSION/);
+  assert.match(instructions, /ENERGY-INFLATION LINK/);
   assert.match(instructions, /GOLD-USD CROSS-CHECK/);
   assert.match(instructions, /RESEARCH-NOW PRIORITY/);
 });

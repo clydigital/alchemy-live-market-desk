@@ -68,7 +68,7 @@ function learningLabel(state: string) {
   if (state === "MIXED_REACTION_REVIEW") return "MIXED REACTION";
   if (state === "REACTION_RULE_SUPPORTED") return "REACTION RULE SUPPORTED";
   if (state === "CLOSED_WITHOUT_MECHANISM_VERDICT") return "CLOSED · NO MECHANISM VERDICT";
-  return "TRANSMISSION UNRESOLVED";
+  return "MECHANISM UNRESOLVED";
 }
 
 function reactionReadLabel(value: string) {
@@ -864,7 +864,7 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
                         <span>{lineage.mechanismRead}</span>
                       </div>
                       <div>
-                        <small>TRANSMISSION STATE</small>
+                        <small>MECHANISM STATE</small>
                         <strong>{lineage.learningState === "TRANSMISSION_UNRESOLVED" ? "Still unresolved" : "Evidence updated"}</strong>
                         <span>{lineage.transmissionRead}</span>
                       </div>
