@@ -249,6 +249,7 @@ export async function handleDossierV2PersistRunWithDependencies(
       packetSummary: {
         packetId: result.packet.packet_id,
         asOf: result.packet.as_of,
+        persistentStoryBindings: result.packet.persistent_story_bindings ?? [],
         observedEvidence: result.packet.observed_evidence.length,
         researchLeads: result.packet.research_leads.length,
         developmentClusters: result.packet.development_clusters.length,
