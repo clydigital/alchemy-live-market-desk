@@ -1891,6 +1891,42 @@ test("8Z. STORY Motion destinations normalize through exact persistent Story ide
   );
 });
 
+test("8Z0. historical prior Story wrappers normalize only to an exact current analytical Story", () => {
+  const packet = createValidBasePacket();
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      ...b2MotionContextItem("STORY"),
+      motion_id: "motion:story:prior-wrapper",
+      primary_story_id: null,
+      origin_evidence_ref: "ev:fed:2026-09",
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:story:prior-wrapper",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports the current Story route.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: ["prior:7d077884-03e0-4b10-b0b6-037863eeaa73:story:story:fed_easing"],
+      rationale: "The model copied a prior-claim wrapper around the exact analytical Story ID.",
+      next_test: null,
+    }],
+  };
+
+  normalizeResearchBrainMotionStoryDestinations(output, packet);
+  assert.deepEqual(
+    output.motion_acceptance.decisions[0].destination_refs,
+    ["STORY:story:fed_easing"],
+  );
+  assert.equal(output.motion_acceptance.decisions[0].decision, "ACCEPT");
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, true);
+});
+
 test("8Z1. STORY Motion destination normalization fails closed on ambiguous bindings", () => {
   const packet = createValidBasePacket();
   const persistentStoryId = "11111111-1111-4111-8111-111111111111";
@@ -1937,6 +1973,56 @@ test("8Z1. STORY Motion destination normalization fails closed on ambiguous bind
   pinResearchBrainPersistentStoryIdentities(output, packet);
   normalizeResearchBrainMotionStoryDestinations(output, packet);
   assert.deepEqual(output.motion_acceptance.decisions[0].destination_refs, []);
+  assert.equal(output.motion_acceptance.decisions[0].decision, "UNRESOLVED");
+  assert.equal(output.motion_acceptance.decisions[0].conclusion, null);
+  assert.match(output.motion_acceptance.decisions[0].rationale, /Routing failed closed/);
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, true);
+});
+
+test("8Z1b. missing exact Motion route does not degrade an otherwise valid Research Brain output", async () => {
+  const packet = createValidBasePacket();
+  packet.motion_context = {
+    contract_version: "dossier-motion-context/1",
+    omitted_count: 0,
+    items: [{
+      ...b2MotionContextItem("STORY"),
+      motion_id: "motion:story:no-route",
+      primary_story_id: null,
+      origin_evidence_ref: "ev:fed:2026-09",
+    }],
+  };
+
+  const output = createValidOutput(packet);
+  output.motion_acceptance = {
+    contract_version: DOSSIER_MOTION_ACCEPTANCE_CONTRACT_VERSION,
+    decisions: [{
+      motion_id: "motion:story:no-route",
+      decision: "ACCEPT",
+      conclusion: "Canonical evidence supports the Motion framing.",
+      canonical_evidence_refs: ["ev:fed:2026-09"],
+      destination_refs: [],
+      rationale: "The model omitted a routable destination.",
+      next_test: null,
+    }],
+  };
+
+  let calls = 0;
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      modelRunner: async () => {
+        calls++;
+        return { data: structuredClone(output) };
+      },
+      allowRepair: false,
+    },
+  );
+
+  assert.equal(calls, 1);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.motion_acceptance.decisions[0].decision, "UNRESOLVED");
+  assert.equal(result.motion_acceptance.decisions[0].conclusion, null);
+  assert.deepEqual(result.motion_acceptance.decisions[0].destination_refs, []);
 });
 
 test("8Z2. structural repair can complete an ACCEPT with an exact STORY destination", async () => {
