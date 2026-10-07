@@ -35,8 +35,12 @@ Video discovery remains separate:
 
 - `/api/cron/video/midnight` at 09:00 MYT
 - `/api/cron/video/transcript-worker` at 09:30 MYT
+- bounded transcript retry at 10:45 MYT for retryable provider-capacity failures
 - `/api/cron/video/late-morning` at 21:00 MYT
 - `/api/cron/video/transcript-worker` at 21:30 MYT
+- bounded transcript retry at 22:45 MYT for retryable provider-capacity failures
+
+The retry slots reuse the same leased transcript worker and claim only rows whose persisted `transcript_next_attempt_at` is due. A completed or not-yet-due row is a safe no-op, so the retry does not duplicate transcript evidence.
 
 Video discovery and transcript processing can create creator-lead evidence, but they do not replace the 09:30 / 21:30 full Live research cycles and cannot independently publish a Story to Hybrid.
 
