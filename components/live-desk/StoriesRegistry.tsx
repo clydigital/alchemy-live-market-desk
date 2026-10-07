@@ -22,7 +22,7 @@ export type StoryRegistryItem = {
   nextCatalyst: string | null;
   catalystStatus: "missing" | "ongoing" | "upcoming" | "due" | "expired" | "resolved";
   catalystRecalibrationRequired: boolean;
-  maturity: "durable" | "early" | "seed" | "episode" | "stale";
+  maturity: "durable" | "early" | "seed" | "episode" | "stale" | "reasoning_gap";
   maturityReason: string;
   evidenceRoom: string | null;
   eventCount: number;
@@ -165,7 +165,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
         ))}
       </div>
 
-      {!filtered.length ? <div className={styles.empty}>No Stories match the current filters. Switch Market role to “All” to inspect stale, seed, early or episode context.</div> : null}
+      {!filtered.length ? <div className={styles.empty}>No Stories match the current filters. Switch Market role to “All” to inspect stale, seed, early, episode or reasoning-gap context.</div> : null}
     </div>
   );
 }
