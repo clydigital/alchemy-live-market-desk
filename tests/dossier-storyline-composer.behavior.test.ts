@@ -257,8 +257,15 @@ test("missing market tape remains visible as composition debt", async () => {
 
 test("retained zero-change Dossier context is an expected state, not a composition warning", async () => {
   const { composePersistedDossierStorylines } = await composerModule();
-  const dossier = baseDossier([{ id: "rates", confidence: 82 }]);
-  dossier.diagnostics = { warnings: [], eventHorizonCoverage: [], noMaterialNews: true, recruitedClusterCount: 0 };
+  const base = baseDossier([{ id: "rates", confidence: 82 }]);
+  const dossier = {
+    ...base,
+    diagnostics: {
+      ...base.diagnostics,
+      noMaterialNews: true,
+      recruitedClusterCount: 0,
+    },
+  };
 
   const result = await composePersistedDossierStorylines({
     editionPayload: {
