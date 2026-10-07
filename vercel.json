@@ -16,12 +16,20 @@
       "schedule": "30 1 * * *"
     },
     {
+      "path": "/api/cron/video/transcript-worker",
+      "schedule": "45 2 * * *"
+    },
+    {
       "path": "/api/cron/video/late-morning",
       "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
       "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/video/transcript-worker",
+      "schedule": "45 14 * * *"
     },
     {
       "path": "/api/cron/research/morning",
