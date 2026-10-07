@@ -45,6 +45,10 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
       persistent_story_id: RATES_ID,
     },
     {
+      analytical_story_id: "story:duration-stress-real-led",
+      persistent_story_id: RATES_ID,
+    },
+    {
       analytical_story_id: "story:tech-narrow-relief",
       persistent_story_id: BREADTH_ID,
     },
@@ -53,6 +57,20 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
       persistent_story_id: BREADTH_ID,
     },
   ]);
+});
+
+test("D1 current real-yield-led rates analytical identity maps only through the governed rates alias", () => {
+  const bindings = resolveGovernedPersistentStoryBindings([
+    { id: RATES_ID, slug: "fed-long-end-stress", status: "publish" },
+  ]);
+
+  assert.deepEqual(
+    bindings.filter((item) => item.analytical_story_id === "story:duration-stress-real-led"),
+    [{
+      analytical_story_id: "story:duration-stress-real-led",
+      persistent_story_id: RATES_ID,
+    }],
+  );
 });
 
 test("D1 governed aliases fail closed for missing, ambiguous or discarded persistent Stories", () => {
@@ -70,7 +88,7 @@ test("D1 governed aliases fail closed for missing, ambiguous or discarded persis
 });
 
 test("D1 governed binding registry contains no title, prose or fuzzy matching surface", () => {
-  assert.equal(GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES.length, 7);
+  assert.equal(GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES.length, 8);
 
   const helper = readFileSync(
     new URL("../lib/dossier-v2/persistent-story-bindings.ts", import.meta.url),
