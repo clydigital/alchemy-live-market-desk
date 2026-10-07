@@ -1,6 +1,6 @@
 begin;
 
-create or replace view public.story_evidence_coverage as
+create or replace view public.story_evidence_coverage with (security_invoker = true) as
 with source_counts as (
   select
     link.story_id,
