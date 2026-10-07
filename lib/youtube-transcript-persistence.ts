@@ -359,6 +359,58 @@ export class SupabaseTranscriptStore implements TranscriptPipelineStore {
   }
 }
 
+export async function reconcileTerminalVideoParentRuns(input: {
+  slot: VideoResearchSlot;
+  maxAgeMs?: number;
+  now?: Date;
+  client?: SupabaseClient;
+}) {
+  const client = input.client ?? createSupabaseAdminClient();
+  const now = input.now ?? new Date();
+  const maxAgeMs = input.maxAgeMs ?? 15 * 60 * 1_000;
+  const cutoff = new Date(now.getTime() - maxAgeMs).toISOString();
+
+  const { data: parents, error: parentQueryError } = await client
+    .from("research_runs")
+    .select("id,status,updated_at")
+    .eq("schedule_slot", input.slot)
+    .eq("status", "running")
+    .lt("updated_at", cutoff);
+
+  throwIfError(parentQueryError, "Could not inspect stale video parent runs");
+
+  let reconciledCount = 0;
+  for (const parent of (parents ?? []) as Array<{ id: string; status: string; updated_at: string }>) {
+    const { data: slotRun, error: slotReadError } = await client
+      .from("research_slot_runs")
+      .select("status,completed_at,last_heartbeat_at")
+      .eq("research_run_id", parent.id)
+      .maybeSingle<{ status: string; completed_at: string | null; last_heartbeat_at: string | null }>();
+
+    throwIfError(slotReadError, `Could not read video slot state for parent ${parent.id}`);
+    if (!slotRun || !["completed", "failed"].includes(slotRun.status)) continue;
+
+    const completedAt = slotRun.completed_at || slotRun.last_heartbeat_at || now.toISOString();
+    const { data: updated, error: updateError } = await client
+      .from("research_runs")
+      .update({
+        status: slotRun.status,
+        completed_at: completedAt,
+        updated_at: now.toISOString(),
+      })
+      .eq("id", parent.id)
+      .eq("status", "running")
+      .eq("updated_at", parent.updated_at)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    throwIfError(updateError, `Could not reconcile terminal video parent ${parent.id}`);
+    if (updated) reconciledCount += 1;
+  }
+
+  return { reconciledCount };
+}
+
 export async function recoverStaleVideoRuns(input: {
   slot: VideoResearchSlot;
   maxAgeMs?: number;
@@ -447,7 +499,9 @@ export async function createVideoIntakeRun(input: {
   const client = input.client ?? createSupabaseAdminClient();
   const now = new Date().toISOString();
 
-  // Reclaim any stale runs for this slot before starting a new run
+  // Reconcile any terminal slot whose parent ledger was left running,
+  // then reclaim genuinely abandoned in-flight runs for this slot.
+  await reconcileTerminalVideoParentRuns({ slot: input.slot, client });
   await recoverStaleVideoRuns({ slot: input.slot, client });
 
   const initialLog = [
