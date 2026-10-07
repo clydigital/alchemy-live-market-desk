@@ -24,6 +24,10 @@ export type StoryRegistryItem = {
   catalystRecalibrationRequired: boolean;
   maturity: "durable" | "early" | "seed" | "episode" | "stale" | "reasoning_gap";
   maturityReason: string;
+  reasoningAction: "queued_review" | "waiting_new_evidence" | "needs_routing_check" | "no_canonical_evidence" | null;
+  pendingReasoningReviewCount: number;
+  lastReasoningEvidenceAt: string | null;
+  lastReasoningEvaluatedAt: string | null;
   evidenceRoom: string | null;
   evidenceSourceCount: number;
   tier1SourceCount: number;
@@ -44,7 +48,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<"All" | StoryTag>("All");
   const [status, setStatus] = useState("All");
-  const [role, setRole] = useState<"Current drivers" | "Reasoning gaps" | "Evidence thin" | "Catalyst review" | "Context only" | "All">("Current drivers");
+  const [role, setRole] = useState<"Current drivers" | "Reasoning gaps" | "Queued reasoning" | "Waiting evidence" | "Evidence thin" | "Catalyst review" | "Context only" | "All">("Current drivers");
 
   const tags = useMemo(() => {
     const counts = new Map<StoryTag, number>();
@@ -61,6 +65,8 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       if (status !== "All" && story.lifecycle !== status) return false;
       if (role === "Current drivers" && story.maturity !== "durable") return false;
       if (role === "Reasoning gaps" && story.maturity !== "reasoning_gap") return false;
+      if (role === "Queued reasoning" && story.reasoningAction !== "queued_review") return false;
+      if (role === "Waiting evidence" && !["waiting_new_evidence", "no_canonical_evidence"].includes(story.reasoningAction || "")) return false;
       if (role === "Evidence thin" && story.evidenceRoom !== "thin") return false;
       if (role === "Catalyst review" && !story.catalystRecalibrationRequired) return false;
       if (role === "Context only" && story.maturity === "durable") return false;
@@ -82,6 +88,8 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
           <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
             <option>Current drivers</option>
             <option>Reasoning gaps</option>
+            <option>Queued reasoning</option>
+            <option>Waiting evidence</option>
             <option>Evidence thin</option>
             <option>Catalyst review</option>
             <option>Context only</option>
@@ -107,7 +115,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       </div>
 
       <div className={styles.resultLine}>
-        {filtered.length} of {stories.length} Stories shown · {role === "Current drivers" ? "Regime-driving only" : role === "Reasoning gaps" ? "Missing canonical Story reasoning" : role === "Evidence thin" ? "Thin evidence rooms" : role === "Catalyst review" ? "Catalyst recalibration required" : role === "Context only" ? "Context / needs work" : "All maturity states"}
+        {filtered.length} of {stories.length} Stories shown · {role === "Current drivers" ? "Regime-driving only" : role === "Reasoning gaps" ? "Missing canonical Story reasoning" : role === "Queued reasoning" ? "Canonical reasoning gaps with owned review work queued" : role === "Waiting evidence" ? "Reasoning gaps that need new canonical evidence before another review can matter" : role === "Evidence thin" ? "Thin evidence rooms" : role === "Catalyst review" ? "Catalyst recalibration required" : role === "Context only" ? "Context / needs work" : "All maturity states"}
       </div>
 
       <div className={styles.cards}>
@@ -147,6 +155,19 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
               {story.maturity !== "durable" ? (
                 <li className={styles.contextNote}>
                   {story.maturity === "reasoning_gap" ? "Reasoning gap: " : "Context only: "}{story.maturityReason}
+                </li>
+              ) : null}
+              {story.maturity === "reasoning_gap" ? (
+                <li className={styles.contextNote}>
+                  {story.reasoningAction === "queued_review"
+                    ? `Work status: queued for full review · ${story.pendingReasoningReviewCount} trigger${story.pendingReasoningReviewCount === 1 ? "" : "s"}. A full reasoning cycle can progress this; maintenance-only refresh cannot manufacture V1 reasoning.`
+                    : story.reasoningAction === "waiting_new_evidence"
+                      ? "Work status: reviewed against the latest linked evidence. New canonical evidence is required before another review can legitimately change maturity."
+                      : story.reasoningAction === "no_canonical_evidence"
+                        ? "Work status: no canonical evidence timestamp is attached yet. Acquire and link evidence before attempting to mature this Story."
+                        : story.reasoningAction === "needs_routing_check"
+                          ? "Work status: newer canonical evidence exists but no Story review is queued. Check evidence-to-Story routing before treating this as reviewed."
+                          : "Work status: reasoning diagnostics are temporarily unavailable."}
                 </li>
               ) : null}
               {story.evidenceRoom === "thin" ? (
