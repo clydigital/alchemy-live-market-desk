@@ -4,6 +4,7 @@ import { persistMarketMotionFromCreatorReviews } from "./market-motion-ingestion
 import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { retrieveTranscriptForWorker } from "./transcript-worker-retrieval.ts";
 import { SupabaseTranscriptWorkerStore } from "./supabase-transcript-worker-store.ts";
+import { SupabaseTranscriptStore } from "./youtube-transcript-persistence.ts";
 import { reviewCreatorTranscript } from "./transcript-research-review.ts";
 import {
   DEFAULT_BATCH_SIZE,
@@ -20,6 +21,7 @@ export type TranscriptWorkerHandlerDependencies = {
   extract: typeof retrieveTranscriptForWorker;
   interpret: typeof reviewCreatorTranscript;
   refreshMarketMotion: typeof persistMarketMotionFromCreatorReviews;
+  reconcileVideoRuns: (runIds: string[]) => Promise<void>;
 };
 
 const defaultDependencies: TranscriptWorkerHandlerDependencies = {
@@ -33,6 +35,12 @@ const defaultDependencies: TranscriptWorkerHandlerDependencies = {
   extract: retrieveTranscriptForWorker,
   interpret: reviewCreatorTranscript,
   refreshMarketMotion: persistMarketMotionFromCreatorReviews,
+  reconcileVideoRuns: async (runIds) => {
+    const store = new SupabaseTranscriptStore();
+    for (const runId of [...new Set(runIds.filter(Boolean))]) {
+      await store.recalculateRunState(runId);
+    }
+  },
 };
 
 export async function handleTranscriptWorkerRequest(
@@ -69,6 +77,18 @@ export async function handleTranscriptWorkerRequest(
     const completedItemIds = result.outcomes
       .filter((outcome) => outcome.status === "completed")
       .map((outcome) => outcome.itemId);
+    let checkpointReconciliationWarning: string | null = null;
+    const affectedRunIds = [...new Set(result.outcomes.map((outcome) => outcome.runId).filter(Boolean))];
+    if (affectedRunIds.length) {
+      try {
+        await dependencies.reconcileVideoRuns(affectedRunIds);
+      } catch (error) {
+        checkpointReconciliationWarning = error instanceof Error
+          ? error.message
+          : "Creator-video run reconciliation failed.";
+      }
+    }
+
     let marketMotion = null;
     let marketMotionWarning: string | null = null;
     if (completedItemIds.length) {
@@ -87,6 +107,8 @@ export async function handleTranscriptWorkerRequest(
       ...result,
       marketMotion,
       marketMotionWarning,
+      reconciledVideoRunIds: affectedRunIds,
+      checkpointReconciliationWarning,
     }, {
       status: hasFailure ? 207 : 200,
       headers: { "Cache-Control": "no-store" },

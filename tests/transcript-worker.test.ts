@@ -178,6 +178,8 @@ test("atomic claim lets two workers target one job but runs one extraction", asy
   assert.equal(left.claimed + right.claimed, 1);
   assert.equal(calls.extract, 1);
   assert.equal(store.state, "completed");
+  const completed = [...left.outcomes, ...right.outcomes][0];
+  assert.equal(completed?.runId, store.current.runId);
 });
 
 test("an active lease is not reclaimed, but an expired lease is", async () => {
