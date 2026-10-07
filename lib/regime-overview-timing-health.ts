@@ -64,7 +64,9 @@ export function buildRegimeOverviewTimingHealth(input: {
   const telemetryAt = input.regimes.flatMap((regime) =>
     regime.subgroups.flatMap((subgroup) => subgroup.telemetry.map((item) => item.asOf))
   );
-  const interpretationAt = input.interpretationClocks.map((item) => item.evaluatedAt);
+  const interpretationAt = input.interpretationClocks
+    .filter((item) => item.hasPrimaryHypothesis)
+    .map((item) => item.evaluatedAt);
 
   let telemetryBearingSubgroups = 0;
   let storyBackedTelemetrySubgroups = 0;
