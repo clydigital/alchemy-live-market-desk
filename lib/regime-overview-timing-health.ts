@@ -47,9 +47,10 @@ function ageMinutes(value: string | null, nowMs: number) {
  * reassessment is still a real System 2 read and advances last_evaluated_at.
  *
  * Telemetry subgroups without a durable Story driver are reported as coverage
- * gaps rather than being mislabelled as stale interpretation. Exact seed/early/
- * episode Stories remain visible as context, but they are not promoted merely
- * to clear coverage. A truly sensor-only subgroup has no mapped Story at all.
+ * gaps rather than being mislabelled as stale interpretation. Seed, early,
+ * episode and canonical-reasoning-gap Stories remain visible as context, but
+ * they are not promoted merely to clear coverage. A truly sensor-only subgroup
+ * has no mapped Story at all.
  */
 export function buildRegimeOverviewTimingHealth(input: {
   regimes: ProjectedRegime[];

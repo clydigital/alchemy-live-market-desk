@@ -45,7 +45,13 @@ export type RegimeRoute = {
   score: number;
 };
 
-export type RegimeStoryMaturity = "durable" | "early" | "seed" | "episode" | "stale";
+export type RegimeStoryMaturity =
+  | "durable"
+  | "early"
+  | "seed"
+  | "episode"
+  | "stale"
+  | "reasoning_gap";
 
 export type ProjectedStory = {
   id: string;
@@ -344,6 +350,19 @@ const EPISODIC_STORY_SLUGS = new Set([
   "rates-led-same-session-repricing-overwhelms-summit-optics",
 ]);
 
+const CANONICAL_REGIME_STORY_REASONING_VERSION = "canonical-story-reasoning/v1";
+
+function hasCanonicalRegimeStoryReasoning(version?: StoryThesisVersion | null) {
+  if (!version?.snapshot || typeof version.snapshot !== "object" || Array.isArray(version.snapshot)) return false;
+  const reasoning = version.snapshot.reasoning;
+  return Boolean(
+    reasoning
+    && typeof reasoning === "object"
+    && !Array.isArray(reasoning)
+    && (reasoning as Record<string, unknown>).contractVersion === CANONICAL_REGIME_STORY_REASONING_VERSION,
+  );
+}
+
 export function classifyRegimeStory(
   story: Story,
   version?: StoryThesisVersion | null,
@@ -400,10 +419,18 @@ export function classifyRegimeStory(
     };
   }
 
+  if (!hasCanonicalRegimeStoryReasoning(version)) {
+    return {
+      maturity: "reasoning_gap",
+      contributesToState: false,
+      reason: "The exact pinned Story version has no canonical V1 reasoning snapshot. Keep it visible as context until the existing Hypothesis → Challenger → Story Synthesis path produces an evidence-backed reasoning version.",
+    };
+  }
+
   return {
     maturity: "durable",
     contributesToState: true,
-    reason: "Accepted persistent Story with enough maturity to contribute to Regime interpretation.",
+    reason: "Accepted persistent Story with canonical V1 reasoning on the exact pinned thesis version.",
   };
 }
 

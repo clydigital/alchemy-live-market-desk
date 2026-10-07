@@ -85,7 +85,11 @@ function version(): StoryThesisVersion {
     article_verdict: "develop",
     assets: ["US10Y", "US30Y", "HY", "IG"],
     portfolio_map: {},
-    snapshot: {},
+    snapshot: {
+      reasoning: {
+        contractVersion: "canonical-story-reasoning/v1",
+      },
+    },
     change_reason: "Canonical prior thesis version.",
     effective_at: "2026-10-05T20:00:00.000Z",
     created_at: "2026-10-05T20:00:00.000Z",

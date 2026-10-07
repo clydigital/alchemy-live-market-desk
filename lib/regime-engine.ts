@@ -23,7 +23,7 @@ import {
 } from "./regimes.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
-export const REGIME_PROJECTOR_CONTRACT_VERSION = "regime-projector/3" as const;
+export const REGIME_PROJECTOR_CONTRACT_VERSION = "regime-projector/4" as const;
 
 export type RegimeProjectionTrigger =
   | "story_engine"
