@@ -35,7 +35,7 @@ import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
 import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-projection";
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
-import { getRegimeStoryInterpretationClocks } from "@/lib/regime-live-reasoning";
+import { getD7StoryReviewClocks } from "@/lib/d7-story-review-clock";
 import { buildHybridReasoningProjection } from "@/lib/hybrid-reasoning-projection";
 
 export const dynamic = "force-dynamic";
@@ -429,7 +429,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     events: recordLayer.events,
     versions: recordLayer.thesisVersions,
   });
-  const storyReviewClocks = await getRegimeStoryInterpretationClocks(
+  const storyReviewClocks = await getD7StoryReviewClocks(
     (dossier.evidenceSufficiency?.stories ?? [])
       .map((item) => item.persistentStoryId)
       .filter((item): item is string => Boolean(item)),
