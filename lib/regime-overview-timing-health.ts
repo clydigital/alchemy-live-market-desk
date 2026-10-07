@@ -10,7 +10,9 @@ export type RegimeOverviewTimingHealth = {
   latestInterpretationAgeMinutes: number | null;
   telemetryBearingSubgroups: number;
   storyBackedTelemetrySubgroups: number;
-  system1OnlySubgroups: number;
+  nonDurableTelemetrySubgroups: number;
+  contextOnlyTelemetrySubgroups: number;
+  sensorOnlyTelemetrySubgroups: number;
   pendingInterpretationSubgroups: number;
   noTimestampedInterpretationSubgroups: number;
   oldestPendingLagMinutes: number | null;
@@ -38,9 +40,10 @@ function ageMinutes(value: string | null, nowMs: number) {
  * the last time the persisted hypothesis wording changed. An unchanged Story
  * reassessment is still a real System 2 read and advances last_evaluated_at.
  *
- * Telemetry-only subgroups are reported as coverage gaps rather than being
- * mislabelled as stale interpretation. With no durable Story identity there is
- * nothing exact to re-evaluate, and the Regime layer must not manufacture one.
+ * Telemetry subgroups without a durable Story driver are reported as coverage
+ * gaps rather than being mislabelled as stale interpretation. Exact seed/early/
+ * episode Stories remain visible as context, but they are not promoted merely
+ * to clear coverage. A truly sensor-only subgroup has no mapped Story at all.
  */
 export function buildRegimeOverviewTimingHealth(input: {
   regimes: ProjectedRegime[];
@@ -59,7 +62,9 @@ export function buildRegimeOverviewTimingHealth(input: {
 
   let telemetryBearingSubgroups = 0;
   let storyBackedTelemetrySubgroups = 0;
-  let system1OnlySubgroups = 0;
+  let nonDurableTelemetrySubgroups = 0;
+  let contextOnlyTelemetrySubgroups = 0;
+  let sensorOnlyTelemetrySubgroups = 0;
   let pendingInterpretationSubgroups = 0;
   let noTimestampedInterpretationSubgroups = 0;
   let oldestPendingLagMinutes: number | null = null;
@@ -71,7 +76,12 @@ export function buildRegimeOverviewTimingHealth(input: {
       telemetryBearingSubgroups += 1;
 
       if (!subgroup.durableStories.length) {
-        system1OnlySubgroups += 1;
+        nonDurableTelemetrySubgroups += 1;
+        if (subgroup.contextStories.length) {
+          contextOnlyTelemetrySubgroups += 1;
+        } else {
+          sensorOnlyTelemetrySubgroups += 1;
+        }
         continue;
       }
       storyBackedTelemetrySubgroups += 1;
@@ -106,7 +116,7 @@ export function buildRegimeOverviewTimingHealth(input: {
       ? "no_system2"
       : pendingInterpretationSubgroups > 0
         ? "pending"
-        : system1OnlySubgroups > 0
+        : nonDurableTelemetrySubgroups > 0
           ? "partial_coverage"
           : "current";
 
@@ -118,7 +128,9 @@ export function buildRegimeOverviewTimingHealth(input: {
     latestInterpretationAgeMinutes: ageMinutes(latestInterpretationAt, nowMs),
     telemetryBearingSubgroups,
     storyBackedTelemetrySubgroups,
-    system1OnlySubgroups,
+    nonDurableTelemetrySubgroups,
+    contextOnlyTelemetrySubgroups,
+    sensorOnlyTelemetrySubgroups,
     pendingInterpretationSubgroups,
     noTimestampedInterpretationSubgroups,
     oldestPendingLagMinutes,

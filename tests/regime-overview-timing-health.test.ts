@@ -39,10 +39,13 @@ function regime(input: {
   telemetryAt: string | null;
   storyId?: string;
   storyBacked?: boolean;
+  contextOnly?: boolean;
 }): ProjectedRegime {
   const projectedStory = story(input.storyId || "story-1");
   const storyBacked = input.storyBacked !== false;
   const durableStories = storyBacked ? [projectedStory] : [];
+  const contextStories = !storyBacked && input.contextOnly ? [projectedStory] : [];
+  const stories = [...durableStories, ...contextStories];
   return {
     slug: "global-cost-of-capital",
     title: "Rates",
@@ -55,9 +58,9 @@ function regime(input: {
     stateKind: "system1",
     confidence: "PARTIAL",
     asOf: input.telemetryAt,
-    stories: durableStories,
+    stories,
     durableStories,
-    contextStories: [],
+    contextStories,
     latestNode: null,
     dossierContext: [],
     subgroups: [{
@@ -68,9 +71,9 @@ function regime(input: {
       mechanism: "Mechanism",
       state: "Observed",
       stateKind: "system1",
-      stories: durableStories,
+      stories,
       durableStories,
-      contextStories: [],
+      contextStories,
       nodes: [],
       telemetry: input.telemetryAt ? [{
         key: "policy",
@@ -98,7 +101,7 @@ test("overview timing health uses accepted Story review time for genuine pending
   assert.equal(health.latestInterpretationAgeMinutes, 40);
   assert.equal(health.telemetryBearingSubgroups, 1);
   assert.equal(health.storyBackedTelemetrySubgroups, 1);
-  assert.equal(health.system1OnlySubgroups, 0);
+  assert.equal(health.nonDurableTelemetrySubgroups, 0);
   assert.equal(health.pendingInterpretationSubgroups, 1);
   assert.equal(health.noTimestampedInterpretationSubgroups, 0);
   assert.equal(health.oldestPendingLagMinutes, 30);
@@ -114,7 +117,7 @@ test("Story-backed telemetry with no accepted evaluation remains degraded", () =
   assert.equal(health.status, "no_system2");
   assert.equal(health.pendingInterpretationSubgroups, 1);
   assert.equal(health.noTimestampedInterpretationSubgroups, 1);
-  assert.equal(health.system1OnlySubgroups, 0);
+  assert.equal(health.nonDurableTelemetrySubgroups, 0);
   assert.equal(health.oldestPendingLagMinutes, 30);
   assert.equal(health.latestInterpretationAt, null);
 });
@@ -131,7 +134,7 @@ test("unchanged Story review can make interpretation current without rewriting h
   assert.equal(health.oldestPendingLagMinutes, null);
 });
 
-test("telemetry-only subgroup is coverage debt, not a fake stale Story interpretation", () => {
+test("sensor-only subgroup is coverage debt, not a fake stale Story interpretation", () => {
   const health = buildRegimeOverviewTimingHealth({
     regimes: [regime({
       telemetryAt: "2026-10-07T00:30:00.000Z",
@@ -144,10 +147,31 @@ test("telemetry-only subgroup is coverage debt, not a fake stale Story interpret
   assert.equal(health.status, "partial_coverage");
   assert.equal(health.telemetryBearingSubgroups, 1);
   assert.equal(health.storyBackedTelemetrySubgroups, 0);
-  assert.equal(health.system1OnlySubgroups, 1);
+  assert.equal(health.nonDurableTelemetrySubgroups, 1);
+  assert.equal(health.contextOnlyTelemetrySubgroups, 0);
+  assert.equal(health.sensorOnlyTelemetrySubgroups, 1);
   assert.equal(health.pendingInterpretationSubgroups, 0);
   assert.equal(health.noTimestampedInterpretationSubgroups, 0);
   assert.equal(health.oldestPendingLagMinutes, null);
+});
+
+test("mapped seed or episode Stories remain context-only instead of being promoted for coverage", () => {
+  const health = buildRegimeOverviewTimingHealth({
+    regimes: [regime({
+      telemetryAt: "2026-10-07T00:30:00.000Z",
+      storyBacked: false,
+      contextOnly: true,
+    })],
+    interpretationClocks: [],
+    now: "2026-10-07T01:00:00.000Z",
+  });
+
+  assert.equal(health.status, "partial_coverage");
+  assert.equal(health.storyBackedTelemetrySubgroups, 0);
+  assert.equal(health.nonDurableTelemetrySubgroups, 1);
+  assert.equal(health.contextOnlyTelemetrySubgroups, 1);
+  assert.equal(health.sensorOnlyTelemetrySubgroups, 0);
+  assert.equal(health.pendingInterpretationSubgroups, 0);
 });
 
 test("Regime timing UI reads Story evaluation clock without changing projection schema", () => {
@@ -161,11 +185,13 @@ test("Regime timing UI reads Story evaluation clock without changing projection 
   assert.match(page, /System 1 latest/);
   assert.match(page, /latest Story review/);
   assert.match(page, /Telemetry ahead of Story review/);
-  assert.match(page, /System 1-only subgroups/);
+  assert.match(page, /Telemetry without durable Story/);
+  assert.match(page, /mapped seed\/early\/episode Story context/);
   assert.match(page, /getRegimeStoryInterpretationClocks/);
   assert.match(detailPage, /getRegimeStoryInterpretationClocks/);
   assert.match(workspace, /latest accepted Story review/);
-  assert.match(workspace, /SYSTEM 1 ONLY — NO DURABLE STORY INTERPRETATION/);
+  assert.match(workspace, /TELEMETRY \+ CONTEXT STORIES — NO DURABLE STORY DRIVER/);
+  assert.match(workspace, /SYSTEM 1 ONLY — NO MAPPED STORY DRIVER/);
   assert.match(workspace, /hypothesis updated/);
   assert.match(liveReasoning, /last_evaluated_at/);
   assert.match(liveReasoning, /basis: "story_review"/);

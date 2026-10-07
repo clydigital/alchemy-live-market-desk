@@ -453,11 +453,19 @@ export default function RegimeDetailWorkspace({
                   </span>
                   <p>The causal read below predates the newest deterministic observation. Keep the last accepted interpretation visible, but do not present it as though it already explains the new telemetry.</p>
                 </div>
+              ) : freshness?.status === "no_interpretation"
+                && subgroup.durableStories.length === 0
+                && subgroup.contextStories.length > 0 ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>TELEMETRY + CONTEXT STORIES — NO DURABLE STORY DRIVER</strong>
+                  <span>Observed telemetry: {displayDate(freshness.telemetryAt)} · {subgroup.contextStories.length} mapped context Story{subgroup.contextStories.length === 1 ? "" : "ies"}</span>
+                  <p>The mapped Stories remain seed, early or episode context and are not eligible to drive Regime state. They are not promoted and no Story reevaluation is manufactured merely to clear coverage.</p>
+                </div>
               ) : freshness?.status === "no_interpretation" && subgroup.durableStories.length === 0 ? (
                 <div className={styles.freshnessWarning}>
-                  <strong>SYSTEM 1 ONLY — NO DURABLE STORY INTERPRETATION</strong>
+                  <strong>SYSTEM 1 ONLY — NO MAPPED STORY DRIVER</strong>
                   <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
-                  <p>This subgroup has deterministic telemetry but no durable Story identity. No Story reevaluation or interpretation is manufactured from Regime state alone.</p>
+                  <p>This subgroup has deterministic telemetry but no mapped Story. No Story interpretation is manufactured from Regime state alone.</p>
                 </div>
               ) : freshness?.status === "no_interpretation" ? (
                 <div className={styles.freshnessWarning}>
