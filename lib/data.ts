@@ -457,8 +457,8 @@ async function loadStoryRegistryData() {
     query<Story>("stories", "select=*&status=neq.archived&order=rank.asc.nullslast,updated_at.desc"),
     query<Update>("story_updates", "select=*&order=created_at.desc&limit=40"),
     query<ResearchSource>("sources", "select=*&order=observation_date.desc.nullslast,created_at.desc&limit=240"),
-    query<StoryEvidenceCoverage>("story_evidence_coverage", "select=*&order=gate_score.desc,slug.asc"),
-    query<Pick<StoryEvidence, "id">>("intelligence_evidence", "select=id&freshness_status=eq.current&order=created_at.desc&limit=240"),
+    privateQuery<StoryEvidenceCoverage>("story_evidence_coverage", "select=*&order=gate_score.desc,slug.asc"),
+    privateQuery<Pick<StoryEvidence, "id">>("intelligence_evidence", "select=id&freshness_status=eq.current&order=created_at.desc&limit=240"),
   ]);
   return { stories, updates, sources, evidenceCoverage, evidenceCount: evidenceRows.length };
 }
