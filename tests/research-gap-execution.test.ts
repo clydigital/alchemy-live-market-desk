@@ -154,12 +154,10 @@ test("manual snapshot handoff remains separate from web execution", () => {
 test("manual Research Gap cycle stays one-case and retry-first after scheduled ownership moves to Vercel", () => {
   const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
 
-  assert.match(workflow, /cron: "15 3 \* \* \*"/);
-  assert.match(workflow, /cron: "15 15 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron: "15 3 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron: "15 15 \* \* \*"/);
   assert.match(workflow, /- research_gap_cycle/);
   assert.match(workflow, /env\.MODE == 'research_gap_cycle'/);
-  assert.match(workflow, /github\.event\.schedule == '15 3 \* \* \*'/);
-  assert.match(workflow, /github\.event\.schedule == '15 15 \* \* \*'/);
   assert.match(workflow, /group: production-live-research/);
   assert.match(workflow, /cancel-in-progress: false/);
 
