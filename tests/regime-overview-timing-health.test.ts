@@ -115,10 +115,10 @@ test("overview timing health uses accepted Story review time for genuine pending
   assert.equal(health.oldestPendingLagMinutes, 30);
 });
 
-test("Story-backed telemetry with no accepted evaluation remains degraded", () => {
+test("readable primary hypothesis without a review timestamp remains degraded", () => {
   const health = buildRegimeOverviewTimingHealth({
     regimes: [regime({ telemetryAt: "2026-10-07T00:30:00.000Z" })],
-    interpretationClocks: [],
+    interpretationClocks: [clock("story-1", null, true)],
     now: "2026-10-07T01:00:00.000Z",
   });
 
