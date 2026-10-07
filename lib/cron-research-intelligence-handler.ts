@@ -116,6 +116,10 @@ async function terminaliseSupersededRetry(
   }
   if (!data) return { applied: false as const, warning };
 
+  // The research_runs CAS above is the authority fence: once it succeeds,
+  // scheduled continuation cannot resume this stale retry. Engine cleanup is
+  // observability-only and therefore best-effort rather than a second authority
+  // mutation that could make the two-write sequence unsafe.
   const { error: engineError } = await client
     .from("intelligence_engine_runs")
     .update({
@@ -125,11 +129,14 @@ async function terminaliseSupersededRetry(
     })
     .eq("research_run_id", run.id)
     .eq("status", "started");
-  if (engineError) {
-    throw new Error(`Could not terminalise superseded intelligence retry: ${engineError.message}`);
-  }
 
-  return { applied: true as const, warning };
+  return {
+    applied: true as const,
+    warning,
+    engineCleanupWarning: engineError
+      ? `Superseded parent run is terminal, but engine observability cleanup failed: ${engineError.message}`
+      : null,
+  };
 }
 
 async function readPublicationCheckpoint(researchRunId: string): Promise<CompletedEnginePublicationCheckpoint> {
@@ -335,9 +342,13 @@ export async function handleScheduledResearchIntelligence(
             supersededByRunId: sibling.id,
             supersededByRunKey: sibling.run_key,
             message: supersession.warning,
+            engineCleanupWarning: supersession.engineCleanupWarning,
           });
         }
         run = await readRun(runKey);
+        publicationCheckpoint = run
+          ? await readPublicationCheckpoint(run.id)
+          : null;
       }
     } catch (error) {
       return response({
