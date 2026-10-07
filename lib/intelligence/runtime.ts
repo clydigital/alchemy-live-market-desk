@@ -1663,6 +1663,52 @@ async function resolveStaleStoryMaintenanceAssessment(input: {
   }));
 }
 
+async function loadCurrentStoryReasoningReadiness(
+  targets: StoryReviewTargetPackItem[],
+) {
+  const storyIds = unique(targets.map((target) => target.story.id).filter(Boolean));
+  if (!storyIds.length) return new Map<string, boolean>();
+
+  const stories = await intelligenceRest<Array<{
+    id: string;
+    current_thesis_version_id: string | null;
+  }>>(
+    "stories?select=id,current_thesis_version_id&id=in.(" + storyIds.join(",") + ")",
+  );
+  const versionIds = unique(
+    stories.map((story) => story.current_thesis_version_id).filter((id): id is string => Boolean(id)),
+  );
+  const versions = versionIds.length
+    ? await intelligenceRest<Array<{
+      id: string;
+      story_id: string;
+      snapshot: Record<string, unknown> | null;
+    }>>(
+      "story_thesis_versions?select=id,story_id,snapshot&id=in.(" + versionIds.join(",") + ")",
+    )
+    : [];
+  const versionById = new Map(versions.map((version) => [version.id, version]));
+
+  return new Map(stories.map((story) => {
+    const version = story.current_thesis_version_id
+      ? versionById.get(story.current_thesis_version_id)
+      : null;
+    const snapshot = version?.snapshot;
+    const reasoning = snapshot
+      && typeof snapshot === "object"
+      && !Array.isArray(snapshot)
+      ? snapshot.reasoning
+      : null;
+    const ready = Boolean(
+      reasoning
+      && typeof reasoning === "object"
+      && !Array.isArray(reasoning)
+      && (reasoning as Record<string, unknown>).contractVersion === "canonical-story-reasoning/v1",
+    );
+    return [story.id, ready] as const;
+  }));
+}
+
 async function persistStoryAssessments(input: {
   engineRunId: string;
   stageRunId: string;
@@ -1670,6 +1716,7 @@ async function persistStoryAssessments(input: {
   targets: StoryReviewTargetPackItem[];
 }) {
   const supplied = Array.isArray(input.output.storyAssessments) ? input.output.storyAssessments : [];
+  const reasoningReadyByStory = await loadCurrentStoryReasoningReadiness(input.targets);
   const grouped = new Map<string, typeof supplied>();
   for (const assessment of supplied) {
     const existing = grouped.get(assessment.storyId) ?? [];
@@ -1697,11 +1744,24 @@ async function persistStoryAssessments(input: {
       const item = allowedEvidence.get(id);
       return item ? isCanonicalEligibleEvidence(item) : false;
     });
-    const materialAllowed = materialAssessmentHasEligibleEvidence(assessment.disposition, evidenceIds, target);
+    const evidenceMaterialAllowed = materialAssessmentHasEligibleEvidence(
+      assessment.disposition,
+      evidenceIds,
+      target,
+    );
+    const canonicalReasoningReady = reasoningReadyByStory.get(target.story.id) === true;
+    const legacyReasoningGapBlocked =
+      assessment.disposition !== "unchanged" && !canonicalReasoningReady;
+    const materialAllowed = evidenceMaterialAllowed && !legacyReasoningGapBlocked;
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
     const lastEvidenceAt = latestStoryEvidenceTimestamp(
       evidenceIds.map((id) => allowedEvidence.get(id)).filter((item): item is EvidencePackItem => Boolean(item)),
     );
+    const suppressionReason = legacyReasoningGapBlocked
+      ? " Material mutation was suppressed because the current exact Story thesis version does not contain canonical-story-reasoning/v1; only the full canonical Story synthesis path may graduate this legacy Story."
+      : !evidenceMaterialAllowed && assessment.disposition !== "unchanged"
+        ? " Material mutation was suppressed because no eligible non-creator evidence was supplied."
+        : "";
     const payload = {
       engine_run_id: input.engineRunId,
       market_belief_stage_run_id: input.stageRunId,
@@ -1709,9 +1769,7 @@ async function persistStoryAssessments(input: {
       queue_ids: target.queueIds,
       model_disposition: assessment.disposition,
       disposition,
-      rationale: materialAllowed
-        ? assessment.rationale
-        : assessment.rationale + " Material mutation was suppressed because no eligible non-creator evidence was supplied.",
+      rationale: assessment.rationale + suppressionReason,
       confidence_delta: assessment.confidenceDelta,
       proposed_thesis: assessment.proposedThesis?.trim() || null,
       evidence_ids: evidenceIds,
