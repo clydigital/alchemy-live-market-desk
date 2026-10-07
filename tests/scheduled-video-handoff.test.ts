@@ -16,8 +16,39 @@ const completeVideoRun = {
   ],
 };
 
-test("desk cron consumes the completed dedicated video checkpoint without re-running transcript acquisition", () => {
-  const checks = videoSourceChecksFromDedicatedRun(completeVideoRun, { transcript_status: "complete" });
+function usableRow(publisher: string) {
+  return {
+    publisher,
+    transcript_status: "ready" as const,
+    transcript_job_status: "completed",
+    video_review_status: "reviewed",
+    status: "accepted",
+    transcript_retryable: false,
+  };
+}
+
+function retryableRow(publisher: string) {
+  return {
+    publisher,
+    transcript_status: "missing" as const,
+    transcript_job_status: "retryable",
+    video_review_status: null,
+    status: "blocked",
+    transcript_retryable: true,
+  };
+}
+
+test("desk cron projects completed transcript coverage per creator", () => {
+  const checks = videoSourceChecksFromDedicatedRun(
+    completeVideoRun,
+    { transcript_status: "complete" },
+    [
+      usableRow("StockedUp"),
+      usableRow("FX Evolution"),
+      usableRow("FX Evolution"),
+      usableRow("TraderNick"),
+    ],
+  );
 
   assert.deepEqual(checks.map((check) => [check.source, check.status, check.itemCount]), [
     ["stockedup", "checked", 1],
@@ -27,14 +58,35 @@ test("desk cron consumes the completed dedicated video checkpoint without re-run
   ]);
 });
 
-test("a partial dedicated transcript run stays blocked rather than claiming video coverage", () => {
+test("one creator's unresolved transcript no longer blocks healthy creators", () => {
+  const checks = videoSourceChecksFromDedicatedRun(
+    completeVideoRun,
+    { transcript_status: "partial" },
+    [
+      usableRow("StockedUp"),
+      usableRow("FX Evolution"),
+      retryableRow("FX Evolution"),
+      usableRow("TraderNick"),
+    ],
+  );
+
+  assert.deepEqual(checks.map((check) => [check.source, check.status, check.itemCount]), [
+    ["stockedup", "checked", 1],
+    ["wall-street-truth-bombs", "no_new_items", 0],
+    ["fx-evolution", "blocked", 1],
+    ["tradernick", "checked", 1],
+  ]);
+  assert.equal(checks[2].retryable, true);
+  assert.match(checks[2].note || "", /1 creator transcript.*usable; 1 remain unresolved/i);
+});
+
+test("run-level transcript state remains a fail-closed fallback when per-creator rows are unavailable", () => {
   const checks = videoSourceChecksFromDedicatedRun(completeVideoRun, { transcript_status: "partial" });
 
   assert.equal(checks[0].status, "blocked");
   assert.equal(checks[2].status, "blocked");
   assert.equal(checks[3].status, "blocked");
   assert.equal(checks[1].status, "no_new_items");
-  assert.match(checks[0].note || "", /transcript lifecycle is not complete/i);
 });
 
 test("missing dedicated video work remains explicit blocked research debt", () => {
