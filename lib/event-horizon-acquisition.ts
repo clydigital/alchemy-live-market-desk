@@ -120,13 +120,13 @@ export function parseOpecForwardMeetings(source: string, sourceUrl: string, now 
   const datePattern = "(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4})";
   const candidates: Array<{ title: string; date: string }> = [];
 
-  const announced = new RegExp(`(?:hold|next meeting(?: will)? be held)(?: the)?\\\\s+(.{3,140}?)\\\\s+on\\\\s+${datePattern}`, "gi");
+  const announced = new RegExp(`(?:hold|next meeting(?: will)? be held)(?: the)?\\s+(.{3,140}?)\\s+on\\s+${datePattern}`, "gi");
   for (const match of plain.matchAll(announced)) candidates.push({ title: match[1], date: match[2] });
 
-  const scheduled = new RegExp(`next meeting of the\\\\s+(.{2,100}?)\\\\s+is scheduled for\\\\s+${datePattern}`, "gi");
+  const scheduled = new RegExp(`next meeting of the\\s+(.{2,100}?)\\s+is scheduled for\\s+${datePattern}`, "gi");
   for (const match of plain.matchAll(scheduled)) candidates.push({ title: match[1], date: match[2] });
 
-  const generic = new RegExp(`next meeting will be held on\\\\s+${datePattern}`, "gi");
+  const generic = new RegExp(`next meeting will be held on\\s+${datePattern}`, "gi");
   for (const match of plain.matchAll(generic)) {
     const title = /\\bJMMC\\b/i.test(plain)
       ? "JMMC meeting"
