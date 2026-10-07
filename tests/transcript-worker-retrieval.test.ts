@@ -13,8 +13,9 @@ import {
 
 const VIDEO_ID = "ycw-010tAPA";
 
-function retrieval(provider: "supadata" | "chrome"): TranscriptApiRetrieval {
+function retrieval(provider: "supadata" | "chrome" | "transcriptapi"): TranscriptApiRetrieval {
   const browser = provider === "chrome";
+  const transcriptApi = provider === "transcriptapi";
   return {
     info: {
       videoId: VIDEO_ID,
@@ -37,11 +38,15 @@ function retrieval(provider: "supadata" | "chrome"): TranscriptApiRetrieval {
           transcriptSource: "youtubetotranscript.com",
           browserVerifiedYouTubePage: true,
         }
-        : {
-          retrievalProvider: "supadata",
-          transcriptSource: "native_caption",
-          mode: "native",
-        },
+        : transcriptApi
+          ? {
+            retrievalProvider: "transcriptapi",
+          }
+          : {
+            retrievalProvider: "supadata",
+            transcriptSource: "native_caption",
+            mode: "native",
+          },
       httpStatus: 200,
       cacheStatus: null,
     },
@@ -104,8 +109,54 @@ test("Supadata plan exhaustion can use the same browser fallback", async () => {
   assert.equal(transcriptProviderFromRetrieval(result), "youtubetotranscript.com");
 });
 
-test("unconfigured browser preserves the original Supadata capacity failure", async () => {
+test("Supadata rate limit falls back to TranscriptAPI when the browser operator is absent", async () => {
+  let transcriptApiCalls = 0;
+  const result = await retrieveTranscriptForWorker(VIDEO_ID, "supadata-key", {
+    retrieveSupadata: async () => {
+      throw providerError("provider_rate_limit", true);
+    },
+    browserConfigured: () => false,
+    retrieveBrowser: async () => retrieval("chrome"),
+    transcriptApiConfigured: () => true,
+    retrieveTranscriptApi: async () => {
+      transcriptApiCalls += 1;
+      return retrieval("transcriptapi");
+    },
+  });
+
+  assert.equal(transcriptApiCalls, 1);
+  assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
+  assert.equal(result.transcript.segments.length, 1);
+});
+
+test("a failed browser capacity fallback can still use TranscriptAPI on the same leased job", async () => {
+  let transcriptApiCalls = 0;
+  const result = await retrieveTranscriptForWorker(VIDEO_ID, "supadata-key", {
+    retrieveSupadata: async () => {
+      throw providerError("provider_rate_limit", true);
+    },
+    browserConfigured: () => true,
+    retrieveBrowser: async () => {
+      throw new TranscriptApiError("Browser verification required.", {
+        code: "browser_verification_required",
+        httpStatus: null,
+        retryable: true,
+      });
+    },
+    transcriptApiConfigured: () => true,
+    retrieveTranscriptApi: async () => {
+      transcriptApiCalls += 1;
+      return retrieval("transcriptapi");
+    },
+  });
+
+  assert.equal(transcriptApiCalls, 1);
+  assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
+});
+
+test("unconfigured browser and TranscriptAPI preserve the original Supadata capacity failure", async () => {
   let browserCalls = 0;
+  let transcriptApiCalls = 0;
   await assert.rejects(
     retrieveTranscriptForWorker(VIDEO_ID, "supadata-key", {
       retrieveSupadata: async () => {
@@ -116,12 +167,18 @@ test("unconfigured browser preserves the original Supadata capacity failure", as
         browserCalls += 1;
         return retrieval("chrome");
       },
+      transcriptApiConfigured: () => false,
+      retrieveTranscriptApi: async () => {
+        transcriptApiCalls += 1;
+        return retrieval("transcriptapi");
+      },
     }),
     (error: unknown) => error instanceof TranscriptApiError
       && error.code === "provider_rate_limit"
       && error.httpStatus === 429,
   );
   assert.equal(browserCalls, 0);
+  assert.equal(transcriptApiCalls, 0);
 });
 
 test("content-level transcript absence does not switch providers", async () => {
@@ -142,7 +199,7 @@ test("content-level transcript absence does not switch providers", async () => {
   assert.equal(browserCalls, 0);
 });
 
-test("browser failure remains auditable while preserving the primary retry semantics", async () => {
+test("all capacity fallbacks remain auditable while preserving the primary retry semantics", async () => {
   await assert.rejects(
     retrieveTranscriptForWorker(VIDEO_ID, "supadata-key", {
       retrieveSupadata: async () => {
@@ -156,11 +213,20 @@ test("browser failure remains auditable while preserving the primary retry seman
           retryable: true,
         });
       },
+      transcriptApiConfigured: () => true,
+      retrieveTranscriptApi: async () => {
+        throw new TranscriptApiError("TranscriptAPI credits unavailable.", {
+          code: "provider_payment_required",
+          httpStatus: 402,
+          retryable: false,
+        });
+      },
     }),
     (error: unknown) => error instanceof TranscriptApiError
       && error.code === "provider_rate_limit"
       && error.retryable
-      && /Browser transcript fallback also failed/.test(error.message),
+      && /Browser fallback: browser_verification_required/.test(error.message)
+      && /TranscriptAPI fallback: provider_payment_required/.test(error.message),
   );
 });
 
