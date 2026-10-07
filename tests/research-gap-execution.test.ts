@@ -118,7 +118,7 @@ test("manual one-case Gap executor is OIDC-gated, bounded and intentionally stop
 });
 
 
-test("manual snapshot handoff is separate from web execution and has no scheduler", () => {
+test("manual snapshot handoff remains separate from web execution", () => {
   const route = readFileSync(new URL("../app/api/admin/research-gap/handoff-one/route.ts", import.meta.url), "utf8");
   const handler = readFileSync(new URL("../lib/research-gap-manual-handoff-run.ts", import.meta.url), "utf8");
   const adapter = readFileSync(new URL("../lib/research-gap-snapshot-handoff.ts", import.meta.url), "utf8");
@@ -151,15 +151,13 @@ test("manual snapshot handoff is separate from web execution and has no schedule
   assert.match(manualHandoff, /--data "\$body"/);
 });
 
-test("scheduled Research Gap cycle is one-case, retry-first and non-overlapping", () => {
+test("manual Research Gap cycle stays one-case and retry-first after scheduled ownership moves to Vercel", () => {
   const workflow = readFileSync(new URL("../.github/workflows/run-live-research.yml", import.meta.url), "utf8");
 
-  assert.match(workflow, /cron: "15 3 \* \* \*"/);
-  assert.match(workflow, /cron: "15 15 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron: "15 3 \* \* \*"/);
+  assert.doesNotMatch(workflow, /cron: "15 15 \* \* \*"/);
   assert.match(workflow, /- research_gap_cycle/);
   assert.match(workflow, /env\.MODE == 'research_gap_cycle'/);
-  assert.match(workflow, /github\.event\.schedule == '15 3 \* \* \*'/);
-  assert.match(workflow, /github\.event\.schedule == '15 15 \* \* \*'/);
   assert.match(workflow, /group: production-live-research/);
   assert.match(workflow, /cancel-in-progress: false/);
 

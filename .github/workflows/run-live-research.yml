@@ -6,9 +6,8 @@ on:
     - cron: "45 2 * * *"
     - cron: "30 14 * * *"
     - cron: "45 14 * * *"
-    # One bounded Research Gap case after the normal morning/evening Live windows.
-    - cron: "15 3 * * *"
-    - cron: "15 15 * * *"
+    # Research Gap scheduled ownership is Vercel-primary. GitHub retains
+    # workflow_dispatch research_gap_cycle as an audited manual fallback.
   workflow_dispatch:
     inputs:
       mode:
@@ -95,12 +94,12 @@ concurrency:
 
 jobs:
   run-production-cron:
-    name: Run ${{ github.event_name == 'schedule' && ((github.event.schedule == '15 3 * * *' || github.event.schedule == '15 15 * * *') && 'research_gap_cycle' || 'research') || inputs.mode }} production action
+    name: Run ${{ github.event_name == 'schedule' && 'research' || inputs.mode }} production action
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       PROD_URL: https://alchemy-live-market-desk.vercel.app
-      MODE: ${{ github.event_name == 'schedule' && ((github.event.schedule == '15 3 * * *' || github.event.schedule == '15 15 * * *') && 'research_gap_cycle' || 'research') || inputs.mode }}
+      MODE: ${{ github.event_name == 'schedule' && 'research' || inputs.mode }}
       SLOT: ${{ inputs.slot }}
       CRON_SCHEDULE: ${{ github.event.schedule }}
       RETRY_KEY: ${{ inputs.retry_key }}
