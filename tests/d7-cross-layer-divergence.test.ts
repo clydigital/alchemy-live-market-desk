@@ -103,11 +103,17 @@ function investigation(overrides: Record<string, unknown> = {}) {
   } as any;
 }
 
-test("D7 aligns directional Dossier evidence with matching canonical Story state", () => {
+test("D7 aligns a directional Dossier delta after an accepted Story review covers the snapshot", () => {
   const result = buildD7CrossLayerDivergence({
     dossier: dossier(),
     hybrid: hybrid(),
     regimes: regimes(),
+    storyReviewClocks: [{
+      storyId: PERSISTENT_ID,
+      evaluatedAt: "2026-10-06T00:05:00.000Z",
+      basis: "story_review",
+      hasPrimaryHypothesis: true,
+    }],
   });
 
   assert.equal(result.contractVersion, D7_CROSS_LAYER_DIVERGENCE_VERSION);
@@ -115,9 +121,10 @@ test("D7 aligns directional Dossier evidence with matching canonical Story state
   assert.equal(item?.state, "ALIGNMENT");
   assert.equal(item?.persistentStoryId, PERSISTENT_ID);
   assert.deepEqual(item?.evidenceRefs, ["ev:1"]);
+  assert.equal(item?.researchEligible, false);
 });
 
-test("D7 detects Dossier versus Story directional contradiction", () => {
+test("D7 does not compare a Dossier evidence delta directly with an opposite absolute Story state", () => {
   const result = buildD7CrossLayerDivergence({
     dossier: dossier(),
     hybrid: hybrid({
@@ -130,12 +137,12 @@ test("D7 detects Dossier versus Story directional contradiction", () => {
   });
 
   const item = result.cases.find((row) => row.pair === "DOSSIER_STORY");
-  assert.equal(item?.state, "CONTRADICTION");
-  assert.equal(item?.severity, "HIGH");
-  assert.equal(item?.researchEligible, true);
+  assert.equal(item?.state, "LAG");
+  assert.equal(item?.severity, "MEDIUM");
+  assert.equal(item?.researchEligible, false);
 });
 
-test("D7 reports lag when Dossier moves directionally before canonical Story state resolves", () => {
+test("D7 reports Story-review lag when a directional Dossier delta has not been adjudicated", () => {
   const result = buildD7CrossLayerDivergence({
     dossier: dossier(),
     hybrid: hybrid({
@@ -149,7 +156,30 @@ test("D7 reports lag when Dossier moves directionally before canonical Story sta
 
   const item = result.cases.find((row) => row.pair === "DOSSIER_STORY");
   assert.equal(item?.state, "LAG");
-  assert.equal(item?.researchEligible, true);
+  assert.equal(item?.researchEligible, false);
+});
+
+test("D7 accepts a completed Story review even when the absolute Story classification remains opposite the marginal delta", () => {
+  const result = buildD7CrossLayerDivergence({
+    dossier: dossier(),
+    hybrid: hybrid({
+      storyClassifications: [{
+        ...hybrid().storyClassifications[0],
+        classification: "CONTRADICTING",
+      }],
+    }),
+    regimes: regimes(),
+    storyReviewClocks: [{
+      storyId: PERSISTENT_ID,
+      evaluatedAt: "2026-10-06T00:30:00.000Z",
+      basis: "story_review",
+      hasPrimaryHypothesis: true,
+    }],
+  });
+
+  const item = result.cases.find((row) => row.pair === "DOSSIER_STORY");
+  assert.equal(item?.state, "ALIGNMENT");
+  assert.equal(item?.researchEligible, false);
 });
 
 test("D7 reports Story to Regime lag when strengthening Story remains context-only", () => {
