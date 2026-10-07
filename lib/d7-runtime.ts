@@ -38,6 +38,7 @@ export async function loadCurrentD7RuntimeSnapshot() {
   return {
     dossierId: selection.selectedDossierId,
     dossierAsOf: dossier.asOf,
+    storyReviewClocks,
     snapshot: buildD7CrossLayerDivergence({
       dossier,
       hybrid,
