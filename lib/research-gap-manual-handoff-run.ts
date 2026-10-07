@@ -25,6 +25,11 @@ type Dependencies = {
   loadCurrentD7?: () => Promise<{
     dossierId: string;
     dossierAsOf: string;
+    storyReviewClocks: Array<{
+      storyId: string;
+      evaluatedAt: string | null;
+      basis: "story_review" | "unavailable";
+    }>;
     snapshot: {
       cases: Array<{
         id: string;
@@ -142,20 +147,48 @@ export async function handleManualResearchGapSnapshotHandoff(
       && selected.source_ref.startsWith("d7:")
     ) {
       const currentD7 = await loadCurrentD7();
-      const currentCase = currentD7?.snapshot.cases.find(
-        (item) => `d7:${item.id}` === selected!.source_ref,
-      ) ?? null;
-
-      if (!currentD7 || !currentCase) {
+      if (!currentD7) {
         return json({
           status: "preflight_unavailable",
           caseId: selected.id,
           gapKey: selected.gap_key,
-          detail: "Current D7 state could not prove whether this completed D7 case is still research-eligible; canonical handoff is blocked fail-closed.",
+          detail: "Current D7 state is unavailable; canonical handoff is blocked fail-closed.",
         }, 409);
       }
 
-      if (!currentCase.researchEligible) {
+      const currentCase = currentD7.snapshot.cases.find(
+        (item) => `d7:${item.id}` === selected!.source_ref,
+      ) ?? null;
+      let supersededReason =
+        currentCase && !currentCase.researchEligible
+          ? currentCase.reason
+          : null;
+      let d7State = currentCase?.state ?? "ABSENT";
+
+      if (
+        !currentCase
+        && selected.source_ref.startsWith("d7:d7:dossier-story:")
+        && selected.linked_story_ids.length === 1
+      ) {
+        const storyId = selected.linked_story_ids[0]!;
+        const review = currentD7.storyReviewClocks.find(
+          (item) => item.storyId === storyId,
+        ) ?? null;
+        const reviewedAt = review?.evaluatedAt ? Date.parse(review.evaluatedAt) : Number.NaN;
+        const sourceDossierAsOf = Date.parse(selected.latest_dossier_as_of);
+        if (
+          review?.basis === "story_review"
+          && Number.isFinite(reviewedAt)
+          && Number.isFinite(sourceDossierAsOf)
+          && reviewedAt >= sourceDossierAsOf
+        ) {
+          d7State = "SUPERSEDED_BY_STORY_REVIEW";
+          supersededReason =
+            "The exact persistent Story received an accepted canonical review at or after the Dossier snapshot that created this legacy D7 synchronization case.";
+        }
+      }
+
+      if (supersededReason) {
         const closed = await closeSupersededD7({
           caseId: selected.id,
           sourceRef: selected.source_ref,
@@ -176,8 +209,8 @@ export async function handleManualResearchGapSnapshotHandoff(
           caseId: selected.id,
           gapKey: selected.gap_key,
           sourceRef: selected.source_ref,
-          d7State: currentCase.state,
-          d7Reason: currentCase.reason,
+          d7State,
+          d7Reason: supersededReason,
         });
 
         return json({
@@ -185,9 +218,18 @@ export async function handleManualResearchGapSnapshotHandoff(
           caseId: selected.id,
           gapKey: selected.gap_key,
           lifecycleStatus: closed.status,
-          d7State: currentCase.state,
-          detail: currentCase.reason,
+          d7State,
+          detail: supersededReason,
         });
+      }
+
+      if (!currentCase) {
+        return json({
+          status: "preflight_unavailable",
+          caseId: selected.id,
+          gapKey: selected.gap_key,
+          detail: "The legacy D7 case is absent from current D7 state and no later accepted Story review proves supersession; canonical handoff is blocked fail-closed.",
+        }, 409);
       }
     }
 

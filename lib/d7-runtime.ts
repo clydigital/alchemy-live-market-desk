@@ -4,7 +4,7 @@ import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-rea
 import { buildHybridReasoningProjection } from "./hybrid-reasoning-projection.ts";
 import { getStoryRecordLayer } from "./persistence/read.ts";
 import { buildRegimeProjection } from "./regimes.ts";
-import { getRegimeStoryInterpretationClocks } from "./regime-live-reasoning.ts";
+import { getD7StoryReviewClocks } from "./d7-story-review-clock.ts";
 
 export async function loadCurrentD7RuntimeSnapshot() {
   const [selection, data, recordLayer] = await Promise.all([
@@ -29,7 +29,7 @@ export async function loadCurrentD7RuntimeSnapshot() {
     events: recordLayer.events,
     versions: recordLayer.thesisVersions,
   });
-  const storyReviewClocks = await getRegimeStoryInterpretationClocks(
+  const storyReviewClocks = await getD7StoryReviewClocks(
     (dossier.evidenceSufficiency?.stories ?? [])
       .map((item) => item.persistentStoryId)
       .filter((item): item is string => Boolean(item)),
@@ -38,6 +38,7 @@ export async function loadCurrentD7RuntimeSnapshot() {
   return {
     dossierId: selection.selectedDossierId,
     dossierAsOf: dossier.asOf,
+    storyReviewClocks,
     snapshot: buildD7CrossLayerDivergence({
       dossier,
       hybrid,

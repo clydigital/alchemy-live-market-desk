@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { runAccuracyCheck } from "@/lib/accuracy";
 import { getMarketData } from "@/lib/market";
 
-export const revalidate = 60;
+// This endpoint fans out to live market-data providers. It must only execute
+// at request time; static export can otherwise hang while waiting on external
+// providers during production builds.
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const market = await getMarketData();
