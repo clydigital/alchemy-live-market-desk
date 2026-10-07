@@ -31,9 +31,10 @@ function latestValidTimestamp(values: Array<string | null | undefined>) {
 }
 
 /**
- * Compares deterministic observation time with the latest persisted System 2
- * hypothesis update. This is a presentation freshness check only: it never
- * claims that a later hypothesis necessarily consumed a specific observation.
+ * Compares deterministic observation time with the latest readable causal
+ * Story interpretation timestamp. The caller must exclude Story reviews that
+ * lack a resolved primary hypothesis. This is presentation freshness only: a
+ * later review timestamp does not prove that review consumed the observation.
  */
 export function assessRegimeInterpretationFreshness(input: {
   telemetryAt: Array<string | null | undefined>;
