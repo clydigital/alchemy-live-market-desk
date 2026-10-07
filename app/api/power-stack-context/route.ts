@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { getDeskData } from "@/lib/data";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 
-export const revalidate = 60;
+// This route reads the live market monitor, which fans out to external
+// providers. Keep that work request-time only rather than in static export.
+export const dynamic = "force-dynamic";
 
 const MARKET_FRESH_HOURS = 18;
 const STATE_FRESH_HOURS = 36;
