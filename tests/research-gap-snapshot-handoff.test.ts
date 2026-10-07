@@ -288,11 +288,7 @@ test("manual handoff closes a legacy Dossier-Story case when its exact persisten
     loadCurrentD7: async () => ({
       dossierId: "8c323c4d-271e-4e0c-8621-922890fc30e5",
       dossierAsOf: "2026-10-06T19:42:31.471Z",
-      storyReviewClocks: [{
-        storyId,
-        evaluatedAt: "2026-10-06T19:51:53.412Z",
-        basis: "story_review",
-      }],
+      storyReviewClocks: [],
       snapshot: {
         contractVersion: "d7-cross-layer-divergence/1",
         asOf: "2026-10-06T19:42:31.471Z",
@@ -301,6 +297,14 @@ test("manual handoff closes a legacy Dossier-Story case when its exact persisten
         mutationBoundary: { mode: "READ_ONLY", statement: "test" },
       },
     }),
+    loadStoryReviewClocks: async (storyIds) => {
+      assert.deepEqual(storyIds, [storyId]);
+      return [{
+        storyId,
+        evaluatedAt: "2026-10-06T19:51:53.412Z",
+        basis: "story_review",
+      }];
+    },
     closeSupersededD7: async () => {
       closed = true;
       return { ...row, status: "CLOSED", closed_at: "2026-10-07T14:30:00.000Z" };
