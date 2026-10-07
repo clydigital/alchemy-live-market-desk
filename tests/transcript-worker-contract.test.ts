@@ -85,22 +85,19 @@ test("the worker is authenticated, scheduled and separate from full-desk researc
   assert.match(workerRetrieval, /retrieveSupadataVideo/);
   assert.match(workerRetrieval, /retrieveChromeYouTubeToTranscript/);
   assert.match(store, /canonicaliseIntake[\s\S]*new Set\(\[job\.itemKey\]\)/);
-  assert.equal(
-    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "30 1 * * *"),
-    true,
-  );
-  assert.equal(
-    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "30 13 * * *"),
-    true,
-  );
-  assert.equal(
-    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "45 2 * * *"),
-    true,
-  );
-  assert.equal(
-    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "45 14 * * *"),
-    true,
-  );
+  for (const schedule of [
+    "30 0 * * *",
+    "15 1 * * *",
+    "45 2 * * *",
+    "30 12 * * *",
+    "15 13 * * *",
+    "45 14 * * *",
+  ]) {
+    assert.equal(
+      vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === schedule),
+      true,
+    );
+  }
   assert.equal(
     vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*") ?? false,
     false,
