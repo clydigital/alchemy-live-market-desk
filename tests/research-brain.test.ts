@@ -1899,7 +1899,7 @@ test("8Z0. historical prior Story wrappers normalize only to an exact current an
     items: [{
       ...b2MotionContextItem("STORY"),
       motion_id: "motion:story:prior-wrapper",
-      primary_story_id: null,
+      primary_story_id: "22222222-2222-4222-8222-222222222222",
       origin_evidence_ref: "ev:fed:2026-09",
     }],
   };
@@ -1987,7 +1987,7 @@ test("8Z1b. missing exact Motion route does not degrade an otherwise valid Resea
     items: [{
       ...b2MotionContextItem("STORY"),
       motion_id: "motion:story:no-route",
-      primary_story_id: null,
+      primary_story_id: "33333333-3333-4333-8333-333333333333",
       origin_evidence_ref: "ev:fed:2026-09",
     }],
   };
