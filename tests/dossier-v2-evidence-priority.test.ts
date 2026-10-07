@@ -65,3 +65,81 @@ test("canonical snapshot ranks primary official evidence ahead of newer market o
   assert.equal(rates.evidence[0].evidence_id, "ev-official");
   assert.equal(rates.evidence[1].evidence_id, "ev-news");
 });
+
+
+test("canonical snapshot excludes unrouted Research Gap handoffs with no market linkage", () => {
+  const result = buildCandidateSnapshotFromCanonicalEvidence([
+    {
+      id: "gap-process-1",
+      external_evidence_id: "research-intake:gap-process-1",
+      claim_text: "Generic evidence-governance guidance was returned by a legacy Research Gap handoff.",
+      evidence_class: "official_release",
+      support_direction: "context",
+      available_at: "2026-09-24T05:00:00.000Z",
+      affected_topics: [],
+      affected_assets: [],
+      structured_payload: {
+        evidenceNature: "research_gap_handoff",
+        storyRouting: {
+          outcome: "unresolved",
+          reason: "missing_canonical_assets",
+        },
+        researchGapHandoff: {
+          gapId: "legacy-d7-gap",
+        },
+      },
+      source: {
+        id: "src-gap-process",
+        source_name: "Official archive",
+        source_type: "official",
+        source_url: "https://example.gov/archive",
+        source_tier: 1,
+        reliability_score: 95,
+      },
+    },
+    {
+      id: "gap-market-1",
+      external_evidence_id: "research-intake:gap-market-1",
+      claim_text: "Official Treasury evidence directly bears on US10Y duration conditions.",
+      evidence_class: "official_release",
+      support_direction: "supports",
+      available_at: "2026-09-24T04:30:00.000Z",
+      affected_topics: ["rates"],
+      affected_assets: ["US10Y"],
+      structured_payload: {
+        evidenceNature: "research_gap_handoff",
+        storyRouting: {
+          outcome: "unresolved",
+          reason: "missing_canonical_assets",
+        },
+      },
+      source: {
+        id: "src-gap-market",
+        source_name: "U.S. Treasury",
+        source_type: "official",
+        source_url: "https://home.treasury.gov/example",
+        source_tier: 1,
+        reliability_score: 95,
+      },
+    },
+  ], { asOf: AS_OF, lookbackHours: 24 });
+
+  assert.equal(
+    (result.snapshot.observed_evidence ?? []).some(
+      (item) => item.evidence_id === "research-intake:gap-process-1",
+    ),
+    false,
+  );
+  assert.equal(
+    (result.snapshot.research_leads ?? []).some(
+      (item) => item.lead_id === "research-intake:gap-process-1",
+    ),
+    false,
+  );
+  assert.equal(
+    (result.snapshot.observed_evidence ?? []).some(
+      (item) => item.evidence_id === "research-intake:gap-market-1",
+    ),
+    true,
+  );
+});
