@@ -61,11 +61,21 @@ test("only dated publisher bodies become context; snippets, future dates, wrong 
   assert.equal(ratesSourceClass("https://investor.nvidia.com/a"), "company_primary");
   assert.equal(ratesSourceClass("https://www.sec.gov/a"), "regulatory_filing");
 });
-test("provider failure leaves the publishable base intake unchanged and reports attempted gaps", async () => {
-  const base = input("Micron earnings");
-  const result = await acquireRatesResearch(base, { now, env: { NODE_ENV: "test" }, fetchImpl: async () => { throw new Error("offline"); } });
+test("keyless provider failure leaves base intake unchanged and circuit-breaks repeated discovery", async () => {
+  const base = input("NFP JOLTS Bessent Fed comments ahead of rate decision");
+  let calls = 0;
+  const result = await acquireRatesResearch(base, {
+    now,
+    env: { NODE_ENV: "test" },
+    fetchImpl: async () => {
+      calls += 1;
+      throw new Error("offline");
+    },
+  });
   assert.deepEqual(result.input.items, base.items);
-  assert.ok(result.diagnostics.every((v) => /attempted/.test(v)));
+  assert.equal(calls, 1);
+  assert.match(result.diagnostics[0] || "", /attempted; retrieval unavailable/);
+  assert.ok(result.diagnostics.slice(1).every((value) => /skipped; shared keyless discovery provider unavailable/.test(value)));
 });
 test("successful discovery reads publisher pages, persists dated context and retains the original catalyst", async () => {
   const base = input("Micron earnings");
