@@ -44,6 +44,7 @@ export default async function StoriesPage() {
       assets: version?.assets || story.assets || [],
     };
     const maturity = classifyRegimeStory(story, version);
+    const evidenceCoverage = coverageBySlug.get(story.slug);
     const catalyst = assessStoryCatalyst({
       nextCatalyst: current.next_catalyst,
       version,
@@ -69,7 +70,11 @@ export default async function StoriesPage() {
       catalystRecalibrationRequired: catalyst.recalibrationRequired,
       maturity: maturity.maturity,
       maturityReason: maturity.reason,
-      evidenceRoom: coverageBySlug.get(story.slug)?.room_status || null,
+      evidenceRoom: evidenceCoverage?.room_status || null,
+      evidenceSourceCount: evidenceCoverage?.source_count || 0,
+      tier1SourceCount: evidenceCoverage?.tier1_source_count || 0,
+      unresolvedEvidenceCount: evidenceCoverage?.unresolved_count || 0,
+      evidenceGateScore: evidenceCoverage?.gate_score ?? null,
       eventCount: recordLayer.available ? (persistentEventCounts.get(story.id) || 0) : (legacyEventCounts.get(story.id) || 0),
       versionCount: recordLayer.available ? (versionCounts.get(story.id) || 0) : null,
       imageUrl: image?.imageUrl || fallback.dataUri,
@@ -83,7 +88,9 @@ export default async function StoriesPage() {
   });
 
   const currentDrivers = registryStories.filter((story) => story.maturity === "durable").length;
-  const contextOnly = registryStories.length - currentDrivers;
+  const reasoningGaps = registryStories.filter((story) => story.maturity === "reasoning_gap").length;
+  const thinEvidence = registryStories.filter((story) => story.evidenceRoom === "thin").length;
+  const catalystsNeedingReview = registryStories.filter((story) => story.catalystRecalibrationRequired).length;
 
   return (
     <LiveDeskShell
@@ -96,9 +103,9 @@ export default async function StoriesPage() {
         <MetricGrid
           items={[
             { value: currentDrivers, label: "Current Regime drivers" },
-            { value: contextOnly, label: "Context / needs work" },
-            { value: recordLayer.available ? recordLayer.events.length : data.updates.length, label: "Dated Story events" },
-            { value: data.evidenceCount, label: "Evidence records" },
+            { value: reasoningGaps, label: "Reasoning gaps" },
+            { value: thinEvidence, label: "Thin evidence rooms" },
+            { value: catalystsNeedingReview, label: "Catalysts needing review" },
           ]}
         />
 
@@ -106,13 +113,13 @@ export default async function StoriesPage() {
           state={recordLayer.available ? "ready" : "warn"}
           title={recordLayer.available ? "Versioned Story history available" : "Current thesis view active"}
           detail={recordLayer.available
-            ? `${recordLayer.thesisVersions.length} immutable thesis versions and ${recordLayer.events.length} append-only Story events are available.`
-            : "The registry is using current Story records and exact links to dated updates. Historical full-thesis versions will appear after the approved persistence migration is applied."}
+            ? `${recordLayer.thesisVersions.length} immutable thesis versions, ${recordLayer.events.length} append-only Story events and ${data.evidenceCount} active evidence records are available.`
+            : `The registry is using current Story records, exact dated updates and ${data.evidenceCount} active evidence records. Historical full-thesis versions will appear after the approved persistence migration is applied.`}
         />
 
         <Panel
           title="Story registry"
-          description="Current Regime-driving Stories are shown first by default. Switch Market role to inspect stale, seed, early or episode context without letting those records look like current market conclusions."
+          description="Current Regime-driving Stories are shown first. Use the operational filters to isolate canonical-reasoning gaps, thin evidence rooms or catalysts that need recalibration; these are work queues, not permission to promote a Story without evidence."
           action={<Badge tone={recordLayer.available ? "ready" : "default"}>{recordLayer.available ? "Versioned" : "Current records"}</Badge>}
         >
           {registryStories.length ? (

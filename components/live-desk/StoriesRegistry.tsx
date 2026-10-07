@@ -25,6 +25,10 @@ export type StoryRegistryItem = {
   maturity: "durable" | "early" | "seed" | "episode" | "stale" | "reasoning_gap";
   maturityReason: string;
   evidenceRoom: string | null;
+  evidenceSourceCount: number;
+  tier1SourceCount: number;
+  unresolvedEvidenceCount: number;
+  evidenceGateScore: number | null;
   eventCount: number;
   versionCount: number | null;
   imageUrl: string | null;
@@ -40,7 +44,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<"All" | StoryTag>("All");
   const [status, setStatus] = useState("All");
-  const [role, setRole] = useState<"Current drivers" | "Context only" | "All">("Current drivers");
+  const [role, setRole] = useState<"Current drivers" | "Reasoning gaps" | "Evidence thin" | "Catalyst review" | "Context only" | "All">("Current drivers");
 
   const tags = useMemo(() => {
     const counts = new Map<StoryTag, number>();
@@ -56,6 +60,9 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       if (tag !== "All" && !story.tags.includes(tag)) return false;
       if (status !== "All" && story.lifecycle !== status) return false;
       if (role === "Current drivers" && story.maturity !== "durable") return false;
+      if (role === "Reasoning gaps" && story.maturity !== "reasoning_gap") return false;
+      if (role === "Evidence thin" && story.evidenceRoom !== "thin") return false;
+      if (role === "Catalyst review" && !story.catalystRecalibrationRequired) return false;
       if (role === "Context only" && story.maturity === "durable") return false;
       if (!needle) return true;
       return [story.title, story.thesis, story.marketQuestion || "", story.nextCatalyst || "", story.editorialVerdict || "", ...story.assets, ...story.tags, ...story.regimes.map((regime) => regime.label)]
@@ -74,6 +81,9 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
           <span>Market role</span>
           <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
             <option>Current drivers</option>
+            <option>Reasoning gaps</option>
+            <option>Evidence thin</option>
+            <option>Catalyst review</option>
             <option>Context only</option>
             <option>All</option>
           </select>
@@ -97,7 +107,7 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
       </div>
 
       <div className={styles.resultLine}>
-        {filtered.length} of {stories.length} Stories shown · {role === "Current drivers" ? "Regime-driving only" : role === "Context only" ? "Context / needs work" : "All maturity states"}
+        {filtered.length} of {stories.length} Stories shown · {role === "Current drivers" ? "Regime-driving only" : role === "Reasoning gaps" ? "Missing canonical Story reasoning" : role === "Evidence thin" ? "Thin evidence rooms" : role === "Catalyst review" ? "Catalyst recalibration required" : role === "Context only" ? "Context / needs work" : "All maturity states"}
       </div>
 
       <div className={styles.cards}>
@@ -134,7 +144,17 @@ export default function StoriesRegistry({ stories }: { stories: StoryRegistryIte
                   {story.catalystRecalibrationRequired ? "Catalyst needs recalibration: " : "Next test: "}{story.nextCatalyst}
                 </li>
               ) : null}
-              {story.maturity !== "durable" ? <li className={styles.contextNote}>Context only: {story.maturityReason}</li> : null}
+              {story.maturity !== "durable" ? (
+                <li className={styles.contextNote}>
+                  {story.maturity === "reasoning_gap" ? "Reasoning gap: " : "Context only: "}{story.maturityReason}
+                </li>
+              ) : null}
+              {story.evidenceRoom === "thin" ? (
+                <li className={styles.contextNote}>
+                  Evidence thin: {story.evidenceSourceCount} source{story.evidenceSourceCount === 1 ? "" : "s"} · {story.tier1SourceCount} Tier 1 · gate {story.evidenceGateScore ?? "n/a"}
+                  {story.unresolvedEvidenceCount ? ` · ${story.unresolvedEvidenceCount} unresolved` : ""}
+                </li>
+              ) : null}
             </ul>
 
             <div className={styles.tags}>
