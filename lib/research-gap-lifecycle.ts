@@ -320,6 +320,36 @@ export async function syncLatestPrioritisedResearchGapCases(
   return syncResearchGapPriorityQueue(queue, client, now);
 }
 
+export async function closeLegacyQueuedDossierStoryD7ResearchGapCases(
+  client: SupabaseClient = createSupabaseAdminClient(),
+  closedAt = new Date().toISOString(),
+) {
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .update({
+      status: "CLOSED",
+      claim_token: null,
+      claimed_by: null,
+      claimed_at: null,
+      claim_expires_at: null,
+      closed_at: closedAt,
+      updated_at: closedAt,
+    })
+    .eq("status", "QUEUED")
+    .eq("source_kind", "research_gap")
+    .like("source_ref", "d7:d7:dossier-story:%")
+    .is("handed_off_at", null)
+    .select("id,gap_key,source_ref,status");
+
+  message(error, "Could not close legacy queued Dossier-to-Story D7 Research Gap cases");
+  return (data ?? []) as Array<{
+    id: string;
+    gap_key: string;
+    source_ref: string;
+    status: "CLOSED";
+  }>;
+}
+
 export async function claimResearchGapCases(
   input: { workerId: string; batchSize?: number; leaseSeconds?: number },
   client: SupabaseClient = createSupabaseAdminClient(),
