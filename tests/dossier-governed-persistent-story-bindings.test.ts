@@ -33,6 +33,10 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
       persistent_story_id: BREADTH_ID,
     },
     {
+      analytical_story_id: "story:duration-stress-real-led",
+      persistent_story_id: RATES_ID,
+    },
+    {
       analytical_story_id: "story:energy-product-stress",
       persistent_story_id: ENERGY_ID,
     },
@@ -42,10 +46,6 @@ test("D1 governed aliases resolve only exact configured persistent Story slugs",
     },
     {
       analytical_story_id: "story:rates-duration-stress",
-      persistent_story_id: RATES_ID,
-    },
-    {
-      analytical_story_id: "story:duration-stress-real-led",
       persistent_story_id: RATES_ID,
     },
     {
