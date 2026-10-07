@@ -9,6 +9,15 @@ export type DedicatedVideoSlotRun = {
   transcript_status: "complete" | "partial" | "blocked" | null;
 };
 
+export type DedicatedVideoIntakeRow = {
+  publisher: string;
+  transcript_status: "ready" | "missing" | "unavailable" | "not_applicable";
+  transcript_job_status: string | null;
+  video_review_status: string | null;
+  status: string | null;
+  transcript_retryable: boolean | null;
+};
+
 type VideoSource = "stockedup" | "wall-street-truth-bombs" | "fx-evolution" | "tradernick";
 
 export type DedicatedVideoSourceCheck = {
@@ -19,7 +28,7 @@ export type DedicatedVideoSourceCheck = {
   note?: string;
 };
 
-const REQUIRED_VIDEO_SOURCES: Array<{ source: VideoSource; channelName: string }> = [
+export const REQUIRED_VIDEO_SOURCES: Array<{ source: VideoSource; channelName: string }> = [
   { source: "stockedup", channelName: "StockedUp" },
   { source: "wall-street-truth-bombs", channelName: "Wall Street Truthbombs" },
   { source: "fx-evolution", channelName: "FX Evolution" },
@@ -55,12 +64,20 @@ export function blockedVideoSourceChecks(note: string): DedicatedVideoSourceChec
 export function videoSourceChecksFromDedicatedRun(
   videoRun: DedicatedVideoRun | null,
   slotRun: DedicatedVideoSlotRun | null,
+  intakeRows?: DedicatedVideoIntakeRow[],
 ): DedicatedVideoSourceCheck[] {
   if (!videoRun) {
     return blockedVideoSourceChecks("No dedicated video-intake run was recorded for this desk cycle.");
   }
   const checks = new Map(sourceCheckRows(videoRun.source_checks).map((check) => [check.source, check]));
   const transcriptComplete = videoRun.status === "completed" && slotRun?.transcript_status === "complete";
+  const perCreatorRows = intakeRows === undefined
+    ? null
+    : new Map(REQUIRED_VIDEO_SOURCES.map(({ channelName }) => [
+        channelName,
+        intakeRows.filter((row) => row.publisher === channelName),
+      ] as const));
+
   return REQUIRED_VIDEO_SOURCES.map(({ source, channelName }) => {
     const check = checks.get(channelName);
     if (!check) {
@@ -77,6 +94,46 @@ export function videoSourceChecksFromDedicatedRun(
     if (check.status !== "checked") {
       return { source, status: "blocked", itemCount: 0, retryable: true, note: check.note || `Dedicated YouTube discovery status: ${check.status}.` };
     }
+    if (perCreatorRows) {
+      const rows = perCreatorRows.get(channelName) ?? [];
+      if (!rows.length) {
+        return {
+          source,
+          status: "no_new_items",
+          itemCount: 0,
+          note: "The dedicated intake found no eligible long-form upload for this creator inside the active 72-hour checkpoint window.",
+        };
+      }
+
+      const usable = rows.filter((row) => (
+        row.transcript_status === "ready"
+        && row.transcript_job_status === "completed"
+        && row.video_review_status === "reviewed"
+        && row.status === "accepted"
+      ));
+      const unresolved = rows.filter((row) => !usable.includes(row));
+      if (unresolved.length) {
+        const retryable = unresolved.some((row) => (
+          row.transcript_retryable !== false
+          || ["pending", "retryable", "running"].includes(String(row.transcript_job_status))
+        ));
+        return {
+          source,
+          status: "blocked",
+          itemCount: usable.length,
+          retryable,
+          note: `${usable.length} creator transcript(s) are usable; ${unresolved.length} remain unresolved for this creator.`,
+        };
+      }
+
+      return {
+        source,
+        status: "checked",
+        itemCount: usable.length,
+        note: `${usable.length} dedicated creator transcript(s) completed review and canonical evidence persistence.`,
+      };
+    }
+
     if (!transcriptComplete) {
       return {
         source,
