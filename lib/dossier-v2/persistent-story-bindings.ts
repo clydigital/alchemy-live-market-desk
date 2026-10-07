@@ -8,6 +8,10 @@ export const GOVERNED_DOSSIER_PERSISTENT_STORY_ALIASES = [
     persistent_story_slug: "fed-long-end-stress",
   },
   {
+    analytical_story_id: "story:duration-stress-real-led",
+    persistent_story_slug: "fed-long-end-stress",
+  },
+  {
     analytical_story_id: "story-duration-broadening",
     persistent_story_slug: "fed-long-end-stress",
   },
