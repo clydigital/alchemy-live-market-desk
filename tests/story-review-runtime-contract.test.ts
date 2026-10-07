@@ -133,6 +133,20 @@ test("material Story maintenance reuses canonical version trigger and suppresses
   assert.match(hardeningMigration, /update public\.intelligence_story_assessments[\s\S]*applied_at=evaluated_at[\s\S]*update public\.intelligence_reevaluation_queue/);
 });
 
+test("legacy Stories without exact V1 reasoning cannot receive material maintenance mutations", () => {
+  assert.match(runtime, /loadCurrentStoryReasoningReadiness/);
+  assert.match(runtime, /stories\?select=id,current_thesis_version_id/);
+  assert.match(runtime, /story_thesis_versions\?select=id,story_id,snapshot/);
+  assert.match(runtime, /contractVersion === "canonical-story-reasoning\/v1"/);
+  assert.match(runtime, /legacyReasoningGapBlocked/);
+  assert.match(runtime, /assessment\.disposition !== "unchanged" && !canonicalReasoningReady/);
+  assert.match(runtime, /const materialAllowed = evidenceMaterialAllowed && !legacyReasoningGapBlocked/);
+  assert.match(runtime, /only the full canonical Story synthesis path may graduate this legacy Story/);
+  assert.match(runtime, /event: "legacy_story_material_maintenance_suppressed"/);
+  assert.match(runtime, /model_disposition: assessment\.disposition/);
+  assert.match(runtime, /disposition,/);
+});
+
 test("unchanged and creator-only assessments advance freshness without rewriting Story", () => {
   assert.match(runtime, /Material mutation was suppressed because no eligible non-creator evidence/);
   assert.match(hardeningMigration, /effective_status := case when material_allowed then assessment\.disposition else 'unchanged' end/);
