@@ -27,11 +27,16 @@ function story(id: string): ProjectedStory {
   };
 }
 
-function clock(storyId: string, evaluatedAt: string | null): RegimeStoryInterpretationClock {
+function clock(
+  storyId: string,
+  evaluatedAt: string | null,
+  hasPrimaryHypothesis = evaluatedAt !== null,
+): RegimeStoryInterpretationClock {
   return {
     storyId,
     evaluatedAt,
-    basis: evaluatedAt ? "story_review" : "unavailable",
+    basis: hasPrimaryHypothesis && evaluatedAt ? "story_review" : "unavailable",
+    hasPrimaryHypothesis,
   };
 }
 
@@ -40,10 +45,13 @@ function regime(input: {
   storyId?: string;
   storyBacked?: boolean;
   contextOnly?: boolean;
+  additionalDurableIds?: string[];
 }): ProjectedRegime {
   const projectedStory = story(input.storyId || "story-1");
   const storyBacked = input.storyBacked !== false;
-  const durableStories = storyBacked ? [projectedStory] : [];
+  const durableStories = storyBacked
+    ? [projectedStory, ...(input.additionalDurableIds || []).map(story)]
+    : [];
   const contextStories = !storyBacked && input.contextOnly ? [projectedStory] : [];
   const stories = [...durableStories, ...contextStories];
   return {
@@ -107,10 +115,10 @@ test("overview timing health uses accepted Story review time for genuine pending
   assert.equal(health.oldestPendingLagMinutes, 30);
 });
 
-test("Story-backed telemetry with no accepted evaluation remains degraded", () => {
+test("readable primary hypothesis without a review timestamp remains degraded", () => {
   const health = buildRegimeOverviewTimingHealth({
     regimes: [regime({ telemetryAt: "2026-10-07T00:30:00.000Z" })],
-    interpretationClocks: [],
+    interpretationClocks: [clock("story-1", null, true)],
     now: "2026-10-07T01:00:00.000Z",
   });
 
@@ -174,6 +182,41 @@ test("mapped seed or episode Stories remain context-only instead of being promot
   assert.equal(health.pendingInterpretationSubgroups, 0);
 });
 
+test("a reviewed Story with no resolved primary hypothesis cannot count as current System 2", () => {
+  const health = buildRegimeOverviewTimingHealth({
+    regimes: [regime({ telemetryAt: "2026-10-07T00:20:00.000Z" })],
+    interpretationClocks: [clock("story-1", "2026-10-07T00:30:00.000Z", false)],
+    now: "2026-10-07T01:00:00.000Z",
+  });
+
+  assert.equal(health.status, "no_system2");
+  assert.equal(health.missingCausalSubgroups, 1);
+  assert.equal(health.partialCausalSubgroups, 0);
+  assert.equal(health.missingCausalStoryPlacements, 1);
+  assert.equal(health.pendingInterpretationSubgroups, 0);
+  assert.equal(health.latestInterpretationAt, null);
+});
+
+test("a mixed durable subgroup keeps its available causal clock but flags partial coverage", () => {
+  const health = buildRegimeOverviewTimingHealth({
+    regimes: [regime({
+      telemetryAt: "2026-10-07T00:20:00.000Z",
+      additionalDurableIds: ["story-no-hypothesis"],
+    })],
+    interpretationClocks: [
+      clock("story-1", "2026-10-07T00:30:00.000Z"),
+      clock("story-no-hypothesis", "2026-10-07T00:35:00.000Z", false),
+    ],
+    now: "2026-10-07T01:00:00.000Z",
+  });
+  assert.equal(health.status, "partial_coverage");
+  assert.equal(health.missingCausalSubgroups, 0);
+  assert.equal(health.partialCausalSubgroups, 1);
+  assert.equal(health.missingCausalStoryPlacements, 1);
+  assert.equal(health.pendingInterpretationSubgroups, 0);
+  assert.equal(health.latestInterpretationAt, "2026-10-07T00:30:00.000Z");
+});
+
 test("Regime timing UI reads Story evaluation clock without changing projection schema", () => {
   const page = readFileSync(new URL("../app/regimes/page.tsx", import.meta.url), "utf8");
   const detailPage = readFileSync(new URL("../app/regimes/[slug]/page.tsx", import.meta.url), "utf8");
@@ -186,15 +229,21 @@ test("Regime timing UI reads Story evaluation clock without changing projection 
   assert.match(page, /latest Story review/);
   assert.match(page, /Telemetry ahead of Story review/);
   assert.match(page, /Telemetry without durable Story/);
-  assert.match(page, /mapped seed\/early\/episode Story context/);
+  assert.match(page, /Subgroups with no causal hypothesis/);
+  assert.match(page, /Partial causal Story coverage/);
+  assert.match(page, /seed\/early\/episode Story context only/);
   assert.match(page, /getRegimeStoryInterpretationClocks/);
   assert.match(detailPage, /getRegimeStoryInterpretationClocks/);
   assert.match(workspace, /latest accepted Story review/);
   assert.match(workspace, /TELEMETRY \+ CONTEXT STORIES — NO DURABLE STORY DRIVER/);
   assert.match(workspace, /SYSTEM 1 ONLY — NO MAPPED STORY DRIVER/);
+  assert.match(workspace, /NO READABLE PRIMARY CAUSAL HYPOTHESIS/);
+  assert.match(workspace, /PARTIAL CAUSAL COVERAGE/);
   assert.match(workspace, /hypothesis updated/);
   assert.match(liveReasoning, /last_evaluated_at/);
   assert.match(liveReasoning, /basis: "story_review"/);
+  assert.match(liveReasoning, /!hypothesisUpdatedAt\.has\(state\.primary_hypothesis_id\)/);
+  assert.match(liveReasoning, /hasPrimaryHypothesis: false/);
   assert.match(helper, /assessRegimeInterpretationFreshness/);
   assert.doesNotMatch(projection, /latestTelemetryAgeMinutes/);
   assert.doesNotMatch(projection, /latestInterpretationAgeMinutes/);

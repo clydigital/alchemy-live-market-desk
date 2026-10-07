@@ -26,6 +26,8 @@ export type RegimeStoryInterpretationClock = {
   storyId: string;
   evaluatedAt: string | null;
   basis: "story_review" | "hypothesis_update" | "unavailable";
+  /** A Story review is not a causal read unless its primary hypothesis resolves. */
+  hasPrimaryHypothesis: boolean;
 };
 
 const EVIDENCE_STATES = new Set(["observed", "strongly_supported", "inferred", "speculative"]);
@@ -90,12 +92,23 @@ export async function getRegimeStoryInterpretationClocks(
     }
 
     return states.map((state) => {
+      // A later Story evaluation alone cannot prove that any causal explanation exists.
+      // Fail closed if the primary hypothesis pointer is absent or cannot be resolved.
+      if (!state.primary_hypothesis_id || !hypothesisUpdatedAt.has(state.primary_hypothesis_id)) {
+        return {
+          storyId: state.story_id,
+          evaluatedAt: null,
+          basis: "unavailable" as const,
+          hasPrimaryHypothesis: false,
+        };
+      }
       const reviewedAt = typeof state.last_evaluated_at === "string" ? state.last_evaluated_at : null;
       if (reviewedAt) {
         return {
           storyId: state.story_id,
           evaluatedAt: reviewedAt,
           basis: "story_review" as const,
+          hasPrimaryHypothesis: true,
         };
       }
       const hypothesisAt = state.primary_hypothesis_id
@@ -105,6 +118,7 @@ export async function getRegimeStoryInterpretationClocks(
         storyId: state.story_id,
         evaluatedAt: hypothesisAt,
         basis: hypothesisAt ? "hypothesis_update" as const : "unavailable" as const,
+        hasPrimaryHypothesis: true,
       };
     });
   } catch {

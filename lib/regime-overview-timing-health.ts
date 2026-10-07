@@ -3,13 +3,19 @@ import type { RegimeStoryInterpretationClock } from "./regime-live-reasoning.ts"
 import type { ProjectedRegime } from "./regimes.ts";
 
 export type RegimeOverviewTimingHealth = {
-  status: "current" | "pending" | "partial_coverage" | "no_system1" | "no_system2";
+  status: "current" | "pending" | "partial_coverage" | "missing_causal" | "no_system1" | "no_system2";
   latestTelemetryAt: string | null;
   latestTelemetryAgeMinutes: number | null;
   latestInterpretationAt: string | null;
   latestInterpretationAgeMinutes: number | null;
   telemetryBearingSubgroups: number;
   storyBackedTelemetrySubgroups: number;
+  /** No readable primary causal hypothesis for any durable Story in these subgroups. */
+  missingCausalSubgroups: number;
+  /** At least one, but not all, durable Stories lack a readable primary hypothesis. */
+  partialCausalSubgroups: number;
+  /** Counts placements within telemetry-bearing subgroups, not unique Story IDs. */
+  missingCausalStoryPlacements: number;
   nonDurableTelemetrySubgroups: number;
   contextOnlyTelemetrySubgroups: number;
   sensorOnlyTelemetrySubgroups: number;
@@ -58,10 +64,15 @@ export function buildRegimeOverviewTimingHealth(input: {
   const telemetryAt = input.regimes.flatMap((regime) =>
     regime.subgroups.flatMap((subgroup) => subgroup.telemetry.map((item) => item.asOf))
   );
-  const interpretationAt = input.interpretationClocks.map((item) => item.evaluatedAt);
+  const interpretationAt = input.interpretationClocks
+    .filter((item) => item.hasPrimaryHypothesis)
+    .map((item) => item.evaluatedAt);
 
   let telemetryBearingSubgroups = 0;
   let storyBackedTelemetrySubgroups = 0;
+  let missingCausalSubgroups = 0;
+  let partialCausalSubgroups = 0;
+  let missingCausalStoryPlacements = 0;
   let nonDurableTelemetrySubgroups = 0;
   let contextOnlyTelemetrySubgroups = 0;
   let sensorOnlyTelemetrySubgroups = 0;
@@ -86,10 +97,20 @@ export function buildRegimeOverviewTimingHealth(input: {
       }
       storyBackedTelemetrySubgroups += 1;
 
-      const subgroupInterpretation = subgroup.durableStories.flatMap((story) => {
-        const clock = interpretationByStory.get(story.id);
-        return clock ? [clock.evaluatedAt] : [];
-      });
+      const readableClocks = subgroup.durableStories.map((story) => interpretationByStory.get(story.id));
+      const missingCount = readableClocks.filter((clock) => !clock?.hasPrimaryHypothesis).length;
+      missingCausalStoryPlacements += missingCount;
+      if (missingCount === subgroup.durableStories.length) {
+        missingCausalSubgroups += 1;
+        // The Story may have been evaluated, but that alone is not an interpretation.
+        // Keep this separate from genuinely newer telemetry on an existing causal read.
+        continue;
+      }
+      if (missingCount > 0) partialCausalSubgroups += 1;
+
+      const subgroupInterpretation = readableClocks
+        .filter((clock) => clock?.hasPrimaryHypothesis)
+        .map((clock) => clock?.evaluatedAt ?? null);
       const freshness = assessRegimeInterpretationFreshness({
         telemetryAt: subgroupTelemetry,
         interpretationAt: subgroupInterpretation,
@@ -112,13 +133,16 @@ export function buildRegimeOverviewTimingHealth(input: {
 
   const status: RegimeOverviewTimingHealth["status"] = !latestTelemetryAt
     ? "no_system1"
-    : storyBackedTelemetrySubgroups > 0 && !latestInterpretationAt
+    : storyBackedTelemetrySubgroups > 0
+      && (missingCausalSubgroups === storyBackedTelemetrySubgroups || !latestInterpretationAt)
       ? "no_system2"
-      : pendingInterpretationSubgroups > 0
-        ? "pending"
-        : nonDurableTelemetrySubgroups > 0
-          ? "partial_coverage"
-          : "current";
+      : missingCausalSubgroups > 0
+        ? "missing_causal"
+        : pendingInterpretationSubgroups > 0
+          ? "pending"
+          : nonDurableTelemetrySubgroups > 0 || partialCausalSubgroups > 0
+            ? "partial_coverage"
+            : "current";
 
   return {
     status,
@@ -128,6 +152,9 @@ export function buildRegimeOverviewTimingHealth(input: {
     latestInterpretationAgeMinutes: ageMinutes(latestInterpretationAt, nowMs),
     telemetryBearingSubgroups,
     storyBackedTelemetrySubgroups,
+    missingCausalSubgroups,
+    partialCausalSubgroups,
+    missingCausalStoryPlacements,
     nonDurableTelemetrySubgroups,
     contextOnlyTelemetrySubgroups,
     sensorOnlyTelemetrySubgroups,
