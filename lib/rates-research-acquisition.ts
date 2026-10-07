@@ -43,8 +43,18 @@ async function boundedText(response: Response, maximum = 750000) {
 }
 type Options = { now?: Date; fetchImpl?: typeof fetch; env?: NodeJS.ProcessEnv; budgetMs?: number };
 type Lead = { url: string; title: string };
+type SearchResult = { leads: Lead[]; providerUnavailable: boolean };
 
-async function search(target: RatesResearchTarget, env: NodeJS.ProcessEnv, fetchImpl: typeof fetch, signal: AbortSignal): Promise<Lead[]> {
+function keyedSearchConfigured(env: NodeJS.ProcessEnv) {
+  return Boolean(
+    env.BRAVE_SEARCH_API_KEY
+    || env.BRAVE_API_KEY
+    || env.TAVILY_API_KEY
+    || env.EXA_API_KEY
+  );
+}
+
+async function search(target: RatesResearchTarget, env: NodeJS.ProcessEnv, fetchImpl: typeof fetch, signal: AbortSignal): Promise<SearchResult> {
   const key = env.BRAVE_SEARCH_API_KEY || env.BRAVE_API_KEY;
   let response: Response;
   let rows: Record<string, unknown>[] = [];
@@ -52,31 +62,34 @@ async function search(target: RatesResearchTarget, env: NodeJS.ProcessEnv, fetch
     response = await fetchImpl(`https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({ q: target.query, count: "4" })}`, {
       headers: { "X-Subscription-Token": key, Accept: "application/json" }, signal,
     });
-    if (!response.ok) return [];
+    if (!response.ok) return { leads: [], providerUnavailable: false };
     const body = await response.json(); rows = body.web?.results || [];
   } else if (env.TAVILY_API_KEY) {
     response = await fetchImpl("https://api.tavily.com/search", { method: "POST", signal,
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ api_key: env.TAVILY_API_KEY, query: target.query, max_results: 4, include_answer: false }) });
-    if (!response.ok) return [];
+    if (!response.ok) return { leads: [], providerUnavailable: false };
     rows = (await response.json()).results || [];
   } else if (env.EXA_API_KEY) {
     response = await fetchImpl("https://api.exa.ai/search", { method: "POST", signal,
       headers: { "Content-Type": "application/json", "x-api-key": env.EXA_API_KEY }, body: JSON.stringify({ query: target.query, numResults: 4, type: "auto" }) });
-    if (!response.ok) return [];
+    if (!response.ok) return { leads: [], providerUnavailable: false };
     rows = (await response.json()).results || [];
   } else {
     const query = target.depth === "macro"
       ? '("Federal Reserve" OR Treasury OR NFP OR JOLTS OR Bessent) (rates OR yields OR spreads OR payrolls)'
       : `"${(target.instrument || target.subject.split(" ")[0]).replace(/"/g, "")}" (earnings OR debt OR financing OR guidance OR preferred)`;
     response = await fetchImpl(`https://api.gdeltproject.org/api/v2/doc/doc?${new URLSearchParams({ query, mode: "ArtList", format: "json", maxrecords: "4", timespan: "3months", sort: "DateDesc" })}`, { signal });
-    if (!response.ok) return [];
+    if (!response.ok) return { leads: [], providerUnavailable: true };
     rows = (await response.json()).articles || [];
   }
-  if (!Array.isArray(rows)) return [];
-  return rows.slice(0, 4).flatMap((row) => {
-    const url = sourceUrl(row.url);
-    return url ? [{ url, title: typeof row.title === "string" ? row.title : target.subject }] : [];
-  });
+  if (!Array.isArray(rows)) return { leads: [], providerUnavailable: false };
+  return {
+    leads: rows.slice(0, 4).flatMap((row) => {
+      const url = sourceUrl(row.url);
+      return url ? [{ url, title: typeof row.title === "string" ? row.title : target.subject }] : [];
+    }),
+    providerUnavailable: false,
+  };
 }
 
 /** Publisher body and publisher date are mandatory. Search snippets are never evidence. */
@@ -141,11 +154,21 @@ export async function acquireRatesResearch(input: ResearchRunInput, options: Opt
   const additions: IntakeItemInput[] = [];
   const diagnostics: string[] = [];
   let next = 0;
+  const keyedDiscovery = keyedSearchConfigured(env);
+  let keylessDiscoveryUnavailable = false;
   try {
-    await Promise.all(Array.from({ length: Math.min(4, plan.length) }, async () => {
+    // Keyed providers can fan out safely. When GDELT is the only discovery
+    // transport, keep one worker so a provider-level timeout can open a shared
+    // circuit before the same doomed request is repeated across every target.
+    const workerCount = keyedDiscovery ? Math.min(4, plan.length) : 1;
+    await Promise.all(Array.from({ length: workerCount }, async () => {
       while (next < plan.length) {
         const target = plan[next++];
         if (controller.signal.aborted) { diagnostics.push(`${target.key}: budget exhausted; evidence unknown`); continue; }
+        if (!keyedDiscovery && keylessDiscoveryUnavailable) {
+          diagnostics.push(`${target.key}: skipped; shared keyless discovery provider unavailable; evidence unknown`);
+          continue;
+        }
         try {
           const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]);
           // Reuse the SEC adapter before web discovery. Never infer SpaceX's filing identity.
@@ -170,12 +193,16 @@ export async function acquireRatesResearch(input: ResearchRunInput, options: Opt
               primaryCount++;
             }
           }
-          const leads = await search(target, env, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]));
-          const result = await Promise.all(leads.slice(0, 2).map((lead) => readRatesEvidence(lead, target, now, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).catch(() => null)));
+          const discovery = await search(target, env, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]));
+          if (!keyedDiscovery && discovery.providerUnavailable) keylessDiscoveryUnavailable = true;
+          const result = await Promise.all(discovery.leads.slice(0, 2).map((lead) => readRatesEvidence(lead, target, now, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).catch(() => null)));
           const usable = result.filter((v): v is IntakeItemInput => Boolean(v));
           additions.push(...usable);
           diagnostics.push(`${target.key}: attempted; ${usable.length + primaryCount} dated publisher document(s); missing fields remain unknown`);
-        } catch { diagnostics.push(`${target.key}: attempted; retrieval unavailable; evidence unknown`); }
+        } catch {
+          if (!keyedDiscovery) keylessDiscoveryUnavailable = true;
+          diagnostics.push(`${target.key}: attempted; retrieval unavailable; evidence unknown`);
+        }
       }
     }));
   } finally { clearTimeout(timer); }
