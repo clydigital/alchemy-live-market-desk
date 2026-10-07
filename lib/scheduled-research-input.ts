@@ -262,7 +262,21 @@ async function loadDedicatedVideoSourceChecks(slot: CanonicalResearchSlot, deskO
       .eq("research_run_id", videoRun.id)
       .maybeSingle<DedicatedVideoSlotRun>();
     if (slotError) throw new Error(slotError.message);
-    return videoSourceChecksFromDedicatedRun(videoRun, slotRun);
+
+    const windowStart = new Date(deskOccurrenceAt.getTime() - 72 * 60 * 60 * 1_000).toISOString();
+    const windowEnd = new Date(deskOccurrenceAt.getTime() + 5 * 60 * 1_000).toISOString();
+    const { data: recentVideoRows, error: intakeError } = await client
+      .from("research_intake_items")
+      .select("publisher,transcript_status,transcript_job_status,video_review_status,status,transcript_retryable")
+      .eq("item_type", "video")
+      .gte("published_at", windowStart)
+      .lte("published_at", windowEnd)
+      .returns<DedicatedVideoIntakeRow[]>();
+    if (intakeError) throw new Error(intakeError.message);
+
+    const requiredPublishers = new Set(REQUIRED_VIDEO_SOURCES.map(({ channelName }) => channelName));
+    const intakeRows = (recentVideoRows ?? []).filter((row) => requiredPublishers.has(row.publisher));
+    return videoSourceChecksFromDedicatedRun(videoRun, slotRun, intakeRows);
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown persistence failure";
     return blockedVideoSourceChecks(`Could not read the dedicated video-intake checkpoint: ${detail.slice(0, 400)}.`);
