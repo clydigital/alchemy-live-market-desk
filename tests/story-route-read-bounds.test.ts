@@ -23,7 +23,9 @@ test("Story registry loader is bounded to the datasets the registry renders", ()
   const source = dataSource.slice(start, end);
   assert.match(source, /story_updates/);
   assert.match(source, /story_evidence_coverage/);
-  assert.match(source, /select=id&is_active=eq.true/);
+  assert.match(source, /intelligence_evidence/);
+  assert.match(source, /freshness_status=eq\.current/);
+  assert.doesNotMatch(source, /query<Pick<StoryEvidence, "id">>\("evidence"/);
   assert.doesNotMatch(source, /macro_series_observations|market_series_observations|research_intake_queue|guidance_items|earnings_calls/);
 });
 
