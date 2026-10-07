@@ -317,6 +317,10 @@ test("production schema guard wiring remains read-only and post-deploy", () => {
   assert.match(workflow, /expectedDeploymentSha/);
   assert.match(workflow, /deployment_pending/);
   assert.match(workflow, /api\/admin\/system\/schema-drift/);
+  assert.match(workflow, /request_oidc_token/);
+  assert.match(workflow, /JWT issued at future/);
+  assert.match(workflow, /http_status" == "500"[\s\S]*status" == "failed"[\s\S]*error_message/);
+  assert.doesNotMatch(workflow, /if \[\[ "\$http_status" == "500" \]\]/);
   assert.match(migration, /security invoker/i);
   assert.ok(migration.includes("revoke all on function public.live_desk_applied_migrations()"));
   assert.doesNotMatch(migration, /security definer/i);
