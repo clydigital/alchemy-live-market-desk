@@ -27,14 +27,33 @@ evidence_counts as (
     on evidence.id = link.evidence_id
   group by link.story_id
 ),
-unresolved_counts as (
+open_debt_counts as (
   select
     debt.story_id,
-    count(*)::integer as unresolved_count
+    count(*)::integer as open_debt_count
   from public.research_debt debt
   where debt.status = 'open'
     and debt.story_id is not null
   group by debt.story_id
+),
+unresolved_counts as (
+  select
+    story.id as story_id,
+    (
+      coalesce(debt.open_debt_count, 0)
+      + case
+          when version.snapshot -> 'reasoning' ->> 'contractVersion' = 'canonical-story-reasoning/v1'
+            and jsonb_typeof(version.snapshot #> '{reasoning,nextTest}') = 'object'
+            and nullif(btrim(version.snapshot #>> '{reasoning,nextTest,label}'), '') is not null
+            then 1
+          else 0
+        end
+    )::integer as unresolved_count
+  from public.stories story
+  left join public.story_thesis_versions version
+    on version.id = story.current_thesis_version_id
+  left join open_debt_counts debt
+    on debt.story_id = story.id
 ),
 chart_counts as (
   select
@@ -128,6 +147,6 @@ select
 from coverage;
 
 comment on view public.story_evidence_coverage is
-  'Read-only Story evidence-room projection over canonical intelligence evidence links/sources, open Story research debt, chart requests, and append-only Story events. Gate thresholds are unchanged from the legacy evidence-room contract.';
+  'Read-only Story evidence-room projection over canonical intelligence evidence links/sources, V1 next-test/open research debt, chart requests, and append-only Story events. Gate thresholds are unchanged from the legacy evidence-room contract.';
 
 commit;
