@@ -9,11 +9,15 @@
   "crons": [
     {
       "path": "/api/cron/video/midnight",
-      "schedule": "0 1 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
-      "schedule": "30 1 * * *"
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/video/transcript-worker",
+      "schedule": "15 1 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
@@ -21,11 +25,15 @@
     },
     {
       "path": "/api/cron/video/late-morning",
-      "schedule": "0 13 * * *"
+      "schedule": "20 12 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
-      "schedule": "30 13 * * *"
+      "schedule": "45 12 * * *"
+    },
+    {
+      "path": "/api/cron/video/transcript-worker",
+      "schedule": "15 13 * * *"
     },
     {
       "path": "/api/cron/video/transcript-worker",
