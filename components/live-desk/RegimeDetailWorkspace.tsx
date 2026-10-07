@@ -473,7 +473,7 @@ export default function RegimeDetailWorkspace({
                 <div className={styles.freshnessWarning}>
                   <strong>TELEMETRY + CONTEXT STORIES — NO DURABLE STORY DRIVER</strong>
                   <span>Observed telemetry: {displayDate(freshness.telemetryAt)} · {subgroup.contextStories.length} mapped context Story{subgroup.contextStories.length === 1 ? "" : "ies"}</span>
-                  <p>The mapped Stories remain seed, early or episode context and are not eligible to drive Regime state. They are not promoted and no Story reevaluation is manufactured merely to clear coverage.</p>
+                  <p>The mapped Stories remain non-state context because they are seed, early, episode, stale, or lack canonical V1 reasoning on the exact pinned version. They are not promoted and no Story reevaluation is manufactured merely to clear coverage.</p>
                 </div>
               ) : freshness?.status === "no_interpretation" && subgroup.durableStories.length === 0 ? (
                 <div className={styles.freshnessWarning}>
