@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  ABANDONED_SCHEDULED_RUN_STALE_MS,
   ACQUISITION_CLAIM_STALE_MS,
+  abandonedScheduledRunEligible,
   buildScheduledResearchLogEvent,
   claimRunWithDependencies,
   resolveScheduledResearchIdentity,
@@ -290,6 +292,55 @@ test("post-engine publication failure remains resumable and bypasses engine repl
   assert.match(continuationHandler, /\.eq\("status", run\.status\)/);
 });
 
+
+test("abandoned scheduled Live recovery requires a dead heartbeat and no completed engine", () => {
+  const staleHeartbeat = new Date(
+    FIXED_NOW.getTime() - ABANDONED_SCHEDULED_RUN_STALE_MS - 1,
+  ).toISOString();
+  const base = {
+    runStatus: "running",
+    slotStatus: "running",
+    slotKey: "morning",
+    lastHeartbeatAt: staleHeartbeat,
+    engineStatus: "started",
+  };
+
+  assert.equal(abandonedScheduledRunEligible(base, FIXED_NOW), true);
+  assert.equal(
+    abandonedScheduledRunEligible({ ...base, slotKey: "video_midnight" }, FIXED_NOW),
+    false,
+  );
+  assert.equal(
+    abandonedScheduledRunEligible({ ...base, engineStatus: "completed" }, FIXED_NOW),
+    false,
+  );
+  assert.equal(
+    abandonedScheduledRunEligible({
+      ...base,
+      lastHeartbeatAt: new Date(FIXED_NOW.getTime() - 60_000).toISOString(),
+    }, FIXED_NOW),
+    false,
+  );
+  assert.equal(
+    abandonedScheduledRunEligible({ ...base, runStatus: "failed" }, FIXED_NOW),
+    false,
+  );
+});
+
+test("scheduled handler performs abandoned-run recovery before claiming the current occurrence", () => {
+  const handler = readFileSync(
+    new URL("../lib/cron-research-handler.ts", import.meta.url),
+    "utf8",
+  );
+  const recovery = handler.indexOf("recoverAbandonedScheduledResearchRuns");
+  const claim = handler.indexOf("claim = await (dependencies.claimRun ?? claimRun)");
+  assert.ok(recovery >= 0 && claim > recovery);
+  assert.match(handler, /scheduled_research_abandoned_runs_recovered/);
+  assert.match(handler, /scheduled_research_abandoned_run_recovery_failed/);
+  assert.match(handler, /engineStatus: engine\?\.status \?\? null/);
+  assert.match(handler, /\.eq\("updated_at", parent\.updated_at\)/);
+  assert.match(handler, /\.eq\("last_heartbeat_at", slotRun\.last_heartbeat_at\)/);
+});
 
 test("stale acquisition claim can be reclaimed only before source checks are durable", async () => {
   const staleUpdatedAt = new Date(FIXED_NOW.getTime() - ACQUISITION_CLAIM_STALE_MS - 1_000).toISOString();

@@ -28,6 +28,22 @@ export type ClaimRunDependencies = {
 };
 
 export const ACQUISITION_CLAIM_STALE_MS = 7 * 60 * 1_000;
+export const ABANDONED_SCHEDULED_RUN_STALE_MS = 24 * 60 * 60 * 1_000;
+
+export function abandonedScheduledRunEligible(input: {
+  runStatus: string;
+  slotStatus: string;
+  slotKey: string;
+  lastHeartbeatAt: string | null;
+  engineStatus: string | null;
+}, now = new Date()) {
+  if (!["morning", "evening"].includes(input.slotKey)) return false;
+  if (input.runStatus !== "running" || input.slotStatus !== "running") return false;
+  if (input.engineStatus === "completed") return false;
+  const heartbeat = Date.parse(input.lastHeartbeatAt || "");
+  if (!Number.isFinite(heartbeat)) return false;
+  return now.getTime() - heartbeat >= ABANDONED_SCHEDULED_RUN_STALE_MS;
+}
 
 function hasPersistedSourceChecks(value: unknown) {
   return Array.isArray(value) && value.length > 0;

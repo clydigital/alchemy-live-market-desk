@@ -10,6 +10,7 @@ import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
+  abandonedScheduledRunEligible,
   buildScheduledResearchLogEvent,
   type ClaimedRun,
   claimRunWithDependencies,
@@ -31,6 +32,7 @@ type ScheduledResearchHandlerDependencies = {
   attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
+  recoverAbandonedRuns?: (now: Date) => Promise<{ recoveredCount: number }>;
   logger?: (event: ScheduledResearchLogEvent) => void;
 };
 
@@ -47,6 +49,149 @@ export function scheduledResearchEnabled() {
 
 function cronAuthorised(request: Request) {
   return acceptsResearchAuthorization(request.headers.get("authorization"), [process.env.CRON_SECRET]);
+}
+
+type AbandonedSlotRun = {
+  research_run_id: string;
+  slot_key: string;
+  status: string;
+  last_heartbeat_at: string | null;
+  warnings: string[] | null;
+};
+
+type AbandonedParentRun = {
+  id: string;
+  run_key: string;
+  schedule_slot: string;
+  status: string;
+  updated_at: string;
+  warnings: string[] | null;
+};
+
+type AbandonedEngineRun = {
+  id: string;
+  status: string;
+  completed_at: string | null;
+  failure_detail: string | null;
+};
+
+async function recoverAbandonedScheduledResearchRuns(now = new Date()) {
+  const client = createSupabaseAdminClient();
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1_000).toISOString();
+  const completedAt = now.toISOString();
+
+  const { data: slotRuns, error: slotError } = await client
+    .from("research_slot_runs")
+    .select("research_run_id,slot_key,status,last_heartbeat_at,warnings")
+    .in("slot_key", ["morning", "evening"])
+    .eq("status", "running")
+    .lt("last_heartbeat_at", cutoff);
+
+  if (slotError) {
+    throw new Error(`Could not inspect abandoned scheduled Live runs: ${slotError.message}`);
+  }
+
+  let recoveredCount = 0;
+  for (const slotRun of (slotRuns ?? []) as AbandonedSlotRun[]) {
+    const [{ data: parent, error: parentError }, { data: engine, error: engineError }] = await Promise.all([
+      client
+        .from("research_runs")
+        .select("id,run_key,schedule_slot,status,updated_at,warnings")
+        .eq("id", slotRun.research_run_id)
+        .maybeSingle<AbandonedParentRun>(),
+      client
+        .from("intelligence_engine_runs")
+        .select("id,status,completed_at,failure_detail")
+        .eq("research_run_id", slotRun.research_run_id)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<AbandonedEngineRun>(),
+    ]);
+
+    if (parentError) {
+      throw new Error(`Could not read abandoned parent research run: ${parentError.message}`);
+    }
+    if (engineError) {
+      throw new Error(`Could not read abandoned intelligence run: ${engineError.message}`);
+    }
+    if (!parent) continue;
+
+    if (!abandonedScheduledRunEligible({
+      runStatus: parent.status,
+      slotStatus: slotRun.status,
+      slotKey: slotRun.slot_key,
+      lastHeartbeatAt: slotRun.last_heartbeat_at,
+      engineStatus: engine?.status ?? null,
+    }, now)) {
+      continue;
+    }
+
+    const warning =
+      `[orchestration] abandoned scheduled Live run ${parent.run_key} was terminalised after more than 24 hours without a heartbeat; persisted evidence and stage history were preserved.`;
+    const parentWarnings = [...(parent.warnings ?? [])];
+    if (!parentWarnings.includes(warning)) parentWarnings.push(warning);
+
+    const { data: updatedParent, error: parentUpdateError } = await client
+      .from("research_runs")
+      .update({
+        status: "failed",
+        completed_at: completedAt,
+        warnings: parentWarnings,
+        updated_at: completedAt,
+      })
+      .eq("id", parent.id)
+      .eq("status", "running")
+      .eq("updated_at", parent.updated_at)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    if (parentUpdateError) {
+      throw new Error(`Could not terminalise abandoned scheduled Live run: ${parentUpdateError.message}`);
+    }
+    if (!updatedParent) continue;
+
+    const slotWarnings = [...(slotRun.warnings ?? [])];
+    if (!slotWarnings.includes(warning)) slotWarnings.push(warning);
+    const { error: slotUpdateError } = await client
+      .from("research_slot_runs")
+      .update({
+        status: "failed",
+        health_state: "blocked",
+        completed_at: completedAt,
+        last_heartbeat_at: completedAt,
+        stage_summary: {
+          lastStage: "abandoned_run_recovery",
+          lastStatus: "failed",
+          reason: "heartbeat_stale_over_24h",
+        },
+        warnings: slotWarnings,
+        updated_at: completedAt,
+      })
+      .eq("research_run_id", parent.id)
+      .eq("status", "running")
+      .eq("last_heartbeat_at", slotRun.last_heartbeat_at);
+
+    if (slotUpdateError) {
+      throw new Error(`Parent run is terminal but slot cleanup failed: ${slotUpdateError.message}`);
+    }
+
+    if (engine && ["started", "partial"].includes(engine.status)) {
+      const detail = [engine.failure_detail, warning].filter(Boolean).join(" ");
+      await client
+        .from("intelligence_engine_runs")
+        .update({
+          status: "failed",
+          completed_at: completedAt,
+          failure_detail: detail.slice(0, 2_000),
+        })
+        .eq("id", engine.id)
+        .in("status", ["started", "partial"]);
+    }
+
+    recoveredCount += 1;
+  }
+
+  return { recoveredCount };
 }
 
 async function readRun(runKey: string) {
@@ -183,6 +328,21 @@ export async function handleScheduledResearchWithDependencies(
       status: "disabled",
       slot,
       message: "The Live research schedule is intentionally disabled.",
+    });
+  }
+
+  try {
+    const recovery = await (dependencies.recoverAbandonedRuns ?? recoverAbandonedScheduledResearchRuns)(now);
+    if (recovery.recoveredCount > 0) {
+      logEvent("scheduled_research_abandoned_runs_recovered", {
+        authStatus: "authorized",
+        message: `Terminalised ${recovery.recoveredCount} abandoned scheduled Live run(s) before claiming the current occurrence.`,
+      });
+    }
+  } catch (error) {
+    logEvent("scheduled_research_abandoned_run_recovery_failed", {
+      authStatus: "authorized",
+      message: error instanceof Error ? error.message : "Could not recover abandoned scheduled Live runs.",
     });
   }
 
