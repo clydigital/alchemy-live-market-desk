@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
+import { parseFxStreetNewsFeedPage } from "@/lib/fxstreet-feed";
 import { acquirePowerStackThemes } from "@/lib/power-stack-themes";
 import { buildResearchAttentionPacket, safeResearchAttentionLog } from "@/lib/research-attention";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -64,9 +65,9 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
   {
     source: "fxstreet",
     publisher: "FXStreet",
-    // The root official feed and the news alias carry the same direct FXStreet
-    // coverage, but can be served by different CDN paths.
-    urls: ["https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
+    // FXStreet now exposes its current official news index at /news/feed.
+    // Keep the older RSS aliases as secondary compatibility paths.
+    urls: ["https://www.fxstreet.com/news/feed", "https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
   },
 ];
@@ -192,7 +193,12 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const entries = parseFeed(await response.text());
+      const raw = await response.text();
+      const entries = /<(rss|feed)\b/i.test(raw)
+        ? parseFeed(raw)
+        : source.source === "fxstreet"
+          ? parseFxStreetNewsFeedPage(raw)
+          : (() => { throw new Error("The response was not an RSS or Atom feed."); })();
       const fresh = entries
         .filter((entry) => {
           const publishedAt = Date.parse(entry.publishedAt);
