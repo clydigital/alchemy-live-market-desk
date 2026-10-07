@@ -128,11 +128,11 @@ export function parseOpecForwardMeetings(source: string, sourceUrl: string, now 
 
   const generic = new RegExp(`next meeting will be held on\\s+${datePattern}`, "gi");
   for (const match of plain.matchAll(generic)) {
-    const title = /\\bJMMC\\b/i.test(plain)
+    const title = /\bJMMC\b/i.test(plain)
       ? "JMMC meeting"
-      : /OPEC\\+/i.test(plain)
+      : /OPEC\+/i.test(plain)
         ? "OPEC+ participating countries meeting"
-        : /\\bOPEC\\b/i.test(plain)
+        : /\bOPEC\b/i.test(plain)
           ? "OPEC meeting"
           : "";
     if (title) candidates.push({ title, date: match[1] });
