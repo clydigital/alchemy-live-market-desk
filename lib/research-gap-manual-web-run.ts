@@ -4,6 +4,7 @@ import {
 } from "./manual-live-trigger-auth.ts";
 import {
   claimResearchGapCases,
+  closeLegacyQueuedDossierStoryD7ResearchGapCases,
   completeResearchGapCase,
   releaseResearchGapCase,
   startResearchGapCase,
@@ -24,6 +25,7 @@ import {
 
 type Dependencies = {
   authorize?: (request: Request) => Promise<ManualLiveTriggerAuthorization>;
+  closeLegacyDossierStoryWork?: typeof closeLegacyQueuedDossierStoryD7ResearchGapCases;
   claim?: (input: { workerId: string; batchSize: number; leaseSeconds: number }) => Promise<ClaimedResearchGapCase[]>;
   loadContext?: typeof loadResearchGapPlanContext;
   buildPlan?: typeof buildResearchGapPlan;
@@ -56,6 +58,9 @@ export async function handleManualResearchGapWebRun(
     return json({ status: "unauthorized", error: "Manual Research Gap authorization failed." }, 401);
   }
 
+  const closeLegacyDossierStoryWork =
+    dependencies.closeLegacyDossierStoryWork
+    ?? (() => closeLegacyQueuedDossierStoryD7ResearchGapCases());
   const claim = dependencies.claim ?? ((input) => claimResearchGapCases(input));
   const loadContext = dependencies.loadContext ?? loadResearchGapPlanContext;
   const buildPlan = dependencies.buildPlan ?? buildResearchGapPlan;
@@ -72,6 +77,21 @@ export async function handleManualResearchGapWebRun(
   let verdict: ResearchGapVerdict | null = null;
 
   try {
+    const closedLegacyD7 = await closeLegacyDossierStoryWork();
+    if (closedLegacyD7.length > 0) {
+      logger({
+        event: "research_gap_legacy_dossier_story_work_closed",
+        actor: authorization.actor,
+        githubRunId: authorization.githubRunId,
+        count: closedLegacyD7.length,
+        cases: closedLegacyD7.map((item) => ({
+          id: item.id,
+          gapKey: item.gap_key,
+          sourceRef: item.source_ref,
+        })),
+      });
+    }
+
     const cases = await claim({
       workerId,
       batchSize: 1,

@@ -71,6 +71,33 @@ const authorize = async () => ({
   workflowSha: "a".repeat(40),
 });
 
+test("manual web executor closes legacy Dossier-to-Story D7 work before claiming ordinary research", async () => {
+  const claimed = gap();
+  const events: string[] = [];
+
+  const response = await handleManualResearchGapWebRun(request(), {
+    authorize,
+    closeLegacyDossierStoryWork: async () => {
+      events.push("cleanup");
+      return [{
+        id: "44444444-4444-4444-8444-444444444444",
+        gap_key: "gap:native:d7:d7:dossier-story:story:legacy",
+        source_ref: "d7:d7:dossier-story:story:legacy",
+        status: "CLOSED",
+      }];
+    },
+    claim: async () => {
+      events.push("claim");
+      return [];
+    },
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, "empty");
+  assert.deepEqual(events, ["cleanup", "claim"]);
+});
+
 test("manual one-case executor claims, researches and completes without canonical handoff", async () => {
   const claimed = gap();
   const completedInputs: Array<Record<string, unknown>> = [];
@@ -78,6 +105,7 @@ test("manual one-case executor claims, researches and completes without canonica
 
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    closeLegacyDossierStoryWork: async () => [],
     claim: async (input) => {
       assert.deepEqual(input, {
         workerId: "github-gap:123",
@@ -152,6 +180,7 @@ test("manual executor releases the owned case when web research fails", async ()
 
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    closeLegacyDossierStoryWork: async () => [],
     claim: async () => [claimed],
     loadContext: async () => ({} as never),
     buildPlan: (row, now) => buildResearchGapPlan(row, now),
@@ -180,6 +209,7 @@ test("manual executor releases the owned case when web research fails", async ()
 test("manual executor exits cleanly when no Research Gap case is queued", async () => {
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    closeLegacyDossierStoryWork: async () => [],
     claim: async () => [],
     logger: () => undefined,
   });
