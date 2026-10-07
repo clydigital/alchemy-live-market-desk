@@ -61,6 +61,8 @@ export default async function RegimesPage() {
             { value: mappedStoryIds.size, label: "Mapped Stories" },
             { value: timingHealth.telemetryBearingSubgroups, label: "System 1 timestamped subgroups" },
             { value: timingHealth.pendingInterpretationSubgroups, label: "Telemetry ahead of Story review" },
+            { value: timingHealth.missingCausalSubgroups, label: "Subgroups with no causal hypothesis" },
+            { value: timingHealth.partialCausalSubgroups, label: "Partial causal Story coverage" },
             { value: timingHealth.nonDurableTelemetrySubgroups, label: "Telemetry without durable Story" },
             { value: pendingNodes, label: "Observed nodes · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
@@ -98,19 +100,23 @@ export default async function RegimesPage() {
               ? "Interpretation timing is current"
               : timingHealth.status === "partial_coverage"
                 ? "Interpretation timing current · coverage partial"
-                : "Interpretation timing needs attention"
+                : timingHealth.status === "missing_causal" || timingHealth.status === "no_system2"
+                  ? "Causal interpretation coverage needs attention"
+                  : "Interpretation timing needs attention"
           }
           detail={
             `System 1 latest ${formatAgeAgo(timingHealth.latestTelemetryAgeMinutes)} · latest Story review ${formatAgeAgo(timingHealth.latestInterpretationAgeMinutes)} · projector ${formatAgeAgo(shadowHealth.lagMinutes)}. `
             + (timingHealth.status === "no_system1"
               ? "No timestamped System 1 subgroup telemetry is available, so measured freshness cannot be claimed."
               : timingHealth.status === "no_system2"
-                ? `${timingHealth.noTimestampedInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.noTimestampedInterpretationSubgroups === 1 ? "" : "s"} have no timestamped canonical System 2 review.`
-                : timingHealth.pendingInterpretationSubgroups > 0
-                  ? `${timingHealth.pendingInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest accepted Story review · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
-                  : timingHealth.nonDurableTelemetrySubgroups > 0
-                    ? `All ${timingHealth.storyBackedTelemetrySubgroups} durable-Story telemetry subgroup${timingHealth.storyBackedTelemetrySubgroups === 1 ? " is" : "s are"} current. ${timingHealth.contextOnlyTelemetrySubgroups} telemetry subgroup${timingHealth.contextOnlyTelemetrySubgroups === 1 ? " has" : "s have"} mapped seed/early/episode Story context but no durable Story driver; ${timingHealth.sensorOnlyTelemetrySubgroups} ${timingHealth.sensorOnlyTelemetrySubgroups === 1 ? "has" : "have"} no mapped Story at all. Context Stories are not promoted and no Story reevaluation is manufactured merely to clear coverage.`
-                    : "No timestamped System 1 subgroup is ahead of its latest accepted Story review.")
+                ? `All ${timingHealth.missingCausalSubgroups} durable-Story telemetry subgroup${timingHealth.missingCausalSubgroups === 1 ? " has" : "s have"} no readable primary causal hypothesis. A Story evaluation timestamp alone cannot establish a causal read.`
+                : timingHealth.status === "missing_causal"
+                  ? `${timingHealth.missingCausalSubgroups} durable-Story telemetry subgroup${timingHealth.missingCausalSubgroups === 1 ? " has" : "s have"} no readable primary causal hypothesis. ${timingHealth.partialCausalSubgroups} additional subgroup${timingHealth.partialCausalSubgroups === 1 ? " has" : "s have"} only partial causal Story coverage. Telemetry-ahead-of-review subgroups: ${timingHealth.pendingInterpretationSubgroups}.`
+                  : timingHealth.pendingInterpretationSubgroups > 0
+                    ? `${timingHealth.pendingInterpretationSubgroups} subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest accepted causal Story review · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
+                    : timingHealth.nonDurableTelemetrySubgroups > 0 || timingHealth.partialCausalSubgroups > 0
+                      ? `No measured telemetry is ahead of its latest available causal Story review. ${timingHealth.partialCausalSubgroups} durable-Story telemetry subgroup${timingHealth.partialCausalSubgroups === 1 ? " has" : "s have"} only partial causal coverage; ${timingHealth.contextOnlyTelemetrySubgroups} subgroup${timingHealth.contextOnlyTelemetrySubgroups === 1 ? " has" : "s have"} seed/early/episode Story context only; ${timingHealth.sensorOnlyTelemetrySubgroups} ${timingHealth.sensorOnlyTelemetrySubgroups === 1 ? "has" : "have"} no mapped Story. No missing hypothesis is manufactured and context Stories are not promoted.`
+                      : "No timestamped System 1 subgroup is ahead of its latest accepted causal Story review.")
           }
         />
 
