@@ -45,8 +45,7 @@ export type D7DivergenceCase = {
 export type D7StoryReviewClock = {
   storyId: string;
   evaluatedAt: string | null;
-  basis: "story_review" | "hypothesis_update" | "unavailable";
-  hasPrimaryHypothesis: boolean;
+  basis: "story_review" | "unavailable";
 };
 
 export type D7CrossLayerDivergenceSnapshot = {
@@ -139,7 +138,6 @@ function dossierStoryCases(
       : Number.NaN;
     const acceptedReviewCoversDossier =
       reviewClock?.basis === "story_review"
-      && reviewClock.hasPrimaryHypothesis
       && Number.isFinite(reviewedAt)
       && Number.isFinite(dossierAsOf)
       && reviewedAt >= dossierAsOf;
