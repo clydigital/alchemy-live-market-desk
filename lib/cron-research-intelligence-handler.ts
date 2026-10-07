@@ -355,7 +355,7 @@ export async function handleScheduledResearchIntelligence(
         error: error instanceof Error ? error.message : "Could not resolve stale manual retry supersession.",
         slot,
         runKey,
-        runId: run.id,
+        runId: run?.id ?? null,
         scheduledFor,
       }, 503);
     }
