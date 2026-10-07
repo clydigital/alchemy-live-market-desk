@@ -331,6 +331,7 @@ export async function applyHighImpactMarketDiscovery(
   const retained: IntakeItemInput[] = [];
   let firecrawlBudget = FIRECRAWL_RECOVERY_LIMIT;
   let firecrawlRecovered = 0;
+  let discoveryProviderUnavailable = false;
   const coverage: string[] = [];
 
   for (const target of TARGETS) {
@@ -342,10 +343,21 @@ export async function applyHighImpactMarketDiscovery(
       continue;
     }
 
+    if (discoveryProviderUnavailable) {
+      coverage.push(`${target.key}=provider_unavailable_shared (0 external discovery calls; evidence remains unknown)`);
+      continue;
+    }
+
     // Preserve existing US macro / yen depth; bound each added regional check.
     const retainedLimit = ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
     const search = await searchTarget(target, now, fetchImpl);
     const leads = search.leads;
+    if (["blocked", "rate_limited", "unavailable", "invalid_response"].includes(search.state)) {
+      // GDELT is the shared transport for every remaining high-impact target.
+      // A provider-level failure is therefore a run-level health signal, not a
+      // reason to repeat the same failing request for every geography.
+      discoveryProviderUnavailable = true;
+    }
     let pagesRead = 0;
     const seen = new Set<string>();
     let targetCount = 0;
