@@ -1,6 +1,6 @@
 # D1–D7 Architecture Implementation Status
 
-**Audit base:** current `main` at `66c19631cec0e3d2d13b59de96b33fbeba42c626` or newer.
+**Audit base:** current `main` at `9176f469cd2ab704559710d6f4c263f4c0509061` or newer.
 
 This is an implementation audit, not a design document. It distinguishes code/test coverage from direct production observation.
 
@@ -31,6 +31,7 @@ This is an implementation audit, not a design document. It distinguishes code/te
 | **Maintenance Story → Regime reprojection** | ✅ | ✅ | ✅ | ✅ production maintenance run `37422359132` created completed Regime projection `6b3bb1d3-a680-4b4b-a03d-963e6f5e7233` | PR #516; trigger `story_engine`, 5 persisted Regime versions, 0 warnings |
 | **Unassigned Story → Regime routing debt** | ✅ | ✅ | ✅ | ✅ production progressed from 3 explicit unrouted Stories to **0 open routing debt** without weak fallback mappings | PR #578 + #583 + #589 + #590; initial projection `692377ff-296d-416b-99cd-5e23af0da6c3`, reuse proof `37514595584`, final manual projection `fb360236-5e3d-4e81-9944-69edfd489536` |
 | **Story-domain quarantine** | ✅ | ✅ | ✅ | ✅ provenance/process-only Story preserved in canonical history but removed from the market Regime routing universe | PR #603; manual Regime proof run `37544943061`, projection `fb360236-5e3d-4e81-9944-69edfd489536`, `story-domain/2` debt |
+| **Regime System 1 ↔ System 2 timing / coverage health** | ✅ | ✅ | ✅ | ✅ exact current-main deployed READY; production overview and subgroup responses previously observed HTTP 200 with 2 mapped context-only and 0 truly unmapped sensor-only subgroups | PRs #608–#610; `intelligence_story_states.last_evaluated_at` accepted review clock; immutable projection unaffected |
 
 ## Current governed chain
 
@@ -74,6 +75,9 @@ Important boundaries remain intact:
 - **#590** — versions deterministic Regime routing semantics in projection identity and keeps reused-run routing debt consistent with persisted links.
 - **#592** — resolved Regime routing debt now records lifecycle-consistent metadata (`routingStatus=routed|inactive`, exact resolving projection ID, resolved timestamp) and backfills prior resolved rows.
 - **#602** — adds an audited GitHub-OIDC manual `regime_shadow` production trigger so exact Regime projection behaviour can be proven without coupling to the broader research workflow.
+- **#608** — shows independent System 1 telemetry, System 2 interpretation and Regime projector clocks without changing stored projection semantics.
+- **#609** — uses accepted `intelligence_story_states.last_evaluated_at` (hypothesis-edit timestamp only as fallback) to avoid falsely treating an unchanged-but-reviewed Story as stale.
+- **#610** — splits non-durable subgroup coverage into mapped context-only seed/episode Stories versus truly unmapped sensor-only telemetry; neither may be promoted to a durable Story just to clear health counts.
 - **#603** — tightens Story-domain classification to `story-domain/2`, preventing generic prose such as `authoritative guidance` from falsely making provenance/process Stories market-admissible.
 - **#605** — clarifies the live routing-health copy to apply to **market-admissible** active Stories, keeping routing health semantically consistent with separate domain-quarantine health.
 
@@ -119,6 +123,15 @@ Observed directly on production:
 - **Story-domain v2 production proof:** the same manual run created completed projection `fb360236-5e3d-4e81-9944-69edfd489536` with warning: `1 active Story domain quarantine item(s) remain outside the market routing universe; canonical Story history was preserved.` The provenance-only Story `primary-source-timestamps-as-the-decisive-evidence-for-record-reclassifi` had its old routing debt resolved as `domain_quarantined` and now has exactly one open `story-domain:*` governance item with `contractVersion=story-domain/2`.
 - **Live health surface:** production `/regimes` returned HTTP 200 and rendered **0 Unassigned active Stories**, **1 Domain-quarantined Story**, **0 high/critical** domain quarantine, and the separate Story-domain warning. PR #605 narrows the routing-ready copy to “Every market-admissible active Story…” so the two health surfaces do not contradict each other.
 - **Current governed result:** there is **zero open Regime routing debt**. Every market-admissible active Story clears a governed Regime route; one active provenance/process Story is deliberately preserved outside that market-routing universe under explicit Story-domain quarantine. No weak mapping was manufactured merely to reach zero routing debt.
+
+### Regime interpretation timing and coverage · 7 October 2026
+
+- **Current production deployment:** the Vercel production deployment for commit `9176f469cd2ab704559710d6f4c263f4c0509061` (`#610`) reached **READY**. GitHub `Validate Live Desk` push run [`37550274122`](https://github.com/clydigital/alchemy-live-market-desk/actions/runs/37550274122) completed successfully; GitHub's Vercel commit status is `success`.
+- **Live read-model verification:** the previous production inspection recorded HTTP **200** for `/regimes` and the `global-rates` and `treasury-fiscal` subgroup views, with **2 mapped context-only** subgroups and **0 truly unmapped sensor-only** subgroups. This is a timestamped observation, not a promise about future telemetry.
+- **Correct freshness authority:** the two context-only subgroup mappings exist but refer to seed/episode Stories, which remain ineligible to drive durable Regime interpretation. Three Story-backed subgroups had accepted evaluation clocks later than their last telemetry at the earlier production diagnosis; an unchanged accepted thesis does not become stale merely because its hypothesis text was not edited.
+- **No synthetic repair:** no Story is promoted, no reevaluation queue item is fabricated for non-durable coverage, and no Regime versions/snapshots or evidence contracts are changed by #608–#610.
+- **Residual proof scope remains separate:** D4 fresh material Story version, D6 measured reaction assessment and natural STALE/CONFLICT source arbitration still require qualifying real observations. Their absence is not evidence that the implemented paths failed.
+- **Error-scan boundary:** a 7 October 2026 Vercel runtime error-group scan found a single historical `/hybrid-output` timeout last seen 6 October; it belongs to the separately owned loading-diagnosis lane. A 30-minute production error/fatal log query around 03:26 UTC on 7 October returned no matching logs; this does not establish zero errors outside that window.
 
 ### Earlier D7 / Hybrid production proof
 
