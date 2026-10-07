@@ -112,7 +112,6 @@ test("D7 aligns a directional Dossier delta after an accepted Story review cover
       storyId: PERSISTENT_ID,
       evaluatedAt: "2026-10-06T00:05:00.000Z",
       basis: "story_review",
-      hasPrimaryHypothesis: true,
     }],
   });
 
@@ -173,7 +172,6 @@ test("D7 accepts a completed Story review even when the absolute Story classific
       storyId: PERSISTENT_ID,
       evaluatedAt: "2026-10-06T00:30:00.000Z",
       basis: "story_review",
-      hasPrimaryHypothesis: true,
     }],
   });
 
