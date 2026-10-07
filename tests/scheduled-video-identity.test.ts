@@ -48,6 +48,22 @@ test("dedicated cron routes and desk lookup share the canonical video identity h
   assert.match(lateMorningRoute, /handleVideoIntakeRequest\(request, "video_late_morning"\)/);
   assert.match(vercelConfig, /"\/api\/cron\/video\/midnight"[\s\S]*"0 1 \* \* \*"/);
   assert.match(vercelConfig, /"\/api\/cron\/video\/late-morning"[\s\S]*"0 13 \* \* \*"/);
+
+  const configuredVideoCrons = (JSON.parse(vercelConfig) as {
+    crons: Array<{ path: string; schedule: string }>;
+  }).crons.filter((entry) => entry.path.startsWith("/api/cron/video/"));
+  assert.deepEqual(configuredVideoCrons, [
+    { path: "/api/cron/video/midnight", schedule: "0 0 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "30 0 * * *" },
+    { path: "/api/cron/video/midnight", schedule: "0 1 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "15 1 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "45 2 * * *" },
+    { path: "/api/cron/video/late-morning", schedule: "0 12 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "30 12 * * *" },
+    { path: "/api/cron/video/late-morning", schedule: "0 13 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "15 13 * * *" },
+    { path: "/api/cron/video/transcript-worker", schedule: "45 14 * * *" },
+  ]);
 });
 
 test("targeted video requests give manual guidance and scheduled policy advertises the cloud-browser queue without paid fallback", () => {
