@@ -69,6 +69,43 @@ function event(overrides: Partial<StoryEvent> = {}): StoryEvent {
   };
 }
 
+function canonicalVersion(value: Story, overrides: Partial<StoryThesisVersion> = {}): StoryThesisVersion {
+  return {
+    id: `version-${value.id}`,
+    story_id: value.id,
+    event_id: null,
+    version_number: 1,
+    title: value.title,
+    thesis: value.thesis,
+    status: value.status,
+    confidence: value.confidence,
+    market_question: value.market_question,
+    dominant_narrative: value.dominant_narrative,
+    best_explanation: value.best_explanation,
+    strongest_support: value.strongest_support,
+    strongest_contradiction: value.strongest_contradiction,
+    priced_assessment: value.priced_assessment,
+    confirmation_trigger: value.confirmation_trigger,
+    invalidation_trigger: value.invalidation_trigger,
+    next_catalyst: value.next_catalyst,
+    article_angle: value.article_angle,
+    provisional_title: value.provisional_title,
+    article_verdict: value.article_verdict,
+    assets: value.assets,
+    portfolio_map: {},
+    snapshot: {
+      reasoning: {
+        contractVersion: "canonical-story-reasoning/v1",
+      },
+    },
+    change_reason: "material_evidence_recalibration",
+    effective_at: "2026-09-28T01:00:00Z",
+    created_at: "2026-09-28T01:00:00Z",
+    created_by: null,
+    ...overrides,
+  };
+}
+
 function dossier(): DossierPresentationV1 {
   return {
     asOf: "2026-09-28T01:05:00Z",
@@ -217,10 +254,11 @@ test("global rates routing recognises USDJPY, JGB and foreign-flow language", ()
 });
 
 test("Cost-of-Capital Regime reuses the canonical Dossier rate-regime/1 telemetry", () => {
+  const currentStory = story();
   const projection = buildRegimeProjection({
-    stories: [story()],
+    stories: [currentStory],
     events: [event()],
-    versions: [],
+    versions: [canonicalVersion(currentStory)],
     newsThreads: [],
     statements: [],
     dossier: dossier(),
@@ -270,10 +308,12 @@ test("raw routed news stays interpretation pending and cannot strengthen the sub
 
 
 test("pending news refreshes the live projection without changing the material Regime signature", () => {
+  const currentStory = story();
+  const currentVersion = canonicalVersion(currentStory);
   const base = buildRegimeProjection({
-    stories: [story()],
+    stories: [currentStory],
     events: [event()],
-    versions: [],
+    versions: [currentVersion],
     newsThreads: [],
     statements: [],
     dossier: dossier(),
@@ -281,9 +321,9 @@ test("pending news refreshes the live projection without changing the material R
   assert.ok(base);
 
   const withPendingNews = buildRegimeProjection({
-    stories: [story()],
+    stories: [currentStory],
     events: [event()],
-    versions: [],
+    versions: [currentVersion],
     newsThreads: [{
       id: "news-pending",
       domain: "rates",
@@ -314,10 +354,12 @@ test("pending news refreshes the live projection without changing the material R
 });
 
 test("accepted Story-state changes alter the material Regime signature", () => {
+  const currentStory = story();
+  const currentVersion = canonicalVersion(currentStory);
   const supporting = buildRegimeProjection({
-    stories: [story()],
+    stories: [currentStory],
     events: [event({ id: "supporting", impact: "supports" })],
-    versions: [],
+    versions: [currentVersion],
     newsThreads: [],
     statements: [],
     dossier: null,
@@ -325,7 +367,7 @@ test("accepted Story-state changes alter the material Regime signature", () => {
   assert.ok(supporting);
 
   const contested = buildRegimeProjection({
-    stories: [story()],
+    stories: [currentStory],
     events: [
       event({ id: "supporting", impact: "supports" }),
       event({
@@ -336,7 +378,7 @@ test("accepted Story-state changes alter the material Regime signature", () => {
         event_at: "2026-09-28T04:00:00Z",
       }),
     ],
-    versions: [],
+    versions: [currentVersion],
     newsThreads: [],
     statements: [],
     dossier: null,
@@ -350,8 +392,8 @@ test("accepted Story-state changes alter the material Regime signature", () => {
 });
 
 
-test("Regime projector v3 includes stale Story maturity in the persisted interpretation contract", () => {
-  assert.equal(REGIME_PROJECTOR_CONTRACT_VERSION, "regime-projector/3");
+test("Regime projector v4 requires canonical reasoning for persisted Story-led interpretation", () => {
+  assert.equal(REGIME_PROJECTOR_CONTRACT_VERSION, "regime-projector/4");
 });
 
 test("unverified theme seeds stay mapped but cannot drive Regime state", () => {
@@ -440,21 +482,22 @@ test("legacy same-session episode Stories are context, not durable Treasury bran
   assert.ok(rates.subgroups.flatMap((item) => item.nodes).every((node) => node.state === "context"));
 });
 
-test("durable Stories still drive Story-led Regime state", () => {
+test("only an exact V1-backed Story version drives Story-led Regime state", () => {
   const durable = story({
     slug: "market-breadth-health",
     title: "Breadth transition remains incomplete",
     confidence: 72,
     article_verdict: "monitor",
   });
-  const maturity = classifyRegimeStory(durable);
+  const version = canonicalVersion(durable);
+  const maturity = classifyRegimeStory(durable, version);
   assert.equal(maturity.maturity, "durable");
   assert.equal(maturity.contributesToState, true);
 
   const equity = buildRegimeProjection({
     stories: [durable],
     events: [],
-    versions: [],
+    versions: [version],
     newsThreads: [],
     statements: [],
     dossier: null,
@@ -467,31 +510,100 @@ test("durable Stories still drive Story-led Regime state", () => {
   assert.equal(equity.contextStories.length, 0);
 });
 
-test("changing only Story maturity changes the material Regime signature", () => {
-  const durable = buildRegimeProjection({
-    stories: [story({
-      slug: "housing-rates-transmission",
-      title: "Housing and rates transmission",
-      confidence: 30,
-      article_verdict: "develop",
-    })],
-    events: [],
+test("mature Story without canonical V1 reasoning remains visible as context", () => {
+  const legacy = story({
+    slug: "market-breadth-health",
+    title: "Breadth transition remains incomplete",
+    confidence: 78,
+    article_verdict: "monitor",
+  });
+
+  const maturity = classifyRegimeStory(legacy);
+  assert.equal(maturity.maturity, "reasoning_gap");
+  assert.equal(maturity.contributesToState, false);
+  assert.match(maturity.reason, /exact pinned Story version has no canonical V1 reasoning snapshot/i);
+
+  const equity = buildRegimeProjection({
+    stories: [legacy],
+    events: [event({ story_id: legacy.id, headline: "Breadth remains narrow" })],
     versions: [],
+    newsThreads: [],
+    statements: [],
+    dossier: null,
+  }).find((item) => item.slug === "equity-rally-quality");
+
+  assert.ok(equity);
+  assert.equal(equity.state, "Coverage gap / non-durable Stories");
+  assert.equal(equity.stateKind, "unresolved");
+  assert.equal(equity.durableStories.length, 0);
+  assert.equal(equity.contextStories[0]?.maturity, "reasoning_gap");
+  assert.ok(equity.subgroups.flatMap((item) => item.nodes).every((node) => node.state === "context"));
+});
+
+test("an older V1 snapshot cannot authorise a newer unreasoned Story version", () => {
+  const currentStory = story({
+    slug: "market-breadth-health",
+    title: "Breadth transition remains incomplete",
+    confidence: 78,
+    article_verdict: "monitor",
+  });
+  const prior = canonicalVersion(currentStory, {
+    id: "version-prior-v1",
+    version_number: 1,
+    effective_at: "2026-09-27T01:00:00Z",
+    created_at: "2026-09-27T01:00:00Z",
+  });
+  const current = canonicalVersion(currentStory, {
+    id: "version-current-no-reasoning",
+    version_number: 2,
+    snapshot: {},
+    effective_at: "2026-09-28T01:00:00Z",
+    created_at: "2026-09-28T01:00:00Z",
+  });
+
+  const equity = buildRegimeProjection({
+    stories: [currentStory],
+    events: [event({ story_id: currentStory.id, headline: "New Story event" })],
+    versions: [prior, current],
+    newsThreads: [],
+    statements: [],
+    dossier: null,
+  }).find((item) => item.slug === "equity-rally-quality");
+
+  assert.ok(equity);
+  assert.equal(equity.durableStories.length, 0);
+  assert.equal(equity.contextStories[0]?.versionId, current.id);
+  assert.equal(equity.contextStories[0]?.maturity, "reasoning_gap");
+  assert.ok(equity.subgroups.flatMap((item) => item.nodes).every((node) => node.state === "context"));
+});
+
+test("changing only Story maturity changes the material Regime signature", () => {
+  const durableStory = story({
+    slug: "housing-rates-transmission",
+    title: "Housing and rates transmission",
+    confidence: 30,
+    article_verdict: "develop",
+  });
+  const durable = buildRegimeProjection({
+    stories: [durableStory],
+    events: [],
+    versions: [canonicalVersion(durableStory)],
     newsThreads: [],
     statements: [],
     dossier: null,
   }).find((item) => item.slug === "global-cost-of-capital");
   assert.ok(durable);
 
+  const seedStory = story({
+    slug: "housing-rates-transmission",
+    title: "Housing and rates transmission",
+    confidence: 30,
+    article_verdict: "theme_seed_unverified",
+  });
   const seed = buildRegimeProjection({
-    stories: [story({
-      slug: "housing-rates-transmission",
-      title: "Housing and rates transmission",
-      confidence: 30,
-      article_verdict: "theme_seed_unverified",
-    })],
+    stories: [seedStory],
     events: [],
-    versions: [],
+    versions: [canonicalVersion(seedStory)],
     newsThreads: [],
     statements: [],
     dossier: null,
@@ -530,6 +642,9 @@ function thesisVersion(storyId: string, overrides: Partial<StoryThesisVersion> =
     assets: ["US02Y", "US10Y"],
     portfolio_map: {},
     snapshot: {
+      reasoning: {
+        contractVersion: "canonical-story-reasoning/v1",
+      },
       maintenanceContext: {
         operationalCatalystRefresh: true,
         reasoningPatch: {
