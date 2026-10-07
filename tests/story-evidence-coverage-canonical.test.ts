@@ -14,6 +14,9 @@ test("Story evidence coverage projects the canonical intelligence evidence layer
   assert.match(migration, /source\.source_tier = 1/);
   assert.match(migration, /link\.evidence_role in \('contradicting', 'invalidation'\)/);
   assert.match(migration, /public\.research_debt/);
+  assert.match(migration, /public\.story_thesis_versions/);
+  assert.match(migration, /canonical-story-reasoning\/v1/);
+  assert.match(migration, /reasoning,nextTest,label/);
   assert.match(migration, /public\.story_events/);
 
   assert.doesNotMatch(migration, /from public\.sources\b/);
