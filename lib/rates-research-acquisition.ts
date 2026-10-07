@@ -165,10 +165,6 @@ export async function acquireRatesResearch(input: ResearchRunInput, options: Opt
       while (next < plan.length) {
         const target = plan[next++];
         if (controller.signal.aborted) { diagnostics.push(`${target.key}: budget exhausted; evidence unknown`); continue; }
-        if (!keyedDiscovery && keylessDiscoveryUnavailable) {
-          diagnostics.push(`${target.key}: skipped; shared keyless discovery provider unavailable; evidence unknown`);
-          continue;
-        }
         try {
           const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]);
           // Reuse the SEC adapter before web discovery. Never infer SpaceX's filing identity.
@@ -193,6 +189,13 @@ export async function acquireRatesResearch(input: ResearchRunInput, options: Opt
               primaryCount++;
             }
           }
+          if (!keyedDiscovery && keylessDiscoveryUnavailable) {
+            diagnostics.push(
+              `${target.key}: first-party adapters attempted; ${primaryCount} dated publisher document(s); web discovery skipped because the shared keyless provider is unavailable; missing fields remain unknown`,
+            );
+            continue;
+          }
+
           const discovery = await search(target, env, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(7000)]));
           if (!keyedDiscovery && discovery.providerUnavailable) keylessDiscoveryUnavailable = true;
           const result = await Promise.all(discovery.leads.slice(0, 2).map((lead) => readRatesEvidence(lead, target, now, fetchImpl, AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).catch(() => null)));
