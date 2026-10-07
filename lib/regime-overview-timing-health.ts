@@ -131,7 +131,8 @@ export function buildRegimeOverviewTimingHealth(input: {
 
   const status: RegimeOverviewTimingHealth["status"] = !latestTelemetryAt
     ? "no_system1"
-    : storyBackedTelemetrySubgroups > 0 && missingCausalSubgroups === storyBackedTelemetrySubgroups
+    : storyBackedTelemetrySubgroups > 0
+      && (missingCausalSubgroups === storyBackedTelemetrySubgroups || !latestInterpretationAt)
       ? "no_system2"
       : missingCausalSubgroups > 0
         ? "missing_causal"
