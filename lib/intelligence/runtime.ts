@@ -1762,6 +1762,16 @@ async function persistStoryAssessments(input: {
       : !evidenceMaterialAllowed && assessment.disposition !== "unchanged"
         ? " Material mutation was suppressed because no eligible non-creator evidence was supplied."
         : "";
+    if (legacyReasoningGapBlocked) {
+      console.info(JSON.stringify({
+        event: "legacy_story_material_maintenance_suppressed",
+        engineRunId: input.engineRunId,
+        storyId: target.story.id,
+        modelDisposition: assessment.disposition,
+        currentReasoningContract: null,
+        reason: "canonical_story_reasoning_v1_required",
+      }));
+    }
     const payload = {
       engine_run_id: input.engineRunId,
       market_belief_stage_run_id: input.stageRunId,
