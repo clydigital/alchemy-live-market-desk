@@ -657,10 +657,22 @@ export async function composePersistedDossierStorylines({
 }) {
   const candidates = buildDossierComposerCandidates(editionPayload);
   if (!candidates.length) {
+    const dossier = object(editionPayload.dossier) ? editionPayload.dossier : null;
+    const diagnostics = dossier && object(dossier.diagnostics) ? dossier.diagnostics : null;
+    const retainedZeroChangeContext = Boolean(
+      dossier
+      && Array.isArray(dossier.lessons)
+      && dossier.lessons.length > 0
+      && diagnostics?.noMaterialNews === true
+      && Array.isArray(editionPayload.canonicalStoryManifest)
+      && editionPayload.canonicalStoryManifest.length === 0
+    );
     return {
-      dossier: object(editionPayload.dossier) ? editionPayload.dossier : null,
+      dossier,
       composition: null,
-      warnings: ["Dossier storyline composition skipped: no active immutable Story candidates were available."],
+      warnings: retainedZeroChangeContext
+        ? []
+        : ["Dossier storyline composition skipped: no active immutable Story candidates were available."],
       model: null,
     };
   }

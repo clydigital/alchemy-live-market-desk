@@ -253,3 +253,30 @@ test("missing market tape remains visible as composition debt", async () => {
   assert.ok(result.warnings.some((warning: string) => warning.includes("without persisted market tape")));
   assert.ok(result.dossier?.diagnostics?.warnings?.some((warning: string) => warning.includes("without persisted market tape")));
 });
+
+
+test("retained zero-change Dossier context is an expected state, not a composition warning", async () => {
+  const { composePersistedDossierStorylines } = await composerModule();
+  const base = baseDossier([{ id: "rates", confidence: 82 }]);
+  const dossier = {
+    ...base,
+    diagnostics: {
+      ...base.diagnostics,
+      noMaterialNews: true,
+      recruitedClusterCount: 0,
+    },
+  };
+
+  const result = await composePersistedDossierStorylines({
+    editionPayload: {
+      dossier,
+      canonicalStoryManifest: [],
+      stories: [],
+    },
+    modelRunner: async () => { throw new Error("zero-change context must not invoke the model"); },
+  });
+
+  assert.equal(result.composition, null);
+  assert.deepEqual(result.warnings, []);
+  assert.equal(result.dossier?.lessons?.[0]?.storyId, "rates");
+});
