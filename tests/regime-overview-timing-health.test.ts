@@ -231,7 +231,7 @@ test("Regime timing UI reads Story evaluation clock without changing projection 
   assert.match(page, /Telemetry without durable Story/);
   assert.match(page, /Subgroups with no causal hypothesis/);
   assert.match(page, /Partial causal Story coverage/);
-  assert.match(page, /seed\/early\/episode Story context only/);
+  assert.match(page, /seed\/early\/episode\/reasoning gap/);
   assert.match(page, /getRegimeStoryInterpretationClocks/);
   assert.match(detailPage, /getRegimeStoryInterpretationClocks/);
   assert.match(workspace, /latest accepted Story review/);
