@@ -153,7 +153,7 @@ function itemKey(source: string, url: string) {
   return `feed:${source}:${createHash("sha256").update(url).digest("hex").slice(0, 24)}`;
 }
 
-export function directFeedRequestHeaders(source: DirectFeedSource["source"]) {
+export function directFeedRequestHeaders(source: DirectFeedSource["source"]): Record<string, string> {
   if (source === "fxstreet") {
     return {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
