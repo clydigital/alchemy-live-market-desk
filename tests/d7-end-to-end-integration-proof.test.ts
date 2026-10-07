@@ -321,9 +321,13 @@ test("D1-D7 proof: exact Story flows through Regime and Hybrid into D7 and the o
   );
   assert.ok(dossierStory);
   assert.equal(dossierStory.persistentStoryId, STORY_ID);
-  assert.equal(dossierStory.state, "CONTRADICTION");
-  assert.equal(dossierStory.severity, "HIGH");
-  assert.equal(dossierStory.researchEligible, true);
+  assert.equal(dossierStory.state, "LAG");
+  assert.equal(dossierStory.severity, "MEDIUM");
+  assert.equal(
+    dossierStory.researchEligible,
+    false,
+    "Dossier→Story synchronization belongs to A3 Story review, not web Research Gap",
+  );
 
   const storyRegime = d7.cases.find(
     (item) =>
@@ -332,6 +336,7 @@ test("D1-D7 proof: exact Story flows through Regime and Hybrid into D7 and the o
   );
   assert.ok(storyRegime);
   assert.equal(storyRegime.state, "LAG");
+  assert.equal(storyRegime.researchEligible, true);
 
   const d7Candidates = buildD7ResearchGapCandidates({
     dossierId: DOSSIER_ID,
@@ -339,25 +344,23 @@ test("D1-D7 proof: exact Story flows through Regime and Hybrid into D7 and the o
     snapshot: d7,
   });
   assert.ok(d7Candidates.length >= 1);
+  assert.equal(
+    d7Candidates.some((item) => item.sourceRef === `d7:${dossierStory.id}`),
+    false,
+  );
 
-  const contradictionCandidate = d7Candidates.find(
-    (item) => item.sourceRef === `d7:${dossierStory.id}`,
+  const regimeCandidate = d7Candidates.find(
+    (item) => item.sourceRef === `d7:${storyRegime.id}`,
   );
-  assert.ok(contradictionCandidate);
-  assert.deepEqual(contradictionCandidate.linkedStoryIds, [STORY_ID]);
+  assert.ok(regimeCandidate);
+  assert.deepEqual(regimeCandidate.linkedStoryIds, [STORY_ID]);
   assert.ok(
-    contradictionCandidate.blockingRefs.includes(`STORY:${STORY_ID}`),
+    regimeCandidate.blockingRefs.includes(`STORY:${STORY_ID}`),
   );
   assert.ok(
-    contradictionCandidate.blockingRefs.includes(
-      "EVIDENCE:ev:dossier-credit-tight",
-    ),
+    regimeCandidate.blockingRefs.includes("REGIME:CURRENT"),
   );
-  assert.equal(contradictionCandidate.evidenceNeeded.length, 1);
-  assert.doesNotMatch(
-    contradictionCandidate.evidenceNeeded[0],
-    /ev:dossier-credit-tight/,
-  );
+  assert.equal(regimeCandidate.evidenceNeeded.length, 1);
 
   const queue = appendD7ResearchGapCandidates(
     emptyQueue(),
@@ -368,11 +371,11 @@ test("D1-D7 proof: exact Story flows through Regime and Hybrid into D7 and the o
   assert.equal(priority.selected.length > 0, true);
   assert.equal(
     priority.selected[0].gapKey,
-    contradictionCandidate.gapKey,
+    regimeCandidate.gapKey,
   );
   assert.equal(
     priority.selected[0].nativeSignals.gapClass,
-    "BLOCKER",
+    "REFINEMENT",
   );
 });
 

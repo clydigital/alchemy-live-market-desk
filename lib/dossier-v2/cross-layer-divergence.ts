@@ -42,6 +42,13 @@ export type D7DivergenceCase = {
   researchEligible: boolean;
 };
 
+export type D7StoryReviewClock = {
+  storyId: string;
+  evaluatedAt: string | null;
+  basis: "story_review" | "hypothesis_update" | "unavailable";
+  hasPrimaryHypothesis: boolean;
+};
+
 export type D7CrossLayerDivergenceSnapshot = {
   contractVersion: typeof D7_CROSS_LAYER_DIVERGENCE_VERSION;
   asOf: string;
@@ -113,56 +120,51 @@ function reactionEvidenceRefs(investigation: DossierPresentationInvestigation) {
 
 function dossierStoryCases(
   dossier: DossierPresentationV1,
-  hybrid: HybridReasoningProjection,
+  reviewClocks: D7StoryReviewClock[],
 ): D7DivergenceCase[] {
   const sufficiency = dossier.evidenceSufficiency?.stories ?? [];
-  const hybridByStory = new Map(
-    hybrid.storyClassifications.map((item) => [item.storyId, item]),
+  const reviewByStory = new Map(
+    reviewClocks.map((item) => [item.storyId, item]),
   );
+  const dossierAsOf = Date.parse(dossier.asOf);
 
   return sufficiency.map((item) => {
     const persistentStoryId = item.persistentStoryId ?? null;
-    const classification = persistentStoryId
-      ? hybridByStory.get(persistentStoryId) ?? null
-      : null;
     const dossierPolarity = evidenceDirectionPolarity(item.direction);
-    const storyPolarity = classification
-      ? storyClassificationPolarity(classification.classification)
-      : 0;
+    const reviewClock = persistentStoryId
+      ? reviewByStory.get(persistentStoryId) ?? null
+      : null;
+    const reviewedAt = reviewClock?.evaluatedAt
+      ? Date.parse(reviewClock.evaluatedAt)
+      : Number.NaN;
+    const acceptedReviewCoversDossier =
+      reviewClock?.basis === "story_review"
+      && reviewClock.hasPrimaryHypothesis
+      && Number.isFinite(reviewedAt)
+      && Number.isFinite(dossierAsOf)
+      && reviewedAt >= dossierAsOf;
 
     let state: D7DivergenceState = "UNRESOLVED";
     let reason =
-      "The Dossier does not have enough directional evidence to compare against canonical Story state.";
+      "The Dossier does not have enough directional evidence to require Story synchronization.";
 
     if (!persistentStoryId) {
       reason =
         "The analytical Dossier Story has no exact persistent Story binding.";
-    } else if (!classification) {
-      state = dossierPolarity === 0 ? "UNRESOLVED" : "LAG";
-      reason =
-        dossierPolarity === 0
-          ? "No canonical Story classification is available for the exact persistent Story."
-          : "The Dossier has a directional evidence delta but canonical Story classification is not yet available.";
-    } else if (dossierPolarity !== 0 && storyPolarity === dossierPolarity) {
-      state = "ALIGNMENT";
-      reason =
-        "Directional Dossier evidence and canonical Story classification point the same way.";
-    } else if (dossierPolarity !== 0 && storyPolarity === -dossierPolarity) {
-      state = "CONTRADICTION";
-      reason =
-        "Directional Dossier evidence and canonical Story classification point in opposite directions.";
-    } else if (
-      dossierPolarity !== 0
-      && classification.classification === "UNRESOLVED"
-    ) {
-      state = "LAG";
-      reason =
-        "The Dossier has a directional evidence delta while canonical Story state remains unresolved.";
     } else if (item.direction === "UNRESOLVED") {
       reason = "The Dossier evidence delta itself is unresolved.";
-    } else {
+    } else if (dossierPolarity === 0) {
+      state = "ALIGNMENT";
       reason =
-        "The available Dossier and Story states do not establish a directional comparison.";
+        "The Dossier has no directional evidence delta requiring a new Story adjudication.";
+    } else if (acceptedReviewCoversDossier) {
+      state = "ALIGNMENT";
+      reason =
+        "The directional Dossier evidence delta has already received an accepted canonical Story review at or after this Dossier snapshot.";
+    } else {
+      state = "LAG";
+      reason =
+        "The Dossier has a directional evidence delta that has not yet received an accepted canonical Story review at or after this Dossier snapshot.";
     }
 
     const evidenceRefs = unique([
@@ -175,19 +177,16 @@ function dossierStoryCases(
       id: caseId(["d7", "dossier-story", item.analyticalStoryId]),
       pair: "DOSSIER_STORY",
       state,
-      severity:
-        state === "CONTRADICTION"
-          ? "HIGH"
-          : state === "LAG"
-            ? "MEDIUM"
-            : "LOW",
+      severity: state === "LAG" ? "MEDIUM" : "LOW",
       reason,
       analyticalStoryId: item.analyticalStoryId,
       persistentStoryId,
       investigationId: null,
       regimeSlug: null,
       evidenceRefs,
-      researchEligible: state === "CONTRADICTION" || state === "LAG",
+      // Dossier→Story synchronization belongs to the existing A3 Story-review
+      // path. D7 surfaces lag but must not create a second web-research path.
+      researchEligible: false,
     };
   });
 }
@@ -474,9 +473,10 @@ export function buildD7CrossLayerDivergence(input: {
   dossier: DossierPresentationV1;
   hybrid: HybridReasoningProjection;
   regimes: ProjectedRegime[];
+  storyReviewClocks?: D7StoryReviewClock[];
 }): D7CrossLayerDivergenceSnapshot {
   const cases = [
-    ...dossierStoryCases(input.dossier, input.hybrid),
+    ...dossierStoryCases(input.dossier, input.storyReviewClocks ?? []),
     ...storyRegimeCases(input.hybrid, input.regimes),
     regimeHybridCase(input.dossier, input.hybrid),
     dossierMarketCase(input.dossier),

@@ -79,6 +79,14 @@ function requireHttps(value: unknown) {
   }
 }
 
+function sourceHost(url: string) {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 function outcomeImplication(outcome: ResearchGapOutcome) {
   if (outcome === "CONFIRMING") {
     return "Underlying evidence supports the investigated direction; canonical Live must independently decide whether any Story or Regime changes.";
@@ -97,8 +105,8 @@ function evidenceToHandoff(
   observedAt: string,
 ): AutomaticGapEvidence {
   const sourceId = clean(item.evidenceId);
-  const publisher = clean(item.publisher);
   const url = requireHttps(item.sourceUrl);
+  const publisher = clean(item.publisher) || (url ? sourceHost(url) : "");
   const title = clean(item.sourceTitle) || (publisher ? `${publisher} source` : "");
   const claim = clean(item.claim);
   const quality = numberInRange(item.quality, 0, 100);
@@ -115,6 +123,9 @@ function evidenceToHandoff(
   const dateNote = hasPublishedAt
     ? ""
     : `Observed by Research Gap at ${observedAt}; the underlying source page did not expose a reliable publication timestamp.`;
+  const publisherNote = clean(item.publisher)
+    ? ""
+    : `The source page did not expose durable publisher metadata; canonical source naming uses the traceable hostname ${publisher}.`;
 
   return {
     sourceId,
@@ -124,7 +135,7 @@ function evidenceToHandoff(
     url,
     publishedAt,
     claim,
-    summary: [dateNote, summary].filter(Boolean).join(" "),
+    summary: [dateNote, publisherNote, summary].filter(Boolean).join(" "),
     sourceQuality: quality,
     // These are conservative intake-routing scores. The canonical intelligence
     // engine, not this adapter, owns any Story/Regime interpretation.

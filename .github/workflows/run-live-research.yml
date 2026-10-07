@@ -526,7 +526,7 @@ jobs:
           fi
           state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
           case "$state" in
-            handed_off|empty)
+            handed_off|empty|closed_superseded)
               ;;
             *)
               echo "Research Gap snapshot handoff ended in state: ${state:-missing}" >&2
@@ -577,7 +577,7 @@ jobs:
               echo "Research Gap cycle completed a pending canonical handoff; no new case will be researched."
               exit 0
               ;;
-            empty)
+            empty|closed_superseded)
               ;;
             *)
               echo "Research Gap retry handoff ended in state: ${handoff_state:-missing}" >&2

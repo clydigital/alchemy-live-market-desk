@@ -3,6 +3,7 @@ import {
   type CompletedResearchGapResult,
 } from "./research-gap-auto-handoff.ts";
 import {
+  closeSupersededCompletedD7ResearchGapCase,
   getResearchGapCaseById,
   listResearchGapCases,
   type ResearchGapCaseRow,
@@ -21,6 +22,19 @@ type Dependencies = {
   loadCase?: (caseId: string) => Promise<ResearchGapCaseRow | null>;
   buildResult?: (row: ResearchGapCaseRow) => CompletedResearchGapResult;
   submit?: (request: Request, result: CompletedResearchGapResult) => Promise<Response>;
+  loadCurrentD7?: () => Promise<{
+    dossierId: string;
+    dossierAsOf: string;
+    snapshot: {
+      cases: Array<{
+        id: string;
+        state: string;
+        reason: string;
+        researchEligible: boolean;
+      }>;
+    };
+  } | null>;
+  closeSupersededD7?: typeof closeSupersededCompletedD7ResearchGapCase;
   logger?: (event: Record<string, unknown>) => void;
 };
 
@@ -48,6 +62,11 @@ async function requestedCaseId(request: Request) {
   } catch {
     throw new Error("Request body must be empty or valid JSON containing an optional caseId.");
   }
+}
+
+async function loadCurrentD7ForHandoff() {
+  const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
+  return loadCurrentD7RuntimeSnapshot();
 }
 
 async function submitPersistedGapHandoff(
@@ -85,6 +104,8 @@ export async function handleManualResearchGapSnapshotHandoff(
   const loadCase = dependencies.loadCase ?? ((caseId) => getResearchGapCaseById(caseId));
   const buildResult = dependencies.buildResult ?? completedResearchGapResultFromSnapshot;
   const submit = dependencies.submit ?? submitPersistedGapHandoff;
+  const loadCurrentD7 = dependencies.loadCurrentD7 ?? loadCurrentD7ForHandoff;
+  const closeSupersededD7 = dependencies.closeSupersededD7 ?? closeSupersededCompletedD7ResearchGapCase;
   const logger = dependencies.logger ?? ((event) => console.info(JSON.stringify(event)));
 
   try {
@@ -111,6 +132,61 @@ export async function handleManualResearchGapSnapshotHandoff(
         return json({
           status: "empty",
           detail: "No completed Research Gap case is waiting for canonical handoff.",
+        });
+      }
+    }
+
+    if (
+      selected.status === "COMPLETED"
+      && selected.source_kind === "research_gap"
+      && selected.source_ref.startsWith("d7:")
+    ) {
+      const currentD7 = await loadCurrentD7();
+      const currentCase = currentD7?.snapshot.cases.find(
+        (item) => `d7:${item.id}` === selected!.source_ref,
+      ) ?? null;
+
+      if (!currentD7 || !currentCase) {
+        return json({
+          status: "preflight_unavailable",
+          caseId: selected.id,
+          gapKey: selected.gap_key,
+          detail: "Current D7 state could not prove whether this completed D7 case is still research-eligible; canonical handoff is blocked fail-closed.",
+        }, 409);
+      }
+
+      if (!currentCase.researchEligible) {
+        const closed = await closeSupersededD7({
+          caseId: selected.id,
+          sourceRef: selected.source_ref,
+        });
+        if (!closed) {
+          return json({
+            status: "state_changed",
+            caseId: selected.id,
+            gapKey: selected.gap_key,
+            detail: "The D7 case changed lifecycle state before superseded-work closure completed.",
+          }, 409);
+        }
+
+        logger({
+          event: "research_gap_d7_superseded_closed",
+          actor: authorization.actor,
+          githubRunId: authorization.githubRunId,
+          caseId: selected.id,
+          gapKey: selected.gap_key,
+          sourceRef: selected.source_ref,
+          d7State: currentCase.state,
+          d7Reason: currentCase.reason,
+        });
+
+        return json({
+          status: "closed_superseded",
+          caseId: selected.id,
+          gapKey: selected.gap_key,
+          lifecycleStatus: closed.status,
+          d7State: currentCase.state,
+          detail: currentCase.reason,
         });
       }
     }

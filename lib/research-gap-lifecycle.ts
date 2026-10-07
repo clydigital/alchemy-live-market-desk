@@ -414,6 +414,43 @@ export async function completeResearchGapCase(
   return rows[0] || null;
 }
 
+export async function closeSupersededCompletedD7ResearchGapCase(
+  input: {
+    caseId: string;
+    sourceRef: string;
+    closedAt?: string;
+  },
+  client: SupabaseClient = createSupabaseAdminClient(),
+) {
+  const sourceRef = input.sourceRef.trim();
+  if (!sourceRef.startsWith("d7:")) {
+    throw new Error("Only D7 Research Gap cases may be closed as superseded by current D7 state.");
+  }
+
+  const closedAt = input.closedAt || new Date().toISOString();
+  const { data, error } = await client
+    .from("research_gap_cases")
+    .update({
+      status: "CLOSED",
+      claim_token: null,
+      claimed_by: null,
+      claimed_at: null,
+      claim_expires_at: null,
+      closed_at: closedAt,
+      updated_at: closedAt,
+    })
+    .eq("id", input.caseId)
+    .eq("status", "COMPLETED")
+    .eq("source_kind", "research_gap")
+    .eq("source_ref", sourceRef)
+    .is("handed_off_at", null)
+    .is("handoff_run_key", null)
+    .select("id,gap_key,status,research_outcome,source_kind,source_ref,question,action,reason,evidence_needed,linked_investigation_ids,linked_story_ids,blocking_refs,latest_work_id,latest_dossier_id,latest_dossier_as_of,latest_priority_rank,latest_priority_score,first_seen_at,last_seen_at,occurrence_count,claim_token,claimed_by,claimed_at,claim_expires_at,attempt_count,completed_at,handed_off_at,closed_at,research_plan_version,research_plan,research_started_at,verdict_version,verdict,handoff_run_key,handoff_canonical_status,created_at,updated_at")
+    .maybeSingle();
+  message(error, "Could not close superseded completed D7 Research Gap case");
+  return (data || null) as ResearchGapCaseRow | null;
+}
+
 export async function getResearchGapCaseById(
   caseId: string,
   client: SupabaseClient = createSupabaseAdminClient(),
