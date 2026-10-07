@@ -11,7 +11,6 @@ import {
 import {
   completedResearchGapResultFromSnapshot,
 } from "./research-gap-snapshot-handoff.ts";
-import { loadCurrentD7RuntimeSnapshot } from "./d7-runtime.ts";
 import {
   verifyGitHubActionsManualLiveTrigger,
   type ManualLiveTriggerAuthorization,
@@ -23,7 +22,18 @@ type Dependencies = {
   loadCase?: (caseId: string) => Promise<ResearchGapCaseRow | null>;
   buildResult?: (row: ResearchGapCaseRow) => CompletedResearchGapResult;
   submit?: (request: Request, result: CompletedResearchGapResult) => Promise<Response>;
-  loadCurrentD7?: typeof loadCurrentD7RuntimeSnapshot;
+  loadCurrentD7?: () => Promise<{
+    dossierId: string;
+    dossierAsOf: string;
+    snapshot: {
+      cases: Array<{
+        id: string;
+        state: string;
+        reason: string;
+        researchEligible: boolean;
+      }>;
+    };
+  } | null>;
   closeSupersededD7?: typeof closeSupersededCompletedD7ResearchGapCase;
   logger?: (event: Record<string, unknown>) => void;
 };
@@ -52,6 +62,11 @@ async function requestedCaseId(request: Request) {
   } catch {
     throw new Error("Request body must be empty or valid JSON containing an optional caseId.");
   }
+}
+
+async function loadCurrentD7ForHandoff() {
+  const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
+  return loadCurrentD7RuntimeSnapshot();
 }
 
 async function submitPersistedGapHandoff(
@@ -89,7 +104,7 @@ export async function handleManualResearchGapSnapshotHandoff(
   const loadCase = dependencies.loadCase ?? ((caseId) => getResearchGapCaseById(caseId));
   const buildResult = dependencies.buildResult ?? completedResearchGapResultFromSnapshot;
   const submit = dependencies.submit ?? submitPersistedGapHandoff;
-  const loadCurrentD7 = dependencies.loadCurrentD7 ?? loadCurrentD7RuntimeSnapshot;
+  const loadCurrentD7 = dependencies.loadCurrentD7 ?? loadCurrentD7ForHandoff;
   const closeSupersededD7 = dependencies.closeSupersededD7 ?? closeSupersededCompletedD7ResearchGapCase;
   const logger = dependencies.logger ?? ((event) => console.info(JSON.stringify(event)));
 
