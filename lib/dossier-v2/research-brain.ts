@@ -233,6 +233,37 @@ export function normalizeResearchBrainMotionStoryDestinations(
     analyticalByPersistent.set(persistentStoryId, bucket);
   }
 
+  const investigationIds = new Set(
+    (Array.isArray(root.investigations) ? root.investigations : [])
+      .flatMap((item) => (
+        item && typeof item === "object" && !Array.isArray(item)
+          && typeof (item as Record<string, unknown>).investigation_id === "string"
+          ? [(item as Record<string, unknown>).investigation_id as string]
+          : []
+      )),
+  );
+  const thesisLedger = root.thesis_ledger && typeof root.thesis_ledger === "object" && !Array.isArray(root.thesis_ledger)
+    ? root.thesis_ledger as Record<string, unknown>
+    : null;
+  const thesisIds = new Set(
+    (thesisLedger && Array.isArray(thesisLedger.entries) ? thesisLedger.entries : [])
+      .flatMap((item) => (
+        item && typeof item === "object" && !Array.isArray(item)
+          && typeof (item as Record<string, unknown>).thesis_id === "string"
+          ? [(item as Record<string, unknown>).thesis_id as string]
+          : []
+      )),
+  );
+
+  const validDestinations = new Set([
+    "MAIN_THREAD",
+    "REGIME:CURRENT",
+    "RESEARCH_NOW",
+    ...[...analyticalStoryIds].map((id) => `STORY:${id}`),
+    ...[...investigationIds].map((id) => `INVESTIGATION:${id}`),
+    ...[...thesisIds].map((id) => `THESIS:${id}`),
+  ]);
+
   const motionById = new Map(
     (packet.motion_context?.items ?? []).map((item) => [item.motion_id, item] as const),
   );
@@ -246,35 +277,103 @@ export function normalizeResearchBrainMotionStoryDestinations(
     return matches.length === 1 ? `STORY:${matches[0]}` : null;
   }
 
+  function exactHistoricalStoryDestination(value: string) {
+    const match = value.match(/^prior:[^:]+:story:(.+)$/);
+    return match ? exactAnalyticalStoryDestination(match[1]) : null;
+  }
+
+  function normalizeDestination(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (validDestinations.has(trimmed)) return trimmed;
+
+    const storyPayload = trimmed.startsWith("STORY:")
+      ? trimmed.slice("STORY:".length)
+      : trimmed;
+    const exactStoryRef = exactAnalyticalStoryDestination(storyPayload)
+      ?? exactHistoricalStoryDestination(trimmed);
+    return exactStoryRef && validDestinations.has(exactStoryRef)
+      ? exactStoryRef
+      : null;
+  }
+
+  function destinationAllowed(routingClass: string | undefined, ref: string) {
+    if (routingClass === "REGIME") {
+      return ref === "REGIME:CURRENT" || ref === "RESEARCH_NOW" || ref.startsWith("INVESTIGATION:");
+    }
+    if (routingClass === "INVESTIGATION_CANDIDATE") {
+      return ref === "RESEARCH_NOW" || ref.startsWith("INVESTIGATION:");
+    }
+    return true;
+  }
+
+  function routeSatisfied(routingClass: string | undefined, refs: string[]) {
+    if (!refs.length) return false;
+    if (routingClass === "REGIME") {
+      return refs.some((ref) => ref === "REGIME:CURRENT" || ref.startsWith("INVESTIGATION:"));
+    }
+    if (routingClass === "INVESTIGATION_CANDIDATE") {
+      return refs.some((ref) => ref.startsWith("INVESTIGATION:"));
+    }
+    return true;
+  }
+
   let normalizedCount = 0;
+  let droppedInvalidCount = 0;
+  let downgradedCount = 0;
   for (const item of motionDecisionsRoot.decisions) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const decision = item as Record<string, unknown>;
-    if (decision.decision !== "ACCEPT" && decision.decision !== "REFINE") continue;
-
     const motionId = typeof decision.motion_id === "string" ? decision.motion_id : "";
     const motion = motionById.get(motionId);
-    if (!motion || motion.routing_class !== "STORY") continue;
+    if (!motion) continue;
 
     const originalRefs = Array.isArray(decision.destination_refs)
       ? decision.destination_refs.filter((ref): ref is string => typeof ref === "string")
       : [];
     const normalizedRefs: string[] = [];
     for (const ref of originalRefs) {
-      const trimmed = ref.trim();
-      const storyPayload = trimmed.startsWith("STORY:") ? trimmed.slice("STORY:".length) : trimmed;
-      const exactStoryRef = exactAnalyticalStoryDestination(storyPayload);
-      const nextRef = exactStoryRef ?? trimmed;
-      if (!normalizedRefs.includes(nextRef)) normalizedRefs.push(nextRef);
-      if (nextRef !== trimmed) normalizedCount++;
+      const normalized = normalizeDestination(ref);
+      if (!normalized || !destinationAllowed(motion.routing_class, normalized)) {
+        droppedInvalidCount++;
+        continue;
+      }
+      if (!normalizedRefs.includes(normalized)) normalizedRefs.push(normalized);
+      if (normalized !== ref.trim()) normalizedCount++;
     }
 
-    if (normalizedRefs.length === 0) {
+    if (
+      (decision.decision === "ACCEPT" || decision.decision === "REFINE")
+      && motion.routing_class === "STORY"
+      && normalizedRefs.length === 0
+    ) {
       const exactPrimaryStoryRef = exactAnalyticalStoryDestination(motion.primary_story_id);
       if (exactPrimaryStoryRef) {
         normalizedRefs.push(exactPrimaryStoryRef);
         normalizedCount++;
       }
+    }
+
+    if (decision.decision === "REJECT") {
+      if (normalizedRefs.length > 0 || originalRefs.length > 0) normalizedCount++;
+      decision.destination_refs = [];
+      continue;
+    }
+
+    if (
+      (decision.decision === "ACCEPT" || decision.decision === "REFINE")
+      && !routeSatisfied(motion.routing_class, normalizedRefs)
+    ) {
+      decision.decision = "UNRESOLVED";
+      decision.conclusion = null;
+      decision.destination_refs = [];
+      const rationale = typeof decision.rationale === "string" ? decision.rationale.trim() : "";
+      decision.rationale = [
+        rationale,
+        "Routing failed closed because no exact valid destination could be resolved from the current Dossier output.",
+      ].filter(Boolean).join(" ");
+      downgradedCount++;
+      continue;
     }
 
     if (
@@ -285,11 +384,13 @@ export function normalizeResearchBrainMotionStoryDestinations(
     }
   }
 
-  if (normalizedCount > 0) {
+  if (normalizedCount > 0 || droppedInvalidCount > 0 || downgradedCount > 0) {
     console.info(JSON.stringify({
-      event: "research_brain_motion_story_destination_normalized",
+      event: "research_brain_motion_routing_normalized",
       packetId: packet.packet_id,
       normalizedCount,
+      droppedInvalidCount,
+      downgradedCount,
     }));
   }
 
