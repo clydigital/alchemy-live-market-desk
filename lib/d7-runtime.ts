@@ -4,6 +4,7 @@ import { getDossierV2PresentationSelection } from "./dossier-v2/presentation-rea
 import { buildHybridReasoningProjection } from "./hybrid-reasoning-projection.ts";
 import { getStoryRecordLayer } from "./persistence/read.ts";
 import { buildRegimeProjection } from "./regimes.ts";
+import { getRegimeStoryInterpretationClocks } from "./regime-live-reasoning.ts";
 
 export async function loadCurrentD7RuntimeSnapshot() {
   const [selection, data, recordLayer] = await Promise.all([
@@ -28,6 +29,11 @@ export async function loadCurrentD7RuntimeSnapshot() {
     events: recordLayer.events,
     versions: recordLayer.thesisVersions,
   });
+  const storyReviewClocks = await getRegimeStoryInterpretationClocks(
+    (dossier.evidenceSufficiency?.stories ?? [])
+      .map((item) => item.persistentStoryId)
+      .filter((item): item is string => Boolean(item)),
+  );
 
   return {
     dossierId: selection.selectedDossierId,
@@ -36,6 +42,7 @@ export async function loadCurrentD7RuntimeSnapshot() {
       dossier,
       hybrid,
       regimes,
+      storyReviewClocks,
     }),
   };
 }
