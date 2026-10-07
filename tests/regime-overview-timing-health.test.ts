@@ -239,6 +239,8 @@ test("Regime timing UI reads Story evaluation clock without changing projection 
   assert.match(workspace, /SYSTEM 1 ONLY — NO MAPPED STORY DRIVER/);
   assert.match(workspace, /NO READABLE PRIMARY CAUSAL HYPOTHESIS/);
   assert.match(workspace, /PARTIAL CAUSAL COVERAGE/);
+  assert.match(workspace, /canonical-reasoning gap/);
+  assert.match(workspace, /subgroup\.contextStories\.length === 1 \? "is" : "are"/);
   assert.match(workspace, /hypothesis updated/);
   assert.match(liveReasoning, /last_evaluated_at/);
   assert.match(liveReasoning, /basis: "story_review"/);
