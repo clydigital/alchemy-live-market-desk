@@ -595,6 +595,7 @@ test("scheduled intake skips a previously seen YouTube ID before transcript work
   assert.ok(replayStages.some((entry) => entry.stage === "video_already_seen"));
   assert.ok(!replayStages.some((entry) => entry.stage === "transcript_cache_checked"));
   assert.ok(!replayStages.some((entry) => entry.stage === "chrome_transcript_request_started"));
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run", "active-video-run"]);
 });
 
 test("a configured Chrome operator records its own failure without a paid fallback", async () => {
@@ -646,6 +647,7 @@ test("an unconfigured Chrome operator leaves the detected video visibly pending 
   assert.equal(harness.discoveryPersisted(), 1);
   assert.equal(harness.finalized.length, 1);
   assert.equal(harness.failed.length, 0);
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
   const manualStage = harness.stages.find((entry) => entry.stage === "manual_transcript_required");
   assert.equal(manualStage?.status, "blocked");
 });
@@ -666,7 +668,7 @@ test("an existing canonical transcript row is skipped without provider work", as
   assert.deepEqual(result.skippedPreviouslySeenIds, ["KHacM8aduWM"]);
   assert.equal(result.summary.previouslySeenSkipped, 1);
   assert.equal(harness.store.savedProvider, null);
-  assert.deepEqual(harness.store.recalculatedRunIds, []);
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
   assert.ok(!harness.stages.some((entry) => entry.stage === "transcript_cache_checked"));
 });
 
