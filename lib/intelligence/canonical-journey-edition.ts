@@ -106,6 +106,44 @@ function asPreviousEdition(payload: Record<string, unknown> | undefined): Alchem
     : null;
 }
 
+export function priorImmutableDossierStorySources(previousEdition: AlchemyEdition | null): JourneyStorySource[] {
+  if (!previousEdition) return [];
+  const manifest = (previousEdition as unknown as { canonicalStoryManifest?: unknown }).canonicalStoryManifest;
+  if (!Array.isArray(manifest)) return [];
+
+  return manifest.flatMap((raw, index): JourneyStorySource[] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const entry = raw as Record<string, unknown>;
+    const snapshotId = typeof entry.snapshotId === "string" ? entry.snapshotId : null;
+    const storyId = typeof entry.storyId === "string" ? entry.storyId : null;
+    const thesisVersionId = typeof entry.thesisVersionId === "string" ? entry.thesisVersionId : null;
+    const reasoning = entry.reasoning;
+    if (
+      !snapshotId
+      || !storyId
+      || !thesisVersionId
+      || !reasoning
+      || typeof reasoning !== "object"
+      || Array.isArray(reasoning)
+    ) return [];
+
+    const candidate = reasoning as Partial<CanonicalStoryReasoningV1>;
+    if (
+      candidate.contractVersion !== CANONICAL_STORY_REASONING_V1
+      || candidate.storyId !== storyId
+      || candidate.storyVersionId !== thesisVersionId
+    ) return [];
+
+    return [{
+      position: Number.isInteger(entry.position) && Number(entry.position) > 0 ? Number(entry.position) : index + 1,
+      publicationSnapshotId: snapshotId,
+      storyId,
+      thesisVersionId,
+      reasoning: candidate as CanonicalStoryReasoningV1,
+    }];
+  });
+}
+
 function hasPersistedJourney(payload: Record<string, unknown> | undefined) {
   const journey = payload?.journey;
   return Boolean(
@@ -319,6 +357,9 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     "hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const dossierStorySources = storiesPublished === 0
+    ? priorImmutableDossierStorySources(previousEdition)
+    : journeySources;
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
   const motionWarnings: string[] = [];
@@ -344,6 +385,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     stories: [],
     upcoming: eventHorizon.upcoming,
     journeyStorySources: journeySources,
+    dossierStorySources,
     marketEvents: eventHorizon.events,
     marketMotion: marketMotion.items,
     diagnostics: {
