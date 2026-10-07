@@ -24,6 +24,8 @@ import {
   intelligenceContinuationClaimWarning,
   intelligenceContinuationReleaseWarning,
   mergeScheduledWarnings,
+  staleManualRetryCanBeSuperseded,
+  supersedingRetryMatches,
   type ScheduledContinuationRun,
 } from "@/lib/scheduled-intelligence-continuation";
 import { resolveScheduledResearchIdentity } from "@/lib/scheduled-research-identity";
@@ -48,11 +50,93 @@ async function readRun(runKey: string) {
   const client = createSupabaseAdminClient();
   const { data, error } = await client
     .from("research_runs")
-    .select("id,status,accuracy_gate,source_checks,warnings,summary,updates_published,updated_at")
+    .select("id,run_key,schedule_slot,scheduled_for,started_at,status,accuracy_gate,source_checks,warnings,summary,updates_published,updated_at")
     .eq("run_key", runKey)
     .maybeSingle<ScheduledContinuationRun>();
   if (error) throw new Error(`Could not read scheduled research continuation: ${error.message}`);
   return data;
+}
+
+type CompletedSiblingRetry = {
+  id: string;
+  run_key: string;
+  schedule_slot: string;
+  scheduled_for: string;
+  status: string;
+  started_at: string;
+};
+
+async function findNewerCompletedRetry(run: ScheduledContinuationRun) {
+  const client = createSupabaseAdminClient();
+  const { data, error } = await client
+    .from("research_runs")
+    .select("id,run_key,schedule_slot,scheduled_for,status,started_at")
+    .eq("schedule_slot", run.schedule_slot)
+    .eq("scheduled_for", run.scheduled_for)
+    .eq("status", "completed")
+    .gt("started_at", run.started_at)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<CompletedSiblingRetry>();
+  if (error) {
+    throw new Error(`Could not inspect newer completed research retries: ${error.message}`);
+  }
+  return data && supersedingRetryMatches(run, data) ? data : null;
+}
+
+function supersededRetryWarning(run: ScheduledContinuationRun, sibling: CompletedSiblingRetry) {
+  return `[orchestration] stale manual retry ${run.run_key} was superseded by newer completed retry ${sibling.run_key} (${sibling.id}); frozen inputs and completed stage history were preserved, and no additional intelligence work is allowed.`;
+}
+
+async function terminaliseSupersededRetry(
+  run: ScheduledContinuationRun,
+  sibling: CompletedSiblingRetry,
+  now: Date,
+) {
+  const client = createSupabaseAdminClient();
+  const completedAt = now.toISOString();
+  const warning = supersededRetryWarning(run, sibling);
+  const warnings = mergeScheduledWarnings(run.warnings, [warning]);
+
+  const { data, error } = await client
+    .from("research_runs")
+    .update({
+      status: "failed",
+      completed_at: completedAt,
+      warnings,
+      updated_at: completedAt,
+    })
+    .eq("id", run.id)
+    .eq("status", "running")
+    .eq("updated_at", run.updated_at)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+  if (error) {
+    throw new Error(`Could not terminalise superseded research retry: ${error.message}`);
+  }
+  if (!data) return { applied: false as const, warning };
+
+  // The research_runs CAS above is the authority fence: once it succeeds,
+  // scheduled continuation cannot resume this stale retry. Engine cleanup is
+  // observability-only and therefore best-effort rather than a second authority
+  // mutation that could make the two-write sequence unsafe.
+  const { error: engineError } = await client
+    .from("intelligence_engine_runs")
+    .update({
+      status: "failed",
+      completed_at: completedAt,
+      failure_detail: warning,
+    })
+    .eq("research_run_id", run.id)
+    .eq("status", "started");
+
+  return {
+    applied: true as const,
+    warning,
+    engineCleanupWarning: engineError
+      ? `Superseded parent run is terminal, but engine observability cleanup failed: ${engineError.message}`
+      : null,
+  };
 }
 
 async function readPublicationCheckpoint(researchRunId: string): Promise<CompletedEnginePublicationCheckpoint> {
@@ -236,6 +320,44 @@ export async function handleScheduledResearchIntelligence(
       publicationCheckpoint = await readPublicationCheckpoint(run.id);
     } catch (error) {
       return response({ error: error instanceof Error ? error.message : "Could not inspect publication recovery state." }, 503);
+    }
+  }
+
+  if (
+    run
+    && staleManualRetryCanBeSuperseded(run, now, publicationCheckpoint)
+  ) {
+    try {
+      const sibling = await findNewerCompletedRetry(run);
+      if (sibling) {
+        const supersession = await terminaliseSupersededRetry(run, sibling, now);
+        if (supersession.applied) {
+          return response({
+            status: "terminal",
+            reason: "superseded_manual_retry",
+            slot,
+            runKey,
+            runId: run.id,
+            scheduledFor,
+            supersededByRunId: sibling.id,
+            supersededByRunKey: sibling.run_key,
+            message: supersession.warning,
+            engineCleanupWarning: supersession.engineCleanupWarning,
+          });
+        }
+        run = await readRun(runKey);
+        publicationCheckpoint = run
+          ? await readPublicationCheckpoint(run.id)
+          : null;
+      }
+    } catch (error) {
+      return response({
+        error: error instanceof Error ? error.message : "Could not resolve stale manual retry supersession.",
+        slot,
+        runKey,
+        runId: run?.id ?? null,
+        scheduledFor,
+      }, 503);
     }
   }
 

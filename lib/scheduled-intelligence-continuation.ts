@@ -1,5 +1,9 @@
 export type ScheduledContinuationRun = {
   id: string;
+  run_key: string;
+  schedule_slot: "morning" | "evening";
+  scheduled_for: string;
+  started_at: string;
   status: string;
   accuracy_gate: string | null;
   source_checks: unknown;
@@ -38,6 +42,37 @@ export const INTELLIGENCE_CONTINUATION_RELEASE_PREFIX =
   "[orchestration] intelligence continuation released at ";
 
 export const INTELLIGENCE_CONTINUATION_CLAIM_STALE_MS = 6 * 60 * 1_000;
+export const MANUAL_RETRY_SUPERSESSION_STALE_MS = 20 * 60 * 1_000;
+
+export function staleManualRetryCanBeSuperseded(
+  run: ScheduledContinuationRun,
+  now = new Date(),
+  publication: ScheduledPublicationCheckpoint | null = null,
+) {
+  if (run.status !== "running") return false;
+  if (!run.run_key.includes(":retry:")) return false;
+  if (publication?.engineStatus === "completed") return false;
+  const updatedAt = Date.parse(run.updated_at);
+  if (!Number.isFinite(updatedAt)) return false;
+  return now.getTime() - updatedAt >= MANUAL_RETRY_SUPERSESSION_STALE_MS;
+}
+
+export function supersedingRetryMatches(
+  run: ScheduledContinuationRun,
+  sibling: {
+    id: string;
+    run_key: string;
+    schedule_slot: string;
+    scheduled_for: string;
+    status: string;
+    started_at: string;
+  },
+) {
+  if (sibling.id === run.id || sibling.status !== "completed") return false;
+  if (sibling.schedule_slot !== run.schedule_slot) return false;
+  if (Date.parse(sibling.scheduled_for) !== Date.parse(run.scheduled_for)) return false;
+  return Date.parse(sibling.started_at) > Date.parse(run.started_at);
+}
 
 function nonEmptySourceChecks(value: unknown) {
   return Array.isArray(value) && value.length > 0;
