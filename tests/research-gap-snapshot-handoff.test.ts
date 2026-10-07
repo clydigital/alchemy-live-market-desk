@@ -232,6 +232,7 @@ test("manual handoff closes a completed D7 case when current D7 state no longer 
     loadCurrentD7: async () => ({
       dossierId: row.latest_dossier_id,
       dossierAsOf: row.latest_dossier_as_of,
+      storyReviewClocks: [],
       snapshot: {
         contractVersion: "d7-cross-layer-divergence/1",
         asOf: row.latest_dossier_as_of,
@@ -269,6 +270,52 @@ test("manual handoff closes a completed D7 case when current D7 state no longer 
   assert.equal(body.lifecycleStatus, "CLOSED");
   assert.equal(closed, true);
   assert.equal(submitted, false);
+});
+
+test("manual handoff closes a legacy Dossier-Story case when its exact persistent Story was reviewed after the source Dossier", async () => {
+  const storyId = "93c3e32f-9168-49ec-aaa3-9ce678511c9b";
+  const row = completedCase({
+    source_kind: "research_gap",
+    source_ref: "d7:d7:dossier-story:story:rates-duration-stress",
+    linked_story_ids: [storyId],
+    latest_dossier_as_of: "2026-10-06T09:08:41.587Z",
+  });
+  let closed = false;
+
+  const response = await handleManualResearchGapSnapshotHandoff(request({ caseId: row.id }), {
+    authorize,
+    loadCase: async () => row,
+    loadCurrentD7: async () => ({
+      dossierId: "8c323c4d-271e-4e0c-8621-922890fc30e5",
+      dossierAsOf: "2026-10-06T19:42:31.471Z",
+      storyReviewClocks: [{
+        storyId,
+        evaluatedAt: "2026-10-06T19:51:53.412Z",
+        basis: "story_review",
+      }],
+      snapshot: {
+        contractVersion: "d7-cross-layer-divergence/1",
+        asOf: "2026-10-06T19:42:31.471Z",
+        cases: [],
+        summary: { ALIGNMENT: 0, CONTRADICTION: 0, LAG: 0, UNRESOLVED: 0 },
+        mutationBoundary: { mode: "READ_ONLY", statement: "test" },
+      },
+    }),
+    closeSupersededD7: async () => {
+      closed = true;
+      return { ...row, status: "CLOSED", closed_at: "2026-10-07T14:30:00.000Z" };
+    },
+    submit: async () => {
+      throw new Error("legacy superseded case must not be submitted");
+    },
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.status, "closed_superseded");
+  assert.equal(body.d7State, "SUPERSEDED_BY_STORY_REVIEW");
+  assert.equal(closed, true);
 });
 
 test("manual handoff fails closed when current D7 state cannot validate a completed D7 case", async () => {
