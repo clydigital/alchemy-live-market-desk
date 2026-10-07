@@ -153,6 +153,20 @@ function itemKey(source: string, url: string) {
   return `feed:${source}:${createHash("sha256").update(url).digest("hex").slice(0, 24)}`;
 }
 
+export function directFeedRequestHeaders(source: DirectFeedSource["source"]): Record<string, string> {
+  if (source === "fxstreet") {
+    return {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "User-Agent": "Mozilla/5.0 (compatible; AlchemyLiveDesk/1.0; +https://alchemymarkets.com)",
+    };
+  }
+  return {
+    Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9",
+    "User-Agent": "Alchemy Live Desk scheduled research",
+  };
+}
+
 function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
   const summary = entry.summary || entry.title;
   return {
@@ -187,10 +201,7 @@ async function acquireDirectFeed(source: DirectFeedSource, windowStart: number, 
   for (const url of source.urls) {
     try {
       const response = await fetch(url, {
-        headers: {
-          Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9",
-          "User-Agent": "Alchemy Live Desk scheduled research",
-        },
+        headers: directFeedRequestHeaders(source.source),
         cache: "no-store",
         signal: AbortSignal.timeout(10_000),
       });
