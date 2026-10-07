@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { parseFxStreetNewsFeedPage } from "../lib/fxstreet-feed.ts";
@@ -29,4 +30,20 @@ test("FXStreet official HTML news feed preserves canonical article provenance an
 test("FXStreet parser rejects links without a canonical news timestamp", () => {
   const html = `<h1>News Feed</h1><a href="https://www.fxstreet.com/news/no-timestamp">No timestamp</a><a href="https://example.com/news/item-202610071045">External</a>`;
   assert.deepEqual(parseFxStreetNewsFeedPage(html), []);
+});
+
+
+test("scheduled FXStreet acquisition advertises the official HTML feed surface as HTML", () => {
+  const source = readFileSync(
+    new URL("../lib/scheduled-research-input.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /source === "fxstreet"[\s\S]*text\/html,application\/xhtml\+xml/);
+  assert.match(source, /Accept-Language": "en-US,en;q=0\.9"/);
+  assert.match(source, /headers: directFeedRequestHeaders\(source\.source\)/);
+  assert.doesNotMatch(
+    source,
+    /fetch\(url,[\s\S]{0,300}Accept: "application\/rss\+xml[^"]*"[^\n]*\n[^\n]*"User-Agent": "Alchemy Live Desk scheduled research"/,
+  );
 });
