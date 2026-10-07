@@ -136,24 +136,29 @@ The existing automatic Gap handoff remains the only admission route from complet
 
 ## Scheduled one-case cycle
 
-Once manual web execution and retry-safe canonical handoff were proven in production, the workflow gained a bounded scheduler.
+Research Gap scheduled ownership is Vercel-primary because GitHub Actions scheduled events were observed starting roughly 4–7 hours after their configured cron times on 6–7 October 2026. GitHub retains the audited `research_gap_cycle` workflow-dispatch mode for manual recovery, but it no longer owns Research Gap cron scheduling.
 
-Current scheduled Gap runs:
+Current Vercel schedule:
 
-- `03:15 UTC` — 11:15 MYT
-- `15:15 UTC` — 23:15 MYT
+- `03:15 UTC` — 11:15 MYT: retry/close one completed case first, then research at most one queued case.
+- `03:30 UTC` and `03:45 UTC`: handoff-only retries.
+- `15:15 UTC` — 23:15 MYT: retry/close one completed case first, then research at most one queued case.
+- `15:30 UTC` and `15:45 UTC`: handoff-only retries.
 
-The scheduled cycle is intentionally one-case maximum and shares the existing `production-live-research` concurrency group with the normal Live workflow, so it queues behind an in-flight Live sweep rather than overlapping it.
+Before either cycle or handoff work begins, the cron checks the existing `research_slot_runs` ledger. A recent unfinished morning/evening Live sweep causes Research Gap to return `deferred` instead of overlapping canonical Live work.
 
-Execution order:
+The Vercel cycle is intentionally one-case maximum:
 
 1. Attempt one persisted `COMPLETED` → canonical handoff first.
 2. If a completed case was handed off, stop.
-3. If no completed case awaits admission, claim and research one queued case.
+3. If the completed case was closed as superseded, or no completed case awaits admission, claim and research one queued case.
 4. If no queued case is available, exit successfully with no work.
-5. If research completes, hand off exactly that same case ID.
-6. Stop.
+5. Persist the researched case as `COMPLETED`.
+6. Stop. A later handoff-only cron admits the durable snapshot.
 
-A failed canonical handoff leaves the case `COMPLETED`; the next cycle retries that durable snapshot before doing any new web research. There is no multi-case loop and no automatic re-research of a completed case.
+Separating web research from final handoff keeps the web-search invocation inside the existing bounded function duration while preserving the durable retry boundary. If canonical Live is unavailable, the case stays `COMPLETED`; later handoff-only cron invocations retry it before another scheduled web cycle.
+
+Legacy Dossier→Story D7 synchronization rows are not valid web-research obligations. Completed legacy rows close through the exact Story-review preflight, and queued legacy rows are closed before ordinary web claims. Dossier→Story synchronization remains owned by A3 Story review.
 
 The scheduler does not change Research Gap authority. Canonical Live still decides what admitted evidence does to Stories, Regimes, Journey and Dossier state.
+
