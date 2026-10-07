@@ -104,6 +104,11 @@ export default function RegimeDetailWorkspace({
       : null,
     [liveReasoning, subgroup, subgroupInvestigations],
   );
+  const missingPrimaryStories = subgroup
+    ? subgroup.durableStories.filter(
+        (story) => !interpretationClockByStory.get(story.id)?.hasPrimaryHypothesis,
+      )
+    : [];
   const freshness = subgroup
     ? assessRegimeInterpretationFreshness({
       telemetryAt: subgroup.telemetry.map((item) => item.asOf),
@@ -445,6 +450,15 @@ export default function RegimeDetailWorkspace({
                 </section>
               ) : null}
 
+              {subgroup.durableStories.length > 0
+                && missingPrimaryStories.length > 0
+                && missingPrimaryStories.length < subgroup.durableStories.length ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>PARTIAL CAUSAL COVERAGE — SOME DURABLE STORIES HAVE NO PRIMARY HYPOTHESIS</strong>
+                  <span>{missingPrimaryStories.length} of {subgroup.durableStories.length} durable Stories lack a readable primary causal hypothesis.</span>
+                  <p>These Stories remain in their governed subgroup, but a review timestamp alone cannot establish a causal interpretation. LIVE does not fabricate the missing hypothesis or promote context-only Stories.</p>
+                </div>
+              ) : null}
               {freshness?.status === "new_telemetry" ? (
                 <div className={styles.freshnessWarning}>
                   <strong>NEW TELEMETRY — STORY REVIEW PENDING</strong>
@@ -467,11 +481,18 @@ export default function RegimeDetailWorkspace({
                   <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
                   <p>This subgroup has deterministic telemetry but no mapped Story. No Story interpretation is manufactured from Regime state alone.</p>
                 </div>
+              ) : freshness?.status === "no_interpretation"
+                && missingPrimaryStories.length === subgroup.durableStories.length ? (
+                <div className={styles.freshnessWarning}>
+                  <strong>OBSERVED TELEMETRY — NO READABLE PRIMARY CAUSAL HYPOTHESIS</strong>
+                  <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
+                  <p>All durable Stories in this subgroup lack a readable primary causal hypothesis. A Story may have been reviewed without producing one; LIVE cannot infer an interpretation from the review timestamp.</p>
+                </div>
               ) : freshness?.status === "no_interpretation" ? (
                 <div className={styles.freshnessWarning}>
-                  <strong>OBSERVED TELEMETRY — NO TIMESTAMPED STORY REVIEW</strong>
+                  <strong>OBSERVED TELEMETRY — NO TIMESTAMPED CAUSAL READ</strong>
                   <span>Observed telemetry: {displayDate(freshness.telemetryAt)}</span>
-                  <p>A durable Story exists, but no accepted System 2 evaluation timestamp is available. The interface will not manufacture an interpretation.</p>
+                  <p>A primary hypothesis exists but no valid causal interpretation timestamp is available. The interface will not manufacture an interpretation.</p>
                 </div>
               ) : null}
 
