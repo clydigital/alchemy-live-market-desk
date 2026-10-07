@@ -467,6 +467,25 @@ function isScheduledEvent(row: CanonicalEvidenceRow): boolean {
   return structuredString(row.structured_payload, "evidenceNature") === "scheduled_event";
 }
 
+function isUnroutedResearchGapHandoff(row: CanonicalEvidenceRow): boolean {
+  if (structuredString(row.structured_payload, "evidenceNature") !== "research_gap_handoff") {
+    return false;
+  }
+
+  const routing = row.structured_payload?.storyRouting;
+  if (!routing || typeof routing !== "object" || Array.isArray(routing)) return false;
+  const outcome = structuredString(routing as Record<string, unknown>, "outcome");
+  const hasMarketLinkage =
+    (row.affected_assets ?? []).some(Boolean)
+    || (row.affected_topics ?? []).some(Boolean);
+
+  // Research Gap handoff rows remain canonical audit records, but an unrouted
+  // handoff with no market linkage is process/context evidence rather than a
+  // Dossier market observation or research lead. Keep it out of the bounded
+  // candidate snapshot instead of allowing source class alone to promote it.
+  return !hasMarketLinkage && outcome === "unresolved";
+}
+
 function visibleText(value: string): string {
   return value
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -568,6 +587,7 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 
   const eligibleRows = rows
     .filter((row) => !isRetiredMacroMicroEvidence(row))
+    .filter((row) => !isUnroutedResearchGapHandoff(row))
     .filter((row) => {
       const availableAt = effectiveAvailableAt(row);
       const availableMs = parseTimestamp(availableAt);
