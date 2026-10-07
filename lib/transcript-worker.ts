@@ -79,6 +79,7 @@ export type TranscriptWorkerStageTimings = {
 
 export type TranscriptWorkerOutcome = {
   itemId: string;
+  runId: string;
   videoId: string;
   status: "completed" | "retryable" | "blocked" | "failed" | "lease_lost";
   resumedFrom: "extraction" | "interpretation" | "evidence" | "completion";
@@ -114,8 +115,11 @@ export async function processTranscriptJob(
       : job.transcriptStatus === "ready" && Boolean(job.transcriptText?.trim()) ? "interpretation"
         : "extraction";
 
-  const outcome = (value: Omit<TranscriptWorkerOutcome, "timingsMs">): TranscriptWorkerOutcome => ({
+  const outcome = (
+    value: Omit<TranscriptWorkerOutcome, "timingsMs" | "runId">,
+  ): TranscriptWorkerOutcome => ({
     ...value,
+    runId: job.runId,
     timingsMs: {
       ...timings,
       total: elapsed(clock, jobStartedAt),
