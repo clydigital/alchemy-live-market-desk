@@ -5,6 +5,7 @@ import { getStoryRegistryData } from "@/lib/data";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { classifyRegimeStory, getRegimeDefinition, routeStoryToRegimes } from "@/lib/regimes";
 import { getStableStoryFallbackImage } from "@/lib/story-fallback-images";
+import { getStoryReasoningWorkStatus } from "@/lib/story-reasoning-work-status";
 import { assessStoryCatalyst, catalystDisplayLabel } from "@/lib/story-hygiene";
 import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
@@ -13,7 +14,10 @@ export const dynamic = "force-dynamic";
 
 export default async function StoriesPage() {
   const [data, recordLayer] = await Promise.all([getStoryRegistryData(), getStoryRecordLayer()]);
-  const storyImages = await getStoryHeaderImages(data.stories.map((story) => story.id), data.sources);
+  const [storyImages, reasoningWorkByStory] = await Promise.all([
+    getStoryHeaderImages(data.stories.map((story) => story.id), data.sources),
+    getStoryReasoningWorkStatus(data.stories.map((story) => story.id)).catch(() => new Map()),
+  ]);
   const coverageBySlug = new Map(data.evidenceCoverage.map((coverage) => [coverage.slug, coverage]));
   const legacyEventCounts = new Map<string, number>();
   data.updates.forEach((update) => legacyEventCounts.set(update.story_id, (legacyEventCounts.get(update.story_id) || 0) + 1));
@@ -44,6 +48,7 @@ export default async function StoriesPage() {
       assets: version?.assets || story.assets || [],
     };
     const maturity = classifyRegimeStory(story, version);
+    const reasoningWork = reasoningWorkByStory.get(story.id) ?? null;
     const evidenceCoverage = coverageBySlug.get(story.slug);
     const catalyst = assessStoryCatalyst({
       nextCatalyst: current.next_catalyst,
@@ -70,6 +75,10 @@ export default async function StoriesPage() {
       catalystRecalibrationRequired: catalyst.recalibrationRequired,
       maturity: maturity.maturity,
       maturityReason: maturity.reason,
+      reasoningAction: maturity.maturity === "reasoning_gap" ? reasoningWork?.action ?? null : null,
+      pendingReasoningReviewCount: maturity.maturity === "reasoning_gap" ? reasoningWork?.pendingReviewCount ?? 0 : 0,
+      lastReasoningEvidenceAt: maturity.maturity === "reasoning_gap" ? reasoningWork?.lastEvidenceAt ?? null : null,
+      lastReasoningEvaluatedAt: maturity.maturity === "reasoning_gap" ? reasoningWork?.lastEvaluatedAt ?? null : null,
       evidenceRoom: evidenceCoverage?.room_status || null,
       evidenceSourceCount: evidenceCoverage?.source_count || 0,
       tier1SourceCount: evidenceCoverage?.tier1_source_count || 0,
@@ -89,6 +98,12 @@ export default async function StoriesPage() {
 
   const currentDrivers = registryStories.filter((story) => story.maturity === "durable").length;
   const reasoningGaps = registryStories.filter((story) => story.maturity === "reasoning_gap").length;
+  const queuedReasoningReviews = registryStories.filter((story) => story.reasoningAction === "queued_review").length;
+  const reasoningNeedsEvidence = registryStories.filter((story) =>
+    story.reasoningAction === "waiting_new_evidence"
+    || story.reasoningAction === "no_canonical_evidence"
+  ).length;
+  const routingChecks = registryStories.filter((story) => story.reasoningAction === "needs_routing_check").length;
   const thinEvidence = registryStories.filter((story) => story.evidenceRoom === "thin").length;
   const catalystsNeedingReview = registryStories.filter((story) => story.catalystRecalibrationRequired).length;
 
@@ -104,6 +119,9 @@ export default async function StoriesPage() {
           items={[
             { value: currentDrivers, label: "Current Regime drivers" },
             { value: reasoningGaps, label: "Reasoning gaps" },
+            { value: queuedReasoningReviews, label: "Queued full reviews" },
+            { value: reasoningNeedsEvidence, label: "Waiting on evidence" },
+            { value: routingChecks, label: "Routing checks" },
             { value: thinEvidence, label: "Thin evidence rooms" },
             { value: catalystsNeedingReview, label: "Catalysts needing review" },
           ]}
