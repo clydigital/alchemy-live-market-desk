@@ -597,6 +597,22 @@ test("scheduled intake skips a previously seen YouTube ID before transcript work
   assert.ok(!replayStages.some((entry) => entry.stage === "chrome_transcript_request_started"));
 });
 
+test("a discovery replay reconciles durable run state even when every video is already seen", async () => {
+  const harness = scheduledHarness({ existingVideo: true });
+
+  const result = await runScheduledVideoIntake({
+    slot: "video_late_morning",
+    runKey: "video_late_morning-2026-10-07",
+    scheduledFor: "2026-10-07T21:00:00+08:00",
+    now: new Date("2026-10-07T21:54:00+08:00"),
+  }, harness.dependencies);
+
+  assert.deepEqual(result.transcripts, []);
+  assert.deepEqual(result.skippedPreviouslySeenIds, ["KHacM8aduWM"]);
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
+  assert.equal(harness.finalized.length, 1);
+});
+
 test("a configured Chrome operator records its own failure without a paid fallback", async () => {
   const harness = scheduledHarness({
     browserConfigured: true,
@@ -666,7 +682,7 @@ test("an existing canonical transcript row is skipped without provider work", as
   assert.deepEqual(result.skippedPreviouslySeenIds, ["KHacM8aduWM"]);
   assert.equal(result.summary.previouslySeenSkipped, 1);
   assert.equal(harness.store.savedProvider, null);
-  assert.deepEqual(harness.store.recalculatedRunIds, []);
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
   assert.ok(!harness.stages.some((entry) => entry.stage === "transcript_cache_checked"));
 });
 
