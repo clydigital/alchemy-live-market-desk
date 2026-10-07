@@ -94,6 +94,14 @@ test("the worker is authenticated, scheduled and separate from full-desk researc
     true,
   );
   assert.equal(
+    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "45 2 * * *"),
+    true,
+  );
+  assert.equal(
+    vercel.crons.some((cron) => cron.path === "/api/cron/video/transcript-worker" && cron.schedule === "45 14 * * *"),
+    true,
+  );
+  assert.equal(
     vercel.rewrites?.some((rewrite) => rewrite.source === "/api/cron/research/:path*") ?? false,
     false,
   );
