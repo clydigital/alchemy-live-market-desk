@@ -3,9 +3,9 @@ import {
   retrieveChromeYouTubeToTranscript,
 } from "./chrome-transcript-operator.ts";
 import { retrieveSupadataVideo } from "./supadata.ts";
-import { retrieveTranscriptApiVideo } from "./transcriptapi.ts";
 import {
   normalizeTranscriptApiError,
+  retrieveTranscriptApiVideo,
   TranscriptApiError,
   type TranscriptApiRetrieval,
 } from "./transcriptapi.ts";
