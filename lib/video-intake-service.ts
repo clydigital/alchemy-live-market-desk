@@ -391,11 +391,12 @@ export async function runScheduledVideoIntake(input: {
     });
 
     // The same daily run key may be re-entered by a delayed scheduled invocation
-    // after research preflight already recovered it. Finalization only counts
-    // work performed in the current invocation, so reconcile from durable rows
-    // before publishing the slot checkpoint. This keeps replay from erasing
-    // earlier pending/ready transcript state as "0 videos / complete".
-    await store.recalculateRunState(run.id);
+    // after research preflight already recovered it. When this invocation saw
+    // already-persisted videos, finalization only counted its new work, so
+    // reconcile from durable rows before publishing the slot checkpoint.
+    if (skippedPreviouslySeenIds.length) {
+      await store.recalculateRunState(run.id);
+    }
 
     await dependencies.recordStage({
       runId: run.id,
