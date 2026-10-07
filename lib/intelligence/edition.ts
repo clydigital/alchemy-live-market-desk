@@ -364,6 +364,7 @@ export function composeAlchemyEdition({
   positioningAnomaly = null,
   upcoming = emptyUpcoming(),
   journeyStorySources = [],
+  dossierStorySources,
   marketEvents = [],
   marketMotion = [],
   diagnostics = { warnings: [] },
@@ -379,6 +380,7 @@ export function composeAlchemyEdition({
   positioningAnomaly?: PositioningAnomaly | null;
   upcoming?: EditionUpcoming;
   journeyStorySources?: JourneyStorySource[];
+  dossierStorySources?: JourneyStorySource[];
   marketEvents?: MarketEventV1[];
   marketMotion?: MarketMotionEditionItem[];
   diagnostics?: EditionDiagnostics;
@@ -436,7 +438,7 @@ export function composeAlchemyEdition({
       generatedAt,
       stories,
       changes,
-      storySources: journeyStorySources,
+      storySources: dossierStorySources ?? journeyStorySources,
       storyContext: priorDossierStoryContext(previousEdition),
       marketTape,
       upcoming: normalisedUpcoming,
