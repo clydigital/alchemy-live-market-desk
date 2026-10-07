@@ -61,7 +61,7 @@ export default async function RegimesPage() {
             { value: mappedStoryIds.size, label: "Mapped Stories" },
             { value: timingHealth.telemetryBearingSubgroups, label: "System 1 timestamped subgroups" },
             { value: timingHealth.pendingInterpretationSubgroups, label: "Telemetry ahead of Story review" },
-            { value: timingHealth.system1OnlySubgroups, label: "System 1-only subgroups" },
+            { value: timingHealth.nonDurableTelemetrySubgroups, label: "Telemetry without durable Story" },
             { value: pendingNodes, label: "Observed nodes · interpretation pending" },
             { value: shadowHealth.currentProjectionCount, label: "Persisted shadow Regimes" },
             { value: shadowHealth.unassignedStoryCount, label: "Unassigned active Stories" },
@@ -108,8 +108,8 @@ export default async function RegimesPage() {
                 ? `${timingHealth.noTimestampedInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.noTimestampedInterpretationSubgroups === 1 ? "" : "s"} have no timestamped canonical System 2 review.`
                 : timingHealth.pendingInterpretationSubgroups > 0
                   ? `${timingHealth.pendingInterpretationSubgroups} Story-backed telemetry subgroup${timingHealth.pendingInterpretationSubgroups === 1 ? " has" : "s have"} newer observations than the latest accepted Story review · oldest gap ${formatAge(timingHealth.oldestPendingLagMinutes)}.`
-                  : timingHealth.system1OnlySubgroups > 0
-                    ? `All ${timingHealth.storyBackedTelemetrySubgroups} Story-backed telemetry subgroup${timingHealth.storyBackedTelemetrySubgroups === 1 ? " is" : "s are"} current. ${timingHealth.system1OnlySubgroups} telemetry subgroup${timingHealth.system1OnlySubgroups === 1 ? " is" : "s are"} System 1-only with no durable Story identity, so no Story reevaluation is manufactured.`
+                  : timingHealth.nonDurableTelemetrySubgroups > 0
+                    ? `All ${timingHealth.storyBackedTelemetrySubgroups} durable-Story telemetry subgroup${timingHealth.storyBackedTelemetrySubgroups === 1 ? " is" : "s are"} current. ${timingHealth.contextOnlyTelemetrySubgroups} telemetry subgroup${timingHealth.contextOnlyTelemetrySubgroups === 1 ? " has" : "s have"} mapped seed/early/episode Story context but no durable Story driver; ${timingHealth.sensorOnlyTelemetrySubgroups} ${timingHealth.sensorOnlyTelemetrySubgroups === 1 ? "has" : "have"} no mapped Story at all. Context Stories are not promoted and no Story reevaluation is manufactured merely to clear coverage.`
                     : "No timestamped System 1 subgroup is ahead of its latest accepted Story review.")
           }
         />
