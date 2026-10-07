@@ -428,7 +428,16 @@ export async function retrieveTranscriptApiVideo(
     transcriptLanguagePriority(info.availableLanguages),
     options,
   );
-  return { info, transcript };
+  return {
+    info,
+    transcript: {
+      ...transcript,
+      metadata: {
+        ...transcript.metadata,
+        retrievalProvider: "transcriptapi",
+      },
+    },
+  };
 }
 
 export function normalizeTranscriptApiError(error: unknown) {
