@@ -16,7 +16,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { scheduledVideoRunIdentity, scheduledVideoSlotForDesk } from "@/lib/scheduled-video-identity";
 import {
   blockedVideoSourceChecks,
+  REQUIRED_VIDEO_SOURCES,
   videoSourceChecksFromDedicatedRun,
+  type DedicatedVideoIntakeRow,
   type DedicatedVideoRun,
   type DedicatedVideoSlotRun,
 } from "@/lib/scheduled-video-handoff";
