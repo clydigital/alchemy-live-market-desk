@@ -130,6 +130,19 @@ test("persisted verdict snapshot becomes a deterministic completed handoff resul
   assert.equal(undated.relevance, 85);
 });
 
+test("snapshot adapter uses the traceable hostname when publisher metadata is absent", () => {
+  const row = completedCase();
+  const verdict = structuredClone(row.verdict as Record<string, unknown>) as any;
+  verdict.evidenceSnapshot[0].publisher = null;
+  verdict.evidenceSnapshot[0].sourceTitle = null;
+
+  const result = completedResearchGapResultFromSnapshot(completedCase({ verdict }));
+
+  assert.equal(result.evidence[0]?.publisher, "federalreserve.gov");
+  assert.equal(result.evidence[0]?.title, "federalreserve.gov source");
+  assert.match(result.evidence[0]?.summary ?? "", /traceable hostname federalreserve\.gov/i);
+});
+
 test("snapshot adapter keeps traceable evidence when the source page has no durable title", () => {
   const row = completedCase();
   const verdict = structuredClone(row.verdict as Record<string, unknown>) as any;
@@ -202,6 +215,77 @@ test("manual handoff picks one completed case and forwards only the persisted sn
   assert.equal(body.caseId, row.id);
   assert.equal(body.lifecycle.lifecycleStatus, "HANDED_OFF");
   assert.equal(submittedCaseId, row.id);
+});
+
+test("manual handoff closes a completed D7 case when current D7 state no longer routes it to research", async () => {
+  const row = completedCase({
+    source_kind: "research_gap",
+    source_ref: "d7:d7:dossier-story:story:rates",
+    gap_key: "gap:native:d7:dossier-story:story:rates",
+  });
+  let submitted = false;
+  let closed = false;
+
+  const response = await handleManualResearchGapSnapshotHandoff(request({ caseId: row.id }), {
+    authorize,
+    loadCase: async () => row,
+    loadCurrentD7: async () => ({
+      dossierId: row.latest_dossier_id,
+      dossierAsOf: row.latest_dossier_as_of,
+      snapshot: {
+        contractVersion: "d7-cross-layer-divergence/1",
+        asOf: row.latest_dossier_as_of,
+        cases: [{
+          id: "d7:dossier-story:story:rates",
+          pair: "DOSSIER_STORY",
+          state: "ALIGNMENT",
+          severity: "LOW",
+          reason: "The directional Dossier evidence delta has already received an accepted canonical Story review.",
+          analyticalStoryId: "story:rates",
+          persistentStoryId: "11111111-1111-4111-8111-111111111111",
+          investigationId: null,
+          regimeSlug: null,
+          evidenceRefs: ["ev:one"],
+          researchEligible: false,
+        }],
+        summary: { ALIGNMENT: 1, CONTRADICTION: 0, LAG: 0, UNRESOLVED: 0 },
+        mutationBoundary: { mode: "READ_ONLY", statement: "test" },
+      },
+    }),
+    closeSupersededD7: async () => {
+      closed = true;
+      return { ...row, status: "CLOSED", closed_at: "2026-10-07T14:00:00.000Z" };
+    },
+    submit: async () => {
+      submitted = true;
+      return Response.json({ error: "must not submit" }, { status: 500 });
+    },
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.status, "closed_superseded");
+  assert.equal(body.lifecycleStatus, "CLOSED");
+  assert.equal(closed, true);
+  assert.equal(submitted, false);
+});
+
+test("manual handoff fails closed when current D7 state cannot validate a completed D7 case", async () => {
+  const row = completedCase({
+    source_kind: "research_gap",
+    source_ref: "d7:d7:dossier-story:story:rates",
+  });
+
+  const response = await handleManualResearchGapSnapshotHandoff(request({ caseId: row.id }), {
+    authorize,
+    loadCase: async () => row,
+    loadCurrentD7: async () => null,
+    logger: () => undefined,
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).status, "preflight_unavailable");
 });
 
 test("canonical failure leaves the durable completed case available for retry", async () => {
