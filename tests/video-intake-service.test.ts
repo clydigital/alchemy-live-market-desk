@@ -647,7 +647,7 @@ test("an unconfigured Chrome operator leaves the detected video visibly pending 
   assert.equal(harness.discoveryPersisted(), 1);
   assert.equal(harness.finalized.length, 1);
   assert.equal(harness.failed.length, 0);
-  assert.deepEqual(harness.store.recalculatedRunIds, []);
+  assert.deepEqual(harness.store.recalculatedRunIds, ["active-video-run"]);
   const manualStage = harness.stages.find((entry) => entry.stage === "manual_transcript_required");
   assert.equal(manualStage?.status, "blocked");
 });
