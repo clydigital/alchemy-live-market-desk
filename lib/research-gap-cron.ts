@@ -5,11 +5,13 @@ import {
   handleManualResearchGapWebRun,
 } from "./research-gap-manual-web-run.ts";
 import { acceptsResearchAuthorization } from "./research-auth.ts";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 type ResearchGapCronDependencies = {
   authorised?: (request: Request) => boolean;
   handoff?: (request: Request) => Promise<Response>;
   research?: (request: Request) => Promise<Response>;
+  liveResearchActive?: () => Promise<boolean>;
 };
 
 function response(body: unknown, status = 200) {
@@ -24,6 +26,28 @@ function cronAuthorised(request: Request) {
     request.headers.get("authorization"),
     [process.env.CRON_SECRET],
   );
+}
+
+async function liveResearchActive() {
+  const client = createSupabaseAdminClient();
+  const { data, error } = await client
+    .from("research_slot_runs")
+    .select("slot_key,status,started_at,last_heartbeat_at,completed_at")
+    .in("slot_key", ["morning", "evening"])
+    .order("started_at", { ascending: false })
+    .limit(8);
+
+  if (error) {
+    throw new Error(`Could not verify Live research concurrency before Research Gap cron: ${error.message}`);
+  }
+
+  const cutoff = Date.now() - 2 * 60 * 60 * 1_000;
+  return (data ?? []).some((row) => {
+    if (row.completed_at) return false;
+    if (!["scheduled", "running", "partial"].includes(String(row.status))) return false;
+    const heartbeat = Date.parse(String(row.last_heartbeat_at || row.started_at || ""));
+    return Number.isFinite(heartbeat) && heartbeat >= cutoff;
+  });
 }
 
 function cronAuthorization() {
@@ -91,6 +115,15 @@ export async function handleScheduledResearchGapCycle(
 
   const handoff = dependencies.handoff ?? runScheduledHandoff;
   const research = dependencies.research ?? runScheduledResearch;
+  const activeLive = dependencies.liveResearchActive ?? liveResearchActive;
+
+  if (await activeLive()) {
+    return response({
+      status: "deferred",
+      reason: "live_research_active",
+      message: "Research Gap cycle deferred because a canonical morning/evening Live sweep is still active.",
+    });
+  }
 
   const handoffResponse = await handoff(request);
   const handoffBody = await readJson(handoffResponse);
@@ -173,6 +206,16 @@ export async function handleScheduledResearchGapHandoff(
   if (authFailure) return authFailure;
 
   const handoff = dependencies.handoff ?? runScheduledHandoff;
+  const activeLive = dependencies.liveResearchActive ?? liveResearchActive;
+
+  if (await activeLive()) {
+    return response({
+      status: "deferred",
+      reason: "live_research_active",
+      message: "Research Gap handoff deferred because a canonical morning/evening Live sweep is still active.",
+    });
+  }
+
   const handoffResponse = await handoff(request);
   const handoffBody = await readJson(handoffResponse);
 
