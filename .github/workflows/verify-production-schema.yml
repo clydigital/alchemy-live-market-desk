@@ -71,17 +71,22 @@ jobs:
           RESPONSE_FILE="$RUNNER_TEMP/production-schema-drift.json"
           MIGRATIONS="$(cat "$RUNNER_TEMP/production-migrations.json")"
 
-          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
-          oidc_response="$(curl --fail --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
-          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
-          echo "::add-mask::$oidc_token"
+          request_oidc_token() {
+            local encoded_audience oidc_response
+            encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+            oidc_response="$(curl --fail --silent --show-error               -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"               "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+            oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+            echo "::add-mask::$oidc_token"
+          }
 
           body="$(jq -cn             --arg expectedDeploymentSha "$GITHUB_SHA"             --argjson migrations "$MIGRATIONS"             '{expectedDeploymentSha:$expectedDeploymentSha,migrations:$migrations}')"
 
           for attempt in {1..48}; do
+            request_oidc_token
             http_status="$(curl --silent --show-error --max-time 30               -o "$RESPONSE_FILE" -w '%{http_code}'               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$body"               "$PROD_URL/api/admin/system/schema-drift" || true)"
 
             status="$(jq -r '.status // empty' "$RESPONSE_FILE" 2>/dev/null || true)"
+            error_message="$(jq -r '.error // empty' "$RESPONSE_FILE" 2>/dev/null || true)"
 
             if [[ "$http_status" == "200" && "$status" == "healthy" ]]; then
               jq -c '{status,deploymentSha,enforcementStart,expectedCount,appliedCount,missing,unexpected,schemaInvariants,invariantFailures}' "$RESPONSE_FILE"
@@ -96,6 +101,12 @@ jobs:
 
             if [[ "$http_status" == "404" || "$http_status" == "502" || "$http_status" == "503" ]]; then
               echo "Production schema endpoint is not ready yet (HTTP $http_status); attempt $attempt/48."
+              sleep 15
+              continue
+            fi
+
+            if [[ "$http_status" == "500" && "$status" == "failed" && "$error_message" == *"JWT issued at future"* ]]; then
+              echo "Production schema datastore reported transient JWT clock skew; retrying attempt $attempt/48."
               sleep 15
               continue
             fi
