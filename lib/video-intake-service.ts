@@ -390,6 +390,11 @@ export async function runScheduledVideoIntake(input: {
       client: run.client,
     });
 
+    // A delayed/idempotent discovery replay can skip every already-persisted
+    // video. Finalisation only sees newly-created work, so reconcile from the
+    // durable run-linked intake rows before exposing the checkpoint to Live.
+    await store.recalculateRunState(run.id);
+
     await dependencies.recordStage({
       runId: run.id,
       slot: input.slot,
