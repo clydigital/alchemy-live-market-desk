@@ -5,6 +5,7 @@ import {
   fetchTranscriptApiInfo,
   fetchTranscriptApiTranscript,
   retrieveTranscriptApiVideo,
+  transcriptProviderFromRetrieval,
   TranscriptApiError,
 } from "../lib/transcriptapi.ts";
 
@@ -49,6 +50,8 @@ test("retrieval calls free info before the paid transcript endpoint and preserve
   assert.match(calls[1], /language=en%2Cfr/);
   assert.match(calls[1], /include_timestamp=true/);
   assert.equal(result.transcript.text, "First claim. Second claim.");
+  assert.equal(transcriptProviderFromRetrieval(result), "transcriptapi");
+  assert.equal(result.transcript.metadata.retrievalProvider, "transcriptapi");
   assert.deepEqual(result.transcript.segments[1], {
     startSeconds: 1.5,
     durationSeconds: 2,

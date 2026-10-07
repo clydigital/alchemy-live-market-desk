@@ -5,6 +5,7 @@ import {
 import { retrieveSupadataVideo } from "./supadata.ts";
 import {
   normalizeTranscriptApiError,
+  retrieveTranscriptApiVideo,
   TranscriptApiError,
   type TranscriptApiRetrieval,
 } from "./transcriptapi.ts";
@@ -18,12 +19,20 @@ export type TranscriptWorkerRetrievalDependencies = {
   retrieveSupadata: typeof retrieveSupadataVideo;
   browserConfigured: typeof isChromeTranscriptOperatorConfigured;
   retrieveBrowser: typeof retrieveChromeYouTubeToTranscript;
+  transcriptApiConfigured: () => boolean;
+  retrieveTranscriptApi: (videoId: string) => Promise<TranscriptApiRetrieval>;
 };
 
 const defaultDependencies: TranscriptWorkerRetrievalDependencies = {
   retrieveSupadata: retrieveSupadataVideo,
   browserConfigured: isChromeTranscriptOperatorConfigured,
   retrieveBrowser: retrieveChromeYouTubeToTranscript,
+  transcriptApiConfigured: () => Boolean(process.env.TRANSCRIPT_API_KEY?.trim()),
+  retrieveTranscriptApi: (videoId) => retrieveTranscriptApiVideo(
+    videoId,
+    process.env.TRANSCRIPT_API_KEY?.trim() || "",
+    { timeoutMs: 12_000, maxAttempts: 1 },
+  ),
 };
 
 export function transcriptWorkerShouldUseBrowserFallback(error: unknown) {
@@ -48,27 +57,51 @@ export async function retrieveTranscriptForWorker(
     return await dependencies.retrieveSupadata(videoId, supadataApiKey, { timeoutMs: 12_000 });
   } catch (error) {
     const primary = normalizeTranscriptApiError(error);
-    if (!transcriptWorkerShouldUseBrowserFallback(primary) || !dependencies.browserConfigured()) {
+    if (!transcriptWorkerShouldUseBrowserFallback(primary)) {
       throw primary;
     }
 
-    try {
-      return await dependencies.retrieveBrowser(videoId);
-    } catch (browserError) {
-      const fallback = normalizeTranscriptApiError(browserError);
-      throw new TranscriptApiError(
-        `${primary.message} Browser transcript fallback also failed: ${fallback.message}`,
-        {
-          code: primary.code,
-          httpStatus: primary.httpStatus,
-          retryable: primary.retryable,
-          retryAfterSeconds: primary.retryAfterSeconds,
-          providerMessage: [
-            primary.providerMessage || primary.message,
-            `Browser fallback: ${fallback.code}: ${fallback.message}`,
-          ].join(" | ").slice(0, 1_000),
-        },
-      );
+    const fallbackFailures: string[] = [];
+
+    if (dependencies.browserConfigured()) {
+      try {
+        return await dependencies.retrieveBrowser(videoId);
+      } catch (browserError) {
+        const browserFailure = normalizeTranscriptApiError(browserError);
+        fallbackFailures.push(
+          `Browser fallback: ${browserFailure.code}: ${browserFailure.message}`,
+        );
+      }
     }
+
+    if (dependencies.transcriptApiConfigured()) {
+      try {
+        return await dependencies.retrieveTranscriptApi(videoId);
+      } catch (transcriptApiError) {
+        const transcriptApiFailure = normalizeTranscriptApiError(transcriptApiError);
+        fallbackFailures.push(
+          `TranscriptAPI fallback: ${transcriptApiFailure.code}: ${transcriptApiFailure.message}`,
+        );
+      }
+    }
+
+    if (!fallbackFailures.length) throw primary;
+
+    throw new TranscriptApiError(
+      [
+        primary.message,
+        ...fallbackFailures.map((failure) => `${failure}.`),
+      ].join(" "),
+      {
+        code: primary.code,
+        httpStatus: primary.httpStatus,
+        retryable: primary.retryable,
+        retryAfterSeconds: primary.retryAfterSeconds,
+        providerMessage: [
+          primary.providerMessage || primary.message,
+          ...fallbackFailures,
+        ].join(" | ").slice(0, 1_000),
+      },
+    );
   }
 }
