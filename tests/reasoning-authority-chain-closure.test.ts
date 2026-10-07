@@ -29,7 +29,7 @@ test("reasoning authority chain stays canonical-evidence-first from Dossier A3 t
   // Existing Story mutation is gated by canonical-eligible Evidence.
   assert.match(review, /materialAssessmentHasEligibleEvidence/);
   assert.match(review, /isCanonicalEligibleEvidence\(item\)/);
-  assert.match(runtime, /materialAssessmentHasEligibleEvidence\(assessment\.disposition, evidenceIds, target\)/);
+  assert.match(runtime, /materialAssessmentHasEligibleEvidence\([\s\S]*assessment\.disposition,[\s\S]*evidenceIds,[\s\S]*target,[\s\S]*\)/);
   assert.match(runtime, /eligible_evidence_ids:\s*eligibleEvidenceIds/);
   assert.match(runtime, /Material mutation was suppressed because no eligible non-creator evidence was supplied/);
 
