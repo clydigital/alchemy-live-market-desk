@@ -633,7 +633,7 @@ export default function RegimeDetailWorkspace({
                       )) : <div className={styles.empty}>No mapped Story is available for this subgroup. Do not infer a thesis from the absence of a Story.</div>}
                     </div>
                     {subgroup.contextStories.length ? (
-                      <div className={styles.empty}>{subgroup.contextStories.length} mapped Story{subgroup.contextStories.length === 1 ? "" : "ies"} {subgroup.contextStories.length === 1 ? "is" : "are"} retained as non-state context (seed, early, episode, stale, or canonical-reasoning gap) and {subgroup.contextStories.length === 1 ? "does" : "do"} not drive this subgroup state.</div>
+                      <div className={styles.empty}>{subgroup.contextStories.length} mapped {subgroup.contextStories.length === 1 ? "Story" : "Stories"} {subgroup.contextStories.length === 1 ? "is" : "are"} retained as non-state context (seed, early, episode, stale, or canonical-reasoning gap) and {subgroup.contextStories.length === 1 ? "does" : "do"} not drive this subgroup state.</div>
                     ) : null}
                   </div>
 
