@@ -40,6 +40,11 @@ type Dependencies = {
     };
   } | null>;
   closeSupersededD7?: typeof closeSupersededCompletedD7ResearchGapCase;
+  loadStoryReviewClocks?: (storyIds: string[]) => Promise<Array<{
+    storyId: string;
+    evaluatedAt: string | null;
+    basis: "story_review" | "unavailable";
+  }>>;
   logger?: (event: Record<string, unknown>) => void;
 };
 
@@ -72,6 +77,11 @@ async function requestedCaseId(request: Request) {
 async function loadCurrentD7ForHandoff() {
   const { loadCurrentD7RuntimeSnapshot } = await import("./d7-runtime.ts");
   return loadCurrentD7RuntimeSnapshot();
+}
+
+async function loadStoryReviewClocksForHandoff(storyIds: string[]) {
+  const { getD7StoryReviewClocks } = await import("./d7-story-review-clock.ts");
+  return getD7StoryReviewClocks(storyIds);
 }
 
 async function submitPersistedGapHandoff(
@@ -111,6 +121,7 @@ export async function handleManualResearchGapSnapshotHandoff(
   const submit = dependencies.submit ?? submitPersistedGapHandoff;
   const loadCurrentD7 = dependencies.loadCurrentD7 ?? loadCurrentD7ForHandoff;
   const closeSupersededD7 = dependencies.closeSupersededD7 ?? closeSupersededCompletedD7ResearchGapCase;
+  const loadStoryReviewClocks = dependencies.loadStoryReviewClocks ?? loadStoryReviewClocksForHandoff;
   const logger = dependencies.logger ?? ((event) => console.info(JSON.stringify(event)));
 
   try {
@@ -171,9 +182,13 @@ export async function handleManualResearchGapSnapshotHandoff(
         && selected.linked_story_ids.length === 1
       ) {
         const storyId = selected.linked_story_ids[0]!;
-        const review = currentD7.storyReviewClocks.find(
+        const currentReview = currentD7.storyReviewClocks.find(
           (item) => item.storyId === storyId,
         ) ?? null;
+        const exactReviews = currentReview
+          ? [currentReview]
+          : await loadStoryReviewClocks([storyId]);
+        const review = exactReviews.find((item) => item.storyId === storyId) ?? null;
         const reviewedAt = review?.evaluatedAt ? Date.parse(review.evaluatedAt) : Number.NaN;
         const sourceDossierAsOf = Date.parse(selected.latest_dossier_as_of);
         if (
