@@ -1,4 +1,4 @@
-import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
+import { dedupeMarketEvents, normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
 export type EventHorizonCoverageState = "covered" | "stale" | "unavailable" | "unsupported" | "source_failed";
 export type EventHorizonCoverage = {
@@ -18,7 +18,14 @@ type FedCalendarPayload = { events?: unknown };
 
 const FED_CALENDAR_URL = "https://www.federalreserve.gov/json/calendar.json";
 const FED_CALENDAR_PAGE = "https://www.federalreserve.gov/newsevents/calendar.htm";
-const OPEC_PRESS_ROOM_URL = "https://www.opec.org/opec_web/en/press_room/28.htm";
+const OPEC_ORIGIN = "https://www.opec.org";
+const OPEC_PRESS_RELEASES_URL = `${OPEC_ORIGIN}/press-releases.html`;
+const OPEC_DETAIL_LIMIT = 8;
+const OPEC_REQUEST_HEADERS = {
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "User-Agent": "Mozilla/5.0 (compatible; AlchemyLiveDesk/1.0; +https://alchemymarkets.com)",
+};
 const STALE_SOURCE_AGE_MS = 14 * 24 * 60 * 60 * 1_000;
 
 function text(value: unknown) { return typeof value === "string" ? value.replace(/<[^>]*>/g, " ").replace(/&(?:amp|quot|#39);/g, " ").replace(/\s+/g, " ").trim() : ""; }
@@ -76,24 +83,67 @@ export function parseFederalReserveCalendar(payload: FedCalendarPayload, now = n
   });
 }
 
+export function parseOpecPressReleaseLinks(source: string) {
+  const links: string[] = [];
+  for (const match of source.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi)) {
+    try {
+      const url = new URL(match[1], OPEC_ORIGIN);
+      if (url.origin !== OPEC_ORIGIN || !url.pathname.startsWith("/pr-detail/")) continue;
+      url.hash = "";
+      url.search = "";
+      if (!links.includes(url.href)) links.push(url.href);
+      if (links.length >= OPEC_DETAIL_LIMIT) break;
+    } catch {
+      // Ignore malformed or non-HTTP links from the publisher page.
+    }
+  }
+  return links;
+}
+
+function opecMeetingEvent(title: string, date: string, sourceUrl: string, now: Date): MarketEventV1 | null {
+  const startAt = namedDate(date);
+  const normalisedTitle = title.replace(/\s+/g, " ").trim().replace(/^the\s+/i, "");
+  if (!startAt || !isFutureOrToday(startAt, now) || !/\b(OPEC|JMMC|Ministerial)\b/i.test(normalisedTitle)) return null;
+  return normaliseMarketEvent({
+    id: `opec:${startAt}:${occurrencePart(normalisedTitle)}`,
+    occurrenceKey: `opec-meeting:${startAt}:${occurrencePart(normalisedTitle)}`,
+    eventType: "energy_policy_meeting", title: normalisedTitle, startAt, timePrecision: "date", timeLabel: "Time TBC",
+    status: "scheduled", verificationState: "official", participants: ["OPEC"], geography: ["Global"], affectedAssets: ["WTI", "BRENT"],
+    decisiveVariable: "Whether production policy changes the expected oil-balance path.",
+    transmission: "OPEC policy can change crude supply expectations and energy-market risk premia.",
+    sourceName: "OPEC official press release", sourceUrl, sourceRecordRefs: [`opec:${startAt}:${normalisedTitle}`], lastVerifiedAt: now.toISOString(),
+  });
+}
+
 export function parseOpecForwardMeetings(source: string, sourceUrl: string, now = new Date()): MarketEventV1[] {
   const plain = text(source);
-  const matches = [...plain.matchAll(/(?:hold|next meeting(?: will)? be held)(?: the)?\s+(.{3,140}?)\s+on\s+(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})/gi)];
-  return matches.flatMap((match): MarketEventV1[] => {
-    const startAt = namedDate(match[2]); if (!startAt || !isFutureOrToday(startAt, now)) return [];
-    const title = match[1].replace(/\s+/g, " ").trim().replace(/^the\s+/i, "");
-    if (!/\b(OPEC|JMMC|Ministerial)\b/i.test(title)) return [];
-    const event = normaliseMarketEvent({
-      id: `opec:${startAt}:${occurrencePart(title)}`,
-      occurrenceKey: `opec-meeting:${startAt}:${occurrencePart(title)}`,
-      eventType: "energy_policy_meeting", title, startAt, timePrecision: "date", timeLabel: "Time TBC",
-      status: "scheduled", verificationState: "official", participants: ["OPEC"], geography: ["Global"], affectedAssets: ["WTI", "BRENT"],
-      decisiveVariable: "Whether production policy changes the expected oil-balance path.",
-      transmission: "OPEC policy can change crude supply expectations and energy-market risk premia.",
-      sourceName: "OPEC official press release", sourceUrl, sourceRecordRefs: [`opec:${startAt}:${title}`], lastVerifiedAt: now.toISOString(),
-    });
-    return event ? [event] : [];
-  });
+  const datePattern = "(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4})";
+  const candidates: Array<{ title: string; date: string }> = [];
+
+  const announced = new RegExp(`(?:hold|next meeting(?: will)? be held)(?: the)?\\s+(.{3,140}?)\\s+on\\s+${datePattern}`, "gi");
+  for (const match of plain.matchAll(announced)) candidates.push({ title: match[1], date: match[2] });
+
+  const scheduled = new RegExp(`next meeting of the\\s+(.{2,100}?)\\s+is scheduled for\\s+${datePattern}`, "gi");
+  for (const match of plain.matchAll(scheduled)) candidates.push({ title: match[1], date: match[2] });
+
+  const generic = new RegExp(`next meeting will be held on\\s+${datePattern}`, "gi");
+  for (const match of plain.matchAll(generic)) {
+    const title = /\bJMMC\b/i.test(plain)
+      ? "JMMC meeting"
+      : /OPEC\+/i.test(plain)
+        ? "OPEC+ participating countries meeting"
+        : /\bOPEC\b/i.test(plain)
+          ? "OPEC meeting"
+          : "";
+    if (title) candidates.push({ title, date: match[1] });
+  }
+
+  return dedupeMarketEvents(
+    candidates.flatMap(({ title, date }) => {
+      const event = opecMeetingEvent(title, date, sourceUrl, now);
+      return event ? [event] : [];
+    }),
+  );
 }
 
 async function acquireFed(fetchImpl: typeof fetch, now: Date): Promise<{ events: MarketEventV1[]; coverage: EventHorizonCoverage; warning?: string }> {
@@ -113,16 +163,65 @@ async function acquireFed(fetchImpl: typeof fetch, now: Date): Promise<{ events:
 
 async function acquireOpec(fetchImpl: typeof fetch, now: Date): Promise<{ events: MarketEventV1[]; coverage: EventHorizonCoverage; warning?: string }> {
   try {
-    const response = await fetchImpl(OPEC_PRESS_ROOM_URL, { cache: "no-store", signal: AbortSignal.timeout(8_000) });
+    const response = await fetchImpl(OPEC_PRESS_RELEASES_URL, {
+      cache: "no-store",
+      headers: OPEC_REQUEST_HEADERS,
+      signal: AbortSignal.timeout(8_000),
+    });
     if (response.status === 404) {
-      return { events: [], coverage: coverage("energy_policy", "unavailable", "OPEC official press room", OPEC_PRESS_ROOM_URL, now.toISOString(), 0, "Official OPEC schedule endpoint is unavailable."), warning: "OPEC schedule unavailable: HTTP 404" };
+      return { events: [], coverage: coverage("energy_policy", "unavailable", "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), 0, "Official OPEC press-release index is unavailable."), warning: "OPEC schedule unavailable: HTTP 404" };
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const events = parseOpecForwardMeetings(await response.text(), OPEC_PRESS_ROOM_URL, now);
+
+    const links = parseOpecPressReleaseLinks(await response.text());
+    if (!links.length) {
+      return {
+        events: [],
+        coverage: coverage("energy_policy", "source_failed", "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), 0, "Official OPEC press-release index returned no recognised detail links."),
+        warning: "OPEC press-release index returned no official detail links; energy-policy coverage is unknown.",
+      };
+    }
+
+    const details = await Promise.all(links.map(async (url) => {
+      try {
+        const detail = await fetchImpl(url, {
+          cache: "no-store",
+          headers: OPEC_REQUEST_HEADERS,
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!detail.ok) return { url, body: null };
+        return { url, body: await detail.text() };
+      } catch {
+        return { url, body: null };
+      }
+    }));
+    const usable = details.filter((detail): detail is { url: string; body: string } => detail.body !== null);
+    const failedCount = details.length - usable.length;
+    if (!usable.length) {
+      return {
+        events: [],
+        coverage: coverage("energy_policy", "source_failed", "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), 0, "Official OPEC press-release detail pages could not be acquired."),
+        warning: "OPEC schedule unavailable: official press-release detail pages could not be acquired.",
+      };
+    }
+
+    const events = dedupeMarketEvents(usable.flatMap((detail) => parseOpecForwardMeetings(detail.body, detail.url, now)));
+    if (!events.length && failedCount > 0) {
+      return {
+        events: [],
+        coverage: coverage("energy_policy", "source_failed", "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), 0, "OPEC press-release acquisition was incomplete and no forward meeting could be confirmed."),
+        warning: `OPEC schedule incomplete: ${failedCount} of ${details.length} official press-release detail page(s) were unavailable.`,
+      };
+    }
+
     const state = responseState(response, now, events.length);
-    return { events, coverage: coverage("energy_policy", state, "OPEC official press room", OPEC_PRESS_ROOM_URL, now.toISOString(), events.length, state === "stale" ? "Official OPEC source response is stale." : events.length ? "Officially announced OPEC forward meetings acquired." : "Official OPEC source returned no confirmed forward meeting." ) };
+    return {
+      events,
+      coverage: coverage("energy_policy", state, "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), events.length, state === "stale" ? "Official OPEC press-release index is stale." : events.length ? "Officially announced OPEC forward meetings acquired." : "Recent official OPEC releases returned no confirmed forward meeting."),
+      warning: failedCount > 0 ? `OPEC press-release acquisition partial: ${failedCount} of ${details.length} detail page(s) were unavailable.` : undefined,
+    };
   } catch (error) {
-    return { events: [], coverage: coverage("energy_policy", "source_failed", "OPEC official press room", OPEC_PRESS_ROOM_URL, now.toISOString(), 0, "Official OPEC source acquisition failed."), warning: `OPEC schedule unavailable: ${error instanceof Error ? error.message : String(error)}` };
+    return { events: [], coverage: coverage("energy_policy", "source_failed", "OPEC official press releases", OPEC_PRESS_RELEASES_URL, now.toISOString(), 0, "Official OPEC source acquisition failed."), warning: `OPEC schedule unavailable: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
