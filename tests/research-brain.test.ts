@@ -2020,6 +2020,7 @@ test("8Z1b. missing exact Motion route does not degrade an otherwise valid Resea
 
   assert.equal(calls, 1);
   assert.equal(result.diagnostics.degraded, false);
+  assert.ok(result.motion_acceptance);
   assert.equal(result.motion_acceptance.decisions[0].decision, "UNRESOLVED");
   assert.equal(result.motion_acceptance.decisions[0].conclusion, null);
   assert.deepEqual(result.motion_acceptance.decisions[0].destination_refs, []);
