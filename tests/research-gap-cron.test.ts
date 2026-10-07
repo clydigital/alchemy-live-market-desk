@@ -24,11 +24,32 @@ async function withCronSecret<T>(run: () => Promise<T>) {
   }
 }
 
+test("Vercel Research Gap cron defers while a canonical Live sweep is active", async () => {
+  await withCronSecret(async () => {
+    let handoffCalls = 0;
+    const result = await handleScheduledResearchGapCycle(request(), {
+      authorised: () => true,
+      liveResearchActive: async () => true,
+      handoff: async () => {
+        handoffCalls += 1;
+        return Response.json({ status: "empty" });
+      },
+    });
+
+    assert.equal(result.status, 200);
+    const body = await result.json();
+    assert.equal(body.status, "deferred");
+    assert.equal(body.reason, "live_research_active");
+    assert.equal(handoffCalls, 0);
+  });
+});
+
 test("Vercel Research Gap cycle retries completed handoff and stops before new web research", async () => {
   await withCronSecret(async () => {
     let researched = false;
     const result = await handleScheduledResearchGapCycle(request(), {
       authorised: () => true,
+      liveResearchActive: async () => false,
       handoff: async () => Response.json({
         status: "handed_off",
         caseId: "case-1",
@@ -52,6 +73,7 @@ test("Vercel Research Gap cycle researches at most one case and leaves canonical
     let researchCalls = 0;
     const result = await handleScheduledResearchGapCycle(request(), {
       authorised: () => true,
+      liveResearchActive: async () => false,
       handoff: async () => Response.json({ status: "empty" }),
       research: async () => {
         researchCalls += 1;
@@ -76,6 +98,7 @@ test("Vercel Research Gap cycle may close superseded D7 work before finding no o
   await withCronSecret(async () => {
     const result = await handleScheduledResearchGapCycle(request(), {
       authorised: () => true,
+      liveResearchActive: async () => false,
       handoff: async () => Response.json({ status: "closed_superseded" }),
       research: async () => Response.json({ status: "empty" }),
     });
@@ -90,6 +113,7 @@ test("Vercel Research Gap handoff cron remains handoff-only", async () => {
   await withCronSecret(async () => {
     const result = await handleScheduledResearchGapHandoff(request(), {
       authorised: () => true,
+      liveResearchActive: async () => false,
       handoff: async () => Response.json({
         status: "handed_off",
         caseId: "case-3",
