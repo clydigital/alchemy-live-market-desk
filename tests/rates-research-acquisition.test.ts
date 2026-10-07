@@ -61,7 +61,7 @@ test("only dated publisher bodies become context; snippets, future dates, wrong 
   assert.equal(ratesSourceClass("https://investor.nvidia.com/a"), "company_primary");
   assert.equal(ratesSourceClass("https://www.sec.gov/a"), "regulatory_filing");
 });
-test("keyless provider failure leaves base intake unchanged and circuit-breaks repeated discovery", async () => {
+test("keyless provider failure circuit-breaks repeated discovery without pretending independent adapters ran", async () => {
   const base = input("NFP JOLTS Bessent Fed comments ahead of rate decision");
   let calls = 0;
   const result = await acquireRatesResearch(base, {
@@ -75,7 +75,84 @@ test("keyless provider failure leaves base intake unchanged and circuit-breaks r
   assert.deepEqual(result.input.items, base.items);
   assert.equal(calls, 1);
   assert.match(result.diagnostics[0] || "", /attempted; retrieval unavailable/);
-  assert.ok(result.diagnostics.slice(1).every((value) => /skipped; shared keyless discovery provider unavailable/.test(value)));
+  assert.ok(result.diagnostics.slice(1).every((value) =>
+    /first-party adapters attempted; 0 dated publisher document\(s\); web discovery skipped because the shared keyless provider is unavailable/.test(value)
+  ));
+});
+
+test("a keyless discovery outage does not suppress later SEC first-party company evidence", async () => {
+  const base = input("NFP JOLTS Bessent Fed comments ahead of rate decision");
+  let gdeltCalls = 0;
+  let secCalls = 0;
+  const secFacts = {
+    entityName: "Example Corp",
+    facts: {
+      "us-gaap": {
+        RevenueFromContractWithCustomerExcludingAssessedTax: {
+          label: "Revenue",
+          description: "Quarterly revenue",
+          units: {
+            USD: [{
+              val: 123000000,
+              filed: "2026-08-30",
+              start: "2026-05-01",
+              end: "2026-07-31",
+              form: "10-Q",
+              accn: "0000000000-26-000001",
+            }],
+          },
+        },
+      },
+    },
+  };
+  const secSubmissions = {
+    name: "Example Corp",
+    filings: {
+      recent: {
+        accessionNumber: [],
+        filingDate: [],
+        reportDate: [],
+        acceptanceDateTime: [],
+        form: [],
+        primaryDocument: [],
+        items: [],
+      },
+    },
+  };
+
+  const result = await acquireRatesResearch(base, {
+    now,
+    env: {
+      NODE_ENV: "test",
+      SEC_USER_AGENT: "Alchemy Live Desk test@example.com",
+    },
+    fetchImpl: async (url) => {
+      const value = String(url);
+      if (value.includes("api.gdeltproject.org")) {
+        gdeltCalls += 1;
+        throw new Error("shared discovery offline");
+      }
+      if (value.includes("data.sec.gov/submissions/")) {
+        secCalls += 1;
+        return Response.json(secSubmissions);
+      }
+      if (value.includes("data.sec.gov/api/xbrl/companyfacts/")) {
+        secCalls += 1;
+        return Response.json(secFacts);
+      }
+      throw new Error(`unexpected URL ${value}`);
+    },
+  });
+
+  assert.equal(gdeltCalls, 1, "shared keyless discovery should still trip once");
+  assert.ok(secCalls >= 2, "independent SEC adapters must still run after the GDELT circuit opens");
+  assert.ok(result.input.items.some((entry) =>
+    entry.publisher === "U.S. Securities and Exchange Commission"
+    && entry.itemKey.startsWith("rates-context:")
+  ));
+  assert.ok(result.diagnostics.some((value) =>
+    /company:NVDA: first-party adapters attempted; 1 dated publisher document\(s\); web discovery skipped/.test(value)
+  ));
 });
 test("successful discovery reads publisher pages, persists dated context and retains the original catalyst", async () => {
   const base = input("Micron earnings");
