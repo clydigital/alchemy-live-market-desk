@@ -2,7 +2,7 @@
 Status: DESIGN ONLY. Organiser is a formatting, linking and routing pass, not a new reasoning engine.
 
 ## Inputs
-Verified full MacroPulse Notion posts and log rows; pre-live ChatGPT Research Gap Runs and Registry; independently confirmed canonical Dossier/Regime/Story snapshot; genuine creator transcript intelligence as leads only; canonical evidence UUIDs only where actually available. Record missing inputs explicitly.
+**Primary baseline:** existing Market Intelligence Snapshot v1 (`GET /api/market-intelligence-snapshot`) when available, with its exact Dossier/Regime/Story IDs, timestamps, source health and canonical evidence references only where actually exposed. **Supplementary:** verified full MacroPulse Notion posts and logs, pre-live ChatGPT Research Gap Runs/Registry, and creator intelligence as leads only. Backend Dossier Research Gap is separate from the ChatGPT pre-live Gate. Record missing inputs explicitly. Do not infer snapshot fields or exact IDs before the API track confirms the live response contract.
 
 ## Output: one Notion Market Intelligence — Organiser session
 Metadata: run ID, MYT as-of, research window, source pulse IDs/links, Gate run link, Dossier ID/version where available, verification status, last updated.
@@ -66,3 +66,30 @@ The eight sections above are a **reference inventory**, not eight compulsory hea
 4. **Links to details**: original MacroPulse, Gate run, canonical evidence IDs if available.
 
 Publish this compact briefing from available supported findings even when some partitions or external sources fail. If there is no material change, publish a brief no-change note or link to the existing heartbeat according to the existing cadence; never invent materiality to fill a template. Unverified claims may appear only clearly labelled as leads and must not trigger canonical mutation. Keep detailed mechanism maps and reviewer notes collapsible/linked rather than mandatory first-screen text.
+
+## Snapshot-first gap-to-action decision contract (08 Oct design amendment)
+The Organiser is a **read-only analytical coordinator**. It is not the canonical truth source, an obligatory Live Desk dependency, a second Research Gap queue, or a new provider adapter. Snapshot v1 is the first baseline; MacroPulse and ChatGPT Gate supply new discovery/research deltas. The backend Research Gap retains Dossier authority. The API/mobile track owns endpoint implementation and production integration.
+
+### Classification and routing
+Classify each distinct finding with one primary action, preserving supporting explanatory notes:
+- `ALREADY_COVERED`: same source/event and conclusion already in current snapshot, prior Organiser run or completed Gate. Link existing research; no new request.
+- `EXPLAIN_ONLY`: information exists but the causal implications or market reaction need clearer presentation. Produce prose, not a new research case.
+- `MATERIAL_NEW_DELTA`: a new supported event or contradiction could affect an existing Regime/Story. Propose exact target and verification route; no direct canonical mutation.
+- `TARGETED_RESEARCH`: an unresolved, decision-changing discriminator not already owned by a live/queued gap. Identify exact question, minimum source, affected decision and existing gap ID where known.
+- `UNRESOLVED`: insufficient support or conflicting signals without a cost-justified discriminator. Label and retain without repeat requests.
+- `NO_ACTION`: unchanged, stale, irrelevant, duplicated or below materiality. No artificial output quota.
+
+### Execution sequence
+1. Freeze as-of time, available Snapshot v1 identifier/freshness, last accepted Organiser handoff, and eligible MacroPulse/Gate window. Never wait indefinitely for an input.
+2. Extract existing canonical thesis/Regime/Story state from snapshot; do not treat presentation labels as immutable IDs unless confirmed by API contract.
+3. Deduplicate by actual source/event identity, not headline similarity alone. Compare with prior accepted findings and already researched/queued gap IDs.
+4. Assign primary action, confidence/status and linked sources. Escalate only genuinely material discriminators; never requeue a previously investigated unchanged gap.
+5. Publish the four-part reviewer briefing even on partial input. If snapshot unavailable/HTTP 503, mark `NON_CANONICAL_FALLBACK` and prohibit canonical-change proposals based solely on Notion prose.
+6. Produce an optional **proposal-only** bounded handoff; canonical evidence admission and Dossier/System 2 adjudication stay on existing paths. Do not create or call a new ingestion endpoint until the API owner validates the existing contract.
+7. Persist run identity, input references, findings and prior-run comparison so reruns are idempotent. A failed write must not block ordinary Live Desk operation.
+
+### Pilot evidence and limitations
+The 08 Oct morning ChatGPT Gate already investigated the Treasury 10Y auction, Fed minutes, five-point curve, product tightness, housing and small-cap transmission. Thus the initial two-pulse Organiser pilot would duplicate work if it independently re-researched these. The Gate reports missing 08:00 heartbeat and has no populated canonical Dossier ID. Its conclusions are source-derived research, not independently checked against live Snapshot v1. The exact snapshot schema, production availability, evidence IDs and live Story diff remain **unverified in this design track**.
+
+### API track boundary
+Do not edit backend routes, schemas, adapters, workers, scheduling or deployments in this branch. API/mobile track should supply a sanitised real Snapshot v1 response and field/health notes for contract validation. Only after that, map proposal targets to exact existing IDs and test idempotency and degraded mode. Keep PR design-only until reviewed with the production owner.
