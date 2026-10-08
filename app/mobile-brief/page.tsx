@@ -9,7 +9,7 @@ type Snapshot = {
   regime?: { headline: string; answer: string; regimeImplication: string; whatWouldChangeMind: string; rateRegime?: { state?: string } };
   monetarySignals?: { summary: string; confirming: string[]; contradicting: string[]; unresolved: string[] };
   marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null }> };
-  stories?: unknown[];
+  stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged: string; whyItMatters: string; mechanism: string; conclusion: string; whatWouldChangeMind: string; epistemicLabel: string; evidenceRefs: string[] }>;
   stockRadar?: unknown;
   contradictions?: Array<{ id: string; title: string; detail: string }>;
   researchGaps?: string[];
@@ -50,7 +50,7 @@ export default function MobileIntelligenceBrief() {
 
   const stale = snapshot?.dossier?.asOf ? Date.now() - Date.parse(snapshot.dossier.asOf) > 24 * 60 * 60 * 1000 : true;
   const degraded = snapshot?.dossier?.degraded || snapshot?.dossier?.status !== "current";
-  return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
+  return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 }}>
       <div><a href="/" style={{ ...muted, color: "#a8c7ff" }}>← Live Desk</a><h1 style={{ fontSize: 26, margin: "8px 0 0" }}>Market intelligence brief</h1></div>
       <button type="button" disabled={loading} onClick={() => void refresh()} style={{ padding: "9px 13px", borderRadius: 9, border: "1px solid #7d9bcf", color: "white", background: "#253b63" }}>{loading ? "Loading…" : "Refresh"}</button>
@@ -69,7 +69,7 @@ export default function MobileIntelligenceBrief() {
       </section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Confirmation and disagreement</h2><p>{snapshot.monetarySignals?.summary}</p><h3>Contradicting signals</h3>{list(snapshot.monetarySignals?.contradicting)}<h3>Unresolved signals</h3>{list(snapshot.monetarySignals?.unresolved)}</section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Market watch</h2><p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p><div style={{ display: "grid", gap: 8 }}>{snapshot.marketState?.selectedRows?.map(row => <div key={row.id} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}><strong>{row.label || row.symbol}</strong> · {row.last ?? "n/a"} · 5D {row.change5d === null ? "n/a" : `${row.change5d?.toFixed(2)}%`}<div style={muted}>As of {row.asOf || "unknown"}</div></div>)}</div></section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Contradictions</h2>{snapshot.contradictions?.length ? snapshot.contradictions.map(item => <div key={item.id}><strong>{item.title}</strong><p>{item.detail}</p></div>) : <p style={muted}>None reported in this snapshot.</p>}</section>
+      <section style={{ ...panel, marginBottom: 14 }}><h2>Persistent Stories and causal explanations</h2><p style={muted}>These explanations come from the selected Dossier, not a new assessment. A persistent Story ID is shown only where linked.</p>{snapshot.stories?.length ? snapshot.stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {story.evidenceRefs?.length ?? 0}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}</section>\n      <section style={{ ...panel, marginBottom: 14 }}><h2>Contradictions</h2>{snapshot.contradictions?.length ? snapshot.contradictions.map(item => <div key={item.id}><strong>{item.title}</strong><p>{item.detail}</p></div>) : <p style={muted}>None reported in this snapshot.</p>}</section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Research gaps</h2>{list(snapshot.researchGaps)}</section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Provider health</h2>{Object.entries(snapshot.sourceHealth || {}).map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>)}<h3>Guardrails</h3>{list(snapshot.guardrails)}</section>
     </>}
