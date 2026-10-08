@@ -57,3 +57,12 @@ Motion and creator transcripts are non-evidentiary. No Story/Regime change solel
 
 ## Style
 Internal research is evidence-first, plain British English, concise sections. LY_Style_Guide.md and the Brent/China style case study inform user-facing narrative only; they must not change factual/evidence status. Notion full research remains primary, slides optional derivative.
+
+## Minimum viable reviewer output (review amendment)
+The eight sections above are a **reference inventory**, not eight compulsory headings in every briefing.
+1. **Top changes** (up to three): what happened, why it matters, observed market reaction, source.
+2. **Regime/Story implications**: previous view versus current evidence, caveat and next test; no mutation.
+3. **What remains unresolved**: contradictions, incomplete compartments and any narrow follow-up.
+4. **Links to details**: original MacroPulse, Gate run, canonical evidence IDs if available.
+
+Publish this compact briefing from available supported findings even when some partitions or external sources fail. If there is no material change, publish a brief no-change note or link to the existing heartbeat according to the existing cadence; never invent materiality to fill a template. Unverified claims may appear only clearly labelled as leads and must not trigger canonical mutation. Keep detailed mechanism maps and reviewer notes collapsible/linked rather than mandatory first-screen text.
