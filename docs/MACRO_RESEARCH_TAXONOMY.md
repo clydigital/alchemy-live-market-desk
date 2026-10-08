@@ -54,3 +54,10 @@ Not another headline search. Identify central thesis, new/persisting/reversing d
 
 ## Creator taxonomy validation
 For each genuine transcript record creator/video ID/timestamp, covered subcompartments, repeated mechanisms, neglected topics, and proposed additions. Track observed frequency and depth without turning creator claims into evidence. Do not claim taxonomy is validated until transcript samples are inspected.
+
+## Coverage without compulsory output (review amendment)
+- Each subcompartment is a **discovery prompt**, not a required daily finding or mandatory live data fetch.
+- Mark NOT CHECKED, NO MATERIAL CHANGE, SOURCE UNAVAILABLE or FINDING; distinguish unavailable data from stable conditions.
+- Check high-impact cross-field developments even if they do not fit a predefined category. Others / Emerging Connections is always open.
+- Collapse repeated events into one primary finding, then link their rates, credit, energy, equity and FX implications across compartments.
+- Creator transcript sampling refines future coverage but is asynchronous; missing videos must never prevent current market research or publication.
