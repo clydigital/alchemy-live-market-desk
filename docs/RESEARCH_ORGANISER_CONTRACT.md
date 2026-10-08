@@ -104,3 +104,38 @@ Source files: `app/api/market-intelligence-snapshot/route.ts`, `lib/market-intel
 **Failure path:** route returns HTTP 503 `status: unavailable` and `detail` if current presentation is absent or building fails. The presentation reader intentionally does not silently substitute a historical Dossier for an invalid latest record. Read-only fallback to Notion is presentation-only, not a new evidence path. No live HTTP response or production health test performed in this static audit.
 
 **Contract implication:** a minimal Organiser can run on the current read-only snapshot and linked Notion research without backend changes. Exact canonical evidence linkage and Research Gap case-level dedupe may need existing Dossier/Registry lookups; do not demand new fields before demonstrating a real need. Keep API/mobile ownership separate.
+
+## Live production validation and bounded remediation (08 Oct 2026)
+
+Source: Work-mode read-only validation report, `Research_Organiser_Remaining_Tests_2026-10-08.md`. This section supersedes earlier **untested** caveats only where production observations now exist; it does not assert production Organiser implementation.
+
+### Observed production snapshot
+- Endpoint: `https://alchemy-live-market-desk.vercel.app/api/market-intelligence-snapshot`; HTTP 200, `market-intelligence-snapshot/v1`.
+- Dossier `50401014-1a7e-4c5c-a41e-39092dd21aae`, `asOf=2026-10-07T20:03:56.914Z`, `status=current`, `degraded=false`. Snapshot includes later Motion; compare per-component timestamps instead of assuming uniform freshness.
+- Regime family `RATES_LED_TIGHTENING`, rate state `HAWKISH`, curve `DIVERGENT_STEEPENING`, separation `FRONT_END_EASING_LONG_END_STICKY`. **Family is not an exact canonical Regime record ID.**
+- Semantic Story `story:duration-stress-real-led` ↔ persistent UUID `93c3e32f-9168-49ec-aaa3-9ce678511c9b`; `story:incomplete-transmission-ai-counterweight` ↔ `fe9e1860-ace4-4393-8f2d-7f8081990661`; `story:energy-product-stress` ↔ `1cf9ad1d-c350-48c4-b06e-d544771919d3`. Story `id` and Motion `storyId` are different namespaces; normalize only via a verified mapping.
+- Provider health: marketMonitor PARTIAL; NY Fed primary dealers STALE (latest 23 Sep); Treasury supply UNRESOLVED; other reported rates and bills OK. Empty top-level contradictions does not imply no investigation-level divergences.
+- Most evidence refs are provider/semantic keys rather than canonical evidence UUIDs. Do not promote them into mutation authority.
+
+### Actual reconciliation decisions
+| Finding | Organiser action | Existing routing context |
+| --- | --- | --- |
+| Strong 10Y auction absorption, absent from snapshot but already Gate-researched | MATERIAL_NEW_DELTA → propose existing canonical verification, **not** another broad Gate | duration Story and `inv:duration-transmission` |
+| Fed minutes and conditional October policy timing, absent from snapshot but Gate-researched | MATERIAL_NEW_DELTA → existing verification; **no exact Regime ID routing** | rate family only |
+| Front-end easing / sticky long end; high real yields | ALREADY_COVERED / EXPLAIN_ONLY | duration Story |
+| Refined-product tightness | ALREADY_COVERED; Gate's newer observations are supplementary | energy Story / `inv:energy-inflation-transmission` |
+| Housing and small-cap sensitivity | EXPLAIN_ONLY; evidence for existing investigation | AI-counterweight Story / duration investigation |
+| AI-capex inflation feedback | UNRESOLVED; no forced Story mapping | none |
+| Gold rates/USD context | ALREADY_COVERED as market context | no new Story |
+| EM FX / AI financing failure without trigger | NO_ACTION | none |
+
+### Repeat-run and failure evidence
+Two immediate production reads returned byte-equivalent cached JSON; this proves **stable cached reads only**. Replaying identical inputs in a **simulation** produced the same normalized classification and zero proposed new jobs. Neither proves persisted Organiser idempotency. The production snapshot returned 200 despite PARTIAL/STALE/UNRESOLVED provider statuses. HTTP 503, degraded Dossier, Notion outage and production Organiser retry/write paths remain untested. Never claim otherwise.
+
+### Minimum safe implementation boundary
+1. **API/mobile owner:** assess adding an explicit canonical `regimeId`, a clearly named persistent `storyUuid` alongside semantic `id`, and typed canonical `evidenceUuids`/resolver references *where already available*. Preserve existing fields and v1 compatibility. Do not manufacture identifiers or open a parallel evidence pipeline. Coordinate changes in that track; this Organiser PR does not implement them.
+2. **Organiser owner:** compare frozen Dossier ID, component as-of timestamps, stable Pulse event IDs, completed Gate identity and previous Organiser run before proposing actions. Preserve a verified semantic↔UUID Story mapping; never match namespaces by string equality. Distinguish `ALREADY_COVERED` from an already researched but **not yet canonical** `MATERIAL_NEW_DELTA`.
+3. **Verification owner:** route the auction and Fed findings through existing evidence verification and System 2, with no automatic canonical mutation or duplicate research submission.
+4. **Before enabling any writes:** exercise an actual Organiser invocation twice with the same inputs and confirm stable run identity, zero duplicate Notion entries, zero duplicate research submissions and safe retries. Until then, allow only manual/supervised read-only briefing.
+
+**Verdict: READY WITH LIMITATIONS for supervised read-only briefing; not ready for automatic canonical handoff or production job-idempotency claims.**
