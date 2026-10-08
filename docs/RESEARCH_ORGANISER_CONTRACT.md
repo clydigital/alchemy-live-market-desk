@@ -93,3 +93,14 @@ The 08 Oct morning ChatGPT Gate already investigated the Treasury 10Y auction, F
 
 ### API track boundary
 Do not edit backend routes, schemas, adapters, workers, scheduling or deployments in this branch. API/mobile track should supply a sanitised real Snapshot v1 response and field/health notes for contract validation. Only after that, map proposal targets to exact existing IDs and test idempotency and degraded mode. Keep PR design-only until reviewed with the production owner.
+
+## Source-code field audit (08 Oct; main branch, static inspection)
+Source files: `app/api/market-intelligence-snapshot/route.ts`, `lib/market-intelligence-snapshot.ts`, `lib/dossier-v2/presentation-adapter.ts`, `lib/dossier-v2/presentation-reader.ts`.
+
+**Confirmed response fields:** `contractVersion`, `generatedAt`, `dossier.{status,dossierId,asOf,degraded}`, `regime.{headline,answer,regimeImplication,regimeFamily,whatWouldChangeMind,rateRegime}`, `dollarLiquidity`, `policyLiquidityInteraction`, `monetarySignals.{baseline,signals,confirming,contradicting,unresolved,summary}`, `marketState.{lenses,selectedRows,dailyAssetState}`, `stories`, `investigations`, `stockRadar`, `creatorVerification`, `marketMotion`, `sourceHealth`, `contradictions`, `researchGaps`, `guardrails`. Signals expose `key`, `asOf`, `sourceName`, `sourceUrl`, `evidenceRefs`, `metrics`, `confirmation` and `direction`. Market rows expose `id`, `symbol`, `last`, `change5d`, `asOf`, `sourceName`, `sourceUrl`.
+
+**Important limits:** `researchGaps` is `string[]`, not case IDs. Snapshot `stories` comes from presentation `whatMattersNow.stories`, not the entire persistent Story registry. The full Dossier presentation has additional `evidenceIndex`, `thesisChanges`, `researchNow`, `investigationAudit`, `memory` and Motion adjudication context not exposed as top-level Snapshot v1 fields. Never invent missing canonical UUIDs. Snapshot `generatedAt` is not the same as `dossier.asOf` or individual market signal timestamps. `sourceHealth` is partial provider coverage, not a blanket freshness or verification guarantee. Exact nested Story IDs must be inspected in a real payload before routing.
+
+**Failure path:** route returns HTTP 503 `status: unavailable` and `detail` if current presentation is absent or building fails. The presentation reader intentionally does not silently substitute a historical Dossier for an invalid latest record. Read-only fallback to Notion is presentation-only, not a new evidence path. No live HTTP response or production health test performed in this static audit.
+
+**Contract implication:** a minimal Organiser can run on the current read-only snapshot and linked Notion research without backend changes. Exact canonical evidence linkage and Research Gap case-level dedupe may need existing Dossier/Registry lookups; do not demand new fields before demonstrating a real need. Keep API/mobile ownership separate.
