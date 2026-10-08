@@ -19,7 +19,7 @@ type Snapshot = {
 
 const panel: React.CSSProperties = { border: "1px solid #303b55", borderRadius: 14, padding: 18, background: "#171e30" };
 const muted: React.CSSProperties = { color: "#aab8d2", fontSize: 13 };
-const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "Unknown";
+const formatDate = (value?: string | null) => {\n  if (!value || !Number.isFinite(Date.parse(value))) return "Unknown";\n  return new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });\n};
 const list = (items?: string[]) => items?.length ? <ul style={{ paddingLeft: 20, marginBottom: 0 }}>{items.map((item, index) => <li key={index} style={{ marginBottom: 7 }}>{item}</li>)}</ul> : <p style={muted}>No items reported.</p>;
 
 export default function MobileIntelligenceBrief() {
@@ -35,7 +35,7 @@ export default function MobileIntelligenceBrief() {
       const response = await fetch("/api/market-intelligence-snapshot", { cache: "no-store" });
       if (!response.ok) throw new Error(response.status === 503 ? "No usable Dossier presentation is available." : `Snapshot unavailable (HTTP ${response.status}).`);
       const result: Snapshot = await response.json();
-      if (result.contractVersion !== "market-intelligence-snapshot/v1" || !result.dossier || !result.regime) throw new Error("Unexpected snapshot contract. No assessment shown.");
+      if (result.contractVersion !== "market-intelligence-snapshot/v1" || !result.dossier?.dossierId || !result.regime?.headline || !Number.isFinite(Date.parse(result.dossier.asOf))) throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
       setSnapshot(result);
       setRequestedAt(new Date().toISOString());
     } catch (cause) {
@@ -48,7 +48,7 @@ export default function MobileIntelligenceBrief() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const stale = snapshot?.dossier?.asOf ? Date.now() - Date.parse(snapshot.dossier.asOf) > 24 * 60 * 60 * 1000 : true;
+  const stale = snapshot?.dossier?.asOf ? !Number.isFinite(Date.parse(snapshot.dossier.asOf)) || Date.now() - Date.parse(snapshot.dossier.asOf) > 24 * 60 * 60 * 1000 : true;
   const degraded = snapshot?.dossier?.degraded || snapshot?.dossier?.status !== "current";
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 }}>
