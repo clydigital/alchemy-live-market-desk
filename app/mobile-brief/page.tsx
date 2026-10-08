@@ -38,7 +38,15 @@ export default function MobileIntelligenceBrief() {
       const response = await fetch("/api/market-intelligence-snapshot", { cache: "no-store" });
       if (!response.ok) throw new Error(response.status === 503 ? "No usable Dossier presentation is available." : `Snapshot unavailable (HTTP ${response.status}).`);
       const result: Snapshot = await response.json();
-      if (result.contractVersion !== "market-intelligence-snapshot/v1" || !result.dossier?.dossierId || !result.regime?.headline || !Number.isFinite(Date.parse(result.dossier.asOf))) throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      if (
+        result.contractVersion !== "market-intelligence-snapshot/v1" ||
+        !result.dossier?.dossierId ||
+        !result.regime?.headline ||
+        !result.dossier?.asOf ||
+        !Number.isFinite(Date.parse(result.dossier.asOf))
+      ) {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
       setSnapshot(result);
       setRequestedAt(new Date().toISOString());
     } catch (cause) {
@@ -51,8 +59,10 @@ export default function MobileIntelligenceBrief() {
 
   useEffect(() => { void refresh(); }, []);
 
-  const stale = snapshot?.dossier?.asOf ? !Number.isFinite(Date.parse(snapshot.dossier.asOf)) || Date.now() - Date.parse(snapshot.dossier.asOf) > 24 * 60 * 60 * 1000 : true;
-  const degraded = snapshot?.dossier?.degraded || snapshot?.dossier?.status !== "current";
+  const dossierAsOfTime = snapshot?.dossier?.asOf ? Date.parse(snapshot.dossier.asOf) : NaN;
+  const stale = !Number.isFinite(dossierAsOfTime) || Date.now() - dossierAsOfTime > 24 * 60 * 60 * 1000;
+  const degraded = Boolean(snapshot?.dossier?.degraded || (snapshot?.dossier?.status && snapshot.dossier.status !== "current"));
+
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 }}>
       <div><a href="/" style={{ ...muted, color: "#a8c7ff" }}>← Live Desk</a><h1 style={{ fontSize: 26, margin: "8px 0 0" }}>Market intelligence brief</h1></div>
@@ -71,11 +81,39 @@ export default function MobileIntelligenceBrief() {
         <strong>What would change the assessment?</strong><p>{snapshot.regime?.whatWouldChangeMind || "Not specified."}</p>
       </section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Confirmation and disagreement</h2><p>{snapshot.monetarySignals?.summary}</p><h3>Contradicting signals</h3>{list(snapshot.monetarySignals?.contradicting)}<h3>Unresolved signals</h3>{list(snapshot.monetarySignals?.unresolved)}</section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Market watch</h2><p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p><div style={{ display: "grid", gap: 8 }}>{snapshot.marketState?.selectedRows?.map(row => <div key={row.id} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}><strong>{row.label || row.symbol}</strong> · {row.last ?? "n/a"} · 5D {row.change5d === null ? "n/a" : `${row.change5d?.toFixed(2)}%`}<div style={muted}>As of {row.asOf || "unknown"}</div></div>)}</div></section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Persistent Stories and causal explanations</h2><p style={muted}>These explanations come from the selected Dossier, not a new assessment. A persistent Story ID is shown only where linked.</p>{snapshot.stories?.length ? snapshot.stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {story.evidenceRefs?.length ?? 0}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}</section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Market watch</h2>
+        <p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p>
+        {snapshot.marketState?.selectedRows?.length ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            {snapshot.marketState.selectedRows.map(row => {
+              const lastVal = typeof row.last === "number" && Number.isFinite(row.last) ? row.last : "n/a";
+              const changeVal = typeof row.change5d === "number" && Number.isFinite(row.change5d) ? `${row.change5d.toFixed(2)}%` : "n/a";
+              return (
+                <div key={row.id} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
+                  <strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {lastVal} · 5D {changeVal}
+                  <div style={muted}>As of {row.asOf || "unknown"}</div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={muted}>No market observations available.</p>
+        )}
+      </section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Persistent Stories and causal explanations</h2>
+        <p style={muted}>These explanations come from the selected Dossier, not a new assessment. A persistent Story ID is shown only where linked.</p>
+        {snapshot.stories?.length ? snapshot.stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel || "Unclassified"} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {story.evidenceRefs?.length ?? 0}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}
+      </section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Contradictions</h2>{snapshot.contradictions?.length ? snapshot.contradictions.map(item => <div key={item.id}><strong>{item.title}</strong><p>{item.detail}</p></div>) : <p style={muted}>None reported in this snapshot.</p>}</section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Research gaps</h2>{list(snapshot.researchGaps)}</section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Provider health</h2>{Object.entries(snapshot.sourceHealth || {}).map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>)}<h3>Guardrails</h3>{list(snapshot.guardrails)}</section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Provider health</h2>
+        {snapshot.sourceHealth && Object.keys(snapshot.sourceHealth).length ? Object.entries(snapshot.sourceHealth).map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>) : <p style={muted}>No provider health data reported.</p>}
+        <h3>Guardrails</h3>
+        {list(snapshot.guardrails)}
+      </section>
     </>}
   </main>;
 }
