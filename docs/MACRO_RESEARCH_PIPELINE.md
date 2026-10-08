@@ -37,3 +37,13 @@ Preserve the existing two-hour ChatGPT MacroPulse watch as a fast, independent d
 
 ## Implementation acceptance
 Audit actual task/project attachment, Notion schemas, backend provider/API integrations, queue/worker capacity, and current Live Desk read contracts. Validate one complete manual sample against reviewer checklist; do not enable or merge automation without documented checks.
+
+## Delivery-first operating rule (review amendment)
+- FAST MacroPulse publishes independently on its existing cadence; it never waits for creator transcripts, deep partitions, the Gate or Organiser.
+- DEEP produces a **best-effort briefing** from completed partitions at the handoff deadline. Incomplete partitions are explicitly marked SKIPPED, STALE, SOURCE_UNAVAILABLE or UNRESOLVED and queued for a later attempt, not treated as publication failures.
+- Every partition has a bounded execution budget and checkpoint. On budget exhaustion, persist what is supported, record the gap and advance; never restart the whole session.
+- Seven categories are **coverage checks across the research window**, not seven mandatory long essays per run. No-change is a valid outcome.
+- Do not block the whole run on a failed creator transcript, Notion write, external source or backend verification step. Preserve links and a recoverable follow-up task; do not falsely label unverified material verified.
+- Prioritise delivery: headline briefing first, then links and caveats, then optional details. Evidence required for canonical Story mutation remains a hard boundary, but lack of such evidence must not block a clearly labelled research briefing.
+- Multiple categories referencing one development should point to a single lead finding with secondary connections, not reproduce the article.
+- Do not add additional ChatGPT tasks, queue tables, or new services to implement these rules without separate approval.
