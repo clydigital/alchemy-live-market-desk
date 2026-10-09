@@ -1,6 +1,6 @@
-import type { Snapshot } from "../app/mobile-brief/logic.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { Snapshot } from "../app/mobile-brief/logic.ts";
 import {
   dossierWarnings,
   evidenceCount,
