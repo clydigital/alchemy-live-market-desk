@@ -176,13 +176,16 @@ test("recovered Alchemy articles receive ordered, unique publisher positions and
         scheduleSlot,
         scheduledFor: scheduleSlot === "morning" ? "2026-10-09T01:30:00.000Z" : "2026-10-09T13:30:00.000Z",
         sourceChecks: REQUIRED_RESEARCH_SOURCES.map((source) => ({
-          source, status: "blocked" as const, itemCount: 0,
-          note: "Direct feed unavailable in this fixture.",
+          source,
+          status: source === "alchemy-market-insights" || source === "stockedup"
+            ? "blocked" as const : "no_new_items" as const,
+          itemCount: 0,
+          note: "Source checked or unavailable in this fixture.",
         })),
         items: [],
         recalibrations: [],
       };
-      assert.deepEqual(validateResearchRun(baseline).errors, [], "structurally blocked acquisition remains valid but does not imply coverage");
+      assert.deepEqual(validateResearchRun(baseline).errors, [], "partial or blocked acquisition is structurally valid without fabricating items");
       const recovered = await applyFirecrawlResearchFallback(baseline, new Date("2026-10-09T11:00:00.000Z"));
       assert.equal(recovered.sourceChecks.length, REQUIRED_RESEARCH_SOURCES.length);
       assert.equal(recovered.sourceChecks.find((check) => check.source === "alchemy-market-insights")?.status, "checked");
