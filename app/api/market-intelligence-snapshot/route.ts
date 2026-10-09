@@ -22,9 +22,8 @@ export async function GET() {
   try {
     const selection = await getDossierV2PresentationSelection();
     if (!selection.presentation) {
-      if (selection.notice?.detail) {
-        console.error("Market intelligence snapshot unavailable notice:", selection.notice.detail);
-      }
+      // Never log untrusted provider/selection detail: it may contain credentials or internal URLs.
+      console.error("Market intelligence snapshot unavailable: no Dossier presentation selected.");
       return NextResponse.json(unavailableSnapshotResponseBody(), {
         status: 503,
         headers: {
@@ -75,9 +74,9 @@ export async function GET() {
         "X-Alchemy-Market-Intelligence": snapshot.contractVersion,
       },
     });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("Market intelligence snapshot failed:", detail);
+  } catch {
+    // Keep server diagnostics non-sensitive; upstream handlers own detailed diagnostics.
+    console.error("Market intelligence snapshot unavailable: unexpected assembly failure.");
     return NextResponse.json(unavailableSnapshotResponseBody(), {
       status: 503,
       headers: {
