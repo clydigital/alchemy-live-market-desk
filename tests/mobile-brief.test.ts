@@ -111,6 +111,9 @@ test("rejects malformed section container types and incompatible entry payloads 
     { ...baseline, guardrails: [123] },
     { ...baseline, monetarySignals: "signals" },
     { ...baseline, monetarySignals: { summary: 123 } },
+    { ...baseline, monetarySignals: { confirming: "none" } },
+    { ...baseline, monetarySignals: { confirming: [null] } },
+    { ...baseline, monetarySignals: { confirming: [123] } },
     { ...baseline, monetarySignals: { contradicting: "none" } },
     { ...baseline, monetarySignals: { contradicting: [null] } },
     { ...baseline, monetarySignals: { unresolved: {} } },
@@ -484,4 +487,63 @@ test("getMobileBriefStatus announces status clearly for first load, success, cac
   const emptyState = getMobileBriefStatus({ loading: false, snapshot: null, error: null });
   assert.equal(emptyState.srStatus, "No verified market assessment available.");
   assert.equal(emptyState.isAlert, false);
+});
+
+test("valid snapshot with populated confirming monetary signals passes validation and getSectionState", () => {
+  const baseline = fixture();
+  const populated = validateSnapshot({
+    ...baseline,
+    monetarySignals: {
+      summary: "Signals agree.",
+      confirming: ["SOFR_FUTURES", "SWAP_RATES"],
+      contradicting: [],
+      unresolved: [],
+    },
+  });
+  assert.deepEqual(populated.monetarySignals?.confirming, ["SOFR_FUTURES", "SWAP_RATES"]);
+  assert.deepEqual(getSectionState(populated.monetarySignals?.confirming), {
+    status: "has_entries",
+    items: ["SOFR_FUTURES", "SWAP_RATES"],
+  });
+});
+
+test("getSectionState distinguishes omitted, null, empty and populated confirming signals", () => {
+  const omitted = validateSnapshot({
+    ...fixture(),
+    monetarySignals: { summary: "Summary" },
+  });
+  assert.equal(omitted.monetarySignals?.confirming, undefined);
+  assert.deepEqual(getSectionState(omitted.monetarySignals?.confirming), { status: "not_supplied" });
+
+  const nullList = validateSnapshot({
+    ...fixture(),
+    monetarySignals: { summary: "Summary", confirming: null as unknown as undefined },
+  });
+  assert.deepEqual(getSectionState(nullList.monetarySignals?.confirming), { status: "not_supplied" });
+
+  const emptyList = validateSnapshot({
+    ...fixture(),
+    monetarySignals: { summary: "Summary", confirming: [] },
+  });
+  assert.deepEqual(getSectionState(emptyList.monetarySignals?.confirming), { status: "empty" });
+});
+
+test("failed refresh with malformed confirming monetary signals retains previous verified snapshot and signals error", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+
+  const malformedConfirming = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    monetarySignals: { confirming: "invalid" },
+  }));
+  assert.strictEqual(malformedConfirming.snapshot, previous.snapshot);
+  assert.equal(malformedConfirming.requestedAt, RETRIEVED);
+  assert.match(malformedConfirming.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedConfirmingElements = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    monetarySignals: { confirming: [123] },
+  }));
+  assert.strictEqual(malformedConfirmingElements.snapshot, previous.snapshot);
+  assert.equal(malformedConfirmingElements.requestedAt, RETRIEVED);
+  assert.match(malformedConfirmingElements.error ?? "", /Incomplete or malformed snapshot contract/);
 });

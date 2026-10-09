@@ -141,6 +141,12 @@ export default function MobileIntelligenceBrief() {
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Confirmation and disagreement</h2>
         <p>{snapshot.monetarySignals?.summary || "Monetary signal summary not supplied in this snapshot."}</p>
+        <h3>Confirming signals</h3>
+        {renderStringList(
+          snapshot.monetarySignals?.confirming,
+          "Confirming signals not supplied in this snapshot.",
+          "No confirming signals reported in this snapshot.",
+        )}
         <h3>Contradicting signals</h3>
         {renderStringList(
           snapshot.monetarySignals?.contradicting,
