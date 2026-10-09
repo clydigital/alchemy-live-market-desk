@@ -245,11 +245,13 @@ export function formatBriefDate(value?: string | null): string {
 }
 
 /** Dossier age is not the age of every provider observation. */
-export function dossierWarnings(snapshot: Snapshot | null, nowMs: number): { stale: boolean; degraded: boolean } {
+export function dossierWarnings(snapshot: Snapshot | null, nowMs: number): { stale: boolean; degraded: boolean; futureDated: boolean } {
   const asOf = snapshot?.dossier?.asOf ? Date.parse(snapshot.dossier.asOf) : NaN;
+  const isFiniteAsOf = Number.isFinite(asOf);
   return {
-    stale: !Number.isFinite(asOf) || nowMs - asOf > 24 * 60 * 60 * 1000,
+    stale: !isFiniteAsOf || nowMs - asOf > 24 * 60 * 60 * 1000,
     degraded: Boolean(snapshot?.dossier?.degraded || (snapshot?.dossier?.status && snapshot.dossier.status !== "current")),
+    futureDated: isFiniteAsOf && asOf - nowMs > 5 * 60 * 1000,
   };
 }
 
