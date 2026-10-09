@@ -1,7 +1,7 @@
 /** Read-only snapshot validation and presentation utilities. No market inference occurs here. */
 export type Snapshot = {
   contractVersion: string;
-  generatedAt?: string;
+  generatedAt?: string | null;
   dossier?: { status: string; dossierId: string; asOf: string; degraded: boolean };
   regime?: {
     headline: string;
@@ -56,15 +56,24 @@ export function validateSnapshot(value: unknown): Snapshot {
   if (!isRecord(value) ||
       value.contractVersion !== "market-intelligence-snapshot/v1" ||
       !isRecord(value.dossier) ||
+      typeof value.dossier.status !== "string" ||
+      !value.dossier.status.trim() ||
       typeof value.dossier.dossierId !== "string" ||
       !value.dossier.dossierId.trim() ||
       typeof value.dossier.asOf !== "string" ||
       !value.dossier.asOf.trim() ||
       !Number.isFinite(Date.parse(value.dossier.asOf)) ||
+      typeof value.dossier.degraded !== "boolean" ||
       !isRecord(value.regime) ||
       typeof value.regime.headline !== "string" ||
       !value.regime.headline.trim()) {
     throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+  }
+
+  if (value.generatedAt !== undefined && value.generatedAt !== null) {
+    if (typeof value.generatedAt !== "string" || !value.generatedAt.trim() || !Number.isFinite(Date.parse(value.generatedAt))) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
   }
 
   if (value.regime.answer !== undefined && value.regime.answer !== null && typeof value.regime.answer !== "string") {
