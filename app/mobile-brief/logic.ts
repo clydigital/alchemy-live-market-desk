@@ -5,7 +5,7 @@ export type Snapshot = {
   dossier?: { status: string; dossierId: string; asOf: string; degraded: boolean };
   regime?: { headline: string; answer: string; regimeImplication: string; whatWouldChangeMind: string; rateRegime?: { state?: string } };
   monetarySignals?: { summary: string; confirming: string[]; contradicting: string[]; unresolved: string[] };
-  marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null }> };
+  marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null; sourceName?: string; sourceUrl?: string }> };
   stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged: string; whyItMatters: string; mechanism: string; conclusion: string; whatWouldChangeMind: string; epistemicLabel: string; evidenceRefs: string[] }>;
   stockRadar?: unknown;
   contradictions?: Array<{ id: string; title: string; detail: string }>;
@@ -92,6 +92,31 @@ export function formatMarketChange(value: unknown): string {
 
 export function formatObservationDate(value: unknown): string {
   return typeof value === "string" && Number.isFinite(Date.parse(value)) ? value : "unknown";
+}
+
+export function formatObservationLabel(value: unknown): string {
+  const date = formatObservationDate(value);
+  return date === "unknown" ? "Observation date unknown" : `Observed: ${date}`;
+}
+
+export function sanitizeSourceUrl(url?: string | null): string | null {
+  if (typeof url !== "string" || !url.trim()) return null;
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (!parsed.hostname || parsed.hostname.trim() === "") return null;
+    if (parsed.username || parsed.password) return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+export function formatSourceName(sourceName?: string | null): string {
+  if (typeof sourceName !== "string" || !sourceName.trim()) {
+    return "Source not reported";
+  }
+  return sourceName.trim();
 }
 
 export function evidenceCount(refs: unknown): string {

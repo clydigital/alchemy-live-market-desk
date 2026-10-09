@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
 import type { BriefLoadState } from "./logic.ts";
-import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationDate, loadMobileSnapshot, snapshotHealth, snapshotRows, snapshotStories } from "./logic.ts";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows, snapshotStories } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
 
@@ -71,12 +71,26 @@ export default function MobileIntelligenceBrief() {
         <p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p>
         {rows.length ? (
           <div style={{ display: "grid", gap: 8 }}>
-            {rows.map((row, index) => (
-              <div key={row.id || index} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
-                <strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {formatMarketLast(row.last)} · 5D {formatMarketChange(row.change5d)}
-                <div style={muted}>As of {formatObservationDate(row.asOf)}</div>
-              </div>
-            ))}
+            {rows.map((row, index) => {
+              const sourceName = formatSourceName(row.sourceName);
+              const safeUrl = sanitizeSourceUrl(row.sourceUrl);
+              return (
+                <div key={row.id || index} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
+                  <div><strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {formatMarketLast(row.last)} · 5D {formatMarketChange(row.change5d)}</div>
+                  <div style={muted}>
+                    Source: {safeUrl ? (
+                      <a href={safeUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#a8c7ff", textDecoration: "underline" }}>
+                        {sourceName}
+                      </a>
+                    ) : (
+                      <span>{sourceName}</span>
+                    )}
+                    {" · "}
+                    {formatObservationLabel(row.asOf)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : <p style={muted}>No market observations available.</p>}
       </section>
