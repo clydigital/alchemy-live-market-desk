@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
+import type { BriefLoadState } from "./logic.ts";
 import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationDate, loadMobileSnapshot, snapshotHealth, snapshotRows, snapshotStories } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
@@ -14,21 +16,32 @@ export default function MobileIntelligenceBrief() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [requestedAt, setRequestedAt] = useState<string | null>(null);
+  const requestGate = useRef(createLatestMobileBriefRequestGate());
+  const lastVerified = useRef<BriefLoadState>({ snapshot: null, error: null, requestedAt: null });
 
   async function refresh() {
+    const request = requestGate.current.begin();
     setLoading(true);
     setError(null);
     const result = await loadMobileSnapshot(
-      { snapshot, error: null, requestedAt },
-      () => fetch("/api/market-intelligence-snapshot", { cache: "no-store" }),
+      lastVerified.current,
+      () => fetch("/api/market-intelligence-snapshot", { cache: "no-store", signal: request.signal }),
     );
+
+    // An older or cancelled request must never replace a later verified snapshot.
+    if (!requestGate.current.isCurrent(request)) return;
+
+    lastVerified.current = result;
     setSnapshot(result.snapshot);
     setError(result.error);
     setRequestedAt(result.requestedAt);
     setLoading(false);
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    void refresh();
+    return () => requestGate.current.cancel();
+  }, []);
 
   const { stale, degraded } = dossierWarnings(snapshot, Date.now());
   const rows = snapshot ? snapshotRows(snapshot) : [];
