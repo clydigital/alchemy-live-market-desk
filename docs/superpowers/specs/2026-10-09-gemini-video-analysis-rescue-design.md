@@ -150,24 +150,22 @@ The migration updates the latest `claim_transcript_jobs` return contract so a cl
 
 Keep transcript transport failover inside `retrieveTranscriptForWorker(...)`.
 
-Add Gemini rescue at the extraction-failure boundary in `processTranscriptJob(...)`, after the final transcript error has been normalized. The worker receives two new injected operations:
+Add Gemini rescue at the extraction-failure boundary in `processTranscriptJob(...)`, after the final transcript error has been normalized. The worker receives one injected analysis operation, while the store accepts an optional analysis outcome with the extraction failure:
 
 ```ts
 analyseVideo?: (job: ClaimedTranscriptJob) => Promise<GeminiVideoAnalysis>;
-saveVideoAnalysis(...): Promise<void>;
-saveVideoAnalysisFailure(...): Promise<void>;
+saveExtractionFailure(..., analysisOutcome?: GeminiVideoAnalysisOutcome): Promise<void>;
 ```
 
 Processing order:
 
 1. Normalize the final transcript failure.
 2. Classify it.
-3. Persist the transcript failure exactly as today.
-4. If the failure is eligible, Gemini is configured, and no summary is already stored, attempt Gemini analysis.
-5. Persist Gemini success or failure independently.
-6. Return the original transcript outcome (`retryable` or `blocked`) so transcript lifecycle semantics remain unchanged.
+3. While the worker still owns the lease, if the failure is eligible, Gemini is configured, and no summary is already stored, attempt Gemini analysis.
+4. Persist the original transcript failure and the optional Gemini success/failure fields in one fenced update, then release the lease exactly as today.
+5. Return the original transcript outcome (`retryable` or `blocked`) so transcript lifecycle semantics remain unchanged.
 
-Gemini failure never replaces or masks the original transcript error.
+Gemini failure never replaces or masks the original transcript error. The single fenced persistence step prevents a stale worker from attaching analysis after another worker has reclaimed the transcript job.
 
 ## Operational visibility
 
