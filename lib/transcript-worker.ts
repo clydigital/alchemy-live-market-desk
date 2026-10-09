@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import type { GeminiVideoAnalysisResult } from "./gemini-video-analysis-contract.ts";
 import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
+import { classifyVideoRetrievalFailure, type VideoRetrievalFailureKind } from "./video-retrieval-failure.ts";
 import {
   normalizeTranscriptApiError,
   transcriptProviderFromRetrieval,
@@ -33,13 +35,26 @@ export type ClaimedTranscriptJob = {
   jobAttemptCount: number;
   interpretedAt: string | null;
   evidenceId: string | null;
+  videoAnalysisStatus?: "not_attempted" | "summary_only" | "failed";
 };
+
+export type GeminiVideoAnalysisOutcome =
+  | { status: "summary_only"; result: GeminiVideoAnalysisResult }
+  | { status: "failed"; errorCode: string; errorMessage: string }
+  | null;
 
 export type TranscriptWorkerStore = {
   claim(input: { workerId: string; batchSize: number; leaseSeconds: number }): Promise<ClaimedTranscriptJob[]>;
   renew(job: ClaimedTranscriptJob, leaseSeconds: number): Promise<boolean>;
   saveTranscript(job: ClaimedTranscriptJob, retrieval: TranscriptApiRetrieval, attemptedAt: string): Promise<void>;
-  saveExtractionFailure(job: ClaimedTranscriptJob, error: TranscriptApiError, attemptedAt: string, nextAttemptAt: string | null): Promise<void>;
+  saveExtractionFailure(
+    job: ClaimedTranscriptJob,
+    error: TranscriptApiError,
+    attemptedAt: string,
+    nextAttemptAt: string | null,
+    failureKind: VideoRetrievalFailureKind,
+    analysisOutcome?: GeminiVideoAnalysisOutcome,
+  ): Promise<void>;
   saveInterpretation(job: ClaimedTranscriptJob, review: TranscriptResearchReview, interpretedAt: string): Promise<void>;
   findEvidence(job: ClaimedTranscriptJob): Promise<string | null>;
   persistEvidence(job: ClaimedTranscriptJob): Promise<string>;
@@ -156,7 +171,13 @@ export async function processTranscriptJob(
         const nextAttemptAt = failure.retryable
           ? retryAt(now(), failure.retryAfterSeconds ?? 30 * 60)
           : null;
-        await dependencies.store.saveExtractionFailure(job, failure, attemptedAt, nextAttemptAt);
+        await dependencies.store.saveExtractionFailure(
+          job,
+          failure,
+          attemptedAt,
+          nextAttemptAt,
+          classifyVideoRetrievalFailure(failure),
+        );
         timings.extraction += elapsed(clock, stageStartedAt);
         return outcome({
           itemId: job.id,
