@@ -3,13 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
 import type { BriefLoadState } from "./logic.ts";
-import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows, snapshotStories } from "./logic.ts";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
 
 const panel: React.CSSProperties = { border: "1px solid #303b55", borderRadius: 14, padding: 18, background: "#171e30" };
 const muted: React.CSSProperties = { color: "#aab8d2", fontSize: 13 };
-const list = (items?: string[]) => Array.isArray(items) && items.length ? <ul style={{ paddingLeft: 20, marginBottom: 0 }}>{items.map((item, index) => <li key={index} style={{ marginBottom: 7 }}>{item}</li>)}</ul> : <p style={muted}>No items reported.</p>;
+
+function renderStringList(items: string[] | null | undefined, missingText: string, emptyText: string) {
+  const state = getSectionState(items);
+  if (state.status === "not_supplied") {
+    return <p style={muted}>{missingText}</p>;
+  }
+  if (state.status === "empty") {
+    return <p style={muted}>{emptyText}</p>;
+  }
+  return (
+    <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
+      {state.items.map((item, index) => (
+        <li key={index} style={{ marginBottom: 7 }}>
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function MobileIntelligenceBrief() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -45,7 +63,6 @@ export default function MobileIntelligenceBrief() {
 
   const { stale, degraded } = dossierWarnings(snapshot, Date.now());
   const rows = snapshot ? snapshotRows(snapshot) : [];
-  const stories = snapshot ? snapshotStories(snapshot) : [];
   const healthEntries = snapshot ? snapshotHealth(snapshot) : [];
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
@@ -65,7 +82,22 @@ export default function MobileIntelligenceBrief() {
         <p style={muted}>US rate regime: {snapshot.regime?.rateRegime?.state || "Unresolved"}</p>
         <strong>What would change the assessment?</strong><p>{snapshot.regime?.whatWouldChangeMind || "Not specified."}</p>
       </section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Confirmation and disagreement</h2><p>{snapshot.monetarySignals?.summary}</p><h3>Contradicting signals</h3>{list(snapshot.monetarySignals?.contradicting)}<h3>Unresolved signals</h3>{list(snapshot.monetarySignals?.unresolved)}</section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Confirmation and disagreement</h2>
+        <p>{snapshot.monetarySignals?.summary || "Monetary signal summary not supplied in this snapshot."}</p>
+        <h3>Contradicting signals</h3>
+        {renderStringList(
+          snapshot.monetarySignals?.contradicting,
+          "Contradicting signals not supplied in this snapshot.",
+          "No contradicting signals reported in this snapshot.",
+        )}
+        <h3>Unresolved signals</h3>
+        {renderStringList(
+          snapshot.monetarySignals?.unresolved,
+          "Unresolved signals not supplied in this snapshot.",
+          "No unresolved signals reported in this snapshot.",
+        )}
+      </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Market watch</h2>
         <p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p>
@@ -97,15 +129,61 @@ export default function MobileIntelligenceBrief() {
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Persistent Stories and causal explanations</h2>
         <p style={muted}>These explanations come from the selected Dossier, not a new assessment. A persistent Story ID is shown only where linked.</p>
-        {stories.length ? stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel || "Unclassified"} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {evidenceCount(story.evidenceRefs)}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}
+        {(() => {
+          const state = getSectionState(snapshot.stories);
+          if (state.status === "not_supplied") {
+            return <p style={muted}>Dossier Stories not supplied in this snapshot.</p>;
+          }
+          if (state.status === "empty") {
+            return <p style={muted}>No Dossier Stories reported in this snapshot.</p>;
+          }
+          return state.items.map(story => (
+            <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}>
+              <h3 style={{ marginBottom: 4 }}>{story.title}</h3>
+              <p style={muted}>Assessment: {story.epistemicLabel || "Unclassified"} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {evidenceCount(story.evidenceRefs)}</p>
+              <strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p>
+              <strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p>
+              <strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p>
+              <strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p>
+            </article>
+          ));
+        })()}
       </section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Contradictions</h2>{snapshot.contradictions?.length ? snapshot.contradictions.map(item => <div key={item.id}><strong>{item.title}</strong><p>{item.detail}</p></div>) : <p style={muted}>None reported in this snapshot.</p>}</section>
-      <section style={{ ...panel, marginBottom: 14 }}><h2>Research gaps</h2>{list(snapshot.researchGaps)}</section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Contradictions</h2>
+        {(() => {
+          const state = getSectionState(snapshot.contradictions);
+          if (state.status === "not_supplied") {
+            return <p style={muted}>Contradiction details not supplied in this snapshot.</p>;
+          }
+          if (state.status === "empty") {
+            return <p style={muted}>No contradictions reported in this snapshot.</p>;
+          }
+          return state.items.map(item => (
+            <div key={item.id}>
+              <strong>{item.title}</strong>
+              <p>{item.detail}</p>
+            </div>
+          ));
+        })()}
+      </section>
+      <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Research gaps</h2>
+        {renderStringList(
+          snapshot.researchGaps,
+          "Research gaps not supplied in this snapshot.",
+          "No research gaps reported in this snapshot.",
+        )}
+      </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Provider health</h2>
         {healthEntries.length ? healthEntries.map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>) : <p style={muted}>No provider health data reported.</p>}
         <h3>Guardrails</h3>
-        {list(snapshot.guardrails)}
+        {renderStringList(
+          snapshot.guardrails,
+          "Guardrails not supplied in this snapshot.",
+          "No guardrails reported in this snapshot.",
+        )}
       </section>
     </>}
   </main>;
