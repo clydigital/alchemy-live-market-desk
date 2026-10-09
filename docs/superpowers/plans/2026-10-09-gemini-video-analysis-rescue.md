@@ -17,6 +17,7 @@
 - Default model is exactly `gemini-3.8-flash`; `GEMINI_VIDEO_MODEL` may override it.
 - `GEMINI_API_KEY` is server-only; absence disables rescue without breaking transcript work.
 - Gemini output must never populate transcript fields, complete a transcript job, create `transcript_evidence_id`, or satisfy canonical evidence/Market Motion gates.
+- MVP persistence is limited to `video_retrieval_failure_kind`, `video_analysis_status`, and `video_analysis_payload`; provenance and bounded errors live inside the payload.
 - Original transcript error code, retryability, next-attempt time, and debt state remain authoritative after Gemini success or failure.
 - Only deterministic structural error codes produce `VIDEO_UNAVAILABLE`; ambiguous failures stay `TRANSCRIPT_PROVIDER_FAILED`.
 - Public YouTube HTTPS URLs are the only accepted Gemini remote input.
@@ -161,7 +162,7 @@ git commit -m "feat: add structured Gemini video analysis client"
 
 - [ ] **Step 1: Write failing migration and store-contract tests**
 
-Assert the migration adds the ten approved `video_*` columns and checks `video_retrieval_failure_kind`/`video_analysis_status`; the replacement `claim_transcript_jobs` returns `video_analysis_status`; the store maps it onto `ClaimedTranscriptJob`; success writes only `video_analysis_*` fields; failure records bounded analysis error fields; neither path writes transcript text/provider/evidence fields from Gemini; the update remains fenced by running status and claim token.
+Assert the migration adds the three MVP columns and checks `video_retrieval_failure_kind`/`video_analysis_status`; the replacement `claim_transcript_jobs` returns `video_analysis_status`; the store maps it onto `ClaimedTranscriptJob`; success writes the summary-only payload; failure writes bounded error metadata in the payload; neither path writes transcript text/provider/evidence fields from Gemini; the update remains fenced by running status and claim token.
 
 - [ ] **Step 2: Run focused persistence tests and verify RED**
 
@@ -171,7 +172,7 @@ Expected: FAIL because the migration and outcome-aware persistence do not exist.
 
 - [ ] **Step 3: Add the migration**
 
-Add fields and checks from the spec, default `video_analysis_status` to `not_attempted`, keep payload JSONB nullable, add a partial index for `summary_only`, and replace the latest fixed-four-creator claim RPC without changing its claimability, lease, security, or 25-job ceiling.
+Add the three MVP fields and checks from the spec, default `video_analysis_status` to `not_attempted`, keep payload JSONB nullable, and replace the latest fixed-four-creator claim RPC without changing its claimability, lease, security, or 25-job ceiling.
 
 - [ ] **Step 4: Extend the worker/store types and fenced update**
 
@@ -188,7 +189,7 @@ saveExtractionFailure(
 ): Promise<void>;
 ```
 
-Map success to provider `gemini`, label `GEMINI_SUMMARY_ONLY`, model, prompt version, payload, and timestamps. Map analysis failure without replacing transcript error columns.
+Map success into one JSON payload containing provider `gemini`, label `GEMINI_SUMMARY_ONLY`, model, prompt version, saved-at timestamp, and analysis. Map analysis failure to bounded error metadata in the same payload without replacing transcript error columns.
 
 - [ ] **Step 5: Run focused persistence tests and verify GREEN**
 
@@ -259,46 +260,28 @@ git add lib/transcript-worker.ts lib/transcript-worker-handler.ts tests/transcri
 git commit -m "feat: rescue failed transcript jobs with Gemini analysis"
 ```
 
-### Task 5: Operational Visibility, Documentation, and Full Verification
+### Task 5: Configuration Documentation and Full Verification
 
 **Files:**
-- Modify: `lib/video-research-status.ts:16-203`
-- Modify: `lib/scheduled-video-handoff.ts:12-130`
-- Modify: `tests/video-research-status.test.ts`
-- Modify: `tests/scheduled-video-handoff.test.ts`
 - Modify: `.env.example`
 - Modify: `README.md:76-90`
 - Modify: `docs/research-video-intake.md`
 
 **Interfaces:**
-- Consumes: persisted analysis status/label from Task 3.
-- Produces: operator-visible summary-only counts and notes that do not claim canonical transcript coverage.
+- Consumes: the Task 2 configuration names and Task 3 persistence labels.
+- Produces: minimal deployment and provenance documentation.
 
-- [ ] **Step 1: Write failing visibility tests**
-
-Assert summary-only rescues get their own summary count and per-video label; transcript state remains blocked/retryable rather than ready; source-check notes mention available Gemini pre-screening but remain `blocked` and do not increment usable transcript/evidence count; Market Motion and `canonicaliseIntake` source contracts still require real ready transcripts.
-
-- [ ] **Step 2: Run focused visibility tests and verify RED**
-
-Run: `node --test --experimental-strip-types tests/video-research-status.test.ts tests/scheduled-video-handoff.test.ts tests/market-motion-ingestion.test.ts tests/transcript-worker-contract.test.ts`
-
-Expected: FAIL on missing Gemini status fields/counts.
-
-- [ ] **Step 3: Implement visibility changes**
-
-Extend the narrow Supabase selects and projection types with analysis status/provider only. Add `geminiSummariesAvailable` to the summary and `analysis: { state: "summary_only" | "failed" | "none"; label: string }` per video. Keep transcript state computation unchanged.
-
-- [ ] **Step 4: Document configuration and provenance**
+- [ ] **Step 1: Document configuration and provenance**
 
 Add blank `GEMINI_API_KEY=` and `GEMINI_VIDEO_MODEL=gemini-3.8-flash` entries to `.env.example`. Document public-video-only preview behavior, `GEMINI_SUMMARY_ONLY`, retry preservation, and the prohibition on canonical evidence.
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [ ] **Step 2: Run focused evidence-firewall tests**
 
-Run: `node --test --experimental-strip-types tests/video-research-status.test.ts tests/scheduled-video-handoff.test.ts tests/market-motion-ingestion.test.ts tests/transcript-worker-contract.test.ts`
+Run: `node --test --experimental-strip-types tests/market-motion-ingestion.test.ts tests/transcript-worker-contract.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Run full verification**
+- [ ] **Step 3: Run full verification**
 
 Run, in order:
 
@@ -313,9 +296,9 @@ git diff --check origin/main...HEAD
 
 Expected: every command exits 0 with no new warnings. If an unrelated pre-existing failure appears, record the exact command and failing test instead of hiding it.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add .env.example README.md docs/research-video-intake.md lib/video-research-status.ts lib/scheduled-video-handoff.ts tests/video-research-status.test.ts tests/scheduled-video-handoff.test.ts
-git commit -m "docs: expose Gemini summary-only rescue status"
+git add .env.example README.md docs/research-video-intake.md
+git commit -m "docs: configure Gemini video rescue"
 ```

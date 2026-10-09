@@ -123,14 +123,7 @@ Extend `research_intake_items` with analysis-specific fields rather than overloa
 ```text
 video_retrieval_failure_kind
 video_analysis_status
-video_analysis_provider
-video_analysis_model
-video_analysis_prompt_version
 video_analysis_payload
-video_analysis_attempted_at
-video_analysis_completed_at
-video_analysis_error_code
-video_analysis_error_message
 ```
 
 `video_analysis_status` uses:
@@ -139,10 +132,9 @@ video_analysis_error_message
 not_attempted
 summary_only
 failed
-not_applicable
 ```
 
-`summary_only` is the only Gemini success state. The structured payload contains the complete analysis and its labels. The existing `summary`, `creator_logic`, `claim_checks`, and transcript review fields are not overwritten, preventing downstream code from mistaking Gemini analysis for transcript review.
+`summary_only` is the only Gemini success state. The JSON payload contains the label, provider, model, prompt version, timestamps, and complete structured analysis; a failed attempt stores only bounded error metadata in the same payload. The existing `summary`, `creator_logic`, `claim_checks`, and transcript review fields are not overwritten, preventing downstream code from mistaking Gemini analysis for transcript review.
 
 The migration updates the latest `claim_transcript_jobs` return contract so a claimed job carries its saved analysis status. This makes rescue idempotent: a retrying transcript job does not pay for or duplicate an already saved Gemini analysis.
 
@@ -167,13 +159,9 @@ Processing order:
 
 Gemini failure never replaces or masks the original transcript error. The single fenced persistence step prevents a stale worker from attaching analysis after another worker has reclaimed the transcript job.
 
-## Operational visibility
+## MVP visibility
 
-Extend video research status with summary-only counts and per-video analysis labels. A creator with Gemini analysis remains transcript-degraded, but operators can see that a pre-screening result exists.
-
-Scheduled source checks may mention available summary-only analysis in their note, but they must not report canonical transcript coverage or increment canonical creator-evidence counts.
-
-The Gemini payload is available to an intelligence operator or a later research-lead workflow. It is not admitted into `intelligence_evidence`, Creator Market Motion, Story reasoning, Regime reasoning, or Dossier reasoning by this change.
+The persisted `video_analysis_status` and `video_analysis_payload` are the MVP operator surface. Dedicated dashboard counters, scheduled-handoff copy, and downstream research-lead routing are deferred. The payload is not admitted into `intelligence_evidence`, Creator Market Motion, Story reasoning, Regime reasoning, or Dossier reasoning by this change.
 
 ## Security and configuration
 
@@ -200,9 +188,7 @@ Likely modify:
 - `lib/transcript-worker.ts`
 - `lib/transcript-worker-handler.ts`
 - `lib/supabase-transcript-worker-store.ts`
-- `lib/video-research-status.ts`
-- `lib/scheduled-video-handoff.ts`
-- focused worker, store-contract, status, and handoff tests
+- focused worker and store-contract tests
 - `package.json` and lockfile for `@google/genai`
 - environment/configuration documentation
 
@@ -222,8 +208,7 @@ Tests must prove:
 10. Persistence never writes Gemini output into transcript fields.
 11. `canonicaliseIntake(...)` continues to reject summary-only video rows.
 12. Market Motion continues to require a real ready transcript and reviewed state.
-13. Status surfaces distinguish transcripts from Gemini summary-only rescues.
-14. The full test suite, typecheck, production build, and applicable Supabase contract tests pass.
+13. The full test suite, typecheck, production build, and applicable Supabase contract tests pass.
 
 ## Acceptance criteria
 
