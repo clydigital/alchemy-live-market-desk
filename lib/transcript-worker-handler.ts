@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server.js";
 
+import {
+  analysePublicYouTubeVideo,
+  isGeminiVideoAnalysisConfigured,
+} from "./gemini-video-analysis.ts";
 import { persistMarketMotionFromCreatorReviews } from "./market-motion-ingestion.ts";
 import { acceptsResearchAuthorization } from "./research-auth.ts";
 import { retrieveTranscriptForWorker } from "./transcript-worker-retrieval.ts";
@@ -20,6 +24,8 @@ export type TranscriptWorkerHandlerDependencies = {
   createStore: () => SupabaseTranscriptWorkerStore;
   extract: typeof retrieveTranscriptForWorker;
   interpret: typeof reviewCreatorTranscript;
+  videoAnalysisConfigured: typeof isGeminiVideoAnalysisConfigured;
+  analyseVideo: typeof analysePublicYouTubeVideo;
   refreshMarketMotion: typeof persistMarketMotionFromCreatorReviews;
   reconcileVideoRuns: (runIds: string[]) => Promise<void>;
 };
@@ -34,6 +40,8 @@ const defaultDependencies: TranscriptWorkerHandlerDependencies = {
   createStore: () => new SupabaseTranscriptWorkerStore(),
   extract: retrieveTranscriptForWorker,
   interpret: reviewCreatorTranscript,
+  videoAnalysisConfigured: isGeminiVideoAnalysisConfigured,
+  analyseVideo: analysePublicYouTubeVideo,
   refreshMarketMotion: persistMarketMotionFromCreatorReviews,
   reconcileVideoRuns: async (runIds) => {
     const store = new SupabaseTranscriptStore();
@@ -62,6 +70,12 @@ export async function handleTranscriptWorkerRequest(
       leaseSeconds: 300,
       maxAttempts: 6,
       extract: (videoId) => dependencies.extract(videoId, apiKey),
+      videoAnalysisConfigured: () => dependencies.videoAnalysisConfigured(),
+      analyseVideo: (job) => dependencies.analyseVideo({
+        url: job.url,
+        apiKey: process.env.GEMINI_API_KEY,
+        model: process.env.GEMINI_VIDEO_MODEL,
+      }),
       interpret: (job) => dependencies.interpret({
         video: {
           id: job.id,

@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import type { GeminiVideoAnalysisResult } from "./gemini-video-analysis-contract.ts";
+import { GeminiVideoAnalysisError } from "./gemini-video-analysis.ts";
 import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
-import { classifyVideoRetrievalFailure, type VideoRetrievalFailureKind } from "./video-retrieval-failure.ts";
+import {
+  classifyVideoRetrievalFailure,
+  geminiRescueEligible,
+  type VideoRetrievalFailureKind,
+} from "./video-retrieval-failure.ts";
 import {
   normalizeTranscriptApiError,
   transcriptProviderFromRetrieval,
@@ -75,6 +80,8 @@ export type TranscriptWorkerDependencies = {
   claimHeadroomMs?: number;
   leaseSeconds?: number;
   maxAttempts?: number;
+  videoAnalysisConfigured?: () => boolean;
+  analyseVideo?: (job: ClaimedTranscriptJob) => Promise<GeminiVideoAnalysisResult>;
 };
 
 export class LostTranscriptLeaseError extends Error {
@@ -168,15 +175,43 @@ export async function processTranscriptJob(
         }
       } catch (error) {
         const failure = normalizeTranscriptApiError(error);
+        const failureKind = classifyVideoRetrievalFailure(failure);
         const nextAttemptAt = failure.retryable
           ? retryAt(now(), failure.retryAfterSeconds ?? 30 * 60)
           : null;
+        let analysisOutcome: GeminiVideoAnalysisOutcome = null;
+        const shouldAnalyse = geminiRescueEligible(failure)
+          && job.videoAnalysisStatus !== "summary_only"
+          && dependencies.videoAnalysisConfigured?.() === true
+          && Boolean(dependencies.analyseVideo);
+        if (shouldAnalyse) {
+          await assertLease(dependencies.store, job, leaseSeconds);
+          try {
+            analysisOutcome = {
+              status: "summary_only",
+              result: await dependencies.analyseVideo!(job),
+            };
+          } catch (analysisError) {
+            analysisOutcome = analysisError instanceof GeminiVideoAnalysisError
+              ? {
+                  status: "failed",
+                  errorCode: analysisError.code,
+                  errorMessage: analysisError.message,
+                }
+              : {
+                  status: "failed",
+                  errorCode: "provider_error",
+                  errorMessage: "Gemini video analysis failed.",
+                };
+          }
+        }
         await dependencies.store.saveExtractionFailure(
           job,
           failure,
           attemptedAt,
           nextAttemptAt,
-          classifyVideoRetrievalFailure(failure),
+          failureKind,
+          analysisOutcome,
         );
         timings.extraction += elapsed(clock, stageStartedAt);
         return outcome({
