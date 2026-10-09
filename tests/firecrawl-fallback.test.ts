@@ -193,14 +193,14 @@ test("recovered Alchemy articles receive ordered, unique publisher positions and
       assert.equal(recovered.items.length, 2);
       assert.deepEqual(recovered.items.map((item) => item.articlePosition), [1, 2]);
       assert.deepEqual(recovered.items.map((item) => item.title), ["Duplicate newer energy note", "Older rates note"]);
-      assert.deepEqual(validateResearchRun(recovered).errors, [], "actual scheduled publisher validator accepts the recovered item shape");
+      assert.deepEqual(validateResearchRun({ ...recovered, recalibrations: [] }).errors, [], "actual scheduled publisher validator accepts the recovered item shape");
 
       const malformed = {
         ...recovered,
         items: recovered.items.map(({ articlePosition: _position, ...item }) => item),
       };
       assert.deepEqual(
-        validateResearchRun(malformed).errors.filter((error) => error.includes("articlePosition")),
+        validateResearchRun({ ...malformed, recalibrations: [] }).errors.filter((error) => error.includes("articlePosition")),
         [
           "items[0].articlePosition must be from 1 to 30.",
           "items[1].articlePosition must be from 1 to 30.",
