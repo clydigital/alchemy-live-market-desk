@@ -1,28 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationDate, loadMobileSnapshot, snapshotHealth, snapshotRows, snapshotStories } from "./logic.ts";
+import type { Snapshot } from "./logic.ts";
 
-type Snapshot = {
-  contractVersion: string;
-  generatedAt?: string;
-  dossier?: { status: string; dossierId: string; asOf: string; degraded: boolean };
-  regime?: { headline: string; answer: string; regimeImplication: string; whatWouldChangeMind: string; rateRegime?: { state?: string } };
-  monetarySignals?: { summary: string; confirming: string[]; contradicting: string[]; unresolved: string[] };
-  marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null }> };
-  stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged: string; whyItMatters: string; mechanism: string; conclusion: string; whatWouldChangeMind: string; epistemicLabel: string; evidenceRefs: string[] }>;
-  stockRadar?: unknown;
-  contradictions?: Array<{ id: string; title: string; detail: string }>;
-  researchGaps?: string[];
-  guardrails?: string[];
-  sourceHealth?: Record<string, string>;
-};
 
 const panel: React.CSSProperties = { border: "1px solid #303b55", borderRadius: 14, padding: 18, background: "#171e30" };
 const muted: React.CSSProperties = { color: "#aab8d2", fontSize: 13 };
-const formatDate = (value?: string | null) => {
-  if (!value || !Number.isFinite(Date.parse(value))) return "Unknown";
-  return new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
-};
 const list = (items?: string[]) => items?.length ? <ul style={{ paddingLeft: 20, marginBottom: 0 }}>{items.map((item, index) => <li key={index} style={{ marginBottom: 7 }}>{item}</li>)}</ul> : <p style={muted}>No items reported.</p>;
 
 export default function MobileIntelligenceBrief() {
@@ -34,34 +18,22 @@ export default function MobileIntelligenceBrief() {
   async function refresh() {
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetch("/api/market-intelligence-snapshot", { cache: "no-store" });
-      if (!response.ok) throw new Error(response.status === 503 ? "No usable Dossier presentation is available." : `Snapshot unavailable (HTTP ${response.status}).`);
-      const result: Snapshot = await response.json();
-      if (
-        result.contractVersion !== "market-intelligence-snapshot/v1" ||
-        !result.dossier?.dossierId ||
-        !result.regime?.headline ||
-        !result.dossier?.asOf ||
-        !Number.isFinite(Date.parse(result.dossier.asOf))
-      ) {
-        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
-      }
-      setSnapshot(result);
-      setRequestedAt(new Date().toISOString());
-    } catch (cause) {
-      // Keep the last successful snapshot visible, explicitly marked as cached.
-      setError(cause instanceof Error ? cause.message : "Unable to load the snapshot.");
-    } finally {
-      setLoading(false);
-    }
+    const result = await loadMobileSnapshot(
+      { snapshot, error: null, requestedAt },
+      () => fetch("/api/market-intelligence-snapshot", { cache: "no-store" }),
+    );
+    setSnapshot(result.snapshot);
+    setError(result.error);
+    setRequestedAt(result.requestedAt);
+    setLoading(false);
   }
 
   useEffect(() => { void refresh(); }, []);
 
-  const dossierAsOfTime = snapshot?.dossier?.asOf ? Date.parse(snapshot.dossier.asOf) : NaN;
-  const stale = !Number.isFinite(dossierAsOfTime) || Date.now() - dossierAsOfTime > 24 * 60 * 60 * 1000;
-  const degraded = Boolean(snapshot?.dossier?.degraded || (snapshot?.dossier?.status && snapshot.dossier.status !== "current"));
+  const { stale, degraded } = dossierWarnings(snapshot, Date.now());
+  const rows = snapshot ? snapshotRows(snapshot) : [];
+  const stories = snapshot ? snapshotStories(snapshot) : [];
+  const healthEntries = snapshot ? snapshotHealth(snapshot) : [];
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 }}>
@@ -73,7 +45,7 @@ export default function MobileIntelligenceBrief() {
     {!snapshot && !loading && <p>No verified market assessment available.</p>}
     {snapshot && <>
       <section style={{ ...panel, marginBottom: 14 }}>
-        <div style={muted}>Dossier: {formatDate(snapshot.dossier?.asOf)} · Retrieved: {formatDate(requestedAt)} · Generated: {formatDate(snapshot.generatedAt)}</div>
+        <div style={muted}>Dossier: {formatBriefDate(snapshot.dossier?.asOf)} · Retrieved: {formatBriefDate(requestedAt)} · Generated: {formatBriefDate(snapshot.generatedAt)}</div>
         {(stale || degraded || error) && <p style={{ color: "#ffcf92" }}>Caution: {stale ? "Dossier is more than 24 hours old. " : ""}{degraded ? "Selected Dossier is degraded or a fallback. " : ""}{error ? "Latest refresh failed." : ""}</p>}
         <h2 style={{ fontSize: 21, marginBottom: 4 }}>{snapshot.regime?.headline || "Regime assessment"}</h2>
         <p>{snapshot.regime?.answer}</p><p>{snapshot.regime?.regimeImplication}</p>
@@ -84,33 +56,27 @@ export default function MobileIntelligenceBrief() {
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Market watch</h2>
         <p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p>
-        {snapshot.marketState?.selectedRows?.length ? (
+        {rows.length ? (
           <div style={{ display: "grid", gap: 8 }}>
-            {snapshot.marketState.selectedRows.map(row => {
-              const lastVal = typeof row.last === "number" && Number.isFinite(row.last) ? row.last : "n/a";
-              const changeVal = typeof row.change5d === "number" && Number.isFinite(row.change5d) ? `${row.change5d.toFixed(2)}%` : "n/a";
-              return (
-                <div key={row.id} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
-                  <strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {lastVal} · 5D {changeVal}
-                  <div style={muted}>As of {row.asOf || "unknown"}</div>
-                </div>
-              );
-            })}
+            {rows.map((row, index) => (
+              <div key={row.id || index} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
+                <strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {formatMarketLast(row.last)} · 5D {formatMarketChange(row.change5d)}
+                <div style={muted}>As of {formatObservationDate(row.asOf)}</div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <p style={muted}>No market observations available.</p>
-        )}
+        ) : <p style={muted}>No market observations available.</p>}
       </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Persistent Stories and causal explanations</h2>
         <p style={muted}>These explanations come from the selected Dossier, not a new assessment. A persistent Story ID is shown only where linked.</p>
-        {snapshot.stories?.length ? snapshot.stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel || "Unclassified"} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {story.evidenceRefs?.length ?? 0}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}
+        {stories.length ? stories.map(story => <article key={story.id} style={{ borderTop: "1px solid #303b55", paddingTop: 12, marginTop: 12 }}><h3 style={{ marginBottom: 4 }}>{story.title}</h3><p style={muted}>Assessment: {story.epistemicLabel || "Unclassified"} · Story: {story.persistentStoryId || "Unlinked Dossier Story"} · Evidence refs: {evidenceCount(story.evidenceRefs)}</p><strong>What changed?</strong><p>{story.whatChanged || "No change described."}</p><strong>Why it matters</strong><p>{story.whyItMatters || story.mechanism || "Mechanism not specified."}</p><strong>Market interpretation</strong><p>{story.conclusion || "Not established."}</p><strong>What would change this view?</strong><p>{story.whatWouldChangeMind || "Not specified."}</p></article>) : <p style={muted}>No Dossier Stories available.</p>}
       </section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Contradictions</h2>{snapshot.contradictions?.length ? snapshot.contradictions.map(item => <div key={item.id}><strong>{item.title}</strong><p>{item.detail}</p></div>) : <p style={muted}>None reported in this snapshot.</p>}</section>
       <section style={{ ...panel, marginBottom: 14 }}><h2>Research gaps</h2>{list(snapshot.researchGaps)}</section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Provider health</h2>
-        {snapshot.sourceHealth && Object.keys(snapshot.sourceHealth).length ? Object.entries(snapshot.sourceHealth).map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>) : <p style={muted}>No provider health data reported.</p>}
+        {healthEntries.length ? healthEntries.map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>) : <p style={muted}>No provider health data reported.</p>}
         <h3>Guardrails</h3>
         {list(snapshot.guardrails)}
       </section>
