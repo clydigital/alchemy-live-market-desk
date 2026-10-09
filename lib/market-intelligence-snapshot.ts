@@ -23,6 +23,17 @@ export function unavailableSnapshotResponseBody(): MarketIntelligenceSnapshotUna
   };
 }
 
+export function marketIntelligenceUnavailableResponse(): Response {
+  return Response.json(unavailableSnapshotResponseBody(), {
+    status: 503,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
+      "X-Alchemy-Market-Intelligence": "unavailable",
+    },
+  });
+}
+
 export type MonetarySignalDirection =
   | "TIGHTER"
   | "EASIER"

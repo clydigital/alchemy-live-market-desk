@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   buildMarketIntelligenceSnapshot,
   unavailableSnapshotResponseBody,
+  marketIntelligenceUnavailableResponse,
   MARKET_INTELLIGENCE_SNAPSHOT_V1,
   MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL,
 } from "../lib/market-intelligence-snapshot.ts";
@@ -169,15 +170,33 @@ test("unavailableSnapshotResponseBody produces a safe static 503 payload without
   }
 });
 
-test("route 503 branches use safe unavailableSnapshotResponseBody and standard headers", () => {
+test("marketIntelligenceUnavailableResponse produces executable HTTP 503 response for both unavailable branches", async () => {
+  // Both route branches (no selected Dossier presentation and unexpected snapshot assembly exception)
+  // return marketIntelligenceUnavailableResponse().
+  const response = marketIntelligenceUnavailableResponse();
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(response.headers.get("X-Alchemy-Market-Intelligence"), "unavailable");
+
+  const body = await response.json();
+  assert.deepEqual(body, {
+    contractVersion: MARKET_INTELLIGENCE_SNAPSHOT_V1,
+    status: "unavailable",
+    detail: MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL,
+  });
+});
+
+test("route 503 branches call marketIntelligenceUnavailableResponse and keep logging fixed-category", () => {
   const routeSource = readFileSync(
     new URL("../app/api/market-intelligence-snapshot/route.ts", import.meta.url),
     "utf8",
   );
 
   assert.ok(
-    routeSource.includes("unavailableSnapshotResponseBody()"),
-    "Route must import and use unavailableSnapshotResponseBody()",
+    routeSource.includes("marketIntelligenceUnavailableResponse()"),
+    "Route must call marketIntelligenceUnavailableResponse() for failure branches",
   );
 
   assert.ok(
@@ -190,13 +209,29 @@ test("route 503 branches use safe unavailableSnapshotResponseBody and standard h
     "Route must not expose raw selection notice details in public 503 responses",
   );
 
-  // Assert expected 503 headers semantics exist in route source
-  assert.ok(routeSource.includes('"Cache-Control": "no-store"'), "Route must set Cache-Control: no-store on failure");
+  // Assert expected GET success headers semantics exist in route source and 200 contract is preserved
   assert.ok(
-    routeSource.includes('"X-Alchemy-Market-Intelligence": "unavailable"'),
-    "Route must set X-Alchemy-Market-Intelligence: unavailable on failure",
+    routeSource.includes('"Cache-Control": "public, s-maxage=30, stale-while-revalidate=120"'),
+    "Route must retain public Cache-Control for success 200 path",
   );
-  assert.ok(routeSource.includes("status: 503"), "Route must return status 503 on failure");
+  assert.ok(
+    routeSource.includes('"X-Alchemy-Market-Intelligence": snapshot.contractVersion'),
+    "Route must set X-Alchemy-Market-Intelligence header to contractVersion on success",
+  );
+  assert.ok(
+    routeSource.includes("status: 200"),
+    "Route must return status 200 on success",
+  );
+
+  // Verify server diagnostic logging remains fixed category without leaking secrets or errors
+  assert.ok(
+    routeSource.includes('console.error("Market intelligence snapshot unavailable: no Dossier presentation selected.");'),
+    "Server log for no Dossier presentation must be fixed string",
+  );
+  assert.ok(
+    routeSource.includes('console.error("Market intelligence snapshot unavailable: unexpected assembly failure.");'),
+    "Server log for unexpected error must be fixed category string",
+  );
   assert.ok(
     !routeSource.includes("console.error(\"Market intelligence snapshot failed:\", detail)"),
     "Server logs must not echo exception messages, which may contain secrets",
@@ -205,5 +240,4 @@ test("route 503 branches use safe unavailableSnapshotResponseBody and standard h
     !routeSource.includes("console.error(\"Market intelligence snapshot unavailable notice:\", selection.notice.detail)"),
     "Server logs must not echo raw Dossier selection notices",
   );
-  assert.ok(routeSource.includes("unexpected assembly failure."), "A safe diagnostic category should remain");
 });
