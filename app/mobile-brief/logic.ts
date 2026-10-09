@@ -4,15 +4,30 @@ export type Snapshot = {
   generatedAt?: string;
   dossier?: { status: string; dossierId: string; asOf: string; degraded: boolean };
   regime?: { headline: string; answer: string; regimeImplication: string; whatWouldChangeMind: string; rateRegime?: { state?: string } };
-  monetarySignals?: { summary: string; confirming: string[]; contradicting: string[]; unresolved: string[] };
+  monetarySignals?: { summary?: string; confirming?: string[]; contradicting?: string[]; unresolved?: string[] };
   marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null; sourceName?: string; sourceUrl?: string }> };
-  stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged: string; whyItMatters: string; mechanism: string; conclusion: string; whatWouldChangeMind: string; epistemicLabel: string; evidenceRefs: string[] }>;
+  stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged?: string; whyItMatters?: string; mechanism?: string; conclusion?: string; whatWouldChangeMind?: string; epistemicLabel?: string; evidenceRefs?: string[] }>;
   stockRadar?: unknown;
   contradictions?: Array<{ id: string; title: string; detail: string }>;
   researchGaps?: string[];
   guardrails?: string[];
   sourceHealth?: Record<string, string>;
 };
+
+export type SectionState<T> =
+  | { status: "not_supplied" }
+  | { status: "empty" }
+  | { status: "has_entries"; items: T[] };
+
+export function getSectionState<T>(items: T[] | null | undefined): SectionState<T> {
+  if (items === undefined || items === null) {
+    return { status: "not_supplied" };
+  }
+  if (items.length === 0) {
+    return { status: "empty" };
+  }
+  return { status: "has_entries", items };
+}
 
 type ResponseLike = { ok: boolean; status: number; json(): Promise<unknown> };
 
@@ -24,6 +39,10 @@ export type BriefLoadState = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 /** Reject a new invalid response; never replace a previously verified Dossier with it. */
@@ -41,6 +60,83 @@ export function validateSnapshot(value: unknown): Snapshot {
       !value.regime.headline.trim()) {
     throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
   }
+
+  if (value.stories !== undefined && value.stories !== null) {
+    if (!Array.isArray(value.stories)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    for (const story of value.stories) {
+      if (!isRecord(story) || typeof story.id !== "string" || typeof story.title !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.whatChanged !== undefined && story.whatChanged !== null && typeof story.whatChanged !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.whyItMatters !== undefined && story.whyItMatters !== null && typeof story.whyItMatters !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.mechanism !== undefined && story.mechanism !== null && typeof story.mechanism !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.conclusion !== undefined && story.conclusion !== null && typeof story.conclusion !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.whatWouldChangeMind !== undefined && story.whatWouldChangeMind !== null && typeof story.whatWouldChangeMind !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.epistemicLabel !== undefined && story.epistemicLabel !== null && typeof story.epistemicLabel !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.persistentStoryId !== undefined && story.persistentStoryId !== null && typeof story.persistentStoryId !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      if (story.evidenceRefs !== undefined && story.evidenceRefs !== null && !isStringArray(story.evidenceRefs)) {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+    }
+  }
+
+  if (value.contradictions !== undefined && value.contradictions !== null) {
+    if (!Array.isArray(value.contradictions)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    for (const contradiction of value.contradictions) {
+      if (!isRecord(contradiction) || typeof contradiction.id !== "string" || typeof contradiction.title !== "string" || typeof contradiction.detail !== "string") {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+    }
+  }
+
+  if (value.researchGaps !== undefined && value.researchGaps !== null) {
+    if (!isStringArray(value.researchGaps)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+  }
+
+  if (value.guardrails !== undefined && value.guardrails !== null) {
+    if (!isStringArray(value.guardrails)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+  }
+
+  if (value.monetarySignals !== undefined && value.monetarySignals !== null) {
+    if (!isRecord(value.monetarySignals)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.monetarySignals.summary !== undefined && value.monetarySignals.summary !== null && typeof value.monetarySignals.summary !== "string") {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.monetarySignals.confirming !== undefined && value.monetarySignals.confirming !== null && !isStringArray(value.monetarySignals.confirming)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.monetarySignals.contradicting !== undefined && value.monetarySignals.contradicting !== null && !isStringArray(value.monetarySignals.contradicting)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.monetarySignals.unresolved !== undefined && value.monetarySignals.unresolved !== null && !isStringArray(value.monetarySignals.unresolved)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+  }
+
   return value as Snapshot;
 }
 

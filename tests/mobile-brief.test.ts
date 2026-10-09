@@ -9,6 +9,7 @@ import {
   formatObservationDate,
   formatObservationLabel,
   formatSourceName,
+  getSectionState,
   loadMobileSnapshot,
   sanitizeSourceUrl,
   snapshotHealth,
@@ -86,6 +87,71 @@ test("rejects unsupported contracts, absent canonical identifiers, or malformed 
   for (const value of invalid) {
     assert.throws(() => validateSnapshot(value), /Incomplete or malformed snapshot contract/);
   }
+});
+
+test("rejects malformed section container types and incompatible entry payloads in validateSnapshot", () => {
+  const baseline = fixture();
+  const malformedPayloads = [
+    { ...baseline, contradictions: {} },
+    { ...baseline, contradictions: "none" },
+    { ...baseline, contradictions: [null] },
+    { ...baseline, contradictions: [{ id: "1", title: "T", detail: 123 }] },
+    { ...baseline, stories: "text" },
+    { ...baseline, stories: {} },
+    { ...baseline, stories: [null] },
+    { ...baseline, stories: [{ id: "s1", title: 123 }] },
+    { ...baseline, stories: [{ id: "s1", title: "Title", evidenceRefs: {} }] },
+    { ...baseline, stories: [{ id: "s1", title: "Title", evidenceRefs: [123] }] },
+    { ...baseline, researchGaps: "none" },
+    { ...baseline, researchGaps: {} },
+    { ...baseline, researchGaps: [null] },
+    { ...baseline, researchGaps: ["valid", 123] },
+    { ...baseline, guardrails: "none" },
+    { ...baseline, guardrails: [123] },
+    { ...baseline, monetarySignals: "signals" },
+    { ...baseline, monetarySignals: { summary: 123 } },
+    { ...baseline, monetarySignals: { contradicting: "none" } },
+    { ...baseline, monetarySignals: { contradicting: [null] } },
+    { ...baseline, monetarySignals: { unresolved: {} } },
+  ];
+  for (const invalidPayload of malformedPayloads) {
+    assert.throws(() => validateSnapshot(invalidPayload), /Incomplete or malformed snapshot contract/);
+  }
+});
+
+test("accepts omitted or explicitly empty section containers without throwing", () => {
+  const baseline = fixture();
+  const omittedSections = validateSnapshot({
+    ...baseline,
+    stories: undefined,
+    contradictions: null,
+    researchGaps: undefined,
+    guardrails: null,
+    monetarySignals: undefined,
+  });
+  assert.equal(omittedSections.stories, undefined);
+  assert.equal(omittedSections.contradictions, null);
+
+  const emptySections = validateSnapshot({
+    ...baseline,
+    stories: [],
+    contradictions: [],
+    researchGaps: [],
+    guardrails: [],
+    monetarySignals: { summary: "", confirming: [], contradicting: [], unresolved: [] },
+  });
+  assert.deepEqual(emptySections.stories, []);
+  assert.deepEqual(emptySections.contradictions, []);
+  assert.deepEqual(emptySections.researchGaps, []);
+  assert.deepEqual(emptySections.guardrails, []);
+  assert.deepEqual(emptySections.monetarySignals?.contradicting, []);
+});
+
+test("getSectionState distinguishes omitted, empty and non-empty sections", () => {
+  assert.deepEqual(getSectionState(undefined), { status: "not_supplied" });
+  assert.deepEqual(getSectionState(null), { status: "not_supplied" });
+  assert.deepEqual(getSectionState([]), { status: "empty" });
+  assert.deepEqual(getSectionState(["entry"]), { status: "has_entries", items: ["entry"] });
 });
 
 test("a successful GET stores only the validated snapshot and current retrieval time", async () => {
@@ -167,10 +233,10 @@ test("missing market rows, Stories and health fields yield empty lists, not runt
   assert.deepEqual(snapshotRows(data), []);
   assert.deepEqual(snapshotStories(data), []);
   assert.deepEqual(snapshotHealth(data), []);
-  const malformed = validateSnapshot({ ...fixture(), marketState: { selectedRows: null }, stories: [null], sourceHealth: null });
-  assert.deepEqual(snapshotRows(malformed), []);
-  assert.deepEqual(snapshotStories(malformed), []);
-  assert.deepEqual(snapshotHealth(malformed), []);
+  const nullSubfields = validateSnapshot({ ...fixture(), marketState: { selectedRows: null as unknown as [] }, stories: undefined, sourceHealth: null as unknown as undefined });
+  assert.deepEqual(snapshotRows(nullSubfields), []);
+  assert.deepEqual(snapshotStories(nullSubfields), []);
+  assert.deepEqual(snapshotHealth(nullSubfields), []);
 });
 
 test("canonical Story assertions are passed through unchanged, including uncertainty", () => {
