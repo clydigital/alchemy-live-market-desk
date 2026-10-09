@@ -197,4 +197,13 @@ test("route 503 branches use safe unavailableSnapshotResponseBody and standard h
     "Route must set X-Alchemy-Market-Intelligence: unavailable on failure",
   );
   assert.ok(routeSource.includes("status: 503"), "Route must return status 503 on failure");
+  assert.ok(
+    !routeSource.includes("console.error(\"Market intelligence snapshot failed:\", detail)"),
+    "Server logs must not echo exception messages, which may contain secrets",
+  );
+  assert.ok(
+    !routeSource.includes("console.error(\"Market intelligence snapshot unavailable notice:\", selection.notice.detail)"),
+    "Server logs must not echo raw Dossier selection notices",
+  );
+  assert.ok(routeSource.includes("unexpected assembly failure."), "A safe diagnostic category should remain");
 });
