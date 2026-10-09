@@ -92,6 +92,10 @@ export default function MobileIntelligenceBrief() {
         top: 12px;
         left: 12px;
       }
+      #assessment-content:focus {
+        outline: 2px solid #a8c7ff;
+        outline-offset: 4px;
+      }
       .sr-only {
         position: absolute;
         width: 1px;
@@ -111,7 +115,7 @@ export default function MobileIntelligenceBrief() {
         type="button"
         disabled={loading}
         aria-busy={loading}
-        aria-label={loading ? "Refreshing market intelligence brief" : "Refresh market intelligence brief"}
+        aria-label={loading ? (snapshot ? "Refreshing market intelligence brief" : "Loading market intelligence brief") : "Refresh market intelligence brief"}
         onClick={() => void refresh()}
         style={{ padding: "9px 13px", borderRadius: 9, border: "1px solid #7d9bcf", color: "white", background: "#253b63", cursor: loading ? "not-allowed" : "pointer" }}
       >
@@ -121,10 +125,10 @@ export default function MobileIntelligenceBrief() {
     <p style={muted}>Read-only view of the existing Live Desk assessment. This page does not create research or change Stories.</p>
 
     <div aria-live="polite" aria-atomic="true" className="sr-only">
-      {statusInfo.srStatus}
+      {statusInfo.isAlert ? "" : statusInfo.srStatus}
     </div>
 
-    <div id="assessment-content" tabIndex={-1} aria-busy={loading} style={{ outline: "none" }}>
+    <div id="assessment-content" tabIndex={-1} aria-busy={loading}>
       {error && <section role="alert" style={{ ...panel, borderColor: "#c28c64", marginBottom: 14 }}><strong>Live snapshot unavailable</strong><p>{error}</p><p style={muted}>{snapshot ? "Showing the last snapshot loaded in this browser session; it may be outdated." : "No fallback assessment is invented. Consult the existing MacroPulse separately."}</p></section>}
       {!snapshot && !loading && <p>No verified market assessment available.</p>}
       {snapshot && <>
