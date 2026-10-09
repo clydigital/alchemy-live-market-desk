@@ -234,3 +234,51 @@ export function snapshotHealth(snapshot: Snapshot): Array<[string, string]> {
     ? Object.entries(snapshot.sourceHealth).filter((entry): entry is [string, string] => typeof entry[1] === "string")
     : [];
 }
+
+export type BriefStatusInput = {
+  loading: boolean;
+  snapshot: Snapshot | null;
+  error: string | null;
+  hasRefreshed?: boolean;
+};
+
+export type BriefStatusResult = {
+  srStatus: string;
+  isAlert: boolean;
+};
+
+export function getMobileBriefStatus(input: BriefStatusInput): BriefStatusResult {
+  const { loading, snapshot, error, hasRefreshed = false } = input;
+
+  if (loading) {
+    return {
+      srStatus: snapshot || hasRefreshed ? "Refreshing market intelligence brief…" : "Loading market intelligence brief…",
+      isAlert: false,
+    };
+  }
+
+  if (error) {
+    if (snapshot) {
+      return {
+        srStatus: `Latest refresh failed. Showing retained snapshot from this browser session, which may be out of date. ${error}`,
+        isAlert: true,
+      };
+    }
+    return {
+      srStatus: `Live snapshot unavailable. ${error}`,
+      isAlert: true,
+    };
+  }
+
+  if (!snapshot) {
+    return {
+      srStatus: "No verified market assessment available.",
+      isAlert: false,
+    };
+  }
+
+  return {
+    srStatus: hasRefreshed ? "Brief refreshed." : "Market intelligence brief loaded.",
+    isAlert: false,
+  };
+}
