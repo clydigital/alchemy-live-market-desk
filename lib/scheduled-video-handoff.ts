@@ -120,7 +120,10 @@ export function videoSourceChecksFromDedicatedRun(
         return {
           source,
           status: "blocked",
-          itemCount: usable.length,
+          // Source-check itemCount records completed coverage only when checked.
+          // Mixed usable + unresolved creator rows are still blocked; the usable
+          // subset remains traceable in note and the dedicated video intake.
+          itemCount: 0,
           retryable,
           note: `${usable.length} creator transcript(s) are usable; ${unresolved.length} remain unresolved for this creator.`,
         };
