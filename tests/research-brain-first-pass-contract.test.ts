@@ -210,3 +210,16 @@ test("Research Brain distinguishes duration stress from systemic risk-off", () =
   assert.match(instructions, /GOLD-USD CROSS-CHECK/);
   assert.match(instructions, /RESEARCH-NOW PRIORITY/);
 });
+
+test("AI capex watch prioritises investigation without forcing unsupported canonical state", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+  assert.match(instructions, /PRIMARY WATCH — AI CAPEX \/ CASH-FLOW \/ CREDIT CYCLE/);
+  assert.match(instructions, /FIRST TEST whether CURRENT supplied canonical evidence establishes a material change/);
+  assert.match(instructions, /incremental versus replacement \/ inflation-driven capital expenditure/);
+  assert.match(instructions, /reasons for capex RISING or FALLING/);
+  assert.match(instructions, /efficiency-led lower cost per token increases profitable consumption/);
+  assert.match(instructions, /research priority is NOT a market finding/);
+  assert.match(instructions, /do not force the main_thread/);
+  assert.match(instructions, /Notion\/ChatGPT research notes, Motion, creator commentary/);
+  assert.match(instructions, /Use only exact persistent Story bindings and supplied canonical evidence IDs/);
+});
