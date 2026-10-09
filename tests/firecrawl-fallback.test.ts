@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { applyFirecrawlResearchFallback } from "../lib/firecrawl-research-fallback.ts";
 import { scrapePublicUrlWithFirecrawl } from "../lib/firecrawl.ts";
+import { REQUIRED_RESEARCH_SOURCES, validateResearchRun } from "../lib/research-update.ts";
 
 function inputWithSource(status: "checked" | "blocked" = "blocked") {
   return {
@@ -143,6 +144,72 @@ test("Firecrawl fallback preserves earlier acquisition diagnostics in the run su
     assert.match(result.summary || "", /Regional discovery checked Korea and Japan/);
     assert.match(result.summary || "", /Firecrawl blocked-page recovery is not configured/);
   } finally {
+    if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = previousKey;
+  }
+});
+
+
+test("recovered Alchemy articles receive ordered, unique publisher positions and pass the actual validator", async () => {
+  const previousKey = process.env.FIRECRAWL_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.FIRECRAWL_API_KEY = "fixture-key-not-a-real-token";
+  globalThis.fetch = (async (url) => {
+    assert.equal(String(url), "https://api.firecrawl.dev/v2/scrape");
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        rawHtml: `<rss><channel>
+          <item><title>Older rates note</title><link>https://alchemymarkets.com/education/market-insights/older-rates</link><pubDate>Thu, 08 Oct 2026 07:00:00 +0000</pubDate><description>Older canonical publisher summary.</description></item>
+          <item><title>Newer energy note</title><link>https://alchemymarkets.com/education/market-insights/newer-energy</link><pubDate>Thu, 08 Oct 2026 09:00:00 +0000</pubDate><description>Newer canonical publisher summary.</description></item>
+          <item><title>Duplicate newer energy note</title><link>https://alchemymarkets.com/education/market-insights/newer-energy</link><pubDate>Thu, 08 Oct 2026 09:00:00 +0000</pubDate><description>Duplicate URL must not create another article.</description></item>
+        </channel></rss>`,
+        metadata: { sourceURL: "https://alchemymarkets.com/education/market-insights/feed/", statusCode: 200 },
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    for (const scheduleSlot of ["morning", "evening"] as const) {
+      const baseline = {
+        runKey: `cron-v1:${scheduleSlot}:2026-10-09`,
+        scheduleSlot,
+        scheduledFor: scheduleSlot === "morning" ? "2026-10-09T01:30:00.000Z" : "2026-10-09T13:30:00.000Z",
+        sourceChecks: REQUIRED_RESEARCH_SOURCES.map((source) => ({
+          source,
+          status: source === "alchemy-market-insights" || source === "stockedup"
+            ? "blocked" as const : "no_new_items" as const,
+          itemCount: 0,
+          note: "Source checked or unavailable in this fixture.",
+        })),
+        items: [],
+        recalibrations: [],
+      };
+      assert.deepEqual(validateResearchRun(baseline).errors, [], "partial or blocked acquisition is structurally valid without fabricating items");
+      const recovered = await applyFirecrawlResearchFallback(baseline, new Date("2026-10-09T11:00:00.000Z"));
+      assert.equal(recovered.sourceChecks.length, REQUIRED_RESEARCH_SOURCES.length);
+      assert.equal(recovered.sourceChecks.find((check) => check.source === "alchemy-market-insights")?.status, "checked");
+      assert.equal(recovered.sourceChecks.find((check) => check.source === "alchemy-market-insights")?.itemCount, 2);
+      assert.equal(recovered.items.length, 2);
+      assert.deepEqual(recovered.items.map((item) => item.articlePosition), [1, 2]);
+      assert.deepEqual(recovered.items.map((item) => item.title), ["Duplicate newer energy note", "Older rates note"]);
+      assert.deepEqual(validateResearchRun({ ...recovered, recalibrations: [] }).errors, [], "actual scheduled publisher validator accepts the recovered item shape");
+
+      const malformed = {
+        ...recovered,
+        items: recovered.items.map(({ articlePosition: _position, ...item }) => item),
+      };
+      assert.deepEqual(
+        validateResearchRun({ ...malformed, recalibrations: [] }).errors.filter((error) => error.includes("articlePosition")),
+        [
+          "items[0].articlePosition must be from 1 to 30.",
+          "items[1].articlePosition must be from 1 to 30.",
+        ],
+        "previous malformed recovery path is proven to fail the canonical publisher",
+      );
+    }
+  } finally {
+    globalThis.fetch = previousFetch;
     if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
     else process.env.FIRECRAWL_API_KEY = previousKey;
   }

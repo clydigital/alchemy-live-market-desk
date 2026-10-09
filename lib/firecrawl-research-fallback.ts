@@ -239,9 +239,16 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
     }];
   });
 
-  return [...new Map(items.map((item) => [item.url, item])).values()]
+  const deduplicated = [...new Map(items.map((item) => [item.url, item])).values()]
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
     .slice(0, MAX_ITEMS_PER_SOURCE);
+
+  // A recovered Alchemy article must satisfy the same publisher contract as a
+  // directly acquired article. Positions are unique, bounded and assigned in
+  // publication-date order *after* removing duplicate URLs.
+  return spec.itemType === "alchemy_article"
+    ? deduplicated.map((item, index) => ({ ...item, articlePosition: index + 1 }))
+    : deduplicated;
 }
 
 function supportedFallbackSource(value: ResearchSourceKey): value is SupportedFallbackSource {
