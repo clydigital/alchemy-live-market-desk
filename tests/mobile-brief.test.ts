@@ -326,15 +326,85 @@ test("missing or malformed observation times are unknown, not falsely fresh", ()
 
 test("fixed clock distinguishes current, stale and degraded Dossiers without touching source freshness", () => {
   const current = validateSnapshot(fixture());
-  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T07:00:00Z")), { stale: false, degraded: false });
-  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T09:00:00Z")), { stale: true, degraded: false });
+  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T07:00:00Z")), { stale: false, degraded: false, futureDated: false });
+  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T09:00:00Z")), { stale: true, degraded: false, futureDated: false });
   const flagged = { ...fixture(), dossier: { ...fixture().dossier, degraded: true } };
-  assert.deepEqual(dossierWarnings(validateSnapshot(flagged), Date.parse(AS_OF)), { stale: false, degraded: true });
+  assert.deepEqual(dossierWarnings(validateSnapshot(flagged), Date.parse(AS_OF)), { stale: false, degraded: true, futureDated: false });
   for (const status of ["fallback_previous_healthy", "degraded_latest", "unavailable"]) {
     const input = { ...fixture(), dossier: { ...fixture().dossier, status } };
     assert.equal(dossierWarnings(validateSnapshot(input), Date.parse(AS_OF)).degraded, true);
   }
   assert.equal(current.marketState?.selectedRows[0].asOf, "2026-10-08");
+});
+
+test("dossierWarnings boundary conditions for 5m clock skew, 24h staleness, current, 23h old, and degraded status", () => {
+  const baseMs = Date.parse("2026-10-09T12:00:00.000Z");
+
+  // Exactly 5 minutes ahead vs 5 minutes plus 1 ms ahead
+  const exact5mAhead = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs + 5 * 60 * 1000).toISOString() } });
+  assert.deepEqual(dossierWarnings(exact5mAhead, baseMs), { stale: false, degraded: false, futureDated: false });
+
+  const plus1ms5mAhead = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs + 5 * 60 * 1000 + 1).toISOString() } });
+  assert.deepEqual(dossierWarnings(plus1ms5mAhead, baseMs), { stale: false, degraded: false, futureDated: true });
+
+  // 24h old threshold boundary and just beyond
+  const exact24hOld = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs - 24 * 60 * 60 * 1000).toISOString() } });
+  assert.deepEqual(dossierWarnings(exact24hOld, baseMs), { stale: false, degraded: false, futureDated: false });
+
+  const plus1ms24hOld = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs - (24 * 60 * 60 * 1000 + 1)).toISOString() } });
+  assert.deepEqual(dossierWarnings(plus1ms24hOld, baseMs), { stale: true, degraded: false, futureDated: false });
+
+  // Current and 23h old
+  const current = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs).toISOString() } });
+  assert.deepEqual(dossierWarnings(current, baseMs), { stale: false, degraded: false, futureDated: false });
+
+  const age23h = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs - 23 * 60 * 60 * 1000).toISOString() } });
+  assert.deepEqual(dossierWarnings(age23h, baseMs), { stale: false, degraded: false, futureDated: false });
+
+  // Degraded and fallback Dossiers
+  const degradedDossier = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs).toISOString(), degraded: true } });
+  assert.deepEqual(dossierWarnings(degradedDossier, baseMs), { stale: false, degraded: true, futureDated: false });
+
+  const fallbackDossier = validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: new Date(baseMs).toISOString(), status: "fallback_previous_healthy" } });
+  assert.deepEqual(dossierWarnings(fallbackDossier, baseMs), { stale: false, degraded: true, futureDated: false });
+});
+
+test("future-dated but canonically current Dossier triggers futureDated flag without being mislabelled as stale or degraded", () => {
+  const nowMs = Date.parse("2026-10-09T12:00:00.000Z");
+  const futureAsOf = "2026-10-09T14:00:00.000Z"; // 2 hours in the future
+  const futureDossierSnapshot = validateSnapshot({
+    ...fixture(),
+    generatedAt: "2026-10-09T12:00:00.000Z",
+    dossier: { status: "current", dossierId: "dossier-future-1", asOf: futureAsOf, degraded: false },
+    marketState: {
+      selectedRows: [{
+        id: "dxy", symbol: "DXY", label: "US Dollar Index", last: 101.3, change5d: 0.45,
+        asOf: "2026-10-08", sourceName: "Fixture", sourceUrl: "https://example.test",
+      }],
+    },
+  });
+
+  const warnings = dossierWarnings(futureDossierSnapshot, nowMs);
+  assert.deepEqual(warnings, { stale: false, degraded: false, futureDated: true });
+
+  // Verify independent generatedAt and market row asOf remain unchanged
+  assert.equal(futureDossierSnapshot.dossier?.asOf, futureAsOf);
+  assert.equal(futureDossierSnapshot.generatedAt, "2026-10-09T12:00:00.000Z");
+  assert.equal(futureDossierSnapshot.marketState?.selectedRows[0].asOf, "2026-10-08");
+});
+
+test("validateSnapshot rejects invalid/missing asOf while dossierWarnings handles null snapshot safely", () => {
+  const invalidAsOfs = ["", "   ", "not-a-date", null, undefined];
+  for (const badAsOf of invalidAsOfs) {
+    assert.throws(
+      () => validateSnapshot({ ...fixture(), dossier: { ...fixture().dossier, asOf: badAsOf } }),
+      /Incomplete or malformed snapshot contract/,
+    );
+  }
+
+  // dossierWarnings with null snapshot or missing dossier returns stale true and futureDated false
+  assert.deepEqual(dossierWarnings(null, Date.now()), { stale: true, degraded: false, futureDated: false });
+  assert.deepEqual(dossierWarnings({ contractVersion: "v1", regime: { headline: "H" } } as unknown as Snapshot, Date.now()), { stale: true, degraded: false, futureDated: false });
 });
 
 test("missing market rows and Stories yield empty lists, while absent health is not_supplied", () => {

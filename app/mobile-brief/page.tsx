@@ -70,7 +70,7 @@ export default function MobileIntelligenceBrief() {
   }, []);
 
   const statusInfo = getMobileBriefStatus({ loading, snapshot, error, hasRefreshed });
-  const { stale, degraded } = dossierWarnings(snapshot, Date.now());
+  const { stale, degraded, futureDated } = dossierWarnings(snapshot, Date.now());
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <style>{`
@@ -132,7 +132,7 @@ export default function MobileIntelligenceBrief() {
       {snapshot && <>
       <section style={{ ...panel, marginBottom: 14 }}>
         <div style={muted}>Dossier: {formatBriefDate(snapshot.dossier?.asOf)} · Retrieved: {formatBriefDate(requestedAt)} · Generated: {formatBriefDate(snapshot.generatedAt)}</div>
-        {(stale || degraded || error) && <p style={{ color: "#ffcf92" }}>Caution: {stale ? "Dossier is more than 24 hours old. " : ""}{degraded ? "Selected Dossier is degraded or a fallback. " : ""}{error ? "Latest refresh failed." : ""}</p>}
+        {(futureDated || stale || degraded || error) && <p style={{ color: "#ffcf92" }}>Caution: {futureDated ? "Dossier timestamp is ahead of this device's clock; timing may be unreliable. " : ""}{stale ? "Dossier is more than 24 hours old. " : ""}{degraded ? "Selected Dossier is degraded or a fallback. " : ""}{error ? "Latest refresh failed." : ""}</p>}
         <h2 style={{ fontSize: 21, marginBottom: 4 }}>{snapshot.regime?.headline || "Regime assessment"}</h2>
         <p>{formatRegimeAnswer(snapshot.regime?.answer)}</p>
         <p>{formatRegimeImplication(snapshot.regime?.regimeImplication)}</p>
