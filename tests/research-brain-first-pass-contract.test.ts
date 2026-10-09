@@ -143,7 +143,7 @@ test("Research Brain frames fresh market Motion against ongoing regimes before a
   const instructions = buildResearchBrainSystemInstructions();
 
   assert.match(instructions, /MOTION-LED, REGIME-ANCHORED MARKET FRAME/);
-  assert.match(instructions, /latest meaningful supported change/);
+  assert.match(instructions, /newest meaningful supported change/);
   assert.match(instructions, /most consequential NEW market behaviour/);
   assert.match(instructions, /Do not infer risk-on or risk-off from SPX\/NDX alone/);
   assert.match(instructions, /higher yields are tightening conditions/);
