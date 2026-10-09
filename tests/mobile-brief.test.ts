@@ -76,22 +76,93 @@ test("valid v1 snapshot is returned unchanged; Dossier, generation, and observat
   assert.equal(result.marketState?.selectedRows[0].asOf, "2026-10-08");
 });
 
-test("rejects unsupported contracts, absent canonical identifiers, or malformed Dossier times", () => {
+test("rejects unsupported contracts, absent canonical identifiers, or malformed Dossier health/times", () => {
   const baseline = fixture();
   const invalid = [
     null, {}, [], 123,
     { ...baseline, contractVersion: "market-intelligence-snapshot/v2" },
     { ...baseline, dossier: null },
+    { ...baseline, dossier: { ...baseline.dossier, status: undefined } },
+    { ...baseline, dossier: { ...baseline.dossier, status: null } },
+    { ...baseline, dossier: { ...baseline.dossier, status: "" } },
+    { ...baseline, dossier: { ...baseline.dossier, status: "   " } },
+    { ...baseline, dossier: { ...baseline.dossier, status: 123 } },
+    { ...baseline, dossier: { ...baseline.dossier, status: { name: "current" } } },
     { ...baseline, dossier: { ...baseline.dossier, dossierId: "" } },
     { ...baseline, dossier: { ...baseline.dossier, dossierId: "   " } },
     { ...baseline, dossier: { ...baseline.dossier, asOf: "" } },
     { ...baseline, dossier: { ...baseline.dossier, asOf: "not-a-date" } },
+    { ...baseline, dossier: { ...baseline.dossier, degraded: undefined } },
+    { ...baseline, dossier: { ...baseline.dossier, degraded: null } },
+    { ...baseline, dossier: { ...baseline.dossier, degraded: "false" } },
+    { ...baseline, dossier: { ...baseline.dossier, degraded: 0 } },
+    { ...baseline, dossier: { ...baseline.dossier, degraded: {} } },
+    { ...baseline, generatedAt: "not-a-date" },
+    { ...baseline, generatedAt: "" },
+    { ...baseline, generatedAt: "   " },
+    { ...baseline, generatedAt: 12345 },
+    { ...baseline, generatedAt: {} },
+    { ...baseline, generatedAt: [] },
     { ...baseline, regime: null },
     { ...baseline, regime: { ...baseline.regime, headline: "" } },
   ];
   for (const value of invalid) {
     assert.throws(() => validateSnapshot(value), /Incomplete or malformed snapshot contract/);
   }
+});
+
+test("validates Dossier health statuses, degraded flags, and missing or null generatedAt timestamps", () => {
+  const baseline = fixture();
+
+  // Healthy current
+  const healthy = validateSnapshot(baseline);
+  assert.equal(healthy.dossier?.status, "current");
+  assert.equal(healthy.dossier?.degraded, false);
+
+  // Degraded flagged
+  const degradedFlagged = validateSnapshot({ ...baseline, dossier: { ...baseline.dossier, degraded: true } });
+  assert.equal(degradedFlagged.dossier?.degraded, true);
+
+  // Fallback status
+  const fallbackStatus = validateSnapshot({ ...baseline, dossier: { ...baseline.dossier, status: "fallback_previous_healthy" } });
+  assert.equal(fallbackStatus.dossier?.status, "fallback_previous_healthy");
+
+  // Missing or null generatedAt
+  const missingGenAt = validateSnapshot({ ...baseline, generatedAt: undefined });
+  assert.equal(missingGenAt.generatedAt, undefined);
+  assert.equal(formatBriefDate(missingGenAt.generatedAt), "Unknown");
+
+  const nullGenAt = validateSnapshot({ ...baseline, generatedAt: null });
+  assert.equal(nullGenAt.generatedAt, null);
+  assert.equal(formatBriefDate(nullGenAt.generatedAt), "Unknown");
+});
+
+test("dossierWarnings treats unknown non-empty status as conservatively degraded", () => {
+  const baseline = fixture();
+  const unknownStatus = validateSnapshot({ ...baseline, dossier: { ...baseline.dossier, status: "some_unknown_status", degraded: false } });
+  const warnings = dossierWarnings(unknownStatus, Date.parse(AS_OF));
+  assert.equal(warnings.degraded, true);
+  assert.equal(warnings.stale, false);
+});
+
+test("three independent timestamps (dossier.asOf, generatedAt, market row asOf) and requestedAt stay conceptually separate", async () => {
+  const snapshotData = {
+    ...fixture(),
+    dossier: { ...fixture().dossier, asOf: "2026-10-09T08:00:00.000Z" },
+    generatedAt: "2026-10-09T09:00:00.000Z",
+    marketState: {
+      selectedRows: [{
+        id: "dxy", symbol: "DXY", label: "US Dollar Index", last: 101.3, change5d: 0.45,
+        asOf: "2026-10-08", sourceName: "Fixture", sourceUrl: "https://example.test",
+      }],
+    },
+  };
+
+  const loaded = await loadMobileSnapshot(FIRST_LOAD, async () => response(snapshotData), () => RETRIEVED);
+  assert.equal(loaded.snapshot?.dossier?.asOf, "2026-10-09T08:00:00.000Z");
+  assert.equal(loaded.snapshot?.generatedAt, "2026-10-09T09:00:00.000Z");
+  assert.equal(loaded.snapshot?.marketState?.selectedRows[0].asOf, "2026-10-08");
+  assert.equal(loaded.requestedAt, RETRIEVED);
 });
 
 test("rejects malformed section container types and incompatible entry payloads in validateSnapshot", () => {
@@ -365,7 +436,7 @@ test("valid zero, negative percentage, and null numeric market observations are 
   assert.equal(formatMarketChange(rows[2].change5d), "n/a");
 });
 
-test("failed refresh with malformed marketState retains previous verified snapshot and signals error", async () => {
+test("failed refresh with malformed marketState or generatedAt retains previous verified snapshot and signals error", async () => {
   const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
 
   const malformedRows = await loadMobileSnapshot(previous, async () => response({
@@ -383,6 +454,14 @@ test("failed refresh with malformed marketState retains previous verified snapsh
   assert.strictEqual(malformedContainer.snapshot, previous.snapshot);
   assert.equal(malformedContainer.requestedAt, RETRIEVED);
   assert.match(malformedContainer.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedGenAt = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    generatedAt: "invalid-timestamp",
+  }));
+  assert.strictEqual(malformedGenAt.snapshot, previous.snapshot);
+  assert.equal(malformedGenAt.requestedAt, RETRIEVED);
+  assert.match(malformedGenAt.error ?? "", /Incomplete or malformed snapshot contract/);
 });
 
 test("failed refresh with malformed provider health preserves in-session snapshot and signals error", async () => {
