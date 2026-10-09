@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 
+import type { GeminiVideoAnalysisResult } from "./gemini-video-analysis-contract.ts";
+import { GeminiVideoAnalysisError } from "./gemini-video-analysis.ts";
 import type { TranscriptResearchReview } from "./transcript-research-review-contract.ts";
+import {
+  classifyVideoRetrievalFailure,
+  geminiRescueEligible,
+  type VideoRetrievalFailureKind,
+} from "./video-retrieval-failure.ts";
 import {
   normalizeTranscriptApiError,
   transcriptProviderFromRetrieval,
@@ -33,13 +40,26 @@ export type ClaimedTranscriptJob = {
   jobAttemptCount: number;
   interpretedAt: string | null;
   evidenceId: string | null;
+  videoAnalysisStatus?: "not_attempted" | "summary_only" | "failed";
 };
+
+export type GeminiVideoAnalysisOutcome =
+  | { status: "summary_only"; result: GeminiVideoAnalysisResult }
+  | { status: "failed"; errorCode: string; errorMessage: string }
+  | null;
 
 export type TranscriptWorkerStore = {
   claim(input: { workerId: string; batchSize: number; leaseSeconds: number }): Promise<ClaimedTranscriptJob[]>;
   renew(job: ClaimedTranscriptJob, leaseSeconds: number): Promise<boolean>;
   saveTranscript(job: ClaimedTranscriptJob, retrieval: TranscriptApiRetrieval, attemptedAt: string): Promise<void>;
-  saveExtractionFailure(job: ClaimedTranscriptJob, error: TranscriptApiError, attemptedAt: string, nextAttemptAt: string | null): Promise<void>;
+  saveExtractionFailure(
+    job: ClaimedTranscriptJob,
+    error: TranscriptApiError,
+    attemptedAt: string,
+    nextAttemptAt: string | null,
+    failureKind: VideoRetrievalFailureKind,
+    analysisOutcome?: GeminiVideoAnalysisOutcome,
+  ): Promise<void>;
   saveInterpretation(job: ClaimedTranscriptJob, review: TranscriptResearchReview, interpretedAt: string): Promise<void>;
   findEvidence(job: ClaimedTranscriptJob): Promise<string | null>;
   persistEvidence(job: ClaimedTranscriptJob): Promise<string>;
@@ -60,6 +80,8 @@ export type TranscriptWorkerDependencies = {
   claimHeadroomMs?: number;
   leaseSeconds?: number;
   maxAttempts?: number;
+  videoAnalysisConfigured?: () => boolean;
+  analyseVideo?: (job: ClaimedTranscriptJob) => Promise<GeminiVideoAnalysisResult>;
 };
 
 export class LostTranscriptLeaseError extends Error {
@@ -153,10 +175,44 @@ export async function processTranscriptJob(
         }
       } catch (error) {
         const failure = normalizeTranscriptApiError(error);
+        const failureKind = classifyVideoRetrievalFailure(failure);
         const nextAttemptAt = failure.retryable
           ? retryAt(now(), failure.retryAfterSeconds ?? 30 * 60)
           : null;
-        await dependencies.store.saveExtractionFailure(job, failure, attemptedAt, nextAttemptAt);
+        let analysisOutcome: GeminiVideoAnalysisOutcome = null;
+        const shouldAnalyse = geminiRescueEligible(failure)
+          && job.videoAnalysisStatus !== "summary_only"
+          && dependencies.videoAnalysisConfigured?.() === true
+          && Boolean(dependencies.analyseVideo);
+        if (shouldAnalyse) {
+          await assertLease(dependencies.store, job, leaseSeconds);
+          try {
+            analysisOutcome = {
+              status: "summary_only",
+              result: await dependencies.analyseVideo!(job),
+            };
+          } catch (analysisError) {
+            analysisOutcome = analysisError instanceof GeminiVideoAnalysisError
+              ? {
+                  status: "failed",
+                  errorCode: analysisError.code,
+                  errorMessage: analysisError.message,
+                }
+              : {
+                  status: "failed",
+                  errorCode: "provider_error",
+                  errorMessage: "Gemini video analysis failed.",
+                };
+          }
+        }
+        await dependencies.store.saveExtractionFailure(
+          job,
+          failure,
+          attemptedAt,
+          nextAttemptAt,
+          failureKind,
+          analysisOutcome,
+        );
         timings.extraction += elapsed(clock, stageStartedAt);
         return outcome({
           itemId: job.id,

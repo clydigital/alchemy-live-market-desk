@@ -81,10 +81,13 @@ Copy `.env.example` and configure these server-side Vercel values:
 - `RESEARCH_UPDATE_TOKEN`
 - `YOUTUBE_DATA_API_KEY`
 - `TRANSCRIPT_API_KEY`
+- `GEMINI_API_KEY` (optional public-YouTube summary rescue)
 - `OPENAI_API_KEY`
 - `CRON_SECRET`
 
 `OPENAI_INTELLIGENCE_ENABLED=false` is the kill switch for the model reasoning layer. If no OpenAI key is configured, the existing legacy recalibration path remains available rather than breaking research ingestion.
+
+When `GEMINI_API_KEY` is present, an eligible transcript-provider failure can trigger public-YouTube analysis with `GEMINI_VIDEO_MODEL` (default `gemini-3.8-flash`). The result is stored only as `GEMINI_SUMMARY_ONLY`: it is not a recovered transcript, canonical evidence, or a Market Motion input. The original transcript failure and retry schedule remain authoritative.
 
 `CRON_SECRET` authorizes only Vercel Cron requests. `VERCEL_AUTOMATION_BYPASS_SECRET` is preview-only and exists solely for protected deployment verification.
 

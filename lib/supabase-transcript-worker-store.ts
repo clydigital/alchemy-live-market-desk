@@ -10,11 +10,16 @@ import {
   type TranscriptResearchReview,
 } from "./transcript-research-review-contract.ts";
 import {
+  GEMINI_SUMMARY_ONLY_LABEL,
+} from "./gemini-video-analysis-contract.ts";
+import {
   LostTranscriptLeaseError,
   type ClaimedTranscriptJob,
+  type GeminiVideoAnalysisOutcome,
   type TranscriptWorkerStore,
 } from "./transcript-worker.ts";
 import { transcriptProviderFromRetrieval, type TranscriptApiError, type TranscriptApiRetrieval } from "./transcriptapi.ts";
+import type { VideoRetrievalFailureKind } from "./video-retrieval-failure.ts";
 
 type ClaimedRow = {
   id: string;
@@ -35,6 +40,7 @@ type ClaimedRow = {
   transcript_job_attempt_count: number;
   transcript_interpreted_at: string | null;
   transcript_evidence_id: string | null;
+  video_analysis_status: ClaimedTranscriptJob["videoAnalysisStatus"];
 };
 
 function message(error: { message: string } | null, context: string) {
@@ -61,6 +67,29 @@ function toJob(row: ClaimedRow): ClaimedTranscriptJob {
     jobAttemptCount: row.transcript_job_attempt_count ?? 1,
     interpretedAt: row.transcript_interpreted_at,
     evidenceId: row.transcript_evidence_id,
+    videoAnalysisStatus: row.video_analysis_status ?? "not_attempted",
+  };
+}
+
+function geminiAnalysisPayload(outcome: NonNullable<GeminiVideoAnalysisOutcome>, attemptedAt: string) {
+  if (outcome.status === "summary_only") {
+    return {
+      provider: outcome.result.provider,
+      label: outcome.result.evidenceLabel,
+      model: outcome.result.model,
+      promptVersion: outcome.result.promptVersion,
+      savedAt: attemptedAt,
+      analysis: outcome.result.analysis,
+    };
+  }
+  return {
+    provider: "gemini",
+    label: GEMINI_SUMMARY_ONLY_LABEL,
+    attemptedAt,
+    error: {
+      code: outcome.errorCode.slice(0, 100),
+      message: outcome.errorMessage.slice(0, 1_000),
+    },
   };
 }
 
@@ -143,7 +172,10 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
     failure: TranscriptApiError,
     attemptedAt: string,
     nextAttemptAt: string | null,
+    failureKind: VideoRetrievalFailureKind,
+    analysisOutcome: GeminiVideoAnalysisOutcome = null,
   ) {
+    const analysisPayload = analysisOutcome ? geminiAnalysisPayload(analysisOutcome, attemptedAt) : null;
     await this.ownedUpdate(job, {
       transcript_status: failure.retryable ? "missing" : "unavailable",
       transcript_provider: "supadata",
@@ -159,6 +191,11 @@ export class SupabaseTranscriptWorkerStore implements TranscriptWorkerStore {
       transcript_next_attempt_at: nextAttemptAt,
       transcript_claim_token: null,
       transcript_lease_expires_at: null,
+      video_retrieval_failure_kind: failureKind,
+      ...(analysisOutcome ? {
+        video_analysis_status: analysisOutcome.status,
+        video_analysis_payload: analysisPayload,
+      } : {}),
       status: "blocked",
       review_reason: failure.retryable
         ? `Supadata failed with ${failure.code}; a bounded retry is scheduled.`

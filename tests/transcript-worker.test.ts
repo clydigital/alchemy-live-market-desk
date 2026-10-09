@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { GeminiVideoAnalysisResult } from "../lib/gemini-video-analysis-contract.ts";
 import type { TranscriptResearchReview } from "../lib/transcript-research-review-contract.ts";
 import {
   processTranscriptJob,
   runTranscriptWorker,
   type ClaimedTranscriptJob,
+  type GeminiVideoAnalysisOutcome,
   type TranscriptWorkerStore,
 } from "../lib/transcript-worker.ts";
 import { transcriptProviderFromRetrieval, TranscriptApiError, type TranscriptApiRetrieval } from "../lib/transcriptapi.ts";
+import type { VideoRetrievalFailureKind } from "../lib/video-retrieval-failure.ts";
 
 const start = new Date("2026-09-14T00:00:00.000Z");
 
@@ -39,6 +42,24 @@ const review: TranscriptResearchReview = {
   researchLeadScore: 72,
 };
 
+const geminiResult: GeminiVideoAnalysisResult = {
+  provider: "gemini",
+  evidenceLabel: "GEMINI_SUMMARY_ONLY",
+  model: "gemini-3.8-flash",
+  promptVersion: "gemini-video-analysis/1",
+  analysis: {
+    schemaVersion: "gemini-video-analysis/1",
+    accessStatus: "full",
+    mainThesis: "Rates remain restrictive.",
+    directionalBias: "bearish",
+    conviction: "medium",
+    claims: [],
+    uncertainty: [],
+    contradictions: [],
+    summary: "A rates-led cautious view.",
+  },
+};
+
 function job(overrides: Partial<ClaimedTranscriptJob> = {}): ClaimedTranscriptJob {
   return {
     id: "975ddfe0-5b7d-4d6c-b1e0-b3db23b7ed23",
@@ -59,6 +80,7 @@ function job(overrides: Partial<ClaimedTranscriptJob> = {}): ClaimedTranscriptJo
     jobAttemptCount: 1,
     interpretedAt: null,
     evidenceId: null,
+    videoAnalysisStatus: "not_attempted",
     ...overrides,
   };
 }
@@ -75,6 +97,8 @@ class MemoryStore implements TranscriptWorkerStore {
   retryWrites = 0;
   claimSequence = 0;
   failEvidenceOnce = false;
+  lastFailureKind: VideoRetrievalFailureKind | null = null;
+  lastAnalysisOutcome: GeminiVideoAnalysisOutcome = null;
 
   async claim(input: { workerId: string; batchSize: number; leaseSeconds: number }) {
     const leaseExpired = this.state === "running" && Date.parse(this.current.leaseExpiresAt) <= this.now;
@@ -107,9 +131,18 @@ class MemoryStore implements TranscriptWorkerStore {
     this.current = { ...this.current, transcriptStatus: "ready", transcriptText: value.transcript.text, transcriptProvider: transcriptProviderFromRetrieval(value) ?? "supadata", videoReviewStatus: "transcript_only" };
   }
 
-  async saveExtractionFailure(candidate: ClaimedTranscriptJob, error: TranscriptApiError, _at: string, next: string | null) {
+  async saveExtractionFailure(
+    candidate: ClaimedTranscriptJob,
+    error: TranscriptApiError,
+    _at: string,
+    next: string | null,
+    failureKind: VideoRetrievalFailureKind,
+    analysisOutcome: GeminiVideoAnalysisOutcome = null,
+  ) {
     assert.equal(this.owns(candidate), true);
     this.extractionFailures += 1;
+    this.lastFailureKind = failureKind;
+    this.lastAnalysisOutcome = analysisOutcome;
     this.state = error.retryable ? "retryable" : "blocked";
     this.current = { ...this.current, transcriptStatus: error.retryable ? "missing" : "unavailable", leaseExpiresAt: next ?? this.current.leaseExpiresAt };
   }
@@ -264,6 +297,76 @@ test("permanent transcript unavailability becomes explicitly blocked without ret
   assert.equal(store.extractionFailures, 1);
   assert.equal(store.retryWrites, 0);
   assert.equal(store.state, "blocked");
+});
+
+test("eligible transcript failure stores a summary-only Gemini rescue without changing the transcript outcome", async () => {
+  const store = new MemoryStore();
+  store.state = "running";
+  store.current = job();
+  let analysisCalls = 0;
+  const outcome = await processTranscriptJob({ ...store.current }, {
+    store,
+    now: () => start,
+    leaseSeconds: 300,
+    maxAttempts: 6,
+    extract: async () => { throw new TranscriptApiError("No captions", { code: "transcript_missing", httpStatus: 206, retryable: false }); },
+    interpret: async () => review,
+    videoAnalysisConfigured: () => true,
+    analyseVideo: async () => { analysisCalls += 1; return geminiResult; },
+  });
+  assert.equal(outcome.status, "blocked");
+  assert.equal(outcome.errorCode, "transcript_missing");
+  assert.equal(analysisCalls, 1);
+  assert.equal(store.lastFailureKind, "TRANSCRIPT_PROVIDER_FAILED");
+  assert.equal(store.lastAnalysisOutcome?.status, "summary_only");
+});
+
+test("structural unavailability, missing configuration and an existing summary skip Gemini", async () => {
+  for (const [code, videoAnalysisStatus, configured] of [
+    ["video_private", "not_attempted", true],
+    ["transcript_missing", "summary_only", true],
+    ["transcript_missing", "not_attempted", false],
+  ] as const) {
+    const store = new MemoryStore();
+    store.state = "running";
+    store.current = job({ videoAnalysisStatus });
+    let analysisCalls = 0;
+    await processTranscriptJob({ ...store.current }, {
+      store,
+      now: () => start,
+      leaseSeconds: 300,
+      maxAttempts: 6,
+      extract: async () => { throw new TranscriptApiError("Unavailable", { code, httpStatus: 404, retryable: false }); },
+      interpret: async () => review,
+      videoAnalysisConfigured: () => configured,
+      analyseVideo: async () => { analysisCalls += 1; return geminiResult; },
+    });
+    assert.equal(analysisCalls, 0, code);
+    assert.equal(store.lastAnalysisOutcome, null, code);
+  }
+});
+
+test("Gemini failure is diagnostic only and preserves the transcript retry schedule", async () => {
+  const store = new MemoryStore();
+  store.state = "running";
+  store.current = job();
+  const outcome = await processTranscriptJob({ ...store.current }, {
+    store,
+    now: () => start,
+    leaseSeconds: 300,
+    maxAttempts: 6,
+    extract: async () => { throw new TranscriptApiError("Provider busy", { code: "provider_server_error", httpStatus: 503, retryable: true, retryAfterSeconds: 120 }); },
+    interpret: async () => review,
+    videoAnalysisConfigured: () => true,
+    analyseVideo: async () => { throw new Error("upstream detail must not be persisted"); },
+  });
+  assert.equal(outcome.status, "retryable");
+  assert.equal(outcome.errorCode, "provider_server_error");
+  assert.deepEqual(store.lastAnalysisOutcome, {
+    status: "failed",
+    errorCode: "provider_error",
+    errorMessage: "Gemini video analysis failed.",
+  });
 });
 
 test("completed transcript evidence is visible through the normal evidence set and idempotent", async () => {
