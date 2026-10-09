@@ -2299,3 +2299,19 @@ test("11. Deterministic Degradation Fallback & Traceability", async () => {
   assert.equal(result.investigations[0].leads_referenced![0], "lead:oil:supply");
   assert.equal(result.thesis_ledger.entries.length, 1);
 });
+
+
+test("Dossier stays motion-led and anchored to canonical Regime evidence", () => {
+  const prompt = buildResearchBrainPrompt({
+    contract_version: RESEARCH_BRAIN_INPUT_CONTRACT_VERSION,
+    as_of: createValidBasePacket().as_of,
+    packet: createValidBasePacket(),
+  });
+  assert.match(prompt.instructions, /MOTION-LED, REGIME-ANCHORED MARKET FRAME/);
+  assert.match(prompt.instructions, /what moved \/ what changed/);
+  assert.match(prompt.instructions, /previous working thesis versus the newest observation/);
+  assert.match(prompt.instructions, /healthy efficiency-led capex slowdown/);
+  assert.match(prompt.instructions, /AI topic is a first-priority TEST, never a forced headline/);
+  assert.match(prompt.instructions, /Notion regime status unless CURRENT canonical packet evidence/);
+  assert.match(prompt.instructions, /Motion adjudication and Story identity boundaries/);
+});

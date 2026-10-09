@@ -139,10 +139,12 @@ test("Research Brain uses evidence-gated investigation lifecycle transitions", (
   assert.match(instructions, /preserve uncertainty rather than manufacturing a lifecycle transition/);
 });
 
-test("Research Brain frames the dossier around regime before asset calls", () => {
+test("Research Brain frames fresh market Motion against ongoing regimes before asset calls", () => {
   const instructions = buildResearchBrainSystemInstructions();
 
-  assert.match(instructions, /REGIME-FIRST MARKET FRAME/);
+  assert.match(instructions, /MOTION-LED, REGIME-ANCHORED MARKET FRAME/);
+  assert.match(instructions, /newest meaningful supported change/);
+  assert.match(instructions, /most consequential NEW market behaviour/);
   assert.match(instructions, /Do not infer risk-on or risk-off from SPX\/NDX alone/);
   assert.match(instructions, /higher yields are tightening conditions/);
   assert.match(instructions, /equity strength may be narrow/);
