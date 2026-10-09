@@ -438,9 +438,9 @@ test("meaningful contrast: success is public-cacheable 200 with snapshot data vs
       stockRadar: [],
     } as unknown as DossierPresentationV1,
     monitor: { rows: [], contradictions: [], limitations: [] } as unknown as MarketMonitor,
-    nyFedReferenceRates: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "NY Fed", sourceUrl: "", rates: [], warnings: [] },
-    nyFedPrimaryDealers: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "NY Fed", sourceUrl: "", series: [], warnings: [] },
-    treasuryBills: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "Treasury", sourceUrl: "", points: [], warnings: [] },
+    nyFedReferenceRates: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "Federal Reserve Bank of New York", sourceUrl: "", rates: [], warnings: [] },
+    nyFedPrimaryDealers: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "Federal Reserve Bank of New York", sourceUrl: "", series: [], warnings: [] },
+    treasuryBills: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "U.S. Department of the Treasury", sourceUrl: "", points: [], warnings: [] },
     generatedAt: "2026-09-25T00:00:00.000Z",
   });
 
