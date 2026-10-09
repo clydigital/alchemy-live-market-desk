@@ -74,6 +74,25 @@ Do not expose the local operator openly to the public internet. It accepts only
 token-authenticated requests, serialises browser work, and should remain behind
 your private network boundary.
 
+## Optional Gemini summary rescue
+
+If `GEMINI_API_KEY` is configured, the leased worker can analyse a public
+YouTube URL after the transcript-provider chain fails. It uses
+`GEMINI_VIDEO_MODEL` (default `gemini-3.8-flash`) and stores structured creator
+claims, timestamps where available, uncertainty and verification targets.
+
+This path is deliberately fenced:
+
+- It runs only for `TRANSCRIPT_PROVIDER_FAILED`; private, deleted, missing or
+  invalid videos are recorded as `VIDEO_UNAVAILABLE` and skipped.
+- Every successful payload is labelled `GEMINI_SUMMARY_ONLY`.
+- It never populates transcript text/provider fields, creates transcript
+  Evidence, completes the transcript job, or enters Market Motion.
+- Gemini failure never replaces the original transcript error or retry time.
+- Public YouTube URL analysis is preview functionality and may be unavailable
+  even when the video itself is healthy. Important videos should still retry
+  the transcript chain later.
+
 ## Transcript gate
 
 For every video admitted to transcript intake:
