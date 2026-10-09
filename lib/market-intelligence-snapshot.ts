@@ -6,6 +6,22 @@ import type { NyFedReferenceRatesSnapshot } from "./providers/ny-fed-reference-r
 import type { TreasuryBillSnapshot } from "./providers/treasury-bills.ts";
 
 export const MARKET_INTELLIGENCE_SNAPSHOT_V1 = "market-intelligence-snapshot/v1" as const;
+export const MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL =
+  "No verified market intelligence snapshot is currently available." as const;
+
+export type MarketIntelligenceSnapshotUnavailableV1 = {
+  contractVersion: typeof MARKET_INTELLIGENCE_SNAPSHOT_V1;
+  status: "unavailable";
+  detail: typeof MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL;
+};
+
+export function unavailableSnapshotResponseBody(): MarketIntelligenceSnapshotUnavailableV1 {
+  return {
+    contractVersion: MARKET_INTELLIGENCE_SNAPSHOT_V1,
+    status: "unavailable",
+    detail: MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL,
+  };
+}
 
 export type MonetarySignalDirection =
   | "TIGHTER"

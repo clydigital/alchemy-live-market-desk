@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildMarketIntelligenceSnapshot } from "../lib/market-intelligence-snapshot.ts";
+import { readFileSync } from "node:fs";
+import {
+  buildMarketIntelligenceSnapshot,
+  unavailableSnapshotResponseBody,
+  MARKET_INTELLIGENCE_SNAPSHOT_V1,
+  MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL,
+} from "../lib/market-intelligence-snapshot.ts";
 import type { DossierPresentationV1 } from "../lib/dossier-v2/presentation-adapter.ts";
 import type { MarketMonitor } from "../lib/market-monitor.ts";
 import type { NyFedPrimaryDealerSnapshot } from "../lib/providers/ny-fed-primary-dealers.ts";
@@ -133,4 +139,71 @@ test("market intelligence keeps monetary confirmations and contradictions separa
   assert.ok(result.monetarySignals.contradicting.includes("FUNDING"));
   assert.ok(result.monetarySignals.unresolved.includes("DEALER_POSITIONING"));
   assert.ok(result.researchGaps.some((item) => item.includes("Treasury supply")));
+});
+
+test("unavailableSnapshotResponseBody produces a safe static 503 payload without echoing sensitive details", () => {
+  const sensitiveInputs = [
+    "postgres://admin:p@ssword123@db.internal:5432/production_live",
+    "HTTP 502 Bad Gateway from https://secret-provider.internal/v1/feed?key=sk_live_999",
+    "Error: SELECT * FROM secret_tokens WHERE token = 'xyz'",
+    "TypeError: Cannot read properties of null at fetchProvider (file:///app/lib/provider.ts:42:10)",
+    "Failed to authenticate with bearer token eyJhbGciOiJIUzI1NiI...",
+    "Internal database connection pool exhausted at node:internal/net:123",
+  ];
+
+  for (const input of sensitiveInputs) {
+    const response = unavailableSnapshotResponseBody();
+    const serialized = JSON.stringify(response);
+
+    assert.equal(response.contractVersion, MARKET_INTELLIGENCE_SNAPSHOT_V1);
+    assert.equal(response.status, "unavailable");
+    assert.equal(response.detail, "No verified market intelligence snapshot is currently available.");
+    assert.equal(response.detail, MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL);
+
+    assert.ok(!serialized.includes(input), `Public response must not contain sensitive input: ${input}`);
+    assert.ok(!serialized.includes("postgres"), "Public response must not contain database URI");
+    assert.ok(!serialized.includes("http"), "Public response must not contain provider URL");
+    assert.ok(!serialized.includes("SELECT"), "Public response must not contain SQL");
+    assert.ok(!serialized.includes("TypeError"), "Public response must not contain exception type");
+    assert.ok(!serialized.includes("file://"), "Public response must not contain stack trace");
+  }
+});
+
+test("route 503 branches use safe unavailableSnapshotResponseBody and standard headers", () => {
+  const routeSource = readFileSync(
+    new URL("../app/api/market-intelligence-snapshot/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(
+    routeSource.includes("unavailableSnapshotResponseBody()"),
+    "Route must import and use unavailableSnapshotResponseBody()",
+  );
+
+  assert.ok(
+    !routeSource.includes("`Market intelligence snapshot failed: ${detail}`"),
+    "Route must not construct dynamic failure strings containing exception details",
+  );
+
+  assert.ok(
+    !routeSource.includes("detail: selection.notice?.detail"),
+    "Route must not expose raw selection notice details in public 503 responses",
+  );
+
+  // Assert expected 503 headers semantics exist in route source
+  assert.ok(routeSource.includes('"Cache-Control": "no-store"'), "Route must set Cache-Control: no-store on failure");
+  assert.ok(
+    routeSource.includes('"X-Alchemy-Market-Intelligence": "unavailable"'),
+    "Route must set X-Alchemy-Market-Intelligence: unavailable on failure",
+  );
+  assert.ok(routeSource.includes("status: 503"), "Route must return status 503 on failure");
+  assert.ok(
+    !routeSource.includes("console.error(\"Market intelligence snapshot failed:\", detail)"),
+    "Server logs must not echo exception messages, which may contain secrets",
+  );
+  assert.ok(
+    !routeSource.includes("console.error(\"Market intelligence snapshot unavailable notice:\", selection.notice.detail)"),
+    "Server logs must not echo raw Dossier selection notices",
+  );
+  assert.ok(routeSource.includes("unexpected assembly failure."), "A safe diagnostic category should remain");
 });

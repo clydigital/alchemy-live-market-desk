@@ -4,7 +4,10 @@ import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
-import { buildMarketIntelligenceSnapshot } from "@/lib/market-intelligence-snapshot";
+import {
+  buildMarketIntelligenceSnapshot,
+  unavailableSnapshotResponseBody,
+} from "@/lib/market-intelligence-snapshot";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { marketMotionFromEditionPayload } from "@/lib/market-motion-edition";
 import { fetchNyFedPrimaryDealers } from "@/lib/providers/ny-fed-primary-dealers";
@@ -19,11 +22,9 @@ export async function GET() {
   try {
     const selection = await getDossierV2PresentationSelection();
     if (!selection.presentation) {
-      return NextResponse.json({
-        contractVersion: "market-intelligence-snapshot/v1",
-        status: "unavailable",
-        detail: selection.notice?.detail || "No current Dossier presentation is available.",
-      }, {
+      // Never log untrusted provider/selection detail: it may contain credentials or internal URLs.
+      console.error("Market intelligence snapshot unavailable: no Dossier presentation selected.");
+      return NextResponse.json(unavailableSnapshotResponseBody(), {
         status: 503,
         headers: {
           "Access-Control-Allow-Origin": "*",
@@ -73,13 +74,10 @@ export async function GET() {
         "X-Alchemy-Market-Intelligence": snapshot.contractVersion,
       },
     });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({
-      contractVersion: "market-intelligence-snapshot/v1",
-      status: "unavailable",
-      detail: `Market intelligence snapshot failed: ${detail}`,
-    }, {
+  } catch {
+    // Keep server diagnostics non-sensitive; upstream handlers own detailed diagnostics.
+    console.error("Market intelligence snapshot unavailable: unexpected assembly failure.");
+    return NextResponse.json(unavailableSnapshotResponseBody(), {
       status: 503,
       headers: {
         "Access-Control-Allow-Origin": "*",
