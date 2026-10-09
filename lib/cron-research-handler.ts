@@ -8,6 +8,7 @@ import {
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
+import { scheduledResearchValidationFailureDetail } from "@/lib/scheduled-research-validation-diagnostics";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import {
   abandonedScheduledRunEligible,
@@ -463,9 +464,11 @@ export async function handleScheduledResearchWithDependencies(
       retainedItems: input.items.length,
     });
     if (publication.status >= 400) {
-      const detail = result && typeof result === "object" && "error" in result && typeof result.error === "string"
-        ? result.error
-        : `Publisher returned HTTP ${publication.status}.`;
+      // Do not persist a raw publisher/validation error. The diagnostic contains
+      // only fixed field-category labels and bounded counts, never source text.
+      const detail = publication.status === 422
+        ? scheduledResearchValidationFailureDetail(result)
+        : `Research publisher returned HTTP ${publication.status}.`;
       await (dependencies.markClaimFailed ?? markClaimFailed)(claim.run.id, detail);
     }
     return response({
