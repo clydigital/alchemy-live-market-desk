@@ -225,3 +225,14 @@ test("AI capex watch prioritises investigation without forcing unsupported canon
   assert.match(instructions, /Notion\/ChatGPT research notes, Motion, creator commentary/);
   assert.match(instructions, /Use only exact persistent Story bindings and supplied canonical evidence IDs/);
 });
+
+test("Research Brain requires measurable market-crack tests, exact cross-company transmission and missing-data honesty", () => {
+  const instructions = buildResearchBrainSystemInstructions();
+  assert.match(instructions, /QUANTIFIED CRACK TESTS — EVIDENCE BEFORE SCENARIO/);
+  assert.match(instructions, /operating profit and free cash flow versus capex/);
+  assert.match(instructions, /rating\/duration-matched corporate OAS/);
+  assert.match(instructions, /SUPPLIER → CUSTOMER/);
+  assert.match(instructions, /require a verified commercial link/);
+  assert.match(instructions, /say UNRESOLVED and formulate an exact Research Gap/);
+  assert.match(instructions, /Static Live trigger-ladder numbers are research hypotheses/);
+});
