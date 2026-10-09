@@ -14,6 +14,18 @@ export type Snapshot = {
   marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null; sourceName?: string; sourceUrl?: string }> };
   stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged?: string; whyItMatters?: string; mechanism?: string; conclusion?: string; whatWouldChangeMind?: string; epistemicLabel?: string; evidenceRefs?: string[] }>;
   stockRadar?: unknown;
+  /** Canonical Dossier Watch Next investigations; consumer never creates them. */
+  investigations?: Array<{
+    id: string;
+    question: string;
+    status?: string | null;
+    whyItMatters?: string | null;
+    researchNext?: string | null;
+    confirmationCondition?: string | null;
+    invalidationCondition?: string | null;
+    evidenceRefs?: string[] | null;
+    missingEvidence?: string[] | null;
+  }> | null;
   contradictions?: Array<{ id: string; title: string; detail: string }>;
   researchGaps?: string[];
   guardrails?: string[];
@@ -125,6 +137,31 @@ export function validateSnapshot(value: unknown): Snapshot {
       }
       if (story.evidenceRefs !== undefined && story.evidenceRefs !== null && !isStringArray(story.evidenceRefs)) {
         throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+    }
+  }
+
+  if (value.investigations !== undefined && value.investigations !== null) {
+    if (!Array.isArray(value.investigations)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    for (const investigation of value.investigations) {
+      if (!isRecord(investigation) ||
+          typeof investigation.id !== "string" || !investigation.id.trim() ||
+          typeof investigation.question !== "string" || !investigation.question.trim()) {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      for (const field of ["status", "whyItMatters", "researchNext", "confirmationCondition", "invalidationCondition"]) {
+        const fieldValue = investigation[field];
+        if (fieldValue !== undefined && fieldValue !== null && typeof fieldValue !== "string") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+      }
+      for (const field of ["evidenceRefs", "missingEvidence"]) {
+        const fieldValue = investigation[field];
+        if (fieldValue !== undefined && fieldValue !== null && !isStringArray(fieldValue)) {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
       }
     }
   }

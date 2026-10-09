@@ -806,3 +806,103 @@ test("failed refresh with malformed regime presentation fields retains previous 
   assert.equal(malformedRateState.requestedAt, RETRIEVED);
   assert.match(malformedRateState.error ?? "", /Incomplete or malformed snapshot contract/);
 });
+
+
+test("Watch Next investigations distinguish omitted, null, empty and populated sections without inventing research", () => {
+  const original = fixture();
+  const missing = validateSnapshot({ ...original, investigations: undefined });
+  const explicitlyNull = validateSnapshot({ ...original, investigations: null });
+  const empty = validateSnapshot({ ...original, investigations: [] });
+  assert.deepEqual(getSectionState(missing.investigations), { status: "not_supplied" });
+  assert.deepEqual(getSectionState(explicitlyNull.investigations), { status: "not_supplied" });
+  assert.deepEqual(getSectionState(empty.investigations), { status: "empty" });
+
+  const investigations = [
+    {
+      id: "investigation-fed-1",
+      status: "OPEN",
+      question: "Does Treasury supply keep long yields elevated?",
+      whyItMatters: "Longer yields affect borrowing costs.",
+      researchNext: "Review the next Treasury auction.",
+      confirmationCondition: "Auction tails widen.",
+      invalidationCondition: "Demand absorbs new supply.",
+      evidenceRefs: ["canonical-evidence-id-1", "nonstandard-legacy-id-2"],
+      missingEvidence: ["Dealer positioning not yet verified"],
+    },
+    {
+      id: "investigation-credit-2",
+      status: "UNRESOLVED",
+      question: "Are credit spreads diverging from yields?",
+      whyItMatters: "Credit and rates may tell different stories.",
+      researchNext: "Compare credit spread observations.",
+      confirmationCondition: "Credit spreads widen.",
+      invalidationCondition: "Credit spreads stay stable.",
+      evidenceRefs: [],
+      missingEvidence: [],
+    },
+  ];
+  const candidate = { ...original, investigations };
+  const validated = validateSnapshot(candidate);
+  assert.strictEqual(validated, candidate);
+  const state = getSectionState(validated.investigations);
+  assert.equal(state.status, "has_entries");
+  if (state.status !== "has_entries") return;
+  assert.deepEqual(state.items, investigations);
+  assert.equal(state.items[0].id, "investigation-fed-1");
+  assert.deepEqual(state.items[0].evidenceRefs, ["canonical-evidence-id-1", "nonstandard-legacy-id-2"]);
+  assert.deepEqual(state.items[1].missingEvidence, []);
+  assert.deepEqual(original.stories[0].evidenceRefs, ["evidence-uuid-1"], "The canonical Story is never mutated");
+});
+
+test("Watch Next validator rejects malformed containers, entries and displayed fields", () => {
+  const baseline = fixture();
+  const valid = { id: "question-1", question: "What could change rates?", status: "OPEN", evidenceRefs: ["ev-1"], missingEvidence: ["Next auction"] };
+  const invalid = [
+    "not-an-array",
+    { questions: [valid] },
+    [null],
+    ["a question"],
+    [{}],
+    [{ ...valid, id: 12 }],
+    [{ ...valid, id: "  " }],
+    [{ ...valid, question: null }],
+    [{ ...valid, question: "" }],
+    [{ ...valid, status: { state: "OPEN" } }],
+    [{ ...valid, whyItMatters: [1] }],
+    [{ ...valid, researchNext: 42 }],
+    [{ ...valid, confirmationCondition: {} }],
+    [{ ...valid, invalidationCondition: false }],
+    [{ ...valid, evidenceRefs: "ev-1" }],
+    [{ ...valid, evidenceRefs: [null] }],
+    [{ ...valid, evidenceRefs: [123] }],
+    [{ ...valid, missingEvidence: {} }],
+    [{ ...valid, missingEvidence: [null] }],
+  ];
+  for (const investigations of invalid) {
+    assert.throws(
+      () => validateSnapshot({ ...baseline, investigations }),
+      /Incomplete or malformed snapshot contract/,
+    );
+  }
+  const optional = validateSnapshot({
+    ...baseline,
+    investigations: [{ id: "question-2", question: "What happens next?", researchNext: null, evidenceRefs: null, missingEvidence: null }],
+  });
+  assert.equal(optional.investigations?.[0].researchNext, null);
+  assert.equal(evidenceCount(optional.investigations?.[0].evidenceRefs ?? undefined), "not supplied");
+});
+
+test("malformed Watch Next refresh retains exact previous verified in-session Dossier and timestamp", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+  const badInvestigations = [
+    { id: "investigation-1", question: "What could change the view?", missingEvidence: [42] },
+  ];
+  const result = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    investigations: badInvestigations,
+  }));
+  assert.strictEqual(result.snapshot, previous.snapshot);
+  assert.equal(result.requestedAt, RETRIEVED);
+  assert.match(result.error ?? "", /Incomplete or malformed snapshot contract/);
+  assert.deepEqual(result.snapshot?.stories, previous.snapshot?.stories);
+});
