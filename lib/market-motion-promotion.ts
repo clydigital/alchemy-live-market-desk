@@ -230,7 +230,16 @@ export function selectPromotedMarketMotionForDossier(
   now = new Date(),
   limit = 3,
 ) {
-  return selectPromotedMarketMotion(items, now, limit);
+  // Canonical promotion still gates eligibility. Only the Dossier's attention
+  // order favours newly occurring market behaviour over older high scores.
+  const freshSince = now.getTime() - 24 * 60 * 60 * 1000;
+  const freshness = (item: MarketMotionRecord) => {
+    const occurredAt = Date.parse(item.occurred_at);
+    return Number.isFinite(occurredAt) && occurredAt >= freshSince ? 1 : 0;
+  };
+  return selectPromotedMarketMotion(items, now, items.length)
+    .sort((left, right) => freshness(right) - freshness(left))
+    .slice(0, Math.max(0, limit));
 }
 
 export function marketMotionPromotionInput(
