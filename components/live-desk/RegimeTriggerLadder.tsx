@@ -24,7 +24,7 @@ export default function RegimeTriggerLadder({ regimeSlug }: { regimeSlug: Regime
           <span>LIVE · TRIGGER LADDER</span>
           <h2>What would move the Regime?</h2>
         </div>
-        <p>Threshold definitions only. LIVE activates a state only when canonical evidence and accepted Story reasoning support it.</p>
+        <p>Research tripwires, NOT live triggered readings or probabilities. No threshold is marked passed without current canonical data and Dossier reasoning.</p>
       </header>
       <div className={styles.grid}>
         {triggers.map((trigger) => (
@@ -38,6 +38,9 @@ export default function RegimeTriggerLadder({ regimeSlug }: { regimeSlug: Regime
               <div><dt>Why it matters</dt><dd>{trigger.whyItMatters}</dd></div>
               <div><dt>Scenario effect</dt><dd>{trigger.scenarioEffect}</dd></div>
               <div><dt>Evidence gate</dt><dd>{trigger.evidenceRequirement}</dd></div>
+              {trigger.quantitativeTest && <div><dt>Measurable test · proposed</dt><dd>{trigger.quantitativeTest}</dd></div>}
+              {trigger.bullishFalsifier && <div><dt>What would invalidate the warning?</dt><dd>{trigger.bullishFalsifier}</dd></div>}
+              {trigger.missingEvidence && <div><dt>If data are missing</dt><dd>{trigger.missingEvidence}</dd></div>}
             </dl>
           </article>
         ))}
