@@ -9,6 +9,7 @@ import {
   formatObservationDate,
   formatObservationLabel,
   formatSourceName,
+  getMobileBriefStatus,
   getSectionState,
   loadMobileSnapshot,
   sanitizeSourceUrl,
@@ -304,4 +305,55 @@ test("observation date label preserves row's own asOf timestamp and handles miss
   assert.equal(formatObservationLabel(undefined), "Observation date unknown");
   assert.equal(formatObservationLabel(null), "Observation date unknown");
   assert.equal(formatObservationLabel("not-a-date"), "Observation date unknown");
+});
+
+test("getMobileBriefStatus announces status clearly for first load, success, cached error, and first-load failure", () => {
+  const data = validateSnapshot(fixture());
+
+  // First load (loading)
+  const loadingFirst = getMobileBriefStatus({ loading: true, snapshot: null, error: null });
+  assert.equal(loadingFirst.srStatus, "Loading market intelligence brief…");
+  assert.equal(loadingFirst.isAlert, false);
+
+  // First load success
+  const loadedFirst = getMobileBriefStatus({ loading: false, snapshot: data, error: null });
+  assert.equal(loadedFirst.srStatus, "Market intelligence brief loaded.");
+  assert.equal(loadedFirst.isAlert, false);
+
+  // Subsequent refresh (loading)
+  const loadingRefresh = getMobileBriefStatus({ loading: true, snapshot: data, error: null, hasRefreshed: true });
+  assert.equal(loadingRefresh.srStatus, "Refreshing market intelligence brief…");
+  assert.equal(loadingRefresh.isAlert, false);
+
+  // Subsequent refresh success
+  const refreshedSuccess = getMobileBriefStatus({ loading: false, snapshot: data, error: null, hasRefreshed: true });
+  assert.equal(refreshedSuccess.srStatus, "Brief refreshed.");
+  assert.equal(refreshedSuccess.isAlert, false);
+
+  // Cached failure (refresh error when prior snapshot is retained)
+  const cachedError = getMobileBriefStatus({
+    loading: false,
+    snapshot: data,
+    error: "No usable Dossier presentation is available.",
+    hasRefreshed: true,
+  });
+  assert.equal(
+    cachedError.srStatus,
+    "Latest refresh failed. Showing retained snapshot from this browser session, which may be out of date. No usable Dossier presentation is available.",
+  );
+  assert.equal(cachedError.isAlert, true);
+
+  // Unavailable first load
+  const unavailableFirst = getMobileBriefStatus({
+    loading: false,
+    snapshot: null,
+    error: "No usable Dossier presentation is available.",
+  });
+  assert.equal(unavailableFirst.srStatus, "Live snapshot unavailable. No usable Dossier presentation is available.");
+  assert.equal(unavailableFirst.isAlert, true);
+
+  // First load empty state (no snapshot, no error, not loading)
+  const emptyState = getMobileBriefStatus({ loading: false, snapshot: null, error: null });
+  assert.equal(emptyState.srStatus, "No verified market assessment available.");
+  assert.equal(emptyState.isAlert, false);
 });

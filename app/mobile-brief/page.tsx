@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
 import type { BriefLoadState } from "./logic.ts";
-import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows } from "./logic.ts";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getMobileBriefStatus, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
 
@@ -34,6 +34,8 @@ export default function MobileIntelligenceBrief() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [requestedAt, setRequestedAt] = useState<string | null>(null);
+  const [hasRefreshed, setHasRefreshed] = useState(false);
+  const isInitial = useRef(true);
   const requestGate = useRef(createLatestMobileBriefRequestGate());
   const lastVerified = useRef<BriefLoadState>({ snapshot: null, error: null, requestedAt: null });
 
@@ -49,6 +51,12 @@ export default function MobileIntelligenceBrief() {
     // An older or cancelled request must never replace a later verified snapshot.
     if (!requestGate.current.isCurrent(request)) return;
 
+    if (!isInitial.current) {
+      setHasRefreshed(true);
+    } else {
+      isInitial.current = false;
+    }
+
     lastVerified.current = result;
     setSnapshot(result.snapshot);
     setError(result.error);
@@ -61,19 +69,69 @@ export default function MobileIntelligenceBrief() {
     return () => requestGate.current.cancel();
   }, []);
 
+  const statusInfo = getMobileBriefStatus({ loading, snapshot, error, hasRefreshed });
   const { stale, degraded } = dossierWarnings(snapshot, Date.now());
   const rows = snapshot ? snapshotRows(snapshot) : [];
   const healthEntries = snapshot ? snapshotHealth(snapshot) : [];
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
+    <style>{`
+      .skip-link {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+        background: #253b63;
+        color: #ffffff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #7d9bcf;
+        z-index: 1000;
+        text-decoration: underline;
+      }
+      .skip-link:focus {
+        top: 12px;
+        left: 12px;
+      }
+      #assessment-content:focus {
+        outline: 2px solid #a8c7ff;
+        outline-offset: 4px;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    `}</style>
+    <a href="#assessment-content" className="skip-link">Skip to assessment content</a>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 18 }}>
       <div><a href="/" style={{ ...muted, color: "#a8c7ff" }}>← Live Desk</a><h1 style={{ fontSize: 26, margin: "8px 0 0" }}>Market intelligence brief</h1></div>
-      <button type="button" disabled={loading} onClick={() => void refresh()} style={{ padding: "9px 13px", borderRadius: 9, border: "1px solid #7d9bcf", color: "white", background: "#253b63" }}>{loading ? "Loading…" : "Refresh"}</button>
+      <button
+        type="button"
+        disabled={loading}
+        aria-busy={loading}
+        aria-label={loading ? (snapshot ? "Refreshing market intelligence brief" : "Loading market intelligence brief") : "Refresh market intelligence brief"}
+        onClick={() => void refresh()}
+        style={{ padding: "9px 13px", borderRadius: 9, border: "1px solid #7d9bcf", color: "white", background: "#253b63", cursor: loading ? "not-allowed" : "pointer" }}
+      >
+        {loading ? "Loading…" : "Refresh"}
+      </button>
     </header>
     <p style={muted}>Read-only view of the existing Live Desk assessment. This page does not create research or change Stories.</p>
-    {error && <section role="alert" style={{ ...panel, borderColor: "#c28c64", marginBottom: 14 }}><strong>Live snapshot unavailable</strong><p>{error}</p><p style={muted}>{snapshot ? "Showing the last snapshot loaded in this browser session; it may be outdated." : "No fallback assessment is invented. Consult the existing MacroPulse separately."}</p></section>}
-    {!snapshot && !loading && <p>No verified market assessment available.</p>}
-    {snapshot && <>
+
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {statusInfo.isAlert ? "" : statusInfo.srStatus}
+    </div>
+
+    <div id="assessment-content" tabIndex={-1} aria-busy={loading}>
+      {error && <section role="alert" style={{ ...panel, borderColor: "#c28c64", marginBottom: 14 }}><strong>Live snapshot unavailable</strong><p>{error}</p><p style={muted}>{snapshot ? "Showing the last snapshot loaded in this browser session; it may be outdated." : "No fallback assessment is invented. Consult the existing MacroPulse separately."}</p></section>}
+      {!snapshot && !loading && <p>No verified market assessment available.</p>}
+      {snapshot && <>
       <section style={{ ...panel, marginBottom: 14 }}>
         <div style={muted}>Dossier: {formatBriefDate(snapshot.dossier?.asOf)} · Retrieved: {formatBriefDate(requestedAt)} · Generated: {formatBriefDate(snapshot.generatedAt)}</div>
         {(stale || degraded || error) && <p style={{ color: "#ffcf92" }}>Caution: {stale ? "Dossier is more than 24 hours old. " : ""}{degraded ? "Selected Dossier is degraded or a fallback. " : ""}{error ? "Latest refresh failed." : ""}</p>}
@@ -186,5 +244,6 @@ export default function MobileIntelligenceBrief() {
         )}
       </section>
     </>}
+    </div>
   </main>;
 }
