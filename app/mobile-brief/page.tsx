@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
 import type { BriefLoadState } from "./logic.ts";
-import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getMobileBriefStatus, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth, snapshotRows } from "./logic.ts";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getMobileBriefStatus, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
 
@@ -71,7 +71,6 @@ export default function MobileIntelligenceBrief() {
 
   const statusInfo = getMobileBriefStatus({ loading, snapshot, error, hasRefreshed });
   const { stale, degraded } = dossierWarnings(snapshot, Date.now());
-  const rows = snapshot ? snapshotRows(snapshot) : [];
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <style>{`
@@ -158,30 +157,39 @@ export default function MobileIntelligenceBrief() {
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Market watch</h2>
         <p style={muted}>These are observations, not causal claims. Changes are five-session percentages where supplied.</p>
-        {rows.length ? (
-          <div style={{ display: "grid", gap: 8 }}>
-            {rows.map((row, index) => {
-              const sourceName = formatSourceName(row.sourceName);
-              const safeUrl = sanitizeSourceUrl(row.sourceUrl);
-              return (
-                <div key={row.id || index} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
-                  <div><strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {formatMarketLast(row.last)} · 5D {formatMarketChange(row.change5d)}</div>
-                  <div style={muted}>
-                    Source: {safeUrl ? (
-                      <a href={safeUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#a8c7ff", textDecoration: "underline" }}>
-                        {sourceName}
-                      </a>
-                    ) : (
-                      <span>{sourceName}</span>
-                    )}
-                    {" · "}
-                    {formatObservationLabel(row.asOf)}
+        {(() => {
+          const state = getSectionState(snapshot?.marketState?.selectedRows);
+          if (state.status === "not_supplied") {
+            return <p style={muted}>Market observations not supplied in this snapshot.</p>;
+          }
+          if (state.status === "empty") {
+            return <p style={muted}>No market observations reported in this snapshot.</p>;
+          }
+          return (
+            <div style={{ display: "grid", gap: 8 }}>
+              {state.items.map((row, index) => {
+                const sourceName = formatSourceName(row.sourceName);
+                const safeUrl = sanitizeSourceUrl(row.sourceUrl);
+                return (
+                  <div key={row.id || index} style={{ borderBottom: "1px solid #303b55", paddingBottom: 7 }}>
+                    <div><strong>{row.label || row.symbol || "Unspecified asset"}</strong> · {formatMarketLast(row.last)} · 5D {formatMarketChange(row.change5d)}</div>
+                    <div style={muted}>
+                      Source: {safeUrl ? (
+                        <a href={safeUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#a8c7ff", textDecoration: "underline" }}>
+                          {sourceName}
+                        </a>
+                      ) : (
+                        <span>{sourceName}</span>
+                      )}
+                      {" · "}
+                      {formatObservationLabel(row.asOf)}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : <p style={muted}>No market observations available.</p>}
+                );
+              })}
+            </div>
+          );
+        })()}
       </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Persistent Stories and causal explanations</h2>
