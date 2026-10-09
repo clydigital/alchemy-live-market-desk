@@ -8,7 +8,11 @@ import {
   formatMarketLast,
   formatObservationDate,
   formatObservationLabel,
+  formatRateRegimeState,
+  formatRegimeAnswer,
+  formatRegimeImplication,
   formatSourceName,
+  formatWhatWouldChangeMind,
   getMobileBriefStatus,
   getSectionState,
   loadMobileSnapshot,
@@ -546,4 +550,109 @@ test("failed refresh with malformed confirming monetary signals retains previous
   assert.strictEqual(malformedConfirmingElements.snapshot, previous.snapshot);
   assert.equal(malformedConfirmingElements.requestedAt, RETRIEVED);
   assert.match(malformedConfirmingElements.error ?? "", /Incomplete or malformed snapshot contract/);
+});
+
+test("rejects malformed regime presentation fields and rateRegime objects in validateSnapshot", () => {
+  const baseline = fixture();
+  const invalidRegimePayloads = [
+    { ...baseline, regime: { ...baseline.regime, answer: 123 } },
+    { ...baseline, regime: { ...baseline.regime, answer: true } },
+    { ...baseline, regime: { ...baseline.regime, answer: ["array"] } },
+    { ...baseline, regime: { ...baseline.regime, answer: { text: "object" } } },
+    { ...baseline, regime: { ...baseline.regime, regimeImplication: 456 } },
+    { ...baseline, regime: { ...baseline.regime, regimeImplication: false } },
+    { ...baseline, regime: { ...baseline.regime, regimeImplication: ["array"] } },
+    { ...baseline, regime: { ...baseline.regime, whatWouldChangeMind: 789 } },
+    { ...baseline, regime: { ...baseline.regime, whatWouldChangeMind: ["array"] } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: "HAWKISH" } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: 123 } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: ["HAWKISH"] } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: { state: 123 } } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: { state: true } } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: { state: ["HAWKISH"] } } },
+    { ...baseline, regime: { ...baseline.regime, rateRegime: { state: { text: "HAWKISH" } } } },
+  ];
+  for (const invalidPayload of invalidRegimePayloads) {
+    assert.throws(() => validateSnapshot(invalidPayload), /Incomplete or malformed snapshot contract/);
+  }
+});
+
+test("accepts omitted, null, or valid string regime presentation fields without throwing", () => {
+  const baseline = fixture();
+  const validSnapshot = validateSnapshot({
+    ...baseline,
+    regime: {
+      headline: "Headline text",
+      answer: null,
+      regimeImplication: undefined,
+      whatWouldChangeMind: null,
+      rateRegime: null,
+    },
+  });
+  assert.equal(validSnapshot.regime?.headline, "Headline text");
+  assert.equal(validSnapshot.regime?.answer, null);
+  assert.equal(validSnapshot.regime?.regimeImplication, undefined);
+  assert.equal(validSnapshot.regime?.rateRegime, null);
+
+  const validSnapshotWithOmittedState = validateSnapshot({
+    ...baseline,
+    regime: {
+      headline: "Headline text",
+      rateRegime: { state: null },
+    },
+  });
+  assert.equal(validSnapshotWithOmittedState.regime?.rateRegime?.state, null);
+});
+
+test("Regime presentation helpers preserve supplied canonical text verbatim and provide concise neutral fallbacks when missing", () => {
+  assert.equal(formatRegimeAnswer("Borrowing remains expensive."), "Borrowing remains expensive.");
+  assert.equal(formatRegimeAnswer(null), "Regime answer not supplied in this snapshot.");
+  assert.equal(formatRegimeAnswer(undefined), "Regime answer not supplied in this snapshot.");
+  assert.equal(formatRegimeAnswer(""), "Regime answer not supplied in this snapshot.");
+
+  assert.equal(formatRegimeImplication("Stocks remain sensitive."), "Stocks remain sensitive.");
+  assert.equal(formatRegimeImplication(null), "Regime implication not supplied in this snapshot.");
+  assert.equal(formatRegimeImplication(undefined), "Regime implication not supplied in this snapshot.");
+  assert.equal(formatRegimeImplication(""), "Regime implication not supplied in this snapshot.");
+
+  assert.equal(formatWhatWouldChangeMind("Sustained decline in yields."), "Sustained decline in yields.");
+  assert.equal(formatWhatWouldChangeMind(null), "Conditions to change mind not supplied in this snapshot.");
+  assert.equal(formatWhatWouldChangeMind(undefined), "Conditions to change mind not supplied in this snapshot.");
+  assert.equal(formatWhatWouldChangeMind(""), "Conditions to change mind not supplied in this snapshot.");
+});
+
+test("formatRateRegimeState distinguishes explicit canonical UNRESOLVED from missing state", () => {
+  assert.equal(formatRateRegimeState("HAWKISH"), "HAWKISH");
+  assert.equal(formatRateRegimeState("UNRESOLVED"), "UNRESOLVED");
+  assert.equal(formatRateRegimeState(null), "Not supplied");
+  assert.equal(formatRateRegimeState(undefined), "Not supplied");
+  assert.equal(formatRateRegimeState(""), "Not supplied");
+});
+
+test("failed refresh with malformed regime presentation fields retains previous verified snapshot and signals error", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+
+  const malformedAnswer = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    regime: { ...fixture().regime, answer: { invalid: "object" } },
+  }));
+  assert.strictEqual(malformedAnswer.snapshot, previous.snapshot);
+  assert.equal(malformedAnswer.requestedAt, RETRIEVED);
+  assert.match(malformedAnswer.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedRateRegime = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    regime: { ...fixture().regime, rateRegime: "not-an-object" },
+  }));
+  assert.strictEqual(malformedRateRegime.snapshot, previous.snapshot);
+  assert.equal(malformedRateRegime.requestedAt, RETRIEVED);
+  assert.match(malformedRateRegime.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedRateState = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    regime: { ...fixture().regime, rateRegime: { state: 12345 } },
+  }));
+  assert.strictEqual(malformedRateState.snapshot, previous.snapshot);
+  assert.equal(malformedRateState.requestedAt, RETRIEVED);
+  assert.match(malformedRateState.error ?? "", /Incomplete or malformed snapshot contract/);
 });

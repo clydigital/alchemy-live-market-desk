@@ -3,7 +3,13 @@ export type Snapshot = {
   contractVersion: string;
   generatedAt?: string;
   dossier?: { status: string; dossierId: string; asOf: string; degraded: boolean };
-  regime?: { headline: string; answer: string; regimeImplication: string; whatWouldChangeMind: string; rateRegime?: { state?: string } };
+  regime?: {
+    headline: string;
+    answer?: string | null;
+    regimeImplication?: string | null;
+    whatWouldChangeMind?: string | null;
+    rateRegime?: { state?: string | null } | null;
+  };
   monetarySignals?: { summary?: string; confirming?: string[]; contradicting?: string[]; unresolved?: string[] };
   marketState?: { selectedRows: Array<{ id: string; symbol: string; label: string; last: number | null; change5d: number | null; asOf: string | null; sourceName?: string; sourceUrl?: string }> };
   stories?: Array<{ id: string; persistentStoryId?: string | null; title: string; whatChanged?: string; whyItMatters?: string; mechanism?: string; conclusion?: string; whatWouldChangeMind?: string; epistemicLabel?: string; evidenceRefs?: string[] }>;
@@ -59,6 +65,24 @@ export function validateSnapshot(value: unknown): Snapshot {
       typeof value.regime.headline !== "string" ||
       !value.regime.headline.trim()) {
     throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+  }
+
+  if (value.regime.answer !== undefined && value.regime.answer !== null && typeof value.regime.answer !== "string") {
+    throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+  }
+  if (value.regime.regimeImplication !== undefined && value.regime.regimeImplication !== null && typeof value.regime.regimeImplication !== "string") {
+    throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+  }
+  if (value.regime.whatWouldChangeMind !== undefined && value.regime.whatWouldChangeMind !== null && typeof value.regime.whatWouldChangeMind !== "string") {
+    throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+  }
+  if (value.regime.rateRegime !== undefined && value.regime.rateRegime !== null) {
+    if (!isRecord(value.regime.rateRegime)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.regime.rateRegime.state !== undefined && value.regime.rateRegime.state !== null && typeof value.regime.rateRegime.state !== "string") {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
   }
 
   if (value.stories !== undefined && value.stories !== null) {
@@ -226,6 +250,26 @@ export function formatMarketLast(value: unknown): string {
 
 export function formatMarketChange(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}%` : "n/a";
+}
+
+export function formatRegimeAnswer(value?: string | null): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  return "Regime answer not supplied in this snapshot.";
+}
+
+export function formatRegimeImplication(value?: string | null): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  return "Regime implication not supplied in this snapshot.";
+}
+
+export function formatWhatWouldChangeMind(value?: string | null): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  return "Conditions to change mind not supplied in this snapshot.";
+}
+
+export function formatRateRegimeState(value?: string | null): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  return "Not supplied";
 }
 
 export function formatObservationDate(value: unknown): string {

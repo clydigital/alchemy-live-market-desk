@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createLatestMobileBriefRequestGate } from "./refresh-gate.ts";
 import type { BriefLoadState } from "./logic.ts";
-import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatSourceName, getMobileBriefStatus, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth } from "./logic.ts";
+import { dossierWarnings, evidenceCount, formatBriefDate, formatMarketChange, formatMarketLast, formatObservationLabel, formatRateRegimeState, formatRegimeAnswer, formatRegimeImplication, formatSourceName, formatWhatWouldChangeMind, getMobileBriefStatus, getSectionState, loadMobileSnapshot, sanitizeSourceUrl, snapshotHealth } from "./logic.ts";
 import type { Snapshot } from "./logic.ts";
 
 
@@ -134,9 +134,11 @@ export default function MobileIntelligenceBrief() {
         <div style={muted}>Dossier: {formatBriefDate(snapshot.dossier?.asOf)} · Retrieved: {formatBriefDate(requestedAt)} · Generated: {formatBriefDate(snapshot.generatedAt)}</div>
         {(stale || degraded || error) && <p style={{ color: "#ffcf92" }}>Caution: {stale ? "Dossier is more than 24 hours old. " : ""}{degraded ? "Selected Dossier is degraded or a fallback. " : ""}{error ? "Latest refresh failed." : ""}</p>}
         <h2 style={{ fontSize: 21, marginBottom: 4 }}>{snapshot.regime?.headline || "Regime assessment"}</h2>
-        <p>{snapshot.regime?.answer}</p><p>{snapshot.regime?.regimeImplication}</p>
-        <p style={muted}>US rate regime: {snapshot.regime?.rateRegime?.state || "Unresolved"}</p>
-        <strong>What would change the assessment?</strong><p>{snapshot.regime?.whatWouldChangeMind || "Not specified."}</p>
+        <p>{formatRegimeAnswer(snapshot.regime?.answer)}</p>
+        <p>{formatRegimeImplication(snapshot.regime?.regimeImplication)}</p>
+        <p style={muted}>US rate regime: {formatRateRegimeState(snapshot.regime?.rateRegime?.state)}</p>
+        <strong>What would change the assessment?</strong>
+        <p>{formatWhatWouldChangeMind(snapshot.regime?.whatWouldChangeMind)}</p>
       </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Confirmation and disagreement</h2>
