@@ -7,7 +7,10 @@ import {
   formatMarketChange,
   formatMarketLast,
   formatObservationDate,
+  formatObservationLabel,
+  formatSourceName,
   loadMobileSnapshot,
+  sanitizeSourceUrl,
   snapshotHealth,
   snapshotRows,
   snapshotStories,
@@ -198,4 +201,41 @@ test("provider entries are presented only where supplied with a status", () => {
   assert.deepEqual(snapshotHealth(data), [["dossier", "OK"], ["marketMonitor", "PARTIAL"]]);
   const partial = validateSnapshot({ ...fixture(), sourceHealth: { dossier: "OK", marketMonitor: null } });
   assert.deepEqual(snapshotHealth(partial), [["dossier", "OK"]]);
+});
+
+test("valid source name and HTTPS/HTTP URL are preserved and sanitized safely", () => {
+  assert.equal(formatSourceName("FRED US2Y"), "FRED US2Y");
+  assert.equal(formatSourceName("  Market Dollar Index  "), "Market Dollar Index");
+  assert.equal(sanitizeSourceUrl("https://fred.stlouisfed.org/series/DGS2"), "https://fred.stlouisfed.org/series/DGS2");
+  assert.equal(sanitizeSourceUrl("http://example.test/feed"), "http://example.test/feed");
+});
+
+test("missing source name displays Source not reported and never fabricates a provider", () => {
+  assert.equal(formatSourceName(undefined), "Source not reported");
+  assert.equal(formatSourceName(null), "Source not reported");
+  assert.equal(formatSourceName(""), "Source not reported");
+  assert.equal(formatSourceName("   "), "Source not reported");
+});
+
+test("missing, relative, credentialed, or unsafe URLs are suppressed to null for plain text rendering", () => {
+  assert.equal(sanitizeSourceUrl(undefined), null);
+  assert.equal(sanitizeSourceUrl(null), null);
+  assert.equal(sanitizeSourceUrl(""), null);
+  assert.equal(sanitizeSourceUrl("   "), null);
+  assert.equal(sanitizeSourceUrl("javascript:alert(1)"), null);
+  assert.equal(sanitizeSourceUrl("data:text/html,hello"), null);
+  assert.equal(sanitizeSourceUrl("file:///etc/passwd"), null);
+  assert.equal(sanitizeSourceUrl("ftp://example.com"), null);
+  assert.equal(sanitizeSourceUrl("invalid-url"), null);
+  assert.equal(sanitizeSourceUrl("/relative/path"), null);
+  assert.equal(sanitizeSourceUrl("http://user:pass@example.com/data"), null);
+  assert.equal(sanitizeSourceUrl("https://admin@example.com"), null);
+});
+
+test("observation date label preserves row's own asOf timestamp and handles missing/malformed inputs", () => {
+  assert.equal(formatObservationLabel("2026-10-08"), "Observed: 2026-10-08");
+  assert.equal(formatObservationLabel("2026-10-08T12:00:00.000Z"), "Observed: 2026-10-08T12:00:00.000Z");
+  assert.equal(formatObservationLabel(undefined), "Observation date unknown");
+  assert.equal(formatObservationLabel(null), "Observation date unknown");
+  assert.equal(formatObservationLabel("not-a-date"), "Observation date unknown");
 });
