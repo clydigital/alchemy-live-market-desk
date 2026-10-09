@@ -11,7 +11,7 @@ export type Snapshot = {
   contradictions?: Array<{ id: string; title: string; detail: string }>;
   researchGaps?: string[];
   guardrails?: string[];
-  sourceHealth?: Record<string, string>;
+  sourceHealth?: Record<string, string> | null;
 };
 
 export type SectionState<T> =
@@ -137,6 +137,17 @@ export function validateSnapshot(value: unknown): Snapshot {
     }
   }
 
+  if (value.sourceHealth !== undefined && value.sourceHealth !== null) {
+    if (!isRecord(value.sourceHealth)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    for (const [provider, status] of Object.entries(value.sourceHealth)) {
+      if (typeof provider !== "string" || !provider.trim() || typeof status !== "string" || !status.trim()) {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+    }
+  }
+
   return value as Snapshot;
 }
 
@@ -229,10 +240,15 @@ export function snapshotStories(snapshot: Snapshot): NonNullable<Snapshot["stori
     : [];
 }
 
-export function snapshotHealth(snapshot: Snapshot): Array<[string, string]> {
-  return isRecord(snapshot.sourceHealth)
-    ? Object.entries(snapshot.sourceHealth).filter((entry): entry is [string, string] => typeof entry[1] === "string")
-    : [];
+export function snapshotHealth(snapshot: Snapshot): SectionState<[string, string]> {
+  if (snapshot.sourceHealth === undefined || snapshot.sourceHealth === null) {
+    return { status: "not_supplied" };
+  }
+  const entries = Object.entries(snapshot.sourceHealth);
+  if (entries.length === 0) {
+    return { status: "empty" };
+  }
+  return { status: "has_entries", items: entries };
 }
 
 export type BriefStatusInput = {

@@ -114,6 +114,16 @@ test("rejects malformed section container types and incompatible entry payloads 
     { ...baseline, monetarySignals: { contradicting: "none" } },
     { ...baseline, monetarySignals: { contradicting: [null] } },
     { ...baseline, monetarySignals: { unresolved: {} } },
+    { ...baseline, sourceHealth: "healthy" },
+    { ...baseline, sourceHealth: [["dossier", "OK"]] },
+    { ...baseline, sourceHealth: 123 },
+    { ...baseline, sourceHealth: { dossier: null } },
+    { ...baseline, sourceHealth: { dossier: 123 } },
+    { ...baseline, sourceHealth: { dossier: "" } },
+    { ...baseline, sourceHealth: { dossier: "   " } },
+    { ...baseline, sourceHealth: { "": "OK" } },
+    { ...baseline, sourceHealth: { "  ": "OK" } },
+    { ...baseline, sourceHealth: { dossier: { state: "OK" } } },
   ];
   for (const invalidPayload of malformedPayloads) {
     assert.throws(() => validateSnapshot(invalidPayload), /Incomplete or malformed snapshot contract/);
@@ -129,9 +139,11 @@ test("accepts omitted or explicitly empty section containers without throwing", 
     researchGaps: undefined,
     guardrails: null,
     monetarySignals: undefined,
+    sourceHealth: undefined,
   });
   assert.equal(omittedSections.stories, undefined);
   assert.equal(omittedSections.contradictions, null);
+  assert.equal(omittedSections.sourceHealth, undefined);
 
   const emptySections = validateSnapshot({
     ...baseline,
@@ -140,12 +152,14 @@ test("accepts omitted or explicitly empty section containers without throwing", 
     researchGaps: [],
     guardrails: [],
     monetarySignals: { summary: "", confirming: [], contradicting: [], unresolved: [] },
+    sourceHealth: {},
   });
   assert.deepEqual(emptySections.stories, []);
   assert.deepEqual(emptySections.contradictions, []);
   assert.deepEqual(emptySections.researchGaps, []);
   assert.deepEqual(emptySections.guardrails, []);
   assert.deepEqual(emptySections.monetarySignals?.contradicting, []);
+  assert.deepEqual(emptySections.sourceHealth, {});
 });
 
 test("getSectionState distinguishes omitted, empty and non-empty sections", () => {
@@ -229,15 +243,15 @@ test("fixed clock distinguishes current, stale and degraded Dossiers without tou
   assert.equal(current.marketState?.selectedRows[0].asOf, "2026-10-08");
 });
 
-test("missing market rows, Stories and health fields yield empty lists, not runtime errors", () => {
+test("missing market rows and Stories yield empty lists, while absent health is not_supplied", () => {
   const data = validateSnapshot({ ...fixture(), marketState: undefined, stories: undefined, sourceHealth: undefined });
   assert.deepEqual(snapshotRows(data), []);
   assert.deepEqual(snapshotStories(data), []);
-  assert.deepEqual(snapshotHealth(data), []);
-  const nullSubfields = validateSnapshot({ ...fixture(), marketState: { selectedRows: null as unknown as [] }, stories: undefined, sourceHealth: null as unknown as undefined });
+  assert.deepEqual(snapshotHealth(data), { status: "not_supplied" });
+  const nullSubfields = validateSnapshot({ ...fixture(), marketState: { selectedRows: null as unknown as [] }, stories: undefined, sourceHealth: null });
   assert.deepEqual(snapshotRows(nullSubfields), []);
   assert.deepEqual(snapshotStories(nullSubfields), []);
-  assert.deepEqual(snapshotHealth(nullSubfields), []);
+  assert.deepEqual(snapshotHealth(nullSubfields), { status: "not_supplied" });
 });
 
 test("canonical Story assertions are passed through unchanged, including uncertainty", () => {
@@ -263,11 +277,41 @@ test("absent provenance is not misrepresented as zero canonical evidence", () =>
   assert.equal(evidenceCount(story.evidenceRefs), "not supplied");
 });
 
-test("provider entries are presented only where supplied with a status", () => {
-  const data = validateSnapshot(fixture());
-  assert.deepEqual(snapshotHealth(data), [["dossier", "OK"], ["marketMonitor", "PARTIAL"]]);
-  const partial = validateSnapshot({ ...fixture(), sourceHealth: { dossier: "OK", marketMonitor: null } });
-  assert.deepEqual(snapshotHealth(partial), [["dossier", "OK"]]);
+test("snapshotHealth distinguishes absent/null, empty, and populated provider health records", () => {
+  const absentData = validateSnapshot({ ...fixture(), sourceHealth: undefined });
+  assert.deepEqual(snapshotHealth(absentData), { status: "not_supplied" });
+
+  const nullData = validateSnapshot({ ...fixture(), sourceHealth: null });
+  assert.deepEqual(snapshotHealth(nullData), { status: "not_supplied" });
+
+  const emptyData = validateSnapshot({ ...fixture(), sourceHealth: {} });
+  assert.deepEqual(snapshotHealth(emptyData), { status: "empty" });
+
+  const populatedData = validateSnapshot(fixture());
+  assert.deepEqual(snapshotHealth(populatedData), {
+    status: "has_entries",
+    items: [["dossier", "OK"], ["marketMonitor", "PARTIAL"]],
+  });
+});
+
+test("failed refresh with malformed provider health preserves in-session snapshot and signals error", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+
+  const malformedContainer = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    sourceHealth: ["OK"],
+  }));
+  assert.strictEqual(malformedContainer.snapshot, previous.snapshot);
+  assert.equal(malformedContainer.requestedAt, RETRIEVED);
+  assert.match(malformedContainer.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedValue = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    sourceHealth: { dossier: null },
+  }));
+  assert.strictEqual(malformedValue.snapshot, previous.snapshot);
+  assert.equal(malformedValue.requestedAt, RETRIEVED);
+  assert.match(malformedValue.error ?? "", /Incomplete or malformed snapshot contract/);
 });
 
 test("valid source name and HTTPS/HTTP URL are preserved and sanitized safely", () => {
