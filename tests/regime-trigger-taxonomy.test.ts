@@ -15,3 +15,23 @@ test("AI Capital Cycle separates monetisation, recourse and control triggers", (
 test("unrelated Regimes do not receive dossier ladders", () => {
   assert.deepEqual(getDossierTriggerDefinitions("gold-reserve-diversification"), []);
 });
+
+test("AI warning rules name observables, numeric windows and bullish falsifiers rather than abstract bad-news labels", () => {
+  const items = getDossierTriggerDefinitions("us-china-ai");
+  for (const id of ["ai-capex-cash-coverage", "ai-supplier-customer-order-chain", "ai-earnings-valuation-bridge", "ai-equity-leadership-divergence"]) {
+    const item = items.find((candidate) => candidate.id === id);
+    assert.ok(item, id);
+    assert.match(item.quantitativeTest ?? "", /[0-9]/, id);
+    assert.ok(item.bullishFalsifier?.length, id);
+    assert.ok(item.missingEvidence?.length, id);
+    assert.ok(item.evidenceRequirement.length, id);
+  }
+});
+
+test("financial-leadership breakdown needs corroboration and does not fire from XLF underperformance alone", () => {
+  const item = getDossierTriggerDefinitions("equity-rally-quality").find((candidate) => candidate.id === "xlf-relative-leadership");
+  assert.ok(item);
+  assert.match(item.quantitativeTest ?? "", /-5pp/);
+  assert.match(item.evidenceRequirement, /bank/);
+  assert.match(item.missingEvidence ?? "", /alone cannot prove/);
+});
