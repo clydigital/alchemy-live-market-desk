@@ -192,7 +192,7 @@ test("recovered Alchemy articles receive ordered, unique publisher positions and
       assert.equal(recovered.sourceChecks.find((check) => check.source === "alchemy-market-insights")?.itemCount, 2);
       assert.equal(recovered.items.length, 2);
       assert.deepEqual(recovered.items.map((item) => item.articlePosition), [1, 2]);
-      assert.deepEqual(recovered.items.map((item) => item.title), ["Newer energy note", "Older rates note"]);
+      assert.deepEqual(recovered.items.map((item) => item.title), ["Duplicate newer energy note", "Older rates note"]);
       assert.deepEqual(validateResearchRun(recovered).errors, [], "actual scheduled publisher validator accepts the recovered item shape");
 
       const malformed = {
