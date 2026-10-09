@@ -72,7 +72,6 @@ export default function MobileIntelligenceBrief() {
   const statusInfo = getMobileBriefStatus({ loading, snapshot, error, hasRefreshed });
   const { stale, degraded } = dossierWarnings(snapshot, Date.now());
   const rows = snapshot ? snapshotRows(snapshot) : [];
-  const healthEntries = snapshot ? snapshotHealth(snapshot) : [];
 
   return <main style={{ maxWidth: 780, margin: "0 auto", padding: "22px 16px 80px", color: "#f1f5fc", background: "#101626", minHeight: "100vh", fontFamily: "system-ui, sans-serif", lineHeight: 1.55 }}>
     <style>{`
@@ -235,7 +234,21 @@ export default function MobileIntelligenceBrief() {
       </section>
       <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Provider health</h2>
-        {healthEntries.length ? healthEntries.map(([key, value]) => <div key={key} style={{ ...muted, marginBottom: 5 }}>{key}: <strong>{value}</strong></div>) : <p style={muted}>No provider health data reported.</p>}
+        {(() => {
+          if (!snapshot) return null;
+          const healthState = snapshotHealth(snapshot);
+          if (healthState.status === "not_supplied") {
+            return <p style={muted}>Provider health was not supplied in this snapshot.</p>;
+          }
+          if (healthState.status === "empty") {
+            return <p style={muted}>No provider statuses were reported in this snapshot.</p>;
+          }
+          return healthState.items.map(([key, value]) => (
+            <div key={key} style={{ ...muted, marginBottom: 5 }}>
+              {key}: <strong>{value}</strong>
+            </div>
+          ));
+        })()}
         <h3>Guardrails</h3>
         {renderStringList(
           snapshot.guardrails,
