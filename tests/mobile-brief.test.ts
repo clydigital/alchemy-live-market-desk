@@ -1,0 +1,201 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  dossierWarnings,
+  evidenceCount,
+  formatBriefDate,
+  formatMarketChange,
+  formatMarketLast,
+  formatObservationDate,
+  loadMobileSnapshot,
+  snapshotHealth,
+  snapshotRows,
+  snapshotStories,
+  validateSnapshot,
+} from "../app/mobile-brief/logic.ts";
+
+const AS_OF = "2026-10-09T08:00:00.000Z";
+const RETRIEVED = "2026-10-09T11:00:00.000Z";
+
+function fixture() {
+  return {
+    contractVersion: "market-intelligence-snapshot/v1",
+    generatedAt: "2026-10-09T09:00:00.000Z",
+    dossier: { status: "current", dossierId: "dossier-canonical-1", asOf: AS_OF, degraded: false },
+    regime: {
+      headline: "US borrowing costs remain high",
+      answer: "Borrowing remains expensive.",
+      regimeImplication: "Stocks with future-dated earnings remain sensitive.",
+      rateRegime: { state: "HAWKISH" },
+      whatWouldChangeMind: "A sustained decline in real yields.",
+    },
+    monetarySignals: { summary: "Signals disagree.", confirming: [], contradicting: ["CREDIT"], unresolved: ["LIQUIDITY"] },
+    marketState: {
+      selectedRows: [{
+        id: "dxy", symbol: "DXY", label: "US Dollar Index", last: 101.3, change5d: 0.45,
+        asOf: "2026-10-08", sourceName: "Fixture", sourceUrl: "https://example.test",
+      }],
+    },
+    stories: [{
+      id: "dossier-story", persistentStoryId: "persistent-uuid", title: "Funding costs",
+      epistemicLabel: "UNRESOLVED", whatChanged: "Yields rose.",
+      whyItMatters: "Borrowing costs rise for businesses.",
+      mechanism: "Higher yields can affect valuations.",
+      conclusion: "The equity reaction remains uncertain.",
+      whatWouldChangeMind: "A lasting decline in yields.",
+      evidenceRefs: ["evidence-uuid-1"],
+    }],
+    contradictions: [{ id: "c1", title: "Credit diverges", detail: "Spreads remain narrow." }],
+    researchGaps: ["Check the next auction"],
+    guardrails: ["Market Motion is not canonical evidence"],
+    sourceHealth: { dossier: "OK", marketMonitor: "PARTIAL" },
+  };
+}
+
+const FIRST_LOAD = { snapshot: null, requestedAt: null, error: null };
+
+function response(body: unknown, status = 200) {
+  return { ok: status >= 200 && status < 300, status, json: async () => body };
+}
+
+test("valid v1 snapshot is returned unchanged; Dossier, generation, and observation clocks remain distinct", () => {
+  const input = fixture();
+  const result = validateSnapshot(input);
+  assert.strictEqual(result, input);
+  assert.equal(result.dossier?.asOf, AS_OF);
+  assert.equal(result.generatedAt, "2026-10-09T09:00:00.000Z");
+  assert.equal(result.marketState?.selectedRows[0].asOf, "2026-10-08");
+});
+
+test("rejects unsupported contracts, absent canonical identifiers, or malformed Dossier times", () => {
+  const baseline = fixture();
+  const invalid = [
+    null, {}, [], 123,
+    { ...baseline, contractVersion: "market-intelligence-snapshot/v2" },
+    { ...baseline, dossier: null },
+    { ...baseline, dossier: { ...baseline.dossier, dossierId: "" } },
+    { ...baseline, dossier: { ...baseline.dossier, dossierId: "   " } },
+    { ...baseline, dossier: { ...baseline.dossier, asOf: "" } },
+    { ...baseline, dossier: { ...baseline.dossier, asOf: "not-a-date" } },
+    { ...baseline, regime: null },
+    { ...baseline, regime: { ...baseline.regime, headline: "" } },
+  ];
+  for (const value of invalid) {
+    assert.throws(() => validateSnapshot(value), /Incomplete or malformed snapshot contract/);
+  }
+});
+
+test("a successful GET stores only the validated snapshot and current retrieval time", async () => {
+  let requested = 0;
+  const result = await loadMobileSnapshot(FIRST_LOAD, async () => {
+    requested += 1;
+    return response(fixture());
+  }, () => RETRIEVED);
+  assert.equal(requested, 1);
+  assert.equal(result.error, null);
+  assert.equal(result.requestedAt, RETRIEVED);
+  assert.equal(result.snapshot?.dossier?.dossierId, "dossier-canonical-1");
+  assert.equal(result.snapshot?.stories?.[0].conclusion, "The equity reaction remains uncertain.");
+});
+
+test("first-load 503 produces no invented assessment or MacroPulse fallback", async () => {
+  const result = await loadMobileSnapshot(FIRST_LOAD, async () => response(null, 503));
+  assert.equal(result.snapshot, null);
+  assert.equal(result.requestedAt, null);
+  assert.equal(result.error, "No usable Dossier presentation is available.");
+  assert.deepEqual(Object.keys(result).sort(), ["error", "requestedAt", "snapshot"]);
+});
+
+test("failed refresh preserves the exact last verified in-session snapshot and retrieval clock", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+  const failed = await loadMobileSnapshot(previous, async () => response({ error: "unavailable" }, 503));
+  assert.strictEqual(failed.snapshot, previous.snapshot);
+  assert.equal(failed.requestedAt, RETRIEVED);
+  assert.match(failed.error ?? "", /No usable Dossier presentation/);
+
+  const malformed = await loadMobileSnapshot(previous, async () => response({ contractVersion: "invalid" }));
+  assert.strictEqual(malformed.snapshot, previous.snapshot);
+  assert.equal(malformed.requestedAt, RETRIEVED);
+  assert.match(malformed.error ?? "", /Incomplete or malformed/);
+
+  const offline = await loadMobileSnapshot(previous, async () => { throw new Error("Network unavailable"); });
+  assert.strictEqual(offline.snapshot, previous.snapshot);
+  assert.equal(offline.error, "Network unavailable");
+
+  const non503 = await loadMobileSnapshot(previous, async () => response({}, 502));
+  assert.equal(non503.error, "Snapshot unavailable (HTTP 502).");
+});
+
+test("missing or non-finite market values never become fabricated prices or percentages", () => {
+  for (const value of [null, undefined, NaN, Infinity, -Infinity, "42"]) {
+    assert.equal(formatMarketLast(value), "n/a");
+    assert.equal(formatMarketChange(value), "n/a");
+  }
+  assert.equal(formatMarketLast(0), "0");
+  assert.equal(formatMarketChange(-2.5), "-2.50%");
+  assert.equal(formatMarketChange(0), "0.00%");
+});
+
+test("missing or malformed observation times are unknown, not falsely fresh", () => {
+  assert.equal(formatObservationDate(undefined), "unknown");
+  assert.equal(formatObservationDate(null), "unknown");
+  assert.equal(formatObservationDate("invalid"), "unknown");
+  assert.equal(formatObservationDate("2026-10-08"), "2026-10-08");
+  assert.equal(formatBriefDate("invalid"), "Unknown");
+  assert.equal(formatBriefDate(null), "Unknown");
+  assert.match(formatBriefDate(AS_OF), /Oct 2026/);
+});
+
+test("fixed clock distinguishes current, stale and degraded Dossiers without touching source freshness", () => {
+  const current = validateSnapshot(fixture());
+  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T07:00:00Z")), { stale: false, degraded: false });
+  assert.deepEqual(dossierWarnings(current, Date.parse("2026-10-10T09:00:00Z")), { stale: true, degraded: false });
+  const flagged = { ...fixture(), dossier: { ...fixture().dossier, degraded: true } };
+  assert.deepEqual(dossierWarnings(validateSnapshot(flagged), Date.parse(AS_OF)), { stale: false, degraded: true });
+  for (const status of ["fallback_previous_healthy", "degraded_latest", "unavailable"]) {
+    const input = { ...fixture(), dossier: { ...fixture().dossier, status } };
+    assert.equal(dossierWarnings(validateSnapshot(input), Date.parse(AS_OF)).degraded, true);
+  }
+  assert.equal(current.marketState?.selectedRows[0].asOf, "2026-10-08");
+});
+
+test("missing market rows, Stories and health fields yield empty lists, not runtime errors", () => {
+  const data = validateSnapshot({ ...fixture(), marketState: undefined, stories: undefined, sourceHealth: undefined });
+  assert.deepEqual(snapshotRows(data), []);
+  assert.deepEqual(snapshotStories(data), []);
+  assert.deepEqual(snapshotHealth(data), []);
+  const malformed = validateSnapshot({ ...fixture(), marketState: { selectedRows: null }, stories: [null], sourceHealth: null });
+  assert.deepEqual(snapshotRows(malformed), []);
+  assert.deepEqual(snapshotStories(malformed), []);
+  assert.deepEqual(snapshotHealth(malformed), []);
+});
+
+test("canonical Story assertions are passed through unchanged, including uncertainty", () => {
+  const data = validateSnapshot(fixture());
+  const [story] = snapshotStories(data);
+  assert.equal(story.whatChanged, "Yields rose.");
+  assert.equal(story.whyItMatters, "Borrowing costs rise for businesses.");
+  assert.equal(story.mechanism, "Higher yields can affect valuations.");
+  assert.equal(story.conclusion, "The equity reaction remains uncertain.");
+  assert.equal(story.whatWouldChangeMind, "A lasting decline in yields.");
+  assert.equal(story.persistentStoryId, "persistent-uuid");
+  assert.equal(evidenceCount(story.evidenceRefs), "1");
+  assert.equal(data.contradictions?.[0].detail, "Spreads remain narrow.");
+});
+
+test("absent provenance is not misrepresented as zero canonical evidence", () => {
+  assert.equal(evidenceCount(undefined), "not supplied");
+  assert.equal(evidenceCount(null), "not supplied");
+  assert.equal(evidenceCount([]), "0");
+  const noLinks = validateSnapshot({ ...fixture(), stories: [{ ...fixture().stories[0], persistentStoryId: null, evidenceRefs: undefined }] });
+  const [story] = snapshotStories(noLinks);
+  assert.equal(story.persistentStoryId, null);
+  assert.equal(evidenceCount(story.evidenceRefs), "not supplied");
+});
+
+test("provider entries are presented only where supplied with a status", () => {
+  const data = validateSnapshot(fixture());
+  assert.deepEqual(snapshotHealth(data), [["dossier", "OK"], ["marketMonitor", "PARTIAL"]]);
+  const partial = validateSnapshot({ ...fixture(), sourceHealth: { dossier: "OK", marketMonitor: null } });
+  assert.deepEqual(snapshotHealth(partial), [["dossier", "OK"]]);
+});
