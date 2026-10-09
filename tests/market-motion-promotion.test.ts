@@ -636,3 +636,21 @@ test("runtime runs B1 promotion after canonical Evidence load and before System 
   assert.match(promotionWindow, /if \(!dryRun\)/);
   assert.doesNotMatch(promotionWindow, /publishedStories\.length/);
 });
+
+
+test("Dossier favours recent promoted Motion without relaxing eligibility or expiry", () => {
+  const rows = [
+    record({ id: "older-high", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 100,
+      occurred_at: "2026-09-29T20:00:00Z", expires_at: "2026-10-02T00:00:00Z" }),
+    record({ id: "fresh-lower", lifecycle_state: "PROMOTED", effective_state: "PROMOTED", materiality: 85,
+      occurred_at: "2026-10-01T01:00:00Z", expires_at: "2026-10-02T00:00:00Z" }),
+    record({ id: "fresh-unverified", lifecycle_state: "MOTION", effective_state: "MOTION", materiality: 100,
+      occurred_at: "2026-10-01T01:30:00Z", expires_at: "2026-10-02T00:00:00Z" }),
+  ];
+  assert.deepEqual(selectPromotedMarketMotionForDossier(rows, NOW, 2).map(item => item.id), [
+    "fresh-lower", "older-high",
+  ]);
+  assert.deepEqual(selectPromotedMarketMotionForDossier(rows, NOW, 1).map(item => item.id), [
+    "fresh-lower",
+  ]);
+});
