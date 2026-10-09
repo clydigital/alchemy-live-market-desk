@@ -6,7 +6,7 @@ import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import {
   buildMarketIntelligenceSnapshot,
-  unavailableSnapshotResponseBody,
+  marketIntelligenceUnavailableResponse,
 } from "@/lib/market-intelligence-snapshot";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { marketMotionFromEditionPayload } from "@/lib/market-motion-edition";
@@ -24,14 +24,7 @@ export async function GET() {
     if (!selection.presentation) {
       // Never log untrusted provider/selection detail: it may contain credentials or internal URLs.
       console.error("Market intelligence snapshot unavailable: no Dossier presentation selected.");
-      return NextResponse.json(unavailableSnapshotResponseBody(), {
-        status: 503,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "no-store",
-          "X-Alchemy-Market-Intelligence": "unavailable",
-        },
-      });
+      return marketIntelligenceUnavailableResponse();
     }
 
     const [monitor, nyFedReferenceRates, nyFedPrimaryDealers, treasuryBills, creatorVerification, presenterEditions] = await Promise.all([
@@ -77,13 +70,6 @@ export async function GET() {
   } catch {
     // Keep server diagnostics non-sensitive; upstream handlers own detailed diagnostics.
     console.error("Market intelligence snapshot unavailable: unexpected assembly failure.");
-    return NextResponse.json(unavailableSnapshotResponseBody(), {
-      status: 503,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "no-store",
-        "X-Alchemy-Market-Intelligence": "unavailable",
-      },
-    });
+    return marketIntelligenceUnavailableResponse();
   }
 }
