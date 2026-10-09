@@ -124,6 +124,22 @@ test("rejects malformed section container types and incompatible entry payloads 
     { ...baseline, sourceHealth: { "": "OK" } },
     { ...baseline, sourceHealth: { "  ": "OK" } },
     { ...baseline, sourceHealth: { dossier: { state: "OK" } } },
+    { ...baseline, marketState: [] },
+    { ...baseline, marketState: "selectedRows" },
+    { ...baseline, marketState: 123 },
+    { ...baseline, marketState: { selectedRows: {} } },
+    { ...baseline, marketState: { selectedRows: "invalid" } },
+    { ...baseline, marketState: { selectedRows: [null] } },
+    { ...baseline, marketState: { selectedRows: ["not-an-object"] } },
+    { ...baseline, marketState: { selectedRows: [{}] } },
+    { ...baseline, marketState: { selectedRows: [{ id: 123, symbol: "DXY", label: "US Dollar" }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: 123, label: "US Dollar" }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: null }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: "US Dollar", last: "101.3" }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: "US Dollar", change5d: "0.45" }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: "US Dollar", asOf: { date: "2026-10-08" } }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: "US Dollar", sourceName: 123 }] } },
+    { ...baseline, marketState: { selectedRows: [{ id: "dxy", symbol: "DXY", label: "US Dollar", sourceUrl: ["https://example.test"] }] } },
   ];
   for (const invalidPayload of malformedPayloads) {
     assert.throws(() => validateSnapshot(invalidPayload), /Incomplete or malformed snapshot contract/);
@@ -292,6 +308,74 @@ test("snapshotHealth distinguishes absent/null, empty, and populated provider he
     status: "has_entries",
     items: [["dossier", "OK"], ["marketMonitor", "PARTIAL"]],
   });
+});
+
+test("getSectionState for marketState distinguishes absent/null marketState, absent/null selectedRows, explicit empty selectedRows, and populated rows", () => {
+  const absentMarketState = validateSnapshot({ ...fixture(), marketState: undefined });
+  assert.deepEqual(getSectionState(absentMarketState.marketState?.selectedRows), { status: "not_supplied" });
+
+  const nullMarketState = validateSnapshot({ ...fixture(), marketState: null });
+  assert.deepEqual(getSectionState(nullMarketState.marketState?.selectedRows), { status: "not_supplied" });
+
+  const nullSelectedRows = validateSnapshot({ ...fixture(), marketState: { selectedRows: null as unknown as [] } });
+  assert.deepEqual(getSectionState(nullSelectedRows.marketState?.selectedRows), { status: "not_supplied" });
+
+  const emptySelectedRows = validateSnapshot({ ...fixture(), marketState: { selectedRows: [] } });
+  assert.deepEqual(getSectionState(emptySelectedRows.marketState?.selectedRows), { status: "empty" });
+
+  const populatedSnapshot = validateSnapshot(fixture());
+  const populatedState = getSectionState(populatedSnapshot.marketState?.selectedRows);
+  assert.equal(populatedState.status, "has_entries");
+  if (populatedState.status === "has_entries") {
+    assert.equal(populatedState.items.length, 1);
+    assert.equal(populatedState.items[0].id, "dxy");
+    assert.equal(populatedState.items[0].symbol, "DXY");
+    assert.equal(populatedState.items[0].last, 101.3);
+  }
+});
+
+test("valid zero, negative percentage, and null numeric market observations are validated and formatted correctly", () => {
+  const data = validateSnapshot({
+    ...fixture(),
+    marketState: {
+      selectedRows: [
+        { id: "zero", symbol: "ZERO", label: "Zero Asset", last: 0, change5d: 0, asOf: "2026-10-08", sourceName: "Test", sourceUrl: "https://example.test" },
+        { id: "neg", symbol: "NEG", label: "Negative Asset", last: 50.5, change5d: -5.25, asOf: "2026-10-08" },
+        { id: "nulls", symbol: "NULLS", label: "Null Asset", last: null, change5d: null, asOf: null },
+      ],
+    },
+  });
+  const rows = data.marketState?.selectedRows ?? [];
+  assert.equal(rows.length, 3);
+
+  assert.equal(formatMarketLast(rows[0].last), "0");
+  assert.equal(formatMarketChange(rows[0].change5d), "0.00%");
+
+  assert.equal(formatMarketLast(rows[1].last), "50.5");
+  assert.equal(formatMarketChange(rows[1].change5d), "-5.25%");
+
+  assert.equal(formatMarketLast(rows[2].last), "n/a");
+  assert.equal(formatMarketChange(rows[2].change5d), "n/a");
+});
+
+test("failed refresh with malformed marketState retains previous verified snapshot and signals error", async () => {
+  const previous = { snapshot: validateSnapshot(fixture()), requestedAt: RETRIEVED, error: null };
+
+  const malformedRows = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    marketState: { selectedRows: [null] },
+  }));
+  assert.strictEqual(malformedRows.snapshot, previous.snapshot);
+  assert.equal(malformedRows.requestedAt, RETRIEVED);
+  assert.match(malformedRows.error ?? "", /Incomplete or malformed snapshot contract/);
+
+  const malformedContainer = await loadMobileSnapshot(previous, async () => response({
+    ...fixture(),
+    marketState: "invalid",
+  }));
+  assert.strictEqual(malformedContainer.snapshot, previous.snapshot);
+  assert.equal(malformedContainer.requestedAt, RETRIEVED);
+  assert.match(malformedContainer.error ?? "", /Incomplete or malformed snapshot contract/);
 });
 
 test("failed refresh with malformed provider health preserves in-session snapshot and signals error", async () => {

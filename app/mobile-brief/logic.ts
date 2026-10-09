@@ -148,6 +148,37 @@ export function validateSnapshot(value: unknown): Snapshot {
     }
   }
 
+  if (value.marketState !== undefined && value.marketState !== null) {
+    if (!isRecord(value.marketState)) {
+      throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+    }
+    if (value.marketState.selectedRows !== undefined && value.marketState.selectedRows !== null) {
+      if (!Array.isArray(value.marketState.selectedRows)) {
+        throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+      }
+      for (const row of value.marketState.selectedRows) {
+        if (!isRecord(row) || typeof row.id !== "string" || typeof row.symbol !== "string" || typeof row.label !== "string") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+        if (row.last !== undefined && row.last !== null && typeof row.last !== "number") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+        if (row.change5d !== undefined && row.change5d !== null && typeof row.change5d !== "number") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+        if (row.asOf !== undefined && row.asOf !== null && typeof row.asOf !== "string") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+        if (row.sourceName !== undefined && row.sourceName !== null && typeof row.sourceName !== "string") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+        if (row.sourceUrl !== undefined && row.sourceUrl !== null && typeof row.sourceUrl !== "string") {
+          throw new Error("Incomplete or malformed snapshot contract. No new assessment shown.");
+        }
+      }
+    }
+  }
+
   return value as Snapshot;
 }
 
