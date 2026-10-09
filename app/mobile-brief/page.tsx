@@ -223,6 +223,43 @@ export default function MobileIntelligenceBrief() {
         })()}
       </section>
       <section style={{ ...panel, marginBottom: 14 }}>
+        <h2>Watch Next — Open Questions</h2>
+        <p style={muted}>These questions come from the selected Dossier. They are not new research or trading instructions.</p>
+        {(() => {
+          const state = getSectionState(snapshot.investigations);
+          if (state.status === "not_supplied") {
+            return <p style={muted}>Watch Next investigations not supplied in this snapshot.</p>;
+          }
+          if (state.status === "empty") {
+            return <p style={muted}>No Watch Next investigations reported in this snapshot.</p>;
+          }
+          return state.items.map(item => (
+            <details key={item.id} style={{ borderTop: "1px solid #303b55", padding: "12px 0" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 650 }}>
+                {item.question} <span style={muted}>· {item.status || "Status not supplied"}</span>
+              </summary>
+              <div style={{ paddingLeft: 8, paddingTop: 8 }}>
+                <p style={muted}>Investigation ID: {item.id} · Evidence refs: {evidenceCount(item.evidenceRefs ?? undefined)}</p>
+                <strong>Why it matters</strong>
+                <p>{item.whyItMatters || "Not supplied in this snapshot."}</p>
+                <strong>Research next</strong>
+                <p>{item.researchNext || "Not supplied in this snapshot."}</p>
+                <strong>What would confirm it?</strong>
+                <p>{item.confirmationCondition || "Not supplied in this snapshot."}</p>
+                <strong>What would challenge it?</strong>
+                <p>{item.invalidationCondition || "Not supplied in this snapshot."}</p>
+                <strong>Missing evidence</strong>
+                {renderStringList(
+                  item.missingEvidence,
+                  "Missing evidence details not supplied in this snapshot.",
+                  "No missing evidence reported in this snapshot.",
+                )}
+              </div>
+            </details>
+          ));
+        })()}
+      </section>
+      <section style={{ ...panel, marginBottom: 14 }}>
         <h2>Contradictions</h2>
         {(() => {
           const state = getSectionState(snapshot.contradictions);
