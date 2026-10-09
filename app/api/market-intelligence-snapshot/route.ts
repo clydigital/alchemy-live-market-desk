@@ -6,6 +6,7 @@ import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import {
   buildMarketIntelligenceSnapshot,
+  marketIntelligenceSuccessResponse,
   marketIntelligenceUnavailableResponse,
 } from "@/lib/market-intelligence-snapshot";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -59,14 +60,7 @@ export async function GET() {
       marketMotion,
     });
 
-    return NextResponse.json(snapshot, {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
-        "X-Alchemy-Market-Intelligence": snapshot.contractVersion,
-      },
-    });
+    return marketIntelligenceSuccessResponse(snapshot);
   } catch {
     // Keep server diagnostics non-sensitive; upstream handlers own detailed diagnostics.
     console.error("Market intelligence snapshot unavailable: unexpected assembly failure.");

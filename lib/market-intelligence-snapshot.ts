@@ -34,6 +34,17 @@ export function marketIntelligenceUnavailableResponse(): Response {
   });
 }
 
+export function marketIntelligenceSuccessResponse(snapshot: MarketIntelligenceSnapshotV1): Response {
+  return Response.json(snapshot, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+      "X-Alchemy-Market-Intelligence": snapshot.contractVersion,
+    },
+  });
+}
+
 export type MonetarySignalDirection =
   | "TIGHTER"
   | "EASIER"

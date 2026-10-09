@@ -6,6 +6,7 @@ import {
   buildMarketIntelligenceSnapshot,
   unavailableSnapshotResponseBody,
   marketIntelligenceUnavailableResponse,
+  marketIntelligenceSuccessResponse,
   MARKET_INTELLIGENCE_SNAPSHOT_V1,
   MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL,
 } from "../lib/market-intelligence-snapshot.ts";
@@ -209,18 +210,9 @@ test("route 503 branches call marketIntelligenceUnavailableResponse and keep log
     "Route must not expose raw selection notice details in public 503 responses",
   );
 
-  // Assert expected GET success headers semantics exist in route source and 200 contract is preserved
   assert.ok(
-    routeSource.includes('"Cache-Control": "public, s-maxage=30, stale-while-revalidate=120"'),
-    "Route must retain public Cache-Control for success 200 path",
-  );
-  assert.ok(
-    routeSource.includes('"X-Alchemy-Market-Intelligence": snapshot.contractVersion'),
-    "Route must set X-Alchemy-Market-Intelligence header to contractVersion on success",
-  );
-  assert.ok(
-    routeSource.includes("status: 200"),
-    "Route must return status 200 on success",
+    routeSource.includes("marketIntelligenceSuccessResponse(snapshot)"),
+    "Route must call marketIntelligenceSuccessResponse(snapshot) for success branch",
   );
 
   // Verify server diagnostic logging remains fixed category without leaking secrets or errors
@@ -240,4 +232,235 @@ test("route 503 branches call marketIntelligenceUnavailableResponse and keep log
     !routeSource.includes("console.error(\"Market intelligence snapshot unavailable notice:\", selection.notice.detail)"),
     "Server logs must not echo raw Dossier selection notices",
   );
+});
+
+test("marketIntelligenceSuccessResponse produces executable HTTP 200 response preserving headers and exact JSON fields", async () => {
+  const generatedAt = "2026-09-25T10:00:00.000Z";
+  const dossierAsOf = "2026-09-24T18:00:00.000Z";
+  const monitorAsOf = "2026-09-24T16:00:00.000Z";
+
+  const presentation = {
+    dossierId: "dossier-v2-test-id-12345",
+    asOf: dossierAsOf,
+    health: { degraded: false, researchGaps: [{ category: "POLICY", description: "FED_SPEECHES: Upcoming FOMC blackout" }] },
+    header: {
+      headline: "Headline Test",
+      answer: "Answer Test",
+      regimeImplication: "Implication Test",
+      regimeFamily: "INFLATION_PRESSURE",
+      whatWouldChangeMind: "Change mind condition",
+    },
+    rateRegime: {
+      state: "HAWKISH",
+      fredBacked: true,
+      signals: [{
+        key: "REAL_YIELDS",
+        label: "10Y real yield",
+        state: "HAWKISH",
+        score: 2,
+        detail: "Real yields detail.",
+        evidenceRefs: ["ev-dossier-real-1", "ev-dossier-real-2"],
+      }],
+      gaps: ["Rate regime gap 1"],
+      evidenceRefs: ["ev-dossier-real-1", "ev-dossier-real-2"],
+      nextMeetingRateOutlook: null,
+      fedWatchExpectedDirection: null,
+      trigger: null,
+      observedRatePricing: null,
+      observedConfirmation: null,
+      usRatesReaction: null,
+      usRatesInterpretation: null,
+    },
+    dollarLiquidity: null,
+    policyLiquidityInteraction: null,
+    regimeStrip: [],
+    whatMattersNow: {
+      stories: [{
+        id: "story-oil-shock-99",
+        title: "Crude supply constraint",
+        summary: "Oil supply tightening impact",
+        status: "ACTIVE",
+        evidenceRefs: ["ev-story-oil-1"],
+      }],
+    },
+    watchNext: [{
+      id: "inv-fed-balance-sheet",
+      question: "Will QT pacing change?",
+      status: "OPEN",
+    }],
+    stockRadar: [{
+      symbol: "NVDA",
+      reason: "AI Capex sensitivity",
+    }],
+  } as unknown as DossierPresentationV1;
+
+  const monitor = {
+    rows: [
+      {
+        id: "us10y-fred",
+        symbol: "US10Y",
+        label: "10-Year Treasury Yield",
+        last: 4.25,
+        change5d: 3.2,
+        asOf: monitorAsOf,
+        sourceName: "Federal Reserve Economic Data",
+        sourceUrl: "https://fred.stlouisfed.org/series/DGS10",
+      },
+    ],
+    contradictions: [{
+      id: "contradiction-1",
+      title: "Yield Curve Inversion",
+      detail: "2Y10Y spread negative",
+      assets: ["US2Y", "US10Y"],
+    }],
+    limitations: [],
+  } as unknown as MarketMonitor;
+
+  const nyFed: NyFedReferenceRatesSnapshot = {
+    status: "OK",
+    fetchedAt: generatedAt,
+    asOf: "2026-09-24",
+    sourceName: "Federal Reserve Bank of New York",
+    sourceUrl: "https://markets.newyorkfed.org/api/rates/all/latest.json",
+    rates: [
+      { type: "EFFR", effectiveDate: "2026-09-24", percentRate: 5.3, volumeInBillions: 100, percentile1: null, percentile25: null, percentile75: null, percentile99: null },
+      { type: "SOFR", effectiveDate: "2026-09-24", percentRate: 5.3, volumeInBillions: 2000, percentile1: null, percentile25: null, percentile75: null, percentile99: null },
+      { type: "TGCR", effectiveDate: "2026-09-24", percentRate: 5.3, volumeInBillions: 900, percentile1: null, percentile25: null, percentile75: null, percentile99: null },
+      { type: "BGCR", effectiveDate: "2026-09-24", percentRate: 5.3, volumeInBillions: 950, percentile1: null, percentile25: null, percentile75: null, percentile99: null },
+    ],
+    warnings: [],
+  };
+
+  const dealers: NyFedPrimaryDealerSnapshot = {
+    status: "OK",
+    fetchedAt: generatedAt,
+    asOf: "2026-09-23",
+    sourceName: "Federal Reserve Bank of New York",
+    sourceUrl: "https://markets.newyorkfed.org/api/pd/get/test.json",
+    series: [
+      { keyId: "PDPOSGST-TOT", label: "position", asOf: "2026-09-23", valueMillions: 120000, previousAsOf: "2026-09-16", previousValueMillions: 118000, weeklyChangeMillions: 2000 },
+      { keyId: "PDFTD-USTET", label: "fails deliver", asOf: "2026-09-23", valueMillions: 3000, previousAsOf: "2026-09-16", previousValueMillions: 2800, weeklyChangeMillions: 200 },
+      { keyId: "PDFTR-USTET", label: "fails receive", asOf: "2026-09-23", valueMillions: 2900, previousAsOf: "2026-09-16", previousValueMillions: 2700, weeklyChangeMillions: 200 },
+    ],
+    warnings: [],
+  };
+
+  const treasuryBills: TreasuryBillSnapshot = {
+    status: "OK",
+    fetchedAt: generatedAt,
+    asOf: "2026-09-24",
+    sourceName: "U.S. Department of the Treasury",
+    sourceUrl: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2026",
+    points: [
+      { tenor: "3M", date: "2026-09-24", yieldPercent: 5.3 },
+      { tenor: "6M", date: "2026-09-24", yieldPercent: 5.25 },
+    ],
+    warnings: [],
+  };
+
+  const snapshotInput = buildMarketIntelligenceSnapshot({
+    status: "current",
+    presentation,
+    monitor,
+    nyFedReferenceRates: nyFed,
+    nyFedPrimaryDealers: dealers,
+    treasuryBills,
+    generatedAt,
+  });
+
+  // Keep original snapshot object pristine to check non-mutation
+  const snapshotInputCopy = Object.freeze(JSON.parse(JSON.stringify(snapshotInput)));
+
+  const response = marketIntelligenceSuccessResponse(snapshotInput);
+
+  // Status & Headers assertions
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.equal(response.headers.get("Cache-Control"), "public, s-maxage=30, stale-while-revalidate=120");
+  assert.equal(response.headers.get("X-Alchemy-Market-Intelligence"), MARKET_INTELLIGENCE_SNAPSHOT_V1);
+
+  const body = await response.json();
+
+  // Non-mutation assertion
+  assert.deepEqual(snapshotInput, snapshotInputCopy, "marketIntelligenceSuccessResponse must not mutate the input snapshot fixture");
+
+  // Field preservation assertions
+  assert.equal(body.contractVersion, MARKET_INTELLIGENCE_SNAPSHOT_V1);
+  assert.equal(body.generatedAt, generatedAt);
+  assert.equal(body.dossier.dossierId, "dossier-v2-test-id-12345");
+  assert.equal(body.dossier.asOf, dossierAsOf);
+  assert.equal(body.dossier.degraded, false);
+
+  // Timestamps independence assertion: generatedAt, Dossier asOf, market-row asOf are distinct
+  assert.notEqual(body.generatedAt, body.dossier.asOf, "generatedAt and Dossier asOf must remain independent");
+  assert.notEqual(body.generatedAt, body.marketState.selectedRows[0].asOf, "generatedAt and market-row asOf must remain independent");
+  assert.notEqual(body.dossier.asOf, body.marketState.selectedRows[0].asOf, "Dossier asOf and market-row asOf must remain independent");
+
+  // Story identity and evidence references
+  assert.equal(body.stories[0].id, "story-oil-shock-99");
+  assert.deepEqual(body.stories[0].evidenceRefs, ["ev-story-oil-1"]);
+  assert.deepEqual(body.regime.rateRegime.signals[0].evidenceRefs, ["ev-dossier-real-1", "ev-dossier-real-2"]);
+
+  // Market-row observation timestamps/source URLs
+  assert.equal(body.marketState.selectedRows[0].asOf, monitorAsOf);
+  assert.equal(body.marketState.selectedRows[0].sourceUrl, "https://fred.stlouisfed.org/series/DGS10");
+
+  // Source health and research gaps
+  assert.equal(body.sourceHealth.dossier, "OK");
+  assert.equal(body.sourceHealth.nyFedReferenceRates, "OK");
+  assert.ok(body.researchGaps.includes("POLICY: FED_SPEECHES: Upcoming FOMC blackout"));
+});
+
+test("meaningful contrast: success is public-cacheable 200 with snapshot data vs failure is no-store 503 without internal details", async () => {
+  const snapshot = buildMarketIntelligenceSnapshot({
+    status: "current",
+    presentation: {
+      dossierId: "dossier-contrast-1",
+      asOf: "2026-09-25T00:00:00Z",
+      health: { degraded: false, researchGaps: [] },
+      header: {
+        headline: "Contrast test headline",
+        answer: "Contrast test answer",
+        regimeImplication: "Contrast implication",
+        regimeFamily: "GROWTH",
+        whatWouldChangeMind: "Contrast mind change",
+      },
+      rateRegime: {
+        state: "NEUTRAL",
+        fredBacked: true,
+        signals: [],
+        gaps: [],
+        evidenceRefs: [],
+      },
+      regimeStrip: [],
+      whatMattersNow: { stories: [] },
+      watchNext: [],
+      stockRadar: [],
+    } as unknown as DossierPresentationV1,
+    monitor: { rows: [], contradictions: [], limitations: [] } as unknown as MarketMonitor,
+    nyFedReferenceRates: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "NY Fed", sourceUrl: "", rates: [], warnings: [] },
+    nyFedPrimaryDealers: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "NY Fed", sourceUrl: "", series: [], warnings: [] },
+    treasuryBills: { status: "OK", fetchedAt: "2026-09-25T00:00:00Z", asOf: "2026-09-24", sourceName: "Treasury", sourceUrl: "", points: [], warnings: [] },
+    generatedAt: "2026-09-25T00:00:00.000Z",
+  });
+
+  const successResponse = marketIntelligenceSuccessResponse(snapshot);
+  const failureResponse = marketIntelligenceUnavailableResponse();
+
+  assert.equal(successResponse.status, 200);
+  assert.equal(failureResponse.status, 503);
+
+  assert.equal(successResponse.headers.get("Cache-Control"), "public, s-maxage=30, stale-while-revalidate=120");
+  assert.equal(failureResponse.headers.get("Cache-Control"), "no-store");
+
+  assert.equal(successResponse.headers.get("X-Alchemy-Market-Intelligence"), MARKET_INTELLIGENCE_SNAPSHOT_V1);
+  assert.equal(failureResponse.headers.get("X-Alchemy-Market-Intelligence"), "unavailable");
+
+  const successJson = await successResponse.json();
+  const failureJson = await failureResponse.json();
+
+  assert.equal(successJson.dossier.dossierId, "dossier-contrast-1");
+  assert.equal(failureJson.status, "unavailable");
+  assert.equal(failureJson.detail, MARKET_INTELLIGENCE_UNAVAILABLE_DETAIL);
+  assert.equal(failureJson.dossier, undefined, "Failure response must not leak Dossier details");
 });
