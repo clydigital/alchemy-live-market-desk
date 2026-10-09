@@ -16,6 +16,8 @@ alter table public.research_intake_items
     video_analysis_status = any (array['not_attempted'::text, 'summary_only'::text, 'failed'::text])
   );
 
+drop function if exists public.claim_transcript_jobs(text, integer, integer);
+
 create or replace function public.claim_transcript_jobs(
   p_worker_id text,
   p_batch_size integer default 1,

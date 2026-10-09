@@ -21,6 +21,10 @@ test("the Gemini rescue migration adds only the three fenced MVP fields", () => 
   assert.match(migration, /'summary_only'/);
   assert.match(migration, /'failed'/);
   assert.match(migration, /video_analysis_payload jsonb/i);
+  assert.match(
+    migration,
+    /drop function if exists public\.claim_transcript_jobs\(text, integer, integer\)[\s\S]*create or replace function public\.claim_transcript_jobs/i,
+  );
   assert.match(migration, /returns table[\s\S]*video_analysis_status text/i);
   assert.match(migration, /security invoker[\s\S]*set search_path = ''/i);
   assert.match(migration, /revoke all[\s\S]*from public, anon, authenticated/i);
