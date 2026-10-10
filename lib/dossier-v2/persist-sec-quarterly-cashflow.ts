@@ -1,19 +1,22 @@
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
 import {
-  extractAlphabetSecQuarterCashFlows, SEC_CASHFLOW_METHOD, SEC_CASHFLOW_SOURCE,
-  SEC_D1A_ISSUER,
+  extractSecQuarterCashFlows, SEC_CASHFLOW_METHOD, SEC_CASHFLOW_SOURCE,
+  SEC_D1_ISSUERS, type SecCashflowIssuerTicker,
 } from "./issuer-sec-quarterly-cashflow.ts";
 
 /**
- * D1a only. The SEC publishing date is day-precision; next UTC midnight is a
+ * D1a/D1b: supported US GAAP hyperscalers only. The SEC publishing date is day-precision; next UTC midnight is a
  * conservative available-at bound, NOT a claim about the actual SEC release hour.
  * This can populate canonical Evidence, but cannot mutate a Story or auto-fire
  * a provisional capex/CFO Regime rule.
  */
-export async function persistAlphabetSecCashflowEvidence(
+export async function persistSecIssuerCashflowEvidence(
   asOf: string,
+  ticker: SecCashflowIssuerTicker,
   options: { now?: string; userAgent?: string; fetchImpl?: typeof fetch } = {},
 ) {
+  const issuer = SEC_D1_ISSUERS[ticker];
+  if (!issuer) return { persisted: [] as Array<{ id:string; evidenceId:string; observationId:string }>, gaps: ["UNKNOWN_ISSUER"] };
   const now = options.now ?? new Date().toISOString();
   const asOfMs = Date.parse(asOf), nowMs = Date.parse(now);
   const gaps: string[] = [], persisted: Array<{ id: string; evidenceId: string; observationId: string }> = [];
@@ -22,17 +25,18 @@ export async function persistAlphabetSecCashflowEvidence(
     return { persisted, gaps: ["HISTORICAL_OR_FUTURE_REPLAY"] };
   }
   const userAgent = options.userAgent ?? process.env.SEC_USER_AGENT?.trim();
-  if (!userAgent || !/^[^\n\r]{12,200}$/.test(userAgent)) {
+  if (!userAgent || !/^[^\n\r]{12,200}$/.test(userAgent)
+    || !/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(userAgent)) {
     return { persisted, gaps: ["SEC_USER_AGENT_NOT_CONFIGURED"] };
   }
-  const response = await (options.fetchImpl ?? fetch)(SEC_D1A_ISSUER.secUrl, {
+  const response = await (options.fetchImpl ?? fetch)(issuer.secUrl, {
     headers: { accept: "application/json", "user-agent": userAgent },
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) return { persisted, gaps: ["SEC_PRIMARY_FACTS_HTTP_"+response.status] };
   const payload = await response.json();
-  const candidates = extractAlphabetSecQuarterCashFlows(payload, asOf);
+  const candidates = extractSecQuarterCashFlows(payload, asOf, ticker);
   gaps.push(...candidates.gaps);
   const client = createSupabaseAdminClient();
   const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
@@ -71,12 +75,12 @@ export async function persistAlphabetSecCashflowEvidence(
         source_tier:1,
         reliability_score:95,
         methodology_notes:"SEC primary XBRL: same filing accession for CFO/cash PP&E YTD; adjacent fiscal year-to-date difference, not combined lease-inclusive capex or AI-specific revenue. Published clock is conservatively bounded by next UTC midnight after SEC filed day.",
-        metadata:{ verificationRole:"canonical", filingBasis:SEC_CASHFLOW_METHOD, entityScope:"CONSOLIDATED", issuer:"GOOGL" },
+        metadata:{ verificationRole:"canonical", filingBasis:SEC_CASHFLOW_METHOD, entityScope:"CONSOLIDATED", issuer:ticker },
         last_seen_at:now,updated_at:now,
       },{onConflict:"provider_key,external_source_id"})
       .select("id").single<{id:string}>();
     if (sourceError || !source) throw new Error("SEC cashflow source registration failed: "+(sourceError?.message??"missing source"));
-    const claim = "Alphabet consolidated FY"+item.fiscalYear+" Q"+item.fiscalQuarter+
+    const claim = issuer.entityName+" consolidated FY"+item.fiscalYear+" Q"+item.fiscalQuarter+
       " CFO $"+item.cfoUsd+"; cash PP&E $"+item.cashPpeUsd+
       "; simple FCF (CFO minus cash PP&E) $"+item.simpleFcfUsd+
       " (USD; quarter ended "+item.periodEnd+"). SEC XBRL values use filed "+item.filedDate+
@@ -133,7 +137,7 @@ export async function persistAlphabetSecCashflowEvidence(
         event_at:item.periodEnd+"T23:59:59.999Z",
         published_at:item.availableAt,
         available_at:item.availableAt,
-        affected_assets:["GOOGL","GOOG"],
+        affected_assets:ticker==="GOOGL"?["GOOGL","GOOG"]:[ticker],
         affected_topics:["us-china-ai","ai-capex-cash-conversion"],
         measurement_unit:"USD",
         observed_value:item.simpleFcfUsd,expected_value:null,previous_value:null,
@@ -142,11 +146,11 @@ export async function persistAlphabetSecCashflowEvidence(
         content_hash:item.contentHash,
         provenance_urls:[item.sourceUrl,item.filingIndexUrl],
         structured_payload:{
-          title:"Alphabet SEC quarter FY"+item.fiscalYear+" Q"+item.fiscalQuarter,
+          title:issuer.entityName+" SEC quarter FY"+item.fiscalYear+" Q"+item.fiscalQuarter,
           evidenceNature:"issuer_sec_consolidated_cashflow",
           methodologyVersion:SEC_CASHFLOW_METHOD,
           entityScope:"CONSOLIDATED",
-          issuerCik:item.issuerCik,ticker:"GOOGL",
+          issuerCik:item.issuerCik,ticker,
           accountingBasis:"US_GAAP",fiscalYear:item.fiscalYear,fiscalQuarter:item.fiscalQuarter,
           periodStart:item.periodStart,periodEnd:item.periodEnd,secFilingDate:item.filedDate,
           secFilingAccession:item.currentAccession,previousFilingAccession:item.predecessorAccession,
@@ -164,4 +168,12 @@ export async function persistAlphabetSecCashflowEvidence(
     persisted.push({id:externalId,evidenceId:evidence.id,observationId:obs.id});
   }
   return {persisted,gaps};
+}
+
+/** Backward-compatible D1a single issuer entrypoint. */
+export async function persistAlphabetSecCashflowEvidence(
+  asOf: string,
+  options: { now?: string; userAgent?: string; fetchImpl?: typeof fetch } = {},
+) {
+  return persistSecIssuerCashflowEvidence(asOf, "GOOGL", options);
 }
