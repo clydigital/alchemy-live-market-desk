@@ -3,13 +3,40 @@ import { buildSecCompanyFactsUrl, normalizeSecCik } from "../providers/sec-edgar
 
 /** D1a source-backed filing intake. The wider cohort must reuse this algorithm. */
 export const SEC_CASHFLOW_METHOD = "sec-consolidated-cashflow-quarter-v1" as const;
+export type SecCashflowIssuerTicker = "GOOGL" | "MSFT" | "AMZN" | "META";
+
+export const SEC_D1_ISSUERS: Record<SecCashflowIssuerTicker, {
+  symbol: SecCashflowIssuerTicker;
+  cik: string;
+  entityName: string;
+  aliases: readonly string[];
+  secUrl: string;
+  filingIndexCik: string;
+}> = {
+  GOOGL: {
+    symbol: "GOOGL", cik: "0001652044", entityName: "Alphabet Inc.",
+    aliases: ["Alphabet Inc", "ALPHABET INC"],
+    secUrl: buildSecCompanyFactsUrl("1652044"), filingIndexCik: "1652044",
+  },
+  MSFT: {
+    symbol: "MSFT", cik: "0000789019", entityName: "Microsoft Corporation",
+    aliases: ["MICROSOFT CORP", "MICROSOFT CORPORATION"],
+    secUrl: buildSecCompanyFactsUrl("789019"), filingIndexCik: "789019",
+  },
+  AMZN: {
+    symbol: "AMZN", cik: "0001018724", entityName: "Amazon.com, Inc.",
+    aliases: ["AMAZON COM INC", "AMAZON.COM INC", "AMAZON.COM, INC."],
+    secUrl: buildSecCompanyFactsUrl("1018724"), filingIndexCik: "1018724",
+  },
+  META: {
+    symbol: "META", cik: "0001326801", entityName: "Meta Platforms, Inc.",
+    aliases: ["META PLATFORMS INC", "META PLATFORMS, INC."],
+    secUrl: buildSecCompanyFactsUrl("1326801"), filingIndexCik: "1326801",
+  },
+};
 export const SEC_CASHFLOW_SOURCE = "U.S. Securities and Exchange Commission" as const;
-export const SEC_D1A_ISSUER = {
-  symbol: "GOOGL",
-  cik: "0001652044",
-  entityName: "Alphabet Inc.",
-  secUrl: buildSecCompanyFactsUrl("1652044"),
-} as const;
+/** Backward-compatible explicit first-issuer alias. */
+export const SEC_D1A_ISSUER = SEC_D1_ISSUERS.GOOGL;
 
 export type SecCashFlowComponent = {
   accessionNumber: string;
@@ -24,7 +51,7 @@ export type SecCashFlowComponent = {
 };
 export type SecQuarterCashFlow = {
   issuerCik: string;
-  ticker: "GOOGL";
+  ticker: SecCashflowIssuerTicker;
   entityScope: "CONSOLIDATED";
   accountingBasis: "US_GAAP";
   fiscalYear: number;
@@ -101,6 +128,10 @@ function rows(payload: unknown, concept: FactRow["concept"], asOfMs: number): Fa
     const form = row.form as "10-Q" | "10-K";
     const fp = row.fp as FactRow["fiscalPeriod"];
     if ((fp === "FY") !== (form === "10-K")) return [];
+    // CompanyFacts includes comparative fiscal facts tagged with the *later*
+    // filing's fy/fp. Never label FY2025 comparative numbers as FY2026.
+    // All four scoped companies have June/December year-ends in the named year.
+    if (Number(row.end.slice(0, 4)) !== row.fy) return [];
     const availableAt = dayMs(nextDay(row.filed));
     if (availableAt > asOfMs || dayMs(row.end) > asOfMs) return [];
     const expectedDays: Record<FactRow["fiscalPeriod"], [number, number]> = {
@@ -158,17 +189,22 @@ function previous(fp: SecCashFlowComponent["fiscalPeriod"]) {
   return fp === "FY" ? "Q3" : fp === "Q3" ? "Q2" : fp === "Q2" ? "Q1" : null;
 }
 /** Do not use the SEC "latest" XBRL row as a single quarter; most CFO/capex rows are YTD. */
-export function extractAlphabetSecQuarterCashFlows(
+export function extractSecQuarterCashFlows(
   payload: unknown,
   asOf: string,
+  ticker: SecCashflowIssuerTicker,
 ): { items: SecQuarterCashFlow[]; gaps: string[] } {
+  const issuer = SEC_D1_ISSUERS[ticker];
+  if (!issuer) return { items: [], gaps: ["UNKNOWN_ISSUER"] };
   const nowMs = Date.parse(asOf);
   if (!Number.isFinite(nowMs)) return { items: [], gaps: ["INVALID_AS_OF"] };
   const root = object(payload);
-  if (!root || Number(root.cik) !== Number(SEC_D1A_ISSUER.cik)) {
+  if (!root || Number(root.cik) !== Number(issuer.cik)) {
     return { items: [], gaps: ["CIK_MISMATCH_OR_MISSING"] };
   }
-  if (typeof root.entityName !== "string" || root.entityName.trim().toLowerCase() !== "alphabet inc.") {
+  const entity = typeof root.entityName === "string" ? root.entityName.trim() : "";
+  const normalizedEntity = entity.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!issuer.aliases.some((candidate) => candidate.toUpperCase().replace(/[^A-Z0-9]/g, "") === normalizedEntity)) {
     return { items: [], gaps: ["ENTITY_IDENTITY_MISMATCH"] };
   }
   const x = pairedComponents(
@@ -210,7 +246,7 @@ export function extractAlphabetSecQuarterCashFlows(
       gaps.push(current.fiscalYear + ":" + current.fiscalPeriod + ":IMPLAUSIBLE_CAPEX_DELTA");
       continue;
     }
-    const id = ["sec-cashflow",SEC_D1A_ISSUER.cik,current.fiscalYear,"Q"+quarterNumber(current.fiscalPeriod),qStart,current.periodEnd].join(":");
+    const id = ["sec-cashflow",issuer.cik,current.fiscalYear,"Q"+quarterNumber(current.fiscalPeriod),qStart,current.periodEnd].join(":");
     const stable = {
       id,cfo,capex,accession:current.accessionNumber,prior:prior?.accessionNumber??null,
       filed:current.filed,quarterStart:qStart,quarterEnd:current.periodEnd,
@@ -219,19 +255,28 @@ export function extractAlphabetSecQuarterCashFlows(
     };
     const contentHash = createHash("sha256").update(JSON.stringify(stable)).digest("hex");
     items.push({
-      issuerCik: SEC_D1A_ISSUER.cik, ticker:"GOOGL", entityScope:"CONSOLIDATED", accountingBasis:"US_GAAP",
+      issuerCik: issuer.cik, ticker, entityScope:"CONSOLIDATED", accountingBasis:"US_GAAP",
       fiscalYear:current.fiscalYear, fiscalQuarter:quarterNumber(current.fiscalPeriod),
       periodStart:qStart,periodEnd:current.periodEnd,filedDate:current.filed,
       availableAt:nextDay(current.filed)+"T00:00:00Z",
       currentAccession:current.accessionNumber,predecessorAccession:prior?.accessionNumber??null,
       cfoUsd:cfo,cashPpeUsd:capex,simpleFcfUsd:cfo-capex,
       capexToPositiveCfo:cfo>0?Number((capex/cfo).toFixed(6)):null,
-      sourceUrl:SEC_D1A_ISSUER.secUrl,
-      filingIndexUrl:"https://www.sec.gov/Archives/edgar/data/1652044/"+current.accessionNumber.replaceAll("-","")+"/",
+      sourceUrl:issuer.secUrl,
+      filingIndexUrl:"https://www.sec.gov/Archives/edgar/data/"+issuer.filingIndexCik+"/"+current.accessionNumber.replaceAll("-","")+"/",
       componentCfoYtdUsd:current.operatingCashFlowYtdUsd,componentCashPpeYtdUsd:current.cashPpeYtdUsd,
       predecessorCfoYtdUsd:prior?.operatingCashFlowYtdUsd??0,predecessorCashPpeYtdUsd:prior?.cashPpeYtdUsd??0,
       contentHash,observationIdentity:id,
     });
   }
   return { items:items.sort((a,b)=>b.periodEnd.localeCompare(a.periodEnd)).slice(0,8),gaps };
+}
+
+
+/** D1a public import kept stable for the existing Alphabet tests and bridge. */
+export function extractAlphabetSecQuarterCashFlows(
+  payload: unknown,
+  asOf: string,
+): { items: SecQuarterCashFlow[]; gaps: string[] } {
+  return extractSecQuarterCashFlows(payload, asOf, "GOOGL");
 }
