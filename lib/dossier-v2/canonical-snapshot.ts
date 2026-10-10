@@ -891,6 +891,8 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   let fredSeen = false;
   const dailyAgeLimitMs = 5 * 86_400_000;
   let latestMonitorObservation: string | null = null;
+  let latestFredObservation: string | null = null;
+  let latestDailyPriceObservation: string | null = null;
 
   const rows = selectMarketMonitorRows(
     monitor.rows.filter((row) => {
@@ -906,17 +908,20 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
     const isFred = row.sourceName === "Federal Reserve Economic Data";
     const isCreditOas = row.id === "hy-oas" || row.id === "ig-oas";
+    const isRateOrSpread = isCreditOas || row.type === "Rates";
     const groupingKey = isCreditOas ? "market-monitor:credit-oas" : `market-monitor:${row.id}`;
-    fredSeen ||= isFred;
+    fredSeen ||= isFred && row.frequency === "daily";
+    if (isFred && row.frequency === "daily" && (latestFredObservation === null || row.asOf! > latestFredObservation)) latestFredObservation = row.asOf!;
+    if (row.frequency === "daily" && (latestDailyPriceObservation === null || row.asOf! > latestDailyPriceObservation)) latestDailyPriceObservation = row.asOf!;
     if (latestMonitorObservation === null || row.asOf! > latestMonitorObservation) latestMonitorObservation = row.asOf!;
-    const moves = isCreditOas ? "" : [
+    const moves = isRateOrSpread ? "" : [
       row.dayChange !== null ? `1D ${row.dayChange >= 0 ? "+" : ""}${row.dayChange.toFixed(2)}%` : null,
       row.change5d !== null ? `5D ${row.change5d >= 0 ? "+" : ""}${row.change5d.toFixed(2)}%` : null,
     ].filter(Boolean).join("; ");
     observed.push({
       evidence_id: `market-monitor:${row.id}:${row.asOf}`,
       canonical_record_backed: false,
-      claim_or_fact: isCreditOas
+      claim_or_fact: isRateOrSpread
         ? `${row.label} was ${row.last}% as of ${row.asOf}.`
         : `${row.label} was ${row.last} as of ${row.asOf}${moves ? ` (${moves})` : ""}.`,
       category: row.type,
@@ -931,9 +936,9 @@ export function augmentCandidateSnapshotWithMarketMonitor(
         observed_instrument: row.symbol,
         is_proxy: /proxy/i.test(row.label),
         last: row.last,
-        ...(isCreditOas ? {
-          spread_level_pct: row.last,
-          // Do not map a relative percentage return of an OAS level to bps.
+        ...(isRateOrSpread ? {
+          ...(isCreditOas ? { spread_level_pct: row.last } : { yield_level_pct: row.last }),
+          // A percentage return on a yield/spread level is not a bp change.
           change_5d_bp: null,
         } : {
           day_change_pct: row.dayChange,
@@ -942,7 +947,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
         frequency: row.frequency,
         provider: row.sourceName,
         provider_as_of: row.asOf,
-        measurement_unit: isCreditOas ? "percentage_points" : "source_level",
+        measurement_unit: isRateOrSpread ? "percentage_points" : "source_level",
         is_canonical_evidence: false,
       },
       provenance: [{
@@ -1008,7 +1013,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       claim_or_fact: `${breadth.label} breadth was ${breadth.current.above50}% above the 50-day average and ${breadth.current.above200}% above the 200-day average as of ${breadth.current.asOf}; ${breadth.current.newHighs20} constituents were at 20-day highs versus ${breadth.current.newLows20} at 20-day lows across ${breadth.current.sampleSize}/${breadth.targetSize} eligible histories.`,
       category: "BREADTH",
       source_type: "MARKET_DATA",
-      available_at: options.asOf,
+      available_at: `${breadth.current.asOf}T23:59:59.999Z`,
       occurrence_time: `${breadth.current.asOf}T00:00:00.000Z`,
       grouping_key: `market-breadth:${breadth.id}`,
       rank: 15 + index * 2,
@@ -1055,18 +1060,19 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     },
   };
 
-  sourcesStatus.market_crack_diagnostics = {
+  const latestMeasuredDay = measured.map((item) => item.lastDate!).sort().at(-1);
+  const marketCrackStatus = {
     status: measured.length === crackObservations.length ? "OK" : "WARNING",
-    available_at: measured.map((item) => item.lastDate!).sort().at(-1)
-      ? measured.map((item) => item.lastDate!).sort().at(-1) + "T23:59:59.999Z"
-      : undefined,
+    available_at: latestMeasuredDay ? latestMeasuredDay + "T23:59:59.999Z" : undefined,
     message: `${measured.length}/${crackObservations.length} measured 20-session market checks: ${crackObservations.filter((item) => item.status !== "OK").map((item) => `${item.key}=${item.reason}`).join(", ") || "all observations time-matched"}. No synthetic monitor reference is a canonical Evidence UUID.`,
   };
 
-  const macroData = fredSeen
-    ? { status: "OK", available_at: options.asOf }
+  const macroData = fredSeen && latestFredObservation
+    ? { status: "OK", available_at: latestFredObservation + "T23:59:59.999Z" }
     : result.snapshot.macro_data;
-  const priceData = { status: "OK", available_at: options.asOf };
+  const priceData = latestDailyPriceObservation
+    ? { status: "OK", available_at: latestDailyPriceObservation + "T23:59:59.999Z" }
+    : result.snapshot.price_data;
 
   return {
     snapshot: {
@@ -1074,7 +1080,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       observed_evidence: observed,
       price_data: priceData,
       macro_data: macroData,
-      sources_status: sourcesStatus,
+      sources_status: { ...sourcesStatus, market_crack_diagnostics: marketCrackStatus },
     },
     diagnostics: {
       ...result.diagnostics,
@@ -1082,7 +1088,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       latest_available_at: result.diagnostics.latest_available_at && latestMonitorObservation
         ? (result.diagnostics.latest_available_at > latestMonitorObservation + "T23:59:59.999Z" ? result.diagnostics.latest_available_at : latestMonitorObservation + "T23:59:59.999Z")
         : result.diagnostics.latest_available_at ?? (latestMonitorObservation ? latestMonitorObservation + "T23:59:59.999Z" : null),
-      price_data_status: "OK",
+      price_data_status: latestDailyPriceObservation ? "OK" : result.diagnostics.price_data_status,
       macro_data_status: fredSeen
         ? "OK"
         : String(result.snapshot.macro_data?.status ?? result.diagnostics.macro_data_status),
