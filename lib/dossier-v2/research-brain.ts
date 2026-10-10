@@ -1,3 +1,4 @@
+import { normalizeResearchBrainGapTargets } from "./research-brain-gap-targets.ts";
 import { createHash } from "node:crypto";
 import type { DossierV2InputPacket, ThesisLedger } from "./input-packet.ts";
 import type {
@@ -945,6 +946,7 @@ export async function executeResearchBrain(
           normalizedRecovery,
           packet,
         );
+        normalizedRecovery = normalizeResearchBrainGapTargets(normalizedRecovery);
         const recoveryVal = validateResearchBrainOutput(normalizedRecovery, packet);
         if (recoveryVal.isValid && recoveryVal.output) {
           recoveryVal.output.diagnostics = {
@@ -989,6 +991,7 @@ export async function executeResearchBrain(
   firstPassData = normalizeResearchBrainMotionStoryDestinations(firstPassData, packet);
   firstPassData = preservePriorInvestigationExpectedReactions(firstPassData, packet);
   firstPassData = pruneInvalidStockRadarEvidenceReferences(firstPassData, packet);
+  firstPassData = normalizeResearchBrainGapTargets(firstPassData);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return firstVal.output;
@@ -1034,6 +1037,7 @@ export async function executeResearchBrain(
         normalizedRepairData,
         packet,
       );
+      normalizedRepairData = normalizeResearchBrainGapTargets(normalizedRepairData);
       const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
