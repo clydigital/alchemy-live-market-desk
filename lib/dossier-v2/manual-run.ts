@@ -575,6 +575,37 @@ export async function runManualDossierV2(
 ): Promise<ManualDossierV2RunResult> {
   const client = options.client ?? createSupabaseAdminClient();
 
+  // Only the authenticated real production persistence path may write new
+  // quantified source observations. Historical replay, injected test clients
+  // and dry-run research never gain external write authority.
+  if (options.persist && !options.snapshotResult && !options.client) {
+    const nowMs = Date.now(), asOfMs = Date.parse(options.asOf);
+    if (Number.isFinite(asOfMs) && asOfMs <= nowMs + 300_000 && nowMs - asOfMs <= 86_400_000) {
+      try {
+        const [{ getMarketMonitor }, { persistCanonicalMarketMeasurements }] = await Promise.all([
+          import("../market-monitor.ts"),
+          import("./canonical-market-crack-evidence.ts"),
+        ]);
+        const monitor = await getMarketMonitor();
+        const bridge = await persistCanonicalMarketMeasurements(monitor.rows, options.asOf);
+        console.info(JSON.stringify({
+          event: "dossier_market_crack_evidence_bridge",
+          canonicalEvidenceIds: bridge.persisted.map((item) => item.evidenceId),
+          measuredCount: bridge.persisted.length,
+          unresolved: bridge.gaps,
+        }));
+      } catch (error) {
+        // Provider/source ingestion failure must not fabricate evidence or make
+        // all unrelated Dossier/Story research unavailable. The Dossier's
+        // existing read-only monitor diagnostics remain separately labelled.
+        console.warn(JSON.stringify({
+          event: "dossier_market_crack_evidence_bridge_degraded",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
+  }
+
   const promotedMotionEvidencePins = options.snapshotResult
     ? []
     : await loadCurrentMarketMotionEvidencePins(client, options.asOf);
