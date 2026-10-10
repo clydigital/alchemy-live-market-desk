@@ -1,3 +1,4 @@
+import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
 import "server-only";
 
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
@@ -142,36 +143,6 @@ export function priorImmutableDossierStorySources(previousEdition: AlchemyEditio
       reasoning: candidate as CanonicalStoryReasoningV1,
     }];
   });
-}
-
-/**
- * A zero-change edition deliberately has an empty current Story manifest.
- * Several consecutive zero-change editions must not erase the last frozen
- * Story reasoning that can still explain the running Regime.
- *
- * This is historical Dossier context ONLY: never republish these Story IDs
- * as current, fill Journey, or change the canonical Story thesis version.
- */
-export const MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS = 5 * 24 * 60 * 60 * 1000;
-export const MAX_ZERO_CHANGE_EDITION_LOOKBACK = 32;
-
-export function nearestImmutableDossierContext(
-  rows: Array<{ published_at: string; payload: Record<string, unknown> }>,
-  generatedAt: string,
-): { sources: JourneyStorySource[]; publishedAt: string } | null {
-  const asOf = Date.parse(generatedAt);
-  if (!Number.isFinite(asOf)) return null;
-  const ordered = [...rows].sort(
-    (a, b) => Date.parse(b.published_at) - Date.parse(a.published_at),
-  );
-  for (const row of ordered.slice(0, MAX_ZERO_CHANGE_EDITION_LOOKBACK)) {
-    const date = Date.parse(row.published_at);
-    if (!Number.isFinite(date) || date > asOf || asOf - date > MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS) continue;
-    const edition = asPreviousEdition(row.payload);
-    const sources = priorImmutableDossierStorySources(edition);
-    if (sources.length) return { sources, publishedAt: row.published_at };
-  }
-  return null;
 }
 
 function hasPersistedJourney(payload: Record<string, unknown> | undefined) {
@@ -388,7 +359,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
   const immediateDossierSources = priorImmutableDossierStorySources(previousEdition);
-  let recoveredDossierContext: ReturnType<typeof nearestImmutableDossierContext> = null;
+  let recoveredDossierContext: { sources: JourneyStorySource[]; publishedAt: string } | null = null;
   if (storiesPublished === 0 && immediateDossierSources.length === 0) {
     // Use only dated immutable base editions, never a mutable current-Story query.
     const priorBases = await intelligenceRest<Array<{
@@ -397,7 +368,11 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     }>>(
       `hybrid_publication_snapshots?select=published_at,payload&snapshot_type=eq.daily_brief&edition_phase=eq.base&published_at=lt.${encodeURIComponent(generatedAt)}&order=published_at.desc,id.desc&limit=${MAX_ZERO_CHANGE_EDITION_LOOKBACK}`,
     );
-    recoveredDossierContext = nearestImmutableDossierContext(priorBases, generatedAt);
+    recoveredDossierContext = nearestImmutableDossierContext(
+      priorBases,
+      generatedAt,
+      (payload) => priorImmutableDossierStorySources(asPreviousEdition(payload)),
+    );
   }
   const dossierStorySources = storiesPublished === 0
     ? (immediateDossierSources.length ? immediateDossierSources : recoveredDossierContext?.sources || [])
