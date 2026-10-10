@@ -14,6 +14,7 @@ import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import { reconcilePresenterDossierEdition } from "@/lib/presenter-dossier-edition-parity";
+import { loadRegimeAssumptionObservationReport } from "@/lib/regime-assumption-observation-reader";
 import {
   buildPresenterCanonicalStoryCases,
   presenterStorySourcesFromEditionPayload,
@@ -149,6 +150,17 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       researchGapStatus = await loadHybridResearchGapStatus(selection.selectedDossierId);
     } catch {
       researchGapStatus = null;
+    }
+  }
+  let regimeMeasurementRead = null;
+  if (selection.selectedDossierId && selection.selectedAsOf) {
+    try {
+      regimeMeasurementRead = await loadRegimeAssumptionObservationReport(
+        selection.selectedDossierId,
+        selection.selectedAsOf,
+      );
+    } catch {
+      regimeMeasurementRead = null;
     }
   }
 
@@ -510,6 +522,41 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             : dossierEditionParity.status === "OUT_OF_SYNC"
               ? "The current Dossier differs from this frozen Hybrid edition. Hybrid does not claim same-edition parity; the next authorised edition must capture the newer Dossier."
               : "Same-edition provenance is unavailable or inconsistent. Hybrid does not infer a matching Dossier from dates or headlines."}</p>
+        </Panel>
+
+
+        <Panel
+          title="Measured Regime assumptions"
+          description="Canonical point-in-time market measurements attached to the selected Dossier. Research state and A2 Story interpretation remain separate; a market move cannot by itself prove a financing or AI earnings break."
+          action={<Badge tone={regimeMeasurementRead?.currentMetricCount ? "ready" : "warn"}>{regimeMeasurementRead ? `${regimeMeasurementRead.currentMetricCount} / 5 CURRENT` : "UNAVAILABLE"}</Badge>}
+        >
+          {regimeMeasurementRead ? (
+            <div className={styles.recordList}>
+              {regimeMeasurementRead.assumptions.map((assumption) => (
+                <article className={styles.record} key={assumption.assumptionId}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>{assumption.regime === "AI" ? "AI Regime" : "US Rate Regime"} · {assumption.assumptionId}</span>
+                      <h3>{assumption.title}</h3>
+                    </div>
+                    <Badge tone={assumption.observationQuality === "CURRENT" ? "ready" : "warn"}>{assumption.observationQuality}</Badge>
+                  </div>
+                  {assumption.metrics.map((metric) => (
+                    <p key={metric.key}>
+                      <strong>{metric.label}:</strong>{" "}
+                      {metric.value === null ? metric.quality : `${metric.value > 0 ? "+" : ""}${metric.value} ${metric.unit === "basis_points" ? "bp" : "percentage points"}`}
+                      {" · "} {metric.observationAt ? formatDeskDate(metric.observationAt) : "date unavailable"}
+                      {metric.evidenceUuid ? ` · Canonical Evidence ${metric.evidenceUuid.slice(0, 8)}…` : ""}
+                      {metric.citedInDossier ? " · Dossier-cited" : " · Not cited in this Dossier"}
+                    </p>
+                  ))}
+                  <p><strong>Assumption assessment:</strong> {assumption.interpretation}. {assumption.evidenceLimitation}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState title="Quantified assumption status unavailable" detail="No additional metric values are guessed; the Dossier remains the authoritative reasoning source." />
+          )}
         </Panel>
 
         {motionJourney.length ? (
