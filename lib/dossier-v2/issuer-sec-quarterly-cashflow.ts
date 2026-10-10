@@ -110,7 +110,7 @@ type FactRow = {
   start: string;
   end: string;
 };
-function rows(payload: unknown, concept: FactRow["concept"], asOfMs: number): FactRow[] {
+function rows(payload: unknown, concept: FactRow["concept"], asOfMs: number, ticker: SecCashflowIssuerTicker): FactRow[] {
   const fact = object(object(object(payload)?.facts)?.["us-gaap"]);
   const candidate = object(object(fact?.[concept])?.units);
   const inputs = candidate?.USD;
@@ -128,10 +128,15 @@ function rows(payload: unknown, concept: FactRow["concept"], asOfMs: number): Fa
     const form = row.form as "10-Q" | "10-K";
     const fp = row.fp as FactRow["fiscalPeriod"];
     if ((fp === "FY") !== (form === "10-K")) return [];
-    // CompanyFacts includes comparative fiscal facts tagged with the *later*
-    // filing's fy/fp. Never label FY2025 comparative numbers as FY2026.
-    // All four scoped companies have June/December year-ends in the named year.
-    if (Number(row.end.slice(0, 4)) !== row.fy) return [];
+    // SEC CompanyFacts includes prior-year comparatives with a later filing's
+    // fy/fp. Match the actual fiscal quarter END calendar year and month.
+    // Microsoft FY26 Q1/Q2 end Sep/Dec 2025, Q3/FY end Mar/Jun 2026.
+    const expectedYear = ticker === "MSFT" && (fp === "Q1" || fp === "Q2")
+      ? (row.fy as number) - 1 : row.fy;
+    const expectedMonth = ticker === "MSFT"
+      ? { Q1: "09", Q2: "12", Q3: "03", FY: "06" }[fp]
+      : { Q1: "03", Q2: "06", Q3: "09", FY: "12" }[fp];
+    if (Number(row.end.slice(0, 4)) !== expectedYear || row.end.slice(5, 7) !== expectedMonth) return [];
     const availableAt = dayMs(nextDay(row.filed));
     if (availableAt > asOfMs || dayMs(row.end) > asOfMs) return [];
     const expectedDays: Record<FactRow["fiscalPeriod"], [number, number]> = {
@@ -208,8 +213,8 @@ export function extractSecQuarterCashFlows(
     return { items: [], gaps: ["ENTITY_IDENTITY_MISMATCH"] };
   }
   const x = pairedComponents(
-    rows(payload, "NetCashProvidedByUsedInOperatingActivities", nowMs),
-    rows(payload, "PaymentsToAcquirePropertyPlantAndEquipment", nowMs),
+    rows(payload, "NetCashProvidedByUsedInOperatingActivities", nowMs, ticker),
+    rows(payload, "PaymentsToAcquirePropertyPlantAndEquipment", nowMs, ticker),
   );
   const selected = new Map<string, SecCashFlowComponent>();
   for (const p of x.components) {
