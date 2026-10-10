@@ -144,6 +144,36 @@ export function priorImmutableDossierStorySources(previousEdition: AlchemyEditio
   });
 }
 
+/**
+ * A zero-change edition deliberately has an empty current Story manifest.
+ * Several consecutive zero-change editions must not erase the last frozen
+ * Story reasoning that can still explain the running Regime.
+ *
+ * This is historical Dossier context ONLY: never republish these Story IDs
+ * as current, fill Journey, or change the canonical Story thesis version.
+ */
+export const MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+export const MAX_ZERO_CHANGE_EDITION_LOOKBACK = 32;
+
+export function nearestImmutableDossierContext(
+  rows: Array<{ published_at: string; payload: Record<string, unknown> }>,
+  generatedAt: string,
+): { sources: JourneyStorySource[]; publishedAt: string } | null {
+  const asOf = Date.parse(generatedAt);
+  if (!Number.isFinite(asOf)) return null;
+  const ordered = [...rows].sort(
+    (a, b) => Date.parse(b.published_at) - Date.parse(a.published_at),
+  );
+  for (const row of ordered.slice(0, MAX_ZERO_CHANGE_EDITION_LOOKBACK)) {
+    const date = Date.parse(row.published_at);
+    if (!Number.isFinite(date) || date > asOf || asOf - date > MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS) continue;
+    const edition = asPreviousEdition(row.payload);
+    const sources = priorImmutableDossierStorySources(edition);
+    if (sources.length) return { sources, publishedAt: row.published_at };
+  }
+  return null;
+}
+
 function hasPersistedJourney(payload: Record<string, unknown> | undefined) {
   const journey = payload?.journey;
   return Boolean(
@@ -357,9 +387,24 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     "hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const immediateDossierSources = priorImmutableDossierStorySources(previousEdition);
+  let recoveredDossierContext: ReturnType<typeof nearestImmutableDossierContext> = null;
+  if (storiesPublished === 0 && immediateDossierSources.length === 0) {
+    // Use only dated immutable base editions, never a mutable current-Story query.
+    const priorBases = await intelligenceRest<Array<{
+      published_at: string;
+      payload: Record<string, unknown>;
+    }>>(
+      `hybrid_publication_snapshots?select=published_at,payload&snapshot_type=eq.daily_brief&edition_phase=eq.base&published_at=lt.${encodeURIComponent(generatedAt)}&order=published_at.desc,id.desc&limit=${MAX_ZERO_CHANGE_EDITION_LOOKBACK}`,
+    );
+    recoveredDossierContext = nearestImmutableDossierContext(priorBases, generatedAt);
+  }
   const dossierStorySources = storiesPublished === 0
-    ? priorImmutableDossierStorySources(previousEdition)
+    ? (immediateDossierSources.length ? immediateDossierSources : recoveredDossierContext?.sources || [])
     : journeySources;
+  const contextWarnings = recoveredDossierContext
+    ? [`Dossier commentary uses immutable Story context from ${recoveredDossierContext.publishedAt}; this run has no new accepted Story change and the historical context is not current evidence.`]
+    : [];
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
   const motionWarnings: string[] = [];
@@ -389,7 +434,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     marketEvents: eventHorizon.events,
     marketMotion: marketMotion.items,
     diagnostics: {
-      warnings: [...eventHorizon.warnings, ...motionWarnings],
+      warnings: [...eventHorizon.warnings, ...motionWarnings, ...contextWarnings],
       eventHorizonCoverage: eventHorizon.coverage,
       recruitment,
       contractDiagnostics,
