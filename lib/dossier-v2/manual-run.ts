@@ -606,6 +606,32 @@ export async function runManualDossierV2(
     }
   }
 
+  // D1a: bounded SEC primary-filing intake on the same authorised *current*
+  // persistence path as the canonical market writer. Never trust Notion notes,
+  // inferred issuer cash flows or historical Dossier replays as Evidence.
+  // SEC_USER_AGENT must be configured; absent or failed SEC access is a logged
+  // source gap, not a reason to fabricate a fresh financial statement.
+  if (options.persist && !options.snapshotResult && !options.client) {
+    const nowMs = Date.now(), asOfMs = Date.parse(options.asOf);
+    if (Number.isFinite(asOfMs) && asOfMs <= nowMs + 300_000 && nowMs-asOfMs <= 86_400_000) {
+      try {
+        const { persistAlphabetSecCashflowEvidence } =
+          await import("./persist-sec-quarterly-cashflow.ts");
+        const result = await persistAlphabetSecCashflowEvidence(options.asOf);
+        console.info(JSON.stringify({
+          event: "dossier_sec_alphabet_cashflow_bridge",
+          canonicalEvidenceIds: result.persisted.map((row) => row.evidenceId),
+          quarterCount: result.persisted.length, unresolved: result.gaps,
+        }));
+      } catch (error) {
+        console.warn(JSON.stringify({
+          event: "dossier_sec_alphabet_cashflow_bridge_degraded",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
+  }
+
   const promotedMotionEvidencePins = options.snapshotResult
     ? []
     : await loadCurrentMarketMotionEvidencePins(client, options.asOf);
