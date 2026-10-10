@@ -1,3 +1,4 @@
+import { normaliseDirectFeedText, scoreDirectFeedHeadline } from "./direct-news-evidence-triage.ts";
 import { createHash } from "node:crypto";
 
 import { getFreshAlchemyArticles } from "@/lib/alchemy";
@@ -75,17 +76,7 @@ const DIRECT_FEEDS: DirectFeedSource[] = [
 ];
 
 function stripMarkup(value: string) {
-  return value
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
-    .trim();
+  return normaliseDirectFeedText(value);
 }
 
 function escapeRegExp(value: string) {
@@ -169,6 +160,7 @@ export function directFeedRequestHeaders(source: DirectFeedSource["source"]): Re
 
 function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
   const summary = entry.summary || entry.title;
+  const triage = scoreDirectFeedHeadline(entry.title, summary);
   return {
     itemKey: itemKey(source.source, entry.url),
     itemType: "news",
@@ -179,9 +171,9 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
     publishedAt: entry.publishedAt,
     summary,
     sourceQuality: source.sourceQuality,
-    relevance: 68,
+    relevance: triage.relevance,
     novelty: 72,
-    materiality: 64,
+    materiality: triage.materiality,
     recommendedAction: "collect_evidence",
     newsSignal: `Direct ${source.publisher} feed acquisition.`,
     divergenceKind: "none",
@@ -192,7 +184,7 @@ function feedItem(source: DirectFeedSource, entry: FeedEntry): IntakeItemInput {
       publishedAt: entry.publishedAt,
       claim: summary.slice(0, 1_000),
     }],
-    reviewReason: "Automatically acquired from the publisher's direct feed; the canonical runtime must verify and contextualise the claim.",
+    reviewReason: `Automatically acquired from the publisher's direct feed; provisional topic triage: ${triage.reason}. Ranking is not source verification; canonical runtime must verify and contextualise every claim.`,
   };
 }
 
