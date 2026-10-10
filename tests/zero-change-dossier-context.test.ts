@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { composeAlchemyEdition, type AlchemyEdition } from "../lib/intelligence/edition.ts";
 import type { JourneyStorySource } from "../lib/intelligence/journey-briefing.ts";
+import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS } from "../lib/intelligence/zero-change-immutable-context.ts";
 
 function source(): JourneyStorySource {
   return {
@@ -118,4 +119,82 @@ test("zero-change publisher sources prior immutable reasoning only into Dossier 
   assert.match(sourceText, /candidate\.contractVersion !== CANONICAL_STORY_REASONING_V1/);
   assert.match(sourceText, /candidate\.storyId !== storyId/);
   assert.match(sourceText, /candidate\.storyVersionId !== thesisVersionId/);
+});
+
+test("two consecutive empty zero-change editions recover the most recent immutable prior Story", () => {
+  const asOf = "2026-10-10T04:00:00.000Z";
+  const rows = [
+    { published_at: "2026-10-10T02:00:00.000Z", payload: { canonicalStoryManifest: [] } },
+    { published_at: "2026-10-09T22:00:00.000Z", payload: { canonicalStoryManifest: [] } },
+    { published_at: "2026-10-08T04:00:00.000Z", payload: { canonicalStoryManifest: [{ storyId: "story-rates", thesisVersionId: "v-3" }] } },
+  ];
+  const result = nearestImmutableDossierContext(rows, asOf, (payload) => (
+    (payload.canonicalStoryManifest as Array<{ storyId: string; thesisVersionId: string }> || [])
+      .map((x) => x.storyId + ":" + x.thesisVersionId)
+  ));
+  assert.deepEqual(result, {
+    publishedAt: "2026-10-08T04:00:00.000Z",
+    sources: ["story-rates:v-3"],
+  });
+  // This helper selects commentary sources only. No Journey or current manifest is projected.
+  assert.deepEqual(rows[0].payload.canonicalStoryManifest, []);
+  assert.deepEqual(rows[1].payload.canonicalStoryManifest, []);
+});
+
+test("historical context never accepts future, stale, malformed or ineligible reasoning", () => {
+  const rows = [
+    { published_at: "2026-10-11T01:00:00Z", payload: { canonicalStoryManifest: ["future"] } },
+    { published_at: "malformed", payload: { canonicalStoryManifest: ["invalid-date"] } },
+    { published_at: "2026-09-01T01:00:00Z", payload: { canonicalStoryManifest: ["stale"] } },
+    { published_at: "2026-10-09T01:00:00Z", payload: { canonicalStoryManifest: ["invalid-reasoning"] } },
+  ];
+  const seen: string[] = [];
+  const result = nearestImmutableDossierContext(rows, "2026-10-10T01:00:00Z", (payload) => {
+    const labels = payload.canonicalStoryManifest as string[];
+    seen.push(...labels);
+    return labels.filter((x) => x.startsWith("valid:"));
+  });
+  assert.equal(result, null);
+  assert.deepEqual(seen, ["invalid-reasoning"]);
+  assert.equal(nearestImmutableDossierContext(rows, "bad-date", () => ["valid"]), null);
+  assert.ok(MAX_ZERO_CHANGE_DOSSIER_CONTEXT_AGE_MS <= 5 * 86_400_000);
+});
+
+test("historical context cannot become fresh when an older immutable source exists", () => {
+  const editionTime = "2026-10-10T12:00:00Z";
+  const old = source();
+  const rows = [
+    { published_at: "2026-10-10T11:00:00Z", payload: { canonicalStoryManifest: [] } },
+    { published_at: "2026-10-08T04:06:02Z", payload: { canonicalStoryManifest: [old] } },
+  ];
+  const exact = nearestImmutableDossierContext(rows, editionTime, (payload) => (
+    (payload.canonicalStoryManifest as JourneyStorySource[]).filter((entry) =>
+      entry.reasoning?.contractVersion === "canonical-story-reasoning/v1"
+      && entry.reasoning.storyId === entry.storyId
+      && entry.reasoning.storyVersionId === entry.thesisVersionId)
+  ));
+  assert.equal(exact?.sources[0]?.thesisVersionId, "version-rates");
+  const edition = composeAlchemyEdition({
+    generatedAt: editionTime,
+    comparisonWindowStart: "2026-10-10T11:00:00Z",
+    stories: [],
+    journeyStorySources: [],
+    dossierStorySources: exact?.sources || [],
+    marketTape: {
+      regimeSummary: "US Treasury yields still constrain valuations.",
+      assets: [{ symbol: "US10Y", move: "unknown", state: "elevated", whyRelevant: "cost of capital" }],
+    },
+  });
+  assert.equal(edition.journey?.bigStories.length, 0);
+  assert.equal(edition.sinceYouLastChecked.length, 0);
+  assert.ok(edition.dossier?.lessons.every((item) => item.currentAttention.state !== "fresh_change"));
+});
+
+test("zero-change canonical publisher looks back only at immutable base editions and labels historical context", () => {
+  const sourceText = readFileSync(new URL("../lib/intelligence/canonical-journey-edition.ts", import.meta.url), "utf8");
+  assert.match(sourceText, /edition_phase=eq\.base/);
+  assert.match(sourceText, /nearestImmutableDossierContext\(/);
+  assert.match(sourceText, /this run has no new accepted Story change/);
+  assert.match(sourceText, /journeyStorySources: journeySources,[\s\S]*dossierStorySources/);
+  assert.match(sourceText, /canonicalStoryManifest,/);
 });
