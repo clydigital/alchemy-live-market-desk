@@ -115,7 +115,7 @@ test("Partition B: no silent backfill, immutable manifest remains empty, and pre
   assert.match(page, /reconcilePresenterDossierEdition\(/);
   assert.match(page, /edition: currentEdition/);
   assert.match(page, /OUT_OF_SYNC/);
-  assert.match(page, /no.*silently copied into an old edition/i);
+  assert.match(page, /never silently copied into an old edition/i);
   assert.doesNotMatch(source, /\\.from\\(|persistCanonical|story_thesis_versions|supabase/i);
   assert.equal(edition().payload.canonicalStoryManifest.length, 0);
 });
