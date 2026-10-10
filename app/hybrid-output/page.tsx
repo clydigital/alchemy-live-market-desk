@@ -15,6 +15,7 @@ import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import { reconcilePresenterDossierEdition } from "@/lib/presenter-dossier-edition-parity";
 import { loadRegimeAssumptionObservationReport } from "@/lib/regime-assumption-observation-reader";
+import { buildProvisionalRegimeWatchReport } from "@/lib/regime-provisional-watch-assessments";
 import {
   buildPresenterCanonicalStoryCases,
   presenterStorySourcesFromEditionPayload,
@@ -163,6 +164,10 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       regimeMeasurementRead = null;
     }
   }
+
+  const provisionalWatch = regimeMeasurementRead
+    ? buildProvisionalRegimeWatchReport(regimeMeasurementRead)
+    : null;
 
   const regimes = buildRegimeProjection({
     stories: data.stories,
@@ -524,6 +529,37 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
               : "Same-edition provenance is unavailable or inconsistent. Hybrid does not infer a matching Dossier from dates or headlines."}</p>
         </Panel>
 
+
+
+        <Panel
+          title="Evidence-gated Regime watch checks"
+          description="Provisional numerical research conditions only. A comparable watch-line observation cannot mutate a Story or assign a bubble-break probability."
+          action={<Badge tone={provisionalWatch?.checks.some((check) => check.status === "MET_RESEARCH_WATCH_ONLY") ? "warn" : "default"}>{provisionalWatch ? "RESEARCH ONLY" : "UNAVAILABLE"}</Badge>}
+        >
+          {provisionalWatch ? (
+            <div className={styles.recordList}>
+              {provisionalWatch.checks.map((check) => (
+                <article className={styles.record} key={check.id}>
+                  <div className={styles.recordHeader}>
+                    <h3>{check.label}</h3>
+                    <Badge tone={check.status === "MET_RESEARCH_WATCH_ONLY" ? "warn" : "default"}>{check.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  {check.observedValue !== null ? (
+                    <p><strong>Measured:</strong> {check.observedValue >= 0 ? "+" : ""}{check.observedValue} bp over 20 sessions · <strong>provisional watch:</strong> +{check.threshold} bp · <strong>distance:</strong> {check.distanceToThreshold} bp · {check.observationAt ? formatDeskDate(check.observationAt) : "date unavailable"} · {check.canonicalEvidenceUuid ? `Evidence ${check.canonicalEvidenceUuid.slice(0, 8)}…` : "no canonical ID"}</p>
+                  ) : check.nonComparableContext !== null ? (
+                    <p><strong>Different, non-comparable observation:</strong> {check.nonComparableContext} percentage-point price-return spread. This is not the required adjusted-return test; no threshold conclusion.</p>
+                  ) : (
+                    <p>Insufficient comparable canonical observations; the watch test remains unresolved.</p>
+                  )}
+                  <p><strong>Still required:</strong> {check.missingRequirements.join("; ")}</p>
+                  <p><strong>Bullish falsifier:</strong> {check.optimisticFalsifier} <strong>Interpretation:</strong> {check.interpretation}.</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState title="Research watch read unavailable" detail="No numerical thresholds are inferred in the absence of exact Dossier evidence." />
+          )}
+        </Panel>
 
         <Panel
           title="Measured Regime assumptions"
