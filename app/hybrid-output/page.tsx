@@ -13,6 +13,7 @@ import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
+import { reconcilePresenterDossierEdition } from "@/lib/presenter-dossier-edition-parity";
 import {
   buildPresenterCanonicalStoryCases,
   presenterStorySourcesFromEditionPayload,
@@ -198,6 +199,14 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
+  const dossierEditionParity = reconcilePresenterDossierEdition({
+    selection: {
+      selectedDossierId: selection.selectedDossierId,
+      selectedAsOf: selection.selectedAsOf,
+      status: selection.status,
+    },
+    edition: currentEdition,
+  });
   const upcoming = currentUpcoming(currentEdition?.payload.upcoming);
   const upcomingCount = upcoming.economicCalendar.length + upcoming.earnings.length + upcoming.geopoliticalClock.length;
   const selectedPresenterEdition = presenterEditionSelection.selected
@@ -477,6 +486,31 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             { value: upcomingCount, label: "Upcoming catalysts" },
           ]}
         />
+
+
+        <Panel
+          title="Live–Hybrid Dossier edition parity"
+          description="Read-only check of the latest canonical Dossier against the immutable current Hybrid Journey edition. A newer Dossier is never silently copied into an old edition."
+          action={<Badge tone={dossierEditionParity.status === "SAME" && dossierEditionParity.dossierHealth === "HEALTHY" ? "ready" : "warn"}>{dossierEditionParity.status}</Badge>}
+        >
+          <div className={styles.recordList}>
+            <article className={styles.record}>
+              <h3>Latest Dossier</h3>
+              <p><strong>{dossierEditionParity.currentDossierId || "Unavailable"}</strong></p>
+              <p className={styles.meta}>{dossierEditionParity.currentDossierAsOf ? formatDeskDate(dossierEditionParity.currentDossierAsOf) : "Timestamp unavailable"} · {dossierEditionParity.dossierHealth.replaceAll("_", " ")}</p>
+            </article>
+            <article className={styles.record}>
+              <h3>Immutable Hybrid edition</h3>
+              <p><strong>{dossierEditionParity.editionId || "Unavailable"}</strong></p>
+              <p className={styles.meta}>Frozen Dossier {dossierEditionParity.frozenDossierId || "not verified"} · {dossierEditionParity.editionPublishedAt ? formatDeskDate(dossierEditionParity.editionPublishedAt) : "No publication time"}</p>
+            </article>
+          </div>
+          <p>{dossierEditionParity.status === "SAME"
+            ? "Exact Dossier ID and source vintage match this immutable Hybrid edition. This does not independently verify data freshness or analytical accuracy."
+            : dossierEditionParity.status === "OUT_OF_SYNC"
+              ? "The current Dossier differs from this frozen Hybrid edition. Hybrid does not claim same-edition parity; the next authorised edition must capture the newer Dossier."
+              : "Same-edition provenance is unavailable or inconsistent. Hybrid does not infer a matching Dossier from dates or headlines."}</p>
+        </Panel>
 
         {motionJourney.length ? (
           <MarketMotionOverview
