@@ -1,3 +1,4 @@
+import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
 import "server-only";
 
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
@@ -357,9 +358,28 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     "hybrid_publication_snapshots?select=*&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
   );
   const previousEdition = asPreviousEdition(prior[0]?.payload);
+  const immediateDossierSources = priorImmutableDossierStorySources(previousEdition);
+  let recoveredDossierContext: { sources: JourneyStorySource[]; publishedAt: string } | null = null;
+  if (storiesPublished === 0 && immediateDossierSources.length === 0) {
+    // Use only dated immutable base editions, never a mutable current-Story query.
+    const priorBases = await intelligenceRest<Array<{
+      published_at: string;
+      payload: Record<string, unknown>;
+    }>>(
+      `hybrid_publication_snapshots?select=published_at,payload&snapshot_type=eq.daily_brief&edition_phase=eq.base&published_at=lt.${encodeURIComponent(generatedAt)}&order=published_at.desc,id.desc&limit=${MAX_ZERO_CHANGE_EDITION_LOOKBACK}`,
+    );
+    recoveredDossierContext = nearestImmutableDossierContext(
+      priorBases,
+      generatedAt,
+      (payload) => priorImmutableDossierStorySources(asPreviousEdition(payload)),
+    );
+  }
   const dossierStorySources = storiesPublished === 0
-    ? priorImmutableDossierStorySources(previousEdition)
+    ? (immediateDossierSources.length ? immediateDossierSources : recoveredDossierContext?.sources || [])
     : journeySources;
+  const contextWarnings = recoveredDossierContext
+    ? [`Dossier commentary uses immutable Story context from ${recoveredDossierContext.publishedAt}; this run has no new accepted Story change and the historical context is not current evidence.`]
+    : [];
   // A zero-change edition must not attach current Story IDs to forward events.
   // Event acquisition/coverage is still canonical, but Story linkage remains empty.
   const motionWarnings: string[] = [];
@@ -389,7 +409,7 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     marketEvents: eventHorizon.events,
     marketMotion: marketMotion.items,
     diagnostics: {
-      warnings: [...eventHorizon.warnings, ...motionWarnings],
+      warnings: [...eventHorizon.warnings, ...motionWarnings, ...contextWarnings],
       eventHorizonCoverage: eventHorizon.coverage,
       recruitment,
       contractDiagnostics,
