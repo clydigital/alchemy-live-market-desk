@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
-import { persistSensorMemory } from "../providers/sensor-memory-supabase.ts";
 import { deriveMarketCrackObservations, type MarketCrackSeries } from "./market-crack-observations.ts";
 
 const PROVIDER = "market_monitor_measured";
@@ -102,6 +101,7 @@ export async function persistCanonicalMarketMeasurements(
 ) {
   const candidates = buildCanonicalMarketMeasurements(rows, asOf, now);
   const client = createSupabaseAdminClient();
+  const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
   const persisted: Array<{ id: string; evidenceId: string; observationId: string }> = [];
   const gaps = [...candidates.gaps];
   for (const item of candidates.items) {
