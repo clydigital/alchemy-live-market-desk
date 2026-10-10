@@ -35,6 +35,7 @@ import {
 } from "../lib/dossier-v2/research-brain.ts";
 import type { ModelRunner } from "../lib/dossier-v2/research-brain.ts";
 import { OpenAIStageError } from "../lib/intelligence/openai-core.ts";
+import { normalizeResearchBrainGapTargets } from "../lib/dossier-v2/research-brain-gap-targets.ts";
 
 
 test("Research Brain runtime keeps full rebase output bounded by default", () => {
@@ -2314,4 +2315,141 @@ test("Dossier stays motion-led and anchored to canonical Regime evidence", () =>
   assert.match(prompt.instructions, /AI topic is a first-priority TEST, never a forced headline/);
   assert.match(prompt.instructions, /Notion regime status unless CURRENT canonical packet evidence/);
   assert.match(prompt.instructions, /Motion adjudication and Story identity boundaries/);
+});
+
+test("Dossier #702: real production invalid Investigation/Story blocker refs do not degrade a valid thesis", async () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [
+    {
+      gap_id: "gap:canonical-credit-metrics",
+      category: "Credit / Risk",
+      description: "We lack current credit metrics; verify the exact OAS source and observation date.",
+      gap_class: "BLOCKER",
+      severity: "MATERIAL",
+      blocking_refs: ["inv:duration-transmission"],
+    },
+    {
+      gap_id: "gap:dealer-fails-funding",
+      category: "Rates",
+      description: "Dealer fails may refine the mechanism; a documentation article is not a live series.",
+      gap_class: "BLOCKER",
+      severity: "MATERIAL",
+      blocking_refs: ["story:duration-stress-real-led"],
+    },
+    {
+      gap_id: "gap:product-cracks-padd",
+      category: "Energy",
+      description: "Confirm product-crack series before inferring diesel margin transmission.",
+      gap_class: "BLOCKER",
+      severity: "MATERIAL",
+      blocking_refs: ["inv:energy-inflation-transmission", "story:energy-product-stress"],
+    },
+  ];
+  assert.ok(!validateResearchBrainOutput(output, packet).isValid);
+  let calls = 0;
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      allowRepair: false,
+      modelRunner: async () => { calls++; return { data: output }; },
+    },
+  );
+  assert.equal(calls, 1);
+  assert.equal(result.diagnostics.degraded, false);
+  assert.ok(result.main_thread.headline.includes("Fed Rate Easing"));
+  assert.equal(result.research_gaps.length, 3);
+  for (const gap of result.research_gaps) {
+    assert.equal(gap.gap_class, "REFINEMENT");
+    assert.equal(gap.severity, "INFORMATIONAL");
+    assert.deepEqual(gap.blocking_refs, []);
+  }
+  assert.ok(result.research_gaps[0].description.includes("credit metrics"));
+  assert.ok(result.diagnostics.omitted_or_demoted_items.some((item) => item.includes("inv:duration-transmission")));
+  assert.ok(result.diagnostics.notes.some((item) => item.includes("not proof of measured evidence")));
+  assert.equal(result.diagnostics.model_repair_used, false, "clerical correction is not a model retry");
+  assert.equal(validateResearchBrainOutput(result, packet).isValid, true);
+});
+
+test("Dossier #702: preserve exact valid blocker while stripping unsupported companion reference", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [
+    {
+      gap_id: "gap:mixed-ref",
+      category: "Rates",
+      description: "Missing metric genuinely blocks current Regime conclusion.",
+      gap_class: "BLOCKER",
+      severity: "MATERIAL",
+      blocking_refs: ["REGIME:CURRENT", "inv:duration-transmission"],
+    },
+    {
+      gap_id: "gap:valid-story",
+      category: "Rates",
+      description: "Data absent for exact emitted current Story.",
+      gap_class: "BLOCKER",
+      severity: "MATERIAL",
+      blocking_refs: ["STORY:story:fed_easing"],
+    },
+  ];
+  normalizeResearchBrainGapTargets(output);
+  assert.deepEqual(output.research_gaps[0].blocking_refs, ["REGIME:CURRENT"]);
+  assert.deepEqual(output.research_gaps[1].blocking_refs, ["STORY:story:fed_easing"]);
+  assert.equal(output.research_gaps[0].gap_class, "BLOCKER");
+  assert.equal(output.research_gaps[1].severity, "MATERIAL");
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, true);
+  const diagnosticsCount = output.diagnostics.omitted_or_demoted_items.length;
+  normalizeResearchBrainGapTargets(output);
+  assert.equal(output.diagnostics.omitted_or_demoted_items.length, diagnosticsCount, "idempotent");
+});
+
+test("Dossier #702: structurally invalid gap and forged canonical evidence still fail closed", async () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.research_gaps = [{
+    gap_id: "gap:malformed",
+    category: "AI",
+    description: "Question remains unverified.",
+    gap_class: "BLOCKER",
+    severity: "MATERIAL",
+    blocking_refs: [null as unknown as string],
+  }];
+  normalizeResearchBrainGapTargets(output);
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, false);
+  const malformed = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { allowRepair: false, modelRunner: async () => ({ data: output }) },
+  );
+  assert.equal(malformed.diagnostics.degraded, true);
+
+  const badEvidence = createValidOutput(packet);
+  badEvidence.research_gaps = [{
+    gap_id: "gap:question",
+    category: "AI",
+    description: "Unverified financing report needs source.",
+    gap_class: "BLOCKER",
+    severity: "MATERIAL",
+    blocking_refs: ["inv:invented"],
+  }];
+  badEvidence.main_thread.evidence_references = ["motion:unverified"];
+  const outcome = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    { allowRepair: false, modelRunner: async () => ({ data: badEvidence }) },
+  );
+  assert.equal(outcome.diagnostics.degraded, true, "invalid evidence cannot be rescued by gap repair");
+});
+
+test("Dossier #702: repair prompt teaches the exact current Story conclusion syntax", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const repair = buildResearchBrainRepairPrompt(
+    output,
+    ["research_gaps[0] references unknown canonical conclusion"],
+    packet,
+  );
+  const refs = (repair.boundedInput.allowed_reference_index as Record<string, unknown>)
+    .valid_research_gap_blocking_refs;
+  assert.deepEqual(refs, ["MAIN_THREAD", "REGIME:CURRENT", "STORY:story:fed_easing"]);
+  assert.match(repair.instructions, /An investigation ID/);
+  assert.match(repair.instructions, /handed-off research task is not evidence/i);
 });

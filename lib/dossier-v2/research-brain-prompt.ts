@@ -420,6 +420,19 @@ export function buildResearchBrainRepairPrompt(
     valid_conflict_group_ids: Array.isArray(packet.observed_evidence)
       ? Array.from(new Set(packet.observed_evidence.map((e) => e.conflict_group_id).filter(Boolean) as string[]))
       : [],
+    // BLOCKER is a conclusion reference, not an investigation or historical
+    // Story pointer. This index comes from the current output's Story IDs.
+    valid_research_gap_blocking_refs: [
+      "MAIN_THREAD",
+      "REGIME:CURRENT",
+      ...(invalidOutput && typeof invalidOutput === "object" && !Array.isArray(invalidOutput)
+        && Array.isArray((invalidOutput as Record<string, unknown>).major_stories)
+        ? ((invalidOutput as Record<string, unknown>).major_stories as unknown[]).flatMap((story) => {
+          if (!story || typeof story !== "object" || Array.isArray(story)) return [];
+          const id = (story as Record<string, unknown>).story_id;
+          return typeof id === "string" && id.trim() ? ["STORY:" + id] : [];
+        }) : []),
+    ],
   };
 
   const repairInstructions = `${buildResearchBrainSystemInstructions()}
@@ -429,7 +442,8 @@ Your previous output failed deterministic validation with the following ${valida
 ${validationErrors.map((err, idx) => `${idx + 1}. ${err}`).join("\n")}
 
 Perform STRUCTURAL REPAIR ONLY on the existing output to fix all listed validation errors.
-Use ONLY IDs from the provided allowed_reference_index. Do NOT create new evidence IDs, do NOT reinterpret the market, and do NOT add new analytical claims unless required solely to make existing structure valid.`;
+Use ONLY IDs from the provided allowed_reference_index. Do NOT create new evidence IDs, do NOT reinterpret the market, and do NOT add new analytical claims unless required solely to make existing structure valid.
+For Research Gap BLOCKER blocking_refs, ONLY use valid_research_gap_blocking_refs for a conclusion actually blocked by the missing data. Do not attach an arbitrary MAIN_THREAD or REGIME:CURRENT link to an unrelated gap. An investigation ID, provisional historical Story ID or inferred supplier relationship is NOT a canonical blocker. If no exact current conclusion is genuinely blocked, keep the underlying research question but use gap_class REFINEMENT, severity INFORMATIONAL and blocking_refs [], or place it in investigations.missing_evidence / research_now. A completed or handed-off research task is not evidence that its missing observation has been resolved.`;
 
   return {
     instructions: repairInstructions,
