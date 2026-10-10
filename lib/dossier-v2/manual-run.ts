@@ -606,26 +606,38 @@ export async function runManualDossierV2(
     }
   }
 
-  // D1a: bounded SEC primary-filing intake on the same authorised *current*
-  // persistence path as the canonical market writer. Never trust Notion notes,
-  // inferred issuer cash flows or historical Dossier replays as Evidence.
-  // SEC_USER_AGENT must be configured; absent or failed SEC access is a logged
-  // source gap, not a reason to fabricate a fresh financial statement.
+  // D1: SEC primary issuer filings may enter only authorised live persistence,
+  // never historical replay, injected tests, or an unverified Notion research lead.
+  // SEC_USER_AGENT contact identity and source revisions fail closed per issuer.
   if (options.persist && !options.snapshotResult && !options.client) {
     const nowMs = Date.now(), asOfMs = Date.parse(options.asOf);
     if (Number.isFinite(asOfMs) && asOfMs <= nowMs + 300_000 && nowMs-asOfMs <= 86_400_000) {
       try {
-        const { persistAlphabetSecCashflowEvidence } =
+        const { persistSecIssuerCashflowEvidence } =
           await import("./persist-sec-quarterly-cashflow.ts");
-        const result = await persistAlphabetSecCashflowEvidence(options.asOf);
-        console.info(JSON.stringify({
-          event: "dossier_sec_alphabet_cashflow_bridge",
-          canonicalEvidenceIds: result.persisted.map((row) => row.evidenceId),
-          quarterCount: result.persisted.length, unresolved: result.gaps,
-        }));
+        // Deterministic sequential requests bound SEC request concurrency;
+        // a failed company does not block a different independently reported issuer.
+        for (const ticker of ["GOOGL", "MSFT", "AMZN", "META"] as const) {
+          try {
+            const result = await persistSecIssuerCashflowEvidence(options.asOf, ticker);
+            console.info(JSON.stringify({
+              event: "dossier_sec_issuer_cashflow_bridge",
+              ticker,
+              canonicalEvidenceIds: result.persisted.map((row) => row.evidenceId),
+              quarterCount: result.persisted.length,
+              unresolved: result.gaps,
+            }));
+          } catch (error) {
+            console.warn(JSON.stringify({
+              event: "dossier_sec_issuer_cashflow_bridge_degraded",
+              ticker,
+              error: error instanceof Error ? error.message : String(error),
+            }));
+          }
+        }
       } catch (error) {
         console.warn(JSON.stringify({
-          event: "dossier_sec_alphabet_cashflow_bridge_degraded",
+          event: "dossier_sec_issuer_cashflow_bridge_unavailable",
           error: error instanceof Error ? error.message : String(error),
         }));
       }
