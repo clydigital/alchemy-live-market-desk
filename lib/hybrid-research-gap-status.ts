@@ -3,13 +3,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMarketDossierV2ById } from "./dossier-v2/persistence.ts";
 import {
   RESEARCH_GAP_CASE_STATUSES,
+  RESEARCH_GAP_OUTCOMES,
   type ResearchGapCaseStatus,
+  type ResearchGapOutcome,
 } from "./research-gap-lifecycle.ts";
 import { buildResearchGapWorkQueue } from "./research-gap-worker.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 const HYBRID_RESEARCH_GAP_SAFE_SELECT =
-  "gap_key,status,source_kind,source_ref,linked_investigation_ids,linked_story_ids,latest_dossier_id,latest_dossier_as_of,updated_at";
+  "gap_key,status,research_outcome,handoff_canonical_status,source_kind,source_ref,linked_investigation_ids,linked_story_ids,latest_dossier_id,latest_dossier_as_of,updated_at";
 
 type HybridResearchGapSourceKind =
   | "research_gap"
@@ -19,6 +21,8 @@ type HybridResearchGapSourceKind =
 type HybridResearchGapLifecycleRow = {
   gap_key: string;
   status: ResearchGapCaseStatus;
+  research_outcome: ResearchGapOutcome | null;
+  handoff_canonical_status: number | null;
   source_kind: string;
   source_ref: string;
   linked_investigation_ids: string[];
@@ -33,6 +37,13 @@ export type HybridResearchGapStatusItem = {
   sourceKind: HybridResearchGapSourceKind;
   sourceRef: string;
   lifecycleStatus: ResearchGapCaseStatus;
+  /** Read-only directional research verdict. NEVER a market fact or a verified resolution. */
+  researchOutcome: ResearchGapOutcome | null;
+  /** A 2xx canonical handoff proves delivery only, not that missing data were found. */
+  handoffAcknowledged: boolean;
+  /** No metric-resolution proof is present in the lifecycle table. */
+  measurementVerification: "NOT_PROVEN";
+  caseMatchesSelectedDossier: boolean;
   linkedInvestigationIds: string[];
   linkedStoryIds: string[];
   latestDossierId: string;
@@ -41,6 +52,7 @@ export type HybridResearchGapStatusItem = {
 };
 
 export type HybridResearchGapStatusProjection = {
+  contractVersion: "hybrid-research-gap-status/2";
   dossierId: string;
   dossierAsOf: string;
   items: HybridResearchGapStatusItem[];
@@ -63,6 +75,15 @@ function validStatus(value: unknown): value is ResearchGapCaseStatus {
     && (RESEARCH_GAP_CASE_STATUSES as readonly string[]).includes(value);
 }
 
+function validOutcome(value: unknown): value is ResearchGapOutcome {
+  return typeof value === "string"
+    && (RESEARCH_GAP_OUTCOMES as readonly string[]).includes(value);
+}
+
+function acknowledged(value: number | null) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 200 && value < 300;
+}
+
 function row(value: unknown): HybridResearchGapLifecycleRow | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const item = value as Record<string, unknown>;
@@ -83,6 +104,9 @@ function row(value: unknown): HybridResearchGapLifecycleRow | null {
   return {
     gap_key: gapKey,
     status: item.status,
+    research_outcome: validOutcome(item.research_outcome) ? item.research_outcome : null,
+    handoff_canonical_status: typeof item.handoff_canonical_status === "number" && Number.isInteger(item.handoff_canonical_status)
+      ? item.handoff_canonical_status : null,
     source_kind: clean(item.source_kind),
     source_ref: sourceRef,
     linked_investigation_ids: strings(item.linked_investigation_ids),
@@ -114,6 +138,7 @@ export async function loadHybridResearchGapStatus(
 
   if (candidates.length === 0) {
     return {
+      contractVersion: "hybrid-research-gap-status/2",
       dossierId: dossier.id,
       dossierAsOf: dossier.as_of,
       items: [],
@@ -147,6 +172,10 @@ export async function loadHybridResearchGapStatus(
       sourceKind: candidate.sourceKind,
       sourceRef: candidate.sourceRef,
       lifecycleStatus: lifecycle.status,
+      researchOutcome: lifecycle.research_outcome,
+      handoffAcknowledged: acknowledged(lifecycle.handoff_canonical_status),
+      measurementVerification: "NOT_PROVEN" as const,
+      caseMatchesSelectedDossier: lifecycle.latest_dossier_id === dossier.id,
       linkedInvestigationIds: lifecycle.linked_investigation_ids,
       linkedStoryIds: lifecycle.linked_story_ids,
       latestDossierId: lifecycle.latest_dossier_id,
@@ -161,6 +190,7 @@ export async function loadHybridResearchGapStatus(
   }
 
   return {
+    contractVersion: "hybrid-research-gap-status/2",
     dossierId: dossier.id,
     dossierAsOf: dossier.as_of,
     items,

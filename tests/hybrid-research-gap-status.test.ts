@@ -6,7 +6,7 @@ import type { MarketDossierV2 } from "../lib/dossier-v2/contracts.ts";
 import { buildResearchGapWorkQueue } from "../lib/research-gap-worker.ts";
 import { loadHybridResearchGapStatus } from "../lib/hybrid-research-gap-status.ts";
 
-const SAFE_SELECT = "gap_key,status,source_kind,source_ref,linked_investigation_ids,linked_story_ids,latest_dossier_id,latest_dossier_as_of,updated_at";
+const SAFE_SELECT = "gap_key,status,research_outcome,handoff_canonical_status,source_kind,source_ref,linked_investigation_ids,linked_story_ids,latest_dossier_id,latest_dossier_as_of,updated_at";
 
 function dossier(overrides: Partial<MarketDossierV2> = {}): MarketDossierV2 {
   return {
@@ -135,7 +135,7 @@ test("B3 Hybrid status uses the exact selected Dossier identity", async () => {
   assert.equal(calls.some(([name]) => String(name).startsWith("dossier:order:")), false);
 });
 
-test("B3 Hybrid status query selects lifecycle metadata only", async () => {
+test("B3 Hybrid selects only lifecycle, safe outcome and handoff acknowledgement metadata", async () => {
   const exact = dossier();
   const keys = buildResearchGapWorkQueue(exact).candidates.map((item) => item.gapKey);
   const calls: Array<[string, unknown]> = [];
@@ -151,7 +151,6 @@ test("B3 Hybrid status query selects lifecycle metadata only", async () => {
   assert.equal(select, SAFE_SELECT);
   const selected = String(select);
   for (const forbidden of [
-    "research_outcome",
     "verdict",
     "research_plan",
     "confidence",
@@ -194,7 +193,7 @@ test("B3 Hybrid status joins lifecycle by exact current-Dossier gap key only", a
   assert.equal(projection?.items[0]?.lifecycleStatus, "RESEARCHING");
 });
 
-test("B3 Hybrid status projects COMPLETED and HANDED_OFF without research conclusions", async () => {
+test("B3 Hybrid exposes directional outcome separately from COMPLETED and HANDED_OFF", async () => {
   const exact = dossier();
   const candidates = buildResearchGapWorkQueue(exact).candidates;
   const calls: Array<[string, unknown]> = [];
@@ -216,8 +215,12 @@ test("B3 Hybrid status projects COMPLETED and HANDED_OFF without research conclu
   assert.equal(projection?.counts.COMPLETED, 1);
   assert.equal(projection?.counts.HANDED_OFF, 1);
 
+  assert.equal(projection?.contractVersion, "hybrid-research-gap-status/2");
   for (const item of projection?.items ?? []) {
-    assert.equal("researchOutcome" in item, false);
+    assert.equal(item.researchOutcome, "CONTRADICTING");
+    assert.equal(item.measurementVerification, "NOT_PROVEN");
+    assert.equal(item.handoffAcknowledged, false);
+    assert.equal(item.caseMatchesSelectedDossier, true);
     assert.equal("research_outcome" in item, false);
     assert.equal("verdict" in item, false);
     assert.equal("finding" in item, false);
@@ -238,4 +241,54 @@ test("B3 Hybrid status invents no lifecycle state when no exact case exists", as
 
   assert.deepEqual(projection?.items, []);
   assert.deepEqual(projection?.counts, {});
+});
+
+test("B3 outcome is independent from a successful canonical HTTP handoff and CLOSED lifecycle", async () => {
+  const exact = dossier();
+  const keys = buildResearchGapWorkQueue(exact).candidates;
+  const rows = [
+    lifecycleRow(keys[0]!.gapKey, "research_gap", "HANDED_OFF", {
+      research_outcome: "CONFIRMING",
+      handoff_canonical_status: 200,
+    }),
+    lifecycleRow(keys[1]!.gapKey, "research_now", "CLOSED", {
+      research_outcome: "UNRESOLVED",
+      handoff_canonical_status: 200,
+      latest_dossier_id: "22222222-2222-4222-8222-222222222222",
+    }),
+  ];
+  const projection = await loadHybridResearchGapStatus(
+    exact.id,
+    fakeClientFor({ exactDossier: exact, lifecycleRows: rows, calls: [] }) as never,
+  );
+  assert.equal(projection?.items[0].lifecycleStatus, "HANDED_OFF");
+  assert.equal(projection?.items[0].researchOutcome, "CONFIRMING");
+  assert.equal(projection?.items[0].handoffAcknowledged, true);
+  assert.equal(projection?.items[0].measurementVerification, "NOT_PROVEN");
+  assert.equal(projection?.items[1].lifecycleStatus, "CLOSED");
+  assert.equal(projection?.items[1].researchOutcome, "UNRESOLVED");
+  assert.equal(projection?.items[1].handoffAcknowledged, true);
+  assert.equal(projection?.items[1].measurementVerification, "NOT_PROVEN");
+  assert.equal(projection?.items[1].caseMatchesSelectedDossier, false);
+  assert.equal(projection?.counts.HANDED_OFF, 1);
+  assert.equal(projection?.counts.CLOSED, 1);
+});
+
+test("B3 missing or malformed directional outcome never becomes an invented research conclusion", async () => {
+  const exact = dossier();
+  const keys = buildResearchGapWorkQueue(exact).candidates;
+  const projection = await loadHybridResearchGapStatus(
+    exact.id,
+    fakeClientFor({
+      exactDossier: exact,
+      lifecycleRows: [lifecycleRow(keys[0]!.gapKey, "research_gap", "CLOSED", {
+        research_outcome: "ACCEPT",
+        handoff_canonical_status: 503,
+      })],
+      calls: [],
+    }) as never,
+  );
+  assert.equal(projection?.items[0].researchOutcome, null);
+  assert.equal(projection?.items[0].handoffAcknowledged, false);
+  assert.equal(projection?.items[0].measurementVerification, "NOT_PROVEN");
 });

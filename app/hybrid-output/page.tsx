@@ -80,8 +80,23 @@ function researchGapLifecycleDetail(status: string) {
   if (status === "CLAIMED") return "Claimed by the Research Gap worker";
   if (status === "QUEUED") return "Waiting for research";
   if (status === "NEW") return "Materialised research item";
-  if (status === "CLOSED") return "Lifecycle case closed";
+  if (status === "CLOSED") return "Lifecycle case closed; evidence may still be unresolved";
   return "Research lifecycle status unavailable";
+}
+
+/** Read-only research finding: a successful handoff is not metric verification. */
+function researchGapEvidenceDetail(outcome: string | null, acknowledged: boolean, currentDossier: boolean) {
+  const researchRead = outcome === "UNRESOLVED"
+    ? "Research outcome: unresolved"
+    : outcome === "CONFIRMING" || outcome === "CONTRADICTING"
+      ? `Research outcome: ${outcome.toLowerCase()} (directional research, not a verified market conclusion)`
+      : outcome === "NO_CHANGE"
+        ? "Research outcome: no change"
+        : "Research outcome: not adjudicated";
+  return researchRead
+    + "; observation resolution: NOT PROVEN"
+    + (acknowledged ? "; canonical handoff acknowledged (delivery only)" : "")
+    + (currentDossier ? "" : "; case dates from a different Dossier vintage");
 }
 
 function currentUpcoming(value: unknown): EditionUpcoming {
@@ -1060,6 +1075,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                           <Badge>{item.lifecycleStatus}</Badge>
                         </div>
                         <p>{researchGapLifecycleDetail(item.lifecycleStatus)}</p>
+                        <p>{researchGapEvidenceDetail(
+                          item.researchOutcome,
+                          item.handoffAcknowledged,
+                          item.caseMatchesSelectedDossier,
+                        )}</p>
                       </div>
                     ))}
                   </div>
