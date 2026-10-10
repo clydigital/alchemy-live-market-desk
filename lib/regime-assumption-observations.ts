@@ -78,13 +78,28 @@ const METRICS: Record<MarketMetricKey, {
   label: string;
   unit: RegimeMetricRead["unit"];
   basis: RegimeMetricRead["basis"];
-  expectedSources: number;
+  exactSourceUrls: string[];
 }> = {
-  hy_oas_20s: { label: "High-yield OAS, 20-session change", unit: "basis_points", basis: "OAS_LEVEL_CHANGE", expectedSources: 1 },
-  ig_oas_20s: { label: "Investment-grade OAS, 20-session change", unit: "basis_points", basis: "OAS_LEVEL_CHANGE", expectedSources: 1 },
-  smh_qqq_20s: { label: "SMH minus QQQ, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN", expectedSources: 2 },
-  xlf_spx_20s: { label: "XLF minus S&P 500 cash, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN", expectedSources: 2 },
-  rsp_spx_20s: { label: "RSP minus S&P 500 cash, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN", expectedSources: 2 },
+  hy_oas_20s: {
+    label: "High-yield OAS, 20-session change", unit: "basis_points", basis: "OAS_LEVEL_CHANGE",
+    exactSourceUrls: ["https://fred.stlouisfed.org/series/BAMLH0A0HYM2"],
+  },
+  ig_oas_20s: {
+    label: "Investment-grade OAS, 20-session change", unit: "basis_points", basis: "OAS_LEVEL_CHANGE",
+    exactSourceUrls: ["https://fred.stlouisfed.org/series/BAMLC0A0CM"],
+  },
+  smh_qqq_20s: {
+    label: "SMH minus QQQ, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN",
+    exactSourceUrls: ["https://www.nasdaq.com/market-activity/etf/smh/historical", "https://www.nasdaq.com/market-activity/etf/qqq/historical"],
+  },
+  xlf_spx_20s: {
+    label: "XLF minus S&P 500 cash, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN",
+    exactSourceUrls: ["https://www.nasdaq.com/market-activity/etf/xlf/historical", "https://fred.stlouisfed.org/series/SP500"],
+  },
+  rsp_spx_20s: {
+    label: "RSP minus S&P 500 cash, 20-session price return", unit: "percentage_points", basis: "PRICE_RETURN_DIFFERENCE_NOT_TOTAL_RETURN",
+    exactSourceUrls: ["https://www.nasdaq.com/market-activity/etf/rsp/historical", "https://fred.stlouisfed.org/series/SP500"],
+  },
 };
 
 const ASSUMPTIONS: Array<{
@@ -133,7 +148,8 @@ function qualityFor(row: CanonicalMeasuredRow, key: MarketMetricKey, expectedDay
   if (!UUID.test(row.id) || !UUID.test(row.source_id ?? "")
     || !UUID.test(row.normalised_observation_id ?? "")
     || !/^[a-f0-9]{64}$/i.test(row.content_hash ?? "")
-    || valueSourceUrls(row).length !== config.expectedSources
+    || valueSourceUrls(row).length !== config.exactSourceUrls.length
+    || valueSourceUrls(row).slice().sort().join("|") !== config.exactSourceUrls.slice().sort().join("|")
     || row.structured_payload?.evidenceNature !== "derived_market_measurement"
     || row.structured_payload?.methodologyVersion !== "market-crack-measured-v1"
     || number(row.observed_value) === null) {
