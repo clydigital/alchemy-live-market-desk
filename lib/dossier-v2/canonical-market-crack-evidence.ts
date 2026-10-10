@@ -106,16 +106,28 @@ export async function persistCanonicalMarketMeasurements(
   const gaps = [...candidates.gaps];
   for (const item of candidates.items) {
     const externalEvidenceId = "market-crack:" + item.id;
+    // Same metric and effective day must have exactly one admitted immutable
+    // measurement, even if a late provider revision shifts the baseline day.
+    const metricKey = item.id.split(":")[0];
+    const observedDay = item.asOf.slice(0, 10);
     const { data: existing, error: existingError } = await client.from("intelligence_evidence")
-      .select("id,content_hash")
-      .eq("external_evidence_id", externalEvidenceId).limit(5);
+      .select("id,content_hash,normalised_observation_id,external_evidence_id")
+      .like("external_evidence_id", "market-crack:" + metricKey + ":%")
+      .gte("event_at", observedDay + "T00:00:00Z")
+      .lte("event_at", observedDay + "T23:59:59.999Z")
+      .limit(10);
     if (existingError) throw new Error("Could not check prior market evidence: " + existingError.message);
     if ((existing || []).some((row) => row.content_hash !== item.contentHash)) {
       gaps.push(item.id + ":CONFLICTING_SOURCE_REVISION_REQUIRES_ADJUDICATION");
       continue;
     }
     if ((existing || []).length) {
-      persisted.push({ id: item.id, evidenceId: existing![0].id, observationId: "already_persisted" });
+      const prior = existing![0];
+      if (!prior.normalised_observation_id) {
+        gaps.push(item.id + ":EXISTING_EVIDENCE_LACKS_NORMALISED_OBSERVATION");
+        continue;
+      }
+      persisted.push({ id: item.id, evidenceId: prior.id, observationId: prior.normalised_observation_id });
       continue;
     }
 
