@@ -115,7 +115,8 @@ test("D1a production bridge is authorised/live only, uses canonical memory and h
   assert.match(writer,/normalised_observation_id:obs.id/);
   assert.match(writer,/evidence_class:"regulatory_filing"/);
   assert.doesNotMatch(writer,/\.from\("story_thesis_versions"\)|\.from\("stories"\)/);
-  assert.match(manual,/persistAlphabetSecCashflowEvidence/);
+  assert.match(manual,/persistSecIssuerCashflowEvidence/);
+  assert.match(writer,/persistAlphabetSecCashflowEvidence/);
   assert.match(manual,/options.persist && !options.snapshotResult && !options.client/);
-  assert.ok(manual.indexOf("persistAlphabetSecCashflowEvidence")<manual.indexOf("loadCanonicalCandidateSnapshot(client"));
+  assert.ok(manual.indexOf("persistSecIssuerCashflowEvidence")<manual.indexOf("loadCanonicalCandidateSnapshot(client"));
 });
