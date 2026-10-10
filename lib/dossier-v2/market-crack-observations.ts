@@ -65,6 +65,9 @@ function measuredPoints(series: MarketCrackSeries, asOf: number): Map<string, nu
     const ms = point.time * 1000;
     if (ms > asOf || ms > latestDeclared + 86_400_000) continue;
     const date = new Date(ms).toISOString().slice(0, 10);
+    // A provider exposes only a trading date, not a precise release time.
+    // Do not mark the day's close available until that UTC day has ended.
+    if (midnight(date)! + 86_400_000 > asOf) continue;
     if (midnight(date) === null || date > series.asOf!) continue;
     // Duplicate provider updates for the same date are reduced to one close.
     map.set(date, point.close);
