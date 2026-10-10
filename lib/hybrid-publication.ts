@@ -53,7 +53,7 @@ async function optionalQuery<T>(table: string, params = "", options: Publication
 export async function getHybridPresenterEditionCandidates(options: PublicationQueryOptions = {}) {
   return optionalQuery<PublicationSnapshot>(
     "hybrid_publication_snapshots",
-    "select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=24",
+    "select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=24",
     options,
   );
 }
