@@ -899,7 +899,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       if (row.last === null || !row.asOf) return false;
       const occurrenceMs = Date.parse(`${row.asOf}T00:00:00.000Z`);
       return Number.isFinite(occurrenceMs)
-        && occurrenceMs <= asOfMs
+        && occurrenceMs + 86_400_000 <= asOfMs
         && asOfMs - occurrenceMs <= (row.frequency === "monthly" ? 45 : 5) * 86_400_000;
     }),
   );
@@ -1004,7 +1004,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   for (const [index, breadth] of (monitor.breadth ?? []).entries()) {
     if (!breadth.current.asOf || breadth.current.sampleSize <= 0) continue;
     const occurrenceMs = Date.parse(`${breadth.current.asOf}T00:00:00.000Z`);
-    if (!Number.isFinite(occurrenceMs) || occurrenceMs > asOfMs || asOfMs - occurrenceMs > dailyAgeLimitMs) continue;
+    if (!Number.isFinite(occurrenceMs) || occurrenceMs + 86_400_000 > asOfMs || asOfMs - occurrenceMs > dailyAgeLimitMs) continue;
 
     const weekDelta50 = breadth.current.above50 - breadth.weekAgo.above50;
     const monthDelta50 = breadth.current.above50 - breadth.monthAgo.above50;
