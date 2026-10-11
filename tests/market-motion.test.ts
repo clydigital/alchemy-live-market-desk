@@ -6,6 +6,8 @@ import {
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
   MARKET_MOTION_FRESHNESS_HOURS,
   marketMotionAttention,
+  marketMotionExactEventIdentity,
+  deduplicateExactMarketMotionEvents,
   marketMotionEffectiveState,
   marketMotionInvestigationEligibility,
   marketMotionExpiry,
@@ -243,4 +245,59 @@ test("Market Motion validation keeps headlines informative but non-authoritative
   assert.equal(validated.lifecycle_state, "MOTION");
   assert.equal(validated.primary_story_id, null);
   assert.equal(validated.expires_at, "2026-10-02T10:30:00.000Z");
+});
+
+
+test("P1 exact same eventIdentity across syndicated sources is one card; independently VERIFIED beats LEAD",()=>{
+  const date="2026-10-01T00:15:00Z";
+  const all=[
+    record({id:"lead",motion_key:"feed:a",verification_state:"LEAD",materiality:98,headline:"AI earnings news",
+      metadata:{eventIdentity:"event:capex-earnings-20261001"},
+      source_url:"https://example.com/a",occurred_at:date}),
+    record({id:"verified",motion_key:"feed:b",verification_state:"VERIFIED",materiality:80,headline:"Different wording, same filing",
+      metadata:{corroborationIdentity:"event:capex-earnings-20261001"},
+      source_url:"https://example.com/b",occurred_at:date}),
+    record({id:"unrelated",motion_key:"feed:c",verification_state:"VERIFIED",materiality:65,
+      metadata:{eventIdentity:"event:treasury-auction-20261001"},
+      occurred_at:date}),
+  ];
+  assert.equal(marketMotionExactEventIdentity(all[0]),"event:capex-earnings-20261001");
+  assert.equal(deduplicateExactMarketMotionEvents(all).length,2);
+  const ranked=selectMarketMotionForOverview(all,new Date("2026-10-01T00:30:00Z"),4);
+  assert.deepEqual(new Set(ranked.map(x=>x.id)),new Set(["verified","unrelated"]));
+  assert.equal(ranked.some(x=>x.id==="lead"),false);
+});
+test("P1 related stories, tickers, eventFamily, fuzzy headline similarity do NOT merge distinct factual developments",()=>{
+  const date="2026-10-01T00:15:00Z";
+  const shared={headline:"AI capex rises",primary_story_id:"story:ai",tickers:["NVDA"],
+    metadata:{eventFamily:"ai-capex"},occurred_at:date};
+  const all=[
+    record({...shared,id:"alpha",motion_key:"creator:first"}),
+    record({...shared,id:"beta",motion_key:"feed:second"}),
+    record({...shared,id:"gamma",motion_key:"macro:third"}),
+  ];
+  assert.equal(marketMotionExactEventIdentity(all[0]),null);
+  assert.equal(selectMarketMotionForOverview(all,new Date("2026-10-01T00:30:00Z")).length,3);
+});
+test("P1 exact event identity is stable for Motion version and not a reason to rewrite historical data",()=>{
+  const entries=[
+    record({id:"old",motion_key:"event:us-yields-20261001",version_number:1,
+      verification_state:"REPORTED"}),
+    record({id:"new",motion_key:"event:us-yields-20261001",version_number:2,
+      verification_state:"VERIFIED"}),
+  ];
+  const result=selectMarketMotionForOverview(entries,new Date("2026-10-01T00:30:00Z"));
+  assert.equal(result.length,1);
+  assert.equal(result[0].id,"new");
+  assert.equal(entries.length,2,"input and frozen historical rows remain unchanged");
+});
+test("P1 expired corroborated Motion never displaces still-current lead",()=>{
+  const all=[
+    record({id:"expired",motion_key:"event:liquidity-auction-20261001",
+      verification_state:"VERIFIED",expires_at:"2026-09-30T00:00:00Z"}),
+    record({id:"current",motion_key:"event:liquidity-auction-20261001",
+      verification_state:"REPORTED",expires_at:"2026-10-03T00:00:00Z"}),
+  ];
+  const chosen=selectMarketMotionForOverview(all,new Date("2026-10-01T00:30:00Z"));
+  assert.deepEqual(chosen.map(x=>x.id),["current"]);
 });

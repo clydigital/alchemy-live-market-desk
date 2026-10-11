@@ -387,12 +387,55 @@ export function validateMarketMotionInput(input: MarketMotionInput) {
   };
 }
 
+/**
+ * Shared exact-event lineage is the sole deterministic deduplication key.
+ * "eventFamily", headline resemblance, Story ID and ticker overlap are NOT
+ * the same factual event. Unknown identities remain separate research leads.
+ */
+export function marketMotionExactEventIdentity(item: MarketMotionRecord): string | null {
+  const candidates = [
+    item.metadata?.eventIdentity,
+    item.metadata?.corroborationIdentity,
+    item.motion_key,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && /^event:[a-z0-9:_-]{8,240}$/i.test(candidate)) {
+      return candidate.toLowerCase();
+    }
+  }
+  return null;
+}
+function verificationPriority(state: MarketMotionVerificationState) {
+  return state === "VERIFIED" ? 5
+    : state === "PARTIAL" ? 4
+      : state === "REPORTED" ? 3
+        : state === "UNRESOLVED" ? 2
+          : state === "LEAD" ? 1 : 0;
+}
+
+/** Representatives are presentation-only; immutable editions and evidence are not rewritten. */
+export function deduplicateExactMarketMotionEvents(items: MarketMotionRecord[]): MarketMotionRecord[] {
+  const chosen = new Map<string, MarketMotionRecord>();
+  for (const item of items) {
+    const identity = marketMotionExactEventIdentity(item);
+    if (!identity) continue;
+    const previous = chosen.get(identity);
+    if (!previous || verificationPriority(item.verification_state) > verificationPriority(previous.verification_state)) {
+      chosen.set(identity, item);
+    }
+  }
+  return items.filter(item => {
+    const key = marketMotionExactEventIdentity(item);
+    return key === null || chosen.get(key) === item;
+  });
+}
+
 export function selectMarketMotionForOverview(
   items: MarketMotionRecord[],
   now = new Date(),
   limit = MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
 ) {
-  return items
+  const ranked = items
     .filter((item) => marketMotionEffectiveState(item, now) !== "EXPIRED")
     .sort((left, right) => {
       const leftAttention = marketMotionAttention(left);
@@ -406,8 +449,8 @@ export function selectMarketMotionForOverview(
       const relevanceDelta = right.relevance - left.relevance;
       if (relevanceDelta) return relevanceDelta;
       return Date.parse(right.occurred_at) - Date.parse(left.occurred_at);
-    })
-    .slice(0, Math.max(0, limit));
+    });
+  return deduplicateExactMarketMotionEvents(ranked).slice(0, Math.max(0, limit));
 }
 
 export async function persistMarketMotion(
