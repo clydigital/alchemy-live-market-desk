@@ -40,6 +40,10 @@ import { buildRateEducationalProjection } from "@/lib/rate-regime-educational-pr
 import { buildRegimeProjection, getRegimeDefinition } from "@/lib/regimes";
 import { getD7StoryReviewClocks } from "@/lib/d7-story-review-clock";
 import { buildHybridReasoningProjection } from "@/lib/hybrid-reasoning-projection";
+import {
+  latestEditionOutageCatalysts,
+  splitCurrentHybridMarketMotion,
+} from "@/lib/hybrid-motion-outage";
 
 export const dynamic = "force-dynamic";
 
@@ -130,17 +134,105 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const dossier = selection.presentation;
 
   if (!dossier) {
+    // B2: current source-verified facts and the previously published calendar
+    // must not vanish when Dossier System 2 is down. Historical requests are
+    // fail-closed: never blend live Motion with a frozen Journey vintage.
+    const historicalRequest = typeof query.edition === "string" && query.edition.trim().length > 0;
+    const now = new Date();
+    const motionRows = historicalRequest ? [] : await withinTimeout(
+      "Hybrid degraded current Motion",
+      () => getCurrentMarketMotion({ limit: 60 }),
+      1_800,
+    ).catch(() => []);
+    const motion = splitCurrentHybridMarketMotion(motionRows, now);
+    const currentEditionPointer = buildCanonicalEditionIndex(presenterEditions, data.researchRuns)[0] ?? null;
+    const currentEdition = !historicalRequest && currentEditionPointer
+      ? presenterEditions.find(item => item.id === currentEditionPointer.snapshotId) ?? null
+      : null;
+    const catalysts = latestEditionOutageCatalysts({
+      payload: currentEdition?.payload,
+      publishedAt: currentEdition?.published_at,
+      now,
+    });
+    const sourceOnly = (items: typeof motion.verified) => items.map(item => {
+      const attention = marketMotionAttention(item);
+      return {
+        id: item.id, headline: item.headline, category: item.category,
+        lifecycleState: item.lifecycle_state, verificationState: item.verification_state,
+        attentionTier: attention.tier, attentionScore: attention.score,
+        writingPotential: attention.writingPotential, attentionReasons: attention.reasons,
+        whatHappened: item.what_happened, marketReaction: item.market_reaction,
+        whyInteresting: item.why_interesting, bigPictureBridge: item.big_picture_bridge,
+        nextTest: item.next_test, tickers: item.tickers, occurredAt: item.occurred_at,
+        sourceName: item.source_name, sourceUrl: item.source_url,
+        storyTitle: null, storyHref: null, regimeSlug: null, regimeLabel: null, regimeHref: null,
+        regimeContributionState: null, regimeContributionMode: null,
+        regimeContribution: null, regimeContributionRationale: null,
+        regimeContributionNextTest: null, regimeContributionEvidenceCount: 0,
+      };
+    });
     return (
       <LiveDeskShell
         activePath="/hybrid-output"
         title="Hybrid Output"
-        description="Review the handoff from canonical Live research records to the interpretative Hybrid experience."
-        meta="Canonical Dossier unavailable"
+        description="Current verified source developments remain readable when Dossier reasoning is unavailable. No new Story or Regime judgement is inferred."
+        meta="DEGRADED · Dossier unavailable · source-only"
       >
-        <DataState
-          title={selection.notice.label}
-          detail={selection.notice.detail}
-        />
+        <DataState title={selection.notice.label} detail={selection.notice.detail} />
+        {historicalRequest ? (
+          <DataState
+            title="Exact historical Dossier unavailable"
+            detail="This requested historical edition cannot be replayed without its exact Dossier. Current news and catalysts are deliberately not mixed into the frozen edition."
+          />
+        ) : (
+          <>
+            {motion.verified.length ? (
+              <MarketMotionOverview
+                items={sourceOnly(motion.verified)}
+                eyebrow="INDEPENDENTLY SOURCE-VERIFIED"
+                title="Latest verified market developments"
+                description="Source-verified current observations only. The canonical Dossier is unavailable, so no accepted Story, Regime or causal conclusion is implied."
+                journeyMode
+                showFullTapeLink
+              />
+            ) : (
+              <DataState title="No independently verified current developments"
+                detail="No verified items passed the fresh Motion source gate. The desk will not promote reported headlines or leads to facts." />
+            )}
+            {motion.leads.length ? (
+              <MarketMotionOverview
+                items={sourceOnly(motion.leads)}
+                eyebrow="RESEARCH LEADS · NOT VERIFIED"
+                title="Claims requiring verification"
+                description="These reported, partial or unresolved items are discovery context only. They cannot update the Dossier, persistent Stories or Regimes."
+                showFullTapeLink
+              />
+            ) : null}
+            <Panel title="Next dated catalysts"
+              description={currentEdition
+                ? "Dated future events from the last published immutable Journey edition. This calendar has not been independently refreshed during the Dossier outage."
+                : "No usable published Journey event calendar is available."}
+              action={<Badge tone={catalysts.length ? "warn" : "default"}>
+                {catalysts.length ? "LAST PUBLISHED EDITION" : "UNAVAILABLE"}
+              </Badge>}
+            >
+              {catalysts.length ? (
+                <div className={styles.recordList}>
+                  {catalysts.map(item => (
+                    <article className={styles.record} key={item.kind+":"+item.time+":"+item.label}>
+                      <span className={styles.kicker}>{item.kind} · {formatDeskDate(item.time)}</span>
+                      <h3>{item.label}</h3>
+                    </article>
+                  ))}
+                  <p className={styles.meta}>Edition published {currentEdition ? formatDeskDate(currentEdition.published_at) : "unknown"} · no real-time calendar verification.</p>
+                </div>
+              ) : (
+                <DataState title="No verified upcoming calendar entry"
+                  detail="No future-dated catalyst from a sufficiently recent published edition is available. No schedule has been guessed." />
+              )}
+            </Panel>
+          </>
+        )}
       </LiveDeskShell>
     );
   }
@@ -437,6 +529,15 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     : liveMotionJourney.length
       ? liveMotionJourney
       : editionMotionJourney;
+  // Current source-verification and canonical Dossier interpretation are
+  // separate layers. Historical Journey replay stays the exact frozen set.
+  const verifiedMotionJourney = presenterEditionStatus === "historical"
+    ? [] : motionJourney.filter(item => item.verificationState === "VERIFIED").slice(0, 4);
+  const researchLeadJourney = presenterEditionStatus === "historical"
+    ? [] : motionJourney.filter(item => (
+      item.verificationState === "LEAD" || item.verificationState === "REPORTED"
+      || item.verificationState === "PARTIAL" || item.verificationState === "UNRESOLVED"
+    )).slice(0, 4);
   const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
   const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
   const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
@@ -595,22 +696,34 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           )}
         </Panel>
 
-        {motionJourney.length ? (
-          <MarketMotionOverview
-            items={motionJourney}
-            eyebrow="MARKET MOTION JOURNEY"
-            title="What moved, why it matters, and what to do next"
-            description={presenterEditionStatus === "historical"
-              ? "Historical replay uses the exact immutable Motion snapshot captured with that Journey edition."
-              : "The live 48-hour Motion stream is the opening layer: event → why interesting → market reaction → Story/Regime bridge → what to investigate or write. Motion can direct attention, but it cannot create an independent regime or thesis."}
-            showFullTapeLink
-            journeyMode
-          />
+        {presenterEditionStatus === "historical" ? (
+          motionJourney.length ? (
+            <MarketMotionOverview items={motionJourney}
+              eyebrow="HISTORICAL MARKET MOTION · IMMUTABLE"
+              title="Market Motion in this exact Journey edition"
+              description="Historical replay contains only the Motion frozen with this edition; live source reports are not substituted."
+              showFullTapeLink journeyMode
+            />
+          ) : <DataState title="No Motion in this historical edition"
+              detail="No current lead or news item is inserted into the immutable historical snapshot." />
         ) : (
-          <DataState
-            title="No fresh Market Motion"
-            detail="Hybrid will not manufacture an opening from stale headlines. The next scheduled catalysts are shown below, while the canonical Dossier remains the durable market state."
-          />
+          <>
+            {verifiedMotionJourney.length ? (
+              <MarketMotionOverview items={verifiedMotionJourney}
+                eyebrow="SOURCE-VERIFIED DEVELOPMENTS"
+                title="What materially changed?"
+                description="Up to four distinct current developments with verified source status. Story and Regime interpretation, if present, comes only from canonical Dossier adjudication."
+                showFullTapeLink journeyMode />
+            ) : <DataState title="No verified market developments"
+                detail="No fresh item cleared source verification. Unverified leads remain separate and cannot be stated as established facts." />}
+            {researchLeadJourney.length ? (
+              <MarketMotionOverview items={researchLeadJourney}
+                eyebrow="RESEARCH LEADS · NOT VERIFIED"
+                title="What still needs checking?"
+                description="These leads are not accepted Dossier conclusions. A source claim requires further verification before it can affect the existing market view."
+                showFullTapeLink />
+            ) : null}
+          </>
         )}
 
         <Panel
