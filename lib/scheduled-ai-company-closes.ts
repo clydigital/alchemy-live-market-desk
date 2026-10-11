@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
-import { getMarketMonitor } from "./market-monitor.ts";
+import type { MarketMonitor } from "./market-monitor.ts";
 import {
   AI_COMPANY_CLOSE_METHOD, AI_COMPANY_WATCH,
   buildAiCompanyCloseCandidates, type AiClose,
@@ -19,7 +19,7 @@ export type AiCloseCollection = {
 type Prior={id:string;external_evidence_id:string;event_at:string;content_hash:string|null;normalised_observation_id:string|null};
 type PriceIntakeDependencies={
   readExisting?:()=>Promise<Prior[]>;
-  readMonitor?:typeof getMarketMonitor;
+  readMonitor?:()=>Promise<MarketMonitor>;
   write?: (items:AiClose[], now:string)=>Promise<{ids:string[];gaps:string[]}>;
 };
 const unsupported=AI_COMPANY_WATCH.filter(x=>x.monitorId===null).map(x=>({
@@ -148,7 +148,10 @@ export async function collectScheduledAiCompanyCloses(
     if(tickers.every(x=>isAlreadyCovered(prior,x,due)))return{
       ...base,status:"SKIPPED_UNCHANGED",evidenceIds:[],gaps:[],
     };
-    const monitor=await (deps.readMonitor??getMarketMonitor)();
+    const monitor=await (deps.readMonitor??(async()=>{
+      const {getMarketMonitor}=await import("./market-monitor.ts");
+      return getMarketMonitor();
+    }))();
     const candidates=buildAiCompanyCloseCandidates(monitor.rows,now);
     const pending=candidates.items.filter(x=>!isAlreadyCovered(prior,x.symbol,x.observationDay));
     const out=await (deps.write??writeCanonicalCloses)(pending,at);
