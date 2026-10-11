@@ -152,6 +152,11 @@ function eventsFromPayload(payload: Item): PresenterPrepSourceProjection["events
   return events.filter((event, index) => events.findIndex((other) => other.eventId === event.eventId) === index);
 }
 
+/** Source records remain immutable; only the presenter display order is focused. */
+function focusedFirst<T>(items: T[], matches: (item: T) => boolean): T[] {
+  return [...items.filter(matches), ...items.filter((item) => !matches(item))];
+}
+
 function gapsFromExactDossier(value: Record<string, unknown> | null | undefined, dossier: DossierIdentity) {
   const projection = obj(value);
   if (!projection
@@ -228,6 +233,45 @@ export function buildPresenterPrepSourceProjection(input: PresenterPrepSourceInp
     return unavailable("INVALID_EVENT_REFERENCE", focus);
   }
 
+  // An individually valid Story/Regime/Motion is not necessarily the same
+  // market development. Require an explicit frozen edition lineage witness.
+  const motionInFocus = focus.motion
+    ? motions.find((item) => item.motionId === focus.motion)!
+    : null;
+  const storyIdsInFocus = new Set(
+    stories.filter((story) => story.slug === focus.story).map((story) => story.storyId),
+  );
+  if (focus.story) {
+    const attachment = obj(edition.payload.marketMotion);
+    for (const item of Array.isArray(attachment?.items) ? attachment.items : []) {
+      const row = obj(item);
+      if (nonempty(row?.storySlug) !== focus.story) continue;
+      const matchingMotion = motions.find((motion) => motion.motionId === row?.id);
+      if (matchingMotion && stories.some((story) => story.storyId === matchingMotion.storyId)) {
+        storyIdsInFocus.add(matchingMotion.storyId);
+      }
+    }
+    // An ambiguous alias is not a usable cross-reference.
+    if (storyIdsInFocus.size !== 1) return unavailable("FOCUS_RELATIONSHIP_UNVERIFIED", focus);
+  }
+  const storyIdInFocus = [...storyIdsInFocus][0] ?? motionInFocus?.storyId ?? null;
+  if (focus.story && motionInFocus && motionInFocus.storyId !== storyIdInFocus) {
+    return unavailable("FOCUS_RELATIONSHIP_MISMATCH", focus);
+  }
+  if (focus.regime && motionInFocus && motionInFocus.regimeSlug !== focus.regime) {
+    return unavailable("FOCUS_RELATIONSHIP_MISMATCH", focus);
+  }
+  if (focus.story && focus.regime && !motions.some((motion) =>
+    motion.storyId === storyIdInFocus && motion.regimeSlug === focus.regime
+    && (!motionInFocus || motion.motionId === motionInFocus.motionId))) {
+    return unavailable("FOCUS_RELATIONSHIP_UNVERIFIED", focus);
+  }
+  // Events lack a reliable Story/Motion relation in journey-briefing/v1.
+  // Event identity is validated independently; never infer a relationship.
+  const priorityMotionId = motionInFocus?.motionId
+    ?? (storyIdInFocus ? motions.find((motion) => motion.storyId === storyIdInFocus)?.motionId : null)
+    ?? (focus.regime ? motions.find((motion) => motion.regimeSlug === focus.regime)?.motionId : null);
+
   const params = new URLSearchParams({ edition: selectedId });
   for (const key of ["story", "motion", "regime", "event"] as const) {
     if (focus[key]) params.set(key, focus[key]!);
@@ -240,8 +284,8 @@ export function buildPresenterPrepSourceProjection(input: PresenterPrepSourceInp
     pinned: { editionId: selectedId, publishedAt: edition.publishedAt, dossierId: frozenId, dossierAsOf: frozenAsOf },
     focus,
     journeyHref: "/hybrid-output?" + params.toString() + "#presenter-reasoning",
-    stories,
-    motions,
+    stories: focusedFirst(stories, (story) => story.storyId === storyIdInFocus),
+    motions: focusedFirst(motions, (motion) => motion.motionId === priorityMotionId),
     regimes,
     events,
     researchGaps: gapsFromExactDossier(input.researchGapStatus, input.exactDossier),
