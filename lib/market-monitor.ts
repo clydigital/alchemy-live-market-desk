@@ -206,6 +206,7 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "mu", providerSymbol: "MU", assetClass: "stocks", label: "Micron", type: "AI / Semis", benchmark: "ndx" },
   { id: "mrvl", providerSymbol: "MRVL", assetClass: "stocks", label: "Marvell", type: "AI / Semis", benchmark: "ndx" },
   { id: "orcl", providerSymbol: "ORCL", assetClass: "stocks", label: "Oracle", type: "AI / Semis", benchmark: "ndx" },
+  { id: "crwv", providerSymbol: "CRWV", assetClass: "stocks", label: "CoreWeave", type: "AI / Semis", benchmark: "ndx" },
   { id: "pltr", providerSymbol: "PLTR", assetClass: "stocks", label: "Palantir", type: "AI / Semis", benchmark: "ndx" },
 
   { id: "xlk", providerSymbol: "XLK", assetClass: "etf", label: "XLK Technology", type: "Sector", benchmark: "spx" },
