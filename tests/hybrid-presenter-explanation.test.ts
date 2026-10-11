@@ -12,8 +12,10 @@ test("Hybrid opens from the full bounded Market Motion stream instead of three D
   assert.doesNotMatch(hybrid, /limit:\s*3/);
   assert.match(hybrid, /getCurrentMarketMotion/);
   assert.match(hybrid, /Hybrid Market Motion/);
-  assert.match(hybrid, /MARKET MOTION JOURNEY/);
-  assert.match(hybrid, /event → why interesting → market reaction → Story\/Regime bridge → what to investigate or write/);
+  assert.match(hybrid, /SOURCE-VERIFIED DEVELOPMENTS/);
+  assert.match(hybrid, /RESEARCH LEADS · NOT VERIFIED/);
+  assert.match(hybrid, /HISTORICAL MARKET MOTION · IMMUTABLE/);
+  assert.match(hybrid, /up to four distinct current developments|Up to four distinct current developments/i);
   assert.match(hybrid, /Primary Motion/);
   assert.match(hybrid, /Secondary Motion/);
   assert.match(hybrid, /journeyMode/);
@@ -33,7 +35,7 @@ test("Journey keeps Motion as discovery context while Research Gap starts from t
 });
 
 test("Hybrid makes upcoming catalysts a primary layer after Motion and before Dossier context", () => {
-  const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
+  const motionAt = hybrid.indexOf('eyebrow="SOURCE-VERIFIED DEVELOPMENTS"');
   const upcomingAt = hybrid.indexOf('title="Upcoming news & catalysts"');
   const dossierAt = hybrid.indexOf('title="Canonical context"');
 
@@ -49,14 +51,14 @@ test("Hybrid makes upcoming catalysts a primary layer after Motion and before Do
 });
 
 test("Hybrid links to canonical Dossier context instead of mirroring Presenter composition", () => {
-  const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
+  const motionAt = hybrid.indexOf('eyebrow="SOURCE-VERIFIED DEVELOPMENTS"');
   const dossierAt = hybrid.indexOf('title="Canonical context"');
   assert.ok(motionAt >= 0);
   assert.ok(dossierAt > motionAt);
 
   assert.match(hybrid, /Canonical Dossier ID/);
   assert.match(hybrid, /href="\/dossier"/);
-  assert.match(hybrid, /cannot create an independent regime or thesis/);
+  assert.match(hybrid, /only from canonical Dossier adjudication/);
   assert.doesNotMatch(hybrid, /title="Presenter view"/);
   assert.doesNotMatch(hybrid, /title="How the pieces connect"/);
   assert.doesNotMatch(hybrid, /title="Why these ideas matter"/);
@@ -65,7 +67,7 @@ test("Hybrid links to canonical Dossier context instead of mirroring Presenter c
 });
 
 test("Presenter divergence audit remains available below the Motion journey", () => {
-  const motionAt = hybrid.indexOf('eyebrow="MARKET MOTION JOURNEY"');
+  const motionAt = hybrid.indexOf('eyebrow="SOURCE-VERIFIED DEVELOPMENTS"');
   const divergenceAt = hybrid.indexOf('title="Presenter Divergence Lab"');
   assert.ok(motionAt >= 0);
   assert.ok(divergenceAt > motionAt);
