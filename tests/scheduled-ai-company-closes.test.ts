@@ -55,10 +55,10 @@ test("P0B provider source spoof, stale quote, missing ticker and future-dated pa
   let v=buildAiCompanyCloseCandidates(rs,NOW);
   assert.equal(v.items.length,10);
   assert.ok(v.gaps.some(x=>x.includes("SOURCE_IDENTITY_OR_FREQUENCY_MISMATCH")));
-  v=buildAiCompanyCloseCandidates(rows(new Date("2026-09-22T00:00:00Z").getTime()/1000),NOW);
+  v=buildAiCompanyCloseCandidates(rows(new Date("2026-09-22T00:00:00Z").getTime()/1000).map(x=>({...x,points:x.points.slice(1)})),NOW);
   assert.equal(v.items.length,0);
   assert.ok(v.gaps.some(x=>x.includes("STALE_OR_FUTURE_QUOTE")));
-  v=buildAiCompanyCloseCandidates(rows(MON),NOW);
+  v=buildAiCompanyCloseCandidates(rows(MON).map(x=>({...x,points:x.points.slice(1)})),NOW);
   assert.equal(v.items.length,0);
   assert.ok(v.gaps.some(x=>x.includes("NO_FINISHED_SESSION_PRICE")));
   v=buildAiCompanyCloseCandidates(rows().filter(x=>x.id!=="crwv"),NOW);
