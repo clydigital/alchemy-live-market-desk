@@ -6,7 +6,10 @@ import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducati
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-divergence";
-import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import {
+  getDossierV2PresentationSelection,
+  selectDossierV2Presentation,
+} from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
 import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
@@ -125,7 +128,21 @@ function upcomingTime(value: string | null | undefined) {
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
   const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
-    getDossierV2PresentationSelection(),
+    getDossierV2PresentationSelection().catch((error) => {
+      console.warn(JSON.stringify({
+        event: "hybrid_canonical_dossier_read_unavailable",
+        message: error instanceof Error ? error.message.slice(0, 180) : "read failed",
+      }));
+      const unavailable = selectDossierV2Presentation([]);
+      return {
+        ...unavailable,
+        notice: {
+          tone: "error" as const,
+          label: "Canonical Dossier read unavailable",
+          detail: "Dossier state could not be read. Current source-verified developments remain separate from canonical Story and Regime interpretation.",
+        },
+      };
+    }),
     getDeskData(),
     getStoryRecordLayer(),
     getHybridPresenterEditionCandidates(),
