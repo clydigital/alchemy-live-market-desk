@@ -320,3 +320,32 @@ test("unsafe source links are not eligible Presenter sources", () => {
   assert.equal(result.reason, "INVALID_MOTION_REFERENCE");
   assert.deepEqual(result.motions, []);
 });
+
+test("legacy immutable Story state is visible but never labelled canonical reasoning", () => {
+  const input = fixture(true);
+  const entry = (input.selectedEdition!.payload.canonicalStoryManifest as any[])[0];
+  entry.reasoning = null;
+  entry.state = {
+    id: "story-1", slug: "rates", title: "Archived rates title",
+    thesisVersion: { id: "thesis-1" },
+  };
+  input.focus = { story: "rates" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "READY");
+  assert.equal(result.stories[0]?.headline, "Archived rates title");
+  assert.equal(result.stories[0]?.sourceKind, "FROZEN_STORY_STATE");
+
+  const corrupted = fixture();
+  const bad = (corrupted.selectedEdition!.payload.canonicalStoryManifest as any[])[0];
+  bad.reasoning = null;
+  bad.state = { id: "wrong-story", title: "Unproven", slug: "rates", thesisVersion: { id: "thesis-1" } };
+  assert.deepEqual(buildPresenterPrepSourceProjection(corrupted).stories, []);
+});
+
+test("malformed non-null reasoning cannot borrow frozen-state fallback to appear verified", () => {
+  const input = fixture();
+  const entry = (input.selectedEdition!.payload.canonicalStoryManifest as any[])[0];
+  entry.reasoning = { contractVersion: "wrong-version" };
+  entry.state = { id: "story-1", slug: "rates", title: "Old", thesisVersion: { id: "thesis-1" } };
+  assert.deepEqual(buildPresenterPrepSourceProjection(input).stories, []);
+});
