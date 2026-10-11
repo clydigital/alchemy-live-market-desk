@@ -13,7 +13,7 @@ import {
 export async function persistSecIssuerCashflowEvidence(
   asOf: string,
   ticker: SecCashflowIssuerTicker,
-  options: { now?: string; userAgent?: string; fetchImpl?: typeof fetch } = {},
+  options: { now?: string; userAgent?: string; fetchImpl?: typeof fetch; maxQuarters?: number } = {},
 ) {
   const issuer = SEC_D1_ISSUERS[ticker];
   if (!issuer) return { persisted: [] as Array<{ id:string; evidenceId:string; observationId:string }>, gaps: ["UNKNOWN_ISSUER"] };
@@ -40,7 +40,7 @@ export async function persistSecIssuerCashflowEvidence(
   gaps.push(...candidates.gaps);
   const client = createSupabaseAdminClient();
   const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
-  for (const item of candidates.items) {
+  for (const item of candidates.items.slice(0, Math.max(1, Math.min(8, Math.trunc(options.maxQuarters ?? 8))))) {
     const externalId = item.observationIdentity;
     const { data: existing, error: existsError } = await client.from("intelligence_evidence")
       .select("id,content_hash,normalised_observation_id,external_evidence_id")
