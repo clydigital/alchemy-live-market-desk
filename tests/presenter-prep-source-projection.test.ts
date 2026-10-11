@@ -204,3 +204,70 @@ test("empty news day remains valid with zero source-derived items", () => {
   assert.equal(result.events.length, 0);
   assert.equal(result.researchGaps.length, 0);
 });
+
+test("same-edition Rates Story cannot be combined with an unrelated AI Motion or Regime", () => {
+  const input = fixture(true);
+  const payload = input.selectedEdition!.payload;
+  (payload.canonicalStoryManifest as any[]).push({
+    storyId: "story-ai", snapshotId: "story-snapshot-ai", thesisVersionId: "thesis-ai",
+    state: { slug: "ai" },
+    reasoning: { contractVersion: "canonical-story-reasoning/v1",
+      storyId: "story-ai", storyVersionId: "thesis-ai", title: "AI capital cycle" },
+  });
+  (payload.marketMotion as any).items.push({
+    id: "motion-ai", storyId: "story-ai", storySlug: "ai", regimeSlug: "us-china-ai",
+    headline: "AI spending revised", lifecycleState: "PROMOTED",
+    verificationState: "VERIFIED", sourceName: "Issuer", sourceUrl: "https://example.com/ai",
+  });
+  for (const focus of [
+    { story: "rates", motion: "motion-ai" },
+    { story: "rates", regime: "us-china-ai" },
+    { motion: "motion-1", regime: "us-china-ai" },
+    { story: "rates", motion: "motion-ai", regime: "us-china-ai" },
+  ]) {
+    const testInput = { ...input, focus };
+    const result = buildPresenterPrepSourceProjection(testInput);
+    assert.equal(result.status, "UNAVAILABLE", JSON.stringify(focus));
+    assert.match(result.reason || "", /^FOCUS_RELATIONSHIP_/);
+    assert.equal(result.journeyHref, null);
+    assert.deepEqual(result.stories, []);
+    assert.deepEqual(result.motions, []);
+  }
+  input.focus = { story: "ai", motion: "motion-ai", regime: "us-china-ai" };
+  assert.equal(buildPresenterPrepSourceProjection(input).status, "READY");
+});
+
+test("focused story and Motion are prioritised even beyond six visible entries", () => {
+  const input = fixture(true);
+  const stories = input.selectedEdition!.payload.canonicalStoryManifest as any[];
+  const motions = (input.selectedEdition!.payload.marketMotion as any).items as any[];
+  for (let i = 2; i <= 9; i++) {
+    stories.push({
+      storyId: "story-" + i, snapshotId: "snapshot-" + i,
+      thesisVersionId: "thesis-" + i, state: { slug: "story-" + i },
+      reasoning: { contractVersion: "canonical-story-reasoning/v1",
+        storyId: "story-" + i, storyVersionId: "thesis-" + i, title: "Theme " + i },
+    });
+    motions.push({
+      id: "motion-" + i, storyId: "story-" + i, storySlug: "story-" + i,
+      headline: "Development " + i, regimeSlug: "ai-capital",
+      verificationState: "VERIFIED", lifecycleState: "PROMOTED",
+      sourceName: "Primary", sourceUrl: "https://example.com/" + i,
+    });
+  }
+  input.focus = { story: "story-9", motion: "motion-9", regime: "ai-capital" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "READY");
+  assert.equal(result.stories[0]?.storyId, "story-9");
+  assert.equal(result.motions[0]?.motionId, "motion-9");
+  assert.equal(result.stories.length, 9);
+  assert.equal(result.motions.length, 9);
+});
+
+test("Story–Regime pairs without a frozen relational witness remain unavailable", () => {
+  const input = fixture();
+  input.focus = { story: "rates", regime: "us-rate-regime" };
+  assert.equal(buildPresenterPrepSourceProjection(input).status, "READY");
+  (input.selectedEdition!.payload.marketMotion as any).items[0].storyId = "other-story";
+  assert.equal(buildPresenterPrepSourceProjection(input).reason, "FOCUS_RELATIONSHIP_UNVERIFIED");
+});
