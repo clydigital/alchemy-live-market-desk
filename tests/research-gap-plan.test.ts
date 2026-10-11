@@ -317,3 +317,84 @@ test("bounded research stops UNRESOLVED when source budget is exhausted", () => 
   assert.equal(verdict.shouldStop, true);
   assert.equal(verdict.stopReason, "budget_exhausted");
 });
+
+
+test("P0 #709 ICE vendor methodology cannot answer the canonical MOVE numeric-series gap",()=>{
+  const plan=buildResearchGapPlan(gap({
+    gap_key:"gap:native:gap:move-volatility-missing",
+    question:"Canonical MOVE / Treasury-volatility time series is not present in the packet, blocking assessment of long-end volatility.",
+    action:"Obtain canonical dated MOVE series values for current analysis window.",
+    evidence_needed:[],
+  }),new Date("2026-10-09T03:30:00Z"));
+  const vendor=assessment(plan,{
+    evidenceId:"gap-web:630dabb1d9ffd78fcd421717",
+    claim:"ICE data services maintains MOVE but requires commercial distribution and subscription.",
+    sourceUrl:"https://developer.ice.com/fixed-income-data-services/catalog/ice-data-indices-move-index",
+    sourceClass:"official",quality:95,traceable:true,directness:"DIRECT",
+  });
+  const result=evaluateResearchGapEvidence({plan,evidence:[vendor],branchCount:1,now:new Date("2026-10-09T04:00:00Z")});
+  assert.equal(result.outcome,"UNRESOLVED");
+  assert.equal(result.shouldStop,false);
+  assert.equal(result.stopReason,"continue_research");
+  assert.equal(result.missingRequirementIds.length,1);
+  assert.equal(result.eligibleEvidenceIds.length,0);
+  assert.equal(result.exactAnswerProof?.proofState,"UNRESOLVED");
+  assert.equal(result.exactAnswerProof?.proofEvidenceUuid,null);
+  assert.ok(result.exactAnswerProof?.nextCheckReason?.includes("dated"));
+});
+test("P0 #709 even eight authoritative ICE and Barchart pages exhaust the budget UNRESOLVED",()=>{
+  const plan=buildResearchGapPlan(gap({
+    gap_key:"gap:native:gap:move-volatility-absent",
+    question:"Canonical MOVE Treasury-volatility series is missing, blocking full assessment of volatility transmission.",
+    action:"Obtain actual 20-session ICE MOVE index values.",
+    evidence_needed:[],
+  }),new Date("2026-10-09T03:30:00Z"));
+  const evidence=Array.from({length:8},(_,i)=>assessment(plan,{
+    evidenceId:"gap-web:"+String(i).repeat(24),
+    independenceKey:"source-"+i,
+    sourceClass:"official",quality:95,directness:"DIRECT",
+    sourceUrl:"https://www.ice.com/docs/"+i,
+    claim:"The ICE MOVE index is available under data licensing but no numeric dated observations are present.",
+  }));
+  const v=evaluateResearchGapEvidence({plan,evidence,branchCount:3});
+  assert.equal(v.outcome,"UNRESOLVED");
+  assert.equal(v.shouldStop,true);
+  assert.equal(v.stopReason,"budget_exhausted");
+  assert.equal(v.coveredRequirementIds.length,0);
+  assert.equal(v.exactAnswerProof?.proofState,"UNRESOLVED");
+});
+test("P0 #709 an actual server-confirmed canonical dated MOVE series can satisfy numeric coverage without a forced Regime mutation",()=>{
+  const plan=buildResearchGapPlan(gap({
+    question:"Canonical MOVE index time series missing for the current analysis window.",
+    action:"Get observed MOVE index points.",
+    evidence_needed:[],
+  }));
+  const uuid="69dfaa87-cab9-4a5b-be09-fe78c0c0d198";
+  const item=assessment(plan,{
+    evidenceId:uuid,
+    sourceClass:"market_data",
+    sourceUrl:"https://www.ice.com/example/move-series",
+    claim:"The canonical index points are present for 20 matched dated trading sessions.",
+  });
+  const unresolved=evaluateResearchGapEvidence({plan,evidence:[item]});
+  assert.equal(unresolved.outcome,"UNRESOLVED","UUID text alone is not server attestation");
+  const proved=evaluateResearchGapEvidence({
+    plan,evidence:[item],verifiedCanonicalObservationIds:[uuid],
+  });
+  assert.equal(proved.outcome,"CONFIRMING");
+  assert.equal(proved.shouldStop,true);
+  assert.equal(proved.exactAnswerProof?.proofState,"VERIFIED_NUMERIC_SERIES");
+  assert.equal(proved.exactAnswerProof?.proofEvidenceUuid,uuid);
+});
+test("P0 #709 legitimate source-access-only questions still use original source-based research rules",()=>{
+  const plan=buildResearchGapPlan(gap({
+    question:"How can the desk license access to the ICE MOVE index vendor?",
+    action:"Find the licensing endpoint for MOVE.",
+    evidence_needed:[],
+  }));
+  const v=evaluateResearchGapEvidence({plan,evidence:[assessment(plan,{
+    sourceClass:"official",sourceUrl:"https://developer.ice.com/fixed-income-data-services",
+  })]});
+  assert.equal(v.outcome,"CONFIRMING");
+  assert.equal(v.exactAnswerProof,undefined);
+});
