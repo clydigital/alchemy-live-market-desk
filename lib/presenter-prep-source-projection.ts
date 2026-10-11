@@ -212,16 +212,23 @@ export function buildPresenterPrepSourceProjection(input: PresenterPrepSourceInp
   const motions = motionsFromPayload(edition.payload);
   const events = eventsFromPayload(edition.payload);
   const regimes = [...new Set(motions.map((item) => item.regimeSlug).filter((slug): slug is string => Boolean(slug)))];
+  const attachment = obj(edition.payload.marketMotion);
+  const rawMotions = (Array.isArray(attachment?.items) ? attachment.items : []).map(obj);
+  const aliases = new Map<string, Set<string>>();
+  // A Motion's human-readable Story slug cannot override an incompatible
+  // immutable canonical Story identity.
+  for (const motion of motions) {
+    const story = stories.find((item) => item.storyId === motion.storyId);
+    const raw = rawMotions.find((row) => row?.id === motion.motionId);
+    const alias = nonempty(raw?.storySlug);
+    if (!story || !alias || (story.slug && story.slug !== alias)) continue;
+    const ids = aliases.get(alias) ?? new Set<string>();
+    ids.add(story.storyId);
+    aliases.set(alias, ids);
+  }
   const storySlugs = new Set([
     ...stories.flatMap((story) => story.slug ? [story.slug] : []),
-    ...motions.filter((motion) => stories.some((story) => story.storyId === motion.storyId))
-      .flatMap((motion) => {
-        const attachment = obj(edition.payload.marketMotion);
-        const matching = (Array.isArray(attachment?.items) ? attachment.items : [])
-          .map(obj).find((item) => item?.id === motion.motionId);
-        const slug = nonempty(matching?.storySlug);
-        return slug ? [slug] : [];
-      }),
+    ...aliases.keys(),
   ]);
 
   if (focus.story && !storySlugs.has(focus.story)) return unavailable("INVALID_STORY_REFERENCE", focus);
@@ -242,17 +249,17 @@ export function buildPresenterPrepSourceProjection(input: PresenterPrepSourceInp
     stories.filter((story) => story.slug === focus.story).map((story) => story.storyId),
   );
   if (focus.story) {
-    const attachment = obj(edition.payload.marketMotion);
-    for (const item of Array.isArray(attachment?.items) ? attachment.items : []) {
-      const row = obj(item);
-      if (nonempty(row?.storySlug) !== focus.story) continue;
-      const matchingMotion = motions.find((motion) => motion.motionId === row?.id);
-      if (matchingMotion && stories.some((story) => story.storyId === matchingMotion.storyId)) {
-        storyIdsInFocus.add(matchingMotion.storyId);
-      }
-    }
+    for (const id of aliases.get(focus.story) ?? []) storyIdsInFocus.add(id);
     // An ambiguous alias is not a usable cross-reference.
     if (storyIdsInFocus.size !== 1) return unavailable("FOCUS_RELATIONSHIP_UNVERIFIED", focus);
+  }
+  if (motionInFocus) {
+    const canonicalStory = stories.find((story) => story.storyId === motionInFocus.storyId);
+    const source = rawMotions.find((row) => row?.id === motionInFocus.motionId);
+    const alias = nonempty(source?.storySlug);
+    if (canonicalStory?.slug && alias && canonicalStory.slug !== alias) {
+      return unavailable("FOCUS_RELATIONSHIP_MISMATCH", focus);
+    }
   }
   const storyIdInFocus = [...storyIdsInFocus][0] ?? motionInFocus?.storyId ?? null;
   if (focus.story && motionInFocus && motionInFocus.storyId !== storyIdInFocus) {
@@ -287,7 +294,7 @@ export function buildPresenterPrepSourceProjection(input: PresenterPrepSourceInp
     stories: focusedFirst(stories, (story) => story.storyId === storyIdInFocus),
     motions: focusedFirst(motions, (motion) => motion.motionId === priorityMotionId),
     regimes,
-    events,
+    events: focusedFirst(events, (event) => event.eventId === focus.event),
     researchGaps: gapsFromExactDossier(input.researchGapStatus, input.exactDossier),
   };
 }
