@@ -14,6 +14,12 @@ import {
   type ResearchGapEvidenceAssessment,
 } from "@/lib/research-gap-plan";
 import { loadResearchGapPlanContext } from "@/lib/research-gap-context";
+import {
+  requiresExactMoveSeriesProof,
+  verifiedCanonicalMoveSeries,
+  type CanonicalMoveRow,
+} from "@/lib/research-gap-exact-move-proof";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -137,10 +143,35 @@ export async function POST(request: Request) {
       const branchCount = typeof input.branchCount === "number"
         ? input.branchCount
         : undefined;
+      let verifiedCanonicalObservationIds:string[]=[];
+      const moveExact = requiresExactMoveSeriesProof(
+        gap.research_plan.researchQuestion,
+        gap.research_plan.requirements.map(r=>r.description),
+      );
+      if(moveExact){
+        // The web executor emits gap-web IDs, not canonical market readings.
+        // Never trust a submitted UUID until the existing Evidence table proves
+        // an exact ICE MOVE index value, source, unit, period and series length.
+        const candidates=(rawEvidence as ResearchGapEvidenceAssessment[])
+          .map(row=>row.evidenceId)
+          .filter(id=>/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(id))
+          .slice(0,8);
+        if(candidates.length){
+          const {data,error}=await createSupabaseAdminClient()
+            .from("intelligence_evidence")
+            .select("id,normalised_observation_id,external_evidence_id,observed_value,measurement_unit,event_at,available_at,affected_assets,provenance_urls,structured_payload")
+            .in("id",candidates);
+          if(error)throw new Error("Canonical MOVE exact-answer lookup failed: "+error.message);
+          verifiedCanonicalObservationIds=(data??[])
+            .filter(row=>verifiedCanonicalMoveSeries(row as CanonicalMoveRow,new Date()))
+            .map(row=>row.id);
+        }
+      }
       const verdict = evaluateResearchGapEvidence({
         plan: gap.research_plan,
         evidence: rawEvidence as ResearchGapEvidenceAssessment[],
         branchCount,
+        verifiedCanonicalObservationIds,
       });
 
       if (!verdict.shouldStop) {
