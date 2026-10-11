@@ -71,8 +71,10 @@ export function assessScheduledMarketMeasurements(
     const ny=Object.fromEntries(nowNyParts.map(x=>[x.type,x.value]));
     const noNewClose = ny.weekday==="Sat" || ny.weekday==="Sun" || Number(ny.hour)<16;
     let status:MarketMeasurementState = "EXPECTED_UPDATE", reason="Last due completed US market session not in canonical Evidence.";
-    if (latest && latest.measurement_unit!==unit) {
-      status="DEFINITION_MISMATCH";reason="Canonical unit differs from the fixed 20-session metric definition.";
+    if (latest && (latest.measurement_unit!==unit
+      || !latest.event_at || Date.parse(latest.event_at)>now.getTime()
+      || (last!==null && last>usClose))) {
+      status="DEFINITION_MISMATCH";reason="Canonical measurement unit or event date is incompatible with the due US market session.";
     } else if (last && last>=due) {
       status=noNewClose?"UNCHANGED_EXPECTED":"CURRENT";
       reason=noNewClose?"No new completed US market close is due; preserve original market observation day.":"Canonical observation covers the conservative due session.";
