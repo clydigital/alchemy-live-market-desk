@@ -61,7 +61,7 @@ test("P0 real current Monday equity and Friday OAS samples return CURRENT next m
     key,key.endsWith("oas_20s")?FRI:MON,unit,
   ] as const));
   const check=assessScheduledMarketMeasurements(now,updated);
-  assert.ok(check.every(x=>x.status==="UNCHANGED_EXPECTED"));
+  assert.ok(check.every(x=>x.status==="CURRENT"));
 });
 test("P0 corrupted canonical units cannot be accepted as freshness",()=>{
   const corrupt=rows();
