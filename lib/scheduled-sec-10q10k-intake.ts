@@ -34,6 +34,7 @@ type Dependencies = {
   discover?: (ticker: SecCashflowIssuerTicker, userAgent: string, now: Date) => Promise<Discovery>;
   persist?: (ticker: SecCashflowIssuerTicker, asOf: string, userAgent: string) => Promise<WriterResult>;
   userAgent?: string;
+  fetchImpl?: typeof fetch;
 };
 const TICKERS: SecCashflowIssuerTicker[] = ["GOOGL", "MSFT", "AMZN", "META"];
 const DAY = 86_400_000;
@@ -55,9 +56,9 @@ async function readCanonical(): Promise<CanonicalSecRow[]> {
   if (error) throw Error("SEC canonical lookup failed: " + error.message);
   return (data ?? []) as CanonicalSecRow[];
 }
-async function latestOfficialFiling(ticker: SecCashflowIssuerTicker, userAgent: string, now: Date): Promise<Discovery> {
+async function latestOfficialFiling(ticker: SecCashflowIssuerTicker, userAgent: string, now: Date, fetchImpl: typeof fetch): Promise<Discovery> {
   const cik = SEC_D1_ISSUERS[ticker].cik;
-  const response = await fetch(buildSecSubmissionsUrl(cik), {
+  const response = await fetchImpl(buildSecSubmissionsUrl(cik), {
     headers: { accept: "application/json", "user-agent": userAgent },
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
@@ -110,7 +111,7 @@ export async function collectScheduledSec10q10k(
     for (const ticker of TICKERS) {
       let accession: string | null = null, form: "10-Q" | "10-K" | null = null;
       try {
-        const found = await (deps.discover ?? latestOfficialFiling)(ticker, userAgent, now);
+        const found = await (deps.discover ?? ((key, ua, date) => latestOfficialFiling(key, ua, date, deps.fetchImpl ?? fetch)))(ticker, userAgent, now);
         if (!found.filing) {
           gaps.push(ticker + ":" + (found.gap ?? "NO_ELIGIBLE_FILING"));
           filings.push({ ticker, accession, form, state: "GAP" });
