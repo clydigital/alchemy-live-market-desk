@@ -555,9 +555,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       item.verificationState === "LEAD" || item.verificationState === "REPORTED"
       || item.verificationState === "PARTIAL" || item.verificationState === "UNRESOLVED"
     )).slice(0, 4);
-  const primaryMotionCount = motionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
-  const secondaryMotionCount = motionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
-  const focusedMotion = motionId ? motionJourney.find((item) => item.id === motionId) || null : null;
+  const visibleMotionJourney = presenterEditionStatus === "historical"
+    ? motionJourney : [...verifiedMotionJourney, ...researchLeadJourney];
+  const primaryMotionCount = visibleMotionJourney.filter((item) => item.attentionTier === "PRIMARY").length;
+  const secondaryMotionCount = visibleMotionJourney.filter((item) => item.attentionTier === "SECONDARY").length;
+  const focusedMotion = motionId ? visibleMotionJourney.find((item) => item.id === motionId) || null : null;
   const focusedDossierRegimeContext = motionId
     ? motionRegimeContextById.get(motionId) ?? null
     : null;
@@ -610,12 +612,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       activePath="/hybrid-output"
       title="Hybrid Output"
       description="Start from fresh Market Motion and the next scheduled catalysts. Use the canonical Dossier underneath for durable reasoning and regime context."
-      meta={`${motionJourney.length} fresh Motion · ${upcomingCount} upcoming · ${primaryMotionCount} primary · ${secondaryMotionCount} secondary`}
+      meta={`${visibleMotionJourney.length} source-distinguished Motion · ${upcomingCount} upcoming · ${verifiedMotionJourney.length} verified · ${researchLeadJourney.length} leads`}
     >
       <div className={styles.grid}>
         <MetricGrid
           items={[
-            { value: motionJourney.length, label: "Fresh Motion" },
+            { value: visibleMotionJourney.length, label: "Displayed Motion" },
             { value: primaryMotionCount, label: "Primary Motion" },
             { value: secondaryMotionCount, label: "Secondary Motion" },
             { value: upcomingCount, label: "Upcoming catalysts" },
