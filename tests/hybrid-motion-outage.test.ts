@@ -79,6 +79,8 @@ test("B2 Dossier-null read path is BEFORE the existing early return, queries cur
   const after=page.indexOf("let researchGapStatus = null;");
   assert.ok(early>0&&after>early);
   const code=page.slice(early,after);
+  assert.match(page,/getDossierV2PresentationSelection\(\)\.catch/);
+  assert.match(page,/selectDossierV2Presentation\(\[\]\)/);
   assert.match(code,/getCurrentMarketMotion\(\{ limit: 60 \}\)/);
   assert.match(code,/splitCurrentHybridMarketMotion/);
   assert.match(code,/historicalRequest \? \[\] : await/);
