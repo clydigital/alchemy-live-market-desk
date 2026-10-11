@@ -268,3 +268,44 @@ test("superseded requests fall back to the current canonical snapshot", () => {
   assert.equal(response.canonical.snapshotId, "retry-current");
   assert.match(response.diagnostic.limitation || "", /superseded/i);
 });
+
+test("new published slot does not erase a previous historical edition through cross-slot supersedes", () => {
+  const morning = daily("morning", "2026-10-11T02:47:00Z", {
+    scheduleSlot: "morning", scheduledFor: "2026-10-11T01:30:00Z",
+  });
+  const evening = daily("evening", "2026-10-11T14:41:00Z", {
+    scheduleSlot: "evening", scheduledFor: "2026-10-11T13:30:00Z",
+  }, "morning");
+  const manual = daily("manual", "2026-10-11T16:20:00Z", {
+    scheduleSlot: "manual", scheduledFor: "2026-10-11T16:04:00Z",
+  }, "evening");
+  const index = buildCanonicalEditionIndex([morning, evening, manual]);
+  assert.deepEqual(index.map((item) => item.snapshotId), ["manual", "evening", "morning"]);
+  assert.equal(selectCanonicalEdition(index, "evening").selected?.snapshotId, "evening");
+  assert.equal(selectCanonicalEdition(index, "evening").status, "historical");
+});
+
+test("retry of same slot remains superseded even across separate research runs", () => {
+  const before = daily("evening-original", "2026-10-11T13:40:00Z", {
+    scheduleSlot: "evening", scheduledFor: "2026-10-11T13:30:00Z",
+  });
+  const retry = daily("evening-retry", "2026-10-11T14:45:00Z", {
+    scheduleSlot: "evening", scheduledFor: "2026-10-11T13:31:00Z",
+  }, "evening-original");
+  const nextDay = daily("tomorrow-evening", "2026-10-12T14:30:00Z", {
+    scheduleSlot: "evening", scheduledFor: "2026-10-12T13:30:00Z",
+  }, "evening-retry");
+  assert.deepEqual(buildCanonicalEditionIndex([before, retry, nextDay]).map((x) => x.snapshotId),
+    ["tomorrow-evening", "evening-retry"]);
+});
+
+test("distinct manual publications do not supersede each other without a shared run or clock", () => {
+  const first = daily("manual-one", "2026-10-11T04:05:00Z", {
+    scheduleSlot: "manual", scheduledFor: "2026-10-11T03:39:00Z",
+  });
+  const second = daily("manual-two", "2026-10-11T16:20:00Z", {
+    scheduleSlot: "manual", scheduledFor: "2026-10-11T16:04:00Z",
+  }, "manual-one");
+  assert.deepEqual(buildCanonicalEditionIndex([first, second]).map((x) => x.snapshotId),
+    ["manual-two", "manual-one"]);
+});
