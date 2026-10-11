@@ -532,9 +532,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   // Current source-verification and canonical Dossier interpretation are
   // separate layers. Historical Journey replay stays the exact frozen set.
   const verifiedMotionJourney = presenterEditionStatus === "historical"
-    ? [] : motionJourney.filter(item => item.verificationState === "VERIFIED").slice(0, 4);
+    ? [] : liveMotionJourney.filter(item => item.verificationState === "VERIFIED").slice(0, 4);
   const researchLeadJourney = presenterEditionStatus === "historical"
-    ? [] : motionJourney.filter(item => (
+    ? [] : liveMotionJourney.filter(item => (
       item.verificationState === "LEAD" || item.verificationState === "REPORTED"
       || item.verificationState === "PARTIAL" || item.verificationState === "UNRESOLVED"
     )).slice(0, 4);
