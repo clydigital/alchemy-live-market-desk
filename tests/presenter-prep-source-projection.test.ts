@@ -310,3 +310,13 @@ test("explicitly focused event remains in the first eight frozen event cards", (
   assert.equal(result.events.length, 12);
   assert.equal(result.events[0]?.eventId, "event-12");
 });
+
+test("unsafe source links are not eligible Presenter sources", () => {
+  const input = fixture();
+  (input.selectedEdition!.payload.marketMotion as any).items[0].sourceUrl = "javascript:alert(1)";
+  input.focus = { motion: "motion-1" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.equal(result.reason, "INVALID_MOTION_REFERENCE");
+  assert.deepEqual(result.motions, []);
+});
