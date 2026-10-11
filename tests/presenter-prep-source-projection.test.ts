@@ -271,3 +271,42 @@ test("Story–Regime pairs without a frozen relational witness remain unavailabl
   (input.selectedEdition!.payload.marketMotion as any).items[0].storyId = "other-story";
   assert.equal(buildPresenterPrepSourceProjection(input).reason, "FOCUS_RELATIONSHIP_UNVERIFIED");
 });
+
+test("Motion Story aliases cannot override a different canonical Story slug", () => {
+  const input = fixture(true);
+  const items = (input.selectedEdition!.payload.marketMotion as any).items as any[];
+  // Canonical Story says "rates"; the source Motion attempts to rename it "ai".
+  items[0].storySlug = "ai";
+  input.focus = { motion: "motion-1" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "UNAVAILABLE");
+  assert.equal(result.reason, "FOCUS_RELATIONSHIP_MISMATCH");
+  assert.deepEqual(result.motions, []);
+
+  input.focus = { story: "ai", motion: "motion-1" };
+  assert.equal(buildPresenterPrepSourceProjection(input).status, "UNAVAILABLE");
+  assert.equal(buildPresenterPrepSourceProjection(input).reason, "INVALID_STORY_REFERENCE");
+});
+
+test("a Story can be focused without falsely claiming any Motion was linked", () => {
+  const input = fixture();
+  (input.selectedEdition!.payload.marketMotion as any).items = [];
+  input.focus = { story: "rates" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "READY");
+  assert.equal(result.stories[0]?.slug, "rates");
+  assert.deepEqual(result.motions, []);
+});
+
+test("explicitly focused event remains in the first eight frozen event cards", () => {
+  const input = fixture(true);
+  const chronology = (input.selectedEdition!.payload.journey as any).chronology;
+  for (let i = 2; i <= 12; i++) chronology.push({
+    eventId: "event-" + i, title: "Catalyst " + i,
+  });
+  input.focus = { event: "event-12" };
+  const result = buildPresenterPrepSourceProjection(input);
+  assert.equal(result.status, "READY");
+  assert.equal(result.events.length, 12);
+  assert.equal(result.events[0]?.eventId, "event-12");
+});
