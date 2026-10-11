@@ -33,7 +33,7 @@ export type PresenterPrepSourceProjection = {
   pinned: { editionId: string; publishedAt: string; dossierId: string; dossierAsOf: string } | null;
   focus: Focus;
   journeyHref: string | null;
-  stories: Array<{ storyId: string; slug: string | null; headline: string; publicationSnapshotId: string; thesisVersionId: string }>;
+  stories: Array<{ storyId: string; slug: string | null; headline: string; publicationSnapshotId: string; thesisVersionId: string; sourceKind: "CANONICAL_REASONING" | "FROZEN_STORY_STATE" }>;
   motions: Array<{ motionId: string; headline: string; storyId: string; regimeSlug: string | null; verificationState: string; sourceName: string; sourceUrl: string }>;
   regimes: string[];
   events: Array<{ eventId: string; title: string }>;
@@ -101,17 +101,26 @@ function storiesFromPayload(payload: Item): PresenterPrepSourceProjection["stori
     const storyId = nonempty(entry?.storyId);
     const snapshotId = nonempty(entry?.snapshotId);
     const thesisVersionId = nonempty(entry?.thesisVersionId);
-    const headline = nonempty(reasoning?.title);
-    if (!storyId || !snapshotId || !thesisVersionId || !headline
-      || reasoning?.contractVersion !== "canonical-story-reasoning/v1"
-      || reasoning?.storyId !== storyId
-      || reasoning?.storyVersionId !== thesisVersionId) return [];
+    if (!storyId || !snapshotId || !thesisVersionId) return [];
+    const reasoningValid = reasoning?.contractVersion === "canonical-story-reasoning/v1"
+      && reasoning.storyId === storyId
+      && reasoning.storyVersionId === thesisVersionId
+      && Boolean(nonempty(reasoning.title));
+    const frozenStateValid = (entry?.reasoning === null || entry?.reasoning === undefined)
+      && state?.id === storyId
+      && obj(state?.thesisVersion)?.id === thesisVersionId
+      && Boolean(nonempty(state?.title));
+    // Older immutable manifests carry a frozen Story state but no reasoning
+    // object. It can supply an accurately labelled title, never a fresh
+    // interpretation or an implied Dossier endorsement.
+    if (!reasoningValid && !frozenStateValid) return [];
     return [{
       storyId,
       slug: nonempty(state?.slug),
-      headline,
+      headline: (reasoningValid ? nonempty(reasoning?.title) : nonempty(state?.title))!,
       publicationSnapshotId: snapshotId,
       thesisVersionId,
+      sourceKind: reasoningValid ? "CANONICAL_REASONING" as const : "FROZEN_STORY_STATE" as const,
     }];
   });
   // Conflicting immutable identities must never be silently resolved by order.
