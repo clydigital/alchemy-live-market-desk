@@ -7,6 +7,7 @@ import {
   captureMacroContextSnapshot,
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
+import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledResearchValidationFailureDetail } from "@/lib/scheduled-research-validation-diagnostics";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -30,6 +31,7 @@ type ScheduledResearchHandlerDependencies = {
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
   captureMacroContext?: typeof captureMacroContextSnapshot;
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
+  collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
   attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
@@ -411,17 +413,41 @@ export async function handleScheduledResearchWithDependencies(
     // Canonical Dossier macro/rates state comes from FRED and official providers,
     // so this collector never gates unrelated evidence or Story work.
     const macroCapturePromise = (dependencies.captureMacroContext ?? captureMacroContextSnapshot)({ now });
+    // P0: measured FRED/Nasdaq inputs enter the canonical Evidence chain on the
+    // actual scheduled slot BEFORE research publication/intelligence snapshot.
+    // No additional cron, LLM reviewer or independent Story decision.
+    const numericIntakePromise = (dependencies.collectMarketMeasurements ?? collectScheduledMarketMeasurements)(now);
     const officialActuals = await safeOfficialActualIngestion(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
-    const [input, macroCapture] = await Promise.all([
+    const [input, macroCapture, numericIntake] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
       }),
       macroCapturePromise,
+      numericIntakePromise,
     ]);
+    // Emitting a bounded per-source status gives the EXISTING Vercel run a
+    // deterministic failure alert, including unchanged weekend observations.
+    const numericEvent = {
+      event: "scheduled_numeric_evidence_health",
+      slot,runKey,
+      collectedAt:numericIntake.collectedAt,
+      acquisition:numericIntake.acquisition,
+      metricStates:numericIntake.checks.map(c=>({
+        metric:c.key,status:c.status,observationDay:c.lastObservationDay,
+        dueDay:c.requiredObservationDay,evidenceUuid:c.canonicalEvidenceUuid,
+      })),
+      unresolved:numericIntake.unresolved,
+    };
+    if(numericIntake.acquisition==="PROVIDER_ERROR"
+      || numericIntake.checks.some(c=>["LATE","MISSING","DEFINITION_MISMATCH","PROVIDER_ERROR"].includes(c.status))) {
+      console.warn(JSON.stringify(numericEvent));
+    } else {
+      console.info(JSON.stringify(numericEvent));
+    }
 
     let macroLineagePersisted = false;
     let macroLineageNote: string | null = null;
@@ -479,6 +505,7 @@ export async function handleScheduledResearchWithDependencies(
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
         officialActuals,
+        quantifiedMarket: numericIntake,
         macro: {
           ...macroCapture,
           runLineagePersisted: macroLineagePersisted,
