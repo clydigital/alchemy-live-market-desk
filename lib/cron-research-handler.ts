@@ -8,6 +8,7 @@ import {
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
+import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledResearchValidationFailureDetail } from "@/lib/scheduled-research-validation-diagnostics";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -32,6 +33,7 @@ type ScheduledResearchHandlerDependencies = {
   captureMacroContext?: typeof captureMacroContextSnapshot;
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
+  collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
   attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
@@ -417,18 +419,33 @@ export async function handleScheduledResearchWithDependencies(
     // actual scheduled slot BEFORE research publication/intelligence snapshot.
     // No additional cron, LLM reviewer or independent Story decision.
     const numericIntakePromise = (dependencies.collectMarketMeasurements ?? collectScheduledMarketMeasurements)(now);
+    // Same authorised source-only scheduled cycle. No Notion-to-Evidence
+    // promotion and no LLM: the vendor's actual US close is the source.
+    const aiIssuerPricePromise = (dependencies.collectAiCompanyCloses ?? collectScheduledAiCompanyCloses)(now);
     const officialActuals = await safeOfficialActualIngestion(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
-    const [input, macroCapture, numericIntake] = await Promise.all([
+    const [input, macroCapture, numericIntake, aiIssuerPrices] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
       }),
       macroCapturePromise,
       numericIntakePromise,
+      aiIssuerPricePromise,
     ]);
+    const issuerLog={
+      event:"scheduled_ai_issuer_price_health",slot,runKey,
+      collectedAt:aiIssuerPrices.collectedAt,
+      dueSession:aiIssuerPrices.expectedUsSession,
+      status:aiIssuerPrices.status,
+      admittedEvidenceIds:aiIssuerPrices.evidenceIds,
+      missing:aiIssuerPrices.gaps,
+      unsupportedSourceCount:aiIssuerPrices.unsupported.length,
+    };
+    if(aiIssuerPrices.status==="DEGRADED")console.warn(JSON.stringify(issuerLog));
+    else console.info(JSON.stringify(issuerLog));
     // Emitting a bounded per-source status gives the EXISTING Vercel run a
     // deterministic failure alert, including unchanged weekend observations.
     const numericEvent = {
@@ -506,6 +523,7 @@ export async function handleScheduledResearchWithDependencies(
         retainedItems: input.items.length,
         officialActuals,
         quantifiedMarket: numericIntake,
+        aiIssuerPrices,
         macro: {
           ...macroCapture,
           runLineagePersisted: macroLineagePersisted,
