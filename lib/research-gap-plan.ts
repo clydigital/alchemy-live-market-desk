@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  buildMoveExactProof,requiresExactMoveSeriesProof,
+  type MoveExactProof,
+} from "./research-gap-exact-move-proof.ts";
 
 import type {
   ResearchGapCaseRow,
@@ -122,6 +126,8 @@ export type ResearchGapVerdict = {
   branchCount: number;
   rationale: string[];
   nextResearch: string[];
+  /** Read-only exact-answer proof, independent of worker lifecycle/handoff HTTP. */
+  exactAnswerProof?: MoveExactProof;
 };
 
 function clean(value: unknown) {
@@ -478,13 +484,24 @@ export function evaluateResearchGapEvidence(input: {
   evidence: ResearchGapEvidenceAssessment[];
   branchCount?: number;
   now?: Date;
+  /** Populated ONLY after server-side match against canonical source Evidence. */
+  verifiedCanonicalObservationIds?: string[];
 }): ResearchGapVerdict {
   const errors = validateResearchGapEvidenceAssessments(input.plan, input.evidence);
   if (errors.length) throw new Error(errors.join(" "));
 
   const plan = input.plan;
   const branchCount = Math.max(0, Math.floor(input.branchCount ?? 1));
-  const eligible = input.evidence.filter((item) => item.traceable && item.quality >= plan.stopPolicy.minimumQuality);
+  const exactMoveRequired = requiresExactMoveSeriesProof(
+    plan.researchQuestion,plan.requirements.map(r=>r.description),
+  );
+  const serverVerified = new Set(input.verifiedCanonicalObservationIds??[]);
+  const eligible = input.evidence.filter((item) =>
+    item.traceable && item.quality >= plan.stopPolicy.minimumQuality
+    // A source describing ICE licensing/distribution is not an ICE MOVE
+    // numeric observation, regardless of web quality, source class or claim.
+    && (!exactMoveRequired || (serverVerified.has(item.evidenceId) && item.directness === "DIRECT"))
+  );
   const covered = new Set<string>();
   for (const item of eligible) {
     for (const requirementId of evidenceRequirementIds(plan, item)) covered.add(requirementId);
@@ -562,6 +579,9 @@ export function evaluateResearchGapEvidence(input: {
   if (!coverageComplete) {
     rationale.push(`${missingRequirementIds.length} required evidence branch(es) remain uncovered.`);
   }
+  if (exactMoveRequired && eligible.length===0) {
+    rationale.push("Exact numerical MOVE series has no server-verified canonical Evidence UUID; vendor methodology pages do not satisfy the requested index value.");
+  }
 
   const directionalStrength = Math.max(strongConfirming, strongContradicting, strongNeutral);
   const averageQuality = eligible.length
@@ -612,5 +632,8 @@ export function evaluateResearchGapEvidence(input: {
     branchCount,
     rationale,
     nextResearch,
+    ...(exactMoveRequired ? {
+      exactAnswerProof: buildMoveExactProof(eligible.map(item=>item.evidenceId),true)!,
+    } : {}),
   };
 }
