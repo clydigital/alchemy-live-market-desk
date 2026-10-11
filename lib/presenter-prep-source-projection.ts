@@ -50,6 +50,17 @@ function nonempty(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function safeSourceUrl(value: unknown): string | null {
+  const raw = nonempty(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return (url.protocol === "https:" || url.protocol === "http:") && url.hostname ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 function iso(value: unknown): string | null {
   const text = nonempty(value);
   return text && Number.isFinite(Date.parse(text)) ? text : null;
@@ -118,7 +129,7 @@ function motionsFromPayload(payload: Item): PresenterPrepSourceProjection["motio
     const headline = nonempty(item?.headline);
     const storyId = nonempty(item?.storyId);
     const sourceName = nonempty(item?.sourceName);
-    const sourceUrl = nonempty(item?.sourceUrl);
+    const sourceUrl = safeSourceUrl(item?.sourceUrl);
     const verificationState = nonempty(item?.verificationState);
     if (!motionId || !headline || !storyId || !sourceName || !sourceUrl
       || !verificationState || item?.lifecycleState !== "PROMOTED") return [];
