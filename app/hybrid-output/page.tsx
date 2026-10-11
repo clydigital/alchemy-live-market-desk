@@ -35,7 +35,6 @@ import {
   getCurrentMarketMotion,
   marketMotionAttention,
   MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
-  selectMarketMotionForOverview,
 } from "@/lib/market-motion";
 import { getRegimeExplanation } from "@/lib/regime-explanations";
 import { routeDossierInvestigations } from "@/lib/regime-investigations";
@@ -483,11 +482,13 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
         1_800,
       ).catch(() => [])
     : [];
-  const liveMotionJourney = selectMarketMotionForOverview(
-    liveMotionRows,
-    new Date(),
-    MARKET_MOTION_DISPLAY_SAFETY_LIMIT,
-  ).map((item) => {
+  // Split the full bounded source pool before selecting the visible lanes.
+  // Source verification is not Dossier acceptance or Regime/Story authority.
+  const liveMotionSelection = splitCurrentHybridMarketMotion(liveMotionRows, new Date());
+  const liveMotionJourney = [
+    ...liveMotionSelection.verified,
+    ...liveMotionSelection.leads,
+  ].map((item) => {
     const directRegimeContribution = motionRegimeContextById.get(item.id) ?? null;
     const dossierAdjudication = motionAdjudicationContextById.get(item.id) ?? null;
     const regimeContribution = directRegimeContribution ?? dossierAdjudication;

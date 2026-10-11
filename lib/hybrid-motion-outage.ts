@@ -21,7 +21,9 @@ export function splitCurrentHybridMarketMotion(
   records: MarketMotionRecord[],
   now: Date,
 ): HybridMotionSplit {
-  const ranked = selectMarketMotionForOverview(records, now);
+  // Keep the full bounded query pool through exact-event ranking and dedup.
+  // Otherwise 18 high-scoring LEADS can hide genuine verified developments.
+  const ranked = selectMarketMotionForOverview(records, now, records.length);
   return {
     verified: ranked.filter(item =>
       item.verification_state === "VERIFIED"

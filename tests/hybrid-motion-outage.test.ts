@@ -50,6 +50,25 @@ test("B2 only 0–4 source-verified current developments; exact corroboration du
   assert.equal(out.verified.length,4);
   assert.equal(out.verified.filter(x=>x.metadata.eventIdentity==="event:issuer-capex-20261011").length,1);
 });
+test("B2 lead-heavy ranked tape cannot starve verified lane before 4-item caps",()=>{
+  const leads=Array.from({length:30},(_,i)=>motion("lead-"+i,"LEAD",{
+    materiality:99,relevance:99,novelty:99,
+  }));
+  const verified=Array.from({length:3},(_,i)=>motion("verified-"+i,"VERIFIED",{
+    materiality:20,relevance:20,novelty:20,
+  }));
+  const out=splitCurrentHybridMarketMotion([...leads,...verified],now);
+  assert.equal(out.leads.length,4);
+  assert.deepEqual(new Set(out.verified.map(x=>x.id)),
+    new Set(["verified-0","verified-1","verified-2"]));
+});
+test("B2 current normal Hybrid applies same per-lane source gate as degraded view",()=>{
+  const page=readFileSync(new URL("../app/hybrid-output/page.tsx",import.meta.url),"utf8");
+  assert.match(page,/const liveMotionSelection = splitCurrentHybridMarketMotion\(liveMotionRows, new Date\(\)\)/);
+  assert.match(page,/\.\.\.liveMotionSelection\.verified/);
+  assert.match(page,/\.\.\.liveMotionSelection\.leads/);
+  assert.doesNotMatch(page,/const liveMotionJourney = selectMarketMotionForOverview\(/);
+});
 test("B2 expired Motion cannot re-enter current tape, invalid source URL is not independently verified",()=>{
   const out=splitCurrentHybridMarketMotion([
     motion("expired","VERIFIED",{expires_at:"2026-10-10T01:00:00Z"}),
