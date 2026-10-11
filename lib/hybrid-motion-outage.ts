@@ -28,7 +28,10 @@ export function splitCurrentHybridMarketMotion(
       && /^https:\/\//.test(item.source_url)
     ).slice(0, HYBRID_CURRENT_VERIFIED_MOTION_LIMIT),
     leads: ranked.filter(item =>
-      item.verification_state !== "VERIFIED"
+      item.verification_state === "LEAD"
+      || item.verification_state === "REPORTED"
+      || item.verification_state === "PARTIAL"
+      || item.verification_state === "UNRESOLVED"
     ).slice(0, HYBRID_CURRENT_LEAD_MOTION_LIMIT),
   };
 }
