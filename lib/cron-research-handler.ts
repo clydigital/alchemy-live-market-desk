@@ -9,6 +9,7 @@ import {
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
 import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
+import { collectScheduledSec10q10k } from "@/lib/scheduled-sec-10q10k-intake";
 import { acceptsResearchAuthorization } from "@/lib/research-auth";
 import { scheduledResearchValidationFailureDetail } from "@/lib/scheduled-research-validation-diagnostics";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
@@ -34,6 +35,7 @@ type ScheduledResearchHandlerDependencies = {
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
   collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
+  collectSec10q10k?: typeof collectScheduledSec10q10k;
   attachMacroContext?: typeof attachMacroContextCaptureToResearchRun;
   publishResearchUpdate?: typeof publishResearchUpdate;
   markClaimFailed?: (id: string, message: string) => Promise<void>;
@@ -422,11 +424,13 @@ export async function handleScheduledResearchWithDependencies(
     // Same authorised source-only scheduled cycle. No Notion-to-Evidence
     // promotion and no LLM: the vendor's actual US close is the source.
     const aiIssuerPricePromise = (dependencies.collectAiCompanyCloses ?? collectScheduledAiCompanyCloses)(now);
+    // Original SEC 10-Q/10-K accession identity gates costly quarterly fact reads.
+    const secFilingsPromise = (dependencies.collectSec10q10k ?? collectScheduledSec10q10k)(now);
     const officialActuals = await safeOfficialActualIngestion(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
-    const [input, macroCapture, numericIntake, aiIssuerPrices] = await Promise.all([
+    const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
         runKey,
@@ -434,7 +438,18 @@ export async function handleScheduledResearchWithDependencies(
       macroCapturePromise,
       numericIntakePromise,
       aiIssuerPricePromise,
+      secFilingsPromise,
     ]);
+    const secFilingLog = {
+      event: "scheduled_sec_10q10k_health", slot, runKey,
+      status: secFilings.status, collectedAt: secFilings.collectedAt,
+      admittedEvidenceIds: secFilings.evidenceIds,
+      filings: secFilings.filings,
+      unresolved: secFilings.gaps,
+    };
+    if (secFilings.status === "DEGRADED" || secFilings.status === "UNCONFIGURED")
+      console.warn(JSON.stringify(secFilingLog));
+    else console.info(JSON.stringify(secFilingLog));
     const issuerLog={
       event:"scheduled_ai_issuer_price_health",slot,runKey,
       collectedAt:aiIssuerPrices.collectedAt,
@@ -524,6 +539,7 @@ export async function handleScheduledResearchWithDependencies(
         officialActuals,
         quantifiedMarket: numericIntake,
         aiIssuerPrices,
+        secFilings,
         macro: {
           ...macroCapture,
           runLineagePersisted: macroLineagePersisted,
