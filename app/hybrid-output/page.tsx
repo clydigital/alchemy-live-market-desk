@@ -616,103 +616,59 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       meta={`${visibleMotionJourney.length} source-distinguished Motion · ${upcomingCount} upcoming · ${verifiedMotionJourney.length} verified · ${researchLeadJourney.length} leads`}
     >
       <div className={styles.grid}>
-        <MetricGrid
-          items={[
-            { value: visibleMotionJourney.length, label: "Displayed Motion" },
-            { value: primaryMotionCount, label: "Primary Motion" },
-            { value: secondaryMotionCount, label: "Secondary Motion" },
-            { value: upcomingCount, label: "Upcoming catalysts" },
-          ]}
-        />
 
-
+        {presenterEditionStatus === "invalid_fallback_current" ? (
+          <DataState
+            title="Requested Journey edition unavailable"
+            detail="The requested edition could not be found. The following current-state analysis is not a historical replay. Open a valid archived edition to see its frozen Story and Dossier provenance."
+          />
+        ) : null}
+        {presenterHistoricalContextBoundary.scope === "HISTORICAL_STORY_REASONING_ONLY" ? (
+          <DataState
+            title="Historical Story is not a frozen Dossier"
+            detail="The chosen edition preserves historical Story reasoning only. Its original Dossier is unavailable. Current Dossier observations cannot be represented as historical findings."
+          />
+        ) : null}
+        {dossierEditionParity.status !== "SAME" || dossierEditionParity.dossierHealth !== "HEALTHY" ? (
+          <DataState
+            title={dossierEditionParity.status === "OUT_OF_SYNC"
+              ? "Current Dossier and Hybrid edition are out of sync"
+              : "Exact Dossier / edition parity is unavailable"}
+            detail="This edition has not been reconciled with the current Dossier. Source-verified news is separate from canonical market interpretation; the full provenance audit remains available below."
+          />
+        ) : null}
         <Panel
-          title="Live–Hybrid Dossier edition parity"
-          description="Read-only check of the latest canonical Dossier against the immutable current Hybrid Journey edition. A newer Dossier is never silently copied into an old edition."
-          action={<Badge tone={dossierEditionParity.status === "SAME" && dossierEditionParity.dossierHealth === "HEALTHY" ? "ready" : "warn"}>{dossierEditionParity.status}</Badge>}
+          title="Now — canonical market view"
+          description="What the last accepted Dossier says, what it implies and what would invalidate it. No independent Hybrid judgement is generated."
+          action={<Badge tone={presenterHistoricalContextBoundary.scope === "HISTORICAL_STORY_REASONING_ONLY" ? "warn" : "default"}>
+            {presenterEditionStatus === "historical" ? "HISTORICAL CONTEXT" : "CURRENT DOSSIER"}
+          </Badge>}
         >
-          <div className={styles.recordList}>
-            <article className={styles.record}>
-              <h3>Latest Dossier</h3>
-              <p><strong>{dossierEditionParity.currentDossierId || "Unavailable"}</strong></p>
-              <p className={styles.meta}>{dossierEditionParity.currentDossierAsOf ? formatDeskDate(dossierEditionParity.currentDossierAsOf) : "Timestamp unavailable"} · {dossierEditionParity.dossierHealth.replaceAll("_", " ")}</p>
-            </article>
-            <article className={styles.record}>
-              <h3>Immutable Hybrid edition</h3>
-              <p><strong>{dossierEditionParity.editionId || "Unavailable"}</strong></p>
-              <p className={styles.meta}>Frozen Dossier {dossierEditionParity.frozenDossierId || "not verified"} · {dossierEditionParity.editionPublishedAt ? formatDeskDate(dossierEditionParity.editionPublishedAt) : "No publication time"}</p>
-            </article>
-          </div>
-          <p>{dossierEditionParity.status === "SAME"
-            ? "Exact Dossier ID and source vintage match this immutable Hybrid edition. This does not independently verify data freshness or analytical accuracy."
-            : dossierEditionParity.status === "OUT_OF_SYNC"
-              ? "The current Dossier differs from this frozen Hybrid edition. Hybrid does not claim same-edition parity; the next authorised edition must capture the newer Dossier."
-              : "Same-edition provenance is unavailable or inconsistent. Hybrid does not infer a matching Dossier from dates or headlines."}</p>
-        </Panel>
-
-
-
-        <Panel
-          title="Evidence-gated Regime watch checks"
-          description="Provisional numerical research conditions only. A comparable watch-line observation cannot mutate a Story or assign a bubble-break probability."
-          action={<Badge tone={provisionalWatch?.checks.some((check) => check.status === "MET_RESEARCH_WATCH_ONLY") ? "warn" : "default"}>{provisionalWatch ? "RESEARCH ONLY" : "UNAVAILABLE"}</Badge>}
-        >
-          {provisionalWatch ? (
-            <div className={styles.recordList}>
-              {provisionalWatch.checks.map((check) => (
-                <article className={styles.record} key={check.id}>
-                  <div className={styles.recordHeader}>
-                    <h3>{check.label}</h3>
-                    <Badge tone={check.status === "MET_RESEARCH_WATCH_ONLY" ? "warn" : "default"}>{check.status.replaceAll("_", " ")}</Badge>
-                  </div>
-                  {check.observedValue !== null ? (
-                    <p><strong>Measured:</strong> {check.observedValue >= 0 ? "+" : ""}{check.observedValue} bp over 20 sessions · <strong>provisional watch:</strong> +{check.threshold} bp · <strong>distance:</strong> {check.distanceToThreshold} bp · {check.observationAt ? formatDeskDate(check.observationAt) : "date unavailable"} · {check.canonicalEvidenceUuid ? `Evidence ${check.canonicalEvidenceUuid.slice(0, 8)}…` : "no canonical ID"}</p>
-                  ) : check.nonComparableContext !== null ? (
-                    <p><strong>Different, non-comparable observation:</strong> {check.nonComparableContext} percentage-point price-return spread. This is not the required adjusted-return test; no threshold conclusion.</p>
-                  ) : (
-                    <p>Insufficient comparable canonical observations; the watch test remains unresolved.</p>
-                  )}
-                  <p><strong>Still required:</strong> {check.missingRequirements.join("; ")}</p>
-                  <p><strong>Bullish falsifier:</strong> {check.optimisticFalsifier} <strong>Interpretation:</strong> {check.interpretation}.</p>
-                </article>
-              ))}
-            </div>
+          {presenterEditionStatus === "historical"
+            && presenterHistoricalContextBoundary.scope !== "HISTORICAL_FULL_CASE" ? (
+            <DataState
+              title="Historical Dossier context unavailable"
+              detail="Only the exact frozen Story edition can be replayed here. The present-day Dossier must not replace historical interpretation."
+            />
           ) : (
-            <DataState title="Research watch read unavailable" detail="No numerical thresholds are inferred in the absence of exact Dossier evidence." />
-          )}
-        </Panel>
-
-        <Panel
-          title="Measured Regime assumptions"
-          description="Canonical point-in-time market measurements attached to the selected Dossier. Research state and A2 Story interpretation remain separate; a market move cannot by itself prove a financing or AI earnings break."
-          action={<Badge tone={regimeMeasurementRead?.currentMetricCount ? "ready" : "warn"}>{regimeMeasurementRead ? `${regimeMeasurementRead.currentMetricCount} / 5 CURRENT` : "UNAVAILABLE"}</Badge>}
-        >
-          {regimeMeasurementRead ? (
-            <div className={styles.recordList}>
-              {regimeMeasurementRead.assumptions.map((assumption) => (
-                <article className={styles.record} key={assumption.assumptionId}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <span className={styles.kicker}>{assumption.regime === "AI" ? "AI Regime" : "US Rate Regime"} · {assumption.assumptionId}</span>
-                      <h3>{assumption.title}</h3>
-                    </div>
-                    <Badge tone={assumption.observationQuality === "CURRENT" ? "ready" : "warn"}>{assumption.observationQuality}</Badge>
-                  </div>
-                  {assumption.metrics.map((metric) => (
-                    <p key={metric.key}>
-                      <strong>{metric.label}:</strong>{" "}
-                      {metric.value === null ? metric.quality : `${metric.value > 0 ? "+" : ""}${metric.value} ${metric.unit === "basis_points" ? "bp" : "percentage points"}`}
-                      {" · "} {metric.observationAt ? formatDeskDate(metric.observationAt) : "date unavailable"}
-                      {metric.evidenceUuid ? ` · Canonical Evidence ${metric.evidenceUuid.slice(0, 8)}…` : ""}
-                      {metric.citedInDossier ? " · Dossier-cited" : " · Not cited in this Dossier"}
-                    </p>
-                  ))}
-                  <p><strong>Assumption assessment:</strong> {assumption.interpretation}. {assumption.evidenceLimitation}</p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <DataState title="Quantified assumption status unavailable" detail="No additional metric values are guessed; the Dossier remains the authoritative reasoning source." />
+            <article className={styles.record}>
+              <div className={styles.recordHeader}>
+                <div>
+                  <span className={styles.kicker}>
+                    {presenterEditionStatus === "historical" ? "FROZEN DOSSIER" : "LATEST ACCEPTED DOSSIER"}
+                  </span>
+                  <h3>{presenterDossier.header.headline}</h3>
+                </div>
+              </div>
+              <p>{presenterDossier.header.answer}</p>
+              <p><strong>Market implication:</strong> {presenterDossier.header.regimeImplication}</p>
+              <p><strong>What would change the view:</strong> {presenterDossier.header.whatWouldChangeMind}</p>
+              <p className={styles.meta}>
+                {presenterEditionStatus === "historical" ? "Historical frozen observation" : "Current Dossier observation"}
+                {" · "}{formatDeskDate(presenterDossier.asOf)}
+                {" · "}Dossier {presenterDossier.dossierId}
+              </p>
+            </article>
           )}
         </Panel>
 
@@ -1275,6 +1231,114 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             </div>
           </Panel>
         ) : null}
+
+
+        <details className={styles.record}>
+          <summary className={styles.kicker} style={{ cursor: "pointer" }}>
+            Evidence and edition audit — inspect Dossier parity, numerical watches and measured assumptions
+          </summary>
+          <div className={styles.grid}>
+        <MetricGrid
+          items={[
+            { value: visibleMotionJourney.length, label: "Displayed Motion" },
+            { value: primaryMotionCount, label: "Primary Motion" },
+            { value: secondaryMotionCount, label: "Secondary Motion" },
+            { value: upcomingCount, label: "Upcoming catalysts" },
+          ]}
+        />
+
+
+        <Panel
+          title="Live–Hybrid Dossier edition parity"
+          description="Read-only check of the latest canonical Dossier against the immutable current Hybrid Journey edition. A newer Dossier is never silently copied into an old edition."
+          action={<Badge tone={dossierEditionParity.status === "SAME" && dossierEditionParity.dossierHealth === "HEALTHY" ? "ready" : "warn"}>{dossierEditionParity.status}</Badge>}
+        >
+          <div className={styles.recordList}>
+            <article className={styles.record}>
+              <h3>Latest Dossier</h3>
+              <p><strong>{dossierEditionParity.currentDossierId || "Unavailable"}</strong></p>
+              <p className={styles.meta}>{dossierEditionParity.currentDossierAsOf ? formatDeskDate(dossierEditionParity.currentDossierAsOf) : "Timestamp unavailable"} · {dossierEditionParity.dossierHealth.replaceAll("_", " ")}</p>
+            </article>
+            <article className={styles.record}>
+              <h3>Immutable Hybrid edition</h3>
+              <p><strong>{dossierEditionParity.editionId || "Unavailable"}</strong></p>
+              <p className={styles.meta}>Frozen Dossier {dossierEditionParity.frozenDossierId || "not verified"} · {dossierEditionParity.editionPublishedAt ? formatDeskDate(dossierEditionParity.editionPublishedAt) : "No publication time"}</p>
+            </article>
+          </div>
+          <p>{dossierEditionParity.status === "SAME"
+            ? "Exact Dossier ID and source vintage match this immutable Hybrid edition. This does not independently verify data freshness or analytical accuracy."
+            : dossierEditionParity.status === "OUT_OF_SYNC"
+              ? "The current Dossier differs from this frozen Hybrid edition. Hybrid does not claim same-edition parity; the next authorised edition must capture the newer Dossier."
+              : "Same-edition provenance is unavailable or inconsistent. Hybrid does not infer a matching Dossier from dates or headlines."}</p>
+        </Panel>
+
+
+
+        <Panel
+          title="Evidence-gated Regime watch checks"
+          description="Provisional numerical research conditions only. A comparable watch-line observation cannot mutate a Story or assign a bubble-break probability."
+          action={<Badge tone={provisionalWatch?.checks.some((check) => check.status === "MET_RESEARCH_WATCH_ONLY") ? "warn" : "default"}>{provisionalWatch ? "RESEARCH ONLY" : "UNAVAILABLE"}</Badge>}
+        >
+          {provisionalWatch ? (
+            <div className={styles.recordList}>
+              {provisionalWatch.checks.map((check) => (
+                <article className={styles.record} key={check.id}>
+                  <div className={styles.recordHeader}>
+                    <h3>{check.label}</h3>
+                    <Badge tone={check.status === "MET_RESEARCH_WATCH_ONLY" ? "warn" : "default"}>{check.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  {check.observedValue !== null ? (
+                    <p><strong>Measured:</strong> {check.observedValue >= 0 ? "+" : ""}{check.observedValue} bp over 20 sessions · <strong>provisional watch:</strong> +{check.threshold} bp · <strong>distance:</strong> {check.distanceToThreshold} bp · {check.observationAt ? formatDeskDate(check.observationAt) : "date unavailable"} · {check.canonicalEvidenceUuid ? `Evidence ${check.canonicalEvidenceUuid.slice(0, 8)}…` : "no canonical ID"}</p>
+                  ) : check.nonComparableContext !== null ? (
+                    <p><strong>Different, non-comparable observation:</strong> {check.nonComparableContext} percentage-point price-return spread. This is not the required adjusted-return test; no threshold conclusion.</p>
+                  ) : (
+                    <p>Insufficient comparable canonical observations; the watch test remains unresolved.</p>
+                  )}
+                  <p><strong>Still required:</strong> {check.missingRequirements.join("; ")}</p>
+                  <p><strong>Bullish falsifier:</strong> {check.optimisticFalsifier} <strong>Interpretation:</strong> {check.interpretation}.</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState title="Research watch read unavailable" detail="No numerical thresholds are inferred in the absence of exact Dossier evidence." />
+          )}
+        </Panel>
+
+        <Panel
+          title="Measured Regime assumptions"
+          description="Canonical point-in-time market measurements attached to the selected Dossier. Research state and A2 Story interpretation remain separate; a market move cannot by itself prove a financing or AI earnings break."
+          action={<Badge tone={regimeMeasurementRead?.currentMetricCount ? "ready" : "warn"}>{regimeMeasurementRead ? `${regimeMeasurementRead.currentMetricCount} / 5 CURRENT` : "UNAVAILABLE"}</Badge>}
+        >
+          {regimeMeasurementRead ? (
+            <div className={styles.recordList}>
+              {regimeMeasurementRead.assumptions.map((assumption) => (
+                <article className={styles.record} key={assumption.assumptionId}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>{assumption.regime === "AI" ? "AI Regime" : "US Rate Regime"} · {assumption.assumptionId}</span>
+                      <h3>{assumption.title}</h3>
+                    </div>
+                    <Badge tone={assumption.observationQuality === "CURRENT" ? "ready" : "warn"}>{assumption.observationQuality}</Badge>
+                  </div>
+                  {assumption.metrics.map((metric) => (
+                    <p key={metric.key}>
+                      <strong>{metric.label}:</strong>{" "}
+                      {metric.value === null ? metric.quality : `${metric.value > 0 ? "+" : ""}${metric.value} ${metric.unit === "basis_points" ? "bp" : "percentage points"}`}
+                      {" · "} {metric.observationAt ? formatDeskDate(metric.observationAt) : "date unavailable"}
+                      {metric.evidenceUuid ? ` · Canonical Evidence ${metric.evidenceUuid.slice(0, 8)}…` : ""}
+                      {metric.citedInDossier ? " · Dossier-cited" : " · Not cited in this Dossier"}
+                    </p>
+                  ))}
+                  <p><strong>Assumption assessment:</strong> {assumption.interpretation}. {assumption.evidenceLimitation}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState title="Quantified assumption status unavailable" detail="No additional metric values are guessed; the Dossier remains the authoritative reasoning source." />
+          )}
+        </Panel>
+          </div>
+        </details>
 
         <div className={styles.gridTwo}>
           <Panel
