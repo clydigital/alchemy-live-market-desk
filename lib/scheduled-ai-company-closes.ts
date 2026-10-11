@@ -84,7 +84,9 @@ async function writeCanonicalCloses(items:AiClose[],now:string):Promise<{ids:str
         closeDefinition:"NASDAQ_US_DAILY_CLOSE_NOT_TOTAL_RETURN",
       },
       contentText:claim,
-      publishedAt:now,observedAt:now,ingestionKey:item.externalEvidenceId,
+      // Nasdaq's historical API here supplies only an exchange session date,
+      // not a verified publication clock. Do not manufacture a release time.
+      publishedAt:null,observedAt:now,ingestionKey:item.externalEvidenceId,
       observations:[{
         observationType:"issuer_stock_daily_close",subjectType:"listed_us_stock_or_ads",
         subjectKey:item.symbol,observedAt:item.observedAt,effectiveAt:now,
@@ -108,7 +110,7 @@ async function writeCanonicalCloses(items:AiClose[],now:string):Promise<{ids:str
         source_id:source.id,external_evidence_id:item.externalEvidenceId,
         evidence_class:"market_observation",support_direction:"neutral",
         claim_text:claim,summary:null,event_at:item.observedAt,
-        published_at:now,available_at:now,
+        published_at:null,available_at:now,
         affected_assets:[item.symbol],affected_topics:["us-china-ai","ai-equity-pricing"],
         measurement_unit:"USD_per_share",observed_value:item.closeUsd,
         expected_value:null,previous_value:item.priorCloseUsd,
@@ -122,6 +124,7 @@ async function writeCanonicalCloses(items:AiClose[],now:string):Promise<{ids:str
           priorCloseUsd:item.priorCloseUsd,priceChangePercent:item.priceChangePercent,
           observationUnit:"USD_per_share",
           sourceIdentity:"Nasdaq official stocks history",
+          sourcePublishTime:"UNVERIFIED_DAY_ONLY",collectedAt:now,
           interpretationAuthority:"market_perception_only_not_fundamentals",
         },
         raw_payload:{},normalizer_version:AI_COMPANY_CLOSE_METHOD,
