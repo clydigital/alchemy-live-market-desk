@@ -144,7 +144,7 @@ export async function collectScheduledAiCompanyCloses(
   const base={contractVersion:AI_COMPANY_CLOSE_METHOD,collectedAt:at,expectedUsSession:due,unsupported};
   try{
     const prior=await (deps.readExisting??readExisting)();
-    const tickers=AI_COMPANY_WATCH.filter(x=>x.monitorId!==null).map(x=>x.ticker).filter((x):x is string=>x!==null);
+    const tickers=AI_COMPANY_WATCH.filter(x=>x.monitorId!==null).map(x=>x.ticker);
     if(tickers.every(x=>isAlreadyCovered(prior,x,due)))return{
       ...base,status:"SKIPPED_UNCHANGED",evidenceIds:[],gaps:[],
     };
