@@ -11,7 +11,7 @@ import {
   selectDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
-import { assessHybridEditionRequest } from "@/lib/hybrid-edition-request-guard";
+import { assessHybridEditionRequest, selectHybridEditionForRequest } from "@/lib/hybrid-edition-request-guard";
 import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
@@ -152,8 +152,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   // An explicit historical URL is a request for an exact frozen edition,
   // never permission to substitute the current Journey or Dossier.
   const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
-  const presenterEditionIndex = buildCanonicalEditionIndex(presenterEditions, data.researchRuns);
-  const presenterEditionSelection = selectCanonicalEdition(presenterEditionIndex, requestedEditionId);
+  const presenterEditionSelection = selectHybridEditionForRequest(
+    presenterEditions,
+    data.researchRuns,
+    requestedEditionId,
+  );
   const selectedPresenterEdition = presenterEditionSelection.selected
     ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
     : null;
