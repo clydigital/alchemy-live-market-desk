@@ -203,19 +203,6 @@ JODI annual CSV
 
 No JODI call is currently added to cron, Brain, Story Finder or Hybrid by this adapter change.
 
-## BEA NIPA GDP / PCE Integration Contract
-
-The BEA adapter (lib/providers/bea.ts) requests quarterly GDP and PCE price-index observations from the official BEA NIPA API. It is exposed through the protected, read-only GET /api/admin/sensors/bea endpoint for Preview verification. The handler accepts the existing CRON_SECRET or RESEARCH_API_KEY bearer authorization and never returns the BEA credential.
-
-| Metric | Dataset / table | Line | Stable series ID |
-|---|---|---|---|
-| GDP | NIPA / T10101 | 1 | NIPA:T10101:1 |
-| PCE price index | NIPA / T20304 | 1 | NIPA:T20304:1 |
-
-The adapter requests the five most recent calendar years and quarterly frequency. Each observation preserves its BEA table and line, period (YYYYQn), reported value and unit. retrievedAt records when the payload was read; it is not represented as the BEA release timestamp. The BEA response does not provide a release timestamp for each observation, so one is not fabricated.
-
-Missing BEA_API_KEY, provider HTTP errors, malformed responses and unusable rows are reported as explicit states. The adapter is a read-only sensor and is not added to scheduled research, canonical evidence, Dossier, Stories or Hybrid in this change.
-
 ## Credential map
 
 - `EIA_API_KEY`: required by EIA Open Data API v2.
