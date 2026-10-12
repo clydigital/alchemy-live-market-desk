@@ -92,3 +92,14 @@ test("Hybrid route uses explicit-only archive lookup and exact historical Dossie
   assert.match(source, /HISTORICAL_DOSSIER_UNAVAILABLE/);
   assert.match(source, /No current analysis has been substituted/);
 });
+
+test("historical Journey binds every downstream research panel to frozen Dossier and edition", () => {
+  const source = readFileSync(new URL("../app/hybrid-output/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /const selection = editionRequestState === "HISTORICAL_READY"\s*\? presenterHistoricalDossierReplay!\.selection!/);
+  assert.match(source, /const dossier = selection\.presentation;/);
+  assert.match(source, /const presentedEdition = editionRequestState === "HISTORICAL_READY"\s*\? selectedPresenterEdition\s*: currentEdition;/);
+  assert.match(source, /edition: presentedEdition,/);
+  assert.match(source, /currentUpcoming\(presentedEdition\?\.payload\.upcoming\)/);
+  assert.match(source, /loadHybridResearchGapStatus\(selection\.selectedDossierId\)/);
+  assert.match(source, /loadRegimeAssumptionObservationReport\(\s*selection\.selectedDossierId,/);
+});
