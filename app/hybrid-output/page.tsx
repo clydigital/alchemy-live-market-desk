@@ -686,8 +686,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             <MetricGrid
               items={[
                 { value: visibleMotionJourney.length, label: "Displayed Motion (all source statuses)" },
-                { value: primaryMotionCount, label: "Primary attention (not verification)" },
-                { value: secondaryMotionCount, label: "Secondary attention" },
+                { value: primaryMotionCount, label: "Primary Motion attention (not verification)" },
+                { value: secondaryMotionCount, label: "Secondary Motion attention" },
                 { value: upcomingCount, label: "Upcoming catalysts" },
               ]}
             />
