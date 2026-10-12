@@ -6,7 +6,7 @@
 import {
   buildCanonicalEditionIndex,
   type EditionSnapshot,
-} from "./edition-replay";
+} from "./edition-replay.ts";
 
 type ResearchRun = NonNullable<Parameters<typeof buildCanonicalEditionIndex>[1]>[number];
 
