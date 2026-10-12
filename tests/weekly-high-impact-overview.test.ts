@@ -28,8 +28,8 @@ test("Overview keeps the weekly high-impact calendar instead of one next event",
   assert.match(calendar, /us-adp-2026-09-30-national-employment-report/);
   assert.match(calendar, /us-ism-2026-10-01-manufacturing-pmi-september-2026/);
   assert.match(calendar, /us-bls-2026-10-02-employment-situation-for-september-2026/);
-  assert.match(calendar, /keepUncoveredBlsBackstops\\(officialScheduleFallbacks, blsEvents, deskEvents\\)/);
-  assert.match(calendar, /\\.\\.\\.backstops, \\.\\.\\.blsEvents, \\.\\.\\.deskEvents/);
+  assert.match(calendar, /keepUncoveredBlsBackstops\(officialScheduleFallbacks, blsEvents, deskEvents\)/);
+  assert.match(calendar, /\.\.\.backstops, \.\.\.blsEvents, \.\.\.deskEvents/);
   assert.match(calendar, /us-bls-2026-10-14-cpi-september-2026/);
   assert.match(calendar, /us-bls-2026-10-15-ppi-september-2026/);
 });
