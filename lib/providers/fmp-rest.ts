@@ -87,9 +87,18 @@ export async function readFmpRecords(options: FmpOptions): Promise<FmpReadResult
     if (!response.ok) return { ...base, note: "FMP_HTTP_" + response.status };
     const payload: unknown = await response.json();
     if (!Array.isArray(payload)) return { ...base, note: "FMP_RESPONSE_INVALID_OR_RESTRICTED" };
+    // FMP can report an entitlement error inside HTTP 200; never accept it as a datum.
+    if (payload.some(row => row && typeof row === "object" &&
+      ("Error Message" in row || "error" in row || "Error" in row))) {
+      return { ...base, state: "restricted", note: "FMP_PAYLOAD_ACCESS_ERROR" };
+    }
     const records = payload.filter((row): row is Record<string, unknown> =>
       Boolean(row && typeof row === "object" && !Array.isArray(row)));
     if (!records.length) return { ...base, note: "FMP_NO_USABLE_RECORDS" };
+    if (options.endpoint !== "earnings-calendar" &&
+      records.some(row => row.symbol !== options.symbol)) {
+      return { ...base, note: "FMP_SYMBOL_MISMATCH_OR_MISSING" };
+    }
     return { ...base, state: "ready", retrievedAt: new Date().toISOString(), records, note: null };
   } catch {
     return { ...base, note: "FMP_REQUEST_FAILED" };
