@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PresenterPrepSession from "@/components/live-desk/PresenterPrepSession";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
@@ -221,10 +222,16 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               <DataState title="No dated catalysts in this edition" detail="No events have been guessed." />
             )}
           </Panel>
-          <Panel title="Preparation workspace"
-            description="Speaker notes, a running order and on-air state belong here, not in the source records.">
-            <p>This source view is read-only. Independent presenter controls are the next implementation stage.</p>
-          </Panel>
+          <PresenterPrepSession
+            editionId={projection.pinned.editionId}
+            dossierId={projection.pinned.dossierId}
+            sourceCounts={{
+              stories: projection.stories.length,
+              motions: projection.motions.length,
+              events: projection.events.length,
+              researchGaps: projection.researchGaps.length,
+            }}
+          />
         </div>
       )}
     </LiveDeskShell>
