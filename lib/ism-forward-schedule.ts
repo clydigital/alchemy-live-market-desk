@@ -29,7 +29,7 @@ export function parseIsmScheduleHtml(html: string): IsmScheduleRow[] {
   for (const row of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...row[1].matchAll(/<(?:td|th)\b[^>]*>([\s\S]*?)<\/(?:td|th)>/gi)].map(item => plain(item[1]));
     if (cells.length < 3) continue;
-    const month = MONTHS.findIndex(name => new RegExp(`^\${name}(?:\\s+\${year})?$`, "i").test(cells[0]));
+    const month = MONTHS.findIndex(name => new RegExp("^" + name + "(?:\\s+" + year + ")?$", "i").test(cells[0]));
     if (month < 0) continue;
     for (const [index, kind] of [[1, "Manufacturing"], [2, "Services"]] as const) {
       const match = cells[index].match(/^\s*(\d{1,2})(?:\s|$)/);
