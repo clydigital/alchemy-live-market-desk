@@ -113,7 +113,9 @@ test("Partition B: no silent backfill, immutable manifest remains empty, and pre
   assert.match(source, /source_record_refs/);
   assert.match(publicReader, /select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at/);
   assert.match(page, /reconcilePresenterDossierEdition\(/);
-  assert.match(page, /edition: currentEdition/);
+  assert.match(page, /edition: presentedEdition/);
+  assert.match(page, /const presentedEdition = editionRequestState === "HISTORICAL_READY"/);
+  assert.match(page, /\? selectedPresenterEdition\s*: currentEdition;/);
   assert.match(page, /OUT_OF_SYNC/);
   assert.match(page, /never silently copied into an old edition/i);
   assert.equal(source.includes(".from("), false);
