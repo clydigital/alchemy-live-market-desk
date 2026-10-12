@@ -38,6 +38,11 @@ export type JourneyChronologyItem = {
   motionId?: string | null;
   timing: JourneyTiming;
   evidenceRefs: string[];
+  /** Frozen event provenance; these are not Dossier evidence UUIDs. */
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceVerificationState?: MarketEventV1["verificationState"];
+  sourceCheckedAt?: string;
 };
 
 export type JourneyBigStory = {
@@ -181,6 +186,10 @@ function eventItem(event: MarketEventV1): JourneyChronologyItem {
     eventId: event.id,
     timing: { value: event.startAt, label: event.timeLabel, precision: event.timePrecision },
     evidenceRefs: unique(event.sourceRecordRefs),
+    sourceName: event.sourceName,
+    sourceUrl: event.sourceUrl,
+    sourceVerificationState: event.verificationState,
+    sourceCheckedAt: event.lastVerifiedAt,
   };
 }
 

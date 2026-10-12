@@ -420,3 +420,43 @@ test("past date-only and TBC events move to chronology instead of leaking into L
   assert.deepEqual(result.journey?.chronology.filter((item) => item.eventId).map((item) => item.eventId), ["past-tbc", "past-date"]);
   assert.deepEqual(result.journey?.horizon.later.map((item) => item.eventId), ["future-date"]);
 });
+
+test("the next published edition freezes 14 Oct CPI and 15 Oct PPI with official BLS provenance", () => {
+  const sourceUrl = "https://www.bls.gov/schedule/2026/10_sched_list.htm";
+  const calendarEvents = [
+    event("bls-cpi-oct14", {
+      eventType: "economic_release",
+      title: "Consumer Price Index for September 2026",
+      startAt: "2026-10-14", timePrecision: "date", timeLabel: "08:30 ET",
+      sourceName: "U.S. Bureau of Labor Statistics", sourceUrl,
+      verificationState: "official",
+      sourceRecordRefs: ["calendar:us-bls-2026-10-14-cpi-september-2026"],
+      lastVerifiedAt: "2026-10-12T10:00:00Z",
+    }),
+    event("bls-ppi-oct15", {
+      eventType: "economic_release",
+      title: "Producer Price Index for September 2026",
+      startAt: "2026-10-15", timePrecision: "date", timeLabel: "08:30 ET",
+      sourceName: "U.S. Bureau of Labor Statistics", sourceUrl,
+      verificationState: "official",
+      sourceRecordRefs: ["calendar:us-bls-2026-10-15-ppi-september-2026"],
+      lastVerifiedAt: "2026-10-12T10:00:00Z",
+    }),
+  ];
+  const edition = composeAlchemyEdition({
+    generatedAt: "2026-10-12T10:10:00Z",
+    comparisonWindowStart: "2026-10-11T10:10:00Z",
+    stories: [],
+    marketEvents: calendarEvents,
+  });
+  const frozen = edition.journey?.horizon.later || [];
+  assert.deepEqual(frozen.map(item => item.eventId), ["bls-cpi-oct14", "bls-ppi-oct15"]);
+  assert.deepEqual(frozen.map(item => item.timing.value), ["2026-10-14", "2026-10-15"]);
+  assert.ok(frozen.every(item =>
+    item.sourceVerificationState === "official"
+    && item.sourceName === "U.S. Bureau of Labor Statistics"
+    && item.sourceUrl === sourceUrl
+    && item.sourceCheckedAt === "2026-10-12T10:00:00Z"
+    && item.evidenceRefs.some(ref => ref.startsWith("calendar:us-bls-2026-10-"))
+  ));
+});
