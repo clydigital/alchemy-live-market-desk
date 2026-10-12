@@ -179,7 +179,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     return (
       <LiveDeskShell
         activePath="/hybrid-output"
-        title="Hybrid Output"
+        title="Hybrid handoff audit"
         description="Historical editions require exact, immutable research identities."
         meta="HISTORICAL EDITION UNAVAILABLE"
       >
@@ -191,7 +191,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             ? "The requested edition is invalid, missing or superseded. No current analysis has been substituted under this historical URL."
             : "This historical edition does not have its exact publication-frozen Dossier available. Current analysis will not be substituted for the missing historical evidence."}
         />
-        <p><a className={styles.link} href="/hybrid-output">Open current Hybrid Journey →</a></p>
+        <p><a className={styles.link} href="/hybrid-output">Open current handoff audit →</a></p>
       </LiveDeskShell>
     );
   }
@@ -244,7 +244,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     return (
       <LiveDeskShell
         activePath="/hybrid-output"
-        title="Hybrid Output"
+        title="Hybrid handoff audit"
         description="Current verified source developments remain readable when Dossier reasoning is unavailable. No new Story or Regime judgement is inferred."
         meta="DEGRADED · Dossier unavailable · source-only"
       >
@@ -653,19 +653,44 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   return (
     <LiveDeskShell
       activePath="/hybrid-output"
-      title="Hybrid Output"
-      description="Start from fresh Market Motion and the next scheduled catalysts. Use the canonical Dossier underneath for durable reasoning and regime context."
+      title="Hybrid handoff audit"
+      description="Handoff diagnostics, not the presenter Journey. Start with verification and the frozen Dossier; inspect the audit below."
       meta={`${visibleMotionJourney.length} source-distinguished Motion · ${upcomingCount} upcoming · ${verifiedMotionJourney.length} verified · ${researchLeadJourney.length} leads`}
     >
       <div className={styles.grid}>
-        <MetricGrid
-          items={[
-            { value: visibleMotionJourney.length, label: "Displayed Motion" },
-            { value: primaryMotionCount, label: "Primary Motion" },
-            { value: secondaryMotionCount, label: "Secondary Motion" },
-            { value: upcomingCount, label: "Upcoming catalysts" },
-          ]}
-        />
+        <Panel
+          title={presenterEditionStatus === "historical" ? "Frozen edition — canonical market view" : "What is actually verified?"}
+          description={`Canonical Dossier as of ${formatDeskDate(dossier.asOf)} · ${presenterEditionStatus === "historical" ? "historical replay" : "current desk read"}`}
+          action={<a className={styles.link} href="https://alchemy-hybrid-market-desk.vercel.app/journey" target="_blank" rel="noreferrer">Open presenter Journey ↗</a>}
+        >
+          {presenterEditionStatus !== "historical" ? (
+            verifiedMotionJourney.length ? (
+              <p><strong>{verifiedMotionJourney.length} source-verified development(s):</strong> {verifiedMotionJourney[0].headline}</p>
+            ) : <DataState title="No new verified market development" detail={`${researchLeadJourney.length} unverified research lead(s) need independent confirmation. Attention priority does not establish verification.`} />
+          ) : <p>Historical edition: current Motion and Dossier data are not substituted into the frozen record.</p>}
+          <article className={styles.record}>
+            <h3>{dossier.header.headline}</h3>
+            <p>{dossier.header.answer}</p>
+            <p><strong>Market implication:</strong> {dossier.header.regimeImplication}</p>
+            <p><strong>Leading countercase to investigate:</strong> {dossier.watchNext[0]?.question || "No priority contradiction persisted."}</p>
+            <p><strong>Next test:</strong> {dossier.header.whatWouldChangeMind}</p>
+          </article>
+          {presenterEditionStatus !== "historical" && researchLeadJourney.length ? (
+            <p>{researchLeadJourney.length} unverified lead(s) below are research context only, not established developments.</p>
+          ) : null}
+        </Panel>
+
+        <details className={styles.record}>
+          <summary style={{ cursor: "pointer", fontWeight: 800, fontSize: 14, color: "#eeeaff" }}>Evidence and edition diagnostics — expand for parity, measured rates and research watches</summary>
+          <div className={styles.grid}>
+            <MetricGrid
+              items={[
+                { value: visibleMotionJourney.length, label: "Displayed Motion (all source statuses)" },
+                { value: primaryMotionCount, label: "Primary attention (not verification)" },
+                { value: secondaryMotionCount, label: "Secondary attention" },
+                { value: upcomingCount, label: "Upcoming catalysts" },
+              ]}
+            />
 
 
         <Panel
@@ -758,6 +783,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
           )}
         </Panel>
 
+          </div>
+        </details>
+
         {presenterEditionStatus === "historical" ? (
           motionJourney.length ? (
             <MarketMotionOverview items={motionJourney}
@@ -783,7 +811,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                 eyebrow="RESEARCH LEADS · NOT VERIFIED"
                 title="What still needs checking?"
                 description="These leads are not accepted Dossier conclusions. A source claim requires further verification before it can affect the existing market view."
-                showFullTapeLink />
+                leadOnly showFullTapeLink />
             ) : null}
           </>
         )}
@@ -1385,11 +1413,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
 
         <a
           className={styles.primaryButton}
-          href="https://alchemy-hybrid-market-desk.vercel.app/overview"
+          href="https://alchemy-hybrid-market-desk.vercel.app/journey"
           target="_blank"
           rel="noreferrer"
         >
-          Open current Hybrid Desk ↗
+          Open presenter Journey ↗
         </a>
       </div>
     </LiveDeskShell>

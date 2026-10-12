@@ -270,6 +270,7 @@ export default function MarketMotionOverview({
   emptyText = "No fresh Motion item has cleared the Live contract yet. The desk will not manufacture a hook from stale or unverified headlines.",
   showFullTapeLink = true,
   journeyMode = false,
+  leadOnly = false,
 }: {
   items: MarketMotionOverviewItem[];
   eyebrow?: string;
@@ -278,20 +279,21 @@ export default function MarketMotionOverview({
   emptyText?: string;
   showFullTapeLink?: boolean;
   journeyMode?: boolean;
+  leadOnly?: boolean;
 }) {
   const regimeRollup = journeyMode ? buildMarketMotionRegimeRollup(items) : [];
 
   const groups = [
     {
       tier: "PRIMARY" as const,
-      title: "Primary Motion",
-      description: "The developments most likely to change today's narrative, create an article angle, or demand immediate follow-up.",
+      title: leadOnly ? "Priority leads — unverified" : "Primary Motion",
+      description: leadOnly ? "Research priority, not proof. These claims are not source-verified." : "The developments most likely to change today's narrative, create an article angle, or demand immediate follow-up.",
       items: items.filter((item) => item.attentionTier === "PRIMARY"),
     },
     {
       tier: "SECONDARY" as const,
-      title: "Secondary Motion",
-      description: "Useful smaller developments and supporting details that add texture without dominating the current tape.",
+      title: leadOnly ? "Other unverified leads" : "Secondary Motion",
+      description: leadOnly ? "Discovery context only. Do not treat these as established developments." : "Useful smaller developments and supporting details that add texture without dominating the current tape.",
       items: items.filter((item) => item.attentionTier === "SECONDARY"),
     },
   ].filter((group) => group.items.length);
