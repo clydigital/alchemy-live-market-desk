@@ -12,6 +12,7 @@ import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { Badge, Panel, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
+import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { getDeskData, type MacroRelease } from "@/lib/data";
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
@@ -233,7 +234,7 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords, forwardEarnings] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getMarketMonitor(),
@@ -241,6 +242,7 @@ export default async function Page({ searchParams }: PageProps) {
     getEconomicCalendar(),
     getDossierV2PresentationSelection(),
     getCurrentMarketMotion({ limit: 50 }).catch(() => []),
+    getForwardEarningsEvents(),
   ]);
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
@@ -509,6 +511,30 @@ export default async function Page({ searchParams }: PageProps) {
           </Panel>
         ) : null}
         <EconomicReleaseReminder releases={upcomingReleases} relatedStories={releaseStories} />
+        <Panel
+          title="Earnings ahead"
+          description="Confirmed issuer reporting/call times and clearly labelled third-party dates. These are catalysts, not Dossier conclusions."
+          action={<Link className={styles.link} href="/calendar">Open market calendar →</Link>}
+        >
+          <div className={styles.recordList}>
+            {forwardEarnings.events.slice(0, 6).map(event => (
+              <article className={styles.record} key={event.id}>
+                <div className={styles.recordHeader}>
+                  <div>
+                    <span className={styles.kicker}>{event.timeLabel || "Time unconfirmed"} · {event.startAt?.slice(0, 10) || "Date unconfirmed"}</span>
+                    <h3>{event.title}</h3>
+                  </div>
+                  <Badge tone={event.verificationState === "official" ? "ready" : "warn"}>{event.verificationState === "official" ? "Issuer confirmed" : "Provider · unconfirmed"}</Badge>
+                </div>
+                <p><strong>Watch:</strong> {event.decisiveVariable}</p>
+                <p className={styles.meta}>{event.transmission}</p>
+                <a className={styles.link} href={event.sourceUrl} target="_blank" rel="noreferrer">{event.sourceName} ↗</a>
+              </article>
+            ))}
+            {!forwardEarnings.events.length ? <p>No verified future earnings date loaded. Check source coverage in the full calendar.</p> : null}
+            {forwardEarnings.warning ? <p className={styles.meta}>{forwardEarnings.warning}</p> : null}
+          </div>
+        </Panel>
         <DailyAssetStateBoard
           state={dailyAssetState}
           dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}
