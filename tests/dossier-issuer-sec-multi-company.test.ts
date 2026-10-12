@@ -87,6 +87,56 @@ test("D1b Amazon Q2 2026 reconciles cash-flow YTD, excludes net PPE sale proceed
   assert.equal(r.items[0].sourceUrl,"https://data.sec.gov/api/xbrl/companyfacts/CIK0001018724.json");
 });
 
+
+test("D1b Amazon Q2 productive-assets XBRL capex tag is admitted with exact provenance",()=>{
+  const q1="0001018724-26-000014",q2="0001018724-26-000026";
+  const input=facts("AMZN","Amazon.com, Inc.",[
+    item(26_032_000_000,"2026-01-01","2026-03-31","Q1",2026,"2026-04-30",q1),
+    item(71_419_000_000,"2026-01-01","2026-06-30","Q2",2026,"2026-07-31",q2),
+  ],[]);
+  (input.facts["us-gaap"] as Record<string,unknown>)["PaymentsToAcquireProductiveAssets"]={units:{USD:[
+    item(44_203_000_000,"2026-01-01","2026-03-31","Q1",2026,"2026-04-30",q1),
+    item(98_411_000_000,"2026-01-01","2026-06-30","Q2",2026,"2026-07-31",q2),
+  ]}};
+  const r=extractSecQuarterCashFlows(input,ASOF,"AMZN");
+  assert.deepEqual(r.gaps,[]);
+  const q2Result=r.items.find(x=>x.fiscalQuarter===2)!;
+  assert.ok(q2Result,"current Amazon SEC period should be extracted");
+  assert.equal(q2Result.cfoUsd,45_387_000_000);
+  assert.equal(q2Result.cashPpeUsd,54_208_000_000);
+  assert.equal(q2Result.simpleFcfUsd,-8_821_000_000);
+  assert.equal(q2Result.currentAccession,q2);
+  assert.equal(q2Result.predecessorAccession,q1);
+  assert.deepEqual(q2Result.capexXbrlConcepts,["PaymentsToAcquireProductiveAssets"]);
+  assert.deepEqual(q2Result.predecessorCapexXbrlConcepts,["PaymentsToAcquireProductiveAssets"]);
+});
+test("D1b Amazon conflicting capex concepts in same SEC filing fail closed",()=>{
+  const accn="0001018724-26-000014";
+  const start="2026-01-01",end="2026-03-31",filed="2026-04-30";
+  const input=facts("AMZN","Amazon.com, Inc.",[
+    item(26_032_000_000,start,end,"Q1",2026,filed,accn),
+  ],[
+    item(44_203_000_000,start,end,"Q1",2026,filed,accn),
+  ]);
+  (input.facts["us-gaap"] as Record<string,unknown>)["PaymentsToAcquireProductiveAssets"]={units:{USD:[
+    item(43_000_000_000,start,end,"Q1",2026,filed,accn),
+  ]}};
+  const r=extractSecQuarterCashFlows(input,ASOF,"AMZN");
+  assert.equal(r.items.length,0);
+  assert.ok(r.gaps.some(g=>g.includes("CONFLICTING_OR_NEGATIVE_FACT_VALUES")));
+});
+test("D1b alternative Amazon XBRL concept cannot spill into non-Amazon issuers",()=>{
+  const accn="0000789019-25-000093";
+  const start="2025-07-01",end="2025-09-30",filed="2025-10-29";
+  const input=facts("MSFT","MICROSOFT CORP",[
+    item(31_000_000_000,start,end,"Q1",2026,filed,accn),
+  ],[]);
+  (input.facts["us-gaap"] as Record<string,unknown>)["PaymentsToAcquireProductiveAssets"]={units:{USD:[
+    item(17_000_000_000,start,end,"Q1",2026,filed,accn),
+  ]}};
+  assert.equal(extractSecQuarterCashFlows(input,ASOF,"MSFT").items.length,0);
+});
+
 test("D1b Meta Q2 simple FCF is NOT company-defined FCF after financing-lease principal",()=>{
   const q1="0001628280-26-028526",q2="0001628280-26-050705";
   const input=facts("META","Meta Platforms, Inc.",[
