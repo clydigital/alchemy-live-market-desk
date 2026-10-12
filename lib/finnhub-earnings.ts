@@ -34,8 +34,9 @@ export type FinnhubEarningsRow = {
 };
 
 function validDay(day: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) &&
-    new Date(day + "T00:00:00Z").toISOString().slice(0, 10) === day;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const timestamp = Date.parse(day + "T00:00:00Z");
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === day;
 }
 
 function asNumber(value: unknown) {
