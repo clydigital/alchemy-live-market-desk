@@ -20,8 +20,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 28px;
-  padding: clamp(28px, 4vw, 58px) clamp(22px, 4vw, 58px) 30px;
+  gap: 16px;
+  padding: 18px clamp(18px, 2.5vw, 36px) 14px;
 }
 
 .brandBlock {
@@ -47,14 +47,14 @@
 }
 
 .header h1 {
-  font-size: clamp(42px, 5.5vw, 78px);
-  line-height: .94;
+  font-size: clamp(25px, 2.8vw, 38px);
+  line-height: 1.08;
 }
 
 .header p,
 .pageHeader p {
   max-width: 850px;
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   color: #c1bfd3;
   line-height: 1.55;
 }
@@ -99,22 +99,15 @@
   gap: 8px;
   min-height: 40px;
   padding: 9px 12px;
-  border: 1px solid rgba(79, 209, 133, .24);
+  border: 1px solid rgba(181, 151, 255, .24);
   border-radius: 10px;
-  color: #7be4a7;
-  background: rgba(79, 209, 133, .06);
+  color: #c1bfd3;
+  background: rgba(181, 151, 255, .04);
   font-size: 11px;
   font-weight: 900;
 }
 
-.status::before {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 14px currentColor;
-  content: "";
-}
+.status::before { content: none; }
 
 .navigation {
   position: sticky;
