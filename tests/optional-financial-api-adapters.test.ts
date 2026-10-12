@@ -102,3 +102,18 @@ test("FMP calendar range and symbol guard reject invalid requests without spendi
   assert.equal(symbol.note,"FMP_INVALID_SYMBOL");
   assert.equal(requested,0);
 });
+
+test("FMP 200 error-array and cross-issuer data fail closed", async () => {
+  const errorArray=await readFmpRecords({
+    endpoint:"cash-flow-statement",symbol:"AMZN",env:{FMP_API:"secret"},
+    fetchImpl:(async()=>new Response(JSON.stringify([{"Error Message":"Upgrade required"}]),{status:200})) as typeof fetch,
+  });
+  assert.equal(errorArray.state,"restricted");
+  assert.equal(errorArray.records.length,0);
+  const wrongSymbol=await readFmpRecords({
+    endpoint:"cash-flow-statement",symbol:"AMZN",env:{FMP_API:"secret"},
+    fetchImpl:(async()=>new Response(JSON.stringify([{symbol:"MSFT",date:"2026-06-30"}]),{status:200})) as typeof fetch,
+  });
+  assert.equal(wrongSymbol.state,"unavailable");
+  assert.equal(wrongSymbol.note,"FMP_SYMBOL_MISMATCH_OR_MISSING");
+});
