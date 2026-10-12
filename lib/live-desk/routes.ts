@@ -6,6 +6,7 @@ export type LiveDeskRoute = {
 
 export const deskRoutes: LiveDeskRoute[] = [
   { label: "Overview", href: "/", description: "Research status and current desk state" },
+  { label: "Calendar", href: "/calendar", description: "Sourced forward economic and earnings schedule for market preparation" },
   { label: "Market Regimes", href: "/regimes", description: "Durable market environments, sub-regimes and causal drivers" },
   { label: "Concepts", href: "/concepts", description: "Stable explanations for recurring market mechanisms" },
   { label: "Dossier", href: "/dossier", description: "Canonical Dossier V2: what matters now, what to watch and what to research next" },
@@ -46,9 +47,9 @@ const legacyTabMap: Record<string, string> = {
   macro: "/data/macro",
   "macro data": "/data/macro",
   "macro-data": "/data/macro",
-  calendar: "/data/macro?view=calendar",
-  "economic calendar": "/data/macro?view=calendar",
-  "economic-calendar": "/data/macro?view=calendar",
+  calendar: "/calendar",
+  "economic calendar": "/calendar",
+  "economic-calendar": "/calendar",
   guidance: "/stories?filter=guidance",
   statements: "/whats-new?filter=statements",
   signals: "/data/heatmaps?view=signals",

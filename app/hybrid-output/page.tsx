@@ -823,6 +823,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
                   <p><strong>Decisive variable:</strong> {item.decisiveVariable}</p>
                   <p><strong>Theme:</strong> {item.linkedTheme}</p>
                   <p className={styles.meta}>Confirm: {item.confirmationCase} · Risk: {item.disappointmentCase}</p>
+                  {item.sourceUrl && item.sourceName ? <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">{item.verificationState === "official" ? "Issuer confirmed" : "Source"} · {item.sourceName} ↗</a> : null}
                 </article>
               ))}
               {upcoming.geopoliticalClock.slice(0, 4).map((item, index) => (

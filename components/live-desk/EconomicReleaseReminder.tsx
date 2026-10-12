@@ -56,6 +56,7 @@ export default function EconomicReleaseReminder({ releases, relatedStories = [] 
             <div>
               <span className={styles.kicker}>Upcoming high-impact events · this week</span>
               <h2>Weekly economic risk calendar</h2>
+            <Link href="/calendar" className={styles.sourceLink}>Open earnings and economic calendar →</Link>
             </div>
             <span className={styles.status}>Coverage check</span>
           </header>

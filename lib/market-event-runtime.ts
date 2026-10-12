@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getEconomicCalendar } from "@/lib/calendar";
+import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { acquireEventHorizonEvents, type EventHorizonCoverage } from "@/lib/event-horizon-acquisition";
 import { eventHorizonUpcomingLane } from "@/lib/event-horizon-lanes";
 import {
@@ -130,7 +131,7 @@ async function persistEvents(events: MarketEventV1[]) {
 
 export async function buildEditionEventHorizon(stories: Array<{ id: string; title: string; assets: string[] }>): Promise<EventHorizonResult> {
   const warnings: string[] = [];
-  const [calendar, storedRows, earningsCalls, acquisition] = await Promise.all([
+  const [calendar, storedRows, earningsCalls, acquisition, forwardEarnings] = await Promise.all([
     getEconomicCalendar().catch((error) => {
       warnings.push(`Economic calendar unavailable: ${error instanceof Error ? error.message : String(error)}`);
       return [] as Awaited<ReturnType<typeof getEconomicCalendar>>;
@@ -138,6 +139,7 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
     loadStoredEvents(),
     loadEarningsCalls(),
     acquireEventHorizonEvents(),
+    getForwardEarningsEvents(),
   ]);
   const calendarEvents = calendar.map(marketEventFromEconomicCalendar).filter((event): event is MarketEventV1 => Boolean(event));
   const earningsEvents = earningsCalls.map((call) => {
@@ -148,14 +150,30 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
       : null;
   }).filter((event): event is MarketEventV1 => Boolean(event));
   const storedEvents = storedRows.map(marketEventFromRow).filter((event): event is MarketEventV1 => Boolean(event));
-  const currentEvents = dedupeMarketEvents([...calendarEvents, ...earningsEvents, ...acquisition.events]);
+  const currentEvents = dedupeMarketEvents([...calendarEvents, ...earningsEvents, ...forwardEarnings.events, ...acquisition.events]);
   if (currentEvents.length && !(await persistEvents(currentEvents))) warnings.push("Market event persistence unavailable; using the current verified horizon for this edition only.");
   const allEvents = dedupeMarketEvents([...storedEvents, ...currentEvents]);
   const linkedStoryByTicker = new Map(stories.flatMap((story) => story.assets.map((asset) => [asset, story] as const)));
-  const earnings = earningsCalls
+  // Official issuer dates override same-day third-party/archived-call dates; the
+  // chosen timing and verification status are frozen in each published edition.
+  const issuerKeys = new Set(forwardEarnings.events.map(event => (event.affectedAssets[0] || "") + ":" + event.startAt?.slice(0, 10)));
+  const earningsFromCalls = earningsCalls
+    .filter(call => !issuerKeys.has(call.ticker + ":" + call.call_date?.slice(0, 10)))
     .map((call) => ({ item: earningsItem(call, linkedStoryByTicker.get(call.ticker)), callDate: call.call_date }))
     .filter(({ callDate }) => Boolean(safeDate(callDate)) && isUpcomingDate(callDate))
     .map(({ item }) => item);
+  const forwardItems = forwardEarnings.events.filter(isUpcomingEvent).map(event => ({
+    company: event.title,
+    time: event.startAt || "TBC",
+    decisiveVariable: event.decisiveVariable,
+    linkedTheme: linkedStoryByTicker.get(event.affectedAssets[0] || "")?.title || event.affectedAssets[0] || "Market",
+    confirmationCase: "Watch whether results, guidance and balance-sheet details support the existing regime.",
+    disappointmentCase: "Watch whether weaker guidance or cash conversion contradicts the existing regime.",
+    sourceName: event.sourceName, sourceUrl: event.sourceUrl,
+    verificationState: event.verificationState,
+    timeLabel: event.timeLabel,
+  }));
+  const earnings = [...forwardItems, ...earningsFromCalls];
   const policyCalendar = allEvents
     .filter((event) => eventHorizonUpcomingLane(event.eventType) === "economicCalendar")
     .filter(isUpcomingEvent)
@@ -174,7 +192,7 @@ export async function buildEditionEventHorizon(stories: Array<{ id: string; titl
       geopoliticalClock: sortUpcomingByTime(geopolitical),
     },
     events: allEvents,
-    warnings: [...warnings, ...acquisition.warnings],
+    warnings: [...warnings, ...acquisition.warnings, ...(forwardEarnings.warning ? [forwardEarnings.warning] : [])],
     coverage: acquisition.coverage,
   };
 }

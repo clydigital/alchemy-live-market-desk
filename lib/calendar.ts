@@ -1,3 +1,5 @@
+import { getIsmSchedule } from "./ism-forward-schedule.ts";
+
 export type CalendarCountry = "United States" | "Canada" | "United Kingdom" | "Euro Area" | "Japan" | "Australia" | "New Zealand";
 export type G7Country = CalendarCountry;
 
@@ -864,9 +866,11 @@ export function keepUncoveredBlsBackstops(
 }
 
 export async function getEconomicCalendar() {
-  const [blsEvents, deskEvents] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar()]);
+  const [blsEvents, deskEvents, ism] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar(), getIsmSchedule()]);
   const backstops = keepUncoveredBlsBackstops(officialScheduleFallbacks, blsEvents, deskEvents);
-  const allEvents = [...scheduledEvents, ...backstops, ...blsEvents, ...deskEvents];
+  // The official ISM release calendar belongs to the existing economic-event pipeline;
+  // no forecast, surprise, or System 2 inference is manufactured by these scheduled dates.
+  const allEvents = [...scheduledEvents, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }
