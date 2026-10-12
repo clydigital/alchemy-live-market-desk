@@ -11,6 +11,7 @@ import {
   selectDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
+import { assessHybridEditionRequest } from "@/lib/hybrid-edition-request-guard";
 import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
@@ -147,6 +148,50 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     getHybridPresenterEditionCandidates(),
     searchParams,
   ]);
+
+  // An explicit historical URL is a request for an exact frozen edition,
+  // never permission to substitute the current Journey or Dossier.
+  const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
+  const presenterEditionIndex = buildCanonicalEditionIndex(presenterEditions, data.researchRuns);
+  const presenterEditionSelection = selectCanonicalEdition(presenterEditionIndex, requestedEditionId);
+  const selectedPresenterEdition = presenterEditionSelection.selected
+    ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
+    : null;
+  const historicalEditionRequested = Boolean(requestedEditionId)
+    && presenterEditionSelection.status !== "invalid_fallback_current"
+    && presenterEditionSelection.selected?.snapshotId !== presenterEditionSelection.current?.snapshotId;
+  const presenterHistoricalDossierReplay = historicalEditionRequested
+    ? await loadPresenterHistoricalDossierReplay(selectedPresenterEdition?.payload).catch(() => null)
+    : null;
+  const editionRequestState = assessHybridEditionRequest({
+    requestedParam: query.edition,
+    selectedEditionId: presenterEditionSelection.selected?.snapshotId ?? null,
+    currentEditionId: presenterEditionSelection.current?.snapshotId ?? null,
+    selectorFellBack: presenterEditionSelection.status === "invalid_fallback_current",
+    exactHistoricalDossierBound: presenterHistoricalDossierReplay?.status === "BOUND",
+  });
+
+  if (editionRequestState === "INVALID_REQUEST" || editionRequestState === "HISTORICAL_DOSSIER_UNAVAILABLE") {
+    return (
+      <LiveDeskShell
+        activePath="/hybrid-output"
+        title="Hybrid Output"
+        description="Historical editions require exact, immutable research identities."
+        meta="HISTORICAL EDITION UNAVAILABLE"
+      >
+        <DataState
+          title={editionRequestState === "INVALID_REQUEST"
+            ? "Requested Hybrid edition unavailable"
+            : "Exact historical Dossier unavailable"}
+          detail={editionRequestState === "INVALID_REQUEST"
+            ? "The requested edition is invalid, missing or superseded. No current analysis has been substituted under this historical URL."
+            : "This historical edition does not have its exact publication-frozen Dossier available. Current analysis will not be substituted for the missing historical evidence."}
+        />
+        <p><a className={styles.link} href="/hybrid-output">Open current Hybrid Journey →</a></p>
+      </LiveDeskShell>
+    );
+  }
+
   const dossier = selection.presentation;
 
   if (!dossier) {
@@ -289,7 +334,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const regimeSlug = typeof query.regime === "string" ? query.regime : null;
   const eventId = typeof query.event === "string" ? query.event : null;
   const motionId = typeof query.motion === "string" ? query.motion : null;
-  const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
   const focusedStory = storySlug ? data.stories.find((story) => story.slug === storySlug) || null : null;
   const focusedEvent = eventId ? recordLayer.events.find((event) => event.id === eventId) || null : null;
   const focusedEventStory = focusedEvent ? data.stories.find((story) => story.id === focusedEvent.story_id) || null : null;
@@ -312,14 +356,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     ? dossier.whatMattersNow.stories.find((story) => story.id === (focusedStory || focusedEventStory)?.id) || null
     : null;
 
-  const presenterEditionIndex = buildCanonicalEditionIndex(
-    presenterEditions,
-    data.researchRuns,
-  );
-  const presenterEditionSelection = selectCanonicalEdition(
-    presenterEditionIndex,
-    requestedEditionId,
-  );
   const currentEditionPointer = presenterEditionSelection.current;
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
@@ -334,18 +370,12 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   });
   const upcoming = currentUpcoming(currentEdition?.payload.upcoming);
   const upcomingCount = upcoming.economicCalendar.length + upcoming.earnings.length + upcoming.geopoliticalClock.length;
-  const selectedPresenterEdition = presenterEditionSelection.selected
-    ? presenterEditions.find((item) => item.id === presenterEditionSelection.selected?.snapshotId) || null
-    : null;
   const presenterEditionStatus = presenterEditionSelection.status === "invalid_fallback_current"
     ? "invalid_fallback_current" as const
     : presenterEditionSelection.selected?.snapshotId
       && presenterEditionSelection.selected.snapshotId !== presenterEditionSelection.current?.snapshotId
         ? "historical" as const
         : "current" as const;
-  const presenterHistoricalDossierReplay = presenterEditionStatus === "historical"
-    ? await loadPresenterHistoricalDossierReplay(selectedPresenterEdition?.payload)
-    : null;
   const presenterDossier = presenterHistoricalDossierReplay?.status === "BOUND"
     && presenterHistoricalDossierReplay.selection?.presentation
       ? presenterHistoricalDossierReplay.selection.presentation
