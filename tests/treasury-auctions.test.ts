@@ -24,7 +24,7 @@ function row(overrides: Record<string, string | null> = {}) {
     security_type: "Note",
     security_term: "10-Year",
     original_security_term: "10-Year",
-    announcement_date: "2026-09-23",
+    announcemt_date: "2026-09-23",
     auction_date: "2026-09-30",
     issue_date: "2026-10-05",
     maturity_date: "2036-09-30",
@@ -94,6 +94,7 @@ test("Treasury auction adapter keeps the latest nominal coupon result per maturi
 
   assert.equal(snapshot.status, "PARTIAL");
   assert.deepEqual(snapshot.auctions.map((item) => item.securityTerm), ["10-Year", "30-Year"]);
+  assert.equal(snapshot.auctions[0].announcementDate, "2026-09-23");
   assert.equal(snapshot.auctions[0].highYieldPct, 5.125);
   assert.equal(snapshot.auctions[0].bidToCover, 2.42);
   assert.equal(snapshot.auctions[0].primaryDealerAcceptedPct, 12.5);
@@ -147,7 +148,8 @@ test("Treasury auction query is keyless, bounded and requests official result fi
   const url = treasuryAuctionQueryUrl(NOW);
   assert.match(url, /^https:\/\/api\.fiscaldata\.treasury\.gov\/services\/api\/fiscal_service\/v1\/accounting\/od\/auctions_query\?/);
   assert.match(decodeURIComponent(url), /auction_date:gte:2026-06-06,auction_date:lte:2026-11-18/);
-  assert.match(decodeURIComponent(url), /announcement_date/);
+  assert.match(decodeURIComponent(url), /announcemt_date/);
+  assert.doesNotMatch(decodeURIComponent(url), /(?:^|,)announcement_date(?:,|&)/);
   assert.match(decodeURIComponent(url), /bid_to_cover_ratio/);
   assert.match(decodeURIComponent(url), /primary_dealer_accepted/);
   assert.match(decodeURIComponent(url), /comp_accepted/);
@@ -158,9 +160,9 @@ test("snapshot augmentation admits official auction facts without inventing a ta
   const auctionSnapshot = parseTreasuryAuctionSnapshot({
     data: [
       row(),
-      row({ cusip: "91282CPR1", auction_date: "2026-08-31", announcement_date: null, bid_to_cover_ratio: "2.30" }),
-      row({ cusip: "91282CPR2", auction_date: "2026-07-31", announcement_date: null, bid_to_cover_ratio: "2.40" }),
-      row({ cusip: "91282CPR3", auction_date: "2026-06-30", announcement_date: null, bid_to_cover_ratio: "2.50" }),
+      row({ cusip: "91282CPR1", auction_date: "2026-08-31", announcemt_date: null, bid_to_cover_ratio: "2.30" }),
+      row({ cusip: "91282CPR2", auction_date: "2026-07-31", announcemt_date: null, bid_to_cover_ratio: "2.40" }),
+      row({ cusip: "91282CPR3", auction_date: "2026-06-30", announcemt_date: null, bid_to_cover_ratio: "2.50" }),
       row({
         cusip: "912810ZZ3",
         security_type: "Bond",
@@ -279,7 +281,7 @@ test("official announced coupon sizes create governed supply context without inv
         cusip: "91282C10N",
         security_term: "10-Year",
         original_security_term: "10-Year",
-        announcement_date: "2026-10-01",
+        announcemt_date: "2026-10-01",
         auction_date: "2026-10-08",
         offering_amt: "43000000000",
         high_yield: null,
@@ -293,7 +295,7 @@ test("official announced coupon sizes create governed supply context without inv
         cusip: "91282C10P",
         security_term: "10-Year",
         original_security_term: "10-Year",
-        announcement_date: "2026-09-03",
+        announcemt_date: "2026-09-03",
         auction_date: "2026-09-10",
         offering_amt: "39000000000",
       }),
@@ -302,7 +304,7 @@ test("official announced coupon sizes create governed supply context without inv
         security_type: "Bond",
         security_term: "20-Year",
         original_security_term: "20-Year",
-        announcement_date: "2026-10-01",
+        announcemt_date: "2026-10-01",
         auction_date: "2026-10-21",
         offering_amt: "17000000000",
         high_yield: null,
@@ -317,7 +319,7 @@ test("official announced coupon sizes create governed supply context without inv
         security_type: "Bond",
         security_term: "20-Year",
         original_security_term: "20-Year",
-        announcement_date: "2026-09-10",
+        announcemt_date: "2026-09-10",
         auction_date: "2026-09-17",
         offering_amt: "13000000000",
       }),
@@ -326,7 +328,7 @@ test("official announced coupon sizes create governed supply context without inv
         security_type: "Bond",
         security_term: "30-Year",
         original_security_term: "30-Year",
-        announcement_date: "2026-10-01",
+        announcemt_date: "2026-10-01",
         auction_date: "2026-10-15",
         offering_amt: "26000000000",
         high_yield: null,
@@ -341,7 +343,7 @@ test("official announced coupon sizes create governed supply context without inv
         security_type: "Bond",
         security_term: "30-Year",
         original_security_term: "30-Year",
-        announcement_date: "2026-09-03",
+        announcemt_date: "2026-09-03",
         auction_date: "2026-09-10",
         offering_amt: "22000000000",
       }),
@@ -402,7 +404,7 @@ test("partial long-end coupon coverage names only the maturities actually compar
         cusip: "91282C10N",
         security_term: "10-Year",
         original_security_term: "10-Year",
-        announcement_date: "2026-10-01",
+        announcemt_date: "2026-10-01",
         auction_date: "2026-10-08",
         offering_amt: "43000000000",
         high_yield: null,
@@ -412,7 +414,7 @@ test("partial long-end coupon coverage names only the maturities actually compar
         cusip: "91282C10P",
         security_term: "10-Year",
         original_security_term: "10-Year",
-        announcement_date: "2026-09-03",
+        announcemt_date: "2026-09-03",
         auction_date: "2026-09-10",
         offering_amt: "39000000000",
       }),
@@ -440,7 +442,7 @@ test("same-day announced supply remains unavailable before the conservative anno
     data: [
       row({
         cusip: "91282CSAME",
-        announcement_date: "2026-10-04",
+        announcemt_date: "2026-10-04",
         auction_date: "2026-10-08",
         offering_amt: "43000000000",
         high_yield: null,
@@ -448,7 +450,7 @@ test("same-day announced supply remains unavailable before the conservative anno
       }),
       row({
         cusip: "91282CPREV",
-        announcement_date: "2026-09-03",
+        announcemt_date: "2026-09-03",
         auction_date: "2026-09-10",
         offering_amt: "39000000000",
       }),
