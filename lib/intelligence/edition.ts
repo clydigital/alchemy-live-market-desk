@@ -135,6 +135,10 @@ export type EarningsItem = {
   linkedTheme: string;
   confirmationCase: string;
   disappointmentCase: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  verificationState?: "official" | "corroborated" | "reported" | "unverified";
+  timeLabel?: string | null;
 };
 
 export type GeopoliticalClockItem = {
