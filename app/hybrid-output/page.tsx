@@ -1,5 +1,6 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
+import HybridStoryBriefReader from "@/components/live-desk/HybridStoryBriefReader";
 import PresenterDivergenceJourney from "@/components/live-desk/PresenterDivergenceJourney";
 import HybridReasoningPanel from "@/components/live-desk/HybridReasoningPanel";
 import RateRegimeEducationalShell from "@/components/live-desk/RateRegimeEducationalShell";
@@ -8,10 +9,13 @@ import { getDeskData } from "@/lib/data";
 import { buildD7CrossLayerDivergence } from "@/lib/dossier-v2/cross-layer-divergence";
 import {
   getDossierV2PresentationSelection,
+  getDossierV2PresentationSelectionById,
   selectDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { assessHybridEditionRequest, selectHybridEditionForRequest } from "@/lib/hybrid-edition-request-guard";
+import { buildHybridStoryEvidenceBrief } from "@/lib/hybrid-story-evidence-brief";
+import { compareHybridStoryEvidenceBriefs } from "@/lib/hybrid-canonical-evidence-delta";
 import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
 import { sortUpcomingByTime } from "@/lib/intelligence/upcoming-order";
@@ -392,6 +396,29 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     && presenterHistoricalDossierReplay.selection?.presentation
       ? presenterHistoricalDossierReplay.selection.presentation
       : dossier;
+  // An exact predecessor is optional. Missing or degraded history cannot be
+  // replaced with the latest Dossier or used to manufacture "new" market facts.
+  const previousBriefSelection = presenterDossier.previousDossierId
+    ? await withinTimeout(
+        "Hybrid exact predecessor Dossier",
+        () => getDossierV2PresentationSelectionById(presenterDossier.previousDossierId!),
+        1_800,
+      ).catch(() => null)
+    : null;
+  const exactPreviousPresentation =
+    previousBriefSelection?.status === "historical_exact"
+    && previousBriefSelection.selectedDossierId === presenterDossier.previousDossierId
+      ? previousBriefSelection.presentation
+      : null;
+  const currentStoryBrief = buildHybridStoryEvidenceBrief(presenterDossier);
+  const storyBriefDelta = compareHybridStoryEvidenceBriefs({
+    current: currentStoryBrief,
+    previous: exactPreviousPresentation
+      ? buildHybridStoryEvidenceBrief(exactPreviousPresentation)
+      : null,
+    expectedPreviousDossierId: presenterDossier.previousDossierId,
+  });
+
   const presenterHistoricalContextBoundary = buildPresenterHistoricalContextBoundary({
     editionSelectionStatus: presenterEditionStatus,
     selectedEditionId: presenterEditionSelection.selected?.snapshotId ?? null,
@@ -659,8 +686,8 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     >
       <div className={styles.grid}>
         <Panel
-          title={presenterEditionStatus === "historical" ? "Frozen edition — canonical market view" : "What is actually verified?"}
-          description={`Canonical Dossier as of ${formatDeskDate(dossier.asOf)} · ${presenterEditionStatus === "historical" ? "historical replay" : "current desk read"}`}
+          title="Now — canonical market view"
+          description={`Exact selected Dossier as of ${formatDeskDate(presenterDossier.asOf)} · ${presenterEditionStatus === "historical" ? "frozen historical replay" : "current desk read"}`}
           action={<a className={styles.link} href="https://alchemy-hybrid-market-desk.vercel.app/journey" target="_blank" rel="noreferrer">Open presenter Journey ↗</a>}
         >
           {presenterEditionStatus !== "historical" ? (
@@ -669,15 +696,123 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
             ) : <DataState title="No new verified market development" detail={`${researchLeadJourney.length} unverified research lead(s) need independent confirmation. Attention priority does not establish verification.`} />
           ) : <p>Historical edition: current Motion and Dossier data are not substituted into the frozen record.</p>}
           <article className={styles.record}>
-            <h3>{dossier.header.headline}</h3>
-            <p>{dossier.header.answer}</p>
-            <p><strong>Market implication:</strong> {dossier.header.regimeImplication}</p>
-            <p><strong>Leading countercase to investigate:</strong> {dossier.watchNext[0]?.question || "No priority contradiction persisted."}</p>
-            <p><strong>Next test:</strong> {dossier.header.whatWouldChangeMind}</p>
+            <span className={styles.kicker}>
+              {presenterEditionStatus === "historical" ? "FROZEN DOSSIER" : "SELECTED CANONICAL DOSSIER"}
+              {" · "}{formatDeskDate(presenterDossier.asOf)}
+              {" · "}ID {presenterDossier.dossierId}
+            </span>
+            <h3>{presenterDossier.header.headline}</h3>
+            <p>{presenterDossier.header.answer}</p>
+            <p><strong>Market implication:</strong> {presenterDossier.header.regimeImplication}</p>
+            <p><strong>Leading countercase to investigate:</strong> {presenterDossier.watchNext[0]?.question || "No priority contradiction persisted."}</p>
+            <p><strong>Next test:</strong> {presenterDossier.header.whatWouldChangeMind}</p>
           </article>
           {presenterEditionStatus !== "historical" && researchLeadJourney.length ? (
             <p>{researchLeadJourney.length} unverified lead(s) below are research context only, not established developments.</p>
           ) : null}
+        </Panel>
+
+        <HybridStoryBriefReader projection={storyBriefDelta} asOf={presenterDossier.asOf} />
+
+
+
+        {presenterEditionStatus === "historical" ? (
+          motionJourney.length ? (
+            <MarketMotionOverview items={motionJourney}
+              eyebrow="HISTORICAL MARKET MOTION · IMMUTABLE"
+              title="Market Motion in this exact Journey edition"
+              description="Historical replay contains only the Motion frozen with this edition; live source reports are not substituted."
+              showFullTapeLink journeyMode
+            />
+          ) : <DataState title="No Motion in this historical edition"
+              detail="No current lead or news item is inserted into the immutable historical snapshot." />
+        ) : (
+          <>
+            {verifiedMotionJourney.length ? (
+              <MarketMotionOverview items={verifiedMotionJourney}
+                eyebrow="SOURCE-VERIFIED DEVELOPMENTS"
+                title="What materially changed?"
+                description="Up to four distinct current developments with verified source status. Story and Regime interpretation, if present, comes only from canonical Dossier adjudication."
+                showFullTapeLink journeyMode />
+            ) : <DataState title="No verified market developments"
+                detail="No fresh item cleared source verification. Unverified leads remain separate and cannot be stated as established facts." />}
+            {researchLeadJourney.length ? (
+              <MarketMotionOverview items={researchLeadJourney}
+                eyebrow="RESEARCH LEADS · NOT VERIFIED"
+                title="What still needs checking?"
+                description="These leads are not accepted Dossier conclusions. A source claim requires further verification before it can affect the existing market view."
+                leadOnly showFullTapeLink />
+            ) : null}
+          </>
+        )}
+
+        <Panel
+          title="Upcoming news & catalysts"
+          description="What could move next. These scheduled macro, earnings and geopolitical events come from the current immutable Journey edition rather than being inferred from the Dossier."
+          action={<Badge tone={upcomingCount ? "ready" : "default"}>{upcomingCount ? `${upcomingCount} UPCOMING` : "NO UPCOMING EVENTS"}</Badge>}
+        >
+          {upcomingCount ? (
+            <div className={styles.recordList}>
+              {upcoming.economicCalendar.slice(0, 6).map((item, index) => (
+                <article className={styles.record} key={`macro:${item.event}:${item.time}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>MACRO / POLICY · {upcomingTime(item.time)}</span>
+                      <h3>{item.event}</h3>
+                    </div>
+                    <Badge>UPCOMING</Badge>
+                  </div>
+                  <p><strong>Why it matters:</strong> {item.whyItMatters}</p>
+                  <p className={styles.meta}>
+                    Consensus {item.consensus || "—"} · Prior {item.prior || "—"}
+                    {item.exposedAssets.length ? ` · ${item.exposedAssets.join(" · ")}` : ""}
+                  </p>
+                </article>
+              ))}
+              {upcoming.earnings.slice(0, 4).map((item, index) => (
+                <article className={styles.record} key={`earnings:${item.company}:${item.time}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>EARNINGS · {upcomingTime(item.time)}</span>
+                      <h3>{item.company}</h3>
+                    </div>
+                    <Badge>UPCOMING</Badge>
+                  </div>
+                  <p><strong>Decisive variable:</strong> {item.decisiveVariable}</p>
+                  <p><strong>Theme:</strong> {item.linkedTheme}</p>
+                  <p className={styles.meta}>Confirm: {item.confirmationCase} · Risk: {item.disappointmentCase}</p>
+                  {item.sourceUrl && item.sourceName ? <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">{item.verificationState === "official" ? "Issuer confirmed" : "Source"} · {item.sourceName} ↗</a> : null}
+                </article>
+              ))}
+              {upcoming.geopoliticalClock.slice(0, 4).map((item, index) => (
+                <article className={styles.record} key={`geopolitical:${item.event}:${item.time || "tbc"}:${index}`}>
+                  <div className={styles.recordHeader}>
+                    <div>
+                      <span className={styles.kicker}>GEOPOLITICAL CLOCK · {upcomingTime(item.time)}</span>
+                      <h3>{item.event}</h3>
+                    </div>
+                    <Badge>{item.verificationState?.toUpperCase() || "SCHEDULED"}</Badge>
+                  </div>
+                  <p><strong>Transmission:</strong> {item.transmission}</p>
+                  <p><strong>Decisive outcome:</strong> {item.decisiveOutcome}</p>
+                  <p className={styles.meta}>
+                    {item.participants.length ? item.participants.join(" · ") : "Participants unresolved"}
+                    {item.affectedAssets?.length ? ` · ${item.affectedAssets.join(" · ")}` : ""}
+                  </p>
+                  {item.sourceUrl && item.sourceName ? (
+                    <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">
+                      Source · {item.sourceName} ↗
+                    </a>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <DataState
+              title="No scheduled catalyst in the current Journey edition"
+              detail="Hybrid will stay focused on fresh Market Motion until the canonical event horizon supplies the next macro, earnings or geopolitical event."
+            />
+          )}
         </Panel>
 
         <details className={styles.record}>
@@ -785,105 +920,6 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
 
           </div>
         </details>
-
-        {presenterEditionStatus === "historical" ? (
-          motionJourney.length ? (
-            <MarketMotionOverview items={motionJourney}
-              eyebrow="HISTORICAL MARKET MOTION · IMMUTABLE"
-              title="Market Motion in this exact Journey edition"
-              description="Historical replay contains only the Motion frozen with this edition; live source reports are not substituted."
-              showFullTapeLink journeyMode
-            />
-          ) : <DataState title="No Motion in this historical edition"
-              detail="No current lead or news item is inserted into the immutable historical snapshot." />
-        ) : (
-          <>
-            {verifiedMotionJourney.length ? (
-              <MarketMotionOverview items={verifiedMotionJourney}
-                eyebrow="SOURCE-VERIFIED DEVELOPMENTS"
-                title="What materially changed?"
-                description="Up to four distinct current developments with verified source status. Story and Regime interpretation, if present, comes only from canonical Dossier adjudication."
-                showFullTapeLink journeyMode />
-            ) : <DataState title="No verified market developments"
-                detail="No fresh item cleared source verification. Unverified leads remain separate and cannot be stated as established facts." />}
-            {researchLeadJourney.length ? (
-              <MarketMotionOverview items={researchLeadJourney}
-                eyebrow="RESEARCH LEADS · NOT VERIFIED"
-                title="What still needs checking?"
-                description="These leads are not accepted Dossier conclusions. A source claim requires further verification before it can affect the existing market view."
-                leadOnly showFullTapeLink />
-            ) : null}
-          </>
-        )}
-
-        <Panel
-          title="Upcoming news & catalysts"
-          description="What could move next. These scheduled macro, earnings and geopolitical events come from the current immutable Journey edition rather than being inferred from the Dossier."
-          action={<Badge tone={upcomingCount ? "ready" : "default"}>{upcomingCount ? `${upcomingCount} UPCOMING` : "NO UPCOMING EVENTS"}</Badge>}
-        >
-          {upcomingCount ? (
-            <div className={styles.recordList}>
-              {upcoming.economicCalendar.slice(0, 6).map((item, index) => (
-                <article className={styles.record} key={`macro:${item.event}:${item.time}:${index}`}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <span className={styles.kicker}>MACRO / POLICY · {upcomingTime(item.time)}</span>
-                      <h3>{item.event}</h3>
-                    </div>
-                    <Badge>UPCOMING</Badge>
-                  </div>
-                  <p><strong>Why it matters:</strong> {item.whyItMatters}</p>
-                  <p className={styles.meta}>
-                    Consensus {item.consensus || "—"} · Prior {item.prior || "—"}
-                    {item.exposedAssets.length ? ` · ${item.exposedAssets.join(" · ")}` : ""}
-                  </p>
-                </article>
-              ))}
-              {upcoming.earnings.slice(0, 4).map((item, index) => (
-                <article className={styles.record} key={`earnings:${item.company}:${item.time}:${index}`}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <span className={styles.kicker}>EARNINGS · {upcomingTime(item.time)}</span>
-                      <h3>{item.company}</h3>
-                    </div>
-                    <Badge>UPCOMING</Badge>
-                  </div>
-                  <p><strong>Decisive variable:</strong> {item.decisiveVariable}</p>
-                  <p><strong>Theme:</strong> {item.linkedTheme}</p>
-                  <p className={styles.meta}>Confirm: {item.confirmationCase} · Risk: {item.disappointmentCase}</p>
-                  {item.sourceUrl && item.sourceName ? <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">{item.verificationState === "official" ? "Issuer confirmed" : "Source"} · {item.sourceName} ↗</a> : null}
-                </article>
-              ))}
-              {upcoming.geopoliticalClock.slice(0, 4).map((item, index) => (
-                <article className={styles.record} key={`geopolitical:${item.event}:${item.time || "tbc"}:${index}`}>
-                  <div className={styles.recordHeader}>
-                    <div>
-                      <span className={styles.kicker}>GEOPOLITICAL CLOCK · {upcomingTime(item.time)}</span>
-                      <h3>{item.event}</h3>
-                    </div>
-                    <Badge>{item.verificationState?.toUpperCase() || "SCHEDULED"}</Badge>
-                  </div>
-                  <p><strong>Transmission:</strong> {item.transmission}</p>
-                  <p><strong>Decisive outcome:</strong> {item.decisiveOutcome}</p>
-                  <p className={styles.meta}>
-                    {item.participants.length ? item.participants.join(" · ") : "Participants unresolved"}
-                    {item.affectedAssets?.length ? ` · ${item.affectedAssets.join(" · ")}` : ""}
-                  </p>
-                  {item.sourceUrl && item.sourceName ? (
-                    <a className={styles.link} href={item.sourceUrl} target="_blank" rel="noreferrer">
-                      Source · {item.sourceName} ↗
-                    </a>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <DataState
-              title="No scheduled catalyst in the current Journey edition"
-              detail="Hybrid will stay focused on fresh Market Motion until the canonical event horizon supplies the next macro, earnings or geopolitical event."
-            />
-          )}
-        </Panel>
 
         <DataState
           title={selection.notice.label}
