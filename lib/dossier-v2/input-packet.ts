@@ -324,6 +324,15 @@ const CATALYST_FORWARD_HORIZON_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 // Slow-moving official rate context may remain analytically relevant beyond the
 // 24h "what just happened" evidence window. Keep this narrow and context-only.
 const RATE_CONTEXT_HISTORY_MS = 45 * 24 * 60 * 60 * 1000;
+// FRED daily rates remain the last published observations across weekends/holidays.
+// Keep them as dated read-only rates context, never new market news or canonical
+// intelligence_evidence. Five calendar days is the maximum permitted age.
+const FRED_RATE_CONTEXT_HISTORY_MS = 5 * 24 * 60 * 60 * 1000;
+const PROTECTED_FRED_RATE_MONITOR_IDS = new Set([
+  "us2y", "us5y-fred", "us10y-fred", "us10y-real",
+  "us10y-breakeven", "us20y-fred", "us30y-fred",
+  "us5y-real", "us5y-breakeven", "fed-funds-effective",
+]);
 
 
 const MACRO_SPINE_GROUPING_KEYS = [
@@ -381,6 +390,32 @@ function isHistoricalRateContextCandidate(raw: Record<string, unknown>) {
     ? raw.metrics.signal_context.trim().toLowerCase()
     : "";
   return context === "treasury_auction" || context === "treasury_supply";
+}
+
+function isProtectedHistoricalFredRateObservation(
+  raw: Record<string, unknown>,
+  availableMs: number,
+  asOfMs: number,
+) {
+  if (availableMs < asOfMs - FRED_RATE_CONTEXT_HISTORY_MS) return false;
+  if (raw.source_type !== "MARKET_DATA" || raw.canonical_record_backed === true) return false;
+  if (!isPlainObject(raw.metrics)) return false;
+  const metrics = raw.metrics;
+  if (
+    metrics.provider !== "Federal Reserve Economic Data"
+    || metrics.frequency !== "daily"
+    || metrics.is_canonical_evidence !== false
+    || typeof metrics.last !== "number"
+    || !Number.isFinite(metrics.last)
+  ) return false;
+  const providerDate = typeof metrics.provider_as_of === "string" ? metrics.provider_as_of : "";
+  const availableDate = typeof raw.available_at === "string" ? raw.available_at.slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(providerDate) || providerDate !== availableDate) return false;
+  const group = typeof raw.grouping_key === "string" ? raw.grouping_key : "";
+  if (!group.startsWith("market-monitor:")) return false;
+  const id = group.slice("market-monitor:".length);
+  return PROTECTED_FRED_RATE_MONITOR_IDS.has(id)
+    && raw.evidence_id === `market-monitor:${id}:${providerDate}`;
 }
 
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
@@ -1055,7 +1090,8 @@ export function assembleDossierV2InputPacket(
     const historicalRateContext =
       availMs < windowStartMs
       && availMs >= asOfMs - RATE_CONTEXT_HISTORY_MS
-      && isHistoricalRateContextCandidate(raw);
+      && (isHistoricalRateContextCandidate(raw)
+        || isProtectedHistoricalFredRateObservation(raw, availMs, asOfMs));
     if (availMs < windowStartMs && !historicalRateContext) {
       omittedEvidenceCount++;
       continue;
