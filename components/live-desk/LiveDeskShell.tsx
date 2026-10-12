@@ -1,10 +1,11 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { dashboardAuthRequired } from "@/lib/supabase/config";
 import { dataRoutes, deskRoutes, type LiveDeskRoute } from "@/lib/live-desk/routes";
 
 import DisplaySettings from "./DisplaySettings";
+import PresenterPrepNavigationLink from "./PresenterPrepNavigationLink";
 import VideoResearchStatus from "./VideoResearchStatus";
 import styles from "./live-desk-shell.module.css";
 
@@ -57,6 +58,9 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
             <VideoResearchStatus />
             <DisplaySettings />
             <Link className={styles.primaryButton} href="/hybrid-output">Hybrid output</Link>
+            <Suspense fallback={<span className={styles.button} aria-label="Presenter Prep navigation loading">Presenter Prep</span>}>
+              <PresenterPrepNavigationLink activePath={activePath} className={styles.button} />
+            </Suspense>
             {authRequired && (
               <form action="/auth/signout" method="post">
                 <button className={styles.signoutButton} type="submit">Sign out</button>
