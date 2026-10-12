@@ -1,4 +1,5 @@
 import { normalizeResearchBrainGapTargets } from "./research-brain-gap-targets.ts";
+import { noteLYHeadlineIssues } from "./ly-headline-quality.ts";
 import { createHash } from "node:crypto";
 import type { DossierV2InputPacket, ThesisLedger } from "./input-packet.ts";
 import type {
@@ -957,7 +958,7 @@ export async function executeResearchBrain(
               "Compact recovery completed after the primary pass hit max_output_tokens.",
             ],
           };
-          return recoveryVal.output;
+          return noteLYHeadlineIssues(recoveryVal.output);
         }
 
         console.warn(JSON.stringify({
@@ -994,7 +995,7 @@ export async function executeResearchBrain(
   firstPassData = normalizeResearchBrainGapTargets(firstPassData);
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
-    return firstVal.output;
+    return noteLYHeadlineIssues(firstVal.output);
   }
 
   // Step 7: At most ONE repair retry if invalid
@@ -1045,7 +1046,7 @@ export async function executeResearchBrain(
           ...repairVal.output.diagnostics,
           model_repair_used: true,
         };
-        return repairVal.output;
+        return noteLYHeadlineIssues(repairVal.output);
       }
 
       console.warn(JSON.stringify({
