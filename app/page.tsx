@@ -428,10 +428,43 @@ export default async function Page({ searchParams }: PageProps) {
       )}
     >
       <div style={{ display: "grid", gap: 24 }}>
-        <RateRegimeOverview selection={dossierSelection} />
+        <Panel
+          title="Market now — the short answer"
+          description={dossierSelection.presentation
+            ? `Canonical Dossier as of ${formatDeskDate(dossierSelection.presentation.asOf)}. A dated market interpretation, not a real-time verification claim.`
+            : "No canonical Dossier market thesis is available; source-verified developments remain separate."}
+          action={<Link className={styles.link} href="/dossier">Inspect evidence and reasoning →</Link>}
+        >
+          {dossierSelection.presentation ? (
+            <div className={styles.recordList}>
+              <article className={styles.record}>
+                <h3>{dossierSelection.presentation.header.headline}</h3>
+                <p>{dossierSelection.presentation.header.answer}</p>
+                <p><strong>Market implication:</strong> {dossierSelection.presentation.header.regimeImplication}</p>
+              </article>
+              <article className={styles.record}>
+                <h3>{marketMotion.some((item) => item.verificationState === "VERIFIED")
+                  ? "Source-verified development" : "No new verified market development"}</h3>
+                {marketMotion.find((item) => item.verificationState === "VERIFIED") ? (
+                  <>
+                    <p>{marketMotion.find((item) => item.verificationState === "VERIFIED")!.headline}</p>
+                    <p className={styles.meta}>Verified source status; not a Dossier Regime decision.</p>
+                  </>
+                ) : <p>No fresh item in the overview cleared source verification. Research leads are not established market facts.</p>}
+              </article>
+              <article className={styles.record}>
+                <h3>Leading unresolved countercase</h3>
+                <p>{dossierSelection.presentation.watchNext[0]?.question
+                  || "No priority contradiction is currently established in the canonical Dossier."}</p>
+                <p><strong>Next test:</strong> {dossierSelection.presentation.header.whatWouldChangeMind}</p>
+              </article>
+            </div>
+          ) : <p>No current Dossier interpretation is inferred from prices or research leads.</p>}
+        </Panel>
         {dossierSelection.presentation ? (
           <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
         ) : null}
+        <RateRegimeOverview selection={dossierSelection} />
         <MarketMotionOverview items={marketMotion} />
         <MarketRegimeStrip regimes={regimes} />
         {reasoningInvestigation ? (

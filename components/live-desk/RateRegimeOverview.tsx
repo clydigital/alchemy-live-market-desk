@@ -48,7 +48,7 @@ export default function RateRegimeOverview({
                 Dossier as of {formatDeskDate(dossier.asOf)}
                 {typeof regime.score === "number" ? ` · score ${regime.score >= 0 ? "+" : ""}${regime.score}` : ""}
                 {regime.confidence ? ` · ${regime.confidence.toLowerCase()} confidence` : ""}
-                {regime.coverage ? ` · ${regime.coverage.present}/${regime.coverage.total} rate inputs` : ""}
+                {regime.coverage ? ` · ${regime.coverage.present}/${regime.coverage.total} canonical rate inputs` : ""}
               </div>
             </div>
             <Badge tone={regime.fredBacked ? "ready" : "warn"}>
@@ -59,6 +59,9 @@ export default function RateRegimeOverview({
           </div>
         </article>
 
+        {!regime.fredBacked || (regime.coverage && regime.coverage.present < regime.coverage.total) ? (
+          <p className={styles.meta}>Canonical rate coverage is incomplete. A displayed US 10Y asset quote elsewhere is not a Dossier-adjudicated rate observation or Regime conclusion.</p>
+        ) : null}
         <div className={styles.signalGrid}>
           {(regime.signals || []).map((signal) => (
             <article className={styles.signal} data-key={signal.key} key={signal.key}>
