@@ -850,8 +850,8 @@ export function keepUncoveredBlsBackstops(
 ) {
   const releaseFamily = (event: EconomicCalendarEvent) => {
     const title = event.event.toLowerCase();
-    if (/consumer price index|\\bcpi\\b/.test(title)) return "cpi";
-    if (/producer price index|\\bppi\\b/.test(title)) return "ppi";
+    if (/consumer price index|\bcpi\b/.test(title)) return "cpi";
+    if (/producer price index|\bppi\b/.test(title)) return "ppi";
     return null;
   };
   const liveAndDesk = [...live, ...desk];
@@ -865,8 +865,8 @@ export function keepUncoveredBlsBackstops(
 
 export async function getEconomicCalendar() {
   const [blsEvents, deskEvents] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar()]);
-  const allEvents = [...scheduledEvents, ...officialScheduleFallbacks, ...blsEvents, ...deskEvents]
-    .filter((event) => keepUncoveredBlsBackstops([event], blsEvents, deskEvents).length > 0);
+  const backstops = keepUncoveredBlsBackstops(officialScheduleFallbacks, blsEvents, deskEvents);
+  const allEvents = [...scheduledEvents, ...backstops, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }
