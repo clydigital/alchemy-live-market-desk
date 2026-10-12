@@ -127,7 +127,7 @@ function upcomingTime(value: string | null | undefined) {
 }
 
 export default async function HybridOutputPage({ searchParams }: HybridOutputPageProps) {
-  const [selection, data, recordLayer, presenterEditions, query] = await Promise.all([
+  const [currentSelection, data, recordLayer, presenterEditions, query] = await Promise.all([
     getDossierV2PresentationSelection().catch((error) => {
       console.warn(JSON.stringify({
         event: "hybrid_canonical_dossier_read_unavailable",
@@ -196,6 +196,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     );
   }
 
+  // Historical explicit URLs use the exact frozen Dossier for all downstream
+  // research, rate assumptions and Regime/Story presentation; never current.
+  const selection = editionRequestState === "HISTORICAL_READY"
+    ? presenterHistoricalDossierReplay!.selection!
+    : currentSelection;
   const dossier = selection.presentation;
 
   if (!dossier) {
@@ -364,15 +369,18 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   const currentEdition = currentEditionPointer
     ? presenterEditions.find((item) => item.id === currentEditionPointer.snapshotId) || null
     : null;
+  const presentedEdition = editionRequestState === "HISTORICAL_READY"
+    ? selectedPresenterEdition
+    : currentEdition;
   const dossierEditionParity = reconcilePresenterDossierEdition({
     selection: {
       selectedDossierId: selection.selectedDossierId,
       selectedAsOf: selection.selectedAsOf,
       status: selection.status,
     },
-    edition: currentEdition,
+    edition: presentedEdition,
   });
-  const upcoming = currentUpcoming(currentEdition?.payload.upcoming);
+  const upcoming = currentUpcoming(presentedEdition?.payload.upcoming);
   const upcomingCount = upcoming.economicCalendar.length + upcoming.earnings.length + upcoming.geopoliticalClock.length;
   const presenterEditionStatus = presenterEditionSelection.status === "invalid_fallback_current"
     ? "invalid_fallback_current" as const
