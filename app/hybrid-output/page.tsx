@@ -10,7 +10,7 @@ import {
   getDossierV2PresentationSelection,
   selectDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
-import { buildCanonicalEditionIndex, selectCanonicalEdition } from "@/lib/edition-replay";
+import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { assessHybridEditionRequest, selectHybridEditionForRequest } from "@/lib/hybrid-edition-request-guard";
 import { withinTimeout } from "@/lib/async-timeout";
 import type { EditionUpcoming } from "@/lib/intelligence/edition";
