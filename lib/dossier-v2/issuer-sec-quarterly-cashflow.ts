@@ -48,6 +48,7 @@ export type SecCashFlowComponent = {
   periodEnd: string;
   operatingCashFlowYtdUsd: number;
   cashPpeYtdUsd: number;
+  capexXbrlConcepts: string[];
 };
 export type SecQuarterCashFlow = {
   issuerCik: string;
@@ -72,6 +73,8 @@ export type SecQuarterCashFlow = {
   componentCashPpeYtdUsd: number;
   predecessorCfoYtdUsd: number;
   predecessorCashPpeYtdUsd: number;
+  capexXbrlConcepts: string[];
+  predecessorCapexXbrlConcepts: string[];
   contentHash: string;
   /** Two different fiscal periods are required for a two-quarter watch. */
   observationIdentity: string;
@@ -101,7 +104,8 @@ function accessionOk(value: unknown): value is string {
 }
 type FactRow = {
   value: number;
-  concept: "NetCashProvidedByUsedInOperatingActivities" | "PaymentsToAcquirePropertyPlantAndEquipment";
+  concept: "NetCashProvidedByUsedInOperatingActivities" | "PaymentsToAcquirePropertyPlantAndEquipment"
+    | "PaymentsToAcquireProductiveAssets";
   accessionNumber: string;
   form: "10-Q" | "10-K";
   filed: string;
@@ -156,11 +160,16 @@ function pairedComponents(
   cfo: FactRow[],
   capex: FactRow[],
 ): { components: SecCashFlowComponent[]; unresolved: string[] } {
-  const byGroup = new Map<string, { cfo: number[]; capex: number[]; info: FactRow }>();
+  const byGroup = new Map<string, { cfo: number[]; capex: number[]; capexConcepts: string[]; info: FactRow }>();
   for (const row of [...cfo, ...capex]) {
     const key = [row.accessionNumber,row.filed,row.fiscalYear,row.fiscalPeriod,row.start,row.end].join("|");
-    const current = byGroup.get(key) ?? { cfo: [], capex: [], info: row };
-    (row.concept === "NetCashProvidedByUsedInOperatingActivities" ? current.cfo : current.capex).push(row.value);
+    const current = byGroup.get(key) ?? { cfo: [], capex: [], capexConcepts: [], info: row };
+    if (row.concept === "NetCashProvidedByUsedInOperatingActivities") {
+      current.cfo.push(row.value);
+    } else {
+      current.capex.push(row.value);
+      current.capexConcepts.push(row.concept);
+    }
     byGroup.set(key, current);
   }
   const components: SecCashFlowComponent[] = [];
@@ -179,6 +188,7 @@ function pairedComponents(
       periodStart: i.start, periodEnd: i.end,
       operatingCashFlowYtdUsd: group.cfo[0],
       cashPpeYtdUsd: group.capex[0],
+      capexXbrlConcepts: [...new Set(group.capexConcepts)].sort(),
     });
   }
   return { components, unresolved };
@@ -212,9 +222,16 @@ export function extractSecQuarterCashFlows(
   if (!issuer.aliases.some((candidate) => candidate.toUpperCase().replace(/[^A-Z0-9]/g, "") === normalizedEntity)) {
     return { items: [], gaps: ["ENTITY_IDENTITY_MISMATCH"] };
   }
+  // Amazon's current filings use PaymentsToAcquireProductiveAssets.
+  // Preserve older PP&E-tagged periods; the same-filing conflict check rejects
+  // different capex values within an identical accession and reporting window.
+  const capex = rows(payload, "PaymentsToAcquirePropertyPlantAndEquipment", nowMs, ticker);
+  if (ticker === "AMZN") {
+    capex.push(...rows(payload, "PaymentsToAcquireProductiveAssets", nowMs, ticker));
+  }
   const x = pairedComponents(
     rows(payload, "NetCashProvidedByUsedInOperatingActivities", nowMs, ticker),
-    rows(payload, "PaymentsToAcquirePropertyPlantAndEquipment", nowMs, ticker),
+    capex,
   );
   const selected = new Map<string, SecCashFlowComponent>();
   for (const p of x.components) {
@@ -271,6 +288,8 @@ export function extractSecQuarterCashFlows(
       filingIndexUrl:"https://www.sec.gov/Archives/edgar/data/"+issuer.filingIndexCik+"/"+current.accessionNumber.replaceAll("-","")+"/",
       componentCfoYtdUsd:current.operatingCashFlowYtdUsd,componentCashPpeYtdUsd:current.cashPpeYtdUsd,
       predecessorCfoYtdUsd:prior?.operatingCashFlowYtdUsd??0,predecessorCashPpeYtdUsd:prior?.cashPpeYtdUsd??0,
+      capexXbrlConcepts:current.capexXbrlConcepts,
+      predecessorCapexXbrlConcepts:prior?.capexXbrlConcepts??[],
       contentHash,observationIdentity:id,
     });
   }
