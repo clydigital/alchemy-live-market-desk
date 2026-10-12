@@ -1,3 +1,4 @@
+import { fetchFinnhubEarnings } from "./finnhub-earnings.ts";
 import { normaliseMarketEvent, type MarketEventV1 } from "./market-events.ts";
 
 export const EARNINGS_PARSE_URL = "https://api.parse.bot/scraper/2f15267d-2491-4111-ba2c-ce7eb2e52e47/get_upcoming_earnings";
@@ -79,14 +80,56 @@ export function parseEarningsHubUpcoming(payload: unknown, now = new Date()): Ma
   });
 }
 
+function withoutIssuerDateConflicts(provider: MarketEventV1[], official: MarketEventV1[]) {
+  // A company's issuer-announced event remains authoritative even if a calendar
+  // vendor suggests a different date within the same reporting window.
+  const priority = provider.filter(event => !official.some(issuer => {
+    if (issuer.affectedAssets[0] !== event.affectedAssets[0]) return false;
+    const difference = Math.abs(Date.parse((issuer.startAt || "").slice(0, 10)) - Date.parse((event.startAt || "").slice(0, 10)));
+    return Number.isFinite(difference) && difference <= 14 * 86_400_000;
+  }));
+  return [...official, ...priority];
+}
+
 export async function getForwardEarningsEvents({
-  now = new Date(), fetchImpl = fetch, apiKey = process.env.EARNINGS_HUB_PARSE_API_KEY,
-  licensed = process.env.EARNINGS_HUB_COMMERCIAL_USE_APPROVED === "true",
-}: { now?: Date; fetchImpl?: typeof fetch; apiKey?: string; licensed?: boolean } = {}): Promise<ForwardEarningsResult> {
+  now = new Date(), fetchImpl = fetch,
+  // Old Parse ingestion remains testable only through explicit call parameters; it
+  // is no longer an automatically selected production provider.
+  apiKey, licensed = false,
+  finnhubKey = process.env.FINNHUB_API_KEY,
+  finnhubCommercialApproved = process.env.FINNHUB_COMMERCIAL_USE_APPROVED === "true",
+}: {
+  now?: Date; fetchImpl?: typeof fetch;
+  apiKey?: string; licensed?: boolean;
+  finnhubKey?: string; finnhubCommercialApproved?: boolean;
+} = {}): Promise<ForwardEarningsResult> {
   const official = officialEarningsEvents(now);
+  if (finnhubKey && !finnhubCommercialApproved) return {
+    events: official, coverage: official.length ? "official_only" : "unavailable",
+    warning: "Finnhub key is present but business use is not authorised. Issuer-confirmed earnings only.",
+  };
+  if (finnhubKey && finnhubCommercialApproved) {
+    try {
+      const provider = await fetchFinnhubEarnings({ apiKey: finnhubKey, now, fetchImpl });
+      if (!provider.length) return {
+        events: official, coverage: official.length ? "official_only" : "unavailable",
+        warning: "Finnhub returned no recognised future priority-company earnings; check source coverage.",
+      };
+      return {
+        events: withoutIssuerDateConflicts(provider, official),
+        coverage: official.length ? "official_and_provider" : "provider_only",
+        warning: null,
+      };
+    } catch {
+      return {
+        events: official, coverage: official.length ? "official_only" : "unavailable",
+        warning: "Finnhub calendar unavailable or entitlement denied; issuer-confirmed earnings only.",
+      };
+    }
+  }
   if (!apiKey || !licensed) return {
     events: official, coverage: official.length ? "official_only" : "unavailable",
-    warning: "Bulk earnings provider inactive (API key and commercial-use approval required); issuer-confirmed dates only.",
+    warning: "Finnhub earnings feed inactive (FINNHUB_API_KEY and business-use approval required); issuer-confirmed dates only.",
   };
   try {
     const response = await fetchImpl(EARNINGS_PARSE_URL, {
