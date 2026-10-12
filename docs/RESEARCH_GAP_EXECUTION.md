@@ -162,3 +162,16 @@ Legacy Dossier→Story D7 synchronization rows are not valid web-research obliga
 
 The scheduler does not change Research Gap authority. Canonical Live still decides what admitted evidence does to Stories, Regimes, Journey and Dossier state.
 
+## Optional external retrieval support (research process; not deployed worker) — 12 October 2026
+
+The **ChatGPT Notion pre-live Research Gap Gate** may use Exa or Parallel Search for source discovery, Firecrawl for extracting readable original pages/documents, and TinyFish or an authorised Opera Browser Connector session to inspect a specific interactive page. Tavily is an optional alternative only once separately connected and tested. Consult [Macro research pipeline](MACRO_RESEARCH_PIPELINE.md) and the [Notion Gate operating page](https://app.notion.com/p/3ea519b67a9481f9aa03d9767069487e).
+
+This list **does not change or instrument** the Vercel Dossier-owned Gap executor shown above. The executor's code and actual source adapter remain authoritative; ChatGPT plugin installation does not make a service available in a deployment. Any production integration needs its own reviewed implementation, secret/cost controls, tests and runtime proof.
+
+For every candidate evidence packet:
+- Identify the original publisher, URL, publication and observation times, measurement period, revision and independence key; preserve requirement mapping and the exact frozen Gap/Dossier/Story references.
+- Check source text or official data rather than relying on a search excerpt, tool-generated synthesis, secondary repost or creator opinion. Different extraction providers returning the *same underlying article* do not supply independent sources.
+- Budget and stop conditions in this document remain unchanged. A retrieval failure is a missing requirement or `UNRESOLVED` finding, not a licence to invent quality scores or mark the case `COMPLETED`.
+- Never scrape Notion MacroPulse prose as if it were a canonical machine-readable input; never bypass the existing evidence snapshot, verdict, handoff and Dossier/System 2 route.
+
+This is documentation and research guidance only, with **no** new cron, production source, table, pipeline state, API or direct Hybrid write.

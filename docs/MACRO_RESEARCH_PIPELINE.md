@@ -47,3 +47,29 @@ Audit actual task/project attachment, Notion schemas, backend provider/API integ
 - Prioritise delivery: headline briefing first, then links and caveats, then optional details. Evidence required for canonical Story mutation remains a hard boundary, but lack of such evidence must not block a clearly labelled research briefing.
 - Multiple categories referencing one development should point to a single lead finding with secondary connections, not reproduce the article.
 - Do not add additional ChatGPT tasks, queue tables, or new services to implement these rules without separate approval.
+
+## Researcher-side retrieval providers and fallback — 12 October 2026
+
+**Scope:** a documented ChatGPT research procedure only. It does not connect these ChatGPT plugins to Vercel, a GitHub Action, the backend Research Gap executor or an automated MacroPulse task. All existing schedules, canonical evidence rules, budget limits and Live/Hybrid boundaries remain unchanged.
+
+| Tool | Appropriate use | Limitation |
+| --- | --- | --- |
+| Firecrawl | Extract readable page/PDF content, crawl a permitted site, or inspect developer docs | An extraction is not independent verification of the originating source |
+| Parallel Search | Web discovery and fetching relevant URL content; cross-check discovery coverage | Search excerpts may be incomplete or stale |
+| Exa | Discover pertinent financial, technical and primary-source documents | Discovery rankings are not evidence-quality scores |
+| TinyFish | Navigate a specific permitted interactive page when ordinary extraction fails | Not a bulk crawler or CAPTCHA/verification bypass |
+| Opera Browser Connector | Inspect content in browser tabs with user authorisation | Depends on the user's connected browser/session |
+| Tavily | Optional search, scrape, crawl and structured retrieval alternative | Connect and validate separately; not assumed available |
+
+**FAST MacroPulse procedure**
+1. Prioritise the original source (agency release, SEC filing, company IR, exchange or official dataset), with a timestamped reporting article for secondary context.
+2. Use Exa/Parallel Search to discover candidate originals. Extract the exact source with direct access or Firecrawl; try a second compatible extractor if needed, not merely a second copy of the same article. Browser tools are a last-mile alternative for specific permitted pages.
+3. Record original publisher, source URL, publication timestamp, market observation timestamp, access timestamp, units/revisions, expected versus observed and the countercase. Two tools citing the same origin are **one independent source**.
+4. If the source remains unavailable, mark `SOURCE_UNAVAILABLE`/`UNRESOLVED`, retain supported findings and the ordinary no-change/heartbeat path. No fabrication, forced publication, repeated retry loops or silent conversion of a summary into evidence.
+5. Preserve full-post-first Pulse ID/Log idempotency; Notion is research memory, not the primary source. Deep research and the pre-live Gate do not block FAST.
+
+**Pre-live Notion Research Gap Gate**: carry forward exact prior run/window/Pulse IDs, prioritise 2–4 changed gaps (hard 5), require original timestamped evidence and contradiction checks, and route only supported candidates through the existing canonical Live boundary. See [Research Gap execution](RESEARCH_GAP_EXECUTION.md) for the *separate* backend worker; it does not read Notion MacroPulse as a canonical feed.
+
+**Creator-specific caution:** a YouTube page, search snippet, Gemini video summary, chapter list or channel metadata is never a full caption transcript. These tools may discover or inspect pages, but cannot manufacture a transcript or bypass the research-update transcript gate. See [Research video intake](research-video-intake.md).
+
+Corresponding Notion procedure: [MacroPulse](https://app.notion.com/p/3ea519b67a948161ba4dec8f97ebf658), [Research Gap Gate](https://app.notion.com/p/3ea519b67a9481f9aa03d9767069487e), and [Financial Research](https://app.notion.com/p/3ea519b67a9481d0910ff8d54c5b40b3).

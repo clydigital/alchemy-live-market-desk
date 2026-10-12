@@ -108,3 +108,17 @@ For every video admitted to transcript intake:
 9. Persist transcript, structured creator review and canonical Evidence as separate checkpoints so a retry resumes at the first missing durable boundary.
 
 The research-update validator enforces the transcript gate: retained video evidence without a ready transcript is blocked from Story recalibration.
+
+## ChatGPT creator-research discovery and retrieval fallback — 12 October 2026
+
+This is a **separate manual/researcher-side** process, not a replacement for the deployed leased transcript worker or its actual provider chain. Preserve the four-creator priority, especially StockedUp first, the existing YouTube video-ID dedupe and transcript-status gates.
+
+1. Inspect the **original YouTube watch URL** and native transcript/caption availability first, recording channel, video ID, publication time, language and whether the video is public, restricted, live or short-form.
+2. Use **Parallel Search** or **Exa** to discover relevant watch URLs, the creator's own supporting links or corroborating primary material; use **Firecrawl** to extract *accessible page content* when useful. **Tavily** is an optional additional search/crawl source when connected. Do not claim any of these returns caption text by default.
+3. For an interactive page that cannot be read normally, **TinyFish** or the **Opera Browser Connector** may inspect that specific page with authorisation. Never bypass access controls, browser verification or CAPTCHAs; record the failed attempt and use bounded retries.
+4. Only an actual, attributable full timestamped transcript can satisfy the transcript gate. A video title, description, subtitle-like snippet, Gemini summary or transcript paraphrase is not a transcript. Use the existing `GEMINI_SUMMARY_ONLY` fence for non-transcript video intelligence and independently verify creator-derived market claims.
+5. When extraction fails, keep the video pending and record provider, failure reason, attempted timestamp, retry/cooldown eligibility and whether a manual transcript is still required. Do not run discovery-driven retries in parallel with the leased worker or mark `transcriptStatus: "ready"` without genuine transcript text.
+
+**Operator separation:** The optional Chrome/YouTubeToTranscript operator documented below is an existing implementation reference, **not** a recommendation to reintroduce YouTubeToTranscript.com into the user's separate ChatGPT Work research workflow. Changing the live worker/provider order requires an independently reviewed code change and runtime validation. No ChatGPT plugin is implied to run inside GitHub, Supabase or Vercel.
+
+See [Macro research pipeline](MACRO_RESEARCH_PIPELINE.md) for market-source corroboration and [Research Gap execution](RESEARCH_GAP_EXECUTION.md) for canonical evidence boundaries.
