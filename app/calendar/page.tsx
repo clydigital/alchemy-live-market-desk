@@ -4,6 +4,7 @@ import { Badge, DataState, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { getIsmSchedule } from "@/lib/ism-forward-schedule";
+import { calendarTimePresentation } from "@/lib/market-calendar-clock";
 import type { MarketEventV1 } from "@/lib/market-events";
 
 export const dynamic = "force-dynamic";
@@ -21,18 +22,13 @@ function localDay(value: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" })
     .format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
-function readableTime(iso: string | null, label: string | null) {
-  if (iso && iso.includes("T") && Number.isFinite(Date.parse(iso))) {
-    const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
-    return (label || "Exact schedule") + " · " + time + " MYT";
-  }
-  return label || "Time awaiting confirmation";
-}
-type Entry = { kind: "Macro" | "Earnings"; id: string; day: string; title: string; at: string; why: string; assets: string[]; sourceName: string; sourceUrl: string; state: string; details: string };
+type Entry = { kind: "Macro" | "Earnings"; id: string; day: string; title: string; at: string; sortAt: number; why: string; assets: string[]; sourceName: string; sourceUrl: string; state: string; details: string };
 function fromMacro(row: EconomicCalendarEvent): Entry {
   return {
     kind: "Macro", id: row.id, day: row.date, title: row.event,
-    at: row.timeLabel, why: row.decidingQuestion,
+    at: calendarTimePresentation(row.date, row.timeLabel, row.date).timeText,
+    sortAt: calendarTimePresentation(row.date, row.timeLabel, row.date).sortAt,
+    why: row.decidingQuestion,
     assets: row.affectedAssets, sourceName: row.sourceName, sourceUrl: row.sourceUrl,
     state: row.status === "Released" ? "Reported" : row.sourceKind === "official-live" ? "Official live schedule" : row.sourceKind === "desk-record" ? "Desk record" : "Official dated schedule",
     details: "Consensus " + (row.consensus || "unavailable") + " · Previous " + (row.revisedPrevious || row.previous || "unavailable") + (row.actual ? " · Actual " + row.actual : ""),
@@ -41,7 +37,9 @@ function fromMacro(row: EconomicCalendarEvent): Entry {
 function fromEarnings(row: MarketEventV1): Entry {
   return {
     kind: "Earnings", id: row.id, day: mytDay(row.startAt || ""), title: row.title,
-    at: readableTime(row.startAt, row.timeLabel), why: row.decisiveVariable,
+    at: calendarTimePresentation(row.startAt, row.timeLabel, mytDay(row.startAt || "")).timeText,
+    sortAt: calendarTimePresentation(row.startAt, row.timeLabel, mytDay(row.startAt || "")).sortAt,
+    why: row.decisiveVariable,
     assets: row.affectedAssets, sourceName: row.sourceName, sourceUrl: row.sourceUrl,
     state: row.verificationState === "official" ? "Issuer confirmed" : "Provider date · unconfirmed",
     details: (row.expectedStage || "Earnings") + (row.expectation ? " · " + row.expectation : ""),
@@ -56,7 +54,7 @@ export default async function LiveMarketCalendar({ searchParams }: { searchParam
   const cutoff = new Date(Date.parse(today + "T00:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
   const entries: Entry[] = [...macro.map(fromMacro), ...earnings.events.map(fromEarnings)]
     .filter(entry => entry.day >= today && entry.day <= cutoff)
-    .sort((a, b) => a.day.localeCompare(b.day) || a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
+    .sort((a, b) => a.day.localeCompare(b.day) || a.sortAt - b.sortAt || a.title.localeCompare(b.title));
   const summary = [ism.warning, earnings.warning].filter(Boolean);
   return (
     <LiveDeskShell
