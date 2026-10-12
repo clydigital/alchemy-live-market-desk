@@ -152,6 +152,7 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
   // An explicit historical URL is a request for an exact frozen edition,
   // never permission to substitute the current Journey or Dossier.
   const requestedEditionId = typeof query.edition === "string" ? query.edition : null;
+  const presenterEditionIndex = buildCanonicalEditionIndex(presenterEditions, data.researchRuns);
   const presenterEditionSelection = selectHybridEditionForRequest(
     presenterEditions,
     data.researchRuns,
