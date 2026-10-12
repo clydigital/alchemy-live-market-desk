@@ -13,7 +13,7 @@ export const deskRoutes: LiveDeskRoute[] = [
   { label: "What’s New", href: "/whats-new", description: "Material deltas, statements and intake" },
   { label: "Stories", href: "/stories", description: "Living theses inside Regimes and exact event history" },
   { label: "Articles", href: "/articles", description: "Published coverage and article memory" },
-  { label: "Hybrid Output", href: "/hybrid-output", description: "Audit the Live-to-Hybrid handoff" },
+  { label: "Hybrid handoff audit", href: "/hybrid-output", description: "Diagnostic handoff view, not the separate presenter Journey" },
 ];
 
 export const dataRoutes: LiveDeskRoute[] = [
