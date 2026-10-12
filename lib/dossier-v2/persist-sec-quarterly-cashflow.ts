@@ -101,6 +101,8 @@ export async function persistSecIssuerCashflowEvidence(
           cfoYtd:item.componentCfoYtdUsd,capexYtd:item.componentCashPpeYtdUsd,
           predecessorCfoYtd:item.predecessorCfoYtdUsd,
           predecessorCapexYtd:item.predecessorCashPpeYtdUsd,
+          capexXbrlConcepts:item.capexXbrlConcepts,
+          predecessorCapexXbrlConcepts:item.predecessorCapexXbrlConcepts,
         },derivedQuarter:{
           cfo:item.cfoUsd,capex:item.cashPpeUsd,fcf:item.simpleFcfUsd,
         },
@@ -155,6 +157,8 @@ export async function persistSecIssuerCashflowEvidence(
           periodStart:item.periodStart,periodEnd:item.periodEnd,secFilingDate:item.filedDate,
           secFilingAccession:item.currentAccession,previousFilingAccession:item.predecessorAccession,
           cfoUsd:item.cfoUsd,cashPpeUsd:item.cashPpeUsd,simpleFcfUsd:item.simpleFcfUsd,
+          capexXbrlConcepts:item.capexXbrlConcepts,
+          predecessorCapexXbrlConcepts:item.predecessorCapexXbrlConcepts,
           capexToPositiveCfo:item.capexToPositiveCfo,
           scopeCaveat:"NOT_AI_ONLY; CASH_PP&E_EXCLUDES_FINANCE_LEASE_PRINCIPAL",
           interpretationAuthority:"context_only_requires_dossier_adjudication",
