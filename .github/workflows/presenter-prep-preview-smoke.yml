@@ -1,0 +1,37 @@
+name: Presenter Prep preview smoke (temporary)
+on:
+  pull_request:
+    branches:
+      - feature/presenter-prep-navigation-v1
+  push:
+    branches:
+      - feature/presenter-prep-preview-smoke-20261012
+permissions:
+  contents: read
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned smoke browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Read-only historical + invalid edition smoke
+        env:
+          PREVIEW_URL: https://alchemy-live-market-desk-git-feature-pres-90bc65-rogue-magazine.vercel.app
+          HISTORICAL_EDITION: 77bed182-0da4-40e6-9a69-f37755a854c8
+        run: node .github/scripts/presenter-prep-preview-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: presenter-prep-browser-smoke
+          path: test-results/presenter-prep-preview/
+          if-no-files-found: ignore
+          retention-days: 3
