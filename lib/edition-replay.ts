@@ -61,36 +61,6 @@ function payloadString(payload: Record<string, unknown>, key: string) {
 }
 
 /**
- * Publishers may link each daily brief to the previous publication, even when
- * that predecessor belongs to a different clock slot or manual edition.
- * That link alone does not make the older edition a retry.
- */
-function isSameEditionRetry(newer: EditionSnapshot, previous: EditionSnapshot): boolean {
-  if (newer.research_run_id && newer.research_run_id === previous.research_run_id) return true;
-  const newerSlot = payloadString(newer.payload, "scheduleSlot");
-  const previousSlot = payloadString(previous.payload, "scheduleSlot");
-  if (newerSlot && previousSlot && newerSlot !== previousSlot) return false;
-  const newerFor = payloadString(newer.payload, "scheduledFor");
-  const previousFor = payloadString(previous.payload, "scheduledFor");
-  if (newerFor && previousFor) {
-    if (newerSlot === "manual" || previousSlot === "manual") return newerFor === previousFor;
-    const a = Date.parse(newerFor);
-    const b = Date.parse(previousFor);
-    if (Number.isFinite(a) && Number.isFinite(b)) {
-      // Morning/evening retries share a slot and its scheduled UTC date even
-      // if retried through a new research run. A later day's slot is distinct.
-      if (newerSlot && newerSlot === previousSlot) {
-        return new Date(a).toISOString().slice(0, 10) === new Date(b).toISOString().slice(0, 10);
-      }
-      return a === b;
-    }
-  }
-  // When the source carries no distinguishing schedule identity, retain the
-  // conservative existing meaning of its explicit supersedes pointer.
-  return true;
-}
-
-/**
  * An edition is a terminal daily_brief snapshot. Retry rows remain immutable in
  * storage, but are intentionally excluded from the public edition index.
  */
@@ -99,11 +69,9 @@ export function buildCanonicalEditionIndex(
   researchRuns: ResearchRunIdentity[] = [],
 ): CanonicalEditionIndexEntry[] {
   const dailyBriefs = snapshots.filter((snapshot) => snapshot.snapshot_type === "daily_brief");
-  const byId = new Map(dailyBriefs.map((snapshot) => [snapshot.id, snapshot]));
-  const supersededIds = new Set(dailyBriefs.flatMap((snapshot) => {
-    const prior = snapshot.supersedes_snapshot_id ? byId.get(snapshot.supersedes_snapshot_id) : null;
-    return prior && isSameEditionRetry(snapshot, prior) ? [prior.id] : [];
-  }));
+  const supersededIds = new Set(dailyBriefs.flatMap((snapshot) => (
+    snapshot.supersedes_snapshot_id ? [snapshot.supersedes_snapshot_id] : []
+  )));
   const runById = new Map(researchRuns.map((run) => [run.id, run]));
   const terminal = dailyBriefs
     .filter((snapshot) => !supersededIds.has(snapshot.id))
