@@ -164,6 +164,8 @@ The scheduler does not change Research Gap authority. Canonical Live still decid
 
 ## Optional external retrieval support (research process; not deployed worker) — 12 October 2026
 
+For the tested core ChatGPT research providers, backend credential requirements, source-identity checks and staged activation, consult [ChatGPT MCP ↔ deployed provider routing](CHATGPT_MCP_BACKEND_ROUTING.md). This does not make any ChatGPT-only connector a deployed Research Gap input.
+
 The **ChatGPT Notion pre-live Research Gap Gate** may use Exa or Parallel Search for source discovery, Firecrawl for extracting readable original pages/documents, and TinyFish or an authorised Opera Browser Connector session to inspect a specific interactive page. Tavily is an optional alternative only once separately connected and tested. Consult [Macro research pipeline](MACRO_RESEARCH_PIPELINE.md) and the [Notion Gate operating page](https://app.notion.com/p/3ea519b67a9481f9aa03d9767069487e).
 
 This list **does not change or instrument** the Vercel Dossier-owned Gap executor shown above. The executor's code and actual source adapter remain authoritative; ChatGPT plugin installation does not make a service available in a deployment. Any production integration needs its own reviewed implementation, secret/cost controls, tests and runtime proof.

@@ -2,6 +2,8 @@
 
 ## Purpose
 
+See [ChatGPT MCP ↔ deployed provider routing](CHATGPT_MCP_BACKEND_ROUTING.md) for the explicit division between installed ChatGPT tools, licensed backend APIs, credential setup and runtime acceptance tests.
+
 Live Desk remains the only canonical research and Story owner. The providers in this document expand discovery only; they do not create parallel Stories, write Hybrid state, or count provider overlap as independent corroboration.
 
 The scheduled path is:
