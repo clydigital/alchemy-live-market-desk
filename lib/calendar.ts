@@ -625,6 +625,49 @@ const officialScheduleFallbacks: EconomicCalendarEvent[] = [
     sourceUrl: "https://www.bls.gov/schedule/news_release/empsit.htm",
     sourceKind: "official-schedule",
   },
+  // Official BLS October 2026 schedule (primary: bls.gov/schedule/2026/10_sched_list.htm).
+  // Only a date/time backstop when the live ICS or desk release intake is missing.
+  // These records do NOT contain a forecast, previous reading or actual.
+  {
+    id: "us-bls-2026-10-14-cpi-september-2026",
+    date: "2026-10-14",
+    timeLabel: "08:30 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "Consumer Price Index for September 2026",
+    category: "Inflation",
+    impact: "High",
+    referencePeriod: "September 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Do headline and core inflation change Fed expectations, and do Treasury yields confirm the initial reaction?",
+    affectedAssets: ["USD", "US02Y", "US10Y", "SPX", "GOLD"],
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/schedule/2026/10_sched_list.htm",
+    sourceKind: "official-schedule",
+  },
+  {
+    id: "us-bls-2026-10-15-ppi-september-2026",
+    date: "2026-10-15",
+    timeLabel: "08:30 ET",
+    country: "United States",
+    g7Markets: ["United States"],
+    event: "Producer Price Index for September 2026",
+    category: "Inflation",
+    impact: "High",
+    referencePeriod: "September 2026",
+    status: "Scheduled",
+    actual: null,
+    consensus: null,
+    previous: null,
+    decidingQuestion: "Does producer-price inflation reinforce or contradict CPI, and could it change the next PCE/Fed interpretation?",
+    affectedAssets: ["USD", "US02Y", "US10Y", "SPX"],
+    sourceName: "U.S. Bureau of Labor Statistics",
+    sourceUrl: "https://www.bls.gov/schedule/2026/10_sched_list.htm",
+    sourceKind: "official-schedule",
+  },
 ];
 
 const BLS_ICS = "https://www.bls.gov/schedule/news_release/bls.ics";
@@ -799,9 +842,31 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
   }
 }
 
+/** Only official 2026 CPI/PPI backstops are suppressed by a matching live release. */
+export function keepUncoveredBlsBackstops(
+  backstops: EconomicCalendarEvent[],
+  live: EconomicCalendarEvent[],
+  desk: EconomicCalendarEvent[],
+) {
+  const releaseFamily = (event: EconomicCalendarEvent) => {
+    const title = event.event.toLowerCase();
+    if (/consumer price index|\bcpi\b/.test(title)) return "cpi";
+    if (/producer price index|\bppi\b/.test(title)) return "ppi";
+    return null;
+  };
+  const liveAndDesk = [...live, ...desk];
+  return backstops.filter((fallback) => {
+    if (!/^us-bls-2026-10-(?:14-cpi|15-ppi)/.test(fallback.id)) return true;
+    const family = releaseFamily(fallback);
+    return !liveAndDesk.some((candidate) => candidate.country === "United States"
+      && candidate.date === fallback.date && family === releaseFamily(candidate));
+  });
+}
+
 export async function getEconomicCalendar() {
   const [blsEvents, deskEvents] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar()]);
-  const allEvents = [...scheduledEvents, ...officialScheduleFallbacks, ...blsEvents, ...deskEvents];
+  const backstops = keepUncoveredBlsBackstops(officialScheduleFallbacks, blsEvents, deskEvents);
+  const allEvents = [...scheduledEvents, ...backstops, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
 }
