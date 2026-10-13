@@ -143,3 +143,53 @@ test("canonical snapshot excludes unrouted Research Gap handoffs with no market 
     true,
   );
 });
+
+test("topic tags group eligible publisher movements without promoting unsupported headlines", () => {
+  const asOf = "2026-09-24T06:00:00.000Z";
+  const source = { id: "publisher", source_name: "Market publisher", source_type: "news", source_tier: 3, reliability_score: 76 };
+  const snapshot = buildCandidateSnapshotFromCanonicalEvidence([
+    {
+      id: "quantified-news",
+      external_evidence_id: "publisher:quantified",
+      claim_text: "Semiconductor stocks declined 3.4% as traders repriced AI demand.",
+      evidence_class: "news_report",
+      published_at: "2026-09-24T05:00:00.000Z",
+      available_at: "2026-09-24T05:05:00.000Z",
+      affected_topics: ["ai-pricing"],
+      affected_assets: ["SMH"],
+      provenance_urls: ["https://example.org/quantified"],
+      source,
+    },
+    {
+      id: "unquantified-news",
+      external_evidence_id: "publisher:unquantified",
+      claim_text: "Microsoft outlines an AI chip strategy that could challenge Nvidia.",
+      evidence_class: "news_report",
+      published_at: "2026-09-24T05:02:00.000Z",
+      available_at: "2026-09-24T05:06:00.000Z",
+      affected_topics: ["ai-pricing"],
+      affected_assets: ["MSFT", "NVDA"],
+      source,
+    },
+    {
+      id: "low-quality-news",
+      external_evidence_id: "publisher:low-quality",
+      claim_text: "Semiconductor stocks declined 6.5% on reported financing trouble.",
+      evidence_class: "news_report",
+      published_at: "2026-09-24T05:07:00.000Z",
+      available_at: "2026-09-24T05:08:00.000Z",
+      affected_topics: ["ai-pricing"],
+      affected_assets: ["SMH"],
+      source: {...source,id: "low-quality",source_name: "Discovery commentary",reliability_score: 64},
+    },
+  ], {asOf,lookbackHours:24});
+  const direct = snapshot.snapshot.observed_evidence ?? [];
+  const leads = snapshot.snapshot.research_leads ?? [];
+  const admitted = direct.find((item) => item.evidence_id === "publisher:quantified");
+  assert.equal(admitted?.source_type,"NEWS_MARKET_CONTEXT");
+  assert.equal(admitted?.grouping_key,"ai-pricing");
+  assert.equal(admitted?.canonical_record_backed,true);
+  assert.ok(leads.some((item) => item.lead_id === "publisher:unquantified"));
+  assert.ok(leads.some((item) => item.lead_id === "publisher:low-quality"));
+  assert.ok(!direct.some((item) => ["publisher:unquantified","publisher:low-quality"].includes(item.evidence_id)));
+});
