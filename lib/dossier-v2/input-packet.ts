@@ -1503,6 +1503,10 @@ export function assembleDossierV2InputPacket(
     .filter((lead) => !selectedLeadIds.has(lead.lead_id))
     .slice(0, MAX_STANDALONE_RESEARCH_LEADS);
   researchLeads.push(...standaloneResearchLeads);
+  // Selected research questions were previously counted as omitted when
+  // their standalone clusters lost the 24-cluster selection. Reconcile that
+  // accounting; any later byte-cap eviction adds them back to the count.
+  omittedLeadsCount = Math.max(0, omittedLeadsCount - standaloneResearchLeads.length);
   const protectedResearchLeadIds = new Set(standaloneResearchLeads.map((lead) => lead.lead_id));
 
   observedEvidence.push(
