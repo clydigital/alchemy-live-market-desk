@@ -8,6 +8,7 @@ import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/compone
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
+import { resolveMarketRegions } from "@/lib/market-regions";
 import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
 import { Badge, Panel, formatDeskDate } from "@/components/live-desk/LiveDeskUi";
@@ -253,6 +254,11 @@ export default async function Page({ searchParams }: PageProps) {
     const regime = item.primary_regime_slug ? getRegimeDefinition(item.primary_regime_slug) : null;
     const attention = marketMotionAttention(item);
     return {
+      ...resolveMarketRegions({
+        headline: item.headline,
+        primaryRegion: item.metadata?.primary_region ?? item.metadata?.primaryRegion,
+        affectedRegions: item.metadata?.affected_regions ?? item.metadata?.affectedRegions,
+      }),
       attentionTier: attention.tier,
       attentionScore: attention.score,
       writingPotential: attention.writingPotential,
