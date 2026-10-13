@@ -110,6 +110,7 @@ import {
 import { buildSystem1ResearchAttention } from "@/lib/intelligence/system1-research-attention";
 import {
   evaluateCanonicalStoryRecruitment,
+  topicSlugsFromCanonicalRoutes,
   type CanonicalStoryForRecruitment,
   type StoryRecruitmentDecision,
 } from "@/lib/intelligence/story-recruitment";
@@ -991,7 +992,7 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
       published_at: item.published_at,
       available_at: item.published_at,
       affected_assets: canonicalAffectedAssets,
-      affected_topics: item.affected_story_slugs ?? [],
+      affected_topics: topicSlugsFromCanonicalRoutes(item.affected_story_slugs ?? [], routing),
       confidence: clamp((item.source_quality * 0.55) + (item.materiality * 0.25) + (item.relevance * 0.2)),
       freshness_status: "current",
       content_hash: hash(`${item.item_key}|${item.summary}|${item.published_at}`, 64),
