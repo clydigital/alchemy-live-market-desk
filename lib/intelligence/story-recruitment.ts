@@ -311,3 +311,15 @@ export function recruitCanonicalStories(
 ): StoryRecruitmentRoute[] {
   return evaluateCanonicalStoryRecruitment(input, stories).routes;
 }
+
+/**
+ * Persist only existing canonical Story routes as affected_topics.
+ * Topic propagation never changes source admission or creates a new Story route.
+ * An unresolved/ambiguous recruitment decision adds no inferred topic.
+ */
+export function topicSlugsFromCanonicalRoutes(
+  originalSlugs: string[],
+  decision: StoryRecruitmentDecision,
+): string[] {
+  return [...new Set([...originalSlugs, ...decision.routes.map((route) => route.storySlug)])];
+}
