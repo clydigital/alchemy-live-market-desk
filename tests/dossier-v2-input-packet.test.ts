@@ -1063,6 +1063,123 @@ test("20b. balanced cluster selection preserves macro spine and fresh non-monito
   assert.match(packet.diagnostics.notes.join("\n"), /Balanced cluster selection retained 14 market-monitor clusters and 10 non-monitor research clusters/);
 });
 
+test("20c. two admitted publisher developments survive 24-cluster saturation without displacing the macro spine", () => {
+  const macroNames = [
+    "us2y", "us30y-fred", "us20y-fred", "us5y-fred", "us10y",
+    "spx", "smh", "dxy", "usdjpy", "nikkei", "kospi", "hang-seng", "gold", "wti",
+  ];
+  const facts: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...macroNames.map((id) => ({
+      evidence_id: `market-monitor:${id}:2026-03-31`,
+      claim_or_fact: `Measured ${id} market level`,
+      grouping_key: `market-monitor:${id}`,
+      source_type: "MARKET_DATA",
+      rank: 2,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "MARKET_DATA", source_id: id }],
+    })),
+    ...Array.from({ length: 18 }, (_, i) => ({
+      evidence_id: `official:${i}`,
+      claim_or_fact: `Official dated rates data ${i}`,
+      grouping_key: `official:${String(i).padStart(2, "0")}`,
+      source_type: "OFFICIAL_DATA",
+      canonical_record_backed: true,
+      rank: 3,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "OFFICIAL_DATA", source_id: `official-${i}` }],
+    })),
+    ...[
+      ["bank-earnings", "Verified publisher describes bank earnings and a 2.5% equity reaction."],
+      ["ai-chip-market", "Verified publisher measures semiconductor index 4% lower after competition news."],
+    ].map(([id, fact]) => ({
+      evidence_id: `publisher:${id}`,
+      claim_or_fact: fact,
+      grouping_key: `publisher:${id}`,
+      source_type: "NEWS_MARKET_CONTEXT",
+      is_admitted_fact: true,
+      canonical_record_backed: true,
+      rank: 52,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "NEWS", source_id: id, url: `https://example.org/${id}` }],
+    })),
+    {
+      evidence_id: "publisher:unverified",
+      claim_or_fact: "Creator opinion about a rumored chip collapse.",
+      grouping_key: "publisher:unverified",
+      source_type: "NEWS_MARKET_CONTEXT",
+      is_admitted_fact: false,
+      canonical_record_backed: false,
+      rank: 1,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "NEWS", source_id: "unverified" }],
+    },
+    {
+      evidence_id: "publisher:future",
+      claim_or_fact: "Future market movement with 9% change.",
+      grouping_key: "publisher:future",
+      source_type: "NEWS_MARKET_CONTEXT",
+      is_admitted_fact: true,
+      canonical_record_backed: true,
+      rank: 1,
+      available_at: FUTURE_TIME,
+      provenance: [{ source_type: "NEWS", source_id: "future" }],
+    },
+  ];
+  const packet = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    { observed_evidence: facts },
+  );
+  const selected = new Set(packet.development_clusters.map((c) => c.grouping_key));
+  assert.equal(packet.development_clusters.length, 24);
+  assert.ok(selected.has("publisher:bank-earnings"));
+  assert.ok(selected.has("publisher:ai-chip-market"));
+  assert.ok(!selected.has("publisher:unverified"));
+  assert.ok(!selected.has("publisher:future"));
+  for (const id of macroNames) {
+    assert.ok(selected.has(`market-monitor:${id}`), `macro spine ${id} retained`);
+  }
+  assert.equal(packet.development_clusters.filter((c) => c.evidence.some((e) =>
+    e.canonical_record_backed === true && e.source_type === "NEWS_MARKET_CONTEXT",
+  )).length, 2);
+  assert.match(packet.diagnostics.notes.join("\n"), /Already-admitted canonical market-news development coverage: 2\/2 candidate clusters/);
+  assert.ok(packet.diagnostics.omitted_clusters_count > 0);
+  assert.ok(packet.observed_evidence.every((e) => e.evidence_id !== "publisher:unverified"));
+  // Inclusion makes news visible for adjudication. It is not an approved
+  // Story, verified issuer claim, or proven explanation of stock returns.
+});
+
+test("20d. a merely reported or monitor-only story cannot claim the canonical news reservation", () => {
+  const candidates: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({ length: 32 }, (_, i) => ({
+      evidence_id: `primary:${i}`,
+      claim_or_fact: `Primary source ${i}`,
+      grouping_key: `primary:${String(i).padStart(2, "0")}`,
+      source_type: "OFFICIAL_DATA",
+      rank: 2,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "OFFICIAL_DATA", source_id: `p${i}` }],
+    })),
+    {
+      evidence_id: "news:noncanonical",
+      claim_or_fact: "Publisher reports an index moved 5%, but the record is not backed by the ledger.",
+      grouping_key: "news:noncanonical",
+      source_type: "NEWS_MARKET_CONTEXT",
+      is_admitted_fact: true,
+      canonical_record_backed: false,
+      rank: 80,
+      available_at: IN_WINDOW_TIME,
+      provenance: [{ source_type: "NEWS", source_id: "noncanonical" }],
+    },
+  ];
+  const packet = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    { observed_evidence: candidates },
+  );
+  assert.equal(packet.development_clusters.length, 24);
+  assert.equal(packet.development_clusters.some((c) => c.grouping_key === "news:noncanonical"), false);
+  assert.match(packet.diagnostics.notes.join("\n"), /Already-admitted canonical market-news development coverage: 0\/0 candidate clusters/);
+});
+
 test("21. source inspection confirms no forbidden runtime/model/Hybrid/Story/scheduling/publication imports", () => {
   const filePath = path.join(process.cwd(), "lib/dossier-v2/input-packet.ts");
   const content = fs.readFileSync(filePath, "utf8");
@@ -1402,7 +1519,7 @@ test("25. explicit-instrument market news is admitted with its canonical packet 
 });
 
 
-test("26. promoted Motion Evidence pin survives bounded Dossier cluster selection", () => {
+test("26. promoted Motion Evidence pin is ranked first under bounded publisher selection", () => {
   const officialRows: CanonicalEvidenceRow[] = Array.from({ length: 30 }, (_, index) => ({
     id: `official-${index}`,
     external_evidence_id: `official:${index}`,
@@ -1450,21 +1567,54 @@ test("26. promoted Motion Evidence pin survives bounded Dossier cluster selectio
     },
   };
 
+  // Two higher-quality independently grouped market-news observations
+  // occupy the new bounded publisher slots. The lower-ranked NVDA item
+  // still requires its exact promoted-Motion Evidence pin to be guaranteed.
+  const strongerPublisherRows: CanonicalEvidenceRow[] = [
+    ["bank-profit", "US bank shares rose 2.5% after verified earnings disclosures."],
+    ["chip-breadth", "Semiconductor index fell 4.0% during the reported market selloff."],
+  ].map(([key, headline]) => ({
+    id: `higher-news-${key}`,
+    external_evidence_id: `research-intake:${key}`,
+    claim_text: headline,
+    evidence_class: "news_report",
+    published_at: IN_WINDOW_TIME,
+    available_at: IN_WINDOW_TIME,
+    received_at: IN_WINDOW_TIME,
+    freshness_status: "current",
+    affected_assets: [key],
+    affected_topics: [`report-${key}`],
+    provenance_urls: [`https://example.org/news/${key}`],
+    structured_payload: { evidenceNature: "fresh_news" },
+    source: {
+      id: `higher-news-source-${key}`,
+      source_name: "Original Market Reporter",
+      source_type: "news",
+      source_tier: 1,
+      reliability_score: 95,
+    },
+  }));
+
   const unpinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
-    [...officialRows, pinned],
+    [...officialRows, ...strongerPublisherRows, pinned],
     { asOf: TEST_AS_OF },
   );
   const unpinnedPacket = assembleDossierV2InputPacket(
     { as_of: TEST_AS_OF, previous_dossier_id: null },
     unpinnedSnapshot.snapshot,
   );
-  assert.equal(
-    unpinnedPacket.observed_evidence.some((item) => item.evidence_id === "research-intake:nvda-ath"),
-    false,
-  );
+  // An already-admitted factual publisher observation may now be selected
+  // without a Motion pin. That never makes an unverified lead canonical.
+  const ordinaryNews = unpinnedPacket.observed_evidence.find((item) =>
+    item.evidence_id === "research-intake:nvda-ath");
+  if (ordinaryNews) {
+    assert.equal(ordinaryNews.canonical_record_backed, true);
+    assert.equal(ordinaryNews.source_type, "NEWS_MARKET_CONTEXT");
+    assert.notEqual(ordinaryNews.rank, 1);
+  }
 
   const pinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
-    [...officialRows, pinned],
+    [...officialRows, ...strongerPublisherRows, pinned],
     { asOf: TEST_AS_OF, pinnedEvidenceIds: ["pinned-nvda-evidence"] },
   );
   const pinnedPacket = assembleDossierV2InputPacket(

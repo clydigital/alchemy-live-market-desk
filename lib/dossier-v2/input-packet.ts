@@ -305,6 +305,9 @@ export interface DossierV2InputPacket {
 const MAX_DEVELOPMENT_CLUSTERS = 24;
 const MAX_MARKET_MONITOR_CLUSTERS = 14;
 const TARGET_NON_MONITOR_CLUSTERS = 10;
+// Reserve bounded space for already-admitted, source-linked market reporting;
+// market monitors and low-ranked unverified leads must not crowd it out.
+const TARGET_RECENT_CANONICAL_NEWS_CLUSTERS = 2;
 const MAX_EVIDENCE_PER_CLUSTER = 6;
 const MAX_LEADS_PER_CLUSTER = 3;
 const MAX_TOTAL_OBSERVED_EVIDENCE = 72;
@@ -422,6 +425,13 @@ function isMarketMonitorCluster(cluster: DevelopmentCluster) {
   return cluster.grouping_key.startsWith("market-monitor:");
 }
 
+function isAdmittedCanonicalNewsCluster(cluster: DevelopmentCluster) {
+  return cluster.evidence.some((item) =>
+    item.canonical_record_backed === true
+    && item.source_type === "NEWS_MARKET_CONTEXT"
+    && item.provenance.length > 0);
+}
+
 function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
   if (candidateClusters.length <= MAX_DEVELOPMENT_CLUSTERS) {
     return candidateClusters;
@@ -442,7 +452,22 @@ function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster
   }
 
   const nonMonitor = candidateClusters.filter((cluster) => !isMarketMonitorCluster(cluster));
-  for (const cluster of nonMonitor.slice(0, TARGET_NON_MONITOR_CLUSTERS)) {
+
+  // Publisher reports are admitted upstream only if their factual,
+  // source-backed market observation passes the strict news gate. This is a
+  // representation guarantee inside the existing 24-cluster cap, NOT a new
+  // news-to-evidence promotion rule. The clusters are already ranked.
+  // Distinct groups avoid giving multiple slots to one identical development.
+  // Keep the normal non-monitor quota after these two reservations.
+  let recentCanonicalNewsSelected = 0;
+  for (const cluster of nonMonitor) {
+    if (recentCanonicalNewsSelected >= TARGET_RECENT_CANONICAL_NEWS_CLUSTERS) break;
+    if (!isAdmittedCanonicalNewsCluster(cluster)) continue;
+    add(cluster);
+    recentCanonicalNewsSelected += 1;
+  }
+  for (const cluster of nonMonitor) {
+    if (selected.filter((item) => !isMarketMonitorCluster(item)).length >= TARGET_NON_MONITOR_CLUSTERS) break;
     add(cluster);
   }
 
@@ -1436,8 +1461,13 @@ export function assembleDossierV2InputPacket(
       omittedEvidenceCount += omittedCluster.evidence.length;
       omittedLeadsCount += omittedCluster.leads.length;
     }
+    const canonicalNewsCandidateCount = candidateClusters.filter(isAdmittedCanonicalNewsCluster).length;
+    const canonicalNewsSelectedCount = developmentClusters.filter(isAdmittedCanonicalNewsCluster).length;
     notes.push(
       `Balanced cluster selection retained ${developmentClusters.filter(isMarketMonitorCluster).length} market-monitor clusters and ${developmentClusters.filter((cluster) => !isMarketMonitorCluster(cluster)).length} non-monitor research clusters.`,
+    );
+    notes.push(
+      `Already-admitted canonical market-news development coverage: ${canonicalNewsSelectedCount}/${canonicalNewsCandidateCount} candidate clusters within the existing 24-cluster budget; reporting is context only, not independent proof of a causal mechanism.`,
     );
   }
 
