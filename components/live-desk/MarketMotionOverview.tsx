@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+
+import { MARKET_REGIONS, matchesMarketRegion, type MarketRegion, type MarketRegionFilter } from "@/lib/market-regions";
 
 import type {
   MarketMotionAttentionTier,
@@ -13,6 +18,9 @@ export type MarketMotionOverviewItem = {
   id: string;
   headline: string;
   category: string;
+  /** Geographic view labels only; never canonical Evidence or Regime authority. */
+  primaryRegion?: MarketRegion;
+  affectedRegions?: MarketRegion[];
   lifecycleState: MarketMotionLifecycleState;
   verificationState: MarketMotionVerificationState;
   attentionTier: MarketMotionAttentionTier;
@@ -144,6 +152,12 @@ function MotionCard({
           {item.attentionTier} · {item.attentionScore}
         </span>
         <span>{item.category.replaceAll("_", " ")}</span>
+        <span className={styles.regionTag} title="Geographic view label, not an accepted Dossier judgement">
+          {item.primaryRegion === "Other" && (item.affectedRegions?.length ?? 0) > 1
+            ? "Cross-region"
+            : item.primaryRegion ?? "Other"}
+          {(item.affectedRegions?.length ?? 0) > 1 ? ` · ${item.affectedRegions?.join(" / ")}` : ""}
+        </span>
         <span data-state={item.lifecycleState.toLowerCase()}>{item.lifecycleState}</span>
         <span data-verification={verificationTone(item.verificationState)}>{item.verificationState}</span>
         <time dateTime={item.occurredAt}>{shortDate(item.occurredAt)} MYT</time>
@@ -281,20 +295,27 @@ export default function MarketMotionOverview({
   journeyMode?: boolean;
   leadOnly?: boolean;
 }) {
-  const regimeRollup = journeyMode ? buildMarketMotionRegimeRollup(items) : [];
+  // Client-side filtering changes only which already selected Motion cards are
+  // displayed; it never re-ranks, promotes, fetches or mutates historical editions.
+  const [region, setRegion] = useState<MarketRegionFilter>("All");
+  const visibleItems = items.filter((item) => matchesMarketRegion({
+    primaryRegion: item.primaryRegion ?? "Other",
+    affectedRegions: item.affectedRegions ?? ["Other"],
+  }, region));
+  const regimeRollup = journeyMode ? buildMarketMotionRegimeRollup(visibleItems) : [];
 
   const groups = [
     {
       tier: "PRIMARY" as const,
       title: leadOnly ? "Priority leads — unverified" : "Primary Motion",
       description: leadOnly ? "Research priority, not proof. These claims are not source-verified." : "The developments most likely to change today's narrative, create an article angle, or demand immediate follow-up.",
-      items: items.filter((item) => item.attentionTier === "PRIMARY"),
+      items: visibleItems.filter((item) => item.attentionTier === "PRIMARY"),
     },
     {
       tier: "SECONDARY" as const,
       title: leadOnly ? "Other unverified leads" : "Secondary Motion",
       description: leadOnly ? "Discovery context only. Do not treat these as established developments." : "Useful smaller developments and supporting details that add texture without dominating the current tape.",
-      items: items.filter((item) => item.attentionTier === "SECONDARY"),
+      items: visibleItems.filter((item) => item.attentionTier === "SECONDARY"),
     },
   ].filter((group) => group.items.length);
 
@@ -309,6 +330,25 @@ export default function MarketMotionOverview({
         {showFullTapeLink ? <Link href="/whats-new">Open full motion tape →</Link> : null}
       </header>
 
+      {items.length ? (
+        <div className={styles.regionFilter}>
+          <div className={styles.regionButtons} role="group" aria-label="Filter Motion by market region">
+            {(["All", ...MARKET_REGIONS] as MarketRegionFilter[]).map((option) => (
+              <button
+                type="button"
+                key={option}
+                aria-pressed={region === option}
+                className={region === option ? styles.regionActive : ""}
+                onClick={() => setRegion(option)}
+              >
+                {option === "All" ? "All regions" : option}
+              </button>
+            ))}
+          </div>
+          <small>{visibleItems.length} of {items.length} Motion · geographic view only</small>
+        </div>
+      ) : null}
+
       {journeyMode && regimeRollup.length ? (
         <div className={styles.regimeRollup}>
           <div className={styles.regimeRollupIntro}>
@@ -317,7 +357,7 @@ export default function MarketMotionOverview({
             <p>
               Only canonical Dossier ACCEPT/REFINE judgements appear here. Direct Regime routes
               stay separate from Story-routed read-through, and neither label turns raw Motion
-              into evidence or a Regime state change by itself.
+              into evidence or a Regime state change by itself. The regional filter only changes the visible read-through.
             </p>
           </div>
 
@@ -365,7 +405,7 @@ export default function MarketMotionOverview({
         </div>
       ) : null}
 
-      {items.length ? groups.map((group) => (
+      {visibleItems.length ? groups.map((group) => (
         <div className={styles.tierGroup} key={group.tier}>
           <div className={styles.tierHead}>
             <div>
@@ -380,7 +420,11 @@ export default function MarketMotionOverview({
           </div>
         </div>
       )) : (
-        <div className={styles.empty}>{emptyText}</div>
+        <div className={styles.empty}>
+          {items.length
+            ? `No selected Motion matches ${region}. Select All regions to restore the original view.`
+            : emptyText}
+        </div>
       )}
     </section>
   );
