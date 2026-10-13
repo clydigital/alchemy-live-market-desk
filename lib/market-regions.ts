@@ -9,6 +9,12 @@ export const MARKET_REGIONS = ["Asia", "Europe", "US", "Other"] as const;
 export type MarketRegion = (typeof MARKET_REGIONS)[number];
 export type MarketRegionFilter = "All" | MarketRegion;
 
+/** Normalise user-facing URL filters; never allow unknown URLs to hide data. */
+export function marketRegionFromQuery(value: string | null): MarketRegionFilter {
+  if (!value) return "All";
+  return MARKET_REGIONS.find((region) => region.toLowerCase() === value.trim().toLowerCase()) ?? "All";
+}
+
 export type MarketRegionAssignment = {
   primaryRegion: MarketRegion;
   affectedRegions: MarketRegion[];
