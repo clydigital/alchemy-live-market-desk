@@ -101,6 +101,11 @@ const LARGE_CAP_PROXY = [
   "AAPL","MSFT","AMZN","GOOGL","META","NVDA","TSLA","BRK-B","JPM","V","MA","UNH","LLY","XOM","CVX","JNJ","PG","HD","COST","WMT","ABBV","KO","PEP","MRK","BAC","CRM","ORCL","CSCO","ACN","MCD","NFLX","AMD","INTC","QCOM","TXN","AVGO","IBM","GE","CAT","BA","HON","UPS","RTX","LMT","NOC","GS","MS","BLK","C","WFC","SPGI","AXP","TMO","DHR","ABT","AMGN","GILD","PFE","BMY","MDT","ISRG","LOW","NKE","SBUX","BKNG","DIS","CMCSA","T","VZ","NEE","DUK","SO","COP","SLB","EOG","LIN","APD","MMM","DE","GM","F","UNP","FDX","ADBE","NOW","PANW","CRWD","MU","AMAT","LRCX","KLAC","ASML","TSM","PLTR","UBER","ABNB","PYPL","INTU","SNOW"
 ];
 
+// A derived subset of the existing large-cap PROXY universe, excluding only
+// tracked AI-infrastructure names. This is not a full S&P 500 ex-AI index:
+// other untracked AI-exposed constituents may remain.
+const LARGE_CAP_EX_TRACKED_AI_PROXY = LARGE_CAP_PROXY.filter((symbol) => !AI_BASKET.includes(symbol));
+
 const STOCK_SYMBOL_OVERRIDES: Record<string, string> = { "BRK-B": "BRK.B" };
 
 const EIA_SERIES = {
@@ -517,6 +522,14 @@ async function loadMarketData(): Promise<MarketData> {
     breadthSnapshot(stockHistories, "large-cap", "US large-cap proxy", LARGE_CAP_PROXY),
     breadthSnapshot(stockHistories, "ai-basket", "AI infrastructure basket", AI_BASKET),
     breadthSnapshot(stockHistories, "mag7", "Magnificent Seven", MAG7),
+    // Noncanonical diagnostic of breadth away from the *tracked* AI group.
+    // Reuses exact Nasdaq histories above: no extra vendor or price synthesis.
+    breadthSnapshot(
+      stockHistories,
+      "large-cap-ex-tracked-ai",
+      "US large-cap proxy · excluding tracked AI basket",
+      LARGE_CAP_EX_TRACKED_AI_PROXY,
+    ),
   ];
 
   const energyHistories = new Map<string, PricePoint[]>([
