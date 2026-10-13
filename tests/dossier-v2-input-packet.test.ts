@@ -1519,7 +1519,7 @@ test("25. explicit-instrument market news is admitted with its canonical packet 
 });
 
 
-test("26. promoted Motion Evidence pin survives bounded Dossier cluster selection", () => {
+test("26. promoted Motion Evidence pin is ranked first under bounded publisher selection", () => {
   const officialRows: CanonicalEvidenceRow[] = Array.from({ length: 30 }, (_, index) => ({
     id: `official-${index}`,
     external_evidence_id: `official:${index}`,
@@ -1603,10 +1603,15 @@ test("26. promoted Motion Evidence pin survives bounded Dossier cluster selectio
     { as_of: TEST_AS_OF, previous_dossier_id: null },
     unpinnedSnapshot.snapshot,
   );
-  assert.equal(
-    unpinnedPacket.observed_evidence.some((item) => item.evidence_id === "research-intake:nvda-ath"),
-    false,
-  );
+  // An already-admitted factual publisher observation may now be selected
+  // without a Motion pin. That never makes an unverified lead canonical.
+  const ordinaryNews = unpinnedPacket.observed_evidence.find((item) =>
+    item.evidence_id === "research-intake:nvda-ath");
+  if (ordinaryNews) {
+    assert.equal(ordinaryNews.canonical_record_backed, true);
+    assert.equal(ordinaryNews.source_type, "NEWS_MARKET_CONTEXT");
+    assert.notEqual(ordinaryNews.rank, 1);
+  }
 
   const pinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
     [...officialRows, ...strongerPublisherRows, pinned],
