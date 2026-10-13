@@ -128,6 +128,32 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <div><span>PARTIAL DATA</span><strong>{gapCount}</strong></div>
     </section>
 
+    {monitor.breadth.length ? <section className={styles.breadthPanel} aria-label="Measured breadth participation">
+      <header><span>MARKET PARTICIPATION · DIAGNOSTIC ONLY</span><h2>Source-dated breadth comparison</h2>
+        <p>Nasdaq constituent histories only. Coverage shows the actual eligible sample, not an assumed full index. These comparisons do not change the canonical Dossier verdict.</p></header>
+      <div className={styles.breadthTableWrap}><table>
+        <thead><tr><th>Universe</th><th>As of</th><th>Eligible / target</th><th>Above 50D</th><th>Above 200D</th><th>1-week 50D change</th></tr></thead>
+        <tbody>{monitor.breadth.map((snapshot) => {
+          const hasDate = Boolean(snapshot.current.asOf);
+          const sufficientlyCovered = hasDate
+            && snapshot.current.sampleSize >= Math.max(10, Math.ceil(snapshot.targetSize * 0.6));
+          const weekChange = snapshot.current.above50 - snapshot.weekAgo.above50;
+          return <tr key={snapshot.id} data-coverage={sufficientlyCovered ? "measured" : "insufficient"}>
+            <td><strong>{snapshot.label}</strong>{snapshot.id === "large-cap-ex-tracked-ai"
+              ? <small>Excludes only tracked AI basket names; not the full S&amp;P 500 ex-AI universe</small>
+              : null}</td>
+            <td>{snapshot.current.asOf ?? "UNAVAILABLE"}</td>
+            <td>{snapshot.current.sampleSize} / {snapshot.targetSize}{sufficientlyCovered ? "" : " · INSUFFICIENT"}</td>
+            <td>{sufficientlyCovered ? `${snapshot.current.above50.toFixed(0)}%` : "—"}</td>
+            <td>{sufficientlyCovered ? `${snapshot.current.above200.toFixed(0)}%` : "—"}</td>
+            <td>{sufficientlyCovered && snapshot.weekAgo.sampleSize > 0
+              ? `${weekChange >= 0 ? "+" : ""}${weekChange.toFixed(0)}pp` : "—"}</td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+      <p className={styles.breadthFootnote}>Percentages are of eligible measured stocks, not every index constituent. Missing or sparse Nasdaq histories are not treated as zero breadth. The US large-cap series is a fixed proxy basket, not an official S&amp;P index calculation.</p>
+    </section> : null}
+
     <section className={styles.terminal}>
       <header className={styles.terminalHead}>
         <div><span>CROSS-ASSET TERMINAL</span><h2>Prices, momentum and anomalies</h2><p>Attention Score ranks what deserves a research look first. It is not a trading signal.</p></div>
