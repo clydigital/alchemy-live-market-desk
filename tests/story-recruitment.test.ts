@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   evaluateCanonicalStoryRecruitment,
   recruitCanonicalStories,
+  topicSlugsFromCanonicalRoutes,
   type CanonicalStoryForRecruitment,
 } from "../lib/intelligence/story-recruitment.ts";
 
@@ -305,4 +306,9 @@ test("runtime persists the shared routing diagnostic without a trigger-specific 
   assert.match(runtime, /acquisitionMateriality: item\.materiality/);
   assert.match(runtime, /storyRouting: routing\.diagnostic/);
   assert.doesNotMatch(runtime, /allowAssetRecruitment:[\s\S]{0,160}item\.materiality\s*>=\s*70/);
+});
+
+test("inferred topics reuse unambiguous Story route", () => {
+  const decision = evaluateCanonicalStoryRecruitment({affectedStorySlugs:[],affectedAssets:["US02Y","SPX"],allowAssetRecruitment:true,acquisitionMateriality:75}, [story({id:"fed",slug:"fed",assets:["US02Y","SPX"]})]);
+  assert.deepEqual(topicSlugsFromCanonicalRoutes([],decision),["fed"]);
 });
