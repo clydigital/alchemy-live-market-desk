@@ -1141,7 +1141,7 @@ test("20c. two admitted publisher developments survive 24-cluster saturation wit
   assert.equal(packet.development_clusters.filter((c) => c.evidence.some((e) =>
     e.canonical_record_backed === true && e.source_type === "NEWS_MARKET_CONTEXT",
   )).length, 2);
-  assert.match(packet.diagnostics.notes.join("\\n"), /Already-admitted canonical market-news development coverage: 2\\/2 candidate clusters/);
+  assert.match(packet.diagnostics.notes.join("\n"), /Already-admitted canonical market-news development coverage: 2\/2 candidate clusters/);
   assert.ok(packet.diagnostics.omitted_clusters_count > 0);
   assert.ok(packet.observed_evidence.every((e) => e.evidence_id !== "publisher:unverified"));
   // Inclusion makes news visible for adjudication. It is not an approved
@@ -1177,7 +1177,7 @@ test("20d. a merely reported or monitor-only story cannot claim the canonical ne
   );
   assert.equal(packet.development_clusters.length, 24);
   assert.equal(packet.development_clusters.some((c) => c.grouping_key === "news:noncanonical"), false);
-  assert.match(packet.diagnostics.notes.join("\\n"), /Already-admitted canonical market-news development coverage: 0\\/0 candidate clusters/);
+  assert.match(packet.diagnostics.notes.join("\n"), /Already-admitted canonical market-news development coverage: 0\/0 candidate clusters/);
 });
 
 test("21. source inspection confirms no forbidden runtime/model/Hybrid/Story/scheduling/publication imports", () => {
