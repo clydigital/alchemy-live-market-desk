@@ -1704,13 +1704,13 @@ test("20e. three sourced research questions survive saturated clusters without d
 test("20f. the three-lead reserve is shared with leads already retained by evidence clusters", () => {
   const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
     ...Array.from({length:14}, (_,i)=>({
-      evidence_id: `market-monitor:priority-${i}`, source_type: "MARKET_DATA",
+      evidence_id: `market-monitor:priority-${i}`, source_type: "MARKET_DATA", rank: 2,
       available_at: IN_WINDOW_TIME, grouping_key: `market-monitor:priority-${i}`,
       claim_or_fact: `Measured date-specific market observation ${i}`,
       provenance: [{source_type:"MARKET_DATA",source_id:`series-${i}`}],
     })),
     ...Array.from({length:10},(_,i)=>({
-      evidence_id:`issuer:${i}`,source_type:"SEC_FILING",
+      evidence_id:`issuer:${i}`,source_type:"SEC_FILING",rank:10,
       available_at:IN_WINDOW_TIME,grouping_key:`issuer:${i}`,
       claim_or_fact:`Issuer official release ${i}`,
       provenance:[{source_type:"SEC_FILING",source_id:`filing-${i}`}],
