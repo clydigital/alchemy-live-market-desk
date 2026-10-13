@@ -191,5 +191,5 @@ test("topic tags group eligible publisher movements without promoting unsupporte
   assert.equal(admitted?.canonical_record_backed,true);
   assert.ok(leads.some((item) => item.lead_id === "publisher:unquantified"));
   assert.ok(leads.some((item) => item.lead_id === "publisher:low-quality"));
-  assert.ok(!direct.some((item) => ["publisher:unquantified","publisher:low-quality"].includes(item.evidence_id)));
+  assert.ok(!direct.some((item) => ["publisher:unquantified","publisher:low-quality"].includes(String(item.evidence_id))));
 });
