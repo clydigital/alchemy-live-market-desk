@@ -1,5 +1,6 @@
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
+import { resolveMarketRegions } from "@/lib/market-regions";
 import HybridStoryBriefReader from "@/components/live-desk/HybridStoryBriefReader";
 import PresenterDivergenceJourney from "@/components/live-desk/PresenterDivergenceJourney";
 import HybridReasoningPanel from "@/components/live-desk/HybridReasoningPanel";
@@ -231,6 +232,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
     const sourceOnly = (items: typeof motion.verified) => items.map(item => {
       const attention = marketMotionAttention(item);
       return {
+        ...resolveMarketRegions({
+          headline: item.headline,
+          primaryRegion: item.metadata?.primary_region ?? item.metadata?.primaryRegion,
+          affectedRegions: item.metadata?.affected_regions ?? item.metadata?.affectedRegions,
+        }),
         id: item.id, headline: item.headline, category: item.category,
         lifecycleState: item.lifecycle_state, verificationState: item.verification_state,
         attentionTier: attention.tier, attentionScore: attention.score,
@@ -501,6 +507,9 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       marketReaction: item.marketReaction,
     });
     return {
+      // Historical region labels are derived only from this edition's frozen
+      // headline. Never query current Motion, metadata or revised Story prose.
+      ...resolveMarketRegions({ headline: item.headline }),
       id: item.id,
       attentionTier: attention.tier,
       attentionScore: attention.score,
@@ -568,6 +577,11 @@ export default async function HybridOutputPage({ searchParams }: HybridOutputPag
       : null;
     const regime = regimeSlug ? getRegimeDefinition(regimeSlug) : null;
     return {
+      ...resolveMarketRegions({
+        headline: item.headline,
+        primaryRegion: item.metadata?.primary_region ?? item.metadata?.primaryRegion,
+        affectedRegions: item.metadata?.affected_regions ?? item.metadata?.affectedRegions,
+      }),
       id: item.id,
       attentionTier: attention.tier,
       attentionScore: attention.score,

@@ -48,6 +48,56 @@
 }
 
 
+.regionFilter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.regionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.regionButtons button {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .73rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.regionButtons button.regionActive {
+  border-color: color-mix(in srgb, var(--line) 55%, #9978df 45%);
+  background: color-mix(in srgb, var(--panel) 83%, #9978df 17%);
+  color: var(--ink);
+}
+
+.regionButtons button:focus-visible {
+  outline: 2px solid #b995ff;
+  outline-offset: 2px;
+}
+
+.regionFilter small {
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.meta .regionTag {
+  border-color: color-mix(in srgb, var(--line) 65%, #9a78df 35%);
+  color: var(--ink);
+}
+
 .regimeRollup {
   display: grid;
   gap: 10px;
