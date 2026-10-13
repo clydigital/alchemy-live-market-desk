@@ -1567,8 +1567,36 @@ test("26. promoted Motion Evidence pin survives bounded Dossier cluster selectio
     },
   };
 
+  // Two higher-quality independently grouped market-news observations
+  // occupy the new bounded publisher slots. The lower-ranked NVDA item
+  // still requires its exact promoted-Motion Evidence pin to be guaranteed.
+  const strongerPublisherRows: CanonicalEvidenceRow[] = [
+    ["bank-profit", "US bank shares rose 2.5% after verified earnings disclosures."],
+    ["chip-breadth", "Semiconductor index fell 4.0% during the reported market selloff."],
+  ].map(([key, headline]) => ({
+    id: `higher-news-${key}`,
+    external_evidence_id: `research-intake:${key}`,
+    claim_text: headline,
+    evidence_class: "news_report",
+    published_at: IN_WINDOW_TIME,
+    available_at: IN_WINDOW_TIME,
+    received_at: IN_WINDOW_TIME,
+    freshness_status: "current",
+    affected_assets: [key],
+    affected_topics: [`report-${key}`],
+    provenance_urls: [`https://example.org/news/${key}`],
+    structured_payload: { evidenceNature: "fresh_news" },
+    source: {
+      id: `higher-news-source-${key}`,
+      source_name: "Original Market Reporter",
+      source_type: "news",
+      source_tier: 1,
+      reliability_score: 95,
+    },
+  }));
+
   const unpinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
-    [...officialRows, pinned],
+    [...officialRows, ...strongerPublisherRows, pinned],
     { asOf: TEST_AS_OF },
   );
   const unpinnedPacket = assembleDossierV2InputPacket(
@@ -1581,7 +1609,7 @@ test("26. promoted Motion Evidence pin survives bounded Dossier cluster selectio
   );
 
   const pinnedSnapshot = buildCandidateSnapshotFromCanonicalEvidence(
-    [...officialRows, pinned],
+    [...officialRows, ...strongerPublisherRows, pinned],
     { asOf: TEST_AS_OF, pinnedEvidenceIds: ["pinned-nvda-evidence"] },
   );
   const pinnedPacket = assembleDossierV2InputPacket(
