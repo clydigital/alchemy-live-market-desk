@@ -12,7 +12,7 @@ test("Dossier V2 endpoint supports exact immutable replay by UUID", () => {
   assert.match(dossierRoute, /isValidUuid\(requestedId\)/);
   assert.match(dossierRoute, /getDossierV2PresentationSelectionById\(requestedId\)/);
   assert.match(dossierRoute, /historical = selection\.status === "historical_exact"/);
-  assert.match(dossierRoute, /historical\s*\? \[null, null\]/);
+  // Any explicit exact ID must suppress mutable optional monitor/StockedUp reads.\n  assert.match(dossierRoute, /const optionalReads = requestedId\s*\? Promise\.resolve\(\[null, null\] as const\)/);
   assert.match(dossierRoute, /s-maxage=3600/);
 });
 
