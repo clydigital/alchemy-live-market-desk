@@ -1629,3 +1629,74 @@ test("26. promoted Motion Evidence pin is ranked first under bounded publisher s
   assert.equal(admitted.rank, 1);
   assert.equal(admitted.source_type, "NEWS_MARKET_CONTEXT");
 });
+
+test("20e. three sourced research questions survive saturated clusters without displacing canonical facts", () => {
+  const observed: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({ length: 14 }, (_, i) => ({
+      evidence_id: `market-monitor:fixture-${i}:2026-03-31`,
+      claim_or_fact: `Measured market monitor ${i}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `market-monitor:fixture-${i}`,
+      source_type: "MARKET_DATA",
+      provenance: [{ source_type: "MARKET_DATA", source_id: `m-${i}` }],
+    })),
+    ...Array.from({ length: 10 }, (_, i) => ({
+      evidence_id: `sec:fact-${i}`,
+      claim_or_fact: `Dated audited issuer metric ${i}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `sec:fact-${i}`,
+      source_type: "SEC_FILING",
+      provenance: [{ source_type: "SEC_FILING", source_id: `sec-${i}` }],
+    })),
+  ];
+  const leads: NonNullable<CandidateSnapshot["research_leads"]> = [
+    ...Array.from({ length: 5 }, (_, i) => ({
+      lead_id: `lead:issuer-${i}`,
+      claim_or_question: `Verify material reported earnings or financing claim ${i} against issuer results.`,
+      available_at: `2026-03-31T0${i}:00:00.000Z`,
+      grouping_key: `unresolved:issuer-${i}`,
+      source_type: "RESEARCH_LEAD",
+      urgency: i < 2 ? "HIGH" : "MEDIUM",
+      provenance: [{ source_type: "RESEARCH_LEAD", source_id: `publisher-${i}`, url: `https://example.org/issuer-${i}` }],
+    })),
+    {
+      lead_id: "lead:unsourced",
+      claim_or_question: "Rumour with no provenance",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "unresolved:rumour",
+      source_type: "RESEARCH_LEAD",
+      urgency: "HIGH",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "rumour"}],
+    },
+    {
+      lead_id: "lead:low",
+      claim_or_question: "Low urgency discovery",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "unresolved:low",
+      source_type: "RESEARCH_LEAD",
+      urgency: "LOW",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "low", url: "https://example.org/low"}],
+    },
+    {
+      lead_id: "lead:future",
+      claim_or_question: "Cannot know tomorrow's news",
+      available_at: FUTURE_TIME,
+      grouping_key: "unresolved:future",
+      source_type: "RESEARCH_LEAD",
+      urgency: "HIGH",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "future", url: "https://example.org/future"}],
+    },
+  ];
+  const packet = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    { observed_evidence: observed, research_leads: leads },
+  );
+  assert.equal(packet.development_clusters.length, 24);
+  assert.equal(packet.development_clusters.filter((c) => c.grouping_key.startsWith("market-monitor:")).length, 14);
+  assert.equal(packet.observed_evidence.length, 24);
+  assert.ok(packet.observed_evidence.every((e) => !e.evidence_id.startsWith("lead:")));
+  assert.deepEqual(new Set(packet.research_leads.map((l) => l.lead_id)),
+    new Set(["lead:issuer-0", "lead:issuer-1", "lead:issuer-4"]));
+  assert.ok(packet.research_leads.every((l) => l.epistemic_label === undefined));
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet), "utf8") <= 200000);
+});
