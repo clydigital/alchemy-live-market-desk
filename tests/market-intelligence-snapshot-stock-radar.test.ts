@@ -25,7 +25,7 @@ function createBasePresentation(overrides: Partial<DossierPresentationV1> = {}):
       state: "healthy",
       degraded: false,
       repairUsed: false,
-      freshnessWarnings: [],
+      freshnessWarnings: [], analyticalRateCoverage: { state: "UNASSESSED", rateInputsPresent: null, rateInputsRequired: null, treasuryCurvePresent: null, treasuryCurveRequired: null, missingRateInputs: [], detail: null },
       evidenceStates: [],
       researchGaps: [],
       missingInputCategories: [],

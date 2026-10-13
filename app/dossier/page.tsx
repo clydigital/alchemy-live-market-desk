@@ -217,6 +217,23 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
           </aside>
         </section>
 
+        {["INSUFFICIENT", "PARTIAL"].includes(dossier.health.analyticalRateCoverage.state) ? (
+          <section className={[styles.notice, styles.noticeWarn].join(" ")} aria-label="US Rate Regime analytical coverage">
+            <div>
+              <span>RATE INPUT COVERAGE · {dossier.health.analyticalRateCoverage.state}</span>
+              <strong>
+                {dossier.health.analyticalRateCoverage.rateInputsPresent}/{dossier.health.analyticalRateCoverage.rateInputsRequired} required inputs
+                {dossier.health.analyticalRateCoverage.treasuryCurvePresent !== null
+                  ? ` · ${dossier.health.analyticalRateCoverage.treasuryCurvePresent}/${dossier.health.analyticalRateCoverage.treasuryCurveRequired} Treasury tenors`
+                  : ""}
+              </strong>
+            </div>
+            <aside className={styles.noticeCopy}>
+              <p>{dossier.health.analyticalRateCoverage.detail}</p>
+            </aside>
+          </section>
+        ) : null}
+
         <section className={styles.hero}>
           <div className={styles.heroKicker}>
             <span>{historicalMode ? "HISTORICAL MARKET DOSSIER" : "CURRENT MARKET DOSSIER"}</span>

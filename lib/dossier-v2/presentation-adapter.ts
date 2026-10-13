@@ -37,11 +37,23 @@ export type DossierPresentationEvidenceState = {
   message: string | null;
 };
 
+export type DossierAnalyticalRateCoverage = {
+  state: "UNASSESSED" | "COMPLETE" | "PARTIAL" | "INSUFFICIENT";
+  /** Existing persisted, bounded System 1 observations — not a live provider fetch. */
+  rateInputsPresent: number | null;
+  rateInputsRequired: number | null;
+  treasuryCurvePresent: number | null;
+  treasuryCurveRequired: number | null;
+  missingRateInputs: string[];
+  detail: string | null;
+};
+
 export type DossierPresentationHealth = {
   state: "healthy" | "degraded";
   degraded: boolean;
   repairUsed: boolean;
   freshnessWarnings: string[];
+  analyticalRateCoverage: DossierAnalyticalRateCoverage;
   evidenceStates: DossierPresentationEvidenceState[];
   researchGaps: Array<{
     id: string;
@@ -1504,6 +1516,68 @@ function evidenceIndex(output: ResearchBrainOutputV1): DossierPresentationEviden
     .sort((a, b) => a.evidenceId.localeCompare(b.evidenceId));
 }
 
+/**
+ * Reconstruct analytical *coverage* from the exact stored System 1 rate
+ * snapshot. This does not refresh, backdate, extend provider cut-offs,
+ * or infer missing Treasury observations from news or prior editions.
+ *
+ * A rates-sensitive Dossier cannot be labelled wholly healthy when most
+ * required inputs have expired. Preserve a distinct coverage diagnosis:
+ * canonical evidence integrity and missing market context are different.
+ */
+function analyticalRateCoverage(dossier: MarketDossierV2): DossierAnalyticalRateCoverage {
+  const stored = dossier.payload.system1_rate_regime;
+  const unresolved: DossierAnalyticalRateCoverage = {
+    state: "UNASSESSED",
+    rateInputsPresent: null,
+    rateInputsRequired: null,
+    treasuryCurvePresent: null,
+    treasuryCurveRequired: null,
+    missingRateInputs: [],
+    detail: null,
+  };
+  if (!isObject(stored) || !isObject(stored.coverage)) return unresolved;
+  const input = stored.coverage;
+  if (
+    input.total !== 5
+    || typeof input.present !== "number"
+    || !Number.isInteger(input.present)
+    || input.present < 0
+    || input.present > 5
+    || !Array.isArray(input.missing)
+    || input.missing.length !== 5 - input.present
+    || !input.missing.every((value) => typeof value === "string")
+  ) return unresolved;
+
+  const curve = isObject(stored.curveDiagnostic) && isObject(stored.curveDiagnostic.coverage)
+    ? stored.curveDiagnostic.coverage
+    : null;
+  const curvePresent = curve
+    && curve.total === 5
+    && typeof curve.present === "number"
+    && Number.isInteger(curve.present)
+    && curve.present >= 0
+    && curve.present <= 5
+      ? curve.present
+      : null;
+  const insufficient = input.present < 3 || (curvePresent !== null && curvePresent < 3);
+  const partial = input.present < 5 || (curvePresent !== null && curvePresent < 5);
+  const state = insufficient ? "INSUFFICIENT" : partial ? "PARTIAL" : "COMPLETE";
+  const missingRateInputs = input.missing as string[];
+  const rateSummary = `US Rate Regime ${input.present}/5 required inputs`;
+  const curveSummary = curvePresent !== null ? `; Treasury curve ${curvePresent}/5 maturities` : "";
+  return {
+    state,
+    rateInputsPresent: input.present,
+    rateInputsRequired: 5,
+    treasuryCurvePresent: curvePresent,
+    treasuryCurveRequired: curvePresent === null ? null : 5,
+    missingRateInputs: [...missingRateInputs],
+    detail: state === "COMPLETE" ? null
+      : `${rateSummary}${curveSummary}. ${missingRateInputs.length ? `Missing: ${missingRateInputs.join(", ")}. ` : ""}Dated observations outside source-admission limits have not been treated as current; the rate conclusion requires renewed verification.`,
+  };
+}
+
 export function buildDossierV2Presentation(
   dossier: MarketDossierV2,
   previousDossier?: MarketDossierV2 | null,
@@ -1517,11 +1591,14 @@ export function buildDossierV2Presentation(
     structuralPredecessor ?? previousDossier ?? null,
   );
 
+  const rateCoverage = analyticalRateCoverage(dossier);
   const warnings = freshnessWarnings(dossier);
+  if (rateCoverage.detail) warnings.push(rateCoverage.detail);
   const gaps = researchGaps(dossier);
   const degraded =
     Boolean(output.diagnostics.degraded)
-    || gaps.some((gap) => gap.severity === "MATERIAL");
+    || gaps.some((gap) => gap.severity === "MATERIAL")
+    || rateCoverage.state === "INSUFFICIENT";
   const lenses = lensEntries(output);
   const outlook = policyOutlook(dossier);
   const reactionAssessments = system1ReactionAssessments(dossier);
@@ -1562,6 +1639,7 @@ export function buildDossierV2Presentation(
       degraded,
       repairUsed: Boolean(output.diagnostics.model_repair_used),
       freshnessWarnings: warnings,
+      analyticalRateCoverage: rateCoverage,
       evidenceStates: evidenceStates(dossier),
       researchGaps: gaps,
       missingInputCategories: [...output.diagnostics.missing_input_categories],

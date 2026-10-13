@@ -722,3 +722,38 @@ test("database reader resolves the analytical baseline by exact ID when it falls
   assert.equal(result.presentation?.thesisChanges[0]?.previousState, "unresolved");
   assert.equal(result.presentation?.thesisChanges[0]?.state, "confirmed");
 });
+
+test("latest Dossier with expired Treasury inputs is degraded, never replaced by older full-coverage vintage", () => {
+  const oldSnapshot = dossier({ id: HEALTHY_ID, asOf: "2026-10-12T22:11:23Z" });
+  const latestSnapshot = dossier({
+    id: DEGRADED_ID,
+    asOf: "2026-10-13T20:18:17Z",
+    previousDossierId: HEALTHY_ID,
+  });
+  (oldSnapshot.payload as unknown as Record<string, unknown>).system1_rate_regime = {
+    state: "HAWKISH",
+    coverage: { present: 5, total: 5, missing: [] },
+    curveDiagnostic: { coverage: { present: 5, total: 5, missing: [] } },
+  };
+  (latestSnapshot.payload as unknown as Record<string, unknown>).system1_rate_regime = {
+    state: "UNRESOLVED",
+    coverage: {
+      present: 1, total: 5,
+      missing: ["US 2Y", "US 10Y nominal", "US 10Y real yield", "Effective fed funds"],
+    },
+    curveDiagnostic: { coverage: { present: 0, total: 5, missing: ["2Y", "5Y", "10Y", "20Y", "30Y"] } },
+  };
+  const selected = selectDossierV2Presentation([oldSnapshot, latestSnapshot]);
+  assert.equal(selected.status, "degraded_latest");
+  assert.equal(selected.selectedDossierId, DEGRADED_ID);
+  assert.equal(selected.latestDossierId, DEGRADED_ID);
+  assert.equal(selected.usingFallback, false);
+  assert.equal(selected.presentation?.health.analyticalRateCoverage.state, "INSUFFICIENT");
+  assert.equal(selected.presentation?.health.state, "degraded");
+  assert.match(selected.notice.label, /degraded/i);
+
+  const exactOld = selectExactDossierV2Presentation(oldSnapshot, null, HEALTHY_ID);
+  assert.equal(exactOld.status, "historical_exact");
+  assert.equal(exactOld.selectedDossierId, HEALTHY_ID);
+  assert.equal(exactOld.presentation?.health.analyticalRateCoverage.state, "COMPLETE");
+});
