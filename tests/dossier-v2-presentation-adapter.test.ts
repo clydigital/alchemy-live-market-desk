@@ -1034,6 +1034,8 @@ test("recent Dossier with 1/5 persisted rates and 0/5 curve cannot claim healthy
   const missing = ["US 2Y", "US 10Y nominal", "US 10Y real yield", "Effective fed funds"];
   (current.payload as unknown as Record<string, unknown>).system1_rate_regime = {
     state: "UNRESOLVED",
+    evidenceRefs: [],
+    gaps: [],
     coverage: { total: 5, present: 1, missing },
     curveDiagnostic: { coverage: { total: 5, present: 0, missing: ["2Y", "5Y", "10Y", "20Y", "30Y"] } },
   };
