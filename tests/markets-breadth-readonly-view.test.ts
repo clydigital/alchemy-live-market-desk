@@ -20,7 +20,9 @@ test("all breadth categories render with dated source values and actual coverage
 
 test("sparse or missing samples never render a misleading zero-percent breadth result", () => {
   assert.match(view, /const hasDate = Boolean\(snapshot\.current\.asOf\)/);
-  assert.match(view, /snapshot\.targetSize < 10/);\n  assert.match(view, /snapshot\.current\.sampleSize === snapshot\.targetSize/);\n  assert.match(view, /snapshot\.current\.sampleSize >= Math\.max\(10, Math\.ceil\(snapshot\.targetSize \* 0\.6\)\)/);
+  assert.match(view, /snapshot\.targetSize < 10/);
+  assert.match(view, /snapshot\.current\.sampleSize === snapshot\.targetSize/);
+  assert.match(view, /snapshot\.current\.sampleSize >= Math\.max\(10, Math\.ceil\(snapshot\.targetSize \* 0\.6\)\)/);
   assert.match(view, /sufficientlyCovered \? `\$\{snapshot\.current\.above50\.toFixed\(0\)\}%` : "—"/);
   assert.match(view, /data-coverage=\{sufficientlyCovered \? "measured" : "insufficient"\}/);
 });
