@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { deriveTraderFlags, splitTraderText } from "@/lib/trader-flags";
 import type { StoryBreakdown } from "@/lib/story-breakdown";
+import { MARKET_REGIONS, matchesMarketRegion, type MarketRegion, type MarketRegionFilter } from "@/lib/market-regions";
 import styles from "./whats-new-workspace.module.css";
 
 export type WhatsNewTopic = "FX" | "Stocks" | "Geopolitics" | "Macro" | "Commodities" | "Earnings" | "Crypto" | "Other";
@@ -13,6 +14,9 @@ export type WhatsNewDelta = {
   kind: string;
   stream: "Story" | "Motion" | "Statement" | "News";
   topic: WhatsNewTopic;
+  /** Presentation-only labels. Not canonical Story or Regime evidence. */
+  primaryRegion?: MarketRegion;
+  affectedRegions?: MarketRegion[];
   title: string;
   detail: string;
   dateLabel: string;
@@ -90,6 +94,7 @@ function TopicIcon({ topic }: { topic: WhatsNewTopic }) {
 
 export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] }) {
   const [stream, setStream] = useState<"All" | WhatsNewDelta["stream"]>("All");
+  const [region, setRegion] = useState<MarketRegionFilter>("All");
   const [query, setQuery] = useState("");
   const [openBundleIds, setOpenBundleIds] = useState<Set<string>>(() => new Set());
 
@@ -120,6 +125,10 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
     const needle = query.trim().toLowerCase();
     return enriched.filter((delta) => {
       if (stream !== "All" && delta.stream !== stream) return false;
+      if (!matchesMarketRegion({
+        primaryRegion: delta.primaryRegion ?? "Other",
+        affectedRegions: delta.affectedRegions ?? ["Other"],
+      }, region)) return false;
       if (!needle) return true;
       return [
         delta.title,
@@ -154,7 +163,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
         ...delta.traderFlags.map((flag) => flag.label),
       ].some((value) => value.toLowerCase().includes(needle));
     });
-  }, [enriched, query, stream]);
+  }, [enriched, query, region, stream]);
 
   const filteredMotionUnits = filtered.filter((delta) => delta.stream === "Motion");
   const filteredMotionClaims = filteredMotionUnits.reduce(
@@ -196,6 +205,19 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
             </button>
           ))}
         </div>
+        <div className={styles.regionControls} role="group" aria-label="Filter by market region">
+          {(["All", ...MARKET_REGIONS] as MarketRegionFilter[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={region === item}
+              className={region === item ? styles.activeRegion : ""}
+              onClick={() => setRegion(item)}
+            >
+              {item === "All" ? "All regions" : item}
+            </button>
+          ))}
+        </div>
         <label className={styles.search}>
           <span>Search recent records</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Fed hike, war risk, capex, Story or source" />
@@ -204,6 +226,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
 
       <div className={styles.resultLine}>
         {filtered.length} presentation unit{filtered.length === 1 ? "" : "s"} shown
+        {region !== "All" ? ` · ${region} focus (primary or affected)` : ""}
         {filteredMotionUnits.length ? ` · ${filteredMotionUnits.length} Motion unit${filteredMotionUnits.length === 1 ? "" : "s"} · ${filteredMotionClaims} underlying claim${filteredMotionClaims === 1 ? "" : "s"}` : ""}
       </div>
 
@@ -217,6 +240,12 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
                   <div className={styles.eyebrow}>
                     <span>{delta.topic}</span>
                     <span className={styles.streamLabel}>{delta.stream}</span>
+                    <span className={styles.regionLabel} title="Geographic presentation label, not evidence or Regime assessment">
+                      {delta.primaryRegion === "Other" && (delta.affectedRegions?.length ?? 0) > 1
+                        ? "Cross-region"
+                        : delta.primaryRegion ?? "Other"}
+                      {(delta.affectedRegions?.length ?? 0) > 1 ? ` · ${delta.affectedRegions?.join(" / ")}` : ""}
+                    </span>
                     <time dateTime={delta.timestamp || undefined}>{delta.dateLabel}</time>
                     {delta.ageState === "historical" ? <span className={styles.historical}>Historical context · {delta.ageLabel}</span> : null}
                   </div>

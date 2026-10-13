@@ -4,6 +4,7 @@ import WhatsNewWorkspace, { type WhatsNewDelta, type WhatsNewTopic } from "@/com
 import { getDeskData } from "@/lib/data";
 import { getCurrentMarketMotion, marketMotionAttention, marketMotionEffectiveState, type MarketMotionRecord } from "@/lib/market-motion";
 import { buildMarketMotionPresentationUnits } from "@/lib/market-motion-presentation";
+import { combineMarketRegions, resolveMarketRegions } from "@/lib/market-regions";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
@@ -187,6 +188,13 @@ export default async function WhatsNewPage() {
   const motionUnits = buildMarketMotionPresentationUnits(motionRecords);
   const motionDeltas: RawWhatsNewDelta[] = motionUnits.map((unit) => {
     const item = unit.primary;
+    // Use explicit annotations when present. Bundles keep all affected regions,
+    // rather than assigning every creator claim the lead video's location.
+    const motionRegions = combineMarketRegions(unit.records.map((record) => resolveMarketRegions({
+      headline: record.headline,
+      primaryRegion: record.metadata?.primary_region ?? record.metadata?.primaryRegion,
+      affectedRegions: record.metadata?.affected_regions ?? record.metadata?.affectedRegions,
+    })));
     const story = item.primary_story_id ? storyById.get(item.primary_story_id) : null;
     const routes = unit.kind === "creator_bundle"
       ? unit.records.flatMap(exactBundleRegimeLinks)
@@ -229,6 +237,7 @@ export default async function WhatsNewPage() {
             ? "Expired motion"
             : `${attention.tier === "PRIMARY" ? "Primary" : "Secondary"} motion`,
       stream: "Motion" as const,
+      ...motionRegions,
       topic: classifyTopic(
         `${item.category} ${item.headline}`,
         `${item.what_happened} ${item.why_interesting} ${item.big_picture_bridge}`,
@@ -401,7 +410,13 @@ export default async function WhatsNewPage() {
   ]
     .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""))
     .slice(0, 60)
-    .map((delta) => ({ ...delta, ...presentationAge(delta.timestamp, now) }));
+    .map((delta) => ({
+      // Story events retain their own headline geography. The parent Story's
+      // global thesis does not silently become a region or authority label.
+      ...resolveMarketRegions({ headline: delta.title }),
+      ...delta,
+      ...presentationAge(delta.timestamp, now),
+    }));
 
   return (
     <LiveDeskShell

@@ -5,7 +5,7 @@
 
 .controls {
   display: grid;
-  grid-template-columns: auto minmax(260px, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: end;
 }
@@ -50,7 +50,33 @@
   background: rgba(126,67,216,.25);
 }
 
+.regionControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.regionControls button {
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid rgba(181,151,255,.17);
+  border-radius: 8px;
+  background: rgba(255,255,255,.02);
+  color: #aaa7bd;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.regionControls button.activeRegion {
+  border-color: rgba(181,151,255,.42);
+  background: rgba(126,67,216,.25);
+  color: #fff;
+}
+
 .search {
+  grid-column: 1 / -1;
   display: grid;
   gap: 7px;
 }
@@ -158,6 +184,14 @@
 
 .eyebrow > span:first-child {
   color: #d3c5ec;
+}
+
+.regionLabel {
+  padding: 2px 6px;
+  border: 1px solid rgba(181,151,255,.23);
+  border-radius: 999px;
+  color: #cbc0e1 !important;
+  font-size: 8px;
 }
 
 .streamLabel {
@@ -487,6 +521,7 @@
 
 @media (max-width: 760px) {
   .controls { grid-template-columns: 1fr; }
+  .search { grid-column: auto; }
   .record { grid-template-columns: 44px minmax(0, 1fr); min-height: 0; }
   .topicIcon { padding-top: 16px; }
   .body { padding: 15px; }
