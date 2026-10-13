@@ -700,6 +700,13 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         isCreatorLead(row) ? "CREATOR_LEAD" : "RESEARCH_LEAD",
       ),
       source_tier: sourceTier(source),
+      // Attention ranking only. These metadata fields do not admit a claim
+      // as observed evidence or change the established Story route.
+      candidate_score: structuredNumber(row.structured_payload, "candidateScore")
+        ?? structuredNumber(row.structured_payload, "materiality") ?? 0,
+      source_reliability: reliabilityScore(source),
+      market_linked: (row.affected_assets ?? []).some(Boolean)
+        || (row.affected_topics ?? []).some(Boolean),
     });
   }
 
