@@ -99,7 +99,7 @@ function dossier(
     previousDossierId: null,
     asOf: "2026-10-05T02:00:00.000Z",
     createdAt: "2026-10-05T02:00:00.000Z",
-    health: { state: "healthy", degraded: false, repairUsed: false, freshnessWarnings: [], evidenceStates: [], researchGaps: [], missingInputCategories: [] },
+    health: { state: "healthy", degraded: false, repairUsed: false, freshnessWarnings: [], analyticalRateCoverage: { state: "UNASSESSED", rateInputsPresent: null, rateInputsRequired: null, treasuryCurvePresent: null, treasuryCurveRequired: null, missingRateInputs: [], detail: null }, evidenceStates: [], researchGaps: [], missingInputCategories: [] },
     memory: { state: "AVAILABLE", structuralPredecessorId: null, analyticalBaselineId: null, analyticalBaselineAsOf: null, sameAsStructuralPredecessor: false },
     header: { headline: "Test", answer: "Test", regimeImplication: "Test", regimeFamily, epistemicLabel: "SUPPORTED", whatWouldChangeMind: "Test" },
     regimeStrip: [],
