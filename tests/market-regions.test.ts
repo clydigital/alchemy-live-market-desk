@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   combineMarketRegions,
   matchesMarketRegion,
+  marketRegionFromQuery,
   resolveMarketRegions,
 } from "../lib/market-regions.ts";
 
@@ -76,4 +77,13 @@ test("unknown regions stay Other, and an accidental lowercase 'us' does not mean
     primaryRegion: "Other",
     affectedRegions: ["Other"],
   });
+});
+
+test("regional links accept case-insensitive known labels and fail open for unsupported locations", () => {
+  assert.equal(marketRegionFromQuery("Asia"), "Asia");
+  assert.equal(marketRegionFromQuery("europe"), "Europe");
+  assert.equal(marketRegionFromQuery("US"), "US");
+  assert.equal(marketRegionFromQuery("Other"), "Other");
+  assert.equal(marketRegionFromQuery("world"), "All");
+  assert.equal(marketRegionFromQuery(null), "All");
 });
