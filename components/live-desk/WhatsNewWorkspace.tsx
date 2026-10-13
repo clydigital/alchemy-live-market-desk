@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { deriveTraderFlags, splitTraderText } from "@/lib/trader-flags";
 import type { StoryBreakdown } from "@/lib/story-breakdown";
-import { MARKET_REGIONS, matchesMarketRegion, type MarketRegion, type MarketRegionFilter } from "@/lib/market-regions";
+import { MARKET_REGIONS, marketRegionFromQuery, matchesMarketRegion, type MarketRegion, type MarketRegionFilter } from "@/lib/market-regions";
 import styles from "./whats-new-workspace.module.css";
 
 export type WhatsNewTopic = "FX" | "Stocks" | "Geopolitics" | "Macro" | "Commodities" | "Earnings" | "Crypto" | "Other";
@@ -97,6 +97,25 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
   const [region, setRegion] = useState<MarketRegionFilter>("All");
   const [query, setQuery] = useState("");
   const [openBundleIds, setOpenBundleIds] = useState<Set<string>>(() => new Set());
+
+  // The region query is a shareable *presentation* selection, not an
+  // edition, evidence or research-routing parameter.
+  useEffect(() => {
+    const syncFromLocation = () => {
+      setRegion(marketRegionFromQuery(new URLSearchParams(window.location.search).get("region")));
+    };
+    syncFromLocation();
+    window.addEventListener("popstate", syncFromLocation);
+    return () => window.removeEventListener("popstate", syncFromLocation);
+  }, []);
+
+  const selectRegion = (next: MarketRegionFilter) => {
+    setRegion(next);
+    const url = new URL(window.location.href);
+    if (next === "All") url.searchParams.delete("region");
+    else url.searchParams.set("region", next);
+    window.history.replaceState(window.history.state, "", url.toString());
+  };
 
   const enriched = useMemo(() => deltas.map((delta) => ({
     ...delta,
@@ -212,7 +231,7 @@ export default function WhatsNewWorkspace({ deltas }: { deltas: WhatsNewDelta[] 
               type="button"
               aria-pressed={region === item}
               className={region === item ? styles.activeRegion : ""}
-              onClick={() => setRegion(item)}
+              onClick={() => selectRegion(item)}
             >
               {item === "All" ? "All regions" : item}
             </button>
