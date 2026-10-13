@@ -310,6 +310,9 @@ const TARGET_NON_MONITOR_CLUSTERS = 10;
 const TARGET_RECENT_CANONICAL_NEWS_CLUSTERS = 2;
 const MAX_EVIDENCE_PER_CLUSTER = 6;
 const MAX_LEADS_PER_CLUSTER = 3;
+// Bounded unresolved questions can survive an evidence-heavy cluster selection.
+// Leads never become canonical observations and cannot displace Motion pins.
+const MAX_STANDALONE_RESEARCH_LEADS = 3;
 const MAX_TOTAL_OBSERVED_EVIDENCE = 72;
 const MAX_CREATOR_THEMES = 5;
 const MAX_CREATOR_EXPAND_LATER = 2;
@@ -1479,6 +1482,29 @@ export function assembleDossierV2InputPacket(
     researchLeads.push(...c.leads);
   }
 
+  // Existing 24-cluster selection is evidence-priority based. Without this
+  // bounded attention lane, every unresolved publisher lead can disappear
+  // even when it has a dated source and a material verification question.
+  // The separate research_leads field already has a strict non-fact boundary
+  // in System 2; never add these to observed_evidence or development_clusters.
+  const selectedLeadIds = new Set(researchLeads.map((lead) => lead.lead_id));
+  const standaloneResearchLeads = rawAdmittedLeads
+    .filter((lead) =>
+      lead.source_type === "RESEARCH_LEAD"
+      && (lead.urgency === "HIGH" || lead.urgency === "MEDIUM")
+      && lead.provenance.some((ref) =>
+        typeof ref.source_id === "string" && ref.source_id.length > 0
+        && typeof ref.url === "string" && /^https:\/\//i.test(ref.url)),
+    )
+    .sort((left, right) =>
+      (left.urgency === "HIGH" ? 0 : 1) - (right.urgency === "HIGH" ? 0 : 1)
+      || right.available_at.localeCompare(left.available_at)
+      || left.lead_id.localeCompare(right.lead_id))
+    .filter((lead) => !selectedLeadIds.has(lead.lead_id))
+    .slice(0, MAX_STANDALONE_RESEARCH_LEADS);
+  researchLeads.push(...standaloneResearchLeads);
+  const protectedResearchLeadIds = new Set(standaloneResearchLeads.map((lead) => lead.lead_id));
+
   observedEvidence.push(
     ...protectedDollarLiquidityEvidence.map((item) => {
       const {
@@ -1929,7 +1955,15 @@ export function assembleDossierV2InputPacket(
 
     // Truncation Pass 1: Remove research leads
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.research_leads.length > 0) {
-      const removed = packetWithoutId.research_leads.pop();
+      // Prune ordinary cluster leads first. The bounded provenance-backed
+      // attention sample is last to go, but the 200 KB cap always wins.
+      const unprotectedIndex = packetWithoutId.research_leads.findLastIndex(
+        (lead) => !protectedResearchLeadIds.has(lead.lead_id),
+      );
+      const removeIndex = unprotectedIndex >= 0
+        ? unprotectedIndex
+        : packetWithoutId.research_leads.length - 1;
+      const [removed] = packetWithoutId.research_leads.splice(removeIndex, 1);
       if (removed) {
         packetWithoutId.diagnostics.omitted_leads_count++;
         for (const c of packetWithoutId.development_clusters) {
