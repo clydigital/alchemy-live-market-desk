@@ -1315,6 +1315,13 @@ export function assembleDossierV2InputPacket(
   }
 
   const rawAdmittedLeads: Array<ResearchLead & { grouping_key: string; conflict_key?: string }> = [];
+  // Transient selection metadata from the canonical snapshot. Kept outside
+  // ResearchLead so the model never mistakes prioritisation for evidence.
+  const leadPriorityMetadata = new Map<string, {
+    candidateScore: number;
+    marketLinked: boolean;
+    reliablePublisher: boolean;
+  }>();
 
   for (const raw of candidateLeadsList) {
     if (!isPlainObject(raw)) continue;
@@ -1333,6 +1340,12 @@ export function assembleDossierV2InputPacket(
     const leadId = typeof raw.lead_id === "string" && raw.lead_id ? truncateString(raw.lead_id, 100, markTruncated) : `lead:${hashString(`${groupingKey}:${questionText}`)}`;
     const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? truncateString(raw.conflict_key.trim(), 100, markTruncated) : undefined;
 
+    leadPriorityMetadata.set(leadId, {
+      candidateScore: typeof raw.candidate_score === "number" && Number.isFinite(raw.candidate_score)
+        ? raw.candidate_score : 0,
+      marketLinked: raw.market_linked === true,
+      reliablePublisher: typeof raw.source_reliability === "number" && raw.source_reliability >= 70,
+    });
     rawAdmittedLeads.push({
       lead_id: leadId,
       claim_or_question: questionText,
@@ -1488,7 +1501,7 @@ export function assembleDossierV2InputPacket(
   // The separate research_leads field already has a strict non-fact boundary
   // in System 2; never add these to observed_evidence or development_clusters.
   const selectedLeadIds = new Set(researchLeads.map((lead) => lead.lead_id));
-  const priorityResearchLeads = rawAdmittedLeads
+  const eligibleResearchLeads = rawAdmittedLeads
     .filter((lead) =>
       lead.source_type === "RESEARCH_LEAD"
       && (lead.urgency === "HIGH" || lead.urgency === "MEDIUM")
@@ -1498,9 +1511,30 @@ export function assembleDossierV2InputPacket(
     )
     .sort((left, right) =>
       (left.urgency === "HIGH" ? 0 : 1) - (right.urgency === "HIGH" ? 0 : 1)
+      || Number(leadPriorityMetadata.get(right.lead_id)?.reliablePublisher ?? false)
+         - Number(leadPriorityMetadata.get(left.lead_id)?.reliablePublisher ?? false)
+      || (leadPriorityMetadata.get(right.lead_id)?.candidateScore ?? 0)
+         - (leadPriorityMetadata.get(left.lead_id)?.candidateScore ?? 0)
       || right.available_at.localeCompare(left.available_at)
-      || left.lead_id.localeCompare(right.lead_id))
-    .slice(0, MAX_STANDALONE_RESEARCH_LEADS);
+      || left.lead_id.localeCompare(right.lead_id));
+  // Preserve both Story-linked verification questions and orphan news
+  // developments. Never infer a Story association to fill the orphan slot.
+  const linkedLeads = eligibleResearchLeads.filter((lead) =>
+    leadPriorityMetadata.get(lead.lead_id)?.marketLinked === true);
+  const unlinkedLeads = eligibleResearchLeads.filter((lead) =>
+    leadPriorityMetadata.get(lead.lead_id)?.marketLinked !== true);
+  const priorityResearchLeads: typeof rawAdmittedLeads = [];
+  const sampledLeadIds = new Set<string>();
+  for (const lead of [
+    ...linkedLeads.slice(0, 2),
+    ...unlinkedLeads.slice(0, 1),
+    ...eligibleResearchLeads,
+  ]) {
+    if (priorityResearchLeads.length >= MAX_STANDALONE_RESEARCH_LEADS) break;
+    if (sampledLeadIds.has(lead.lead_id)) continue;
+    sampledLeadIds.add(lead.lead_id);
+    priorityResearchLeads.push(lead);
+  }
   // The three-slot budget is shared with already-selected cluster leads:
   // do not silently reserve three *additional* external questions.
   const standaloneResearchLeads = priorityResearchLeads.filter(
