@@ -1721,7 +1721,7 @@ test("20f. the three-lead reserve is shared with leads already retained by evide
       lead_id:"lead:cluster-selected",source_type:"RESEARCH_LEAD",
       claim_or_question:"Verify a source-backed disclosure against observed market reactions.",
       urgency:"HIGH",available_at:"2026-03-31T11:00:00.000Z",
-      grouping_key:"issuer:0",
+      grouping_key:"issuer:0", market_linked:true, candidate_score:91, source_reliability:86,
       provenance:[{source_type:"RESEARCH_LEAD",source_id:"press-0",url:"https://example.org/press-0"}],
     },
     ...Array.from({length:290},(_,i)=>({
@@ -1742,5 +1742,44 @@ test("20f. the three-lead reserve is shared with leads already retained by evide
   assert.equal(ids.length,3);
   assert.equal(packet.development_clusters.length,24);
   assert.equal(packet.observed_evidence.length,24);
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
+
+test("20g. existing scored leads retain a linked/unlinked research balance without factual promotion", () => {
+  const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14},(_,i)=>({
+      evidence_id:`market-monitor:attn-${i}`,claim_or_fact:`Observed market series ${i}`,
+      source_type:"MARKET_DATA",rank:2,grouping_key:`market-monitor:attn-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"MARKET_DATA",source_id:`m-${i}`}],
+    })),
+    ...Array.from({length:10},(_,i)=>({
+      evidence_id:`official:attn-${i}`,claim_or_fact:`Verified official measurement ${i}`,
+      source_type:"OFFICIAL_DATA",rank:10,grouping_key:`official:attn-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"OFFICIAL_DATA",source_id:`o-${i}`}],
+    })),
+  ];
+  const entries=[
+    {id:"linked-high",linked:true,score:90,reliability:76,urgency:"HIGH"},
+    {id:"linked-measured",linked:true,score:80,reliability:76,urgency:"MEDIUM"},
+    {id:"linked-unreliable",linked:true,score:99,reliability:64,urgency:"MEDIUM"},
+    {id:"unlinked-earnings",linked:false,score:84,reliability:70,urgency:"MEDIUM"},
+    {id:"unlinked-rumour",linked:false,score:65,reliability:70,urgency:"MEDIUM"},
+  ] as const;
+  const leads=entries.map((item)=>({
+    lead_id:`lead:${item.id}`,claim_or_question:`Verify original publication for ${item.id}`,
+    source_type:"RESEARCH_LEAD",urgency:item.urgency,
+    market_linked:item.linked,candidate_score:item.score,source_reliability:item.reliability,
+    available_at:"2026-03-31T10:00:00.000Z",grouping_key:`unresolved:${item.id}`,
+    provenance:[{source_type:"RESEARCH_LEAD",source_id:item.id,url:`https://example.org/${item.id}`}],
+  }));
+  const packet=assembleDossierV2InputPacket(
+    {as_of:TEST_AS_OF,previous_dossier_id:null},
+    {observed_evidence:evidence,research_leads:leads},
+  );
+  assert.deepEqual(new Set(packet.research_leads.map((l)=>l.lead_id)),
+    new Set(["lead:linked-high","lead:linked-measured","lead:unlinked-earnings"]));
+  assert.equal(packet.observed_evidence.length,24);
+  assert.equal(packet.development_clusters.length,24);
+  assert.ok(packet.research_leads.every((lead)=>!Object.prototype.hasOwnProperty.call(lead,"candidate_score")));
   assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
 });
