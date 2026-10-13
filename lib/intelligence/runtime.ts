@@ -110,6 +110,7 @@ import {
 import { buildSystem1ResearchAttention } from "@/lib/intelligence/system1-research-attention";
 import {
   evaluateCanonicalStoryRecruitment,
+  eligibleCanonicalNewsTopicPropagation,
   topicSlugsFromCanonicalRoutes,
   type CanonicalStoryForRecruitment,
   type StoryRecruitmentDecision,
@@ -984,15 +985,17 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
     // association only for news that already meets the current numeric source
     // threshold and canonical verification role. Keep discovery-only,
     // low-reliability, non-news, and unresolved routes out of this repair.
-    const mayPropagateNewsTopic = evidenceClass(item) === "news_report"
-      && ["news", "article", "wire", "news_report"].includes(item.item_type)
-      && source.source_tier <= 4
-      && Number(source.reliability_score) >= 70
-      && sourceVerificationRole({
+    const mayPropagateNewsTopic = eligibleCanonicalNewsTopicPropagation({
+      evidenceClass: evidenceClass(item),
+      sourceType: item.item_type,
+      sourceTier: source.source_tier,
+      reliabilityScore: source.reliability_score,
+      verificationRole: sourceVerificationRole({
         sourceName: source.source_name,
         providerKey: source.provider_key,
         provenanceUrls: [item.url],
-      }) === "canonical";
+      }),
+    });
     return [{
       source_id: source.id,
       research_run_id: item.run_id,
