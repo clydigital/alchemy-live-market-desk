@@ -44,7 +44,7 @@ test("coverage and dates come only from the existing measured Nasdaq constituent
   assert.match(market, /sampleSize: current\.sampleSize/);
   assert.match(market, /targetSize: symbols\.length/);
   assert.match(market, /sourceName: "Nasdaq official daily histories"/);
-  assert.match(market, /breadth: market\?\.breadth \?\? \[\]/);
+  assert.match(market, /return \{[\s\S]*?breadth,[\s\S]*?pulseWeek:/);
   assert.match(monitor, /breadth: market\?\.breadth \?\? \[\]/);
 });
 
