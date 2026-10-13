@@ -135,8 +135,13 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
         <thead><tr><th>Universe</th><th>As of</th><th>Eligible / target</th><th>Above 50D</th><th>Above 200D</th><th>1-week 50D change</th></tr></thead>
         <tbody>{monitor.breadth.map((snapshot) => {
           const hasDate = Boolean(snapshot.current.asOf);
+          // Small named groups (e.g. MAG7) require the full group, not an
+          // impossible minimum of ten members. Larger proxy universes
+          // require at least 60% and ten measured constituents.
           const sufficientlyCovered = hasDate
-            && snapshot.current.sampleSize >= Math.max(10, Math.ceil(snapshot.targetSize * 0.6));
+            && (snapshot.targetSize < 10
+              ? snapshot.current.sampleSize === snapshot.targetSize
+              : snapshot.current.sampleSize >= Math.max(10, Math.ceil(snapshot.targetSize * 0.6)));
           const weekChange = snapshot.current.above50 - snapshot.weekAgo.above50;
           return <tr key={snapshot.id} data-coverage={sufficientlyCovered ? "measured" : "insufficient"}>
             <td><strong>{snapshot.label}</strong>{snapshot.id === "large-cap-ex-tracked-ai"

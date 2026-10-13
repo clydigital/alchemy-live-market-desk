@@ -20,6 +20,8 @@ test("all breadth categories render with dated source values and actual coverage
 
 test("sparse or missing samples never render a misleading zero-percent breadth result", () => {
   assert.match(view, /const hasDate = Boolean\(snapshot\.current\.asOf\)/);
+  assert.match(view, /snapshot\.targetSize < 10/);
+  assert.match(view, /snapshot\.current\.sampleSize === snapshot\.targetSize/);
   assert.match(view, /snapshot\.current\.sampleSize >= Math\.max\(10, Math\.ceil\(snapshot\.targetSize \* 0\.6\)\)/);
   assert.match(view, /sufficientlyCovered \? `\$\{snapshot\.current\.above50\.toFixed\(0\)\}%` : "—"/);
   assert.match(view, /data-coverage=\{sufficientlyCovered \? "measured" : "insufficient"\}/);
@@ -32,4 +34,18 @@ test("ex-tracked-AI lens and canonical independence are plainly labelled", () =>
   assert.match(view, /not an official S&amp;P index calculation/);
   assert.doesNotMatch(view, /persistCanonicalMarketMeasurements|persistMarketDossierV2|runIntelligenceEngine/);
   assert.match(monitor, /breadth: market\?\.breadth \?\? \[\]/);
+});
+
+test("all seven measured MAG7 constituents satisfy the explicit small-basket coverage gate", () => {
+  const eligible = (targetSize: number, sampleSize: number, date: string | null) =>
+    Boolean(date) && (targetSize < 10
+      ? sampleSize === targetSize
+      : sampleSize >= Math.max(10, Math.ceil(targetSize * 0.6)));
+  assert.equal(eligible(7, 7, "2026-10-12"), true);
+  assert.equal(eligible(7, 6, "2026-10-12"), false);
+  assert.equal(eligible(7, 7, null), false);
+  assert.equal(eligible(88, 52, "2026-10-12"), false);
+  assert.equal(eligible(88, 53, "2026-10-12"), true);
+  assert.equal(eligible(99, 59, "2026-10-12"), false);
+  assert.equal(eligible(99, 60, "2026-10-12"), true);
 });
