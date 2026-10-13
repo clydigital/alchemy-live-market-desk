@@ -1700,3 +1700,47 @@ test("20e. three sourced research questions survive saturated clusters without d
   assert.ok(packet.research_leads.every((l) => l.epistemic_label === undefined));
   assert.ok(Buffer.byteLength(toCanonicalJson(packet), "utf8") <= 200000);
 });
+
+test("20f. the three-lead reserve is shared with leads already retained by evidence clusters", () => {
+  const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14}, (_,i)=>({
+      evidence_id: `market-monitor:priority-${i}`, source_type: "MARKET_DATA",
+      available_at: IN_WINDOW_TIME, grouping_key: `market-monitor:priority-${i}`,
+      claim_or_fact: `Measured date-specific market observation ${i}`,
+      provenance: [{source_type:"MARKET_DATA",source_id:`series-${i}`}],
+    })),
+    ...Array.from({length:10},(_,i)=>({
+      evidence_id:`issuer:${i}`,source_type:"SEC_FILING",
+      available_at:IN_WINDOW_TIME,grouping_key:`issuer:${i}`,
+      claim_or_fact:`Issuer official release ${i}`,
+      provenance:[{source_type:"SEC_FILING",source_id:`filing-${i}`}],
+    })),
+  ];
+  const leads: NonNullable<CandidateSnapshot["research_leads"]> = [
+    {
+      lead_id:"lead:cluster-selected",source_type:"RESEARCH_LEAD",
+      claim_or_question:"Verify a source-backed disclosure against observed market reactions.",
+      urgency:"HIGH",available_at:"2026-03-31T11:00:00.000Z",
+      grouping_key:"issuer:0",
+      provenance:[{source_type:"RESEARCH_LEAD",source_id:"press-0",url:"https://example.org/press-0"}],
+    },
+    ...Array.from({length:290},(_,i)=>({
+      lead_id:`lead:backlog-${String(i).padStart(3,"0")}`,
+      source_type:"RESEARCH_LEAD",urgency:i<3?"HIGH":"MEDIUM",
+      claim_or_question:`Find primary proof for a reported market development ${i}.`,
+      available_at:"2026-03-31T10:00:00.000Z",
+      grouping_key:`research:backlog-${i}`,
+      provenance:[{source_type:"RESEARCH_LEAD",source_id:`publisher-${i}`,url:`https://example.org/report-${i}`}],
+    })),
+  ];
+  const packet=assembleDossierV2InputPacket(
+    {as_of:TEST_AS_OF,previous_dossier_id:null},
+    {observed_evidence:evidence,research_leads:leads},
+  );
+  const ids=packet.research_leads.map((lead)=>lead.lead_id);
+  assert.deepEqual(new Set(ids),new Set(["lead:cluster-selected","lead:backlog-000","lead:backlog-001"]));
+  assert.equal(ids.length,3);
+  assert.equal(packet.development_clusters.length,24);
+  assert.equal(packet.observed_evidence.length,24);
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
