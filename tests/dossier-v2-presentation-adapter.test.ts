@@ -1028,3 +1028,60 @@ test("D6 longitudinal adjudication grades exact reaction evidence without preten
   assert.equal(result.longitudinalAdjudication?.divergentExpectations, 1);
   assert.equal(result.longitudinalAdjudication?.unresolvedExpectations, 0);
 });
+
+test("recent Dossier with 1/5 persisted rates and 0/5 curve cannot claim healthy coverage", () => {
+  const current = dossier("c5fff463-4a93-45c3-9c10-b5a327ddc747", output());
+  const missing = ["US 2Y", "US 10Y nominal", "US 10Y real yield", "Effective fed funds"];
+  (current.payload as unknown as Record<string, unknown>).system1_rate_regime = {
+    state: "UNRESOLVED",
+    coverage: { total: 5, present: 1, missing },
+    curveDiagnostic: { coverage: { total: 5, present: 0, missing: ["2Y", "5Y", "10Y", "20Y", "30Y"] } },
+  };
+  const result = buildDossierV2Presentation(current);
+  assert.equal(result.health.state, "degraded");
+  assert.equal(result.health.degraded, true);
+  assert.equal(result.health.analyticalRateCoverage.state, "INSUFFICIENT");
+  assert.equal(result.health.analyticalRateCoverage.rateInputsPresent, 1);
+  assert.equal(result.health.analyticalRateCoverage.treasuryCurvePresent, 0);
+  assert.deepEqual(result.health.analyticalRateCoverage.missingRateInputs, missing);
+  assert.match(result.health.analyticalRateCoverage.detail || "", /1\/5 required inputs/);
+  assert.match(result.health.analyticalRateCoverage.detail || "", /0\/5 maturities/);
+  assert.ok(result.health.freshnessWarnings.some((line) => line.includes("outside source-admission limits")));
+  assert.equal(result.rateRegime.state, "UNRESOLVED");
+  assert.equal(result.header.headline, output().main_thread.headline);
+  // Keep the exact Dossier identity, history and evidence untouched.
+  assert.equal(result.dossierId, current.id);
+});
+
+test("fully covered rate snapshots stay healthy; partial coverage is explicit", () => {
+  for (const [present, expectedStatus, expectedDegraded] of [
+    [5, "COMPLETE", false],
+    [4, "PARTIAL", false],
+    [2, "INSUFFICIENT", true],
+  ] as const) {
+    const current = dossier("afd9bb75-ffdc-4f51-8f5c-28131d3d2495", output());
+    const missing = ["US 2Y", "US 10Y nominal", "US 10Y real yield", "US 10Y breakeven", "Effective fed funds"].slice(0, 5 - present);
+    (current.payload as unknown as Record<string, unknown>).system1_rate_regime = {
+      state: present < 3 ? "UNRESOLVED" : "HAWKISH",
+      coverage: { total: 5, present, missing },
+      curveDiagnostic: { coverage: { total: 5, present: 5, missing: [] } },
+    };
+    const assessment = buildDossierV2Presentation(current);
+    assert.equal(assessment.health.analyticalRateCoverage.state, expectedStatus);
+    assert.equal(assessment.health.degraded, expectedDegraded);
+  }
+});
+
+test("unknown or malformed legacy rate coverage is not silently invented", () => {
+  const legacy = dossier("afd9bb75-ffdc-4f51-8f5c-28131d3d2495", output());
+  const unchanged = buildDossierV2Presentation(legacy);
+  assert.equal(unchanged.health.analyticalRateCoverage.state, "UNASSESSED");
+  assert.equal(unchanged.health.analyticalRateCoverage.rateInputsPresent, null);
+  assert.equal(unchanged.health.degraded, false);
+  (legacy.payload as unknown as Record<string, unknown>).system1_rate_regime = {
+    coverage: { total: 5, present: 5, missing: ["mismatch"] },
+  };
+  const malformed = buildDossierV2Presentation(legacy);
+  assert.equal(malformed.health.analyticalRateCoverage.state, "UNASSESSED");
+  assert.equal(malformed.health.degraded, false);
+});
