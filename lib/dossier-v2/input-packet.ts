@@ -1488,7 +1488,7 @@ export function assembleDossierV2InputPacket(
   // The separate research_leads field already has a strict non-fact boundary
   // in System 2; never add these to observed_evidence or development_clusters.
   const selectedLeadIds = new Set(researchLeads.map((lead) => lead.lead_id));
-  const standaloneResearchLeads = rawAdmittedLeads
+  const priorityResearchLeads = rawAdmittedLeads
     .filter((lead) =>
       lead.source_type === "RESEARCH_LEAD"
       && (lead.urgency === "HIGH" || lead.urgency === "MEDIUM")
@@ -1500,14 +1500,18 @@ export function assembleDossierV2InputPacket(
       (left.urgency === "HIGH" ? 0 : 1) - (right.urgency === "HIGH" ? 0 : 1)
       || right.available_at.localeCompare(left.available_at)
       || left.lead_id.localeCompare(right.lead_id))
-    .filter((lead) => !selectedLeadIds.has(lead.lead_id))
     .slice(0, MAX_STANDALONE_RESEARCH_LEADS);
+  // The three-slot budget is shared with already-selected cluster leads:
+  // do not silently reserve three *additional* external questions.
+  const standaloneResearchLeads = priorityResearchLeads.filter(
+    (lead) => !selectedLeadIds.has(lead.lead_id),
+  );
   researchLeads.push(...standaloneResearchLeads);
   // Selected research questions were previously counted as omitted when
   // their standalone clusters lost the 24-cluster selection. Reconcile that
   // accounting; any later byte-cap eviction adds them back to the count.
   omittedLeadsCount = Math.max(0, omittedLeadsCount - standaloneResearchLeads.length);
-  const protectedResearchLeadIds = new Set(standaloneResearchLeads.map((lead) => lead.lead_id));
+  const protectedResearchLeadIds = new Set(priorityResearchLeads.map((lead) => lead.lead_id));
 
   observedEvidence.push(
     ...protectedDollarLiquidityEvidence.map((item) => {
