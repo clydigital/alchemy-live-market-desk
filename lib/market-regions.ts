@@ -50,7 +50,7 @@ export function resolveMarketRegions(input: {
   // Story narratives. Multiple regions are deliberately marked cross-regional.
   const mentioned = REGIONAL_HEADLINE_PATTERNS
     .filter(([region, pattern]) => pattern.test(input.headline)
-      || (region === "US" && (/\bUS\b/.test(input.headline) || /\bU\.S\.(?=\W|$)/i.test(input.headline)))
+      || (region === "US" && (/\bUS\b/.test(input.headline) || /\bFed\b/.test(input.headline) || /\bU\.S\.(?=\W|$)/i.test(input.headline)))
       || (region === "Europe" && /\b(?:EU|UK)\b/.test(input.headline)))
     .map(([region]) => region);
   return {
