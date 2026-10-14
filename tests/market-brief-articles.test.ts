@@ -9,8 +9,7 @@ test("projectMarketBriefArticles projects canonical articles from a daily brief 
     source_record_refs: ["source-ref-bls-01", "source-ref-fed-02"],
     payload: {
       dossier: {
-        id: "dossier-v2-772",
-        contractVersion: "dossier-briefing/v1",
+        id: "a70d8b03-9e6f-4f2f-a6f7-6c44f0af3761",
         generatedAt: "2026-10-15T08:00:00.000Z",
         lessons: [
           {
@@ -91,26 +90,24 @@ test("projectMarketBriefArticles projects canonical articles from a daily brief 
   assert.equal(result.contractVersion, "market-brief-article/1");
   assert.equal(result.status, "COMPLETE");
   assert.equal(result.editionId, "edition-2026-10-15-01");
-  assert.equal(result.dossierId, "dossier-v2-772");
+  assert.equal(result.dossierId, "a70d8b03-9e6f-4f2f-a6f7-6c44f0af3761");
   assert.ok(result.articles.length >= 2, "Projects multiple distinct topical articles");
 
   const article1 = result.articles[0];
   assert.equal(article1.contractVersion, "market-brief-article/1");
   assert.equal(article1.articleId, "article:edition-2026-10-15-01:story-us-rates-01");
   assert.equal(article1.editionId, "edition-2026-10-15-01");
-  assert.equal(article1.dossierId, "dossier-v2-772");
+  assert.equal(article1.dossierId, "a70d8b03-9e6f-4f2f-a6f7-6c44f0af3761");
   assert.equal(article1.category, "Rates & Policy");
   assert.equal(article1.interpretationStatus, "SUPPORTED");
   assert.ok(article1.title.length <= 63, "Title length is concise");
-  assert.ok(article1.paragraphs.length >= 6, "Has 6 or more short paragraphs covering all key roles");
+  assert.ok(article1.paragraphs.length >= 4, "Has paragraphs for explicitly supplied roles");
 
   // Check roles in paragraph sequence
   const roles = article1.paragraphs.map(p => p.role);
   assert.ok(roles.includes("opening"));
   assert.ok(roles.includes("mechanism"));
-  assert.ok(roles.includes("reaction"));
   assert.ok(roles.includes("contradiction"));
-  assert.ok(roles.includes("outlook"));
 
   // Check evidence UUID retention
   const evIds = article1.paragraphs.flatMap(p => p.canonicalEvidenceIds);

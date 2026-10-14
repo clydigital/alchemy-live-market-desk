@@ -70,6 +70,27 @@ function cleanStringArray(val: unknown): string[] {
   return result;
 }
 
+function isValidDossierId(id: unknown): string | null {
+  if (typeof id !== "string") return null;
+  const clean = id.trim();
+  if (
+    !clean ||
+    clean.includes("contractVersion") ||
+    clean.includes("briefing/v") ||
+    clean.includes("dossier-briefing")
+  ) {
+    return null;
+  }
+  // Validate UUID or explicit dossier ID string
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean) ||
+    (/^dossier-[a-z0-9-]+$/i.test(clean) && !clean.includes("v1"))
+  ) {
+    return clean;
+  }
+  return null;
+}
+
 function truncateTitle(text: string, maxLen = 63): string {
   if (text.length <= maxLen) return text;
   const truncated = text.slice(0, maxLen - 1).trim();
@@ -109,25 +130,48 @@ function deriveCategory(icon: string | null, assets: string[], title: string): s
   return "Macro Focus";
 }
 
-function deriveInterpretationStatus(
-  confidence: number,
-  lifecycle: string,
-  countercase: string | null
-): "SUPPORTED" | "MIXED" | "UNRESOLVED" {
-  const normLife = lifecycle.toLowerCase();
-  if (normLife.includes("invalid") || normLife.includes("weaken")) {
-    return "UNRESOLVED";
+function matchRelevantSourceRefs(
+  allRefs: string[],
+  storyId: string,
+  evidenceRefs: string[],
+  textToMatch: string
+): string[] {
+  const matched: string[] = [];
+  const textLower = textToMatch.toLowerCase();
+  const ignoreTokens = new Set(["source", "ref", "refs", "http", "https", "www", "release", "doc", "item"]);
+
+  for (const ref of allRefs) {
+    if (evidenceRefs.includes(ref)) {
+      matched.push(ref);
+      continue;
+    }
+    const refLower = ref.toLowerCase();
+
+    // If exact ref string appears in text
+    if (textLower.includes(refLower)) {
+      matched.push(ref);
+      continue;
+    }
+
+    // Check specific non-generic tokens
+    const parts = refLower.split(/[:_.\/ -]+/).filter((p) => p.length >= 2 && !ignoreTokens.has(p));
+    const storyParts = storyId.toLowerCase().split(/[:_.\/ -]+/).filter((p) => p.length >= 2 && !ignoreTokens.has(p));
+
+    const hasOverlap = parts.some((p) => storyParts.includes(p));
+    const appearsInText = parts.some((p) => p.length >= 3 && textLower.includes(p));
+
+    if (hasOverlap || appearsInText) {
+      matched.push(ref);
+    }
   }
-  if (countercase && countercase.length > 20 && confidence < 75) {
-    return "MIXED";
+
+  for (const ev of evidenceRefs) {
+    if (ev.startsWith("source:") || ev.startsWith("bls:") || ev.startsWith("ref:")) {
+      if (!matched.includes(ev)) matched.push(ev);
+    }
   }
-  if (confidence >= 70 || normLife.includes("confirm")) {
-    return "SUPPORTED";
-  }
-  if (confidence >= 50 || normLife.includes("develop")) {
-    return "MIXED";
-  }
-  return "UNRESOLVED";
+
+  return matched;
 }
 
 /**
@@ -149,11 +193,7 @@ export function projectMarketBriefArticles(
     };
   }
 
-  // Handle both full publication object and individual snapshot row
-  const publication = isObject(input.publication) ? input.publication : null;
-  const canonical = isObject(input.canonical) ? input.canonical : null;
   const editionObj = isObject(input.edition) ? input.edition : null;
-
   const editionId = cleanText(editionObj?.id)
     || cleanText(editionObj?.snapshotId)
     || cleanText(input.id)
@@ -170,20 +210,17 @@ export function projectMarketBriefArticles(
       ? (input.payload as JsonRecord)
       : (input as JsonRecord);
 
-  // Extract Dossier identity
+  // Extract Dossier identity (must be a valid Dossier UUID, not a contract version)
   const dossier = isObject(payload.dossier) ? (payload.dossier as JsonRecord) : null;
   const dossierComposition = isObject(payload.dossierComposition) ? (payload.dossierComposition as JsonRecord) : null;
-  const dossierId = cleanText(dossier?.id)
-    || cleanText(dossier?.contractVersion)
-    || cleanText(dossier?.compositionVersion)
-    || cleanText(dossierComposition?.parentEditionId)
-    || null;
+  const rawDossierId = dossier?.id || dossierComposition?.parentEditionId || null;
+  const dossierId = isValidDossierId(rawDossierId);
 
   const dossierAsOf = cleanText(dossier?.generatedAt)
     || cleanText(dossier?.asOf)
     || generatedAt;
 
-  // Gather source record refs and links
+  // Gather source record refs and links (ONLY explicit URLs, no fabricated defaults)
   const topSourceRefs = cleanStringArray(input.source_record_refs || payload.source_record_refs);
   const marketTape = isObject(payload.marketTape) ? (payload.marketTape as JsonRecord) : null;
   const tapeSources = Array.isArray(marketTape?.sources) ? marketTape!.sources : [];
@@ -192,36 +229,23 @@ export function projectMarketBriefArticles(
   if (Array.isArray(tapeSources)) {
     for (const src of tapeSources) {
       if (isObject(src)) {
-        const title = cleanText(src.title) || cleanText(src.name) || "Market Source";
+        const title = cleanText(src.title) || cleanText(src.name) || "Source";
         const url = cleanText(src.url) || cleanText(src.sourceUrl);
-        if (url) {
+        if (url && url !== "https://live.alchemymarkets.com") {
           sourceLinks.push({
             title,
             url,
-            accessedAt: cleanText(src.accessedAt) || generatedAt,
+            accessedAt: cleanText(src.accessedAt) || null,
           });
         }
       }
     }
   }
 
-  // Default canonical source if none extracted
-  if (sourceLinks.length === 0) {
-    sourceLinks.push({
-      title: "Alchemy Live Market Desk Canonical Intelligence",
-      url: "https://live.alchemymarkets.com",
-      accessedAt: generatedAt,
-    });
-  }
-
-  // Extract candidate stories/lessons to build articles
+  // Candidates extraction
   const manifest = Array.isArray(payload.canonicalStoryManifest) ? payload.canonicalStoryManifest : [];
   const lessons = Array.isArray(dossier?.lessons) ? dossier!.lessons : [];
-  const storiesList = Array.isArray(payload.stories)
-    ? payload.stories
-    : Array.isArray(canonical?.storyStates)
-      ? (canonical!.storyStates as unknown[])
-      : [];
+  const storiesList = Array.isArray(payload.stories) ? payload.stories : [];
 
   const candidateMap = new Map<string, {
     storyId: string;
@@ -241,6 +265,7 @@ export function projectMarketBriefArticles(
     evidenceIds: string[];
     icon: string | null;
     bodyParagraphs: string[];
+    system2Adjudicated: boolean;
   }>();
 
   // 1. Populate from canonicalStoryManifest
@@ -322,6 +347,7 @@ export function projectMarketBriefArticles(
       evidenceIds: [...new Set(evidenceIds)],
       icon: null,
       bodyParagraphs: [],
+      system2Adjudicated: Boolean(dossierId && (reasoning.acceptedExplanation || intelligence.researchSynthesis)),
     });
   }
 
@@ -382,11 +408,12 @@ export function projectMarketBriefArticles(
         evidenceIds: lessonEv,
         icon,
         bodyParagraphs,
+        system2Adjudicated: Boolean(dossierId),
       });
     }
   }
 
-  // 3. Fallback to storiesList if candidateMap is empty
+  // 3. Populate from storiesList if empty
   if (candidateMap.size === 0) {
     for (const story of storiesList) {
       if (!isObject(story)) continue;
@@ -419,6 +446,7 @@ export function projectMarketBriefArticles(
         evidenceIds: [],
         icon: null,
         bodyParagraphs: [thesis, explanation || ""].filter(Boolean),
+        system2Adjudicated: false,
       });
     }
   }
@@ -427,108 +455,141 @@ export function projectMarketBriefArticles(
   const articles: MarketBriefArticleV1[] = [];
 
   for (const candidate of candidateMap.values()) {
+    const fullMatchedText = [
+      candidate.title,
+      candidate.thesis,
+      candidate.explanation || "",
+      ...candidate.bodyParagraphs,
+    ].join(" ");
+
+    const matchedSourceRefs = matchRelevantSourceRefs(
+      topSourceRefs,
+      candidate.storyId,
+      candidate.evidenceIds,
+      fullMatchedText
+    );
+
+    const hasCanonicalEvidence = candidate.evidenceIds.length > 0;
+    const hasSourcedRefs = matchedSourceRefs.length > 0;
+
+    // CANDIDATE ADMISSION GATE:
+    if (!hasCanonicalEvidence && !hasSourcedRefs) {
+      continue;
+    }
+
     const articleId = `article:${editionId}:${candidate.storyId}`;
     const displayTitle = truncateTitle(candidate.title, 63);
     const deck = candidate.centralQuestion
       || (candidate.thesis.endsWith(".") ? candidate.thesis : `${candidate.thesis}.`);
 
     const category = deriveCategory(candidate.icon, candidate.assets, candidate.title);
-    const interpretationStatus = deriveInterpretationStatus(
-      candidate.confidence,
-      candidate.lifecycle,
-      candidate.strongestContradiction
-    );
+
+    // Interpretation status:
+    // Confidence or generic lifecycle CANNOT create a System 2 verdict without Dossier ID and System 2 adjudication
+    const interpretationStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED" =
+      candidate.system2Adjudicated && dossierId
+        ? candidate.confidence >= 75
+          ? "SUPPORTED"
+          : "MIXED"
+        : "UNRESOLVED";
 
     const paragraphs: MarketBriefParagraphV1[] = [];
     const evIds = candidate.evidenceIds;
-    const refs = topSourceRefs;
+    const refs = matchedSourceRefs;
 
-    // 1. Opening / Driver paragraph
+    // 1. Opening / Driver paragraph (from whatChanged or body[0] or thesis)
     const openingText = candidate.whatChanged
       || candidate.bodyParagraphs[0]
       || candidate.thesis;
-    paragraphs.push({
-      role: "opening",
-      text: openingText,
-      sourceRefs: refs,
-      canonicalEvidenceIds: evIds,
-    });
+    if (openingText) {
+      paragraphs.push({
+        role: "opening",
+        text: openingText,
+        sourceRefs: refs,
+        canonicalEvidenceIds: evIds,
+      });
+    }
 
-    // 2. Primary Mechanism paragraph (plain English causal explanation)
+    // 2. Primary Mechanism paragraph (ONLY if explicitly present in input)
     const mechanismText1 = candidate.explanation
-      || candidate.bodyParagraphs[1]
-      || `The key transmission channel is anchored by ${candidate.title.toLowerCase()}, driving repricing expectations across key benchmark rates and cross-asset flows.`;
-    paragraphs.push({
-      role: "mechanism",
-      text: mechanismText1,
-      sourceRefs: refs,
-      canonicalEvidenceIds: evIds,
-    });
-
-    // 3. Secondary Transmission / Causal step 2
-    if (candidate.assets.length > 0 || candidate.bodyParagraphs.length > 2) {
-      const mechanismText2 = candidate.bodyParagraphs[2]
-        || `Market participants are evaluating asset sensitivities specifically in ${candidate.assets.join(", ")}, where positioning and liquidity conditions reflect the current fundamental balance.`;
+      || (candidate.bodyParagraphs.length > 1 ? candidate.bodyParagraphs[1] : null);
+    if (mechanismText1 && mechanismText1 !== openingText) {
       paragraphs.push({
         role: "mechanism",
-        text: mechanismText2,
+        text: mechanismText1,
         sourceRefs: refs,
         canonicalEvidenceIds: evIds,
       });
     }
 
-    // 4. Market Tape / Reaction
-    const reactionText = candidate.marketReaction
-      || (candidate.assets.length > 0
-        ? `Observed price action across ${candidate.assets.slice(0, 3).join(" and ")} reflects immediate recalibration of current expectations following the event.`
-        : "Recent market pricing demonstrates active absorption of the headline move without breaking broader structural ranges.");
-    paragraphs.push({
-      role: "reaction",
-      text: reactionText,
-      sourceRefs: refs,
-      canonicalEvidenceIds: evIds,
-    });
+    // 3. Secondary Transmission / Body paragraph (ONLY if explicitly present in input)
+    if (candidate.bodyParagraphs.length > 2) {
+      const mechanismText2 = candidate.bodyParagraphs[2];
+      if (mechanismText2 && mechanismText2 !== openingText && mechanismText2 !== mechanismText1) {
+        paragraphs.push({
+          role: "mechanism",
+          text: mechanismText2,
+          sourceRefs: refs,
+          canonicalEvidenceIds: evIds,
+        });
+      }
+    }
 
-    // 5. Genuine Contradiction / Countercase
-    const contradictionText = candidate.strongestContradiction
-      || "A key risk to this thesis lies in potential macro data surprises or shifts in official communication that could challenge current market assumptions.";
-    paragraphs.push({
-      role: "contradiction",
-      text: contradictionText,
-      sourceRefs: refs,
-      canonicalEvidenceIds: evIds,
-    });
+    // 4. Market Tape / Reaction (ONLY if explicitly provided in input)
+    if (candidate.marketReaction) {
+      paragraphs.push({
+        role: "reaction",
+        text: candidate.marketReaction,
+        sourceRefs: refs,
+        canonicalEvidenceIds: evIds,
+      });
+    }
 
-    // 6. Context & Background
-    if (candidate.strongestSupport || candidate.bodyParagraphs.length > 3) {
-      const contextText = candidate.bodyParagraphs[3]
-        || candidate.strongestSupport
-        || `In broader historical context, this development aligns with recent institutional positioning trends observed across the desk.`;
+    // 5. Contradiction / Countercase (ONLY if explicitly provided in input)
+    if (candidate.strongestContradiction) {
+      paragraphs.push({
+        role: "contradiction",
+        text: candidate.strongestContradiction,
+        sourceRefs: refs,
+        canonicalEvidenceIds: evIds,
+      });
+    }
+
+    // 6. Context & Background (ONLY if explicitly provided in input)
+    if (candidate.bodyParagraphs.length > 3) {
       paragraphs.push({
         role: "context",
-        text: contextText,
+        text: candidate.bodyParagraphs[3],
+        sourceRefs: refs,
+        canonicalEvidenceIds: evIds,
+      });
+    } else if (candidate.strongestSupport && candidate.strongestSupport !== openingText && candidate.strongestSupport !== mechanismText1) {
+      paragraphs.push({
+        role: "context",
+        text: candidate.strongestSupport,
         sourceRefs: refs,
         canonicalEvidenceIds: evIds,
       });
     }
 
-    // 7. Outlook & Conditions
-    const confirmationText = candidate.confirmation
-      ? `Confirmed if: ${candidate.confirmation}.`
-      : "Confirmed if subsequent macroeconomic releases validate the directional bias.";
-    const invalidationText = candidate.invalidation
-      ? `Invalidated if: ${candidate.invalidation}.`
-      : "Invalidated if key threshold levels or official policy stances reverse.";
-    const outlookText = `${confirmationText} ${invalidationText}`;
+    // 7. Outlook & Conditions (ONLY if confirmation or invalidation triggers exist in input)
+    if (candidate.confirmation || candidate.invalidation) {
+      const confirmationText = candidate.confirmation ? `Confirmation: ${candidate.confirmation}.` : "";
+      const invalidationText = candidate.invalidation ? `Invalidation: ${candidate.invalidation}.` : "";
+      const outlookText = `${confirmationText} ${invalidationText}`.trim();
+      if (outlookText) {
+        paragraphs.push({
+          role: "outlook",
+          text: outlookText,
+          sourceRefs: refs,
+          canonicalEvidenceIds: evIds,
+        });
+      }
+    }
 
-    paragraphs.push({
-      role: "outlook",
-      text: outlookText,
-      sourceRefs: refs,
-      canonicalEvidenceIds: evIds,
-    });
-
-    const conditionalOutlook = `Confirmation: ${candidate.confirmation || "Continued alignment in key indicators"}. Invalidation: ${candidate.invalidation || "Reversal in underlying catalyst or policy path"}.`;
+    const conditionalOutlook = (candidate.confirmation || candidate.invalidation)
+      ? `Confirmation: ${candidate.confirmation || "Continued alignment"}. Invalidation: ${candidate.invalidation || "Reversal in underlying catalyst"}.`
+      : "Unresolved; additional canonical evidence required to set formal confirmation/invalidation triggers.";
 
     articles.push({
       contractVersion: "market-brief-article/1",
