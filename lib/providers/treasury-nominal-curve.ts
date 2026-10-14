@@ -9,7 +9,7 @@ export const NOMINAL_TREASURY_TENORS = {
   "us30y-fred": "BC_30YEAR",
 } as const;
 export type NominalTreasuryMonitorId = keyof typeof NOMINAL_TREASURY_TENORS;
-export type TreasuryCurvePoint = { date: string; yieldPercent: number };
+export type TreasuryCurvePoint = { date: string; yieldPercent: number; sourceUpdatedAt: string | null };
 export type TreasuryNominalCurve = {
   status: "OK" | "PARTIAL" | "UNAVAILABLE";
   sourceUrl: string;
@@ -30,12 +30,15 @@ export function parseTreasuryNominalCurve(xml: string): TreasuryNominalCurve["se
     const rawDate = tagValue(entry, "NEW_DATE");
     const day = rawDate?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
     if (!day || !Number.isFinite(Date.parse(day + "T00:00:00Z"))) continue;
+    const rawUpdatedAt = tagValue(entry, "updated");
+    const sourceUpdatedAt = rawUpdatedAt && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(rawUpdatedAt)
+      && Number.isFinite(Date.parse(rawUpdatedAt)) ? rawUpdatedAt : null;
     for (const [id, tag] of Object.entries(NOMINAL_TREASURY_TENORS) as [NominalTreasuryMonitorId, string][]) {
       const raw = tagValue(entry, tag);
       if (raw === null || raw === "") continue;
       const value = Number(raw.replace(/,/g, ""));
       if (!Number.isFinite(value) || value < 0 || value > 30) continue;
-      series[id].push({ date: day, yieldPercent: value });
+      series[id].push({ date: day, yieldPercent: value, sourceUpdatedAt });
     }
   }
   for (const id of Object.keys(NOMINAL_TREASURY_TENORS) as NominalTreasuryMonitorId[]) {
