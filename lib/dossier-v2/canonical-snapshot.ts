@@ -1,4 +1,5 @@
 import { deriveMarketCrackObservations } from "./market-crack-observations.ts";
+import { deriveMatchedNominalCurveChange } from "./treasury-nominal-movement.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -957,6 +958,9 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     }),
   );
 
+  const nominalAsOf = rows.find((row) => row.id === "us2y")?.asOf;
+  const fiveSessionCurve = nominalAsOf ? deriveMatchedNominalCurveChange(rows, nominalAsOf) : null;
+
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
     const availableAt = sameDayTreasuryAvailableAt.get(row.id) ?? `${row.asOf}T23:59:59.999Z`;
@@ -964,7 +968,8 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     if (row.frequency === "daily" && (latestPriceAvailableAt === null || availableAt > latestPriceAvailableAt)) latestPriceAvailableAt = availableAt;
     const isFred = row.sourceName === "Federal Reserve Economic Data";
     const isCreditOas = row.id === "hy-oas" || row.id === "ig-oas";
-    const isRateOrSpread = isCreditOas || row.type === "Rates";
+    // MOVE is an index LEVEL, not a percentage-point Treasury yield.
+    const isRateOrSpread = isCreditOas || (row.type === "Rates" && row.id !== "move");
     const groupingKey = isCreditOas ? "market-monitor:credit-oas" : `market-monitor:${row.id}`;
     fredSeen ||= isFred && row.frequency === "daily";
     if (isFred && row.frequency === "daily" && (latestFredObservation === null || row.asOf! > latestFredObservation)) latestFredObservation = row.asOf!;
@@ -994,8 +999,15 @@ export function augmentCandidateSnapshotWithMarketMonitor(
         last: row.last,
         ...(isRateOrSpread ? {
           ...(isCreditOas ? { spread_level_pct: row.last } : { yield_level_pct: row.last }),
-          // A percentage return on a yield/spread level is not a bp change.
-          change_5d_bp: null,
+          // Observed absolute change in a yield (percentage points -> bp).
+          // Only five common official dated Treasury sessions qualify.
+          change_5d_bp: fiveSessionCurve && row.id in fiveSessionCurve.changeBp
+            ? fiveSessionCurve.changeBp[row.id as keyof typeof fiveSessionCurve.changeBp] : null,
+          ...(fiveSessionCurve && row.id in fiveSessionCurve.changeBp ? {
+            baseline_observation_date: fiveSessionCurve.baselineDate,
+            latest_observation_date: fiveSessionCurve.latestDate,
+            measurement_interval_sessions: fiveSessionCurve.matchedSessions,
+          } : {}),
         } : {
           day_change_pct: row.dayChange,
           change_5d_pct: row.change5d,
