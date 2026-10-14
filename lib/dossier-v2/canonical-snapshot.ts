@@ -646,8 +646,18 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
 
     if (directSourceType && !isCreatorLead(row)) {
       const source = sourceFromRow(row);
+      // Official Treasury 10Y TIPS measurements retain the immutable
+      // intelligence_evidence UUID in the Dossier. An external signal key is
+      // not sufficient provenance for a canonical rate-regime observation.
+      const officialTreasuryReal10y = verifiedMacroObservation
+        && structuredString(row.structured_payload, "signalContext") === "OFFICIAL_TIPS_REAL_CURVE"
+        && row.measurement_unit === "percent_real_yield"
+        && (row.affected_assets ?? []).includes("TIPS10Y")
+        && /^https:\/\/home\.treasury\.gov\//i.test(source?.source_url ?? "")
+        && typeof row.observed_value === "number"
+        && Number.isFinite(row.observed_value);
       observedEvidence.push({
-        evidence_id: row.external_evidence_id ?? `ev:${row.id}`,
+        evidence_id: officialTreasuryReal10y ? row.id : row.external_evidence_id ?? `ev:${row.id}`,
         canonical_record_backed: true,
         claim_or_fact: row.claim_text,
         category: categoryForRow(row),
