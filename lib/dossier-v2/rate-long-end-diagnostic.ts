@@ -98,6 +98,44 @@ function monitor(packet: DossierV2InputPacket, id: string) {
   return latestByPrefix(packet, `market-monitor:${id}:`);
 }
 
+/**
+ * Select an admitted, dated official Treasury 10Y TIPS observation before a
+ * same-day market-monitor fallback. It must have a real canonical Evidence
+ * UUID, an exact 10Y real-yield unit/context and Treasury provenance.
+ * A published point estimate does not establish a five-session change.
+ */
+export function preferredUs10yRealYield(packet: DossierV2InputPacket): ObservedEvidence | null {
+  const asOfMs = Date.parse(packet.as_of);
+  const monitorReal = monitor(packet, "us10y-real");
+  if (!Number.isFinite(asOfMs)) return monitorReal;
+
+  const official = allEvidence(packet)
+    .filter((item) => {
+      const value = metricNumber(item, "observed_value");
+      const availableMs = Date.parse(item.available_at);
+      const observedMs = Date.parse(item.occurrence_time ?? "");
+      return item.canonical_record_backed === true
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.evidence_id)
+        && item.source_type === "VERIFIED_MACRO_DATA"
+        && metricString(item, "signal_context") === "OFFICIAL_TIPS_REAL_CURVE"
+        && metricString(item, "measurement_unit") === "percent_real_yield"
+        && value !== null && value >= -10 && value <= 20
+        && Number.isFinite(availableMs) && availableMs <= asOfMs
+        && Number.isFinite(observedMs) && observedMs <= asOfMs
+        && asOfMs - observedMs <= 5 * 86_400_000
+        && item.provenance.some((ref) => /^https:\/\/home\.treasury\.gov\//i.test(ref.url ?? ""));
+    })
+    .sort((a, b) =>
+      (b.occurrence_time ?? "").localeCompare(a.occurrence_time ?? "")
+      || b.available_at.localeCompare(a.available_at)
+    )[0] ?? null;
+
+  if (!official) return monitorReal;
+  const monitorMs = Date.parse(monitorReal?.occurrence_time ?? "");
+  const officialMs = Date.parse(official.occurrence_time ?? "");
+  return Number.isFinite(monitorMs) && monitorMs > officialMs ? monitorReal : official;
+}
+
 function signalContext(packet: DossierV2InputPacket, context: string) {
   return allEvidence(packet)
     .filter((item) => metricString(item, "signal_context")?.toLowerCase() === context.toLowerCase())
@@ -160,7 +198,7 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
   const nominal = monitor(packet, "us10y") ?? monitor(packet, "us10y-fred");
   const real5y = monitor(packet, "us5y-real");
   const breakeven5y = monitor(packet, "us5y-breakeven");
-  const real = monitor(packet, "us10y-real");
+  const real = preferredUs10yRealYield(packet);
   const breakeven = monitor(packet, "us10y-breakeven");
   const termPremium = signalContext(packet, "term_premium") ?? signalContext(packet, "acm_term_premium");
   const treasurySupply = preferredTreasurySupply(packet);
@@ -172,7 +210,7 @@ export function buildRateLongEndDiagnostic(packet: DossierV2InputPacket): RateLo
   const nominalLevel = metricNumber(nominal, "last");
   const real5yLevel = metricNumber(real5y, "last");
   const breakeven5yLevel = metricNumber(breakeven5y, "last");
-  const realLevel = metricNumber(real, "last");
+  const realLevel = metricNumber(real, "last") ?? metricNumber(real, "observed_value");
   const breakevenLevel = metricNumber(breakeven, "last");
   const nominalChange = round(bpChange(nominal));
   const real5yChange = round(bpChange(real5y));
