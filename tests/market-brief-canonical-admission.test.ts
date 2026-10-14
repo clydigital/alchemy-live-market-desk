@@ -11,7 +11,8 @@ async function projector(t: { skip: (reason?: string) => void }) {
     t.skip("Market Brief projector not yet merged; contract gate activates with its PR");
     return null;
   }
-  return import("../lib/market-brief-articles.ts");
+  const candidatePath = "../lib/market-brief-articles.ts";
+  return import(candidatePath);
 }
 
 test("Unverified legacy Story text cannot become a client-facing canonical article", async (t) => {
