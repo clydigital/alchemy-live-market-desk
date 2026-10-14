@@ -71,6 +71,49 @@ test("alternative historical ten-year market-monitor ID is recognized without fa
 test("missing licensed MOVE/FedWatch/direct UST are research gaps, not fictional market series", () => {
   const actual = assessRatesSourceIntegrity(input());
   assert.deepEqual(actual.inaccessibleDirectFeeds.map((item) => item.id),
-    ["CME_FEDWATCH_INTRADAY", "ICE_MOVE", "INTRADAY_UST_2Y_10Y"]);
+    ["CME_FEDWATCH_INTRADAY", "INTRADAY_UST_2Y_10Y"]);
   assert.equal(actual.inaccessibleDirectFeeds.every((item) => item.state === "NOT_ENTITLED_OR_NOT_INTEGRATED"), true);
+});
+
+test("stored five-session bp movements must survive whenever all source sessions are directly observed", () => {
+  const x = input();
+  const dates = ["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14"];
+  x.monitorRows = x.monitorRows.map((row) => ({ ...row,
+    points: dates.map((date, index) => ({ time: Date.parse(date + "T00:00:00Z") / 1000, close: 5 + index * 0.02 })),
+  }));
+  x.dossierCurveMoves = [
+    { maturity: "2Y", change5dBp: 10 },
+    { maturity: "5Y", change5dBp: 10 },
+    { maturity: "10Y", change5dBp: null },
+    { maturity: "20Y", change5dBp: 10 },
+    { maturity: "30Y", change5dBp: 10 },
+  ];
+  const bad = assessRatesSourceIntegrity(x);
+  assert.equal(bad.fiveSessionCurve.state, "DOWNSTREAM_MEASUREMENT_MISSING");
+  assert.deepEqual(bad.fiveSessionCurve.missingMaturities, ["10Y"]);
+  assert.ok(bad.alerts.some((a) => a.code === "TREASURY_FIVE_SESSION_MOVEMENT_LOST"));
+  assert.equal(bad.operationalStatus, "ACTION_REQUIRED");
+  x.dossierCurveMoves[2].change5dBp = 10;
+  const repaired = assessRatesSourceIntegrity(x);
+  assert.equal(repaired.fiveSessionCurve.state, "COMPLETE");
+  assert.equal(repaired.operationalStatus, "WATCH"); // existing genuinely stale NY Fed source
+});
+
+test("unfinished newer Dossier or insufficient matched history cannot trigger a false momentum loss alert", () => {
+  const x = input();
+  const assessed = assessRatesSourceIntegrity(x);
+  assert.equal(assessed.fiveSessionCurve.state, "NOT_COMPUTABLE");
+  assert.equal(assessed.alerts.some((a) => a.code === "TREASURY_FIVE_SESSION_MOVEMENT_LOST"), false);
+});
+
+test("MOVE adapter readiness is source-derived rather than perpetually marked unintegrated", () => {
+  const x = input();
+  assert.equal(assessRatesSourceIntegrity(x).move.state, "ADAPTER_PRESENT_NO_VERIFIED_DATA");
+  x.monitorRows.push({ id: "move", asOf: "2026-10-14", last: 81.1,
+    sourceName: "Barchart OnDemand · ICE BofA MOVE Index", sourceUrl: "https://www.barchart.com/stocks/quotes/$MOVE" });
+  assert.equal(assessRatesSourceIntegrity(x).move.state, "OBSERVED");
+  x.monitorRows[x.monitorRows.length - 1].asOf = "2026-10-03";
+  const stale = assessRatesSourceIntegrity(x);
+  assert.equal(stale.move.state, "STALE");
+  assert.ok(stale.alerts.some((a) => a.code === "MOVE_UPSTREAM_STALE"));
 });
