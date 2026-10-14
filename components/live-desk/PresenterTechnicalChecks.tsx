@@ -184,7 +184,8 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
                 <span className={styles.state}>{check.technical}</span>
               </div>
               <div className={styles.detail}>
-                <span>Observation: {check.observedOn || "Date not confirmed"}</span>
+                <span>Observed: {check.observedOn || "Date not confirmed"}</span>
+                <span>Updated: {check.updatedAt ? new Date(check.updatedAt).toLocaleDateString("en-GB") : "Undated example"}</span>
                 {check.key.startsWith("dxy-") ? <span>Last break: {check.lastBreak}</span> : null}
                 <span>Fundamentals: {check.alignment.toUpperCase()}</span>
               </div>
@@ -193,6 +194,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
               {check.fundamentals ? <p className={styles.small}>{check.fundamentals}</p> : null}
               <div className={styles.actions}>
                 <button type="button" onClick={() => startEdit(check)}>Update reading</button>
+                {!compact ? <a href={"https://chatgpt.com/?q=" + encodeURIComponent(promptFor(check))} target="_blank" rel="noreferrer">Review with ChatGPT ↗</a> : null}
                 {!compact ? <button type="button" onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(promptFor(check));
@@ -209,7 +211,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
                   {check.key.startsWith("dxy-") ? <label>Last completed band break<select value={draft.lastBreak} onChange={(event) => set({ lastBreak: event.target.value })}>
                     {BREAKS.filter((b) => b !== "Not applicable").map((value) => <option key={value}>{value}</option>)}
                   </select></label> : null}
-                  <label>Chart observation date<input type="date" value={draft.observedOn} onChange={(event) => set({ observedOn: event.target.value })}/></label>
+                  <label>Chart observation date<input type="date" max={new Date().toISOString().slice(0, 10)} value={draft.observedOn} onChange={(event) => set({ observedOn: event.target.value })}/></label>
                   <label>Technical versus fundamentals<select value={draft.alignment} onChange={(event) => set({ alignment: event.target.value as Alignment })}>
                     {ALIGNMENTS.map((a) => <option key={a} value={a}>{a.toUpperCase()}</option>)}
                   </select></label>
