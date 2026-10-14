@@ -1,0 +1,45 @@
+name: Market Brief Jules CI feedback
+
+on:
+  workflow_run:
+    workflows:
+      - "Validate Live Desk"
+    types: [completed]
+  schedule:
+    # Idempotent fallback if a GitHub workflow_run delivery is missed.
+    - cron: '27 * * * *'
+  workflow_dispatch:
+
+# Trust boundary: workflow_run always loads trusted default-branch code,
+# never checks out or executes Jules PR branch content.
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: jules-brief-ci-feedback
+  cancel-in-progress: false
+
+jobs:
+  feedback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout default-branch monitor only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate trusted monitor code
+        run: node --check scripts/jules-market-brief-ci-feedback.mjs
+      - name: Check exact Market Brief PR head and send bounded feedback if CI failed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JULES_AMLYC: ${{ secrets.JULES_AMLYC }}
+        run: node scripts/jules-market-brief-ci-feedback.mjs
