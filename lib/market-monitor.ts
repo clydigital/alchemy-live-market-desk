@@ -49,6 +49,8 @@ export type MarketMonitorRow = {
   frequency: "daily" | "monthly";
   sourceName: string;
   sourceUrl: string;
+  /** Source-provided XML entry update time; only used for same-day live admission. */
+  sourceUpdatedAt?: string | null;
   points: Array<{ time: number; close: number }>;
 };
 
@@ -106,6 +108,7 @@ type RawSeries = {
   sourceName: string;
   sourceUrl: string;
   frequency: "daily" | "monthly";
+  sourceUpdatedAt?: string | null;
 };
 
 type FredSpec = {
@@ -488,6 +491,7 @@ export const loadExtras = unstable_cache(async () => {
       type: "Rates", benchmark: null, points,
       sourceName: "U.S. Department of the Treasury",
       sourceUrl: treasuryCurve.sourceUrl, frequency: "daily",
+      sourceUpdatedAt: treasuryCurve.series[spec.id as NominalTreasuryMonitorId].at(-1)?.sourceUpdatedAt ?? null,
     } : null;
     const selected = official && (official.points.at(-1)?.time ?? -1) > (fred?.points.at(-1)?.time ?? -1)
       ? official : fred ?? official;
@@ -664,6 +668,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       frequency: raw.frequency,
       sourceName: raw.sourceName,
       sourceUrl: raw.sourceUrl,
+      ...(raw.sourceUpdatedAt ? { sourceUpdatedAt: raw.sourceUpdatedAt } : {}),
       points: points.slice(-64).map((point) => ({ time: point.time, close: point.close })),
     } satisfies Omit<MarketMonitorRow, "attentionScore" | "hot" | "contradiction" | "tags">;
     return row;

@@ -274,6 +274,7 @@ type MarketMonitorLike = {
     frequency: "daily" | "monthly";
     sourceName: string;
     sourceUrl: string;
+    sourceUpdatedAt?: string | null;
     attentionScore?: number;
     hot?: boolean;
     points?: Array<{ time: number; close: number }>;
@@ -895,6 +896,36 @@ export function augmentCandidateSnapshotWithTwelveDataReactions(
   };
 }
 
+const LIVE_TREASURY_NOMINAL_IDS = new Set(["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"]);
+
+/**
+ * The Treasury Atom feed supplies a source <updated> timestamp. For a live
+ * as-of snapshot only, admit a same-day nominal yield if that timestamp is
+ * no later than asOf and belongs to the reported observation day.
+ * Historical replay is excluded: its source vintage cannot be independently
+ * reconstructed from a present-day XML feed. All ordinary/older dates keep
+ * the strict prior-midnight and five-day admission rules.
+ */
+export function officialTreasurySameDayAvailability(
+  row: Pick<MarketMonitorLike["rows"][number], "id" | "asOf" | "frequency" | "sourceName" | "sourceUpdatedAt">,
+  asOf: string,
+  nowMs = Date.now(),
+): string | null {
+  if (row.sourceName !== "U.S. Department of the Treasury"
+    || row.frequency !== "daily" || !LIVE_TREASURY_NOMINAL_IDS.has(row.id)
+    || !row.asOf || !row.sourceUpdatedAt) return null;
+  const asOfMs = Date.parse(asOf);
+  const updatedMs = Date.parse(row.sourceUpdatedAt);
+  if (!Number.isFinite(asOfMs) || !Number.isFinite(updatedMs)
+    || Math.abs(nowMs - asOfMs) > 15 * 60_000) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(row.sourceUpdatedAt)
+    || row.sourceUpdatedAt.slice(0, 10) !== row.asOf
+    || updatedMs > asOfMs) return null;
+  const observationDayMs = Date.parse(row.asOf + "T00:00:00.000Z");
+  if (!Number.isFinite(observationDayMs) || observationDayMs > updatedMs
+    || observationDayMs > asOfMs || observationDayMs + 86_400_000 <= asOfMs) return null;
+  return row.sourceUpdatedAt;
+}
 export function augmentCandidateSnapshotWithMarketMonitor(
   result: CanonicalSnapshotResult,
   monitor: MarketMonitorLike | null | undefined,
@@ -910,19 +941,27 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   let latestMonitorObservation: string | null = null;
   let latestFredObservation: string | null = null;
   let latestDailyPriceObservation: string | null = null;
+  let latestMarketAvailableAt: string | null = null;
+  let latestPriceAvailableAt: string | null = null;
+  const sameDayTreasuryAvailableAt = new Map<string, string>();
 
   const rows = selectMarketMonitorRows(
     monitor.rows.filter((row) => {
       if (row.last === null || !row.asOf) return false;
       const occurrenceMs = Date.parse(`${row.asOf}T00:00:00.000Z`);
+      const publication = officialTreasurySameDayAvailability(row, options.asOf);
+      if (publication) sameDayTreasuryAvailableAt.set(row.id, publication);
       return Number.isFinite(occurrenceMs)
-        && occurrenceMs + 86_400_000 <= asOfMs
+        && (occurrenceMs + 86_400_000 <= asOfMs || Boolean(publication))
         && asOfMs - occurrenceMs <= (row.frequency === "monthly" ? 45 : 5) * 86_400_000;
     }),
   );
 
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
+    const availableAt = sameDayTreasuryAvailableAt.get(row.id) ?? `${row.asOf}T23:59:59.999Z`;
+    if (latestMarketAvailableAt === null || availableAt > latestMarketAvailableAt) latestMarketAvailableAt = availableAt;
+    if (row.frequency === "daily" && (latestPriceAvailableAt === null || availableAt > latestPriceAvailableAt)) latestPriceAvailableAt = availableAt;
     const isFred = row.sourceName === "Federal Reserve Economic Data";
     const isCreditOas = row.id === "hy-oas" || row.id === "ig-oas";
     const isRateOrSpread = isCreditOas || row.type === "Rates";
@@ -944,7 +983,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       category: row.type,
       source_type: "MARKET_DATA",
       // This is a provider-supplied day, not the Dossier run timestamp.
-      available_at: `${row.asOf}T23:59:59.999Z`,
+      available_at: availableAt,
       occurrence_time: occurrenceTime,
       grouping_key: groupingKey,
       rank: isCreditOas ? (row.id === "hy-oas" ? 18 : 19) : undefined,
@@ -1072,7 +1111,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     ...(result.snapshot.sources_status ?? {}),
     market_monitor: {
       status: "OK",
-      available_at: latestMonitorObservation ? latestMonitorObservation + "T23:59:59.999Z" : undefined,
+      available_at: latestMarketAvailableAt ?? undefined,
       message: `${rows.length} dated Live market-monitor observations and ${breadthAdded} breadth snapshots available to Dossier V2; market-monitor IDs are not canonical Evidence UUIDs.`,
     },
   };
@@ -1088,7 +1127,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     ? { status: "OK", available_at: latestFredObservation + "T23:59:59.999Z" }
     : result.snapshot.macro_data;
   const priceData = latestDailyPriceObservation
-    ? { status: "OK", available_at: latestDailyPriceObservation + "T23:59:59.999Z" }
+    ? { status: "OK", available_at: latestPriceAvailableAt ?? undefined }
     : result.snapshot.price_data;
 
   return {
@@ -1102,9 +1141,9 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     diagnostics: {
       ...result.diagnostics,
       observed_count: observed.length,
-      latest_available_at: result.diagnostics.latest_available_at && latestMonitorObservation
-        ? (result.diagnostics.latest_available_at > latestMonitorObservation + "T23:59:59.999Z" ? result.diagnostics.latest_available_at : latestMonitorObservation + "T23:59:59.999Z")
-        : result.diagnostics.latest_available_at ?? (latestMonitorObservation ? latestMonitorObservation + "T23:59:59.999Z" : null),
+      latest_available_at: result.diagnostics.latest_available_at && latestMarketAvailableAt
+        ? (result.diagnostics.latest_available_at > latestMarketAvailableAt ? result.diagnostics.latest_available_at : latestMarketAvailableAt)
+        : result.diagnostics.latest_available_at ?? latestMarketAvailableAt,
       price_data_status: latestDailyPriceObservation ? "OK" : result.diagnostics.price_data_status,
       macro_data_status: fredSeen
         ? "OK"
