@@ -1,0 +1,53 @@
+name: Presenter checklist PostgreSQL security
+
+on:
+  pull_request:
+    paths:
+      - "app/api/presenter/technical-checks/**"
+      - "lib/presenter-technical-checks.ts"
+      - "supabase/migrations/20261010000000_presenter_technical_checklists.sql"
+      - "supabase/tests/presenter_checklist_e1_*.sql"
+      - ".github/workflows/presenter-checklist-db.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/20261010000000_presenter_technical_checklists.sql"
+      - "supabase/tests/presenter_checklist_e1_*.sql"
+      - ".github/workflows/presenter-checklist-db.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  presenter-db-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout candidate migration and its independent tests
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Bootstrap isolated Supabase auth fixture
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/presenter_checklist_e1_fixture.sql
+      - name: Apply reviewed presenter migration to disposable CI PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010000000_presenter_technical_checklists.sql
+      - name: Verify RLS, CAS, JSON integrity and server timestamp authority
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/presenter_checklist_e1_runtime.sql
