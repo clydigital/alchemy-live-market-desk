@@ -70,10 +70,10 @@ function cleanStringArray(val: unknown): string[] {
   return result;
 }
 
-function isValidDossierId(id: unknown): string | null {
+function isValidDossierUuid(id: unknown): string | null {
   if (typeof id !== "string") return null;
   const clean = id.trim();
-  // Must be an explicit valid UUID (36-char 8-4-4-4-12 hex string)
+  // Must be an explicit valid 36-char UUID string
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) {
     return clean;
   }
@@ -175,36 +175,17 @@ export function projectMarketBriefArticles(
       ? (input.payload as JsonRecord)
       : (input as JsonRecord);
 
-  // Extract Dossier identity (must be a valid Dossier UUID, not a contract version or non-UUID)
+  // Extract Dossier identity (must be a valid Dossier UUID from dossier.id ONLY; parentEditionId is NOT a Dossier ID)
   const dossier = isObject(payload.dossier) ? (payload.dossier as JsonRecord) : null;
-  const dossierComposition = isObject(payload.dossierComposition) ? (payload.dossierComposition as JsonRecord) : null;
-  const rawDossierId = dossier?.id || dossierComposition?.parentEditionId || null;
-  const dossierId = isValidDossierId(rawDossierId);
+  const dossierId = isValidDossierUuid(dossier?.id);
 
   const dossierAsOf = cleanText(dossier?.generatedAt)
     || cleanText(dossier?.asOf)
     || generatedAt;
 
-  // Gather explicit source links (ONLY explicit HTTP URLs from marketTape, no fabricated defaults)
+  // Gather explicit market tape sources
   const marketTape = isObject(payload.marketTape) ? (payload.marketTape as JsonRecord) : null;
   const tapeSources = Array.isArray(marketTape?.sources) ? marketTape!.sources : [];
-
-  const sourceLinks: MarketBriefSourceLinkV1[] = [];
-  if (Array.isArray(tapeSources)) {
-    for (const src of tapeSources) {
-      if (isObject(src)) {
-        const title = cleanText(src.title) || cleanText(src.name) || "Source";
-        const url = cleanText(src.url) || cleanText(src.sourceUrl);
-        if (url && url !== "https://live.alchemymarkets.com") {
-          sourceLinks.push({
-            title,
-            url,
-            accessedAt: cleanText(src.accessedAt) || null,
-          });
-        }
-      }
-    }
-  }
 
   // Candidate extraction
   const manifest = Array.isArray(payload.canonicalStoryManifest) ? payload.canonicalStoryManifest : [];
@@ -526,6 +507,31 @@ export function projectMarketBriefArticles(
       continue;
     }
 
+    // Article-specific source links (ONLY if URL matches the article's sourceRefs or evidence)
+    const sourceLinks: MarketBriefSourceLinkV1[] = [];
+    if (Array.isArray(tapeSources)) {
+      for (const src of tapeSources) {
+        if (isObject(src)) {
+          const title = cleanText(src.title) || cleanText(src.name) || "Source";
+          const url = cleanText(src.url) || cleanText(src.sourceUrl);
+          if (url && url !== "https://live.alchemymarkets.com") {
+            const matchesRef = candidate.allSourceRefs.some(
+              (ref) => url.toLowerCase().includes(ref.toLowerCase()) || ref.toLowerCase().includes(url.toLowerCase())
+            ) || candidate.allEvidenceIds.some(
+              (ev) => url.toLowerCase().includes(ev.toLowerCase())
+            );
+            if (matchesRef) {
+              sourceLinks.push({
+                title,
+                url,
+                accessedAt: cleanText(src.accessedAt) || null,
+              });
+            }
+          }
+        }
+      }
+    }
+
     const articleId = `article:${editionId}:${candidate.storyId}`;
     const displayTitle = truncateTitle(candidate.title, 63);
     const deck = candidate.centralQuestion
@@ -541,6 +547,27 @@ export function projectMarketBriefArticles(
         : "UNRESOLVED";
 
     const paragraphs: MarketBriefParagraphV1[] = [];
+
+    // Helper to push paragraph ONLY if it has evidence/source refs
+    const pushSourcedParagraph = (
+      role: MarketBriefParagraphRole,
+      text: string,
+      sourceRefs: string[],
+      canonicalEvidenceIds: string[]
+    ) => {
+      if (!text.trim()) return;
+      // PARAGRAPH ADMISSION GATE:
+      // An article must not emit unsupported paragraphs under a sourced headline
+      if (sourceRefs.length === 0 && canonicalEvidenceIds.length === 0) {
+        return;
+      }
+      paragraphs.push({
+        role,
+        text,
+        sourceRefs,
+        canonicalEvidenceIds,
+      });
+    };
 
     // 1. Opening / Driver paragraph
     const openingText = candidate.whatChanged
@@ -559,12 +586,7 @@ export function projectMarketBriefArticles(
           ? candidate.bodyParagraphs[0].sourceRefs
           : candidate.allSourceRefs;
 
-      paragraphs.push({
-        role: "opening",
-        text: openingText,
-        sourceRefs: openingSrc,
-        canonicalEvidenceIds: openingEv,
-      });
+      pushSourcedParagraph("opening", openingText, openingSrc, openingEv);
     }
 
     // 2. Primary Mechanism paragraph (ONLY if explicitly present in input)
@@ -582,94 +604,95 @@ export function projectMarketBriefArticles(
           ? candidate.bodyParagraphs[1].sourceRefs
           : candidate.allSourceRefs;
 
-      paragraphs.push({
-        role: "mechanism",
-        text: mechanismText1,
-        sourceRefs: mechSrc,
-        canonicalEvidenceIds: mechEv,
-      });
+      pushSourcedParagraph("mechanism", mechanismText1, mechSrc, mechEv);
     }
 
     // 3. Secondary Transmission / Body paragraph (ONLY if explicitly present in input)
     if (candidate.bodyParagraphs.length > 2) {
       const mechanismText2 = candidate.bodyParagraphs[2].text;
       if (mechanismText2 && mechanismText2 !== openingText && mechanismText2 !== mechanismText1) {
-        paragraphs.push({
-          role: "mechanism",
-          text: mechanismText2,
-          sourceRefs: candidate.bodyParagraphs[2].sourceRefs,
-          canonicalEvidenceIds: candidate.bodyParagraphs[2].evidenceIds,
-        });
+        pushSourcedParagraph(
+          "mechanism",
+          mechanismText2,
+          candidate.bodyParagraphs[2].sourceRefs,
+          candidate.bodyParagraphs[2].evidenceIds
+        );
       }
     }
 
-    // 4. Market Tape / Reaction (ONLY if explicitly provided in input)
+    // 4. Market Tape / Reaction (ONLY if explicitly provided in input with evidence/sources)
     if (candidate.marketReaction) {
-      paragraphs.push({
-        role: "reaction",
-        text: candidate.marketReaction,
-        sourceRefs: candidate.marketReactionSourceRefs,
-        canonicalEvidenceIds: candidate.marketReactionEvidenceIds,
-      });
+      pushSourcedParagraph(
+        "reaction",
+        candidate.marketReaction,
+        candidate.marketReactionSourceRefs,
+        candidate.marketReactionEvidenceIds
+      );
     }
 
-    // 5. Contradiction / Countercase (ONLY if explicitly provided in input)
+    // 5. Contradiction / Countercase (ONLY if explicitly provided in input with evidence/sources)
     if (candidate.strongestContradiction) {
-      paragraphs.push({
-        role: "contradiction",
-        text: candidate.strongestContradiction,
-        sourceRefs: candidate.contradictionSourceRefs,
-        canonicalEvidenceIds: candidate.contradictionEvidenceIds,
-      });
+      pushSourcedParagraph(
+        "contradiction",
+        candidate.strongestContradiction,
+        candidate.contradictionSourceRefs,
+        candidate.contradictionEvidenceIds
+      );
     }
 
-    // 6. Context & Background (ONLY if explicitly provided in input)
+    // 6. Context & Background (ONLY if explicitly provided in input with evidence/sources)
     if (candidate.bodyParagraphs.length > 3) {
-      paragraphs.push({
-        role: "context",
-        text: candidate.bodyParagraphs[3].text,
-        sourceRefs: candidate.bodyParagraphs[3].sourceRefs,
-        canonicalEvidenceIds: candidate.bodyParagraphs[3].evidenceIds,
-      });
-    } else if (candidate.strongestSupport && candidate.strongestSupport !== openingText && candidate.strongestSupport !== mechanismText1) {
-      paragraphs.push({
-        role: "context",
-        text: candidate.strongestSupport,
-        sourceRefs: candidate.allSourceRefs,
-        canonicalEvidenceIds: candidate.allEvidenceIds,
-      });
+      pushSourcedParagraph(
+        "context",
+        candidate.bodyParagraphs[3].text,
+        candidate.bodyParagraphs[3].sourceRefs,
+        candidate.bodyParagraphs[3].evidenceIds
+      );
+    } else if (
+      candidate.strongestSupport &&
+      candidate.strongestSupport !== openingText &&
+      candidate.strongestSupport !== mechanismText1
+    ) {
+      pushSourcedParagraph(
+        "context",
+        candidate.strongestSupport,
+        candidate.allSourceRefs,
+        candidate.allEvidenceIds
+      );
     }
 
     // 7. Outlook & Conditions (ONLY if confirmation or invalidation triggers exist in input)
     if (candidate.confirmation || candidate.invalidation) {
       const outlookText = deriveConditionalOutlook(candidate.confirmation, candidate.invalidation);
       if (outlookText) {
-        paragraphs.push({
-          role: "outlook",
-          text: outlookText,
-          sourceRefs: candidate.allSourceRefs,
-          canonicalEvidenceIds: candidate.allEvidenceIds,
-        });
+        pushSourcedParagraph(
+          "outlook",
+          outlookText,
+          candidate.allSourceRefs,
+          candidate.allEvidenceIds
+        );
       }
     }
 
     const conditionalOutlook = deriveConditionalOutlook(candidate.confirmation, candidate.invalidation);
 
-    articles.push({
-      contractVersion: "market-brief-article/1",
-      articleId,
-      editionId,
-      dossierId,
-      dossierAsOf,
-      generatedAt,
-      title: displayTitle,
-      deck,
-      category,
-      paragraphs,
-      sourceLinks,
-      interpretationStatus,
-      conditionalOutlook,
-    });
+    if (paragraphs.length > 0) {
+      articles.push({
+        contractVersion: "market-brief-article/1",
+        articleId,
+        editionId,
+        dossierId,
+        dossierAsOf,
+        generatedAt,
+        title: displayTitle,
+        deck,
+        category,
+        paragraphs,
+        sourceLinks,
+        interpretationStatus,
+        conditionalOutlook,
+      });
+    }
   }
 
   if (articles.length === 0) {
@@ -684,13 +707,16 @@ export function projectMarketBriefArticles(
     };
   }
 
+  // Check if every projected article forms a complete multi-part claim chain (e.g. >= 4 substantiated paragraph roles)
+  const isAllComplete = articles.every((a) => a.paragraphs.length >= 4);
+
   return {
     contractVersion: "market-brief-article/1",
     editionId,
     dossierId,
     generatedAt,
     articles,
-    status: "COMPLETE",
+    status: isAllComplete ? "COMPLETE" : "PARTIAL",
     blockedReason: null,
   };
 }
