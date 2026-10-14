@@ -12,6 +12,9 @@ export type RatesIntegrityInput = {
   dossierAsOf: string;
   dossierCurveEvidenceRefs: string[];
   dossierCoveragePresent: number | null;
+  dossierRequiredRateMissing?: string[];
+  /** Market-monitor acquisition time; never substitute API response generation time. */
+  monitorUpdatedAt?: string;
   /** Stored deterministic curve values; missing observations must be reported, not inferred. */
   dossierCurveMoves?: Array<{ maturity: string; change5dBp: number | null }>;
   monitorRows: MonitorRateRow[];
@@ -27,6 +30,7 @@ export type RatesIntegrityResult = {
     sourceUpdatedAt: string | null; sourceName: string | null; sourceUrl: string | null;
     storedEvidenceRef: string | null; detail: string;
   }> };
+  requiredRateInputs: { present: number | null; required: 5; missing: string[]; diagnostics: Array<{ label: string; state: "DOWNSTREAM_LOSS" | "PENDING_REBASE" | "UPSTREAM_UNAVAILABLE" | "UPSTREAM_STALE" | "UNVERIFIED"; sourceDate: string | null }> };
   primaryDealers: { state: "OK" | "UPSTREAM_STALE" | "UPSTREAM_UNAVAILABLE"; asOf: string | null; sourceUrl: string; warnings: string[] };
   fiveSessionCurve: { state: "COMPLETE" | "NOT_COMPUTABLE" | "DOWNSTREAM_MEASUREMENT_MISSING" | "PENDING_REBASE" | "UNASSESSED"; baselineDate: string | null; latestDate: string | null; missingMaturities: string[] };
   move: { state: "OBSERVED" | "STALE" | "ADAPTER_PRESENT_NO_VERIFIED_DATA"; observationDate: string | null; sourceName: string | null; sourceUrl: string | null };
@@ -132,17 +136,74 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
     code: "TREASURY_FIVE_SESSION_MOVEMENT_LOST", severity: "ACTION_REQUIRED",
     detail: "Five common official sessions exist, but persisted Dossier bp movements are missing for: " + missingMovements.join(", "),
   });
+
+  // "5/5 required rate inputs" is NOT "5/5 nominal Treasury maturities".
+  // It includes 2Y, 10Y, 10Y real, 10Y breakeven and effective Fed funds.
+  // Canonical real yield evidence may be backed by a UUID, not a monitor ref;
+  // only the persisted Dossier's own explicit missing labels identify gaps.
+  const requiredRateMissing = input.dossierRequiredRateMissing ?? [];
+  const requiredSourceIds: Record<string, string> = {
+    "US 2Y": "us2y",
+    "US 10Y nominal": "us10y-fred",
+    "US 10Y real yield": "us10y-real",
+    "US 10Y breakeven": "us10y-breakeven",
+    "Effective fed funds": "fed-funds-effective",
+  };
+  const monitorReceiptMs = input.monitorUpdatedAt ? Date.parse(input.monitorUpdatedAt) : NaN;
+  const missingInputDiagnostics: RatesIntegrityResult["requiredRateInputs"]["diagnostics"] = [];
+  for (const label of requiredRateMissing) {
+    const id = requiredSourceIds[label];
+    const row = input.monitorRows.find((candidate) => candidate.id === id);
+    const observedMs = row?.asOf ? Date.parse(row.asOf + "T00:00:00Z") : NaN;
+    const age = ageDays(row?.asOf ?? null, asOfMs);
+    let state: RatesIntegrityResult["requiredRateInputs"]["diagnostics"][number]["state"];
+    if (!id) state = "UNVERIFIED";
+    else if (!row || row.last === null || !Number.isFinite(observedMs)) state = "UPSTREAM_UNAVAILABLE";
+    else if (age === null || age > 5) state = "UPSTREAM_STALE";
+    else {
+      const sourceMs = row.sourceUpdatedAt ? Date.parse(row.sourceUpdatedAt) : NaN;
+      const trustedTimestamp = Number.isFinite(sourceMs) && sourceMs >= observedMs && sourceMs <= dossierAsOfMs;
+      // For same-day FRED without a publication clock, only a monitor
+      // receipt actually preceding the Dossier as-of can establish availability.
+      const provenReceipt = row.sourceName === "Federal Reserve Economic Data"
+        && Number.isFinite(monitorReceiptMs)
+        && input.monitorUpdatedAt?.slice(0, 10) === row.asOf
+        && monitorReceiptMs >= observedMs && monitorReceiptMs <= dossierAsOfMs
+        && dossierAsOfMs - monitorReceiptMs <= 15 * 60_000;
+      const conservativeNextDayMs = observedMs + DAY_MS;
+      const wasAvailable = trustedTimestamp || provenReceipt || conservativeNextDayMs <= dossierAsOfMs;
+      state = wasAvailable ? "DOWNSTREAM_LOSS" : "PENDING_REBASE";
+    }
+    missingInputDiagnostics.push({ label, state, sourceDate: row?.asOf ?? null });
+    const actionable = state === "DOWNSTREAM_LOSS";
+    alerts.push({
+      code: "REQUIRED_RATE_INPUT_" + (id ?? label).toUpperCase().replace(/[^A-Z0-9]+/g, "_"),
+      severity: actionable ? "ACTION_REQUIRED" : "WATCH",
+      detail: `${label} missing from persisted Dossier. ${actionable
+        ? "An eligible dated source observation existed by Dossier as-of; inspect packet admission and rebase."
+        : "Source availability is not proven by Dossier as-of or has degraded upstream."}`,
+    });
+  }
+  // A stored 4/5 count without labels is a consistency failure regardless
+  // of external providers; do not let a malformed presentation pass as WATCH.
+  if (input.dossierCoveragePresent !== null
+    && input.dossierCoveragePresent !== 5 && requiredRateMissing.length === 0) {
+    alerts.push({ code: "REQUIRED_RATE_COVERAGE_SCHEMA_INCONSISTENT", severity: "ACTION_REQUIRED",
+      detail: "Rate regime reports incomplete required coverage but has no missing input names." });
+  }
   const complete = tenorStates.filter((item) => item.state === "COMPLETE").length;
   if (input.dossierCoveragePresent !== null && input.dossierCoveragePresent !== 5)
     alerts.push({ code: "PERSISTED_RATE_COVERAGE_INCOMPLETE",
-      severity: tenorStates.some((item) => item.state === "DOWNSTREAM_LOSS") ? "ACTION_REQUIRED" : "WATCH",
-      detail: "The stored Dossier rate-regime coverage is below five required inputs; distinguish missing upstream data or newer releases from lost admitted evidence." });
+      severity: missingInputDiagnostics.some((item) => item.state === "DOWNSTREAM_LOSS")
+        || tenorStates.some((item) => item.state === "DOWNSTREAM_LOSS") ? "ACTION_REQUIRED" : "WATCH",
+      detail: "The five REQUIRED rate inputs are incomplete (not the five nominal maturities); review per-input upstream and Dossier availability." });
   return {
     contractVersion: RATES_SOURCE_INTEGRITY_VERSION, generatedAt: input.asOf,
     operationalStatus: alerts.some((item) => item.severity === "ACTION_REQUIRED") ? "ACTION_REQUIRED"
       : alerts.length || tenorStates.some((item) => item.state === "PENDING_REBASE") ? "WATCH" : "OK",
     dossier: { id: input.dossierId, asOf: input.dossierAsOf, storedTreasuryCoverage: input.dossierCoveragePresent },
     treasury: { complete, required: 5, states: tenorStates },
+    requiredRateInputs: { present: input.dossierCoveragePresent, required: 5, missing: requiredRateMissing, diagnostics: missingInputDiagnostics },
     primaryDealers: { state: dealerState, asOf: input.dealer.asOf, sourceUrl: input.dealer.sourceUrl, warnings: input.dealer.warnings },
     fiveSessionCurve: { state: fiveSessionState, baselineDate: matchedCurve?.baselineDate ?? null,
       latestDate: matchedCurve?.latestDate ?? null, missingMaturities: missingMovements },
