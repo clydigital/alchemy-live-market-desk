@@ -58,7 +58,7 @@ test("official 10Y real yield preserves canonical UUID across snapshot and both 
   const regime = buildDossierRateRegime(packet, []);
   const real = regime.signals.find((signal) => signal.key === "REAL_YIELDS");
   assert.equal(real?.state, "HAWKISH");
-  assert.match(real?.detail ?? "", /2\\.88%/);
+  assert.ok(real?.detail.includes("2.88%"));
   assert.deepEqual(real?.evidenceRefs, [UUID]);
   assert.equal(regime.longEndDiagnostic.real10y.levelPct, 2.88);
   assert.equal(regime.longEndDiagnostic.real10y.evidenceRef, UUID);
