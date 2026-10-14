@@ -14,14 +14,23 @@ test("manual technical checks remain presenter-owned and never write canonical s
   assert.match(component, /not an automated price feed or verified fundamental signal/i);
   assert.match(component, /"unassessed" \| "aligned" \| "diverging" \| "mixed"/);
 });
-test("four required checks and source-linked agreement", () => {
-  for (const key of ["dxy-4h", "dxy-1d", "jxy", "us02y-30y"]) {
+test("five core checks preserve stable identities and source-linked agreement", () => {
+  for (const key of ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover"]) {
     assert.match(component, new RegExp('key: "' + key + '"'));
   }
+  assert.match(component, /alchemy-presenter-technical-fundamentals-v1/);
+  assert.match(component, /US02Y–US30Y · Yield spread · GOLD IDEA/);
+  assert.match(component, /SPX RISING LOG CHANNEL IDEA \+ ROLLOVER IDEA/);
   assert.match(component, /sourceIsValid\(check\.evidenceUrl\)/);
   assert.match(component, /!draft\.observedOn/);
   assert.match(component, /Upper-band break/);
   assert.match(component, /Lower-band break/);
+});
+test("additional monitors add cross-asset information without duplicating existing checks", () => {
+  assert.match(component, /MOVE–VIX · Rates-to-equity volatility transmission/);
+  assert.match(component, /Copper\/Gold · Cyclical growth impulse/);
+  assert.match(component, /const coreCount = SPECS\.filter\(\(check\) => check\.group === "Core"\)\.length/);
+  assert.match(component, /SPECS\.length - coreCount/);
 });
 test("link and reminder present on Overview and Prep without changing exact edition", () => {
   assert.match(overview, /<PresenterTechnicalChecks compact\s*\/>/);

@@ -19,17 +19,22 @@ const SPECS: Array<Pick<Check, "key" | "title" | "group" | "technical" | "lastBr
   { key: "dxy-4h", title: "DXY · 4H EMA20 ± 1σ band", group: "Core", technical: "Holding uptrend", lastBreak: "UPPER" },
   { key: "dxy-1d", title: "DXY · 1D EMA20 ± 1σ band", group: "Core", technical: "Holding uptrend", lastBreak: "Not checked" },
   { key: "jxy", title: "JXY · Yen strength / weakness", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
-  { key: "us02y-30y", title: "US02Y–US30Y · Yield spread", group: "Core", technical: "Recovering", lastBreak: "Not applicable" },
+  { key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core", technical: "Recovering", lastBreak: "Not applicable" },
+  { key: "spx-log-channel-rollover", title: "SPX RISING LOG CHANNEL IDEA + ROLLOVER IDEA", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "us10y-real", title: "US10Y real yield · Duration pressure", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "hy-credit", title: "US high-yield credit spreads · Stress", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "vix", title: "VIX · Volatility regime", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "equity-breadth", title: "SPX / NDX · Trend and market breadth", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "gold", title: "Gold · Yield and dollar sensitivity", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "oil", title: "Oil · Inflation and supply risk", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
+  { key: "move-vix", title: "MOVE–VIX · Rates-to-equity volatility transmission", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
+  { key: "copper-gold", title: "Copper/Gold · Cyclical growth impulse", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
 ];
+const coreCount = SPECS.filter((check) => check.group === "Core").length;
 const STATUS = [
   "Not checked", "Holding uptrend", "Holding downtrend", "Upper-band break",
   "Lower-band break", "Strengthening", "Weakening", "Recovering", "Deteriorating", "Rangebound", "Mixed",
+  "Rising channel intact", "Rollover watch", "Rollover confirmed",
 ];
 const BREAKS = ["Not applicable", "Not checked", "UPPER", "LOWER"];
 const ALIGNMENTS: Alignment[] = ["unassessed", "aligned", "diverging", "mixed"];
@@ -231,7 +236,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       </div>
       {!compact ? <>
         <div className={styles.actions}>
-          <button type="button" onClick={() => setShowAdditional(!showAdditional)}>{showAdditional ? "Hide" : "Show"} additional live-stream checks ({SPECS.length - 4})</button>
+          <button type="button" onClick={() => setShowAdditional(!showAdditional)}>{showAdditional ? "Hide" : "Show"} additional live-stream checks ({SPECS.length - coreCount})</button>
           <a href="https://chatgpt.com/" target="_blank" rel="noreferrer">Open ChatGPT ↗</a>
         </div>
         <details className={styles.history}>
