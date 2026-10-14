@@ -84,6 +84,8 @@ function signalContextEvidence(evidence: ObservedEvidence[], context: string) {
 }
 
 function bpChange(item: ObservedEvidence | null | undefined) {
+  const direct = metricNumber(item, "change_5d_bp");
+  if (direct !== null) return direct;
   const last = metricNumber(item, "last");
   const pct = metricNumber(item, "change_5d_pct");
   if (last === null || pct === null || pct <= -99.99) return null;
