@@ -5,6 +5,7 @@ import { buildCandidateSnapshotFromCanonicalEvidence } from "../lib/dossier-v2/c
 import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import {
   handleVerifiedIssuerResults,
+  issuerResultIdentity,
   validateIssuerResult,
 } from "../lib/dossier-v2/verified-issuer-results.ts";
 
@@ -106,4 +107,15 @@ test("workflow uses existing OIDC identity and no additional dispatch input", ()
   assert.match(workflow,/api\/admin\/dossier-v2\/verified-issuer-results/);
   assert.match(workflow,/OIDC_AUDIENCE/);
   assert.match(workflow,/VERIFIED_MACRO_SIGNALS_JSON/);
+});
+
+test("issuer-quarter-metric identity distinguishes corrections without changing the key", () => {
+  const first=issuerResultIdentity(validateIssuerResult(GOLDMAN,NOW));
+  const replay=issuerResultIdentity(validateIssuerResult({...GOLDMAN},NOW));
+  const revision=issuerResultIdentity(validateIssuerResult({...GOLDMAN,value:17.02},NOW));
+  assert.deepEqual(replay,first);
+  assert.equal(revision.evidenceId,first.evidenceId);
+  assert.notEqual(revision.contentHash,first.contentHash);
+  const nextMetric=issuerResultIdentity(validateIssuerResult({...GOLDMAN,metric:"net_revenue",value:18.68},NOW));
+  assert.notEqual(nextMetric.evidenceId,first.evidenceId);
 });
