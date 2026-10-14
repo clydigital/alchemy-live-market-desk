@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { augmentCandidateSnapshotWithMarketMonitor, verifiedLiveFredSameDayAvailability, type CanonicalSnapshotResult } from "../lib/dossier-v2/canonical-snapshot.ts";
+import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 
 const day = "2026-10-14";
 const asOf = "2026-10-14T21:50:53.517Z";
@@ -48,4 +49,7 @@ test("live monitoring of same-day breakeven carries the actual receipt into rate
   assert.equal(evidence.available_at, receivedAt);
   assert.equal((evidence.metrics as Record<string, unknown>)?.availability_basis, "verified_live_monitor_retrieval");
   assert.equal(output.snapshot.macro_data?.available_at, receivedAt);
+  const packet = assembleDossierV2InputPacket({ as_of: currentAsOf }, output.snapshot);
+  assert.ok(packet.rate_context?.evidence.some((item) => item.evidence_id === evidence.evidence_id),
+    "The FRED breakeven must survive Dossier rate-context selection, not just market monitor admission.");
 });
