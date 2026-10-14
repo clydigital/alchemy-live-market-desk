@@ -1,0 +1,68 @@
+name: Rates Source Integrity Watch
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: rates-source-integrity-watch
+  cancel-in-progress: false
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Compare source, monitor and persisted Dossier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE="$(mktemp)"
+          trap 'rm -f "$RESPONSE"' EXIT
+          HTTP="$(curl --silent --show-error --location --retry 2 --max-time 70 -o "$RESPONSE" -w "%{http_code}" https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity || true)"
+          if ! jq -e '.contractVersion == "rates-source-integrity/1" and (.operationalStatus | IN("OK","WATCH","ACTION_REQUIRED")) and (.alerts | type == "array")' "$RESPONSE" >/dev/null 2>&1; then
+            STATUS="ACTION_REQUIRED"
+            ALERTS="Production source integrity endpoint returned an invalid contract or could not be fetched (HTTP ${HTTP})."
+          else
+            STATUS="$(jq -r .operationalStatus "$RESPONSE")"
+            ALERTS="$(jq -r '[.alerts[] | "\(.severity) \(.code): \(.detail)"] | join("\n")' "$RESPONSE")"
+            [[ -n "$ALERTS" ]] || ALERTS="No outstanding source integrity alerts."
+          fi
+          {
+            echo "### Production rates source-integrity"
+            echo "- Contract: rates-source-integrity/1"
+            echo "- HTTP: ${HTTP}"
+            echo "- State: ${STATUS}"
+            echo "- Source: https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity"
+            if jq -e '.treasury.states' "$RESPONSE" >/dev/null 2>&1; then
+              jq -r '.treasury.states[] | "- \(.id): \(.state) | observation=\(.observationDate // "missing") | Dossier ref=\(.storedEvidenceRef // "missing")"' "$RESPONSE"
+            fi
+            echo ""
+            echo "#### Alerts"
+            echo "$ALERTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # One issue per active severity, not one issue per 6-hour sweep.
+          CURRENT="$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title | jq -r '.[] | select(.title | startswith("[Rates Source Integrity]")) | .number')"
+          while read -r issue; do
+            [[ -n "$issue" ]] || continue
+            TITLE="$(gh issue view "$issue" --repo "$GH_REPO" --json title -q .title)"
+            if [[ "$STATUS" == "OK" || "$TITLE" != "[Rates Source Integrity] $STATUS" ]]; then
+              gh issue close "$issue" --repo "$GH_REPO" --comment "Superseded by latest read-only source-integrity check: ${STATUS}." >/dev/null
+            fi
+          done <<< "$CURRENT"
+          if [[ "$STATUS" != "OK" ]]; then
+            TITLE="[Rates Source Integrity] $STATUS"
+            EXISTING="$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title | jq -r --arg title "$TITLE" '.[] | select(.title == $title) | .number' | head -n 1)"
+            if [[ -z "$EXISTING" ]]; then
+              gh issue create --repo "$GH_REPO" --title "$TITLE" --body "$(printf 'Source integrity state: %s\n\n%s\n\nRead-only evidence: https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity\n\nDo not force healthy or fabricate unavailable provider observations.\n' "$STATUS" "$ALERTS")" >/dev/null
+            fi
+          fi
+          [[ "$STATUS" != "ACTION_REQUIRED" ]] || { echo "::error::Production rates source-integrity needs immediate review"; exit 1; }
