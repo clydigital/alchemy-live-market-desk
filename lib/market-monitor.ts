@@ -2,6 +2,8 @@ import { unstable_cache } from "next/cache";
 
 import { getMarketData, type BreadthSnapshot, type MarketSeries, type PricePoint } from "@/lib/market";
 import { fetchBarchartMoveSnapshot } from "@/lib/providers/barchart-move";
+import { readFredSeries } from "@/lib/providers/fred-api-v1";
+import { fetchTreasuryNominalCurve, NOMINAL_TREASURY_TENORS, type NominalTreasuryMonitorId } from "@/lib/providers/treasury-nominal-curve";
 
 export type MarketMonitorType =
   | "Major Index"
@@ -305,29 +307,42 @@ async function fetchNasdaqHistory(spec: ExtraSpec): Promise<RawSeries> {
 }
 
 async function fetchFredSeries(spec: FredSpec): Promise<RawSeries> {
-  const endpoint = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(spec.seriesId)}`;
+  // The authenticated endpoint is preferred for Treasury yields; other series
+  // retain the existing public CSV reader. Never log an API key or request URL.
+  if (spec.id in NOMINAL_TREASURY_TENORS) {
+    const api = await readFredSeries(spec.seriesId, { limit: 100 });
+    if (api.state === "ready" && api.observations.length) {
+      const points = api.observations.map((observation) => ({
+        time: Date.parse(observation.date + "T00:00:00Z") / 1000,
+        close: observation.value,
+      })).sort((left, right) => left.time - right.time);
+      return { id: spec.id, symbol: spec.seriesId, label: spec.label,
+        type: spec.type ?? "Rates", benchmark: null, points,
+        sourceName: spec.sourceName ?? "Federal Reserve Economic Data",
+        sourceUrl: api.sourceUrl, frequency: "daily" };
+    }
+    if (api.state !== "unconfigured") {
+      console.warn(JSON.stringify({ event: "market_monitor_fred_api_fallback", seriesId: spec.seriesId, reason: api.note }));
+    }
+  }
+  const endpoint = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=" + encodeURIComponent(spec.seriesId);
   const response = await fetch(endpoint, { next: { revalidate: 60 * 60 * 6 }, headers: { "user-agent": "Alchemy Live Desk" } });
-  if (!response.ok) throw new Error(`FRED ${spec.seriesId} ${response.status}`);
+  if (!response.ok) throw new Error("FRED " + spec.seriesId + " " + response.status);
   const lines = (await response.text()).split(/\r?\n/).slice(1);
   const points = lines.flatMap((line) => {
     const [date, raw] = line.split(",");
     const close = parseNumber(raw);
-    const time = Date.parse(`${date}T00:00:00Z`) / 1000;
+    const time = Date.parse(date + "T00:00:00Z") / 1000;
     return close == null || !Number.isFinite(time) ? [] : [{ time, close }];
   }).slice(-300);
   return {
-    id: spec.id,
-    symbol: spec.seriesId,
-    label: spec.label,
-    type: spec.type ?? "Rates",
-    benchmark: null,
-    points,
+    id: spec.id, symbol: spec.seriesId, label: spec.label,
+    type: spec.type ?? "Rates", benchmark: null, points,
     sourceName: spec.sourceName ?? "Federal Reserve Economic Data",
-    sourceUrl: `https://fred.stlouisfed.org/series/${spec.seriesId}`,
+    sourceUrl: "https://fred.stlouisfed.org/series/" + spec.seriesId,
     frequency: "daily",
   };
 }
-
 async function fetchGoldSpotSeries(): Promise<RawSeries> {
   const historyResponse = await fetch("https://xaus.com/api/v1/history", {
     headers: { accept: "application/json", "user-agent": "Alchemy Live Desk" },
@@ -448,9 +463,39 @@ export const loadExtras = unstable_cache(async () => {
   const extraRows = await mapLimit(EXTRA_SPECS, 10, async (spec) => {
     try { return await fetchNasdaqHistory(spec); } catch { return null; }
   });
-  const rateRows = await Promise.all(
-    FRED_RATE_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
-  );
+  const [fredRateRows, treasuryCurve] = await Promise.all([
+    Promise.all(FRED_RATE_SPECS.map(async (spec) => {
+      try { return await fetchFredSeries(spec); }
+      catch (error) {
+        console.warn(JSON.stringify({ event: "market_monitor_fred_csv_failed", seriesId: spec.seriesId, error: error instanceof Error ? error.message : "UNAVAILABLE" }));
+        return null;
+      }
+    })),
+    fetchTreasuryNominalCurve(),
+  ]);
+  // Compare source observation dates, never HTTP fetch timestamps. A newer
+  // official Treasury observation replaces stale FRED; same-day FRED wins.
+  const rateRows = FRED_RATE_SPECS.map((spec, index) => {
+    const fred = fredRateRows[index];
+    if (!(spec.id in NOMINAL_TREASURY_TENORS)) return fred;
+    const points = treasuryCurve.series[spec.id as NominalTreasuryMonitorId].map((point) => ({
+      time: Date.parse(point.date + "T00:00:00Z") / 1000, close: point.yieldPercent,
+    }));
+    const official: RawSeries | null = points.length ? {
+      id: spec.id, symbol: "US" + spec.id.slice(2, -5).toUpperCase(),
+      label: spec.label.replace(" · FRED", " · Treasury"),
+      type: "Rates", benchmark: null, points,
+      sourceName: "U.S. Department of the Treasury",
+      sourceUrl: treasuryCurve.sourceUrl, frequency: "daily",
+    } : null;
+    const selected = official && (official.points.at(-1)?.time ?? -1) > (fred?.points.at(-1)?.time ?? -1)
+      ? official : fred ?? official;
+    console.info(JSON.stringify({ event: "market_monitor_treasury_tenor", tenor: spec.seriesId,
+      source: selected?.sourceName ?? "UNAVAILABLE",
+      observationDate: selected?.points.at(-1)?.time ? new Date(selected.points.at(-1)!.time * 1000).toISOString().slice(0, 10) : null,
+      treasuryFeedStatus: treasuryCurve.status, treasuryWarning: treasuryCurve.warning }));
+    return selected;
+  });
   const creditRows = await Promise.all(
     FRED_CREDIT_SPECS.map((spec) => fetchFredSeries(spec).catch(() => null)),
   );
