@@ -8,6 +8,7 @@ import {
 } from "../lib/gemini-video-analysis-contract.ts";
 import {
   analysePublicYouTubeVideo,
+  DEFAULT_GEMINI_VIDEO_ANALYSIS_TIMEOUT_MS,
   GeminiVideoAnalysisError,
   isGeminiVideoAnalysisConfigured,
   type GeminiVideoInteractionInput,
@@ -180,4 +181,32 @@ test("timeouts are bounded and never expose the Gemini key", async () => {
       && error.code === "timeout"
       && !error.message.includes(apiKey),
   );
+});
+
+
+test("Gemini rescue has a bounded, longer default for public video analysis", () => {
+  assert.equal(DEFAULT_GEMINI_VIDEO_ANALYSIS_TIMEOUT_MS, 90_000);
+});
+
+test("provider errors retain safe HTTP codes without leaking raw messages", async () => {
+  for (const [status, expected] of [
+    [429, "HTTP 429"],
+    [503, "HTTP 503"],
+    [200, "HTTP status unavailable"],
+  ] as const) {
+    await assert.rejects(
+      analysePublicYouTubeVideo({
+        url: "https://www.youtube.com/watch?v=ycw-010tAPA",
+        apiKey: "secret-for-test",
+      }, {
+        runInteraction: async () => {
+          throw Object.assign(new Error("private error with secret-for-test"), { status });
+        },
+      }),
+      (error: unknown) => error instanceof GeminiVideoAnalysisError
+        && error.code === "provider_error"
+        && error.message.includes(expected)
+        && !error.message.includes("secret-for-test"),
+    );
+  }
 });

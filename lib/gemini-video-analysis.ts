@@ -9,7 +9,7 @@ import {
 } from "./gemini-video-analysis-contract.ts";
 
 const DEFAULT_MODEL = "gemini-3.8-flash";
-const DEFAULT_TIMEOUT_MS = 60_000;
+export const DEFAULT_GEMINI_VIDEO_ANALYSIS_TIMEOUT_MS = 90_000;
 const MAX_RESPONSE_BYTES = 1_000_000;
 
 export const GEMINI_VIDEO_ANALYSIS_PROMPT = `Analyse this public YouTube video for creator-market intelligence.
@@ -93,6 +93,9 @@ function defaultRunner(apiKey: string): GeminiVideoInteractionRunner {
   return async ({ model, url, prompt, responseSchema, signal }) => {
     const response = await ai.interactions.create({
       model,
+      // The rescue is a time-bounded summary, not a deep reasoning or evidence pass.
+      // Gemini 3.8 Flash supports low thinking effort on the Interactions API.
+      generation_config: { thinking_level: "low" },
       input: [
         { type: "text", text: prompt },
         { type: "video", uri: url },
@@ -131,7 +134,19 @@ async function runWithTimeout(
       throw new GeminiVideoAnalysisError("timeout", "Gemini video analysis timed out.");
     }
     if (error instanceof GeminiVideoAnalysisError) throw error;
-    throw new GeminiVideoAnalysisError("provider_error", "Gemini video analysis failed.");
+    // Retain only a bounded HTTP status code: SDK errors can contain request
+    // bodies, URL context or credentials that must not enter the intake ledger.
+    const status = error && typeof error === "object" && "status" in error
+      ? (error as { status?: unknown }).status
+      : undefined;
+    const httpStatus = typeof status === "number" && Number.isInteger(status)
+      && status >= 400 && status <= 599 ? status : null;
+    throw new GeminiVideoAnalysisError(
+      "provider_error",
+      httpStatus === null
+        ? "Gemini video analysis failed (HTTP status unavailable)."
+        : `Gemini video analysis failed (HTTP ${httpStatus}).`,
+    );
   } finally {
     if (timeout) clearTimeout(timeout);
   }
@@ -155,7 +170,7 @@ export async function analysePublicYouTubeVideo(
   }
 
   const model = input.model?.trim() || process.env.GEMINI_VIDEO_MODEL?.trim() || DEFAULT_MODEL;
-  const timeoutMs = Math.max(1, Math.min(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, 120_000));
+  const timeoutMs = Math.max(1, Math.min(options.timeoutMs ?? DEFAULT_GEMINI_VIDEO_ANALYSIS_TIMEOUT_MS, 120_000));
   const response = await runWithTimeout(
     options.runInteraction || defaultRunner(apiKey),
     {
