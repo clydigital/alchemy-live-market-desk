@@ -18,6 +18,6 @@ test("transfer excludes example defaults and canonical persistence", () => {
   assert.match(share, /updatedAt/);
   assert.match(share, /observedOn/);
   assert.match(share, /13\)/);
-  assert.doesNotMatch(share, /fetch\(|supabase|\.from\(/i);
+  assert.doesNotMatch(share, /fetch\(|\.from\(|createClient\(/i);
   assert.match(share, /not continuous synchronisation/);
 });
