@@ -50,8 +50,7 @@ jobs:
             echo "$ALERTS"
           } >> "$GITHUB_STEP_SUMMARY"
           # One issue per active severity, not one issue per 6-hour sweep.
-          CURRENT="$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title
-            | jq -r '.[] | select(.title | startswith("[Rates Source Integrity]")) | .number')"
+          CURRENT="$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title | jq -r '.[] | select(.title | startswith("[Rates Source Integrity]")) | .number')"
           while read -r issue; do
             [[ -n "$issue" ]] || continue
             TITLE="$(gh issue view "$issue" --repo "$GH_REPO" --json title -q .title)"
