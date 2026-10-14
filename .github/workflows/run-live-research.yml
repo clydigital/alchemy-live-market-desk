@@ -26,6 +26,7 @@ on:
           - dossier_v2_dry_run
           - dossier_v2_persist
           - verified_macro_signals
+          - verified_issuer_results
           - finra_sensor
       slot:
         description: Production research slot to run (research mode)
@@ -74,7 +75,7 @@ on:
           - auto
           - rebase
       verified_macro_signals_json:
-        description: JSON object with 1-6 provenance-backed macro signals (verified_macro_signals mode)
+        description: JSON for verified macro signals OR verified issuer results (mode-specific)
         required: false
         type: string
         default: ""
@@ -803,6 +804,38 @@ jobs:
           jq -c '{status,signals,error}' "$response_file"
           if [[ ! "$http_status" =~ ^2 ]]; then
             echo "Verified macro signal ingestion returned HTTP $http_status." >&2
+            exit 1
+          fi
+
+      - name: Ingest verified issuer results
+        if: ${{ env.MODE == 'verified_issuer_results' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$VERIFIED_MACRO_SIGNALS_JSON" ]]; then
+            echo "Issuer result payload is required in verified_macro_signals_json." >&2
+            exit 1
+          fi
+          jq -e '.results | type == "array" and length >= 1 and length <= 6' <<<"$VERIFIED_MACRO_SIGNALS_JSON" >/dev/null
+
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value|@uri')"
+          oidc_response="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(jq -er '.value' <<<"$oidc_response")"
+          echo "::add-mask::$oidc_token"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_status="$(curl --silent --show-error --max-time 80 \
+            -o "$response_file" -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -H "Content-Type: application/json" \
+            --data "$VERIFIED_MACRO_SIGNALS_JSON" \
+            "$PROD_URL/api/admin/dossier-v2/verified-issuer-results")"
+          jq -c '{status,availableAt,results,error}' "$response_file"
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Verified issuer results ingestion returned HTTP $http_status." >&2
             exit 1
           fi
 
