@@ -120,3 +120,56 @@ test("MOVE adapter readiness is source-derived rather than perpetually marked un
   assert.equal(stale.move.state, "STALE");
   assert.ok(stale.alerts.some((a) => a.code === "MOVE_UPSTREAM_STALE"));
 });
+
+test("lost eligible 10Y breakeven escalates even while five nominal tenors remain 5/5", () => {
+  const x = input();
+  x.dossierCoveragePresent = 4;
+  x.dossierRequiredRateMissing = ["US 10Y breakeven"];
+  x.monitorRows.push({ id: "us10y-breakeven", asOf: "2026-10-13", last: 2.35,
+    sourceName: "Federal Reserve Economic Data", sourceUrl: "https://fred.stlouisfed.org/series/T10YIE" });
+  const result = assessRatesSourceIntegrity(x);
+  assert.equal(result.treasury.complete, 5);
+  assert.equal(result.requiredRateInputs.present, 4);
+  assert.equal(result.operationalStatus, "ACTION_REQUIRED");
+  assert.deepEqual(result.requiredRateInputs.diagnostics.map((x) => x.state), ["DOWNSTREAM_LOSS"]);
+  assert.ok(result.alerts.some((x) => x.code === "REQUIRED_RATE_INPUT_US10Y_BREAKEVEN" && x.severity === "ACTION_REQUIRED"));
+});
+
+test("same-day FRED received after dossier as-of is pending, not a proven downstream loss", () => {
+  const x = input();
+  x.dossierCoveragePresent = 4;
+  x.dossierRequiredRateMissing = ["US 10Y breakeven"];
+  x.monitorUpdatedAt = "2026-10-14T21:00:00.000Z"; // newer than Dossier
+  x.monitorRows.push({ id: "us10y-breakeven", asOf: "2026-10-14", last: 2.35,
+    sourceName: "Federal Reserve Economic Data", sourceUrl: "https://fred.stlouisfed.org/series/T10YIE" });
+  const result = assessRatesSourceIntegrity(x);
+  assert.equal(result.requiredRateInputs.diagnostics[0].state, "PENDING_REBASE");
+  assert.equal(result.operationalStatus, "WATCH");
+});
+
+test("same-day FRED with a pre-Dossier near-live source receipt is a real downstream loss", () => {
+  const x = input();
+  x.dossierCoveragePresent = 4;
+  x.dossierRequiredRateMissing = ["US 10Y breakeven"];
+  x.monitorUpdatedAt = "2026-10-14T20:50:00.000Z";
+  x.monitorRows.push({ id: "us10y-breakeven", asOf: "2026-10-14", last: 2.35,
+    sourceName: "Federal Reserve Economic Data", sourceUrl: "https://fred.stlouisfed.org/series/T10YIE" });
+  assert.equal(assessRatesSourceIntegrity(x).requiredRateInputs.diagnostics[0].state, "DOWNSTREAM_LOSS");
+});
+
+test("missing required source with no monitor observation remains a source warning, not a fabricated regression", () => {
+  const x = input();
+  x.dossierCoveragePresent = 4;
+  x.dossierRequiredRateMissing = ["Effective fed funds"];
+  const result = assessRatesSourceIntegrity(x);
+  assert.equal(result.requiredRateInputs.diagnostics[0].state, "UPSTREAM_UNAVAILABLE");
+  assert.equal(result.operationalStatus, "WATCH");
+});
+
+test("malformed incomplete rate coverage without named missing fields fails closed", () => {
+  const x = input();
+  x.dossierCoveragePresent = 4;
+  const result = assessRatesSourceIntegrity(x);
+  assert.ok(result.alerts.some((x) => x.code === "REQUIRED_RATE_COVERAGE_SCHEMA_INCONSISTENT"));
+  assert.equal(result.operationalStatus, "ACTION_REQUIRED");
+});
