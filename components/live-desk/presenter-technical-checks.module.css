@@ -1,0 +1,28 @@
+.feed{border:1px solid rgba(120,145,176,.28);border-radius:18px;background:linear-gradient(145deg,rgba(24,38,59,.12),rgba(115,84,154,.08));padding:18px;color:inherit}
+.header{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}
+.header h3{font-size:clamp(18px,2vw,26px);margin:4px 0 8px}
+.header p,.small,.disclaimer{font-size:12px;line-height:1.5;opacity:.76;margin:5px 0}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.summary{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0;font-size:12px;opacity:.8}
+.nodes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.node{border:1px solid rgba(120,145,176,.27);border-radius:14px;padding:14px;background:rgba(75,87,107,.08);min-width:0}
+.nodeTop{display:flex;align-items:start;gap:10px;justify-content:space-between}
+.nodeTop h4{margin:5px 0 10px;font-size:15px}
+.state{border:1px solid rgba(110,146,183,.4);padding:5px 8px;border-radius:30px;font-size:11px;white-space:normal;text-align:center}
+.detail{display:flex;gap:8px;flex-wrap:wrap;opacity:.8;font-size:11px}
+.detail span{padding:4px 0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.actions button,.actions a,.action{cursor:pointer;display:inline-block;border:1px solid rgba(110,146,183,.5);border-radius:9px;background:transparent;color:inherit;padding:8px 11px;font:600 12px/1.2 inherit;text-decoration:none}
+.actions button:hover,.actions a:hover,.action:hover{background:rgba(115,146,184,.2)}
+.alignment{font-size:11px;font-weight:700;color:#36b87a}
+.warning{font-size:11px;color:#b78c4c}
+.editor{border-top:1px solid rgba(110,146,183,.3);margin-top:12px;padding-top:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.editor label{display:grid;gap:4px;font-size:12px}
+.editor label:nth-last-of-type(-n+3){grid-column:1/-1}
+.editor input,.editor select,.editor textarea{box-sizing:border-box;width:100%;border:1px solid #798497;border-radius:7px;padding:8px;color:#131a22;background:#f7f9fa;font:inherit}
+.editor .actions,.editor .small{grid-column:1/-1}
+.history{margin-top:16px;font-size:12px}
+.history summary{cursor:pointer;font-weight:700}
+.feedback{font-size:12px;font-weight:600;padding:8px;border:1px solid rgba(125,140,165,.4);border-radius:8px}
+.disclaimer{margin-top:12px}
+@media(max-width:780px){.nodes{grid-template-columns:1fr}.editor{grid-template-columns:1fr}}
