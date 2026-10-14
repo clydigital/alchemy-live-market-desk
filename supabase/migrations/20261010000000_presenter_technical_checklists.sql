@@ -1,7 +1,7 @@
 -- Account-private presenter utility, not a canonical evidence or reasoning table.
 -- E1: multi-device technical checklist. All writes are RLS-scoped and CAS-guarded.
 CREATE TABLE IF NOT EXISTS public.presenter_technical_checklists (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   contract_version text NOT NULL DEFAULT 'technical-checks/2',
   checks jsonb NOT NULL,
   history jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -49,7 +49,7 @@ AS $$
         AND (COALESCE(c->>'observedOn','') = '' OR c->>'observedOn' ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
         AND (COALESCE(c->>'updatedAt','') = '' OR c->>'updatedAt' ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}T')
       )
-      FROM jsonb_array_elements(_checks) AS c), FALSE
+      FROM jsonb_array_elements(_checks) AS entries(c)), FALSE
   );
 $$;
 
