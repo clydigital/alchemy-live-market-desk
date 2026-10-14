@@ -481,8 +481,9 @@ export const loadExtras = unstable_cache(async () => {
     const points = treasuryCurve.series[spec.id as NominalTreasuryMonitorId].map((point) => ({
       time: Date.parse(point.date + "T00:00:00Z") / 1000, close: point.yieldPercent,
     }));
+    const tenor = spec.id === "us2y" ? "2Y" : spec.id.replace(/^us/, "").replace(/-fred$/, "").toUpperCase();
     const official: RawSeries | null = points.length ? {
-      id: spec.id, symbol: "US" + spec.id.slice(2, -5).toUpperCase(),
+      id: spec.id, symbol: "US" + tenor,
       label: spec.label.replace(" · FRED", " · Treasury"),
       type: "Rates", benchmark: null, points,
       sourceName: "U.S. Department of the Treasury",
