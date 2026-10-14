@@ -1805,9 +1805,9 @@ test("20h. official issuer earnings survive evidence saturation without displaci
     })),
     ...Array.from({length:2},(_,i)=>({
       evidence_id:`publisher:measured-${i}`,
-      claim_or_fact:`Measured published market movement ${i}`,
+      claim_or_fact:`US stocks fell ${i+1}.2% at the latest verified session close.`,
       category:"EQUITIES",source_type:"NEWS_MARKET_CONTEXT",
-      canonical_record_backed:true,
+      canonical_record_backed:true,is_admitted_fact:true,
       grouping_key:`publisher:measured-${i}`,
       available_at:IN_WINDOW_TIME,rank:4,
       provenance:[{source_type:"NEWS_MARKET_CONTEXT",source_id:`news-${i}`,url:`https://example.org/market-${i}`}],
