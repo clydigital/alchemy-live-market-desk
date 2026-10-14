@@ -22,6 +22,8 @@ export async function GET() {
       asOf: new Date().toISOString(), dossierId: p.dossierId, dossierAsOf: p.asOf,
       dossierCurveEvidenceRefs: p.rateRegime.curve?.evidenceRefs ?? [],
       dossierCoveragePresent: p.rateRegime.coverage?.present ?? null,
+      dossierRequiredRateMissing: p.rateRegime.coverage?.missing ?? [],
+      monitorUpdatedAt: monitor.updatedAt,
       dossierCurveMoves: p.rateRegime.curveDiagnostic?.points.map((item) => ({ maturity: item.maturity, change5dBp: item.change5dBp })),
       monitorRows: monitor.rows,
       dealer: { status: dealer.status, asOf: dealer.asOf, sourceUrl: dealer.sourceUrl, warnings: dealer.warnings },
