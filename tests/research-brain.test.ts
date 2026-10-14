@@ -2473,7 +2473,7 @@ test("canonical issuer EPS and measured same-share reaction require one reconcil
   const shareMove = "verified-macro:c-close-2026-09-18";
   packet.observed_evidence.push({
     evidence_id: eps,
-    canonical_record_backed: true,
+    canonical_record_backed: true, epistemic_label: "OBSERVED", category: "EQUITIES",
     claim_or_fact: "Citigroup reports quarterly diluted EPS of 2.85 USD per share.",
     source_type: "PRESS_RELEASE",
     available_at: "2026-09-18T11:35:00Z",
@@ -2481,7 +2481,7 @@ test("canonical issuer EPS and measured same-share reaction require one reconcil
     metrics: {affected_assets:["C"],affected_topics:["bank-earnings"]},
   }, {
     evidence_id: shareMove,
-    canonical_record_backed: true,
+    canonical_record_backed: true, epistemic_label: "OBSERVED", category: "EQUITIES",
     claim_or_fact: "Citigroup shares declined 5.6% in the measured session.",
     source_type: "VERIFIED_MACRO_DATA",
     available_at: "2026-09-18T11:40:00Z",
@@ -2504,7 +2504,7 @@ test("issuer earnings do not force a market-price conclusion without a matched p
   const packet=createValidBasePacket();
   packet.observed_evidence.push({
     evidence_id:"verified-issuer:c:2026q3:diluted_eps",
-    canonical_record_backed:true,claim_or_fact:"Citigroup reported EPS 2.85.",
+    canonical_record_backed:true,epistemic_label:"OBSERVED",category:"EARNINGS",claim_or_fact:"Citigroup reported EPS 2.85.",
     source_type:"PRESS_RELEASE",available_at:"2026-09-18T11:40:00Z",
     provenance:[{source_type:"PRESS_RELEASE",source_id:"citi-earnings"}],
     metrics:{affected_assets:["C"]},
