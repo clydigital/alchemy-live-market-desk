@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
+import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
@@ -436,6 +437,7 @@ export default async function Page({ searchParams }: PageProps) {
       )}
     >
       <div style={{ display: "grid", gap: 24 }}>
+        <PresenterTechnicalChecks compact />
         <Panel
           title="Market now — the short answer"
           description={dossierSelection.presentation
