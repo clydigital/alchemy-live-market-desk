@@ -3,6 +3,7 @@ import test from "node:test";
 import { deriveMatchedNominalCurveChange, NOMINAL_CURVE_IDS } from "../lib/dossier-v2/treasury-nominal-movement.ts";
 import { augmentCandidateSnapshotWithMarketMonitor, type CanonicalSnapshotResult } from "../lib/dossier-v2/canonical-snapshot.ts";
 import { buildRateCurveDiagnostic } from "../lib/dossier-v2/rate-curve-diagnostic.ts";
+import type { ObservedEvidence } from "../lib/dossier-v2/input-packet.ts";
 
 const DAYS = ["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14"];
 const VALUES: Record<string, number[]> = {
@@ -66,7 +67,7 @@ test("Dossier snapshot and curve diagnostic preserve verified bp moves and match
   const output = augmentCandidateSnapshotWithMarketMonitor(base, {
     updatedAt: asOf, rows: rows(), breadth: [],
   }, { asOf });
-  const observations = output.snapshot.observed_evidence ?? [];
+  const observations = (output.snapshot.observed_evidence ?? []) as ObservedEvidence[];
   assert.equal(observations.filter((e) => e.evidence_id.startsWith("market-monitor:us")).length, 5);
   const rate2 = observations.find((e) => e.evidence_id === "market-monitor:us2y:2026-10-14");
   assert.equal(rate2?.metrics?.change_5d_bp, 12);
