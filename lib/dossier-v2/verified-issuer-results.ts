@@ -71,8 +71,33 @@ export function validateIssuerResult(raw: unknown, now = new Date()): VerifiedIs
   };
 }
 
+export function issuerResultIdentity(item: VerifiedIssuerResult) {
+  return {
+    evidenceId: `verified-issuer:${item.issuer.toLowerCase()}:${item.fiscalQuarter.toLowerCase()}:${item.metric}`,
+    contentHash: createHash("sha256").update(JSON.stringify(item)).digest("hex"),
+  };
+}
+
 export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, availableAt: string) {
   const client = createSupabaseAdminClient();
+  const identity = issuerResultIdentity(item);
+  // Replay exactly: never move the original first-seen timestamp forwards.
+  // A different value/source on the same issuer-quarter-metric is a proposed
+  // revision, not an idempotent ingest; it must receive separate review.
+  const { data: previous, error: previousError } = await client
+    .from("intelligence_evidence")
+    .select("id,content_hash,normalised_observation_id")
+    .eq("external_evidence_id", identity.evidenceId)
+    .limit(3);
+  if (previousError) throw new Error(`Issuer identity lookup failed: ${previousError.message}`);
+  if ((previous?.length ?? 0) > 1) throw new Error("Conflicting duplicate canonical issuer identities.");
+  if (previous?.[0]) {
+    const original = previous[0];
+    if (original.content_hash !== identity.contentHash || !original.normalised_observation_id) {
+      throw new Error("Existing issuer metric differs or lacks a normalised observation; review required.");
+    }
+    return { evidenceId: original.id as string, observationId: original.normalised_observation_id as string };
+  }
   const sourceName = ISSUERS[item.issuer].name;
   const sourceHost = new URL(item.sourceUrl).hostname.toLowerCase();
   const externalSourceId = `${sourceHost}|${item.issuer.toLowerCase()}-official-results`;
@@ -94,7 +119,7 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
     .select("id").single<{ id: string }>();
   if (sourceError || !sourceRow?.id) throw new Error(`Issuer source write failed: ${sourceError?.message || "no source ID"}`);
 
-  const evidenceId = `verified-issuer:${item.issuer.toLowerCase()}:${item.fiscalQuarter.toLowerCase()}:${item.metric}`;
+  const evidenceId = identity.evidenceId;
   const metricName = item.metric === "diluted_eps" ? "diluted earnings per share" : "net revenues";
   const claim = `${sourceName} reported ${item.fiscalQuarter} ${metricName} of ${item.value} ${METRICS[item.metric]} in its issuer release dated ${item.reportDate}.`;
   const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
@@ -136,7 +161,7 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
     .limit(1).single<{ id: string }>();
   if (observationError || !observation?.id) throw new Error(`Issuer observation lookup failed: ${observationError?.message || "no observation ID"}`);
 
-  const hash = createHash("sha256").update(JSON.stringify(item)).digest("hex");
+  const hash = identity.contentHash;
   const { data: evidence, error: evidenceError } = await client
     .from("intelligence_evidence")
     .upsert({
