@@ -1,7 +1,7 @@
 import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 import type { DossierPolicyOutlookItem } from "./policy-outlook.ts";
 import { buildRateCurveDiagnostic, type RateCurveDiagnostic } from "./rate-curve-diagnostic.ts";
-import { buildRateLongEndDiagnostic, type RateLongEndDiagnostic } from "./rate-long-end-diagnostic.ts";
+import { buildRateLongEndDiagnostic, preferredUs10yRealYield, type RateLongEndDiagnostic } from "./rate-long-end-diagnostic.ts";
 import { buildRateGlobalDurationDiagnostic, type RateGlobalDurationDiagnostic } from "./rate-global-duration-diagnostic.ts";
 
 export const RATE_REGIME_CONTRACT_VERSION = "rate-regime/1" as const;
@@ -259,7 +259,7 @@ export function buildDossierRateRegime(
   const us30yDirect = signalContextEvidence(evidence, "us30y");
   const us30yFred = monitorEvidence(evidence, "us30y-fred");
   const us30y = us30yDirect ?? us30yFred;
-  const real10y = monitorEvidence(evidence, "us10y-real");
+  const real10y = preferredUs10yRealYield(packet);
   const breakeven10y = monitorEvidence(evidence, "us10y-breakeven");
   const effectiveFedFunds = monitorEvidence(evidence, "fed-funds-effective");
   const treasurySupply = preferredTreasurySupplyEvidence(evidence);
@@ -269,7 +269,7 @@ export function buildDossierRateRegime(
   const us10yLevel = metricNumber(us10y, "last");
   const us20yLevel = metricNumber(us20y, "last");
   const us30yLevel = metricNumber(us30y, "observed_value") ?? metricNumber(us30y, "last");
-  const real10yLevel = metricNumber(real10y, "last");
+  const real10yLevel = metricNumber(real10y, "last") ?? metricNumber(real10y, "observed_value");
   const breakevenLevel = metricNumber(breakeven10y, "last");
   const effrLevel = metricNumber(effectiveFedFunds, "last");
   const treasurySupplyMeasure = metricString(treasurySupply, "supply_measure");
