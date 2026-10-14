@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PresenterPrepSession from "@/components/live-desk/PresenterPrepSession";
+import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
@@ -102,6 +103,7 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
       eyebrow="Optional presenter companion" title="Presenter Prep"
       description="Choose what to discuss from an immutable Journey edition. This page does not replace the original analysis."
       meta={<Badge tone={projection.status === "READY" ? "ready" : "risk"}>{projection.status}</Badge>}>
+      <PresenterTechnicalChecks compact />
       {projection.status !== "READY" || !projection.pinned ? (
         <Panel title="Exact source unavailable"
           description="Invalid or mismatched references must not show another edition's market analysis."
