@@ -968,7 +968,6 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   let fredSeen = false;
   const dailyAgeLimitMs = 5 * 86_400_000;
   let latestMonitorObservation: string | null = null;
-  let latestFredObservation: string | null = null;
   let latestFredAvailableAt: string | null = null;
   let latestDailyPriceObservation: string | null = null;
   let latestMarketAvailableAt: string | null = null;
@@ -1007,7 +1006,6 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     const groupingKey = isCreditOas ? "market-monitor:credit-oas" : `market-monitor:${row.id}`;
     fredSeen ||= isFred && row.frequency === "daily";
     if (isFred && row.frequency === "daily" && (latestFredAvailableAt === null || availableAt > latestFredAvailableAt)) latestFredAvailableAt = availableAt;
-    if (isFred && row.frequency === "daily" && (latestFredObservation === null || row.asOf! > latestFredObservation)) latestFredObservation = row.asOf!;
     if (row.frequency === "daily" && (latestDailyPriceObservation === null || row.asOf! > latestDailyPriceObservation)) latestDailyPriceObservation = row.asOf!;
     if (latestMonitorObservation === null || row.asOf! > latestMonitorObservation) latestMonitorObservation = row.asOf!;
     const moves = isRateOrSpread ? "" : [
