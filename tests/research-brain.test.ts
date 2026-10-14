@@ -2453,3 +2453,16 @@ test("Dossier #702: repair prompt teaches the exact current Story conclusion syn
   assert.match(repair.instructions, /An investigation ID/);
   assert.match(repair.instructions, /handed-off research task is not evidence/i);
 });
+
+test("a Story cannot classify the same canonical observation as both confirming and contradicting", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const evidenceId = output.major_stories[0]?.market_evidence.confirming[0];
+  assert.ok(evidenceId);
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, true);
+
+  output.major_stories[0]!.market_evidence.contradicting = [evidenceId];
+  const rejected = validateResearchBrainOutput(output, packet);
+  assert.equal(rejected.isValid, false);
+  assert.match(rejected.errors.join("\n"), /assigns evidence_id.*to both confirming and contradicting/);
+});
