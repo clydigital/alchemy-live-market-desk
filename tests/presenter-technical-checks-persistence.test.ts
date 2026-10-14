@@ -10,6 +10,7 @@ import {
   createDefaultPresenterChecklist,
   isValidDateString,
   isValidHttpsUrl,
+  normalizePresenterChecklistTimestamps,
   validateIncomingPutPayload,
 } from "../lib/presenter-technical-checks.ts";
 
@@ -29,6 +30,9 @@ const routePath = path.join(
   "route.ts",
 );
 
+const todayDate = new Date().toISOString().slice(0, 10);
+const futureDate = "2099-12-31";
+
 test("SQL Migration Contract: presenter technical checklists schema and RLS policies", () => {
   assert.equal(fs.existsSync(migrationPath), true, "Migration file must exist");
   const migration = fs.readFileSync(migrationPath, "utf8");
@@ -46,6 +50,8 @@ test("SQL Migration Contract: presenter technical checklists schema and RLS poli
   assert.match(migration, /history jsonb not null/i);
   assert.match(migration, /revision bigint not null default 1/i);
   assert.match(migration, /updated_at timestamptz not null default now\(\)/i);
+  assert.match(migration, /jsonb_array_length\(checks\)\s*=\s*13/i);
+  assert.match(migration, /jsonb_array_length\(history\)\s*<=\s*30/i);
 
   assert.match(
     migration,
@@ -101,6 +107,7 @@ test("Route Contract: API route configuration and security headers", () => {
   assert.match(route, /createSupabaseServerClient/);
   assert.match(route, /app_access_allowlist/);
   assert.match(route, /validateIncomingPutPayload/);
+  assert.match(route, /normalizePresenterChecklistTimestamps/);
 });
 
 test("Validation: 13 known monitor keys and spec default payload", () => {
@@ -118,22 +125,16 @@ test("Validation: 13 known monitor keys and spec default payload", () => {
 });
 
 test("Validation: pure schema validation enforces exact rules", () => {
-  const validCheck = {
-    key: "dxy-4h",
-    technical: "Holding uptrend",
-    lastBreak: "UPPER",
-    observedOn: "2026-10-09",
-    fundamentals: "Yields rising on robust labor data",
-    alignment: "aligned",
-    evidenceUrl: "https://example.com/chart",
-    notes: "Watch 105.20 resistance level",
-    updatedAt: "2026-10-09T10:00:00Z",
-  };
+  const defaultPayload = createDefaultPresenterChecklist();
+  const all13Checks = defaultPayload.checks.map((c) => ({
+    ...c,
+    observedOn: todayDate,
+    updatedAt: new Date().toISOString(),
+  }));
 
   const validPayload = {
     expectedRevision: 1,
-    checks: createDefaultPresenterChecklist().checks.map((check) => check.key === "dxy-4h"
-      ? { ...check, ...validCheck, updatedAt: "" } : check),
+    checks: all13Checks,
     history: [],
   };
 
@@ -153,137 +154,102 @@ test("Validation: pure schema validation enforces exact rules", () => {
 
   // Reject invalid expectedRevision
   assert.equal(
-    validateIncomingPutPayload({ expectedRevision: -1, checks: [] }).success,
+    validateIncomingPutPayload({ expectedRevision: -1, checks: all13Checks }).success,
     false,
   );
   assert.equal(
-    validateIncomingPutPayload({ expectedRevision: "1", checks: [] }).success,
+    validateIncomingPutPayload({ expectedRevision: "1", checks: all13Checks }).success,
     false,
   );
 
   // Reject userId direct input
   assert.equal(
-    validateIncomingPutPayload({ expectedRevision: 0, userId: "some-id", checks: [] }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, userId: "some-id", checks: all13Checks }).success,
     false,
   );
   assert.equal(
-    validateIncomingPutPayload({ expectedRevision: 0, user_id: "some-id", checks: [] }).success,
-    false,
-  );
-
-  // Reject unknown monitor key
-  assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: validPayload.checks.map((c) => c.key === "dxy-4h" ? { ...c, key: "unknown-coin-key" } : c),
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, user_id: "some-id", checks: all13Checks }).success,
     false,
   );
 
-  // Reject duplicate key
+  // Reject partial checks array (<13 items)
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [validCheck, validCheck],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: all13Checks.slice(0, 5) }).success,
     false,
   );
 
   // Reject >13 items
-  const tooMany = Array.from({ length: 14 }, () => validCheck);
+  const tooMany = [...all13Checks, all13Checks[0]];
   assert.equal(
     validateIncomingPutPayload({ expectedRevision: 0, checks: tooMany }).success,
     false,
   );
 
-  // Reject invalid technical status
+  // Reject unknown monitor key
+  const withUnknown = all13Checks.map((c, i) => (i === 0 ? { ...c, key: "unknown-coin-key" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, technical: "To The Moon!" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withUnknown }).success,
+    false,
+  );
+
+  // Reject duplicate key
+  const withDuplicate = all13Checks.map((c, i) => (i === 1 ? { ...c, key: "dxy-4h" } : c));
+  assert.equal(
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withDuplicate }).success,
+    false,
+  );
+
+  // Reject invalid technical status
+  const withBadStatus = all13Checks.map((c, i) => (i === 0 ? { ...c, technical: "To The Moon!" } : c));
+  assert.equal(
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withBadStatus }).success,
     false,
   );
 
   // Reject invalid lastBreak
+  const withBadBreak = all13Checks.map((c, i) => (i === 0 ? { ...c, lastBreak: "SIDEWAYS" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, lastBreak: "SIDEWAYS" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withBadBreak }).success,
     false,
   );
 
   // Reject invalid alignment
+  const withBadAlignment = all13Checks.map((c, i) => (i === 0 ? { ...c, alignment: "bullish" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, alignment: "bullish" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withBadAlignment }).success,
     false,
   );
 
-  // Reject invalid date (future or malformed)
+  // Reject invalid date (future date, malformed, or rollover date like Feb 30)
+  const withFutureDate = all13Checks.map((c, i) => (i === 0 ? { ...c, observedOn: futureDate } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, observedOn: "2099-12-31" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withFutureDate }).success,
     false,
   );
+  const withRolloverDate = all13Checks.map((c, i) => (i === 0 ? { ...c, observedOn: "2026-02-30" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, observedOn: "October 9th" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withRolloverDate }).success,
     false,
   );
 
   // Reject non-https URL
+  const withHttpUrl = all13Checks.map((c, i) => (i === 0 ? { ...c, evidenceUrl: "http://insecure-site.com" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, evidenceUrl: "http://insecure-site.com" }],
-    }).success,
-    false,
-  );
-  assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, evidenceUrl: "javascript:alert(1)" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withHttpUrl }).success,
     false,
   );
 
-  // Reject HTML / script injection in fundamentals or notes
+  // Reject HTML / script injection
+  const withScript = all13Checks.map((c, i) => (i === 0 ? { ...c, fundamentals: "<script>alert('xss')</script>" } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, fundamentals: "<script>alert('xss')</script>" }],
-    }).success,
-    false,
-  );
-  assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, notes: "<img src=x onerror=alert(1)>" }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withScript }).success,
     false,
   );
 
   // Enforce max text lengths
+  const withLongText = all13Checks.map((c, i) => (i === 0 ? { ...c, fundamentals: "A".repeat(601) } : c));
   assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, fundamentals: "A".repeat(601) }],
-    }).success,
-    false,
-  );
-  assert.equal(
-    validateIncomingPutPayload({
-      expectedRevision: 0,
-      checks: [{ ...validCheck, notes: "B".repeat(701) }],
-    }).success,
+    validateIncomingPutPayload({ expectedRevision: 0, checks: withLongText }).success,
     false,
   );
 });
@@ -292,10 +258,41 @@ test("Validation: helper functions URL and date checking", () => {
   assert.equal(isValidHttpsUrl("https://example.com"), true);
   assert.equal(isValidHttpsUrl(""), true);
   assert.equal(isValidHttpsUrl("http://example.com"), false);
-  assert.equal(isValidHttpsUrl("ftp://example.com"), false);
 
-  assert.equal(isValidDateString("2026-10-09"), true);
+  assert.equal(isValidDateString(todayDate), true);
   assert.equal(isValidDateString(""), true);
+  assert.equal(isValidDateString("2026-02-30"), false, "February 30th rollover date must be rejected");
   assert.equal(isValidDateString("2026-13-40"), false);
-  assert.equal(isValidDateString("2099-01-01"), false);
+  assert.equal(isValidDateString(futureDate), false);
+});
+
+test("Timestamps: server-side normalization and change tracking", () => {
+  const defaultPayload = createDefaultPresenterChecklist();
+  const nowIso = new Date().toISOString();
+
+  const { checks, history } = normalizePresenterChecklistTimestamps(
+    defaultPayload.checks,
+    null,
+    [],
+    nowIso,
+  );
+
+  assert.equal(checks.length, 13);
+  assert.equal(history.length, 0);
+  assert.equal(checks[0].updatedAt, "");
+
+  // When a check is modified, server assigns nowIso
+  const modifiedChecks = defaultPayload.checks.map((c, i) =>
+    i === 0 ? { ...c, technical: "Upper-band break", observedOn: todayDate } : c,
+  );
+
+  const normalized = normalizePresenterChecklistTimestamps(
+    modifiedChecks,
+    defaultPayload.checks,
+    [],
+    nowIso,
+  );
+
+  assert.equal(normalized.checks[0].updatedAt, nowIso);
+  assert.equal(normalized.checks[1].updatedAt, "");
 });

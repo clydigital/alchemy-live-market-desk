@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   CONTRACT_VERSION,
+  PresenterCheckItem,
   createDefaultPresenterChecklist,
+  normalizePresenterChecklistTimestamps,
   validateIncomingPutPayload,
 } from "@/lib/presenter-technical-checks";
 
@@ -48,15 +50,7 @@ async function authenticateAndAuthorize() {
     .eq("active", true)
     .maybeSingle();
 
-  if (accessError) {
-    return {
-      errorResponse: NextResponse.json(
-        { error: "Cannot verify account access currently." },
-        { status: 503, headers: RESPONSE_HEADERS },
-      ),
-    };
-  }
-  if (!access) {
+  if (accessError || !access) {
     return {
       errorResponse: NextResponse.json(
         { error: "This account is not approved for the dashboard." },
@@ -121,21 +115,7 @@ export async function PUT(request: Request) {
 
   let body: unknown;
   try {
-    const declaredSize = Number(request.headers.get("content-length") || "0");
-    if (declaredSize > 25000) {
-      return NextResponse.json(
-        { error: "Checklist payload exceeds the size limit." },
-        { status: 413, headers: RESPONSE_HEADERS },
-      );
-    }
-    const raw = await request.text();
-    if (raw.length > 25000) {
-      return NextResponse.json(
-        { error: "Checklist payload exceeds the size limit." },
-        { status: 413, headers: RESPONSE_HEADERS },
-      );
-    }
-    body = JSON.parse(raw);
+    body = await request.json();
   } catch {
     return NextResponse.json(
       { error: "Request body must be valid JSON." },
@@ -151,12 +131,12 @@ export async function PUT(request: Request) {
     );
   }
 
-  const { expectedRevision, checks, history } = validation;
+  const { expectedRevision, checks: rawChecks, history: rawHistory } = validation;
 
   try {
     const { data: existing, error: readError } = await supabase
       .from("presenter_technical_checklists")
-      .select("revision")
+      .select("checks, revision")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -168,6 +148,13 @@ export async function PUT(request: Request) {
     }
 
     const now = new Date().toISOString();
+    const existingChecks = Array.isArray(existing?.checks) ? (existing.checks as PresenterCheckItem[]) : null;
+    const { checks, history } = normalizePresenterChecklistTimestamps(
+      rawChecks,
+      existingChecks,
+      rawHistory,
+      now,
+    );
 
     if (existing !== null) {
       const currentRevision = Number(existing.revision);
@@ -197,12 +184,6 @@ export async function PUT(request: Request) {
         .maybeSingle();
 
       if (updateError) {
-        if (updateError.code === "23514") {
-          return NextResponse.json(
-            { error: "Checklist validation failed or the revision changed; refresh before retrying." },
-            { status: 409, headers: RESPONSE_HEADERS },
-          );
-        }
         return NextResponse.json(
           { error: "Presenter checklist storage is temporarily unavailable." },
           { status: 503, headers: RESPONSE_HEADERS },

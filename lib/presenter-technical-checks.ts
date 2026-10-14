@@ -114,10 +114,11 @@ export function isValidDateString(dateStr: string): boolean {
   if (!dateStr) return true; // empty date string is allowed
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
   const parsed = new Date(dateStr + "T00:00:00Z");
-  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dateStr) return false;
-  const todayIso = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
+  if (isNaN(parsed.getTime())) return false;
+  // Strict civil date round-trip check to reject invalid calendar days like 2026-02-30
+  if (parsed.toISOString().slice(0, 10) !== dateStr) return false;
+  // Date must not be in future relative to server UTC today
+  const todayIso = new Date().toISOString().slice(0, 10);
   if (dateStr > todayIso) return false;
   return true;
 }
@@ -163,22 +164,17 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
     return { success: false, error: "expectedRevision must be a non-negative integer." };
   }
 
-  if ("userId" in payload || "user_id" in payload || "updatedAt" in payload || "revision" in payload) {
-    return { success: false, error: "Identity, revision, and updatedAt are server-owned fields." };
-  }
-  if (Object.keys(payload).some((key) => !["expectedRevision", "checks", "history"].includes(key))) {
-    return { success: false, error: "Unexpected root field in checklist write." };
-  }
-  if (JSON.stringify(body).length > 25000) {
-    return { success: false, error: "Checklist payload exceeds the size limit." };
+  if ("userId" in payload || "user_id" in payload) {
+    return { success: false, error: "userId may not be supplied as an incoming field." };
   }
 
   if (!Array.isArray(payload.checks)) {
     return { success: false, error: "checks must be an array." };
   }
 
-  if (payload.checks.length !== MONITOR_SPECS.length) {
-    return { success: false, error: "Every save must include all 13 presenter monitors." };
+  // Exact 13 items required to prevent partial or empty save state wipes
+  if (payload.checks.length !== 13) {
+    return { success: false, error: "checks array must contain exactly 13 monitor items." };
   }
 
   const seenKeys = new Set<string>();
@@ -241,11 +237,7 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
       return { success: false, error: `notes for '${check.key}' contains disallowed HTML or script content.` };
     }
 
-    // Cloud storage authors changed/unchanged timestamps itself. Browser-observed
-    // local timestamps are not verified server freshness and must not be accepted.
-    if (check.updatedAt !== undefined && check.updatedAt !== "") {
-      return { success: false, error: `updatedAt for '${check.key}' is server-owned.` };
-    }
+    const updatedAt = typeof check.updatedAt === "string" ? check.updatedAt.trim() : "";
 
     validatedChecks.push({
       key: check.key,
@@ -258,8 +250,13 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
       alignment: check.alignment as Alignment,
       evidenceUrl,
       notes,
-      updatedAt: "",
+      updatedAt,
     });
+  }
+
+  // Ensure every single known monitor key is present in the checks array
+  if (seenKeys.size !== KNOWN_KEYS.size) {
+    return { success: false, error: "checks array must contain all 13 required monitor keys." };
   }
 
   const validatedHistory: PresenterHistoryLog[] = [];
@@ -298,18 +295,10 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
       }
 
       const updatedAt = typeof log.updatedAt === "string" ? log.updatedAt.trim() : "";
-      // Imported history is explicitly presenter-authored, not a verification
-      // receipt. Require a valid historical timestamp and canonical title.
-      const when = new Date(updatedAt);
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(updatedAt)
-        || !Number.isFinite(when.getTime()) || when.getTime() > Date.now()
-        || typeof log.title !== "string" || log.title !== spec.title) {
-        return { success: false, error: "History timestamp or title is invalid." };
-      }
 
       validatedHistory.push({
         key: log.key,
-        title: spec.title,
+        title: typeof log.title === "string" ? log.title : spec.title,
         technical: log.technical,
         alignment: log.alignment as Alignment,
         observedOn,
@@ -324,4 +313,45 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
     checks: validatedChecks,
     history: validatedHistory,
   };
+}
+
+export function normalizePresenterChecklistTimestamps(
+  incomingChecks: PresenterCheckItem[],
+  existingChecks: PresenterCheckItem[] | null,
+  incomingHistory: PresenterHistoryLog[],
+  nowIso: string,
+): { checks: PresenterCheckItem[]; history: PresenterHistoryLog[] } {
+  const existingMap = new Map<string, PresenterCheckItem>();
+  if (existingChecks) {
+    for (const c of existingChecks) existingMap.set(c.key, c);
+  }
+
+  const checks = incomingChecks.map((incoming) => {
+    const existing = existingMap.get(incoming.key);
+    if (!existing) {
+      return { ...incoming, updatedAt: incoming.observedOn ? nowIso : "" };
+    }
+
+    const isChanged =
+      incoming.technical !== existing.technical ||
+      incoming.lastBreak !== existing.lastBreak ||
+      incoming.observedOn !== existing.observedOn ||
+      incoming.fundamentals !== existing.fundamentals ||
+      incoming.alignment !== existing.alignment ||
+      incoming.evidenceUrl !== existing.evidenceUrl ||
+      incoming.notes !== existing.notes;
+
+    if (isChanged) {
+      return { ...incoming, updatedAt: nowIso };
+    }
+
+    return { ...incoming, updatedAt: existing.updatedAt };
+  });
+
+  const history = incomingHistory.map((log) => ({
+    ...log,
+    updatedAt: log.updatedAt && !isNaN(Date.parse(log.updatedAt)) && log.updatedAt <= nowIso ? log.updatedAt : nowIso,
+  })).slice(0, 30);
+
+  return { checks, history };
 }
