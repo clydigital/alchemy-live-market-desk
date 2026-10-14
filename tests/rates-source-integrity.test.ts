@@ -112,6 +112,9 @@ test("MOVE adapter readiness is source-derived rather than perpetually marked un
   x.monitorRows.push({ id: "move", asOf: "2026-10-14", last: 81.1,
     sourceName: "Barchart OnDemand · ICE BofA MOVE Index", sourceUrl: "https://www.barchart.com/stocks/quotes/$MOVE" });
   assert.equal(assessRatesSourceIntegrity(x).move.state, "OBSERVED");
+  x.monitorRows[x.monitorRows.length - 1].sourceName = "VIXY proxy";
+  assert.equal(assessRatesSourceIntegrity(x).move.state, "ADAPTER_PRESENT_NO_VERIFIED_DATA");
+  x.monitorRows[x.monitorRows.length - 1].sourceName = "Barchart OnDemand · ICE BofA MOVE Index";
   x.monitorRows[x.monitorRows.length - 1].asOf = "2026-10-03";
   const stale = assessRatesSourceIntegrity(x);
   assert.equal(stale.move.state, "STALE");
