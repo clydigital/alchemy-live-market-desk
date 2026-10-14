@@ -24,7 +24,7 @@ function tagValue(entry: string, localName: string): string | null {
 
 /** Parse the Treasury Atom feed without substituting a different instrument. */
 export function parseTreasuryNominalCurve(xml: string): TreasuryNominalCurve["series"] {
-  const series = Object.fromEntries(Object.keys(NOMINAL_TREASURY_TENORS).map((id) => [id, []])) as TreasuryNominalCurve["series"];
+  const series = Object.fromEntries(Object.keys(NOMINAL_TREASURY_TENORS).map((id) => [id, []])) as unknown as TreasuryNominalCurve["series"];
   const entries = xml.match(/<(?:[A-Za-z0-9_-]+:)?entry\b[\s\S]*?<\/(?:[A-Za-z0-9_-]+:)?entry>/gi) ?? [];
   for (const entry of entries) {
     const rawDate = tagValue(entry, "NEW_DATE");
