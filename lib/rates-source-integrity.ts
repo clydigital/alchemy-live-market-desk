@@ -1,16 +1,19 @@
 /** Read-only cross-layer source integrity: provider -> monitor -> persisted Dossier. */
+import { deriveMatchedNominalCurveChange, NOMINAL_CURVE_IDS } from "./dossier-v2/treasury-nominal-movement.ts";
 export const RATES_SOURCE_INTEGRITY_VERSION = "rates-source-integrity/1" as const;
 export const NOMINAL_TENOR_IDS = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"] as const;
 export type NominalTenorId = (typeof NOMINAL_TENOR_IDS)[number];
 export type TenorState = "COMPLETE" | "PENDING_REBASE" | "DOWNSTREAM_LOSS" | "UPSTREAM_STALE" | "UPSTREAM_UNAVAILABLE";
 export type RatesSourceState = "OK" | "WATCH" | "ACTION_REQUIRED";
-export type MonitorRateRow = { id: string; asOf: string | null; last: number | null; sourceName: string; sourceUrl: string; sourceUpdatedAt?: string | null };
+export type MonitorRateRow = { id: string; asOf: string | null; last: number | null; sourceName: string; sourceUrl: string; sourceUpdatedAt?: string | null; points?: Array<{time: number;close: number}> };
 export type RatesIntegrityInput = {
   asOf: string;
   dossierId: string;
   dossierAsOf: string;
   dossierCurveEvidenceRefs: string[];
   dossierCoveragePresent: number | null;
+  /** Stored deterministic curve values; missing observations must be reported, not inferred. */
+  dossierCurveMoves?: Array<{ maturity: string; change5dBp: number | null }>;
   monitorRows: MonitorRateRow[];
   dealer: { status: string; asOf: string | null; sourceUrl: string; warnings: string[] };
 };
@@ -25,6 +28,8 @@ export type RatesIntegrityResult = {
     storedEvidenceRef: string | null; detail: string;
   }> };
   primaryDealers: { state: "OK" | "UPSTREAM_STALE" | "UPSTREAM_UNAVAILABLE"; asOf: string | null; sourceUrl: string; warnings: string[] };
+  fiveSessionCurve: { state: "COMPLETE" | "NOT_COMPUTABLE" | "DOWNSTREAM_MEASUREMENT_MISSING" | "PENDING_REBASE"; baselineDate: string | null; latestDate: string | null; missingMaturities: string[] };
+  move: { state: "OBSERVED" | "STALE" | "ADAPTER_PRESENT_NO_VERIFIED_DATA"; observationDate: string | null; sourceName: string | null; sourceUrl: string | null };
   inaccessibleDirectFeeds: Array<{ id: string; state: "NOT_ENTITLED_OR_NOT_INTEGRATED"; reason: string }>; 
   alerts: Array<{ code: string; severity: "ACTION_REQUIRED" | "WATCH"; detail: string }>;
   rules: string[];
@@ -93,6 +98,36 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
     code: "NY_FED_PRIMARY_DEALERS_" + dealerState, severity: "WATCH",
     detail: "Official New York Fed publication is delayed or unavailable; do not substitute stale observations as current.",
   });
+  // The direct Barchart $MOVE adapter already exists. Absence of a verified
+  // observation is not proof that no adapter was implemented or that a key is
+  // absent; the market monitor is the only trusted live-data indicator.
+  const moveRow = input.monitorRows.find((item) => item.id === "move") ?? null;
+  const moveAge = ageDays(moveRow?.asOf ?? null, asOfMs);
+  const moveState: RatesIntegrityResult["move"]["state"] =
+    moveRow?.last === null || !moveRow || !moveRow.asOf ? "ADAPTER_PRESENT_NO_VERIFIED_DATA"
+      : moveAge !== null && moveAge > 5 ? "STALE" : "OBSERVED";
+  if (moveState === "STALE") alerts.push({ code: "MOVE_UPSTREAM_STALE", severity: "WATCH",
+    detail: "The Barchart MOVE adapter reports an observation older than the five-day rates context window." });
+
+  // A complete 5/5 *level* curve must not silently discard computable
+  // five-session absolute bp moves. Check only after all five latest dated
+  // sources have entered this Dossier; do not flag a historical baseline
+  // or legitimately unobserved/halted sessions.
+  const latestNominalDate = input.monitorRows.find((item) => item.id === NOMINAL_CURVE_IDS[0])?.asOf ?? null;
+  const matchedCurve = latestNominalDate
+    ? deriveMatchedNominalCurveChange(input.monitorRows, latestNominalDate) : null;
+  const isStoredCurrent = tenorStates.every((item) => item.state === "COMPLETE");
+  const maturities = ["2Y", "5Y", "10Y", "20Y", "30Y"];
+  const missingMovements = matchedCurve && isStoredCurrent && input.dossierCurveMoves
+    ? maturities.filter((maturity) => input.dossierCurveMoves?.find((p) => p.maturity === maturity)?.change5dBp == null)
+    : [];
+  const fiveSessionState: RatesIntegrityResult["fiveSessionCurve"]["state"] =
+    !matchedCurve ? "NOT_COMPUTABLE" : !isStoredCurrent ? "PENDING_REBASE"
+      : missingMovements.length ? "DOWNSTREAM_MEASUREMENT_MISSING" : "COMPLETE";
+  if (fiveSessionState === "DOWNSTREAM_MEASUREMENT_MISSING") alerts.push({
+    code: "TREASURY_FIVE_SESSION_MOVEMENT_LOST", severity: "ACTION_REQUIRED",
+    detail: "Five common official sessions exist, but persisted Dossier bp movements are missing for: " + missingMovements.join(", "),
+  });
   const complete = tenorStates.filter((item) => item.state === "COMPLETE").length;
   if (input.dossierCoveragePresent !== null && input.dossierCoveragePresent !== 5)
     alerts.push({ code: "PERSISTED_RATE_COVERAGE_INCOMPLETE",
@@ -105,9 +140,12 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
     dossier: { id: input.dossierId, asOf: input.dossierAsOf, storedTreasuryCoverage: input.dossierCoveragePresent },
     treasury: { complete, required: 5, states: tenorStates },
     primaryDealers: { state: dealerState, asOf: input.dealer.asOf, sourceUrl: input.dealer.sourceUrl, warnings: input.dealer.warnings },
+    fiveSessionCurve: { state: fiveSessionState, baselineDate: matchedCurve?.baselineDate ?? null,
+      latestDate: matchedCurve?.latestDate ?? null, missingMaturities: missingMovements },
+    move: { state: moveState, observationDate: moveRow?.asOf ?? null, sourceName: moveRow?.sourceName ?? null, sourceUrl: moveRow?.sourceUrl ?? null },
     inaccessibleDirectFeeds: [
       { id: "CME_FEDWATCH_INTRADAY", state: "NOT_ENTITLED_OR_NOT_INTEGRATED", reason: "An official intraday FedWatch entitlement and evidence adapter have not been verified." },
-      { id: "ICE_MOVE", state: "NOT_ENTITLED_OR_NOT_INTEGRATED", reason: "A licensed direct MOVE feed and canonical evidence adapter have not been verified." },
+
       { id: "INTRADAY_UST_2Y_10Y", state: "NOT_ENTITLED_OR_NOT_INTEGRATED", reason: "No validated timestamped direct Treasury cash-yield bars; daily Treasury yields are not intraday bars." },
     ],
     alerts,
