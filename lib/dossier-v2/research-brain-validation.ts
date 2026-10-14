@@ -522,7 +522,7 @@ export function validateResearchBrainOutput(
   const issuerEps = packet.observed_evidence.filter((ev) =>
     ev.canonical_record_backed === true
     && ev.source_type === "PRESS_RELEASE"
-    && /^verified-issuer:([a-z0-9]+):20\\d{2}q[1-4]:diluted_eps$/.test(ev.evidence_id));
+    && /^verified-issuer:([a-z0-9]+):20\d{2}q[1-4]:diluted_eps$/.test(ev.evidence_id));
   const issuerPair = issuerEps.flatMap((eps) => {
     const ticker = eps.evidence_id.split(":")[1]?.toUpperCase();
     const reaction = packet.observed_evidence.find((ev) =>
