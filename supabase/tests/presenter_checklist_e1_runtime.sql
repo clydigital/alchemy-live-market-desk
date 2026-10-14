@@ -66,7 +66,7 @@ BEGIN
           checks = jsonb_set(checks,'{0,observedOn}',to_jsonb('2026-02-30'::text))
       WHERE user_id='11111111-1111-4111-8111-111111111111';
     RAISE EXCEPTION 'Invalid civil date succeeded';
-  EXCEPTION WHEN check_violation THEN NULL;
+  EXCEPTION WHEN check_violation OR datetime_field_overflow THEN NULL;
   END;
 
   UPDATE public.presenter_technical_checklists SET revision=revision+1
