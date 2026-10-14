@@ -1783,3 +1783,50 @@ test("20g. existing scored leads retain a linked/unlinked research balance witho
   assert.ok(packet.research_leads.every((lead)=>!Object.prototype.hasOwnProperty.call(lead,"candidate_score")));
   assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
 });
+
+test("20h. official issuer earnings survive evidence saturation without displacing monitor/news reservations", () => {
+  const asOf=TEST_AS_OF;
+  const observed: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14},(_,i)=>({
+      evidence_id:`market-monitor:issuer-fixture-${i}`,
+      claim_or_fact:`Measured monitor series ${i}`,
+      category:"RATES",source_type:"MARKET_DATA",
+      grouping_key:`market-monitor:issuer-fixture-${i}`,
+      available_at:IN_WINDOW_TIME,rank:2,
+      provenance:[{source_type:"MARKET_DATA",source_id:`market-${i}`}],
+    })),
+    ...Array.from({length:21},(_,i)=>({
+      evidence_id:`official:competition-${i}`,
+      claim_or_fact:`Official measured macro series ${i}`,
+      category:"MACRO",source_type:"OFFICIAL_DATA",
+      grouping_key:`official:competition-${i}`,
+      available_at:IN_WINDOW_TIME,rank:5,
+      provenance:[{source_type:"OFFICIAL_DATA",source_id:`official-${i}`}],
+    })),
+    ...Array.from({length:2},(_,i)=>({
+      evidence_id:`publisher:measured-${i}`,
+      claim_or_fact:`Measured published market movement ${i}`,
+      category:"EQUITIES",source_type:"NEWS_MARKET_CONTEXT",
+      canonical_record_backed:true,
+      grouping_key:`publisher:measured-${i}`,
+      available_at:IN_WINDOW_TIME,rank:4,
+      provenance:[{source_type:"NEWS_MARKET_CONTEXT",source_id:`news-${i}`,url:`https://example.org/market-${i}`}],
+    })),
+    {
+      evidence_id:"verified-issuer:gs:2026q3:diluted_eps",
+      claim_or_fact:"Goldman Sachs reports quarterly diluted EPS of $17.01.",
+      category:"EARNINGS",source_type:"PRESS_RELEASE",
+      canonical_record_backed:true,
+      grouping_key:"bank-earnings",
+      available_at:IN_WINDOW_TIME,rank:16,
+      provenance:[{source_type:"PRESS_RELEASE",source_id:"goldman-official",url:"https://www.goldmansachs.com/pressroom/press-releases/2026/2026-10-13-q3-results"}],
+    },
+  ];
+  const packet=assembleDossierV2InputPacket({as_of:asOf}, {observed_evidence:observed});
+  assert.equal(packet.development_clusters.length,24);
+  assert.equal(packet.development_clusters.filter(c=>c.grouping_key.startsWith("market-monitor:")).length,14);
+  assert.ok(packet.development_clusters.some(c=>c.grouping_key==="bank-earnings"));
+  assert.ok(packet.observed_evidence.some(e=>e.evidence_id==="verified-issuer:gs:2026q3:diluted_eps"));
+  assert.equal(packet.development_clusters.filter(c=>c.grouping_key.startsWith("publisher:measured-")).length,2);
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
