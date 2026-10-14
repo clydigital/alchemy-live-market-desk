@@ -95,8 +95,9 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
   });
   const complete = tenorStates.filter((item) => item.state === "COMPLETE").length;
   if (input.dossierCoveragePresent !== null && input.dossierCoveragePresent !== 5)
-    alerts.push({ code: "PERSISTED_RATE_COVERAGE_INCOMPLETE", severity: "ACTION_REQUIRED",
-      detail: "The stored Dossier rate-regime coverage is below five required inputs; inspect dated Evidence IDs before recalibration." });
+    alerts.push({ code: "PERSISTED_RATE_COVERAGE_INCOMPLETE",
+      severity: tenorStates.some((item) => item.state === "DOWNSTREAM_LOSS") ? "ACTION_REQUIRED" : "WATCH",
+      detail: "The stored Dossier rate-regime coverage is below five required inputs; distinguish missing upstream data or newer releases from lost admitted evidence." });
   return {
     contractVersion: RATES_SOURCE_INTEGRITY_VERSION, generatedAt: input.asOf,
     operationalStatus: alerts.some((item) => item.severity === "ACTION_REQUIRED") ? "ACTION_REQUIRED"
