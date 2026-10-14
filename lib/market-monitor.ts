@@ -668,7 +668,7 @@ function makeRows(rawSeries: RawSeries[]): MarketMonitorRow[] {
       frequency: raw.frequency,
       sourceName: raw.sourceName,
       sourceUrl: raw.sourceUrl,
-      sourceUpdatedAt: raw.sourceUpdatedAt ?? null,
+      ...(raw.sourceUpdatedAt ? { sourceUpdatedAt: raw.sourceUpdatedAt } : {}),
       points: points.slice(-64).map((point) => ({ time: point.time, close: point.close })),
     } satisfies Omit<MarketMonitorRow, "attentionScore" | "hot" | "contradiction" | "tags">;
     return row;
