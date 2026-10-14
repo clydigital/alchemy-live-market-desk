@@ -103,8 +103,11 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
   // absent; the market monitor is the only trusted live-data indicator.
   const moveRow = input.monitorRows.find((item) => item.id === "move") ?? null;
   const moveAge = ageDays(moveRow?.asOf ?? null, asOfMs);
+  const trustedMove = moveRow?.sourceName === "Barchart OnDemand · ICE BofA MOVE Index"
+    && moveRow.sourceUrl.startsWith("https://www.barchart.com/")
+    && typeof moveRow.last === "number" && Number.isFinite(moveRow.last) && moveRow.last > 0;
   const moveState: RatesIntegrityResult["move"]["state"] =
-    moveRow?.last === null || !moveRow || !moveRow.asOf ? "ADAPTER_PRESENT_NO_VERIFIED_DATA"
+    !trustedMove || !moveRow?.asOf ? "ADAPTER_PRESENT_NO_VERIFIED_DATA"
       : moveAge !== null && moveAge > 5 ? "STALE" : "OBSERVED";
   if (moveState === "STALE") alerts.push({ code: "MOVE_UPSTREAM_STALE", severity: "WATCH",
     detail: "The Barchart MOVE adapter reports an observation older than the five-day rates context window." });
