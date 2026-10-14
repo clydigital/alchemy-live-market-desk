@@ -4,7 +4,9 @@ import test from "node:test";
 
 import {
   evaluateCanonicalStoryRecruitment,
+  eligibleCanonicalNewsTopicPropagation,
   recruitCanonicalStories,
+  topicSlugsFromCanonicalRoutes,
   type CanonicalStoryForRecruitment,
 } from "../lib/intelligence/story-recruitment.ts";
 
@@ -305,4 +307,40 @@ test("runtime persists the shared routing diagnostic without a trigger-specific 
   assert.match(runtime, /acquisitionMateriality: item\.materiality/);
   assert.match(runtime, /storyRouting: routing\.diagnostic/);
   assert.doesNotMatch(runtime, /allowAssetRecruitment:[\s\S]{0,160}item\.materiality\s*>=\s*70/);
+});
+
+test("inferred topics reuse unambiguous Story route", () => {
+  const decision = evaluateCanonicalStoryRecruitment({affectedStorySlugs:[],affectedAssets:["US02Y","SPX"],allowAssetRecruitment:true,acquisitionMateriality:75}, [story({id:"fed",slug:"fed",assets:["US02Y","SPX"]})]);
+  assert.deepEqual(topicSlugsFromCanonicalRoutes([],decision),["fed"]);
+});
+
+test("news topic inheritance keeps explicit slugs and fails closed on ties", () => {
+  const explicit = evaluateCanonicalStoryRecruitment({affectedStorySlugs:["fed"],affectedAssets:[],allowAssetRecruitment:false}, [story({id:"fed-id",slug:"fed"})]);
+  assert.deepEqual(topicSlugsFromCanonicalRoutes(["fed"],explicit),["fed"]);
+  const ambiguous = evaluateCanonicalStoryRecruitment({affectedStorySlugs:[],affectedAssets:["US10Y"],allowAssetRecruitment:true,acquisitionMateriality:75}, [
+    story({id:"a",slug:"term-premium",assets:["US10Y","US30Y"]}),
+    story({id:"b",slug:"housing",assets:["US10Y","XHB"]}),
+  ]);
+  assert.equal(ambiguous.diagnostic.reason,"ambiguous_story_match");
+  assert.deepEqual(topicSlugsFromCanonicalRoutes([],ambiguous),[]);
+});
+
+test("inferred publisher topics follow existing evidence-quality thresholds", () => {
+  const standard = {evidenceClass:"news_report",sourceType:"news",sourceTier:3,reliabilityScore:76,verificationRole:"canonical"} as const;
+  assert.equal(eligibleCanonicalNewsTopicPropagation(standard),true);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,reliabilityScore:70}),true);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,reliabilityScore:69}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,sourceTier:5}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,sourceTier:null}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,verificationRole:"discovery_only"}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,evidenceClass:"transcript"}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,sourceType:"video"}),false);
+  assert.equal(eligibleCanonicalNewsTopicPropagation({...standard,sourceType:"article"}),true);
+});
+
+test("runtime uses the same gated topic routing for canonical writes", () => {
+  const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts",import.meta.url),"utf8");
+  assert.match(runtime,/eligibleCanonicalNewsTopicPropagation\(\{/);
+  assert.match(runtime,/affected_topics: mayPropagateNewsTopic/);
+  assert.match(runtime,/topicSlugsFromCanonicalRoutes\(item\.affected_story_slugs \?\? \[\], routing\)/);
 });

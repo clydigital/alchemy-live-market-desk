@@ -515,7 +515,7 @@ function isArticleMarketObservation(row: CanonicalEvidenceRow): boolean {
   const text = visibleText([row.claim_text, row.summary, statsSignal].filter(Boolean).join(" "));
   const hasMarketSubject = /\b(?:yield|treasur|bond|stocks?|shares?|futures?|index|s&p|nasdaq|dow|nikkei|stoxx|crude|oil|brent|wti|gold|silver|dollar|yen|euro|bitcoin|diesel|gasoline|spread|etf)\b/i.test(text)
     || explicitlyMentionedInstrumentSpecs(text).length > 0;
-  const hasMetric = /(?:[$€£¥]\s?\d|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:%|percent|bp|bps|basis points?|points?|dollars?|barrel|gallon)\b|\b(?:yield|price|index)\b.{0,48}\b\d+(?:\.\d+)?)/i.test(text);
+  const hasMetric = /(?:[$€£¥]\s?\d|\b\d+(?:,\d{3})*(?:\.\d+)?\s?(?:%|percent|bp|bps|basis points?|points?|dollars?|barrel|gallon)(?!\w)|\b(?:yield|price|index)\b.{0,48}\b\d+(?:\.\d+)?)/i.test(text);
   const hasMoveOrLevel = /\b(?:rose|fell|rall(?:y|ied|ying)|surged|jumped|gained|climbed|slid|dropped|declined|lost|up|down|steady|hit|reached|traded|closed|opened|topped|support|resistance|high|low|ath|all[- ]time high|record high)\b/i.test(text);
   return Boolean(statsSignal) || (hasMarketSubject && hasMetric && hasMoveOrLevel);
 }
@@ -700,6 +700,13 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
         isCreatorLead(row) ? "CREATOR_LEAD" : "RESEARCH_LEAD",
       ),
       source_tier: sourceTier(source),
+      // Attention ranking only. These metadata fields do not admit a claim
+      // as observed evidence or change the established Story route.
+      candidate_score: structuredNumber(row.structured_payload, "candidateScore")
+        ?? structuredNumber(row.structured_payload, "materiality") ?? 0,
+      source_reliability: reliabilityScore(source),
+      market_linked: (row.affected_assets ?? []).some(Boolean)
+        || (row.affected_topics ?? []).some(Boolean),
     });
   }
 

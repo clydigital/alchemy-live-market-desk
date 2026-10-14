@@ -310,6 +310,9 @@ const TARGET_NON_MONITOR_CLUSTERS = 10;
 const TARGET_RECENT_CANONICAL_NEWS_CLUSTERS = 2;
 const MAX_EVIDENCE_PER_CLUSTER = 6;
 const MAX_LEADS_PER_CLUSTER = 3;
+// Bounded unresolved questions can survive an evidence-heavy cluster selection.
+// Leads never become canonical observations and cannot displace Motion pins.
+const MAX_STANDALONE_RESEARCH_LEADS = 3;
 const MAX_TOTAL_OBSERVED_EVIDENCE = 72;
 const MAX_CREATOR_THEMES = 5;
 const MAX_CREATOR_EXPAND_LATER = 2;
@@ -432,6 +435,16 @@ function isAdmittedCanonicalNewsCluster(cluster: DevelopmentCluster) {
     && item.provenance.length > 0);
 }
 
+// This is an attention guarantee for EXISTING canonical primary-company facts,
+// not a new source/admission rule. It shares the established non-monitor cap.
+function isVerifiedIssuerResultsCluster(cluster: DevelopmentCluster) {
+  return cluster.evidence.some((item) =>
+    item.canonical_record_backed === true
+    && item.source_type === "PRESS_RELEASE"
+    && item.evidence_id.startsWith("verified-issuer:")
+    && item.provenance.length > 0);
+}
+
 function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
   if (candidateClusters.length <= MAX_DEVELOPMENT_CLUSTERS) {
     return candidateClusters;
@@ -452,6 +465,11 @@ function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster
   }
 
   const nonMonitor = candidateClusters.filter((cluster) => !isMarketMonitorCluster(cluster));
+
+  // One existing non-monitor attention slot is shared with the freshest
+  // verified quarterly issuer result when available. Unverified headlines
+  // receive no special treatment and Motion/macro-spine pins stay unchanged.
+  add(nonMonitor.find(isVerifiedIssuerResultsCluster));
 
   // Publisher reports are admitted upstream only if their factual,
   // source-backed market observation passes the strict news gate. This is a
@@ -1312,6 +1330,13 @@ export function assembleDossierV2InputPacket(
   }
 
   const rawAdmittedLeads: Array<ResearchLead & { grouping_key: string; conflict_key?: string }> = [];
+  // Transient selection metadata from the canonical snapshot. Kept outside
+  // ResearchLead so the model never mistakes prioritisation for evidence.
+  const leadPriorityMetadata = new Map<string, {
+    candidateScore: number;
+    marketLinked: boolean;
+    reliablePublisher: boolean;
+  }>();
 
   for (const raw of candidateLeadsList) {
     if (!isPlainObject(raw)) continue;
@@ -1330,6 +1355,12 @@ export function assembleDossierV2InputPacket(
     const leadId = typeof raw.lead_id === "string" && raw.lead_id ? truncateString(raw.lead_id, 100, markTruncated) : `lead:${hashString(`${groupingKey}:${questionText}`)}`;
     const conflictKey = typeof raw.conflict_key === "string" && raw.conflict_key.trim() ? truncateString(raw.conflict_key.trim(), 100, markTruncated) : undefined;
 
+    leadPriorityMetadata.set(leadId, {
+      candidateScore: typeof raw.candidate_score === "number" && Number.isFinite(raw.candidate_score)
+        ? raw.candidate_score : 0,
+      marketLinked: raw.market_linked === true,
+      reliablePublisher: typeof raw.source_reliability === "number" && raw.source_reliability >= 70,
+    });
     rawAdmittedLeads.push({
       lead_id: leadId,
       claim_or_question: questionText,
@@ -1478,6 +1509,58 @@ export function assembleDossierV2InputPacket(
     observedEvidence.push(...c.evidence);
     researchLeads.push(...c.leads);
   }
+
+  // Existing 24-cluster selection is evidence-priority based. Without this
+  // bounded attention lane, every unresolved publisher lead can disappear
+  // even when it has a dated source and a material verification question.
+  // The separate research_leads field already has a strict non-fact boundary
+  // in System 2; never add these to observed_evidence or development_clusters.
+  const selectedLeadIds = new Set(researchLeads.map((lead) => lead.lead_id));
+  const eligibleResearchLeads = rawAdmittedLeads
+    .filter((lead) =>
+      lead.source_type === "RESEARCH_LEAD"
+      && (lead.urgency === "HIGH" || lead.urgency === "MEDIUM")
+      && lead.provenance.some((ref) =>
+        typeof ref.source_id === "string" && ref.source_id.length > 0
+        && typeof ref.url === "string" && /^https:\/\//i.test(ref.url)),
+    )
+    .sort((left, right) =>
+      (left.urgency === "HIGH" ? 0 : 1) - (right.urgency === "HIGH" ? 0 : 1)
+      || Number(leadPriorityMetadata.get(right.lead_id)?.reliablePublisher ?? false)
+         - Number(leadPriorityMetadata.get(left.lead_id)?.reliablePublisher ?? false)
+      || (leadPriorityMetadata.get(right.lead_id)?.candidateScore ?? 0)
+         - (leadPriorityMetadata.get(left.lead_id)?.candidateScore ?? 0)
+      || right.available_at.localeCompare(left.available_at)
+      || left.lead_id.localeCompare(right.lead_id));
+  // Preserve both Story-linked verification questions and orphan news
+  // developments. Never infer a Story association to fill the orphan slot.
+  const linkedLeads = eligibleResearchLeads.filter((lead) =>
+    leadPriorityMetadata.get(lead.lead_id)?.marketLinked === true);
+  const unlinkedLeads = eligibleResearchLeads.filter((lead) =>
+    leadPriorityMetadata.get(lead.lead_id)?.marketLinked !== true);
+  const priorityResearchLeads: typeof rawAdmittedLeads = [];
+  const sampledLeadIds = new Set<string>();
+  for (const lead of [
+    ...linkedLeads.slice(0, 2),
+    ...unlinkedLeads.slice(0, 1),
+    ...eligibleResearchLeads,
+  ]) {
+    if (priorityResearchLeads.length >= MAX_STANDALONE_RESEARCH_LEADS) break;
+    if (sampledLeadIds.has(lead.lead_id)) continue;
+    sampledLeadIds.add(lead.lead_id);
+    priorityResearchLeads.push(lead);
+  }
+  // The three-slot budget is shared with already-selected cluster leads:
+  // do not silently reserve three *additional* external questions.
+  const standaloneResearchLeads = priorityResearchLeads.filter(
+    (lead) => !selectedLeadIds.has(lead.lead_id),
+  );
+  researchLeads.push(...standaloneResearchLeads);
+  // Selected research questions were previously counted as omitted when
+  // their standalone clusters lost the 24-cluster selection. Reconcile that
+  // accounting; any later byte-cap eviction adds them back to the count.
+  omittedLeadsCount = Math.max(0, omittedLeadsCount - standaloneResearchLeads.length);
+  const protectedResearchLeadIds = new Set(priorityResearchLeads.map((lead) => lead.lead_id));
 
   observedEvidence.push(
     ...protectedDollarLiquidityEvidence.map((item) => {
@@ -1929,7 +2012,15 @@ export function assembleDossierV2InputPacket(
 
     // Truncation Pass 1: Remove research leads
     while (byteSize > MAX_CANONICAL_BYTES && packetWithoutId.research_leads.length > 0) {
-      const removed = packetWithoutId.research_leads.pop();
+      // Prune ordinary cluster leads first. The bounded provenance-backed
+      // attention sample is last to go, but the 200 KB cap always wins.
+      const unprotectedIndex = packetWithoutId.research_leads.findLastIndex(
+        (lead) => !protectedResearchLeadIds.has(lead.lead_id),
+      );
+      const removeIndex = unprotectedIndex >= 0
+        ? unprotectedIndex
+        : packetWithoutId.research_leads.length - 1;
+      const [removed] = packetWithoutId.research_leads.splice(removeIndex, 1);
       if (removed) {
         packetWithoutId.diagnostics.omitted_leads_count++;
         for (const c of packetWithoutId.development_clusters) {

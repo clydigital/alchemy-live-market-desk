@@ -311,3 +311,35 @@ export function recruitCanonicalStories(
 ): StoryRecruitmentRoute[] {
   return evaluateCanonicalStoryRecruitment(input, stories).routes;
 }
+
+/**
+ * Persist only existing canonical Story routes as affected_topics.
+ * Topic propagation never changes source admission or creates a new Story route.
+ * An unresolved/ambiguous recruitment decision adds no inferred topic.
+ */
+export function topicSlugsFromCanonicalRoutes(
+  originalSlugs: string[],
+  decision: StoryRecruitmentDecision,
+): string[] {
+  return [...new Set([...originalSlugs, ...decision.routes.map((route) => route.storySlug)])];
+}
+
+/**
+ * Eligibility for inferring Story-topic metadata on a publisher news row.
+ * This never admits evidence or changes the pre-existing Story-routing verdict.
+ */
+export function eligibleCanonicalNewsTopicPropagation(input: {
+  evidenceClass: string;
+  sourceType: string;
+  sourceTier: number | string | null | undefined;
+  reliabilityScore: number | string | null | undefined;
+  verificationRole: "canonical" | "discovery_only";
+}): boolean {
+  const tier = Number(input.sourceTier);
+  const reliability = Number(input.reliabilityScore);
+  return input.evidenceClass === "news_report"
+    && ["news", "article", "wire", "news_report"].includes(input.sourceType.trim().toLowerCase())
+    && Number.isFinite(tier) && tier >= 1 && tier <= 4
+    && Number.isFinite(reliability) && reliability >= 70
+    && input.verificationRole === "canonical";
+}

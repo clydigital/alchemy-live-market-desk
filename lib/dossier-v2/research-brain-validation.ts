@@ -795,6 +795,26 @@ export function validateResearchBrainOutput(
         errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: market_evidence.confirming must not be empty.`);
       }
 
+      // A single canonical observation cannot support and contradict the
+      // SAME Story simultaneously. The model prompt already prohibits this;
+      // enforce it before the decision can reach downstream Story updates.
+      const evidenceSideById = new Map<string, string>();
+      for (const [side, ids] of [
+        ["confirming", confirming],
+        ["contradicting", contradicting],
+        ["accelerating", accelerating],
+      ] as const) {
+        for (const id of ids) {
+          if (typeof id !== "string") continue;
+          const earlierSide = evidenceSideById.get(id);
+          if (earlierSide && earlierSide !== side) {
+            errors.push(`major_stories[${sIdx}] (${storyId}) assigns evidence_id "${id}" to both ${earlierSide} and ${side}.`);
+          } else {
+            evidenceSideById.set(id, side);
+          }
+        }
+      }
+
       for (const evId of [...confirming, ...contradicting, ...accelerating]) {
         if (typeof evId !== "string" || !indexes.validEvidenceIds.has(evId)) {
           errors.push(`major_stories[${sIdx}] (${storyId}) market_evidence references unsupported evidence_id "${String(evId)}".`);

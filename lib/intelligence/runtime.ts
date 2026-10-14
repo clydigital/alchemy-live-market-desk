@@ -110,6 +110,8 @@ import {
 import { buildSystem1ResearchAttention } from "@/lib/intelligence/system1-research-attention";
 import {
   evaluateCanonicalStoryRecruitment,
+  eligibleCanonicalNewsTopicPropagation,
+  topicSlugsFromCanonicalRoutes,
   type CanonicalStoryForRecruitment,
   type StoryRecruitmentDecision,
 } from "@/lib/intelligence/story-recruitment";
@@ -979,6 +981,21 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
       evidenceText,
     }, recruitableStories);
     routingByItemKey.set(item.item_key, routing);
+    // A topic is a Story association, not proof. Propagate an inferred
+    // association only for news that already meets the current numeric source
+    // threshold and canonical verification role. Keep discovery-only,
+    // low-reliability, non-news, and unresolved routes out of this repair.
+    const mayPropagateNewsTopic = eligibleCanonicalNewsTopicPropagation({
+      evidenceClass: evidenceClass(item),
+      sourceType: item.item_type,
+      sourceTier: source.source_tier,
+      reliabilityScore: source.reliability_score,
+      verificationRole: sourceVerificationRole({
+        sourceName: source.source_name,
+        providerKey: source.provider_key,
+        provenanceUrls: [item.url],
+      }),
+    });
     return [{
       source_id: source.id,
       research_run_id: item.run_id,
@@ -991,7 +1008,9 @@ export async function canonicaliseIntake(stories: StoryRow[], itemKeys?: Readonl
       published_at: item.published_at,
       available_at: item.published_at,
       affected_assets: canonicalAffectedAssets,
-      affected_topics: item.affected_story_slugs ?? [],
+      affected_topics: mayPropagateNewsTopic
+        ? topicSlugsFromCanonicalRoutes(item.affected_story_slugs ?? [], routing)
+        : item.affected_story_slugs ?? [],
       confidence: clamp((item.source_quality * 0.55) + (item.materiality * 0.25) + (item.relevance * 0.2)),
       freshness_status: "current",
       content_hash: hash(`${item.item_key}|${item.summary}|${item.published_at}`, 64),

@@ -1629,3 +1629,204 @@ test("26. promoted Motion Evidence pin is ranked first under bounded publisher s
   assert.equal(admitted.rank, 1);
   assert.equal(admitted.source_type, "NEWS_MARKET_CONTEXT");
 });
+
+test("20e. three sourced research questions survive saturated clusters without displacing canonical facts", () => {
+  const observed: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({ length: 14 }, (_, i) => ({
+      evidence_id: `market-monitor:fixture-${i}:2026-03-31`,
+      claim_or_fact: `Measured market monitor ${i}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `market-monitor:fixture-${i}`,
+      source_type: "MARKET_DATA",
+      provenance: [{ source_type: "MARKET_DATA", source_id: `m-${i}` }],
+    })),
+    ...Array.from({ length: 10 }, (_, i) => ({
+      evidence_id: `sec:fact-${i}`,
+      claim_or_fact: `Dated audited issuer metric ${i}`,
+      available_at: IN_WINDOW_TIME,
+      grouping_key: `sec:fact-${i}`,
+      source_type: "SEC_FILING",
+      provenance: [{ source_type: "SEC_FILING", source_id: `sec-${i}` }],
+    })),
+  ];
+  const leads: NonNullable<CandidateSnapshot["research_leads"]> = [
+    ...Array.from({ length: 5 }, (_, i) => ({
+      lead_id: `lead:issuer-${i}`,
+      claim_or_question: `Verify material reported earnings or financing claim ${i} against issuer results.`,
+      available_at: `2026-03-31T0${i}:00:00.000Z`,
+      grouping_key: `unresolved:issuer-${i}`,
+      source_type: "RESEARCH_LEAD",
+      urgency: i < 2 ? "HIGH" : "MEDIUM",
+      provenance: [{ source_type: "RESEARCH_LEAD", source_id: `publisher-${i}`, url: `https://example.org/issuer-${i}` }],
+    })),
+    {
+      lead_id: "lead:unsourced",
+      claim_or_question: "Rumour with no provenance",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "unresolved:rumour",
+      source_type: "RESEARCH_LEAD",
+      urgency: "HIGH",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "rumour"}],
+    },
+    {
+      lead_id: "lead:low",
+      claim_or_question: "Low urgency discovery",
+      available_at: IN_WINDOW_TIME,
+      grouping_key: "unresolved:low",
+      source_type: "RESEARCH_LEAD",
+      urgency: "LOW",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "low", url: "https://example.org/low"}],
+    },
+    {
+      lead_id: "lead:future",
+      claim_or_question: "Cannot know tomorrow's news",
+      available_at: FUTURE_TIME,
+      grouping_key: "unresolved:future",
+      source_type: "RESEARCH_LEAD",
+      urgency: "HIGH",
+      provenance: [{source_type: "RESEARCH_LEAD", source_id: "future", url: "https://example.org/future"}],
+    },
+  ];
+  const packet = assembleDossierV2InputPacket(
+    { as_of: TEST_AS_OF, previous_dossier_id: null },
+    { observed_evidence: observed, research_leads: leads },
+  );
+  assert.equal(packet.development_clusters.length, 24);
+  assert.equal(packet.development_clusters.filter((c) => c.grouping_key.startsWith("market-monitor:")).length, 14);
+  assert.equal(packet.observed_evidence.length, 24);
+  assert.ok(packet.observed_evidence.every((e) => !e.evidence_id.startsWith("lead:")));
+  assert.deepEqual(new Set(packet.research_leads.map((l) => l.lead_id)),
+    new Set(["lead:issuer-0", "lead:issuer-1", "lead:issuer-4"]));
+  assert.ok(packet.research_leads.every((l) => l.epistemic_label === undefined));
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet), "utf8") <= 200000);
+});
+
+test("20f. the three-lead reserve is shared with leads already retained by evidence clusters", () => {
+  const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14}, (_,i)=>({
+      evidence_id: `market-monitor:priority-${i}`, source_type: "MARKET_DATA", rank: 2,
+      available_at: IN_WINDOW_TIME, grouping_key: `market-monitor:priority-${i}`,
+      claim_or_fact: `Measured date-specific market observation ${i}`,
+      provenance: [{source_type:"MARKET_DATA",source_id:`series-${i}`}],
+    })),
+    ...Array.from({length:10},(_,i)=>({
+      evidence_id:`issuer:${i}`,source_type:"SEC_FILING",rank:10,
+      available_at:IN_WINDOW_TIME,grouping_key:`issuer:${i}`,
+      claim_or_fact:`Issuer official release ${i}`,
+      provenance:[{source_type:"SEC_FILING",source_id:`filing-${i}`}],
+    })),
+  ];
+  const leads: NonNullable<CandidateSnapshot["research_leads"]> = [
+    {
+      lead_id:"lead:cluster-selected",source_type:"RESEARCH_LEAD",
+      claim_or_question:"Verify a source-backed disclosure against observed market reactions.",
+      urgency:"HIGH",available_at:"2026-03-31T11:00:00.000Z",
+      grouping_key:"issuer:0", market_linked:true, candidate_score:91, source_reliability:86,
+      provenance:[{source_type:"RESEARCH_LEAD",source_id:"press-0",url:"https://example.org/press-0"}],
+    },
+    ...Array.from({length:290},(_,i)=>({
+      lead_id:`lead:backlog-${String(i).padStart(3,"0")}`,
+      source_type:"RESEARCH_LEAD",urgency:i<3?"HIGH":"MEDIUM",
+      claim_or_question:`Find primary proof for a reported market development ${i}.`,
+      available_at:"2026-03-31T10:00:00.000Z",
+      grouping_key:`research:backlog-${i}`,
+      provenance:[{source_type:"RESEARCH_LEAD",source_id:`publisher-${i}`,url:`https://example.org/report-${i}`}],
+    })),
+  ];
+  const packet=assembleDossierV2InputPacket(
+    {as_of:TEST_AS_OF,previous_dossier_id:null},
+    {observed_evidence:evidence,research_leads:leads},
+  );
+  const ids=packet.research_leads.map((lead)=>lead.lead_id);
+  assert.deepEqual(new Set(ids),new Set(["lead:cluster-selected","lead:backlog-000","lead:backlog-001"]));
+  assert.equal(ids.length,3);
+  assert.equal(packet.development_clusters.length,24);
+  assert.equal(packet.observed_evidence.length,24);
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
+
+test("20g. existing scored leads retain a linked/unlinked research balance without factual promotion", () => {
+  const evidence: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14},(_,i)=>({
+      evidence_id:`market-monitor:attn-${i}`,claim_or_fact:`Observed market series ${i}`,
+      source_type:"MARKET_DATA",rank:2,grouping_key:`market-monitor:attn-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"MARKET_DATA",source_id:`m-${i}`}],
+    })),
+    ...Array.from({length:10},(_,i)=>({
+      evidence_id:`official:attn-${i}`,claim_or_fact:`Verified official measurement ${i}`,
+      source_type:"OFFICIAL_DATA",rank:10,grouping_key:`official:attn-${i}`,
+      available_at:IN_WINDOW_TIME,provenance:[{source_type:"OFFICIAL_DATA",source_id:`o-${i}`}],
+    })),
+  ];
+  const entries=[
+    {id:"linked-high",linked:true,score:90,reliability:76,urgency:"HIGH"},
+    {id:"linked-measured",linked:true,score:80,reliability:76,urgency:"MEDIUM"},
+    {id:"linked-unreliable",linked:true,score:99,reliability:64,urgency:"MEDIUM"},
+    {id:"unlinked-earnings",linked:false,score:84,reliability:70,urgency:"MEDIUM"},
+    {id:"unlinked-rumour",linked:false,score:65,reliability:70,urgency:"MEDIUM"},
+  ] as const;
+  const leads=entries.map((item)=>({
+    lead_id:`lead:${item.id}`,claim_or_question:`Verify original publication for ${item.id}`,
+    source_type:"RESEARCH_LEAD",urgency:item.urgency,
+    market_linked:item.linked,candidate_score:item.score,source_reliability:item.reliability,
+    available_at:"2026-03-31T10:00:00.000Z",grouping_key:`unresolved:${item.id}`,
+    provenance:[{source_type:"RESEARCH_LEAD",source_id:item.id,url:`https://example.org/${item.id}`}],
+  }));
+  const packet=assembleDossierV2InputPacket(
+    {as_of:TEST_AS_OF,previous_dossier_id:null},
+    {observed_evidence:evidence,research_leads:leads},
+  );
+  assert.deepEqual(new Set(packet.research_leads.map((l)=>l.lead_id)),
+    new Set(["lead:linked-high","lead:linked-measured","lead:unlinked-earnings"]));
+  assert.equal(packet.observed_evidence.length,24);
+  assert.equal(packet.development_clusters.length,24);
+  assert.ok(packet.research_leads.every((lead)=>!Object.prototype.hasOwnProperty.call(lead,"candidate_score")));
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
+
+test("20h. official issuer earnings survive evidence saturation without displacing monitor/news reservations", () => {
+  const asOf=TEST_AS_OF;
+  const observed: NonNullable<CandidateSnapshot["observed_evidence"]> = [
+    ...Array.from({length:14},(_,i)=>({
+      evidence_id:`market-monitor:issuer-fixture-${i}`,
+      claim_or_fact:`Measured monitor series ${i}`,
+      category:"RATES",source_type:"MARKET_DATA",
+      grouping_key:`market-monitor:issuer-fixture-${i}`,
+      available_at:IN_WINDOW_TIME,rank:2,
+      provenance:[{source_type:"MARKET_DATA",source_id:`market-${i}`}],
+    })),
+    ...Array.from({length:21},(_,i)=>({
+      evidence_id:`official:competition-${i}`,
+      claim_or_fact:`Official measured macro series ${i}`,
+      category:"MACRO",source_type:"OFFICIAL_DATA",
+      grouping_key:`official:competition-${i}`,
+      available_at:IN_WINDOW_TIME,rank:5,
+      provenance:[{source_type:"OFFICIAL_DATA",source_id:`official-${i}`}],
+    })),
+    ...Array.from({length:2},(_,i)=>({
+      evidence_id:`publisher:measured-${i}`,
+      claim_or_fact:`US stocks fell ${i+1}.2% at the latest verified session close.`,
+      category:"EQUITIES",source_type:"NEWS_MARKET_CONTEXT",
+      canonical_record_backed:true,is_admitted_fact:true,
+      grouping_key:`publisher:measured-${i}`,
+      available_at:IN_WINDOW_TIME,rank:4,
+      provenance:[{source_type:"NEWS_MARKET_CONTEXT",source_id:`news-${i}`,url:`https://example.org/market-${i}`}],
+    })),
+    {
+      evidence_id:"verified-issuer:gs:2026q3:diluted_eps",
+      claim_or_fact:"Goldman Sachs reports quarterly diluted EPS of $17.01.",
+      category:"EARNINGS",source_type:"PRESS_RELEASE",
+      canonical_record_backed:true,
+      grouping_key:"bank-earnings",
+      available_at:IN_WINDOW_TIME,rank:16,
+      provenance:[{source_type:"PRESS_RELEASE",source_id:"goldman-official",url:"https://www.goldmansachs.com/pressroom/press-releases/2026/2026-10-13-q3-results"}],
+    },
+  ];
+  const packet=assembleDossierV2InputPacket({as_of:asOf}, {observed_evidence:observed});
+  assert.equal(packet.development_clusters.length,24);
+  assert.equal(packet.development_clusters.filter(c=>c.grouping_key.startsWith("market-monitor:")).length,14);
+  assert.ok(packet.development_clusters.some(c=>c.grouping_key==="bank-earnings"));
+  assert.ok(packet.observed_evidence.some(e=>e.evidence_id==="verified-issuer:gs:2026q3:diluted_eps"));
+  assert.equal(packet.development_clusters.filter(c=>c.grouping_key.startsWith("publisher:measured-")).length,2);
+  assert.ok(Buffer.byteLength(toCanonicalJson(packet),"utf8")<=200000);
+});
