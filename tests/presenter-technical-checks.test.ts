@@ -11,7 +11,7 @@ const page = readFileSync(new URL("../app/presenter/technical-checks/page.tsx", 
 test("manual technical checks remain presenter-owned and never write canonical state", () => {
   assert.match(component, /localStorage\.setItem\(STORAGE_KEY/);
   assert.doesNotMatch(component, /\.from\(["'](?:stories|story_thesis_versions|dossiers|evidence)["']\)/);
-  assert.match(component, /not a live market-data feed or verified fundamental signal/i);
+  assert.match(component, /not an automated price feed or verified fundamental signal/i);
   assert.match(component, /"unassessed" \| "aligned" \| "diverging" \| "mixed"/);
 });
 test("four required checks and source-linked agreement", () => {
