@@ -515,6 +515,35 @@ export function validateResearchBrainOutput(
     errors.push(`developing_themes count (${developingThemes.length}) exceeds limit of ${MAX_DEVELOPING_THEMES}.`);
   }
 
+  // A source-backed EPS print and a measured share reaction for the same
+  // issuer must be compared as evidence, not silently buried in an unrelated
+  // Investigation's list. This never upgrades news, creates a Story, or
+  // requires an earnings conclusion when one of the two inputs is absent.
+  const issuerEps = packet.observed_evidence.filter((ev) =>
+    ev.canonical_record_backed === true
+    && ev.source_type === "PRESS_RELEASE"
+    && /^verified-issuer:([a-z0-9]+):20\\d{2}q[1-4]:diluted_eps$/.test(ev.evidence_id));
+  const issuerPair = issuerEps.flatMap((eps) => {
+    const ticker = eps.evidence_id.split(":")[1]?.toUpperCase();
+    const reaction = packet.observed_evidence.find((ev) =>
+      ev.canonical_record_backed === true
+      && ev.source_type === "VERIFIED_MACRO_DATA"
+      && typeof ev.evidence_id === "string" && ev.evidence_id.startsWith("verified-macro:")
+      && ev.metrics?.signal_kind === "market_reaction"
+      && Array.isArray(ev.metrics?.affected_assets)
+      && ev.metrics.affected_assets.includes(ticker));
+    return reaction ? [{ eps: eps.evidence_id, reaction: reaction.evidence_id }] : [];
+  })[0];
+  if (issuerPair && !developingThemes.some((theme) =>
+    isPlainObject(theme)
+    && Array.isArray(theme.supporting_evidence_ids)
+    && theme.supporting_evidence_ids.includes(issuerPair.eps)
+    && theme.supporting_evidence_ids.includes(issuerPair.reaction))) {
+    errors.push(
+      `Material issuer-price reconciliation missing: one developing_theme must cite both ${issuerPair.eps} and ${issuerPair.reaction} and compare reported results to the measured share reaction.`,
+    );
+  }
+
   const creatorThemeExpansions = Array.isArray(brainOutput.creator_theme_expansions) ? brainOutput.creator_theme_expansions : [];
   if (creatorThemeExpansions.length > MAX_CREATOR_EXPANSIONS) {
     errors.push(`creator_theme_expansions count (${creatorThemeExpansions.length}) exceeds limit of ${MAX_CREATOR_EXPANSIONS}.`);
