@@ -44,7 +44,7 @@ function request(results: unknown) {
 test("authenticated issuer batch is fully validated before writes, with exact availability", async () => {
   const seen: Array<{key:string;at:string}> = [];
   const deps = {
-    authorize: async () => ({authorized:true,actor:"github-actions",githubRunId:"123",workflowSha:"abc"}),
+    authorize: async () => ({authorized:true as const,actor:"github-actions",githubRunId:"123",workflowSha:"abc"}),
     now: () => NOW,
     persist: async (item: {issuer:string;metric:string}, at:string) => {
       seen.push({key:`${item.issuer}:${item.metric}`,at});
@@ -69,7 +69,7 @@ test("authenticated issuer batch is fully validated before writes, with exact av
   assert.equal(invalid.status,400);
   assert.equal(seen.length,0);
   const unauthorized = await handleVerifiedIssuerResults(request([GOLDMAN]),{
-    ...deps,authorize:async()=>({authorized:false,actor:null,githubRunId:null,workflowSha:null,reason:"invalid"}),
+    ...deps,authorize:async()=>({authorized:false as const}),
   });
   assert.equal(unauthorized.status,401);
 });
