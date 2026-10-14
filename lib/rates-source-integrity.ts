@@ -28,7 +28,7 @@ export type RatesIntegrityResult = {
     storedEvidenceRef: string | null; detail: string;
   }> };
   primaryDealers: { state: "OK" | "UPSTREAM_STALE" | "UPSTREAM_UNAVAILABLE"; asOf: string | null; sourceUrl: string; warnings: string[] };
-  fiveSessionCurve: { state: "COMPLETE" | "NOT_COMPUTABLE" | "DOWNSTREAM_MEASUREMENT_MISSING" | "PENDING_REBASE"; baselineDate: string | null; latestDate: string | null; missingMaturities: string[] };
+  fiveSessionCurve: { state: "COMPLETE" | "NOT_COMPUTABLE" | "DOWNSTREAM_MEASUREMENT_MISSING" | "PENDING_REBASE" | "UNASSESSED"; baselineDate: string | null; latestDate: string | null; missingMaturities: string[] };
   move: { state: "OBSERVED" | "STALE" | "ADAPTER_PRESENT_NO_VERIFIED_DATA"; observationDate: string | null; sourceName: string | null; sourceUrl: string | null };
   inaccessibleDirectFeeds: Array<{ id: string; state: "NOT_ENTITLED_OR_NOT_INTEGRATED"; reason: string }>; 
   alerts: Array<{ code: string; severity: "ACTION_REQUIRED" | "WATCH"; detail: string }>;
@@ -123,7 +123,8 @@ export function assessRatesSourceIntegrity(input: RatesIntegrityInput): RatesInt
     : [];
   const fiveSessionState: RatesIntegrityResult["fiveSessionCurve"]["state"] =
     !matchedCurve ? "NOT_COMPUTABLE" : !isStoredCurrent ? "PENDING_REBASE"
-      : missingMovements.length ? "DOWNSTREAM_MEASUREMENT_MISSING" : "COMPLETE";
+      : !input.dossierCurveMoves ? "UNASSESSED"
+        : missingMovements.length ? "DOWNSTREAM_MEASUREMENT_MISSING" : "COMPLETE";
   if (fiveSessionState === "DOWNSTREAM_MEASUREMENT_MISSING") alerts.push({
     code: "TREASURY_FIVE_SESSION_MOVEMENT_LOST", severity: "ACTION_REQUIRED",
     detail: "Five common official sessions exist, but persisted Dossier bp movements are missing for: " + missingMovements.join(", "),
