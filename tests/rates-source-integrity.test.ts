@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessRatesSourceIntegrity, NOMINAL_TENOR_IDS } from "../lib/rates-source-integrity.ts";
+import { assessRatesSourceIntegrity, NOMINAL_TENOR_IDS, type RatesIntegrityInput } from "../lib/rates-source-integrity.ts";
 
 const AS_OF = "2026-10-14T21:00:00.000Z";
 const DOSS_AS_OF = "2026-10-14T20:55:22.057Z";
 const UPSTREAM_UPDATED_AT = "2026-10-14T15:54:40Z";
-function input(overrides: Record<string, unknown> = {}) {
+function input(overrides: Partial<RatesIntegrityInput> = {}): RatesIntegrityInput {
   return {
     asOf: AS_OF, dossierId: "dossier-canonical-uuid", dossierAsOf: DOSS_AS_OF,
     dossierCoveragePresent: 5,
