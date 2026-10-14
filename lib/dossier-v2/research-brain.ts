@@ -442,6 +442,61 @@ export function preservePriorInvestigationExpectedReactions(
   return output;
 }
 
+/**
+ * After the one permitted model repair pass, fail closed on candidates that
+ * still claim HIGH/MEDIUM confidence without a single supporting evidence ID.
+ *
+ * This is an explicit epistemic downgrade, not permission to supply invented
+ * IDs or loosen the deterministic evidence validator. Other invalid model
+ * fields still cause the entire pass to degrade.
+ */
+export function downgradeEvidenceFreeRepairCandidates(
+  output: unknown,
+  packet: DossierV2InputPacket,
+): unknown {
+  if (!output || typeof output !== "object" || Array.isArray(output)) return output;
+  const root = output as Record<string, unknown>;
+  if (!Array.isArray(root.investigations)) return output;
+  let downgradedCount = 0;
+
+  for (const investigation of root.investigations) {
+    if (!investigation || typeof investigation !== "object" || Array.isArray(investigation)) continue;
+    const candidates = (investigation as Record<string, unknown>).candidate_explanations;
+    if (!Array.isArray(candidates)) continue;
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      const item = candidate as Record<string, unknown>;
+      if (
+        (item.confidence === "HIGH" || item.confidence === "MEDIUM")
+        && Array.isArray(item.evidence_for_ids)
+        && item.evidence_for_ids.length === 0
+      ) {
+        item.confidence = "UNRESOLVED";
+        downgradedCount++;
+      }
+    }
+  }
+
+  if (downgradedCount > 0) {
+    const diagnostics = root.diagnostics;
+    if (diagnostics && typeof diagnostics === "object" && !Array.isArray(diagnostics)) {
+      const notes = (diagnostics as Record<string, unknown>).notes;
+      if (Array.isArray(notes)) {
+        (diagnostics as Record<string, unknown>).notes = [
+          ...notes,
+          `Epistemic safeguard: ${downgradedCount} unsupported investigation candidate(s) downgraded to UNRESOLVED after model repair; no evidence IDs added.`,
+        ];
+      }
+    }
+    console.warn(JSON.stringify({
+      event: "research_brain_repair_unsupported_candidate_downgrade",
+      packetId: packet.packet_id,
+      downgradedCount,
+    }));
+  }
+  return output;
+}
+
 export function normalizeResearchBrainOutputReferences(
   output: unknown,
   system1Candidates: unknown[] = [],
@@ -1039,6 +1094,7 @@ export async function executeResearchBrain(
         packet,
       );
       normalizedRepairData = normalizeResearchBrainGapTargets(normalizedRepairData);
+      normalizedRepairData = downgradeEvidenceFreeRepairCandidates(normalizedRepairData, packet);
       const repairVal = validateResearchBrainOutput(normalizedRepairData, packet);
       if (repairVal.isValid && repairVal.output) {
         // Flag in diagnostics that repair was used
