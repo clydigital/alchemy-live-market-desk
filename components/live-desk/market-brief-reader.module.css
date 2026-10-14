@@ -1,0 +1,285 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.readerCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(178, 169, 255, .23);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 5%, rgba(139, 70, 255, .16), transparent 34%),
+    linear-gradient(145deg, rgba(29, 32, 69, .95), rgba(21, 23, 52, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 16px 45px rgba(4, 5, 19, .18);
+  padding: clamp(20px, 2.5vw, 32px);
+}
+
+.readerCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .22;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.readerCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(178, 169, 255, .16);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.categoryGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.categoryTag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(152, 96, 255, .18);
+  border: 1px solid rgba(167, 96, 255, .35);
+  color: #d7b5ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.articleCounter {
+  color: #aaa9c5;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid rgba(178, 169, 255, .22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .05);
+  color: #f8f7ff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.navButton:hover:not(:disabled) {
+  background: rgba(152, 96, 255, .25);
+  border-color: rgba(167, 96, 255, .5);
+}
+
+.navButton:focus-visible {
+  outline: 2px solid #a35dff;
+  outline-offset: 2px;
+}
+
+.navButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.title {
+  margin: 4px 0 0;
+  color: #f8f7ff;
+  font-size: clamp(22px, 2.4vw, 32px);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -.03em;
+}
+
+.deck {
+  margin: 0;
+  color: #c8c6d8;
+  font-size: clamp(14px, 1.4vw, 17px);
+  line-height: 1.5;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  color: #8e8aa4;
+  font-size: 12px;
+}
+
+.articleBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.paragraph {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(178, 169, 255, .12);
+  background: rgba(12, 14, 38, .42);
+}
+
+.paragraphRole {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: #9c70e7;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.paragraphText {
+  margin: 0;
+  color: #e2e0f0;
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.evidenceFooter {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(178, 169, 255, .12);
+}
+
+.evidenceDetails summary {
+  color: #8f8ca6;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.evidenceList {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #aaa9c5;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.footerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(178, 169, 255, .16);
+}
+
+.outlookBox {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(79, 209, 133, .25);
+  background: rgba(79, 209, 133, .06);
+}
+
+.outlookTitle {
+  margin: 0 0 6px;
+  color: #4fd185;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.outlookText {
+  margin: 0;
+  color: #d2f2e0;
+  font-size: 13px;
+  line-height: 1.52;
+}
+
+.sourcesBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sourcesTitle {
+  margin: 0;
+  color: #aaa9c5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sourceLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sourceLink {
+  color: #b986ff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.sourceLink:hover {
+  text-decoration: underline;
+}
+
+.emptyCard {
+  padding: 32px;
+  border: 1px dashed rgba(178, 169, 255, .25);
+  border-radius: 20px;
+  background: rgba(13, 15, 40, .45);
+  text-align: center;
+  color: #aaa9c5;
+}
+
+.emptyCard h3 {
+  margin: 0 0 8px;
+  color: #f8f7ff;
+  font-size: 18px;
+}
+
+.emptyCard p {
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .topBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .navControls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
