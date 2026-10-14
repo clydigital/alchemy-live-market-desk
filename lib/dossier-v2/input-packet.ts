@@ -435,6 +435,16 @@ function isAdmittedCanonicalNewsCluster(cluster: DevelopmentCluster) {
     && item.provenance.length > 0);
 }
 
+// This is an attention guarantee for EXISTING canonical primary-company facts,
+// not a new source/admission rule. It shares the established non-monitor cap.
+function isVerifiedIssuerResultsCluster(cluster: DevelopmentCluster) {
+  return cluster.evidence.some((item) =>
+    item.canonical_record_backed === true
+    && item.source_type === "PRESS_RELEASE"
+    && item.evidence_id.startsWith("verified-issuer:")
+    && item.provenance.length > 0);
+}
+
 function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster[]) {
   if (candidateClusters.length <= MAX_DEVELOPMENT_CLUSTERS) {
     return candidateClusters;
@@ -455,6 +465,11 @@ function selectBalancedDevelopmentClusters(candidateClusters: DevelopmentCluster
   }
 
   const nonMonitor = candidateClusters.filter((cluster) => !isMarketMonitorCluster(cluster));
+
+  // One existing non-monitor attention slot is shared with the freshest
+  // verified quarterly issuer result when available. Unverified headlines
+  // receive no special treatment and Motion/macro-spine pins stay unchanged.
+  add(nonMonitor.find(isVerifiedIssuerResultsCluster));
 
   // Publisher reports are admitted upstream only if their factual,
   // source-backed market observation passes the strict news gate. This is a
