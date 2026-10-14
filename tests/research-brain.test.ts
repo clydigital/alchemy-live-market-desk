@@ -25,6 +25,7 @@ import {
 } from "../lib/dossier-v2/research-brain-validation.ts";
 import {
   executeResearchBrain,
+  downgradeEvidenceFreeRepairCandidates,
   normalizeResearchBrainMotionStoryDestinations,
   normalizeResearchBrainOutputReferences,
   pinResearchBrainPersistentStoryIdentities,
@@ -2192,6 +2193,94 @@ test("10. Structural Repair Pass (Max 1 Repair Attempt)", async () => {
   assert.equal(callsCount, 2);
   assert.equal(result.diagnostics.degraded, false);
   assert.equal(result.diagnostics.model_repair_used, true);
+});
+
+test("10R. Repair candidate downgrade preserves no-evidence hypothesis without bypassing validation", async () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const hypothesis = {
+    rank: 1,
+    explanation: "Unverified positioning may explain the rates reaction.",
+    evidence_for_ids: [] as string[],
+    evidence_against_ids: [] as string[],
+    confidence: "MEDIUM" as const,
+    discriminating_test: "Obtain direct positioning and flow data.",
+  };
+  output.investigations[0].candidate_explanations = [hypothesis];
+  assert.equal(validateResearchBrainOutput(output, packet).isValid, false);
+
+  let callCount = 0;
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      modelRunner: async () => {
+        callCount++;
+        return { data: structuredClone(output) };
+      },
+      allowRepair: true,
+    },
+  );
+
+  assert.equal(callCount, 2, "primary validator must first reject the unsupported candidate");
+  assert.equal(result.diagnostics.degraded, false);
+  assert.equal(result.diagnostics.model_repair_used, true);
+  assert.equal(result.investigations[0].candidate_explanations?.[0]?.confidence, "UNRESOLVED");
+  assert.deepEqual(result.investigations[0].candidate_explanations?.[0]?.evidence_for_ids, []);
+  assert.equal(result.investigations[0].candidate_explanations?.[0]?.explanation, hypothesis.explanation);
+  assert.ok(result.diagnostics.notes.some((note) => note.includes("unsupported investigation candidate")));
+  assert.equal(validateResearchBrainOutput(result, packet).isValid, true);
+});
+
+test("10R1. Repair downgrade leaves unrelated invalidities blocked by the strict validator", async () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  output.investigations[0].candidate_explanations = [{
+    rank: 1,
+    explanation: "There may be an unconfirmed rates flow.",
+    evidence_for_ids: [],
+    evidence_against_ids: [],
+    confidence: "HIGH",
+    discriminating_test: "Verify flows.",
+  }];
+  output.major_stories[0].what_changed = "";
+
+  const result = await executeResearchBrain(
+    { as_of: packet.as_of, packet },
+    {
+      modelRunner: async () => ({ data: structuredClone(output) }),
+      allowRepair: true,
+    },
+  );
+  assert.equal(result.diagnostics.degraded, true);
+  assert.ok(result.diagnostics.degradation_reasons.some((reason) => reason.includes("Firewall")));
+});
+
+test("10R2. Evidence-free downgrade does not affect valid supported candidate confidence", () => {
+  const packet = createValidBasePacket();
+  const output = createValidOutput(packet);
+  const evidenceId = output.investigations[0].observed_evidence[0];
+  output.investigations[0].candidate_explanations = [{
+    rank: 1,
+    explanation: "Observed interest-rate move is a candidate market reaction.",
+    evidence_for_ids: [evidenceId],
+    evidence_against_ids: [],
+    confidence: "MEDIUM",
+    discriminating_test: "Compare subsequent dated rate observations.",
+  }];
+  const before = structuredClone(output);
+  downgradeEvidenceFreeRepairCandidates(output, packet);
+  assert.deepEqual(output, before, "supported candidates and other output stay unchanged");
+});
+
+test("10R3. Repair prompt forbids evidence invention and instructs unresolved hypothesis", () => {
+  const packet = createValidBasePacket();
+  const prompt = buildResearchBrainRepairPrompt(
+    createValidOutput(packet),
+    ["MEDIUM confidence requires at least one evidence_for_id"],
+    packet,
+  );
+  assert.match(prompt.instructions, /set confidence to UNRESOLVED/);
+  assert.match(prompt.instructions, /do NOT invent or borrow evidence IDs/);
 });
 
 test("10A0. Structural repair path cannot rewrite a continued investigation expectation", async () => {
