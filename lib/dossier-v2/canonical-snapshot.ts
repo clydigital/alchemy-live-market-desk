@@ -927,6 +927,34 @@ export function officialTreasurySameDayAvailability(
     || observationDayMs > asOfMs || observationDayMs + 86_400_000 <= asOfMs) return null;
   return row.sourceUpdatedAt;
 }
+const PROTECTED_LIVE_FRED_DAILY_IDS = new Set([
+  "us5y-real", "us10y-real", "us5y-breakeven", "us10y-breakeven", "fed-funds-effective",
+]);
+
+/**
+ * Same-day FRED values have no source publication timestamp in the CSV.
+ * A near-live monitor snapshot with a concrete retrieval time, however,
+ * proves the dated provider value existed no later than that retrieval.
+ * Historical playback remains excluded to prevent source-vintage lookahead.
+ */
+export function verifiedLiveFredSameDayAvailability(
+  row: Pick<MarketMonitorLike["rows"][number], "id" | "asOf" | "frequency" | "sourceName">,
+  monitorUpdatedAt: string, asOf: string, nowMs = Date.now(),
+): string | null {
+  if (row.sourceName !== "Federal Reserve Economic Data"
+    || row.frequency !== "daily" || !PROTECTED_LIVE_FRED_DAILY_IDS.has(row.id)
+    || !row.asOf || !/^\d{4}-\d{2}-\d{2}$/.test(row.asOf)) return null;
+  const updatedMs = Date.parse(monitorUpdatedAt);
+  const asOfMs = Date.parse(asOf);
+  const observedMs = Date.parse(row.asOf + "T00:00:00.000Z");
+  if (!Number.isFinite(updatedMs) || !Number.isFinite(asOfMs) || !Number.isFinite(observedMs)
+    || Math.abs(nowMs - asOfMs) > 15 * 60_000
+    || monitorUpdatedAt.slice(0, 10) !== row.asOf
+    || updatedMs < observedMs || updatedMs > asOfMs
+    || asOfMs - updatedMs > 15 * 60_000
+    || observedMs + 86_400_000 <= asOfMs) return null;
+  return new Date(updatedMs).toISOString();
+}
 export function augmentCandidateSnapshotWithMarketMonitor(
   result: CanonicalSnapshotResult,
   monitor: MarketMonitorLike | null | undefined,
@@ -941,10 +969,12 @@ export function augmentCandidateSnapshotWithMarketMonitor(
   const dailyAgeLimitMs = 5 * 86_400_000;
   let latestMonitorObservation: string | null = null;
   let latestFredObservation: string | null = null;
+  let latestFredAvailableAt: string | null = null;
   let latestDailyPriceObservation: string | null = null;
   let latestMarketAvailableAt: string | null = null;
   let latestPriceAvailableAt: string | null = null;
   const sameDayTreasuryAvailableAt = new Map<string, string>();
+  const sameDayFredAvailableAt = new Map<string, string>();
 
   const rows = selectMarketMonitorRows(
     monitor.rows.filter((row) => {
@@ -952,8 +982,10 @@ export function augmentCandidateSnapshotWithMarketMonitor(
       const occurrenceMs = Date.parse(`${row.asOf}T00:00:00.000Z`);
       const publication = officialTreasurySameDayAvailability(row, options.asOf);
       if (publication) sameDayTreasuryAvailableAt.set(row.id, publication);
+      const fredReceipt = verifiedLiveFredSameDayAvailability(row, monitor.updatedAt, options.asOf);
+      if (fredReceipt) sameDayFredAvailableAt.set(row.id, fredReceipt);
       return Number.isFinite(occurrenceMs)
-        && (occurrenceMs + 86_400_000 <= asOfMs || Boolean(publication))
+        && (occurrenceMs + 86_400_000 <= asOfMs || Boolean(publication) || Boolean(fredReceipt))
         && asOfMs - occurrenceMs <= (row.frequency === "monthly" ? 45 : 5) * 86_400_000;
     }),
   );
@@ -963,7 +995,9 @@ export function augmentCandidateSnapshotWithMarketMonitor(
 
   for (const row of rows) {
     const occurrenceTime = `${row.asOf}T00:00:00.000Z`;
-    const availableAt = sameDayTreasuryAvailableAt.get(row.id) ?? `${row.asOf}T23:59:59.999Z`;
+    const availableAt = sameDayTreasuryAvailableAt.get(row.id)
+      ?? sameDayFredAvailableAt.get(row.id)
+      ?? `${row.asOf}T23:59:59.999Z`;
     if (latestMarketAvailableAt === null || availableAt > latestMarketAvailableAt) latestMarketAvailableAt = availableAt;
     if (row.frequency === "daily" && (latestPriceAvailableAt === null || availableAt > latestPriceAvailableAt)) latestPriceAvailableAt = availableAt;
     const isFred = row.sourceName === "Federal Reserve Economic Data";
@@ -972,6 +1006,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     const isRateOrSpread = isCreditOas || (row.type === "Rates" && row.id !== "move");
     const groupingKey = isCreditOas ? "market-monitor:credit-oas" : `market-monitor:${row.id}`;
     fredSeen ||= isFred && row.frequency === "daily";
+    if (isFred && row.frequency === "daily" && (latestFredAvailableAt === null || availableAt > latestFredAvailableAt)) latestFredAvailableAt = availableAt;
     if (isFred && row.frequency === "daily" && (latestFredObservation === null || row.asOf! > latestFredObservation)) latestFredObservation = row.asOf!;
     if (row.frequency === "daily" && (latestDailyPriceObservation === null || row.asOf! > latestDailyPriceObservation)) latestDailyPriceObservation = row.asOf!;
     if (latestMonitorObservation === null || row.asOf! > latestMonitorObservation) latestMonitorObservation = row.asOf!;
@@ -1015,6 +1050,7 @@ export function augmentCandidateSnapshotWithMarketMonitor(
         frequency: row.frequency,
         provider: row.sourceName,
         provider_as_of: row.asOf,
+        ...(sameDayFredAvailableAt.has(row.id) ? { availability_basis: "verified_live_monitor_retrieval" } : {}),
         measurement_unit: isRateOrSpread ? "percentage_points" : "source_level",
         is_canonical_evidence: false,
       },
@@ -1135,8 +1171,8 @@ export function augmentCandidateSnapshotWithMarketMonitor(
     message: `${measured.length}/${crackObservations.length} measured 20-session market checks: ${crackObservations.filter((item) => item.status !== "OK").map((item) => `${item.key}=${item.reason}`).join(", ") || "all observations time-matched"}. No synthetic monitor reference is a canonical Evidence UUID.`,
   };
 
-  const macroData = fredSeen && latestFredObservation
-    ? { status: "OK", available_at: latestFredObservation + "T23:59:59.999Z" }
+  const macroData = fredSeen && latestFredAvailableAt
+    ? { status: "OK", available_at: latestFredAvailableAt }
     : result.snapshot.macro_data;
   const priceData = latestDailyPriceObservation
     ? { status: "OK", available_at: latestPriceAvailableAt ?? undefined }
