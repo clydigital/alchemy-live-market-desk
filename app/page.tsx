@@ -6,7 +6,6 @@ import OverviewWorkspace from "@/components/live-desk/OverviewWorkspace";
 import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
 import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
-import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
 import { resolveMarketRegions } from "@/lib/market-regions";
@@ -581,7 +580,6 @@ export default async function Page({ searchParams }: PageProps) {
           dollarLiquidity={dossierSelection.presentation?.dollarLiquidity ?? null}
           policyLiquidityInteraction={dossierSelection.presentation?.policyLiquidityInteraction ?? null}
         />
-        <MacroTrendMonitor observations={data.macroObservations} release={immediateRelease} />
         <OverviewWorkspace
           stories={stories}
           changes={changes}
