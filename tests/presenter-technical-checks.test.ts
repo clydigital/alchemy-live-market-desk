@@ -7,6 +7,9 @@ const overview = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8
 const prep = readFileSync(new URL("../app/hybrid-output/prepare/page.tsx", import.meta.url), "utf8");
 const routes = readFileSync(new URL("../lib/live-desk/routes.ts", import.meta.url), "utf8");
 const page = readFileSync(new URL("../app/presenter/technical-checks/page.tsx", import.meta.url), "utf8");
+const specs = [...component.matchAll(/\{ key: "([^"]+)", title: "([^"]+)", group: "(Core|Additional)"/g)]
+  .map(([, key, title, group]) => ({ key, title, group }));
+const specsByKey = new Map(specs.map((spec) => [spec.key, spec]));
 
 test("manual technical checks remain presenter-owned and never write canonical state", () => {
   assert.match(component, /localStorage\.setItem\(STORAGE_KEY/);
@@ -15,20 +18,39 @@ test("manual technical checks remain presenter-owned and never write canonical s
   assert.match(component, /"unassessed" \| "aligned" \| "diverging" \| "mixed"/);
 });
 test("five core checks preserve stable identities and source-linked agreement", () => {
-  for (const key of ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover"]) {
-    assert.match(component, new RegExp('key: "' + key + '"'));
-  }
-  assert.match(component, /alchemy-presenter-technical-fundamentals-v1/);
-  assert.match(component, /US02Y–US30Y · Yield spread · GOLD IDEA/);
-  assert.match(component, /SPX RISING LOG CHANNEL IDEA \+ ROLLOVER IDEA/);
+  assert.deepEqual(
+    specs.filter((spec) => spec.group === "Core").map((spec) => spec.key),
+    ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover"],
+  );
+  assert.deepEqual(specsByKey.get("us02y-30y"), {
+    key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core",
+  });
+  assert.deepEqual(specsByKey.get("spx-log-channel-rollover"), {
+    key: "spx-log-channel-rollover", title: "SPX RISING LOG CHANNEL IDEA + ROLLOVER IDEA", group: "Core",
+  });
+  assert.match(component, /const STORAGE_KEY = "alchemy-presenter-technical-fundamentals-v1"/);
+  assert.match(component, /type Stored = \{ version: 1;/);
+  assert.match(component, /if \(value\.version !== 1/);
+  assert.match(component, /const old = previous\.get\(fresh\.key\)/);
   assert.match(component, /sourceIsValid\(check\.evidenceUrl\)/);
   assert.match(component, /!draft\.observedOn/);
   assert.match(component, /Upper-band break/);
   assert.match(component, /Lower-band break/);
+  for (const label of [
+    "Technical reading", "Chart observation date", "Technical versus fundamentals",
+    "Fundamental driver / contradiction", "Original source URL", "Livestream talking point",
+  ]) assert.match(component, new RegExp(label));
 });
 test("additional monitors add cross-asset information without duplicating existing checks", () => {
-  assert.match(component, /MOVE–VIX · Rates-to-equity volatility transmission/);
-  assert.match(component, /Copper\/Gold · Cyclical growth impulse/);
+  assert.deepEqual(specsByKey.get("move-vix"), {
+    key: "move-vix", title: "MOVE–VIX · Rates-to-equity volatility transmission", group: "Additional",
+  });
+  assert.deepEqual(specsByKey.get("copper-gold"), {
+    key: "copper-gold", title: "Copper/Gold · Cyclical growth impulse", group: "Additional",
+  });
+  assert.equal(specs.filter((spec) => spec.group === "Additional").length, 8);
+  assert.equal(new Set(specs.map((spec) => spec.key)).size, specs.length);
+  assert.equal(new Set(specs.map((spec) => spec.title)).size, specs.length);
   assert.match(component, /const coreCount = SPECS\.filter\(\(check\) => check\.group === "Core"\)\.length/);
   assert.match(component, /SPECS\.length - coreCount/);
 });
