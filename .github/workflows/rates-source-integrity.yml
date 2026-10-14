@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      - uses: actions/checkout@v4
       - name: Compare source, monitor and persisted Dossier
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,16 +27,14 @@ jobs:
         run: |
           set -euo pipefail
           RESPONSE="$(mktemp)"
-          trap 'rm -f "$RESPONSE"' EXIT
+          PROJECTED="$(mktemp)"
+          trap 'rm -f "$RESPONSE" "$PROJECTED"' EXIT
           HTTP="$(curl --silent --show-error --location --retry 2 --max-time 70 -o "$RESPONSE" -w "%{http_code}" https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity || true)"
-          if ! jq -e '.contractVersion == "rates-source-integrity/1" and (.operationalStatus | IN("OK","WATCH","ACTION_REQUIRED")) and (.alerts | type == "array")' "$RESPONSE" >/dev/null 2>&1; then
-            STATUS="ACTION_REQUIRED"
-            ALERTS="Production source integrity endpoint returned an invalid contract or could not be fetched (HTTP ${HTTP})."
-          else
-            STATUS="$(jq -r .operationalStatus "$RESPONSE")"
-            ALERTS="$(jq -r '[.alerts[] | "\(.severity) \(.code): \(.detail)"] | join("\n")' "$RESPONSE")"
-            [[ -n "$ALERTS" ]] || ALERTS="No outstanding source integrity alerts."
-          fi
+          node scripts/rates-source-integrity-issue.mjs "$HTTP" < "$RESPONSE" > "$PROJECTED"
+          STATUS="$(jq -r .status "$PROJECTED")"
+          ALERTS="$(jq -r '.alertLines | join("\n")' "$PROJECTED")"
+          BODY="$(jq -r .body "$PROJECTED")"
+          FINGERPRINT="$(jq -r .fingerprint "$PROJECTED")"
           {
             echo "### Production rates source-integrity"
             echo "- Contract: rates-source-integrity/1"
@@ -62,7 +61,15 @@ jobs:
             TITLE="[Rates Source Integrity] $STATUS"
             EXISTING="$(gh issue list --repo "$GH_REPO" --state open --limit 100 --json number,title | jq -r --arg title "$TITLE" '.[] | select(.title == $title) | .number' | head -n 1)"
             if [[ -z "$EXISTING" ]]; then
-              gh issue create --repo "$GH_REPO" --title "$TITLE" --body "$(printf 'Source integrity state: %s\n\n%s\n\nRead-only evidence: https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity\n\nDo not force healthy or fabricate unavailable provider observations.\n' "$STATUS" "$ALERTS")" >/dev/null
+              gh issue create --repo "$GH_REPO" --title "$TITLE" --body "$BODY" >/dev/null
+            else
+              PREVIOUS="$(gh issue view "$EXISTING" --repo "$GH_REPO" --json body -q .body)"
+              # A standing upstream WATCH cannot mask a new breakeven/MOVE WATCH.
+              # Stable fingerprints mean identical cycles are no-ops.
+              if [[ "$PREVIOUS" != *"rates-source-watch-fingerprint=$FINGERPRINT"* ]]; then
+                gh issue edit "$EXISTING" --repo "$GH_REPO" --body "$BODY" >/dev/null
+                gh issue comment "$EXISTING" --repo "$GH_REPO" --body "Rates integrity alerts changed. See the refreshed evidence and source-vintage details in this issue. Current state: $STATUS. Read-only source: https://alchemy-live-market-desk.vercel.app/api/rates/source-integrity" >/dev/null
+              fi
             fi
           fi
           [[ "$STATUS" != "ACTION_REQUIRED" ]] || { echo "::error::Production rates source-integrity needs immediate review"; exit 1; }

@@ -55,6 +55,14 @@ The monitor now derives a five-session Treasury **basis-point** change from six 
 
 The Barchart `$MOVE` adapter has already been implemented in the source tree. `move.state=ADAPTER_PRESENT_NO_VERIFIED_DATA` covers missing/unconfigured/unentitled or failed data without guessing which. `OBSERVED` requires an actual dated source row; `STALE` emits a warning. No VIX substitute is labelled MOVE.
 
+## Notification reconciliation and idempotency
+
+The existing six-hour GitHub workflow uses `scripts/rates-source-integrity-issue.mjs` to deterministically project the active `OK`, `WATCH` or `ACTION_REQUIRED` state into a fingerprinted GitHub issue body. The fingerprint includes sorted alert identifiers, severity, detail and the relevant affected upstream observation vintages. It does **not** include page-generation time or an unrelated Dossier ID.
+
+For a repeated unchanged `WATCH`, the open issue is left untouched. A newly added warning, escalation, disappearance or changed relevant official source vintage updates the existing issue body and posts a single change notification comment; a `WATCH` can no longer mask another `WATCH`. Status changes still close the previous severity issue and create/retain one issue for the new severity. `OK` closes all active severity issues. A malformed, non-200 or inconsistent provider response fails closed as `ACTION_REQUIRED`.
+
+This changes only notifications, never the Dossier, provider values or Story/Regime state. The helper is executed inside the existing watcher, with fixtures in `tests/rates-watch-issue.test.ts`; no new schedules or secrets are introduced.
+
 ## Regression prevention
 
 - `tests/rates-source-integrity.test.ts` locks in 5/5 completeness, Dossier source loss, upstream delay, unavailable feed, prior-vintage timing and MOVE/FedWatch entitlement fences.
