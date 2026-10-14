@@ -60,7 +60,7 @@ function readStorage(): Stored {
           ...fresh,
           technical: typeof old.technical === "string" && STATUS.includes(old.technical) ? old.technical : fresh.technical,
           lastBreak: typeof old.lastBreak === "string" && BREAKS.includes(old.lastBreak) ? old.lastBreak : fresh.lastBreak,
-          observedOn: typeof old.observedOn === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(old.observedOn) ? old.observedOn : "",
+          observedOn: typeof old.observedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(old.observedOn) ? old.observedOn : "",
           fundamentals: typeof old.fundamentals === "string" ? old.fundamentals.slice(0, 600) : "",
           alignment: ALIGNMENTS.includes(old.alignment) ? old.alignment : "unassessed",
           evidenceUrl: typeof old.evidenceUrl === "string" ? old.evidenceUrl.slice(0, 700) : "",
