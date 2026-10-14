@@ -2466,3 +2466,50 @@ test("a Story cannot classify the same canonical observation as both confirming 
   assert.equal(rejected.isValid, false);
   assert.match(rejected.errors.join("\n"), /assigns evidence_id.*to both confirming and contradicting/);
 });
+
+test("canonical issuer EPS and measured same-share reaction require one reconciled developing theme", () => {
+  const packet = createValidBasePacket();
+  const eps = "verified-issuer:c:2026q3:diluted_eps";
+  const shareMove = "verified-macro:c-close-2026-09-18";
+  packet.observed_evidence.push({
+    evidence_id: eps,
+    canonical_record_backed: true, epistemic_label: "OBSERVED", category: "EQUITIES",
+    claim_or_fact: "Citigroup reports quarterly diluted EPS of 2.85 USD per share.",
+    source_type: "PRESS_RELEASE",
+    available_at: "2026-09-18T11:35:00Z",
+    provenance: [{source_type:"PRESS_RELEASE",source_id:"citi-q3-release"}],
+    metrics: {affected_assets:["C"],affected_topics:["bank-earnings"]},
+  }, {
+    evidence_id: shareMove,
+    canonical_record_backed: true, epistemic_label: "OBSERVED", category: "EQUITIES",
+    claim_or_fact: "Citigroup shares declined 5.6% in the measured session.",
+    source_type: "VERIFIED_MACRO_DATA",
+    available_at: "2026-09-18T11:40:00Z",
+    provenance: [{source_type:"VERIFIED_MACRO_DATA",source_id:"reuters-c-close"}],
+    metrics: {affected_assets:["C"],signal_kind:"market_reaction"},
+  });
+  const output = createValidOutput(packet);
+  const invalid = validateResearchBrainOutput(output,packet);
+  assert.equal(invalid.isValid,false);
+  assert.match(invalid.errors.join("\n"),/Material issuer-price reconciliation missing/);
+  assert.ok(output.developing_themes.length > 0);
+  output.developing_themes[0]!.supporting_evidence_ids.push(eps,shareMove);
+  output.developing_themes[0]!.summary =
+    "Citigroup's quarterly earnings were positive but its measured shares declined. The price reaction cannot be attributed to earnings without consensus, guidance and credit data.";
+  const valid=validateResearchBrainOutput(output,packet);
+  assert.equal(valid.isValid,true,valid.errors.join("\n"));
+});
+
+test("issuer earnings do not force a market-price conclusion without a matched priced observation", () => {
+  const packet=createValidBasePacket();
+  packet.observed_evidence.push({
+    evidence_id:"verified-issuer:c:2026q3:diluted_eps",
+    canonical_record_backed:true,epistemic_label:"OBSERVED",category:"EARNINGS",claim_or_fact:"Citigroup reported EPS 2.85.",
+    source_type:"PRESS_RELEASE",available_at:"2026-09-18T11:40:00Z",
+    provenance:[{source_type:"PRESS_RELEASE",source_id:"citi-earnings"}],
+    metrics:{affected_assets:["C"]},
+  });
+  const output=createValidOutput(packet);
+  const validation=validateResearchBrainOutput(output,packet);
+  assert.equal(validation.isValid,true,validation.errors.join("\n"));
+});
