@@ -67,7 +67,7 @@ test("Dossier snapshot and curve diagnostic preserve verified bp moves and match
   const output = augmentCandidateSnapshotWithMarketMonitor(base, {
     updatedAt: asOf, rows: rows(), breadth: [],
   }, { asOf });
-  const observations = (output.snapshot.observed_evidence ?? []) as ObservedEvidence[];
+  const observations = (output.snapshot.observed_evidence ?? []) as unknown as ObservedEvidence[];
   assert.equal(observations.filter((e) => e.evidence_id.startsWith("market-monitor:us")).length, 5);
   const rate2 = observations.find((e) => e.evidence_id === "market-monitor:us2y:2026-10-14");
   assert.equal(rate2?.metrics?.change_5d_bp, 12);
