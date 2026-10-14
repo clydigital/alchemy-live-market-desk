@@ -8,6 +8,7 @@ import DailyAssetStateBoard from "@/components/live-desk/DailyAssetStateBoard";
 import EconomicReleaseReminder, { type OverviewEconomicRelease } from "@/components/live-desk/EconomicReleaseReminder";
 import MarketRegimeStrip from "@/components/live-desk/MarketRegimeStrip";
 import MarketMotionOverview from "@/components/live-desk/MarketMotionOverview";
+import MarketBriefReader from "@/components/live-desk/MarketBriefReader";
 import { resolveMarketRegions } from "@/lib/market-regions";
 import NarrativeSpine from "@/components/live-desk/NarrativeSpine";
 import RateRegimeOverview from "@/components/live-desk/RateRegimeOverview";
@@ -21,7 +22,8 @@ import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention, selectMarketMotionForOverview } from "@/lib/market-motion";
-import { selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
+import { getHybridPresenterEditionCandidates, selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
+import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
 import { buildRegimeProjection, classifyRegimeStory } from "@/lib/regimes";
@@ -235,7 +237,7 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords, forwardEarnings] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords, forwardEarnings, editionCandidates] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getMarketMonitor(),
@@ -244,7 +246,12 @@ export default async function Page({ searchParams }: PageProps) {
     getDossierV2PresentationSelection(),
     getCurrentMarketMotion({ limit: 50 }).catch(() => []),
     getForwardEarningsEvents(),
+    getHybridPresenterEditionCandidates().catch(() => []),
   ]);
+
+  const primaryEdition = editionCandidates[0] || null;
+  const marketBriefArticles = projectMarketBriefArticles(primaryEdition);
+
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
   const benchmark = market.series.find((series) => series.symbol === "^GSPC");
@@ -470,6 +477,7 @@ export default async function Page({ searchParams }: PageProps) {
             </div>
           ) : <p>No current Dossier interpretation is inferred from prices or research leads.</p>}
         </Panel>
+        <MarketBriefReader projection={marketBriefArticles} />
         {dossierSelection.presentation ? (
           <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
         ) : null}
