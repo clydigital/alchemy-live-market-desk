@@ -132,7 +132,8 @@ test("Validation: pure schema validation enforces exact rules", () => {
 
   const validPayload = {
     expectedRevision: 1,
-    checks: [validCheck],
+    checks: createDefaultPresenterChecklist().checks.map((check) => check.key === "dxy-4h"
+      ? { ...check, ...validCheck, updatedAt: "" } : check),
     history: [],
   };
 
@@ -140,7 +141,7 @@ test("Validation: pure schema validation enforces exact rules", () => {
   assert.equal(res.success, true);
   if (res.success) {
     assert.equal(res.expectedRevision, 1);
-    assert.equal(res.checks.length, 1);
+    assert.equal(res.checks.length, 13);
     assert.equal(res.checks[0].title, "DXY · 4H EMA20 ± 1σ band");
     assert.equal(res.checks[0].group, "Core");
   }
@@ -174,7 +175,7 @@ test("Validation: pure schema validation enforces exact rules", () => {
   assert.equal(
     validateIncomingPutPayload({
       expectedRevision: 0,
-      checks: [{ ...validCheck, key: "unknown-coin-key" }],
+      checks: validPayload.checks.map((c) => c.key === "dxy-4h" ? { ...c, key: "unknown-coin-key" } : c),
     }).success,
     false,
   );
