@@ -14,7 +14,8 @@ async function projector(t: { skip: (reason?: string) => void }) {
     t.skip("Market Brief projection is not merged; this guard activates once installed");
     return null;
   }
-  return import("../lib/market-brief-articles.ts");
+  const candidatePath = "../lib/market-brief-articles.ts";
+  return import(candidatePath);
 }
 
 const DOSSIER_ID = "7e9582cb-21c8-4f63-9814-dfd5ef0fb911";
