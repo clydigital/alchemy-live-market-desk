@@ -87,3 +87,36 @@ test("five-day expiry cannot make old observations look freshly observed", () =>
   const p = packet([rate("us10y-fred")], "2026-10-16T19:09:59.440Z");
   assert.equal(p.rate_context?.evidence.some((item) => item.evidence_id.startsWith("market-monitor:")), false);
 });
+
+test("all five eligible Treasury tenors survive a saturated rate context budget", () => {
+  const asOf = "2026-10-14T20:00:00.000Z";
+  const tenors = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
+  const crowdedReports = Array.from({ length: 32 }, (_, i) => ({
+    evidence_id: "verified-macro:cpi-" + i,
+    claim_or_fact: "Official CPI observed data point " + i + " for September.",
+    category: "Macro", source_type: "OFFICIAL_DATA", grouping_key: "official-cpi-" + i,
+    available_at: "2026-10-14T12:00:00.000Z", occurrence_time: "2026-10-14T12:00:00.000Z",
+    metrics: { signal_kind: "economic_release", observed_value: 1 + i },
+    provenance: [{ source_type: "OFFICIAL_DATA", source_id: "cpi-" + i, url: "https://www.bls.gov/news.release/cpi.toc.htm" }],
+  }));
+  const p = packet([...tenors.map((id) => rate(id, "2026-10-13")), ...crowdedReports], asOf);
+  const ids = new Set(p.rate_context?.evidence.map((item) => item.evidence_id) ?? []);
+  for (const id of tenors) assert.ok(ids.has("market-monitor:" + id + ":2026-10-13"), id);
+  assert.ok((p.rate_context?.evidence.length ?? 0) <= 24);
+});
+
+test("official Treasury observations are protected as dated rates context within five days", () => {
+  const ids = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
+  const rows = ids.map((id) => rate(id, "2026-10-09", {
+    metrics: { last: 4.5, frequency: "daily", provider: "U.S. Department of the Treasury",
+      provider_as_of: "2026-10-09", is_canonical_evidence: false },
+    provenance: [{ source_type: "MARKET_DATA", source_id: "market-monitor:" + id,
+      url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/textview",
+      publisher: "U.S. Department of the Treasury" }],
+  }));
+  const sunday = packet(rows);
+  for (const id of ids) assert.ok(sunday.rate_context?.evidence.some((item) =>
+    item.evidence_id === "market-monitor:" + id + ":2026-10-09"), id);
+  const stale = packet(rows, "2026-10-16T20:00:00.000Z");
+  assert.equal(stale.rate_context?.evidence.some((item) => item.evidence_id.startsWith("market-monitor:")), false);
+});

@@ -365,6 +365,9 @@ const MACRO_SPINE_GROUPING_KEYS = [
 
 const RATE_CONTEXT_GROUPING_KEYS = new Set([
   "market-monitor:us2y",
+  "market-monitor:us5y-fred",
+  "market-monitor:us20y-fred",
+  "market-monitor:us30y-fred",
   "market-monitor:us10y",
   "market-monitor:us10y-fred",
   "market-monitor:us10y-real",
@@ -424,6 +427,27 @@ function isProtectedHistoricalFredRateObservation(
     && raw.evidence_id === `market-monitor:${id}:${providerDate}`;
 }
 
+/** Official Treasury fallback is protected only as dated source context.
+ * Never promote it to canonical intelligence_evidence or extend the five-day gate. */
+function isProtectedHistoricalOfficialTreasuryObservation(
+  raw: Record<string, unknown>, availableMs: number, asOfMs: number,
+) {
+  if (availableMs < asOfMs - FRED_RATE_CONTEXT_HISTORY_MS) return false;
+  if (raw.source_type !== "MARKET_DATA" || raw.canonical_record_backed === true) return false;
+  if (!isPlainObject(raw.metrics)) return false;
+  const metrics = raw.metrics;
+  if (metrics.provider !== "U.S. Department of the Treasury"
+    || metrics.frequency !== "daily" || metrics.is_canonical_evidence !== false
+    || typeof metrics.last !== "number" || !Number.isFinite(metrics.last)) return false;
+  const providerDate = typeof metrics.provider_as_of === "string" ? metrics.provider_as_of : "";
+  const availableDate = typeof raw.available_at === "string" ? raw.available_at.slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(providerDate) || providerDate !== availableDate) return false;
+  const group = typeof raw.grouping_key === "string" ? raw.grouping_key : "";
+  if (!group.startsWith("market-monitor:")) return false;
+  const id = group.slice("market-monitor:".length);
+  return ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"].includes(id)
+    && raw.evidence_id === "market-monitor:" + id + ":" + providerDate;
+}
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
   return cluster.grouping_key.startsWith("market-monitor:");
 }
@@ -1134,7 +1158,8 @@ export function assembleDossierV2InputPacket(
       availMs < windowStartMs
       && availMs >= asOfMs - RATE_CONTEXT_HISTORY_MS
       && (isHistoricalRateContextCandidate(raw)
-        || isProtectedHistoricalFredRateObservation(raw, availMs, asOfMs));
+        || isProtectedHistoricalFredRateObservation(raw, availMs, asOfMs)
+        || isProtectedHistoricalOfficialTreasuryObservation(raw, availMs, asOfMs));
     if (availMs < windowStartMs && !historicalRateContext) {
       omittedEvidenceCount++;
       continue;
@@ -1256,15 +1281,30 @@ export function assembleDossierV2InputPacket(
       || left.evidence_id.localeCompare(right.evidence_id))
     .slice(0, 3);
 
+  const rateCandidates = [
+    ...activeAdmittedEvidence.filter((item) => isRateContextEvidence(item)),
+    ...historicalRateContextEvidence,
+  ];
+  // Reserve one newest *already-admitted* dated observation per Treasury
+  // maturity before the 24-item rates context budget is applied. This stops
+  // the rate-regime from losing US 2Y when more recent official macro reports
+  // occupy the attention slots. No data or evidence IDs are manufactured.
+  const protectedNominalTenors = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
+  const nominatedRates = protectedNominalTenors.flatMap((id) => {
+    const candidates = rateCandidates.filter((item) =>
+      item.evidence_id.startsWith("market-monitor:" + id + ":"));
+    candidates.sort((left, right) => right.available_at.localeCompare(left.available_at));
+    return candidates[0] ? [candidates[0]] : [];
+  });
   const rateContextEvidence = [...new Map(
-    [
-      ...activeAdmittedEvidence.filter((item) => isRateContextEvidence(item)),
-      ...historicalRateContextEvidence,
-    ].map((item) => [item.evidence_id, item] as const),
+    [...nominatedRates, ...rateCandidates].map((item) => [item.evidence_id, item] as const),
   ).values()]
-    .sort((left, right) =>
-      right.available_at.localeCompare(left.available_at) ||
-      left.evidence_id.localeCompare(right.evidence_id))
+    .sort((left, right) => {
+      const leftProtected = nominatedRates.some((item) => item.evidence_id === left.evidence_id);
+      const rightProtected = nominatedRates.some((item) => item.evidence_id === right.evidence_id);
+      if (leftProtected !== rightProtected) return leftProtected ? -1 : 1;
+      return right.available_at.localeCompare(left.available_at) || left.evidence_id.localeCompare(right.evidence_id);
+    })
     .slice(0, 24)
     .map((item) => {
       const {
