@@ -6,6 +6,7 @@ export type LiveDeskRoute = {
 
 export const deskRoutes: LiveDeskRoute[] = [
   { label: "Overview", href: "/", description: "Research status and current desk state" },
+  { label: "Technical Check", href: "/presenter/technical-checks", description: "Manual presenter technical readings versus market fundamentals" },
   { label: "Calendar", href: "/calendar", description: "Sourced forward economic and earnings schedule for market preparation" },
   { label: "Market Regimes", href: "/regimes", description: "Durable market environments, sub-regimes and causal drivers" },
   { label: "Concepts", href: "/concepts", description: "Stable explanations for recurring market mechanisms" },
