@@ -159,6 +159,8 @@ function claimMatch(packet: DossierV2InputPacket, pattern: RegExp) {
 }
 
 function bpChange(item: ObservedEvidence | null) {
+  const direct = metricNumber(item, "change_5d_bp");
+  if (direct !== null) return direct;
   const last = metricNumber(item, "last");
   const pct = metricNumber(item, "change_5d_pct");
   if (last === null || pct === null || pct <= -99.99) return null;
