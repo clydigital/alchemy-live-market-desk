@@ -25,6 +25,38 @@ function surpriseText(event: EconomicCalendarEvent) {
   return `Actual was ${Math.abs(difference).toLocaleString("en-GB")} ${difference > 0 ? "above" : "below"} consensus on the reported scale.`;
 }
 
+// Preserve the actual ET release instant instead of assigning every catalyst noon UTC.
+// Unknown calendar time zones retain the existing backstop rather than inventing precision.
+function releaseTimestamp(event: EconomicCalendarEvent): string {
+  const fallback = `${event.date}T12:00:00.000Z`;
+  const match = /^(\d{1,2}):(\d{2})\s+(ET|EST|EDT|UTC|GMT)$/i.exec(event.timeLabel.trim());
+  if (!match) return fallback;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return fallback;
+
+  const wallTime = Date.parse(`${event.date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00.000Z`);
+  if (!Number.isFinite(wallTime)) return fallback;
+
+  const label = match[3].toUpperCase();
+  if (label === "UTC" || label === "GMT") return new Date(wallTime).toISOString();
+
+  let offsetMinutes = label === "EST" ? -300 : label === "EDT" ? -240 : null;
+  if (offsetMinutes === null) {
+    // The 16:00Z probe is on the intended New York calendar day and away
+    // from the 02:00 DST transition. ET follows America/New_York DST.
+    const zone = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York", timeZoneName: "shortOffset",
+    }).formatToParts(new Date(`${event.date}T16:00:00.000Z`))
+      .find((part) => part.type === "timeZoneName")?.value ?? "";
+    const offset = /^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(zone);
+    if (!offset) return fallback;
+    offsetMinutes = (offset[1] === "+" ? 1 : -1)
+      * (Number(offset[2]) * 60 + Number(offset[3] ?? 0));
+  }
+  return new Date(wallTime - offsetMinutes * 60_000).toISOString();
+}
+
 function releaseSummary(event: EconomicCalendarEvent) {
   const values = [
     `Actual: ${event.actual || "awaiting release"}`,
@@ -64,7 +96,7 @@ export function buildHighImpactCalendarIntake(
         externalId: event.id,
         title: `${event.event} · ${event.status}`,
         url: event.sourceUrl,
-        publishedAt: `${event.date}T12:00:00.000Z`,
+        publishedAt: releaseTimestamp(event),
         summary: releaseSummary(event),
         affectedStorySlugs: [],
         sourceQuality: event.sourceKind === "desk-record" ? 92 : 100,
@@ -87,7 +119,7 @@ export function buildHighImpactCalendarIntake(
           title: event.event,
           url: event.sourceUrl,
           publisher: event.sourceName,
-          publishedAt: `${event.date}T12:00:00.000Z`,
+          publishedAt: releaseTimestamp(event),
           claim: event.status === "Released"
             ? `Official release record for ${event.event}, including the latest actual, consensus, separate Alchemy expectation and previous values available to the desk.`
             : `Official schedule for the upcoming high-impact ${event.event} release.`,
