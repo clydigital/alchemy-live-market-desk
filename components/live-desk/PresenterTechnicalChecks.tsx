@@ -262,8 +262,12 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       setMessage("Source URL must begin with https://.");
       return;
     }
-    const now = new Date().toISOString();
     const previous = data.checks.find(check => check.key === draft.key);
+    if (!previous || draft.revision !== previous.revision) {
+      setMessage("This reading changed since the editor opened. Cancel and reopen the updated reading before saving.");
+      return;
+    }
+    const now = new Date().toISOString();
     const final: Check = {
       ...draft,
       fundamentals: draft.fundamentals.trim().slice(0, 600),
