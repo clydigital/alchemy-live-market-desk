@@ -272,3 +272,39 @@ test("persisted CPI, FedWatch and Treasury reaction keep real canonical Evidence
   assert.equal(outlook[0]?.observedConfirmationEvidenceRef, ids.reaction);
   assert.deepEqual(outlook[0]?.gaps, []);
 });
+
+test("policy outlook never mistakes a later-ingested pre-CPI quote for a post-CPI response", () => {
+  const asOf = "2026-10-15T04:00:00Z";
+  const source = {
+    id: "source-quoted-reactions", source_name: "Provider", source_type: "market_report",
+    source_url: "https://example.com/observations", source_tier: 2,
+    reliability_score: 90, provider_key: "verified_macro_signal",
+  };
+  const mk = (id: string, kind: string, context: string, at: string, value: number) => ({
+    id,
+    claim_text: kind === "economic_release"
+      ? "September core CPI was 0.3%, above 0.2% expected."
+      : "Market pricing was quoted from the provider feed.",
+    evidence_class: "other",
+    external_evidence_id: "verified-macro:" + id,
+    event_at: at,
+    available_at: "2026-10-15T03:00:00Z",
+    freshness_status: "current",
+    observed_value: value,
+    structured_payload: { evidenceNature: "verified_macro_data", signalKind: kind, signalContext: context },
+    source,
+  });
+  const snapshot = buildCandidateSnapshotFromCanonicalEvidence([
+    mk("cpi", "economic_release", "HOT_INFLATION_SURPRISE", "2026-10-14T12:30:00Z", 0.3),
+    // Arrived in the Desk on the 15th but describes trading BEFORE the CPI.
+    mk("old-fedwatch", "rate_expectation", "fedwatch", "2026-10-14T12:20:00Z", 20),
+    // A far-later movement cannot be labelled the immediate CPI reaction.
+    mk("unrelated-market-reaction", "market_reaction", "HOT_INFLATION_SURPRISE", "2026-10-18T12:40:00Z", 5),
+  ], { asOf, lookbackHours: 720 });
+  const packet = assembleDossierV2InputPacket({ as_of: asOf }, snapshot.snapshot);
+  const outlook = buildDossierPolicyOutlook(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.observedRatePricingEvidenceRef, null);
+  assert.equal(outlook[0]?.observedConfirmationEvidenceRef, null);
+  assert.equal(outlook[0]?.gaps.length, 2);
+});
