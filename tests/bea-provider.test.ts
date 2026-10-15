@@ -54,3 +54,12 @@ test("BEA fetch reports missing configuration and provider failures explicitly",
   assert.equal(unavailable.state, "unavailable");
   assert.match(unavailable.note ?? "", /503/);
 });
+
+test("BEA transport failures never expose a credential-bearing URL", async () => {
+  const result = await fetchBeaSnapshot("private-test-key", {
+    fetchImpl: async () => { throw new Error("https://apps.bea.gov/api/data?UserID=private-test-key"); },
+  });
+  assert.equal(result.state, "unavailable");
+  assert.equal(result.note, "BEA_REQUEST_FAILED");
+  assert.doesNotMatch(JSON.stringify(result), /private-test-key/);
+});
