@@ -84,7 +84,7 @@ function readStorage(): Stored {
 function sourceIsValid(url: string): boolean {
   if (!url) return false;
   try {
-    return ["https:", "http:"].includes(new URL(url).protocol);
+    return new URL(url).protocol === "https:";
   } catch { return false; }
 }
 
@@ -108,6 +108,45 @@ function promptFor(check: Check): string {
   ].join("\n");
 }
 
+type CloudMode = "loading" | "ready" | "auth" | "forbidden" | "unavailable" | "conflict";
+type CloudResponse = {
+  contractVersion: string; checks: Check[]; history: Log[];
+  revision: number; updatedAt: string;
+};
+const API_URL = "/api/presenter/technical-checks";
+
+function hasLocalObservations(value: Stored): boolean {
+  return value.checks.some((check) => Boolean(check.updatedAt)) || value.history.length > 0;
+}
+
+function normaliseCloud(value: CloudResponse): Stored | null {
+  if (value.contractVersion !== "technical-checks/2" || !Number.isInteger(value.revision)
+    || !Array.isArray(value.checks) || value.checks.length !== SPECS.length) return null;
+  const source = new Map(value.checks.filter((c): c is Check => !!c && typeof c.key === "string").map(c => [c.key, c]));
+  if (source.size !== SPECS.length) return null;
+  const defaults = seed();
+  return {
+    version: 1,
+    checks: defaults.checks.map(fresh => {
+      const old = source.get(fresh.key);
+      if (!old) return fresh;
+      return {
+        ...fresh,
+        technical: STATUS.includes(old.technical) ? old.technical : fresh.technical,
+        lastBreak: BREAKS.includes(old.lastBreak) ? old.lastBreak : fresh.lastBreak,
+        observedOn: typeof old.observedOn === "string" ? old.observedOn : "",
+        fundamentals: typeof old.fundamentals === "string" ? old.fundamentals : "",
+        alignment: ALIGNMENTS.includes(old.alignment) ? old.alignment : "unassessed",
+        evidenceUrl: typeof old.evidenceUrl === "string" ? old.evidenceUrl : "",
+        notes: typeof old.notes === "string" ? old.notes : "",
+        updatedAt: typeof old.updatedAt === "string" ? old.updatedAt : "",
+        revision: value.revision,
+      };
+    }),
+    history: Array.isArray(value.history) ? value.history.slice(0, 30) : [],
+  };
+}
+
 export default function PresenterTechnicalChecks({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<Stored>(seed);
   const [hydrated, setHydrated] = useState(false);
@@ -115,50 +154,140 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
   const [draft, setDraft] = useState<Check | null>(null);
   const [showAdditional, setShowAdditional] = useState(false);
   const [message, setMessage] = useState("");
+  const [cloudMode, setCloudMode] = useState<CloudMode>("loading");
+  const [cloudRevision, setCloudRevision] = useState<number | null>(null);
+  const [cloudUpdatedAt, setCloudUpdatedAt] = useState("");
+  const [localCopy, setLocalCopy] = useState<Stored | null>(null);
+  const [reviewImport, setReviewImport] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function refreshCloud(signal?: AbortSignal): Promise<void> {
+    try {
+      const response = await fetch(API_URL, { credentials: "same-origin", cache: "no-store", signal });
+      if (!response.ok) {
+        if (signal?.aborted) return;
+        setCloudMode(response.status === 401 ? "auth" : response.status === 403 ? "forbidden" : "unavailable");
+        return;
+      }
+      const raw = await response.json() as CloudResponse;
+      const next = normaliseCloud(raw);
+      if (!next) throw new Error("Unexpected cloud checklist contract");
+      if (signal?.aborted) return;
+      setData(next);
+      setCloudRevision(raw.revision);
+      setCloudUpdatedAt(raw.updatedAt || "");
+      setCloudMode("ready");
+      setReviewImport(false);
+      setMessage("");
+    } catch {
+      if (!signal?.aborted) setCloudMode("unavailable");
+    }
+  }
+
   useEffect(() => {
-    const reload = () => setData(readStorage());
-    reload(); setHydrated(true);
-    window.addEventListener("storage", reload);
-    return () => window.removeEventListener("storage", reload);
+    // Browser data is a preserved, independent backup. Never upload or remove
+    // it automatically, including when the cloud record has revision zero.
+    const local = readStorage();
+    setLocalCopy(local);
+    setData(local);
+    setHydrated(true);
+    const controller = new AbortController();
+    void refreshCloud(controller.signal);
+    return () => controller.abort();
   }, []);
-  const save = () => {
+
+  async function saveCloud(next: Stored): Promise<boolean> {
+    if (cloudMode !== "ready" || cloudRevision === null) {
+      setMessage("Cloud save unavailable. No changes were saved; your draft is preserved.");
+      return false;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(API_URL, {
+        method: "PUT",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          expectedRevision: cloudRevision,
+          checks: next.checks.map(({revision: _revision, updatedAt: _updatedAt, ...check}) => ({
+            ...check, updatedAt: "",
+          })),
+          history: next.history,
+        }),
+      });
+      if (!response.ok) {
+        setCloudMode(response.status === 409 ? "conflict"
+          : response.status === 401 ? "auth" : response.status === 403 ? "forbidden" : "unavailable");
+        setMessage(response.status === 409
+          ? "A newer checklist exists. Refresh the cloud copy and compare it before editing again."
+          : "Cloud save failed. No update was confirmed, and browser data was not overwritten.");
+        return false;
+      }
+      const result = await response.json() as CloudResponse;
+      const normalised = normaliseCloud(result);
+      if (!normalised || result.revision <= cloudRevision) throw new Error("Server did not confirm a revision increment");
+      setData(normalised);
+      setCloudRevision(result.revision);
+      setCloudUpdatedAt(result.updatedAt || "");
+      setCloudMode("ready");
+      setReviewImport(false);
+      setMessage("Saved to your account checklist. Presenter notes remain non-canonical.");
+      return true;
+    } catch {
+      setCloudMode("unavailable");
+      setMessage("Cloud confirmation failed. Refresh before retrying; do not assume the save succeeded.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function importLocalCopy(): Promise<void> {
+    if (!reviewImport || !localCopy || !hasLocalObservations(localCopy)
+      || cloudRevision !== 0 || cloudMode !== "ready") {
+      setMessage("Import blocked: only an explicitly reviewed import into an empty cloud checklist is allowed.");
+      return;
+    }
+    const imported = await saveCloud(localCopy);
+    if (imported) setMessage("Local observations imported with your approval. The original browser backup is preserved.");
+  }
+
+  const save = async () => {
     if (!draft || !draft.observedOn) {
       setMessage("Choose the observation date before saving.");
       return;
     }
     if (draft.evidenceUrl && !sourceIsValid(draft.evidenceUrl)) {
-      setMessage("Source URL must begin with https:// or http://.");
+      setMessage("Source URL must begin with https://.");
       return;
     }
     const now = new Date().toISOString();
-    const previous = data.checks.find((check) => check.key === draft.key);
+    const previous = data.checks.find(check => check.key === draft.key);
     const final: Check = {
       ...draft,
       fundamentals: draft.fundamentals.trim().slice(0, 600),
       notes: draft.notes.trim().slice(0, 700),
-      updatedAt: now,
+      updatedAt: "",
       revision: (previous?.revision || 0) + 1,
     };
     const next: Stored = {
       version: 1,
-      checks: data.checks.map((check) => check.key === final.key ? final : check),
+      checks: data.checks.map(check => check.key === final.key ? final : check),
       history: [{
         key: final.key, title: final.title, technical: final.technical,
         alignment: final.alignment, observedOn: final.observedOn, updatedAt: now,
       }, ...data.history].slice(0, 30),
     };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      setData(next); setEditing(null); setDraft(null);
-      setMessage("Saved in this browser. Not synced to a server or canonical research.");
-    } catch {
-      setMessage("Storage unavailable; the update was not saved.");
+    if (await saveCloud(next)) {
+      setEditing(null);
+      setDraft(null);
     }
   };
   const startEdit = (check: Check) => {
     setEditing(check.key); setDraft({ ...check }); setMessage("");
   };
-  const set = (change: Partial<Check>) => setDraft((current) => current ? { ...current, ...change } : null);
+  const set = (change: Partial<Check>) => setDraft(current => current ? { ...current, ...change } : null);
   const visible = data.checks.filter((check) => check.group === "Core" || (!compact && showAdditional));
   const aligned = data.checks.filter((check) => check.updatedAt && check.alignment === "aligned" && sourceIsValid(check.evidenceUrl));
   return (
