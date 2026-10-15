@@ -54,13 +54,35 @@ function snapshot(release: ReleaseRow, metrics: MetricRow[], asOf?: string): Eco
     source: metric.consensus_source,
     capturedAt: metric.consensus_captured_at,
   }));
-  const pointInTimeAvailable = normalized.some((metric) => metric.consensus !== null && Boolean(metric.capturedAt));
+  const releaseAt = Date.parse(release.release_date);
+  const validPreRelease = normalized.filter((metric) =>
+    metric.consensus !== null
+    && Number.isFinite(metric.consensus)
+    && Boolean(metric.source?.trim())
+    && Boolean(metric.capturedAt)
+    && Number.isFinite(releaseAt)
+    && Number.isFinite(Date.parse(metric.capturedAt!))
+    && Date.parse(metric.capturedAt!) < releaseAt
+  );
+  // A complete CPI surprise requires headline and core at both horizons.
+  // A retrospectively entered forecast is NOT a point-in-time capture even
+  // when the source article itself predates the official release.
+  const cpiKeys = ["cpi_headline_mom", "cpi_headline_yoy", "cpi_core_mom", "cpi_core_yoy"];
+  const isCpi = /(?:^|[-_])cpi(?:[-_]|$)/i.test(release.id);
+  const missingCpi = isCpi
+    ? cpiKeys.filter((key) => !validPreRelease.some((metric) => metric.metricKey === key))
+    : [];
+  const pointInTimeAvailable = validPreRelease.length > 0 && missingCpi.length === 0;
   return {
     releaseId: release.id,
     scheduledAt: release.release_date,
     metrics: normalized,
     pointInTimeAvailable,
-    coverageGap: pointInTimeAvailable ? null : "No pre-release, point-in-time consensus snapshot is stored for this event.",
+    coverageGap: pointInTimeAvailable
+      ? null
+      : missingCpi.length
+        ? `Missing pre-release, source-stamped CPI consensus for ${missingCpi.join(", ")}.`
+        : "No sourced consensus captured before the release time is stored for this event.",
   };
 }
 
