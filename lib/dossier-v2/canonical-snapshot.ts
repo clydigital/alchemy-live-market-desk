@@ -661,7 +661,12 @@ export function buildCandidateSnapshotFromCanonicalEvidence(
       // Verified signals already exist as immutable intelligence_evidence rows.
       // Use the real Evidence UUID, not the externally supplied deduplication key:
       // Story mutation and Dossier provenance must address the canonical record.
+      // Treasury real-yield identity has stricter tenor/unit/source admissibility.
+      // An invalid TIPS candidate must not bypass that gate merely by having a UUID.
+      const isTipsCurve = verifiedMacroObservation
+        && structuredString(row.structured_payload, "signalContext") === "OFFICIAL_TIPS_REAL_CURVE";
       const verifiedMacroUuid = verifiedMacroObservation
+        && !isTipsCurve
         && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.id);
       observedEvidence.push({
         evidence_id: officialTreasuryReal10y || verifiedMacroUuid
