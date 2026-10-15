@@ -303,8 +303,33 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
       <div className={styles.summary}>
         <span>{data.checks.filter((c) => !!c.updatedAt).length} / {data.checks.length} reviewed</span>
         <span>{aligned.length} source-linked alignment{aligned.length === 1 ? "" : "s"}</span>
-        <span>Updates {hydrated ? "saved locally" : "loading"}</span>
+        <span>{cloudMode === "ready" ? `Cloud revision ${cloudRevision ?? "?"}` : cloudMode === "loading" ? "Checking account" : "Local backup only · not synced"}</span>
       </div>
+      <div className={styles.feedback} role="status">
+        {cloudMode === "ready"
+          ? `Cloud checklist connected. ${cloudRevision === 0 ? "No cloud observations saved yet." : "Last cloud write " + (cloudUpdatedAt ? new Date(cloudUpdatedAt).toLocaleString("en-GB") : "not available") + "."}`
+          : cloudMode === "loading" ? "Checking authenticated cloud storage…"
+          : cloudMode === "auth" ? "Sign in to Live Desk to sync. The browser backup has not been uploaded."
+          : cloudMode === "forbidden" ? "This account is not approved for cloud checklist access."
+          : cloudMode === "conflict" ? "Another session changed this checklist. Refresh before making further edits."
+          : "Cloud checklist unavailable. Local observations are shown only as an unsynchronised backup."}
+      </div>
+      <div className={styles.actions}>
+        <button type="button" disabled={saving} onClick={() => { void refreshCloud(); }}>Refresh cloud checklist</button>
+      </div>
+      {cloudMode === "ready" && localCopy && hasLocalObservations(localCopy) && (
+        <div className={styles.feedback}>
+          {cloudRevision === 0 ? <>
+            <p>Local browser observations found: {localCopy.checks.filter(c => !!c.updatedAt).length} dated readings and {localCopy.history.length} history entries. They have not been transferred.</p>
+            <button type="button" onClick={() => setReviewImport(true)}>Review one-time local import</button>
+            {reviewImport && <>
+              <p>Confirm import into your currently empty account checklist. Cloud storage will set new save timestamps; original observation dates and the browser backup remain unchanged. An existing cloud record cannot be overwritten by this import.</p>
+              <button type="button" disabled={saving} onClick={() => { void importLocalCopy(); }}>Confirm import into cloud</button>
+              <button type="button" onClick={() => setReviewImport(false)}>Cancel</button>
+            </>}
+          </> : <p>Existing cloud readings take precedence. Browser-local readings remain preserved, but cannot silently replace the cloud checklist.</p>}
+        </div>
+      )}
       <div className={styles.nodes}>
         {visible.map((check) => {
           const supported = check.updatedAt && check.alignment === "aligned" && sourceIsValid(check.evidenceUrl);
@@ -353,7 +378,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
                   <label>Original source URL<input type="url" value={draft.evidenceUrl} onChange={(event) => set({ evidenceUrl: event.target.value })} placeholder="https://..."/></label>
                   <label>Livestream talking point<textarea rows={2} maxLength={700} value={draft.notes} onChange={(event) => set({ notes: event.target.value })}/></label>
                   <div className={styles.actions}>
-                    <button type="button" onClick={save}>Save observation</button>
+                    <button type="button" onClick={() => { void save(); }} disabled={saving || cloudMode !== "ready"}>{saving ? "Saving…" : "Save to account"}</button>
                     <button type="button" onClick={() => { setEditing(null); setDraft(null); }}>Cancel</button>
                   </div>
                   <p className={styles.small}>Only an observation entered here can be saved. This does not change the Dossier, canonical evidence or frozen Journey editions.</p>
@@ -376,7 +401,7 @@ export default function PresenterTechnicalChecks({ compact = false }: { compact?
         </details>
       </> : null}
       {message ? <p className={styles.feedback} role="status">{message}</p> : null}
-      <p className={styles.disclaimer}>Updates are stored only in the current browser on the Live Desk domain. Other browsers/devices will not see them. This is a presenter reminder, not an automated price feed or verified fundamental signal.</p>
+      <p className={styles.disclaimer}>Authenticated saves use account-private cloud storage with revision checks. Existing browser data stays on this device unless you explicitly import it. Unverified presenter observations never become Dossier, Motion or Story evidence.</p>
     </section>
   );
 }
