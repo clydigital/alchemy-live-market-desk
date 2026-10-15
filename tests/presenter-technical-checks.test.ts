@@ -11,10 +11,16 @@ const specs = [...component.matchAll(/\{ key: "([^"]+)", title: "([^"]+)", group
   .map(([, key, title, group]) => ({ key, title, group }));
 const specsByKey = new Map(specs.map((spec) => [spec.key, spec]));
 
-test("manual technical checks remain presenter-owned and never write canonical state", () => {
-  assert.match(component, /localStorage\.setItem\(STORAGE_KEY/);
+test("account-sync technical checks stay presenter-owned and never rewrite local backups", () => {
+  assert.ok(component.includes('readStorage()'), "Existing browser-local data must remain readable");
+  assert.ok(!component.includes('localStorage.setItem(STORAGE_KEY'), "Cloud saves never rewrite browser backup");
+  assert.ok(component.includes('credentials: "same-origin"'));
+  assert.ok(component.includes('expectedRevision: cloudRevision'));
+  assert.ok(component.includes('cloudRevision !== 0'), "Import cannot overwrite an existing cloud record");
+  assert.ok(component.includes('reviewImport'), "Local import requires explicit user review");
+  assert.ok(component.includes('response.status === 409'), "Revision conflict must be surfaced");
+  assert.match(component, /non-canonical/i);
   assert.doesNotMatch(component, /\.from\(["'](?:stories|story_thesis_versions|dossiers|evidence)["']\)/);
-  assert.match(component, /not an automated price feed or verified fundamental signal/i);
   assert.match(component, /"unassessed" \| "aligned" \| "diverging" \| "mixed"/);
 });
 test("five core checks preserve stable identities and source-linked agreement", () => {
