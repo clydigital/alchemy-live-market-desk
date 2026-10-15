@@ -1,6 +1,7 @@
 import { fetchJinaReader } from "../acquisition/jina-reader.ts";
 import { getEconomicCalendar, type EconomicCalendarEvent } from "../calendar.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
+import { parseOfficialCpiMetricRows, type CpiPreviousValues } from "./official-cpi-metrics.ts";
 
 export type OfficialMacroRelease = {
   id: string;
@@ -16,6 +17,7 @@ export type OfficialMacroRelease = {
 export type OfficialActualResolution = {
   actual: string;
   sourceUrl: string;
+  previousCpiMetrics?: CpiPreviousValues;
 };
 
 export type OfficialActualIngestionResult = {
@@ -212,7 +214,29 @@ async function resolveBlsApiActual(release: OfficialMacroRelease, fetcher: typeo
     const coreMom = signedPercent(percentChange(coreCurrent!, corePrevious!));
     const coreYoy = signedPercent(percentChange(coreNsaCurrent!, coreYearAgo!));
     if (!mom || !yoy || !coreMom || !coreYoy) throw new Error(`Could not calculate CPI Actuals for ${release.reference_period}.`);
-    return { actual: `Headline CPI ${mom}% m/m; ${yoy}% y/y; Core ${coreMom}% m/m; ${coreYoy}% y/y`, sourceUrl };
+    // Calculate the prior reference month's readings from the same BLS series,
+    // rather than parsing an unrelated percentage from the release headline.
+    const beforePriorMonth = previousMonth({ ...reference, ...priorMonth });
+    const priorRate = (current: number | null, base: number | null) => {
+      if (current === null || base === null) return null;
+      const rounded = signedPercent(percentChange(current, base));
+      return rounded === null ? null : Number(rounded);
+    };
+    const previousCandidate = {
+      cpi_headline_mom: priorRate(headlinePrevious, pointValue(series.get(CPI_SERIES[0]), beforePriorMonth.year, beforePriorMonth.month)),
+      cpi_headline_yoy: priorRate(pointValue(series.get(CPI_SERIES[1]), priorMonth.year, priorMonth.month), pointValue(series.get(CPI_SERIES[1]), priorMonth.year - 1, priorMonth.month)),
+      cpi_core_mom: priorRate(corePrevious, pointValue(series.get(CPI_SERIES[2]), beforePriorMonth.year, beforePriorMonth.month)),
+      cpi_core_yoy: priorRate(pointValue(series.get(CPI_SERIES[3]), priorMonth.year, priorMonth.month), pointValue(series.get(CPI_SERIES[3]), priorMonth.year - 1, priorMonth.month)),
+    };
+    const previousCpiMetrics: CpiPreviousValues = {};
+    for (const [key, value] of Object.entries(previousCandidate)) {
+      if (value !== null) previousCpiMetrics[key as keyof CpiPreviousValues] = value;
+    }
+    return {
+      actual: `Headline CPI ${mom}% m/m; ${yoy}% y/y; Core ${coreMom}% m/m; ${coreYoy}% y/y`,
+      sourceUrl,
+      previousCpiMetrics,
+    };
   }
 
   if (/producer price index/i.test(release.release_name)) {
@@ -513,6 +537,78 @@ async function seedMissingOfficialMacroReleases(
   return missing.length;
 }
 
+/** Preserve a stored, independently sourced consensus on conflict: this method
+ * writes only official BLS actual and previously published comparison readings. */
+async function upsertOfficialCpiMetrics(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  release: OfficialMacroRelease,
+  resolved: OfficialActualResolution,
+  fetchedAt: string,
+) {
+  if (!/consumer price index/i.test(release.release_name)) return 0;
+  const metrics = parseOfficialCpiMetricRows(resolved.actual, resolved.previousCpiMetrics);
+  if (metrics.length !== 4) throw new Error("Official CPI summary cannot be separated into four comparable metrics.");
+  const { error } = await client.from("macro_release_metrics").upsert(
+    metrics.map(({ previous, ...metric }) => ({
+      ...metric,
+      release_id: release.id,
+      source_url: resolved.sourceUrl,
+      retrieved_at: fetchedAt,
+      ...(previous === null ? {} : { previous }),
+    })),
+    { onConflict: "release_id,metric_key" },
+  );
+  if (error) throw new Error(`Official CPI metric write failed for ${release.id}: ${error.message}`);
+  return metrics.length;
+}
+
+/** Historical recovery: completed releases were previously never normalised.
+ * Limit recovery to seven days and only releases missing at least one metric. */
+async function recoverCompletedCpiMetrics(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  now: Date,
+  fetcher: typeof fetch,
+) {
+  const since = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  const { data, error } = await client.from("macro_releases")
+    .select("id,release_name,agency,release_date,reference_period,actual,status,source_url,actual_retrieved_at")
+    .gte("release_date", since)
+    .lte("release_date", now.toISOString())
+    .eq("status", "completed")
+    .not("actual", "is", null)
+    .ilike("release_name", "%consumer price index%")
+    .limit(8);
+  if (error) throw new Error(`Could not scan recent completed CPI metric gaps: ${error.message}`);
+  if (!data?.length) return { restored: 0, warnings: [] as string[] };
+
+  const { data: existing, error: metricError } = await client.from("macro_release_metrics")
+    .select("release_id,metric_key").in("release_id", data.map((item) => item.id));
+  if (metricError) throw new Error(`Could not check existing CPI metric completeness: ${metricError.message}`);
+  let restored = 0;
+  const warnings: string[] = [];
+  for (const release of data) {
+    const count = (existing ?? []).filter((row) => row.release_id === release.id
+      && ["cpi_headline_mom", "cpi_headline_yoy", "cpi_core_mom", "cpi_core_yoy"].includes(row.metric_key)).length;
+    if (count === 4) continue;
+    try {
+      // Fetch original BLS time-series indices for prior-month comparisons.
+      // If the source is unavailable, still preserve four verified actuals.
+      let resolved: OfficialActualResolution = { actual: release.actual, sourceUrl: release.source_url };
+      try {
+        const fetched = await resolveBlsApiActual(release as OfficialMacroRelease, fetcher);
+        if (fetched.actual === release.actual) resolved = fetched;
+        else warnings.push(`${release.id}: BLS current vintage differs from stored release; previous values not silently revised.`);
+      } catch (cause) {
+        warnings.push(`${release.id}: previous-period BLS retrieval unavailable (${cause instanceof Error ? cause.message : String(cause)}).`);
+      }
+      restored += await upsertOfficialCpiMetrics(client, release as OfficialMacroRelease, resolved, now.toISOString());
+    } catch (cause) {
+      warnings.push(`${release.id}: metric recovery failed (${cause instanceof Error ? cause.message : String(cause)}).`);
+    }
+  }
+  return { restored, warnings };
+}
+
 export async function ingestOfficialMacroActuals(options: {
   now?: Date;
   fetcher?: typeof fetch;
@@ -539,6 +635,8 @@ export async function ingestOfficialMacroActuals(options: {
   let skipped = 0;
   const completedReleaseIds: string[] = [];
   const failedReleaseIds: string[] = [];
+  const metricWarnings: string[] = [];
+  let metricCount = 0;
 
   for (const release of data ?? []) {
     const sourceUrl = officialActualSourceUrl(release);
@@ -572,6 +670,13 @@ export async function ingestOfficialMacroActuals(options: {
       if (updateError) throw new Error(updateError.message);
       completed += 1;
       completedReleaseIds.push(release.id);
+      try {
+        metricCount += await upsertOfficialCpiMetrics(client, release, resolved, attemptedAt);
+      } catch (cause) {
+        // A successful official release must not be marked as missing merely
+        // because its separate component-metric enrichment failed.
+        metricWarnings.push(`${release.id}: ${cause instanceof Error ? cause.message : String(cause)}`);
+      }
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
       await client.from("macro_releases").update({
@@ -588,6 +693,10 @@ export async function ingestOfficialMacroActuals(options: {
     }
   }
 
+  const recovery = await recoverCompletedCpiMetrics(client, now, options.fetcher ?? fetch);
+  metricCount += recovery.restored;
+  metricWarnings.push(...recovery.warnings);
+
   return {
     attempted,
     completed,
@@ -595,8 +704,10 @@ export async function ingestOfficialMacroActuals(options: {
     skipped,
     completedReleaseIds,
     failedReleaseIds,
-    note: attempted
+    note: (attempted
       ? `${completed}/${attempted} supported overdue official Actuals ingested; ${failed} remain retryable; ${seeded} missing official schedule row(s) seeded.`
-      : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`,
+      : `No supported overdue official Actuals required ingestion; ${seeded} missing official schedule row(s) seeded.`)
+      + ` CPI component metrics written: ${metricCount}.`
+      + (metricWarnings.length ? ` Metric coverage warnings: ${metricWarnings.join(" | ").slice(0,800)}` : ""),
   };
 }
