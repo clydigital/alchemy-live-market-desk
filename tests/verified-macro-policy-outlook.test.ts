@@ -205,3 +205,70 @@ test("verified macro admin handler is bounded and delegates only validated signa
     "2026-09-23T14:00:00.000Z",
   ]);
 });
+
+test("persisted CPI, FedWatch and Treasury reaction keep real canonical Evidence UUIDs", () => {
+  const asOf = "2026-10-15T03:05:00Z";
+  const ids = {
+    trigger: "9f621fc8-9410-478a-91c7-9bb68a813dcb",
+    pricing: "6ed62292-35a4-495f-a87a-681a4ee0eba8",
+    reaction: "43072fbf-09cd-466e-83e7-90bc6a1ae026",
+  };
+  const mk = (id: string, key: string, claim: string, at: string,
+    signalKind: string, signalContext: string,
+    observed: number, expected: number | null, previous: number | null) => ({
+    id,
+    external_evidence_id: "verified-macro:" + key,
+    claim_text: claim,
+    evidence_class: "other",
+    event_at: at,
+    published_at: "2026-10-15T02:53:17Z",
+    available_at: "2026-10-15T02:53:17Z",
+    freshness_status: "current",
+    affected_assets: ["US02Y", "US10Y"],
+    measurement_unit: "percent",
+    observed_value: observed,
+    expected_value: expected,
+    previous_value: previous,
+    structured_payload: {
+      evidenceNature: "verified_macro_data",
+      signalKind,
+      signalContext,
+    },
+    source: {
+      id: "source-marketwatch",
+      source_name: "MarketWatch",
+      source_type: "market_report",
+      source_url: "https://example.com/source",
+      source_tier: 3,
+      reliability_score: 90,
+      provider_key: "verified_macro_signal",
+    },
+  });
+  const rows = [
+    mk(ids.trigger, "cpi-surprise",
+      "September CPI core +0.3% exceeded forecast +0.2%.",
+      "2026-10-14T12:30:00Z", "economic_release", "HOT_INFLATION_SURPRISE", 0.3, 0.2, 0.3),
+    mk(ids.pricing, "fedwatch-pricing",
+      "October hike probability increased from 20% to 45% after CPI.",
+      "2026-10-14T12:40:16Z", "rate_expectation", "fedwatch", 45, null, 20),
+    mk(ids.reaction, "treasury-reaction",
+      "The 2Y yield rose 12bp and 10Y rose 7bp following CPI.",
+      "2026-10-14T12:40:16Z", "market_reaction", "HOT_INFLATION_SURPRISE", 12, null, null),
+  ];
+  const snapshot = buildCandidateSnapshotFromCanonicalEvidence(rows, { asOf, lookbackHours: 48 });
+  const packet = assembleDossierV2InputPacket({ as_of: asOf }, snapshot.snapshot);
+  for (const id of Object.values(ids)) {
+    assert.ok(packet.observed_evidence.some((item) => item.evidence_id === id),
+      "Persisted canonical Evidence UUID " + id + " must survive the packet");
+  }
+  assert.ok(packet.observed_evidence.every((item) =>
+    !item.evidence_id.startsWith("verified-macro:")),
+    "External verified-macro dedupe keys must never masquerade as canonical Evidence IDs");
+  const outlook = buildDossierPolicyOutlook(packet);
+  assert.equal(outlook.length, 1);
+  assert.equal(outlook[0]?.policyImpulse, "HAWKISH");
+  assert.equal(outlook[0]?.triggerEvidenceRef, ids.trigger);
+  assert.equal(outlook[0]?.observedRatePricingEvidenceRef, ids.pricing);
+  assert.equal(outlook[0]?.observedConfirmationEvidenceRef, ids.reaction);
+  assert.deepEqual(outlook[0]?.gaps, []);
+});
