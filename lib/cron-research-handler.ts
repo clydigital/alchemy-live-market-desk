@@ -7,6 +7,7 @@ import {
   captureMacroContextSnapshot,
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
+import { checkScheduledCpiCoverage, type ScheduledCpiCoverage } from "@/lib/macro/cpi-coverage-health";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
 import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
 import { collectScheduledSec10q10k } from "@/lib/scheduled-sec-10q10k-intake";
@@ -33,6 +34,7 @@ type ScheduledResearchHandlerDependencies = {
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
   captureMacroContext?: typeof captureMacroContextSnapshot;
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
+  checkCpiCoverage?: typeof checkScheduledCpiCoverage;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
   collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
   collectSec10q10k?: typeof collectScheduledSec10q10k;
@@ -302,6 +304,22 @@ async function safeOfficialActualIngestion(
   }
 }
 
+async function safeCpiCoverageCheck(
+  check: typeof checkScheduledCpiCoverage,
+  now: Date,
+): Promise<ScheduledCpiCoverage> {
+  try {
+    return await check(now);
+  } catch (error) {
+    return {
+      status: "DEGRADED",
+      checkedAt: now.toISOString(),
+      checks: [],
+      warnings: [`CPI coverage source unavailable: ${error instanceof Error ? error.message.slice(0,160) : "unknown failure"}`],
+    };
+  }
+}
+
 /**
  * Vercel invokes this once for each explicit cadence. Acquisition and canonical
  * publication execute inside Live only; Hybrid is never called from this path.
@@ -430,6 +448,30 @@ export async function handleScheduledResearchWithDependencies(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
+    // Existing scheduled acquisition owns this coverage audit: failures are
+    // visible before research publication but never fabricate a forecast or
+    // block unrelated market stories.
+    const cpiCoverage = await safeCpiCoverageCheck(
+      dependencies.checkCpiCoverage ?? checkScheduledCpiCoverage,
+      now,
+    );
+    const cpiCoverageLog = {
+      event: "scheduled_macro_cpi_coverage",
+      slot, runKey,
+      status: cpiCoverage.status,
+      checkedAt: cpiCoverage.checkedAt,
+      releases: cpiCoverage.checks.map((item) => ({
+        releaseId: item.releaseId,
+        releaseAt: item.releaseAt,
+        stage: item.stage,
+        state: item.state,
+        missing: item.missing,
+        verifiedEvidenceIds: item.verifiedEvidenceIds,
+      })),
+      warnings: cpiCoverage.warnings,
+    };
+    if (cpiCoverage.status === "DEGRADED") console.warn(JSON.stringify(cpiCoverageLog));
+    else console.info(JSON.stringify(cpiCoverageLog));
     const [input, macroCapture, numericIntake, aiIssuerPrices, secFilings] = await Promise.all([
       (dependencies.buildScheduledResearchInput ?? buildScheduledResearchInputWithFirecrawl)(slot, {
         now,
@@ -537,6 +579,7 @@ export async function handleScheduledResearchWithDependencies(
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
         officialActuals,
+        cpiCoverage,
         quantifiedMarket: numericIntake,
         aiIssuerPrices,
         secFilings,

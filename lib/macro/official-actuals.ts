@@ -539,7 +539,7 @@ async function seedMissingOfficialMacroReleases(
 
 /** Preserve a stored, independently sourced consensus on conflict: this method
  * writes only official BLS actual and previously published comparison readings. */
-async function upsertOfficialCpiMetrics(
+export async function upsertOfficialCpiMetrics(
   client: ReturnType<typeof createSupabaseAdminClient>,
   release: OfficialMacroRelease,
   resolved: OfficialActualResolution,
@@ -548,7 +548,11 @@ async function upsertOfficialCpiMetrics(
   if (!/consumer price index/i.test(release.release_name)) return 0;
   const metrics = parseOfficialCpiMetricRows(resolved.actual, resolved.previousCpiMetrics);
   if (metrics.length !== 4) throw new Error("Official CPI summary cannot be separated into four comparable metrics.");
-  const { error } = await client.from("macro_release_metrics").upsert(
+
+  // A PostgREST upsert that omits forecast columns can reset them on conflict.
+  // Insert only missing keys; then update ONLY BLS-owned fields. This preserves
+  // immutable pre-release forecast capture timestamps and operator notes.
+  const { error: insertError } = await client.from("macro_release_metrics").upsert(
     metrics.map(({ previous, ...metric }) => ({
       ...metric,
       release_id: release.id,
@@ -556,9 +560,22 @@ async function upsertOfficialCpiMetrics(
       retrieved_at: fetchedAt,
       ...(previous === null ? {} : { previous }),
     })),
-    { onConflict: "release_id,metric_key" },
+    { onConflict: "release_id,metric_key", ignoreDuplicates: true },
   );
-  if (error) throw new Error(`Official CPI metric write failed for ${release.id}: ${error.message}`);
+  if (insertError) throw new Error(`Official CPI metric insert failed for ${release.id}: ${insertError.message}`);
+
+  for (const metric of metrics) {
+    const { error } = await client.from("macro_release_metrics")
+      .update({
+        actual: metric.actual,
+        source_url: resolved.sourceUrl,
+        retrieved_at: fetchedAt,
+        ...(metric.previous === null ? {} : { previous: metric.previous }),
+      })
+      .eq("release_id", release.id)
+      .eq("metric_key", metric.metric_key);
+    if (error) throw new Error(`Official CPI metric refresh failed for ${release.id}/${metric.metric_key}: ${error.message}`);
+  }
   return metrics.length;
 }
 

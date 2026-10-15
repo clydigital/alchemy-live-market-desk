@@ -80,6 +80,14 @@ export interface ValidationResult {
 const PROBABILITY_CLAIM_REGEX = /\b(\d+(\.\d+)?%?\s*probability|probability\s*(of|=|:)\s*\d+(\.\d+)?%?|\b\d{1,3}%\s*(chance|likelihood|probability)\b)/i;
 const GENERIC_CHART_TASK_REGEX = /^(check|look at|review|chart|see|watch)\s+(s&p|spx|yields|rates|gold|oil|btc|stocks|market|crypto|fx|dollar)$/i;
 const VAGUE_PLACEHOLDER_REGEX = /^(tbd|todo|n\/a|none|chart|unknown|placeholder|\?+)$/i;
+/** An acquisition limitation cannot be presented as a behaviour of market
+ * participants. Keep this narrow: markets genuinely wait for economic releases,
+ * but not for the Desk's missing canonical bars or provider integration. */
+export function isDataAccessGapMisstatedAsMarketCause(text: string): boolean {
+  return /\b(?:market participants|investors|traders|the market|markets)\b.{0,90}\b(?:wait(?:ing)?|await(?:ing)?|hold(?:ing)?\s+off)\b/i.test(text)
+    && /\b(?:canonical|intraday bars?|missing (?:data|feed)|desk(?:'s)? data|data integration|api (?:key|access)|feed access)\b/i.test(text);
+}
+
 
 function normaliseAnalyticalProse(value: string): string {
   return value
@@ -1077,6 +1085,9 @@ export function validateResearchBrainOutput(
       }
       if (!explanation || !discriminatingTest) {
         errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] requires explanation and discriminating_test.`);
+      }
+      if (isDataAccessGapMisstatedAsMarketCause(explanation)) {
+        errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] converts a Desk data-coverage gap into an unsupported market cause.`);
       }
       if (!validCandidateConfidences.has(confidence)) {
         errors.push(`investigations[${iIdx}] (${invId}) candidate_explanations[${candidateIndex}] has invalid confidence "${confidence}".`);
