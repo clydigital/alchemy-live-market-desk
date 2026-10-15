@@ -289,6 +289,18 @@
   line-height: 1.58;
 }
 
+.evidenceCaveat {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d99742;
+  border-radius: 0.6rem;
+  background: rgba(217, 151, 66, 0.12);
+}
+
+.evidenceCaveat strong { color: #e9b974; }
+.evidenceCaveat p { margin: 0.4rem 0; }
+.evidenceCaveat a { text-decoration: underline; }
+
 .breakdown {
   display: grid;
   gap: 7px;

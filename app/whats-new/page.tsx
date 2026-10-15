@@ -10,6 +10,8 @@ import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
 import { buildStoryBreakdown } from "@/lib/story-breakdown";
 import { presentationAge, readerFacingText } from "@/lib/presentation-hygiene";
+import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { cpiStoryEvidenceCaveat } from "@/lib/cpi-story-evidence-caveat";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +139,11 @@ function humaniseStoryEvent(
 }
 
 export default async function WhatsNewPage() {
-  const [data, recordLayer, motionRecords] = await Promise.all([getDeskData(), getStoryRecordLayer(), getCurrentMarketMotion({ includeExpired: true, limit: 100 }).catch(() => [])]);
+  const [data, recordLayer, motionRecords, dossierSelection] = await Promise.all([
+    getDeskData(), getStoryRecordLayer(),
+    getCurrentMarketMotion({ includeExpired: true, limit: 100 }).catch(() => []),
+    getDossierV2PresentationSelection().catch(() => null),
+  ]);
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const versionByEventId = new Map(
     recordLayer.thesisVersions
@@ -293,6 +299,13 @@ export default async function WhatsNewPage() {
       const currentVersion = story ? latestVersionByStory.get(story.id) : null;
       const currentTitle = currentVersion?.title || story?.title;
       const human = humaniseStoryEvent(event, currentTitle, versionByEventId, versionByStoryAndNumber);
+      const evidenceCaveat = cpiStoryEvidenceCaveat({
+        storyTitle: story?.title || "", eventAt: event.event_at,
+        dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
+          ? dossierSelection.selectedDossierId : null,
+        dossierAsOf: dossierSelection?.selectedAsOf ?? null,
+        gaps: dossierSelection?.presentation?.health.researchGaps ?? [],
+      });
       const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
       const breakdown = story ? buildStoryBreakdown({
         story,
@@ -316,6 +329,7 @@ export default async function WhatsNewPage() {
         hybridHref: `/hybrid-output?event=${encodeURIComponent(event.id)}`,
         interpretationState: "interpreted" as const,
         breakdown,
+        evidenceCaveat,
       };
     })
     : data.updates.map((update) => {
@@ -329,6 +343,13 @@ export default async function WhatsNewPage() {
         version: currentVersion,
         event: { headline: update.headline, detail: update.detail, at: timestamp },
       }) : null;
+      const evidenceCaveat = cpiStoryEvidenceCaveat({
+        storyTitle: story?.title || "", eventAt: timestamp,
+        dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
+          ? dossierSelection.selectedDossierId : null,
+        dossierAsOf: dossierSelection?.selectedAsOf ?? null,
+        gaps: dossierSelection?.presentation?.health.researchGaps ?? [],
+      });
       return {
         id: update.id,
         kind: humanEventLabel(update.update_type),
@@ -346,6 +367,7 @@ export default async function WhatsNewPage() {
         hybridHref: story ? `/hybrid-output?story=${encodeURIComponent(story.slug)}` : null,
         interpretationState: "interpreted" as const,
         breakdown,
+        evidenceCaveat,
       };
     });
 
