@@ -110,7 +110,8 @@ export async function fetchBeaSnapshot(
     });
     if (!response.ok) return unavailable(`BEA request failed with HTTP ${response.status}.`);
     return parseBeaPayload(await response.json());
-  } catch (error) {
-    return unavailable(`BEA request failed: ${error instanceof Error ? error.message : "unknown network error"}.`);
+  } catch {
+    // Fetch errors may contain the request URL, including its UserID query parameter.
+    return unavailable("BEA_REQUEST_FAILED");
   }
 }
