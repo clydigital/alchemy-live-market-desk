@@ -88,7 +88,10 @@ function snapshot(release: ReleaseRow, metrics: MetricRow[], asOf?: string): Eco
 
 /** Reads reviewed consensus already persisted in Supabase; it never manufactures a forecast. */
 export class StoredEconomicConsensusProvider implements EconomicConsensusProvider {
-  constructor(private readonly client: SupabaseClient = createSupabaseAdminClient()) {}
+  private readonly client: SupabaseClient;
+  constructor(client: SupabaseClient = createSupabaseAdminClient()) {
+    this.client = client;
+  }
 
   async getUpcomingEvents(input: { from?: string; to?: string } = {}) {
     let request = this.client.from("macro_releases").select("id,release_date").order("release_date", { ascending: true });
