@@ -74,7 +74,13 @@ function matchingEvidence(
       item.evidence_id !== trigger.evidence_id &&
       metricString(item, "signal_kind") === kind &&
       signalContextMatches(item, kind, context) &&
-      item.available_at >= trigger.available_at)
+      item.available_at >= trigger.available_at &&
+      // Receipt order is not the same as market-event order. A report collected
+      // after CPI can still describe pre-CPI positioning; that is NOT reaction.
+      Number.isFinite(Date.parse(item.occurrence_time ?? "")) &&
+      Number.isFinite(Date.parse(trigger.occurrence_time ?? "")) &&
+      Date.parse(item.occurrence_time!) >= Date.parse(trigger.occurrence_time!) &&
+      Date.parse(item.occurrence_time!) - Date.parse(trigger.occurrence_time!) <= 48 * 60 * 60 * 1000)
     .sort((a, b) => b.available_at.localeCompare(a.available_at))[0] ?? null;
 }
 
