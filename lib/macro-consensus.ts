@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseAdminClient } from "./supabase/admin.ts";
 
 export type EconomicConsensusMetric = {
   releaseId: string;
