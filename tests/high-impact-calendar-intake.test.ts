@@ -63,3 +63,36 @@ test("non-top-tier released macro events retain the original two-day lookback", 
 
   assert.equal(items.length, 0);
 });
+
+test("released CPI uses the exact 08:30 ET instant during daylight saving", () => {
+  const items = buildHighImpactCalendarIntake(
+    [event({
+      id: "us-bls-2026-10-14-cpi-september-2026",
+      date: "2026-10-14",
+      event: "Consumer Price Index for September 2026",
+      category: "Inflation",
+      status: "Released",
+      actual: "Headline CPI +0.6% m/m; +3.7% y/y",
+      timeLabel: "08:30 ET",
+    })],
+    new Date("2026-10-15T00:00:00Z"),
+  );
+  assert.equal(items[0].publishedAt, "2026-10-14T12:30:00.000Z");
+  assert.equal(items[0].evidence?.[0]?.publishedAt, "2026-10-14T12:30:00.000Z");
+});
+
+test("08:30 ET correctly tracks standard time after the DST change", () => {
+  const items = buildHighImpactCalendarIntake(
+    [event({
+      id: "us-bls-2026-11-10-cpi-october-2026",
+      date: "2026-11-10",
+      event: "Consumer Price Index for October 2026",
+      category: "Inflation",
+      status: "Scheduled",
+      actual: null,
+      timeLabel: "08:30 ET",
+    })],
+    new Date("2026-11-10T00:00:00Z"),
+  );
+  assert.equal(items[0].publishedAt, "2026-11-10T13:30:00.000Z");
+});
