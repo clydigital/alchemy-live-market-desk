@@ -24,3 +24,23 @@ test("an unrelated, informational, or earlier Dossier gap cannot relabel the eve
   assert.equal(cpiStoryEvidenceCaveat({ ...event, dossierId: null }), null);
   assert.equal(cpiStoryEvidenceCaveat({ ...event, storyTitle: "AI capex outlook" }), null);
 });
+
+test("latest Dossier's dated futures and 2Y evidence blocker qualifies historical CPI claim even without word CPI", () => {
+  const caveat = cpiStoryEvidenceCaveat({
+    ...event,
+    dossierId: "71f4afcc-14ac-4326-a6e9-a29844ac09b6",
+    dossierAsOf: "2026-10-15T18:39:37.599Z",
+    gaps: [{ severity: "MATERIAL", description:
+      "Canonical intraday LSEG Fed-funds-futures bars and exchange 2Y intraday bars for 2026-10-14 are missing; this blocks durable policy repricing adjudication." }],
+  });
+  assert.match(caveat ?? "", /UNRESOLVED in current Dossier 71f4afcc/);
+});
+
+test("conditional PPI revision or a rate gap lacking correct instruments cannot inherit CPI release warning", () => {
+  assert.equal(cpiStoryEvidenceCaveat({ ...event,
+    claimText: "The strong September final-demand PPI corroborates recent CPI upside, raising the conditional probability of hawkish Fed language." }), null);
+  assert.equal(cpiStoryEvidenceCaveat({ ...event,
+    claimText: "A Treasury-flow reallocation outweighed near-term PPI pressure." }), null);
+  assert.equal(cpiStoryEvidenceCaveat({ ...event,
+    gaps: [{severity:"MATERIAL",description:"Intraday equity volume on 2026-10-14 was missing."}] }), null);
+});
