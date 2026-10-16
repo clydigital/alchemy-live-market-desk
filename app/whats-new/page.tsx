@@ -9,7 +9,11 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
 import { buildStoryBreakdown } from "@/lib/story-breakdown";
+import { exactStoryVersionForEvent, historicalStoryView } from "@/lib/story-event-presentation";
 import { presentationAge, readerFacingText } from "@/lib/presentation-hygiene";
+import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
+import { cpiStoryEvidenceCaveat } from "@/lib/cpi-story-evidence-caveat";
+import { selectRecentWithStoryReserve } from "@/lib/whats-new-stream-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +141,11 @@ function humaniseStoryEvent(
 }
 
 export default async function WhatsNewPage() {
-  const [data, recordLayer, motionRecords] = await Promise.all([getDeskData(), getStoryRecordLayer(), getCurrentMarketMotion({ includeExpired: true, limit: 100 }).catch(() => [])]);
+  const [data, recordLayer, motionRecords, dossierSelection] = await Promise.all([
+    getDeskData(), getStoryRecordLayer(),
+    getCurrentMarketMotion({ includeExpired: true, limit: 100 }).catch(() => []),
+    getDossierV2PresentationSelection().catch(() => null),
+  ]);
   const storyById = new Map(data.stories.map((story) => [story.id, story]));
   const versionByEventId = new Map(
     recordLayer.thesisVersions
@@ -147,13 +155,6 @@ export default async function WhatsNewPage() {
   const versionByStoryAndNumber = new Map(
     recordLayer.thesisVersions.map((version) => [versionKey(version.story_id, version.version_number), version]),
   );
-  const latestVersionByStory = new Map<string, StoryThesisVersion>();
-  for (const version of recordLayer.thesisVersions) {
-    const current = latestVersionByStory.get(version.story_id);
-    if (!current || version.version_number > current.version_number || (
-      version.version_number === current.version_number && version.effective_at > current.effective_at
-    )) latestVersionByStory.set(version.story_id, version);
-  }
 
   function motionRoutes(item: MarketMotionRecord) {
     const fullText = [
@@ -290,20 +291,30 @@ export default async function WhatsNewPage() {
   const storyDeltas: RawWhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
       const story = storyById.get(event.story_id);
-      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
-      const currentTitle = currentVersion?.title || story?.title;
-      const human = humaniseStoryEvent(event, currentTitle, versionByEventId, versionByStoryAndNumber);
-      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
-      const breakdown = story ? buildStoryBreakdown({
-        story,
-        version: currentVersion,
+      const eventVersion = exactStoryVersionForEvent(event, versionByEventId);
+      const eventStory = story && eventVersion ? historicalStoryView(story, eventVersion) : null;
+      const historicalTitle = eventStory?.title || story?.title;
+      const human = humaniseStoryEvent(event, historicalTitle, versionByEventId, versionByStoryAndNumber);
+      const evidenceCaveat = cpiStoryEvidenceCaveat({
+        storyTitle: story?.title || "", claimText: eventVersion?.thesis || "", eventAt: event.event_at,
+        dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
+          ? dossierSelection.selectedDossierId : null,
+        dossierAsOf: dossierSelection?.selectedAsOf ?? null,
+        gaps: dossierSelection?.presentation?.health.researchGaps ?? [],
+      });
+      // Do not attach today's Story thesis, causal explanation, or Regime
+      // classification to a historical event that lacks an exact version.
+      const routes = eventStory && eventVersion ? routeStoryToRegimes(eventStory, eventVersion) : [];
+      const breakdown = eventStory && eventVersion ? buildStoryBreakdown({
+        story: eventStory,
+        version: eventVersion,
         event: { headline: human.title, detail: human.detail, at: event.event_at },
       }) : null;
       return {
         id: event.id,
         kind: humanEventLabel(event.event_type),
         stream: "Story" as const,
-        topic: classifyStoryTopic(story?.title, human.title, story?.thesis, human.detail, story?.assets),
+        topic: classifyStoryTopic(eventStory?.title, human.title, eventStory?.thesis, human.detail, eventStory?.assets),
         title: human.title,
         detail: human.detail,
         dateLabel: formatDeskDate(event.event_at),
@@ -311,29 +322,31 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${event.id}` : null,
         external: false,
         verification: event.impact,
-        storyTitle: currentTitle || null,
+        storyTitle: eventStory?.title || null,
         regimes: regimeLinks(routes),
         hybridHref: `/hybrid-output?event=${encodeURIComponent(event.id)}`,
         interpretationState: "interpreted" as const,
         breakdown,
+        evidenceCaveat,
       };
     })
     : data.updates.map((update) => {
       const story = storyById.get(update.story_id);
-      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
-      const currentTitle = currentVersion?.title || story?.title;
       const timestamp = update.observed_at || update.created_at;
-      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
-      const breakdown = story ? buildStoryBreakdown({
-        story,
-        version: currentVersion,
-        event: { headline: update.headline, detail: update.detail, at: timestamp },
-      }) : null;
+      // Dated legacy updates have no exact thesis-version linkage here.
+      // Do not attach the mutable current Story's explanation or signals.
+      const evidenceCaveat = cpiStoryEvidenceCaveat({
+        storyTitle: story?.title || "", claimText: update.detail || "", eventAt: timestamp,
+        dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
+          ? dossierSelection.selectedDossierId : null,
+        dossierAsOf: dossierSelection?.selectedAsOf ?? null,
+        gaps: dossierSelection?.presentation?.health.researchGaps ?? [],
+      });
       return {
         id: update.id,
         kind: humanEventLabel(update.update_type),
         stream: "Story" as const,
-        topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
+        topic: classifyStoryTopic(null, update.headline, null, update.detail, []),
         title: update.headline,
         detail: update.detail || "No additional detail was stored for this update.",
         dateLabel: formatDeskDate(timestamp),
@@ -341,16 +354,17 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${update.id}` : null,
         external: false,
         verification: "Dated Story update",
-        storyTitle: currentTitle || null,
-        regimes: regimeLinks(routes),
+        storyTitle: null,
+        regimes: [],
         hybridHref: story ? `/hybrid-output?story=${encodeURIComponent(story.slug)}` : null,
-        interpretationState: "interpreted" as const,
-        breakdown,
+        interpretationState: null,
+        breakdown: null,
+        evidenceCaveat,
       };
     });
 
   const now = new Date();
-  const deltas: WhatsNewDelta[] = [
+  const candidateDeltas: RawWhatsNewDelta[] = [
     ...motionDeltas,
     ...storyDeltas,
     ...data.statements.map((statement) => {
@@ -407,9 +421,11 @@ export default async function WhatsNewPage() {
         breakdown: null,
       };
     }),
-  ]
-    .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""))
-    .slice(0, 60)
+  ];
+  // Reserve a small share of the existing 60 cards for canonical Story events.
+  // Otherwise high-volume Motion leads can hide a recent CPI Story entirely
+  // before users can select the Story filter or read its evidence caveat.
+  const deltas: WhatsNewDelta[] = selectRecentWithStoryReserve(candidateDeltas, 60, 8)
     .map((delta) => ({
       // Story events retain their own headline geography. The parent Story's
       // global thesis does not silently become a region or authority label.
