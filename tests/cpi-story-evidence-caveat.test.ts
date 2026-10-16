@@ -3,6 +3,7 @@ import test from "node:test";
 import { cpiStoryEvidenceCaveat } from "../lib/cpi-story-evidence-caveat.ts";
 
 const event = {
+  claimText: "The hotter-than-expected September CPI simultaneously raised near-term Fed-tightening odds and triggered safe-haven Treasury demand.",
   storyTitle: "CPI shock splits front‑end Fed repricing from long‑end yield‑locking",
   eventAt: "2026-10-15T02:47:26.751Z",
   dossierId: "a74915fe-ffec-45ef-99c1-12cbff0e8578",
