@@ -295,7 +295,7 @@ export default async function WhatsNewPage() {
       const historicalTitle = eventStory?.title || story?.title;
       const human = humaniseStoryEvent(event, historicalTitle, versionByEventId, versionByStoryAndNumber);
       const evidenceCaveat = cpiStoryEvidenceCaveat({
-        storyTitle: story?.title || "", eventAt: event.event_at,
+        storyTitle: story?.title || "", claimText: eventVersion?.thesis || "", eventAt: event.event_at,
         dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
           ? dossierSelection.selectedDossierId : null,
         dossierAsOf: dossierSelection?.selectedAsOf ?? null,
@@ -335,7 +335,7 @@ export default async function WhatsNewPage() {
       // Dated legacy updates have no exact thesis-version linkage here.
       // Do not attach the mutable current Story's explanation or signals.
       const evidenceCaveat = cpiStoryEvidenceCaveat({
-        storyTitle: story?.title || "", eventAt: timestamp,
+        storyTitle: story?.title || "", claimText: update.detail || "", eventAt: timestamp,
         dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
           ? dossierSelection.selectedDossierId : null,
         dossierAsOf: dossierSelection?.selectedAsOf ?? null,
