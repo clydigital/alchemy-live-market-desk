@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { Story } from "../lib/data.ts";
@@ -69,4 +70,15 @@ test("Frozen null/empty fields never fall back to later Story narrative or signa
   assert.deepEqual(breakdown.invalidation, []);
   assert.deepEqual(breakdown.affectedMarkets, []);
   assert.throws(() => historicalStoryView({ ...story, id: "other" }, v2), /identity mismatch/);
+});
+
+test("What’s New historical and degraded lanes never borrow current Story versions", () => {
+  const source = readFileSync(new URL("../app/whats-new/page.tsx", import.meta.url), "utf8");
+  const historical = source.split("recordLayer.events.map((event) => {")[1]?.split(": data.updates.map")[0] || "";
+  const degraded = source.split(": data.updates.map((update) => {")[1]?.split("  const now = new Date();")[0] || "";
+  assert.match(historical, /exactStoryVersionForEvent\(event, versionByEventId\)/);
+  assert.match(historical, /version: eventVersion/);
+  assert.doesNotMatch(historical, /version: currentVersion/);
+  assert.doesNotMatch(degraded, /buildStoryBreakdown|latestVersionByStory|currentVersion/);
+  assert.match(degraded, /breakdown: null/);
 });
