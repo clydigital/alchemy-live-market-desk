@@ -29,6 +29,7 @@ export type PublishedHorizon = {
   dossierId: string | null;
   dossierAsOf: string | null;
   horizon: { today: PublishedHorizonItem[]; tonight: PublishedHorizonItem[]; later: PublishedHorizonItem[] };
+  marketNews?: ReturnType<typeof projectFrozenMarketNews>;
   detail: string;
 };
 
@@ -87,6 +88,75 @@ function items(value: unknown, now: string): PublishedHorizonItem[] {
   }).slice(0, 24);
 }
 
+/**
+ * Read only exact edition-bound Motion and Story evidence. Older immutable
+ * editions with no marketNews field simply produce no article packet.
+ */
+export function projectFrozenMarketNews(payload: unknown) {
+  const edition = record(payload);
+  const journey = record(edition?.journey);
+  const news = record(journey?.marketNews);
+  const manifest = Array.isArray(edition?.canonicalStoryManifest) ? edition.canonicalStoryManifest : [];
+  const motion = record(edition?.marketMotion);
+  const motions = Array.isArray(motion?.items) ? motion.items : [];
+  if (news?.contractVersion !== "market-news-editorial/v1" || !Array.isArray(news.articles)
+    || motion?.contractVersion !== "market-motion-edition/v1" || manifest.length === 0) return null;
+
+  const valid = news.articles.slice(0, 5).flatMap((raw) => {
+    const a = record(raw);
+    if (!a || a.editorialStatus !== "SOURCE_BOUND_DRAFT_NOT_LY_QC_APPROVED"
+      || a.regimeRelation !== "ROUTED_CONTEXT_ONLY"
+      || typeof a.articleId !== "string" || !a.articleId
+      || typeof a.storyId !== "string" || !a.storyId
+      || typeof a.storySnapshotId !== "string" || !a.storySnapshotId
+      || typeof a.thesisVersionId !== "string" || !a.thesisVersionId
+      || typeof a.title !== "string" || !a.title
+      || !Array.isArray(a.motionIds) || !a.motionIds.length
+      || !Array.isArray(a.motionEvidenceRefs) || !a.motionEvidenceRefs.length
+      || !Array.isArray(a.storyEvidenceRefs) || !a.storyEvidenceRefs.length
+      || typeof a.sourceName !== "string" || !a.sourceName
+      || !safeSourceUrl(a.sourceUrl)
+      || typeof a.occurredAt !== "string" || !Number.isFinite(Date.parse(a.occurredAt))
+      || !Array.isArray(a.paragraphs) || a.paragraphs.length < 3 || a.paragraphs.length > 10) return [];
+    const snapshot = manifest.find((v) => {
+      const s = record(v);
+      return s?.storyId === a.storyId && s?.snapshotId === a.storySnapshotId
+        && s?.thesisVersionId === a.thesisVersionId;
+    });
+    if (!snapshot) return [];
+    const currentMotions = a.motionIds.map((id) => motions.find((candidate) => {
+      const m = record(candidate);
+      return m?.id === id && m?.storyId === a.storyId && m?.lifecycleState === "PROMOTED"
+        && typeof m.promotionEvidenceRef === "string" && a.motionEvidenceRefs.includes(m.promotionEvidenceRef);
+    }));
+    if (currentMotions.some((m) => !m)) return [];
+    const roles = ["development", "story_context", "mechanism", "interpretation", "countercase", "next_test"];
+    if (a.paragraphs.some((p) => {
+      const para = record(p);
+      return !para || !roles.includes(String(para.role))
+        || typeof para.text !== "string" || !para.text.trim();
+    })) return [];
+    return [{
+      articleId: a.articleId,
+      storyId: a.storyId,
+      storySnapshotId: a.storySnapshotId,
+      thesisVersionId: a.thesisVersionId,
+      motionIds: [...a.motionIds],
+      motionEvidenceRefs: [...a.motionEvidenceRefs],
+      storyEvidenceRefs: [...a.storyEvidenceRefs],
+      regimeSlug: typeof a.regimeSlug === "string" ? a.regimeSlug : null,
+      regimeRelation: "ROUTED_CONTEXT_ONLY",
+      title: a.title,
+      occurredAt: a.occurredAt,
+      sourceName: a.sourceName,
+      sourceUrl: a.sourceUrl,
+      paragraphs: a.paragraphs.map((p) => ({ role: p.role, text: p.text })),
+      editorialStatus: "SOURCE_BOUND_DRAFT_NOT_LY_QC_APPROVED",
+    }];
+  });
+  return { contractVersion: "market-news-editorial/v1", articles: valid };
+}
+
 export function projectPublishedHorizon(row: EditionRow | null, now: string): PublishedHorizon {
   const empty: PublishedHorizon = {
     contractVersion: "presenter-published-horizon/1",
@@ -119,6 +189,7 @@ export function projectPublishedHorizon(row: EditionRow | null, now: string): Pu
     dossierId: context.dossierId,
     dossierAsOf: context.dossierAsOf,
     horizon: projected,
+    ...(projectFrozenMarketNews(payload) ? { marketNews: projectFrozenMarketNews(payload) } : {}),
     detail: "Only dated future events from this exact immutable edition are displayed. Missing entries are not inferred.",
   };
 }
