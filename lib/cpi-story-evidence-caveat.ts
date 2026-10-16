@@ -10,11 +10,11 @@ export function cpiStoryEvidenceCaveat(input: {
   dossierAsOf: string | null;
   gaps: MaterialGap[];
 }): string | null {
-  if (!/\\bCPI\\b/i.test(input.storyTitle) || !/front.end|Fed repricing/i.test(input.storyTitle)) return null;
+  if (!/\bCPI\b/i.test(input.storyTitle) || !/front.end|Fed repricing/i.test(input.storyTitle)) return null;
   // This particular caveat only qualifies historical CPI two-force claims
   // that asserted realised Fed-policy repricing. Later conditional PPI versions
   // must not inherit a CPI-specific warning merely by sharing the Story ID.
-  if (!/\\bCPI\\b/i.test(input.claimText) ||
+  if (!/\bCPI\b/i.test(input.claimText) ||
       !/(simultaneously|both mechanisms|two.force|coexistence)/i.test(input.claimText) ||
       !/(Fed|repric|tighten)/i.test(input.claimText)) return null;
   const eventTime = Date.parse(input.eventAt);
@@ -27,9 +27,9 @@ export function cpiStoryEvidenceCaveat(input: {
     // The canonical gap may identify its exact release date and instruments
     // without repeating the word "CPI". Match this narrower instrument set,
     // then enforce the source date and event-time bounds below.
-    const explicitlyCpi = /\\bCPI\\b/i.test(item.description);
-    const exactRateSet = /Fed[\\s-]*funds[\\s-]*futures/i.test(item.description)
-      && /(?:\\b2Y\\b|\\bUS02Y\\b|\\b2.year\\b)/i.test(item.description)
+    const explicitlyCpi = /\bCPI\b/i.test(item.description);
+    const exactRateSet = /Fed[\s-]*funds[\s-]*futures/i.test(item.description)
+      && /(?:\b2Y\b|\bUS02Y\b|\b2.year\b)/i.test(item.description)
       && /(policy|repric)/i.test(item.description);
     if (!explicitlyCpi && !exactRateSet) return false;
     const normalisedDescription = item.description.replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-");
