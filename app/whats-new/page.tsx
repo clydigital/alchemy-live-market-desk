@@ -9,6 +9,7 @@ import { getStoryRecordLayer } from "@/lib/persistence/read";
 import type { StoryEvent, StoryThesisVersion } from "@/lib/persistence/contracts";
 import { getRegimeDefinition, routeStoryToRegimes, routeTextToRegimes, type RegimeRoute } from "@/lib/regimes";
 import { buildStoryBreakdown } from "@/lib/story-breakdown";
+import { exactStoryVersionForEvent, historicalStoryView } from "@/lib/story-event-presentation";
 import { presentationAge, readerFacingText } from "@/lib/presentation-hygiene";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { cpiStoryEvidenceCaveat } from "@/lib/cpi-story-evidence-caveat";
@@ -296,9 +297,10 @@ export default async function WhatsNewPage() {
   const storyDeltas: RawWhatsNewDelta[] = recordLayer.available
     ? recordLayer.events.map((event) => {
       const story = storyById.get(event.story_id);
-      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
-      const currentTitle = currentVersion?.title || story?.title;
-      const human = humaniseStoryEvent(event, currentTitle, versionByEventId, versionByStoryAndNumber);
+      const eventVersion = exactStoryVersionForEvent(event, versionByEventId);
+      const eventStory = story && eventVersion ? historicalStoryView(story, eventVersion) : null;
+      const historicalTitle = eventStory?.title || story?.title;
+      const human = humaniseStoryEvent(event, historicalTitle, versionByEventId, versionByStoryAndNumber);
       const evidenceCaveat = cpiStoryEvidenceCaveat({
         storyTitle: story?.title || "", eventAt: event.event_at,
         dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
@@ -306,17 +308,19 @@ export default async function WhatsNewPage() {
         dossierAsOf: dossierSelection?.selectedAsOf ?? null,
         gaps: dossierSelection?.presentation?.health.researchGaps ?? [],
       });
-      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
-      const breakdown = story ? buildStoryBreakdown({
-        story,
-        version: currentVersion,
+      // Do not attach today's Story thesis, causal explanation, or Regime
+      // classification to a historical event that lacks an exact version.
+      const routes = eventStory && eventVersion ? routeStoryToRegimes(eventStory, eventVersion) : [];
+      const breakdown = eventStory && eventVersion ? buildStoryBreakdown({
+        story: eventStory,
+        version: eventVersion,
         event: { headline: human.title, detail: human.detail, at: event.event_at },
       }) : null;
       return {
         id: event.id,
         kind: humanEventLabel(event.event_type),
         stream: "Story" as const,
-        topic: classifyStoryTopic(story?.title, human.title, story?.thesis, human.detail, story?.assets),
+        topic: classifyStoryTopic(eventStory?.title, human.title, eventStory?.thesis, human.detail, eventStory?.assets),
         title: human.title,
         detail: human.detail,
         dateLabel: formatDeskDate(event.event_at),
@@ -324,7 +328,7 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${event.id}` : null,
         external: false,
         verification: event.impact,
-        storyTitle: currentTitle || null,
+        storyTitle: eventStory?.title || null,
         regimes: regimeLinks(routes),
         hybridHref: `/hybrid-output?event=${encodeURIComponent(event.id)}`,
         interpretationState: "interpreted" as const,
