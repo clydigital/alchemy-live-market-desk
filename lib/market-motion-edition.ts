@@ -47,6 +47,8 @@ export type MarketMotionEditionItem = {
   storyId: string;
   storySlug: string;
   storyTitle: string;
+  /** Exact canonical corroboration reference selected at Motion promotion. */
+  promotionEvidenceRef?: string;
   regimeSlug: RegimeSlug | null;
   regimeLabel: string | null;
 };
@@ -165,6 +167,8 @@ export function buildMarketMotionEditionAttachment(input: {
         storyId: story.id,
         storySlug: story.slug,
         storyTitle: story.title,
+        ...(typeof row.metadata?.promotionEvidencePacketRef === "string" && row.metadata.promotionEvidencePacketRef.trim()
+          ? { promotionEvidenceRef: row.metadata.promotionEvidencePacketRef.trim() } : {}),
         regimeSlug: row.primary_regime_slug,
         regimeLabel: regime?.shortTitle || null,
       };
@@ -281,6 +285,7 @@ function parseItem(value: unknown): MarketMotionEditionItem | null {
     storyId,
     storySlug,
     storyTitle,
+    ...(text(item.promotionEvidenceRef) ? { promotionEvidenceRef: text(item.promotionEvidenceRef) } : {}),
     regimeSlug,
     regimeLabel: text(item.regimeLabel),
   };
