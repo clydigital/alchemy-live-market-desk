@@ -127,7 +127,7 @@ export function projectFrozenMarketNews(payload: unknown) {
     const currentMotions = a.motionIds.map((id) => motions.find((candidate) => {
       const m = record(candidate);
       return m?.id === id && m?.storyId === a.storyId && m?.lifecycleState === "PROMOTED"
-        && typeof m.promotionEvidenceRef === "string" && a.motionEvidenceRefs.includes(m.promotionEvidenceRef);
+        && typeof m.promotionEvidenceRef === "string" && (a.motionEvidenceRefs as unknown[]).includes(m.promotionEvidenceRef);
     }));
     if (currentMotions.some((m) => !m)) return [];
     const roles = ["development", "story_context", "mechanism", "interpretation", "countercase", "next_test"];
