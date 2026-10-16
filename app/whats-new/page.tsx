@@ -154,13 +154,6 @@ export default async function WhatsNewPage() {
   const versionByStoryAndNumber = new Map(
     recordLayer.thesisVersions.map((version) => [versionKey(version.story_id, version.version_number), version]),
   );
-  const latestVersionByStory = new Map<string, StoryThesisVersion>();
-  for (const version of recordLayer.thesisVersions) {
-    const current = latestVersionByStory.get(version.story_id);
-    if (!current || version.version_number > current.version_number || (
-      version.version_number === current.version_number && version.effective_at > current.effective_at
-    )) latestVersionByStory.set(version.story_id, version);
-  }
 
   function motionRoutes(item: MarketMotionRecord) {
     const fullText = [
@@ -338,15 +331,9 @@ export default async function WhatsNewPage() {
     })
     : data.updates.map((update) => {
       const story = storyById.get(update.story_id);
-      const currentVersion = story ? latestVersionByStory.get(story.id) : null;
-      const currentTitle = currentVersion?.title || story?.title;
       const timestamp = update.observed_at || update.created_at;
-      const routes = story ? routeStoryToRegimes(story, currentVersion) : [];
-      const breakdown = story ? buildStoryBreakdown({
-        story,
-        version: currentVersion,
-        event: { headline: update.headline, detail: update.detail, at: timestamp },
-      }) : null;
+      // Dated legacy updates have no exact thesis-version linkage here.
+      // Do not attach the mutable current Story's explanation or signals.
       const evidenceCaveat = cpiStoryEvidenceCaveat({
         storyTitle: story?.title || "", eventAt: timestamp,
         dossierId: dossierSelection?.status === "current" || dossierSelection?.status === "degraded_latest"
@@ -358,7 +345,7 @@ export default async function WhatsNewPage() {
         id: update.id,
         kind: humanEventLabel(update.update_type),
         stream: "Story" as const,
-        topic: classifyStoryTopic(story?.title, update.headline, story?.thesis, update.detail, story?.assets),
+        topic: classifyStoryTopic(null, update.headline, null, update.detail, []),
         title: update.headline,
         detail: update.detail || "No additional detail was stored for this update.",
         dateLabel: formatDeskDate(timestamp),
@@ -366,11 +353,11 @@ export default async function WhatsNewPage() {
         href: story ? `/stories/${story.slug}#event-${update.id}` : null,
         external: false,
         verification: "Dated Story update",
-        storyTitle: currentTitle || null,
-        regimes: regimeLinks(routes),
+        storyTitle: null,
+        regimes: [],
         hybridHref: story ? `/hybrid-output?story=${encodeURIComponent(story.slug)}` : null,
-        interpretationState: "interpreted" as const,
-        breakdown,
+        interpretationState: null,
+        breakdown: null,
         evidenceCaveat,
       };
     });
