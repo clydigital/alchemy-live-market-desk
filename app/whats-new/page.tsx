@@ -13,6 +13,7 @@ import { exactStoryVersionForEvent, historicalStoryView } from "@/lib/story-even
 import { presentationAge, readerFacingText } from "@/lib/presentation-hygiene";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { cpiStoryEvidenceCaveat } from "@/lib/cpi-story-evidence-caveat";
+import { selectRecentWithStoryReserve } from "@/lib/whats-new-stream-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -363,7 +364,7 @@ export default async function WhatsNewPage() {
     });
 
   const now = new Date();
-  const deltas: WhatsNewDelta[] = [
+  const candidateDeltas: RawWhatsNewDelta[] = [
     ...motionDeltas,
     ...storyDeltas,
     ...data.statements.map((statement) => {
@@ -420,9 +421,11 @@ export default async function WhatsNewPage() {
         breakdown: null,
       };
     }),
-  ]
-    .sort((a, b) => Date.parse(b.timestamp || "") - Date.parse(a.timestamp || ""))
-    .slice(0, 60)
+  ];
+  // Reserve a small share of the existing 60 cards for canonical Story events.
+  // Otherwise high-volume Motion leads can hide a recent CPI Story entirely
+  // before users can select the Story filter or read its evidence caveat.
+  const deltas: WhatsNewDelta[] = selectRecentWithStoryReserve(candidateDeltas, 60, 8)
     .map((delta) => ({
       // Story events retain their own headline geography. The parent Story's
       // global thesis does not silently become a region or authority label.
