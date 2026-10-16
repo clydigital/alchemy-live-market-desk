@@ -285,7 +285,7 @@ function parseItem(value: unknown): MarketMotionEditionItem | null {
     storyId,
     storySlug,
     storyTitle,
-    ...(text(item.promotionEvidenceRef) ? { promotionEvidenceRef: text(item.promotionEvidenceRef) } : {}),
+    ...(typeof item.promotionEvidenceRef === "string" && item.promotionEvidenceRef.trim() ? { promotionEvidenceRef: item.promotionEvidenceRef.trim() } : {}),
     regimeSlug,
     regimeLabel: text(item.regimeLabel),
   };
