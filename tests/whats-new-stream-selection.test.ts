@@ -6,7 +6,7 @@ const at = (hour: number) => new Date(Date.UTC(2026, 9, 15, 0, hour, 0)).toISOSt
 
 test("recent immutable CPI Story event survives high-volume recent Motion leads", () => {
   const motions = Array.from({ length: 100 }, (_, i) => ({
-    id: "motion-" + i, stream: "Motion", timestamp: at(15) + "-" + i,
+    id: "motion-" + i, stream: "Motion", timestamp: new Date(Date.UTC(2026, 9, 16, 0, 0, i)).toISOString(),
   }));
   // All Story records are older than many Motions. Oldest historical CPI still
   // sits within the eight most recent Stories, so it must remain reachable.
