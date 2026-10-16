@@ -11,6 +11,7 @@ import {
   type CanonicalStoryReasoningV1,
 } from "./story-reasoning.ts";
 import type { EditionDiagnostics, EditionStory, MarketTape } from "./edition.ts";
+import { composeMarketNewsEditorial, type MarketNewsEditorialV1 } from "./market-news-editorial.ts";
 
 export const JOURNEY_BRIEFING_V1 = "journey-briefing/v1" as const;
 
@@ -78,6 +79,8 @@ export type JourneyBriefingV1 = {
   tape: MarketTape["assets"];
   bigStories: JourneyBigStory[];
   leadStoryId: string | null;
+  /** Optional additive exact Motion/Story reading packets, not editorial approval. */
+  marketNews?: MarketNewsEditorialV1;
   chronology: JourneyChronologyItem[];
   horizon: { today: JourneyChronologyItem[]; tonight: JourneyChronologyItem[]; later: JourneyChronologyItem[] };
   closingMemory: {
@@ -329,6 +332,7 @@ export function composeJourneyBriefing({
     tape: marketTape.assets.map((asset) => ({ ...asset })),
     bigStories,
     leadStoryId: lead?.storyId || null,
+    marketNews: composeMarketNewsEditorial({ stories: bigStories, motions: marketMotion }),
     chronology,
     horizon: temporal.horizon,
     closingMemory: {
