@@ -92,7 +92,10 @@ export function composeMarketNewsEditorial(input: {
     const lead = [...matches].sort((a,b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt) || a.id.localeCompare(b.id))[0];
     const paragraphs: MarketNewsParagraph[] = [];
     add(paragraphs, "development", lead.whatHappened);
-    add(paragraphs, "story_context", story.whatChanged);
+    // A routed Motion has NOT necessarily caused a Story thesis change.
+    // "Where things stand" provides context without attributing the
+    // Story's most recent material revision to this Motion.
+    add(paragraphs, "story_context", story.whereThingsStand);
     add(paragraphs, "mechanism", mechanism(story));
     add(paragraphs, "interpretation", story.marketInterpretation || story.alchemyInterpretation);
     add(paragraphs, "countercase", story.contradiction?.strongest);
@@ -105,8 +108,8 @@ export function composeMarketNewsEditorial(input: {
       storyId: story.storyId,
       storySnapshotId: story.publicationSnapshotId,
       thesisVersionId: story.thesisVersionId,
-      motionIds: matches.map((m) => m.id),
-      motionEvidenceRefs: [...new Set(matches.map((m) => text(m.promotionEvidenceRef)).filter(Boolean))],
+      motionIds: [lead.id],
+      motionEvidenceRefs: [text(lead.promotionEvidenceRef)],
       storyEvidenceRefs: [...story.evidenceRefs],
       regimeSlug: lead.regimeSlug || null,
       regimeRelation: "ROUTED_CONTEXT_ONLY",
