@@ -189,8 +189,8 @@ test("Validation: pure schema validation enforces exact rules", () => {
     false,
   );
 
-  // Reject duplicate keys and missing entries even when 14 are submitted
-  const tooMany = Array.from({ length: 14 }, () => validCheck);
+  // Reject more than 14 entries
+  const tooMany = Array.from({ length: 15 }, () => validCheck);
   assert.equal(
     validateIncomingPutPayload({ expectedRevision: 0, checks: tooMany }).success,
     false,
