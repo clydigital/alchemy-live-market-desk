@@ -31,7 +31,7 @@ export type PresenterChecklistPayload = {
   updatedAt: string;
 };
 
-export const CONTRACT_VERSION = "technical-checks/2";
+export const CONTRACT_VERSION = "technical-checks/3";
 
 export type MonitorSpec = {
   key: string;
@@ -45,6 +45,7 @@ export const MONITOR_SPECS: readonly MonitorSpec[] = [
   { key: "jxy", title: "JXY · Yen strength / weakness", group: "Core" },
   { key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core" },
   { key: "spx-log-channel-rollover", title: "SPX RISING LOG CHANNEL IDEA + ROLLOVER IDEA", group: "Core" },
+  { key: "smh-qqq", title: "SMH / QQQ · Relative leadership and EMA band", group: "Core" },
   { key: "us10y-real", title: "US10Y real yield · Duration pressure", group: "Additional" },
   { key: "hy-credit", title: "US high-yield credit spreads · Stress", group: "Additional" },
   { key: "vix", title: "VIX · Volatility regime", group: "Additional" },
@@ -178,7 +179,7 @@ export function validateIncomingPutPayload(body: unknown): ValidationResult {
   }
 
   if (payload.checks.length !== MONITOR_SPECS.length) {
-    return { success: false, error: "Every save must include all 13 presenter monitors." };
+    return { success: false, error: "Every save must include all 14 presenter monitors." };
   }
 
   const seenKeys = new Set<string>();
