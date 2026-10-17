@@ -213,6 +213,7 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "hang-seng",
   "gold",
   "wti",
+  "brent",
   "distillate",
   "crack-distillate",
   "hy-oas",
