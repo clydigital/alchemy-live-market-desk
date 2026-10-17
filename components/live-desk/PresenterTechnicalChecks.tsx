@@ -26,7 +26,7 @@ const SPECS: Array<Pick<Check, "key" | "title" | "group" | "technical" | "lastBr
   { key: "vix", title: "VIX · Volatility regime", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "equity-breadth", title: "SPX / NDX · Trend and market breadth", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "gold", title: "Gold · Yield and dollar sensitivity", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
-  { key: "oil", title: "Oil · Inflation and supply risk", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
+  { key: "oil", title: "Oil · Inflation and supply risk", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "move-vix", title: "MOVE–VIX · Rates-to-equity volatility transmission", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "copper-gold", title: "Copper/Gold · Cyclical growth impulse", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
 ];
