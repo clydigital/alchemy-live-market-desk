@@ -219,6 +219,8 @@ const DOSSIER_MARKET_MONITOR_CORE_IDS = [
   "hy-oas",
   "ig-oas",
 ] as const;
+// Do not truncate required core sensors when the core list grows.
+const DOSSIER_MARKET_MONITOR_LIMIT = DOSSIER_MARKET_MONITOR_CORE_IDS.length;
 
 function selectMarketMonitorRows(rows: MarketMonitorLike["rows"]) {
   const eligible = rows
@@ -254,12 +256,12 @@ function selectMarketMonitorRows(rows: MarketMonitorLike["rows"]) {
     });
 
   for (const row of remainder) {
-    if (selected.length >= 28) break;
+    if (selected.length >= DOSSIER_MARKET_MONITOR_LIMIT) break;
     selected.push(row);
     selectedIds.add(row.id);
   }
 
-  return selected.slice(0, 28);
+  return selected.slice(0, DOSSIER_MARKET_MONITOR_LIMIT);
 }
 
 type MarketMonitorLike = {
