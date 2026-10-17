@@ -23,10 +23,10 @@ test("account-sync technical checks stay presenter-owned and never rewrite local
   assert.doesNotMatch(component, /\.from\(["'](?:stories|story_thesis_versions|dossiers|evidence)["']\)/);
   assert.match(component, /"unassessed" \| "aligned" \| "diverging" \| "mixed"/);
 });
-test("five core checks preserve stable identities and source-linked agreement", () => {
+test("oil joins the core checks without changing existing keys or history", () => {
   assert.deepEqual(
     specs.filter((spec) => spec.group === "Core").map((spec) => spec.key),
-    ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover"],
+    ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "oil"],
   );
   assert.deepEqual(specsByKey.get("us02y-30y"), {
     key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core",
@@ -54,7 +54,7 @@ test("additional monitors add cross-asset information without duplicating existi
   assert.deepEqual(specsByKey.get("copper-gold"), {
     key: "copper-gold", title: "Copper/Gold · Cyclical growth impulse", group: "Additional",
   });
-  assert.equal(specs.filter((spec) => spec.group === "Additional").length, 8);
+  assert.equal(specs.filter((spec) => spec.group === "Additional").length, 7);
   assert.equal(new Set(specs.map((spec) => spec.key)).size, specs.length);
   assert.equal(new Set(specs.map((spec) => spec.title)).size, specs.length);
   assert.match(component, /const coreCount = SPECS\.filter\(\(check\) => check\.group === "Core"\)\.length/);
