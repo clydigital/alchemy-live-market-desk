@@ -72,3 +72,17 @@ test("review action is explicitly separate from saving", () => {
   assert.match(component, /navigator\.clipboard\.writeText/);
   assert.match(component, /apply any changes here manually/i);
 });
+
+test("Brent becomes a mandatory Dossier monitor without truncating core credit sensors", () => {
+  const canonical = readFileSync(new URL("../lib/dossier-v2/canonical-snapshot.ts", import.meta.url), "utf8");
+  const core = canonical.match(/const DOSSIER_MARKET_MONITOR_CORE_IDS = \[([\s\S]*?)\] as const;/);
+  assert.ok(core, "Mandatory Dossier market monitors exist");
+  for (const id of ["smh", "ndx", "wti", "brent", "distillate", "crack-distillate", "hy-oas", "ig-oas"]) {
+    assert.ok(core[1].includes('"' + id + '"'), "Core monitor omitted: " + id);
+  }
+  assert.match(canonical, /DOSSIER_MARKET_MONITOR_LIMIT = DOSSIER_MARKET_MONITOR_CORE_IDS\.length/);
+  assert.match(canonical, /selected\.slice\(0, DOSSIER_MARKET_MONITOR_LIMIT\)/);
+  assert.deepEqual(specsByKey.get("oil"), {
+    key: "oil", title: "Oil · Inflation and supply risk", group: "Core",
+  });
+});
