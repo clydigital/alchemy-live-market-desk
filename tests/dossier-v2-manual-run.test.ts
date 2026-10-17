@@ -332,7 +332,7 @@ test("Rates C6a acquires official 5Y real-yield and breakeven FRED series", () =
   assert.match(source, /id:\s*"us5y-breakeven",\s*seriesId:\s*"T5YIE"/);
 });
 
-test("Task 9 market monitor admission preserves the cross-asset macro spine before the 28-row cap", () => {
+test("Task 9 market monitor admission preserves the cross-asset macro spine within the required core-monitor budget", () => {
   const base = buildCandidateSnapshotFromCanonicalEvidence([], {
     asOf: AS_OF,
     lookbackHours: 168,
@@ -353,6 +353,7 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
     ["hang-seng", "EWH", "Hong Kong Equities", "Major Index"],
     ["gold", "GLD", "Gold proxy", "Metal"],
     ["wti", "CL=F", "WTI", "Energy"],
+    ["brent", "BZ=F", "Brent", "Energy"],
     ["distillate", "HO=F", "ULSD / heating oil", "Energy"],
     ["crack-distillate", "distillate", "Distillate crack", "Energy"],
     ["hy-oas", "BAMLH0A0HYM2", "US High Yield OAS", "Credit / Risk"],
@@ -409,7 +410,7 @@ test("Task 9 market monitor admission preserves the cross-asset macro spine befo
   );
 
   const ids = new Set(result.snapshot.observed_evidence?.map((item) => item.evidence_id));
-  assert.equal(result.snapshot.observed_evidence?.length, 28);
+  assert.equal(result.snapshot.observed_evidence?.length, 29);
   for (const [id] of core) {
     assert.ok(ids.has(`market-monitor:${id}:2026-09-19`), `missing macro monitor row ${id}`);
   }
