@@ -1,6 +1,6 @@
 .section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding: 16px;
   border: 1px solid rgba(181,151,255,.14);
   border-radius: 16px;
@@ -12,130 +12,191 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+  padding-top: 3px;
 }
 
 .kicker {
   display: block;
   margin-bottom: 5px;
-  color: #9e85c8;
-  font-size: 8px;
-  font-weight: 950;
-  letter-spacing: .09em;
+  color: #ae92d9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
 }
 
 .header h3 {
   margin: 0;
   color: #f1edf8;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .header p {
-  max-width: 760px;
-  margin: 6px 0 0;
-  color: #8f899d;
-  font-size: 10px;
+  max-width: 750px;
+  margin: 7px 0 0;
+  color: #a69caf;
+  font-size: 11px;
   line-height: 1.5;
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .allLink {
-  flex: 0 0 auto;
-  color: #c4a2f3;
-  font-size: 10px;
-  font-weight: 900;
+  color: #ceaff5;
+  font-size: 11px;
+  font-weight: 800;
   text-decoration: none;
+  margin-right: 5px;
 }
 
-.grid {
+.navigation button {
+  width: 31px;
+  height: 31px;
+  color: #f1eafa;
+  background: rgba(181,151,255,.08);
+  border: 1px solid rgba(181,151,255,.25);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.navigation button:hover { background: rgba(181,151,255,.18); }
+.navigation button:focus-visible,
+.rail:focus-visible,
+.card:focus-visible,
+.storyCard:focus-visible {
+  outline: 2px solid #cfb1ff;
+  outline-offset: 3px;
+}
+
+.rail {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  gap: 12px;
+  padding: 3px 2px 13px;
+  scrollbar-width: thin;
+  scrollbar-color: #6d5c86 transparent;
+}
+
+.card,
+.storyCard {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
-}
-
-.card {
+  align-content: start;
+  flex: 0 0 clamp(250px, 29vw, 365px);
   min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(181,151,255,.14);
+  padding: 15px;
+  border: 1px solid rgba(181,151,255,.18);
   border-radius: 12px;
-  background: rgba(255,255,255,.014);
+  background: rgba(255,255,255,.024);
   color: inherit;
   text-decoration: none;
+  scroll-snap-align: start;
 }
 
-.card[data-state="active"] { border-top-color: rgba(112,211,158,.4); }
-.card[data-state="unresolved"] { border-top-color: rgba(255,187,66,.42); }
-.card[data-state="gap"] { border-top-color: rgba(255,111,145,.38); }
+.card[data-state="active"] { border-top: 2px solid rgba(112,211,158,.62); }
+.card[data-state="unresolved"] { border-top: 2px solid rgba(255,187,66,.62); }
+.card[data-state="gap"] { border-top: 2px solid rgba(255,111,145,.56); }
 
-.card:hover {
-  border-color: rgba(181,151,255,.34);
-  background: rgba(181,151,255,.03);
+.card:hover,
+.storyCard:hover {
+  border-color: rgba(181,151,255,.45);
+  background: rgba(181,151,255,.05);
 }
 
-.cardTop {
+.cardTop,
+.storyTop {
   display: grid;
-  gap: 5px;
-}
-
-.cardTop span {
-  color: #f0ebf7;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.cardTop b {
-  color: #9c96aa;
-  font-size: 9px;
-  font-weight: 850;
-}
-
-.card > p {
-  min-height: 44px;
-  margin: 9px 0;
-  color: #aaa4b6;
-  font-size: 9px;
-  line-height: 1.5;
-}
-
-.meta {
-  display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+}
+.cardTop span { color: #f0ebf7; font-size: 14px; font-weight: 850; }
+.cardTop b { color: #b8b0c2; font-size: 10px; font-weight: 750; line-height: 1.45; }
+
+.card > p,
+.storyCard > p {
+  margin: 12px 0;
+  color: #b6afc1;
+  font-size: 11px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+.meta { display: flex; gap: 6px; flex-wrap: wrap; }
 .meta span {
-  padding: 3px 6px;
-  border: 1px solid rgba(181,151,255,.12);
+  padding: 4px 7px;
+  border: 1px solid rgba(181,151,255,.16);
   border-radius: 999px;
-  color: #8f899d;
-  font-size: 8px;
-  font-weight: 850;
+  color: #a39aae;
+  font-size: 9px;
+  font-weight: 750;
 }
 
 .latest {
   display: grid;
-  gap: 3px;
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(181,151,255,.09);
+  gap: 5px;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(181,151,255,.14);
 }
 
 .latest small {
-  color: #6f697c;
-  font-size: 8px;
-  font-weight: 900;
+  color: #aaa0b6;
+  font-size: 9px;
+  font-weight: 850;
   text-transform: uppercase;
 }
 
 .latest strong {
-  color: #c9c3d5;
-  font-size: 9px;
-  line-height: 1.4;
+  color: #e1d7ec;
+  font-size: 11px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-@media (max-width: 1100px) {
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.storyCard { border-top: 2px solid rgba(181,151,255,.46); }
+.storyTop { display: flex; justify-content: space-between; gap: 9px; }
+.storyTop span { color: #baa7d3; font-size: 9px; font-weight: 850; line-height: 1.5; }
+.storyTop span:last-child { text-align: right; }
+.storyCard h4 {
+  margin: 10px 0 0;
+  color: #f0ebf7;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
-@media (max-width: 680px) {
-  .header { display: grid; }
-  .grid { grid-template-columns: 1fr; }
+.spotlight {
+  padding: 15px 17px;
+  border: 1px solid rgba(255,188,97,.38);
+  border-left: 3px solid rgba(255,188,97,.75);
+  border-radius: 10px;
+  background: rgba(255,188,97,.045);
+}
+.spotlightTop { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 9px; color: #ffcf93; font-size: 9px; font-weight: 900; letter-spacing: .035em; }
+.spotlight h3 { margin: 9px 0 6px; color: #f7f2fb; font-size: 16px; line-height: 1.4; }
+.spotlight p { color: #c5bccd; margin: 7px 0; font-size: 11px; line-height: 1.5; }
+.spotlightLinks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
+.spotlightLinks a { font-size: 10px; color: #e0c4fa; font-weight: 800; text-decoration: none; }
+.spotlightLinks a:hover, .allLink:hover { text-decoration: underline; }
+.empty { color: #a39aae; font-size: 11px; margin: 4px; }
+
+@media (max-width: 760px) {
+  .header { display: grid; gap: 9px; }
+  .navigation { justify-content: flex-start; }
+  .card, .storyCard { flex-basis: min(83vw, 340px); }
+  .section { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail { scroll-behavior: auto; }
 }

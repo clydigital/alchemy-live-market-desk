@@ -291,6 +291,17 @@ export default async function Page({ searchParams }: PageProps) {
       regimeHref: regime ? `/regimes/${regime.slug}` : null,
     };
   });
+  // Presentation-only spotlight: a recent, source-verified PRIMARY Motion is visible,
+  // but does not change the canonical Story/Regime or imply a Dossier ACCEPT verdict.
+  const spotlightMotion = marketMotion.find((item) => {
+    const eventAt = Date.parse(item.occurredAt);
+    return item.attentionTier === "PRIMARY"
+      && item.verificationState === "VERIFIED"
+      && Number.isFinite(eventAt)
+      && eventAt <= Date.now()
+      && Date.now() - eventAt <= 48 * 60 * 60 * 1000;
+  }) || null;
+
   const upcomingReleases = weeklyHighImpactReleases(data.macroReleases, calendar);
   const immediateRelease = upcomingReleases[0] || null;
   const scheduleHealth = getFourSlotResearchHealth(data.researchRuns);
@@ -477,13 +488,34 @@ export default async function Page({ searchParams }: PageProps) {
             </div>
           ) : <p>No current Dossier interpretation is inferred from prices or research leads.</p>}
         </Panel>
+        <MarketRegimeStrip
+          regimes={regimes}
+          stories={stories.map((story) => ({
+            id: story.id,
+            slug: story.slug,
+            title: story.title,
+            thesis: story.thesis,
+            status: story.status,
+            priority: story.scorecard.priority,
+            nextTest: story.breakdown.nextTest?.label || story.breakdown.invalidation[0] || null,
+          }))}
+          spotlight={spotlightMotion ? {
+            id: spotlightMotion.id,
+            headline: spotlightMotion.headline,
+            occurredAt: spotlightMotion.occurredAt,
+            sourceName: spotlightMotion.sourceName,
+            sourceUrl: spotlightMotion.sourceUrl,
+            storyHref: spotlightMotion.storyHref,
+            regimeHref: spotlightMotion.regimeHref,
+            nextTest: spotlightMotion.nextTest,
+          } : null}
+        />
         <MarketBriefReader projection={marketBriefArticles} />
         {dossierSelection.presentation ? (
           <NarrativeSpine dossier={dossierSelection.presentation} regimes={regimes} surface="live" />
         ) : null}
         <RateRegimeOverview selection={dossierSelection} />
         <MarketMotionOverview items={marketMotion} />
-        <MarketRegimeStrip regimes={regimes} />
         {reasoningInvestigation ? (
           <Panel
             title="Expected vs actual"
