@@ -290,7 +290,14 @@ function applyAnalyticalGapPolicy(
 }
 
 
-// Optional cross-asset context must not recur as an outstanding evidence gap.\n// Preserve any distinct missing issuer-specific credit or supplier procurement evidence.\nfunction isOptionalCrossAssetGap(value: string): boolean {\n  const subject = value.toLowerCase();\n  return /\\bmove\\b|treasury.volatility|\\bhy\\s*\\/\\s*\\big\\b|\\bhy\\s*\\/\\s*ig\\b|credit spreads, breadth and move/i.test(subject);\n}\n\nfunction normalizedGapSubject(value: string): string {
+// Optional cross-asset context must not recur as an outstanding evidence gap.
+// Preserve distinct issuer-specific financing and supplier procurement questions.
+function isOptionalCrossAssetGap(value: string): boolean {
+  const subject = value.toLowerCase();
+  return /\bmove\b|treasury.volatility|\bhy\s*\/\s*ig\b|credit spreads, breadth and move/i.test(subject);
+}
+
+function normalizedGapSubject(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
