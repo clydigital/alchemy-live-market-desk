@@ -39,13 +39,13 @@ const TSMC_REVENUE = {
   issuer: "TSM", fiscalQuarter: "2026Q3", reportDate: "2026-10-15",
   sourceUrl: "https://pr.tsmc.com/english/news/3346",
   metric: "net_revenue", value: 46.72,
-};
+} as const;
 const TSMC_MARGIN = { ...TSMC_REVENUE, metric: "operating_margin_pct", value: 58.7 };
 const COREWEAVE_CFO = {
   issuer: "CRWV", fiscalQuarter: "2026Q2", reportDate: "2026-08-11",
   sourceUrl: "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx",
   metric: "operating_cash_flow", value: 0.679,
-};
+} as const;
 const COREWEAVE_PP_AND_E = { ...COREWEAVE_CFO, metric: "cash_ppe", value: 6.422 };
 
 test("TSMC and CoreWeave original-source issuer metrics are whitelisted with exact units and safe scope", () => {
