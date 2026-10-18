@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- RLS user A: valid allowlisted account, insert a complete 14-key checklist.
+-- RLS user A: valid allowlisted account, insert a complete 13-key checklist.
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
@@ -10,7 +10,7 @@ INSERT INTO public.presenter_technical_checklists
   (user_id,contract_version,checks,history,revision)
 VALUES (
   '11111111-1111-4111-8111-111111111111',
-  'technical-checks/3',
+  'technical-checks/2',
   (SELECT jsonb_agg(jsonb_build_object(
     'key',key,
     'title', key,
@@ -25,7 +25,7 @@ VALUES (
     'updatedAt','2099-01-01T00:00:00Z'
   ) ORDER BY ord)
    FROM unnest(ARRAY[
-     'dxy-4h','dxy-1d','jxy','us02y-30y','spx-log-channel-rollover','smh-qqq','smh-qqq',
+     'dxy-4h','dxy-1d','jxy','us02y-30y','spx-log-channel-rollover',
      'us10y-real','hy-credit','vix','equity-breadth','gold','oil','move-vix','copper-gold'
    ]) WITH ORDINALITY AS t(key,ord)),
   '[]'::jsonb, 1
@@ -104,7 +104,7 @@ BEGIN
   END IF;
   SELECT checks INTO payload FROM public.presenter_technical_checklists LIMIT 1;
   -- A nonallowlisted user sees no rows; attempt to clone the schema-valid
-  -- owner A payload from an explicitly constructed 14-key data set instead.
+  -- owner A payload from an explicitly constructed 13-key data set instead.
   SELECT jsonb_agg(jsonb_build_object(
     'key',key,'title',key,'group','Core','technical','Not checked',
     'lastBreak','Not checked','observedOn','','fundamentals','',
