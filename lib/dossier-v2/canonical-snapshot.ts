@@ -1,4 +1,5 @@
 import { deriveMarketCrackObservations } from "./market-crack-observations.ts";
+import { fetchBeaSnapshot, type BeaSnapshot } from "../providers/bea.ts";
 import { deriveMatchedNominalCurveChange } from "./treasury-nominal-movement.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -2212,6 +2213,58 @@ export function augmentCandidateSnapshotWithDollarPlumbing(
   };
 }
 
+/**
+ * BEA is an official quarterly macro cross-check, not intraday policy pricing.
+ * Only observations retrieved by the snapshot as-of are admitted. Retrieval
+ * time is not an asserted historical publication timestamp or canonical UUID.
+ */
+export function augmentCandidateSnapshotWithBea(
+  result: CanonicalSnapshotResult,
+  bea: BeaSnapshot,
+  options: LoadCanonicalSnapshotOptions,
+): CanonicalSnapshotResult {
+  const status = bea.state === "ready" ? "OK" : "OPTIONAL_UNAVAILABLE";
+  const sources_status = {
+    ...(result.snapshot.sources_status ?? {}),
+    bea_nipa: {
+      status,
+      message: bea.state === "ready"
+        ? "Official quarterly BEA observations available as dated macro context; source release timestamps not supplied."
+        : (bea.note ?? "BEA quarterly macro context unavailable."),
+    },
+  };
+  // Only allow a near-real-time response fetched during this same run.
+  // Historical dossier reruns must not gain future data.
+  const ageMs = bea.retrievedAt ? Date.parse(bea.retrievedAt) - Date.parse(options.asOf) : Number.POSITIVE_INFINITY;
+  if (bea.state !== "ready" || !bea.retrievedAt || !Number.isFinite(ageMs) || ageMs < 0 || ageMs > 5 * 60_000) {
+    return { ...result, snapshot: { ...result.snapshot, sources_status } };
+  }
+  const latestByMetric = new Map<string, (typeof bea.observations)[number]>();
+  for (const item of bea.observations) {
+    const current = latestByMetric.get(item.metric);
+    if (!current || item.period > current.period) latestByMetric.set(item.metric, item);
+  }
+  const observed = [...(result.snapshot.observed_evidence ?? [])];
+  for (const item of latestByMetric.values()) {
+    observed.push({
+      evidence_id: `bea-nipa:${item.seriesId}:${item.period}`,
+      canonical_record_backed: false,
+      epistemic_label: "OBSERVED",
+      claim_or_fact: `BEA ${item.label}: ${item.value} ${item.unit ?? "reported units"} for ${item.period}; retrieved ${bea.retrievedAt.slice(0, 10)}. Source publication date was not supplied; this observation cannot establish an earlier intraday market reaction.`,
+      category: "Macro",
+      source_type: "OFFICIAL_DATA",
+      // Record the snapshot boundary separately from the actual retrieval timestamp.\n      available_at: options.asOf,
+      metrics: { series_id: item.seriesId, period: item.period, value: item.value, unit: item.unit, frequency: item.frequency, release_timestamp_verified: false, retrieved_at: bea.retrievedAt },
+      provenance: [{ source_type: "OFFICIAL_DATA", source_id: `bea-nipa:${item.seriesId}:${item.period}`, publisher: bea.sourceName, url: bea.sourceUrl }],
+    });
+  }
+  return {
+    ...result,
+    snapshot: { ...result.snapshot, observed_evidence: observed, sources_status },
+    diagnostics: { ...result.diagnostics, observed_count: observed.length },
+  };
+}
+
 export async function loadCanonicalCandidateSnapshot(
   client: SupabaseClient,
   options: LoadCanonicalSnapshotOptions,
@@ -2292,6 +2345,7 @@ export async function loadCanonicalCandidateSnapshot(
     japanMofFlowsResult,
     bundesbankBundResult,
     boeGiltResult,
+    beaResult,
   ] = await Promise.allSettled([
     import("../market-monitor.ts").then(({ getMarketMonitor }) => getMarketMonitor()),
     fetchEiaWeeklyPetroleumSnapshot(),
@@ -2312,6 +2366,7 @@ export async function loadCanonicalCandidateSnapshot(
     fetchJapanMofWeeklyFlows(),
     fetchBundesbankBund10(new Date(asOfMs)),
     fetchBoeGilt10(new Date(asOfMs)),
+    fetchBeaSnapshot(process.env.BEA_API_KEY, { now: new Date(asOfMs) }),
   ]);
 
   if (marketMonitorResult.status === "fulfilled") {
@@ -2435,6 +2490,15 @@ export async function loadCanonicalCandidateSnapshot(
         status: "OPTIONAL_UNAVAILABLE",
         message: `Optional Trading Economics enrichment failed closed: ${tradingEconomicsResult.reason instanceof Error ? tradingEconomicsResult.reason.message : String(tradingEconomicsResult.reason)}`,
       },
+    };
+  }
+
+  if (beaResult.status === "fulfilled") {
+    result = augmentCandidateSnapshotWithBea(result, beaResult.value, options);
+  } else {
+    result.snapshot.sources_status = {
+      ...(result.snapshot.sources_status ?? {}),
+      bea_nipa: { status: "OPTIONAL_UNAVAILABLE", message: "BEA enrichment failed closed." },
     };
   }
 
