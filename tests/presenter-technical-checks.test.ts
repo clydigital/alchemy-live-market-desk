@@ -26,7 +26,7 @@ test("account-sync technical checks stay presenter-owned and never rewrite local
 test("oil joins the core checks without changing existing keys or history", () => {
   assert.deepEqual(
     specs.filter((spec) => spec.group === "Core").map((spec) => spec.key),
-    ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "oil"],
+    ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "smh-qqq", "oil"],
   );
   assert.deepEqual(specsByKey.get("us02y-30y"), {
     key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core",
@@ -82,6 +82,7 @@ test("Brent becomes a mandatory Dossier monitor without truncating core credit s
   }
   assert.match(canonical, /DOSSIER_MARKET_MONITOR_LIMIT = DOSSIER_MARKET_MONITOR_CORE_IDS\.length/);
   assert.match(canonical, /selected\.slice\(0, DOSSIER_MARKET_MONITOR_LIMIT\)/);
+  assert.deepEqual(specsByKey.get("smh-qqq"), {key: "smh-qqq", title: "SMH / QQQ · Relative leadership and EMA band", group: "Core"});
   assert.deepEqual(specsByKey.get("oil"), {
     key: "oil", title: "Oil · Inflation and supply risk", group: "Core",
   });
