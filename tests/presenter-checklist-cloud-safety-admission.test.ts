@@ -18,17 +18,17 @@ function request(checks: unknown[], history: unknown[] = []): unknown {
   return { expectedRevision: 0, checks, history };
 }
 
-test("Cloud PUT requires the complete unique set of all 13 presenter monitors", async t => {
+test("Cloud PUT requires the complete unique set of all 14 presenter monitors", async t => {
   const m = await schema(t); if (!m) return;
   const full = m.createDefaultPresenterChecklist().checks;
-  assert.equal(full.length, 13);
+  assert.equal(full.length, 14);
   const valid = m.validateIncomingPutPayload(request(full));
-  assert.equal(valid.success, true, "Complete default 13-key payload is accepted");
+  assert.equal(valid.success, true, "Complete default 14-key payload is accepted");
   assert.equal(m.validateIncomingPutPayload(request([])).success, false,
     "Empty array would silently erase every existing reading");
-  assert.equal(m.validateIncomingPutPayload(request(full.slice(0, 12))).success, false,
+  assert.equal(m.validateIncomingPutPayload(request(full.slice(0, 13))).success, false,
     "Missing a monitor would silently erase that reading");
-  const duplicate = [...full.slice(0, 12), full[0]];
+  const duplicate = [...full.slice(0, 13), full[0]];
   assert.equal(m.validateIncomingPutPayload(request(duplicate)).success, false,
     "Duplicate known key is not a complete distinct monitor set");
 });
@@ -77,7 +77,7 @@ test("Database write privileges must not bypass all JSON safety bounds", async t
   const directAuthenticatedWrite = /grant\s+[\s\S]*?(?:insert[\s\S]*?update|update[\s\S]*?insert)[\s\S]*?to\s+authenticated/i.test(sql);
   if (directAuthenticatedWrite) {
     assert.match(sql, /(?:check\s*\(|create\s+(?:constraint|trigger))[\s\S]*?jsonb_array_length\s*\(\s*checks\s*\)/i,
-      "If Data API grants direct writes, database must enforce 13-item manifest bounds beyond the Next.js route");
+      "If Data API grants direct writes, database must enforce 14-item manifest bounds beyond the Next.js route");
     assert.match(sql, /(?:octet_length|pg_column_size|length)\s*\(/i,
       "If Data API grants direct writes, bound persisted JSON size independent of the route");
   }

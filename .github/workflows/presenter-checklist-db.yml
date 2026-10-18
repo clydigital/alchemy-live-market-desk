@@ -6,13 +6,17 @@ on:
       - "app/api/presenter/technical-checks/**"
       - "lib/presenter-technical-checks.ts"
       - "supabase/migrations/20261010000000_presenter_technical_checklists.sql"
+      - "supabase/migrations/20261018073000_presenter_smh_check_v3.sql"
       - "supabase/tests/presenter_checklist_e1_*.sql"
+      - "supabase/tests/presenter_checklist_v3_*.sql"
       - ".github/workflows/presenter-checklist-db.yml"
   push:
     branches: [main]
     paths:
       - "supabase/migrations/20261010000000_presenter_technical_checklists.sql"
+      - "supabase/migrations/20261018073000_presenter_smh_check_v3.sql"
       - "supabase/tests/presenter_checklist_e1_*.sql"
+      - "supabase/tests/presenter_checklist_v3_*.sql"
       - ".github/workflows/presenter-checklist-db.yml"
   workflow_dispatch:
 
@@ -47,7 +51,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Bootstrap isolated Supabase auth fixture
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/presenter_checklist_e1_fixture.sql
-      - name: Apply reviewed presenter migration to disposable CI PostgreSQL
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010000000_presenter_technical_checklists.sql
-      - name: Verify RLS, CAS, JSON integrity and server timestamp authority
-        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/presenter_checklist_e1_runtime.sql
+      - name: Verify v2 baseline and atomically upgrade a saved presenter checklist
+        run: |
+          psql -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261010000000_presenter_technical_checklists.sql \
+            -f supabase/tests/presenter_checklist_e1_runtime.sql \
+            -f supabase/tests/presenter_checklist_v3_before.sql \
+            -f supabase/migrations/20261018073000_presenter_smh_check_v3.sql \
+            -f supabase/tests/presenter_checklist_v3_after.sql
