@@ -50,7 +50,7 @@ export const MONITOR_SPECS: readonly MonitorSpec[] = [
   { key: "vix", title: "VIX · Volatility regime", group: "Additional" },
   { key: "equity-breadth", title: "SPX / NDX · Trend and market breadth", group: "Additional" },
   { key: "gold", title: "Gold · Yield and dollar sensitivity", group: "Additional" },
-  { key: "oil", title: "Oil · Inflation and supply risk", group: "Additional" },
+  { key: "oil", title: "Oil · Inflation and supply risk", group: "Core" },
   { key: "move-vix", title: "MOVE–VIX · Rates-to-equity volatility transmission", group: "Additional" },
   { key: "copper-gold", title: "Copper/Gold · Cyclical growth impulse", group: "Additional" },
 ];

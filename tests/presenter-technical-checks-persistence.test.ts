@@ -114,7 +114,7 @@ test("Validation: 13 known monitor keys and spec default payload", () => {
   assert.deepEqual(defaultPayload.history, []);
 
   const coreKeys = MONITOR_SPECS.filter((s) => s.group === "Core").map((s) => s.key);
-  assert.deepEqual(coreKeys, ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover"]);
+  assert.deepEqual(coreKeys, ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "oil"]);
 });
 
 test("Validation: pure schema validation enforces exact rules", () => {
