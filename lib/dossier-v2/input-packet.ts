@@ -448,6 +448,40 @@ function isProtectedHistoricalOfficialTreasuryObservation(
   return ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"].includes(id)
     && raw.evidence_id === "market-monitor:" + id + ":" + providerDate;
 }
+
+// A bounded, non-causal credit-context exemption from the 24-hour news window.
+// These are persisted intelligence_evidence market measurements, not recreated
+// measurements, issuer credit observations or proof of a Story transition.
+const CREDIT_OAS_CONTEXT_SOURCES = [
+  { family: "hy", series: "hy_oas_20s", url: "https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
+  { family: "ig", series: "ig_oas_20s", url: "https://fred.stlouisfed.org/series/BAMLC0A0CM" },
+] as const;
+const MAX_CREDIT_OAS_CONTEXT_AGE_MS = 5 * 86_400_000;
+
+function protectedCreditOasFamily(value: unknown, asOfMs: number): "hy" | "ig" | null {
+  if (!isPlainObject(value) || value.canonical_record_backed !== true
+      || value.source_type !== "MARKET_DATA") return null;
+  const id = typeof value.evidence_id === "string" ? value.evidence_id : "";
+  const observed = typeof value.occurrence_time === "string"
+    ? Date.parse(value.occurrence_time) : Number.NaN;
+  const available = typeof value.available_at === "string"
+    ? Date.parse(value.available_at) : Number.NaN;
+  if (!Number.isFinite(observed) || !Number.isFinite(available)
+      || observed > asOfMs || available > asOfMs
+      || asOfMs - observed > MAX_CREDIT_OAS_CONTEXT_AGE_MS) return null;
+  for (const spec of CREDIT_OAS_CONTEXT_SOURCES) {
+    const match = new RegExp(
+      "^market-crack:" + spec.series + ":(20[0-9]{2}-[0-9]{2}-[0-9]{2}):(20[0-9]{2}-[0-9]{2}-[0-9]{2})$"
+    ).exec(id);
+    if (!match || value.occurrence_time?.slice(0, 10) !== match[2]) continue;
+    const validSource = Array.isArray(value.provenance) && value.provenance.some(
+      (p) => isPlainObject(p) && p.url === spec.url && typeof p.source_id === "string" && p.source_id.length > 0
+    );
+    if (validSource) return spec.family;
+  }
+  return null;
+}
+
 function isMarketMonitorCluster(cluster: DevelopmentCluster) {
   return cluster.grouping_key.startsWith("market-monitor:");
 }
@@ -1144,6 +1178,7 @@ export function assembleDossierV2InputPacket(
     ev: ObservedEvidence & { grouping_key: string; conflict_key?: string; supersedes_id?: string };
   }> = [];
   const historicalRateContextEvidence: Array<ObservedEvidence & { grouping_key: string }> = [];
+  const historicalCreditOasEvidence: Array<ObservedEvidence & { grouping_key: string }> = [];
 
   for (const raw of candidateEvidence) {
     if (!isPlainObject(raw)) continue;
@@ -1160,7 +1195,9 @@ export function assembleDossierV2InputPacket(
       && (isHistoricalRateContextCandidate(raw)
         || isProtectedHistoricalFredRateObservation(raw, availMs, asOfMs)
         || isProtectedHistoricalOfficialTreasuryObservation(raw, availMs, asOfMs));
-    if (availMs < windowStartMs && !historicalRateContext) {
+    const historicalCreditOasContext = availMs < windowStartMs
+      && protectedCreditOasFamily(raw, asOfMs) !== null;
+    if (availMs < windowStartMs && !historicalRateContext && !historicalCreditOasContext) {
       omittedEvidenceCount++;
       continue;
     }
@@ -1206,6 +1243,10 @@ export function assembleDossierV2InputPacket(
 
     if (historicalRateContext) {
       historicalRateContextEvidence.push(normalizedEvidence);
+      continue;
+    }
+    if (historicalCreditOasContext) {
+      historicalCreditOasEvidence.push(normalizedEvidence);
       continue;
     }
 
@@ -1280,6 +1321,23 @@ export function assembleDossierV2InputPacket(
       || right.available_at.localeCompare(left.available_at)
       || left.evidence_id.localeCompare(right.evidence_id))
     .slice(0, 3);
+
+  // Reserve the most recent, exact source-verified HY/IG observations, even
+  // across weekends; never recast an old date as new nor count ICE variants
+  // as independent causal proof. At most two diagnostic rows are carried.
+  const creditCandidates = [...activeAdmittedEvidence, ...historicalCreditOasEvidence];
+  const protectedCreditOasEvidence = CREDIT_OAS_CONTEXT_SOURCES.flatMap((source) => {
+    const candidates = creditCandidates.filter((item) =>
+      protectedCreditOasFamily(item, asOfMs) === source.family);
+    candidates.sort((a, b) =>
+      (b.occurrence_time ?? "").localeCompare(a.occurrence_time ?? "")
+      || b.available_at.localeCompare(a.available_at));
+    return candidates[0] ? [{
+      ...candidates[0],
+      rank: Math.min(candidates[0].rank ?? 999, 7),
+      metrics: { ...(candidates[0].metrics ?? {}), interpretation_authority: "diagnostic_only" },
+    }] : [];
+  });
 
   const rateCandidates = [
     ...activeAdmittedEvidence.filter((item) => isRateContextEvidence(item)),
@@ -1617,6 +1675,16 @@ export function assembleDossierV2InputPacket(
       return rest;
     }),
   );
+
+  // These persisted FRED/ICE measurements are context, not extra causal
+  // confirmations. Dedupe by original external evidence ID below.
+  observedEvidence.push(...protectedCreditOasEvidence.map((item) => {
+    const { grouping_key: _groupingKey, conflict_key: _conflictKey, supersedes_id: _supersedesId, ...rest } = item;
+    return rest;
+  }));
+  if (protectedCreditOasEvidence.length) {
+    notes.push("Dated, original-source HY/IG OAS measurements retained as diagnostic credit context; issuer-specific or MOVE causation is not established.");
+  }
 
   observedEvidence = Array.from(new Map(observedEvidence.map((e) => [e.evidence_id, e])).values()).sort((a, b) => {
     const rankA = a.rank ?? 999;
