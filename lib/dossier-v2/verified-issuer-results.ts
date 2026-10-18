@@ -4,13 +4,38 @@ import { createSupabaseAdminClient } from "../supabase/admin.ts";
 
 /** Operator-attested metrics from the actual issuer release, not market commentary. */
 const ISSUERS = {
-  GS: { name: "Goldman Sachs", hosts: ["goldmansachs.com"] },
-  C: { name: "Citigroup", hosts: ["citigroup.com"] },
+  GS: {
+    name: "Goldman Sachs", hosts: ["goldmansachs.com"], geography: "US",
+    topics: ["bank-earnings"], metrics: ["diluted_eps", "net_revenue"],
+  },
+  C: {
+    name: "Citigroup", hosts: ["citigroup.com"], geography: "US",
+    topics: ["bank-earnings"], metrics: ["diluted_eps", "net_revenue"],
+  },
+  TSM: {
+    name: "Taiwan Semiconductor Manufacturing Company", hosts: ["tsmc.com"], geography: "TW",
+    topics: ["us-china-ai", "ai-supplier-earnings"], metrics: ["net_revenue", "operating_margin_pct"],
+  },
+  CRWV: {
+    name: "CoreWeave", hosts: ["coreweave.com", "sec.gov"], geography: "US",
+    topics: ["us-china-ai", "ai-capex-cash-conversion"],
+    metrics: ["operating_cash_flow", "cash_ppe"],
+  },
 } as const;
 const METRICS = {
   diluted_eps: "USD_per_share",
   net_revenue: "USD_billion",
+  operating_margin_pct: "percent",
+  operating_cash_flow: "USD_billion",
+  cash_ppe: "USD_billion",
 } as const;
+const METRIC_LABELS: Record<keyof typeof METRICS, string> = {
+  diluted_eps: "diluted earnings per share",
+  net_revenue: "net revenue",
+  operating_margin_pct: "operating margin",
+  operating_cash_flow: "net cash provided by (used in) operating activities",
+  cash_ppe: "cash purchases of property and equipment, including capitalised internal-use software",
+};
 const MAX_RESULTS = 6;
 const MAX_BODY_BYTES = 24_000;
 const METHOD = "verified-issuer-result-v1";
@@ -34,9 +59,15 @@ type Dependencies = {
 function validIssuerHost(issuer: VerifiedIssuerResult["issuer"], raw: string): boolean {
   try {
     const url = new URL(raw);
-    return url.protocol === "https:" && ISSUERS[issuer].hosts.some(
+    if (url.protocol !== "https:") return false;
+    const hostAllowed = ISSUERS[issuer].hosts.some(
       (host) => url.hostname === host || url.hostname.endsWith(`.${host}`),
     );
+    // A generic SEC URL is not evidence that it describes this issuer.
+    if (issuer === "CRWV" && (url.hostname === "sec.gov" || url.hostname.endsWith(".sec.gov"))) {
+      return hostAllowed && /^\/Archives\/edgar\/data\/1769628\//.test(url.pathname);
+    }
+    return hostAllowed;
   } catch { return false; }
 }
 
@@ -50,19 +81,29 @@ export function validateIssuerResult(raw: unknown, now = new Date()): VerifiedIs
   const sourceUrl = item.sourceUrl;
   const value = item.value;
   if (typeof issuer !== "string" || !(issuer in ISSUERS)) throw new Error("Issuer is not on the approved primary-source list.");
-  if (typeof metric !== "string" || !(metric in METRICS)) throw new Error("Unsupported issuer metric.");
+  if (typeof metric !== "string" || !(metric in METRICS)
+      || !Array.from(ISSUERS[issuer as keyof typeof ISSUERS].metrics as readonly string[]).includes(metric)) {
+    throw new Error("Unsupported issuer metric for this issuer.");
+  }
   if (typeof fiscalQuarter !== "string" || !/^20\d{2}Q[1-4]$/.test(fiscalQuarter)) throw new Error("Quarter must use YYYYQn.");
   if (typeof reportDate !== "string" || !/^20\d{2}-\d{2}-\d{2}$/.test(reportDate)) throw new Error("Report date must use YYYY-MM-DD.");
   const at = Date.parse(`${reportDate}T00:00:00Z`);
+  // The most recent published quarterly cash-flow observation may be older than
+  // 30 days. Admit its original historical period, not a fictitious new quarter.
+  const maxAgeDays = issuer === "TSM" || issuer === "CRWV" ? 120 : 30;
   if (!Number.isFinite(at) || new Date(at).toISOString().slice(0, 10) !== reportDate
-      || at > now.getTime() || now.getTime() - at > 30 * 86_400_000) {
+      || at > now.getTime() || now.getTime() - at > maxAgeDays * 86_400_000) {
     throw new Error("Report date must be a valid, recent, non-future calendar date.");
   }
   if (typeof sourceUrl !== "string" || !validIssuerHost(issuer as VerifiedIssuerResult["issuer"], sourceUrl)) {
     throw new Error("Issuer results require a matching, HTTPS issuer-owned release URL.");
   }
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value >= 100_000) {
-    throw new Error("Issuer result must contain a finite positive reported value.");
+  const signedMetric = metric === "operating_cash_flow" || metric === "operating_margin_pct";
+  const numericValid = typeof value === "number" && Number.isFinite(value)
+    && (signedMetric ? Math.abs(value) < 100_000 : value > 0 && value < 100_000)
+    && (metric !== "operating_margin_pct" || (value >= -100 && value <= 100));
+  if (!numericValid) {
+    throw new Error("Issuer result must contain a finite positive reported value, except signed CFO or operating margin.");
   }
   return {
     issuer: issuer as VerifiedIssuerResult["issuer"],
@@ -120,7 +161,7 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
   if (sourceError || !sourceRow?.id) throw new Error(`Issuer source write failed: ${sourceError?.message || "no source ID"}`);
 
   const evidenceId = identity.evidenceId;
-  const metricName = item.metric === "diluted_eps" ? "diluted earnings per share" : "net revenues";
+  const metricName = METRIC_LABELS[item.metric];
   const claim = `${sourceName} reported ${item.fiscalQuarter} ${metricName} of ${item.value} ${METRICS[item.metric]} in its issuer release dated ${item.reportDate}.`;
   const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
   const memory = await persistSensorMemory({
@@ -174,15 +215,16 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
       event_at: null,
       published_at: availableAt,
       available_at: availableAt,
-      geography: "US",
+      geography: ISSUERS[item.issuer].geography,
       affected_assets: [item.issuer],
-      affected_topics: ["bank-earnings"],
+      affected_topics: [...ISSUERS[item.issuer].topics],
       measurement_unit: METRICS[item.metric],
       observed_value: item.value,
       expected_value: null,
       previous_value: null,
       confidence: 95,
-      freshness_status: "current",
+      freshness_status: Date.parse(availableAt) - Date.parse(item.reportDate + "T00:00:00Z") > 30 * 86_400_000
+        ? "aging" : "current",
       content_hash: hash,
       provenance_urls: [item.sourceUrl],
       structured_payload: {
@@ -190,8 +232,19 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
         fiscalQuarter: item.fiscalQuarter,
         reportDate: item.reportDate,
         sourcePublishTime: "DAY_ONLY",
+        admissionTime: availableAt,
+        periodKind: "ISSUER_QUARTERLY_RESULT",
+        // The old Q2 filing is primary evidence but not a new October filing.
+        reportedReleaseAgeDays: Math.floor(
+          (Date.parse(availableAt) - Date.parse(item.reportDate + "T00:00:00Z")) / 86_400_000,
+        ),
         issuer: item.issuer,
         metric: item.metric,
+        scopeCaveat: item.metric === "cash_ppe"
+          ? "CASH_PP&E_ONLY; NOT_AI_ONLY; EXCLUDES_NONCASH_LEASE_ADDITIONS"
+          : item.metric === "operating_cash_flow"
+          ? "CONSOLIDATED_CFO; NOT_AI_ONLY"
+          : item.issuer === "TSM" ? "TIFRS_CONSOLIDATED_RESULTS" : "ISSUER_QUARTERLY_RELEASE",
       },
       raw_payload: {},
       normalizer_version: METHOD,
