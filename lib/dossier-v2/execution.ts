@@ -271,7 +271,16 @@ function applyAnalyticalGapPolicy(
   const validRefs = validCanonicalBlockerRefs(normalized);
   const topLevelGaps: ResearchGap[] = [];
 
-  for (const gap of normalized.research_gaps) {
+  for (const originalGap of normalized.research_gaps) {
+    const gap = cloneJson(originalGap);
+    // Keep the unobserved CPI repricing window explicit, without treating
+    // optional Treasury volatility as necessary proof of that market reaction.
+    if (gap.gap_id === "gap:intraday-and-move" && /MOVE\/Treasury volatility series/i.test(gap.description)) {
+      gap.gap_id = "gap:intraday-policy-and-yields";
+      gap.description = gap.description
+        .replace(/\s+and MOVE\/Treasury volatility series/i, "")
+        .replace(/persistence and transmission conclusions/i, "precise intraday repricing and persistence conclusions");
+    }
     const blockingRefs = Array.isArray(gap.blocking_refs) ? gap.blocking_refs : [];
     const hasValidCanonicalRef = blockingRefs.some((ref) => validRefs.has(ref));
     const admitted = gap.severity === "MATERIAL"
