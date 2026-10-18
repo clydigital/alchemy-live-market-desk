@@ -21,6 +21,7 @@ const SPECS: Array<Pick<Check, "key" | "title" | "group" | "technical" | "lastBr
   { key: "jxy", title: "JXY · Yen strength / weakness", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "us02y-30y", title: "US02Y–US30Y · Yield spread · GOLD IDEA", group: "Core", technical: "Recovering", lastBreak: "Not applicable" },
   { key: "spx-log-channel-rollover", title: "SPX RISING LOG CHANNEL IDEA + ROLLOVER IDEA", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
+  { key: "smh-qqq", title: "SMH / QQQ · Relative leadership and EMA band", group: "Core", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "us10y-real", title: "US10Y real yield · Duration pressure", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "hy-credit", title: "US high-yield credit spreads · Stress", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
   { key: "vix", title: "VIX · Volatility regime", group: "Additional", technical: "Not checked", lastBreak: "Not applicable" },
@@ -120,7 +121,7 @@ function hasLocalObservations(value: Stored): boolean {
 }
 
 function normaliseCloud(value: CloudResponse): Stored | null {
-  if (value.contractVersion !== "technical-checks/2" || !Number.isInteger(value.revision)
+  if (value.contractVersion !== "technical-checks/3" || !Number.isInteger(value.revision)
     || !Array.isArray(value.checks) || value.checks.length !== SPECS.length) return null;
   const source = new Map(value.checks.filter((c): c is Check => !!c && typeof c.key === "string").map(c => [c.key, c]));
   if (source.size !== SPECS.length) return null;

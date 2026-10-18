@@ -103,18 +103,18 @@ test("Route Contract: API route configuration and security headers", () => {
   assert.match(route, /validateIncomingPutPayload/);
 });
 
-test("Validation: 13 known monitor keys and spec default payload", () => {
-  assert.equal(MONITOR_SPECS.length, 13);
-  assert.equal(KNOWN_KEYS.size, 13);
+test("Validation: 14 known monitor keys and spec default payload", () => {
+  assert.equal(MONITOR_SPECS.length, 14);
+  assert.equal(KNOWN_KEYS.size, 14);
 
   const defaultPayload = createDefaultPresenterChecklist();
   assert.equal(defaultPayload.contractVersion, CONTRACT_VERSION);
-  assert.equal(defaultPayload.checks.length, 13);
+  assert.equal(defaultPayload.checks.length, 14);
   assert.equal(defaultPayload.revision, 0);
   assert.deepEqual(defaultPayload.history, []);
 
   const coreKeys = MONITOR_SPECS.filter((s) => s.group === "Core").map((s) => s.key);
-  assert.deepEqual(coreKeys, ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "oil"]);
+  assert.deepEqual(coreKeys, ["dxy-4h", "dxy-1d", "jxy", "us02y-30y", "spx-log-channel-rollover", "smh-qqq", "oil"]);
 });
 
 test("Validation: pure schema validation enforces exact rules", () => {
@@ -141,7 +141,7 @@ test("Validation: pure schema validation enforces exact rules", () => {
   assert.equal(res.success, true);
   if (res.success) {
     assert.equal(res.expectedRevision, 1);
-    assert.equal(res.checks.length, 13);
+    assert.equal(res.checks.length, 14);
     assert.equal(res.checks[0].title, "DXY · 4H EMA20 ± 1σ band");
     assert.equal(res.checks[0].group, "Core");
   }
@@ -189,8 +189,8 @@ test("Validation: pure schema validation enforces exact rules", () => {
     false,
   );
 
-  // Reject >13 items
-  const tooMany = Array.from({ length: 14 }, () => validCheck);
+  // Reject more than 14 entries
+  const tooMany = Array.from({ length: 15 }, () => validCheck);
   assert.equal(
     validateIncomingPutPayload({ expectedRevision: 0, checks: tooMany }).success,
     false,
