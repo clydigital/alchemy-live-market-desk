@@ -88,8 +88,11 @@ export function validateIssuerResult(raw: unknown, now = new Date()): VerifiedIs
   if (typeof fiscalQuarter !== "string" || !/^20\d{2}Q[1-4]$/.test(fiscalQuarter)) throw new Error("Quarter must use YYYYQn.");
   if (typeof reportDate !== "string" || !/^20\d{2}-\d{2}-\d{2}$/.test(reportDate)) throw new Error("Report date must use YYYY-MM-DD.");
   const at = Date.parse(`${reportDate}T00:00:00Z`);
+  // The most recent published quarterly cash-flow observation may be older than
+  // 30 days. Admit its original historical period, not a fictitious new quarter.
+  const maxAgeDays = issuer === "TSM" || issuer === "CRWV" ? 120 : 30;
   if (!Number.isFinite(at) || new Date(at).toISOString().slice(0, 10) !== reportDate
-      || at > now.getTime() || now.getTime() - at > 30 * 86_400_000) {
+      || at > now.getTime() || now.getTime() - at > maxAgeDays * 86_400_000) {
     throw new Error("Report date must be a valid, recent, non-future calendar date.");
   }
   if (typeof sourceUrl !== "string" || !validIssuerHost(issuer as VerifiedIssuerResult["issuer"], sourceUrl)) {
@@ -220,7 +223,8 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
       expected_value: null,
       previous_value: null,
       confidence: 95,
-      freshness_status: "current",
+      freshness_status: Date.parse(availableAt) - Date.parse(item.reportDate + "T00:00:00Z") > 30 * 86_400_000
+        ? "aging" : "current",
       content_hash: hash,
       provenance_urls: [item.sourceUrl],
       structured_payload: {
@@ -228,6 +232,12 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
         fiscalQuarter: item.fiscalQuarter,
         reportDate: item.reportDate,
         sourcePublishTime: "DAY_ONLY",
+        admissionTime: availableAt,
+        periodKind: "ISSUER_QUARTERLY_RESULT",
+        // The old Q2 filing is primary evidence but not a new October filing.
+        reportedReleaseAgeDays: Math.floor(
+          (Date.parse(availableAt) - Date.parse(item.reportDate + "T00:00:00Z")) / 86_400_000,
+        ),
         issuer: item.issuer,
         metric: item.metric,
         scopeCaveat: item.metric === "cash_ppe"
