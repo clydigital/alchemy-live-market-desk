@@ -473,7 +473,7 @@ function protectedCreditOasFamily(value: unknown, asOfMs: number): "hy" | "ig" |
     const match = new RegExp(
       "^market-crack:" + spec.series + ":(20[0-9]{2}-[0-9]{2}-[0-9]{2}):(20[0-9]{2}-[0-9]{2}-[0-9]{2})$"
     ).exec(id);
-    if (!match || value.occurrence_time?.slice(0, 10) !== match[2]) continue;
+    if (!match || (typeof value.occurrence_time === "string" ? value.occurrence_time.slice(0, 10) : "") !== match[2]) continue;
     const validSource = Array.isArray(value.provenance) && value.provenance.some(
       (p) => isPlainObject(p) && p.url === spec.url && typeof p.source_id === "string" && p.source_id.length > 0
     );
