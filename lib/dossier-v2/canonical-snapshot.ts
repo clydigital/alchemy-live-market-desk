@@ -2233,7 +2233,10 @@ export function augmentCandidateSnapshotWithBea(
         : (bea.note ?? "BEA quarterly macro context unavailable."),
     },
   };
-  if (bea.state !== "ready" || !bea.retrievedAt || Date.parse(bea.retrievedAt) > Date.parse(options.asOf)) {
+  // Only allow a near-real-time response fetched during this same run.
+  // Historical dossier reruns must not gain future data.
+  const ageMs = bea.retrievedAt ? Date.parse(bea.retrievedAt) - Date.parse(options.asOf) : Number.POSITIVE_INFINITY;
+  if (bea.state !== "ready" || !bea.retrievedAt || !Number.isFinite(ageMs) || ageMs < 0 || ageMs > 5 * 60_000) {
     return { ...result, snapshot: { ...result.snapshot, sources_status } };
   }
   const latestByMetric = new Map<string, (typeof bea.observations)[number]>();
@@ -2250,8 +2253,8 @@ export function augmentCandidateSnapshotWithBea(
       claim_or_fact: `BEA ${item.label}: ${item.value} ${item.unit ?? "reported units"} for ${item.period}; retrieved ${bea.retrievedAt.slice(0, 10)}. Source publication date was not supplied; this observation cannot establish an earlier intraday market reaction.`,
       category: "Macro",
       source_type: "OFFICIAL_DATA",
-      available_at: bea.retrievedAt,
-      metrics: { series_id: item.seriesId, period: item.period, value: item.value, unit: item.unit, frequency: item.frequency, release_timestamp_verified: false },
+      // Record the snapshot boundary separately from the actual retrieval timestamp.\n      available_at: options.asOf,
+      metrics: { series_id: item.seriesId, period: item.period, value: item.value, unit: item.unit, frequency: item.frequency, release_timestamp_verified: false, retrieved_at: bea.retrievedAt },
       provenance: [{ source_type: "OFFICIAL_DATA", source_id: `bea-nipa:${item.seriesId}:${item.period}`, publisher: bea.sourceName, url: bea.sourceUrl }],
     });
   }
