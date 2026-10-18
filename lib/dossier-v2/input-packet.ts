@@ -1679,7 +1679,7 @@ export function assembleDossierV2InputPacket(
   // These persisted FRED/ICE measurements are context, not extra causal
   // confirmations. Dedupe by original external evidence ID below.
   observedEvidence.push(...protectedCreditOasEvidence.map((item) => {
-    const { grouping_key: _groupingKey, conflict_key: _conflictKey, supersedes_id: _supersedesId, ...rest } = item;
+    const { grouping_key: _groupingKey, ...rest } = item;
     return rest;
   }));
   if (protectedCreditOasEvidence.length) {
