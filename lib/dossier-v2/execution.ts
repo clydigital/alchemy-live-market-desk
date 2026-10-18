@@ -185,11 +185,11 @@ function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1): v
       ...durationInvestigation.missing_evidence,
       "Bund, gilt and JGB long-end confirmation for any global-duration label",
       "gold versus real-yield and USD cross-check",
-      "HY/IG credit spreads, breadth and MOVE/VIX confirmation of whether higher yields are spreading",
+      "Market breadth and dated issuer-specific funding evidence where broader financing stress is claimed",
     ].filter((item, index, items) => items.indexOf(item) === index);
     durationInvestigation.research_next = appendResearchDetail(
       durationInvestigation.research_next,
-      "Confirm global duration with Bund, gilt and JGB long ends; cross-check gold versus real yields and USD; compare HY/IG, breadth and MOVE/VIX",
+      "Confirm global duration with Bund, gilt and JGB long ends; cross-check gold versus real yields and USD; review available credit and breadth as context",
     );
   }
 
@@ -290,7 +290,7 @@ function applyAnalyticalGapPolicy(
 }
 
 
-function normalizedGapSubject(value: string): string {
+// Optional cross-asset context must not recur as an outstanding evidence gap.\n// Preserve any distinct missing issuer-specific credit or supplier procurement evidence.\nfunction isOptionalCrossAssetGap(value: string): boolean {\n  const subject = value.toLowerCase();\n  return /\\bmove\\b|treasury.volatility|\\bhy\\s*\\/\\s*\\big\\b|\\bhy\\s*\\/\\s*ig\\b|credit spreads, breadth and move/i.test(subject);\n}\n\nfunction normalizedGapSubject(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
