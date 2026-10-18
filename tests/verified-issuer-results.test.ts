@@ -35,6 +35,64 @@ test("issuer releases require exact company HTTPS ownership and bounded numeric 
   assert.throws(() => validateIssuerResult({...GOLDMAN,reportDate:"2026-01-13"},NOW), /recent, non-future/);
 });
 
+const TSMC_REVENUE = {
+  issuer: "TSM", fiscalQuarter: "2026Q3", reportDate: "2026-10-15",
+  sourceUrl: "https://pr.tsmc.com/english/news/3346",
+  metric: "net_revenue", value: 46.72,
+};
+const TSMC_MARGIN = { ...TSMC_REVENUE, metric: "operating_margin_pct", value: 58.7 };
+const COREWEAVE_CFO = {
+  issuer: "CRWV", fiscalQuarter: "2026Q2", reportDate: "2026-08-11",
+  sourceUrl: "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx",
+  metric: "operating_cash_flow", value: 0.679,
+};
+const COREWEAVE_PP_AND_E = { ...COREWEAVE_CFO, metric: "cash_ppe", value: 6.422 };
+
+test("TSMC and CoreWeave original-source issuer metrics are whitelisted with exact units and safe scope", () => {
+  const at = new Date("2026-10-18T00:00:00Z");
+  assert.equal(validateIssuerResult(TSMC_REVENUE, at).value, 46.72);
+  assert.equal(validateIssuerResult(TSMC_MARGIN, at).value, 58.7);
+  assert.equal(validateIssuerResult(COREWEAVE_CFO, at).value, 0.679);
+  assert.equal(validateIssuerResult(COREWEAVE_PP_AND_E, at).value, 6.422);
+
+  // The original investor page must be issuer-owned or the *matching* SEC CIK.
+  assert.throws(() => validateIssuerResult({
+    ...COREWEAVE_CFO, sourceUrl: "https://www.sec.gov/Archives/edgar/data/9999999/other.htm",
+  }, at), /matching/);
+  assert.equal(validateIssuerResult({
+    ...COREWEAVE_CFO,
+    sourceUrl: "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000366/crwv-20260630.htm",
+  }, at).issuer, "CRWV");
+  assert.throws(() => validateIssuerResult({...COREWEAVE_CFO, metric: "operating_margin_pct"}, at), /Unsupported issuer metric/);
+  assert.throws(() => validateIssuerResult({...TSMC_REVENUE, metric: "cash_ppe"}, at), /Unsupported issuer metric/);
+  assert.throws(() => validateIssuerResult({...TSMC_MARGIN, value: 123}, at), /finite positive/);
+  assert.throws(() => validateIssuerResult({...COREWEAVE_PP_AND_E, value: -6.422}, at), /finite positive/);
+  assert.equal(validateIssuerResult({...COREWEAVE_CFO, value: -0.679}, at).value, -0.679);
+  assert.throws(() => validateIssuerResult({
+    ...TSMC_REVENUE, sourceUrl: "https://pr.tsmc.com.attacker.test/english/news/3346"
+  }, at), /matching/);
+});
+
+test("AI issuer metrics enter the same guarded canonical results path, never Story writes", async () => {
+  const now = new Date("2026-10-18T00:00:00Z");
+  const saved: Array<{ issuer: string; metric: string; at: string }> = [];
+  const result = await handleVerifiedIssuerResults(request([
+    TSMC_REVENUE, TSMC_MARGIN, COREWEAVE_CFO, COREWEAVE_PP_AND_E,
+  ]), {
+    authorize: async () => ({authorized:true as const,actor:"github-actions",githubRunId:"p0",workflowSha:"test"}),
+    now: () => now,
+    persist: async (item, at) => {
+      saved.push({issuer:item.issuer,metric:item.metric,at});
+      return {evidenceId:"canonical-uuid-"+item.issuer+"-"+item.metric,observationId:"original-observation"};
+    },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(saved.length, 4);
+  assert.deepEqual(saved.map(x=>x.metric), ["net_revenue","operating_margin_pct","operating_cash_flow","cash_ppe"]);
+  assert.ok(saved.every(item=>item.at===now.toISOString()));
+  assert.notEqual(issuerResultIdentity(TSMC_REVENUE).evidenceId,issuerResultIdentity(COREWEAVE_CFO).evidenceId);
+});
+
 function request(results: unknown) {
   return new Request("https://example.org/api/admin/dossier-v2/verified-issuer-results",{
     method:"POST",headers:{"content-type":"application/json"},
