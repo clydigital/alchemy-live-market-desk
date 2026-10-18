@@ -887,7 +887,8 @@ test("Task 8 mapper completes the bounded rates-led research agenda without publ
     .join(" ");
   assert.match(watchNext, /Bund.*gilt.*JGB/i);
   assert.match(watchNext, /gold.*real.?yield.*USD/i);
-  assert.match(watchNext, /HY.*IG.*MOVE.*VIX/i);
+  assert.match(watchNext, /Market breadth and dated issuer-specific funding evidence/i);
+  assert.doesNotMatch(watchNext, /HY.*IG.*MOVE.*VIX/i);
   assert.match(watchNext, /crude curve.*cracks/i);
   assert.match(watchNext, /verified Trump.*Xi/i);
   assert.equal(persistedOutput.research_now.length, 3);
