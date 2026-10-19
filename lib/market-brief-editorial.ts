@@ -88,8 +88,9 @@ export function buildEditorialBrief(
       && !PROCESS_CLAIM.test((row.claimText || "").trim())
     );
 
-    const original = article.sourceLinks.filter(link => Boolean(sourceUrl(link.url)));
-    const urls = new Map(original.map(link => [sourceUrl(link.url)!, link]));
+    // Rebuild citations from exact admitted evidence. The legacy projector used
+    // fuzzy URL overlap, which cannot establish claim-to-source ownership.
+    const urls = new Map<string, MarketBriefSourceLinkV1>();
     // Only link actual original evidence source URLs, never parent/provider homepage.
     for (const row of records) {
       for (const value of [row.sourceUrl, ...row.provenanceUrls]) {
