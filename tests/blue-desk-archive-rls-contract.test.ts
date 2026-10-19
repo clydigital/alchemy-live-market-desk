@@ -19,7 +19,7 @@ test("raw archive is denied to anonymous clients and remains RLS-enforced", () =
 });
 
 test("both application archive readers are server-only before RLS hardening", () => {
-  assert.match(publication, /table === "hybrid_publication_snapshots" \? serverKey : key/);
-  assert.match(feed, /table === "hybrid_publication_snapshots" \? serviceKey : key/);
+  assert.match(publication, /\["hybrid_publication_snapshots", "story_events", "story_thesis_versions"\]\.includes\(table\) \? serverKey : key/);
+  assert.match(feed, /\["hybrid_publication_snapshots", "story_events", "story_thesis_versions"\]\.includes\(table\) \? serviceKey : key/);
   assert.match(publication, /getHybridExactDailyBriefEdition\(editionId: string\)/);
 });
