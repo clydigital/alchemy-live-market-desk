@@ -58,6 +58,19 @@ export async function getHybridPresenterEditionCandidates(options: PublicationQu
   );
 }
 
+/**
+ * Live Overview renders articles from only the newest published daily brief.
+ * Keep the 24-edition candidate reader untouched for Presenter and exact replay.
+ */
+export async function getLiveDeskHomepageDailyBrief(options: PublicationQueryOptions = {}) {
+  const rows = await optionalQuery<PublicationSnapshot>(
+    "hybrid_publication_snapshots",
+    "select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&order=published_at.desc,id.desc&limit=1",
+    options,
+  );
+  return rows[0] || null;
+}
+
 /** Daily briefs are the canonical edition archive, never the mixed 480-row operational window. */
 async function getDailyBriefArchive(options: PublicationQueryOptions = {}) {
   const archive: PublicationSnapshot[] = [];
