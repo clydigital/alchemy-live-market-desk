@@ -7,10 +7,10 @@ const feed = readFileSync(new URL("../lib/intelligence/publication-feed-data.ts"
 
 test("immutable raw publication archive is read with a server-only credential", () => {
   assert.match(publication, /const serverKey = process\.env\.SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(publication, /table === "hybrid_publication_snapshots" \? serverKey : key/);
+  assert.match(publication, /\["hybrid_publication_snapshots", "story_events", "story_thesis_versions"\]\.includes\(table\) \? serverKey : key/);
   assert.match(publication, /if \(!url \|\| !credential\) return \[\]/);
   assert.match(publication, /Authorization: `Bearer \$\{credential\}`/);
-  assert.match(feed, /table === "hybrid_publication_snapshots" \? serviceKey : key/);
+  assert.match(feed, /\["hybrid_publication_snapshots", "story_events", "story_thesis_versions"\]\.includes\(table\) \? serviceKey : key/);
   assert.match(feed, /if \(!url \|\| !credential\) return \[\]/);
   assert.match(feed, /Authorization: `Bearer \$\{credential\}`/);
 });
