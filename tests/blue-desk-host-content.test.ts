@@ -52,7 +52,7 @@ test("Presentation rewrites are gated by the existing auth middleware", () => {
   const authGate = middleware.indexOf("getClaims()");
   const authorisedRewrite = middleware.lastIndexOf("const rewritten = presentationResponse(request)");
   assert.ok(authGate >= 0 && authorisedRewrite > authGate);
-  assert.match(middleware, /if \(!dashboardAuthRequired\(\)\) return presentationResponse\(request\)/);
+  assert.match(middleware, /accessScope === "public"/);
   assert.match(middleware, /return copyCookies\(supabaseResponse, rewritten\)/);
 });
 
