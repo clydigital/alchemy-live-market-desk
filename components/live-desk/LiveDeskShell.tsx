@@ -57,6 +57,7 @@ export default function LiveDeskShell({ activePath, eyebrow = "Alchemy Research 
             <span className={styles.status}>Source coverage varies by panel</span>
             <VideoResearchStatus />
             <DisplaySettings />
+            <Link className={styles.primaryButton} href="/bluebelly">Bluebelly preview →</Link>
             <Link className={styles.button} href="/hybrid-output">Hybrid handoff audit</Link>
             <a className={styles.primaryButton} href="https://alchemy-hybrid-market-desk.vercel.app/journey" target="_blank" rel="noreferrer">Presenter Journey ↗</a>
             <Suspense fallback={<span className={styles.button} aria-label="Presenter Prep navigation loading">Presenter Prep</span>}>
