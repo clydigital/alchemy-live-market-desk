@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import { headers } from "next/headers";
+import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
@@ -15,17 +17,18 @@ const NAV = [
 ] as const;
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
-export default function BlueDeskHeader({ activePath }: { activePath: string }) {
+export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
+  const host = (await headers()).get("host");
   return (
     <header className={styles.topbar}>
-      <Link href="/blue-desk" className={styles.brand} aria-label="Blue Desk — Live Market">
+      <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
         <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
       </Link>
       <nav className={styles.nav} aria-label="Blue Desk primary">
         {NAV.map(([title, href]) => (
           <Link
             key={href}
-            href={href}
+            href={blueDeskPublicHref(href, host)}
             aria-current={href === activePath ? "page" : undefined}
             className={href === activePath ? styles.navActive : styles.navItem}
           >

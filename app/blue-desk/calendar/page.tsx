@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
@@ -113,6 +115,7 @@ export default async function BlueDeskCalendarPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const host = (await headers()).get("host");
   const raw = params.window;
   const windowName: WindowName = raw === "24h" || raw === "30d" || raw === "released" ? raw : "7d";
   const now = new Date();
@@ -152,7 +155,7 @@ export default async function BlueDeskCalendarPage({
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
-              key={view.id} href={"/blue-desk/calendar?window=" + view.id}
+              key={view.id} href={blueDeskPublicHref("/blue-desk/calendar?window=" + view.id, host)}
               aria-current={windowName === view.id ? "page" : undefined}
               className={windowName === view.id ? styles.calendarTabActive : styles.calendarTab}
             >
