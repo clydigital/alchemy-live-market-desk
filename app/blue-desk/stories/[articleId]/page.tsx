@@ -7,6 +7,7 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
+import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
 import {
   projectMarketBriefArticles,
   readerFacingMarketText,
@@ -117,7 +118,7 @@ export default async function BlueDeskStoryPage({
                 <ul className={styles.deepFactList}>
                   {article.editorial.evidenceClaims.slice(0, 8).map(claim => (
                     <li key={claim.evidenceId}>
-                      <span>{claim.claimText}</span>
+                      <span title={claim.claimText}>{formatBlueDeskSourceObservation(claim.claimText)}</span>
                       <a href={claim.sourceUrl} target="_blank" rel="noreferrer">{claim.sourceName} · original report ↗</a>
                     </li>
                   ))}
