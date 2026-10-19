@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
@@ -39,6 +41,7 @@ function ellipsis(value: string, max = 175) {
 
 export default async function BlueDeskPage() {
   const now = new Date();
+  const host = (await headers()).get("host");
   const [editions, macro, earnings, monitor, motions] = await Promise.all([
     getHybridPresenterEditionCandidates().catch(() => []),
     getEconomicCalendar().catch(() => []),
@@ -53,6 +56,9 @@ export default async function BlueDeskPage() {
   const latest = editions[0] || null;
   const brief = projectMarketBriefArticles(latest);
   const feature = brief.articles[0] || null;
+  const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
+    "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
+  );
   const articles = brief.articles.slice(0, 6);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
     (row): row is NonNullable<typeof row> => Boolean(row),
@@ -86,7 +92,7 @@ export default async function BlueDeskPage() {
               {latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
-              <Link className={styles.primaryAction} href="/articles">Read story →</Link>
+              <Link className={styles.primaryAction} href={feature ? storyHref(feature) : "/articles"}>Read story →</Link>
               {latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> : null}
             </div>
           </div>
@@ -121,7 +127,7 @@ export default async function BlueDeskPage() {
                 <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
                 <div className={styles.storyBottom}>
                   <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
-                  <Link href="/articles">Read analysis →</Link>
+                  <Link href={storyHref(article)}>Read analysis →</Link>
                 </div>
               </article>
             )) : (
@@ -160,7 +166,7 @@ export default async function BlueDeskPage() {
               <div>
                 <h2 id="calendar-title">Coming up</h2>
               </div>
-              <Link className={styles.textLink} href="/blue-desk/calendar">Full calendar →</Link>
+              <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/calendar", host)}>Full calendar →</Link>
             </div>
             {upcoming.length ? upcoming.map(event => (
               <article key={event.id} className={styles.eventRow}>
