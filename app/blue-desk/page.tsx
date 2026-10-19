@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
@@ -44,7 +45,7 @@ function ellipsis(value: string, max = 175) {
   return value.slice(0, max).replace(/\s+\S*$/, "") + "…";
 }
 
-export default async function Blue DeskPage() {
+export default async function BlueDeskPage() {
   const now = new Date();
   const [editions, macro, earnings, monitor, motions] = await Promise.all([
     getHybridPresenterEditionCandidates().catch(() => []),
@@ -82,7 +83,8 @@ export default async function Blue DeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <header className={styles.topbar}>
         <Link href="/blue-desk" className={styles.brand} aria-label="Blue Desk — Live Market">
-          Blue Desk <span>Market Intelligence</span>
+          <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
+          <span>Market Intelligence</span>
         </Link>
         <nav className={styles.nav} aria-label="Blue Desk primary">
           {NAV.map(([title, href]) => (
