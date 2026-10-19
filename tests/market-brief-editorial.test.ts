@@ -168,3 +168,26 @@ test("source-ready Dossier analysis does not become an accepted hero Story witho
   const mixed = { ...accepted, interpretationStatus: "MIXED" as const };
   assert.equal(buildEditorialBrief(packageOf([mixed]), [evidence(id1)]).articles[0].editorial.storyEligible, true);
 });
+
+
+test("Dossier causal arrows require attributable source available by edition time", () => {
+  const article = { ...baseArticle("causal", "AI investment and financing", [id1]),
+    causalLinks: [{ from: "Compute demand", to: "Supplier revenue", relationship: "raises",
+      evidenceStatus: "inferred" as const, canonicalEvidenceIds: [id1] }],
+  };
+  const verified = buildEditorialBrief(packageOf([article]), [evidence(id1)]).articles[0];
+  assert.equal(verified.editorial.causalLinks.length, 1);
+  assert.equal(verified.editorial.causalLinks[0].evidenceStatus, "inferred",
+    "Source-backed data does not upgrade an inferred mechanism to confirmed causality");
+  assert.equal(verified.editorial.causalLinks[0].sourceUrl,
+    "https://investors.coreweave.com/news/news-details/2026/quarterly-results");
+  assert.equal(verified.editorial.storyEligible, false);
+  const stale = buildEditorialBrief(packageOf([article]), [evidence(id1, {
+    availableAt: "2026-10-21T10:00:00Z",
+  })]).articles[0];
+  assert.deepEqual(stale.editorial.causalLinks, []);
+  const contextual = buildEditorialBrief(packageOf([article]), [evidence(id1, {
+    evidenceClass: "news_report", sourceTier: 3,
+  })]).articles[0];
+  assert.deepEqual(contextual.editorial.causalLinks, []);
+});

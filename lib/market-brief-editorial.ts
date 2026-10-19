@@ -30,6 +30,16 @@ export type EditorialArticle = MarketBriefArticleV1 & {
       sourceUrl: string;
       availableAt: string | null;
     }>;
+    /** A Dossier relationship is displayed only with a contemporaneous direct original source. */
+    causalLinks: Array<{
+      from: string;
+      to: string;
+      relationship: string;
+      evidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+      sourceUrl: string;
+      sourceName: string;
+      evidenceIds: string[];
+    }>;
     gaps: string[];
   };
 };
@@ -76,7 +86,8 @@ function allowedAsOf(row: EditorialEvidenceRow, asOf: string) {
 }
 
 function relevantIds(article: MarketBriefArticleV1) {
-  return [...new Set(article.paragraphs.flatMap(p => p.canonicalEvidenceIds))]
+  return [...new Set([...article.paragraphs.flatMap(p => p.canonicalEvidenceIds),
+    ...(article.causalLinks || []).flatMap(edge => edge.canonicalEvidenceIds)])]
     .filter(id => UUID.test(id)).slice(0, 48);
 }
 
@@ -134,6 +145,22 @@ export function buildEditorialBrief(
         availableAt: row.availableAt,
       }];
     }).slice(0, 12);
+    // Evidence-linked causal arrows are sourced market interpretations, not
+    // independent causal proof. Source IDs must belong to this exact edition.
+    const sourcedClaims = new Map(evidenceClaims.map(claim => [claim.evidenceId.toLowerCase(), claim]));
+    const causalLinks = (article.causalLinks || []).flatMap(edge => {
+      const match = edge.canonicalEvidenceIds
+        .map(id => sourcedClaims.get(id.toLowerCase()))
+        .filter((claim): claim is (typeof evidenceClaims)[number] => Boolean(claim));
+      if (!match.length) return [];
+      return [{
+        from: edge.from, to: edge.to, relationship: edge.relationship,
+        evidenceStatus: edge.evidenceStatus,
+        sourceUrl: match[0].sourceUrl,
+        sourceName: match[0].sourceName,
+        evidenceIds: match.map(claim => claim.evidenceId),
+      }];
+    }).slice(0, 6);
     const processOnly = PROCESS_HEADLINE.test(article.title)
       || article.paragraphs.every(p => PROCESS_CLAIM.test(p.text.trim()));
     const gaps: string[] = [];
@@ -160,6 +187,7 @@ export function buildEditorialBrief(
         qualifiedEvidenceCount: evidenceClaims.length,
         directSourceCount: links.length,
         evidenceClaims,
+        causalLinks,
         gaps,
       },
     };

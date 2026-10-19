@@ -124,6 +124,27 @@ export default async function BlueDeskStoryPage({
                 </ul>
               </section>
             ) : null}
+            {article.editorial.causalLinks.length ? (
+              <section className={styles.deepSection}>
+                <h2>How the mechanism connects</h2>
+                <p className={styles.deepSourceContext}>These are the Dossier's existing evidence-linked causal steps. An original source may support an observation without proving the proposed causal direction.</p>
+                <ol className={styles.deepMechanismList}>
+                  {article.editorial.causalLinks.map((edge, index) => (
+                    <li key={index} className={styles.deepMechanismStep}>
+                      <div className={styles.deepMechanismNodes}>
+                        <span>{edge.from}</span>
+                        <span className={styles.deepMechanismRelation}>{edge.relationship} →</span>
+                        <span>{edge.to}</span>
+                      </div>
+                      <div className={styles.deepMechanismEvidence}>
+                        <span>Evidence state: {edge.evidenceStatus.replace(/_/g, " ")}</span>
+                        <a href={edge.sourceUrl} target="_blank" rel="noreferrer">{edge.sourceName} · original source ↗</a>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
             {blocks.map(block => (
               <section key={block.name} className={styles.deepSection}>
                 <h2>{article.interpretationStatus === "UNRESOLVED" && block.name === "How it works"

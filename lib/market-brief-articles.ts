@@ -21,6 +21,14 @@ export type MarketBriefSourceLinkV1 = {
   accessedAt?: string | null;
 };
 
+export type MarketBriefCausalLinkV1 = {
+  from: string;
+  to: string;
+  relationship: string;
+  evidenceStatus: "observed" | "strongly_supported" | "inferred" | "speculative";
+  canonicalEvidenceIds: string[];
+};
+
 export type MarketBriefArticleV1 = {
   contractVersion: "market-brief-article/1";
   articleId: string;                  // stable and unique within edition
@@ -33,6 +41,8 @@ export type MarketBriefArticleV1 = {
   category: string;                   // descriptive, not a quota/bucket gate
   paragraphs: MarketBriefParagraphV1[];
   sourceLinks: MarketBriefSourceLinkV1[];
+  /** Read-only projection of admitted Dossier/Story causal edges; never a new thesis. */
+  causalLinks?: MarketBriefCausalLinkV1[];
   interpretationStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED";
   conditionalOutlook: string;         // explicit confirmation + invalidation
   confirmationTests?: string[];         // existing authored triggers, structured for reader display
@@ -82,6 +92,28 @@ function isValidDossierUuid(id: unknown): string | null {
     return clean;
   }
   return null;
+}
+
+/** Admit only itemised, edition-pinned canonical causal arrows; no topic-based inference. */
+function existingCausalLinks(value: unknown): MarketBriefCausalLinkV1[] {
+  if (!Array.isArray(value)) return [];
+  const used = new Set<string>();
+  return value.flatMap(item => {
+    if (!isObject(item)) return [];
+    const from = cleanText(item.from);
+    const to = cleanText(item.to);
+    const relationship = cleanText(item.relationship);
+    const rawState = cleanText(item.evidenceStatus) || cleanText(item.evidenceState);
+    if (!from || !to || !relationship || !rawState) return [];
+    if (!["observed", "strongly_supported", "inferred", "speculative"].includes(rawState)) return [];
+    const ids = [...new Set(cleanStringArray(item.evidenceRefs).concat(cleanStringArray(item.evidenceIds))
+      .map(isValidDossierUuid).filter((id): id is string => Boolean(id)))];
+    if (!ids.length) return [];
+    const key = [from, relationship, to].join("|").toLocaleLowerCase("en-GB");
+    if (used.has(key)) return [];
+    used.add(key);
+    return [{ from, to, relationship, evidenceStatus: rawState as MarketBriefCausalLinkV1["evidenceStatus"], canonicalEvidenceIds: ids }];
+  }).slice(0, 8);
 }
 
 function truncateTitle(text: string, maxLen = 63): string {
@@ -249,6 +281,7 @@ export function projectMarketBriefArticles(
     system2Adjudicated: boolean;
     explicitStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED" | null;
     itemisedClaimMatches: { opening: boolean; explanation: boolean; reaction: boolean };
+    causalLinks: MarketBriefCausalLinkV1[];
   };
 
   const candidateMap = new Map<string, Candidate>();
@@ -331,6 +364,8 @@ export function projectMarketBriefArticles(
     const explanationEvidenceIds = explanationClaim ? explanationClaim.evidenceIds : [];
     const explanationSourceRefs = explanationClaim ? explanationClaim.sourceRefs : [];
 
+    // Canonical arrows have their own evidence scope; they are not prose guesses.
+    const causalLinks = existingCausalLinks(reasoning.causalChain);
     // Causal chain evidence
     const causalEvidenceIds: string[] = [];
     if (Array.isArray(reasoning.causalChain)) {
@@ -390,6 +425,7 @@ export function projectMarketBriefArticles(
       allSourceRefs,
       system2Adjudicated: Boolean(dossierId && explicitStatus),
       explicitStatus,
+      causalLinks,
       itemisedClaimMatches: {
         opening: Boolean(whatChangedClaim?.evidenceIds.length && whatChangedClaim.text.trim().toLowerCase() === whatChanged?.trim().toLowerCase()),
         explanation: Boolean(explanationClaim?.evidenceIds.length && explanationClaim.text.trim().toLowerCase() === explanation?.trim().toLowerCase()),
@@ -429,6 +465,7 @@ export function projectMarketBriefArticles(
       }
     }
 
+    const lessonCausalLinks = existingCausalLinks(lesson.causeEffect);
     const bodyParagraphs = bodyTexts.map((text) => ({
       text,
       evidenceIds: lessonEvUuids,
@@ -440,6 +477,7 @@ export function projectMarketBriefArticles(
       if (centralQuestion) existing.centralQuestion = centralQuestion;
       existing.icon = icon;
       existing.bodyParagraphs = bodyParagraphs;
+      if (lessonCausalLinks.length) existing.causalLinks = lessonCausalLinks;
       existing.allEvidenceIds = [...new Set([...existing.allEvidenceIds, ...lessonEvUuids])];
       existing.allSourceRefs = [...new Set([...existing.allSourceRefs, ...lessonSourceRefs])];
       if (confirmation) existing.confirmation = confirmation;
@@ -476,6 +514,7 @@ export function projectMarketBriefArticles(
         system2Adjudicated: Boolean(dossierId && (lesson as JsonRecord).interpretationStatus),
         explicitStatus: cleanText((lesson as JsonRecord).interpretationStatus) as "SUPPORTED" | "MIXED" | "UNRESOLVED" | null,
         itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
+        causalLinks: lessonCausalLinks,
       });
     }
   }
@@ -525,6 +564,7 @@ export function projectMarketBriefArticles(
         system2Adjudicated: false,
         explicitStatus: null,
         itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
+        causalLinks: [],
       });
     }
   }
@@ -729,6 +769,7 @@ export function projectMarketBriefArticles(
         category,
         paragraphs,
         sourceLinks,
+        causalLinks: candidate.causalLinks,
         interpretationStatus,
         conditionalOutlook,
         confirmationTests: splitExistingWatchTests(candidate.confirmation),

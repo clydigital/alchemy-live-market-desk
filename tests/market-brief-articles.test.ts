@@ -178,3 +178,28 @@ test("Deep Dive renders direct issuer facts before unresolved commentary, not po
   assert.match(route, /Working explanation/);
   assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
 });
+
+
+test("only evidence-pinned canonical Dossier arrows become visible, preserving exact status", () => {
+  const id = "c3776638-d2cb-40e1-acf7-36850d992edc";
+  const frozen = { id: "edition-2026-10-19", published_at: "2026-10-19T16:19:19Z", payload: {
+    dossier: { id: "7e9582cb-21c8-4f63-9814-dfd5ef0fb911", generatedAt: "2026-10-19T16:19:19Z", lessons: [{
+      storyId: "6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
+      title: "AI investment and supplier demand",
+      body: ["Issuer results show rising supplier sales.", "Funding strain remains a possible consequence."],
+      evidenceRefs: [id],
+      causeEffect: [
+        { from: "Compute orders", to: "Foundry utilisation", relationship: "lift", evidenceStatus: "inferred", evidenceRefs: [id] },
+        { from: "Invented fact", to: "New trend", relationship: "proves", evidenceStatus: "observed", evidenceRefs: [] },
+        { from: "Unsourced", to: "Conclusion", relationship: "moves", evidenceStatus: "observed", evidenceRefs: ["not-a-uuid"] },
+      ],
+    }] },
+  } };
+  const result = projectMarketBriefArticles(frozen);
+  assert.equal(result.articles.length, 1);
+  assert.deepEqual(result.articles[0].causalLinks, [{
+    from: "Compute orders", to: "Foundry utilisation", relationship: "lift",
+    evidenceStatus: "inferred", canonicalEvidenceIds: [id],
+  }]);
+  assert.equal(result.articles[0].interpretationStatus, "UNRESOLVED");
+});

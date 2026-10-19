@@ -66,6 +66,8 @@ test("actual 19 October AI lesson compiles source-supported facts, not an accept
   assert.equal(article.editionId, snapshot.id);
   assert.equal(article.editorial.qualifiedEvidenceCount, 4);
   assert.equal(article.editorial.evidenceClaims.length, 4);
+  assert.deepEqual(article.editorial.causalLinks, [],
+    "Real lesson has no edition-pinned causal edges: do not fabricate a diagram");
   assert.equal(article.paragraphs.filter(p => p.role === "opening" || p.role === "mechanism").length, 2);
   assert.ok(article.paragraphs.every(p => p.evidenceScope === "lesson"),
     "Eight lesson-wide UUIDs are not individual proof of both paragraphs");
@@ -94,4 +96,13 @@ test("frozen AI lesson without Dossier ID cannot be elevated to a homepage canon
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.match(home, /article\.editorial\.storyEligible/);
   assert.match(home, /SOURCED ANALYSIS/);
+});
+
+
+test("Blue Desk explains only actual evidence-linked mechanism edges", () => {
+  const detail = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(detail, /article\.editorial\.causalLinks\.length/);
+  assert.match(detail, /These are the Dossier's existing evidence-linked causal steps/);
+  assert.match(detail, /edge\.evidenceStatus\.replace/);
+  assert.match(detail, /edge\.sourceUrl/);
 });
