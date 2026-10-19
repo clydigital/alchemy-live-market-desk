@@ -126,3 +126,30 @@ test("unrelated contextual URL cannot launder an uncited issuer claim into READY
   assert.equal(brief.articles[0].editorial.evidenceClaims.length, 0);
   assert.equal(brief.articles[0].sourceLinks.length, 1);
 });
+
+test("missing or future provenance timestamps cannot qualify a source", () => {
+  const article = baseArticle("6", "Issuer fundamentals update", [id1]);
+  for (const override of [
+    { createdAt: null },
+    { availableAt: null },
+    { createdAt: "2026-10-20T01:00:00Z" },
+    { availableAt: "2026-10-20T01:00:00Z" },
+  ]) {
+    const out = buildEditorialBrief(packageOf([article]), [evidence(id1, override)]);
+    assert.equal(out.articles[0].editorial.qualifiedEvidenceCount, 0);
+    assert.equal(out.articles[0].sourceLinks.length, 0);
+  }
+});
+
+test("original evidence provenance is preferred over an umbrella publisher URL", () => {
+  const out = buildEditorialBrief(packageOf([baseArticle("7", "Company capex disclosure", [id1])]), [
+    evidence(id1, {
+      sourceUrl: "https://example.org/market-data",
+      provenanceUrls: ["https://example.org/filings/2026/q3-official-results"],
+    }),
+  ]);
+  assert.deepEqual(out.articles[0].sourceLinks.map(x => x.url),
+    ["https://example.org/filings/2026/q3-official-results"]);
+  assert.deepEqual(out.articles[0].editorial.evidenceClaims.map(x => x.sourceUrl),
+    ["https://example.org/filings/2026/q3-official-results"]);
+});
