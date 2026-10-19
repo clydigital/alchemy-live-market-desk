@@ -129,6 +129,24 @@ export default async function BlueDeskStoryPage({
               )) : <p className={styles.muted}>Source links unavailable. See attached evidence references.</p>}
             </section>
             <section>
+              <h2>Evidence explorer</h2>
+              {article.editorial.evidenceClaims.length ? article.editorial.evidenceClaims.map(claim => (
+                <div key={claim.evidenceId} className={styles.deepSection}>
+                  <p>{claim.claimText}</p>
+                  <small className={styles.deepEvidence}>
+                    {claim.evidenceClass} · {claim.evidenceId}
+                  </small>
+                  <a className={styles.sourceLink} href={claim.sourceUrl} target="_blank" rel="noreferrer">
+                    {claim.sourceName} · original source ↗
+                  </a>
+                  {claim.availableAt ? <DualTimestamp value={claim.availableAt} className={styles.cardTime} /> : null}
+                </div>
+              )) : <p className={styles.muted}>
+                No edition-pinned primary-source claims are available for this article.
+                Interpretations above are not independently verified by this panel.
+              </p>}
+            </section>
+            <section>
               <h2>Publication</h2>
               <p>Interpretation: <strong>{article.interpretationStatus}</strong></p>
               <p>Edition: {article.editionId}</p>
