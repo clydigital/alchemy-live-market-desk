@@ -64,10 +64,10 @@ test("unlicensed earnings provider is never called; licensed result keeps matchi
       { ticker: "NVDA", company_name: "NVIDIA", report_date: "2026-11-13" },
     ] } }) };
   }) as unknown as typeof fetch;
-  const disabled = await getForwardEarningsEvents({ now: NOW, fetchImpl, apiKey: "test", licensed: false });
+  const disabled = await getForwardEarningsEvents({ now: NOW, fetchImpl, finnhubKey: "", apiKey: "test", licensed: false });
   assert.equal(calls, 0);
   assert.equal(disabled.coverage, "official_only");
-  const enabled = await getForwardEarningsEvents({ now: NOW, fetchImpl, apiKey: "test", licensed: true });
+  const enabled = await getForwardEarningsEvents({ now: NOW, fetchImpl, finnhubKey: "", apiKey: "test", licensed: true });
   assert.equal(calls, 1);
   assert.equal(enabled.coverage, "official_and_provider");
   assert.equal(enabled.events.filter(event => event.affectedAssets.includes("TSM") && event.startAt?.startsWith("2026-10-15")).length, 1);
