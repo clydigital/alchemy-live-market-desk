@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
+import { blueDeskHostAccess, blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
 
 test("Bluebelly homepage and calendar use clean public URLs", () => {
   assert.equal(blueDeskPublicHref("/blue-desk", "bluebelly-desk.vercel.app"), "/");
@@ -52,7 +52,7 @@ test("Presentation rewrites are gated by the existing auth middleware", () => {
   const authGate = middleware.indexOf("getClaims()");
   const authorisedRewrite = middleware.lastIndexOf("const rewritten = presentationResponse(request)");
   assert.ok(authGate >= 0 && authorisedRewrite > authGate);
-  assert.match(middleware, /if \(!dashboardAuthRequired\(\)\) return presentationResponse\(request\)/);
+  assert.match(middleware, /accessScope === "public"/);
   assert.match(middleware, /return copyCookies\(supabaseResponse, rewritten\)/);
 });
 
@@ -64,4 +64,43 @@ test("Story detail is pinned to exact edition, with no latest-edition fallback",
   assert.match(detail, /httpsSource\(source\.url\)/);
   assert.match(detail, /getHybridPresenterEditionCandidates\(\)/);
   assert.equal(detail.includes("getHybridPresenterEditionCandidates({ fresh: true })"), false);
+});
+
+test("Bluebelly exposes only explicitly approved public reading routes", () => {
+  const host = "bluebelly-desk.vercel.app";
+  for (const path of [
+    "/", "/calendar", "/blue-desk", "/blue-desk/calendar",
+    "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
+  ]) {
+    assert.equal(blueDeskHostAccess(path, host), "public", path);
+  }
+  for (const path of [
+    "/hybrid-output/prepare", "/dossier", "/markets", "/articles",
+    "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
+    "/auth/callback", "/login", "/stories",
+    "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
+  ]) {
+    assert.equal(blueDeskHostAccess(path, host), "blocked", path);
+  }
+});
+
+test("Other aliases never gain access to the Bluebelly public allowlist", () => {
+  assert.equal(blueDeskHostAccess("/", "alchemy-blue-desk.vercel.app"), "blocked");
+  assert.equal(blueDeskHostAccess("/dossier", "alchemy-blue-desk.vercel.app"), "blocked");
+  assert.equal(blueDeskHostAccess("/dossier", "alchemy-live-market-desk.vercel.app"), "private");
+  assert.equal(blueDeskHostAccess("/hybrid-output/prepare", "preview-abcd.vercel.app"), "private");
+});
+
+test("Non-public pages require owner auth even with missing dashboard flag", () => {
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  const pageGuard = middleware.indexOf("getClaims()");
+  const publicBranch = middleware.indexOf('if (accessScope === "public")');
+  assert.ok(publicBranch >= 0 && pageGuard > publicBranch);
+  assert.doesNotMatch(middleware, /if (!dashboardAuthRequired()) return presentationResponse(request)/);
+  assert.ok(middleware.includes('pathname.startsWith("/api/cron/")'));
+  assert.ok(middleware.includes("startsWithAny(pathname, MACHINE_AUTH_PATHS)"));
+  assert.match(middleware, /Cache-Control": "private, no-store"/);
+  const login = readFileSync(new URL("../app/login/page.tsx", import.meta.url), "utf8");
+  assert.match(login, /Continue with Google/);
+  assert.doesNotMatch(login, /login system is installed but not enforced/);
 });

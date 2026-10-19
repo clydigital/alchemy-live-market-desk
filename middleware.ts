@@ -8,7 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
-import { blueDeskPresentationTarget } from "@/lib/blue-desk-host";
+import { blueDeskHostAccess, blueDeskPresentationTarget } from "@/lib/blue-desk-host";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -53,6 +53,18 @@ function presentationResponse(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const host = request.headers.get("host") || request.nextUrl.hostname;
+  const accessScope = blueDeskHostAccess(pathname, host);
+
+  // The public hostname must never expose legacy pages, internal APIs,
+  // OAuth/owner paths or machine endpoints, even if dashboard auth is off.
+  if (accessScope === "blocked") {
+    return new NextResponse(null, {
+      status: 404,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+  if (accessScope === "public") return presentationResponse(request);
 
   if (PRODUCTION_RESEARCH_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
     return NextResponse.json(
@@ -67,10 +79,16 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (!dashboardAuthRequired()) return presentationResponse(request);
-
-  if (startsWithAny(pathname, MACHINE_AUTH_PATHS)) return NextResponse.next();
+  // Existing machine/cron handlers own token verification. Never redirect
+  // these routes to an interactive Google login.
+  if (startsWithAny(pathname, MACHINE_AUTH_PATHS) || pathname.startsWith("/api/cron/")) {
+    return NextResponse.next();
+  }
   if (startsWithAny(pathname, PUBLIC_AUTH_PATHS)) return presentationResponse(request);
+
+  // Preserve existing API consumers until every contract is scoped and audited.
+  // Owner-facing pages are ALWAYS authenticated on non-public hosts.
+  if (pathname.startsWith("/api/") && !dashboardAuthRequired()) return NextResponse.next();
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
   try {
