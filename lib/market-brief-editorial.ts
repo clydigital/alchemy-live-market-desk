@@ -131,12 +131,12 @@ export function buildEditorialBrief(
       || article.paragraphs.every(p => PROCESS_CLAIM.test(p.text.trim()));
     const gaps: string[] = [];
     if (processOnly) gaps.push("Operational or research-process headline");
-    if (!qualified.length) gaps.push("No directly attributable primary evidence");
+    if (!evidenceClaims.length) gaps.push("No attributable first-tier claim with a direct source page");
     if (!links.length) gaps.push("No direct evidence source links");
     if (article.paragraphs.length < 2) gaps.push("Insufficient sourced explanation");
     const readiness: EditorialReadiness = processOnly
       ? "RESEARCH_ONLY"
-      : qualified.length && links.length && article.paragraphs.length >= 2
+      : evidenceClaims.length && links.length && article.paragraphs.length >= 2
         ? "READY" : "DEVELOPING";
 
     return {
@@ -144,7 +144,7 @@ export function buildEditorialBrief(
       sourceLinks: links,
       editorial: {
         readiness,
-        qualifiedEvidenceCount: qualified.length,
+        qualifiedEvidenceCount: evidenceClaims.length,
         directSourceCount: links.length,
         evidenceClaims,
         gaps,
