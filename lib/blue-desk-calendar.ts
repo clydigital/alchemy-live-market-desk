@@ -34,3 +34,52 @@ export function selectBlueDeskUpcoming(
       return aExact - bExact || a.id.localeCompare(b.id);
     });
 }
+
+/** Rolling next 24 hours: exact source instants only; never invent a time for a dated item. */
+export function selectBlueDeskNext24Hours(
+  calendar: Pick<PresenterCalendar, "events">,
+  now: Date,
+): PresenterCalendarEvent[] {
+  const lower = now.getTime();
+  const upper = lower + 24 * 3_600_000;
+  if (!Number.isFinite(lower)) return [];
+  return calendar.events
+    .filter(event => {
+      if (event.status !== "scheduled" || !event.scheduledAt) return false;
+      const timestamp = Date.parse(event.scheduledAt);
+      return Number.isFinite(timestamp) && timestamp >= lower && timestamp < upper;
+    })
+    .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!) || a.id.localeCompare(b.id));
+}
+
+/**
+ * Current ET calendar week, Monday to Sunday. The date-only lane is never presented
+ * as an exact Eastern-time release; it remains labelled with its source calendar date.
+ */
+export function selectBlueDeskReleasedWeek(
+  calendar: Pick<PresenterCalendar, "events">,
+  now: Date,
+): PresenterCalendarEvent[] {
+  const today = formatDualDeskTime(now)?.etDay;
+  if (!today) return [];
+  const todayUtc = Date.parse(today + "T00:00:00Z");
+  const weekday = (new Date(todayUtc).getUTCDay() + 6) % 7;
+  const monday = new Date(todayUtc - weekday * 86_400_000).toISOString().slice(0, 10);
+  const nextMonday = new Date(todayUtc + (7 - weekday) * 86_400_000).toISOString().slice(0, 10);
+  return calendar.events
+    .filter(event => {
+      if (event.status !== "released") return false;
+      if (event.scheduledAt) {
+        const ms = Date.parse(event.scheduledAt);
+        const day = formatDualDeskTime(event.scheduledAt)?.etDay;
+        return Number.isFinite(ms) && ms <= now.getTime() && !!day && day >= monday && day < nextMonday;
+      }
+      // This lane uses the feed's own source day, NOT an asserted ET event day.
+      return event.localDate >= monday && event.localDate < nextMonday;
+    })
+    .sort((a, b) => {
+      const aTime = a.scheduledAt ? Date.parse(a.scheduledAt) : Number.NEGATIVE_INFINITY;
+      const bTime = b.scheduledAt ? Date.parse(b.scheduledAt) : Number.NEGATIVE_INFINITY;
+      return bTime - aTime || a.id.localeCompare(b.id);
+    });
+}

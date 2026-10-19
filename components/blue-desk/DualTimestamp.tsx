@@ -13,10 +13,14 @@ export default function DualTimestamp({
 }) {
   const pair = formatDualDeskTime(value);
   if (!pair) {
+    const sourceDay = sourceDate || value || "";
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(sourceDay);
     return (
       <span className={className}>
-        <span style={{ display: "block" }}>{dateOnlyLabel(sourceDate || "")}</span>
-        <small style={{ display: "block", opacity: 0.7 }}>Exact ET / SGT time unavailable</small>
+        <span style={{ display: "block" }}>{dateOnlyLabel(sourceDay)}</span>
+        {!dateOnly ? (
+          <small style={{ display: "block", opacity: 0.7 }}>Exact ET / SGT time unavailable</small>
+        ) : null}
       </span>
     );
   }
