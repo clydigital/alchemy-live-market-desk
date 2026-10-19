@@ -11,6 +11,8 @@ export type MarketBriefParagraphV1 = {
   text: string;
   sourceRefs: string[];
   canonicalEvidenceIds: string[];
+  /** Claim = exact upstream reasoning claim; lesson = source pool, not sentence-level proof. */
+  evidenceScope?: "claim" | "lesson";
 };
 
 export type MarketBriefSourceLinkV1 = {
@@ -149,6 +151,15 @@ export function splitExistingWatchTests(value: string | null | undefined): strin
     });
 }
 
+/** Display-only editorial cleanup: the original immutable paragraph remains unchanged. */
+export function readerFacingMarketText(value: string): string {
+  return value
+    // Remove trailing workflow promotion labels, never a financial observation.
+    .replace(/;\s*(?:the|this)\s+Story\s+(?:is|was)\s+elevated\b[^.]*\.?\s*$/i, ".")
+    .replace(/^Combined canonical issuer results indicate\b/i, "Issuer results indicate")
+    .trim();
+}
+
 type ClaimInfo = {
   text: string;
   evidenceIds: string[];
@@ -237,6 +248,7 @@ export function projectMarketBriefArticles(
     allSourceRefs: string[];
     system2Adjudicated: boolean;
     explicitStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED" | null;
+    itemisedClaimMatches: { opening: boolean; explanation: boolean; reaction: boolean };
   };
 
   const candidateMap = new Map<string, Candidate>();
@@ -378,6 +390,11 @@ export function projectMarketBriefArticles(
       allSourceRefs,
       system2Adjudicated: Boolean(dossierId && explicitStatus),
       explicitStatus,
+      itemisedClaimMatches: {
+        opening: Boolean(whatChangedClaim?.evidenceIds.length && whatChangedClaim.text.trim().toLowerCase() === whatChanged?.trim().toLowerCase()),
+        explanation: Boolean(explanationClaim?.evidenceIds.length && explanationClaim.text.trim().toLowerCase() === explanation?.trim().toLowerCase()),
+        reaction: Boolean(reactionClaim?.evidenceIds.length && reactionClaim.text.trim().toLowerCase() === marketReaction?.trim().toLowerCase()),
+      },
     });
   }
 
@@ -458,6 +475,7 @@ export function projectMarketBriefArticles(
         allSourceRefs: lessonSourceRefs,
         system2Adjudicated: Boolean(dossierId && (lesson as JsonRecord).interpretationStatus),
         explicitStatus: cleanText((lesson as JsonRecord).interpretationStatus) as "SUPPORTED" | "MIXED" | "UNRESOLVED" | null,
+        itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
       });
     }
   }
@@ -506,6 +524,7 @@ export function projectMarketBriefArticles(
         allSourceRefs: [],
         system2Adjudicated: false,
         explicitStatus: null,
+        itemisedClaimMatches: { opening: false, explanation: false, reaction: false },
       });
     }
   }
@@ -569,7 +588,8 @@ export function projectMarketBriefArticles(
       role: MarketBriefParagraphRole,
       text: string,
       sourceRefs: string[],
-      canonicalEvidenceIds: string[]
+      canonicalEvidenceIds: string[],
+      evidenceScope: "claim" | "lesson" = "lesson"
     ) => {
       if (!text.trim()) return;
       // PARAGRAPH ADMISSION GATE:
@@ -582,6 +602,7 @@ export function projectMarketBriefArticles(
         text,
         sourceRefs,
         canonicalEvidenceIds,
+        evidenceScope,
       });
     };
 
@@ -602,7 +623,8 @@ export function projectMarketBriefArticles(
           ? candidate.bodyParagraphs[0].sourceRefs
           : candidate.allSourceRefs;
 
-      pushSourcedParagraph("opening", openingText, openingSrc, openingEv);
+      pushSourcedParagraph("opening", openingText, openingSrc, openingEv,
+        candidate.whatChanged && candidate.itemisedClaimMatches.opening ? "claim" : "lesson");
     }
 
     // 2. Primary Mechanism paragraph (ONLY if explicitly present in input)
@@ -620,7 +642,8 @@ export function projectMarketBriefArticles(
           ? candidate.bodyParagraphs[1].sourceRefs
           : candidate.allSourceRefs;
 
-      pushSourcedParagraph("mechanism", mechanismText1, mechSrc, mechEv);
+      pushSourcedParagraph("mechanism", mechanismText1, mechSrc, mechEv,
+        candidate.explanation && candidate.itemisedClaimMatches.explanation ? "claim" : "lesson");
     }
 
     // 3. Secondary Transmission / Body paragraph (ONLY if explicitly present in input)
@@ -642,7 +665,8 @@ export function projectMarketBriefArticles(
         "reaction",
         candidate.marketReaction,
         candidate.marketReactionSourceRefs,
-        candidate.marketReactionEvidenceIds
+        candidate.marketReactionEvidenceIds,
+        candidate.itemisedClaimMatches.reaction ? "claim" : "lesson"
       );
     }
 
