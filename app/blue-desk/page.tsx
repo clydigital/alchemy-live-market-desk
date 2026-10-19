@@ -3,6 +3,7 @@ import Image from "next/image";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
+import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
@@ -68,11 +69,7 @@ export default async function BlueDeskPage() {
 
   // The established presenter-calendar/1 adapter owns time admission and coverage.
   const calendar = buildPresenterCalendar(macro, earnings, now);
-  const byId = new Map(calendar.events.map(event => [event.id, event]));
-  const upcoming = calendar.windows.next7d
-    .map(id => byId.get(id))
-    .filter((event): event is NonNullable<typeof event> => Boolean(event))
-    .slice(0, 6);
+  const upcoming = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
 
   // Verified Motion is context, not a System 2 Regime decision.
   const verified = motions.filter(motion =>
@@ -195,7 +192,7 @@ export default async function BlueDeskPage() {
               </div>
               <Link className={styles.textLink} href="/calendar">Full calendar →</Link>
             </div>
-            <p className={styles.muted}>Economic releases and earnings from the existing presenter calendar feed.</p>
+            <p className={styles.muted}>Economic releases and earnings from the existing presenter calendar feed, ordered by Eastern Time. Date-only items retain their source date.</p>
             {upcoming.length ? upcoming.map(event => (
               <article key={event.id} className={styles.eventRow}>
                 <div className={styles.eventHeading}>
