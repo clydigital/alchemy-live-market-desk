@@ -12,6 +12,11 @@ import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "Blue Desk | Alchemy Market Intelligence",
+  description: "A unified ET-first market intelligence and presenter workspace powered by the Alchemy Live Desk.",
+};
+
 const NAV = [
   ["Live Market", "/blue-desk"],
   ["Markets", "/markets"],
