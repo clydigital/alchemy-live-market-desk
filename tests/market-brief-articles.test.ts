@@ -173,7 +173,8 @@ test("Deep Dive renders direct issuer facts before unresolved commentary, not po
   assert.match(route, /What the original sources report/);
   assert.match(route, /article\.editorial\.evidenceClaims\.slice\(0, 8\)/);
   assert.match(route, /readerFacingMarketText\(paragraph\.text\)/);
-  assert.match(route, /paragraph\.evidenceScope === "claim"/);
+  assert.match(route, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
+  assert.match(route, /Lesson-level evidence only; this particular statement is not independently verified/);
   assert.match(route, /individual causal steps are not separately verified/);
   assert.match(route, /Working explanation/);
   assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
