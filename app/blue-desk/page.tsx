@@ -8,7 +8,7 @@ import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
-import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion } from "@/lib/market-motion";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
@@ -35,8 +35,8 @@ function ellipsis(value: string, max = 175) {
 export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
-  const [editions, macro, earnings, monitor, motions] = await Promise.all([
-    getHybridPresenterEditionCandidates().catch(() => []),
+  const [latest, macro, earnings, monitor, motions] = await Promise.all([
+    getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
@@ -46,7 +46,6 @@ export default async function BlueDeskPage() {
   ]);
 
   // Existing publication snapshots remain the only article authority.
-  const latest = editions[0] || null;
   const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
   const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
   // A source-verified factual report is independently eligible to be read:
