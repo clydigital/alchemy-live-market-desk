@@ -138,9 +138,15 @@ export function buildEditorialBrief(
     if (!evidenceClaims.length) gaps.push("No attributable first-tier claim with a direct source page");
     if (!links.length) gaps.push("No direct evidence source links");
     if (article.paragraphs.length < 2) gaps.push("Insufficient sourced explanation");
+    // First-tier citations can substantiate facts, but cannot by themselves
+    // adjudicate a long-lived Story. Unresolved/no-Dossier lessons remain
+    // accessible as DEVELOPING analysis rather than a featured accepted Story.
+    const storyAdjudicated = Boolean(article.dossierId)
+      && article.interpretationStatus !== "UNRESOLVED";
+    if (!storyAdjudicated) gaps.push("No accepted or mixed canonical Story adjudication");
     const readiness: EditorialReadiness = processOnly
       ? "RESEARCH_ONLY"
-      : evidenceClaims.length && links.length && article.paragraphs.length >= 2
+      : storyAdjudicated && evidenceClaims.length && links.length && article.paragraphs.length >= 2
         ? "READY" : "DEVELOPING";
 
     return {
