@@ -8,6 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
+import { blueDeskPresentationTarget } from "@/lib/blue-desk-host";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -37,6 +38,19 @@ function apiFailure(status: number, error: string) {
   );
 }
 
+/**
+ * Hostname-scoped, read-only presenter rewriting. Authentication has already
+ * completed before this response is used for protected page routes.
+ */
+function presentationResponse(request: NextRequest) {
+  const host = request.headers.get("host") || request.nextUrl.hostname;
+  const target = blueDeskPresentationTarget(request.nextUrl.pathname, host);
+  if (!target) return NextResponse.next();
+  const destination = request.nextUrl.clone();
+  destination.pathname = target;
+  return NextResponse.rewrite(destination);
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -53,10 +67,10 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  if (!dashboardAuthRequired()) return NextResponse.next();
+  if (!dashboardAuthRequired()) return presentationResponse(request);
 
   if (startsWithAny(pathname, MACHINE_AUTH_PATHS)) return NextResponse.next();
-  if (startsWithAny(pathname, PUBLIC_AUTH_PATHS)) return NextResponse.next();
+  if (startsWithAny(pathname, PUBLIC_AUTH_PATHS)) return presentationResponse(request);
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
   try {
@@ -119,7 +133,12 @@ export async function middleware(request: NextRequest) {
   }
 
   supabaseResponse.headers.set("Cache-Control", "private, no-store");
-  return supabaseResponse;
+  const target = blueDeskPresentationTarget(request.nextUrl.pathname, request.headers.get("host") || request.nextUrl.hostname);
+  if (!target) return supabaseResponse;
+  // Preserve Supabase refreshed cookies and private cache-control on rewrites.
+  const rewritten = presentationResponse(request);
+  rewritten.headers.set("Cache-Control", "private, no-store");
+  return copyCookies(supabaseResponse, rewritten);
 }
 
 export const config = {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { blueDeskPublicHref } from "../lib/blue-desk-host.ts";
+import { blueDeskPublicHref, blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
 
 test("Bluebelly homepage and calendar use clean public URLs", () => {
   assert.equal(blueDeskPublicHref("/blue-desk", "bluebelly-desk.vercel.app"), "/");
@@ -29,13 +29,31 @@ test("Legacy domain, third-party hosts and internal routes are unchanged", () =>
   assert.equal(blueDeskPublicHref("//evil.invalid", "bluebelly-desk.vercel.app"), "//evil.invalid");
 });
 
-test("Next hostname rewrites are limited to Bluebelly routes, never API or legacy roots", () => {
-  const config = readFileSync(new URL("../next.config.mjs", import.meta.url), "utf8");
-  assert.match(config, /bluebelly-desk\.vercel\.app/);
-  for (const source of ['source: "/"', 'source: "/calendar"', 'source: "/stories/:articleId"']) {
-    assert.ok(config.includes(source), "missing expected presentation rewrite: " + source);
+test("Bluebelly middleware owns precise clean-root rewrites without touching APIs", () => {
+  assert.equal(blueDeskPresentationTarget("/", "bluebelly-desk.vercel.app"), "/blue-desk");
+  assert.equal(blueDeskPresentationTarget("/calendar", "bluebelly-desk.vercel.app"), "/blue-desk/calendar");
+  assert.equal(
+    blueDeskPresentationTarget("/stories/article%3Aedition%3Astory", "bluebelly-desk.vercel.app"),
+    "/blue-desk/stories/article%3Aedition%3Astory",
+  );
+  for (const path of ["/api/presenter-calendar", "/api/cron/research/morning", "/auth/callback", "/markets", "/hybrid-output/prepare", "/stories", "/"]) {
+    if (path === "/") {
+      assert.equal(blueDeskPresentationTarget(path, "alchemy-live-market-desk.vercel.app"), null);
+    } else {
+      assert.equal(blueDeskPresentationTarget(path, "bluebelly-desk.vercel.app"), null);
+    }
   }
-  assert.ok(!config.includes('source: "/api'), "No API rewrite may be added");
+  assert.equal(blueDeskPresentationTarget("/calendar", "alchemy-blue-desk.vercel.app"), null);
+  assert.equal(blueDeskPresentationTarget("/blue-desk", "bluebelly-desk.vercel.app"), null);
+});
+
+test("Presentation rewrites are gated by the existing auth middleware", () => {
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  const authGate = middleware.indexOf("getClaims()");
+  const authorisedRewrite = middleware.lastIndexOf("const rewritten = presentationResponse(request)");
+  assert.ok(authGate >= 0 && authorisedRewrite > authGate);
+  assert.match(middleware, /if \(!dashboardAuthRequired\(\)\) return presentationResponse\(request\)/);
+  assert.match(middleware, /return copyCookies\(supabaseResponse, rewritten\)/);
 });
 
 test("Story detail is pinned to exact edition, with no latest-edition fallback", () => {
