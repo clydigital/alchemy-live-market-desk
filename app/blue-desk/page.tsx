@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -19,16 +19,7 @@ export const metadata = {
   description: "A unified ET-first market intelligence and presenter workspace powered by the Alchemy Live Desk.",
 };
 
-const NAV = [
-  ["Live Market", "/blue-desk"],
-  ["Markets", "/markets"],
-  ["Deep Dive", "/articles"],
-  ["Research", "/whats-new"],
-  ["Data Library", "/data/macro"],
-  ["Presenter Prep", "/hybrid-output/prepare"],
-  ["Calendar", "/calendar"],
-  ["Learn", "/concepts"],
-] as const;
+
 
 const YIELD_IDS = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
 
@@ -78,20 +69,7 @@ export default async function BlueDeskPage() {
 
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
-      <header className={styles.topbar}>
-        <Link href="/blue-desk" className={styles.brand} aria-label="Blue Desk — Live Market">
-          <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
-          <span>Market Intelligence</span>
-        </Link>
-        <nav className={styles.nav} aria-label="Blue Desk primary">
-          {NAV.map(([title, href]) => (
-            <Link key={href} href={href} aria-current={href === "/blue-desk" ? "page" : undefined}
-              className={href === "/blue-desk" ? styles.navActive : styles.navItem}>
-              {title}
-            </Link>
-          ))}
-        </nav>
-      </header>
+      <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
         <div className={styles.intro}>
           <span>LIVE DESK INTELLIGENCE · BLUE DESK PRESENTATION</span>
@@ -125,7 +103,7 @@ export default async function BlueDeskPage() {
                 <div>
                   <span>{row.label}</span>
                   <small>{row.sourceName} · {row.frequency} series</small>
-                  <DualTimestamp value={row.asOf} className={styles.rateTime} />
+                  <DualTimestamp value={row.asOf} sourceDate={row.asOf} className={styles.rateTime} />
                 </div>
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
@@ -190,7 +168,7 @@ export default async function BlueDeskPage() {
                 <p className={styles.kicker}>ET PRIMARY · SGT SECONDARY</p>
                 <h2 id="calendar-title">Coming up</h2>
               </div>
-              <Link className={styles.textLink} href="/calendar">Full calendar →</Link>
+              <Link className={styles.textLink} href="/blue-desk/calendar">Full calendar →</Link>
             </div>
             <p className={styles.muted}>Economic releases and earnings from the existing presenter calendar feed, ordered by Eastern Time. Date-only items retain their source date.</p>
             {upcoming.length ? upcoming.map(event => (
