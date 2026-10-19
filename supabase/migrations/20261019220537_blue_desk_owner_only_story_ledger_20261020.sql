@@ -1,6 +1,7 @@
 -- Restrict raw canonical Story event and thesis-version ledgers to
 -- approved owners while keeping source-backed public projections intact.
 -- Depends on server-side read migration #840 and app_access_allowlist.
+-- Live migration history version: 20261019220537.
 BEGIN;
 
 ALTER TABLE public.story_events ENABLE ROW LEVEL SECURITY;
