@@ -33,6 +33,8 @@ export type MarketBriefArticleV1 = {
   sourceLinks: MarketBriefSourceLinkV1[];
   interpretationStatus: "SUPPORTED" | "MIXED" | "UNRESOLVED";
   conditionalOutlook: string;         // explicit confirmation + invalidation
+  confirmationTests?: string[];         // existing authored triggers, structured for reader display
+  invalidationTests?: string[];          // no new market claims or interpretation
 };
 
 export type MarketBriefArticlesProjectionResult = {
@@ -131,6 +133,20 @@ function deriveConditionalOutlook(
     parts.push(`Invalidation: ${invalidation}.`);
   }
   return parts.join(" ");
+}
+
+/** Preserve the supplied conditional text while avoiding raw semicolon paragraphs. */
+export function splitExistingWatchTests(value: string | null | undefined): string[] {
+  if (!value?.trim()) return [];
+  const seen = new Set<string>();
+  return value.split(/\s*;\s*/).map(item => item.trim().replace(/[\s.;]+$/, ""))
+    .filter(item => {
+      if (!item) return false;
+      const key = item.toLocaleLowerCase("en-GB").replace(/\s+/g, " ");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 type ClaimInfo = {
@@ -691,6 +707,8 @@ export function projectMarketBriefArticles(
         sourceLinks,
         interpretationStatus,
         conditionalOutlook,
+        confirmationTests: splitExistingWatchTests(candidate.confirmation),
+        invalidationTests: splitExistingWatchTests(candidate.invalidation),
       });
     }
   }
