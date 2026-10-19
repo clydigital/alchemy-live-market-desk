@@ -26,10 +26,10 @@ const snapshot = {
       generatedAt: asOf,
       lessons: [{
         storyId: "6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
-        title: "Why is the market rewarding AI-related backlog and guidance despite cash-conversion risk?",
+        title: "Why is the market rewarding AI-related backlog and guidance (e.g. Dell jump) despite evidence that backlog growth may not translate into near-term cash conversion or sustainable margins?",
         body: [
-          "Issuer releases strengthen the supplier observation while highlighting operator financing sensitivity.",
-          "AI suppliers report robust results, while operators describe sizeable capital investments and cash demands.",
+          "Issuer releases materially strengthen the supplier‑upstream observation and provide direct operator capex/capitalisation data that increase the plausibility of financing sensitivity; the Story is elevated from speculative to detected/watch.",
+          "Combined canonical issuer results indicate that robust AI hardware demand is currently supporting supplier revenue and margins while neocloud operators are undertaking large, front‑loaded capacity investments and capitalising significant internal‑use software, which weakens near‑term operating cash conversion and raises external financing dependence.",
         ],
         evidenceRefs: canonicalIds,
         icon: "equities",
