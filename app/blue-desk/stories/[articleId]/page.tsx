@@ -6,6 +6,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
+import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import {
   projectMarketBriefArticles,
   type MarketBriefParagraphV1,
@@ -63,7 +64,7 @@ export default async function BlueDeskStoryPage({
 
   const frozen = await getHybridExactDailyBriefEdition(edition);
   if (!frozen) notFound();
-  const projected = projectMarketBriefArticles(frozen);
+  const projected = await loadEditorialMarketBrief(projectMarketBriefArticles(frozen));
   const article = projected.articles.find(item =>
     item.articleId === normalizedArticleId && item.editionId === edition
   );
@@ -136,6 +137,25 @@ export default async function BlueDeskStoryPage({
                   {source.title} ↗
                 </a>
               )) : <p className={styles.muted}>Source links unavailable. See attached evidence references.</p>}
+            </section>
+            <section>
+              <h2>Evidence explorer</h2>
+              {article.editorial.evidenceClaims.length ? article.editorial.evidenceClaims.map(claim => (
+                <div key={claim.evidenceId} className={styles.deepSection}>
+                  <p>{claim.claimText}</p>
+                  <small className={styles.deepEvidence}>
+                    {claim.evidenceClass} · {claim.evidenceId}
+                  </small>
+                  <a className={styles.sourceLink} href={claim.sourceUrl} target="_blank" rel="noreferrer">
+                    {claim.sourceName} · original source ↗
+                  </a>
+                  {claim.availableAt ? <DualTimestamp value={claim.availableAt} className={styles.cardTime} /> : null}
+                </div>
+              )) : <p className={styles.muted}>
+                No edition-pinned primary-source claims are available for this article.
+                Interpretations above are not independently verified by this panel.
+              </p>}
+              <p className={styles.muted}>These sources support individual observations; they do not independently establish the causal explanation or a System 2 thesis change.</p>
             </section>
             <section>
               <h2>Publication</h2>
