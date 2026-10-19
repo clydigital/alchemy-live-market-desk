@@ -51,7 +51,8 @@ function evidence(id: string, overrides: Partial<EditorialEvidenceRow> = {}): Ed
 }
 
 test("current primary evidence creates a client-ready article with an exact original source link", () => {
-  const brief = buildEditorialBrief(packageOf([baseArticle("1", "CoreWeave spending raises funding questions", [id1])]), [evidence(id1)]);
+  const article = { ...baseArticle("1", "CoreWeave spending raises funding questions", [id1]), dossierId: id3, interpretationStatus: "SUPPORTED" as const };
+  const brief = buildEditorialBrief(packageOf([article]), [evidence(id1)]);
   assert.equal(brief.readerReadyCount, 1);
   assert.equal(brief.articles[0].editorial.readiness, "READY");
   assert.deepEqual(brief.articles[0].sourceLinks.map(s => s.url), [
@@ -106,7 +107,7 @@ test("homepages, unsecured URLs, and unreferenced evidence are not citations", (
 test("a valid article outranks developing and research process items without rewriting frozen IDs", () => {
   const developing = baseArticle("a", "Rates ahead of data", [id2]);
   const process = baseArticle("b", "Source audit and provider authentication", [id1]);
-  const ready = baseArticle("c", "CoreWeave earnings and financing costs", [id1]);
+  const ready = { ...baseArticle("c", "CoreWeave earnings and financing costs", [id1]), dossierId: id3, interpretationStatus: "SUPPORTED" as const };
   const brief = buildEditorialBrief(packageOf([developing, process, ready]), [evidence(id1), evidence(id2, { sourceTier: 3 })]);
   assert.deepEqual(brief.articles.map(a => a.articleId), [ready.articleId, developing.articleId, process.articleId]);
   assert.ok(brief.articles.every(a => a.editionId === "edition-1"));
@@ -136,4 +137,14 @@ test("missing first-available or created timestamp cannot become historical proo
     assert.equal(compiled.articles[0].sourceLinks.length, 0);
     assert.equal(compiled.articles[0].editorial.evidenceClaims.length, 0);
   }
+});
+
+
+test("primary-sourced but UNRESOLVED Dossier lesson remains developing, not a canonical Story", () => {
+  const article = baseArticle("provisional", "AI financing remains an open regime question", [id1]);
+  const result = buildEditorialBrief(packageOf([article]), [evidence(id1)]);
+  assert.equal(result.readerReadyCount, 0);
+  assert.equal(result.articles[0].editorial.readiness, "DEVELOPING");
+  assert.equal(result.articles[0].editorial.evidenceClaims.length, 1);
+  assert.ok(result.articles[0].editorial.gaps.some(x => x.includes("adjudication")));
 });
