@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectBlueDeskUpcoming } from "../lib/blue-desk-calendar.ts";
+import {
+  selectBlueDeskUpcoming, selectBlueDeskNext24Hours, selectBlueDeskReleasedWeek,
+} from "../lib/blue-desk-calendar.ts";
 import type { PresenterCalendarEvent } from "../lib/presenter-calendar.ts";
 
 function event(
@@ -48,4 +50,36 @@ test("exact times sort before unplaced source-date-only events; released exclude
     selectBlueDeskUpcoming({ events: [dateOnly, done, future] }, now).map(x => x.id),
     ["exact", "date-only"],
   );
+});
+
+test("next 24h requires a known instant and excludes the exact end boundary", () => {
+  const now = new Date("2026-10-19T12:00:00Z");
+  const rows = [
+    event("start", "2026-10-19T12:00:00Z", "2026-10-19"),
+    event("inside", "2026-10-20T11:59:59Z", "2026-10-20"),
+    event("end-excluded", "2026-10-20T12:00:00Z", "2026-10-20"),
+    event("date-only", null, "2026-10-19"),
+    event("released-excluded", "2026-10-19T14:00:00Z", "2026-10-19", "released"),
+  ];
+  assert.deepEqual(selectBlueDeskNext24Hours({ events: rows }, now).map(x => x.id), ["start", "inside"]);
+});
+
+test("released ET week rejects prior Sunday, future releases and overdue scheduled", () => {
+  const now = new Date("2026-10-19T12:00:00Z"); // Monday 08:00 EDT
+  const rows = [
+    event("monday", "2026-10-19T08:00:00Z", "2026-10-19", "released"),
+    event("sunday", "2026-10-19T02:00:00Z", "2026-10-19", "released"),
+    event("overdue", "2026-10-19T08:00:00Z", "2026-10-19", "scheduled"),
+    event("future", "2026-10-20T12:00:00Z", "2026-10-20", "released"),
+  ];
+  assert.deepEqual(selectBlueDeskReleasedWeek({ events: rows }, now).map(x => x.id), ["monday"]);
+});
+
+test("one ET calendar day survives a late Sunday EST boundary", () => {
+  const now = new Date("2026-11-02T04:30:00Z"); // Sunday Nov 1 23:30 EST
+  const rows = [
+    event("same-day", "2026-11-02T04:45:00Z", "2026-11-02"),
+    event("next-et-day", "2026-11-02T13:30:00Z", "2026-11-02"),
+  ];
+  assert.deepEqual(selectBlueDeskUpcoming({ events: rows }, now, 1).map(x => x.id), ["same-day"]);
 });
