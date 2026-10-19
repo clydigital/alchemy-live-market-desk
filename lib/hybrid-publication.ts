@@ -59,6 +59,21 @@ export async function getHybridPresenterEditionCandidates(options: PublicationQu
 }
 
 /**
+ * Exact immutable daily-brief edition lookup for Blue Desk deep links.
+ * Unlike the presenter picker this is NOT limited to the newest 24 editions.
+ * An unknown/malformed ID returns null; never substitute a newer edition.
+ */
+export async function getHybridPresenterEditionById(editionId: string, options: PublicationQueryOptions = {}) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editionId)) return null;
+  const rows = await optionalQuery<PublicationSnapshot>(
+    "hybrid_publication_snapshots",
+    `select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&id=eq.${encodeURIComponent(editionId)}&limit=1`,
+    { ...options, fresh: true },
+  );
+  return rows.find(row => row.id === editionId && row.snapshot_type === "daily_brief") || null;
+}
+
+/**
  * Live Overview renders articles from only the newest published daily brief.
  * Keep the 24-edition candidate reader untouched for Presenter and exact replay.
  */
