@@ -13,6 +13,7 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion } from "@/lib/market-motion";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
+import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -25,15 +26,6 @@ export const metadata = {
 
 
 const YIELD_IDS = ["us2y", "us5y-fred", "us10y-fred", "us20y-fred", "us30y-fred"];
-
-function safeSource(url: string) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && !parsed.username && !parsed.password;
-  } catch {
-    return false;
-  }
-}
 
 function ellipsis(value: string, max = 175) {
   if (value.length <= max) return value;
@@ -57,6 +49,10 @@ export default async function BlueDeskPage() {
   const latest = editions[0] || null;
   const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
   const feature = brief.articles.find(article => article.editorial.readiness === "READY") || null;
+  // A source-verified factual report is independently eligible to be read:
+  // it is NOT a new canonical Story or Regime interpretation.
+  const verifiedNews = selectVerifiedNewsBriefs(motions, now, 6);
+  const newsFeature = feature ? null : (verifiedNews[0] || null);
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
@@ -69,11 +65,6 @@ export default async function BlueDeskPage() {
   const calendar = buildPresenterCalendar(macro, earnings, now);
   const upcoming = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
 
-  // Verified Motion is context, not a System 2 Regime decision.
-  const verified = motions.filter(motion =>
-    motion.verification_state === "VERIFIED" && safeSource(motion.source_url)
-  ).slice(0, 6);
-
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
@@ -81,20 +72,25 @@ export default async function BlueDeskPage() {
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
-            <p className={styles.kicker}>TOP STORY</p>
-            <h1>{feature ? feature.title : "Market Brief in review"}</h1>
+            <p className={styles.kicker}>{feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : "MARKET BRIEF"}</p>
+            <h1>{feature?.title || newsFeature?.headline || "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
-              {feature
-                ? feature.deck
-                : "No Story has cleared source and explanation checks."}
+              {feature?.deck || newsFeature?.summary || "No source-supported public market report is available."}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{feature?.interpretationStatus || "REVIEW"}</span>
-              {latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
+              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : "REVIEW"}</span>
+              {feature && latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
-              <Link className={styles.primaryAction} href={feature ? storyHref(feature) : "/articles"}>Read story →</Link>
-              {latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> : null}
+              {feature ? (
+                <Link className={styles.primaryAction} href={storyHref(feature)}>Read story →</Link>
+              ) : newsFeature ? (
+                <a className={styles.primaryAction} href={newsFeature.sourceUrl} target="_blank" rel="noreferrer">Read original report ↗</a>
+              ) : (
+                <Link className={styles.primaryAction} href="/articles">All articles →</Link>
+              )}
+              {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
+                newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> : null}
             </div>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
@@ -149,17 +145,17 @@ export default async function BlueDeskPage() {
               </div>
               <Link className={styles.textLink} href="/whats-new">Investigate →</Link>
             </div>
-            {verified.length ? verified.map(motion => (
-              <article key={motion.id} className={styles.motionRow}>
-                <p className={styles.kicker}>{motion.category} · VERIFIED SOURCE</p>
-                <h3>{motion.headline}</h3>
-                <p>{ellipsis(motion.what_happened)}</p>
+            {verifiedNews.length ? verifiedNews.map(news => (
+              <article key={news.id} className={styles.motionRow}>
+                <p className={styles.kicker}>NEWS BRIEF · SOURCE VERIFIED · NO STORY ADJUDICATION</p>
+                <h3>{news.headline}</h3>
+                <p>{ellipsis(news.summary)}</p>
                 <div className={styles.motionMeta}>
-                  <DualTimestamp value={motion.occurred_at} className={styles.cardTime} />
-                  <a href={motion.source_url} rel="noreferrer" target="_blank">{motion.source_name} ↗</a>
+                  <DualTimestamp value={news.occurredAt} className={styles.cardTime} />
+                  <a href={news.sourceUrl} rel="noreferrer" target="_blank">{news.sourceName} ↗</a>
                 </div>
               </article>
-            )) : <p className={styles.empty}>No source-verified Motion items are available. A quiet feed is not a Regime conclusion.</p>}
+            )) : <p className={styles.empty}>No source-verified factual News Briefs are available. A quiet feed is not a Regime conclusion.</p>}
           </section>
 
           <section className={styles.secondaryPanel} aria-labelledby="calendar-title">
