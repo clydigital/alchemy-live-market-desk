@@ -20,6 +20,14 @@ export type EditorialArticle = MarketBriefArticleV1 & {
     readiness: EditorialReadiness;
     qualifiedEvidenceCount: number;
     directSourceCount: number;
+    evidenceClaims: Array<{
+      evidenceId: string;
+      claimText: string;
+      evidenceClass: string;
+      sourceName: string;
+      sourceUrl: string;
+      availableAt: string | null;
+    }>;
     gaps: string[];
   };
 };
@@ -104,6 +112,21 @@ export function buildEditorialBrief(
       }
     }
     const links = [...urls.values()].slice(0, 12);
+    // Public evidence explorer: only exact cited first-tier original claims
+    // already available by this immutable edition's as-of. Contextual
+    // Research Gap observations and later records are not public proof.
+    const evidenceClaims = qualified.flatMap(row => {
+      const direct = [...row.provenanceUrls, row.sourceUrl].map(sourceUrl).find(Boolean);
+      if (!direct || !row.claimText?.trim()) return [];
+      return [{
+        evidenceId: row.id,
+        claimText: row.claimText.trim(),
+        evidenceClass: row.evidenceClass || "unspecified",
+        sourceName: row.sourceName || new URL(direct).hostname,
+        sourceUrl: direct,
+        availableAt: row.availableAt,
+      }];
+    }).slice(0, 12);
     const processOnly = PROCESS_HEADLINE.test(article.title)
       || article.paragraphs.every(p => PROCESS_CLAIM.test(p.text.trim()));
     const gaps: string[] = [];
@@ -123,6 +146,7 @@ export function buildEditorialBrief(
         readiness,
         qualifiedEvidenceCount: qualified.length,
         directSourceCount: links.length,
+        evidenceClaims,
         gaps,
       },
     };
