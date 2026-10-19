@@ -98,7 +98,7 @@ test("Non-public pages require owner auth even with missing dashboard flag", () 
   assert.ok(publicBranch >= 0 && pageGuard > publicBranch);
   assert.doesNotMatch(middleware, /if (!dashboardAuthRequired()) return presentationResponse(request)/);
   assert.ok(middleware.includes('pathname.startsWith("/api/cron/")'));
-  assert.match(middleware, /startsWithAny(pathname, MACHINE_AUTH_PATHS)/);
+  assert.ok(middleware.includes("startsWithAny(pathname, MACHINE_AUTH_PATHS)"));
   assert.match(middleware, /Cache-Control": "private, no-store"/);
   const login = readFileSync(new URL("../app/login/page.tsx", import.meta.url), "utf8");
   assert.match(login, /Continue with Google/);
