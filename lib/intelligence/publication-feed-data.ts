@@ -43,10 +43,13 @@ function queryCache(options: QueryOptions) {
 }
 
 async function query<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
-  if (!url || !key) return [];
+  // Other public feed readers remain unchanged. Only the raw immutable
+  // publication archive transitions away from anonymous database access.
+  const credential = table === "hybrid_publication_snapshots" ? serviceKey : key;
+  if (!url || !credential) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      headers: { apikey: credential, Authorization: `Bearer ${credential}` },
       ...queryCache(options),
       signal: AbortSignal.timeout(5_000),
     });
