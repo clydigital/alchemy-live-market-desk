@@ -167,3 +167,9 @@
 .deepAside p { color: #b7d2e0; font-size: 13px; line-height: 1.7; }
 .sourceLink { display: block; padding: 9px 0; font-size: 13px; border-top: 1px solid #23536c; overflow-wrap: anywhere; }
 @media (max-width: 820px) { .deepLayout { grid-template-columns: 1fr; } .deepAside { position: static; } }
+
+/* Authored confirmation/invalidation tests, displayed without duplicating outlook prose. */
+.deepWatchGroup { margin: 0 0 22px; }
+.deepWatchGroup h3 { color: #e7f6fd; font-size: 17px; font-weight: 700; margin: 0 0 10px; }
+.deepWatchList { color: #cde3ed; margin: 0; padding-left: 22px; max-width: 75ch; }
+.deepWatchList li { padding-left: 3px; margin-bottom: 10px; line-height: 1.65; overflow-wrap: anywhere; }
