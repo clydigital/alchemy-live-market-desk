@@ -107,3 +107,41 @@
 @media (max-width: 840px) { .hero,.lowerGrid { grid-template-columns: 1fr; } .hero { align-items: start; } .rates { max-width: none; } .storyGrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width: 560px) { .brand img { width: 193px; } .brand span { font-size: 10px; } .nav { overflow-x: auto; flex-wrap: nowrap; width: 100%; padding-bottom: 7px; } .storyGrid { grid-template-columns: 1fr; } .hero { padding: 22px; } .hero h1 { font-size: 35px; } .lastLinks,.footer { flex-direction: column; align-items: stretch; } .quickLinks { min-width: 0; } }
 @media (prefers-reduced-motion: reduce) { .page { scroll-behavior: auto; } }
+
+
+/* Blue Desk calendar uses the same ocean-derived graphic vocabulary as the live market. */
+.calendarHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding: clamp(23px, 3vw, 41px);
+  margin-bottom: 17px;
+  border-radius: 10px;
+  border: 1px solid #235c7a;
+  background:
+    radial-gradient(ellipse at 75% 5%, rgba(55, 172, 214, .26), transparent 55%),
+    repeating-radial-gradient(ellipse at 20% 130%, transparent 0, transparent 30px, rgba(40, 137, 182, .08) 32px, transparent 34px),
+    linear-gradient(110deg, #032037, #03466b);
+}
+.calendarHero h1 { color: #fff; font-size: clamp(34px, 4vw, 54px); letter-spacing: -.045em; line-height: 1.1; margin: 7px 0; }
+.calendarHero p:not(.kicker) { font-size: 15px; color: #cde5ef; max-width: 750px; }
+.calendarClock { padding: 15px 19px; background: rgba(1, 23, 39, .72); border-radius: 9px; border: 1px solid #31728f; flex: 0 0 245px; }
+.calendarClock time { display: block; margin: 8px 0; color: #fff; font-size: 13px; line-height: 1.8; }
+.calendarClock > small { color: #abc7d9; line-height: 1.5; font-size: 11px; }
+.calendarTabs { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 23px; }
+.calendarTab,.calendarTabActive { min-height: 43px; padding: 11px 15px; border-radius: 6px; border: 1px solid #285c78; background: #082b40; color: #b6d6e9 !important; font-size: 13px; font-weight: 720; }
+.calendarTab:hover,.calendarTabActive { background: #176083; border-color: #62d9ff; color: #fff !important; }
+.calendarSummary { margin: 20px 0 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 16px; justify-content: space-between; color: #bad5e3; font-size: 12px; }
+.calendarStack { display: grid; gap: 17px; margin-top: 18px; }
+.calendarStack > .secondaryPanel { padding: clamp(18px, 2vw, 30px); }
+.calendarStack .secondaryPanel > h2 { font-size: 23px; color: #fff; margin: 4px 0 11px; }
+.calendarStack .eventRow h3 { font-size: 19px; }
+.calendarStack .eventTime { margin: 8px 0; }
+.calendarStack .eventRow > p { overflow-wrap: anywhere; }
+@media (max-width: 740px) {
+  .calendarHero { flex-direction: column; }
+  .calendarClock { flex: 0 0 auto; width: 100%; }
+  .calendarTabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendarTab,.calendarTabActive { text-align: center; }
+}
