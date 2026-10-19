@@ -66,6 +66,13 @@ test("actual 19 October AI lesson compiles source-supported facts, not an accept
   assert.equal(article.editionId, snapshot.id);
   assert.equal(article.editorial.qualifiedEvidenceCount, 4);
   assert.equal(article.editorial.evidenceClaims.length, 4);
+  assert.equal(article.paragraphs.filter(p => p.role === "opening" || p.role === "mechanism").length, 2);
+  assert.ok(article.paragraphs.every(p => p.evidenceScope === "lesson"),
+    "Eight lesson-wide UUIDs are not individual proof of both paragraphs");
+  assert.equal(article.paragraphs[0].canonicalEvidenceIds.length, 8,
+    "Original frozen lesson evidence references remain intact");
+  assert.ok(article.editorial.evidenceClaims.some(claim => claim.claimText.includes("cash PPE purchases")),
+    "Source-linked issuer fact remains available to lead the reader");
   assert.equal(article.editorial.evidenceClaims.every(c => c.sourceUrl.startsWith("https://")), true);
   assert.equal(article.editorial.evidenceClaims.some(c => c.claimText.includes("Research Gap")), false);
 });

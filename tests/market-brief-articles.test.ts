@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { projectMarketBriefArticles, splitExistingWatchTests } from "../lib/market-brief-articles.ts";
+import { projectMarketBriefArticles, splitExistingWatchTests, readerFacingMarketText } from "../lib/market-brief-articles.ts";
 
 test("projectMarketBriefArticles projects canonical articles from a daily brief edition snapshot", () => {
   const sampleSnapshot = {
@@ -113,6 +113,10 @@ test("projectMarketBriefArticles projects canonical articles from a daily brief 
   // Check evidence UUID retention
   const evIds = article1.paragraphs.flatMap(p => p.canonicalEvidenceIds);
   assert.ok(evIds.includes("ev-uuid-001") || evIds.includes("ev-uuid-002"));
+  assert.equal(article1.paragraphs.find(p => p.role === "opening")?.evidenceScope, "claim",
+    "Only an exact upstream claim match can receive sentence-level attribution");
+  assert.ok(article1.paragraphs.filter(p => p.role === "context").every(p => p.evidenceScope === "lesson"));
+
 
   // Check second article category & structure
   const article2 = result.articles[1];
@@ -150,5 +154,27 @@ test("Deep Dive shows structured conditions only once and preserves older outloo
   assert.match(route, /What strengthens this view/);
   assert.match(route, /What would weaken it/);
   assert.match(route, /article\.conditionalOutlook \? \(/);
+  assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
+});
+
+
+test("reader edits only explicit workflow-tail jargon and leaves numeric evidence intact", () => {
+  const original = "Issuer results showed USD 6.422 billion capex; the Story is elevated from speculative to detected/watch.";
+  assert.equal(readerFacingMarketText(original), "Issuer results showed USD 6.422 billion capex.");
+  assert.equal(readerFacingMarketText("Combined canonical issuer results indicate AI spending is high."),
+    "Issuer results indicate AI spending is high.");
+  assert.equal(readerFacingMarketText("Yields fell 12 bps while equities sold off."),
+    "Yields fell 12 bps while equities sold off.");
+  assert.ok(original.includes("detected/watch"), "Input is not mutated");
+});
+
+test("Deep Dive renders direct issuer facts before unresolved commentary, not pooled IDs as claim proof", () => {
+  const route = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(route, /What the original sources report/);
+  assert.match(route, /article\.editorial\.evidenceClaims\.slice\(0, 8\)/);
+  assert.match(route, /readerFacingMarketText\(paragraph\.text\)/);
+  assert.match(route, /paragraph\.evidenceScope === "claim"/);
+  assert.match(route, /individual causal steps are not separately verified/);
+  assert.match(route, /Working explanation/);
   assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
 });
