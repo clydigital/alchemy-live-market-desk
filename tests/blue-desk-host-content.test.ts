@@ -62,4 +62,6 @@ test("Story detail is pinned to exact edition, with no latest-edition fallback",
   assert.match(detail, /if \(!frozen\) notFound\(\)/);
   assert.match(detail, /item\.articleId === articleId && item\.editionId === edition/);
   assert.match(detail, /httpsSource\(source\.url\)/);
+  assert.match(detail, /getHybridPresenterEditionCandidates\(\)/);
+  assert.equal(detail.includes("getHybridPresenterEditionCandidates({ fresh: true })"), false);
 });
