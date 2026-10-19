@@ -33,6 +33,23 @@ const snapshot = {
           "Combined canonical issuer results indicate that robust AI hardware demand is currently supporting supplier revenue and margins while neocloud operators are undertaking large, front‑loaded capacity investments and capitalising significant internal‑use software, which weakens near‑term operating cash conversion and raises external financing dependence.",
         ],
         evidenceRefs: canonicalIds,
+        causeEffect: [
+          { from: "AI compute demand (customers)", to: "Foundry demand/orders",
+            relationship: "increases orders for accelerators/advanced wafers", evidenceStatus: "inferred", evidenceRefs: [] },
+          { from: "Foundry demand/orders", to: "TSMC net revenue and operating margin (2026Q3)",
+            relationship: "drives higher revenue and operating margin at foundries", evidenceStatus: "observed",
+            evidenceRefs: [canonicalIds[1], canonicalIds[0]] },
+          { from: "AI compute demand", to: "CoreWeave high cash PP&E and capitalised internal-use software (2026Q2)",
+            relationship: "requires large capacity builds at cloud operators", evidenceStatus: "observed",
+            evidenceRefs: [canonicalIds[2]] },
+          { from: "Large capex and capitalised software",
+            to: "CoreWeave modest operating cash flow (2026Q2) and financing sensitivity",
+            relationship: "reduces near-term operating cash conversion and raises financing dependence", evidenceStatus: "observed",
+            evidenceRefs: [canonicalIds[3], canonicalIds[2]] },
+          { from: "Operator financing sensitivity", to: "Potential future impact on supplier demand/multiples",
+            relationship: "may limit future capex or increase refinancing/default risk, feeding back to demand for accelerators",
+            evidenceStatus: "inferred", evidenceRefs: [] },
+        ],
         icon: "equities",
       }],
     },
@@ -66,8 +83,14 @@ test("actual 19 October AI lesson compiles source-supported facts, not an accept
   assert.equal(article.editionId, snapshot.id);
   assert.equal(article.editorial.qualifiedEvidenceCount, 4);
   assert.equal(article.editorial.evidenceClaims.length, 4);
-  assert.deepEqual(article.editorial.causalLinks, [],
-    "Real lesson has no edition-pinned causal edges: do not fabricate a diagram");
+  // Full frozen 19 October edition contains five edges; only three carry
+  // primary issuer IDs. The two uncited inferred arrows must remain hidden.
+  assert.equal(projected.articles[0].causalLinks?.length, 3);
+  assert.equal(article.editorial.causalLinks.length, 3);
+  assert.ok(article.editorial.causalLinks.every(edge => edge.evidenceStatus === "observed"));
+  assert.ok(article.editorial.causalLinks.every(edge => edge.sourceUrl.startsWith("https://")));
+  assert.equal(article.editorial.storyEligible, false,
+    "Sourced causal context is not an accepted System 2 thesis");
   assert.equal(article.paragraphs.filter(p => p.role === "opening" || p.role === "mechanism").length, 2);
   assert.ok(article.paragraphs.every(p => p.evidenceScope === "lesson"),
     "Eight lesson-wide UUIDs are not individual proof of both paragraphs");
@@ -105,4 +128,15 @@ test("Blue Desk explains only actual evidence-linked mechanism edges", () => {
   assert.match(detail, /These are the Dossier's existing evidence-linked causal steps/);
   assert.match(detail, /edge\.evidenceStatus\.replace/);
   assert.match(detail, /edge\.sourceUrl/);
+});
+
+
+test("a frozen real causal arrow disappears when all its issuer data postdate the edition", () => {
+  const projected = projectMarketBriefArticles(snapshot);
+  const after = sourceRows.map(row => [canonicalIds[0], canonicalIds[1]].includes(row.id)
+    ? { ...row, availableAt: "2026-10-21T00:00:00Z" }
+    : row);
+  const result = buildEditorialBrief(projected, after).articles[0];
+  assert.equal(result.editorial.causalLinks.length, 2);
+  assert.ok(result.editorial.causalLinks.every(edge => !edge.to.includes("TSMC")));
 });
