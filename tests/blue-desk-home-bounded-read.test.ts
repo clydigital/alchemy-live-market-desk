@@ -14,6 +14,6 @@ test("public homepage reads exactly one published daily brief, not 24 Presenter 
 });
 
 test("single-edition homepage projection still uses server-owned archive permissions", () => {
-  assert.match(publication, /table === "hybrid_publication_snapshots" \? serverKey : key/);
+  assert.match(publication, /\["hybrid_publication_snapshots", "story_events", "story_thesis_versions"\]\.includes\(table\) \? serverKey : key/);
   assert.match(page, /loadEditorialMarketBrief\(projectMarketBriefArticles\(latest\)\)/);
 });

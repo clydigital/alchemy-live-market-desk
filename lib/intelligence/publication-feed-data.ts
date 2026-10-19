@@ -43,9 +43,9 @@ function queryCache(options: QueryOptions) {
 }
 
 async function query<T>(table: string, params = "", options: QueryOptions = {}): Promise<T[]> {
-  // Other public feed readers remain unchanged. Only the raw immutable
-  // publication archive transitions away from anonymous database access.
-  const credential = table === "hybrid_publication_snapshots" ? serviceKey : key;
+  // Raw immutable publications, Story events and thesis-version snapshots are
+  // never queried with a public database credential. Other feeds are unchanged.
+  const credential = ["hybrid_publication_snapshots", "story_events", "story_thesis_versions"].includes(table) ? serviceKey : key;
   if (!url || !credential) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {

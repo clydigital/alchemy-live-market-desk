@@ -32,9 +32,9 @@ const LEGACY_STORY_RUN_BATCH_SIZE = 100;
 const LEGACY_STORY_PAGE_SIZE = 250;
 
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
-  // Frozen publication payloads contain internal analysis fields. Read them
-  // on the server with a server-only credential, never with the public anon key.
-  const credential = table === "hybrid_publication_snapshots" ? serverKey : key;
+  // Internal publication and Story change-history payloads are owner-only.
+  // Server projections may read with service credentials; no browser key is used.
+  const credential = ["hybrid_publication_snapshots", "story_events", "story_thesis_versions"].includes(table) ? serverKey : key;
   if (!url || !credential) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
