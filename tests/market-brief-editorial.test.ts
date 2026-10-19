@@ -153,3 +153,18 @@ test("original evidence provenance is preferred over an umbrella publisher URL",
   assert.deepEqual(out.articles[0].editorial.evidenceClaims.map(x => x.sourceUrl),
     ["https://example.org/filings/2026/q3-official-results"]);
 });
+
+
+test("source-ready Dossier analysis does not become an accepted hero Story without canonical adjudication", () => {
+  const provisional = baseArticle("unresolved", "AI capex funding divergence", [id1]);
+  const analysis = buildEditorialBrief(packageOf([provisional]), [evidence(id1)]).articles[0];
+  assert.equal(analysis.editorial.readiness, "READY");
+  assert.equal(analysis.editorial.storyEligible, false);
+  assert.ok(analysis.editorial.gaps.includes("No canonical Story adjudication"));
+  const accepted = { ...provisional, dossierId: id3, interpretationStatus: "SUPPORTED" as const };
+  const feature = buildEditorialBrief(packageOf([accepted]), [evidence(id1)]).articles[0];
+  assert.equal(feature.editorial.readiness, "READY");
+  assert.equal(feature.editorial.storyEligible, true);
+  const mixed = { ...accepted, interpretationStatus: "MIXED" as const };
+  assert.equal(buildEditorialBrief(packageOf([mixed]), [evidence(id1)]).articles[0].editorial.storyEligible, true);
+});

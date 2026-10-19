@@ -18,6 +18,8 @@ export type EditorialReadiness = "READY" | "DEVELOPING" | "RESEARCH_ONLY";
 export type EditorialArticle = MarketBriefArticleV1 & {
   editorial: {
     readiness: EditorialReadiness;
+    /** Publication admission only; NOT a replacement for canonical System 2. */
+    storyEligible: boolean;
     qualifiedEvidenceCount: number;
     directSourceCount: number;
     evidenceClaims: Array<{
@@ -143,12 +145,18 @@ export function buildEditorialBrief(
       ? "RESEARCH_ONLY"
       : evidenceClaims.length && links.length && article.paragraphs.length >= 2
         ? "READY" : "DEVELOPING";
+    // A source-backed lesson may be reader-ready as analysis without an
+    // accepted canonical Story. Never elevate it to the homepage Story hero.
+    const storyEligible = readiness === "READY" && Boolean(article.dossierId)
+      && (article.interpretationStatus === "SUPPORTED" || article.interpretationStatus === "MIXED");
+    if (readiness === "READY" && !storyEligible) gaps.push("No canonical Story adjudication");
 
     return {
       ...article,
       sourceLinks: links,
       editorial: {
         readiness,
+        storyEligible,
         qualifiedEvidenceCount: evidenceClaims.length,
         directSourceCount: links.length,
         evidenceClaims,

@@ -78,7 +78,7 @@ export function selectVerifiedNewsBriefs(
       const observed = Date.parse(item.observed_at);
       const expiry = Date.parse(item.expires_at);
       if (![published, observed, expiry].every(Number.isFinite)) return [];
-      if (published > time || observed > time || expiry <= time) return [];
+      if (published > time || observed > time || observed < published || expiry <= published || expiry <= time) return [];
       const url = documentSourceUrl(item.source_url);
       if (!url || !item.source_name?.trim()) return [];
       const headline = item.headline?.trim() || "";

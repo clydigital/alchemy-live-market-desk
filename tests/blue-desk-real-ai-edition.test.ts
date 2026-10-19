@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
 import { buildEditorialBrief, type EditorialEvidenceRow } from "../lib/market-brief-editorial.ts";
 
@@ -76,4 +77,14 @@ test("later issuer disclosure cannot rewrite the 19 October edition", () => {
   const compiled = buildEditorialBrief(projected, later);
   assert.equal(compiled.articles[0].editorial.evidenceClaims.length, 3);
   assert.equal(compiled.articles[0].dossierId, null);
+});
+
+
+test("frozen AI lesson without Dossier ID cannot be elevated to a homepage canonical Story", () => {
+  const projected = projectMarketBriefArticles(snapshot);
+  const compiled = buildEditorialBrief(projected, sourceRows);
+  assert.equal(compiled.articles[0].editorial.storyEligible, false);
+  const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
+  assert.match(home, /article\.editorial\.storyEligible/);
+  assert.match(home, /SOURCED ANALYSIS/);
 });
