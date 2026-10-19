@@ -59,6 +59,23 @@ export async function getHybridPresenterEditionCandidates(options: PublicationQu
 }
 
 /**
+ * Exact immutable daily brief lookup for public Story permalinks.
+ * Unlike the 24-row Presenter picker, this reader cannot fall through to a
+ * newer edition or report a false 404 for a valid archived publication.
+ */
+export async function getHybridExactDailyBriefEdition(editionId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editionId)) {
+    return null;
+  }
+  const rows = await optionalQuery<PublicationSnapshot>(
+    "hybrid_publication_snapshots",
+    `select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&id=eq.${editionId}&limit=1`,
+    { fresh: true },
+  );
+  return rows[0]?.id === editionId ? rows[0] : null;
+}
+
+/**
  * Live Overview renders articles from only the newest published daily brief.
  * Keep the 24-edition candidate reader untouched for Presenter and exact replay.
  */

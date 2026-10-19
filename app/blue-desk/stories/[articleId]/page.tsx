@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
-import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import {
   projectMarketBriefArticles,
   type MarketBriefParagraphV1,
@@ -46,16 +46,26 @@ export default async function BlueDeskStoryPage({
 }) {
   const { articleId } = await params;
   const { edition } = await searchParams;
-  if (typeof edition !== "string" || !edition.trim()) notFound();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof edition !== "string" || !uuidPattern.test(edition)) notFound();
 
-  // Immutable publication snapshots use the same bounded reader as the homepage.
-  const snapshots = await getHybridPresenterEditionCandidates();
-  const frozen = snapshots.find(snapshot => snapshot.id === edition);
-  // Exact edition pin: do NOT silently serve a newer edition on historical links.
+  // Next.js may pass a URL-encoded segment after a hostname rewrite. Decode
+  // once, validate the exact edition + Story pair, and fail closed otherwise.
+  let normalizedArticleId: string;
+  try {
+    normalizedArticleId = decodeURIComponent(articleId);
+  } catch {
+    notFound();
+  }
+  const articlePrefix = `article:${edition}:`;
+  if (!normalizedArticleId.startsWith(articlePrefix)) notFound();
+  if (!uuidPattern.test(normalizedArticleId.slice(articlePrefix.length))) notFound();
+
+  const frozen = await getHybridExactDailyBriefEdition(edition);
   if (!frozen) notFound();
   const projected = projectMarketBriefArticles(frozen);
   const article = projected.articles.find(item =>
-    item.articleId === articleId && item.editionId === edition
+    item.articleId === normalizedArticleId && item.editionId === edition
   );
   if (!article) notFound();
 
