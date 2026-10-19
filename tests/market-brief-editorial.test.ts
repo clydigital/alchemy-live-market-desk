@@ -111,3 +111,18 @@ test("a valid article outranks developing and research process items without rew
   assert.deepEqual(brief.articles.map(a => a.articleId), [ready.articleId, developing.articleId, process.articleId]);
   assert.ok(brief.articles.every(a => a.editionId === "edition-1"));
 });
+
+test("unrelated contextual URL cannot launder an uncited issuer claim into READY", () => {
+  const article = baseArticle("mixed", "AI capex and credit spreads", [id1, id2]);
+  const primaryWithoutLink = evidence(id1, { sourceUrl: "https://investors.coreweave.com/",
+    provenanceUrls: [] });
+  const contextWithLink = evidence(id2, { evidenceClass: "news_report",
+    sourceTier: 3, claimText: "Unverified Research Gap hypothesis from reporting",
+    sourceUrl: "https://research.example.com/articles/ai-credit-2026",
+    provenanceUrls: [] });
+  const brief = buildEditorialBrief(packageOf([article]), [primaryWithoutLink, contextWithLink]);
+  assert.equal(brief.articles[0].editorial.readiness, "DEVELOPING");
+  assert.equal(brief.articles[0].editorial.qualifiedEvidenceCount, 0);
+  assert.equal(brief.articles[0].editorial.evidenceClaims.length, 0);
+  assert.equal(brief.articles[0].sourceLinks.length, 1);
+});
