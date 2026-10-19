@@ -65,6 +65,8 @@ test("actual 19 October AI lesson compiles source-supported facts, not an accept
   const article = compiled.articles[0];
   assert.equal(article.editionId, snapshot.id);
   assert.equal(article.editorial.qualifiedEvidenceCount, 4);
+  assert.equal(article.editorial.readiness, "DEVELOPING");
+  assert.equal(compiled.readerReadyCount, 0);
   assert.equal(article.editorial.evidenceClaims.length, 4);
   assert.equal(article.editorial.evidenceClaims.every(c => c.sourceUrl.startsWith("https://")), true);
   assert.equal(article.editorial.evidenceClaims.some(c => c.claimText.includes("Research Gap")), false);
