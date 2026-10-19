@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Blue Desk | Alchemy Market Intelligence",
-  description: "A unified ET-first market intelligence and presenter workspace powered by the Alchemy Live Desk.",
+  description: "Market stories, rates and upcoming events.",
 };
 
 
@@ -71,14 +71,10 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <div className={styles.intro}>
-          <span>LIVE DESK INTELLIGENCE · BLUE DESK PRESENTATION</span>
-          <span>Eastern Time first · Singapore Time beneath</span>
-        </div>
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
-            <p className={styles.kicker}>FEATURE STORY · PUBLISHED EDITION</p>
+            <p className={styles.kicker}>TOP STORY</p>
             <h1>{feature ? feature.title : "Market Brief awaiting sufficient evidence"}</h1>
             <p className={styles.heroDeck}>
               {feature
@@ -90,14 +86,12 @@ export default async function BlueDeskPage() {
               {latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
-              <Link className={styles.primaryAction} href="/articles">Explore the evidence →</Link>
+              <Link className={styles.primaryAction} href="/articles">Read story →</Link>
               {latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> : null}
             </div>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
-            <div className={styles.panelTop}>SOURCED MARKET OBSERVATIONS</div>
             <h2>Rates &amp; yields</h2>
-            <p className={styles.muted}>Provider snapshots, not live quotes. Each observation retains its own date.</p>
             {yields.length ? yields.map(row => (
               <div className={styles.rateRow} key={row.id}>
                 <div>
@@ -116,7 +110,6 @@ export default async function BlueDeskPage() {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="stories-title">Key market stories</h2>
-              <p>Published analysis grounded in the Dossier, not generated from headlines.</p>
             </div>
             <Link href="/articles" className={styles.textLink}>All articles →</Link>
           </div>
@@ -144,7 +137,7 @@ export default async function BlueDeskPage() {
           <section className={styles.secondaryPanel} aria-labelledby="motion-title">
             <div className={styles.sectionHead}>
               <div>
-                <p className={styles.kicker}>MARKET MOTION · NON-EVIDENTIARY CONTEXT</p>
+                <p className={styles.kicker}>MARKET MOTION</p>
                 <h2 id="motion-title">What changed</h2>
               </div>
               <Link className={styles.textLink} href="/whats-new">Investigate →</Link>
@@ -165,12 +158,10 @@ export default async function BlueDeskPage() {
           <section className={styles.secondaryPanel} aria-labelledby="calendar-title">
             <div className={styles.sectionHead}>
               <div>
-                <p className={styles.kicker}>ET PRIMARY · SGT SECONDARY</p>
                 <h2 id="calendar-title">Coming up</h2>
               </div>
               <Link className={styles.textLink} href="/blue-desk/calendar">Full calendar →</Link>
             </div>
-            <p className={styles.muted}>Economic releases and earnings from the existing presenter calendar feed, ordered by Eastern Time. Date-only items retain their source date.</p>
             {upcoming.length ? upcoming.map(event => (
               <article key={event.id} className={styles.eventRow}>
                 <div className={styles.eventHeading}>
@@ -194,9 +185,7 @@ export default async function BlueDeskPage() {
 
         <section className={styles.lastLinks} aria-label="Desk research and presenter">
           <div>
-            <p className={styles.kicker}>ONE INTELLIGENCE AUTHORITY</p>
             <h2>Dossier, Journey and presenter preparation</h2>
-            <p>Live Desk remains the owner of evidence and Regime decisions. Historical editions remain pinned.</p>
           </div>
           <div className={styles.quickLinks}>
             <Link href="/dossier">Current Dossier →</Link>
@@ -206,10 +195,7 @@ export default async function BlueDeskPage() {
           </div>
         </section>
 
-        <footer className={styles.footer}>
-          <span>Blue Desk · Alchemy Live Desk</span>
-          <span>Publication time and observation time remain distinct. ET / SGT are presentation only.</span>
-        </footer>
+        <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>
   );
