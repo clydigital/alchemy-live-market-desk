@@ -48,7 +48,8 @@ export default async function BlueDeskStoryPage({
   const { edition } = await searchParams;
   if (typeof edition !== "string" || !edition.trim()) notFound();
 
-  const snapshots = await getHybridPresenterEditionCandidates({ fresh: true });
+  // Immutable publication snapshots use the same bounded reader as the homepage.
+  const snapshots = await getHybridPresenterEditionCandidates();
   const frozen = snapshots.find(snapshot => snapshot.id === edition);
   // Exact edition pin: do NOT silently serve a newer edition on historical links.
   if (!frozen) notFound();
