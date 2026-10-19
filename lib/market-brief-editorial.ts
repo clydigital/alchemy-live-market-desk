@@ -39,7 +39,7 @@ const PROCESS_HEADLINE = /(?:^|[\s:])(?:evidence gap|research gap|record reclass
 const PROCESS_CLAIM = /^(?:observed by research gap|detected:|detected\b|story:\s*detected|verification pending|awaiting provider|source retrieval failed|research gap)/i;
 const PRIMARY_CLASSES = new Set([
   "official_release", "company_primary", "official_statistic",
-  "official_measurement", "verified_macro", "official_document", "filing",
+  "official_measurement", "verified_macro", "official_document", "filing", "regulatory_filing",
 ]);
 
 function sourceUrl(value: string | null | undefined): string | null {
