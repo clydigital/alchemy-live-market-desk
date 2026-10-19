@@ -58,10 +58,9 @@ test("Presentation rewrites are gated by the existing auth middleware", () => {
 
 test("Story detail is pinned to exact edition, with no latest-edition fallback", () => {
   const detail = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
-  assert.match(detail, /snapshots\.find\(snapshot => snapshot\.id === edition\)/);
-  assert.match(detail, /if \(!frozen\) notFound\(\)/);
+  assert.match(detail, /getHybridPresenterEditionById\(edition\)/);
+  assert.match(detail, /if \(!frozen \|\| frozen\.id !== edition\) notFound\(\)/);
   assert.match(detail, /item\.articleId === articleId && item\.editionId === edition/);
   assert.match(detail, /httpsSource\(source\.url\)/);
-  assert.match(detail, /getHybridPresenterEditionCandidates\(\)/);
-  assert.equal(detail.includes("getHybridPresenterEditionCandidates({ fresh: true })"), false);
+  assert.equal(detail.includes("getHybridPresenterEditionCandidates("), false);
 });
