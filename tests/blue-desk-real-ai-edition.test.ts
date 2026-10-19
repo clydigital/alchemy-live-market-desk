@@ -38,24 +38,20 @@ const snapshot = {
   },
 };
 
-const evidence = (id: string, claimText: string, url: string, sourceName: string): EditorialEvidenceRow => ({
+const evidence = (id: string, claimText: string, url: string, sourceName: string, createdAt: string): EditorialEvidenceRow => ({
   id, claimText, evidenceClass: "company_primary", supportDirection: "neutral",
   sourceTier: 1, sourceName, sourceUrl: url, provenanceUrls: [url],
-  availableAt: "2026-10-18T01:01:16Z", createdAt: "2026-10-18T01:01:30Z",
+  availableAt: "2026-10-18T01:01:16.085Z", createdAt,
 });
 const sourceRows: EditorialEvidenceRow[] = [
   evidence(canonicalIds[0], "TSMC reported 2026 Q3 operating margin of 58.7 percent.",
-    "https://pr.tsmc.com/english/news/3346", "TSMC issuer release"),
+    "https://pr.tsmc.com/english/news/3346", "TSMC issuer release", "2026-10-18T01:01:27.846236Z"),
   evidence(canonicalIds[1], "TSMC reported 2026 Q3 revenue of USD 46.72 billion.",
-    "https://pr.tsmc.com/english/news/3346", "TSMC issuer release"),
+    "https://pr.tsmc.com/english/news/3346", "TSMC issuer release", "2026-10-18T01:01:22.784933Z"),
   evidence(canonicalIds[2], "CoreWeave reported 2026 Q2 cash PPE purchases of USD 6.422 billion.",
-    "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx", "CoreWeave issuer release"),
+    "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx", "CoreWeave issuer release", "2026-10-18T01:01:36.140482Z"),
   evidence(canonicalIds[3], "CoreWeave reported 2026 Q2 operating cash flow of USD 0.679 billion.",
-    "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx", "CoreWeave issuer release"),
-  ...canonicalIds.slice(4).map(id => ({
-    ...evidence(id, "Contextual secondary Research Gap material", "https://research.example.com/context/ai", "Research Gap"),
-    evidenceClass: "news_report", sourceTier: 3,
-  })),
+    "https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-Second-Quarter-2026-Results/default.aspx", "CoreWeave issuer release", "2026-10-18T01:01:32.470118Z"),
 ];
 
 test("actual 19 October AI lesson compiles source-supported facts, not an accepted thesis", () => {
