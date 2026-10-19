@@ -66,8 +66,11 @@ function sourceUrl(value: string | null | undefined): string | null {
 function allowedAsOf(row: EditorialEvidenceRow, asOf: string) {
   const reference = Date.parse(asOf);
   if (!Number.isFinite(reference)) return false;
-  const dates = [row.createdAt, row.availableAt].filter((d): d is string => Boolean(d));
-  return dates.every(date => Number.isFinite(Date.parse(date)) && Date.parse(date) <= reference);
+  // Both admission timestamps must be known; missing provenance timing cannot
+  // establish that this evidence was available in the frozen publication.
+  if (!row.createdAt || !row.availableAt) return false;
+  return [row.createdAt, row.availableAt].every(date =>
+    Number.isFinite(Date.parse(date)) && Date.parse(date) <= reference);
 }
 
 function relevantIds(article: MarketBriefArticleV1) {
@@ -101,7 +104,8 @@ export function buildEditorialBrief(
     const urls = new Map<string, MarketBriefSourceLinkV1>();
     // Only link actual original evidence source URLs, never parent/provider homepage.
     for (const row of records) {
-      for (const value of [row.sourceUrl, ...row.provenanceUrls]) {
+      const candidates = row.provenanceUrls.length ? row.provenanceUrls : row.sourceUrl ? [row.sourceUrl] : [];
+      for (const value of candidates) {
         const url = sourceUrl(value);
         if (!url || urls.has(url)) continue;
         urls.set(url, {
@@ -116,7 +120,8 @@ export function buildEditorialBrief(
     // already available by this immutable edition's as-of. Contextual
     // Research Gap observations and later records are not public proof.
     const evidenceClaims = qualified.flatMap(row => {
-      const direct = [...row.provenanceUrls, row.sourceUrl].map(sourceUrl).find(Boolean);
+      const candidates = row.provenanceUrls.length ? row.provenanceUrls : row.sourceUrl ? [row.sourceUrl] : [];
+      const direct = candidates.map(sourceUrl).find(Boolean);
       if (!direct || !row.claimText?.trim()) return [];
       return [{
         evidenceId: row.id,
