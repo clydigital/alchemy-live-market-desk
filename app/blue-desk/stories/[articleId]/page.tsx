@@ -155,6 +155,7 @@ export default async function BlueDeskStoryPage({
                 No edition-pinned primary-source claims are available for this article.
                 Interpretations above are not independently verified by this panel.
               </p>}
+              <p className={styles.muted}>These sources support individual observations; they do not independently establish the causal explanation or a System 2 thesis change.</p>
             </section>
             <section>
               <h2>Publication</h2>
