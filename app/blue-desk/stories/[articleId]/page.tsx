@@ -8,6 +8,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
+import { readerParagraphSources, readerVerifiedReaction } from "@/lib/blue-desk-reader-evidence";
 import {
   projectMarketBriefArticles,
   readerFacingMarketText,
@@ -78,10 +79,13 @@ export default async function BlueDeskStoryPage({
   const confirmations = article.confirmationTests || [];
   const invalidations = article.invalidationTests || [];
   const hasStructuredWatch = confirmations.length > 0 || invalidations.length > 0;
+  const verifiedReaction = readerVerifiedReaction(article.paragraphs, article.editorial.evidenceClaims);
   const supportedParagraphs = article.paragraphs.filter(p =>
     (p.canonicalEvidenceIds.length > 0 || p.sourceRefs.length > 0)
     // The same forward tests are already displayed once in their own section.
     && !(hasStructuredWatch && p.role === "outlook")
+    // No edition-pinned market observation means no factual price-reaction claim.
+    && (p.role !== "reaction" || readerParagraphSources(p, article.editorial.evidenceClaims).length > 0)
   );
   const covered = new Set<string>();
   const blocks = SECTIONS.map(section => ({
@@ -154,15 +158,33 @@ export default async function BlueDeskStoryPage({
                 {block.text.map((paragraph, index) => (
                   <div key={index}>
                     <p>{readerFacingMarketText(paragraph.text)}</p>
-                    <small className={styles.deepEvidence}>
-                      {paragraph.evidenceScope === "claim"
-                        ? "Evidence linked to this exact upstream claim"
-                        : "Evidence attached to this lesson; individual causal steps are not separately verified"}
-                    </small>
+                    {readerParagraphSources(paragraph, article.editorial.evidenceClaims).length ? (
+                      <div className={styles.deepParagraphSources}>
+                        <small className={styles.deepEvidence}>Original-source records linked to this exact upstream claim:</small>
+                        {readerParagraphSources(paragraph, article.editorial.evidenceClaims).map(source => (
+                          <a key={source.evidenceId} href={source.sourceUrl} target="_blank" rel="noreferrer">
+                            {source.sourceName} · original report ↗
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <small className={styles.deepEvidence}>
+                        Lesson-level evidence only; this particular statement is not independently verified by an original-source record.
+                      </small>
+                    )}
                   </div>
                 ))}
               </section>
             ))}
+            {!verifiedReaction ? (
+              <section className={styles.deepSection}>
+                <h2>Market reaction</h2>
+                <p className={styles.deepSourceContext}>
+                  No independently source-linked price reaction is available in this frozen edition.
+                  The issuer figures alone cannot establish how shares, yields or the wider market responded.
+                </p>
+              </section>
+            ) : null}
             {hasStructuredWatch ? (
               <section className={styles.deepSection}>
                 <h2>What to watch</h2>

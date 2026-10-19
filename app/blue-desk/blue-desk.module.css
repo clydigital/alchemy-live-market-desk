@@ -190,3 +190,8 @@
 .deepMechanismEvidence { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; color: #a0bfd2; }
 .deepMechanismEvidence a { color: #92dcff; }
 @media (max-width: 640px) { .deepMechanismNodes { grid-template-columns: 1fr; gap: 5px; } .deepMechanismRelation { text-align: left; max-width: none; } }
+
+/* A claim's own citation differs from a lesson-wide source packet. */
+.deepParagraphSources { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 15px; margin: 0 0 15px; }
+.deepParagraphSources small { margin-bottom: 0; }
+.deepParagraphSources a { color: #9edbfa; text-decoration: underline; text-underline-offset: 3px; font-size: 12px; overflow-wrap: anywhere; }
