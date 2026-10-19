@@ -6,6 +6,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import {
   projectMarketBriefArticles,
   type MarketBriefParagraphV1,
@@ -53,7 +54,7 @@ export default async function BlueDeskStoryPage({
   const frozen = snapshots.find(snapshot => snapshot.id === edition);
   // Exact edition pin: do NOT silently serve a newer edition on historical links.
   if (!frozen) notFound();
-  const projected = projectMarketBriefArticles(frozen);
+  const projected = await loadEditorialMarketBrief(projectMarketBriefArticles(frozen));
   const article = projected.articles.find(item =>
     item.articleId === articleId && item.editionId === edition
   );
