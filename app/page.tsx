@@ -22,7 +22,7 @@ import { legacyTabRedirect } from "@/lib/live-desk/routes";
 import { getMarketData } from "@/lib/market";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention, selectMarketMotionForOverview } from "@/lib/market-motion";
-import { getHybridPresenterEditionCandidates, selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
+import { getLiveDeskHomepageDailyBrief, selectLegacyStoriesForLive } from "@/lib/hybrid-publication";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { getStoryRecordLayer } from "@/lib/persistence/read";
 import { getRelatedStoriesForRelease } from "@/lib/release-story-links";
@@ -237,7 +237,7 @@ export default async function Page({ searchParams }: PageProps) {
   if (legacyTarget) redirect(legacyTarget);
   if (tabValue) redirect(`/legacy?tab=${encodeURIComponent(tabValue)}`);
 
-  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords, forwardEarnings, editionCandidates] = await Promise.all([
+  const [data, market, monitor, recordLayer, calendar, dossierSelection, motionRecords, forwardEarnings, latestEdition] = await Promise.all([
     getDeskData(),
     getMarketData(),
     getMarketMonitor(),
@@ -246,11 +246,10 @@ export default async function Page({ searchParams }: PageProps) {
     getDossierV2PresentationSelection(),
     getCurrentMarketMotion({ limit: 50 }).catch(() => []),
     getForwardEarningsEvents(),
-    getHybridPresenterEditionCandidates().catch(() => []),
+    getLiveDeskHomepageDailyBrief().catch(() => null),
   ]);
 
-  const primaryEdition = editionCandidates[0] || null;
-  const marketBriefArticles = projectMarketBriefArticles(primaryEdition);
+  const marketBriefArticles = projectMarketBriefArticles(latestEdition);
 
   const marketContextCount = data.marketObservations.length;
   const mainBreadth = market.breadth.find((item) => item.id === "large-cap") || market.breadth[0];
