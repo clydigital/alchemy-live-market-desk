@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
+import { readFileSync } from "node:fs";
+import { projectMarketBriefArticles, splitExistingWatchTests } from "../lib/market-brief-articles.ts";
 
 test("projectMarketBriefArticles projects canonical articles from a daily brief edition snapshot", () => {
   const sampleSnapshot = {
@@ -102,6 +103,8 @@ test("projectMarketBriefArticles projects canonical articles from a daily brief 
   assert.equal(article1.interpretationStatus, "UNRESOLVED");
   assert.ok(article1.title.length <= 63, "Title length is concise");
   assert.ok(article1.paragraphs.length >= 1, "Has paragraphs for explicitly supplied roles");
+  assert.deepEqual(article1.confirmationTests, ["10-year yields hold above 4.25%"]);
+  assert.deepEqual(article1.invalidationTests, ["Sub-50k payroll print or core CPI decelerates below 0.2% MoM"]);
 
   // Check roles in paragraph sequence
   const roles = article1.paragraphs.map(p => p.role);
@@ -128,4 +131,24 @@ test("projectMarketBriefArticles handles missing or invalid input gracefully", (
   assert.equal(resultNoStories.status, "INSUFFICIENT_DATA");
   assert.equal(resultNoStories.articles.length, 0);
   assert.ok(resultNoStories.blockedReason?.includes("No durable, source-grounded story or lesson records"));
+});
+
+
+test("watch-condition display normalises punctuation, preserves author intent and exact order", () => {
+  assert.deepEqual(splitExistingWatchTests("  A holds above 4%.; B falls below 2%..; A holds above 4%. ; C normalises. "), [
+    "A holds above 4%", "B falls below 2%", "C normalises"
+  ]);
+  assert.deepEqual(splitExistingWatchTests(null), []);
+  assert.deepEqual(splitExistingWatchTests(""), []);
+});
+
+test("Deep Dive shows structured conditions only once and preserves older outlook fallback", () => {
+  const route = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(route, /hasStructuredWatch && p\.role === "outlook"/);
+  assert.match(route, /confirmations\.map/);
+  assert.match(route, /invalidations\.map/);
+  assert.match(route, /What strengthens this view/);
+  assert.match(route, /What would weaken it/);
+  assert.match(route, /article\.conditionalOutlook \? \(/);
+  assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
 });

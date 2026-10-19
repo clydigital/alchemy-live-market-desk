@@ -73,8 +73,13 @@ export default async function BlueDeskStoryPage({
   const host = (await headers()).get("host");
   const back = blueDeskPublicHref("/blue-desk", host);
   const references = article.sourceLinks.filter(source => httpsSource(source.url));
+  const confirmations = article.confirmationTests || [];
+  const invalidations = article.invalidationTests || [];
+  const hasStructuredWatch = confirmations.length > 0 || invalidations.length > 0;
   const supportedParagraphs = article.paragraphs.filter(p =>
-    p.canonicalEvidenceIds.length > 0 || p.sourceRefs.length > 0
+    (p.canonicalEvidenceIds.length > 0 || p.sourceRefs.length > 0)
+    // The same forward tests are already displayed once in their own section.
+    && !(hasStructuredWatch && p.role === "outlook")
   );
   const covered = new Set<string>();
   const blocks = SECTIONS.map(section => ({
@@ -119,7 +124,27 @@ export default async function BlueDeskStoryPage({
                 ))}
               </section>
             ))}
-            {article.conditionalOutlook ? (
+            {hasStructuredWatch ? (
+              <section className={styles.deepSection}>
+                <h2>What to watch</h2>
+                {confirmations.length ? (
+                  <div className={styles.deepWatchGroup}>
+                    <h3>What strengthens this view</h3>
+                    <ul className={styles.deepWatchList}>
+                      {confirmations.map((condition, index) => <li key={index}>{condition}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+                {invalidations.length ? (
+                  <div className={styles.deepWatchGroup}>
+                    <h3>What would weaken it</h3>
+                    <ul className={styles.deepWatchList}>
+                      {invalidations.map((condition, index) => <li key={index}>{condition}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : article.conditionalOutlook ? (
               <section className={styles.deepSection}>
                 <h2>What to watch</h2>
                 <p>{article.conditionalOutlook}</p>
