@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync(new URL("../supabase/migrations/20261019224500_restrict_security_definer_rpc_execute.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../supabase/migrations/20261019224047_restrict_privileged_definer_rpc_execute_20261020.sql", import.meta.url), "utf8");
 const client = readFileSync(new URL("../lib/intelligence/supabase.ts", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../lib/intelligence/runtime.ts", import.meta.url), "utf8");
 
