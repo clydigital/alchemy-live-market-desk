@@ -12,6 +12,7 @@ import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion } from "@/lib/market-motion";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
+import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -54,12 +55,12 @@ export default async function BlueDeskPage() {
 
   // Existing publication snapshots remain the only article authority.
   const latest = editions[0] || null;
-  const brief = projectMarketBriefArticles(latest);
-  const feature = brief.articles[0] || null;
+  const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
+  const feature = brief.articles.find(article => article.editorial.readiness === "READY") || null;
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
-  const articles = brief.articles.slice(0, 6);
+  const articles = brief.articles.filter(article => article.editorial.readiness !== "RESEARCH_ONLY").slice(0, 6);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
     (row): row is NonNullable<typeof row> => Boolean(row),
   );
@@ -81,14 +82,14 @@ export default async function BlueDeskPage() {
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
             <p className={styles.kicker}>TOP STORY</p>
-            <h1>{feature ? feature.title : "Market Brief awaiting sufficient evidence"}</h1>
+            <h1>{feature ? feature.title : "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
               {feature
                 ? feature.deck
-                : brief.blockedReason || "No supported article is available from the current canonical edition."}
+                : "No Story has cleared source and explanation checks."}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{feature?.interpretationStatus || "UNAVAILABLE"}</span>
+              <span className={styles.tag}>{feature?.interpretationStatus || "REVIEW"}</span>
               {latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
@@ -122,7 +123,7 @@ export default async function BlueDeskPage() {
           <div className={styles.storyGrid}>
             {articles.length ? articles.map(article => (
               <article key={article.articleId} className={styles.storyCard}>
-                <span className={styles.kicker}>{article.category} · {article.interpretationStatus}</span>
+                <span className={styles.kicker}>{article.category} · {article.editorial.readiness === "READY" ? article.interpretationStatus : "DEVELOPING"}</span>
                 <h3>{article.title}</h3>
                 <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
                 <div className={styles.storyBottom}>
