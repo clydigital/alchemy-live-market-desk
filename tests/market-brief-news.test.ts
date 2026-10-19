@@ -57,3 +57,11 @@ test("latest validated report comes first and caller data is not mutated", () =>
   assert.equal(result[0].id, base.id);
   assert.equal(items[0].id, older.id);
 });
+
+
+test("rejects impossible News Brief chronology", () => {
+  assert.equal(selectVerifiedNewsBriefs([
+    { ...base, id: "before-event", observed_at: "2026-10-20T07:00:00Z" },
+    { ...base, id: "expiry-before-event", expires_at: "2026-10-20T07:00:00Z" },
+  ], now).length, 0);
+});

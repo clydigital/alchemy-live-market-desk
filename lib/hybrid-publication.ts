@@ -20,6 +20,7 @@ import {
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serverKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 type PublicationQueryOptions = {
   fresh?: boolean;
@@ -31,10 +32,13 @@ const LEGACY_STORY_RUN_BATCH_SIZE = 100;
 const LEGACY_STORY_PAGE_SIZE = 250;
 
 async function optionalQuery<T>(table: string, params = "", options: PublicationQueryOptions = {}): Promise<T[]> {
-  if (!url || !key) return [];
+  // Frozen publication payloads contain internal analysis fields. Read them
+  // on the server with a server-only credential, never with the public anon key.
+  const credential = table === "hybrid_publication_snapshots" ? serverKey : key;
+  if (!url || !credential) return [];
   try {
     const response = await fetch(`${url}/rest/v1/${table}?${params}`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      headers: { apikey: credential, Authorization: `Bearer ${credential}` },
       ...(options.fresh ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
       signal: AbortSignal.timeout(5_000),
     });
@@ -59,18 +63,20 @@ export async function getHybridPresenterEditionCandidates(options: PublicationQu
 }
 
 /**
- * Exact immutable daily-brief edition lookup for Blue Desk deep links.
- * Unlike the presenter picker this is NOT limited to the newest 24 editions.
- * An unknown/malformed ID returns null; never substitute a newer edition.
+ * Exact immutable daily brief lookup for public Story permalinks.
+ * Unlike the 24-row Presenter picker, this reader cannot fall through to a
+ * newer edition or report a false 404 for a valid archived publication.
  */
-export async function getHybridPresenterEditionById(editionId: string, options: PublicationQueryOptions = {}) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editionId)) return null;
+export async function getHybridExactDailyBriefEdition(editionId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editionId)) {
+    return null;
+  }
   const rows = await optionalQuery<PublicationSnapshot>(
     "hybrid_publication_snapshots",
-    `select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&id=eq.${encodeURIComponent(editionId)}&limit=1`,
-    { ...options, fresh: true },
+    `select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at&snapshot_type=eq.daily_brief&id=eq.${editionId}&limit=1`,
+    { fresh: true },
   );
-  return rows.find(row => row.id === editionId && row.snapshot_type === "daily_brief") || null;
+  return rows[0]?.id === editionId ? rows[0] : null;
 }
 
 /**

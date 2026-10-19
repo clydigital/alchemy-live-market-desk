@@ -66,8 +66,12 @@ function sourceUrl(value: string | null | undefined): string | null {
 function allowedAsOf(row: EditorialEvidenceRow, asOf: string) {
   const reference = Date.parse(asOf);
   if (!Number.isFinite(reference)) return false;
-  const dates = [row.createdAt, row.availableAt].filter((d): d is string => Boolean(d));
-  return dates.every(date => Number.isFinite(Date.parse(date)) && Date.parse(date) <= reference);
+  // Both first-availability and record creation must predate the frozen edition.
+  // Unknown chronology is not permission to promote a claim to READY.
+  if (!row.createdAt || !row.availableAt) return false;
+  return [row.createdAt, row.availableAt].every(date =>
+    Number.isFinite(Date.parse(date)) && Date.parse(date) <= reference
+  );
 }
 
 function relevantIds(article: MarketBriefArticleV1) {

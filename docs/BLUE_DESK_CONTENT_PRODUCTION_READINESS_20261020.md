@@ -48,3 +48,12 @@ An edition with no material changes may correctly have zero new manifest entries
 - Separately track legitimate zero-new-evidence editions versus broken provider output.
 - Check real story detail HTTP result and pinned identity, not merely whether a button exists.
 - Retain legacy Live Desk API contracts and historical publication records throughout migration.
+
+
+## Reconciled with production #830 and #831
+
+- Rebase content changes onto the currently deployed public/private route security and precise Bluebelly allowlist from #830; do not overwrite its middleware or negative tests.
+- Use the exact immutable daily-brief reader from #831: UUID-pinned edition, decode-once article ID, strict edition/story pairing, no latest-edition fallback. Add #829 provenance enrichment and evidence explorer to that same path.
+- Fail closed when created_at or available_at is absent or later than the edition as-of. Factual News Briefs require chronological consistency but never imply System 2 acceptance.
+- Database security remains a separate release gate: anon/public-read RLS exists on raw hybrid_publication_snapshots, market_motion_items and story_thesis_versions. #830 only protects routed pages. Classify raw payload and migrate public data onto a reviewed projection before altering grants; never blindly tighten production RLS while old internal readers still use the anon key.
+- This merge commit changes the draft PR branch only. No direct production DB, migration, credential, release or scheduled-task actions.

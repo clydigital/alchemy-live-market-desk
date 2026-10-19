@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
-import { getHybridPresenterEditionById } from "@/lib/hybrid-publication";
+import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import {
   projectMarketBriefArticles,
@@ -47,16 +47,26 @@ export default async function BlueDeskStoryPage({
 }) {
   const { articleId } = await params;
   const { edition } = await searchParams;
-  if (typeof edition !== "string" || !edition.trim()) notFound();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof edition !== "string" || !uuidPattern.test(edition)) notFound();
 
-  // Query the actual immutable edition by ID; the homepage's recent-picker
-  // window must never turn a valid archived Story into a false 404.
-  const frozen = await getHybridPresenterEditionById(edition);
-  // Exact edition pin: do NOT silently serve a newer edition on historical links.
-  if (!frozen || frozen.id !== edition) notFound();
+  // Next.js may pass a URL-encoded segment after a hostname rewrite. Decode
+  // once, validate the exact edition + Story pair, and fail closed otherwise.
+  let normalizedArticleId: string;
+  try {
+    normalizedArticleId = decodeURIComponent(articleId);
+  } catch {
+    notFound();
+  }
+  const articlePrefix = `article:${edition}:`;
+  if (!normalizedArticleId.startsWith(articlePrefix)) notFound();
+  if (!uuidPattern.test(normalizedArticleId.slice(articlePrefix.length))) notFound();
+
+  const frozen = await getHybridExactDailyBriefEdition(edition);
+  if (!frozen) notFound();
   const projected = await loadEditorialMarketBrief(projectMarketBriefArticles(frozen));
   const article = projected.articles.find(item =>
-    item.articleId === articleId && item.editionId === edition
+    item.articleId === normalizedArticleId && item.editionId === edition
   );
   if (!article) notFound();
 

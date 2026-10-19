@@ -19,3 +19,25 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
+
+/**
+ * Routing authority for the dedicated Bluebelly public hostname.
+ * Other aliases must not silently inherit the public route allowlist.
+ * Private pages and APIs remain available only through the owner/operation
+ * hostname, where middleware and route-level authentication apply.
+ */
+export function blueDeskHostAccess(pathname: string, host: string | null | undefined):
+  "public" | "blocked" | "private" {
+  const hostname = (host || "").trim().toLowerCase().replace(/:443$/, "");
+  if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
+  if (hostname !== BLUEBELLY_PRESENTATION_HOST) return "private";
+
+  const publicPage =
+    pathname === "/" ||
+    pathname === "/calendar" ||
+    pathname === "/blue-desk" ||
+    pathname === "/blue-desk/calendar" ||
+    /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
+
+  return publicPage ? "public" : "blocked";
+}

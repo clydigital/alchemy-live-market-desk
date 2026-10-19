@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
 import { buildEditorialBrief, type EditorialEvidenceRow } from "../lib/market-brief-editorial.ts";
 
@@ -76,4 +77,13 @@ test("later issuer disclosure cannot rewrite the 19 October edition", () => {
   const compiled = buildEditorialBrief(projected, later);
   assert.equal(compiled.articles[0].editorial.evidenceClaims.length, 3);
   assert.equal(compiled.articles[0].dossierId, null);
+});
+
+
+test("exact Story route retains historical reader and pinned provenance", () => {
+  const page = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /getHybridExactDailyBriefEdition\(edition\)/);
+  assert.match(page, /loadEditorialMarketBrief\(projectMarketBriefArticles\(frozen\)\)/);
+  assert.match(page, /item\.articleId === normalizedArticleId && item\.editionId === edition/);
+  assert.match(page, /decodeURIComponent\(articleId\)/);
 });

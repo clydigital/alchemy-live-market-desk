@@ -126,3 +126,14 @@ test("unrelated contextual URL cannot launder an uncited issuer claim into READY
   assert.equal(brief.articles[0].editorial.evidenceClaims.length, 0);
   assert.equal(brief.articles[0].sourceLinks.length, 1);
 });
+
+
+test("missing first-available or created timestamp cannot become historical proof", () => {
+  const article = baseArticle("missing-time", "CoreWeave financing", [id1]);
+  for (const override of [{ availableAt: null }, { createdAt: null }, { createdAt: null, availableAt: null }]) {
+    const compiled = buildEditorialBrief(packageOf([article]), [evidence(id1, override)]);
+    assert.equal(compiled.readerReadyCount, 0);
+    assert.equal(compiled.articles[0].sourceLinks.length, 0);
+    assert.equal(compiled.articles[0].editorial.evidenceClaims.length, 0);
+  }
+});
