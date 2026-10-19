@@ -58,6 +58,9 @@ test("current primary evidence creates a client-ready article with an exact orig
     "https://investors.coreweave.com/news/news-details/2026/quarterly-results",
   ]);
   assert.equal(brief.articles[0].editorial.qualifiedEvidenceCount, 1);
+  assert.deepEqual(brief.articles[0].editorial.evidenceClaims.map(c => c.evidenceId), [id1]);
+  assert.equal(brief.articles[0].editorial.evidenceClaims[0].sourceUrl,
+    "https://investors.coreweave.com/news/news-details/2026/quarterly-results");
 });
 
 test("Research Gap discovery evidence is context only, never independently editorial confirmation", () => {
@@ -84,6 +87,7 @@ test("cannot launder post-edition facts into historical publication", () => {
   ]);
   assert.equal(brief.articles[0].editorial.qualifiedEvidenceCount, 0);
   assert.equal(brief.articles[0].sourceLinks.length, 0);
+  assert.equal(brief.articles[0].editorial.evidenceClaims.length, 0);
 });
 
 test("homepages, unsecured URLs, and unreferenced evidence are not citations", () => {
