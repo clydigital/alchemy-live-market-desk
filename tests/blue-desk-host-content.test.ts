@@ -56,14 +56,19 @@ test("Presentation rewrites are gated by the existing auth middleware", () => {
   assert.match(middleware, /return copyCookies\(supabaseResponse, rewritten\)/);
 });
 
-test("Story detail is pinned to exact edition, with no latest-edition fallback", () => {
+test("Story detail fetches exact immutable edition independent of recent picker", () => {
   const detail = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
-  assert.match(detail, /snapshots\.find\(snapshot => snapshot\.id === edition\)/);
+  const publication = readFileSync(new URL("../lib/hybrid-publication.ts", import.meta.url), "utf8");
+  assert.match(detail, /getHybridExactDailyBriefEdition\(edition\)/);
   assert.match(detail, /if \(!frozen\) notFound\(\)/);
-  assert.match(detail, /item\.articleId === articleId && item\.editionId === edition/);
+  assert.match(detail, /item\.articleId === normalizedArticleId && item\.editionId === edition/);
   assert.match(detail, /httpsSource\(source\.url\)/);
-  assert.match(detail, /getHybridPresenterEditionCandidates\(\)/);
-  assert.equal(detail.includes("getHybridPresenterEditionCandidates({ fresh: true })"), false);
+  assert.match(detail, /decodeURIComponent\(articleId\)/);
+  assert.doesNotMatch(detail, /getHybridPresenterEditionCandidates/);
+  assert.match(publication, /export async function getHybridExactDailyBriefEdition/);
+  assert.match(publication, /&id=eq\.\$\{editionId\}&limit=1/);
+  assert.match(publication, /\{ fresh: true \}/);
+  assert.match(publication, /return rows\[0\]\?\.id === editionId \? rows\[0\] : null/);
 });
 
 test("Bluebelly exposes only explicitly approved public reading routes", () => {
