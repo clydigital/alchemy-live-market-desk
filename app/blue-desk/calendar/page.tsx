@@ -12,7 +12,7 @@ import styles from "../blue-desk.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Market Calendar | Blue Desk",
-  description: "Economic releases and earnings in Eastern Time with smaller Singapore Time, sourced from Alchemy Live Desk.",
+  description: "Economic releases and earnings.",
 };
 
 type WindowName = "24h" | "7d" | "30d" | "released";
@@ -93,14 +93,14 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
         <section className={styles.secondaryPanel} aria-label="Source-date-only events">
           <p className={styles.kicker}>DATE-ONLY RECORDS · TIME NOT CONFIRMED</p>
           <h2>Source calendar dates</h2>
-          <p className={styles.muted}>These events have no verified release instant. Their date is a source/provider date, not a converted ET date.</p>
+          <p className={styles.muted}>Exact time unavailable. Dates shown as supplied.</p>
           {datedOnly.map(card)}
         </section>
       ) : null}
       {!records.length ? (
         <section className={styles.secondaryPanel}>
           <h2>No verified events in this view</h2>
-          <p className={styles.muted}>The feed may be quiet or source coverage may be incomplete. No event has been inferred.</p>
+          <p className={styles.muted}>No events in this window. Source coverage may be incomplete.</p>
         </section>
       ) : null}
     </>
@@ -138,21 +138,14 @@ export default async function BlueDeskCalendarPage({
     <main className={styles.page} data-blue-desk-calendar="ET-primary">
       <BlueDeskHeader activePath="/blue-desk/calendar" />
       <div className={styles.content}>
-        <div className={styles.intro}>
-          <span>BLUE DESK · MACROECONOMIC &amp; EARNINGS CATALYSTS</span>
-          <span>ET PRIMARY · SGT SECONDARY</span>
-        </div>
 
         <section className={styles.calendarHero}>
           <div>
-            <p className={styles.kicker}>LIVE DESK VERIFIED SOURCE SCHEDULE</p>
             <h1>Market calendar</h1>
-            <p>Organised by New York market dates. Each exact event time is displayed in ET, with smaller SGT underneath.</p>
           </div>
           <div className={styles.calendarClock}>
             <span className={styles.kicker}>AS OF</span>
             {nowDisplay ? <DualTimestamp value={nowDisplay.iso} /> : <span>Time unavailable</span>}
-            <small>Generated from current source coverage, not a live push feed.</small>
           </div>
         </section>
 
@@ -171,7 +164,6 @@ export default async function BlueDeskCalendarPage({
         <div className={styles.calendarSummary}>
           <span>{events.length} record{events.length === 1 ? "" : "s"}</span>
           <span>Economic: {calendar.sourceHealth.macro} · Earnings: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
-          <Link href="/calendar" className={styles.textLink}>Underlying Live Desk calendar ↗</Link>
         </div>
 
         {calendar.sourceHealth.warnings.length ? (
@@ -182,10 +174,7 @@ export default async function BlueDeskCalendarPage({
           <Events records={events} statusLabel={windowName} />
         </div>
 
-        <footer className={styles.footer}>
-          <span>Blue Desk · Alchemy Live Desk</span>
-          <span>Calendar entries are context; a scheduled catalyst is not a Dossier verdict.</span>
-        </footer>
+        <footer className={styles.footer}><span>Blue Desk</span></footer>
       </div>
     </main>
   );
