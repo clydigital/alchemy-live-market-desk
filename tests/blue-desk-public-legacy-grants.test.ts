@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync(new URL("../supabase/migrations/20261019225000_blue_desk_legacy_public_tables_read_only.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../supabase/migrations/20261019222435_blue_desk_legacy_public_tables_read_only_20261020.sql", import.meta.url), "utf8");
 
 test("legacy public readers lose visitor write grants without hiding Hybrid data", () => {
   for (const name of ["evidence", "research_source_registry", "research_schedule_slots"]) {
