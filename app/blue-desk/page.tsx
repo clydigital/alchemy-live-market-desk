@@ -48,7 +48,7 @@ export default async function BlueDeskPage() {
   // Existing publication snapshots remain the only article authority.
   const latest = editions[0] || null;
   const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
-  const feature = brief.articles.find(article => article.editorial.readiness === "READY") || null;
+  const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
   // A source-verified factual report is independently eligible to be read:
   // it is NOT a new canonical Story or Regime interpretation.
   const verifiedNews = selectVerifiedNewsBriefs(motions, now, 6);
@@ -119,7 +119,7 @@ export default async function BlueDeskPage() {
           <div className={styles.storyGrid}>
             {articles.length ? articles.map(article => (
               <article key={article.articleId} className={styles.storyCard}>
-                <span className={styles.kicker}>{article.category} · {article.editorial.readiness === "READY" ? article.interpretationStatus : "DEVELOPING"}</span>
+                <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
                 <h3>{article.title}</h3>
                 <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
                 <div className={styles.storyBottom}>
