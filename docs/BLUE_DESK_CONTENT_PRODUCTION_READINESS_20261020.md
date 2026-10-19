@@ -30,6 +30,16 @@ An edition with no material changes may correctly have zero new manifest entries
 
 **P4: V6 content parity** — restore deep-reading, market company screens, interactive mechanism and source exploration, historical Journey and Presenter Studio only after published source integrity is proven.
 
+## Bounded 20 October follow-up on draft PR #829
+
+- **Factual News Briefs are distinct from canonical Stories.** `news-brief/1` is a read-only public projection of current `VERIFIED` Motion with an eligible direct original news/official page. It requires real observed/retrieved times and a current, nonexpired item; unverified, creator-only, future, process-related and homepage-link items are rejected. This is `SOURCE_VERIFIED` reporting, **not** a new System 2 acceptance or new thesis.
+- The Blue Desk homepage may show a sourced News Brief as its lead only when it lacks a reader-ready canonical Story. The user follows the **original report**, never a fabricated Story article route. The existing Motion feed's source-verified factual items share the same selection filter.
+- **History:** the Deep Dive now resolves exact immutable daily-brief snapshots by UUID using an independent indexed reader, not the latest-24 presenter picker; malformed or nonexistent editions fail closed and cannot silently fall back to the latest.
+- New regression tests cover factual news versus creator/discovery leads, original source URL admission, stale/future material, no Story authority mutation, and the exact historical-link implementation.
+- The title, prose and mechanism portions of the source Dossier remain unchanged. This is NOT an AI-generated editorial writer or full Bluebelly V6 narrative producer.
+- **Release stop:** read-only 20 Oct metadata audit showed Live Vercel deployment protection not enabled and `DASHBOARD_AUTH_REQUIRED` absent from retrieved environment-key metadata. Supabase `hybrid_publication_snapshots`, `market_motion_items` and `story_thesis_versions` currently have public-read SELECT policies. These facts do **not** prove an owner-only data leak, but require explicit route/payload/role smoke tests (and published-data classification) before public cutover or merging this draft. Do not expose an admin/service-role key, loosen RLS, or blindly flip an auth flag.
+- Remaining P0/P2 gate: freeze a real AI Story fixture with exact Dossier/Story/thesis IDs, assert that each displayed financial/causal claim has actual supporting evidence, test its market impact and contradiction against the frozen as-of edition, and ensure private Presenter notes are inaccessible. Current 19 Oct edition has six 2-paragraph lessons but no canonical Story manifest entries and no market-tape source manifest. A missing mechanism must remain UNKNOWN, not be filled with invented prose.
+
 ## Production QC checklist
 
 - Counts by frozen edition of READY, DEVELOPING and RESEARCH_ONLY, with reasons.
