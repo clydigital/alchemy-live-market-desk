@@ -9,6 +9,7 @@ import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import {
   projectMarketBriefArticles,
+  readerFacingMarketText,
   type MarketBriefParagraphV1,
 } from "@/lib/market-brief-articles";
 import styles from "../../blue-desk.module.css";
@@ -109,16 +110,32 @@ export default async function BlueDeskStoryPage({
         </header>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
+            {article.editorial.evidenceClaims.length ? (
+              <section className={styles.deepSection}>
+                <h2>What the original sources report</h2>
+                <p className={styles.deepSourceContext}>These are individual source-linked observations, not proof of the full market interpretation.</p>
+                <ul className={styles.deepFactList}>
+                  {article.editorial.evidenceClaims.slice(0, 8).map(claim => (
+                    <li key={claim.evidenceId}>
+                      <span>{claim.claimText}</span>
+                      <a href={claim.sourceUrl} target="_blank" rel="noreferrer">{claim.sourceName} · original report ↗</a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             {blocks.map(block => (
               <section key={block.name} className={styles.deepSection}>
-                <h2>{block.name}</h2>
+                <h2>{article.interpretationStatus === "UNRESOLVED" && block.name === "How it works"
+                  ? "Working explanation" : article.interpretationStatus === "UNRESOLVED" && block.name === "What happened"
+                  ? "Current assessment" : block.name}</h2>
                 {block.text.map((paragraph, index) => (
                   <div key={index}>
-                    <p>{paragraph.text}</p>
+                    <p>{readerFacingMarketText(paragraph.text)}</p>
                     <small className={styles.deepEvidence}>
-                      {paragraph.canonicalEvidenceIds.length > 0
-                        ? paragraph.canonicalEvidenceIds.length + " canonical evidence reference(s)"
-                        : "Source references attached"}
+                      {paragraph.evidenceScope === "claim"
+                        ? "Evidence linked to this exact upstream claim"
+                        : "Evidence attached to this lesson; individual causal steps are not separately verified"}
                     </small>
                   </div>
                 ))}
