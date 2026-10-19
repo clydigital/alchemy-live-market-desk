@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
-import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { getHybridPresenterEditionById } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import {
   projectMarketBriefArticles,
@@ -49,11 +49,11 @@ export default async function BlueDeskStoryPage({
   const { edition } = await searchParams;
   if (typeof edition !== "string" || !edition.trim()) notFound();
 
-  // Immutable publication snapshots use the same bounded reader as the homepage.
-  const snapshots = await getHybridPresenterEditionCandidates();
-  const frozen = snapshots.find(snapshot => snapshot.id === edition);
+  // Query the actual immutable edition by ID; the homepage's recent-picker
+  // window must never turn a valid archived Story into a false 404.
+  const frozen = await getHybridPresenterEditionById(edition);
   // Exact edition pin: do NOT silently serve a newer edition on historical links.
-  if (!frozen) notFound();
+  if (!frozen || frozen.id !== edition) notFound();
   const projected = await loadEditorialMarketBrief(projectMarketBriefArticles(frozen));
   const article = projected.articles.find(item =>
     item.articleId === articleId && item.editionId === edition
