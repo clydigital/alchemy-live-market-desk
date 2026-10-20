@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
 import { buildEditorialBrief, type EditorialEvidenceRow } from "../lib/market-brief-editorial.ts";
 import { selectFrozenSourceFact } from "../lib/blue-desk-factual-feature.ts";
+import { buildBlueDeskPublicStoryEvidenceV1 } from "../lib/blue-desk-public-story-evidence.ts";
 
 // Compact, independently inspected 19 Oct 2026 production edition fixture.
 // These values came from that frozen publication; no new thesis is generated.
@@ -171,4 +172,48 @@ test("factual lead refuses stale, future, missing and post-edition evidence", ()
   assert.equal(selectFrozenSourceFact(buildEditorialBrief(baseline, []), new Date("2026-10-20T02:27:00Z")), null);
   const futureRows = sourceRows.map(row => ({ ...row, availableAt: "2026-10-21T00:00:00Z" }));
   assert.equal(selectFrozenSourceFact(buildEditorialBrief(baseline, futureRows), new Date("2026-10-20T02:27:00Z")), null);
+});
+
+test("P-1 public Story DTO admits four pinned issuer observations but not its causal thesis", () => {
+  const compiled = buildEditorialBrief(projectMarketBriefArticles(snapshot), sourceRows);
+  const article = compiled.articles[0];
+  const result = buildBlueDeskPublicStoryEvidenceV1(compiled, article.articleId);
+  assert.ok(result, "exact production-derived AI Story ID must resolve");
+  assert.equal(result.contractVersion, "blue-desk-public-story-evidence/1");
+  assert.equal(result.editionId, snapshot.id);
+  assert.equal(result.facts.length, 4);
+  assert.equal(result.storyAdmission, "NOT_ADJUDICATED");
+  assert.equal(result.interpretation, "UNRESOLVED");
+  assert.deepEqual(result.causalAttribution, { status: "NOT_VERIFIED", explanation: null });
+  assert.deepEqual(result.marketReaction, { status: "NOT_VERIFIED", observation: null });
+  assert.equal(result.confirmation.checks.length, 0);
+  assert.deepEqual(result.facts.map(item => item.evidenceId).sort(), canonicalIds.slice(0, 4).sort());
+  assert.ok(result.facts.every(item => item.originalSourceUrl.startsWith("https://")));
+  assert.deepEqual(Object.keys(result), [
+    "contractVersion", "editionId", "articleId", "publishedAt", "interpretation",
+    "storyAdmission", "evidenceAvailability", "facts", "marketReaction",
+    "causalAttribution", "confirmation", "unavailableReason",
+  ]);
+  const json = JSON.stringify(result);
+  for (const secretField of ["diagnostics", "memory", "researchGaps", "evidenceGovernance", "dossierId", "sourceTier", "provenanceUrls", "thesisChanges"]) {
+    assert.equal(json.includes('"' + secretField + '"'), false, secretField + " must never leak");
+  }
+});
+
+test("public Story DTO fails closed for forged identity, missing evidence or post-edition additions", () => {
+  const compiled = buildEditorialBrief(projectMarketBriefArticles(snapshot), sourceRows);
+  const id = compiled.articles[0].articleId;
+  assert.equal(buildBlueDeskPublicStoryEvidenceV1(compiled, "article:00000000-0000-4000-8000-000000000000:6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e"), null);
+  assert.equal(buildBlueDeskPublicStoryEvidenceV1(compiled, "article:garbage"), null);
+  const future = structuredClone(compiled);
+  future.articles[0].editorial.evidenceClaims[0].availableAt = "2026-10-20T00:00:00Z";
+  const result = buildBlueDeskPublicStoryEvidenceV1(future, id);
+  assert.ok(result);
+  assert.equal(result.facts.length, 3);
+  const noEvidence = buildEditorialBrief(projectMarketBriefArticles(snapshot), []);
+  const missing = buildBlueDeskPublicStoryEvidenceV1(noEvidence, id);
+  assert.ok(missing);
+  assert.equal(missing.evidenceAvailability, "SOURCE_GAP");
+  assert.deepEqual(missing.facts, []);
+  assert.ok(missing.unavailableReason?.startsWith("No edition-admitted"));
 });
