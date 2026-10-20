@@ -83,6 +83,7 @@ test("server-side source joins, archive hash, date, exchange and numeric F1/F2 a
     ["third-party source tier", { ...proof(), source: { ...proof().source, source_tier: 3 } }],
     ["wrong exchange", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, exchange: "ICE" } } }],
     ["no second contract", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, nextSettle: null } } }],
+    ["non-adjacent month", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, nextContract: "CLF27" } } }],
     ["wrong event date", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, tradeDate: "2026-10-15" } } }],
     ["future availability", { ...proof(), evidence: { ...proof().evidence, available_at: "2026-10-22T01:00:00Z" } }],
     ["not final", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, final: false } } }],
