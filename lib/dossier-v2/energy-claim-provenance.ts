@@ -86,6 +86,29 @@ export function buildEnergyClaimCoverage(packet: DossierV2InputPacket): EnergyCl
   ];
   return { wti, brent, usRussianDieselDeliveryEvidenceId: shipment, unresolvedRequirements };
 }
+function claimedTradeDate(sentence: string): string | null {
+  const iso = sentence.match(/\b20\d{2}-\d{2}-\d{2}\b/)?.[0];
+  if (iso) return iso;
+  const m = sentence.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/i);
+  if (!m) return null;
+  const names = "january february march april may june july august september october november december".split(" ");
+  const month = names.indexOf(m[2].toLowerCase());
+  const day = Number(m[1]); const year = Number(m[3]);
+  const d = new Date(Date.UTC(year, month, day));
+  if (d.getUTCMonth() !== month || d.getUTCDate() !== day) return null;
+  return d.toISOString().slice(0, 10);
+}
+function receiptAppliesToSentence(receipt: Coverage | null, sentence: string, asOf: string): boolean {
+  if (!receipt || receipt.spreadUsdPerBarrel <= 0) return false;
+  const requested = claimedTradeDate(sentence);
+  if (requested) return requested === receipt.tradeDate;
+  // Without an explicit dated claim, an old close cannot establish today's curve.
+  const asOfTime = Date.parse(asOf);
+  const dateEnd = Date.parse(receipt.tradeDate + "T23:59:59Z");
+  return Number.isFinite(asOfTime) && Number.isFinite(dateEnd)
+    && asOfTime >= dateEnd && asOfTime - dateEnd <= 3 * 24 * 60 * 60 * 1000;
+}
+
 function uncertain(text: string): boolean {
   return /\b(?:if|would|could|might|may|possible|potential|hypothetical|scenario|monitor|watch|check|unverified|unconfirmed|unresolved|awaiting|not established|not verified|no confirmed|cannot confirm|cannot conclude|reportedly|reported|allegedly|need to verify)\b/i.test(text);
 }
@@ -101,7 +124,7 @@ export function energyClaimProvenanceErrors(text: string, packet: DossierV2Input
       if (!names.test(sentence)) continue;
       if (/\b(?:backwardat(?:ion|ed)|front[- ]month premium|positive (?:front[- ]month |calendar )?spread|F1[\s\-–−]*F2)\b/i.test(sentence)) {
         const receipt = benchmark === "WTI" ? coverage.wti : coverage.brent;
-        if (!receipt || receipt.spreadUsdPerBarrel <= 0) errors.push(
+        if (!receiptAppliesToSentence(receipt, sentence, packet.as_of)) errors.push(
           benchmark + " backwardation stated as fact without a positive exchange-original " +
           "same-day F1-F2 settlement pair. Cite an accepted exact evidence UUID or mark " +
           "the curve unverified and request dated contracts.");
