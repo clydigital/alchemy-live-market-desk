@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { headers } from "next/headers";
-import { BLUEBELLY_PRESENTATION_HOST, blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
@@ -29,7 +29,7 @@ const PUBLIC_NAV = [
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
-  const publicHost = (host || "").trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
+  const publicHost = isBlueDeskPublicReaderHost(host);
   const nav = publicHost ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
