@@ -20,7 +20,7 @@ import styles from "./blue-desk.module.css";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Blue Desk | Alchemy Market Intelligence",
+  title: "Blue Desk | Market Intelligence",
   description: "Market stories, rates and upcoming events.",
 };
 
