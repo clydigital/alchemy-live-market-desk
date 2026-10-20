@@ -28,6 +28,7 @@ export type BlueDeskPublicStoryEvidenceV1 = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ORIGINAL_PRIMARY_EVIDENCE = new Set(["official_release", "company_primary", "official_statistic", "official_measurement", "verified_macro", "official_document", "filing", "regulatory_filing"]);
 
 /** Reject provider landing pages and all non-HTTPS, credentialed source URLs. */
 function exactSource(raw: string): string | null {
@@ -68,7 +69,7 @@ export function buildBlueDeskPublicStoryEvidenceV1(
   const allowedLinks = new Set(article.sourceLinks.map(link => exactSource(link.url)).filter(Boolean));
   const seen = new Set<string>();
   const facts = article.editorial.evidenceClaims.flatMap(claim => {
-    if (!UUID.test(claim.evidenceId) || !claim.claimText.trim() || !claim.sourceName.trim()
+    if (!ORIGINAL_PRIMARY_EVIDENCE.has(claim.evidenceClass.toLowerCase()) || !UUID.test(claim.evidenceId) || !claim.claimText.trim() || !claim.sourceName.trim()
         || !claim.availableAt || !Number.isFinite(Date.parse(claim.availableAt))
         || Date.parse(claim.availableAt) > published) return [];
     const originalSourceUrl = exactSource(claim.sourceUrl);
