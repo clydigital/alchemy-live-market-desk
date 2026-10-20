@@ -76,7 +76,7 @@ test("scheduled collection can complete while the freshness gate fails", () => {
 test("a fully checked quiet session remains healthy with zero Story changes", () => {
   const health = getFourSlotResearchHealth([
     { schedule_slot: "morning", scheduled_for: "2026-10-20T01:30:00Z", completed_at: "2026-10-20T02:44:00Z",
-      status: "completed", freshness_gate_passed: false, evidence_gate_passed: true, required_sources_complete: true, source_checks: [{ source: "fxstreet", status: "checked" }], warnings: [], updates_published: 0 },
+      status: "completed", freshness_gate_passed: false, evidence_gate_passed: true, required_sources_complete: true, source_checks: [{ source: "fxstreet", status: "checked" }, { source: "axios", status: "checked" }], warnings: [], updates_published: 0 },
     { schedule_slot: "evening", scheduled_for: "2026-10-20T13:30:00Z", completed_at: "2026-10-20T14:44:00Z",
       status: "completed", freshness_gate_passed: true, evidence_gate_passed: true, required_sources_complete: true, warnings: [], updates_published: 0 },
   ], new Date("2026-10-20T15:10:00Z"), true);
