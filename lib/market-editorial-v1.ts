@@ -37,7 +37,8 @@ const FIRST_TIER = new Set([
 ]);
 const PROCESS = /^(?:observed by research gap|detected:|detected\b|story:\s*detected|verification pending|awaiting provider|source retrieval failed|research gap)/i;
 const OPERATIONAL = /\b(?:pipeline|system 2|canonical evidence|dossier status|thesis version|source coverage|provider authentication|ingestion)\b/i;
-const PAST_REACTION = /\b(?:rallied|surged|sold off|slumped|tumbled|rebounded|rose|fell|jumped|plunged|gained|lost|declined|retreated)\b/i;
+const PAST_REACTION = /\b(?:rallied|surged|sold off|slumped|tumbled|rebounded|rose|fell|jumped|plunged|gained|lost|declined|retreated|traded higher|traded lower|closed higher|closed lower|finished higher|finished lower)\b/i;
+const CONDITIONAL_LANGUAGE = /\b(?:may|might|could|would|if|unless|provided|potential|conditional)\b/i;
 const ROLES: MarketEditorialRole[] = ["development", "mechanism", "markets", "outlook"];
 function validUrl(value: string | null | undefined) {
   if (!value || value.length > 2048) return null;
@@ -92,6 +93,7 @@ export function selectMarketEditorialCandidates(input: {
     if (!facts.length) continue;
     const fingerprint = createHash("sha256").update(JSON.stringify({
       version: MARKET_EDITORIAL_V1, kind: packet.kind, identity: packet.identity,
+      headline: packet.headline, background: packet.background,
       materialChangeAt: packet.materialChangeAt,
       mechanism: packet.mechanism, assets: packet.assetReadThroughs,
       countercase: packet.countercase, nextTest: packet.nextTest,
@@ -123,7 +125,7 @@ function safeParagraphs(value: unknown, candidate: EditorialCandidate): Editoria
     const text = typeof p.text==="string" ? p.text.trim() : "";
     if (!ROLES.includes(role)||used.has(role)||text.length<30||text.length>720||PROCESS.test(text)||OPERATIONAL.test(text)) continue;
     if (numericTokens(text).some(n=>!availableNumbers.has(n))) continue;
-    if (role==="markets" && PAST_REACTION.test(text)) continue;
+    if (role==="markets" && (PAST_REACTION.test(text) || !CONDITIONAL_LANGUAGE.test(text))) continue;
     if (text.split(/[.!?]+/).filter(x=>x.trim().length>3).length>3) continue;
     const ids = Array.isArray(p.factIds)
       ? unique(p.factIds.filter((x): x is string=>typeof x==="string").map(x=>x.toLowerCase())):[];
