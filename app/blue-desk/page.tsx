@@ -112,7 +112,7 @@ export default async function BlueDeskPage() {
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
             )) : <p className={styles.empty}>Yield observations currently unavailable.</p>}
-            {!publicHost ? <Link href="/markets" className={styles.textLink}>Cross-asset monitor →</Link> : null}
+            <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
           </aside>
         </section>
 
@@ -202,6 +202,7 @@ export default async function BlueDeskPage() {
               <>
                 <Link href="/#stories-title">Key market stories →</Link>
                 <Link href="/#rates-title">Observed Treasury yields →</Link>
+                <Link href="/markets">Public markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
               </>
             ) : (

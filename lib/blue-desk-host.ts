@@ -24,6 +24,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (!isBlueDeskPublicReaderHost(host)) return null;
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
+  if (pathname === "/markets") return "/blue-desk/markets";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
@@ -46,6 +47,8 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/calendar" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
+    pathname === "/markets" ||
+    pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
   return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";

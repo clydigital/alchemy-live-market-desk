@@ -20,6 +20,7 @@ const PRIVATE_NAV = [
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
+  ["Markets", "/markets"],
   ["Key Stories", "/#stories-title"],
   ["Rates", "/#rates-title"],
   ["What Changed", "/#motion-title"],
@@ -41,8 +42,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && href === "/" && activePath === "/blue-desk")) ? "page" : undefined}
-            className={(href === activePath || (publicHost && href === "/" && activePath === "/blue-desk")) ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? "page" : undefined}
+            className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? styles.navActive : styles.navItem}
           >
             {title}
           </Link>

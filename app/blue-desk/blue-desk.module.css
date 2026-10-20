@@ -291,3 +291,46 @@
   .storyJumpLink { padding: 10px 12px; }
   .storyMetricGrid { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* P4a: source-dated public Markets projection. Table scrolls instead of
+ * squeezing values or dropping source attribution on smaller screens. */
+.publicMarketGroups { display: flex; flex-wrap: wrap; gap: 9px; margin: 19px 0 10px; }
+.publicMarketTotal { display: block; font-size: 22px; color: #f1faff; margin: 9px 0; }
+.publicMarketTableScroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid #255d79;
+  border-radius: 9px;
+  background: #06263a;
+}
+.publicMarketTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.publicMarketTable th,.publicMarketTable td {
+  padding: 17px 20px;
+  vertical-align: top;
+  border-bottom: 1px solid #21506a;
+}
+.publicMarketTable thead th {
+  color: #a9cfdf;
+  background: #0a334c;
+  font-size: 11px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-weight: 750;
+}
+.publicMarketTable tbody th { min-width: 210px; color: #f2faff; font-weight: 700; }
+.publicMarketTable tbody th span,.publicMarketSource span { display: block; font-size: 11px; color: #a4c1d0; margin-top: 5px; font-weight: 400; }
+.publicMarketNumber { white-space: nowrap; color: #e6f7ff; font-weight: 700; font-variant-numeric: tabular-nums; }
+.publicMarketSource { min-width: 250px; }
+.publicMarketSource a { display: inline-block; margin-top: 7px; color: #8ee0fc; }
+.publicMarketNote { max-width: 90ch; color: #9dbdcd; line-height: 1.6; font-size: 12px; margin-top: 16px; }
+@media (max-width: 760px) {
+  .publicMarketGroups { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; }
+  .publicMarketTable th,.publicMarketTable td { padding: 12px 14px; }
+}

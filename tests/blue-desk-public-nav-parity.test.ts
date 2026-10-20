@@ -10,7 +10,7 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/markets", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar"]);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
@@ -22,17 +22,18 @@ test("all visible public header links target approved host paths and real anchor
 test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /publicHost \? PUBLIC_NAV : PRIVATE_NAV/);
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
-  for (const privatePath of ["/markets", "/articles", "/hybrid-output/prepare", "/data/macro", "/concepts"]) {
+  for (const privatePath of ["/articles", "/hybrid-output/prepare", "/data/macro", "/concepts"]) {
     assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
     assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
   }
   assert.match(homepage, /publicHost \? \(/);
   assert.match(homepage, /<Link href="\/hybrid-output\/prepare">Presenter Studio →<\/Link>/);
   assert.match(homepage, /<Link href="\/calendar">Public calendar →<\/Link>/);
+  assert.match(homepage, /<Link href="\/markets">Public markets →<\/Link>/);
 });
 
 test("no dead public links are advertised in the homepage special panels", () => {
-  assert.match(homepage, /!publicHost \? <Link href="\/markets"/);
+  assert.match(homepage, /publicHost \? blueDeskPublicHref\("\/blue-desk\/markets", host\) : "\/markets"/);
   assert.match(homepage, /!publicHost \? <Link href="\/articles"/);
   assert.match(homepage, /!publicHost \? <Link className=\{styles\.textLink\} href="\/whats-new"/);
   assert.match(homepage, /publicHost \? "Explore public research" : "Dossier, Journey and presenter preparation"/);
