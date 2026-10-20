@@ -200,7 +200,7 @@ test("a question-only frozen lesson displays a cited reported fact, not an inter
   const brief = buildEditorialBrief(packageOf([article]), [row]);
   assert.equal(brief.articles[0].editorial.readiness, "READY");
   assert.equal(brief.articles[0].title,
-    "CoreWeave reported US$6.422 billion in cash property and equipment…");
+    "CoreWeave reported US$6.422 billion in cash property and equipment additions…");
   assert.equal(brief.articles[0].sourceLinks.length, 1);
   assert.equal(brief.articles[0].interpretationStatus, "UNRESOLVED");
 });
