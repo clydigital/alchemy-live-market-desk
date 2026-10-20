@@ -96,7 +96,7 @@ test("only exact-date exchange FINAL F1/F2, immutable source, and first-tier pro
   ] as Array<{ name: string } & Partial<ObservedEvidence>>;
   for (const candidate of changes) {
     const modified: ObservedEvidence = { ...wti, ...candidate };
-    const result = energyClaimProvenanceErrors("WTI was in backwardation.", packet([modified]));
+    const result = energyClaimProvenanceErrors("On 14 October 2026 WTI was in backwardation.", packet([modified]));
     assert.equal(result.length, 1, candidate.name);
   }
 });
