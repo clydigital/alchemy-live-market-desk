@@ -94,7 +94,7 @@ function uncertain(text: string): boolean {
 export function energyClaimProvenanceErrors(text: string, packet: DossierV2InputPacket): string[] {
   const coverage = buildEnergyClaimCoverage(packet);
   const errors: string[] = [];
-  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+  for (const sentence of text.replace(/U\.S\./gi, "US").split(/(?<=[.!?])\s+/)) {
     if (uncertain(sentence)) continue;
     for (const benchmark of ["WTI", "BRENT"] as const) {
       const names = benchmark === "WTI" ? /\b(?:WTI|West Texas Intermediate)\b/i : /\bBrent\b/i;
