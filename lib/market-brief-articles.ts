@@ -193,7 +193,7 @@ export function readerFacingMarketText(value: string): string {
     // Remove only exact known operational wrappers, never source observations.
     .replace(/^Detected:\s*/i, "")
     .replace(/;\s*(?:the|this)\s+Story\s+(?:is|was)\s+elevated\b[^.]*\.?\s*$/i, ".")
-    .replace(/;\s*(?:the|this)?\s*Story\s+(?:is|was)\s+established\s+in\s+detected\s+state\.?\s*$/i, ".")
+    .replace(/;\s*(?:the|this)?\s*Story\s+(?:(?:is|was)\s+)?established\s+in\s+detected\s+state\.?\s*$/i, ".")
     .replace(/^The accepted explanation is that\s+/i, "A working explanation is that ")
     .replace(/^Combined canonical issuer results indicate\b/i, "Issuer results indicate")
     .trim();
