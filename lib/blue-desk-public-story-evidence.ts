@@ -87,14 +87,16 @@ export function buildBlueDeskPublicStoryEvidenceV1(
 
   // An issuer observation and the Dossier's proposed causal arrows are not
   // independent proof of a traded-market reaction or causal mechanism.
-  const admitted = article.editorial.storyEligible && Boolean(article.dossierId);
+  // Editorial admission is not evidence of an actual frozen canonical
+  // Story-thesis version join. That join must be checked separately before
+  // this DTO can ever expose an accepted System 2 conclusion.
   return {
     contractVersion: "blue-desk-public-story-evidence/1",
     editionId: brief.editionId,
     articleId,
     publishedAt: brief.generatedAt,
-    interpretation: admitted ? article.interpretationStatus : "UNRESOLVED",
-    storyAdmission: admitted ? "CANONICALLY_ADJUDICATED" : "NOT_ADJUDICATED",
+    interpretation: "UNRESOLVED",
+    storyAdmission: "NOT_ADJUDICATED",
     evidenceAvailability: facts.length ? "SOURCE_LINKED" : "SOURCE_GAP",
     facts,
     marketReaction: { status: "NOT_VERIFIED", observation: null },
