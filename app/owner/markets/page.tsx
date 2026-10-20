@@ -18,7 +18,7 @@ export const metadata = {
  * Full read-only Markets terminal, independently of interactive owner login.
  *
  * The only anonymous entry is /owner/markets on the canonical Live hostname.
- * Do not mount LiveDeskShell here: its owner navigation and research-status
+ * Do not mount the owner operational shell: its navigation and research-status
  * controls have a separate access policy. MarketsMonitor itself is client-side
  * display, filtering and expansion only; it does not write to the backend.
  */
