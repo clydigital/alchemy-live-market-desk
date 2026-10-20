@@ -32,11 +32,12 @@ test("Legacy domain, third-party hosts and internal routes are unchanged", () =>
 test("Bluebelly middleware owns precise clean-root rewrites without touching APIs", () => {
   assert.equal(blueDeskPresentationTarget("/", "bluebelly-desk.vercel.app"), "/blue-desk");
   assert.equal(blueDeskPresentationTarget("/calendar", "bluebelly-desk.vercel.app"), "/blue-desk/calendar");
+  assert.equal(blueDeskPresentationTarget("/markets", "bluebelly-desk.vercel.app"), "/blue-desk/markets");
   assert.equal(
     blueDeskPresentationTarget("/stories/article%3Aedition%3Astory", "bluebelly-desk.vercel.app"),
     "/blue-desk/stories/article%3Aedition%3Astory",
   );
-  for (const path of ["/api/presenter-calendar", "/api/cron/research/morning", "/auth/callback", "/markets", "/hybrid-output/prepare", "/stories", "/"]) {
+  for (const path of ["/api/presenter-calendar", "/api/cron/research/morning", "/auth/callback", "/hybrid-output/prepare", "/stories", "/"]) {
     if (path === "/") {
       assert.equal(blueDeskPresentationTarget(path, "alchemy-live-market-desk-rogue-magazine.vercel.app"), null);
     } else {
@@ -74,13 +75,13 @@ test("Story detail fetches exact immutable edition independent of recent picker"
 test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
-    "/", "/calendar", "/blue-desk", "/blue-desk/calendar",
+    "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
   }
   for (const path of [
-    "/hybrid-output/prepare", "/dossier", "/markets", "/articles",
+    "/hybrid-output/prepare", "/dossier", "/articles",
     "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
     "/auth/callback", "/login", "/stories",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
@@ -113,18 +114,19 @@ test("Non-public pages require owner auth even with missing dashboard flag", () 
 test("canonical Live hostname opens only published Blue Desk reading routes anonymously", () => {
   const host = LIVE_DESK_PRESENTATION_HOST;
   const article = "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e";
-  for (const pathname of ["/", "/blue-desk", "/calendar", "/blue-desk/calendar", article]) {
+  for (const pathname of ["/", "/blue-desk", "/calendar", "/blue-desk/calendar", "/markets", "/blue-desk/markets", article]) {
     assert.equal(blueDeskHostAccess(pathname, host), "public", pathname);
   }
   assert.equal(blueDeskPresentationTarget("/", host), "/blue-desk");
   assert.equal(blueDeskPresentationTarget("/calendar", host), "/blue-desk/calendar");
+  assert.equal(blueDeskPresentationTarget("/markets", host), "/blue-desk/markets");
   assert.equal(blueDeskPresentationTarget(article, host), "/blue-desk" + article);
   assert.equal(blueDeskPublicHref("/blue-desk", host), "/");
   assert.equal(blueDeskPublicHref("/blue-desk/calendar", host), "/calendar");
 
   for (const pathname of [
     "/owner/live", "/dossier", "/hybrid-output/prepare", "/presenter/technical-checks",
-    "/markets", "/articles", "/whats-new", "/api/presenter/technical-checks",
+    "/articles", "/whats-new", "/api/presenter/technical-checks",
     "/api/research-update", "/api/cron/research/morning", "/auth/callback",
   ]) {
     assert.equal(blueDeskHostAccess(pathname, host), "private", pathname);
@@ -142,4 +144,21 @@ test("legacy Live overview moves to an owner-only page and root tab bookmarks re
   assert.ok(middleware.includes('request.nextUrl.searchParams.has("tab")'));
   assert.ok(middleware.indexOf('if (accessScope === "public")') < middleware.indexOf("getClaims()"));
   assert.ok(middleware.includes('pathname.startsWith("/api/cron/")'));
+});
+
+
+test("public Markets replaces only reading path; old terminal stays private", () => {
+  const legacy = readFileSync(new URL("../app/owner/markets/page.tsx", import.meta.url), "utf8");
+  const current = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
+  assert.ok(legacy.includes('export { default } from "../../markets/page"'));
+  assert.match(current, /getMarketMonitor\(\)/);
+  assert.match(current, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
+  for (const host of ["bluebelly-desk.vercel.app", LIVE_DESK_PRESENTATION_HOST]) {
+    assert.equal(blueDeskHostAccess("/markets", host), "public");
+    assert.equal(blueDeskPresentationTarget("/markets", host), "/blue-desk/markets");
+    assert.equal(blueDeskHostAccess("/owner/markets", host),
+      host === LIVE_DESK_PRESENTATION_HOST ? "private" : "blocked");
+    assert.equal(blueDeskHostAccess("/api/research-update", host),
+      host === LIVE_DESK_PRESENTATION_HOST ? "private" : "blocked");
+  }
 });
