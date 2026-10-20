@@ -10,6 +10,8 @@ type SourceState = "CANONICAL_CLAIM" | "FROZEN_DOSSIER_CONTEXT" | "SOURCE_VERIFI
 export type MarketImpactPacketV1 = {
   contractVersion: typeof MARKET_IMPACT_PACKET_V1;
   kind: "STORY" | "MOTION";
+  /** Candidate pool only: not paragraph-level proof. */
+  evidenceCandidateIds: string[];
   identity: {
     storyId: string | null;
     motionId: string | null;
@@ -68,7 +70,7 @@ function contextualAssetReadThroughs(callouts: unknown): MarketImpactPacketV1["a
     if (entry?.type !== "why_traders_care") return [];
     const text = txt(entry.text) || "";
     return text.split(/;\s*(?=[A-Z][A-Z0-9./_-]{1,15}:\s)/g).flatMap(piece => {
-      const m = piece.match(/^([A-Z][A-Z0-9./_-]{1,15}):\s+(.+)$/s);
+      const m = piece.match(/^([A-Z][A-Z0-9./_-]{1,15}):\s+([\s\S]+)$/);
       if (!m) return [];
       return [{ asset: m[1], interpretation: m[2].trim(), evidenceIds: [], kind: "LESSON_CONTEXT" as const }];
     });
@@ -118,7 +120,7 @@ export function buildMarketImpactPacketsV1(input: {
     const snapshot = uuid(lesson?.publicationSnapshotId);
     const headline = txt(lesson?.title);
     // A lesson without exact frozen identities is not eligible for publication.
-    if (!id || !version || !snapshot || !headline) return [];
+    if (!lesson || !id || !version || !snapshot || !headline) return [];
     const manifest = manifestByStory.get(id);
     const exact = Boolean(manifest && manifest.thesisVersionId === version && manifest.snapshotId === snapshot);
     const reasoning = exact ? rec(manifest?.reasoning) : null;
@@ -149,6 +151,7 @@ export function buildMarketImpactPacketsV1(input: {
     return [{
       contractVersion: MARKET_IMPACT_PACKET_V1,
       kind: "STORY" as const,
+      evidenceCandidateIds: strs(lesson.evidenceRefs).filter(uuid).slice(0, 36),
       identity: {
         storyId: id, motionId: null, storyThesisVersionId: version, storySnapshotId: snapshot,
         lineage: exact ? "EXACT_EDITION_MANIFEST" as const : "FROZEN_DOSSIER_CONTEXT" as const,
@@ -199,6 +202,7 @@ export function buildMarketImpactPacketsV1(input: {
       return [{
         contractVersion: MARKET_IMPACT_PACKET_V1,
         kind: "MOTION" as const,
+        evidenceCandidateIds: [],
         identity: { storyId, motionId: id, storyThesisVersionId: null, storySnapshotId: null,
           lineage: "VERIFIED_MOTION_ONLY" as const },
         asOf,
@@ -211,7 +215,7 @@ export function buildMarketImpactPacketsV1(input: {
         countercase: null, nextTest: txt(item.nextTest),
         sourceUrls: [sourceUrl],
         // Even source-verified Motion is not a canonically admitted Story.
-        missing: gaps([sourceUrl], development, assetReadThroughs, false),
+        missing: gaps([sourceUrl], development, assetReadThroughs, true),
       }];
     }) : [];
   return [...lessons, ...motions];
