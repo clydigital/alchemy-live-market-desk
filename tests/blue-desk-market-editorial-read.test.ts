@@ -10,7 +10,7 @@ const U="https://pr.tsmc.com/english/news/3346";
 const OTHER="https://investors.coreweave.com/news/earnings";
 const asOf="2026-10-20T16:19:12.015Z";
 const hash="a".repeat(32);
-function sample(){
+function sample(): any {
   return {
     id:E,published_at:"2026-10-20T16:20:00Z",
     payload:{
