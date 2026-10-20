@@ -185,7 +185,7 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
   // FXStreet's public feed is HTML rather than RSS. The canonical news slug
   // contains its publisher-dated UTC minute; never use retrieval time to
   // manufacture article freshness. This path only accepts FXStreet-owned URLs.
-  if (source === "fxstreet" && !/<(rss|feed)\\b/i.test(raw)) {
+  if (source === "fxstreet" && !/<(rss|feed)\b/i.test(raw)) {
     const start = now.getTime() - WINDOW_MS;
     return parseFxStreetNewsFeedPage(raw)
       .filter((entry) => {
@@ -219,7 +219,7 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
         reviewReason: "Original FXStreet article URL and dated slug were validated; index retrieval is a research lead, not independent verification of the article's market claims.",
       }));
   }
-  if (!/<(rss|feed)\\b/i.test(raw)) return [];
+  if (!/<(rss|feed)\b/i.test(raw)) return [];
   const spec = FALLBACK_SOURCES[source];
   const blocks = [
     ...[...raw.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map((match) => ({ body: match[1], atom: false })),
