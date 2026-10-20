@@ -1,4 +1,5 @@
 import { cpiSurpriseNarrativeErrors } from "./cpi-surprise-narrative-gate.ts";
+import { energyClaimProvenanceErrors } from "./energy-claim-provenance.ts";
 import {
   isPlainObject,
   isValidIsoTimestamp,
@@ -480,6 +481,8 @@ export function validateResearchBrainOutput(
 
     errors.push(...cpiSurpriseNarrativeErrors(headline, packet));
     errors.push(...cpiSurpriseNarrativeErrors(answer, packet));
+    errors.push(...energyClaimProvenanceErrors(headline, packet));
+    errors.push(...energyClaimProvenanceErrors(answer, packet));
 
     if (PROBABILITY_CLAIM_REGEX.test(headline) || PROBABILITY_CLAIM_REGEX.test(answer)) {
       errors.push("main_thread contains forbidden explicit numerical probability claim.");
@@ -808,6 +811,13 @@ export function validateResearchBrainOutput(
     const causalMechanism = typeof story.causal_mechanism === "string" ? story.causal_mechanism.trim() : "";
     const conclusion = typeof story.conclusion === "string" ? story.conclusion.trim() : "";
     const whatWouldChangeMind = typeof story.what_would_change_mind === "string" ? story.what_would_change_mind.trim() : "";
+
+    // Automatically enforce the same provenance guard in every scheduled
+    // Dossier production and manual run, including Story-level prose.
+    for (const claim of [title, whatChanged, whyItMatters, causalMechanism, conclusion]) {
+      errors.push(...energyClaimProvenanceErrors(claim, packet).map(error =>
+        "major_stories[" + sIdx + "] (" + storyId + "): " + error));
+    }
 
     if (!title || !whatChanged || !whyItMatters || !causalMechanism || !conclusion || !whatWouldChangeMind) {
       errors.push(`major_stories[${sIdx}] (${storyId}) fails Firewall: missing required explicit fields (title, what_changed, why_it_matters, causal_mechanism, conclusion, or what_would_change_mind).`);
