@@ -207,7 +207,10 @@ export function validateResearchRun(input: ResearchRunInput): ValidationResult {
   // handoffs are bounded manual evidence packets and do not impersonate that scheduled sweep.
   const sourceCoverageAvailable = gapHandoff
     ? items.length > 0
-    : directFeeds.some((source) => sourceMap.get(source)?.status !== "blocked"); // Diagnostic only.
+    : directFeeds.some((source) => {
+      const status = sourceMap.get(source)?.status;
+      return status === "checked" || status === "no_new_items";
+    }); // An absent check never counts as available.
 
   const itemKeys = new Set<string>();
   const articlePositions = new Set<number>();
