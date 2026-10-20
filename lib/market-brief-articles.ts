@@ -1,3 +1,5 @@
+import { marketStoryHeadline } from "./market-story-headline";
+
 export type MarketBriefParagraphRole =
   | "opening"
   | "mechanism"
@@ -36,7 +38,7 @@ export type MarketBriefArticleV1 = {
   dossierId: string | null;           // exact selected canonical Dossier, no guessed fallback
   dossierAsOf: string | null;
   generatedAt: string;                // valid ISO timestamp
-  title: string;                      // concise <=63 characters where feasible
+  title: string;                      // declarative headline, maximum 80 characters
   deck: string;                       // concise one-sentence introduction
   category: string;                   // descriptive, not a quota/bucket gate
   paragraphs: MarketBriefParagraphV1[];
@@ -448,7 +450,10 @@ export function projectMarketBriefArticles(
     if (!storyId) continue;
 
     const existing = candidateMap.get(storyId);
-    const title = cleanText(lesson.title) || existing?.title || "Market Catalyst";
+    // Dossier lessons can use central questions as their titles; prefer canonical Story wording.
+    const title = existing?.title && !/[?？]/.test(existing.title)
+      ? existing.title
+      : cleanText(lesson.title) || existing?.title || "Market Catalyst";
     const centralQuestion = cleanText(lesson.question) || existing?.centralQuestion || null;
     const bodyTexts = cleanStringArray(lesson.body);
     const lessonEv = cleanStringArray(lesson.evidenceRefs);
@@ -615,7 +620,12 @@ export function projectMarketBriefArticles(
     }
 
     const articleId = `article:${editionId}:${candidate.storyId}`;
-    const displayTitle = truncateTitle(candidate.title, 63);
+    // Only a claim-level evidenced change outranks the already-authored Story title.
+    // Keep central questions in the deck, not in the headline.
+    const displayTitle = marketStoryHeadline([
+      candidate.itemisedClaimMatches.opening ? candidate.whatChanged : null,
+      candidate.title,
+    ]);
     const deck = candidate.centralQuestion
       || (candidate.thesis.endsWith(".") ? candidate.thesis : `${candidate.thesis}.`);
 
