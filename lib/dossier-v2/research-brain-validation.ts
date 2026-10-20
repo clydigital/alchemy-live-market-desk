@@ -1,3 +1,4 @@
+import { cpiSurpriseNarrativeErrors } from "./cpi-surprise-narrative-gate.ts";
 import {
   isPlainObject,
   isValidIsoTimestamp,
@@ -476,6 +477,9 @@ export function validateResearchBrainOutput(
     if (epistemic === "SPECULATIVE") {
       errors.push("main_thread epistemic_label cannot be SPECULATIVE in non-degraded output.");
     }
+
+    errors.push(...cpiSurpriseNarrativeErrors(headline, packet));
+    errors.push(...cpiSurpriseNarrativeErrors(answer, packet));
 
     if (PROBABILITY_CLAIM_REGEX.test(headline) || PROBABILITY_CLAIM_REGEX.test(answer)) {
       errors.push("main_thread contains forbidden explicit numerical probability claim.");
