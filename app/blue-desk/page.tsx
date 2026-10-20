@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { BLUEBELLY_PRESENTATION_HOST, blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
@@ -36,7 +36,7 @@ function ellipsis(value: string, max = 175) {
 export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
-  const publicHost = (host || "").trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
+  const publicHost = isBlueDeskPublicReaderHost(host);
   const [latest, macro, earnings, monitor, motions, verifiedMotions] = await Promise.all([
     getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
     getEconomicCalendar().catch(() => []),
