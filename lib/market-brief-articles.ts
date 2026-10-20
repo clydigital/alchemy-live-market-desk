@@ -1,4 +1,4 @@
-import { marketStoryHeadline } from "./market-story-headline";
+import { marketStoryHeadline } from "./market-story-headline.ts";
 
 export type MarketBriefParagraphRole =
   | "opening"
