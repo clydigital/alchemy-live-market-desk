@@ -163,8 +163,13 @@ export function validateMarketEditorialOutput(raw: unknown, candidates: readonly
     if (!paragraphs.length) return [];
     const first=paragraphs.some(p=>p.role==="development");
     const market=paragraphs.some(p=>p.role==="markets");
-    const readiness=first&&market&&paragraphs.length>=3?"READY" as const:"DEVELOPING" as const;
-    const links=new Map(candidate.facts.map(f=>[f.sourceUrl,f.sourceName]));
+    const mechanism=paragraphs.some(p=>p.role==="mechanism");
+    const readiness=first&&mechanism&&market&&paragraphs.length>=3?"READY" as const:"DEVELOPING" as const;
+    // A source link in reader-facing output must actually support an admitted
+    // paragraph, not merely have been in the model's candidate fact pool.
+    const usedUrls=new Set(paragraphs.flatMap(p=>p.sourceUrls));
+    const links=new Map(candidate.facts.filter(f=>usedUrls.has(f.sourceUrl))
+      .map(f=>[f.sourceUrl,f.sourceName]));
     return [{
       contractVersion:MARKET_EDITORIAL_V1,fingerprint,
       kind:candidate.packet.kind,storyId:candidate.packet.identity.storyId,
@@ -178,6 +183,7 @@ export function validateMarketEditorialOutput(raw: unknown, candidates: readonly
         ...candidate.packet.missing,
         ...(!first?["No verified factual opening"]:[]),
         ...(!market?["No conditional asset-specific explanation"]:[]),
+        ...(!mechanism?["No accepted mechanism paragraph"]:[]),
         ...(paragraphs.length<3?["Insufficient supported prose"]:[]),
       ]),
     }];
