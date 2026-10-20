@@ -1,3 +1,4 @@
+import { consecutiveOilContractMonths } from "./oil-futures-contracts.ts";
 /**
  * Existing Research Gap server-side proof pattern, extended to oil F1/F2.
  * A web search assessment (gap-web ID) cannot close an exact settlement gap.
@@ -77,7 +78,7 @@ export function verifiedCanonicalOilPair(
     && typeof tradeDate === "string" && DATE.test(tradeDate)
     && e.event_at?.slice(0, 10) === tradeDate
     && typeof val.frontContract === "string" && typeof val.nextContract === "string"
-    && val.frontContract !== val.nextContract
+    && consecutiveOilContractMonths(benchmark, val.frontContract, val.nextContract)
     && numeric(front) && numeric(next)
     && Number.isFinite(timestamp) && Number.isFinite(available)
     && timestamp <= evaluatedAt.getTime() && available <= evaluatedAt.getTime();
