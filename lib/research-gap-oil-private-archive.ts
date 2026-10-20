@@ -72,6 +72,12 @@ export async function persistCapturedOilOriginal(input: {
   if (pdf && new TextDecoder().decode(input.bytes.slice(0, 5)) !== "%PDF-") {
     throw new Error("Original bytes are not a PDF.");
   }
+  if (!pdf) {
+    const prefix = new TextDecoder().decode(input.bytes.slice(0, 160)).trimStart();
+    if (!prefix.includes(",") || /^<(?:!doctype|html|head|script)/i.test(prefix)) {
+      throw new Error("Original bytes are not a CSV document.");
+    }
+  }
   const ext = pdf ? "pdf" : "csv";
   const provider = input.benchmark === "WTI" ? "CME" : "ICE";
   const objectPath = provider + "/" + tradeDate + "/" + input.fetchedSha256.toLowerCase() + "." + ext;
@@ -166,7 +172,7 @@ export async function archiveCapturedOilOriginal(input: {
         source_type: "exchange_original_file", content_type: row.contentType,
         content_hash: row.sha256, content_text: null, payload: row.payload,
         published_at: null, observed_at: row.observedAt, source_id: null,
-        ingestion_key: "oil-original:" + row.sha256,
+        ingestion_key: "oil-original:" + createHash("sha256").update(row.sourceUrl + "\n" + row.sha256).digest("hex"),
       }).select("id").single<{ id: string }>();
       if (response.error || !response.data?.id) {
         const retry = await store.findRaw(row.sourceUrl, row.sha256);
