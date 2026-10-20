@@ -147,18 +147,51 @@ test("legacy Live overview moves to an owner-only page and root tab bookmarks re
 });
 
 
-test("public Markets replaces only reading path; old terminal stays private", () => {
+test("full Markets terminal is public only on the exact canonical Live URL", () => {
   const legacy = readFileSync(new URL("../app/owner/markets/page.tsx", import.meta.url), "utf8");
   const current = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
-  assert.ok(legacy.includes('export { default } from "../../markets/page"'));
+  assert.match(legacy, /<MarketsMonitor monitor=\{monitor\} flows=\{flows\} \/>/);
+  assert.doesNotMatch(legacy, /LiveDeskShell|createSupabaseAdminClient|service_role|mutation|use server/);
   assert.match(current, /getMarketMonitor\(\)/);
   assert.match(current, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
   for (const host of ["bluebelly-desk.vercel.app", LIVE_DESK_PRESENTATION_HOST]) {
     assert.equal(blueDeskHostAccess("/markets", host), "public");
     assert.equal(blueDeskPresentationTarget("/markets", host), "/blue-desk/markets");
     assert.equal(blueDeskHostAccess("/owner/markets", host),
-      host === LIVE_DESK_PRESENTATION_HOST ? "private" : "blocked");
+      host === LIVE_DESK_PRESENTATION_HOST ? "public" : "blocked");
     assert.equal(blueDeskHostAccess("/api/research-update", host),
       host === LIVE_DESK_PRESENTATION_HOST ? "private" : "blocked");
   }
+});
+
+test("full Markets public exception never leaks to owner siblings, APIs or preview origins", () => {
+  const full = "/owner/markets";
+  const live = LIVE_DESK_PRESENTATION_HOST;
+  assert.equal(blueDeskHostAccess(full, live), "public");
+  assert.equal(blueDeskPresentationTarget(full, live), null,
+    "Exact page is rendered directly, not rewritten to the limited public Markets view");
+  for (const path of [
+    "/owner/live", "/owner/markets/private", "/owner/markets/terminal",
+    "/owner/markets/", "/owner/markets.json", "/presenter/technical-checks",
+    "/api/market-intelligence-snapshot", "/api/presenter/technical-checks",
+    "/api/research-update", "/dossier",
+  ]) {
+    assert.equal(blueDeskHostAccess(path, live), "private", path);
+  }
+  for (const host of [
+    "bluebelly-desk.vercel.app", "alchemy-blue-desk.vercel.app",
+  ]) {
+    assert.equal(blueDeskHostAccess(full, host), "blocked", host);
+  }
+  assert.equal(blueDeskHostAccess(full, "preview-abc.vercel.app"), "private");
+  assert.equal(blueDeskPresentationTarget(full, "bluebelly-desk.vercel.app"), null);
+
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  assert.ok(middleware.indexOf('if (accessScope === "public")') <
+    middleware.indexOf("getClaims()"), "Only explicit reader routes bypass login");
+  const terminal = readFileSync(new URL("../app/owner/markets/page.tsx", import.meta.url), "utf8");
+  assert.match(terminal, /getMarketMonitor\(\)/);
+  assert.match(terminal, /getGlobalFlowMonitor\(\)/);
+  assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
+  assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
 });
