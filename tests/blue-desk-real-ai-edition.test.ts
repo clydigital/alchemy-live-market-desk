@@ -212,10 +212,9 @@ test("public Story DTO fails closed for forged identity, missing evidence or pos
   assert.equal(result.facts.length, 3);
   const noEvidence = buildEditorialBrief(projectMarketBriefArticles(snapshot), []);
   const missing = buildBlueDeskPublicStoryEvidenceV1(noEvidence, id);
-  assert.ok(missing);
-  assert.equal(missing.evidenceAvailability, "SOURCE_GAP");
-  assert.deepEqual(missing.facts, []);
-  assert.ok(missing.unavailableReason?.startsWith("No edition-admitted"));
+  // No qualifying cited observation and no declarative statement means no
+  // public Story at all, rather than a fake verification-status headline.
+  assert.equal(missing, null);
 });
 
 test("an editorial READY flag and later inferred Dossier ID cannot upgrade a frozen Story", () => {
