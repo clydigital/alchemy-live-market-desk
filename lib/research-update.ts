@@ -114,6 +114,7 @@ type RunLike = {
   status: "running" | "completed" | "blocked" | "failed";
   warnings: string[];
   updates_published?: number;
+  source_checks?: Array<{ source: string; status: string }> | null;
 };
 
 export type ResearchScheduleHealth = FourSlotResearchHealth;
