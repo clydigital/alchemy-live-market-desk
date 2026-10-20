@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeOwnerReturnPath } from "@/lib/supabase/owner-return-path";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const rawNext = requestUrl.searchParams.get("next") || "/";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const next = safeOwnerReturnPath(rawNext);
   const callbackUrl = new URL("/auth/callback", requestUrl.origin);
   callbackUrl.searchParams.set("next", next);
 
