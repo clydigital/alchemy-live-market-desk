@@ -1,4 +1,5 @@
 import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
+import { buildMarketImpactPacketsV1 } from "@/lib/market-impact-packet";
 import "server-only";
 
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
@@ -446,6 +447,10 @@ export async function persistCanonicalJourneyEditionForResearchRun({
             canonicalStoryManifest,
             presenterDossierContext,
             marketMotion,
+            marketImpactPackets: buildMarketImpactPacketsV1({
+              payload: { ...edition, canonicalStoryManifest, marketMotion },
+              asOf: generatedAt,
+            }),
           },
           source_record_refs: [
             ...canonicalStoryManifest.map((entry) => ({

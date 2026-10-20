@@ -116,6 +116,7 @@ import {
   type StoryRecruitmentDecision,
 } from "@/lib/intelligence/story-recruitment";
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
+import { buildMarketImpactPacketsV1 } from "@/lib/market-impact-packet";
 import { persistRegimeShadowProjectionSafely } from "@/lib/regime-engine";
 import { promoteMarketMotionFromCanonicalEvidence } from "@/lib/market-motion-promotion";
 import {
@@ -3089,6 +3090,10 @@ async function persistDailyBrief({
         canonicalStoryManifest,
         presenterDossierContext,
         ...(marketMotion ? { marketMotion } : {}),
+        marketImpactPackets: buildMarketImpactPacketsV1({
+          payload: { ...edition, canonicalStoryManifest, marketMotion },
+          asOf: generatedAt,
+        }),
       },
       source_record_refs: [
         ...stories.map((story) => ({ type: "story", id: story.id })),
