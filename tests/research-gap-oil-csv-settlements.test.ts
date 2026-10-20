@@ -74,9 +74,10 @@ test("unreviewed profile or wrong exchange/header cannot interpret downloaded da
     { profile: { ...PROFILE, finalToken: "" } },
     { sourceUrl: "https://www.ice.com/report-center" },
     { sourceUrl: "https://www.ice.com/marketdata/current/settlements/brent.csv" },
-  ] as Array<Partial<typeof valid>>;
+  ] as Record<string, unknown>[];
   for (const item of cases) {
-    assert.throws(() => parseArchivedOilSettlementCsv({ ...valid, ...item }),
+    // Deliberately invalid operator-supplied profiles are a runtime input test.
+    assert.throws(() => parseArchivedOilSettlementCsv({ ...valid, ...item } as typeof valid),
       /approved|eligible|CSV original|dated/i);
   }
 });
