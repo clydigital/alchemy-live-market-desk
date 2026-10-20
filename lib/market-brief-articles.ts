@@ -1,3 +1,5 @@
+import { marketStoryHeadline } from "./market-story-headline.ts";
+
 export type MarketBriefParagraphRole =
   | "opening"
   | "mechanism"
@@ -36,7 +38,7 @@ export type MarketBriefArticleV1 = {
   dossierId: string | null;           // exact selected canonical Dossier, no guessed fallback
   dossierAsOf: string | null;
   generatedAt: string;                // valid ISO timestamp
-  title: string;                      // concise <=63 characters where feasible
+  title: string;                      // declarative headline, maximum 80 characters
   deck: string;                       // concise one-sentence introduction
   category: string;                   // descriptive, not a quota/bucket gate
   paragraphs: MarketBriefParagraphV1[];
@@ -114,16 +116,6 @@ function existingCausalLinks(value: unknown): MarketBriefCausalLinkV1[] {
     used.add(key);
     return [{ from, to, relationship, evidenceStatus: rawState as MarketBriefCausalLinkV1["evidenceStatus"], canonicalEvidenceIds: ids }];
   }).slice(0, 8);
-}
-
-function truncateTitle(text: string, maxLen = 63): string {
-  if (text.length <= maxLen) return text;
-  const truncated = text.slice(0, maxLen - 1).trim();
-  const lastSpace = truncated.lastIndexOf(" ");
-  if (lastSpace > 20) {
-    return truncated.slice(0, lastSpace) + "…";
-  }
-  return truncated + "…";
 }
 
 function deriveCategory(icon: string | null, assets: string[], title: string): string {
@@ -448,7 +440,10 @@ export function projectMarketBriefArticles(
     if (!storyId) continue;
 
     const existing = candidateMap.get(storyId);
-    const title = cleanText(lesson.title) || existing?.title || "Market Catalyst";
+    // Dossier lessons can use central questions as their titles; prefer canonical Story wording.
+    const title = existing?.title && !/[?？]/.test(existing.title)
+      ? existing.title
+      : cleanText(lesson.title) || existing?.title || "Market Catalyst";
     const centralQuestion = cleanText(lesson.question) || existing?.centralQuestion || null;
     const bodyTexts = cleanStringArray(lesson.body);
     const lessonEv = cleanStringArray(lesson.evidenceRefs);
@@ -615,7 +610,12 @@ export function projectMarketBriefArticles(
     }
 
     const articleId = `article:${editionId}:${candidate.storyId}`;
-    const displayTitle = truncateTitle(candidate.title, 63);
+    // Only a claim-level evidenced change outranks the already-authored Story title.
+    // Keep central questions in the deck, not in the headline.
+    const displayTitle = marketStoryHeadline([
+      candidate.itemisedClaimMatches.opening ? candidate.whatChanged : null,
+      candidate.title,
+    ]);
     const deck = candidate.centralQuestion
       || (candidate.thesis.endsWith(".") ? candidate.thesis : `${candidate.thesis}.`);
 

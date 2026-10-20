@@ -34,6 +34,7 @@ import { getStoryHeaderImages } from "@/lib/story-images";
 import { deriveStoryTags } from "@/lib/story-tags";
 import { deriveStoryScorecard } from "@/lib/story-scorecard";
 import { buildStoryBreakdown } from "@/lib/story-breakdown";
+import { marketStoryHeadline } from "@/lib/market-story-headline";
 
 export const dynamic = "force-dynamic";
 
@@ -357,7 +358,8 @@ export default async function Page({ searchParams }: PageProps) {
     return {
       id: story.id,
       slug: story.slug,
-      title: currentVersion?.title || story.title,
+      // A new canonical Story event can lead the card; a question cannot.
+      title: marketStoryHeadline([latestEvent?.headline, currentVersion?.title, story.title]),
       thesis: currentVersion?.thesis || story.thesis,
       status: currentVersion?.status || story.article_verdict || story.status,
       confidence: currentVersion?.confidence ?? story.confidence,
