@@ -1,4 +1,5 @@
 import styles from "./login.module.css";
+import { safeOwnerReturnPath } from "@/lib/supabase/owner-return-path";
 
 type LoginPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const rawNext = Array.isArray(params.next) ? params.next[0] : params.next;
-  const next = rawNext?.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const next = safeOwnerReturnPath(rawNext);
   const rawError = Array.isArray(params.error) ? params.error[0] : params.error;
   const error = rawError ? errorCopy[rawError] || "Sign-in failed. Please try again." : null;
 
