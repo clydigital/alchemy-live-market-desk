@@ -77,11 +77,22 @@ function closestRun(runs: ResearchRunLike[], slot: CanonicalResearchSlot, expect
     .sort((a, b) => a.distance - b.distance)[0]?.run || null;
 }
 
+const DIRECT_NEWS_FEEDS = new Set(["zerohedge", "axios", "investing-com", "fxstreet"]);
+
 function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
   if (!run) return "missed";
   if (run.status === "completed") {
-    if (run.evidence_gate_passed === false || run.required_sources_complete === false
-      || run.source_checks?.some((check) => check.status === "blocked")) return "degraded";
+    if (run.evidence_gate_passed === false || run.required_sources_complete === false) return "degraded";
+
+    // Individual publishers are alternatives, not mandatory dependencies.
+    // Keep blocked sources in source_checks, but assess overall news coverage
+    // using at least two independently acquired publisher feeds. Preserve the
+    // legacy stored gate when older runs lack detailed news checks.
+    const newsChecks = run.source_checks?.filter((check) => DIRECT_NEWS_FEEDS.has(check.source)) ?? [];
+    if (newsChecks.length > 0) {
+      const available = newsChecks.filter((check) => check.status === "checked" || check.status === "no_new_items");
+      if (available.length < 2) return "degraded";
+    }
     return "complete";
   }
   return run.status;
