@@ -14,7 +14,7 @@ const EVIDENCE = "6a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const OBSERVATION = "7a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const RAW = "8a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const SOURCE = "9a9b8a89-089b-4bda-8c33-2fd272b4c65a";
-const URL = "https://www.cmegroup.com/daily_bulletin/archive/20261014/Section61_Energy_Futures_Products.pdf";
+const SOURCE_URL = "https://www.cmegroup.com/daily_bulletin/archive/20261014/Section61_Energy_Futures_Products.pdf";
 const T = new Date("2026-10-21T03:00:00Z");
 const HASH = "a".repeat(64);
 
@@ -24,7 +24,7 @@ function proof(): CanonicalOilProofInput {
       id: EVIDENCE, normalised_observation_id: OBSERVATION, source_id: SOURCE,
       measurement_unit: "USD_per_barrel",
       event_at: "2026-10-14T00:00:00Z", available_at: "2026-10-20T20:00:00Z",
-      affected_assets: ["WTI", "CLX26", "CLZ26"], provenance_urls: [URL],
+      affected_assets: ["WTI", "CLX26", "CLZ26"], provenance_urls: [SOURCE_URL],
       structured_payload: { signalKind: "official_futures_settlement_pair" },
     },
     observation: {
@@ -36,8 +36,8 @@ function proof(): CanonicalOilProofInput {
         final: true, unit: "USD_per_barrel", originalSourceSha256: HASH,
       },
     },
-    raw: { id: RAW, source_url: URL, content_type: "application/pdf", content_hash: HASH },
-    source: { id: SOURCE, source_tier: 1, source_url: URL },
+    raw: { id: RAW, source_url: SOURCE_URL, content_type: "application/pdf", content_hash: HASH },
+    source: { id: SOURCE, source_tier: 1, source_url: SOURCE_URL },
   };
 }
 function plan(question = "Retrieve WTI original F1/F2 settlement pair"): ResearchGapPlan {
@@ -57,7 +57,7 @@ function plan(question = "Retrieve WTI original F1/F2 settlement pair"): Researc
 function assessed(id: string): ResearchGapEvidenceAssessment {
   return {
     evidenceId: id, independenceKey: "cme.com",
-    sourceClass: "official", sourceUrl: URL, requirementIds: ["req:1:oil"],
+    sourceClass: "official", sourceUrl: SOURCE_URL, requirementIds: ["req:1:oil"],
     direction: "CONFIRMING", directness: "DIRECT", quality: 99,
     traceable: true, claim: "An alleged original WTI F1/F2 settle.",
   };
