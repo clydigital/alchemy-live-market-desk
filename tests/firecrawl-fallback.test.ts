@@ -214,3 +214,81 @@ test("recovered Alchemy articles receive ordered, unique publisher positions and
     else process.env.FIRECRAWL_API_KEY = previousKey;
   }
 });
+
+test("FXStreet HTML recovery admits only fresh dated publisher-owned URLs, not scraped headlines as proof", async () => {
+  const previousKey = process.env.FIRECRAWL_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.FIRECRAWL_API_KEY = "fixture-only";
+  let requestedUrl = "";
+  globalThis.fetch = (async (url, init) => {
+    assert.equal(String(url), "https://api.firecrawl.dev/v2/scrape");
+    requestedUrl = (JSON.parse(String(init?.body)) as { url: string }).url;
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        rawHtml: `<html><body><h1>News Feed</h1>
+          <a href="https://www.fxstreet.com/news/us-dollar-rallies-after-fed-remarks-202610201200">US Dollar rallies after Fed remarks</a>
+          <a href="/news/us-dollar-rallies-after-fed-remarks-202610201200">Duplicate original</a>
+          <a href="/news/old-september-story-202609201100">Stale headline</a>
+          <a href="https://attacker.example/news/fake-202610201200">Mismatched provider</a>
+          <a href="/news/undated-article">Unverifiable date</a>
+        </body></html>`,
+        metadata: { sourceURL: "https://www.fxstreet.com/news/feed", statusCode: 200 },
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const source = {
+      ...inputWithSource("blocked"),
+      sourceChecks: [{source: "fxstreet" as const, status: "blocked" as const, itemCount: 0,
+        note: "Direct origin denied HTTP 403."}],
+    };
+    const result = await applyFirecrawlResearchFallback(source, new Date("2026-10-20T13:00:00Z"));
+    assert.equal(requestedUrl, "https://www.fxstreet.com/news/feed");
+    assert.equal(result.sourceChecks[0]?.status, "checked");
+    assert.equal(result.sourceChecks[0]?.itemCount, 1);
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0]?.publisher, "FXStreet");
+    assert.equal(result.items[0]?.publishedAt, "2026-10-20T12:00:00.000Z");
+    assert.equal(result.items[0]?.url, "https://www.fxstreet.com/news/us-dollar-rallies-after-fed-remarks-202610201200");
+    assert.equal(result.items[0]?.evidence?.[0]?.url, result.items[0]?.url);
+    assert.match(result.items[0]?.reviewReason || "", /research lead, not independent verification/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = previousKey;
+  }
+});
+
+test("old or malformed FXStreet HTML cannot clear a blocked publisher check", async () => {
+  const previousKey = process.env.FIRECRAWL_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.FIRECRAWL_API_KEY = "fixture-only";
+  globalThis.fetch = (async (_url, init) => {
+    const requested = (JSON.parse(String(init?.body)) as {url: string}).url;
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        rawHtml: requested.includes("news/feed")
+          ? '<h1>News Feed</h1><a href="/news/old-news-202609201200">Old story</a>'
+          : '<rss><channel><item><title>Old story</title><link>https://www.fxstreet.com/news/old-202609201200</link><pubDate>Sun, 20 Sep 2026 12:00:00 +0000</pubDate></item></channel></rss>',
+        metadata: { sourceURL: requested, statusCode: 200 },
+      },
+    }), {status: 200, headers: {"Content-Type": "application/json"}});
+  }) as typeof fetch;
+  try {
+    const source = {
+      ...inputWithSource("blocked"),
+      sourceChecks: [{source: "fxstreet" as const, status: "blocked" as const, itemCount: 0,
+        note: "Direct 403."}],
+    };
+    const result = await applyFirecrawlResearchFallback(source, new Date("2026-10-20T13:00:00Z"));
+    assert.equal(result.sourceChecks[0]?.status, "blocked");
+    assert.equal(result.items.length, 0);
+    assert.match(result.sourceChecks[0]?.note || "", /no fresh dated feed items/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = previousKey;
+  }
+});

@@ -45,3 +45,22 @@ test("scheduled research calls the macro-context collector, not the retired dash
   assert.doesNotMatch(handler, /attachMacroCaptureToResearchRun/);
   assert.doesNotMatch(handler, /MacroMicro/);
 });
+
+test("an undated macro dashboard cannot pass just because two metric labels have numbers", () => {
+  assert.equal(
+    macroContextBlockReason(DAILY_INVESTMENT_BRIEF_SOURCE, "Growth 0.4 Inflation 3.4% Labour 4.1%"),
+    "missing_observation_date",
+  );
+});
+
+test("a partly hydrated macro dashboard fails closed despite dated numeric cards", () => {
+  const partial = "Updated Oct 20, 2026. Growth 0.4 Inflation 3.4% Labour -- Liquidity -- Analyzing...";
+  assert.equal(macroContextBlockReason(DAILY_INVESTMENT_BRIEF_SOURCE, partial), "client_placeholders");
+});
+
+test("an unrelated copyright year is not a dated economic observation", () => {
+  assert.equal(
+    macroContextBlockReason(DAILY_INVESTMENT_BRIEF_SOURCE, "Growth 0.4 Inflation 3.4% Copyright © 2026"),
+    "missing_observation_date",
+  );
+});

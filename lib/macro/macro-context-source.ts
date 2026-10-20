@@ -51,11 +51,17 @@ export function macroContextBlockReason(source: MacroContextSource, value: strin
   if (/security verification|verify (?:that )?you are human|checking your browser|just a moment|cf-chl-/i.test(text)) {
     return "security_verification";
   }
-  const { signals } = datedMacroSignals(text);
+  const { hasDate, signals } = datedMacroSignals(text);
   if (source.key === DAILY_INVESTMENT_BRIEF_SOURCE.key) {
     const placeholders = (text.match(/Analyzing\.\.\.|(?:^|\s)--(?:\s|$)/gi) || []).length;
-    if (placeholders >= 2 && signals < 2) return "client_placeholders";
+    // A partially hydrated client dashboard is not evidence, even when two
+    // other numbers accidentally appear in its HTML or navigation.
+    if (placeholders >= 2) return "client_placeholders";
     if (signals < 2) return "insufficient_dated_readings";
+    // A current HTTP fetch does not make undated measurements current.
+    // Keep the prior verified snapshot instead of treating a copyright
+    // year or page-generation time as a reported macro observation.
+    if (!hasDate) return "missing_observation_date";
     return null;
   }
   return null;
