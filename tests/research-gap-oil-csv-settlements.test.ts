@@ -8,7 +8,7 @@ import {
   type ReviewedOilCsvProfile,
 } from "../lib/research-gap-oil-csv-settlements.ts";
 
-const URL = "https://www.ice.com/marketdata/20261014/settlements/brent.csv";
+const ICE_URL = "https://www.ice.com/marketdata/20261014/settlements/brent.csv";
 const RAW_ID = "59bd4da0-ab53-4ebd-99d1-7d00b48ddc2f";
 const TEXT = [
   '"Trade Date","Contract","Settle","Status","Exchange","Units"',
@@ -41,7 +41,7 @@ function args(text = TEXT) {
     originalArchived: true, finalSettlementVerified: false, canonicalAdmitted: false,
   };
   return {
-    benchmark: "BRENT" as const, sourceUrl: URL, sourceBytes, original,
+    benchmark: "BRENT" as const, sourceUrl: ICE_URL, sourceBytes, original,
     tradeDate: "2026-10-14", frontContract: "LCOZ26", nextContract: "LCOF27",
     profile: PROFILE,
   };
