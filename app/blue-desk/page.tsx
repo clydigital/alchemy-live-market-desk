@@ -10,7 +10,7 @@ import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents } from "@/lib/forward-earnings-sources";
 import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
-import { getCurrentMarketMotion } from "@/lib/market-motion";
+import { getCurrentMarketMotion, getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
@@ -36,7 +36,7 @@ function ellipsis(value: string, max = 175) {
 export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
-  const [latest, macro, earnings, monitor, motions] = await Promise.all([
+  const [latest, macro, earnings, monitor, motions, verifiedMotions] = await Promise.all([
     getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
@@ -44,6 +44,7 @@ export default async function BlueDeskPage() {
     })),
     getMarketMonitor().catch(() => null),
     getCurrentMarketMotion({ limit: 24 }).catch(() => []),
+    getCurrentVerifiedMarketMotion({ limit: 12 }).catch(() => []),
   ]);
 
   // Existing publication snapshots remain the only article authority.
@@ -51,7 +52,7 @@ export default async function BlueDeskPage() {
   const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
   // A source-verified factual report is independently eligible to be read:
   // it is NOT a new canonical Story or Regime interpretation.
-  const verifiedNews = selectVerifiedNewsBriefs(motions, now, 6);
+  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 6);
   const newsFeature = feature ? null : (verifiedNews[0] || null);
   // Primary-source facts are a separate fallback, NEVER a promoted Story.
   const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
