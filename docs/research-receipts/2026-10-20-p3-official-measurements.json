@@ -1,0 +1,185 @@
+{
+  "schema": "official-primary-measurement-candidates/1",
+  "collected_on": "2026-10-20",
+  "provenance_method": "read-only direct publisher retrieval in user's connected Opera browser; unchanged underlying publishers",
+  "admission_status": "SOURCE_VERIFIED_NOT_CANONICAL",
+  "historical_edition_id": "fcea17ef-f575-4283-a363-7d5fa9c918c7",
+  "rule": "New publication evidence only; never alter the historical edition or call a daily yield an intraday CPI reaction",
+  "story_ids": {
+    "cpi_rates": "26955788-e038-4e8a-abae-90cde0c17a90",
+    "backwardation": "4ca089de-b3c7-4e4d-bb48-e124e84b3e9c",
+    "distillate": "1cf9ad1d-c350-48c4-b06e-d544771919d3"
+  },
+  "receipts": [
+    {
+      "id": "bls-us-september-2026-cpi",
+      "family": "economic_release",
+      "publisher": "US Bureau of Labor Statistics",
+      "exact_original_url": "https://www.bls.gov/news.release/archives/cpi_10142026.htm",
+      "release_id": "USDL-26-1574",
+      "released_at": "2026-10-14T12:30:00Z",
+      "period": "2026-09",
+      "source_access": "original archived release observed in Opera",
+      "measures": [
+        {
+          "name": "CPI-U headline seasonally adjusted month-on-month",
+          "unit": "percent",
+          "observed": 0.6,
+          "prior_month": 0.4
+        },
+        {
+          "name": "CPI-U headline unadjusted twelve-month",
+          "unit": "percent",
+          "observed": 3.7
+        },
+        {
+          "name": "CPI-U core seasonally adjusted month-on-month",
+          "unit": "percent",
+          "observed": 0.3
+        },
+        {
+          "name": "CPI-U core unadjusted twelve-month",
+          "unit": "percent",
+          "observed": 2.6
+        },
+        {
+          "name": "Gasoline seasonally adjusted month-on-month",
+          "unit": "percent",
+          "observed": 9.1
+        },
+        {
+          "name": "Energy seasonally adjusted month-on-month",
+          "unit": "percent",
+          "observed": 5.2
+        },
+        {
+          "name": "Shelter seasonally adjusted month-on-month",
+          "unit": "percent",
+          "observed": 0.4
+        }
+      ],
+      "expected_values_status": "MISSING_OR_SECONDARY_ONLY",
+      "admitted_reaction": false
+    },
+    {
+      "id": "treasury-nominal-daily-2026-10-13-14",
+      "family": "official_daily_curve",
+      "publisher": "United States Department of the Treasury",
+      "exact_original_url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve&field_tdr_date_value=2026&field_tdr_date_value_month=202610",
+      "frequency": "daily",
+      "unit": "percent_per_annum",
+      "date_range": [
+        "2026-10-13",
+        "2026-10-14"
+      ],
+      "points": [
+        {
+          "date": "2026-10-13",
+          "nominal_2yr": 4.9,
+          "nominal_10yr": 5.21
+        },
+        {
+          "date": "2026-10-14",
+          "nominal_2yr": 4.92,
+          "nominal_10yr": 5.19
+        }
+      ],
+      "derived_close_to_close_basis_points": {
+        "nominal_2yr": 2,
+        "nominal_10yr": -2
+      },
+      "admitted_intraday_reaction": false,
+      "no_inferred_timestamp": true
+    },
+    {
+      "id": "treasury-real-daily-2026-10-13-14",
+      "family": "official_daily_curve",
+      "publisher": "United States Department of the Treasury",
+      "exact_original_url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_real_yield_curve&field_tdr_date_value=2026&field_tdr_date_value_month=202610",
+      "frequency": "daily",
+      "unit": "percent_per_annum",
+      "date_range": [
+        "2026-10-13",
+        "2026-10-14"
+      ],
+      "points": [
+        {
+          "date": "2026-10-13",
+          "real_10yr": 2.88
+        },
+        {
+          "date": "2026-10-14",
+          "real_10yr": 2.84
+        }
+      ],
+      "derived_close_to_close_basis_points": {
+        "real_10yr": -4
+      },
+      "finding": "CONTRADICTS_CLAIM_OF_POSITIVE_CLOSE_TO_CLOSE_10Y_REAL_YIELD_MOVE",
+      "admitted_intraday_reaction": false,
+      "no_inferred_timestamp": true
+    },
+    {
+      "id": "eia-wpsr-table6-distillates-2026-10-09",
+      "family": "weekly_inventory",
+      "publisher": "US Energy Information Administration",
+      "release_page_url": "https://www.eia.gov/petroleum/supply/weekly/",
+      "exact_original_url": "https://ir.eia.gov/wpsr/table6.csv",
+      "report_release_date": "2026-10-15",
+      "week_end": "2026-10-09",
+      "prior_week_end": "2026-10-02",
+      "frequency": "weekly",
+      "unit": "million_barrels",
+      "mutable_source_url": true,
+      "historical_integrity_note": "The WPSR table6.csv URL is rolling. These values were read in the 20 Oct 2026 browser session; future automated retrieval of this URL may yield a later week's file. Admit only with matching header and immutable raw-source snapshot.",
+      "rows": [
+        {
+          "area": "United States",
+          "current": 102.611,
+          "prior": 105.138,
+          "source_reported_change": -2.527
+        },
+        {
+          "area": "PADD 1 East Coast",
+          "current": 21.513,
+          "prior": 21.687,
+          "source_reported_change": -0.173
+        },
+        {
+          "area": "PADD 2 Midwest",
+          "current": 25.688,
+          "prior": 26.205,
+          "source_reported_change": -0.517
+        },
+        {
+          "area": "PADD 3 Gulf Coast",
+          "current": 42.065,
+          "prior": 43.857,
+          "source_reported_change": -1.792
+        },
+        {
+          "area": "PADD 4 Rocky Mountain",
+          "current": 3.346,
+          "prior": 3.453,
+          "source_reported_change": -0.107
+        },
+        {
+          "area": "PADD 5 West Coast",
+          "current": 10,
+          "prior": 9.937,
+          "source_reported_change": 0.062
+        }
+      ],
+      "no_inferred_causal_price_reaction": true
+    }
+  ],
+  "blockers": [
+    "08:30 ET pre/post fed-funds futures contracts, Treasury 2Y/10Y and TIPS intraday timestamped bars",
+    "independent pre-release consensus forecasts with timestamps, source and survey sample",
+    "contract-specific original WTI and Brent F1/F2 exact trade-date settlement pairs",
+    "official AIS/customs/EIA confirmation of claimed Russia-to-US diesel shipment",
+    "validated market-tape reaction and source-grounded mechanism",
+    "original EIA rolling source snapshot/raw hash before canonical ingestion"
+  ],
+  "required_next_step": "Use existing Research Gap/verified macro canonical intake and prove returned new evidence UUIDs, original publisher URL, exact vintage and timestamps. Historical edition is immutable."
+}

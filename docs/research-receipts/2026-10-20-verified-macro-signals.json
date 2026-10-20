@@ -1,0 +1,96 @@
+{
+  "signals": [
+    {
+      "key": "us-cpi-sep-2026-primary-20261014",
+      "kind": "economic_release",
+      "signalContext": "US_INFLATION",
+      "sourceName": "US Bureau of Labor Statistics",
+      "sourceUrl": "https://www.bls.gov/news.release/archives/cpi_10142026.htm",
+      "sourceRole": "primary_data",
+      "claim": "In the archived BLS release USDL-26-1574, September 2026 CPI-U rose 0.6% m/m (SA) versus August's 0.4%; headline y/y was 3.7%, core m/m 0.3%, core y/y 2.6%, gasoline m/m 9.1%, energy m/m 5.2%, shelter m/m 0.4%. This is a release observation, not a verified market reaction.",
+      "eventAt": "2026-10-14T12:30:00Z",
+      "value": {
+        "releaseId": "USDL-26-1574",
+        "period": "2026-09",
+        "headlineMoM": 0.6,
+        "headlineYoY": 3.7,
+        "previousHeadlineMoM": 0.4,
+        "coreMoM": 0.3,
+        "coreYoY": 2.6,
+        "gasolineMoM": 9.1,
+        "energyMoM": 5.2,
+        "shelterMoM": 0.4
+      },
+      "observedValue": 0.6,
+      "previousValue": 0.4,
+      "unit": "percent",
+      "affectedTopics": [
+        "US_INFLATION",
+        "FED_POLICY"
+      ],
+      "affectedAssets": [
+        "US02Y",
+        "US10Y",
+        "DXY",
+        "XAUUSD",
+        "SPX"
+      ],
+      "confidence": 98
+    },
+    {
+      "key": "us-eia-distillate-week-20261009",
+      "kind": "economic_release",
+      "signalContext": "DISTILLATE_INVENTORY_MEASUREMENT",
+      "sourceName": "US Energy Information Administration",
+      "sourceUrl": "https://ir.eia.gov/wpsr/table6.csv",
+      "sourceRole": "primary_data",
+      "claim": "EIA Weekly Petroleum Status Report Table 6 released 15 Oct 2026 reported US distillate stocks for week ending 9 Oct at 102.611 million barrels versus 105.138 prior week, -2.527 million barrels. East Coast PADD1 -0.173, Midwest PADD2 -0.517, Gulf Coast PADD3 -1.792, Rocky Mountain PADD4 -0.107, West Coast PADD5 +0.062 million barrels (reported independently rounded changes). No shipment routing or price impact was established.",
+      "eventAt": "2026-10-15T18:00:00Z",
+      "value": {
+        "periodEnd": "2026-10-09",
+        "comparisonWeekEnd": "2026-10-02",
+        "us": 102.611,
+        "usPrevious": 105.138,
+        "padd1": {
+          "level": 21.513,
+          "previous": 21.687,
+          "sourceReportedChange": -0.173
+        },
+        "padd2": {
+          "level": 25.688,
+          "previous": 26.205,
+          "sourceReportedChange": -0.517
+        },
+        "padd3": {
+          "level": 42.065,
+          "previous": 43.857,
+          "sourceReportedChange": -1.792
+        },
+        "padd4": {
+          "level": 3.346,
+          "previous": 3.453,
+          "sourceReportedChange": -0.107
+        },
+        "padd5": {
+          "level": 10,
+          "previous": 9.937,
+          "sourceReportedChange": 0.062
+        },
+        "rollingOriginalUrl": true
+      },
+      "observedValue": 102.611,
+      "previousValue": 105.138,
+      "unit": "million_barrels",
+      "affectedTopics": [
+        "ENERGY_PRODUCTS",
+        "US_INFLATION"
+      ],
+      "affectedAssets": [
+        "ULSD",
+        "WTI",
+        "BRENT"
+      ],
+      "confidence": 95
+    }
+  ]
+}
