@@ -27,6 +27,7 @@ import {
   buildSystem1ReactionAssessments,
 } from "./system1-divergence.ts";
 import { buildDossierPolicyOutlook } from "./policy-outlook.ts";
+import { auditCpiSurprises } from "./cpi-surprise-audit.ts";
 import { buildDossierRateRegime } from "./rate-regime.ts";
 import {
   buildPolicyLiquidityInteraction,
@@ -121,6 +122,7 @@ EPISTEMIC BOUNDARIES (STRICTLY ENFORCED):
 4. Every material analytical claim must reference supplied evidence_ids from packet.observed_evidence or packet.rate_context.evidence.
 5. Missing market reactions or asset price moves must NOT be invented. If price evidence is missing for a lens, set observed_reaction to NULL and observed_reaction_evidence_refs to [].
 5A. CPI POLICY REPRICING EVIDENCE: Check the deterministic System 1 policy outlook and the exact event times of verified macro signals. Separately describe (a) actual versus point-in-time forecast, (b) the observed IMMEDIATE change in FedWatch/fed-funds pricing and 2Y/10Y yields, and (c) whether that pricing PERSISTED through later sessions. When source-linked, time-stamped market reporting confirms the initial move, say it happened: lack of licensed intraday exchange bars limits precision and persistence, NOT the existence of the source-reported initial reaction. Respect the original reporter's quoted accuracy. Never elevate retrospective consensus capture into a pre-release snapshot.
+5A-1. CPI SURPRISE AUDIT: Use boundedInput.system1_cpi_surprise_audit as a deterministic, claim-specific readout. NEVER compare actual headline m/m against the previous month and call that a consensus beat; previous is not expected. Treat headline m/m, headline y/y, core m/m and core y/y as FOUR separate measures with their own matching periods, adjustment conventions and expectation vintages. If expected_pct=null, call the forecast relationship UNKNOWN, even if actual accelerated from previous. If expected_pct exists and actual_minus_expected_pp=0, it MET forecast, not a hot/positive surprise. A retrospective market report's expected value is not independent proof of pre-release forecast capture: comparator_vintage=NOT_SEPARATELY_VERIFIED requires a dated original pre-release consensus receipt before declaring a verified forecast surprise. When a report includes both a matched headline and a stronger-than-forecast core, identify the core surprise specifically, never generalise the headline surprise. An elevated REAL-YIELD LEVEL is not an increase on CPI day: official Treasury 13→14 October DAILY 10Y real-yield figures of 2.88%→2.84% imply −4 bp across daily observations only, not the 08:30 ET event window. If such evidence is not in the CURRENT input, do not inject these example values as current facts.
 5B. DATA-COVERAGE IS NOT A MARKET CAUSE: A missing Desk API key, intraday feed, bar history, research gap, or canonical evidence item describes OUR observation limit. It is NEVER a theory that investors, markets or traders were waiting for our data before repricing. Candidate explanations must describe an economically plausible market mechanism with specific supporting observations, or explicitly say that the mechanism cannot be established. Do not turn a Research Gap into a market participant's motive.
 5C. STRICT VINTAGE DISCIPLINE: NY Fed ACM term-premium series are typically available at a different vintage from live nominal Treasury yields. A 13 October ACM observation cannot explain the INTRADAY 14 October CPI reaction, even if it appears in the Dossier published on 15 October. Always date both market observation and reference release before using words such as "after", "on release" or "caused". Same-day Treasury daily closes do not prove the direction of the 08:30 ET first-minute tape.
 6. Conflicting evidence (indicated by conflict_group_id) MUST remain visible in contradictions_detected.
@@ -202,6 +204,7 @@ export function buildResearchBrainPrompt(input: ResearchBrainInputV1): {
     observed_evidence: compactObservedEvidence(packet),
     rate_context: { evidence: compactRateContext(packet) },
     system1_policy_expectation_checks: buildSystem1PolicyExpectationChecks(packet),
+    system1_cpi_surprise_audit: auditCpiSurprises(packet),
     system1_reaction_assessments: buildSystem1ReactionAssessments(packet),
     system1_divergence_candidates: buildSystem1DivergenceCandidates(packet),
     system1_rate_regime: {
