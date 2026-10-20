@@ -192,3 +192,15 @@ The Dossier's system1_energy_source_coverage and output validator run automatica
 Every scheduled source check should distinguish provider_retrieval, original_source_final, same_day_F1_F2, source_hash_verified, canonical_ingested, dossier_visible and story_adjudicated. A successful cron response means the worker ran, **not** that all evidence/Story work is complete.
 
 **Next implementation partition:** publisher-specific original-source acquisition adapters with verifiable archived bulletin identity and idempotent canonical handoff, reusing the existing Research Gap cycle. This runbook does not assert that licensed CME/ICE original settlement values or automated acquisition are already live.
+
+## Private archival handoff for verified original oil documents
+
+Existing scheduled Research Gap `evaluate` and GitHub fallback call the strict original-file capture probe. No new cron, reasoning engine or database table is required.
+
+By default, original CME and ICE response bytes **are not archived**. Before enabling retention, the operator must confirm publisher data licensing and permitted storage/use of these specific historical documents. Enable only the corresponding *server-side* setting after this review: `OIL_CME_ARCHIVE_RETENTION_APPROVED=true` and/or `OIL_ICE_ARCHIVE_RETENTION_APPROVED=true`. Never prefix these variables with `NEXT_PUBLIC_`. The flags are independent, allowing ICE to remain blocked while CME is approved.
+
+When enabled, the existing Research Gap cycle preserves allowlisted dated original bytes to a **private** Supabase Storage bucket `alchemy-oil-originals-private`, created on first approved write with PDF/CSV MIME and 1.8 MB limits. Storage is service-role only; no public or authenticated user policy, public asset URL or signed link is created. Object keys are `EXCHANGE/YYYY-MM-DD/<sha256>.pdf|csv` and cannot be upserted. Every retry downloads the stored object and verifies the SHA-256 against the actually captured publisher bytes. Only then append or reuse a record in the existing `raw_source_records` with exact publisher URL, archive key, original-byte hash and actual ingestion clock.
+
+Source results remain clearly separated: `RETRIEVED_UNARCHIVED` means the original was downloaded and hashed in memory but not durably saved; `ARCHIVED_UNVERIFIED` means bytes were durably stored and rehashed, **not** that the bulletin was FINAL or a valid F1/F2 pair. `ARCHIVE_FAILED` retains the unmet research requirement; do not resolve it from an HTTP 200. Approval flags do not grant an exchange data subscription or circumvent access restrictions.
+
+This archive stage does **not** create `intelligence_evidence` or a Story. Next partition is publisher-specific FINAL bulletin parsing, settlement-leg unit/date/contract validation, and canonical Evidence admission with the existing #886 server-side proof. The separate original-source retention and operator licence review must stay explicit.
