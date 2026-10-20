@@ -331,3 +331,27 @@ test("production schema guard wiring remains read-only and post-deploy", () => {
   assert.match(invariantMigration, /security invoker/i);
   assert.match(route, /handleProductionSchemaDriftWithDependencies/);
 });
+
+test("v2 E1 checklist history reconciles only with applied account-scoped E1 and v3", () => {
+  const expected = [{ version: "20261010000000", name: "presenter_technical_checklists" }];
+  const applied = [
+    { version: "20261015000009", name: "presenter_technical_checklists_account_scoped_e1" },
+    { version: "20261018014655", name: "presenter_smh_check_v3" },
+  ];
+  const assessment = assessProductionSchemaDrift(expected, applied);
+  assert.equal(assessment.healthy, true);
+  assert.deepEqual(assessment.missing, []);
+  assert.deepEqual(assessment.historicalAliases, [{
+    expectedName: "presenter_technical_checklists",
+    appliedName: "presenter_technical_checklists_account_scoped_e1",
+    successorName: "presenter_smh_check_v3",
+  }]);
+  const noSuccessor = assessProductionSchemaDrift(expected, applied.slice(0, 1));
+  assert.equal(noSuccessor.healthy, false);
+  assert.equal(noSuccessor.missing[0].name, "presenter_technical_checklists");
+  const noBase = assessProductionSchemaDrift(expected, applied.slice(1));
+  assert.equal(noBase.healthy, false);
+  assert.equal(noBase.missing.length, 1);
+  const unrelated = assessProductionSchemaDrift([{version:"20261010000001",name:"missing_other_migration"}], applied);
+  assert.equal(unrelated.healthy, false);
+});
