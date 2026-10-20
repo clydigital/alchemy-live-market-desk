@@ -8,7 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
-import { blueDeskHostAccess, blueDeskPresentationTarget } from "@/lib/blue-desk-host";
+import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget } from "@/lib/blue-desk-host";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -39,8 +39,8 @@ function apiFailure(status: number, error: string) {
 }
 
 /**
- * Hostname-scoped, read-only presenter rewriting. Authentication has already
- * completed before this response is used for protected page routes.
+ * Host-scoped read-only presentation rewriting. Public pages bypass interactive
+ * login; owner-only routes reach this only after authorization.
  */
 function presentationResponse(request: NextRequest) {
   const host = request.headers.get("host") || request.nextUrl.hostname;
@@ -55,6 +55,15 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const host = request.headers.get("host") || request.nextUrl.hostname;
   const accessScope = blueDeskHostAccess(pathname, host);
+
+  // Old root tab bookmarks must retain private operational context.
+  if (pathname === "/"
+      && (host || "").trim().toLowerCase().replace(/:443$/, "") === LIVE_DESK_PRESENTATION_HOST
+      && request.nextUrl.searchParams.has("tab")) {
+    const oldLive = request.nextUrl.clone();
+    oldLive.pathname = "/owner/live";
+    return NextResponse.redirect(oldLive);
+  }
 
   // The public hostname must never expose legacy pages, internal APIs,
   // OAuth/owner paths or machine endpoints, even if dashboard auth is off.
