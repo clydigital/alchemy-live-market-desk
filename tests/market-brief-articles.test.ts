@@ -175,7 +175,7 @@ test("Deep Dive renders direct issuer facts before unresolved commentary, not po
   assert.match(route, /readerFacingMarketText\(paragraph\.text\)/);
   assert.match(route, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
   assert.match(route, /Lesson-level evidence only; this particular statement is not independently verified/);
-  assert.match(route, /No independently source-linked price reaction is available/);
+  assert.match(route, /No independently source-linked price, yield or futures reaction is available/);
   assert.match(route, /Working explanation/);
   assert.match(route, /getHybridExactDailyBriefEdition\(edition\)/);
 });
@@ -203,4 +203,31 @@ test("only evidence-pinned canonical Dossier arrows become visible, preserving e
     evidenceStatus: "inferred", canonicalEvidenceIds: [id],
   }]);
   assert.equal(result.articles[0].interpretationStatus, "UNRESOLVED");
+});
+
+test("frozen US rates and energy lessons omit workflow status without inventing a market reaction", () => {
+  const rates = "Detected: hot Sept CPI contemporaneous with front-end repricing, a MOVE spike, heterogeneous intraday 10Y snapshots and a sustained rise in 10Y TIPS real yields; intraday/tick archives remain outstanding.";
+  const oil = "Evidence shows front-month backwardation in WTI/Brent and CME documentation supports the roll-yield/storage mechanism; Story established in detected state.";
+  const diesel = "story: detected awaiting EIA/AIS/trade confirmation";
+  const working = "The accepted explanation is that the Sept CPI surprise mechanically raised short-term Fed-rate expectations.";
+  assert.equal(readerFacingMarketText(rates),
+    "hot Sept CPI contemporaneous with front-end repricing, a MOVE spike, heterogeneous intraday 10Y snapshots and a sustained rise in 10Y TIPS real yields; intraday/tick archives remain outstanding.");
+  assert.equal(readerFacingMarketText(oil),
+    "Evidence shows front-month backwardation in WTI/Brent and CME documentation supports the roll-yield/storage mechanism.");
+  assert.equal(readerFacingMarketText(diesel), "", "An operational placeholder is not a public market fact");
+  assert.equal(readerFacingMarketText(working),
+    "A working explanation is that the Sept CPI surprise mechanically raised short-term Fed-rate expectations.");
+  assert.equal(readerFacingMarketText("Story: oil appears volatile"), "Story: oil appears volatile",
+    "Do not broadly strip ordinary market language");
+  assert.ok(oil.includes("Story established"), "The original frozen Dossier text remains intact");
+});
+
+test("Rates and oil Deep Dive visibly disclose no primary sources and omit process-only paragraphs", () => {
+  const page = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /!article\.editorial\.evidenceClaims\.length/);
+  assert.match(page, /No original-source observation has passed the evidence and publication-time checks/);
+  assert.match(page, /readerFacingMarketText\(p\.text\)\.length > 0/);
+  assert.match(page, /No independently source-linked price, yield or futures reaction/);
+  assert.doesNotMatch(page, /issuer figures alone cannot establish/i);
+  assert.match(page, /getHybridExactDailyBriefEdition\(edition\)/);
 });

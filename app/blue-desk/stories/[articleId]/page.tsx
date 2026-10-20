@@ -81,7 +81,8 @@ export default async function BlueDeskStoryPage({
   const hasStructuredWatch = confirmations.length > 0 || invalidations.length > 0;
   const verifiedReaction = readerVerifiedReaction(article.paragraphs, article.editorial.evidenceClaims);
   const supportedParagraphs = article.paragraphs.filter(p =>
-    (p.canonicalEvidenceIds.length > 0 || p.sourceRefs.length > 0)
+    readerFacingMarketText(p.text).length > 0
+    && (p.canonicalEvidenceIds.length > 0 || p.sourceRefs.length > 0)
     // The same forward tests are already displayed once in their own section.
     && !(hasStructuredWatch && p.role === "outlook")
     // No edition-pinned market observation means no factual price-reaction claim.
@@ -115,6 +116,15 @@ export default async function BlueDeskStoryPage({
         </header>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
+            {!article.editorial.evidenceClaims.length ? (
+              <section className={styles.deepSection}>
+                <h2>Evidence status</h2>
+                <p className={styles.deepSourceContext}>
+                  No original-source observation has passed the evidence and publication-time checks for this edition.
+                  The interpretation below is provisional, not a verified account of a market move.
+                </p>
+              </section>
+            ) : null}
             {article.editorial.evidenceClaims.length ? (
               <section className={styles.deepSection}>
                 <h2>What the original sources report</h2>
@@ -180,8 +190,8 @@ export default async function BlueDeskStoryPage({
               <section className={styles.deepSection}>
                 <h2>Market reaction</h2>
                 <p className={styles.deepSourceContext}>
-                  No independently source-linked price reaction is available in this frozen edition.
-                  The issuer figures alone cannot establish how shares, yields or the wider market responded.
+                  No independently source-linked price, yield or futures reaction is available in this frozen edition.
+                  The available observations do not establish how traded markets responded at the time.
                 </p>
               </section>
             ) : null}

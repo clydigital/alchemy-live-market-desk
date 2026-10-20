@@ -43,7 +43,7 @@ test("public Deep Dive links exact-source paragraphs and explicitly names missin
   assert.match(view, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
   assert.match(view, /p\.role !== "reaction"/);
   assert.match(view, /!verifiedReaction/);
-  assert.match(view, /No independently source-linked price reaction is available/);
+  assert.match(view, /No independently source-linked price, yield or futures reaction is available/);
   assert.match(view, /article\.editorial\.causalLinks\.length/);
   assert.match(view, /getHybridExactDailyBriefEdition\(edition\)/);
 });
