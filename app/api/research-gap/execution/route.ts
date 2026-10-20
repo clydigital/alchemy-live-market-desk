@@ -26,6 +26,7 @@ import {
   type OilBenchmark,
 } from "@/lib/research-gap-exact-oil-proof";
 import { inspectOilPublisherAccess } from "@/lib/research-gap-oil-source-access";
+import { assessOilSourceRecovery } from "@/lib/research-gap-oil-recovery";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -262,12 +263,27 @@ export async function POST(request: Request) {
         });
       }
 
+      // Preserve acquisition status in the existing operational verdict.
+      // A subsequent cycle may consider a retry, but this request never
+      // reclaims a completed/handed-off case or upgrades canonical evidence.
+      const persistedVerdict = requiredOil.length
+        ? {
+            ...verdict,
+            sourceRecovery: assessOilSourceRecovery({
+              outcome: verdict.outcome,
+              sourceAccess: originalSourceAccess,
+              attemptCount: gap.attempt_count,
+              completedAt: verdict.evaluatedAt,
+            }),
+          }
+        : verdict;
+
       const completed = await completeResearchGapCase({
         caseId,
         claimToken,
         outcome: verdict.outcome,
         verdictVersion: verdict.contractVersion,
-        verdict,
+        verdict: persistedVerdict,
         completedAt: verdict.evaluatedAt,
       });
       if (!completed) {
@@ -280,7 +296,7 @@ export async function POST(request: Request) {
         status: "completed",
         completed: true,
         case: completed,
-        verdict,
+        verdict: persistedVerdict,
         ...(originalSourceAccess.length ? { originalSourceAccess } : {}),
       });
     }
