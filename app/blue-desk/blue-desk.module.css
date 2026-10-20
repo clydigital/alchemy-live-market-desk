@@ -72,13 +72,30 @@
 .sectionHead { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 14px; }
 .sectionHead h2 { font-size: clamp(24px, 2.4vw, 32px); color: #f0faff; letter-spacing: -.04em; margin: 2px 0; }
 .sectionHead p:not(.kicker) { color: #9fbed1; font-size: 13px; margin: 5px 0; }
-.storyGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.storyGrid {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: 10px;
+}
 .storyCard,.emptyCard {
   border: 1px solid #1f6987; border-radius: 8px; padding: 23px;
   background: linear-gradient(145deg, #0d4766, #07273c 66%, #031a2b);
   min-height: 260px; display: flex; flex-direction: column; justify-content: flex-end;
 }
 .storyCard h3,.emptyCard h3 { font-size: 23px; letter-spacing: -.035em; line-height: 1.25; margin: 15px 0 8px; color: #fff; }
+.storyCard {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: min(80ch, calc(100vw - 56px));
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.storyCard h3 { width: max-content; max-width: 100%; overflow-wrap: anywhere; }
+.storyCard > p,.storyCard > .storyBottom { width: 0; min-width: 100%; overflow-wrap: anywhere; }
 .storyCard p,.emptyCard p { color: #b6d1e1; margin: 0; font-size: 14px; }
 .storyBottom { border-top: 1px solid #28617b; display: flex; justify-content: space-between; align-items: end; gap: 15px; margin-top: 19px; padding-top: 12px; }
 .storyBottom a { font-size: 12px; font-weight: 800; white-space: nowrap; }
@@ -102,8 +119,8 @@
 .quickLinks a { border: 1px solid #377393; border-radius: 5px; padding: 10px; background: #0e405c; font-size: 12px; }
 .footer { margin-top: 30px; padding: 17px 0; display: flex; gap: 20px; justify-content: space-between; border-top: 1px solid #1f526e; font-size: 12px; color: #8eafc1; }
 @media (max-width: 1160px) { .topbar { align-items: flex-start; flex-direction: column; gap: 6px; } .hero { grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); } }
-@media (max-width: 840px) { .hero,.lowerGrid { grid-template-columns: 1fr; } .hero { align-items: start; } .rates { max-width: none; } .storyGrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-@media (max-width: 560px) { .brand img { width: 193px; } .nav { overflow-x: auto; flex-wrap: nowrap; width: 100%; padding-bottom: 7px; } .storyGrid { grid-template-columns: 1fr; } .hero { padding: 22px; } .hero h1 { font-size: 35px; } .lastLinks,.footer { flex-direction: column; align-items: stretch; } .quickLinks { min-width: 0; } }
+@media (max-width: 840px) { .hero,.lowerGrid { grid-template-columns: 1fr; } .hero { align-items: start; } .rates { max-width: none; }  }
+@media (max-width: 560px) { .brand img { width: 193px; } .nav { overflow-x: auto; flex-wrap: nowrap; width: 100%; padding-bottom: 7px; }  .hero { padding: 22px; } .hero h1 { font-size: 35px; } .lastLinks,.footer { flex-direction: column; align-items: stretch; } .quickLinks { min-width: 0; } }
 @media (prefers-reduced-motion: reduce) { .page { scroll-behavior: auto; } }
 
 
