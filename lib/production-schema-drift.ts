@@ -73,12 +73,33 @@ export function assessProductionSchemaDrift(
   // tooling sometimes re-stamped the same migration name when applying it, so
   // remote timestamps are not reliable enough to filter applied history.
   const appliedNames = new Set(applied.map((migration) => migration.name));
-  const missing = expected.filter((migration) => !appliedNames.has(migration.name));
+  // The original E1 presenter checklist was applied in production with its
+  // account-scoped name, and the v3/14-monitor migration then superseded E1.
+  // It is unsafe to replay the checked-in E1/v2 SQL on the live v3 table.
+  // The only approved historical name reconciliation requires *both* applied
+  // migrations; every other missing migration still fails closed.
+  const presenterAlias = "presenter_technical_checklists";
+  const presenterReconciled =
+    appliedNames.has("presenter_technical_checklists_account_scoped_e1")
+    && appliedNames.has("presenter_smh_check_v3");
+  const historicalAliases = expected.filter((migration) =>
+    migration.name === presenterAlias && !appliedNames.has(presenterAlias)
+    && presenterReconciled
+  ).map((migration) => ({
+    expectedName: migration.name,
+    appliedName: "presenter_technical_checklists_account_scoped_e1",
+    successorName: "presenter_smh_check_v3",
+  }));
+  const missing = expected.filter((migration) =>
+    !appliedNames.has(migration.name)
+    && !(migration.name === presenterAlias && presenterReconciled)
+  );
   const appliedExpectedCount = expected.length - missing.length;
 
   return {
     healthy: missing.length === 0,
     missing,
+    historicalAliases,
     unexpected: [] as AppliedMigration[],
     expectedCount: expected.length,
     appliedCount: appliedExpectedCount,
