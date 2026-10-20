@@ -1,4 +1,6 @@
 import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
+import { composeFrozenMarketEditorial } from "@/lib/market-editorial-runtime";
+import { MARKET_EDITORIAL_V1 } from "@/lib/market-editorial-v1";
 import { buildMarketImpactPacketsV1 } from "@/lib/market-impact-packet";
 import "server-only";
 
@@ -163,6 +165,16 @@ function hasComposedDossier(payload: Record<string, unknown> | undefined) {
     && typeof dossier === "object"
     && !Array.isArray(dossier)
     && (dossier as { compositionVersion?: unknown }).compositionVersion === DOSSIER_STORYLINE_COMPOSITION_V1,
+  );
+}
+
+function hasCompletedPublicationComposition(payload: Record<string, unknown> | undefined) {
+  const editorial = payload?.marketEditorial;
+  return hasComposedDossier(payload) || Boolean(
+    editorial && typeof editorial === "object" && !Array.isArray(editorial)
+    && (editorial as { contractVersion?: unknown }).contractVersion === MARKET_EDITORIAL_V1
+    && Array.isArray((editorial as { articles?: unknown }).articles)
+    && (editorial as { articles: unknown[] }).articles.length > 0
   );
 }
 
@@ -493,7 +505,7 @@ export async function composeCanonicalDossierEditionForResearchRun({
 }) {
   const rows = await dailyBriefsForResearchRun(researchRunId);
   const existingComposition = dailyBriefForPhase(rows, "composed");
-  if (existingComposition && hasComposedDossier(existingComposition.payload)) {
+  if (existingComposition && hasCompletedPublicationComposition(existingComposition.payload)) {
     return {
       editionId: existingComposition.id,
       status: "already_composed" as const,
@@ -508,11 +520,29 @@ export async function composeCanonicalDossierEditionForResearchRun({
   }
 
   const composed = await composePersistedDossierStorylines({ editionPayload: base.payload });
-  if (!composed.dossier || !composed.composition) {
+  // Editorial is optional and failure-isolated: the immutable base and canonical
+  // Dossier must remain available even if primary-source access or the fast
+  // formatter times out. Do not run this on Blue Desk visitor requests.
+  let marketEditorial: Awaited<ReturnType<typeof composeFrozenMarketEditorial>> | null = null;
+  const editorialWarnings: string[] = [];
+  try {
+    marketEditorial = await composeFrozenMarketEditorial({
+      editionPayload: base.payload,
+      asOf: base.published_at,
+      maxArticles: 3,
+    });
+    editorialWarnings.push(...marketEditorial.warnings);
+  } catch (error) {
+    editorialWarnings.push("Bounded market editorial composition failed without affecting the canonical Dossier.");
+    console.error("Market editorial composition unavailable", error instanceof Error ? error.name : "unknown");
+  }
+  const hasStoryline = Boolean(composed.dossier && composed.composition);
+  const hasEditorial = Boolean(marketEditorial?.articles.length);
+  if (!hasStoryline && !hasEditorial) {
     return {
       editionId: base.id,
       status: "skipped" as const,
-      warnings: composed.warnings,
+      warnings: [...composed.warnings, ...editorialWarnings],
       model: composed.model,
     };
   }
@@ -520,18 +550,27 @@ export async function composeCanonicalDossierEditionForResearchRun({
   const publishedAt = new Date().toISOString();
   const payload = {
     ...base.payload,
-    dossier: composed.dossier,
-    dossierComposition: {
-      contractVersion: DOSSIER_STORYLINE_COMPOSITION_V1,
-      parentEditionId: base.id,
-      composedAt: publishedAt,
-      model: composed.model,
-    },
+    ...(hasStoryline ? {
+      dossier: composed.dossier,
+      dossierComposition: {
+        contractVersion: DOSSIER_STORYLINE_COMPOSITION_V1,
+        parentEditionId: base.id,
+        composedAt: publishedAt,
+        model: composed.model,
+      },
+    } : {}),
+    ...(hasEditorial ? {
+      marketEditorial: {
+        ...marketEditorial,
+        parentEditionId: base.id,
+        composedAt: publishedAt,
+      },
+    } : {}),
   };
   const { value: canonicalComposition, reused } = await persistOrReuseCanonicalArtifact({
     readExisting: async () => {
       const row = dailyBriefForPhase(await dailyBriefsForResearchRun(researchRunId), "composed");
-      return row && hasComposedDossier(row.payload) ? row : null;
+      return row && hasCompletedPublicationComposition(row.payload) ? row : null;
     },
     insert: async () => {
       const inserted = await intelligenceRest<DailyBriefRow[]>("hybrid_publication_snapshots", {
@@ -556,13 +595,13 @@ export async function composeCanonicalDossierEditionForResearchRun({
       if (!inserted[0]) throw new Error("Unable to persist composed canonical Dossier edition snapshot.");
       return inserted[0];
     },
-    isValid: (row) => Boolean(row.id && row.edition_phase === "composed" && hasComposedDossier(row.payload)),
+    isValid: (row) => Boolean(row.id && row.edition_phase === "composed" && hasCompletedPublicationComposition(row.payload)),
     missingMessage: "Unable to persist composed canonical Dossier edition snapshot.",
   });
   return {
     editionId: canonicalComposition.id,
     status: reused ? "already_composed" as const : "composed" as const,
-    warnings: composed.warnings,
+    warnings: [...composed.warnings, ...editorialWarnings],
     model: composed.model,
   };
 }
