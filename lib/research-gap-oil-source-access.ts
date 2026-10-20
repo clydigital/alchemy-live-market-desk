@@ -30,6 +30,16 @@ export type OilSourceAccessResult = {
 };
 
 type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
+/**
+ * Bounded in-memory capture for a future private archival writer. It cannot
+ * itself establish FINAL status, preserve a document, or admit Evidence.
+ * Callers must not serialise originalBytes to public API responses or logs.
+ */
+export type OilOriginalCapture = {
+  result: OilSourceAccessResult;
+  originalBytes: Uint8Array | null;
+};
+
 const MAX_ORIGINAL_BYTES = 1_800_000;
 const MAX_URLS_PER_BENCHMARK = 2;
 const TIMEOUT_MS = 5_000;
@@ -67,13 +77,20 @@ function fail(benchmark: OilBenchmark, url: string | null, status: OilSourceAcce
   };
 }
 
-export async function probeDatedOilOriginal(
+export async function captureDatedOilOriginal(
   benchmark: OilBenchmark,
   url: string,
   fetcher: Fetcher = fetch,
-): Promise<OilSourceAccessResult> {
+): Promise<OilOriginalCapture> {
+  const rejected = (
+    source: OilBenchmark, originalUrl: string | null,
+    status: OilSourceAccessStatus, code: number | null,
+  ): OilOriginalCapture => ({
+    result: fail(source, originalUrl, status, code),
+    originalBytes: null,
+  });
   const eligible = eligibleDatedOilOriginal(url, benchmark);
-  if (!eligible) return fail(benchmark, null, "NO_DATED_ORIGINAL_URL", null);
+  if (!eligible) return rejected(benchmark, null, "NO_DATED_ORIGINAL_URL", null);
 
   try {
     // Manual redirect handling also prohibits publisher->third-party credential/login
@@ -86,22 +103,23 @@ export async function probeDatedOilOriginal(
       headers: { Accept: "application/pdf,text/csv" },
     });
     const status = response.status;
-    if (status >= 300 && status < 400) return fail(benchmark, eligible, "REDIRECT_BLOCKED", status);
-    if (status === 401) return fail(benchmark, eligible, "AUTH_REQUIRED", status);
-    if (status === 403) return fail(benchmark, eligible, "ACCESS_DENIED", status);
-    if (status === 429) return fail(benchmark, eligible, "RATE_LIMITED", status);
-    if (status === 404 || status === 410) return fail(benchmark, eligible, "NOT_FOUND", status);
-    if (!response.ok || !response.body) return fail(benchmark, eligible, "FETCH_FAILED", status);
+    if (status >= 300 && status < 400) return rejected(benchmark, eligible, "REDIRECT_BLOCKED", status);
+    if (status === 401) return rejected(benchmark, eligible, "AUTH_REQUIRED", status);
+    if (status === 403) return rejected(benchmark, eligible, "ACCESS_DENIED", status);
+    if (status === 429) return rejected(benchmark, eligible, "RATE_LIMITED", status);
+    if (status === 404 || status === 410) return rejected(benchmark, eligible, "NOT_FOUND", status);
+    if (!response.ok || !response.body) return rejected(benchmark, eligible, "FETCH_FAILED", status);
 
     const media = (response.headers.get("content-type") ?? "").toLowerCase();
     const expectPdf = eligible.toLowerCase().endsWith(".pdf");
     const claimedLength = Number(response.headers.get("content-length") || 0);
-    if (claimedLength > MAX_ORIGINAL_BYTES) return fail(benchmark, eligible, "SOURCE_TOO_LARGE", status);
+    if (claimedLength > MAX_ORIGINAL_BYTES) return rejected(benchmark, eligible, "SOURCE_TOO_LARGE", status);
     if (expectPdf ? !media.includes("pdf") : !(media.includes("csv") || media.includes("text/plain"))) {
-      return fail(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
+      return rejected(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
     }
     const reader = response.body.getReader();
     const digest = createHash("sha256");
+    const chunks: Uint8Array[] = [];
     let firstBytes = new Uint8Array(0);
     let bytes = 0;
     try {
@@ -111,8 +129,9 @@ export async function probeDatedOilOriginal(
         bytes += value.byteLength;
         if (bytes > MAX_ORIGINAL_BYTES) {
           await reader.cancel();
-          return fail(benchmark, eligible, "SOURCE_TOO_LARGE", status);
+          return rejected(benchmark, eligible, "SOURCE_TOO_LARGE", status);
         }
+        chunks.push(value.slice());
         if (firstBytes.length < 24) {
           const next = new Uint8Array(Math.min(24, firstBytes.length + value.length));
           next.set(firstBytes);
@@ -124,21 +143,45 @@ export async function probeDatedOilOriginal(
     } finally {
       reader.releaseLock();
     }
-    if (bytes === 0) return fail(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
+    if (bytes === 0) return rejected(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
     const prefix = new TextDecoder().decode(firstBytes);
     if (expectPdf ? !prefix.startsWith("%PDF-") : !/^[^\r\n]{2,}/.test(prefix)) {
-      return fail(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
+      return rejected(benchmark, eligible, "WRONG_MEDIA_TYPE", status);
     }
     // Raw bytes are NOT retained by this health probe. Even a valid original
     // download must be archived and parsed by a separate permissioned adapter.
+    // Keep only bounded original bytes for a separately authorised archive
+    // writer. The existing probe still returns diagnostics without raw bytes.
+    const originalBytes = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      originalBytes.set(chunk, offset);
+      offset += chunk.length;
+    }
     return {
-      benchmark, sourceUrl: eligible, status: "RETRIEVED_UNARCHIVED",
-      httpStatus: status, bytes, fetchedSha256: digest.digest("hex"),
-      originalArchived: false, canonicalAdmitted: false,
+      result: {
+        benchmark, sourceUrl: eligible, status: "RETRIEVED_UNARCHIVED",
+        httpStatus: status, bytes, fetchedSha256: digest.digest("hex"),
+        originalArchived: false, canonicalAdmitted: false,
+      },
+      originalBytes,
     };
   } catch {
-    return fail(benchmark, eligible, "FETCH_FAILED", null);
+    return rejected(benchmark, eligible, "FETCH_FAILED", null);
   }
+}
+
+/**
+ * Public-facing diagnostic path remains metadata-only. No original bytes are
+ * placed in the Research Gap JSON or logging surface.
+ */
+export async function probeDatedOilOriginal(
+  benchmark: OilBenchmark,
+  url: string,
+  fetcher: Fetcher = fetch,
+): Promise<OilSourceAccessResult> {
+  const capture = await captureDatedOilOriginal(benchmark, url, fetcher);
+  return capture.result;
 }
 
 /**
