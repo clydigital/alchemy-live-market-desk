@@ -89,7 +89,7 @@ test("only exact-date exchange FINAL F1/F2, immutable source, and first-tier pro
     { name: "same contract", metrics: { ...wti.metrics, next_contract: "CLX26" } },
     { name: "not a spread", metrics: { ...wti.metrics, next_settle: 104 } },
     { name: "future availability", available_at: "2026-10-22T00:00:00Z" },
-  ] as const;
+  ] as Array<{ name: string } & Partial<ObservedEvidence>>;
   for (const candidate of changes) {
     const modified: ObservedEvidence = { ...wti, ...candidate };
     const result = energyClaimProvenanceErrors("WTI was in backwardation.", packet([modified]));
