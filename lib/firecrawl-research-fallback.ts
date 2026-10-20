@@ -329,20 +329,48 @@ async function recoverSource(check: SourceCheckInput, now: Date) {
   };
 }
 
+
+/**
+ * Use the Jina Reader already configured on Vercel before optional Firecrawl.
+ * Recovered public index links are research leads, not redistributed news
+ * or a substitute for original-source verification and rights approval.
+ */
+async function recoverFxStreetWithJina(input: ResearchRunInput, now: Date): Promise<ResearchRunInput> {
+  const blocked = input.sourceChecks.find((check) => check.source === "fxstreet" && check.status === "blocked");
+  const apiKey = process.env.JINA_API_KEY?.trim();
+  if (!blocked || !apiKey) return input;
+  const reader = await fetchJinaReader({ sourceUrl: "https://www.fxstreet.com/news/feed", apiKey, timeoutMs: 12_000 });
+  const items = reader.ok ? parseFeed(reader.text, "fxstreet", now) : [];
+  const note = items.length
+    ? "Jina Reader recovered " + items.length + " dated FXStreet research lead(s) from the public news index; canonical source verification remains separate."
+    : "Jina Reader could not recover fresh FXStreet links (" + (reader.ok ? "none in 36h window" : (reader.errorCode || "unavailable")) + ").";
+  const sourceChecks = input.sourceChecks.map((check) => check.source !== "fxstreet"
+    ? check
+    : items.length
+      ? { ...check, status: "checked" as const, itemCount: items.length, retryable: undefined, note }
+      : { ...check, note: ((check.note || "Direct FXStreet acquisition blocked.") + " " + note).slice(0, 800) });
+  return {
+    ...input,
+    sourceChecks,
+    items: [...new Map([...input.items, ...items].map((item) => [item.itemKey, item])).values()],
+  };
+}
+
 export async function applyFirecrawlResearchFallback(input: ResearchRunInput, now = new Date()): Promise<ResearchRunInput> {
-  const blockedSupported = input.sourceChecks.filter((check) => check.status === "blocked" && supportedFallbackSource(check.source));
-  if (!blockedSupported.length) return input;
+  const withJina = await recoverFxStreetWithJina(input, now);
+  const blockedSupported = withJina.sourceChecks.filter((check) => check.status === "blocked" && supportedFallbackSource(check.source));
+  if (!blockedSupported.length) return withJina;
 
   if (!firecrawlConfigured()) {
     const blockedSet = new Set(blockedSupported.map((check) => check.source));
     const note = `Firecrawl blocked-page recovery is not configured for: ${blockedSupported.map((check) => check.source).join(", ")}.`;
     return {
-      ...input,
-      sourceChecks: input.sourceChecks.map((check) => blockedSet.has(check.source)
+      ...withJina,
+      sourceChecks: withJina.sourceChecks.map((check) => blockedSet.has(check.source)
         ? { ...check, note: `${check.note || "Direct acquisition was blocked."} Firecrawl fallback is not configured.` }
         : check),
-      summary: input.summary?.trim()
-        ? `${input.summary.trim()} ${note}`
+      summary: withJina.summary?.trim()
+        ? `${withJina.summary.trim()} ${note}`
         : `Autonomous Live-owned research cycle. ${note}`,
     };
   }
@@ -350,19 +378,19 @@ export async function applyFirecrawlResearchFallback(input: ResearchRunInput, no
   const recovered = await Promise.all(blockedSupported.map((check) => recoverSource(check, now)));
   const recoveredBySource = new Map(recovered.map((entry) => [entry.check.source, entry]));
   const recoveredItems = recovered.flatMap((entry) => entry.items);
-  const sourceChecks = input.sourceChecks.map((check) => recoveredBySource.get(check.source)?.check ?? check);
-  const mergedItems = [...new Map([...input.items, ...recoveredItems].map((item) => [item.itemKey, item])).values()];
+  const sourceChecks = withJina.sourceChecks.map((check) => recoveredBySource.get(check.source)?.check ?? check);
+  const mergedItems = [...new Map([...withJina.items, ...recoveredItems].map((item) => [item.itemKey, item])).values()];
   const stillBlocked = sourceChecks.filter((check) => check.status === "blocked").map((check) => check.source);
 
   const fallbackSummary = stillBlocked.length
     ? `Firecrawl blocked-page recovery ran; unresolved source checks remain: ${stillBlocked.join(", ")}.`
     : "Firecrawl blocked-page recovery restored all supported blocked public-feed sources.";
   return {
-    ...input,
+    ...withJina,
     sourceChecks,
     items: mergedItems,
-    summary: input.summary?.trim()
-      ? `${input.summary.trim()} ${fallbackSummary}`
+    summary: withJina.summary?.trim()
+      ? `${withJina.summary.trim()} ${fallbackSummary}`
       : `Autonomous Live-owned research cycle. ${fallbackSummary}`,
   };
 }
