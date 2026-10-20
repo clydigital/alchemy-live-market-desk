@@ -1,0 +1,39 @@
+{
+  "signals": [
+    {
+      "key": "ust-10y-real-daily-20261014",
+      "kind": "official_daily_observation",
+      "observationDate": "2026-10-14",
+      "signalContext": "OFFICIAL_TIPS_REAL_CURVE",
+      "sourceName": "US Treasury Daily Par Real Yield Curve (October 2026)",
+      "sourceUrl": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_real_yield_curve&field_tdr_date_value=2026&field_tdr_date_value_month=202610",
+      "sourceRole": "primary_data",
+      "claim": "United States Treasury Daily Par Real Yield Curve shows 10-year real yield of 2.84% for 14 October 2026 versus 2.88% for 13 October: 4 basis points lower across reported daily observations. This is not a timestamped reaction to the 14 October 08:30 ET CPI release.",
+      "eventAt": "2026-10-14T00:00:00Z",
+      "value": {
+        "observationDate": "2026-10-14",
+        "frequency": "daily",
+        "timePrecision": "DATE_ONLY",
+        "tenor": "10Y",
+        "series": "Daily Treasury Par Real Yield Curve",
+        "priorDate": "2026-10-13",
+        "priorValue": 2.88,
+        "observed": 2.84,
+        "dailyDifferenceBp": -4,
+        "marketReactionVerified": false
+      },
+      "unit": "percent_real_yield",
+      "observedValue": 2.84,
+      "previousValue": 2.88,
+      "affectedAssets": [
+        "US10Y",
+        "TIPS10Y"
+      ],
+      "affectedTopics": [
+        "us-rates",
+        "real-yields"
+      ],
+      "confidence": 98
+    }
+  ]
+}
