@@ -212,3 +212,82 @@
 .deepParagraphSources { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 15px; margin: 0 0 15px; }
 .deepParagraphSources small { margin-bottom: 0; }
 .deepParagraphSources a { color: #9edbfa; text-decoration: underline; text-underline-offset: 3px; font-size: 12px; overflow-wrap: anywhere; }
+
+
+/* P2a: edition-pinned Story navigation and read-only proof summary. */
+.storyJumpNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 13px 0 16px;
+  border-bottom: 1px solid #24536a;
+  scrollbar-width: thin;
+}
+.storyJumpLink {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border: 1px solid #31647c;
+  border-radius: 6px;
+  color: #c3e2ee !important;
+  background: #082f46;
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.storyJumpLink:hover,.storyJumpLink:focus-visible {
+  color: #fff !important;
+  border-color: #62d9ff;
+  background: #16516e;
+}
+.storyAtGlance {
+  margin: 2px 0 20px;
+  border: 1px solid #2b6885;
+  border-radius: 9px;
+  padding: clamp(18px, 2.2vw, 26px);
+  background: linear-gradient(120deg, #09394f 0%, #04253a 100%);
+}
+.storyAtGlance h2 {
+  color: #fff;
+  font-size: clamp(22px, 2.2vw, 29px);
+  letter-spacing: -.028em;
+  margin: 6px 0 18px;
+}
+.storyMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+.storyMetricGrid > div {
+  border-top: 1px solid #31657d;
+  padding-top: 11px;
+  min-width: 0;
+}
+.storyMetricGrid span {
+  color: #a5c7da;
+  font-size: 12px;
+  display: block;
+}
+.storyMetricGrid strong {
+  color: #f5fbff;
+  font-size: 19px;
+  font-weight: 800;
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.storyAtGlance .storySummaryNote {
+  color: #a9cada;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 19px 0 0;
+}
+.storyAtGlance,.deepSection,.storyEvidencePanel,.storyAnalysis {
+  scroll-margin-top: 18px;
+}
+@media (max-width: 560px) {
+  .storyJumpLink { padding: 10px 12px; }
+  .storyMetricGrid { grid-template-columns: minmax(0, 1fr); }
+}
