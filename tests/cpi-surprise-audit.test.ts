@@ -90,7 +90,7 @@ test("Research Brain has measured-by-metric forecast warnings without changing t
   assert.equal(audit.length, 1);
   assert.equal(audit[0].outcome, "UNKNOWN_NO_COMPARATOR");
   assert.match(prompt.instructions, /previous is not expected/);
-  assert.match(prompt.instructions, /point-in-time consensus receipt/);
+  assert.match(prompt.instructions, /pre-release consensus receipt/);
   assert.match(prompt.instructions, /headline m\/m/);
   assert.match(prompt.instructions, /−4 bp/);
 });
