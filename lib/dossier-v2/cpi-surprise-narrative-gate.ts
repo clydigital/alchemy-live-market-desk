@@ -14,6 +14,9 @@ export function cpiSurpriseNarrativeErrors(
   const audit = auditCpiSurprises(packet);
   const errors: string[] = [];
   for (const sentence of sentences) {
+    // Do not punish prose explicitly disputing the mistaken claim.
+    if (/\b(?:incorrect|wrong|false)\s+to\s+(?:say|claim)\b/i.test(sentence)
+      || /\bCPI\b[^.!?]{0,24}\b(?:did\s+not|was\s+not|has\s+not)\b[^.!?]{0,24}\bsurpris/i.test(sentence)) continue;
     // Core-specific explanations must not be mistaken for headline claims.
     if (/\bcore\s+cpi\b/i.test(sentence) && !/\bheadline\s+cpi\b/i.test(sentence)) {
       continue;
