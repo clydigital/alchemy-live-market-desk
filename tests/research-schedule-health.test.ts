@@ -83,3 +83,36 @@ test("a fully checked quiet session remains healthy with zero Story changes", ()
   assert.equal(health.state, "healthy");
   assert.equal(health.completedCount, 2);
 });
+
+test("FXStreet outage does not degrade independently covered news discovery", () => {
+  const checks = [
+    { source: "zerohedge", status: "checked" },
+    { source: "axios", status: "checked" },
+    { source: "investing-com", status: "checked" },
+    { source: "fxstreet", status: "blocked" },
+  ];
+  const health = getFourSlotResearchHealth([
+    { schedule_slot: "morning", scheduled_for: "2026-10-20T01:30:00Z", completed_at: "2026-10-20T02:45:00Z",
+      status: "completed", required_sources_complete: true, evidence_gate_passed: true, source_checks: checks, warnings: ["FXStreet HTTP 403"], updates_published: 0 },
+    { schedule_slot: "evening", scheduled_for: "2026-10-20T13:30:00Z", completed_at: "2026-10-20T14:45:00Z",
+      status: "completed", required_sources_complete: true, evidence_gate_passed: true, source_checks: checks, warnings: ["FXStreet HTTP 403"], updates_published: 0 },
+  ], new Date("2026-10-20T15:10:00Z"), true);
+  assert.equal(health.state, "healthy");
+  assert.equal(health.completedCount, 2);
+  assert.equal(health.warningCount, 2);
+  assert.deepEqual(health.slots.map((slot) => slot.status), ["complete", "complete"]);
+});
+
+test("a single surviving news publisher still reports degraded coverage", () => {
+  const health = getFourSlotResearchHealth([
+    { schedule_slot: "morning", scheduled_for: "2026-10-20T01:30:00Z", completed_at: "2026-10-20T02:45:00Z",
+      status: "completed", required_sources_complete: true, evidence_gate_passed: true, source_checks: [
+        { source: "zerohedge", status: "checked" },
+        { source: "axios", status: "blocked" },
+        { source: "investing-com", status: "blocked" },
+        { source: "fxstreet", status: "blocked" },
+      ], warnings: [], updates_published: 0 },
+  ], new Date("2026-10-20T15:10:00Z"), true);
+  assert.equal(health.slots[0].status, "degraded");
+  assert.equal(health.completedCount, 0);
+});
