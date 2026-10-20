@@ -24,7 +24,7 @@ function time(value: string | null) {
 
 function statusLabel(status: "complete" | "degraded" | "running" | "blocked" | "failed" | "missed" | "disabled") {
   if (status === "disabled") return "Disabled";
-  if (status === "complete") return "Completed · no blocked sources";
+  if (status === "complete") return "Completed · sufficient news coverage";
   if (status === "degraded") return "Completed · source coverage degraded";
   if (status === "running") return "Running";
   if (status === "blocked") return "Blocked";
