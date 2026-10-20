@@ -111,7 +111,9 @@ test("same-day next leg, FINAL, currency and duplicate rows all fail closed", ()
     TEXT.replace(',"80.95","FINAL"', ',"80.95" "FINAL"'),
   ];
   for (const csv of edits) assert.throws(() => parseArchivedOilSettlementCsv(args(csv)));
-  assert.throws(() => parseArchivedOilSettlementCsv({ ...args(), tradeDate: "2026-10-15" }), /date or contract/);
+  assert.throws(() => parseArchivedOilSettlementCsv({ ...args(), tradeDate: "2026-10-15" }),
+    /date or contract|non-archived|hash-mismatched/,
+    "Date-mismatched private archive key must fail before the parser even reads contract rows.");
   assert.throws(() => parseArchivedOilSettlementCsv({ ...args(), nextContract: "LCOH27" }), /date or contract/);
   assert.throws(() => parseArchivedOilSettlementCsv({ ...args(), frontContract: "CLX26" }), /date or contract/);
 });
@@ -119,7 +121,7 @@ test("same-day next leg, FINAL, currency and duplicate rows all fail closed", ()
 test("CSV with embedded quoted commas cannot shift columns or be parsed as settlement", () => {
   const weird = TEXT.replace('"LCOZ26"', '"LCOZ,26"');
   assert.throws(() => parseArchivedOilSettlementCsv(args(weird)), /both requested/);
-  assert.throws(() => parseArchivedOilSettlementCsv(args(TEXT.slice(0, -3) + '"')), /quoted|Malformed|row/);
+  assert.throws(() => parseArchivedOilSettlementCsv(args(TEXT + '"2026-10-14","LCOF27","80.95')), /quoted|Malformed|row/);
 });
 
 test("parser is an isolated unadmitted candidate stage; never inserts Evidence or mutates Story", () => {
