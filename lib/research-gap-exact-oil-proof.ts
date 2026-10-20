@@ -18,7 +18,7 @@ export type CanonicalOilProofInput = {
     structured_payload: Record<string, unknown> | null;
   };
   observation: { id: string; raw_record_id: string | null; value: Record<string, unknown> | null };
-  raw: { id: string; source_url: string | null; content_type: string | null; content_hash: string | null };
+  raw: { id: string; source_url: string | null; content_type: string | null; content_hash: string | null; provider: string | null; payload: Record<string, unknown> | null };
   source: { id: string; source_tier: number | null; source_url: string | null };
 };
 
@@ -43,6 +43,40 @@ function isOriginal(url: string | null, benchmark: OilBenchmark): boolean {
       && !/\/(?:current|latest)\//i.test(parsed.pathname);
   } catch { return false; }
 }
+/**
+ * Confirms that the exact source-file metadata was written by the existing
+ * private, read-back-verified archive handoff. A plausible hash alone is not
+ * an original-file receipt. This does not itself re-download the stored bytes.
+ */
+function validPrivateArchiveManifest(input: CanonicalOilProofInput, benchmark: OilBenchmark): boolean {
+  const { raw, observation, evidence } = input;
+  const m = raw.payload ?? {};
+  const tradeDate = observation.value?.tradeDate;
+  const contentHash = raw.content_hash;
+  const extension = raw.content_type === "application/pdf" ? "pdf"
+    : raw.content_type === "text/csv" ? "csv" : null;
+  const provider = benchmark === "WTI" ? "CME" : "ICE";
+  if (!extension || typeof contentHash !== "string" || !SHA.test(contentHash)
+    || typeof tradeDate !== "string" || !DATE.test(tradeDate)) return false;
+  const expectedPath = provider + "/" + tradeDate + "/" + contentHash.toLowerCase() + "." + extension;
+  const pathDate = tradeDate.replaceAll("-", "");
+  const urlDate = typeof raw.source_url === "string" &&
+    (raw.source_url.includes(tradeDate) || raw.source_url.includes(pathDate));
+  return raw.provider === "OIL_ORIGINAL"
+    && m.contractVersion === "oil-original-archive/1"
+    && m.benchmark === benchmark
+    && m.provider === provider
+    && m.tradeDate === tradeDate
+    && m.archiveBucket === "alchemy-oil-originals-private"
+    && m.archivePath === expectedPath
+    && m.originalSourceSha256 === contentHash.toLowerCase()
+    && m.archiveVerified === true
+    && m.canonicalAdmitted === false
+    && m.sourceUrl === raw.source_url
+    && urlDate
+    && evidence.event_at?.slice(0, 10) === tradeDate;
+}
+
 function numeric(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v) && v > 0 && v < 1000;
 }
@@ -72,6 +106,7 @@ export function verifiedCanonicalOilPair(
     && (r.content_type === "application/pdf" || r.content_type === "text/csv")
     && typeof r.content_hash === "string" && SHA.test(r.content_hash)
     && val.originalSourceSha256 === r.content_hash
+    && validPrivateArchiveManifest(input, benchmark)
     && val.benchmark === benchmark
     && val.exchange === (benchmark === "WTI" ? "NYMEX" : "ICE")
     && val.final === true && val.unit === "USD_per_barrel"

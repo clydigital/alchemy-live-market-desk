@@ -206,7 +206,7 @@ export async function POST(request: Request) {
             const rawIds = [...new Set((obs.data ?? []).map(row => row.raw_record_id).filter(Boolean))];
             const raw = rawIds.length
               ? await admin.from("raw_source_records")
-                  .select("id,source_url,content_type,content_hash").in("id", rawIds)
+                  .select("id,source_url,content_type,content_hash,provider,payload").in("id", rawIds)
               : { data: [], error: null };
             if (raw.error) throw new Error("Original oil settlement source-record lookup failed.");
             const byObservation = new Map((obs.data ?? []).map(row => [row.id, row]));
