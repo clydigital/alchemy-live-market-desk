@@ -137,7 +137,7 @@ test("canonical Live hostname opens only published Blue Desk reading routes anon
 test("legacy Live overview moves to an owner-only page and root tab bookmarks retain it", () => {
   const route = readFileSync(new URL("../app/owner/live/page.tsx", import.meta.url), "utf8");
   const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
-  assert.match(route, /export \\{ default \\} from "\\.\\.\\/\\.\\.\\/page"/);
+  assert.ok(route.includes('export { default } from "../../page"'));
   assert.ok(middleware.indexOf('oldLive.pathname = "/owner/live"') < middleware.indexOf('if (accessScope === "public")'));
   assert.ok(middleware.includes('request.nextUrl.searchParams.has("tab")'));
   assert.ok(middleware.indexOf('if (accessScope === "public")') < middleware.indexOf("getClaims()"));
