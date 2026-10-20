@@ -191,3 +191,26 @@ test("Dossier causal arrows require attributable source available by edition tim
   })]).articles[0];
   assert.deepEqual(contextual.editorial.causalLinks, []);
 });
+
+test("a question-only frozen lesson displays a cited reported fact, not an internal status", () => {
+  const article = baseArticle("market-question", "", [id1]);
+  const row = evidence(id1, {
+    claimText: "CoreWeave reported US$6.422 billion in cash property and equipment additions for Q2 2026.",
+  });
+  const brief = buildEditorialBrief(packageOf([article]), [row]);
+  assert.equal(brief.articles[0].editorial.readiness, "READY");
+  assert.equal(brief.articles[0].title,
+    "CoreWeave reported US$6.422 billion in cash property and equipment…");
+  assert.equal(brief.articles[0].sourceLinks.length, 1);
+  assert.equal(brief.articles[0].interpretationStatus, "UNRESOLVED");
+});
+
+test("when no issuer observation is admitted, a question never becomes a fabricated headline", () => {
+  const article = baseArticle("no-headline", "", [id1]);
+  const brief = buildEditorialBrief(packageOf([article]), [evidence(id1, {
+    claimText: "Market financing might tighten if bond yields rise further",
+    evidenceClass: "news_report", sourceTier: 3,
+  })]);
+  assert.equal(brief.articles[0].title, "");
+  assert.equal(brief.articles[0].editorial.readiness, "RESEARCH_ONLY");
+});
