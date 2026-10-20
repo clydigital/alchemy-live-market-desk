@@ -185,9 +185,16 @@ export function splitExistingWatchTests(value: string | null | undefined): strin
 
 /** Display-only editorial cleanup: the original immutable paragraph remains unchanged. */
 export function readerFacingMarketText(value: string): string {
-  return value
-    // Remove trailing workflow promotion labels, never a financial observation.
+  const original = value.trim();
+  // A bare workflow state is not a claim about markets and must not become
+  // a paragraph in the public historical edition.
+  if (/^(?:story\s*:\s*)?detected\s+(?:awaiting|pending)\b[^.]*\.?$/i.test(original)) return "";
+  return original
+    // Remove only exact known operational wrappers, never source observations.
+    .replace(/^Detected:\s*/i, "")
     .replace(/;\s*(?:the|this)\s+Story\s+(?:is|was)\s+elevated\b[^.]*\.?\s*$/i, ".")
+    .replace(/;\s*(?:the|this)?\s*Story\s+(?:is|was)\s+established\s+in\s+detected\s+state\.?\s*$/i, ".")
+    .replace(/^The accepted explanation is that\s+/i, "A working explanation is that ")
     .replace(/^Combined canonical issuer results indicate\b/i, "Issuer results indicate")
     .trim();
 }
