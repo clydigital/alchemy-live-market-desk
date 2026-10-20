@@ -217,3 +217,15 @@ test("public Story DTO fails closed for forged identity, missing evidence or pos
   assert.deepEqual(missing.facts, []);
   assert.ok(missing.unavailableReason?.startsWith("No edition-admitted"));
 });
+
+test("an editorial READY flag and later inferred Dossier ID cannot upgrade a frozen Story", () => {
+  const compiled = buildEditorialBrief(projectMarketBriefArticles(snapshot), sourceRows);
+  const forged = structuredClone(compiled);
+  forged.articles[0].editorial.storyEligible = true;
+  forged.articles[0].dossierId = "cf977394-ca7c-49da-93cc-4f3da98d873b";
+  forged.articles[0].interpretationStatus = "SUPPORTED";
+  const dto = buildBlueDeskPublicStoryEvidenceV1(forged, forged.articles[0].articleId);
+  assert.ok(dto);
+  assert.equal(dto.interpretation, "UNRESOLVED");
+  assert.equal(dto.storyAdmission, "NOT_ADJUDICATED");
+});
