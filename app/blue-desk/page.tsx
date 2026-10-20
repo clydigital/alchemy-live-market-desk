@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { BLUEBELLY_PRESENTATION_HOST, blueDeskPublicHref } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
@@ -36,6 +36,7 @@ function ellipsis(value: string, max = 175) {
 export default async function BlueDeskPage() {
   const now = new Date();
   const host = (await headers()).get("host");
+  const publicHost = (host || "").trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
   const [latest, macro, earnings, monitor, motions, verifiedMotions] = await Promise.all([
     getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
     getEconomicCalendar().catch(() => []),
@@ -92,7 +93,7 @@ export default async function BlueDeskPage() {
               ) : sourceFact ? (
                 <a className={styles.primaryAction} href={sourceFact.sourceUrl} target="_blank" rel="noreferrer">Read {sourceFact.sourceName} report ↗</a>
               ) : (
-                <Link className={styles.primaryAction} href="/articles">All articles →</Link>
+                publicHost ? <span className={styles.empty}>Awaiting a source-supported publication.</span> : <Link className={styles.primaryAction} href="/articles">All articles →</Link>
               )}
               {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
                 newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
@@ -100,7 +101,7 @@ export default async function BlueDeskPage() {
             </div>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
-            <h2>Rates &amp; yields</h2>
+            <h2 id="rates-title">Rates &amp; yields</h2>
             {yields.length ? yields.map(row => (
               <div className={styles.rateRow} key={row.id}>
                 <div>
@@ -111,7 +112,7 @@ export default async function BlueDeskPage() {
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
             )) : <p className={styles.empty}>Yield observations currently unavailable.</p>}
-            <Link href="/markets" className={styles.textLink}>Cross-asset monitor →</Link>
+            {!publicHost ? <Link href="/markets" className={styles.textLink}>Cross-asset monitor →</Link> : null}
           </aside>
         </section>
 
@@ -120,7 +121,7 @@ export default async function BlueDeskPage() {
             <div>
               <h2 id="stories-title">Key market stories</h2>
             </div>
-            <Link href="/articles" className={styles.textLink}>All articles →</Link>
+            {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
           </div>
           <div className={styles.storyGrid}>
             {articles.length ? articles.map(article => (
@@ -149,7 +150,7 @@ export default async function BlueDeskPage() {
                 <p className={styles.kicker}>MARKET MOTION</p>
                 <h2 id="motion-title">What changed</h2>
               </div>
-              <Link className={styles.textLink} href="/whats-new">Investigate →</Link>
+              {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
             </div>
             {verifiedNews.length ? verifiedNews.map(news => (
               <article key={news.id} className={styles.motionRow}>
@@ -194,13 +195,23 @@ export default async function BlueDeskPage() {
 
         <section className={styles.lastLinks} aria-label="Desk research and presenter">
           <div>
-            <h2>Dossier, Journey and presenter preparation</h2>
+            <h2>{publicHost ? "Explore public research" : "Dossier, Journey and presenter preparation"}</h2>
           </div>
           <div className={styles.quickLinks}>
-            <Link href="/dossier">Current Dossier →</Link>
-            <Link href="/regimes">Market Regimes →</Link>
-            <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
-            <Link href="/presenter/technical-checks">Technical Checks →</Link>
+            {publicHost ? (
+              <>
+                <Link href="/#stories-title">Key market stories →</Link>
+                <Link href="/#rates-title">Observed Treasury yields →</Link>
+                <Link href="/calendar">Public calendar →</Link>
+              </>
+            ) : (
+              <>
+                <Link href="/dossier">Current Dossier →</Link>
+                <Link href="/regimes">Market Regimes →</Link>
+                <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
+                <Link href="/presenter/technical-checks">Technical Checks →</Link>
+              </>
+            )}
           </div>
         </section>
 
