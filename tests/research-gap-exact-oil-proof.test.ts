@@ -36,7 +36,17 @@ function proof(): CanonicalOilProofInput {
         final: true, unit: "USD_per_barrel", originalSourceSha256: HASH,
       },
     },
-    raw: { id: RAW, source_url: SOURCE_URL, content_type: "application/pdf", content_hash: HASH },
+    raw: {
+      id: RAW, source_url: SOURCE_URL, content_type: "application/pdf",
+      content_hash: HASH, provider: "OIL_ORIGINAL",
+      payload: {
+        contractVersion: "oil-original-archive/1", benchmark: "WTI",
+        provider: "CME", tradeDate: "2026-10-14", originalSourceSha256: HASH,
+        archiveBucket: "alchemy-oil-originals-private",
+        archivePath: "CME/2026-10-14/" + HASH + ".pdf",
+        archiveVerified: true, canonicalAdmitted: false, sourceUrl: SOURCE_URL,
+      },
+    },
     source: { id: SOURCE, source_tier: 1, source_url: SOURCE_URL },
   };
 }
@@ -77,6 +87,15 @@ test("server-side source joins, archive hash, date, exchange and numeric F1/F2 a
   const broken: Array<[string, CanonicalOilProofInput]> = [
     ["no normalised observation", { ...proof(), evidence: { ...proof().evidence, normalised_observation_id: null } }],
     ["missing original archive hash", { ...proof(), raw: { ...proof().raw, content_hash: null } }],
+    ["no private archive receipt", { ...proof(), raw: { ...proof().raw, payload: null } }],
+    ["unverified archived bytes", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, archiveVerified: false } } }],
+    ["wrong private bucket", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, archiveBucket: "public-assets" } } }],
+    ["mismatched storage path", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, archivePath: "CME/2026-10-15/" + HASH + ".pdf" } } }],
+    ["wrong source publisher", { ...proof(), raw: { ...proof().raw, provider: "WEB_SCRAPER" } }],
+    ["mismatched archived source url", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, sourceUrl: "https://example.com/other.pdf" } } }],
+    ["wrong archive contract version", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, contractVersion: "oil-original-archive/0" } } }],
+    ["not a dated publisher URL", { ...proof(), raw: { ...proof().raw, source_url: "https://www.cmegroup.com/daily_bulletin/archive/other/Section61_Energy_Futures_Products.pdf" } }],
+
     ["mismatched raw file hash", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, originalSourceSha256: "b".repeat(64) } } }],
     ["rolling current PDF", { ...proof(), raw: { ...proof().raw, source_url: "https://www.cmegroup.com/daily_bulletin/current/Section61_Energy_Futures_Products.pdf" } }],
     ["unverified web cite", { ...proof(), evidence: { ...proof().evidence, id: "gap-web:some-hash" } }],
@@ -125,6 +144,7 @@ test("Research Gap route queries existing canonical evidence and original record
   assert.match(route, /from\("intelligence_evidence"\)/);
   assert.match(route, /from\("normalised_observations"\)/);
   assert.match(route, /from\("raw_source_records"\)/);
+  assert.match(route, /content_hash,provider,payload/);
   assert.match(route, /from\("intelligence_evidence_sources"\)/);
   assert.match(route, /verifiedCanonicalOilEvidence/);
   assert.doesNotMatch(route, /from\("story_thesis_versions"\)/);
