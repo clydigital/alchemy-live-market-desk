@@ -12,7 +12,10 @@ export type ResearchRunLike = {
   status: "running" | "completed" | "blocked" | "failed";
   warnings?: string[];
   updates_published?: number;
+  // Legacy freshness_gate_passed is default FALSE and unpopulated in historical runs.
+  // Never use it alone to assess an already-completed cycle.
   freshness_gate_passed?: boolean | null;
+  source_checks?: Array<{ source: string; status: string }> | null;
   evidence_gate_passed?: boolean | null;
   required_sources_complete?: boolean | null;
 };
@@ -77,7 +80,8 @@ function closestRun(runs: ResearchRunLike[], slot: CanonicalResearchSlot, expect
 function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
   if (!run) return "missed";
   if (run.status === "completed") {
-    if (run.freshness_gate_passed === false || run.evidence_gate_passed === false || run.required_sources_complete === false) return "degraded";
+    if (run.evidence_gate_passed === false || run.required_sources_complete === false
+      || run.source_checks?.some((check) => check.status === "blocked")) return "degraded";
     return "complete";
   }
   return run.status;
