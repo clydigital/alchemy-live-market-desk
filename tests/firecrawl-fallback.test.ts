@@ -292,3 +292,73 @@ test("old or malformed FXStreet HTML cannot clear a blocked publisher check", as
     else process.env.FIRECRAWL_API_KEY = previousKey;
   }
 });
+
+test("Vercel Jina credentials can recover recent FXStreet links when Firecrawl is unconfigured", async () => {
+  const savedJina = process.env.JINA_API_KEY;
+  const savedFirecrawl = process.env.FIRECRAWL_API_KEY;
+  const savedFetch = globalThis.fetch;
+  process.env.JINA_API_KEY = "fixture-jina-key";
+  delete process.env.FIRECRAWL_API_KEY;
+  let requests = 0;
+  globalThis.fetch = (async (input, init) => {
+    requests += 1;
+    assert.equal(String(input), "https://r.jina.ai/https://www.fxstreet.com/news/feed");
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("Authorization"), "Bearer fixture-jina-key");
+    return new Response(`Title: News Feed
+# News Feed
+[US yields rally after CPI](https://www.fxstreet.com/news/us-yields-rally-after-cpi-202610201300)
+[Stale article](https://www.fxstreet.com/news/stale-us-dollar-202609201200)
+[Unrelated URL](https://example.com/news/false-202610201305)
+`, {status: 200});
+  }) as typeof fetch;
+  try {
+    const input = {
+      ...inputWithSource("blocked"),
+      sourceChecks: [{source:"fxstreet" as const, status:"blocked" as const, itemCount:0, note:"Direct origin HTTP 403."}],
+    };
+    const result = await applyFirecrawlResearchFallback(input, new Date("2026-10-20T13:30:00Z"));
+    assert.equal(requests, 1);
+    assert.equal(result.sourceChecks[0]?.status, "checked");
+    assert.equal(result.sourceChecks[0]?.itemCount, 1);
+    assert.match(result.sourceChecks[0]?.note || "", /Jina Reader recovered/);
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0]?.publisher, "FXStreet");
+    assert.equal(result.items[0]?.publishedAt, "2026-10-20T13:00:00.000Z");
+    assert.equal(result.items[0]?.url, "https://www.fxstreet.com/news/us-yields-rally-after-cpi-202610201300");
+    assert.match(result.items[0]?.reviewReason || "", /not independent verification/);
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedJina === undefined) delete process.env.JINA_API_KEY;
+    else process.env.JINA_API_KEY = savedJina;
+    if (savedFirecrawl === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = savedFirecrawl;
+  }
+});
+
+test("Jina provider error never clears the blocked FXStreet source or invents a result", async () => {
+  const savedJina = process.env.JINA_API_KEY;
+  const savedFirecrawl = process.env.FIRECRAWL_API_KEY;
+  const savedFetch = globalThis.fetch;
+  process.env.JINA_API_KEY = "fixture-jina-key";
+  delete process.env.FIRECRAWL_API_KEY;
+  globalThis.fetch = (async () => new Response("rate limit", {status:429})) as typeof fetch;
+  try {
+    const input = {
+      ...inputWithSource("blocked"),
+      sourceChecks: [{source:"fxstreet" as const, status:"blocked" as const, itemCount:0, note:"HTTP 403."}],
+    };
+    const result = await applyFirecrawlResearchFallback(input, new Date("2026-10-20T13:30:00Z"));
+    assert.equal(result.sourceChecks[0]?.status, "blocked");
+    assert.equal(result.sourceChecks[0]?.itemCount, 0);
+    assert.equal(result.items.length, 0);
+    assert.match(result.sourceChecks[0]?.note || "", /Jina Reader could not recover/);
+    assert.match(result.summary || "", /Firecrawl blocked-page recovery is not configured/);
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedJina === undefined) delete process.env.JINA_API_KEY;
+    else process.env.JINA_API_KEY = savedJina;
+    if (savedFirecrawl === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = savedFirecrawl;
+  }
+});
