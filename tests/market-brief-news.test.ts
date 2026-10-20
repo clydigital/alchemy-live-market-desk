@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { selectVerifiedNewsBriefs, type NewsBriefInput } from "../lib/market-brief-news.ts";
 
 const now = new Date("2026-10-20T10:00:00Z");
@@ -64,4 +65,40 @@ test("source-verified News Brief still needs internally consistent observed and 
     { ...base, id: "before", observed_at: "2026-10-20T07:00:00Z" },
     { ...base, id: "expiry-before", expires_at: "2026-10-20T07:00:00Z" },
   ], now).length, 0);
+});
+
+test("a release from six days ago is not breaking news after late research verification", () => {
+  const late = {
+    ...base,
+    id: "actual-sept-cpi",
+    headline: "Consumer Price Index for September 2026 · Released",
+    what_happened: "The US Bureau of Labor Statistics published its September headline and core inflation figures.",
+    source_name: "U.S. Bureau of Labor Statistics",
+    source_url: "https://www.bls.gov/news.release/archives/cpi_10142026.htm",
+    source_kind: "official",
+    occurred_at: "2026-10-14T12:00:00Z",
+    observed_at: "2026-10-19T04:03:10Z",
+    expires_at: "2026-10-21T04:03:10Z",
+  };
+  assert.equal(selectVerifiedNewsBriefs([late], now).length, 0,
+    "Late detection and expiry extension never reset published-event freshness");
+});
+
+test("multiple Motion versions of the same original report yield one News Brief", () => {
+  const duplicate = { ...base, id: "event-2" };
+  const result = selectVerifiedNewsBriefs([base, duplicate], now);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, base.id);
+});
+
+test("News Brief reader independently searches verified items beyond top-24 Motion attention results", () => {
+  const fs = readFileSync(new URL("../lib/market-motion.ts", import.meta.url), "utf8");
+  const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
+  assert.match(fs, /export async function getCurrentVerifiedMarketMotion/);
+  assert.match(fs, /\.eq\("verification_state", "VERIFIED"\)/);
+  assert.match(fs, /\.neq\("effective_state", "EXPIRED"\)/);
+  assert.match(fs, /Math\.min\(24, options\.limit \?\? 12\)/);
+  assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 12 \}\)/);
+  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 6\)/);
+  assert.match(home, /getCurrentMarketMotion\(\{ limit: 24 \}\)/);
 });

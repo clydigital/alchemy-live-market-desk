@@ -471,6 +471,26 @@ export async function persistMarketMotion(
   return data as MarketMotionRecord;
 }
 
+/**
+ * Read eligible verified factual reports independently of the 24-slot Motion
+ * attention feed. This is only a source-discovery input for News Brief/1,
+ * never canonical evidence or a Story/Regime adjudication.
+ */
+export async function getCurrentVerifiedMarketMotion(
+  options: { limit?: number; client?: SupabaseClient } = {},
+): Promise<MarketMotionRecord[]> {
+  const db = options.client ?? createSupabaseAdminClient();
+  const { data, error } = await db
+    .from("current_market_motion_items")
+    .select("*")
+    .eq("verification_state", "VERIFIED")
+    .neq("effective_state", "EXPIRED")
+    .order("occurred_at", { ascending: false })
+    .limit(Math.max(1, Math.min(24, options.limit ?? 12)));
+  if (error) throw new Error("Verified Market Motion read failed");
+  return (data || []) as MarketMotionRecord[];
+}
+
 export async function getCurrentMarketMotion(
   options: { includeExpired?: boolean; limit?: number; client?: SupabaseClient } = {},
 ): Promise<MarketMotionRecord[]> {

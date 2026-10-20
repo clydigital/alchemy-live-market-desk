@@ -39,6 +39,9 @@ const ALLOWED_SOURCE_KINDS = new Set([
 ]);
 const PROCESS_HEADLINE =
   /(?:evidence gap|research gap|source audit|source coverage|provider authentication|sensor validation|ingestion pipeline|record reclassification|dossier status|thesis version|system 2|canonical lineage|migration)/i;
+// Publication freshness is measured from when the event occurred, not from a
+// subsequent late research/verification run that extends a Motion expiry.
+export const NEWS_BRIEF_EVENT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const PROCESS_TEXT =
   /^(?:observed by research gap|verification pending|awaiting provider|source retrieval failed)/i;
 
@@ -79,14 +82,16 @@ export function selectVerifiedNewsBriefs(
       const expiry = Date.parse(item.expires_at);
       if (![published, observed, expiry].every(Number.isFinite)) return [];
       if (published > time || observed > time || observed < published || expiry <= published || expiry <= time) return [];
+      if (time - published > NEWS_BRIEF_EVENT_MAX_AGE_MS) return [];
       const url = documentSourceUrl(item.source_url);
       if (!url || !item.source_name?.trim()) return [];
       const headline = item.headline?.trim() || "";
       const summary = item.what_happened?.trim() || "";
       if (headline.length < 8 || summary.length < 25) return [];
       if (PROCESS_HEADLINE.test(headline) || PROCESS_TEXT.test(summary)) return [];
-      if (seen.has(item.id)) return [];
-      seen.add(item.id);
+      const uniqueness = `${url}|${headline.toLowerCase()}|${item.occurred_at}`;
+      if (seen.has(uniqueness)) return [];
+      seen.add(uniqueness);
       return [{
         contractVersion: "news-brief/1" as const,
         contentType: "NEWS_BRIEF" as const,
