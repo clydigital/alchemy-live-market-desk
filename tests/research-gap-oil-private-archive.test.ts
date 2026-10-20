@@ -102,7 +102,7 @@ test("no license, forged hash, invalid source/date and HTML disguised as PDF or 
     ["bad CSV", { benchmark: "BRENT", sourceUrl: ICE, bytes: new TextEncoder().encode("<html>login</html>"), fetchedSha256: hash(new TextEncoder().encode("<html>login</html>")) }],
   ];
   for (const [name, changes] of cases) {
-    await assert.rejects(() => persistCapturedOilOriginal(args(f.store, changes)), undefined, name);
+    await assert.rejects(() => persistCapturedOilOriginal(args(f.store, changes)), /.+/, name);
     assert.equal(f.objects.size, 0, name);
     assert.equal(f.rows.size, 0, name);
   }
