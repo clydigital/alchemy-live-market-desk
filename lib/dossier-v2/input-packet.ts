@@ -386,7 +386,7 @@ function isRateContextEvidence(
   const signalKind = typeof item.metrics?.signal_kind === "string"
     ? item.metrics.signal_kind
     : null;
-  if (["economic_release", "rate_expectation", "market_reaction", "term_structure_model"].includes(signalKind ?? "")) {
+  if (["economic_release", "rate_expectation", "market_reaction", "official_daily_observation", "term_structure_model"].includes(signalKind ?? "")) {
     return true;
   }
   return item.source_type !== "MARKET_DATA" && RATE_CONTEXT_FACT_PATTERN.test(item.claim_or_fact);
