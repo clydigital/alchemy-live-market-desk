@@ -46,7 +46,7 @@ test("V6 Story workspace binds every visible jump to an anchored, provenance-awa
   assert.match(view, /getHybridExactDailyBriefEdition\(edition\)/);
   assert.match(view, /item\.articleId === normalizedArticleId && item\.editionId === edition/);
   assert.match(view, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
-  assert.match(view, /source\.availableAt/); // optional timing is displayed when recorded
+  assert.match(view, /claim\.availableAt/); // optional timing is displayed when recorded
   assert.doesNotMatch(view, /getCurrentStory|updateStory|createStory/);
 });
 
