@@ -16,7 +16,9 @@ export type OilSourceAccessStatus =
   | "FETCH_FAILED"
   | "SOURCE_TOO_LARGE"
   | "WRONG_MEDIA_TYPE"
-  | "RETRIEVED_UNARCHIVED";
+  | "RETRIEVED_UNARCHIVED"
+  | "ARCHIVED_UNVERIFIED"
+  | "ARCHIVE_FAILED";
 
 export type OilSourceAccessResult = {
   benchmark: OilBenchmark;
@@ -25,7 +27,7 @@ export type OilSourceAccessResult = {
   httpStatus: number | null;
   bytes: number | null;
   fetchedSha256: string | null;
-  originalArchived: false;
+  originalArchived: boolean;
   canonicalAdmitted: false;
 };
 
@@ -204,7 +206,39 @@ export async function inspectOilPublisherAccess(input: {
       continue;
     }
     // Strict cap 2 docs per publisher and no retry storm in the web request.
-    for (const url of urls) checks.push(await probeDatedOilOriginal(benchmark, url, input.fetcher));
+    for (const url of urls) {
+      // Only if the operator independently enabled publisher retention does
+      // this existing research cycle also append an immutable PRIVATE archive.
+      const approvalKey = benchmark === "WTI"
+        ? "OIL_CME_ARCHIVE_RETENTION_APPROVED"
+        : "OIL_ICE_ARCHIVE_RETENTION_APPROVED";
+      if (process.env[approvalKey] !== "true") {
+        checks.push(await probeDatedOilOriginal(benchmark, url, input.fetcher));
+        continue;
+      }
+      const capture = await captureDatedOilOriginal(benchmark, url, input.fetcher);
+      if (!capture.originalBytes || !capture.result.fetchedSha256
+        || capture.result.status !== "RETRIEVED_UNARCHIVED") {
+        checks.push(capture.result);
+        continue;
+      }
+      try {
+        // Lazy server-only provider client: no secret or original bytes enter
+        // API replies/logs. Archived bytes are NOT parsed/accepted settlements.
+        const { archiveCapturedOilOriginal } = await import("./research-gap-oil-private-archive.ts");
+        const receipt = await archiveCapturedOilOriginal({
+          benchmark, sourceUrl: url,
+          originalBytes: capture.originalBytes,
+          fetchedSha256: capture.result.fetchedSha256,
+        });
+        checks.push({
+          ...capture.result, status: "ARCHIVED_UNVERIFIED",
+          originalArchived: receipt.originalArchived, canonicalAdmitted: false,
+        });
+      } catch {
+        checks.push({ ...capture.result, status: "ARCHIVE_FAILED" });
+      }
+    }
   }
   return checks;
 }
