@@ -107,8 +107,9 @@ export function applyFocusedCpiRepair(
     const candidate = investigation.candidate_explanations[candidateIndex];
     if (!plainObject(candidate) || !Array.isArray(candidate[side])
       || !candidate[side].includes(unsupportedId)) return null;
-    candidate[side] = candidate[side].filter((id: unknown) => id !== unsupportedId);
-    if (side === "evidence_for_ids" && candidate[side].length === 0
+    const keptEvidence = (candidate[side] as unknown[]).filter((id) => id !== unsupportedId);
+    candidate[side] = keptEvidence;
+    if (side === "evidence_for_ids" && keptEvidence.length === 0
       && (candidate.confidence === "HIGH" || candidate.confidence === "MEDIUM")) {
       candidate.confidence = "UNRESOLVED";
     }
