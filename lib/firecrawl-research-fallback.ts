@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
-import { parseFxStreetNewsFeedPage } from "./fxstreet-feed.ts";
+import { parseFxStreetNewsFeedPage, parseFxStreetNewsFeedMarkdown } from "./fxstreet-feed.ts";
+import { fetchJinaReader } from "./acquisition/jina-reader.ts";
 
 type ResearchSourceKey =
   | "stockedup"
@@ -187,7 +188,7 @@ function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): Int
   // manufacture article freshness. This path only accepts FXStreet-owned URLs.
   if (source === "fxstreet" && !/<(rss|feed)\b/i.test(raw)) {
     const start = now.getTime() - WINDOW_MS;
-    return parseFxStreetNewsFeedPage(raw)
+    return [...parseFxStreetNewsFeedPage(raw), ...parseFxStreetNewsFeedMarkdown(raw)]
       .filter((entry) => {
         const time = Date.parse(entry.publishedAt);
         return Number.isFinite(time) && time >= start && time <= now.getTime() + 5 * 60_000;
