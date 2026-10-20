@@ -122,7 +122,7 @@ function validateSignal(raw: unknown): VerifiedMacroSignal {
   // frequency provenance and a stable day anchor for the existing API contract.
   if (kind === "official_daily_observation") {
     const parsed = new Date(eventAt);
-    const validDay = /^\\d{4}-\\d{2}-\\d{2}$/.test(observationDate ?? "")
+    const validDay = /^\d{4}-\d{2}-\d{2}$/.test(observationDate ?? "")
       && !Number.isNaN(parsed.getTime())
       && parsed.toISOString() === observationDate + "T00:00:00.000Z";
     const original = new URL(sourceUrl);
