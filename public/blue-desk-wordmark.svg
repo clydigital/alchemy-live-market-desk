@@ -1,8 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="272" height="60" viewBox="0 0 272 60" fill="none" role="img" aria-labelledby="title desc">
-  <title id="title">Blue Desk</title><desc id="desc">Blue Desk wave emblem and wordmark</desc>
-  <circle cx="29" cy="30" r="25" fill="#0A4160" stroke="#43BEE7" stroke-width="1.5"/>
-  <path d="M8 31c6-9 12-10 20-4 8 7 14 5 22-4" stroke="#6AE0FF" stroke-width="3.6" stroke-linecap="round"/>
-  <path d="M12 40c7-5 14-6 22-2 6 3 10 3 14 1" stroke="#C5F4FF" stroke-width="2.3" stroke-linecap="round" opacity=".92"/>
-  <path d="M22 14l5-4 6 4" stroke="#4ABDE3" stroke-width="2" stroke-linecap="round"/>
-  <text x="68" y="40" fill="#E8FAFF" font-size="33" font-weight="800" font-family="Inter,Segoe UI,Arial,sans-serif" letter-spacing="-1.4">Blue Desk</text>
+  <title id="title">Blue Desk</title>
+  <desc id="desc">White whale and three waves inside a blue orb, followed by the Blue Desk white wordmark</desc>
+  <defs>
+    <linearGradient id="sea" x1="16" y1="5" x2="45" y2="55" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17D0EC"/>
+      <stop offset=".45" stop-color="#058DDB"/>
+      <stop offset="1" stop-color="#0141A9"/>
+    </linearGradient>
+    <clipPath id="orb"><circle cx="29" cy="30" r="25"/></clipPath>
+  </defs>
+  <circle cx="29" cy="30" r="25" fill="url(#sea)"/>
+  <g clip-path="url(#orb)" fill="#FFFFFF">
+    <path d="M8 18.1 8 20.1 8.9 22.4 13.2 25.8 13 29.9 13.7 32.2 19.8 33.6 29.4 37.6 33.2 37.8 35.9 36.9 46.8 29 49.4 28.2 53.9 28.2 53.6 26.4 51.5 24.9 48.4 24 44.3 24 36.2 26.1 25 30.8 20.4 31.2 18.2 30.4 16.5 28.9 15.7 26 16.6 25 21.2 23.2 23.2 20.8 24 17.8 21.6 19.2 17.1 20 15.1 21.8 13.7 20.1 9.8 19.2Z"/>
+    <path d="M53.9 30 50.8 29.9 47.5 30.7 44.3 32.6 37.5 38.3 33.3 40 27.8 39.4 18.3 35.1 13.9 34 7.9 34.3 4.7 35.4 5 36.8 9.4 36.2 15 37.4 29.1 44.2 33 44.9 36.8 44.7 41.1 43.5 46.1 40.3 49.3 36.9Z"/>
+    <path d="M5.8 39.3 6.5 40.8 10 41.4 13.3 42.6 26.1 50.6 32.1 52.2 37.3 51.8 42.3 49.9 46.5 46.8 51.1 41.2 46.2 45.1 42.1 47.2 38 48.3 33.3 48.5 27.9 46.9 14.6 39.9 10.9 39Z"/>
+  </g>
+  <circle cx="41.5" cy="28.7" r="1.05" fill="#00385F"/>
+  <text x="68" y="40" fill="#FFFFFF" font-size="33" font-weight="800" font-family="Figtree,Inter,Segoe UI,Arial,sans-serif" letter-spacing="-1.4">Blue Desk</text>
 </svg>
