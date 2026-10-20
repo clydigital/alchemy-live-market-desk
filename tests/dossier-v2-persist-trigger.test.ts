@@ -325,3 +325,25 @@ test("Task 1 production route and workflow keep the trusted OIDC boundary", () =
   assert.doesNotMatch(workflow, /CRON_SECRET/);
   assert.doesNotMatch(workflow, /RESEARCH_UPDATE_TOKEN/);
 });
+
+
+test("scheduled Dossier handoff classifies 504 / non-JSON upstream before jq projection", () => {
+  const workflow = readFileSync(
+    new URL("../.github/workflows/run-live-research.yml", import.meta.url),
+    "utf8",
+  );
+  const handoff = workflow.split("      - name: Run token-aware Dossier V2 handoff")[1]
+    ?.split("      - name: Run canonical intelligence only")[0] ?? "";
+  assert.ok(handoff, "scheduled handoff must be present");
+
+  // A Vercel 300s timeout returns a non-JSON error document. Previously the
+  // unconditional jq projection failed first with an unrelated parse error.
+  const httpGuard = handoff.indexOf('if [[ ! "$http_status" =~ ^2 ]]; then');
+  const contractGuard = handoff.indexOf("if ! jq -e 'type == \"object\" and (.status | type == \"string\")'");
+  const projection = handoff.indexOf("jq -c '{\n            status,\n            mode,");
+  assert.ok(httpGuard >= 0 && contractGuard > httpGuard && projection > contractGuard);
+  assert.match(handoff, /Non-JSON upstream response\. Inspect Vercel function logs for timeout/);
+  assert.match(handoff, /Dossier completion is unverified/);
+  assert.match(handoff, /jq -c '\{status,error,detail\}'/);
+  assert.doesNotMatch(handoff, /cat "\$RESPONSE_FILE"/);
+});
