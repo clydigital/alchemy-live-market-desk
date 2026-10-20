@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { assembleDossierV2InputPacket, type ObservedEvidence } from "../lib/dossier-v2/input-packet.ts";
 import { auditCpiSurprises } from "../lib/dossier-v2/cpi-surprise-audit.ts";
+import { cpiSurpriseNarrativeErrors } from "../lib/dossier-v2/cpi-surprise-narrative-gate.ts";
 import { buildResearchBrainPrompt } from "../lib/dossier-v2/research-brain-prompt.ts";
 import { RESEARCH_BRAIN_INPUT_CONTRACT_VERSION } from "../lib/dossier-v2/research-brain-contracts.ts";
 
@@ -93,4 +95,44 @@ test("Research Brain has measured-by-metric forecast warnings without changing t
   assert.match(prompt.instructions, /pre-release consensus receipt/);
   assert.match(prompt.instructions, /headline m\/m/);
   assert.match(prompt.instructions, /−4 bp/);
+});
+
+
+test("live dry-run headline error is rejected by actual Research Brain validation gate", () => {
+  const evidence = packet(
+    row(BLS, "September CPI-U rose +0.6% m/m compared with +0.4% in August.", 0.6, null, 0.4),
+    row(CORE, "Core CPI was 0.3% m/m compared with a reported 0.2% market forecast.", 0.3, 0.2, 0.3),
+  );
+  const bad = "September CPI surprised on the upside (0.6% m/m) and nominal 10Y sits near 5.15%.";
+  const errors = cpiSurpriseNarrativeErrors(bad, evidence);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /Unsupported headline CPI upside-surprise claim/);
+  assert.match(errors[0], /previous month's CPI is NOT the expected forecast/);
+
+  const validation = readFileSync(new URL("../lib/dossier-v2/research-brain-validation.ts", import.meta.url), "utf8");
+  assert.match(validation, /errors\.push\(\.\.\.cpiSurpriseNarrativeErrors\(answer, packet\)\)/);
+  assert.match(validation, /errors\.push\(\.\.\.cpiSurpriseNarrativeErrors\(headline, packet\)\)/);
+});
+
+test("core upside surprises and corrections remain expressible", () => {
+  const evidence = packet(
+    row(BLS, "Headline CPI-U was 0.6% m/m versus 0.4% previously.", 0.6, null, 0.4),
+    row(CORE, "Core CPI 0.3% m/m exceeded forecast 0.2%.", 0.3, 0.2, 0.3),
+  );
+  const valid = [
+    "September CPI rose 0.6% m/m from 0.4% in August.",
+    "Core CPI surprised on the upside (0.3% m/m), above the reported 0.2% forecast.",
+    "September CPI did not surprise on the upside (0.6% m/m); core CPI did.",
+    "It is incorrect to say September CPI surprised on the upside (0.6% m/m).",
+  ];
+  for (const item of valid) assert.deepEqual(cpiSurpriseNarrativeErrors(item, evidence), [], item);
+});
+
+test("a headline upside surprise is permitted only with explicit same-metric canonical ABOVE comparator", () => {
+  const head = row(BLS, "Headline CPI-U 0.6% m/m vs expected 0.5%, prior 0.4%.", 0.6, 0.5, 0.4);
+  const proved = packet(head);
+  const unproved = packet({ ...head, metrics: { ...head.metrics, expected_value: null } });
+  const sentence = "Headline CPI surprised on the upside (0.6% m/m) versus consensus.";
+  assert.deepEqual(cpiSurpriseNarrativeErrors(sentence, proved), []);
+  assert.equal(cpiSurpriseNarrativeErrors(sentence, unproved).length, 1);
 });
