@@ -23,7 +23,7 @@ export type CanonicalOilProofInput = {
 
 export function requiresExactOilPairProof(question: string, requirements: readonly string[]): OilBenchmark[] {
   const description = [question, ...requirements].join(" ");
-  if (!/\b(?:F1[\s/–-]*F2|front[- ](?:month|next)|calendar spread|two[- ]contract|backwardat(?:ion|ed)|dated settl(?:e|ement)|futures curve)\b/i.test(description)) return [];
+  if (!/\b(?:F1[\s/–-]*F2|front[- ](?:month|next)|calendar spread|two[- ]contract|backwardat(?:ion|ed)|dated settl(?:e|ement)|futures curve|forward curve)\b/i.test(description)) return [];
   const required: OilBenchmark[] = [];
   if (/\b(?:WTI|West Texas Intermediate|NYMEX CL)\b/i.test(description)) required.push("WTI");
   if (/\b(?:Brent|ICE B(?:rent)?)\b/i.test(description)) required.push("BRENT");
