@@ -1,5 +1,6 @@
 import { normalizeResearchBrainGapTargets } from "./research-brain-gap-targets.ts";
 import { noteLYHeadlineIssues } from "./ly-headline-quality.ts";
+import { applyFocusedCpiRepair, buildFocusedCpiRepairRequest } from "./research-brain-focused-cpi-repair.ts";
 import { createHash } from "node:crypto";
 import type { DossierV2InputPacket, ThesisLedger } from "./input-packet.ts";
 import type {
@@ -1051,6 +1052,73 @@ export async function executeResearchBrain(
   const firstVal = validateResearchBrainOutput(firstPassData, packet);
   if (firstVal.isValid && firstVal.output) {
     return noteLYHeadlineIssues(firstVal.output);
+  }
+
+  // Fast and fail-closed route for the exact live CPI + structural-reference
+  // failure signature. Unlike a second full-Dossier generation, the ONE
+  // permitted repair model pass returns only main_thread headline + answer.
+  // The complete original output contract is validated again after patching.
+  if (allowRepair) {
+    const focused = buildFocusedCpiRepairRequest(
+      firstPassData,
+      firstVal.errors,
+      packet,
+      prompt.boundedInput.system1_cpi_surprise_audit,
+    );
+    if (focused) {
+      console.info(JSON.stringify({
+        event: "research_brain_focused_cpi_repair_start",
+        packetId: packet.packet_id,
+        errorCount: firstVal.errors.length,
+      }));
+      try {
+        const focusedResponse = await runner({
+          stageKey: "research_brain_repair",
+          instructions: focused.instructions,
+          boundedInput: focused.boundedInput,
+          schema: focused.schema,
+        });
+        const patched = applyFocusedCpiRepair(
+          firstPassData,
+          focusedResponse.data,
+          firstVal.errors,
+        );
+        if (!patched) {
+          console.warn(JSON.stringify({
+            event: "research_brain_focused_cpi_repair_rejected",
+            packetId: packet.packet_id,
+            reason: "invalid_or_unapplied_patch",
+          }));
+          return produceDegradedOutput(packet, "Focused CPI repair returned invalid fields.", true);
+        }
+        const focusedVal = validateResearchBrainOutput(patched, packet);
+        if (!focusedVal.isValid || !focusedVal.output) {
+          console.warn(JSON.stringify({
+            event: "research_brain_focused_cpi_repair_validation_failed",
+            packetId: packet.packet_id,
+            errorCount: focusedVal.errors.length,
+            errors: focusedVal.errors.slice(0, 12),
+          }));
+          return produceDegradedOutput(packet, focusedVal.errors, true);
+        }
+        focusedVal.output.diagnostics = {
+          ...focusedVal.output.diagnostics,
+          model_repair_used: true,
+          notes: [
+            ...(focusedVal.output.diagnostics.notes ?? []),
+            "Focused CPI wording and unsupported-reference repair passed complete Dossier validation.",
+          ],
+        };
+        console.info(JSON.stringify({
+          event: "research_brain_focused_cpi_repair_validated",
+          packetId: packet.packet_id,
+        }));
+        return noteLYHeadlineIssues(focusedVal.output);
+      } catch (error) {
+        console.warn("Focused CPI repair failed:", error);
+        return produceDegradedOutput(packet, error instanceof Error ? error : String(error), true);
+      }
+    }
   }
 
   // Step 7: At most ONE repair retry if invalid
