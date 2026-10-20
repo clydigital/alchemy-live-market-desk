@@ -14,6 +14,7 @@ import { getCurrentMarketMotion } from "@/lib/market-motion";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,8 @@ export default async function BlueDeskPage() {
   // it is NOT a new canonical Story or Regime interpretation.
   const verifiedNews = selectVerifiedNewsBriefs(motions, now, 6);
   const newsFeature = feature ? null : (verifiedNews[0] || null);
+  // Primary-source facts are a separate fallback, NEVER a promoted Story.
+  const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
@@ -71,25 +74,28 @@ export default async function BlueDeskPage() {
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
-            <p className={styles.kicker}>{feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : "MARKET BRIEF"}</p>
-            <h1>{feature?.title || newsFeature?.headline || "Market Brief in review"}</h1>
+            <p className={styles.kicker}>{feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
+            <h1>{feature?.title || newsFeature?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
-              {feature?.deck || newsFeature?.summary || "No source-supported public market report is available."}
+              {feature?.deck || newsFeature?.summary || (sourceFact ? "A reported measurement from the frozen publication. Its wider market implications remain unresolved." : "No source-supported public market report is available.")}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : "REVIEW"}</span>
-              {feature && latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
+              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : sourceFact ? "FACT ONLY · NOT A STORY VERDICT" : "REVIEW"}</span>
+              {(feature || sourceFact) && latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
               {feature ? (
                 <Link className={styles.primaryAction} href={storyHref(feature)}>Read story →</Link>
               ) : newsFeature ? (
                 <a className={styles.primaryAction} href={newsFeature.sourceUrl} target="_blank" rel="noreferrer">Read original report ↗</a>
+              ) : sourceFact ? (
+                <a className={styles.primaryAction} href={sourceFact.sourceUrl} target="_blank" rel="noreferrer">Read {sourceFact.sourceName} report ↗</a>
               ) : (
                 <Link className={styles.primaryAction} href="/articles">All articles →</Link>
               )}
               {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
-                newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> : null}
+                newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
+                sourceFact ? <DualTimestamp value={sourceFact.publishedAt} className={styles.heroTime} /> : null}
             </div>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">

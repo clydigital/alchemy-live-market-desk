@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
 import { buildEditorialBrief, type EditorialEvidenceRow } from "../lib/market-brief-editorial.ts";
+import { selectFrozenSourceFact } from "../lib/blue-desk-factual-feature.ts";
 
 // Compact, independently inspected 19 Oct 2026 production edition fixture.
 // These values came from that frozen publication; no new thesis is generated.
@@ -139,4 +140,35 @@ test("a frozen real causal arrow disappears when all its issuer data postdate th
   const result = buildEditorialBrief(projected, after).articles[0];
   assert.equal(result.editorial.causalLinks.length, 2);
   assert.ok(result.editorial.causalLinks.every(edge => !edge.to.includes("TSMC")));
+});
+
+test("latest unresolved AI edition can headline one exact issuer-reported fact, never a Story verdict", () => {
+  const editorial = buildEditorialBrief(projectMarketBriefArticles(snapshot), sourceRows);
+  const fact = selectFrozenSourceFact(editorial, new Date("2026-10-20T02:27:00Z"));
+  assert.ok(fact);
+  assert.equal(fact.contractVersion, "frozen-source-fact/1");
+  assert.equal(fact.editionId, snapshot.id);
+  assert.equal(fact.interpretation, "UNRESOLVED");
+  assert.ok(canonicalIds.includes(fact.evidenceId));
+  assert.match(fact.claimText, /reported/i);
+  assert.match(fact.sourceUrl, /^https:\/\//);
+  assert.ok(sourceRows.some(row => row.id === fact.evidenceId && row.provenanceUrls.includes(fact.sourceUrl)));
+  assert.equal(editorial.articles[0].editorial.storyEligible, false);
+
+  const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
+  assert.match(home, /PRIMARY-SOURCE OBSERVATION/);
+  assert.match(home, /FACT ONLY · NOT A STORY VERDICT/);
+  assert.match(home, /sourceFact\.sourceUrl/);
+  assert.match(home, /selectFrozenSourceFact\(brief, now\)/);
+  assert.match(home, /article\.editorial\.storyEligible/);
+});
+
+test("factual lead refuses stale, future, missing and post-edition evidence", () => {
+  const baseline = projectMarketBriefArticles(snapshot);
+  const eligible = buildEditorialBrief(baseline, sourceRows);
+  assert.equal(selectFrozenSourceFact(eligible, new Date("2026-10-22T17:00:00Z")), null);
+  assert.equal(selectFrozenSourceFact(eligible, new Date("2026-10-19T15:00:00Z")), null);
+  assert.equal(selectFrozenSourceFact(buildEditorialBrief(baseline, []), new Date("2026-10-20T02:27:00Z")), null);
+  const futureRows = sourceRows.map(row => ({ ...row, availableAt: "2026-10-21T00:00:00Z" }));
+  assert.equal(selectFrozenSourceFact(buildEditorialBrief(baseline, futureRows), new Date("2026-10-20T02:27:00Z")), null);
 });
