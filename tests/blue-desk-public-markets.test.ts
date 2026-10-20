@@ -6,9 +6,10 @@ import { PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations } fro
 import type { MarketMonitorRow } from "../lib/market-monitor.ts";
 
 function marketRow(partial: Partial<MarketMonitorRow> & Pick<MarketMonitorRow, "id" | "type">): MarketMonitorRow {
+  const { id, type, ...remaining } = partial;
   return {
-    id: partial.id, type: partial.type,
-    label: partial.label || partial.id,
+    id, type,
+    label: partial.label || id,
     symbol: partial.symbol || partial.id.toUpperCase(),
     last: 4.42, previousClose: 4.37, dayChange: 1.21,
     gapChange: 0.4, change3d: 3.1, change5d: 5.1, rsi: 71,
@@ -18,7 +19,7 @@ function marketRow(partial: Partial<MarketMonitorRow> & Pick<MarketMonitorRow, "
     asOf: "2026-10-19", frequency: "daily",
     sourceName: "Federal Reserve", sourceUrl: "https://fred.stlouisfed.org/series/DGS10",
     points: [{ time: 1, close: 3 }, { time: 2, close: 4 }],
-    ...partial,
+    ...remaining,
   };
 }
 
