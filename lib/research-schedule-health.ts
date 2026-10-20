@@ -12,6 +12,9 @@ export type ResearchRunLike = {
   status: "running" | "completed" | "blocked" | "failed";
   warnings?: string[];
   updates_published?: number;
+  freshness_gate_passed?: boolean | null;
+  evidence_gate_passed?: boolean | null;
+  required_sources_complete?: boolean | null;
 };
 
 export type ResearchSlotHealth = {
@@ -19,7 +22,7 @@ export type ResearchSlotHealth = {
   label: string;
   expectedAt: string;
   nextAt: string;
-  status: "complete" | "running" | "blocked" | "failed" | "missed" | "disabled";
+  status: "complete" | "degraded" | "running" | "blocked" | "failed" | "missed" | "disabled";
   completedAt: string | null;
   updatesPublished: number;
   warningCount: number;
@@ -73,7 +76,10 @@ function closestRun(runs: ResearchRunLike[], slot: CanonicalResearchSlot, expect
 
 function slotStatus(run: ResearchRunLike | null): ResearchSlotHealth["status"] {
   if (!run) return "missed";
-  if (run.status === "completed") return "complete";
+  if (run.status === "completed") {
+    if (run.freshness_gate_passed === false || run.evidence_gate_passed === false || run.required_sources_complete === false) return "degraded";
+    return "complete";
+  }
   return run.status;
 }
 
