@@ -8,6 +8,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
+import { blueDeskStorySections } from "@/lib/blue-desk-story-sections";
 import { readerParagraphSources, readerVerifiedReaction } from "@/lib/blue-desk-reader-evidence";
 import {
   projectMarketBriefArticles,
@@ -99,6 +100,13 @@ export default async function BlueDeskStoryPage({
   });
   const unmatched = supportedParagraphs.filter(p => !covered.has(p.text));
   if (unmatched.length) blocks.push({ name: "Additional context", text: unmatched });
+  const navigation = blueDeskStorySections({
+    originalObservations: article.editorial.evidenceClaims.length,
+    causalLinks: article.editorial.causalLinks.length,
+    narrativeBlocks: blocks.length,
+    missingVerifiedReaction: !verifiedReaction,
+    watchAvailable: hasStructuredWatch || Boolean(article.conditionalOutlook),
+  });
 
   return (
     <main className={styles.page}>
@@ -114,8 +122,41 @@ export default async function BlueDeskStoryPage({
             <span>Edition {article.editionId}</span>
           </div>
         </header>
+        <nav className={styles.storyJumpNav} aria-label="Navigate this Story">
+          {navigation.map(section => (
+            <a key={section.id} href={`#${section.id}`} className={styles.storyJumpLink}>
+              {section.label}
+            </a>
+          ))}
+        </nav>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
+            <section id="story-overview" className={styles.storyAtGlance} aria-labelledby="story-overview-title">
+              <p className={styles.kicker}>EDITION-PINNED BRIEF</p>
+              <h2 id="story-overview-title">At a glance</h2>
+              <div className={styles.storyMetricGrid}>
+                <div>
+                  <span>Interpretation</span>
+                  <strong>{article.interpretationStatus}</strong>
+                </div>
+                <div>
+                  <span>Original-source observations</span>
+                  <strong>{article.editorial.evidenceClaims.length}</strong>
+                </div>
+                <div>
+                  <span>Evidence-linked mechanism steps</span>
+                  <strong>{article.editorial.causalLinks.length}</strong>
+                </div>
+                <div>
+                  <span>Observed market reaction</span>
+                  <strong>{verifiedReaction ? "Source-linked" : "Not verified"}</strong>
+                </div>
+              </div>
+              <p className={styles.storySummaryNote}>
+                This view is fixed to the publication shown above. Source observations
+                do not, on their own, prove a causal explanation or a new Story verdict.
+              </p>
+            </section>
             {!article.editorial.evidenceClaims.length ? (
               <section className={styles.deepSection}>
                 <h2>Evidence status</h2>
@@ -126,7 +167,7 @@ export default async function BlueDeskStoryPage({
               </section>
             ) : null}
             {article.editorial.evidenceClaims.length ? (
-              <section className={styles.deepSection}>
+              <section id="story-observations" className={styles.deepSection}>
                 <h2>What the original sources report</h2>
                 <p className={styles.deepSourceContext}>These are individual source-linked observations, not proof of the full market interpretation.</p>
                 <ul className={styles.deepFactList}>
@@ -140,7 +181,7 @@ export default async function BlueDeskStoryPage({
               </section>
             ) : null}
             {article.editorial.causalLinks.length ? (
-              <section className={styles.deepSection}>
+              <section id="story-mechanisms" className={styles.deepSection}>
                 <h2>How the mechanism connects</h2>
                 <p className={styles.deepSourceContext}>These are the Dossier's existing evidence-linked causal steps. An original source may support an observation without proving the proposed causal direction.</p>
                 <ol className={styles.deepMechanismList}>
@@ -160,7 +201,8 @@ export default async function BlueDeskStoryPage({
                 </ol>
               </section>
             ) : null}
-            {blocks.map(block => (
+            {blocks.length ? <div id="story-analysis" className={styles.storyAnalysis}>
+              {blocks.map(block => (
               <section key={block.name} className={styles.deepSection}>
                 <h2>{article.interpretationStatus === "UNRESOLVED" && block.name === "How it works"
                   ? "Working explanation" : article.interpretationStatus === "UNRESOLVED" && block.name === "What happened"
@@ -185,9 +227,10 @@ export default async function BlueDeskStoryPage({
                   </div>
                 ))}
               </section>
-            ))}
+              ))}
+            </div> : null}
             {!verifiedReaction ? (
-              <section className={styles.deepSection}>
+              <section id="story-reaction-gap" className={styles.deepSection}>
                 <h2>Market reaction</h2>
                 <p className={styles.deepSourceContext}>
                   No independently source-linked price, yield or futures reaction is available in this frozen edition.
@@ -196,7 +239,7 @@ export default async function BlueDeskStoryPage({
               </section>
             ) : null}
             {hasStructuredWatch ? (
-              <section className={styles.deepSection}>
+              <section id="story-watch" className={styles.deepSection}>
                 <h2>What to watch</h2>
                 {confirmations.length ? (
                   <div className={styles.deepWatchGroup}>
@@ -216,7 +259,7 @@ export default async function BlueDeskStoryPage({
                 ) : null}
               </section>
             ) : article.conditionalOutlook ? (
-              <section className={styles.deepSection}>
+              <section id="story-watch" className={styles.deepSection}>
                 <h2>What to watch</h2>
                 <p>{article.conditionalOutlook}</p>
               </section>
@@ -234,7 +277,7 @@ export default async function BlueDeskStoryPage({
                 </a>
               )) : <p className={styles.muted}>Source links unavailable. See attached evidence references.</p>}
             </section>
-            <section>
+            <section id="story-evidence" className={styles.storyEvidencePanel}>
               <h2>Evidence explorer</h2>
               {article.editorial.evidenceClaims.length ? article.editorial.evidenceClaims.map(claim => (
                 <div key={claim.evidenceId} className={styles.deepSection}>
