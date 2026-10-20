@@ -170,6 +170,7 @@ export async function handleManualResearchGapWebRun(
       sourceCount: verdict.sourceCount,
       branchCount: verdict.branchCount,
       missingRequirementIds: verdict.missingRequirementIds,
+      originalSourceAccess: result.originalSourceAccess ?? [],
       handoffAttempted: false,
     });
 
