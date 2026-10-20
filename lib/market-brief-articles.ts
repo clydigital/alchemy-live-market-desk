@@ -118,16 +118,6 @@ function existingCausalLinks(value: unknown): MarketBriefCausalLinkV1[] {
   }).slice(0, 8);
 }
 
-function truncateTitle(text: string, maxLen = 63): string {
-  if (text.length <= maxLen) return text;
-  const truncated = text.slice(0, maxLen - 1).trim();
-  const lastSpace = truncated.lastIndexOf(" ");
-  if (lastSpace > 20) {
-    return truncated.slice(0, lastSpace) + "…";
-  }
-  return truncated + "…";
-}
-
 function deriveCategory(icon: string | null, assets: string[], title: string): string {
   const normIcon = (icon || "").toLowerCase();
   const normTitle = title.toLowerCase();
