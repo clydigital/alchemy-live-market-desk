@@ -12,9 +12,9 @@ test("a source-authored statement outranks a question, without rewriting the und
     "AI funding costs remain elevated");
 });
 
-test("never implies an observed event when only a question is supplied", () => {
+test("question-only Story titles cannot become invented market headlines", () => {
   assert.equal(marketStoryHeadline(["Will Brent rise?", "Why is oil volatile?"]),
-    "Market development awaiting verified headline");
+    "");
 });
 
 test("all displayed Story headlines are at most 80 characters", () => {
@@ -34,4 +34,8 @@ test("Blue Desk and Live Desk present declarative content in content-sized Story
   assert.match(blue, /\.storyCard\s*\{[\s\S]*?width: max-content/);
   assert.match(live, /\.storyCard\s*\{[\s\S]*?width: max-content/);
   assert.match(blue, /scroll-snap-type: x proximity/);
+});
+
+test("does not turn a research question into a fabricated observed move", () => {
+  assert.equal(marketStoryHeadline(["Why did yields fall?", "Will the dollar rally?"]), "");
 });
