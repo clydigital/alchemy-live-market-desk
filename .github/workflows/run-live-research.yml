@@ -256,6 +256,25 @@ jobs:
             --data "$body" \
             "$PROD_URL/api/admin/dossier-v2/run")"
 
+          # Vercel Hobby functions have a hard 300-second ceiling. A 504 from
+          # an exhausted Research Brain + repair pass can be HTML, not JSON.
+          # Classify the HTTP failure before attempting any jq projection; do
+          # not log raw proxy content, OIDC credentials or request payloads.
+          if [[ ! "$http_status" =~ ^2 ]]; then
+            echo "Automatic Dossier V2 handoff returned HTTP $http_status." >&2
+            if jq -e 'type == "object"' "$RESPONSE_FILE" >/dev/null 2>&1; then
+              jq -c '{status,error,detail}' "$RESPONSE_FILE" >&2
+            else
+              echo "Non-JSON upstream response. Inspect Vercel function logs for timeout; Dossier completion is unverified." >&2
+            fi
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object" and (.status | type == "string")' "$RESPONSE_FILE" >/dev/null 2>&1; then
+            echo "Automatic Dossier V2 handoff returned HTTP $http_status without the required JSON status contract." >&2
+            exit 1
+          fi
+
           jq -c '{
             status,
             mode,
@@ -271,11 +290,6 @@ jobs:
               developmentClusters: .packetSummary.developmentClusters
             }
           }' "$RESPONSE_FILE"
-
-          if [[ ! "$http_status" =~ ^2 ]]; then
-            echo "Automatic Dossier V2 handoff returned HTTP $http_status." >&2
-            exit 1
-          fi
           state="$(jq -r '.status // empty' "$RESPONSE_FILE")"
           if [[ "$state" != "completed" ]]; then
             echo "Automatic Dossier V2 handoff ended in state: ${state:-missing}" >&2
