@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  captureDatedOilOriginal,
   eligibleDatedOilOriginal,
   inspectOilPublisherAccess,
   probeDatedOilOriginal,
@@ -60,6 +61,38 @@ test("ICE csv stays unarchived even if it contains both contract prices", async 
   })));
   assert.equal(result.status, "RETRIEVED_UNARCHIVED");
   assert.equal(result.canonicalAdmitted, false);
+});
+
+test("capture retains exact bounded original bytes and probe exposes metadata only", async () => {
+  const encoded = new TextEncoder().encode(PDF);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoded.subarray(0, 3));
+      controller.enqueue(encoded.subarray(3, 12));
+      controller.enqueue(encoded.subarray(12));
+      controller.close();
+    },
+  });
+  const capture = await captureDatedOilOriginal("WTI", CME, fake(new Response(stream, {
+    status: 200, headers: { "Content-Type": "application/pdf" },
+  })));
+  assert.equal(capture.result.status, "RETRIEVED_UNARCHIVED");
+  assert.deepEqual(capture.originalBytes, encoded);
+  assert.equal(capture.result.fetchedSha256, createHash("sha256").update(encoded).digest("hex"));
+  assert.equal(capture.result.originalArchived, false);
+  assert.equal(capture.result.canonicalAdmitted, false);
+
+  const blocked = await captureDatedOilOriginal("WTI", CME, fake(new Response("forbidden", {
+    status: 403, headers: { "Content-Type": "text/html" },
+  })));
+  assert.equal(blocked.originalBytes, null);
+  assert.equal(blocked.result.status, "ACCESS_DENIED");
+
+  const diagnostic = await probeDatedOilOriginal("WTI", CME, fake(new Response(PDF, {
+    headers: { "Content-Type": "application/pdf" },
+  })));
+  assert.equal(Object.hasOwn(diagnostic, "originalBytes"), false);
+  assert.equal(diagnostic.status, "RETRIEVED_UNARCHIVED");
 });
 
 test("no publisher redirects, access denials, rate limits or bad pages can be called final data", async () => {
