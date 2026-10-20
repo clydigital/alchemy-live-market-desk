@@ -14,13 +14,14 @@ test("all visible public header links target approved host paths and real anchor
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
+    assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), "public", href);
     if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
   }
 });
 
 test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /publicHost \? PUBLIC_NAV : PRIVATE_NAV/);
-  assert.match(header, /BLUEBELLY_PRESENTATION_HOST/);
+  assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
   for (const privatePath of ["/markets", "/articles", "/hybrid-output/prepare", "/data/macro", "/concepts"]) {
     assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
     assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
