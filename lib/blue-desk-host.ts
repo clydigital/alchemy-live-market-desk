@@ -42,6 +42,13 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
   if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
+  // Explicitly approved, read-only full Markets terminal. This exception
+  // applies to the exact Live hostname/path only; do not open other owner
+  // routes, API handlers, aliases, or the dedicated Bluebelly hostname.
+  if (hostname === LIVE_DESK_PRESENTATION_HOST && pathname === "/owner/markets") {
+    return "public";
+  }
+
   const publicPage =
     pathname === "/" ||
     pathname === "/calendar" ||
