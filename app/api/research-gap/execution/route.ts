@@ -25,6 +25,7 @@ import {
   type CanonicalOilProofInput,
   type OilBenchmark,
 } from "@/lib/research-gap-exact-oil-proof";
+import { inspectOilPublisherAccess } from "@/lib/research-gap-oil-source-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -227,6 +228,22 @@ export async function POST(request: Request) {
           }
         }
       }
+      // The normal Vercel-primary Research Gap evaluation checks actual
+      // publisher access, not merely whether the web-search model cited a URL.
+      // This diagnostic NEVER qualifies or inserts canonical settlement evidence.
+      const originalSourceAccess = requiredOil.length
+        ? await inspectOilPublisherAccess({
+            required: requiredOil,
+            citedUrls: (rawEvidence as ResearchGapEvidenceAssessment[]).map(row => row.sourceUrl),
+          })
+        : [];
+      if (originalSourceAccess.length) {
+        console.info(JSON.stringify({
+          event: "research_gap_oil_source_access",
+          caseId, sourceAccess: originalSourceAccess,
+          canonicalProofCount: verifiedCanonicalOilEvidence.length,
+        }));
+      }
       const verdict = evaluateResearchGapEvidence({
         plan: gap.research_plan,
         evidence: rawEvidence as ResearchGapEvidenceAssessment[],
@@ -241,6 +258,7 @@ export async function POST(request: Request) {
           completed: false,
           caseId,
           verdict,
+          ...(originalSourceAccess.length ? { originalSourceAccess } : {}),
         });
       }
 
@@ -263,6 +281,7 @@ export async function POST(request: Request) {
         completed: true,
         case: completed,
         verdict,
+        ...(originalSourceAccess.length ? { originalSourceAccess } : {}),
       });
     }
 
