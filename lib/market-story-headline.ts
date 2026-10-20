@@ -7,7 +7,8 @@ const QUESTION_OPENING = /^(?:what|why|how|when|where|who|whom|whose|which|will|
 
 function declarative(value: string | null | undefined): string | null {
   const title = value?.replace(/\s+/g, " ").trim() || "";
-  return title && !/[?？]/.test(title) && !QUESTION_OPENING.test(title)\n    && !/^market development awaiting verified headline$/i.test(title) ? title : null;
+  return title && !/[?？]/.test(title) && !QUESTION_OPENING.test(title)
+    && !/^market development awaiting verified headline$/i.test(title) ? title : null;
 }
 
 export function marketStoryHeadline(candidates: ReadonlyArray<string | null | undefined>): string {
