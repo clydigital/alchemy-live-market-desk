@@ -1,11 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { headers } from "next/headers";
-import { blueDeskPublicHref } from "@/lib/blue-desk-host";
+import { BLUEBELLY_PRESENTATION_HOST, blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
-const NAV = [
+const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
   ["Markets", "/markets"],
   ["Deep Dive", "/articles"],
@@ -16,21 +16,33 @@ const NAV = [
   ["Learn", "/concepts"],
 ] as const;
 
+// Public Bluebelly is deliberately limited to the route allowlist; never
+// advertise owner-only legacy links that its middleware correctly returns 404.
+const PUBLIC_NAV = [
+  ["Live Market", "/"],
+  ["Key Stories", "/#stories-title"],
+  ["Rates", "/#rates-title"],
+  ["What Changed", "/#motion-title"],
+  ["Calendar", "/calendar"],
+] as const;
+
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
+  const publicHost = (host || "").trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
+  const nav = publicHost ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
       <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
         <Image src="/blue-desk-wordmark.svg" alt="Blue Desk" width={272} height={60} priority unoptimized />
       </Link>
       <nav className={styles.nav} aria-label="Blue Desk primary">
-        {NAV.map(([title, href]) => (
+        {nav.map(([title, href]) => (
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={href === activePath ? "page" : undefined}
-            className={href === activePath ? styles.navActive : styles.navItem}
+            aria-current={(href === activePath || (publicHost && href === "/" && activePath === "/blue-desk")) ? "page" : undefined}
+            className={(href === activePath || (publicHost && href === "/" && activePath === "/blue-desk")) ? styles.navActive : styles.navItem}
           >
             {title}
           </Link>
