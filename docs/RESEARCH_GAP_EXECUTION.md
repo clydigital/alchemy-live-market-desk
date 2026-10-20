@@ -175,3 +175,20 @@ For every candidate evidence packet:
 - Never scrape Notion MacroPulse prose as if it were a canonical machine-readable input; never bypass the existing evidence snapshot, verdict, handoff and Dossier/System 2 route.
 
 This is documentation and research guidance only, with **no** new cron, production source, table, pipeline state, API or direct Hybrid write.
+
+## Automated original-source recovery and publication safety (P3)
+
+The Vercel-primary Research Gap cycle already runs 03:15 and 15:15 UTC (11:15 / 23:15 MYT), plus handoff-only retries at +15 and +30 minutes. Reuse its case ownership, fencing and retries. Do not add an uncoordinated cron or another reasoning engine.
+
+The Dossier's system1_energy_source_coverage and output validator run automatically during its existing scheduled handoff. They are publication **stop gates**, not source-fetching agents.
+
+1. **Fetch original data:** Prefer dated original BLS, Treasury, EIA, CME, ICE or CBP publications, not search extracts. Classify blocked publisher access, restricted exchange data and rotating current URLs as UNRESOLVED; never evade licensing/access controls.
+2. **Preserve exact identity:** Capture exchange, contract code, front/next expiry, trade date, actual FINAL flag, unit, publication and observation timestamps, stable original URL, and an immutable byte hash computed by the source collector. An arbitrary supplied hash string is not enough.
+3. **Verify market semantics:** Two futures settles must be the same original exchange and trade date. Verify roll/expiry and consecutive eligible F1/F2 months. Do not confuse ICE Brent with CME BZ or a continuous front-month quote with an exchange calendar spread. OFAC licence does not prove a US Russian-diesel cargo arrival; require dated first-party customs/port/vessel records.
+4. **Retry using existing Research Gap:** Preserve the exact missing source request in evidence-needed; leave unresolved cases durable and let the existing cycle/handoff cron retry. An HTTP 200, a secondary transcription or a rolling document is not a fulfilled source requirement.
+5. **Admit canonical evidence:** Only the existing authenticated canonical intake may create a new Evidence UUID, with full source lineage, verified hash, unit, date and new actual available_at. Old immutable published editions must not be rewritten.
+6. **Re-adjudicate:** After verified admission, run read-only Dossier V2 first and permit System 2/Story updates only through the current canonical thesis-version path. Unsupported publication prose takes the existing one-repair/fail-closed route.
+
+Every scheduled source check should distinguish provider_retrieval, original_source_final, same_day_F1_F2, source_hash_verified, canonical_ingested, dossier_visible and story_adjudicated. A successful cron response means the worker ran, **not** that all evidence/Story work is complete.
+
+**Next implementation partition:** publisher-specific original-source acquisition adapters with verifiable archived bulletin identity and idempotent canonical handoff, reusing the existing Research Gap cycle. This runbook does not assert that licensed CME/ICE original settlement values or automated acquisition are already live.
