@@ -359,7 +359,7 @@ export default async function Page({ searchParams }: PageProps) {
       id: story.id,
       slug: story.slug,
       // A new canonical Story event can lead the card; a question cannot.
-      title: marketStoryHeadline([latestEvent?.headline, currentVersion?.title, story.title]),
+      title: marketStoryHeadline([latestEvent?.headline, currentVersion?.title, story.title]) || story.title,
       thesis: currentVersion?.thesis || story.thesis,
       status: currentVersion?.status || story.article_verdict || story.status,
       confidence: currentVersion?.confidence ?? story.confidence,
