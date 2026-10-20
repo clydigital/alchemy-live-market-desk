@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
+import { parseFxStreetNewsFeedPage } from "./fxstreet-feed.ts";
 
 type ResearchSourceKey =
   | "stockedup"
@@ -99,7 +100,7 @@ const FALLBACK_SOURCES: Record<SupportedFallbackSource, FallbackSpec> = {
   },
   fxstreet: {
     publisher: "FXStreet",
-    urls: ["https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
+    urls: ["https://www.fxstreet.com/news/feed", "https://www.fxstreet.com/rss", "https://www.fxstreet.com/rss/news"],
     sourceQuality: 72,
     itemType: "news",
   },
@@ -181,7 +182,44 @@ function categoryFromUrl(url: string) {
 }
 
 function parseFeed(raw: string, source: SupportedFallbackSource, now: Date): IntakeItemInput[] {
-  if (!/<(rss|feed)\b/i.test(raw)) return [];
+  // FXStreet's public feed is HTML rather than RSS. The canonical news slug
+  // contains its publisher-dated UTC minute; never use retrieval time to
+  // manufacture article freshness. This path only accepts FXStreet-owned URLs.
+  if (source === "fxstreet" && !/<(rss|feed)\\b/i.test(raw)) {
+    const start = now.getTime() - WINDOW_MS;
+    return parseFxStreetNewsFeedPage(raw)
+      .filter((entry) => {
+        const time = Date.parse(entry.publishedAt);
+        return Number.isFinite(time) && time >= start && time <= now.getTime() + 5 * 60_000;
+      })
+      .slice(0, MAX_ITEMS_PER_SOURCE)
+      .map((entry): IntakeItemInput => ({
+        itemKey: `feed:fxstreet:${createHash("sha256").update(entry.url).digest("hex").slice(0, 24)}`,
+        itemType: "news",
+        publisher: "FXStreet",
+        externalId: entry.url,
+        title: entry.title,
+        url: entry.url,
+        publishedAt: entry.publishedAt,
+        summary: entry.summary,
+        sourceQuality: FALLBACK_SOURCES.fxstreet.sourceQuality,
+        relevance: 68,
+        novelty: 72,
+        materiality: 64,
+        recommendedAction: "collect_evidence",
+        newsSignal: "Firecrawl recovered the official FXStreet HTML News Feed after direct acquisition failed.",
+        divergenceKind: "none",
+        evidence: [{
+          title: entry.title,
+          url: entry.url,
+          publisher: "FXStreet",
+          publishedAt: entry.publishedAt,
+          claim: entry.summary.slice(0, 1_000),
+        }],
+        reviewReason: "Original FXStreet article URL and dated slug were validated; index retrieval is a research lead, not independent verification of the article's market claims.",
+      }));
+  }
+  if (!/<(rss|feed)\\b/i.test(raw)) return [];
   const spec = FALLBACK_SOURCES[source];
   const blocks = [
     ...[...raw.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map((match) => ({ body: match[1], atom: false })),
