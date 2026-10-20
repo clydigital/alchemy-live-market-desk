@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { parseFxStreetNewsFeedPage } from "../lib/fxstreet-feed.ts";
+import { parseFxStreetNewsFeedPage, parseFxStreetNewsFeedMarkdown } from "../lib/fxstreet-feed.ts";
 
 test("FXStreet official HTML news feed preserves canonical article provenance and slug time", () => {
   const html = `
@@ -46,4 +46,26 @@ test("scheduled FXStreet acquisition advertises the official HTML feed surface a
     source,
     /fetch\(url,[\s\S]{0,300}Accept: "application\/rss\+xml[^"]*"[^\n]*\n[^\n]*"User-Agent": "Alchemy Live Desk scheduled research"/,
   );
+});
+
+test("Jina Markdown index admits only original dated FXStreet article links", () => {
+  const md = `Title: News Feed
+# News Feed
+[US dollar rises after official CPI](https://www.fxstreet.com/news/us-dollar-rises-after-official-cpi-202610201315)
+[Duplicate](https://www.fxstreet.com/news/us-dollar-rises-after-official-cpi-202610201315)
+[Other publisher](https://fake.example/news/us-dollar-rises-202610201315)
+[Undated FXStreet](https://www.fxstreet.com/news/us-dollar-rises)
+[Earlier gold news](/news/gold-holds-202610191200)
+`;
+  const rows = parseFxStreetNewsFeedMarkdown(md);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]?.publishedAt, "2026-10-20T13:15:00.000Z");
+  assert.equal(rows[0]?.url, "https://www.fxstreet.com/news/us-dollar-rises-after-official-cpi-202610201315");
+  assert.equal(rows[1]?.url, "https://www.fxstreet.com/news/gold-holds-202610191200");
+  assert.ok(rows.every(row => row.publishedAt && row.url.startsWith("https://www.fxstreet.com/news/")));
+});
+
+test("Jina Markdown without publisher news-feed identity cannot become intake", () => {
+  assert.deepEqual(parseFxStreetNewsFeedMarkdown(
+    "[Fake](https://www.fxstreet.com/news/us-dollar-rises-202610201315)"), []);
 });

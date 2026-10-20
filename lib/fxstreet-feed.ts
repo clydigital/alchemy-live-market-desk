@@ -84,3 +84,33 @@ export function parseFxStreetNewsFeedPage(html: string): FxStreetFeedEntry[] {
   return [...new Map(entries.map((entry) => [entry.url, entry])).values()]
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
+
+/**
+ * Jina Reader renders the public FXStreet news index to Markdown. Links remain
+ * first-party leads only; embedded YYYYMMDDHHMM in each FXStreet news slug
+ * supplies the exact minute. Do not infer a date from the day heading or from
+ * retrieval time, and never accept third-party links as FXStreet evidence.
+ */
+export function parseFxStreetNewsFeedMarkdown(markdown: string): FxStreetFeedEntry[] {
+  if (!/news feed/i.test(markdown)) return [];
+  const entries = [...markdown.matchAll(/\[([^\]\n]{5,500})\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)]
+    .flatMap((match): FxStreetFeedEntry[] => {
+      const title = cleanText(match[1] || "");
+      if (!title || title.length < 5) return [];
+      try {
+        const parsed = new URL(match[2], FXSTREET_ORIGIN);
+        if (parsed.protocol !== "https:" || parsed.username || parsed.password) return [];
+        if (parsed.hostname !== "www.fxstreet.com" && parsed.hostname !== "fxstreet.com") return [];
+        if (!parsed.pathname.startsWith("/news/")) return [];
+        parsed.hash = "";
+        const url = parsed.toString();
+        const publishedAt = timestampFromNewsUrl(url);
+        if (!publishedAt) return [];
+        return [{ title: title.slice(0, 500), url, publishedAt, summary: title.slice(0, 2_000) }];
+      } catch {
+        return [];
+      }
+    });
+  return [...new Map(entries.map((entry) => [entry.url, entry])).values()]
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
