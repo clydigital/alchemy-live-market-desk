@@ -15,7 +15,7 @@ The separately versioned pure `blue-desk-public-story-evidence/1` builder admits
 | `contractVersion` | fixed string |
 | `editionId`, `articleId` | exact UUID-bearing archived Story identity; no fallback to latest |
 | `publishedAt` | immutable edition publication timestamp |
-| `interpretation`, `storyAdmission` | `UNRESOLVED / NOT_ADJUDICATED` unless exact article has existing canonical approval |
+| `interpretation`, `storyAdmission` | always `UNRESOLVED / NOT_ADJUDICATED`; historical thesis acceptance requires an independently proven exact immutable join |
 | `evidenceAvailability`, `facts[]` | at most 12 unique canonical evidence UUIDs; original direct HTTPS URL; issuer claim, source name and availability <= edition timestamp |
 | `marketReaction`, `causalAttribution` | explicit `NOT_VERIFIED`, null observation/explanation; no Dossier causal extrapolation |
 | `confirmation` | `NOT_ADMITTED`, empty list; do not forward internal research tasks |
