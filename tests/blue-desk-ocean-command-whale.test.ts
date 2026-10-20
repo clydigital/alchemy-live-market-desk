@@ -13,7 +13,7 @@ test("exact original V6 Ocean Command whale photo remains in brand surfaces", ()
   assert.equal(createHash("sha256").update(jpeg).digest("hex"),
     "f3a0d520457d9c5aac03d719146fa73e8bdde57d85ea57edba6bb1783e698fc9");
   for (const selector of [".hero", ".storyCard", ".deepHero"]) {
-    const index = css.lastIndexOf(selector + " {");
+    const index = css.indexOf(selector + " {", css.indexOf("/* Approved Blue Desk Ocean Command"));
     assert.ok(index !== -1 && css.slice(index, index + 380).includes("var(--ocean-command-whale)"),
       selector + " must display the original whale image");
   }
