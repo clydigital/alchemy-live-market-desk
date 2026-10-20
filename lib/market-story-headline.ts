@@ -12,8 +12,10 @@ function declarative(value: string | null | undefined): string | null {
 
 export function marketStoryHeadline(candidates: ReadonlyArray<string | null | undefined>): string {
   // Deliberately do not recast questions as facts. Keep those in the Story body.
-  const title = candidates.map(declarative).find((value): value is string => Boolean(value))
-    || "Market development awaiting verified headline";
+  // A research workflow status is not a news headline. If all candidates are
+  // questions, defer to an exact, source-admitted reported observation in the
+  // editorial reader. If no fact exists, the public Story is withheld.
+  const title = candidates.map(declarative).find((value): value is string => Boolean(value)) || "";
   const chars = Array.from(title);
   if (chars.length <= 80) return title;
   const prefix = chars.slice(0, 79).join("").trimEnd();
