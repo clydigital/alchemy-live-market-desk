@@ -1,3 +1,4 @@
+import { consecutiveOilContractMonths } from "../oil-futures-contracts.ts";
 import type { DossierV2InputPacket, ObservedEvidence } from "./input-packet.ts";
 
 type Benchmark = "WTI" | "BRENT";
@@ -53,7 +54,7 @@ function settlement(item: ObservedEvidence, benchmark: Benchmark): Coverage | nu
     || !DATE.test(date) || date !== item.occurrence_time?.slice(0, 10)
     || typeof m.source_sha256 !== "string" || !SHA256.test(m.source_sha256)
     || !validOriginalSource(item, host)
-    || !frontContract || !nextContract || frontContract === nextContract
+    || !consecutiveOilContractMonths(benchmark, frontContract, nextContract)
     || front === null || next === null || front <= 0 || next <= 0
     || front > 1000 || next > 1000
     || /\/(?:current|latest)\//i.test(item.provenance.map(p => p.url ?? "").join(" "))) return null;

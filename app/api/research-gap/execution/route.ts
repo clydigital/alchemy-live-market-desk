@@ -19,6 +19,12 @@ import {
   verifiedCanonicalMoveSeries,
   type CanonicalMoveRow,
 } from "@/lib/research-gap-exact-move-proof";
+import {
+  requiresExactOilPairProof,
+  verifiedCanonicalOilPair,
+  type CanonicalOilProofInput,
+  type OilBenchmark,
+} from "@/lib/research-gap-exact-oil-proof";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -167,11 +173,66 @@ export async function POST(request: Request) {
             .map(row=>row.id);
         }
       }
+
+      let verifiedCanonicalOilEvidence: Array<{ evidenceId: string; benchmark: OilBenchmark }> = [];
+      const requiredOil = requiresExactOilPairProof(
+        gap.research_plan.researchQuestion,
+        gap.research_plan.requirements.map(r => r.description),
+      );
+      if (requiredOil.length) {
+        // Only the server can verify exact exchange records. The web executor
+        // emits gap-web hashes and cannot manufacture these canonical joins.
+        const candidates = (rawEvidence as ResearchGapEvidenceAssessment[])
+          .map(row => row.evidenceId)
+          .filter(id => /^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(id))
+          .slice(0, 8);
+        if (candidates.length) {
+          const admin = createSupabaseAdminClient();
+          const { data: ev, error: evError } = await admin
+            .from("intelligence_evidence")
+            .select("id,normalised_observation_id,source_id,measurement_unit,event_at,available_at,affected_assets,provenance_urls,structured_payload")
+            .in("id", candidates);
+          if (evError) throw new Error("Canonical oil pair Evidence lookup failed: " + evError.message);
+          const observations = [...new Set((ev ?? []).map(row => row.normalised_observation_id).filter(Boolean))];
+          const sourceIds = [...new Set((ev ?? []).map(row => row.source_id).filter(Boolean))];
+          if (observations.length && sourceIds.length) {
+            const [obs, sources] = await Promise.all([
+              admin.from("normalised_observations").select("id,raw_record_id,value").in("id", observations),
+              admin.from("intelligence_evidence_sources").select("id,source_tier,source_url").in("id", sourceIds),
+            ]);
+            if (obs.error || sources.error) throw new Error("Canonical oil pair provenance lookup failed.");
+            const rawIds = [...new Set((obs.data ?? []).map(row => row.raw_record_id).filter(Boolean))];
+            const raw = rawIds.length
+              ? await admin.from("raw_source_records")
+                  .select("id,source_url,content_type,content_hash").in("id", rawIds)
+              : { data: [], error: null };
+            if (raw.error) throw new Error("Original oil settlement source-record lookup failed.");
+            const byObservation = new Map((obs.data ?? []).map(row => [row.id, row]));
+            const bySource = new Map((sources.data ?? []).map(row => [row.id, row]));
+            const byRaw = new Map((raw.data ?? []).map(row => [row.id, row]));
+            for (const evidence of ev ?? []) {
+              const observation = byObservation.get(evidence.normalised_observation_id);
+              const source = bySource.get(evidence.source_id);
+              const original = observation?.raw_record_id ? byRaw.get(observation.raw_record_id) : null;
+              if (!observation || !source || !original) continue;
+              const proof = {
+                evidence, observation, raw: original, source,
+              } as CanonicalOilProofInput;
+              for (const benchmark of requiredOil) {
+                if (verifiedCanonicalOilPair(proof, benchmark, new Date())) {
+                  verifiedCanonicalOilEvidence.push({ evidenceId: evidence.id, benchmark });
+                }
+              }
+            }
+          }
+        }
+      }
       const verdict = evaluateResearchGapEvidence({
         plan: gap.research_plan,
         evidence: rawEvidence as ResearchGapEvidenceAssessment[],
         branchCount,
         verifiedCanonicalObservationIds,
+        verifiedCanonicalOilEvidence,
       });
 
       if (!verdict.shouldStop) {
