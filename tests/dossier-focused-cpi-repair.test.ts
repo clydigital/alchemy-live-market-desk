@@ -64,7 +64,8 @@ test("focused repair asks only for CPI prose, not another full Dossier", () => {
   assert.deepEqual(request.schema.required, ["headline", "answer"]);
   assert.deepEqual(Object.keys(request.schema.properties).sort(), ["answer", "headline"]);
   assert.deepEqual(request.boundedInput.metric_specific_cpi_audit, audit);
-  assert.equal(request.boundedInput.current_main_thread.evidence_references?.[0], "bls:oct14");
+  const main = request.boundedInput.current_main_thread as { evidence_references: string[] };
+  assert.equal(main.evidence_references[0], "bls:oct14");
   assert.ok(!("invalid_previous_output" in request.boundedInput));
 });
 
