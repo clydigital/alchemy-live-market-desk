@@ -7,6 +7,7 @@ import {
 } from "../lib/dossier-v2/canonical-snapshot.ts";
 import { assembleDossierV2InputPacket } from "../lib/dossier-v2/input-packet.ts";
 import { buildDossierRateRegime } from "../lib/dossier-v2/rate-regime.ts";
+import { handleVerifiedMacroSignalsWithDependencies } from "../lib/dossier-v2/verified-macro-signals.ts";
 
 const AS_OF = "2026-10-14T07:49:42.014Z";
 const UUID = "b31411f6-89e9-459e-8a4d-3bba535d4b7c";
@@ -107,4 +108,121 @@ test("a newer dated monitor beats an older official TIPS observation without cla
   assert.equal(rate.longEndDiagnostic.real10y.levelPct, 2.91);
   assert.equal(rate.longEndDiagnostic.real10y.evidenceRef, "market-monitor:us10y-real:2026-10-14");
   assert.equal(rate.longEndDiagnostic.real10y.change5dBp, null);
+});
+
+
+const OFFICIAL_DAILY_URL = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_real_yield_curve&field_tdr_date_value=2026&field_tdr_date_value_month=202610";
+const dailySignal = {
+  key: "ust-10y-real-daily-20261014",
+  kind: "official_daily_observation",
+  observationDate: "2026-10-14",
+  signalContext: "OFFICIAL_TIPS_REAL_CURVE",
+  sourceName: "US Treasury Daily Par Real Yield Curve (October 2026)",
+  sourceUrl: OFFICIAL_DAILY_URL,
+  sourceRole: "primary_data",
+  claim: "Official Treasury 10-year par real yield on 14 Oct 2026 was 2.84%, compared with 2.88% on 13 Oct (4bp lower). This date-only daily observation is not a CPI 08:30 ET reaction measurement.",
+  eventAt: "2026-10-14T00:00:00Z",
+  unit: "percent_real_yield",
+  observedValue: 2.84,
+  previousValue: 2.88,
+  value: { observationDate: "2026-10-14", frequency: "daily", timePrecision: "DATE_ONLY", tenor: "10Y", instrument: "UST TIPS par real yield", periodChangeBp: -4 },
+  affectedAssets: ["US10Y", "TIPS10Y"],
+  affectedTopics: ["us-rates", "real-yields"],
+};
+
+function makeDailyRequest(signals: unknown[]) {
+  return new Request("https://example.com/api/admin/dossier-v2/verified-macro-signals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ signals }),
+  });
+}
+const officialAuth = async () => ({
+  authorized: true as const,
+  actor: "test-operator",
+  githubRunId: "4242",
+  workflowSha: "abc",
+});
+
+test("date-only Treasury signal uses existing verified intake but never claims intraday CPI reaction", async () => {
+  const seen: Array<{ signal: Record<string, unknown>, availableAt: string }> = [];
+  const now = new Date("2026-10-21T00:45:00.000Z");
+  const r = await handleVerifiedMacroSignalsWithDependencies(makeDailyRequest([dailySignal]), {
+    authorize: officialAuth,
+    now: () => now,
+    persistSignal: async (signal, availableAt) => {
+      seen.push({ signal: signal as unknown as Record<string, unknown>, availableAt });
+      return { evidenceId: UUID, observationId: "18f0d4d8-ccac-40b0-8b10-a79884ea38a1" };
+    },
+  });
+  assert.equal(r.status, 200);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].signal.kind, "official_daily_observation");
+  assert.equal(seen[0].signal.observationDate, "2026-10-14");
+  assert.equal(seen[0].signal.eventAt, "2026-10-14T00:00:00.000Z");
+  assert.equal(seen[0].signal.expectedValue, null);
+  assert.equal(seen[0].availableAt, now.toISOString(),
+    "An old daily value cannot be given a backdated receipt or a price-reaction time.");
+});
+
+test("Treasury day-only route rejects timestamp, original-source, precision and consensus forgery", async () => {
+  const cases: Array<[string, Record<string, unknown>]> = [
+    ["missing observation date", { ...dailySignal, observationDate: null }],
+    ["invented intraday time", { ...dailySignal, eventAt: "2026-10-14T12:30:00Z" }],
+    ["mismatched day", { ...dailySignal, observationDate: "2026-10-13" }],
+    ["non-Treasury mirror", { ...dailySignal, sourceUrl: "https://example.org/curves/ust" }],
+    ["different Treasury document", { ...dailySignal, sourceUrl: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/Other" }],
+    ["wrong Treasury curve", { ...dailySignal, sourceUrl: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve" }],
+    ["untrusted source role", { ...dailySignal, sourceRole: "wire" }],
+    ["wrong measurement unit", { ...dailySignal, unit: "percent" }],
+    ["wrong tenor", { ...dailySignal, affectedAssets: ["US10Y"] }],
+    ["fake forecast", { ...dailySignal, expectedValue: 2.90 }],
+  ];
+  for (const [name, value] of cases) {
+    let writes = 0;
+    const r = await handleVerifiedMacroSignalsWithDependencies(makeDailyRequest([value]), {
+      authorize: officialAuth,
+      now: () => new Date("2026-10-21T00:45:00Z"),
+      persistSignal: async () => {
+        writes += 1;
+        return { evidenceId: "evidence-unexpected", observationId: "observation-unexpected" };
+      },
+    });
+    assert.equal(r.status, 400, name);
+    assert.equal(writes, 0, name);
+  }
+});
+
+test("dated TIPS evidence remains in the rate-context packet but cannot masquerade as a fresh rate level", () => {
+  const asOf = "2026-10-20T16:00:00Z";
+  const row: CanonicalEvidenceRow = {
+    ...officialRow(),
+    id: "84695d51-f2d3-4641-aa25-bfeb465d2c2a",
+    external_evidence_id: "verified-macro:ust-10y-real-daily-20261014",
+    claim_text: dailySignal.claim,
+    event_at: "2026-10-14T00:00:00Z",
+    published_at: "2026-10-20T15:37:00Z",
+    available_at: "2026-10-20T15:37:00Z",
+    measurement_unit: "percent_real_yield",
+    observed_value: 2.84,
+    structured_payload: {
+      evidenceNature: "verified_macro_data",
+      signalKind: "official_daily_observation",
+      signalContext: "OFFICIAL_TIPS_REAL_CURVE",
+      temporalPrecision: "DATE_ONLY",
+      observationDate: "2026-10-14",
+      intradayReactionAdmissible: false,
+    },
+    provenance_urls: [OFFICIAL_DAILY_URL],
+    source: { ...officialRow().source!, source_name: "US Treasury Daily Par Real Yield Curve (October 2026)", source_url: OFFICIAL_DAILY_URL },
+  };
+  const snapshot = buildCandidateSnapshotFromCanonicalEvidence([row], { asOf, lookbackHours: 168 });
+  const packet = assembleDossierV2InputPacket({ as_of: asOf }, snapshot.snapshot);
+  const rateItem = packet.rate_context?.evidence.find(item => item.evidence_id === row.id);
+  assert.ok(rateItem, "Neutral dated yields must reach canonical rate-context without becoming market_reaction");
+  assert.equal(rateItem?.metrics?.signal_kind, "official_daily_observation");
+  const regime = buildDossierRateRegime(packet, []);
+  assert.equal(regime.longEndDiagnostic.real10y.levelPct, null,
+    "A six-day-old observation cannot be current real-yield market level");
+  assert.equal(regime.longEndDiagnostic.real10y.evidenceRef, null);
 });
