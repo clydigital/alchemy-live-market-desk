@@ -204,3 +204,13 @@ When enabled, the existing Research Gap cycle preserves allowlisted dated origin
 Source results remain clearly separated: `RETRIEVED_UNARCHIVED` means the original was downloaded and hashed in memory but not durably saved; `ARCHIVED_UNVERIFIED` means bytes were durably stored and rehashed, **not** that the bulletin was FINAL or a valid F1/F2 pair. `ARCHIVE_FAILED` retains the unmet research requirement; do not resolve it from an HTTP 200. Approval flags do not grant an exchange data subscription or circumvent access restrictions.
 
 This archive stage does **not** create `intelligence_evidence` or a Story. Next partition is publisher-specific FINAL bulletin parsing, settlement-leg unit/date/contract validation, and canonical Evidence admission with the existing #886 server-side proof. The separate original-source retention and operator licence review must stay explicit.
+
+## Parsing archived original exchange CSV — candidate-only stage
+
+`lib/research-gap-oil-csv-settlements.ts` is a pure deterministic reader for **already retained** private publisher CSV bytes. It does not fetch, subscribe to, authorise or ingest exchange data. No exchange format is accepted by default. Never enable a column profile by guessing the current ICE/CME CSV structure from a third-party transcription.
+
+A reviewed `ReviewedOilCsvProfile` must name the exact original header columns for trading date, contract, numerical settlement, FINAL status, exchange and price units; record its review ID/time and applicable benchmark. A caller must supply the verified original hash, private bucket receipt/raw-source UUID, trade date, exchange-specific known F1/F2 symbols and the source bytes read back from private Storage.
+
+The parser validates UTF-8/CSV structure, original byte SHA-256 and content-addressed object path, date in original file URL and rows, identical trading day, FINAL exchange/unit token, exactly one observation per leg and consecutive contract months. It returns `PARSED_UNADMITTED` with the computed F1-minus-F2 arithmetic and `canonicalAdmitted=false`, not Evidence or a new Story. A single unverified schema match or readable PDF cannot change Research Gap outcome.
+
+**Next bridge:** inspect the genuinely archived publisher's format and confirm legal data use before defining any approved production profile; for CME PDFs a separate reviewed Section 61 FINAL parser is required. After that, attach candidate evidence to the existing authenticated intake and verify existing `raw_source_records` → `normalised_observations` → `intelligence_evidence` links, including actual receipt time, before #886 can close a settlement gap. No new background scheduler, data table or thesis writer.
