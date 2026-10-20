@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { requiresExactOilPairProof, type OilBenchmark } from "./research-gap-exact-oil-proof.ts";
 import {
   buildMoveExactProof,requiresExactMoveSeriesProof,
   type MoveExactProof,
@@ -486,6 +487,8 @@ export function evaluateResearchGapEvidence(input: {
   now?: Date;
   /** Populated ONLY after server-side match against canonical source Evidence. */
   verifiedCanonicalObservationIds?: string[];
+  /** Independently verified canonical exchange F1/F2 receipts; no web-only IDs. */
+  verifiedCanonicalOilEvidence?: Array<{ evidenceId: string; benchmark: OilBenchmark }>;
 }): ResearchGapVerdict {
   const errors = validateResearchGapEvidenceAssessments(input.plan, input.evidence);
   if (errors.length) throw new Error(errors.join(" "));
@@ -496,11 +499,18 @@ export function evaluateResearchGapEvidence(input: {
     plan.researchQuestion,plan.requirements.map(r=>r.description),
   );
   const serverVerified = new Set(input.verifiedCanonicalObservationIds??[]);
+  const oilRequired = requiresExactOilPairProof(
+    plan.researchQuestion, plan.requirements.map(r => r.description));
+  const oilEvidence = input.verifiedCanonicalOilEvidence ?? [];
+  const exactOilCovered = oilRequired.every(benchmark =>
+    oilEvidence.some(item => item.benchmark === benchmark));
+  const oilVerifiedIds = new Set(oilEvidence.map(item => item.evidenceId));
   const eligible = input.evidence.filter((item) =>
     item.traceable && item.quality >= plan.stopPolicy.minimumQuality
     // A source describing ICE licensing/distribution is not an ICE MOVE
     // numeric observation, regardless of web quality, source class or claim.
     && (!exactMoveRequired || (serverVerified.has(item.evidenceId) && item.directness === "DIRECT"))
+    && (!oilRequired.length || (exactOilCovered && oilVerifiedIds.has(item.evidenceId) && item.directness === "DIRECT"))
   );
   const covered = new Set<string>();
   for (const item of eligible) {
