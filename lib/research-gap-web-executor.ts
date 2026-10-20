@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { requiresExactOilPairProof } from "./research-gap-exact-oil-proof.ts";
+import { inspectOilPublisherAccess, type OilSourceAccessResult } from "./research-gap-oil-source-access.ts";
 
 import {
   executeProviderWithRetry,
@@ -56,6 +58,8 @@ export type ResearchGapWebExecutionResult = {
   sourceCount: number;
   branchQueries: string[];
   model: string;
+  /** Publisher access diagnostic only; never a verified settlement. */
+  originalSourceAccess?: OilSourceAccessResult[];
 };
 
 function clean(value: unknown) {
@@ -419,6 +423,13 @@ export async function executeResearchGapWebPlan(
 
   const evidence = await assessResearch({ apiKey, model, plan, branches });
   const sourceCount = new Set(branches.flatMap((branch) => branch.sources.map((source) => source.url))).size;
+  const requiredOil = requiresExactOilPairProof(plan.researchQuestion, plan.requirements.map(r => r.description));
+  const originalSourceAccess = requiredOil.length
+    ? await inspectOilPublisherAccess({
+        required: requiredOil,
+        citedUrls: evidence.map(row => row.sourceUrl),
+      })
+    : [];
 
   return {
     evidence,
@@ -426,5 +437,6 @@ export async function executeResearchGapWebPlan(
     sourceCount,
     branchQueries,
     model,
+    ...(originalSourceAccess.length ? { originalSourceAccess } : {}),
   };
 }
