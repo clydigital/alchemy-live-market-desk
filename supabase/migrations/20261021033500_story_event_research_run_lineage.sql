@@ -1,11 +1,7 @@
--- Preserve the existing immutable canonical Story-thesis version writer.
--- Scope: attach the EXACT originating intelligence engine's research_run_id
--- to NEW Story events when canonical Story maintenance supplies engineRunId.
--- No backfill: prior story_events are append-only, and their historical lineage
--- must be resolved read-only through event.metadata.engineRunId.
--- No new tables, new reasoning engines, new Story writer or trigger paths.
--- Source: exact live capture_story_thesis_version() definition, with one
--- declared UUID and one bounded lookup before the existing event insertion.
+-- Existing Story-thesis writer preserved verbatim except for engine-run lineage.
+-- No new table/trigger/version path, no historical backfill, no Motion evidence.
+-- Append-only history remains unchanged. Exact engineRunId must exist in
+-- intelligence_engine_runs to populate research_run_id on new Story events.
 
 CREATE OR REPLACE FUNCTION public.capture_story_thesis_version()
  RETURNS trigger
@@ -153,41 +149,11 @@ begin
     raise exception 'Story thesis event headline is required';
   end if;
 
-  -- Event-to-research lineage uses the *same* canonical engine-run identity
-  -- already recorded by existing Story maintenance. Do not infer from time.
-  -- Historical immutable events are intentionally left unchanged.
+  -- Attach the exact canonical engine's originating ResearchRun to this
+  -- NEW immutable Story event. Existing historical events remain untouched.
   if maintenance_context is not null
-    and coalesce(maintenance_context ->> 'engineRunId','')
-      ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-
-  insert into public.story_thesis_versions (
-    story_id,event_id,version_number,title,thesis,status,confidence,market_question,
-    dominant_narrative,best_explanation,strongest_support,strongest_contradiction,
-    priced_assessment,confirmation_trigger,invalidation_trigger,next_catalyst,
-    article_angle,provisional_title,article_verdict,assets,snapshot,change_reason,effective_at
-  ) values (
-    new.id,revision_event_id,next_version,new.title,new.thesis,new.status,new.confidence,new.market_question,
-    new.dominant_narrative,new.best_explanation,new.strongest_support,new.strongest_contradiction,
-    new.priced_assessment,new.confirmation_trigger,new.invalidation_trigger,new.next_catalyst,
-    new.article_angle,new.provisional_title,new.article_verdict,new.assets,version_snapshot,change_reason_value,event_at_value
-  ) returning id into new_version_id;
-
-  if reasoning_context is not null then
-    perform set_config('alchemy.story_reasoning_context', '', true);
-  end if;
-  if maintenance_context is not null then
-    perform set_config('alchemy.story_maintenance_context', '', true);
-  end if;
-
-  update public.stories story
-  set current_thesis_version_id = new_version_id
-  where story.id = new.id
-    and story.current_thesis_version_id is distinct from new_version_id;
-
-  return new;
-end;
-$function$
- then
+    and coalesce(maintenance_context ->> 'engineRunId', '')
+      ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     select run.research_run_id into origin_research_run_id
     from public.intelligence_engine_runs run
     where run.id = (maintenance_context ->> 'engineRunId')::uuid;
