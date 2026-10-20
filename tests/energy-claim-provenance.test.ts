@@ -76,8 +76,12 @@ test("only exact-date exchange FINAL F1/F2, immutable source, and first-tier pro
   const [wti, brent] = [marketRow("WTI"), marketRow("BRENT")];
   const positive = packet([wti, brent, arrival()]);
   assert.equal(buildEnergyClaimCoverage(positive).unresolvedRequirements.length, 0);
-  assert.deepEqual(energyClaimProvenanceErrors("WTI is in backwardation.", positive), []);
-  assert.deepEqual(energyClaimProvenanceErrors("Brent has a positive front-month spread.", positive), []);
+  assert.deepEqual(energyClaimProvenanceErrors("On 14 October 2026 WTI was in backwardation.", positive), []);
+  assert.deepEqual(energyClaimProvenanceErrors("Brent had a positive front-month spread on 2026-10-14.", positive), []);
+  assert.equal(energyClaimProvenanceErrors("WTI is in backwardation.", positive).length, 1,
+    "Old archived contract pair cannot prove the present-day curve");
+  assert.equal(energyClaimProvenanceErrors("Brent had a positive front-month spread on 2026-10-15.", positive).length, 1,
+    "Original settles for October 14 cannot justify an October 15 claim");
   assert.deepEqual(energyClaimProvenanceErrors("Russian diesel arrived in the U.S.", positive), []);
 
   const changes = [
