@@ -10,7 +10,9 @@ const PROVIDER_KEY = "verified_macro_signal";
 
 export type VerifiedMacroSignal = {
   key: string;
-  kind: "economic_release" | "rate_expectation" | "market_reaction";
+  kind: "economic_release" | "rate_expectation" | "market_reaction" | "official_daily_observation";
+  /** Original series reports a trading date without an intraday clock timestamp. */
+  observationDate?: string | null;
   signalContext?: string | null;
   sourceName: string;
   sourceUrl: string;
@@ -89,6 +91,7 @@ function validateSignal(raw: unknown): VerifiedMacroSignal {
   const item = raw as Record<string, unknown>;
   const key = cleanText(item.key, 120);
   const kind = item.kind;
+  const observationDate = cleanText(item.observationDate, 10) || null;
   const sourceName = cleanText(item.sourceName, 160);
   const sourceUrl = cleanText(item.sourceUrl, 600);
   const sourceRole = item.sourceRole;
@@ -98,7 +101,7 @@ function validateSignal(raw: unknown): VerifiedMacroSignal {
   const signalContext = cleanText(item.signalContext, 100) || null;
 
   if (!/^[a-z0-9][a-z0-9:_-]{2,119}$/.test(key)) throw new Error("Signal key must be a stable lowercase identifier.");
-  if (!["economic_release", "rate_expectation", "market_reaction"].includes(String(kind))) throw new Error(`Unsupported signal kind for ${key}.`);
+  if (!["economic_release", "rate_expectation", "market_reaction", "official_daily_observation"].includes(String(kind))) throw new Error(`Unsupported signal kind for ${key}.`);
   if (!["primary_data", "wire", "market_report"].includes(String(sourceRole))) throw new Error(`Unsupported sourceRole for ${key}.`);
   if (!sourceName || !httpsUrl(sourceUrl) || !claim || !validIso(eventAt) || (availableAt && !validIso(availableAt))) {
     throw new Error(`Signal ${key} is missing valid source, claim, or timestamps.`);
@@ -114,12 +117,36 @@ function validateSignal(raw: unknown): VerifiedMacroSignal {
     throw new Error(`Signal ${key} has invalid numeric values.`);
   }
 
+  // A DATE_ONLY official Treasury value is not the price at midnight UTC,
+  // nor a timestamped market reaction to the CPI release. Require explicit
+  // frequency provenance and a stable day anchor for the existing API contract.
+  if (kind === "official_daily_observation") {
+    const parsed = new Date(eventAt);
+    const validDay = /^\d{4}-\d{2}-\d{2}$/.test(observationDate ?? "")
+      && !Number.isNaN(parsed.getTime())
+      && parsed.toISOString() === observationDate + "T00:00:00.000Z";
+    const original = new URL(sourceUrl);
+    if (!validDay || original.hostname.toLowerCase() !== "home.treasury.gov"
+      || original.pathname !== "/resource-center/data-chart-center/interest-rates/TextView"
+      || original.searchParams.get("type") !== "daily_treasury_real_yield_curve"
+      || sourceRole !== "primary_data"
+      || signalContext !== "OFFICIAL_TIPS_REAL_CURVE"
+      || item.unit !== "percent_real_yield"
+      || !boundedStringArray(item.affectedAssets).includes("TIPS10Y")
+      || observedValue === null || typeof observedValue !== "number"
+      || observedValue < -10 || observedValue > 20
+      || expectedValue !== null) {
+      throw new Error(`Signal ${key}: official daily Treasury observation requires exact day, publisher, TIPS unit, observed value, and no consensus/price-reaction classification.`);
+    }
+  }
+
   const confidenceRaw = item.confidence === undefined ? 90 : Number(item.confidence);
   if (!Number.isFinite(confidenceRaw) || confidenceRaw < 0 || confidenceRaw > 100) throw new Error(`Signal ${key} confidence must be 0-100.`);
 
   return {
     key,
     kind: kind as VerifiedMacroSignal["kind"],
+    observationDate,
     signalContext,
     sourceName,
     sourceUrl,
@@ -232,6 +259,11 @@ export async function persistVerifiedMacroSignal(signal: VerifiedMacroSignal, av
         evidenceNature: "verified_macro_data",
         signalKind: signal.kind,
         signalContext: signal.signalContext,
+        ...(signal.kind === "official_daily_observation" ? {
+          temporalPrecision: "DATE_ONLY",
+          observationDate: signal.observationDate,
+          intradayReactionAdmissible: false,
+        } : {}),
         title: signal.claim.slice(0, 180),
       },
       raw_payload: {},
