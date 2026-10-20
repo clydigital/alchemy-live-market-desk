@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { consecutiveOilContractMonths } from "./oil-futures-contracts.ts";
 import { eligibleDatedOilOriginal } from "./research-gap-oil-source-access.ts";
-import type { ArchivedOriginalReceipt } from "./research-gap-oil-private-archive.ts";
+import { OIL_ORIGINAL_BUCKET, type ArchivedOriginalReceipt } from "./research-gap-oil-private-archive.ts";
 import type { OilBenchmark } from "./research-gap-exact-oil-proof.ts";
 
 /**
@@ -155,9 +155,13 @@ export function parseArchivedOilSettlementCsv(
   if (!eligibleUrl || eligibleUrl !== sourceUrl || !eligibleUrl.endsWith(".csv")) {
     throw new Error("Only original dated exchange CSV records can be parsed.");
   }
+  const provider = benchmark === "WTI" ? "CME" : "ICE";
+  const expectedArchivePath = provider + "/" + input.tradeDate + "/" + original.originalSha256 + ".csv";
   if (!original.originalArchived || original.canonicalAdmitted
+    || original.bucket !== OIL_ORIGINAL_BUCKET
     || !UUID.test(original.rawRecordId)
     || !HASH.test(original.originalSha256)
+    || original.objectPath !== expectedArchivePath
     || sourceBytes.byteLength === 0 || sourceBytes.byteLength > MAX_CSV_BYTES
     || createHash("sha256").update(sourceBytes).digest("hex") !== original.originalSha256) {
     throw new Error("Cannot parse a non-archived or hash-mismatched original.");
