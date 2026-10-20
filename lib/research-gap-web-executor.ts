@@ -113,16 +113,30 @@ export function researchGapSearchBranches(plan: ResearchGapPlan) {
   const preferredClasses = [...new Set(
     plan.requirements.flatMap((item) => item.preferredSourceClasses),
   )].join(", ");
+  const exactOil = requiresExactOilPairProof(plan.researchQuestion, plan.requirements.map(r => r.description));
+  const settlementDiscovery = exactOil.length ? [
+    "REQUIRED ORIGINAL DOCUMENT DISCOVERY: find the exact trade-date FINAL settlement",
+    "file and separate F1/F2 contract symbols, not a continuous front-month price",
+    "or a page explaining settlement methodology.",
+    ...(exactOil.includes("WTI") ? ["For WTI search dated NYMEX CME Daily Bulletin Section 61 Energy Futures FINAL, CL contract months."] : []),
+    ...(exactOil.includes("BRENT") ? ["For Brent search dated ICE Brent Futures original exchange End-of-Day settlement records, not CME BZ."] : []),
+    "Check legally accessible historical archive; current/rotating PDFs or paywalled",
+    "reports are ACCESS BLOCKERS, not evidence. Do not invent an archival URL.",
+    "Capture source trade date, publication date, exchange, contract months, unit",
+    "and both numeric settles only when the actual original is readable.",
+  ].join(" ") : "";
   const candidates = [
     [
       plan.researchQuestion,
       "Find the strongest direct primary/authoritative evidence.",
+      settlementDiscovery,
       requirementText,
       `Preferred source classes: ${preferredClasses}.`,
     ].join("\n"),
     [
       plan.researchQuestion,
       "Find independent market-data or high-quality reporting corroboration for the required evidence.",
+      settlementDiscovery,
       requirementText,
       "Prefer evidence independent from the first-party source and quantify current conditions where possible.",
     ].join("\n"),
@@ -337,6 +351,7 @@ async function assessResearch(input: {
       "Return evidence, not a narrative conclusion.",
       "Every row must map to at least one required requirement ID.",
       "Use DIRECT only when the cited source directly establishes the claim.",
+      "For futures calendar-spread data, DIRECT means actual dated original final F1/F2 contract settles; an exchange explainer, a rotating/current file or an inferred quote is INDIRECT.",
       "Quality is source/evidence quality, not confidence in the preferred thesis.",
       "Include contradictory or neutral evidence when present.",
       "Never invent a URL, requirement ID, date, publisher, or claim.",

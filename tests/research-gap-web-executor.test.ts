@@ -81,3 +81,27 @@ test("assessment schema cannot cite a URL outside the web-search source set", ()
   );
   assert.deepEqual(evidence.items.properties.traceable.enum, [true]);
 });
+
+
+test("oil original-file search happens automatically in the existing bounded three research branches", () => {
+  const oil = gap();
+  oil.question = "Retrieve original WTI and ICE Brent F1/F2 contract settlements on 14 October 2026";
+  oil.evidence_needed = [
+    "Original dated FINAL CME WTI and ICE Brent futures curve settles with exact contract month",
+  ];
+  const plan = buildResearchGapPlan(oil);
+  const queries = researchGapSearchBranches(plan);
+  assert.equal(queries.length, plan.budget.maxBranches);
+  assert.match(queries[0]!, /original document discovery/i);
+  assert.match(queries[0]!, /NYMEX CME Daily Bulletin Section 61/i);
+  assert.match(queries[0]!, /ICE Brent Futures original exchange/i);
+  assert.match(queries[0]!, /not CME BZ/i);
+  assert.match(queries[0]!, /current\/rotating PDFs.*ACCESS BLOCKERS/i);
+  assert.match(queries[0]!, /Do not invent an archival URL/i);
+  assert.match(queries[1]!, /separate F1\/F2 contract symbols/i);
+
+  const rates = buildResearchGapPlan(gap());
+  const standard = researchGapSearchBranches(rates);
+  assert.equal(standard.some(q => q.includes("NYMEX CME Daily Bulletin")), false,
+    "Rates research is not burdened with irrelevant oil publisher requests");
+});
