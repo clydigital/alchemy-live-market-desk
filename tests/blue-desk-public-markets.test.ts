@@ -79,7 +79,8 @@ test("source-dated public Markets is server-rendered, bounded, and preserves old
   assert.match(page, /row\.asOf/);
   assert.match(page, /row\.frequency/);
   assert.doesNotMatch(page, /createSupabaseAdminClient|service_role|updateStory|researchTriggers|MarketMonitor monitor=/);
-  assert.ok(presenter.includes('export { default } from "../../markets/page"'));
+  assert.match(presenter, /<MarketsMonitor monitor=\{monitor\} flows=\{flows\} \/>/);
+  assert.doesNotMatch(presenter, /LiveDeskShell/);
   assert.match(host, /pathname === "\/markets"/);
   assert.match(host, /pathname === "\/blue-desk\/markets"/);
 });
