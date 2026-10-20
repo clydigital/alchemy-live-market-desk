@@ -48,3 +48,7 @@ An edition with no material changes may correctly have zero new manifest entries
 - Separately track legitimate zero-new-evidence editions versus broken provider output.
 - Check real story detail HTTP result and pinned identity, not merely whether a button exists.
 - Retain legacy Live Desk API contracts and historical publication records throughout migration.
+
+## Implementation skill routing and browser quality gates — 20 October addendum
+
+Use [Bluebelly V6 — editorial, visualisation and browser QA workflow](./BLUE_DESK_VISUAL_EDITORIAL_QA_WORKFLOW_20261020.md) when implementing V6: **Build Web Apps** owns the Next.js UI, **Build Web Data Visualization** owns honest edition-pinned analytical chart components, and **Webcmd** independently verifies real browser behaviour and public/private boundary. Tiniest Cloud remains prototype-only and Cerebrium remains deferred; neither is a production source, publisher or new reasoning engine. The new workflow proposes **no automatic writing schedule** before P−1 GO, exact claim-level evidence read contracts and verified publisher authentication. This routing does not override the earlier release stop.
