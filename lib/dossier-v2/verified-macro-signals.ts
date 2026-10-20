@@ -127,7 +127,8 @@ function validateSignal(raw: unknown): VerifiedMacroSignal {
       && parsed.toISOString() === observationDate + "T00:00:00.000Z";
     const original = new URL(sourceUrl);
     if (!validDay || original.hostname.toLowerCase() !== "home.treasury.gov"
-      || !original.pathname.includes("/interest-rates/")
+      || original.pathname !== "/resource-center/data-chart-center/interest-rates/TextView"
+      || original.searchParams.get("type") !== "daily_treasury_real_yield_curve"
       || sourceRole !== "primary_data"
       || signalContext !== "OFFICIAL_TIPS_REAL_CURVE"
       || item.unit !== "percent_real_yield"
