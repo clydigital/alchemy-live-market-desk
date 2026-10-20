@@ -22,9 +22,10 @@ function time(value: string | null) {
   }).format(new Date(value));
 }
 
-function statusLabel(status: "complete" | "running" | "blocked" | "failed" | "missed" | "disabled") {
+function statusLabel(status: "complete" | "degraded" | "running" | "blocked" | "failed" | "missed" | "disabled") {
   if (status === "disabled") return "Disabled";
-  if (status === "complete") return "Completed";
+  if (status === "complete") return "Completed · current sources";
+  if (status === "degraded") return "Completed · source freshness not verified";
   if (status === "running") return "Running";
   if (status === "blocked") return "Blocked";
   if (status === "failed") return "Failed";
