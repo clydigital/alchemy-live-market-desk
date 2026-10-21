@@ -19,6 +19,7 @@ import {
   type MarketMotionVerificationState,
 } from "./market-motion.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import { diagnoseCurrentRunOriginalNewsCoverage } from "./market-motion-original-news-coverage.ts";
 import type { TranscriptMotionLead } from "./transcript-research-review-contract.ts";
 
 export const MARKET_MOTION_RUN_LIMIT = 18;
@@ -1529,6 +1530,10 @@ export async function persistMarketMotionFromResearchRun(input: {
     [...intakeCandidates, ...creatorCandidates],
     { researchRunId: input.researchRunId },
   );
+  // Distinguish "we scanned plenty of news" from "a current original
+  // document passed admission". Never publish reporting as VERIFIED merely to
+  // fill a quiet News Brief feed. Existing scheduled run warnings surface this.
+  warnings.push(...diagnoseCurrentRunOriginalNewsCoverage(input.items, candidates, now));
   let replayCorroborationItems: ScoredIntakeItem[] = [];
   try {
     replayCorroborationItems = await loadRecentCorroborationIntake({ db, now });
