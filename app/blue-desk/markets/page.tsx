@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
   type PublicMarketObservation,
@@ -18,6 +19,11 @@ export const metadata = {
 
 type Props = {
   searchParams: Promise<{ group?: string | string[] }>;
+};
+
+const GROUP_ICONS: Record<string, MarketIconName> = {
+  all: "global", ai: "chip", rates: "rates", energy: "oil",
+  fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
 
 function displayLevel(row: PublicMarketObservation) {
@@ -55,7 +61,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <header className={styles.calendarHero}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
-            <h1>Markets</h1>
+            <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
               Source-dated levels and reported session changes. These are market
               observations, not a causal explanation, trading signal or new Dossier verdict.
@@ -78,6 +84,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               className={group === item.id ? styles.calendarTabActive : styles.calendarTab}
               aria-current={group === item.id ? "page" : undefined}
             >
+              <MarketIcon name={GROUP_ICONS[item.id] || "market"} size={17} />
               {item.label}
             </Link>
           ))}
@@ -86,7 +93,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <section aria-labelledby="market-group-heading" className={styles.section}>
           <div className={styles.sectionHead}>
             <div>
-              <h2 id="market-group-heading">{selected.label}</h2>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
               <p>{observations.length} source record{observations.length === 1 ? "" : "s"} displayed</p>
             </div>
           </div>

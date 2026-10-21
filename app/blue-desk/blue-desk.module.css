@@ -364,3 +364,28 @@
   .hero { background-position: center, 55% center; }
   .deepHero { background-position: center, 63% center; }
 }
+
+
+/* Bluebelly market iconography: visual navigation cues, never implicit trading signals. */
+.navItem,.navActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.navItem > svg,.navActive > svg { flex-shrink: 0; color: #65d0ff; }
+.navActive > svg { color: #69e2bf; }
+.hero .kicker > svg { margin-right: 5px; color: #69e2bf; }
+.rates h2 > svg, .sectionHead h2 > svg,
+.calendarHero h1 > svg { margin-right: 9px; color: #65d0ff; vertical-align: -.13em; }
+.calendarTab,.calendarTabActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.calendarTab > svg,.calendarTabActive > svg { flex-shrink: 0; }
+.publicMarketGroups a { display: inline-flex; align-items: center; gap: 8px; }
+.publicMarketGroups a > svg { color: #69e2bf; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .navItem,.navActive,.calendarTab,.calendarTabActive { transition: none; }
+}

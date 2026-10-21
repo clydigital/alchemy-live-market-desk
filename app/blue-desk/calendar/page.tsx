@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents, type ForwardEarningsResult } from "@/lib/forward-earnings-sources";
@@ -144,7 +145,7 @@ export default async function BlueDeskCalendarPage({
 
         <section className={styles.calendarHero}>
           <div>
-            <h1>Market calendar</h1>
+            <h1><MarketIcon name="calendar" size={33} /> Market calendar</h1>
           </div>
           <div className={styles.calendarClock}>
             <span className={styles.kicker}>AS OF</span>
@@ -159,6 +160,7 @@ export default async function BlueDeskCalendarPage({
               aria-current={windowName === view.id ? "page" : undefined}
               className={windowName === view.id ? styles.calendarTabActive : styles.calendarTab}
             >
+              <MarketIcon name={view.id === "released" ? "check" : view.id === "24h" ? "watch" : "calendar"} size={16} />
               {view.label}
             </Link>
           ))}
