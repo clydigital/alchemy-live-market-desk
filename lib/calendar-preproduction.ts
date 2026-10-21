@@ -124,6 +124,31 @@ export function preReleaseConsensusCandidates(input: {
   return results;
 }
 
+const CPI_KEYS = [
+  { key:"cpi_headline_mom",label:"Headline CPI m/m",transformation:"mom" },
+  { key:"cpi_headline_yoy",label:"Headline CPI y/y",transformation:"yoy" },
+  { key:"cpi_core_mom",label:"Core CPI m/m",transformation:"mom" },
+  { key:"cpi_core_yoy",label:"Core CPI y/y",transformation:"yoy" },
+] as const;
+
+/** Insert only empty observation schemas, never forecast values or rewritten
+ * actuals. Existing CPI post-release ingestion fills these same stable keys. */
+export function futureCpiMetricSeedRows(
+  releases: readonly Release[], metrics: readonly Metric[], at: string,
+) {
+  const already = new Set(metrics.map(x=>x.release_id+":"+x.metric_key));
+  return releases.filter(release =>
+    family(release.release_name)==="CPI"
+    && release.release_date>at && !release.actual
+    && Boolean(monthKey(release.reference_period))
+  ).flatMap(release=>CPI_KEYS.filter(item=>!already.has(release.id+":"+item.key)).map(item=>({
+    release_id:release.id, metric_key:item.key, label:item.label,
+    transformation:item.transformation, unit:"%",
+    source_url:"https://www.bls.gov/schedule/news_release/cpi.htm",
+    metadata:{sourceRole:"future_measurement_schema_only",forecastStatus:"NOT_CAPTURED"},
+  })));
+}
+
 export async function runCalendarPreproductionCheck({
   now = new Date(),
   calendarEvents,
@@ -153,6 +178,17 @@ export async function runCalendarPreproductionCheck({
   if (releaseError) throw new Error("Calendar pre-production release lookup failed: "+releaseError.message);
   const listed = releases ?? [];
   const ids = listed.map(r => r.id);
+  const { data: existingMetrics, error: existingMetricError } = ids.length
+    ? await client.from("macro_release_metrics").select("release_id,metric_key,consensus,consensus_captured_at").in("release_id",ids).limit(250)
+    : {data:[],error:null};
+  if(existingMetricError) throw new Error("Calendar pre-production metric preflight failed: "+existingMetricError.message);
+  const seed = futureCpiMetricSeedRows(listed, existingMetrics ?? [], checkedAt);
+  if(seed.length) {
+    const {error:seedError}=await client.from("macro_release_metrics").upsert(seed,{
+      onConflict:"release_id,metric_key",ignoreDuplicates:true,
+    });
+    if(seedError) throw new Error("Calendar pre-production metric seed failed: "+seedError.message);
+  }
   const { data: metrics, error: metricError } = ids.length
     ? await client.from("macro_release_metrics").select("release_id,metric_key,consensus,consensus_captured_at").in("release_id",ids).limit(250)
     : {data:[],error:null};
