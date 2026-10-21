@@ -96,8 +96,10 @@ export async function getForwardEarningsEvents({
   // Old Parse ingestion remains testable only through explicit call parameters; it
   // is no longer an automatically selected production provider.
   apiKey, licensed = false,
-  finnhubKey = process.env.FINNHUB_API_KEY,
-  finnhubCommercialApproved = process.env.FINNHUB_COMMERCIAL_USE_APPROVED === "true",
+  // Production is issuer-first; Finnhub is never auto-called, even if a key
+  // exists in Vercel. Explicit legacy opt-in remains for integration tests.
+  finnhubKey,
+  finnhubCommercialApproved = false,
 }: {
   now?: Date; fetchImpl?: typeof fetch;
   apiKey?: string; licensed?: boolean;
@@ -129,7 +131,7 @@ export async function getForwardEarningsEvents({
   }
   if (!apiKey || !licensed) return {
     events: official, coverage: official.length ? "official_only" : "unavailable",
-    warning: "Finnhub earnings feed inactive (FINNHUB_API_KEY and business-use approval required); issuer-confirmed dates only.",
+    warning: "Automatic calendar pre-production checks use official macro release schedules; earnings dates remain issuer-confirmed until a licensed alternative passes validation.",
   };
   try {
     const response = await fetchImpl(EARNINGS_PARSE_URL, {
