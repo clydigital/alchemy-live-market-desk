@@ -96,6 +96,7 @@ async function boundedHtml(response:Response):Promise<string|null> {
 export async function captureVerifiedIssuerPassages(input:{
   issuer:Issuer;sourceUrl:string;metricValue:number;capturedAt:string;
   fetchImpl?:typeof fetch;
+  now?:()=>Date;
 }):Promise<IssuerSourcePassage[]> {
   const url=admissibleIssuerDocumentUrl(input.issuer,input.sourceUrl);
   if(!url)return[];
@@ -107,6 +108,11 @@ export async function captureVerifiedIssuerPassages(input:{
     if(!response.ok||response.url!==url)return[];
     const html=await boundedHtml(response);
     if(!html)return[];
-    return extractIssuerPassagesFromHtml({...input,html,sourceUrl:url});
+    // Stamp receipt AFTER successful network acquisition. The issuer
+    // release date alone is not an as-of receipt for a newly fetched passage.
+    return extractIssuerPassagesFromHtml({
+      ...input,html,sourceUrl:url,
+      capturedAt:(input.now?.()??new Date()).toISOString(),
+    });
   }catch{return[];}
 }
