@@ -59,6 +59,9 @@ test("owner feed never becomes part of public Bluebelly routes or public navigat
   assert.match(middleware, /if \(accessScope === "public"\)/);
   assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
   assert.doesNotMatch(page, /export async function (?:POST|PUT|PATCH|DELETE)/);
+  assert.doesNotMatch(page, /\.\.\.publication\.body|\.\.\.published/);
+  assert.match(page, /canonical: \{ storyStates: Array\.isArray\(canonical\.storyStates\)/);
+  assert.match(page, /research: \{ divergences: Array\.isArray\(research\.divergences\)/);
 });
 
 test("transplanted Hybrid feed does not introduce another writer, secret, scheduler or fabricated observations", () => {
