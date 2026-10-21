@@ -845,7 +845,7 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
     return releases.map((release) => {
       const releaseMetrics = metricsByRelease.get(release.id) ?? [];
       const metric = releaseMetrics[0];
-      const isCpi = /consumer price index|\\bcpi\\b/i.test(release.release_name);
+      const isCpi = /consumer price index|\bcpi\b/i.test(release.release_name);
       const verifiedCpiConsensus = isCpi ? formatVerifiedCpiConsensus(releaseMetrics,release.release_date) : null;
       const releaseCapturedAt = Date.parse(release.consensus_captured_at ?? "");
       const releaseAt = Date.parse(release.release_date);
