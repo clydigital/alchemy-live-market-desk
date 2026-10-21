@@ -142,13 +142,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           )}
 
           <p className={styles.publicMarketNote}>
-            Session changes require daily-frequency observations. Government-rate
-            changes are in basis points; other reported price changes are percentages.
-            Monthly fallback yields show their last level only. Data may lag live prices.
-          </p>
-          <p className={styles.publicMarketNote}>
-            The source date is the observation vintage, not the time this page loaded.
-            Other public Stories and the calendar retain their own independent publication dates.
+            Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.
           </p>
         </section>
 
