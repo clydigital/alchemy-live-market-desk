@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import StoryVisual from "@/components/blue-desk/StoryVisual";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
@@ -16,6 +17,7 @@ import {
   type MarketBriefParagraphV1,
 } from "@/lib/market-brief-articles";
 import styles from "../../blue-desk.module.css";
+import reader from "./editorial-read.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Story | Blue Desk" };
@@ -119,9 +121,14 @@ export default async function BlueDeskStoryPage({
           <p className={styles.heroDeck}>{article.deck}</p>
           <div className={styles.deepMeta}>
             <DualTimestamp value={article.generatedAt} />
-            <span>Edition {article.editionId}</span>
+            <span>Immutable historical edition</span>
           </div>
         </header>
+        <StoryVisual
+          storyId={normalizedArticleId.slice(articlePrefix.length)}
+          editionId={article.editionId}
+          category={article.category}
+        />
         <nav className={styles.storyJumpNav} aria-label="Navigate this Story">
           {navigation.map(section => (
             <a key={section.id} href={`#${section.id}`} className={styles.storyJumpLink}>
@@ -131,31 +138,41 @@ export default async function BlueDeskStoryPage({
         </nav>
         <div className={styles.deepLayout}>
           <article className={styles.deepArticle}>
-            <section id="story-overview" className={styles.storyAtGlance} aria-labelledby="story-overview-title">
-              <p className={styles.kicker}>EDITION-PINNED BRIEF</p>
-              <h2 id="story-overview-title">At a glance</h2>
-              <div className={styles.storyMetricGrid}>
-                <div>
-                  <span>Interpretation</span>
-                  <strong>{article.interpretationStatus}</strong>
-                </div>
-                <div>
-                  <span>Original-source observations</span>
-                  <strong>{article.editorial.evidenceClaims.length}</strong>
-                </div>
-                <div>
-                  <span>Evidence-linked mechanism steps</span>
-                  <strong>{article.editorial.causalLinks.length}</strong>
-                </div>
-                <div>
-                  <span>Observed market reaction</span>
-                  <strong>{verifiedReaction ? "Source-linked" : "Not verified"}</strong>
-                </div>
-              </div>
-              <p className={styles.storySummaryNote}>
-                This view is fixed to the publication shown above. Source observations
-                do not, on their own, prove a causal explanation or a new Story verdict.
+            <section id="story-overview" className={reader.readerOpening} aria-labelledby="story-overview-title">
+              <p className={styles.kicker}>THE STORY · FROZEN EDITION</p>
+              <h2 id="story-overview-title">What this report establishes</h2>
+              {article.editorial.evidenceClaims.length ? (
+                <p>
+                  The original reports below document individual observations in this edition.
+                  They do not, on their own, prove the wider market explanation.
+                </p>
+              ) : (
+                <p>
+                  No original-source observation has passed the publication-time evidence checks
+                  for this edition. The account below remains a provisional assessment.
+                </p>
+              )}
+              <p className={reader.readerVerdict}>
+                <strong>Interpretation: {article.interpretationStatus}</strong>
+                {article.interpretationStatus === "UNRESOLVED"
+                  ? " — The broader explanation has not been independently established."
+                  : " — This is the edition’s recorded interpretation, not an independently verified price reaction."}
               </p>
+              {!verifiedReaction ? (
+                <p className={reader.readerReaction}>
+                  Market reaction remains unverified: this frozen edition has no independently
+                  source-linked price, yield or futures response.
+                </p>
+              ) : null}
+              {article.editorial.evidenceClaims.length ? (
+                <a href="#story-observations" className={reader.openingLink}>
+                  Read the original reports ↓
+                </a>
+              ) : (
+                <a href="#story-evidence" className={reader.openingLink}>
+                  Review the evidence limitations ↓
+                </a>
+              )}
             </section>
             {!article.editorial.evidenceClaims.length ? (
               <section className={styles.deepSection}>
@@ -295,12 +312,48 @@ export default async function BlueDeskStoryPage({
                 Interpretations above are not independently verified by this panel.
               </p>}
               <p className={styles.muted}>These sources support individual observations; they do not independently establish the causal explanation or a System 2 thesis change.</p>
-            </section>
-            <section>
-              <h2>Publication</h2>
-              <p>Interpretation: <strong>{article.interpretationStatus}</strong></p>
-              <p>Edition: {article.editionId}</p>
-              {article.dossierId ? <p>Dossier: {article.dossierId}</p> : null}
+              <details className={reader.transparencyDetails}>
+                <summary>Evidence checks and publication record</summary>
+                <div className={reader.transparencyBody}>
+                  <p>Technical verification details for this exact immutable edition. Counts
+                    describe admitted records, not evidence that the full interpretation is correct.</p>
+                  <dl className={reader.transparencyMetrics}>
+                    <div>
+                      <dt>Original-source observations</dt>
+                      <dd>{article.editorial.evidenceClaims.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Evidence-linked mechanism steps</dt>
+                      <dd>{article.editorial.causalLinks.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Verified market reaction</dt>
+                      <dd>{verifiedReaction ? "Source-linked" : "Not verified"}</dd>
+                    </div>
+                    <div>
+                      <dt>Interpretation</dt>
+                      <dd>{article.interpretationStatus}</dd>
+                    </div>
+                    <div>
+                      <dt>Exact edition ID</dt>
+                      <dd>{article.editionId}</dd>
+                    </div>
+                    <div>
+                      <dt>Frozen publication time</dt>
+                      <dd><DualTimestamp value={frozen.published_at} /></dd>
+                    </div>
+                    {article.dossierId ? (
+                      <div>
+                        <dt>Canonical Dossier ID</dt>
+                        <dd>{article.dossierId}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  <p>Evidence IDs, source classifications and source-available timestamps are
+                    recorded with the individual observations above. Missing evidence does not
+                    become verified through lesson-level references.</p>
+                </div>
+              </details>
             </section>
             <Link href={blueDeskPublicHref("/blue-desk/calendar", host)} className={styles.textLink}>
               Upcoming catalysts →
