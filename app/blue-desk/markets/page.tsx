@@ -63,8 +63,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Source-dated levels and reported session changes. These are market
-              observations, not a causal explanation, trading signal or new Dossier verdict.
+              Observed levels and session changes, with source dates.
             </p>
           </div>
           <div className={styles.calendarClock}>
@@ -72,7 +71,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <strong className={styles.publicMarketTotal}>
               {monitor ? `${monitor.rows.length} instruments` : "Temporarily unavailable"}
             </strong>
-            <small>Reader projection · source dates are shown on each row</small>
+            <small>Source dates appear alongside prices</small>
           </div>
         </header>
 
@@ -94,7 +93,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{observations.length} source record{observations.length === 1 ? "" : "s"} displayed</p>
+              <p>{observations.length} instrument{observations.length === 1 ? "" : "s"}</p>
             </div>
           </div>
 
@@ -136,8 +135,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               <h3>Observations unavailable</h3>
               <p className={styles.muted}>
                 {monitor
-                  ? "No source-qualified observations currently appear in this market group."
-                  : "The market monitor could not be retrieved. No prices have been estimated or carried forward as live readings."}
+                  ? "No source-qualified prices for this group."
+                  : "Market data unavailable."}
               </p>
             </div>
           )}
