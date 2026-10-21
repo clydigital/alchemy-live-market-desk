@@ -108,7 +108,11 @@ test("new route stays inside existing paused/authenticated Vercel research sched
   assert.match(source, /acceptsResearchAuthorization/);
   assert.match(source, /eq\("updated_at", slotRun\.updated_at\)/);
   assert.match(source, /runManualDossierV2/);
+  // Injecting the Supabase client into manual-run is test-only and would
+  // disable the authorised SEC/market data source bridges in production.
+  assert.doesNotMatch(source, /evidenceLimit: 180,\\s*client,/);
   assert.match(source, /syncLatestPrioritisedResearchGapCasesWithD7/);
+  assert.match(source, /Research Gap sync failed/);
   assert.match(morning, /handleScheduledPostResearchDossier\(request, "morning"\)/);
   assert.match(evening, /handleScheduledPostResearchDossier\(request, "evening"\)/);
   assert.equal(config.crons.filter((c: { path: string }) => c.path === "/api/cron/research/morning-dossier").length, 2);
