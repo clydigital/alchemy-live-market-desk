@@ -106,3 +106,28 @@ test("no new scheduler or private mutation, existing source-dated market monitor
   assert.match(baseSource,/frequency !== "daily"/);
   assert.doesNotMatch(runner,/persistMarketMotion|new Scheduler|insert\(/);
 });
+
+
+test("failed stock-specific GDELT search cannot prevent required macro/Asia discovery",async()=>{
+ const targets=selectStockMoveResearchTargets({rows:[eligible[0]]},now);
+ const requests:string[]=[];
+ const fetchImpl=(async (target:RequestInfo|URL)=>{
+   const uri=String(target);
+   if(uri.startsWith("https://api.gdeltproject.org/")){
+     const q=new URL(uri).searchParams.get("query")||"";
+     requests.push(q);
+     if(q.includes("CoreWeave"))return new Response("bad stock query",{status:400});
+     if(q.includes("CPI OR PPI"))return new Response(JSON.stringify({articles:[]}),{
+       status:200,headers:{"content-type":"application/json"},
+     });
+     return new Response("provider limit",{status:429});
+   }
+   return new Response("not found",{status:404});
+ }) as typeof fetch;
+ const result=await applyHighImpactMarketDiscovery(base(),"evening",{now,fetchImpl,stockMoveTargets:targets});
+ assert.ok(requests.some(q=>q.includes("CoreWeave")));
+ assert.ok(requests.some(q=>q.includes("CPI OR PPI")),
+   "Unrelated macro discovery must still run when an individual stock query fails");
+ assert.match(result.summary||"",/stock-move-crwv=unavailable/);
+ assert.match(result.summary||"",/us-macro=no_recent_leads/);
+});
