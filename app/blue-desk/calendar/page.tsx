@@ -67,7 +67,7 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
         </div>
         <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
         {statusLabel === "released" ? (
-          <p className={styles.muted}>Shown time is the originally scheduled instant, not a verified publication time.</p>
+          <p className={styles.muted}>Scheduled time, not verified publication time.</p>
         ) : null}
         {event.decidingQuestion ? <p><strong>Why it matters:</strong> {event.decidingQuestion}</p> : null}
         <p className={styles.eventFacts}>
@@ -96,14 +96,14 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
         <section className={styles.secondaryPanel} aria-label="Source-date-only events">
           <p className={styles.kicker}>DATE-ONLY RECORDS · TIME NOT CONFIRMED</p>
           <h2>Source calendar dates</h2>
-          <p className={styles.muted}>Exact time unavailable. Dates shown as supplied.</p>
+          <p className={styles.muted}>Date provided; time unknown.</p>
           {datedOnly.map(card)}
         </section>
       ) : null}
       {!records.length ? (
         <section className={styles.secondaryPanel}>
           <h2>No verified events in this view</h2>
-          <p className={styles.muted}>No events in this window. Source coverage may be incomplete.</p>
+          <p className={styles.muted}>No events for this period. Coverage may be incomplete.</p>
         </section>
       ) : null}
     </>
