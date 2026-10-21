@@ -96,7 +96,8 @@ test("joint WTI / ICE Brent requires independent exact records for both", () => 
     verifiedCanonicalOilEvidence: [{ evidenceId: WTI.evidenceId, benchmark: "WTI" }],
   });
   assert.equal(oneOutcome.shouldStop, false);
-  assert.equal(oneOutcome.missingRequirementIds.length, 1);
+  assert.equal(oneOutcome.missingRequirementIds.length, 2,
+    "Joint oil question is fail-closed: neither leg is eligible until both exchanges are verified");
   const both = canonicalOilPairAssessments(p, [WTI,BRENT]);
   assert.equal(both.length, 2);
   assert.deepEqual(both[0].requirementIds, ["req:1"]);
