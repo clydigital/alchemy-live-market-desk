@@ -99,9 +99,19 @@ test("oil original-file search happens automatically in the existing bounded thr
   assert.match(queries[0]!, /current\/rotating PDFs.*ACCESS BLOCKERS/i);
   assert.match(queries[0]!, /Do not invent an archival URL/i);
   assert.match(queries[1]!, /separate F1\/F2 contract symbols/i);
+  assert.match(queries[1]!, /SECONDARY CURVE CROSS-CHECK.*RESEARCH LEADS ONLY/i);
+  assert.match(queries[1]!, /named, single-expiry historical contract quotes/i);
+  assert.match(queries[1]!, /settlement, end-of-day close or last trade/i);
+  assert.match(queries[1]!, /two genuinely independent publishers per leg/i);
+  assert.match(queries[1]!, /provisional context only, not.*DIRECT evidence/i);
+  assert.match(queries[1]!, /UNRESOLVED until original proof passes/i);
+  assert.match(queries[2]!, /disagreements in named-expiry prices/i);
+  assert.match(queries[2]!, /unresolved conflicts remain research gaps/i);
 
   const rates = buildResearchGapPlan(gap());
   const standard = researchGapSearchBranches(rates);
   assert.equal(standard.some(q => q.includes("NYMEX CME Daily Bulletin")), false,
     "Rates research is not burdened with irrelevant oil publisher requests");
+  assert.equal(standard.some(q => q.includes("SECONDARY CURVE CROSS-CHECK")), false,
+    "Secondary oil curve research is conditional, not added to every rates run");
 });
