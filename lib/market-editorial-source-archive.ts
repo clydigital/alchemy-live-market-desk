@@ -38,7 +38,8 @@ export async function loadArchivedIssuerPassages(
   evidenceIds:readonly string[],
 ):Promise<Map<string,EditorialSourcePassage[]>> {
   const map=new Map<string,EditorialSourcePassage[]>();
-  const ids=[...new Set(evidenceIds.map(x=>x.toLowerCase()))].slice(0,75);
+  const ids=[...new Set(evidenceIds.map(x=>x.toLowerCase())
+    .filter(x=>/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(x)))].slice(0,75);
   if(!ids.length)return map;
   const db=createSupabaseAdminClient();
   const {data,error}=await db.from("raw_source_records")
@@ -71,7 +72,9 @@ export async function archiveMissingIssuerPassages(
   candidates:readonly EditorialCandidate[],
   options:{fetchImpl?:typeof fetch;now?:()=>Date}={},
 ):Promise<{archived:number;attempted:number;warnings:string[]}> {
-  const facts=[...new Map(candidates.flatMap(c=>c.facts).map(f=>[f.factId,f])).values()];
+  const facts=[...new Map(candidates.flatMap(c=>c.facts)
+    .filter(f=>/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(f.factId))
+    .map(f=>[f.factId,f])).values()];
   if(!facts.length)return{archived:0,attempted:0,warnings:[]};
   const db=createSupabaseAdminClient();
   const ids=facts.map(f=>f.factId);
@@ -92,6 +95,7 @@ export async function archiveMissingIssuerPassages(
     if(!fact||!issuer||row.structured_payload?.evidenceNature!=="verified_issuer_result"
       ||existing.has(sourceKey(row.id))
       ||fact.sourcePassages?.length)return[];
+    if(row.observed_value===null)return[];
     const value=Number(row.observed_value);
     if(!Number.isFinite(value))return[];
     return [{id:row.id.toLowerCase(),issuer,value,sourceUrl:fact.sourceUrl}];
