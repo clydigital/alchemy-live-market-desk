@@ -155,6 +155,39 @@ function appendResearchDetail(current: string, detail: string): string {
     : `${current.trim().replace(/[.\s]+$/, "")}. ${detail}`;
 }
 
+type ResearchNowItem = ResearchBrainOutputV1["research_now"][number];
+
+/**
+ * The rates-led agenda fixes the display order, not the underlying evidence
+ * identity. Never copy a model Research Now item's links by array position:
+ * the source may have ranked AI first or oil last.
+ */
+function researchNowLane(item: Pick<ResearchNowItem, "action" | "reason">): number | null {
+  const patterns = [
+    /\b(?:rates?|policy|yields?|duration|treasur(?:y|ies)|2y|5y|10y|30y)\b|term.premium|real.yield/i,
+    /\b(?:credit|hy|ig|spreads?|breadth|volatility|equities|equity|semiconductors?|funding|financing|ai)\b/i,
+    /\b(?:energy|oil|crude|brent|wti|diesel|distillate|refiner(?:y|ies)?|padd[1-5]?|cracks?|backwardation|fuel)\b/i,
+  ];
+  // A single, unambiguous topic in the actual action is the authority.
+  // A reason is only a fallback when the action gives no usable subject.
+  for (const text of [item.action, item.reason]) {
+    const matches = patterns.flatMap((pattern, lane) => pattern.test(text) ? [lane] : []);
+    // Rates are often the input to a credit or energy investigation.
+    // Keep the more specific destination; mixed credit+energy is genuinely
+    // ambiguous and must not inherit references from either lane.
+    if (matches.includes(1) && matches.includes(2)) return null;
+    if (matches.includes(2)) return 2;
+    if (matches.includes(1)) return 1;
+    if (matches.includes(0)) return 0;
+  }
+  return null;
+}
+
+function storyLinkFitsLane(storyId: string, lane: number): boolean {
+  const detected = researchNowLane({ action: storyId.replace(/[-_:]/g, " "), reason: "" });
+  return detected === null || detected === lane;
+}
+
 function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1, packet: DossierV2InputPacket): void {
   if (
     analyticalOutput.main_thread.regime_family !== "RATES_LED_TIGHTENING"
@@ -163,16 +196,23 @@ function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1, pa
     return;
   }
 
+  const originalResearch = analyticalOutput.research_now;
   analyticalOutput.research_now = RATES_LED_RESEARCH_BUNDLES.map((bundle, index) => {
-    const existing = analyticalOutput.research_now[index];
+    // Associate evidence only with the task it describes, not the original
+    // rank. Conflicting Story identities are not promoted into a new lane.
+    const existing = originalResearch.find((item) => researchNowLane(item) === index);
+    const linkedStories = existing?.linked_stories.filter((id) => storyLinkFitsLane(id, index)) ?? [];
+    const sourceCoherent = !existing?.linked_stories.length || linkedStories.length > 0;
     return {
       rank: index + 1,
       action: bundle.action,
       reason: bundle.reason,
-      expected_information_gain: existing?.expected_information_gain ?? "High",
-      linked_investigations: cloneJson(existing?.linked_investigations ?? []),
-      linked_stories: cloneJson(existing?.linked_stories ?? []),
-      blocking_evidence: cloneJson(existing?.blocking_evidence ?? []),
+      expected_information_gain: sourceCoherent
+        ? existing?.expected_information_gain ?? "High"
+        : "High",
+      linked_investigations: sourceCoherent ? cloneJson(existing?.linked_investigations ?? []) : [],
+      linked_stories: sourceCoherent ? cloneJson(linkedStories) : [],
+      blocking_evidence: sourceCoherent ? cloneJson(existing?.blocking_evidence ?? []) : [],
     };
   });
 
