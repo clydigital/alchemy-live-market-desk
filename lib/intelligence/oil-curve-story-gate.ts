@@ -20,12 +20,12 @@ export type VerifiedStoryOilPair = {
 };
 
 const DATE = /\b20\d{2}-\d{2}-\d{2}\b/;
-const CURVE = /\b(?:backwardat(?:ion|ed)|contango|front[\s/–-]*(?:month|next)\s+(?:premium|discount|spread)|F1[\s/–-]*F2|calendar[- ]spread|roll[- ]yield|positive\s+(?:roll|spread)|negative\s+(?:roll|spread))\b/i;
+const CURVE = /\b(?:backwardat(?:ion|ed)|contango|front[\s/‐‑‒–—-]*(?:month|next)\s+(?:premium|discount|spread)|F1[\s/‐‑‒–—-]*F2|calendar[- ]spread|roll[- ]yield|positive\s+(?:roll|spread)|negative\s+(?:roll|spread))\b/i;
 const UNCERTAIN = /\b(?:if|would|could|might|may|potential(?:ly)?|hypothetical|scenario|unverified|unconfirmed|unresolved|awaiting|not (?:established|verified|confirmed|observed|proven)|no confirmed|cannot (?:be )?(?:confirm(?:ed)?|conclude)|need(?:s)? to verify|reportedly|reported|allegedly|according to|third[- ]party(?: report)?|research (?:lead|question)|check whether|test whether|monitor(?:ing)?|watch(?:ing)?)\b/i;
 
 function curveDirection(sentence: string): -1 | 0 | 1 {
-  if (/\b(?:backwardat(?:ion|ed)|front[\s/–-]*(?:month|next)\s+premium|positive\s+(?:roll|spread))\b/i.test(sentence)) return 1;
-  if (/\b(?:contango|front[\s/–-]*(?:month|next)\s+discount|negative\s+(?:roll|spread))\b/i.test(sentence)) return -1;
+  if (/\b(?:backwardat(?:ion|ed)|front[\s/‐‑‒–—-]*(?:month|next)\s+premium|positive\s+(?:roll|spread))\b/i.test(sentence)) return 1;
+  if (/\b(?:contango|front[\s/‐‑‒–—-]*(?:month|next)\s+discount|negative\s+(?:roll|spread))\b/i.test(sentence)) return -1;
   return 0;
 }
 
@@ -63,7 +63,11 @@ export function measuredOilCurveAssertionErrors(input: {
   const authorised = new Set(input.evidenceIds);
   const errors: string[] = [];
   for (const text of input.texts) {
-    for (const sentence of text.replace(/U\.S\./gi, "US").split(/(?<=[.!?])\s+|\n+/)) {
+    // Evaluate independent assertive clauses before later caveats. For example,
+    // "a print shows backwardation, but finals are unverified" is still an
+    // unsupported assertion in the FIRST clause, not an all-clear.
+    for (const sentence of text.replace(/U\.S\./gi, "US")
+      .split(/(?<=[.!?])\s+|\n+|,?\s+(?:but|however)\s+|;\s+/i)) {
       if (!CURVE.test(sentence) || UNCERTAIN.test(sentence)) continue;
       const required = benchmarks(sentence, input.assets);
       for (const benchmark of required) {
@@ -83,7 +87,7 @@ export function measuredOilCurveAssertionErrors(input: {
           // Do not let a legitimate archive receipt bless an invented number.
           if (/\$\s*-?\d/.test(sentence)) {
             const quoted = sentence.match(
-              /(?:F1[\s/–-]*F2|spread|premium|discount)\s+(?:of\s+|was\s+|at\s+|is\s+)?\$\s*(-?\d+(?:\.\d+)?)/i,
+              /(?:F1[\s/‐‑‒–—-]*F2|spread|premium|discount)\s+(?:of\s+|was\s+|at\s+|is\s+)?\$\s*(-?\d+(?:\.\d+)?)/i,
             );
             if (!quoted || Math.abs(Number(quoted[1]) - spread) > 0.005) return false;
           }
