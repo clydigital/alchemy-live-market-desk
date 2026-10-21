@@ -32,7 +32,7 @@ test("a new immutable edition sees only earlier archive material tied to its exa
   assert.ok(runtime.includes("await loadArchivedIssuerPassages"));
   assert.ok(runtime.includes(".catch(()=>new Map"));
   assert.ok(runtime.includes("...(archival.get(row.id.toLowerCase())||[])"));
-  assert.ok(archive.includes("Date.parse(p.capturedAt)===Date.parse(raw.observed_at)"));
+  assert.ok(archive.includes("Date.parse(p.capturedAt)===Date.parse(observedAt)"));
   const claims=readFileSync(new URL("../lib/market-editorial-v1.ts",import.meta.url),"utf8");
   for(const guard of [
     "iso(p.capturedAt,packet.asOf)",
