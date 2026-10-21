@@ -95,5 +95,5 @@ test("absent Finnhub credentials cannot trigger legacy Parse provider automatica
     now: NOW, finnhubKey: "", finnhubCommercialApproved: false, fetchImpl: mock,
   });
   assert.equal(calls, 0);
-  assert.match(result.warning || "", /Finnhub earnings feed inactive/);
+  assert.match(result.warning || "", /pre-production checks use official macro release schedules/);
 });
