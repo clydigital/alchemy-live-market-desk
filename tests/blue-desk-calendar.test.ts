@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -82,4 +83,38 @@ test("one ET calendar day survives a late Sunday EST boundary", () => {
     event("next-et-day", "2026-11-02T13:30:00Z", "2026-11-02"),
   ];
   assert.deepEqual(selectBlueDeskUpcoming({ events: rows }, now, 1).map(x => x.id), ["same-day"]);
+});
+
+test("late-October 7d window can be empty while actual scheduled events remain in the 30d catalog", () => {
+  const now = new Date("2026-10-21T19:00:00Z"); // 15:00 EDT
+  const fomc = event("fomc-official", "2026-10-28T18:00:00Z", "2026-10-29");
+  const next = event("next-week", null, "2026-10-29");
+  const catalog = { events: [fomc, next] };
+  assert.deepEqual(selectBlueDeskUpcoming(catalog, now, 7), []);
+  assert.deepEqual(selectBlueDeskUpcoming(catalog, now, 30).map(row => row.id), [
+    "fomc-official", "next-week",
+  ]);
+  // The exact source time and unplaced date-only distinction survive.
+  assert.equal(selectBlueDeskUpcoming(catalog, now, 30)[0].scheduledAt, "2026-10-28T18:00:00Z");
+  assert.equal(selectBlueDeskUpcoming(catalog, now, 30)[1].scheduledAt, null);
+});
+
+test("public Blue Desk displays broader real calendar instead of blank default week", () => {
+  const calendar = readFileSync(new URL("../app/blue-desk/calendar/page.tsx", import.meta.url), "utf8");
+  const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
+  assert.match(calendar, /raw === "24h" \|\| raw === "7d" \|\| raw === "released" \? raw : "30d"/);
+  assert.match(calendar, /selectBlueDeskUpcoming\(calendar, now, 30\)\.slice\(0, 3\)/);
+  assert.match(calendar, /No scheduled events in this window/);
+  assert.match(calendar, /These are not released results/);
+  assert.match(calendar, /Browse the 30-day calendar/);
+  assert.match(calendar, /<Events records=\{nextKnown\} statusLabel="30d" \/>/);
+  assert.match(calendar, /getEconomicCalendar\(\)/);
+  assert.match(calendar, /buildPresenterCalendar\(macro, earnings, now, macroResult\.status === "rejected"\)/);
+  assert.match(calendar, /sourceUrl\(event\.sourceUrl\)/);
+  assert.match(calendar, /<DualTimestamp value=\{event\.scheduledAt\} sourceDate=\{event\.localDate\}/);
+  assert.match(home, /const upcoming7d = selectBlueDeskUpcoming\(calendar, now\)\.slice\(0, 6\)/);
+  assert.match(home, /upcoming7d\.length \? \[\] : selectBlueDeskUpcoming\(calendar, now, 30\)\.slice\(0, 3\)/);
+  assert.match(home, /No scheduled events in the seven-day ET calendar window/);
+  assert.doesNotMatch(calendar, /const events = \[\s*\{\s*event: "FOMC"/);
+  assert.doesNotMatch(home, /status:\s*"Released"\s*\/\/ guessed/);
 });
