@@ -34,3 +34,47 @@
 .workspace[data-hybrid-tape="true"] .tableWrap table{min-width:1140px;}
 .workspace[data-hybrid-tape="true"] .controls input:focus-visible,.workspace[data-hybrid-tape="true"] .controls select:focus-visible,.workspace[data-hybrid-tape="true"] button:focus-visible,.workspace[data-hybrid-tape="true"] a:focus-visible{outline:2px solid #78dcf4;outline-offset:2px;}
 @media(max-width:700px){.workspace[data-hybrid-tape="true"] .terminalHead small{white-space:normal;}.workspace[data-hybrid-tape="true"] .statStrip>div{min-width:0;}}
+
+/* Hybrid screenshot parity: strip counters sit on their own line above the
+   near-black price tape. Only affects explicit owner Hybrid rendering. */
+.workspace[data-hybrid-tape="true"] {
+  font-family: "Hanken Grotesk", Arial, sans-serif;
+}
+.workspace[data-hybrid-tape="true"] .statStrip {
+  margin-bottom: 56px;
+  background: #223a40;
+}
+.workspace[data-hybrid-tape="true"] .statStrip > div {
+  display: block;
+  padding: 16px 18px;
+  text-align: left;
+  background: #223a40;
+}
+.workspace[data-hybrid-tape="true"] .statStrip span {
+  display: block;
+  margin: 0 0 7px;
+  color: #a7c4c9;
+}
+.workspace[data-hybrid-tape="true"] .statStrip strong {
+  display: block;
+  margin: 0;
+  font: 700 22px/1.1 "JetBrains Mono", ui-monospace, monospace;
+  color: #eaf8fa;
+}
+.workspace[data-hybrid-tape="true"] .tableWrap table,
+.workspace[data-hybrid-tape="true"] .terminalHead small,
+.workspace[data-hybrid-tape="true"] .resultLine,
+.workspace[data-hybrid-tape="true"] .assetButton span,
+.workspace[data-hybrid-tape="true"] .assetButton small,
+.workspace[data-hybrid-tape="true"] .typePill {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.workspace[data-hybrid-tape="true"] .terminal,
+.workspace[data-hybrid-tape="true"] .terminalHead,
+.workspace[data-hybrid-tape="true"] .tableWrap {
+  background: #0b0d12;
+}
+@media (max-width: 700px) {
+  .workspace[data-hybrid-tape="true"] .statStrip { margin-bottom: 24px; }
+  .workspace[data-hybrid-tape="true"] .statStrip > div { padding: 12px; }
+}
