@@ -263,6 +263,10 @@ test("V7 Newsroom owner preview is not an anonymously reachable Bluebelly page o
   assert.match(page, /typeof edition !== "string"/);
   assert.match(page, /searchParams: Promise<SearchParams>/);
   assert.match(page, /name="edition"/);
+  assert.match(page, /manifestCount === 0/);
+  assert.match(page, /no newly persisted Story snapshots/);
+  assert.match(page, /prior immutable context/);
+  assert.match(page, /does not itself establish an accepted System 2 interpretation/);
   assert.match(page, /method="get" action="\/blue-desk\/newsroom"/);
   assert.match(page, /projectMarketBriefArticles\(latest\)/);
   assert.match(page, /loadEditorialMarketBrief\(projected\)/);
