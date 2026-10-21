@@ -27,7 +27,7 @@ test("only genuine metric-anchored substantive issuer paragraphs are retained",(
   assert.equal(output.length,1);
   assert.equal(output[0].text,t);
   assert.equal(output[0].matchedMetric,"58.7");
-  assert.equal(output[0].capturedAt,capture.capturedAt);
+  assert.equal(output[0].capturedAt,new Date(capture.capturedAt).toISOString());
   assert.equal(output[0].sourceUrl,url);
   assert.equal(extractIssuerPassagesFromHtml({...capture,metricValue:99,html:paragraph}),[].length);
   assert.deepEqual(extractIssuerPassagesFromHtml({...capture,html:"<p>58.7 percent this year.</p>"}),[]);
