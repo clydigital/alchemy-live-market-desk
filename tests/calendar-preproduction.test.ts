@@ -5,6 +5,7 @@ import {OFFICIAL_BLS_RELEASE_SCHEDULES,parseOfficialBlsScheduleHtml} from "../li
 import {futureCpiMetricSeedRows,preReleaseConsensusCandidates} from "../lib/calendar-preproduction.ts";
 import type {TradingEconomicsCalendarEvent} from "../lib/providers/trading-economics-calendar.ts";
 import {getForwardEarningsEvents} from "../lib/forward-earnings-sources.ts";
+import {formatVerifiedCpiConsensus} from "../lib/calendar.ts";
 
 const release = {
   id:"us-bls-2026-11-10-cpi-october-2026",
@@ -72,6 +73,18 @@ test("pre-release TE consensus is captured only for exact CPI metric, reference 
   assert.equal(preReleaseConsensusCandidates({releases:[release],metrics,provider:[row("Inflation Rate MoM"),row("Inflation Rate MoM")],capturedAt:now}).length,0);
   assert.equal(preReleaseConsensusCandidates({releases:[release],metrics,provider:[{...row("Inflation Rate MoM"),consensus:null,parsedConsensus:null,teForecast:"0.9%"}],capturedAt:now}).length,0);
   assert.equal(preReleaseConsensusCandidates({releases:[release],metrics:[{...metrics[0],consensus:0.4}],provider:[row("Inflation Rate MoM")],capturedAt:now}).length,0);
+});
+
+test("calendar displays four metric-labelled genuinely pre-release forecasts only",()=>{
+  const source=metrics.map((m,i)=>({
+    ...m,consensus:[0.3,3.2,0.2,2.7][i],
+    consensus_captured_at:"2026-11-09T08:00:00Z",
+    label:m.metric_key,unit:"%",previous:null,revised_previous:null,alchemy_expectation:null,actual:null,
+  }));
+  assert.equal(formatVerifiedCpiConsensus(source,release.release_date),
+    "Headline m/m 0.3% · Headline y/y 3.2% · Core m/m 0.2% · Core y/y 2.7%");
+  assert.equal(formatVerifiedCpiConsensus(source.map(x=>({...x,consensus_captured_at:"2026-11-11T00:00:00Z"})),release.release_date),null);
+  assert.equal(formatVerifiedCpiConsensus(source.map(x=>({...x,consensus_captured_at:null})),release.release_date),null);
 });
 
 test("existing automatic research slot includes calendar pre-production before CPI coverage and publication",()=>{
