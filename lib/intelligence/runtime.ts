@@ -96,6 +96,7 @@ import {
 import { buildAncestryUpsertSpecs } from "@/lib/intelligence/intake-normalization";
 import { deriveMarketThemeKeys, momentumForTransition } from "@/lib/market-theme-taxonomy";
 import { isCanonicalEligibleEvidence, sourceVerificationRole, sourceVerificationWeight } from "@/lib/intelligence/source-verification";
+import { loadVerifiedStoryOilPairs, measuredOilCurveAssertionErrors } from "@/lib/intelligence/oil-curve-story-gate";
 import { resolvePersistentStoryIdentity } from "@/lib/intelligence/story-identity";
 import { buildRelatedDistinctStoryRelation } from "@/lib/intelligence/story-relations";
 import { freezeStoryReviewTargets, intelligenceDatabaseConfigured, intelligenceRest } from "@/lib/intelligence/supabase";
@@ -1729,6 +1730,28 @@ async function loadCurrentStoryReasoningReadiness(
   }));
 }
 
+/**
+ * Guard both Market Belief maintenance and full Story Synthesis before they
+ * invoke the existing immutable Story thesis-version write path. Only pay the
+ * archive/source-join cost for an unsupported-looking factual oil curve claim.
+ */
+async function oilCurveMutationErrors(input: {
+  texts: readonly string[];
+  assets: readonly string[];
+  evidenceIds: readonly string[];
+  asOf: string;
+}): Promise<string[]> {
+  const pending = measuredOilCurveAssertionErrors({ ...input, receipts: [] });
+  if (!pending.length) return [];
+  try {
+    const receipts = await loadVerifiedStoryOilPairs(input.evidenceIds, input.asOf);
+    return measuredOilCurveAssertionErrors({ ...input, receipts });
+  } catch {
+    // A failed provider/database read cannot authorize a priced assertion.
+    return [...pending, "Source verification was unavailable; no price assertion was admitted."];
+  }
+}
+
 async function persistStoryAssessments(input: {
   engineRunId: string;
   stageRunId: string;
@@ -1764,6 +1787,14 @@ async function persistStoryAssessments(input: {
       const item = allowedEvidence.get(id);
       return item ? isCanonicalEligibleEvidence(item) : false;
     });
+    const oilCurveErrors = assessment.disposition !== "unchanged"
+      ? await oilCurveMutationErrors({
+          texts: [assessment.proposedTitle ?? "", assessment.proposedThesis ?? ""],
+          assets: target.story.assets,
+          evidenceIds: eligibleEvidenceIds,
+          asOf: target.selectedAt,
+        })
+      : [];
     const evidenceMaterialAllowed = materialAssessmentHasEligibleEvidence(
       assessment.disposition,
       evidenceIds,
@@ -1772,12 +1803,14 @@ async function persistStoryAssessments(input: {
     const canonicalReasoningReady = reasoningReadyByStory.get(target.story.id) === true;
     const legacyReasoningGapBlocked =
       assessment.disposition !== "unchanged" && !canonicalReasoningReady;
-    const materialAllowed = evidenceMaterialAllowed && !legacyReasoningGapBlocked;
+    const materialAllowed = evidenceMaterialAllowed && !legacyReasoningGapBlocked && oilCurveErrors.length === 0;
     const disposition = materialAllowed ? assessment.disposition : "unchanged";
     const lastEvidenceAt = latestStoryEvidenceTimestamp(
       evidenceIds.map((id) => allowedEvidence.get(id)).filter((item): item is EvidencePackItem => Boolean(item)),
     );
-    const suppressionReason = legacyReasoningGapBlocked
+    const suppressionReason = oilCurveErrors.length
+      ? " Material Oil Story mutation was suppressed: " + oilCurveErrors.join(" ")
+      : legacyReasoningGapBlocked
       ? " Material mutation was suppressed because the current exact Story thesis version does not contain canonical-story-reasoning/v1; only the full canonical Story synthesis path may graduate this legacy Story."
       : !evidenceMaterialAllowed && assessment.disposition !== "unchanged"
         ? " Material mutation was suppressed because no eligible non-creator evidence was supplied."
@@ -3638,6 +3671,20 @@ export async function runIntelligenceEngine({
           }), 64),
         };
         if (normalized.bias === "unscored") normalized.conviction = null;
+        const oilCurveErrors = await oilCurveMutationErrors({
+          texts: [
+            normalized.title, normalized.thesis, normalized.whatChanged,
+            normalized.currentState, normalized.marketReaction ?? "",
+            normalized.acceptedExplanation, normalized.strongestSupport,
+            normalized.researchSynthesis, normalized.baseCase,
+          ],
+          assets: normalized.affectedAssets,
+          evidenceIds: normalized.decisiveEvidenceIds,
+          asOf: analysisAsOf,
+        });
+        if (oilCurveErrors.length) {
+          throw new Error("Canonical Oil Story measurement gate: " + oilCurveErrors.join(" "));
+        }
         candidates.push(normalized);
       } catch (error) {
         const diagnostics = candidateOmissionDiagnostic({ ...rawCandidate, candidateKey }, error);
