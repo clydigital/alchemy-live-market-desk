@@ -79,6 +79,14 @@ export function measuredOilCurveAssertionErrors(input: {
           }
           const spread = receipt.frontSettle - receipt.nextSettle;
           if (expected !== 0 && Math.sign(spread) !== expected) return false;
+          // A quoted spread must equal the verified front minus next settle.
+          // Do not let a legitimate archive receipt bless an invented number.
+          if (/\\$\\s*-?\\d/.test(sentence)) {
+            const quoted = sentence.match(
+              /(?:F1[\\s/–-]*F2|spread|premium|discount)\\s+(?:of\\s+|was\\s+|at\\s+|is\\s+)?\\$\\s*(-?\\d+(?:\\.\\d+)?)/i,
+            );
+            if (!quoted || Math.abs(Number(quoted[1]) - spread) > 0.005) return false;
+          }
           return true;
         });
         if (!match) errors.push(
