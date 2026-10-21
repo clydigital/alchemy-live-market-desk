@@ -28,7 +28,7 @@
 - A chart rate is not a consensus surprise. Neither Trend storage nor the chart updates canonical `intelligence_evidence`, `story_thesis_versions` or the Market Dossier.
 - Private Markets' displayed MAX is the most recent retained source history (up to 64 points); it is not a full historical price database.
 - The public source-rights allowlist remains narrow until compliance authorises other asset classes. The draft V7 Markets styling PR #911 must be rebased against main to retain its government-yield trend.
-- `getDeskData` caches macro rows for 60 seconds. Existing browser RSC refreshing applies to market charts, while the private Macro Data page reads new stored values on page reload/navigation. The scheduled source collector is automatic regardless of whether any browser is open.
+- `getDeskData` caches macro rows for 60 seconds. Existing browser RSC refreshing applies to both market charts and the private Macro Data page every five minutes while visible; page reload/navigation also reads updated values. The scheduled source collector is automatic regardless of whether any browser is open.
 
 ## Deployment acceptance
 
