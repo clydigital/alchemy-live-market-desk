@@ -33,3 +33,14 @@
 @media(max-width:950px){.cards{grid-template-columns:1fr}.edition{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:550px){.edition{grid-template-columns:1fr}.hero{padding:22px}.breadcrumb{align-items:flex-start}}
 @media(prefers-reduced-motion:reduce){.card *{transition:none;scroll-behavior:auto}}
+
+
+.editionPicker { margin-top:22px;border:1px solid #386780;border-radius:9px;background:rgba(1,23,39,.70);padding:16px; }
+.editionPicker label {display:block;color:#c6e1ee;font-size:12px;font-weight:700;margin-bottom:10px}
+.editionPicker > div {display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.editionPicker input {min-width:220px;max-width:440px;flex:1;height:43px;color:#f4fbff;border:1px solid #47728a;border-radius:6px;background:#001a2b;padding:9px 11px;font:inherit;font-size:13px}
+.editionPicker input::placeholder {color:#a6c0ce}
+.editionPicker button,.editionPicker a {cursor:pointer;color:#e5f7ff!important;background:#0a4c70;border:1px solid #3a7896;border-radius:6px;padding:10px 13px;min-height:43px;font-weight:700;font-size:12px}
+.editionPicker button:hover,.editionPicker a:hover {background:#145f82}
+.editionPicker p {color:#a9cad9;font-size:11px;margin:10px 0 0;line-height:1.55}
+.editionPicker button:focus-visible,.editionPicker input:focus-visible,.editionPicker a:focus-visible {outline:2px solid #6cdefb;outline-offset:3px}
