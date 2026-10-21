@@ -2,8 +2,11 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
+import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
+  type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -20,12 +23,39 @@ type Props = {
   searchParams: Promise<{ group?: string | string[] }>;
 };
 
+const GROUP_ICONS: Record<string, MarketIconName> = {
+  all: "global", ai: "chip", rates: "rates", energy: "oil",
+  fx: "currency", credit: "credit", equities: "equities", metals: "gold",
+};
+
+function displayLevel(row: PublicMarketObservation) {
+  if (row.last === null) return "Unavailable";
+  const value = row.last.toLocaleString("en-GB", {
+    maximumFractionDigits: Math.abs(row.last) >= 1000 ? 1 : 3,
+  });
+  // Treasury-rate feed values are percentage yields. Other instrument types
+  // keep the source's native numerical scale rather than an inferred unit.
+  return row.type === "Rates" ? `${value}%` : value;
+}
+
+function displayChange(row: PublicMarketObservation) {
+  if (row.change === null) return "Not available";
+  const positive = row.change > 0 ? "+" : "";
+  return `${positive}${row.change.toFixed(2)}${row.changeUnit === "bp" ? " bp" : "%"}`;
+}
+
+function sourceLabel(row: PublicMarketObservation) {
+  return row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable";
+}
+
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
   const monitor = await getMarketMonitor().catch(() => null);
   const observations = publicMarketObservations(monitor?.rows || [], group);
+  const officialRateTrends = group === "all" || group === "rates"
+    ? publicGovernmentRateTrends(monitor?.rows || []) : [];
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
@@ -35,10 +65,9 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
         <header className={styles.calendarHero}>
           <div>
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
-            <h1>Markets</h1>
+            <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Source-dated levels and reported session changes. These are market
-              observations, not a causal explanation, trading signal or new Dossier verdict.
+              Observed levels and session changes, with source dates.
             </p>
           </div>
           <div className={styles.calendarClock}>
@@ -46,7 +75,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <strong className={styles.publicMarketTotal}>
               {monitor ? `${monitor.rows.length} instruments` : "Temporarily unavailable"}
             </strong>
-            <small>Reader projection · source dates are shown on each row</small>
+            <small>Source dates appear alongside prices</small>
           </div>
         </header>
 
@@ -58,16 +87,21 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               className={group === item.id ? styles.calendarTabActive : styles.calendarTab}
               aria-current={group === item.id ? "page" : undefined}
             >
+              <MarketIcon name={GROUP_ICONS[item.id] || "market"} size={17} />
               {item.label}
             </Link>
           ))}
         </nav>
 
+        {(group === "all" || group === "rates") && monitor ? (
+          <PublicGovernmentRateTrendChart series={officialRateTrends} nowIso={monitor.updatedAt} />
+        ) : null}
+
         <section aria-labelledby="market-group-heading" className={styles.section}>
           <div className={styles.sectionHead}>
             <div>
-              <h2 id="market-group-heading">{selected.label}</h2>
-              <p>{observations.length} source record{observations.length === 1 ? "" : "s"} displayed</p>
+              <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
+              <p>{observations.length} instrument{observations.length === 1 ? "" : "s"}</p>
             </div>
           </div>
 
@@ -78,20 +112,14 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               <h3>Observations unavailable</h3>
               <p className={styles.muted}>
                 {monitor
-                  ? "No source-qualified observations currently appear in this market group."
-                  : "The market monitor could not be retrieved. No prices have been estimated or carried forward as live readings."}
+                  ? "No source-qualified prices for this group."
+                  : "Market data unavailable."}
               </p>
             </div>
           )}
 
           <p className={styles.publicMarketNote}>
-            Session changes require daily-frequency observations. Government-rate
-            changes are in basis points; other reported price changes are percentages.
-            Monthly fallback yields show their last level only. Data may lag live prices.
-          </p>
-          <p className={styles.publicMarketNote}>
-            The source date is the observation vintage, not the time this page loaded.
-            Other public Stories and the calendar retain their own independent publication dates.
+            Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.
           </p>
         </section>
 
