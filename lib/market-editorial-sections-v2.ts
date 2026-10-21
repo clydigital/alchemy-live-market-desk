@@ -91,6 +91,16 @@ function factsForArticle(candidate:EditorialCandidate):EditorialFact[] {
     && Date.parse(f.availableAt)<=Date.parse(candidate.packet.asOf)
   ).slice(0,10);
 }
+// Full articles require developed, separately sourced reporting, not a string
+// of short one-sentence financial metrics dressed up as 3-5 paragraphs.
+const MIN_FULL_REPORTING_CHARS=160;
+function substantiveSourceParagraph(text:string):boolean {
+  const trimmed=text.trim();
+  if(trimmed.length<MIN_FULL_REPORTING_CHARS) return false;
+  // A source-extracted long-form paragraph must include at least two
+  // declarative sentences; dates embedded inside one issuer claim do not count.
+  return (trimmed.match(/(?:[.!?](?=\s+[A-Z]|$))/g)||[]).length>=2;
+}
 function validText(text:string,numbers:Set<string>,sourceContext:boolean) {
   return text.length>=45 && text.length<=720 && !PROCESS.test(text)
     && !OPERATIONAL.test(text) && !REACTION.test(text)
@@ -111,7 +121,7 @@ export function eligibleForArticleSectionsV2(candidate:EditorialCandidate):boole
   const packet=candidate.packet;
   return packet.kind==="STORY" && Boolean(packet.identity.storyId)
     && Boolean(packet.identity.storyThesisVersionId) && Boolean(packet.identity.storySnapshotId)
-    && factsForArticle(candidate).length>=3
+    && factsForArticle(candidate).filter(f=>substantiveSourceParagraph(f.text)).length>=3
     && Boolean(packet.mechanism.text && packet.mechanism.evidenceState!=="UNAVAILABLE")
     && packet.assetReadThroughs.some(a=>a.asset.length>1 && a.interpretation.trim().length>20);
 }
@@ -187,7 +197,8 @@ export function validateArticleSectionsV2(
   }
   const hasMechanism=interpretation.some(x=>x.support==="mechanism");
   const hasAsset=interpretation.some(x=>x.support==="asset");
-  const full=reporting.length>=3 && reporting.length<=5 && interpretation.length>=2
+  const substantiveCount=reporting.filter(p=>substantiveSourceParagraph(p.text)).length;
+  const full=reporting.length>=3 && reporting.length<=5 && substantiveCount>=3 && interpretation.length>=2
     && interpretation.length<=5 && hasMechanism && hasAsset;
   const sourceLinks=[...new Map(reporting.map(x=>[x.sourceUrls[0],x.sourceName])).entries()]
     .map(([url,sourceName])=>({url,sourceName}));
@@ -205,6 +216,7 @@ export function validateArticleSectionsV2(
     reporting,interpretation,sourceLinks,
     gaps:[
       ...(reporting.length<3?["Fewer than three distinct dated source facts"]:[]),
+      ...(substantiveCount<3?["Fewer than three substantive source-reporting paragraphs"]:[]),
       ...(interpretation.length<2?["Fewer than two supported market-interpretation paragraphs"]:[]),
       ...(!hasMechanism?["No admitted canonical or dated-context mechanism"]:[]),
       ...(!hasAsset?["No matched conditional asset transmission"]:[]),
