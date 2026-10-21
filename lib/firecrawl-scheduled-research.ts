@@ -31,12 +31,23 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // no second price engine or new schedule. Fail closed on incomplete data;
   // stale/monthly/ETF rows never become stock movement investigations.
   let stockMoveTargets: StockMoveResearchTarget[] = [];
+  let timer: ReturnType<typeof setTimeout> | null = null;
   try {
-    const monitor = await getMarketMonitor();
-    stockMoveTargets = selectStockMoveResearchTargets(monitor, now);
-  } catch {
-    // Research discovery still runs; unavailable market data is never
-    // interpreted as unchanged prices.
+    // Market-monitor cold caches may contact many providers. The research
+    // cycle must never be held hostage by a separate market-data outage.
+    const read = getMarketMonitor().then(monitor =>
+      selectStockMoveResearchTargets(monitor, now)).catch(() => null);
+    const budget = new Promise<null>(resolve => {
+      timer = setTimeout(() => resolve(null), 8_000);
+    });
+    const selected = await Promise.race([read, budget]);
+    if (selected === null) {
+      console.warn(JSON.stringify({ event: "stock_move_research_source_unavailable" }));
+    } else {
+      stockMoveTargets = selected;
+    }
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const highImpact = await applyHighImpactMarketDiscovery(highImpactInput, slot, {
     now,
