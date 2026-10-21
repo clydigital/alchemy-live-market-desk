@@ -10,7 +10,7 @@ const THESIS="c1b12524-77f2-4a78-80c5-34854898c64d";
 const SNAPSHOT="93c4b401-bc7e-4fa9-ac8b-1ba900c5a446";
 const ASOF="2026-10-21T02:02:42.815Z";
 const PUBLISHED="2026-10-21T02:06:04.771Z";
-const URL="https://pr.tsmc.com/english/news/3346";
+const SOURCE_URL="https://pr.tsmc.com/english/news/3346";
 const CLAIMS=[
   "dcd63f17-2f70-4bf8-9c0b-b39c57b20f2a",
   "02cac7ef-cbef-4568-9f2e-33015a2ccf8c",
@@ -36,10 +36,10 @@ function identity(){
 function brief(){
   return {contractVersion:"market-editorial/v1",fingerprint:"frozen-brief",...identity(),
     headline:"AI earnings facts",readiness:"READY",gaps:[],
-    sourceLinks:[{url:URL,sourceName:"TSMC"}],
+    sourceLinks:[{url:SOURCE_URL,sourceName:"TSMC"}],
     paragraphs:[
       {role:"development",text:"TSMC released an issuer-reported quarterly figure.",
-        evidenceIds:[CLAIMS[0]],sourceUrls:[URL],evidenceState:"SOURCE_VERIFIED"},
+        evidenceIds:[CLAIMS[0]],sourceUrls:[SOURCE_URL],evidenceState:"SOURCE_VERIFIED"},
       {role:"mechanism",text:"Demand could support supplier margins under the frozen Story.",
         evidenceIds:[],sourceUrls:[],evidenceState:"CONTEXT_ONLY"},
       {role:"markets",text:"TSM may benefit if foundry utilisation remains high.",
@@ -51,7 +51,7 @@ function full(){
   return {contractVersion:"article-sections/2",fingerprint:"article-v2",...identity(),
     context:"CONTINUING_STORY",readiness:"FULL_ARTICLE",gaps:[],
     reporting:rich.map((text,i)=>({
-      text,evidenceIds:[CLAIMS[i]],sourceUrls:[URL],sourceName:"TSMC",
+      text,evidenceIds:[CLAIMS[i]],sourceUrls:[SOURCE_URL],sourceName:"TSMC",
       sourceAvailableAt:"2026-10-20T07:00:00.000Z",basis:"SOURCE_VERIFIED",
     })),
     interpretation:[
@@ -60,7 +60,7 @@ function full(){
       {text:"TSM might benefit if foundry utilisation holds.",
         evidenceIds:[],sourceUrls:[],basis:"CONDITIONAL",support:"asset",asset:"TSM"},
     ],
-    sourceLinks:[{url:URL,sourceName:"TSMC"}],
+    sourceLinks:[{url:SOURCE_URL,sourceName:"TSMC"}],
   };
 }
 function fixture(){
@@ -89,7 +89,7 @@ test("a full article displays only source-backed paragraphs, frozen mechanism an
   assert.equal(result.items[0].asOf,ASOF);
   assert.equal(result.items[0].materialChangeAt,null);
   assert.deepEqual(result.items[0].reporting.map(x=>x.text),rich);
-  assert.ok(result.items[0].reporting.every(x=>x.sourceUrl===URL));
+  assert.ok(result.items[0].reporting.every(x=>x.sourceUrl===SOURCE_URL));
   assert.equal(result.items[0].implications[0].basis,"HISTORICAL_CONTEXT");
   assert.equal(result.items[0].marketReaction,"NOT_ESTABLISHED_BY_EDITORIAL");
 });
@@ -119,7 +119,7 @@ test("invalid/historical-selected edition does not fall back to a newer editoria
   delete z.selectedEdition.payload.marketEditorial;
   assert.equal(buildPresenterPrepEditorialReadiness(z).status,"NO_EDITORIAL");
 });
-test("wrong base parent, Story thesis identity or publisher URL cannot cross edition boundary",()=>{
+test("wrong base parent, Story thesis identity or publisher SOURCE_URL cannot cross edition boundary",()=>{
   for(const change of [
     (x:ReturnType<typeof fixture>)=>{(x.selectedEdition.payload.marketEditorialSectionsV2 as any).parentEditionId="other";},
     (x:ReturnType<typeof fixture>)=>{((x.selectedEdition.payload.marketEditorialSectionsV2 as any).articles[0]).storyThesisVersionId="wrong";},
