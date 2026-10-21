@@ -214,3 +214,75 @@ test("when no issuer observation is admitted, a question never becomes a fabrica
   assert.equal(brief.articles[0].title, "");
   assert.equal(brief.articles[0].editorial.readiness, "RESEARCH_ONLY");
 });
+
+
+test("V7 article sections keep a source-ready item as a factual brief unless five distinct qualifying claims exist", () => {
+  const article = baseArticle("brief", "Source-backed issuer fact without a complete report", [id1]);
+  const ready = buildEditorialBrief(packageOf([article]), [evidence(id1)]).articles[0];
+  assert.equal(ready.editorial.readiness, "READY", "Legacy issuer-fact suitability stays compatible");
+  assert.equal(ready.editorial.sections.contractVersion, "article-sections/2");
+  assert.equal(ready.editorial.sections.recommendedFormat, "FACTUAL_BRIEF");
+  assert.equal(ready.editorial.sections.reporting.length, 0,
+    "Story-wide references never become three factual source claims");
+  assert.equal(ready.editorial.sections.interpretation.length, 0);
+  assert.ok(ready.editorial.sections.gaps.some(x => x.includes("Fewer than three")));
+  const unsupported = buildEditorialBrief(packageOf([article]), [evidence(id1, {
+    createdAt: "2026-10-21T00:00:00Z",
+  })]).articles[0];
+  assert.equal(unsupported.editorial.sections.recommendedFormat, "RESEARCH_ONLY");
+});
+
+test("V7 admits long-form sections only from three primary facts and two adjudicated interpretations", () => {
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333",
+    "44444444-4444-4444-8444-444444444444",
+    "55555555-5555-4555-8555-555555555555",
+  ];
+  const texts = [
+    "The company's quarterly statement disclosed capital expenditure of several billion dollars and reported the figure on the same accounting basis as the prior quarter.",
+    "Its official results separately reported quarterly operating cash flow, providing a directly attributable measure of cash generated before investment in fixed assets.",
+    "The issuer's accompanying debt note itemised the financing commitments, which must not be mistaken for either customer orders or sales that were already recognised.",
+    "The timing gap between capital investment and cash collections could increase reliance on borrowing unless customer receipts improve, even as near-term supplier revenue rises.",
+    "A more constructive interpretation requires utilisation and recurring cash receipts to catch up with hardware installations, with contract cancellation rights remaining a significant uncertainty.",
+  ];
+  const paragraphs = texts.map((text, i) => ({
+    role: (i < 3 ? "context" : "mechanism") as "context" | "mechanism",
+    text, sourceRefs: [], canonicalEvidenceIds: [ids[i]],
+    evidenceScope: "claim" as const,
+    claimType: (i < 3 ? "fact" : "interpretation") as "fact" | "interpretation",
+  }));
+  const accepted = {
+    ...baseArticle("long", "Issuer spending and customer cash conversion", ids),
+    paragraphs,
+    dossierId: "99999999-9999-4999-8999-999999999999",
+    interpretationStatus: "MIXED" as const,
+  };
+  const sources = ids.map((id, i) => evidence(id, {
+    claimText: texts[i],
+    provenanceUrls: ["https://issuer.example.com/results/2026/q3-claim-" + (i + 1)],
+  }));
+  const ready = buildEditorialBrief(packageOf([accepted]), sources).articles[0];
+  assert.equal(ready.editorial.sections.recommendedFormat, "FULL_ARTICLE");
+  assert.equal(ready.editorial.sections.reporting.length, 3);
+  assert.equal(ready.editorial.sections.interpretation.length, 2);
+  assert.deepEqual(ready.editorial.sections.reporting.map(p => p.evidenceIds[0]), ids.slice(0, 3));
+  assert.deepEqual(ready.editorial.sections.interpretation.map(p => p.evidenceIds[0]), ids.slice(3));
+  assert.ok(ready.editorial.sections.reporting.every(p => p.originalUrls[0]?.startsWith("https://issuer.example.com/results/")));
+  assert.equal(ready.editionId, "edition-1");
+  assert.equal(ready.contractVersion, "market-brief-article/1", "Legacy article identity and contract are unchanged");
+
+  const unresolved = buildEditorialBrief(packageOf([{ ...accepted,
+    interpretationStatus: "UNRESOLVED",
+  }]), sources).articles[0];
+  assert.equal(unresolved.editorial.sections.recommendedFormat, "FACTUAL_BRIEF");
+  assert.equal(unresolved.editorial.sections.interpretation.length, 0,
+    "No canonical System 2 verdict means no publication-ready market interpretation");
+
+  const late = buildEditorialBrief(packageOf([accepted]), sources.map((row, i) =>
+    i === 0 ? { ...row, availableAt: "2026-10-22T00:00:00Z" } : row)).articles[0];
+  assert.equal(late.editorial.sections.recommendedFormat, "FACTUAL_BRIEF");
+  assert.equal(late.editorial.sections.reporting.length, 2,
+    "A source first available after the immutable edition cannot count");
+});
