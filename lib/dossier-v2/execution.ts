@@ -184,7 +184,7 @@ function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1, pa
   const energyRelevant = energyAction?.linked_stories.some(id =>
     /(?:oil|energy|crude|diesel|distillate|refin)/i.test(id))
     || analyticalOutput.major_stories.some(story =>
-      /(?:\\boil\\b|\\benergy\\b|\\bcrude\\b|\\bbrent\\b|\\bwti\\b|distillate|refin)/i.test(
+      /(?:\boil\b|\benergy\b|\bcrude\b|\bbrent\b|\bwti\b|distillate|refin)/i.test(
         story.title + " " + story.causal_mechanism));
   if (energyAction && energyRelevant) {
     const coverage = buildEnergyClaimCoverage(packet);
