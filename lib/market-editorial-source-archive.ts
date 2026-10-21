@@ -53,10 +53,11 @@ export async function loadArchivedIssuerPassages(
     if(!key?.startsWith(PREFIX))continue;
     const id=key.slice(PREFIX.length);
     const fragments=archivedPassages(raw);
-    if(!fragments.length||!raw.observed_at)continue;
+    const observedAt=raw.observed_at;
+    if(!fragments.length||!observedAt)continue;
     // Never silently replace the archived first-seen time with a value
     // supplied from the source text or an unrelated story publication.
-    map.set(id,fragments.filter(p=>Date.parse(p.capturedAt)===Date.parse(raw.observed_at)));
+    map.set(id,fragments.filter(p=>Date.parse(p.capturedAt)===Date.parse(observedAt)));
   }
   return map;
 }
