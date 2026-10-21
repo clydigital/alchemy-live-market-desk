@@ -9,7 +9,7 @@ export const STORY_VISUAL_VERSION = "abyssal-story/1" as const;
 
 export type StoryVisualKind = "rates" | "energy" | "equities" | "cross-asset";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function fingerprint(value: string) {
   // FNV-1a, unsigned 32-bit: deterministic across server builds and clients.
@@ -64,8 +64,8 @@ export function storyVisualDescriptor(input: {
     orbY: 145 + ((seed >>> 8) % 7) * 5,
     orbitTilt: -21 + ((seed >>> 16) % 11) * 3,
     accents: Array.from({ length: 7 }, (_, index) => ({
-      x: 410 + ((seed >>> (index % 4) * 6) % 470),
-      y: 30 + ((seed >>> ((index + 1) % 4) * 7) % 235),
+      x: 410 + ((seed >>> ((index % 4) * 6)) % 470),
+      y: 30 + ((seed >>> (((index + 1) % 4) * 7)) % 235),
       r: index % 3 === 0 ? 2.3 : 1.2,
     })),
   } as const;
