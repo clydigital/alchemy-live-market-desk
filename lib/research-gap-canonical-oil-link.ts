@@ -49,7 +49,7 @@ function idsForBenchmark(plan: ResearchGapPlan, benchmark: OilBenchmark): string
   for (const item of plan.requirements) {
     if (!oilNumerical.test(item.description)) continue;
     const named = requiresExactOilPairProof(item.description, []);
-    if (named.includes(benchmark) || (named.length === 0 && all.length === 1)) out.push(item.id);
+    if (named.includes(benchmark) || (named.length === 0 && (all.length === 1 || plan.requirements.length === 1))) out.push(item.id);
     if (named.length === 2 && !out.includes(item.id)) out.push(item.id);
   }
   return out;
