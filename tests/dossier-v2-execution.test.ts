@@ -947,3 +947,41 @@ test("Dossier execution snapshot persists evidence governance without a new tabl
   );
   assert.ok(Array.isArray(governance.conflictGroups));
 });
+
+test("Energy-linked rates desk action creates exact original F1/F2 Research Gap requirements without inventing prices", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.research_now = [
+    { rank: 1, action: "Rates tests", reason: "Rates transmission", expected_information_gain: "High", linked_investigations: [], linked_stories: [], blocking_evidence: [] },
+    { rank: 2, action: "Credit tests", reason: "Credit transmission", expected_information_gain: "High", linked_investigations: [], linked_stories: [], blocking_evidence: [] },
+    { rank: 3, action: "Physical energy tests", reason: "Energy inflation", expected_information_gain: "Medium", linked_investigations: [], linked_stories: ["story:energy-product-draw"], blocking_evidence: [] },
+  ];
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const result = input.payload.analytical_output as ResearchBrainOutputV1;
+  assert.equal(result.research_now.length, 3, "Do not create another Research Now slot");
+  const oil = result.research_now[2];
+  assert.match(oil.action, /WTI NYMEX CL and ICE Brent F1\/F2 settles/);
+  assert.equal(oil.linked_stories[0], "story:energy-product-draw");
+  assert.equal(oil.blocking_evidence.length, 2);
+  assert.ok(oil.blocking_evidence.some(text => /WTI NYMEX original dated FINAL CL F1\/F2/i.test(text)));
+  assert.ok(oil.blocking_evidence.some(text => /ICE Brent original dated FINAL F1\/F2/i.test(text)));
+  assert.ok(oil.blocking_evidence.every(text => /SHA-256/.test(text)));
+  assert.equal(output.research_now[2].action, "Physical energy tests", "Source output must remain immutable");
+
+  const repeated = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const repeatedOil = (repeated.payload.analytical_output as ResearchBrainOutputV1).research_now[2];
+  assert.deepEqual(oil, repeatedOil, "Regenerating the same Dossier must not change work identity");
+});
+
+test("Rates-only material without an active Oil Story does not consume Research Now or create oil gaps", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.major_stories = [];
+  output.research_now = [];
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const actions = (input.payload.analytical_output as ResearchBrainOutputV1).research_now;
+  assert.equal(actions.length, 3);
+  assert.equal(actions[2].blocking_evidence.some(x => /NYMEX original dated FINAL|ICE Brent original dated FINAL/.test(x)), false);
+});
