@@ -28,7 +28,7 @@ function publisher(url: string, benchmark: OilBenchmark): boolean {
   } catch { return false; }
 }
 function monthOrdinal(symbol: string, benchmark: OilBenchmark): number | null {
-  const p = benchmark === "WTI" ? /^CL([FGHJKMNQUVXZ])(\d{2})$/ : /^LCO([FGHJKMNQUVXZ])(\d{2})$/;
+  const p = benchmark === "WTI" ? /^CL([FGHJKMNQUVXZ])(\d{2})$/ : /^(?:LCO|B)([FGHJKMNQUVXZ])(\d{2})$/;
   const m = p.exec(symbol.toUpperCase());
   if (!m) return null;
   const month = "FGHJKMNQUVXZ".indexOf(m[1]);
@@ -54,7 +54,12 @@ export function verifiedOilFrontEligibility(input: {
   availableAt: string | null;
 }): boolean {
   const { benchmark, tradeDate, frontContract, nextContract, expiryRawRecordId, expiryOriginal: r } = input;
-  if (!day(tradeDate) || !consecutiveOilContractMonths(benchmark, frontContract, nextContract)
+  // Both ICE codes must use the same approved publisher's symbology profile.
+  const samePrefix = benchmark === "WTI" || (
+    (frontContract.toUpperCase().startsWith("LCO") && nextContract.toUpperCase().startsWith("LCO"))
+    || (/^B[FGHJKMNQUVXZ]\d{2}$/i.test(frontContract) && /^B[FGHJKMNQUVXZ]\d{2}$/i.test(nextContract))
+  );
+  if (!samePrefix || !day(tradeDate) || !consecutiveOilContractMonths(benchmark, frontContract, nextContract)
     || typeof expiryRawRecordId !== "string" || !UUID.test(expiryRawRecordId)
     || !r || r.id !== expiryRawRecordId || r.provider !== "OIL_EXPIRY_ORIGINAL"
     || typeof r.content_hash !== "string" || !HASH.test(r.content_hash)
