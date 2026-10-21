@@ -117,12 +117,12 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
   return (
     <LiveDeskShell activePath="/hybrid-output/prepare"
       eyebrow="Optional presenter companion" title="Presenter Prep"
-      description="Choose what to discuss from an immutable Journey edition. This page does not replace the original analysis."
+      description="From the selected Journey edition."
       meta={<Badge tone={projection.status === "READY" ? "ready" : "risk"}>{projection.status}</Badge>}>
       <PresenterTechnicalChecks compact />
       {projection.status !== "READY" || !projection.pinned ? (
         <Panel title="Exact source unavailable"
-          description="Invalid or mismatched references must not show another edition's market analysis."
+          description="Selected source is unavailable."
           action={<Badge tone="risk">FAIL CLOSED</Badge>}>
           <DataState title={projection.reason || "Unavailable"} detail={blocked(projection.reason)} state="risk" />
           <p><Link className={styles.link} href="/hybrid-output">Open existing Hybrid Journey</Link></p>
@@ -130,7 +130,7 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
       ) : (
         <div className={styles.grid}>
           <Panel title="Pinned research"
-            description="These source identities will not change while you prepare this edition."
+            description="Edition and Dossier references."
             action={<Badge tone="ready">{projection.scope}</Badge>}>
             <div className={styles.recordList}>
               <article className={styles.record}>
@@ -148,14 +148,14 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               <p className={styles.meta}>
                 <strong>Selected focus:</strong>{" "}
                 {Object.entries(projection.focus).map(([key, value]) => key + " " + value).join(" · ")}
-                {" · "}Matching source records are shown first below.
+                
               </p>
             ) : null}
             <p><Link className={styles.link} href={projection.journeyHref!}>Open this edition in Hybrid Journey →</Link></p>
           </Panel>
 
           <Panel title="Editorial readiness — PRE-PRODUCTION"
-            description="Only original-source editorial already frozen into this exact Journey edition. No new Story verdict, measured reaction or publication approval is inferred."
+            description="Original-source material from this edition."
             action={<Badge tone={editorialReadiness.status === "HAS_EDITORIAL" ? "ready" : "warn"}>
               {editorialReadiness.status === "HAS_EDITORIAL" ? editorialReadiness.items.length + " ARTICLE RECORDS" : "NO ADMITTED ARTICLE"}
             </Badge>}>
@@ -211,13 +211,13 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               </div>
             ) : (
               <DataState title="No admitted editorial for this exact edition"
-                detail="This is not evidence that original-source research is absent. Article composition may not have run or may have failed the admission gate. Use the frozen Story, Dossier and Research Gap sections below; do not borrow an article from a newer edition."
+                detail="No approved editorial in this edition; other source records may appear below."
                 state="warn" />
             )}
           </Panel>
 
           <Panel title="What to cover"
-            description="Headlines from frozen edition sources only. Legacy Story-state titles do not imply an accepted Dossier interpretation."
+            description="Stories and developments in this edition."
             action={<Badge>{projection.stories.length} STORIES · {projection.motions.length} MOTION</Badge>}>
             {projection.stories.length || projection.motions.length ? (
               <div className={styles.recordList}>
@@ -253,19 +253,19 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
                     </p>
                     <p className={styles.meta}>
                       Story {motion.storyId}{motion.regimeSlug ? " · Regime " + motion.regimeSlug : ""}
-                      {" · "}Source verification does not imply Dossier acceptance.
+                      
                     </p>
                   </article>
                 ))}
               </div>
             ) : (
               <DataState state="ready" title="Quiet edition"
-                detail="There is no material Story or Motion to add. Nothing has been invented to fill airtime." />
+                detail="No material Story or Motion in this edition." />
             )}
           </Panel>
 
           <Panel title="What needs checking"
-            description="Exact-Dossier Research Gap lifecycle only; research handoff is not measurement verification."
+            description="Outstanding research checks."
             action={<Badge tone={projection.researchGaps.length ? "warn" : "default"}>{projection.researchGaps.length} GAPS</Badge>}>
             {projection.researchGaps.length ? (
               <div className={styles.recordList}>
@@ -279,12 +279,12 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               </div>
             ) : (
               <DataState title="No exact research-status items"
-                detail="Missing statuses do not prove that outstanding questions are resolved." />
+                detail="No recorded research statuses for this Dossier." />
             )}
           </Panel>
 
           <Panel title="What could move next"
-            description="Event references frozen into the selected Journey. Historical editions never borrow today's calendar."
+            description="Upcoming catalysts from this edition."
             action={<Badge>{projection.events.length} EVENTS</Badge>}>
             {projection.events.length ? (
               <div className={styles.recordList}>
@@ -299,7 +299,7 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
                 ))}
               </div>
             ) : (
-              <DataState title="No dated catalysts in this edition" detail="No events have been guessed." />
+              <DataState title="No dated catalysts in this edition" detail="No events recorded." />
             )}
           </Panel>
           <MarketGraphicsShelf />
