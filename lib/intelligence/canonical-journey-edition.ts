@@ -335,6 +335,28 @@ async function persistCanonicalStoryManifest({
 }
 
 /**
+ * Source-only, forward-dated original-issuer coverage on completed base
+ * editions, regardless of whether the base was created by the research engine
+ * or the zero-change fallback. It NEVER rewrites a pinned edition or invents a
+ * new source/evidence UUID.
+ */
+async function tryArchiveOriginalIssuerSourcesForBase(
+  base: Pick<DailyBriefRow,"payload"|"published_at">,
+): Promise<void> {
+  try {
+    const candidates=await prepareFrozenMarketEditorial({
+      editionPayload:base.payload,
+      asOf:base.published_at,
+      maxArticles:1,
+    });
+    if(candidates.length) await archiveMissingIssuerPassages(candidates);
+  } catch (error) {
+    console.warn("Optional base-edition issuer source capture unavailable",
+      error instanceof Error?error.name:"unknown");
+  }
+}
+
+/**
  * Ensure every completed research run owns at least one immutable canonical
  * edition. The normal intelligence runtime already persists the base edition
  * when at least one Story changes. The legitimate zero-change case reaches the
@@ -353,7 +375,12 @@ export async function persistCanonicalJourneyEditionForResearchRun({
 }) {
   const existingRows = await dailyBriefsForResearchRun(researchRunId);
   const existing = dailyBriefForPhase(existingRows, "base");
-  if (isCanonicalBaseEdition(existing)) return existing.id;
+  if (isCanonicalBaseEdition(existing)) {
+    // Active-Story engine runs may already have frozen the base before this
+    // post-completion recovery function is called.
+    await tryArchiveOriginalIssuerSourcesForBase(existing);
+    return existing.id;
+  }
 
   const generatedAt = new Date().toISOString();
   const presenterDossierContext = await capturePresenterDossierEditionContext(generatedAt);
@@ -506,26 +533,9 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     isValid: isCanonicalBaseEdition,
     missingMessage: "Unable to persist zero-change canonical Journey edition snapshot.",
   });
-  // An ordinary Research Gap handoff may conclude after publishing only its
-  // canonical BASE edition, without scheduling the Dossier composition stage.
-  // Repair known issuer-source coverage here too, using the already-frozen
-  // source UUIDs and immutable base as-of. Captures are a SEPARATE forward-only
-  // raw archive, eligible only for future editions; no edits to the base.
-  // This is bounded optional source work, not an evidence/reasoning model.
-  try {
-    const candidates=await prepareFrozenMarketEditorial({
-      editionPayload:canonicalBase.payload,
-      asOf:canonicalBase.published_at,
-      maxArticles:1,
-    });
-    if(candidates.length) {
-      await archiveMissingIssuerPassages(candidates);
-    }
-  } catch (error) {
-    // A publisher outage must never roll back the committed research handoff.
-    console.warn("Optional base-edition issuer source capture unavailable",
-      error instanceof Error?error.name:"unknown");
-  }
+  // The same bounded source-repair helper covers this new zero-change base,
+  // as well as the existing engine-frozen base handled above.
+  await tryArchiveOriginalIssuerSourcesForBase(canonicalBase);
   return canonicalBase.id;
 }
 
