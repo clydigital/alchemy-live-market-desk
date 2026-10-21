@@ -69,16 +69,42 @@ test("missing or invalid provider values cannot become observed numbers or unsaf
   assert.equal(row.changeUnit, "%");
 });
 
-test("source-dated public Markets is server-rendered, bounded, and preserves old private terminal", () => {
+test("source-dated public Markets keeps its server projection and private owner terminal", () => {
   const page = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
+  const reader = readFileSync(new URL("../app/blue-desk/markets/BlueDeskMarketReader.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/blue-desk/markets/markets-reader.module.css", import.meta.url), "utf8");
   const presenter = readFileSync(new URL("../app/owner/markets/page.tsx", import.meta.url), "utf8");
   const host = readFileSync(new URL("../lib/blue-desk-host.ts", import.meta.url), "utf8");
+
+  // Only the existing authorised, capped public projection reaches the client.
   assert.match(page, /getMarketMonitor\(\)\.catch\(\(\) => null\)/);
   assert.match(page, /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
-  assert.match(page, /row\.sourceUrl/);
-  assert.match(page, /row\.asOf/);
-  assert.match(page, /row\.frequency/);
+  assert.match(page, /<BlueDeskMarketReader observations=\{observations\} \/>/);
+  assert.match(page, /PUBLIC_MARKET_GROUPS\.map/);
   assert.doesNotMatch(page, /createSupabaseAdminClient|service_role|updateStory|researchTriggers|MarketMonitor monitor=/);
+  assert.match(reader, /"use client"/);
+  assert.match(reader, /readonly PublicMarketObservation\[\]/);
+  assert.doesNotMatch(reader, /fetch\(|createSupabaseAdminClient|service_role|use server|points:|\\.points\b|\\.hot\b|\\.rsi\b|\\.contradiction\b/);
+
+  // Browser controls do not manufacture dates, price moves, or unlike-unit rankings.
+  for (const field of ["row.label", "row.symbol", "row.type", "row.sourceName",
+    "row.asOf", "row.frequency", "row.sourceUrl", "row.changeUnit"]) {
+    assert.ok(reader.includes(field), field);
+  }
+  assert.match(reader, /frequency !== "all" && row\.frequency !== frequency/);
+  assert.match(reader, /row\.change !== null && row\.change > 0/);
+  assert.match(reader, /row\.change !== null && row\.change < 0/);
+  assert.match(reader, /row\.change === null \|\| row\.change === 0/);
+  assert.match(reader, /dateValue\(b\.asOf\) - dateValue\(a\.asOf\)/);
+  assert.match(reader, /row\.changeUnit === "bp"/);
+  assert.match(reader, /aria-live="polite"/);
+  assert.match(reader, /aria-hidden="true"/);
+  assert.match(reader, /rel="noreferrer"/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /max-width: 560px/);
+  assert.match(css, /prefers-reduced-motion/);
+
+  // Existing owner markets and host access policy are untouched.
   assert.match(presenter, /<MarketsMonitor monitor=\{monitor\} flows=\{flows\} \/>/);
   assert.doesNotMatch(presenter, /LiveDeskShell/);
   assert.match(host, /pathname === "\/markets"/);
