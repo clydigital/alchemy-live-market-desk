@@ -607,8 +607,10 @@ export async function composeCanonicalDossierEditionForResearchRun({
       });
     if(sourceCandidates.length) {
       const archived=await archiveMissingIssuerPassages(sourceCandidates);
-      console.info("editorial_source_capture_composed",{attempted:archived.attempted,archived:archived.archived,reasons:archived.warnings.slice(0,2)});
+      console.info("editorial_source_capture_composed",{candidateCount:sourceCandidates.length,attempted:archived.attempted,archived:archived.archived,reasons:archived.warnings.slice(0,2)});
       editorialWarnings.push(...archived.warnings);
+    } else {
+      console.info("editorial_source_capture_composed",{candidateCount:0,attempted:0,archived:0,reasons:["NO_SOURCE_QUALIFIED_CANDIDATE"]});
     }
   } catch {
     editorialWarnings.push("Automatic original-source capture unavailable; canonical publication continues.");
