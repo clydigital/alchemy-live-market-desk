@@ -1,6 +1,8 @@
 import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
 import { composeFrozenMarketEditorial } from "@/lib/market-editorial-runtime";
 import { MARKET_EDITORIAL_V1 } from "@/lib/market-editorial-v1";
+import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
+import { decideEditorialStage } from "@/lib/intelligence/editorial-stage-gate";
 import { buildMarketImpactPacketsV1 } from "@/lib/market-impact-packet";
 import "server-only";
 
@@ -520,23 +522,37 @@ export async function composeCanonicalDossierEditionForResearchRun({
   }
 
   const composed = await composePersistedDossierStorylines({ editionPayload: base.payload });
-  // Editorial is optional and failure-isolated: the immutable base and canonical
-  // Dossier must remain available even if primary-source access or the fast
-  // formatter times out. Do not run this on Blue Desk visitor requests.
+  const hasStoryline = Boolean(composed.dossier && composed.composition);
+  const invocation = currentIntelligenceInvocation();
+  // The SQL contract permits one 'composed' edition per run. Until a durable
+  // second-stage continuation exists, an edition must not spend one model
+  // invocation on Dossier grouping and another on editorial prose.
+  const editorialStage = decideEditorialStage({
+    dossierModelWasUsed: Boolean(composed.model),
+    oneModelStage: invocation?.oneModelStage ?? true,
+    invokedModelStage: invocation?.invokedModelStage ?? null,
+  });
+  // Editorial is optional and failure-isolated: no source-eligible article or
+  // formatter failure may block the canonical base or grouped Dossier.
   let marketEditorial: Awaited<ReturnType<typeof composeFrozenMarketEditorial>> | null = null;
   const editorialWarnings: string[] = [];
-  try {
-    marketEditorial = await composeFrozenMarketEditorial({
-      editionPayload: base.payload,
-      asOf: base.published_at,
-      maxArticles: 3,
-    });
-    editorialWarnings.push(...marketEditorial.warnings);
-  } catch (error) {
-    editorialWarnings.push("Bounded market editorial composition failed without affecting the canonical Dossier.");
-    console.error("Market editorial composition unavailable", error instanceof Error ? error.name : "unknown");
+  if (editorialStage.permitted) {
+    try {
+      marketEditorial = await composeFrozenMarketEditorial({
+        editionPayload: base.payload,
+        asOf: base.published_at,
+        maxArticles: 3,
+      });
+      editorialWarnings.push(...marketEditorial.warnings);
+    } catch (error) {
+      editorialWarnings.push("Bounded market editorial composition failed without affecting the canonical Dossier.");
+      console.error("Market editorial composition unavailable", error instanceof Error ? error.name : "unknown");
+    }
+  } else {
+    editorialWarnings.push(
+      `Market editorial model omitted: ${editorialStage.reason}; preserved the one-model-stage and immutable-edition contract.`,
+    );
   }
-  const hasStoryline = Boolean(composed.dossier && composed.composition);
   const hasEditorial = Boolean(marketEditorial?.articles.length);
   if (!hasStoryline && !hasEditorial) {
     return {
