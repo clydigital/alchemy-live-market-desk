@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PresenterPrepSession from "@/components/live-desk/PresenterPrepSession";
 import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
+import { MarketGraphicsShelf } from "@/components/blue-desk/MarketGraphicsShelf";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
@@ -224,6 +225,7 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               <DataState title="No dated catalysts in this edition" detail="No events have been guessed." />
             )}
           </Panel>
+          <MarketGraphicsShelf />
           <PresenterPrepSession
             editionId={projection.pinned.editionId}
             dossierId={projection.pinned.dossierId}
