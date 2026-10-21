@@ -42,9 +42,12 @@ test("a quiet zero-manifest Dossier edition may use its one available model call
 test("canonical publication checks the gate before calling the frozen article composer", () => {
   const source=readFileSync(new URL("../lib/intelligence/canonical-journey-edition.ts",import.meta.url),"utf8");
   const gate=source.indexOf("const editorialStage = decideEditorialStage");
-  const eligible=source.indexOf("if (editorialStage.permitted)");
+  const eligible=source.indexOf("if (!dossierHasModelCandidates && editorialStage.permitted)");
   const call=source.indexOf("marketEditorial = await composeFrozenMarketEditorial");
   assert.ok(gate > 0 && eligible > gate && call > eligible);
+  assert.match(source,/const combinedRunner:/);
+  assert.match(source,/const response = await runStructuredStage<T & ModelEditorialOutput>\(augmented\)/);
+  assert.match(source,/!dossierHasModelCandidates && editorialStage\.permitted/);
   assert.match(source,/dossierModelWasUsed: Boolean\(composed\.model\)/);
   assert.match(source,/invokedModelStage: invocation\?\.invokedModelStage \?\? null/);
   assert.match(source,/Market editorial model omitted:/);
