@@ -48,7 +48,7 @@ test("combined one-call stage preserves Dossier fields and adds only editorial a
   });
   assert.equal(request.stageKey,"dossier_storyline_composer");
   assert.equal(request.modelKind,"complex");
-  assert.equal(request.maxOutputTokens,6500);
+  assert.equal(request.maxOutputTokens,8000);
   assert.equal(request.maxAttempts,1);
   assert.deepEqual(request.schema.required,["opening","storylines","lessonOrder","articles"]);
   assert.deepEqual(Object.keys(request.schema.properties),["opening","storylines","lessonOrder","articles"]);
