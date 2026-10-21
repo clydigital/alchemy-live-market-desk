@@ -1,6 +1,13 @@
 /** User-facing URLs only. Internal Next routes are preserved for compatibility. */
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
+/**
+ * QA-only pinned deployment host. This constant exists solely on the
+ * disposable preview branch, never in main or the V7 Markets PR.
+ * It inherits the Bluebelly public read-only allowlist and 404 for every
+ * other path, including all API, cron and owner routes.
+ */
+const V7_QA_PREVIEW_READER_HOST = "alchemy-live-market-desk-ackcuhtwj-rogue-magazine.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
@@ -8,7 +15,7 @@ function normalizedHost(host: string | null | undefined) {
 
 /** Only the approved public reading hosts use public-clean Blue Desk links. */
 export function isBlueDeskPublicReaderHost(host: string | null | undefined) {
-  return [BLUEBELLY_PRESENTATION_HOST, LIVE_DESK_PRESENTATION_HOST].includes(normalizedHost(host));
+  return [BLUEBELLY_PRESENTATION_HOST, LIVE_DESK_PRESENTATION_HOST, V7_QA_PREVIEW_READER_HOST].includes(normalizedHost(host));
 }
 
 export function blueDeskPublicHref(path: string, host: string | null | undefined) {
@@ -40,7 +47,8 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   "public" | "blocked" | "private" {
   const hostname = normalizedHost(host);
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
-  if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
+  if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST
+      && hostname !== V7_QA_PREVIEW_READER_HOST) return "private";
 
   // Explicitly approved, read-only full Markets terminal. This exception
   // applies to the exact Live hostname/path only; do not open other owner
@@ -58,5 +66,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
-  return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
+  return publicPage ? "public"
+    : hostname === BLUEBELLY_PRESENTATION_HOST || hostname === V7_QA_PREVIEW_READER_HOST
+      ? "blocked" : "private";
 }
