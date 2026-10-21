@@ -8,13 +8,13 @@ import type { MarketMonitorRow } from "../lib/market-monitor.ts";
 
 const NOW = new Date("2026-10-21T15:00:00Z");
 const point = (date: string, close: number) => ({ time: Date.parse(date + "T00:00:00Z") / 1000, close });
-const rates = { type: "Rates", frequency: "daily", points: [
+const rates: Pick<MarketMonitorRow, "type" | "frequency" | "points"> = { type: "Rates", frequency: "daily", points: [
   point("2026-09-01", 3.5),
   point("2026-09-02", 3.6),
   point("2026-09-03", 3.7),
   point("2026-10-18", 3.8),
   point("2026-10-20", 3.9),
-] } as const;
+] };
 
 test("market trend uses actual chronological dated observations, excludes future/bad values", () => {
   const trend = marketTrend({
@@ -22,7 +22,7 @@ test("market trend uses actual chronological dated observations, excludes future
       point("2026-10-20", 3.9)].reverse(),
   }, "MAX", NOW);
   assert.equal(trend.points.length, 5);
-  assert.equal(trend.netChange, 40.000000000000036);
+  assert.ok(trend.netChange !== null && Math.abs(trend.netChange - 40) < 0.00001);
   assert.equal(trend.netChangeUnit, "bp");
   assert.equal(trend.sourceDate, "2026-10-20");
   assert.equal(trend.stale, false);
