@@ -97,9 +97,7 @@ export function MarketGraphicsShelf() {
     <section className={styles.shelf} aria-labelledby="market-graphics-title">
       <div className={styles.heading}>
         <div>
-          <p className={styles.eyebrow}><MarketIcon name="studio" size={17} /> PRESENTER VISUAL LIBRARY</p>
           <h2 id="market-graphics-title">Market graphics</h2>
-          <p>Reusable diagrams for the stream, slides and explainers. These are empty analytical frameworks, not market observations.</p>
         </div>
         <span className={styles.count}>6 templates</span>
       </div>
@@ -113,7 +111,6 @@ export function MarketGraphicsShelf() {
             </div>
             <div className={styles.content}>
               <h3>{item.title}</h3>
-              <p>{item.description}</p>
               <div className={styles.actions}>
                 <button type="button" disabled={Boolean(busy)} onClick={() => void perform(item.id, "copy")}>
                   <MarketIcon name="copy" size={16} /> Copy SVG
@@ -129,7 +126,6 @@ export function MarketGraphicsShelf() {
           </article>
         ))}
       </div>
-      <p className={styles.note}>Use real measurements only after independent source and date verification.</p>
       <p className={styles.feedback} role="status" aria-live="polite">{message}</p>
     </section>
   );
