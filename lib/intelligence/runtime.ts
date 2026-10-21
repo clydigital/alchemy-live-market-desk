@@ -137,6 +137,8 @@ import {
 } from "@/lib/intelligence/story-reasoning";
 import { buildValidatedStorySynthesisPlanV1 } from "@/lib/intelligence/story-synthesis-plan";
 import { buildEditionEventHorizon } from "@/lib/market-event-runtime";
+import { oilPriceAssertionErrors, oilPriceAssertionSentences } from "./story-oil-price-gate.ts";
+import { resolveVerifiedStoryOilPairs } from "./story-oil-price-proof.ts";
 
 export type IntelligenceTriggerKind = "scheduled" | "new_evidence" | "manual" | "targeted_reevaluation" | "api";
 
@@ -1764,6 +1766,40 @@ async function persistStoryAssessments(input: {
       const item = allowedEvidence.get(id);
       return item ? isCanonicalEligibleEvidence(item) : false;
     });
+    // Source-debt review can legitimately lower conviction or stay unresolved,
+    // but not promote third-party curve context into an OBSERVED F1/F2 price fact.
+    const claimedOilPrices = [
+      assessment.proposedThesis, assessment.proposedTitle,
+      assessment.proposedMarketQuestion, assessment.rationale,
+    ];
+    if (oilPriceAssertionSentences(claimedOilPrices).length) {
+      const verifiedOilPairs = await resolveVerifiedStoryOilPairs(
+        eligibleEvidenceIds, new Date(target.selectedAt),
+      );
+      const oilErrors = oilPriceAssertionErrors({
+        storyDescription: [
+          target.story.title, target.story.marketQuestion, ...target.story.assets,
+        ].filter(Boolean).join(" "),
+        textParts: claimedOilPrices,
+        citedEvidenceIds: eligibleEvidenceIds,
+        verifiedEvidence: verifiedOilPairs,
+      });
+      if (oilErrors.length) {
+        console.warn(JSON.stringify({
+          event: "story_oil_unmeasured_price_assertion_suppressed",
+          engineRunId: input.engineRunId,
+          storyId: target.story.id,
+          evidenceIds,
+          errorCount: oilErrors.length,
+        }));
+        await markStoryReviewRetryable(
+          input.engineRunId, [target],
+          "Measured oil F1/F2 assertion requires original FINAL canonical exchange settle evidence. " +
+            oilErrors.join(" ").slice(0, 900),
+        );
+        continue;
+      }
+    }
     const evidenceMaterialAllowed = materialAssessmentHasEligibleEvidence(
       assessment.disposition,
       evidenceIds,
@@ -3605,6 +3641,31 @@ export async function runIntelligenceEngine({
         const candidate = contract.candidate;
         contractDiagnostics.push(...contract.diagnostics);
         const decisiveEvidenceIds = candidate.decisiveEvidenceIds;
+        const assertiveOilText = [
+          candidate.title, candidate.thesis, candidate.whatChanged,
+          candidate.currentState, candidate.marketReaction,
+          candidate.strongestSupport, candidate.acceptedExplanation,
+          candidate.researchSynthesis,
+          ...candidate.mechanismSteps.map(step => step.text),
+        ];
+        if (oilPriceAssertionSentences(assertiveOilText).length) {
+          const verified = await resolveVerifiedStoryOilPairs(
+            candidate.decisiveEvidenceIds, new Date(analysisAsOf),
+          );
+          const errors = oilPriceAssertionErrors({
+            storyDescription: [
+              candidate.title, candidate.question, ...candidate.affectedAssets,
+            ].join(" "),
+            textParts: assertiveOilText,
+            citedEvidenceIds: candidate.decisiveEvidenceIds,
+            verifiedEvidence: verified,
+          });
+          if (errors.length) {
+            throw new Error("Canonical oil price measurement admission failed: " +
+              errors.join(" ").slice(0, 900));
+          }
+        }
+
         // Optional Story Synthesis annotations may not abort the whole edition when
         // the model returns an evidence ID outside the canonical pack. Drop unknown
         // references here; decisive thesis evidence remains strict above.
