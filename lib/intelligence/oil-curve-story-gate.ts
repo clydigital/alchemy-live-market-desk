@@ -131,7 +131,10 @@ export async function loadVerifiedStoryOilPairs(
     db.from("intelligence_evidence_sources").select("id,source_tier,source_url").in("id", sourceIds),
   ]);
   if (obs.error || sources.error) throw new Error("Oil Story original source lineage lookup failed.");
-  const rawIds = [...new Set((obs.data ?? []).map(x => x.raw_record_id).filter((x): x is string => Boolean(x)))];
+  const rawIds = [...new Set((obs.data ?? []).flatMap(x => [
+    x.raw_record_id,
+    typeof x.value?.expiryRawRecordId === "string" ? x.value.expiryRawRecordId : null,
+  ]).filter((x): x is string => Boolean(x)))];
   if (!rawIds.length) return [];
   const raw = await db.from("raw_source_records")
     .select("id,source_url,content_type,content_hash,provider,payload").in("id", rawIds);
@@ -145,7 +148,9 @@ export async function loadVerifiedStoryOilPairs(
     const source = e.source_id ? bySource.get(e.source_id) : null;
     const original = observation?.raw_record_id ? byRaw.get(observation.raw_record_id) : null;
     if (!observation || !source || !original) continue;
-    const proof = { evidence: e, observation, raw: original, source } as CanonicalOilProofInput;
+    const proof = { evidence: e, observation, raw: original, source,
+      expiryOriginal: typeof observation.value?.expiryRawRecordId === "string"
+        ? byRaw.get(observation.value.expiryRawRecordId) ?? null : null } as CanonicalOilProofInput;
     for (const benchmark of ["WTI", "BRENT"] as const) {
       if (!verifiedCanonicalOilPair(proof, benchmark, asOfDate)) continue;
       const value = observation.value as Record<string, unknown> | null;

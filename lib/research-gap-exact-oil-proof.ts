@@ -1,4 +1,5 @@
 import { consecutiveOilContractMonths } from "./oil-futures-contracts.ts";
+import { verifiedOilFrontEligibility, type OilExpiryOriginal } from "./oil-futures-front-eligibility.ts";
 /**
  * Existing Research Gap server-side proof pattern, extended to oil F1/F2.
  * A web search assessment (gap-web ID) cannot close an exact settlement gap.
@@ -20,6 +21,8 @@ export type CanonicalOilProofInput = {
   observation: { id: string; raw_record_id: string | null; value: Record<string, unknown> | null };
   raw: { id: string; source_url: string | null; content_type: string | null; content_hash: string | null; provider: string | null; payload: Record<string, unknown> | null };
   source: { id: string; source_tier: number | null; source_url: string | null };
+  /** Separate archived exchange expiry-calendar original; never model text. */
+  expiryOriginal?: OilExpiryOriginal | null;
 };
 
 export function requiresExactOilPairProof(question: string, requirements: readonly string[]): OilBenchmark[] {
@@ -114,6 +117,11 @@ export function verifiedCanonicalOilPair(
     && e.event_at?.slice(0, 10) === tradeDate
     && typeof val.frontContract === "string" && typeof val.nextContract === "string"
     && consecutiveOilContractMonths(benchmark, val.frontContract, val.nextContract)
+    && verifiedOilFrontEligibility({
+      benchmark, tradeDate, frontContract: val.frontContract,
+      nextContract: val.nextContract, expiryRawRecordId: val.expiryRawRecordId,
+      expiryOriginal: input.expiryOriginal, availableAt: e.available_at,
+    })
     && numeric(front) && numeric(next)
     && Number.isFinite(timestamp) && Number.isFinite(available)
     && timestamp <= evaluatedAt.getTime() && available <= evaluatedAt.getTime();

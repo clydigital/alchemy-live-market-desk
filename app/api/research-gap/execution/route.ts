@@ -212,7 +212,10 @@ export async function POST(request: Request) {
               admin.from("intelligence_evidence_sources").select("id,source_tier,source_url").in("id", sourceIds),
             ]);
             if (obs.error || sources.error) throw new Error("Canonical oil pair provenance lookup failed.");
-            const rawIds = [...new Set((obs.data ?? []).map(row => row.raw_record_id).filter(Boolean))];
+            const rawIds = [...new Set((obs.data ?? []).flatMap(row => [
+              row.raw_record_id,
+              typeof row.value?.expiryRawRecordId === "string" ? row.value.expiryRawRecordId : null,
+            ]).filter(Boolean))];
             const raw = rawIds.length
               ? await admin.from("raw_source_records")
                   .select("id,source_url,content_type,content_hash,provider,payload").in("id", rawIds)
@@ -228,6 +231,8 @@ export async function POST(request: Request) {
               if (!observation || !source || !original) continue;
               const proof = {
                 evidence, observation, raw: original, source,
+                expiryOriginal: typeof observation.value?.expiryRawRecordId === "string"
+                  ? byRaw.get(observation.value.expiryRawRecordId) ?? null : null,
               } as CanonicalOilProofInput;
               for (const benchmark of requiredOil) {
                 if (verifiedCanonicalOilPair(proof, benchmark, new Date())) {
