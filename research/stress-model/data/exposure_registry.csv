@@ -1,0 +1,1 @@
+exposure_id,research_block,institution,counterparty,instrument,amount,amount_currency,as_of_date,maturity_date,coupon_pct,spread_bps,seniority,recourse,collateral_type,liquidity_risk,maturity_mismatch,evidence_type,source_url,source_date,source_locator,scenario_eligible,double_count_group,do_not_double_count_with,review_status,calculation_version,notes

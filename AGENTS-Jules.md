@@ -121,3 +121,23 @@ Prefer incremental, tested changes. Run tests and build before proposing complet
 ## First-task behaviour
 
 When asked to audit the repository, inspect the current implementation and architecture documents before changing code. Identify what already exists, what still depends on Challenger, and what is missing for the persistent twice-daily Research Orchestrator. Return a proposed implementation plan before making broad architectural changes.
+
+
+## Dossier quantitative lane
+
+For Bond Market / AI Credit Regime stress-model tasks, Jules is the deterministic calculation engineer only.
+
+Read `docs/DOSSIER_TOOL_SPLIT.md` and `research/stress-model/JULES_TASK.md` before changing stress-model code.
+
+Rules:
+- consume Work-verified structured inputs only;
+- do not perform general web research or adjudicate conflicting market facts;
+- do not edit the live Google Doc;
+- do not convert INFERRED/MODELLED values into factual evidence;
+- keep assumptions outside sourced values;
+- preserve exposure_id end to end;
+- fail/skip rather than invent missing contractual terms;
+- detect double counting before aggregation;
+- test every model and export clean machine-readable tables for Chat review and Work publication.
+
+Work High remains the factual and publication authority. Chat High remains the research-design and adversarial-review authority.
