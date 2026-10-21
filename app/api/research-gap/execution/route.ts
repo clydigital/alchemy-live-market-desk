@@ -19,6 +19,7 @@ import {
   verifiedCanonicalMoveSeries,
   type CanonicalMoveRow,
 } from "@/lib/research-gap-exact-move-proof";
+import { canonicalOilPairAssessments, explicitOilResearchTradeDate, type VerifiedOilPairReceipt } from "@/lib/research-gap-canonical-oil-link";
 import {
   requiresExactOilPairProof,
   verifiedCanonicalOilPair,
@@ -177,23 +178,31 @@ export async function POST(request: Request) {
       }
 
       let verifiedCanonicalOilEvidence: Array<{ evidenceId: string; benchmark: OilBenchmark }> = [];
+      const sourceVerifiedOilReceipts: VerifiedOilPairReceipt[] = [];
       const requiredOil = requiresExactOilPairProof(
         gap.research_plan.researchQuestion,
         gap.research_plan.requirements.map(r => r.description),
       );
       if (requiredOil.length) {
-        // Only the server can verify exact exchange records. The web executor
-        // emits gap-web hashes and cannot manufacture these canonical joins.
+        // Web assessments use gap-web hashes, not canonical Evidence UUIDs.
+        // For an EXPLICIT date only, discover already-ingested final settles
+        // directly from canonical storage, then verify their complete source
+        // archive chain. No model-supplied source identifier is trusted.
+        const tradeDate = explicitOilResearchTradeDate(gap.research_plan);
         const candidates = (rawEvidence as ResearchGapEvidenceAssessment[])
           .map(row => row.evidenceId)
           .filter(id => /^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(id))
           .slice(0, 8);
-        if (candidates.length) {
+        if (tradeDate || candidates.length) {
           const admin = createSupabaseAdminClient();
-          const { data: ev, error: evError } = await admin
-            .from("intelligence_evidence")
-            .select("id,normalised_observation_id,source_id,measurement_unit,event_at,available_at,affected_assets,provenance_urls,structured_payload")
-            .in("id", candidates);
+          const base = admin.from("intelligence_evidence")
+            .select("id,normalised_observation_id,source_id,measurement_unit,event_at,available_at,affected_assets,provenance_urls,structured_payload");
+          const nextDay = tradeDate ? new Date(Date.parse(tradeDate + "T00:00:00Z") + 86_400_000).toISOString() : "";
+          const { data: ev, error: evError } = tradeDate
+            ? await base.gte("event_at", tradeDate + "T00:00:00Z").lt("event_at", nextDay)
+                .contains("structured_payload", { signalKind: "official_futures_settlement_pair" }).limit(16)
+            : await base.in("id", candidates);
+
           if (evError) throw new Error("Canonical oil pair Evidence lookup failed: " + evError.message);
           const observations = [...new Set((ev ?? []).map(row => row.normalised_observation_id).filter(Boolean))];
           const sourceIds = [...new Set((ev ?? []).map(row => row.source_id).filter(Boolean))];
@@ -223,6 +232,21 @@ export async function POST(request: Request) {
               for (const benchmark of requiredOil) {
                 if (verifiedCanonicalOilPair(proof, benchmark, new Date())) {
                   verifiedCanonicalOilEvidence.push({ evidenceId: evidence.id, benchmark });
+                  const value = observation.value;
+                  if (value && typeof value === "object"
+                    && typeof value.tradeDate === "string"
+                    && typeof value.frontContract === "string"
+                    && typeof value.nextContract === "string"
+                    && typeof value.frontSettle === "number"
+                    && typeof value.nextSettle === "number"
+                    && typeof source.source_url === "string") {
+                    sourceVerifiedOilReceipts.push({
+                      evidenceId: evidence.id, benchmark, tradeDate: value.tradeDate,
+                      sourceUrl: source.source_url,
+                      frontContract: value.frontContract, nextContract: value.nextContract,
+                      frontSettle: value.frontSettle, nextSettle: value.nextSettle,
+                    });
+                  }
                 }
               }
             }
@@ -243,11 +267,21 @@ export async function POST(request: Request) {
           event: "research_gap_oil_source_access",
           caseId, sourceAccess: originalSourceAccess,
           canonicalProofCount: verifiedCanonicalOilEvidence.length,
+          canonicalValidatedReceiptCount: sourceVerifiedOilReceipts.length,
         }));
       }
+      const automaticallyLinkedOil = canonicalOilPairAssessments(
+        gap.research_plan, sourceVerifiedOilReceipts);
+      // Deterministic original-source assessment takes precedence over a
+      // potentially conflicting model assessment of the same canonical UUID.
+      const modelEvidence = (rawEvidence as ResearchGapEvidenceAssessment[])
+        .filter(row => !automaticallyLinkedOil.some(saved => saved.evidenceId === row.evidenceId));
+      // Reserve assessment slots for genuinely verified canonical receipts before
+      // capped web-source candidates, so model output volume cannot crowd them out.
+      const evaluatedEvidence = [...automaticallyLinkedOil, ...modelEvidence].slice(0, 24);
       const verdict = evaluateResearchGapEvidence({
         plan: gap.research_plan,
-        evidence: rawEvidence as ResearchGapEvidenceAssessment[],
+        evidence: evaluatedEvidence,
         branchCount,
         verifiedCanonicalObservationIds,
         verifiedCanonicalOilEvidence,
