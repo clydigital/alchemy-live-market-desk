@@ -1,5 +1,6 @@
 import { applyFirecrawlResearchFallback } from "@/lib/firecrawl-research-fallback";
 import { applyHighImpactMarketDiscovery } from "@/lib/high-impact-market-discovery";
+import { applyOfficialPressNewsIntake } from "@/lib/official-press-news-intake";
 import { applyResearchDiscoveryProviders } from "@/lib/research-discovery-providers";
 import { type CanonicalResearchSlot } from "@/lib/research-schedule-health";
 import { buildScheduledResearchInput } from "@/lib/scheduled-research-input";
@@ -10,6 +11,9 @@ export async function buildScheduledResearchInputWithFirecrawl(
 ) {
   const now = options.now ?? new Date();
   const input = await buildScheduledResearchInput(slot, options);
+  // Bounded real first-party RSS + linked HTML read. The press release is
+  // evidence for its own factual announcement, not an inferred stock move.
+  const originalSourceInput = await applyOfficialPressNewsIntake(input, { now });
 
   // Preserve the desk's source hierarchy:
   // 1) deterministic first-party/direct acquisition,
@@ -18,7 +22,7 @@ export async function buildScheduledResearchInputWithFirecrawl(
   // 4) Firecrawl only for a specific blocked page/feed after direct access failed.
   // Search/index providers remain lead generators and the underlying publisher URL
   // remains the canonical provenance.
-  const discoveryInput = input as Parameters<typeof applyResearchDiscoveryProviders>[0];
+  const discoveryInput = originalSourceInput as Parameters<typeof applyResearchDiscoveryProviders>[0];
   const discovered = await applyResearchDiscoveryProviders(discoveryInput, slot, { now });
   const highImpactInput = discovered as Parameters<typeof applyHighImpactMarketDiscovery>[0];
   const highImpact = await applyHighImpactMarketDiscovery(highImpactInput, slot, { now });
