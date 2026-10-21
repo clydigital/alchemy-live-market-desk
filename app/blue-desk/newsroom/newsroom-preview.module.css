@@ -44,3 +44,5 @@
 .editionPicker button:hover,.editionPicker a:hover {background:#145f82}
 .editionPicker p {color:#a9cad9;font-size:11px;margin:10px 0 0;line-height:1.55}
 .editionPicker button:focus-visible,.editionPicker input:focus-visible,.editionPicker a:focus-visible {outline:2px solid #6cdefb;outline-offset:3px}
+
+.manifestNote {margin:16px 0 0!important;padding:12px 14px;border:1px solid #376a81;border-radius:7px;color:#c7e2ef!important;background:rgba(1,24,40,.76);font-size:12px!important;line-height:1.55!important}
