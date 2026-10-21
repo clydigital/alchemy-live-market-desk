@@ -45,8 +45,14 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     ]);
     return (
       <main className={styles.page} data-blue-desk-markets="hybrid-owner-tape">
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
+        />
         <BlueDeskHeader activePath="/blue-desk/markets" />
-        <div className={styles.content}>
+        <div className={`${styles.content} ${styles.ownerMarketsFullBleed}`}>
           <MarketsMonitor monitor={fullMonitor} flows={flows} hybridTape />
         </div>
       </main>
