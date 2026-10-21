@@ -276,7 +276,9 @@ export async function POST(request: Request) {
       // potentially conflicting model assessment of the same canonical UUID.
       const modelEvidence = (rawEvidence as ResearchGapEvidenceAssessment[])
         .filter(row => !automaticallyLinkedOil.some(saved => saved.evidenceId === row.evidenceId));
-      const evaluatedEvidence = [...modelEvidence, ...automaticallyLinkedOil].slice(0, 24);
+      // Reserve assessment slots for genuinely verified canonical receipts before
+      // capped web-source candidates, so model output volume cannot crowd them out.
+      const evaluatedEvidence = [...automaticallyLinkedOil, ...modelEvidence].slice(0, 24);
       const verdict = evaluateResearchGapEvidence({
         plan: gap.research_plan,
         evidence: evaluatedEvidence,
