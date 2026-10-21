@@ -202,8 +202,7 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
                       </p>
                     ))}
                     <p className={styles.meta}>
-                      Observed market reaction: NOT ESTABLISHED BY THIS EDITORIAL RECORD.
-                      Check separately timestamped market data before presenting realised price moves.
+                      Price reaction unverified. Check time-matched data before citing moves.
                     </p>
                     {item.gaps.map((gap) => <p key={gap} className={styles.meta}>Needs checking: {gap}</p>)}
                   </article>
@@ -253,7 +252,6 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
                     </p>
                     <p className={styles.meta}>
                       Story {motion.storyId}{motion.regimeSlug ? " · Regime " + motion.regimeSlug : ""}
-                      
                     </p>
                   </article>
                 ))}
