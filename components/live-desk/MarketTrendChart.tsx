@@ -40,9 +40,9 @@ export default function MarketTrendChart({ rows, selectedId, onSelect, nowIso }:
   // terminal. The server remains the only data collector/cache owner.
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
-    const id = window.setInterval(refresh, 5 * 60 * 1000);
+    const id = globalThis.setInterval(refresh, 5 * 60 * 1000);
     document.addEventListener("visibilitychange", refresh);
-    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
+    return () => { globalThis.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
   }, [router]);
   const selected = rows.find(row => row.id === selectedId)
     ?? rows.find(row => row.id === "spx" && row.points.length >= 2)
