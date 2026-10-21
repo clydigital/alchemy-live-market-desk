@@ -6,6 +6,7 @@ import {
   type EditorialEvidence, type EditorialCandidate, type MarketEditorialArticleV1, type ModelEditorialOutput,
 } from "@/lib/market-editorial-v1";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadArchivedIssuerPassages } from "@/lib/market-editorial-source-archive";
 
 export const EDITORIAL_SCHEMA = {
   type:"object", additionalProperties:false, required:["articles"],
@@ -91,6 +92,11 @@ export async function prepareFrozenMarketEditorial(input: {
       .select("id,claim_text,evidence_class,created_at,available_at,provenance_urls,structured_payload,source:intelligence_evidence_sources(source_name,source_url,source_tier)")
       .in("id",ids).limit(100).abortSignal(AbortSignal.timeout(4_000));
     if (error) throw new Error("Read-only editorial primary-source lookup failed.");
+    // Archived excerpts from earlier completed research cycles may now be
+    // attached to a NEW immutable edition; late receipts can never rewrite an
+    // older base, and factSet applies its exact source/clock gates.
+    const archival=await loadArchivedIssuerPassages((data||[]).map(row=>row.id))
+      .catch(()=>new Map<string,EditorialEvidence["sourcePassages"]>());
     evidence=((data || []) as SourceRow[]).map(row=>{
       const source=asSource(row);
       return {id:row.id,claimText:row.claim_text,evidenceClass:row.evidence_class,
@@ -98,9 +104,13 @@ export async function prepareFrozenMarketEditorial(input: {
         sourceUrl:source?.source_url ?? null,
         provenanceUrls:Array.isArray(row.provenance_urls)?row.provenance_urls:[],
         createdAt:row.created_at,availableAt:row.available_at,
-        sourcePassages:row.structured_payload?.evidenceNature==="verified_issuer_result"
-          && Array.isArray(row.structured_payload?.editorialSourcePassages)
-          ? row.structured_payload.editorialSourcePassages as EditorialEvidence["sourcePassages"] : [],
+        sourcePassages:[
+          ...(row.structured_payload?.evidenceNature==="verified_issuer_result"
+            && Array.isArray(row.structured_payload?.editorialSourcePassages)
+            ? row.structured_payload.editorialSourcePassages as NonNullable<EditorialEvidence["sourcePassages"]>
+            : []),
+          ...(archival.get(row.id.toLowerCase())||[]),
+        ],
       };
     });
   }
