@@ -981,7 +981,7 @@ test("rates-led agenda routes source references by topic rather than original Re
   output.major_stories = [];
   output.research_now = [
     {
-      rank: 1, action: "Check AI semiconductor leadership and breadth.", reason: "Equity resilience.",
+      rank: 1, action: "Check whether higher Treasury yields hurt AI semiconductor leadership and breadth.", reason: "Equity resilience.",
       expected_information_gain: "Medium", linked_investigations: ["inv:ai"],
       linked_stories: ["story:ai-narrow-lead"], blocking_evidence: ["market-monitor:smh"],
     },
