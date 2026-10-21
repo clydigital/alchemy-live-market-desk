@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { GlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import type { MarketMonitor, MarketMonitorRow, MarketMonitorType } from "@/lib/market-monitor";
+import MarketTrendChart from "./MarketTrendChart";
 import styles from "./markets-monitor.module.css";
 
 type Props = {
@@ -104,6 +105,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const [lower, setLower] = useState(30);
   const [upper, setUpper] = useState(70);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [trendSelectedId, setTrendSelectedId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -159,6 +161,8 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <p className={styles.breadthFootnote}>Percentages are of eligible measured stocks, not every index constituent. Missing or sparse Nasdaq histories are not treated as zero breadth. The US large-cap series is a fixed proxy basket, not an official S&amp;P index calculation.</p>
     </section> : null}
 
+    <MarketTrendChart rows={monitor.rows} selectedId={trendSelectedId} onSelect={setTrendSelectedId} nowIso={monitor.updatedAt} />
+
     <section className={styles.terminal}>
       <header className={styles.terminalHead}>
         <div><span>CROSS-ASSET TERMINAL</span><h2>Prices, momentum and anomalies</h2><p>Attention Score ranks what deserves a research look first. It is not a trading signal.</p></div>
@@ -181,7 +185,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
         <table>
           <thead><tr><th>Asset</th><th>Chart</th><th>Type</th><th>Last</th><th>Day</th><th>Gap</th><th>3D</th><th>5D</th><th>RSI</th><th>Stoch RSI</th><th>Vol</th><th>HOT</th></tr></thead>
           <tbody>{rows.map((row) => <>
-            <tr key={row.id} data-hot={row.hot} data-contradiction={row.contradiction} onClick={() => setExpanded(expanded === row.id ? null : row.id)}>
+            <tr key={row.id} data-hot={row.hot} data-contradiction={row.contradiction} onClick={() => { setExpanded(expanded === row.id ? null : row.id); setTrendSelectedId(row.id); }}>
               <td><button className={styles.assetButton} type="button"><strong>{row.label}</strong><span>{row.symbol} · {row.asOf || "N/A"}</span>{row.tags.length ? <small>{row.tags.slice(0, 3).join(" · ")}</small> : null}</button></td>
               <td><Sparkline row={row} /></td>
               <td><span className={styles.typePill}>{row.type}</span></td>
