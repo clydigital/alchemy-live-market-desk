@@ -325,7 +325,7 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
     ["dossier:order:created_at", { ascending: false }],
   ]);
   assert.ok(calls.some(([name, value]) => name === "debt:eq:status" && value === "open"));
-  assert.ok(calls.some(([name, value]) => name === "debt:like:debt_key" && value === "divergence:%"));
+  assert.ok(calls.some(([name, value]) => name === "debt:or" && value === "debt_key.like.divergence:%,debt_key.like.source:oil:%"));
   assert.equal(
     calls.some(([name, value]) => name === "from" && value === "current_market_motion_items"),
     false,
