@@ -885,7 +885,7 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
   }
 }
 
-/** Only official 2026 CPI/PPI backstops are suppressed by a matching live release. */
+/** Only exact BLS release-family/date/reference matches supersede a dated fallback. */
 export function keepUncoveredBlsBackstops(
   backstops: EconomicCalendarEvent[],
   live: EconomicCalendarEvent[],
@@ -895,6 +895,8 @@ export function keepUncoveredBlsBackstops(
     const title = event.event.toLowerCase();
     if (/consumer price index|\bcpi\b/.test(title)) return "cpi";
     if (/producer price index|\bppi\b/.test(title)) return "ppi";
+    if (/employment situation|nonfarm payroll/.test(title)) return "employment";
+    if (/job openings|jolts/.test(title)) return "jolts";
     return null;
   };
   const liveAndDesk = [...live, ...desk];
