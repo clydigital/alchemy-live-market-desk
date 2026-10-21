@@ -506,6 +506,26 @@ export async function persistCanonicalJourneyEditionForResearchRun({
     isValid: isCanonicalBaseEdition,
     missingMessage: "Unable to persist zero-change canonical Journey edition snapshot.",
   });
+  // An ordinary Research Gap handoff may conclude after publishing only its
+  // canonical BASE edition, without scheduling the Dossier composition stage.
+  // Repair known issuer-source coverage here too, using the already-frozen
+  // source UUIDs and immutable base as-of. Captures are a SEPARATE forward-only
+  // raw archive, eligible only for future editions; no edits to the base.
+  // This is bounded optional source work, not an evidence/reasoning model.
+  try {
+    const candidates=await prepareFrozenMarketEditorial({
+      editionPayload:canonicalBase.payload,
+      asOf:canonicalBase.published_at,
+      maxArticles:1,
+    });
+    if(candidates.length) {
+      await archiveMissingIssuerPassages(candidates);
+    }
+  } catch (error) {
+    // A publisher outage must never roll back the committed research handoff.
+    console.warn("Optional base-edition issuer source capture unavailable",
+      error instanceof Error?error.name:"unknown");
+  }
   return canonicalBase.id;
 }
 

@@ -40,3 +40,23 @@ test("a new immutable edition sees only earlier archive material tied to its exa
     "row.claimText!.includes(p.matchedMetric)",
   ])assert.ok(claims.includes(guard),guard);
 });
+
+test("base-only Research Gap handoffs automatically archive first-tier issuer passages",()=>{
+  const start=canonical.indexOf("export async function persistCanonicalJourneyEditionForResearchRun");
+  const done=canonical.indexOf("export async function composeCanonicalDossierEditionForResearchRun");
+  assert.ok(start>=0 && done>start);
+  const base=canonical.slice(start,done);
+  const persist=base.indexOf("const { value: canonicalBase } = await persistOrReuseCanonicalArtifact");
+  const prepare=base.indexOf("const candidates=await prepareFrozenMarketEditorial");
+  const archive=base.indexOf("await archiveMissingIssuerPassages(candidates)");
+  const finish=base.lastIndexOf("return canonicalBase.id");
+  assert.ok(persist>=0 && prepare>persist && archive>prepare && finish>archive);
+  assert.match(base,/editionPayload:canonicalBase\.payload/);
+  assert.match(base,/asOf:canonicalBase\.published_at/);
+  assert.match(base,/maxArticles:1/);
+  assert.match(base,/catch \(error\) \{/);
+  assert.match(base,/Optional base-edition issuer source capture unavailable/);
+  assert.doesNotMatch(base,/marketEditorialSectionsV2:/);
+  assert.doesNotMatch(base,/runStructuredStage/);
+  assert.doesNotMatch(base,/edition_phase: "source_capture"/);
+});
