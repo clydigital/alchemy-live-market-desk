@@ -101,6 +101,31 @@ function substantiveSourceParagraph(text:string):boolean {
   // declarative sentences; dates embedded inside one issuer claim do not count.
   return (trimmed.match(/(?:[.!?](?=\s+[A-Z]|$))/g)||[]).length>=2;
 }
+/**
+ * The original atomic claim stays canonical. Extra reporting may come only
+ * from an issuer-owned paragraph captured at authenticated intake, anchored
+ * to the same metric, source URL and original source availability clock.
+ */
+function reportingSource(f:EditorialFact,asOf:string):{text:string;availableAt:string} {
+  const passage=f.sourcePassages?.find(p=>
+    p && p.sourceUrl===f.sourceUrl && directSourceUrl(p.sourceUrl)!==null
+    && Number.isFinite(Date.parse(p.capturedAt))
+    && Date.parse(p.capturedAt)>=Date.parse(f.availableAt)
+    && Date.parse(p.capturedAt)<=Date.parse(asOf)
+    && typeof p.matchedMetric==="string" && p.matchedMetric.length>0
+    && f.text.includes(p.matchedMetric) && p.text.includes(p.matchedMetric)
+    && substantiveSourceParagraph(p.text)
+    && !PROCESS.test(p.text) && !OPERATIONAL.test(p.text)
+  );
+  return passage?{text:passage.text,availableAt:passage.capturedAt}
+    :{text:f.text,availableAt:f.availableAt};
+}
+function distinctSubstantiveReports(facts:EditorialFact[],asOf:string) {
+  return new Set(facts.flatMap(f=>{
+    const text=reportingSource(f,asOf).text.trim();
+    return substantiveSourceParagraph(text)?[text]:[];
+  })).size;
+}
 function validText(text:string,numbers:Set<string>,sourceContext:boolean) {
   return text.length>=45 && text.length<=720 && !PROCESS.test(text)
     && !OPERATIONAL.test(text) && !REACTION.test(text)
@@ -121,7 +146,7 @@ export function eligibleForArticleSectionsV2(candidate:EditorialCandidate):boole
   const packet=candidate.packet;
   return packet.kind==="STORY" && Boolean(packet.identity.storyId)
     && Boolean(packet.identity.storyThesisVersionId) && Boolean(packet.identity.storySnapshotId)
-    && factsForArticle(candidate).filter(f=>substantiveSourceParagraph(f.text)).length>=3
+    && distinctSubstantiveReports(factsForArticle(candidate),packet.asOf)>=3
     && Boolean(packet.mechanism.text && packet.mechanism.evidenceState!=="UNAVAILABLE")
     && packet.assetReadThroughs.some(a=>a.asset.length>1 && a.interpretation.trim().length>20);
 }
@@ -149,9 +174,10 @@ export function validateArticleSectionsV2(
     const f=proof.get(id);
     if (!f || usedFacts.has(id)) continue;
     usedFacts.add(id);
-    reporting.push({text:f.text.trim(),evidenceIds:[id],
+    const source=reportingSource(f,packet.asOf);
+    reporting.push({text:source.text.trim(),evidenceIds:[id],
       sourceUrls:[directSourceUrl(f.sourceUrl)!],sourceName:f.sourceName,
-      sourceAvailableAt:new Date(f.availableAt).toISOString(),basis:"SOURCE_VERIFIED"});
+      sourceAvailableAt:new Date(source.availableAt).toISOString(),basis:"SOURCE_VERIFIED"});
   }
   const availableNumbers=new Set(numericTokens([...candidate.facts.map(f=>f.text),
     packet.mechanism.text||"",...packet.assetReadThroughs.map(a=>a.interpretation),
@@ -197,7 +223,10 @@ export function validateArticleSectionsV2(
   }
   const hasMechanism=interpretation.some(x=>x.support==="mechanism");
   const hasAsset=interpretation.some(x=>x.support==="asset");
-  const substantiveCount=reporting.filter(p=>substantiveSourceParagraph(p.text)).length;
+  // The same upstream source paragraph copied across different metric IDs
+  // is one reporting passage, not a 3-paragraph proof.
+  const substantiveCount=new Set(reporting
+    .filter(p=>substantiveSourceParagraph(p.text)).map(p=>p.text)).size;
   const full=reporting.length>=3 && reporting.length<=5 && substantiveCount>=3 && interpretation.length>=2
     && interpretation.length<=5 && hasMechanism && hasAsset;
   const sourceLinks=[...new Map(reporting.map(x=>[x.sourceUrls[0],x.sourceName])).entries()]
