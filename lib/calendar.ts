@@ -749,6 +749,7 @@ type DeskMacroRelease = {
   status: string;
   actual: string | null;
   consensus: string | null;
+  consensus_captured_at: string | null;
   previous: string | null;
   revised_previous: string | null;
   watch_question: string | null;
@@ -758,8 +759,10 @@ type DeskMacroRelease = {
 
 type DeskMacroMetric = {
   release_id: string;
+  metric_key: string;
   label: string;
   unit: string | null;
+  consensus_captured_at: string | null;
   previous: number | null;
   revised_previous: number | null;
   consensus: number | null;
@@ -789,6 +792,29 @@ function metricValue(value: number | null, unit: string | null) {
   return `${value}${unit ? ` ${unit}` : ""}`;
 }
 
+const CPI_CONSENSUS_LABELS = [
+  ["cpi_headline_mom", "Headline m/m"],
+  ["cpi_headline_yoy", "Headline y/y"],
+  ["cpi_core_mom", "Core m/m"],
+  ["cpi_core_yoy", "Core y/y"],
+] as const;
+
+export function formatVerifiedCpiConsensus(
+  metrics: readonly DeskMacroMetric[], releaseAt: string,
+): string | null {
+  const releaseTime = Date.parse(releaseAt);
+  if (!Number.isFinite(releaseTime)) return null;
+  const readable: string[] = [];
+  for (const [key, label] of CPI_CONSENSUS_LABELS) {
+    const metric = metrics.find(item => item.metric_key === key);
+    const capture = Date.parse(metric?.consensus_captured_at ?? "");
+    if (metric?.consensus === null || metric?.consensus === undefined
+      || !Number.isFinite(capture) || capture >= releaseTime) continue;
+    readable.push(label + " " + metric.consensus + "%");
+  }
+  return readable.length ? readable.join(" · ") : null;
+}
+
 async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const apiKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -796,12 +822,12 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
   try {
     const headers = { apikey: apiKey, Authorization: `Bearer ${apiKey}` };
     const [releaseResponse, metricResponse] = await Promise.all([
-      fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,release_time_label,reference_period,status,actual,consensus,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
+      fetch(`${baseUrl}/rest/v1/macro_releases?select=id,release_name,agency,category,release_date,release_time_label,reference_period,status,actual,consensus,consensus_captured_at,previous,revised_previous,watch_question,source_url,affected_assets&order=release_date.asc&limit=160`, {
         headers,
         cache: "no-store",
         signal: AbortSignal.timeout(5_000),
       }),
-      fetch(`${baseUrl}/rest/v1/macro_release_metrics?select=release_id,label,unit,previous,revised_previous,consensus,alchemy_expectation,actual&order=updated_at.desc&limit=320`, {
+      fetch(`${baseUrl}/rest/v1/macro_release_metrics?select=release_id,metric_key,label,unit,previous,revised_previous,consensus,consensus_captured_at,alchemy_expectation,actual&order=updated_at.desc&limit=320`, {
         headers,
         cache: "no-store",
         signal: AbortSignal.timeout(5_000),
@@ -810,12 +836,22 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
     if (!releaseResponse.ok) return [];
     const releases = await releaseResponse.json() as DeskMacroRelease[];
     const metrics = metricResponse.ok ? await metricResponse.json() as DeskMacroMetric[] : [];
-    const metricByRelease = new Map<string, DeskMacroMetric>();
+    const metricsByRelease = new Map<string, DeskMacroMetric[]>();
     for (const metric of metrics) {
-      if (!metricByRelease.has(metric.release_id)) metricByRelease.set(metric.release_id, metric);
+      const items = metricsByRelease.get(metric.release_id) ?? [];
+      items.push(metric);
+      metricsByRelease.set(metric.release_id, items);
     }
     return releases.map((release) => {
-      const metric = metricByRelease.get(release.id);
+      const releaseMetrics = metricsByRelease.get(release.id) ?? [];
+      const metric = releaseMetrics[0];
+      const isCpi = /consumer price index|\\bcpi\\b/i.test(release.release_name);
+      const verifiedCpiConsensus = isCpi ? formatVerifiedCpiConsensus(releaseMetrics,release.release_date) : null;
+      const releaseCapturedAt = Date.parse(release.consensus_captured_at ?? "");
+      const releaseAt = Date.parse(release.release_date);
+      const sourceVerifiedReleaseConsensus = Number.isFinite(releaseCapturedAt)
+        && Number.isFinite(releaseAt) && releaseCapturedAt < releaseAt
+        ? release.consensus : null;
       const country = calendarCountry(release.agency);
       return {
         id: release.id,
@@ -829,7 +865,10 @@ async function fetchDeskCalendar(): Promise<EconomicCalendarEvent[]> {
         referencePeriod: release.reference_period,
         status: release.actual || metric?.actual !== null && metric?.actual !== undefined || release.status === "completed" ? "Released" : "Scheduled",
         actual: release.actual || metricValue(metric?.actual ?? null, metric?.unit ?? null),
-        consensus: release.consensus || metricValue(metric?.consensus ?? null, metric?.unit ?? null),
+        consensus: verifiedCpiConsensus
+          || (isCpi ? null : sourceVerifiedReleaseConsensus
+            || (metric?.consensus_captured_at && Date.parse(metric.consensus_captured_at) < releaseAt
+              ? metricValue(metric?.consensus ?? null,metric?.unit ?? null) : null)),
         alchemyExpectation: metricValue(metric?.alchemy_expectation ?? null, metric?.unit ?? null),
         previous: release.previous || metricValue(metric?.previous ?? null, metric?.unit ?? null),
         revisedPrevious: release.revised_previous || metricValue(metric?.revised_previous ?? null, metric?.unit ?? null),
