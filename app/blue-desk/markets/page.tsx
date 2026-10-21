@@ -2,6 +2,9 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import MarketsMonitor from "@/components/live-desk/MarketsMonitor";
+import { isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
@@ -31,6 +34,24 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
+
+  // Exact Hybrid tape, inside the Blue Desk shell for signed-in owner hosts.
+  // Public Bluebelly and canonical Live retain the existing bounded,
+  // source-only DTO; neither receives HOT/RSI, signals, or price histories.
+  if (!isBlueDeskPublicReaderHost(host)) {
+    const [fullMonitor, flows] = await Promise.all([
+      getMarketMonitor(),
+      getGlobalFlowMonitor(),
+    ]);
+    return (
+      <main className={styles.page} data-blue-desk-markets="hybrid-owner-tape">
+        <BlueDeskHeader activePath="/blue-desk/markets" />
+        <div className={styles.content}>
+          <MarketsMonitor monitor={fullMonitor} flows={flows} hybridTape />
+        </div>
+      </main>
+    );
+  }
   const monitor = await getMarketMonitor().catch(() => null);
   const observations = publicMarketObservations(monitor?.rows || [], group);
   const officialRateTrends = group === "all" || group === "rates"
