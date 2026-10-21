@@ -164,5 +164,5 @@
       "schedule": "25 5 * * *"
     }
   ],
-  "ignoreCommand": "exit 1"
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-markets-check-20261021\" ]; then exit 1; else exit 0; fi"
 }
