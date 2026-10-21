@@ -8,6 +8,7 @@ import {
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
 import { runCalendarPreproductionCheck, type CalendarPreproductionResult } from "@/lib/calendar-preproduction";
+import { collectOfficialMacroTrendHistory, type MacroTrendRefresh } from "@/lib/official-macro-trend-history";
 import { checkScheduledCpiCoverage, type ScheduledCpiCoverage } from "@/lib/macro/cpi-coverage-health";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
 import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
@@ -36,6 +37,7 @@ type ScheduledResearchHandlerDependencies = {
   captureMacroContext?: typeof captureMacroContextSnapshot;
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
   checkCalendarPreproduction?: typeof runCalendarPreproductionCheck;
+  collectMacroTrendHistory?: typeof collectOfficialMacroTrendHistory;
   checkCpiCoverage?: typeof checkScheduledCpiCoverage;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
   collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
@@ -464,6 +466,24 @@ export async function handleScheduledResearchWithDependencies(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
+    // Existing authorised Live acquisition slot owns automatic historical
+    // macro trend refresh. Only missing official BLS periods are inserted, and
+    // missing provider readings remain warnings rather than invented history.
+    // Integration tests using injected research inputs never call the real BLS
+    // endpoint unless a trend-collector dependency was explicitly injected.
+    const macroTrends: MacroTrendRefresh = dependencies.buildScheduledResearchInput
+      && !dependencies.collectMacroTrendHistory
+      ? {
+          status: "DEGRADED", checkedAt: now.toISOString(),
+          source: "BLS_PUBLIC_DATA_API", receivedSeries: 0,
+          eligibleRecords: 0, insertedRecords: 0,
+          coveredSeries: [], latestBySeries: {},
+          warnings: ["MACRO_TREND_TEST_COLLECTOR_NOT_INJECTED"],
+        }
+      : await (dependencies.collectMacroTrendHistory ?? collectOfficialMacroTrendHistory)(now);
+    const macroTrendLog = {event:"scheduled_macro_trend_history",slot,runKey,...macroTrends};
+    if(macroTrends.status==="DEGRADED")console.warn(JSON.stringify(macroTrendLog));
+    else console.info(JSON.stringify(macroTrendLog));
     // PRE-PRODUCTION CHECK: the same existing scheduled Live slot refreshes
     // official future events, then captures any available *pre-release* survey
     // forecasts before publication. Finnhub earnings is not a source here.
@@ -619,6 +639,7 @@ export async function handleScheduledResearchWithDependencies(
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
         officialActuals,
+        macroTrends,
         calendarPreproduction,
         cpiCoverage,
         quantifiedMarket: numericIntake,
