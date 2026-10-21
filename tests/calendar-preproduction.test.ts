@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
 import {OFFICIAL_BLS_RELEASE_SCHEDULES,parseOfficialBlsScheduleHtml} from "../lib/calendar-official-bls-schedule.ts";
-import {futureCpiMetricSeedRows,preReleaseConsensusCandidates} from "../lib/calendar-preproduction.ts";
+import {futureCpiMetricSeedRows,preReleaseConsensusCandidates,futureOfficialBlsPersistenceGaps} from "../lib/calendar-preproduction.ts";
+import {verifiedNovember2026BlsSchedules} from "../lib/calendar-verified-november-bls.ts";
+import {buildOfficialMacroReleaseSeedRows} from "../lib/macro/official-actuals.ts";
 import type {TradingEconomicsCalendarEvent} from "../lib/providers/trading-economics-calendar.ts";
 import {getForwardEarningsEvents} from "../lib/forward-earnings-sources.ts";
-import {formatVerifiedCpiConsensus} from "../lib/calendar.ts";
+import {formatVerifiedCpiConsensus,keepUncoveredBlsBackstops} from "../lib/calendar.ts";
 
 const release = {
   id:"us-bls-2026-11-10-cpi-october-2026",
@@ -117,4 +119,61 @@ test("Finnhub credentials no longer automatically cause any earnings calendar re
     if(oldKey===undefined)delete process.env.FINNHUB_API_KEY;else process.env.FINNHUB_API_KEY=oldKey;
     if(oldApproval===undefined)delete process.env.FINNHUB_COMMERCIAL_USE_APPROVED;else process.env.FINNHUB_COMMERCIAL_USE_APPROVED=oldApproval;
   }
+});
+
+test("original BLS November 2026 schedule persists without guessed forecasts or Actuals", () => {
+  const records = verifiedNovember2026BlsSchedules;
+  assert.deepEqual(records.map(row => [row.date, row.timeLabel, row.referencePeriod]), [
+    ["2026-11-03", "10:00 ET", "September 2026"],
+    ["2026-11-06", "08:30 ET", "October 2026"],
+    ["2026-11-10", "08:30 ET", "October 2026"],
+    ["2026-11-13", "08:30 ET", "October 2026"],
+  ]);
+  assert.ok(records.every(row =>
+    row.sourceUrl === "https://www.bls.gov/schedule/2026/11_sched_list.htm"
+      && row.sourceKind === "official-schedule" && row.actual === null
+      && row.consensus === null && row.previous === null && row.status === "Scheduled"));
+  const at = new Date("2026-10-22T01:00:00Z");
+  const rows = buildOfficialMacroReleaseSeedRows(records, at);
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows.map(row => row.release_date), [
+    "2026-11-03T15:00:00.000Z", // 10:00 EST after New York DST switch
+    "2026-11-06T13:30:00.000Z",
+    "2026-11-10T13:30:00.000Z",
+    "2026-11-13T13:30:00.000Z",
+  ]);
+  assert.deepEqual(rows.map(row => row.series_key), [
+    "bls-jolts", "bls-employment-situation", "bls-cpi", "bls-ppi",
+  ]);
+  assert.ok(rows.every(row =>
+    row.status === "scheduled" && row.source_classification === "official_government"));
+  assert.deepEqual(buildOfficialMacroReleaseSeedRows(records, new Date("2027-01-01T00:00:00Z")), []);
+});
+
+test("live official BLS schedule and exact desk vintage supersede only matching date/family", () => {
+  const fallback = verifiedNovember2026BlsSchedules;
+  const same = {...fallback[2], id:"bls-live-oct-cpi", sourceKind:"official-live" as const};
+  const wrong = {...fallback[2], id:"bls-other-period",referencePeriod:"September 2026",sourceKind:"official-live" as const};
+  assert.deepEqual(
+    keepUncoveredBlsBackstops(fallback, [same], []).map(row => row.id),
+    [fallback[0].id,fallback[1].id,fallback[3].id],
+  );
+  assert.equal(keepUncoveredBlsBackstops(fallback, [wrong], []).length,4);
+  assert.equal(keepUncoveredBlsBackstops(fallback, [], []).length,4);
+});
+
+test("preproduction does not silently report healthy on missing future BLS release rows", () => {
+  const at = new Date("2026-10-22T01:00:00Z");
+  const official = verifiedNovember2026BlsSchedules;
+  assert.deepEqual(futureOfficialBlsPersistenceGaps(official, [], at),
+    ["OFFICIAL_FUTURE_BLS_RELEASE_NOT_PERSISTED:4"]);
+  assert.deepEqual(futureOfficialBlsPersistenceGaps(official, [official[0].id], at),
+    ["OFFICIAL_FUTURE_BLS_RELEASE_NOT_PERSISTED:3"]);
+  assert.deepEqual(futureOfficialBlsPersistenceGaps(official, official.map(row => row.id), at), []);
+  assert.deepEqual(futureOfficialBlsPersistenceGaps(official,
+    [], new Date("2027-01-01T00:00:00Z")), []);
+  const handler=readFileSync(new URL("../lib/cron-research-handler.ts",import.meta.url),"utf8");
+  const check=readFileSync(new URL("../lib/calendar-preproduction.ts",import.meta.url),"utf8");
+  assert.match(handler,/event: "scheduled_calendar_preproduction"/);
+  assert.match(check,/warnings\.push\(\.\.\.futureOfficialBlsPersistenceGaps\(official, ids, now\)\)/);
 });

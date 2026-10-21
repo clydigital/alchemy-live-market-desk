@@ -1,6 +1,7 @@
 import { getEconomicCalendar, type EconomicCalendarEvent } from "./calendar.ts";
 import { fetchTradingEconomicsUsCalendarSnapshot, type TradingEconomicsCalendarEvent } from "./providers/trading-economics-calendar.ts";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
+import { buildOfficialMacroReleaseSeedRows } from "./macro/official-actuals.ts";
 
 /**
  * Existing scheduled Live research slots own this pre-publication calendar QA.
@@ -150,6 +151,23 @@ export function futureCpiMetricSeedRows(
   })));
 }
 
+/**
+ * The calendar preview can have genuine original dated schedules while the
+ * persisted release ledger is empty. Report that discrepancy explicitly.
+ * Only BLS rows with a supported family, reference month and precise official
+ * release clock are counted; this never manufactures missing rows or values.
+ */
+export function futureOfficialBlsPersistenceGaps(
+  official: EconomicCalendarEvent[],
+  persistedIds: readonly string[],
+  now: Date,
+): string[] {
+  const ids = new Set(persistedIds);
+  const missing = buildOfficialMacroReleaseSeedRows(official, now)
+    .filter(row => Date.parse(row.release_date) > now.getTime() && !ids.has(row.id));
+  return missing.length ? ["OFFICIAL_FUTURE_BLS_RELEASE_NOT_PERSISTED:" + missing.length] : [];
+}
+
 export async function runCalendarPreproductionCheck({
   now = new Date(),
   calendarEvents,
@@ -182,6 +200,7 @@ export async function runCalendarPreproductionCheck({
   if (releaseError) throw new Error("Calendar pre-production release lookup failed: "+releaseError.message);
   const listed = releases ?? [];
   const ids = listed.map(r => r.id);
+  warnings.push(...futureOfficialBlsPersistenceGaps(official, ids, now));
   const { data: existingMetrics, error: existingMetricError } = ids.length
     ? await client.from("macro_release_metrics").select("release_id,metric_key,consensus,consensus_captured_at").in("release_id",ids).limit(250)
     : {data:[],error:null};
