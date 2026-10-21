@@ -117,6 +117,8 @@ test("canonical Live hostname opens only published Blue Desk reading routes anon
   for (const pathname of ["/", "/blue-desk", "/calendar", "/blue-desk/calendar", "/markets", "/blue-desk/markets", article]) {
     assert.equal(blueDeskHostAccess(pathname, host), "public", pathname);
   }
+  assert.equal(blueDeskHostAccess("/owner/live", host), "public");
+  assert.equal(blueDeskPresentationTarget("/owner/live", host), "/blue-desk");
   assert.equal(blueDeskPresentationTarget("/", host), "/blue-desk");
   assert.equal(blueDeskPresentationTarget("/calendar", host), "/blue-desk/calendar");
   assert.equal(blueDeskPresentationTarget("/markets", host), "/blue-desk/markets");
@@ -125,7 +127,7 @@ test("canonical Live hostname opens only published Blue Desk reading routes anon
   assert.equal(blueDeskPublicHref("/blue-desk/calendar", host), "/calendar");
 
   for (const pathname of [
-    "/owner/live", "/dossier", "/hybrid-output/prepare", "/presenter/technical-checks",
+    "/dossier", "/hybrid-output/prepare", "/presenter/technical-checks",
     "/articles", "/whats-new", "/api/presenter/technical-checks",
     "/api/research-update", "/api/cron/research/morning", "/auth/callback",
   ]) {
@@ -136,12 +138,15 @@ test("canonical Live hostname opens only published Blue Desk reading routes anon
   assert.equal(blueDeskHostAccess("/", "preview.example.vercel.app"), "private");
 });
 
-test("legacy Live overview moves to an owner-only page and root tab bookmarks retain it", () => {
+test("legacy Live overview remains private on owner hosts but public Live bookmarks show a safe reading view", () => {
   const route = readFileSync(new URL("../app/owner/live/page.tsx", import.meta.url), "utf8");
   const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
   assert.ok(route.includes('export { default } from "../../page"'));
-  assert.ok(middleware.indexOf('oldLive.pathname = "/owner/live"') < middleware.indexOf('if (accessScope === "public")'));
+  assert.ok(middleware.indexOf('publicLiveLegacyTabDestination(request.nextUrl.searchParams.get("tab"))') < middleware.indexOf('if (accessScope === "public")'));
   assert.ok(middleware.includes('request.nextUrl.searchParams.has("tab")'));
+  assert.doesNotMatch(middleware, /oldLive.pathname = "\/owner\/live"/);
+  assert.equal(blueDeskHostAccess("/owner/live", "preview-abcd.vercel.app"), "private");
+  assert.equal(blueDeskHostAccess("/owner/live", "bluebelly-desk.vercel.app"), "blocked");
   assert.ok(middleware.indexOf('if (accessScope === "public")') < middleware.indexOf("getClaims()"));
   assert.ok(middleware.includes('pathname.startsWith("/api/cron/")'));
 });
