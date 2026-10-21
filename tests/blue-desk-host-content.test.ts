@@ -176,7 +176,7 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.equal(blueDeskPresentationTarget(full, live), null,
     "Exact page is rendered directly, not rewritten to the limited public Markets view");
   for (const path of [
-    "/owner/live", "/owner/markets/private", "/owner/markets/terminal",
+    "/owner/markets/private", "/owner/markets/terminal",
     "/owner/markets/", "/owner/markets.json", "/presenter/technical-checks",
     "/api/market-intelligence-snapshot", "/api/presenter/technical-checks",
     "/api/research-update", "/dossier",
@@ -191,6 +191,8 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.equal(blueDeskHostAccess(full, "preview-abc.vercel.app"), "private");
   assert.equal(blueDeskPresentationTarget(full, "bluebelly-desk.vercel.app"), null);
 
+  assert.equal(blueDeskHostAccess("/owner/live", live), "public");
+  assert.equal(blueDeskPresentationTarget("/owner/live", live), "/blue-desk");
   const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
   assert.ok(middleware.indexOf('if (accessScope === "public")') <
     middleware.indexOf("getClaims()"), "Only explicit reader routes bypass login");
