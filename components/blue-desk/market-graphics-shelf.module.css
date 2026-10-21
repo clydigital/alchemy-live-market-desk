@@ -1,0 +1,36 @@
+.shelf {
+  background: linear-gradient(130deg, #061a2a, #092c42);
+  color: #eaf7ff;
+  border: 1px solid #2a536d;
+  border-radius: 18px;
+  padding: clamp(16px, 2.5vw, 30px);
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.eyebrow { font-size: 11px; letter-spacing: .12em; font-weight: 800; color: #65d0ff; display: flex; align-items: center; gap: 7px; }
+.heading h2 { margin: 7px 0 9px; font-size: clamp(24px, 2.5vw, 33px); line-height: 1.15; }
+.heading p:not(.eyebrow) { color: #afcbd9; font-size: 14px; line-height: 1.55; max-width: 70ch; }
+.count { border: 1px solid #2e637c; background: #0b3851; border-radius: 99px; font-size: 12px; padding: 8px 13px; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.card { min-width: 0; overflow: hidden; border: 1px solid #28536b; border-radius: 13px; background: #081d2e; }
+.artwork { border-bottom: 1px solid #27485b; }
+.artwork img { display: block; width: 100%; height: auto; aspect-ratio: 8/3; }
+.content { padding: 15px 16px 17px; }
+.content h3 { margin: 0; font-size: 17px; font-weight: 750; color: #f3fbff; }
+.content p { color: #bad0df; font-size: 13px; line-height: 1.5; min-height: 39px; margin: 6px 0 15px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 39px; padding: 8px 11px; background: #0b405b;
+  color: #e6f8ff; border: 1px solid #316c89; border-radius: 8px;
+  cursor: pointer; font: inherit; font-weight: 650; font-size: 12px;
+}
+.actions button:hover:not(:disabled) { background: #146181; }
+.actions button:focus-visible { outline: 2px solid #65d0ff; outline-offset: 3px; }
+.actions button:disabled { opacity: .48; cursor: wait; }
+.note, .feedback { margin: 0; color: #adc3d2; font-size: 12px; line-height: 1.5; }
+.feedback { min-height: 18px; color: #69e2bf; }
+@media (max-width: 560px) { .heading { flex-direction: column; gap: 9px; } }
+@media (prefers-reduced-motion: reduce) { .actions button { transition: none; } }
