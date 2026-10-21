@@ -12,6 +12,8 @@ export function augmentDossierWithEditorial(input: {
   schema: Record<string, unknown>;
   maxOutputTokens?: number;
   maxAttempts?: number;
+  modelKind?: "complex" | "fast";
+  requestTimeoutMs?: number;
 }, options: {
   editorialSchema: Record<string, unknown>;
   editorialInstructions: string;
