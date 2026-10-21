@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Hanken+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300,0,0&display=swap');
+
 /* Exact Hybrid /feed and Research Dashboard selectors transcribed from the
  * existing Hybrid stylesheet. Kept isolated under the owner-only /blue-desk/feed route. */
 .hybridFeedMount {
