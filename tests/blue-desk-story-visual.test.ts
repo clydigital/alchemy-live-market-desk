@@ -82,7 +82,7 @@ test("reader art stays server-rendered, non-evidentiary and independent of marke
   const style = readFileSync(new URL("../components/blue-desk/story-visual.module.css", import.meta.url), "utf8");
   assert.match(page, /getHybridExactDailyBriefEdition\(edition\)/);
   assert.match(page, /if \(!frozen\) notFound\(\)/);
-  assert.match(page, /article\.articleId === normalizedArticleId && item\.editionId === edition/);
+  assert.match(page, /item\.articleId === normalizedArticleId && item\.editionId === edition/);
   assert.match(page, /<StoryVisual[\s\S]*?storyId=\{normalizedArticleId\.slice\(articlePrefix\.length\)\}/);
   assert.match(page, /editionId=\{article\.editionId\}/);
   assert.match(art, /role="img"/);
