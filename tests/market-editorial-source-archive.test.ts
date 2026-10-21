@@ -41,21 +41,28 @@ test("a new immutable edition sees only earlier archive material tied to its exa
   ])assert.ok(claims.includes(guard),guard);
 });
 
-test("base-only Research Gap handoffs automatically archive first-tier issuer passages",()=>{
+test("both engine-frozen and fallback-frozen bases attempt bounded source capture",()=>{
+  const helperAt=canonical.indexOf("async function tryArchiveOriginalIssuerSourcesForBase");
   const start=canonical.indexOf("export async function persistCanonicalJourneyEditionForResearchRun");
   const done=canonical.indexOf("export async function composeCanonicalDossierEditionForResearchRun");
-  assert.ok(start>=0 && done>start);
+  assert.ok(helperAt>0 && start>helperAt && done>start);
+  const helper=canonical.slice(helperAt,start);
   const base=canonical.slice(start,done);
+  assert.match(helper,/await prepareFrozenMarketEditorial/);
+  assert.match(helper,/await archiveMissingIssuerPassages\(candidates\)/);
+  assert.match(helper,/editionPayload:base\.payload/);
+  assert.match(helper,/asOf:base\.published_at/);
+  assert.match(helper,/maxArticles:1/);
+  assert.match(helper,/Optional base-edition issuer source capture unavailable/);
+
+  const reused=base.indexOf("if (isCanonicalBaseEdition(existing))");
+  const earlyCapture=base.indexOf("await tryArchiveOriginalIssuerSourcesForBase(existing)");
+  const earlyReturn=base.indexOf("return existing.id");
   const persist=base.indexOf("const { value: canonicalBase } = await persistOrReuseCanonicalArtifact");
-  const prepare=base.indexOf("const candidates=await prepareFrozenMarketEditorial");
-  const archive=base.indexOf("await archiveMissingIssuerPassages(candidates)");
-  const finish=base.lastIndexOf("return canonicalBase.id");
-  assert.ok(persist>=0 && prepare>persist && archive>prepare && finish>archive);
-  assert.match(base,/editionPayload:canonicalBase\.payload/);
-  assert.match(base,/asOf:canonicalBase\.published_at/);
-  assert.match(base,/maxArticles:1/);
-  assert.match(base,/catch \(error\) \{/);
-  assert.match(base,/Optional base-edition issuer source capture unavailable/);
+  const fallbackCapture=base.indexOf("await tryArchiveOriginalIssuerSourcesForBase(canonicalBase)");
+  const fallbackReturn=base.lastIndexOf("return canonicalBase.id");
+  assert.ok(reused>=0 && earlyCapture>reused && earlyReturn>earlyCapture);
+  assert.ok(persist>earlyReturn && fallbackCapture>persist && fallbackReturn>fallbackCapture);
   assert.doesNotMatch(base,/marketEditorialSectionsV2:/);
   assert.doesNotMatch(base,/runStructuredStage/);
   assert.doesNotMatch(base,/edition_phase: "source_capture"/);
