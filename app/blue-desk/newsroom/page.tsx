@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
-import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
+import { getLiveDeskHomepageDailyBrief, getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { buildV7NewsroomPreview } from "@/lib/blue-desk-v7-newsroom-preview";
@@ -17,10 +18,27 @@ export const metadata = {
   description: "Private editorial review of immutable Blue Desk publication.",
 };
 
-export default async function BlueDeskNewsroomReview() {
-  // No separate Newsroom source of truth; this is the existing frozen
+type SearchParams = { edition?: string | string[] };
+
+export default async function BlueDeskNewsroomReview({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  // Exact frozen-edition selector for owner review. Reject a malformed or
+  // missing edition rather than silently substituting the latest report.
+  const { edition } = await searchParams;
+  const selected = edition !== undefined;
+  if (selected && (typeof edition !== "string"
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(edition))) {
+    notFound();
+  }
+  // No separate Newsroom source of truth; reuse the canonical frozen
   // daily-brief reader and qualified editorial evidence path.
-  const latest = await getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null);
+  const latest = selected
+    ? await getHybridExactDailyBriefEdition(edition as string).catch(() => null)
+    : await getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null);
+  if (selected && !latest) notFound();
   const projected = projectMarketBriefArticles(latest);
   const editorial = await loadEditorialMarketBrief(projected);
   const cards = buildV7NewsroomPreview(editorial);
@@ -38,11 +56,30 @@ export default async function BlueDeskNewsroomReview() {
           <p className={desk.kicker}>V7 · NEWSROOM / OWNER REVIEW</p>
           <h1>Market reporting, with receipts</h1>
           <p>
+            {selected ? "Exact archived edition selected for review. " : "Latest frozen daily brief selected for review. "}
             Draft editorial formats from the existing frozen daily brief.
             Issuer and official observations are separated from adjudicated
             market interpretation. Research-only items are never presented
             as published market news.
           </p>
+          <form method="get" action="/blue-desk/newsroom" className={ui.editionPicker} aria-label="Review an exact frozen publication">
+            <label htmlFor="edition-id">Review exact historical edition UUID</label>
+            <div>
+              <input
+                id="edition-id"
+                type="text"
+                name="edition"
+                defaultValue={selected ? edition as string : ""}
+                pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+                maxLength={36}
+                placeholder="Frozen publication UUID"
+                required
+              />
+              <button type="submit">Open exact edition</button>
+              <Link href="/blue-desk/newsroom">Latest edition</Link>
+            </div>
+            <p>No nearest-date or latest fallback is permitted for an explicit edition ID.</p>
+          </form>
           <dl className={ui.edition}>
             <div><dt>Edition</dt><dd>{latest?.id || "Unavailable"}</dd></div>
             <div><dt>Published</dt><dd>{latest?.published_at || "Unavailable"}</dd></div>
