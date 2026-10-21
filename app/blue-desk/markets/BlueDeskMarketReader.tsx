@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { PublicMarketObservation } from "@/lib/blue-desk-public-markets";
 import ui from "./markets-reader.module.css";
+import { displayedMarketChange, marketMovementDirection } from "./market-direction";
 
 type Direction = "all" | "up" | "down" | "quiet";
 type Frequency = "all" | "daily" | "monthly";
@@ -19,11 +20,13 @@ function level(row: PublicMarketObservation): string {
 }
 
 function movement(row: PublicMarketObservation) {
-  if (row.change === null) return { label: "Not available", glyph: "–", className: ui.neutral };
+  const displayed = displayedMarketChange(row.change);
+  if (displayed === null) return { label: "Not available", glyph: "–", className: ui.neutral };
   const unit = row.changeUnit === "bp" ? " bp" : "%";
-  const value = (row.change > 0 ? "+" : "") + row.change.toFixed(2) + unit;
-  if (row.change > 0) return { label: value, glyph: "↑", className: ui.up };
-  if (row.change < 0) return { label: value, glyph: "↓", className: ui.down };
+  const value = (displayed > 0 ? "+" : "") + displayed.toFixed(2) + unit;
+  const direction = marketMovementDirection(row.change);
+  if (direction === "up") return { label: value, glyph: "↑", className: ui.up };
+  if (direction === "down") return { label: value, glyph: "↓", className: ui.down };
   return { label: value, glyph: "→", className: ui.neutral };
 }
 
@@ -51,9 +54,7 @@ export default function BlueDeskMarketReader({ observations }: {
       if (needle && ![row.label, row.symbol, row.type, row.sourceName]
         .join(" ").toLocaleLowerCase("en-GB").includes(needle)) return false;
       if (frequency !== "all" && row.frequency !== frequency) return false;
-      if (direction === "up" && !(row.change !== null && row.change > 0)) return false;
-      if (direction === "down" && !(row.change !== null && row.change < 0)) return false;
-      if (direction === "quiet" && !(row.change === null || row.change === 0)) return false;
+      if (direction !== "all" && marketMovementDirection(row.change) !== direction) return false;
       return true;
     });
     if (order === "name") filtered.sort((a, b) => a.label.localeCompare(b.label, "en-GB"));
