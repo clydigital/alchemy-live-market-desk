@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "./supabase/admin.ts";
 import type { EditorialCandidate, EditorialSourcePassage } from "./market-editorial-v1.ts";
-import { captureVerifiedIssuerPassages } from "./dossier-v2/issuer-source-passages.ts";
+import { captureVerifiedIssuerPassagesDiagnosed } from "./dossier-v2/issuer-source-passages.ts";
 
 const PREFIX="issuer-editorial-source:";
 const PROVIDER="issuer_editorial_source_snapshot_v1";
@@ -89,7 +89,7 @@ export async function archiveMissingIssuerPassages(
   if(lookupError||archiveError)return{archived:0,attempted:0,warnings:["Issuer source archive preflight unavailable."]};
   const existing=new Set((prior||[]).map((x:{ingestion_key:string|null})=>x.ingestion_key));
   const byFact=new Map(facts.map(f=>[f.factId.toLowerCase(),f]));
-  const chosen=(rows||[] as Evidence[]).flatMap(raw=>{
+  const eligible=(rows||[] as Evidence[]).flatMap(raw=>{
     const row=raw as Evidence;
     const fact=byFact.get(row.id.toLowerCase());
     const issuer=getIssuer(row.structured_payload?.issuer);
@@ -100,16 +100,25 @@ export async function archiveMissingIssuerPassages(
     const value=Number(row.observed_value);
     if(!Number.isFinite(value))return[];
     return [{id:row.id.toLowerCase(),issuer,value,sourceUrl:fact.sourceUrl}];
-  }).slice(0,2);
+  });
+  // Spread the two bounded attempts across DIFFERENT original issuers when
+  // possible. Otherwise a perpetually failing first source can starve every
+  // later issuer in the same Story indefinitely.
+  const selectedIssuers=new Set<Issuer>();
+  const chosen=[...eligible.filter(row=>{
+    if(selectedIssuers.has(row.issuer))return false;
+    selectedIssuers.add(row.issuer);return true;
+  }),...eligible.filter(row=>!selectedIssuers.has(row.issuer))].slice(0,2);
   const outcomes=await Promise.all(chosen.map(async item=>{
     // Actual acquisition clock comes from the completed fetch; never reuse
     // the old issuer published/available_at clock.
-    const passages=await captureVerifiedIssuerPassages({
+    const capture=await captureVerifiedIssuerPassagesDiagnosed({
       issuer:item.issuer,sourceUrl:item.sourceUrl,metricValue:item.value,
       capturedAt:(options.now?.()??new Date()).toISOString(),
       fetchImpl:options.fetchImpl,now:options.now,
     });
-    if(!passages.length)return false;
+    const passages=capture.passages;
+    if(!passages.length)return {saved:false,issuer:item.issuer,reason:capture.reason};
     const capturedAt=passages[0].capturedAt;
     const payload={evidenceId:item.id,evidenceNature:"issuer_original_excerpt_only",
       editorialSourcePassages:passages};
@@ -124,8 +133,12 @@ export async function archiveMissingIssuerPassages(
       published_at:null,
     });
     // Unique-index race is idempotent: never mutate archived first receipt.
-    return !error||error.code==="23505";
+    return {saved:!error||error.code==="23505",issuer:item.issuer,
+      reason:error && error.code!=="23505"?"ARCHIVE_WRITE_FAILED":"CAPTURED"};
   }));
-  return {archived:outcomes.filter(Boolean).length,attempted:chosen.length,
-    warnings:chosen.length&&outcomes.every(x=>!x)?["Issuer original-source capture produced no admissible receipts."]:[]};
+  return {
+    archived:outcomes.filter(x=>x.saved).length,attempted:chosen.length,
+    // Reason codes only; never log raw issuer content, auth or HTTP headers.
+    warnings:outcomes.filter(x=>!x.saved).map(x=>x.issuer+":"+x.reason),
+  };
 }
