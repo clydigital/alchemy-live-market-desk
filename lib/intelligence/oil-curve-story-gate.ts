@@ -21,7 +21,7 @@ export type VerifiedStoryOilPair = {
 
 const DATE = /\b20\d{2}-\d{2}-\d{2}\b/;
 const CURVE = /\b(?:backwardat(?:ion|ed)|contango|front[\s/–-]*(?:month|next)\s+(?:premium|discount|spread)|F1[\s/–-]*F2|calendar[- ]spread|roll[- ]yield|positive\s+(?:roll|spread)|negative\s+(?:roll|spread))\b/i;
-const UNCERTAIN = /\b(?:if|would|could|might|may|potential(?:ly)?|hypothetical|scenario|unverified|unconfirmed|unresolved|awaiting|not (?:established|verified|confirmed|observed|proven)|no confirmed|cannot (?:confirm|conclude)|need(?:s)? to verify|reportedly|reported|allegedly|according to|third[- ]party(?: report)?|research (?:lead|question)|check whether|test whether|monitor(?:ing)?|watch(?:ing)?)\b/i;
+const UNCERTAIN = /\b(?:if|would|could|might|may|potential(?:ly)?|hypothetical|scenario|unverified|unconfirmed|unresolved|awaiting|not (?:established|verified|confirmed|observed|proven)|no confirmed|cannot (?:be )?(?:confirm(?:ed)?|conclude)|need(?:s)? to verify|reportedly|reported|allegedly|according to|third[- ]party(?: report)?|research (?:lead|question)|check whether|test whether|monitor(?:ing)?|watch(?:ing)?)\b/i;
 
 function curveDirection(sentence: string): -1 | 0 | 1 {
   if (/\b(?:backwardat(?:ion|ed)|front[\s/–-]*(?:month|next)\s+premium|positive\s+(?:roll|spread))\b/i.test(sentence)) return 1;
@@ -81,9 +81,9 @@ export function measuredOilCurveAssertionErrors(input: {
           if (expected !== 0 && Math.sign(spread) !== expected) return false;
           // A quoted spread must equal the verified front minus next settle.
           // Do not let a legitimate archive receipt bless an invented number.
-          if (/\\$\\s*-?\\d/.test(sentence)) {
+          if (/\$\s*-?\d/.test(sentence)) {
             const quoted = sentence.match(
-              /(?:F1[\\s/–-]*F2|spread|premium|discount)\\s+(?:of\\s+|was\\s+|at\\s+|is\\s+)?\\$\\s*(-?\\d+(?:\\.\\d+)?)/i,
+              /(?:F1[\s/–-]*F2|spread|premium|discount)\s+(?:of\s+|was\s+|at\s+|is\s+)?\$\s*(-?\d+(?:\.\d+)?)/i,
             );
             if (!quoted || Math.abs(Number(quoted[1]) - spread) > 0.005) return false;
           }
