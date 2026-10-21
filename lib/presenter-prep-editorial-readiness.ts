@@ -69,6 +69,28 @@ function storyWitness(payload:Data,article:Data):boolean{
       && identity?.storySnapshotId===snapshot&&iso(p?.asOf)===asOf;
   });
 }
+/** Fact UUIDs must appear in the *same* immutable Story impact packet,
+ * not merely parse as UUIDs or occur in a different Story or current edition.
+ * The editorial producer is still responsible for exact original-source
+ * text matching; this is a private reader defence-in-depth check.
+ */
+function frozenEvidenceIds(payload:Data,article:Data):Set<string> {
+  const packets=Array.isArray(payload.marketImpactPackets)?payload.marketImpactPackets:[];
+  const packet=packets.map(data).find(p=>{
+    const identity=data(p?.identity);
+    return p?.kind==="STORY"&&identity?.storyId===article.storyId
+      &&identity?.storyThesisVersionId===article.storyThesisVersionId
+      &&identity?.storySnapshotId===article.storySnapshotId
+      &&iso(p?.asOf)===iso(article.asOf);
+  });
+  return new Set((Array.isArray(packet?.evidenceCandidateIds)?packet.evidenceCandidateIds:[])
+    .filter(uuid).map((id:string)=>id.toLowerCase()));
+}
+function admittedGapMessages(article:Data):string[]{
+  if(!Array.isArray(article.gaps))return [];
+  return [...new Set(article.gaps.slice(0,12).map(g=>txt(g,180))
+    .filter((g):g is string=>Boolean(g)))];
+}
 function articleContext(payload:Data,article:Data,publicationAt:string):boolean {
   const asOf=eligibleClock(article.asOf,publicationAt);
   const material=article.materialChangeAt;
@@ -96,13 +118,18 @@ function fullArticle(
     ||!Array.isArray(a.interpretation)||a.interpretation.length<2||a.interpretation.length>5)return null;
   const asOf=iso(a.asOf)!;
   const links=names(a);
+  const frozenIds=frozenEvidenceIds(payload,a);
+  const usedIds=new Set<string>();
   const reporting:PrepEditorialItem["reporting"]=[];
   for(const rawPart of a.reporting){
     const p=data(rawPart),text=txt(p?.text),when=eligibleClock(p?.sourceAvailableAt,asOf);
     const urls=Array.isArray(p?.sourceUrls)?p.sourceUrls.map(source).filter((u):u is string=>Boolean(u)):[];
     const ids=Array.isArray(p?.evidenceIds)?p.evidenceIds:[];
+    const id=ids.length===1&&uuid(ids[0])?String(ids[0]).toLowerCase():null;
     if(p?.basis!=="SOURCE_VERIFIED"||!text||text.length<160||!when
-      ||ids.length===0||!ids.every(uuid)||urls.length===0||!urls.every(u=>links.has(u)))return null;
+      ||!id||!frozenIds.has(id)||usedIds.has(id)
+      ||urls.length===0||!urls.every(u=>links.has(u)))return null;
+    usedIds.add(id);
     reporting.push({text,sourceName:links.get(urls[0])!,sourceUrl:urls[0],availableAt:when});
   }
   if(new Set(reporting.map(p=>p.text)).size<3)return null;
@@ -120,7 +147,7 @@ function fullArticle(
   return{
     storyId:String(a.storyId),headline:frozenHeadline(payload,a),asOf,
     materialChangeAt:iso(a.materialChangeAt),
-    kind:"FULL_ARTICLE",reporting,implications,gaps:[],
+    kind:"FULL_ARTICLE",reporting,implications,gaps:admittedGapMessages(a),
     marketReaction:"NOT_ESTABLISHED_BY_EDITORIAL",
   };
 }
@@ -130,6 +157,7 @@ function shortArticle(payload:Data,raw:unknown,publicationAt:string):PrepEditori
     ||!["READY","DEVELOPING"].includes(String(a.readiness))
     ||!articleContext(payload,a,publicationAt)||!Array.isArray(a.paragraphs))return null;
   const links=names(a);
+  const frozenIds=frozenEvidenceIds(payload,a);
   const asOf=iso(a.asOf)!;
   const reporting:PrepEditorialItem["reporting"]=[];
   const implications:PrepEditorialItem["implications"]=[];
@@ -139,7 +167,7 @@ function shortArticle(payload:Data,raw:unknown,publicationAt:string):PrepEditori
     if(p?.role==="development"&&p.evidenceState==="SOURCE_VERIFIED"){
       const ids=Array.isArray(p.evidenceIds)?p.evidenceIds:[];
       const url=(Array.isArray(p.sourceUrls)?p.sourceUrls:[]).map(source).find(u=>u&&links.has(u));
-      if(ids.length>0&&ids.every(uuid)&&url){
+      if(ids.length>0&&ids.every(id=>uuid(id)&&frozenIds.has(String(id).toLowerCase()))&&url){
         reporting.push({text,sourceName:links.get(url)!,sourceUrl:url,availableAt:null});
       }
     }else if(["mechanism","markets","outlook"].includes(String(p?.role))
@@ -153,10 +181,11 @@ function shortArticle(payload:Data,raw:unknown,publicationAt:string):PrepEditori
     asOf,materialChangeAt:iso(a.materialChangeAt),
     kind:ready?"FACTUAL_BRIEF":"DEVELOPING",
     reporting,implications,
-    gaps:ready?[]:[
+    gaps:[...new Set([
+      ...admittedGapMessages(a),
       ...(reporting.length===0?["No source-verified factual opening admitted in this edition."]:[]),
       ...(a.readiness==="DEVELOPING"?["Full editorial verification is incomplete."]:[]),
-    ],
+    ])].slice(0,12),
     marketReaction:"NOT_ESTABLISHED_BY_EDITORIAL",
   };
 }
