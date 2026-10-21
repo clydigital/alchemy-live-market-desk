@@ -84,3 +84,26 @@ test("both existing Story mutation routes use the source-chain gate before persi
   assert.match(verifier, /\.in\("id", ids\)/);
   assert.doesNotMatch(verifier, /gap-web:/);
 });
+
+
+test("runtime v4 whatChanged cannot use a later unverified clause to excuse an observed print", () => {
+  const observedThenCaveat =
+    "New captures include an independent forward‑curve print showing front‑month backwardation " +
+    "and accessible exchange publisher pages for the same date, but archival exchange settlement files remain unverified.";
+  assert.ok(check(observedThenCaveat).length,
+    "The initial source-unproved observation is still an assertion, even if the last clause says unverified");
+  assert.deepEqual(
+    check("An independent third-party report claims Brent backwardation, but original settlement files remain unverified."),
+    [],
+    "Explicitly attributed third-party research remains a lead, not a measured assertion");
+  assert.deepEqual(
+    check("If Brent finals establish front‑month backwardation, the roll incentive could turn positive; current evidence is unverified."),
+    [],
+    "A conditional scenario must remain expressible");
+});
+
+test("non-breaking-hyphen Brent price statements are not invisible to the guard", () => {
+  assert.ok(check("Brent front‑month backwardation was observed on 14 October 2026.").length);
+  assert.ok(check("WTI F1‑F2 prints a positive spread in October.").length);
+  assert.deepEqual(check("Brent front‑month backwardation is not verified."), []);
+});
