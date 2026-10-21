@@ -98,7 +98,10 @@ test("an invented source ID, bad fingerprint and irrelevant asset prevent editor
   bad.articles[0].paragraphs[0].factIds=["33333333-3333-4333-8333-333333333333"];
   bad.articles[0].paragraphs[2].text="GOLD could rise if oil prices increase.";
   const [article]=validateMarketEditorialOutput(bad,[candidate]);
-  assert.deepEqual(article.paragraphs.map(p=>p.role),["mechanism","outlook"]);
+  assert.deepEqual(article.paragraphs.map(p=>p.role),["development","mechanism","outlook"]);
+  assert.deepEqual(article.paragraphs[0].evidenceIds,[evidenceId]);
+  assert.deepEqual(article.paragraphs[0].sourceUrls,[original]);
+  assert.ok(!article.paragraphs.some(p=>p.text.includes("33333333")));
   assert.equal(article.readiness,"DEVELOPING");
   assert.deepEqual(validateMarketEditorialOutput(model("incorrect-fingerprint"),[candidate]),[]);
 });
@@ -128,4 +131,46 @@ test("bounded candidate selection returns no model work when no original proof i
 
 test("explicit zero article budget forbids all editorial candidates",()=>{
   assert.deepEqual(selectMarketEditorialCandidates({packets:[story()],evidence:[proof],maxArticles:0}),[]);
+});
+
+test("natural-run regression: omitted model development is restored ONLY from original source fact",()=>{
+  const [candidate]=selectMarketEditorialCandidates({packets:[story("FROZEN_DOSSIER_CONTEXT")],evidence:[proof]});
+  const raw=model(candidate.fingerprint);
+  raw.articles[0].paragraphs=raw.articles[0].paragraphs.filter(p=>p.role!=="development");
+  const [article]=validateMarketEditorialOutput(raw,[candidate]);
+  assert.equal(article.readiness,"READY");
+  assert.deepEqual(article.paragraphs.map(p=>p.role),["development","mechanism","markets","outlook"]);
+  assert.equal(article.paragraphs[0].text,proof.claimText);
+  assert.deepEqual(article.paragraphs[0].sourceUrls,[original]);
+  assert.deepEqual(article.paragraphs[0].evidenceIds,[evidenceId]);
+  assert.deepEqual(article.sourceLinks,[{url:original,sourceName:"Issuer IR"}]);
+  assert.equal(article.materialChangeAt,null);
+  assert.equal(article.lineage,"FROZEN_DOSSIER_CONTEXT");
+});
+
+test("source-fact recovery fails closed without credible direct as-of provenance",()=>{
+  const [candidate]=selectMarketEditorialCandidates({packets:[story()],evidence:[proof]});
+  const raw=model(candidate.fingerprint);
+  raw.articles[0].paragraphs=raw.articles[0].paragraphs.filter(p=>p.role!=="development");
+  for (const bad of [
+    {...candidate,facts:[]},
+    {...candidate,facts:[{...candidate.facts[0],availableAt:"2026-10-22T00:00:00Z"}]},
+    {...candidate,facts:[{...candidate.facts[0],sourceUrl:"http://unsafe.example/claim"}]},
+    {...candidate,facts:[{...candidate.facts[0],text:"Observed by Research Gap at 2026-10-19: official status unverified"}]},
+  ]) {
+    const result=validateMarketEditorialOutput(raw,[bad]);
+    assert.equal(result[0].readiness,"DEVELOPING");
+    assert.ok(!result[0].paragraphs.some(p=>p.role==="development"));
+    assert.deepEqual(result[0].sourceLinks,[]);
+  }
+});
+
+test("exact source admission does not turn stale context into a material change",()=>{
+  const [candidate]=selectMarketEditorialCandidates({packets:[story("FROZEN_DOSSIER_CONTEXT")],evidence:[proof]});
+  const raw=model(candidate.fingerprint);
+  raw.articles[0].paragraphs=raw.articles[0].paragraphs.filter(p=>p.role!=="development");
+  const [article]=validateMarketEditorialOutput(raw,[candidate]);
+  assert.equal(article.materialChangeAt,null);
+  assert.equal(article.asOf,asOf);
+  assert.equal(article.gaps.includes("CANONICAL_STORY_LINEAGE"),false);
 });
