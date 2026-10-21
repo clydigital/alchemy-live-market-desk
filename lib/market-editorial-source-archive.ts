@@ -105,10 +105,12 @@ export async function archiveMissingIssuerPassages(
   // possible. Otherwise a perpetually failing first source can starve every
   // later issuer in the same Story indefinitely.
   const selectedIssuers=new Set<Issuer>();
-  const chosen=[...eligible.filter(row=>{
+  const firstPerIssuer=eligible.filter(row=>{
     if(selectedIssuers.has(row.issuer))return false;
     selectedIssuers.add(row.issuer);return true;
-  }),...eligible.filter(row=>!selectedIssuers.has(row.issuer))].slice(0,2);
+  });
+  const firstIds=new Set(firstPerIssuer.map(row=>row.id));
+  const chosen=[...firstPerIssuer,...eligible.filter(row=>!firstIds.has(row.id))].slice(0,2);
   const outcomes=await Promise.all(chosen.map(async item=>{
     // Actual acquisition clock comes from the completed fetch; never reuse
     // the old issuer published/available_at clock.
