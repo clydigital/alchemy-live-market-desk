@@ -1,6 +1,14 @@
 import { nearestImmutableDossierContext, MAX_ZERO_CHANGE_EDITION_LOOKBACK } from "./zero-change-immutable-context.ts";
-import { composeFrozenMarketEditorial } from "@/lib/market-editorial-runtime";
-import { MARKET_EDITORIAL_V1 } from "@/lib/market-editorial-v1";
+import {
+  composeFrozenMarketEditorial, prepareFrozenMarketEditorial,
+  EDITORIAL_SCHEMA, EDITORIAL_INSTRUCTIONS, editorialCandidateModelInput,
+} from "@/lib/market-editorial-runtime";
+import { augmentDossierWithEditorial } from "@/lib/market-editorial-combined";
+import { runStructuredStage } from "@/lib/intelligence/openai";
+import {
+  MARKET_EDITORIAL_V1, validateMarketEditorialOutput,
+  type EditorialCandidate, type MarketEditorialArticleV1, type ModelEditorialOutput,
+} from "@/lib/market-editorial-v1";
 import { currentIntelligenceInvocation } from "@/lib/intelligence/invocation-context";
 import { decideEditorialStage } from "@/lib/intelligence/editorial-stage-gate";
 import { buildMarketImpactPacketsV1 } from "@/lib/market-impact-packet";
@@ -9,6 +17,7 @@ import "server-only";
 import { captureCanonicalPublicationStoryStates } from "@/lib/hybrid-publication";
 import {
   composePersistedDossierStorylines,
+  buildDossierComposerCandidates,
   DOSSIER_STORYLINE_COMPOSITION_V1,
 } from "@/lib/intelligence/dossier-storyline-composer";
 import { composeAlchemyEdition, type AlchemyEdition } from "@/lib/intelligence/edition";
@@ -521,22 +530,64 @@ export async function composeCanonicalDossierEditionForResearchRun({
     throw new Error("Canonical Story manifest is unavailable for Dossier storyline composition.");
   }
 
-  const composed = await composePersistedDossierStorylines({ editionPayload: base.payload });
+  const dossierHasModelCandidates = buildDossierComposerCandidates(base.payload).length > 0;
+  const editorialWarnings: string[] = [];
+  let combinedCandidates: EditorialCandidate[] = [];
+  let combinedArticles: MarketEditorialArticleV1[] = [];
+
+  // Source admission precedes the existing Dossier model invocation. It is
+  // read-only and capped at ONE editorial article on the first combined rollout.
+  // Qualification failure must never prevent normal Dossier composition.
+  if (dossierHasModelCandidates) {
+    try {
+      combinedCandidates = await prepareFrozenMarketEditorial({
+        editionPayload: base.payload,
+        asOf: base.published_at,
+        maxArticles: 1,
+      });
+    } catch (error) {
+      editorialWarnings.push("Combined editorial source admission failed; Dossier composition remains independent.");
+      console.error("Combined editorial source admission unavailable", error instanceof Error ? error.name : "unknown");
+    }
+  }
+
+  // Reuse exactly the existing dossier_storyline_composer provider invocation
+  // and its canonical output sanitizer. No additional model stage, DB phase or
+  // Story reasoning path. The extra array is optional *content* inside that
+  // same strict JSON response, and is validated separately against exact facts.
+  const combinedRunner: NonNullable<Parameters<typeof composePersistedDossierStorylines>[0]["modelRunner"]> | undefined =
+    combinedCandidates.length ? async <T>(stage) => {
+      const augmented = augmentDossierWithEditorial(stage, {
+        editorialSchema: EDITORIAL_SCHEMA as unknown as Record<string, unknown>,
+        editorialInstructions: EDITORIAL_INSTRUCTIONS,
+        candidates: combinedCandidates,
+        candidateInput: editorialCandidateModelInput,
+      });
+      const response = await runStructuredStage<T & ModelEditorialOutput>(augmented);
+      combinedArticles = validateMarketEditorialOutput(response.data, combinedCandidates);
+      return response;
+    } : undefined;
+
+  const composed = await composePersistedDossierStorylines({
+    editionPayload: base.payload,
+    ...(combinedRunner ? { modelRunner: combinedRunner } : {}),
+  });
   const hasStoryline = Boolean(composed.dossier && composed.composition);
   const invocation = currentIntelligenceInvocation();
-  // The SQL contract permits one 'composed' edition per run. Until a durable
-  // second-stage continuation exists, an edition must not spend one model
-  // invocation on Dossier grouping and another on editorial prose.
   const editorialStage = decideEditorialStage({
     dossierModelWasUsed: Boolean(composed.model),
     oneModelStage: invocation?.oneModelStage ?? true,
     invokedModelStage: invocation?.invokedModelStage ?? null,
   });
-  // Editorial is optional and failure-isolated: no source-eligible article or
-  // formatter failure may block the canonical base or grouped Dossier.
-  let marketEditorial: Awaited<ReturnType<typeof composeFrozenMarketEditorial>> | null = null;
-  const editorialWarnings: string[] = [];
-  if (editorialStage.permitted) {
+  let marketEditorial: Awaited<ReturnType<typeof composeFrozenMarketEditorial>> | null =
+    combinedArticles.length
+      ? { contractVersion: MARKET_EDITORIAL_V1, articles: combinedArticles, warnings: [] }
+      : null;
+
+  // When no immutable Dossier grouping is necessary, use the sole available
+  // model slot for editorial; when grouping did happen, never make a second
+  // model request to fill missing paragraphs.
+  if (!dossierHasModelCandidates && editorialStage.permitted) {
     try {
       marketEditorial = await composeFrozenMarketEditorial({
         editionPayload: base.payload,
@@ -548,7 +599,11 @@ export async function composeCanonicalDossierEditionForResearchRun({
       editorialWarnings.push("Bounded market editorial composition failed without affecting the canonical Dossier.");
       console.error("Market editorial composition unavailable", error instanceof Error ? error.name : "unknown");
     }
-  } else {
+  } else if (dossierHasModelCandidates && combinedCandidates.length && !combinedArticles.length) {
+    editorialWarnings.push("Combined Dossier composition completed, but no article passed exact-source editorial validation.");
+  } else if (dossierHasModelCandidates && !combinedCandidates.length) {
+    editorialWarnings.push("Dossier composition proceeded without a qualified, dated original-source editorial candidate.");
+  } else if (!editorialStage.permitted) {
     editorialWarnings.push(
       `Market editorial model omitted: ${editorialStage.reason}; preserved the one-model-stage and immutable-edition contract.`,
     );
