@@ -161,3 +161,32 @@ test("NVIDIA blogs, forged domains, stale timestamps and generic consumer conten
   }) as typeof fetch;
   assert.deepEqual((await applyOfficialPressNewsIntake(input(),{now,fetchImpl})).items,[]);
 });
+
+test("NVIDIA canonical trailing-slash original release is eligible; nested paths are rejected", async () => {
+  const title = "NVIDIA and Supply Chain Partners Expand Capacity to Accelerate AI Infrastructure Buildout";
+  const url = "https://nvidianews.nvidia.com/news/nvidia-and-supply-chain-partners-expand-capacity-to-accelerate-ai-infrastructure-buildout/";
+  const invalidUrl = url + "extra";
+  const fetched: string[] = [];
+  const fetchImpl = (async (target: RequestInfo | URL) => {
+    const uri = String(target);
+    fetched.push(uri);
+    if (uri === OFFICIAL_PRESS_FEEDS[2].feed) {
+      return response(rss([item(title, invalidUrl), item(title, url)]), "application/rss+xml");
+    }
+    if (uri === url) return response(html(title), "text/html");
+    if (uri === OFFICIAL_PRESS_FEEDS[0].feed || uri === OFFICIAL_PRESS_FEEDS[1].feed) {
+      return response(rss([]), "text/xml");
+    }
+    throw new Error("Unexpected original-page read: " + uri);
+  }) as typeof fetch;
+  const result = await applyOfficialPressNewsIntake(input(), { now, fetchImpl });
+  assert.deepEqual(result.items.map(entry => entry.url), [url]);
+  assert.equal(fetched.includes(invalidUrl), false, "Nested forged path must not be fetched");
+  assert.equal(fetched.includes(url), true, "Original trailing-slash permalink must be fetched");
+  const motions = buildMarketMotionCandidates(result.items.map(entry =>
+    ({ ...entry, candidateScore: 83, evidence: entry.evidence || [] })), [], { now });
+  assert.equal(motions.length, 1);
+  assert.equal(motions[0].sourceKind, "primary");
+  assert.equal(motions[0].verificationState, "VERIFIED");
+  assert.equal(motions[0].marketReaction, null, "Issuer announcement does not prove price reaction");
+});

@@ -29,7 +29,7 @@ export const OFFICIAL_PRESS_FEEDS = [
     name: "NVIDIA company press releases",
     feed: "https://nvidianews.nvidia.com/cats/press_release.xml",
     host: "nvidianews.nvidia.com",
-    path: /^\/news\/[a-z0-9-]+$/i,
+    path: /^\/news\/[a-z0-9-]+\/?$/i,
     publisher: "NVIDIA Newsroom",
   },
 ] as const;
