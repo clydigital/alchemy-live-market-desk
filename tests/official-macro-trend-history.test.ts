@@ -102,4 +102,8 @@ test("existing scheduled Live research slot owns new trend-history intake, not a
   assert.ok(cron.indexOf("const macroTrends: MacroTrendRefresh")<cron.indexOf("const publication = await"));
   const macro=readFileSync(new URL("../app/data/macro/page.tsx",import.meta.url),"utf8");
   assert.match(macro,/<MacroTrendMonitor observations=\{data\.macroObservations\}/);
+  assert.match(macro,/<AutoRefreshMacroData \/>/);
+  const refresh=readFileSync(new URL("../components/live-desk/AutoRefreshMacroData.tsx",import.meta.url),"utf8");
+  assert.match(refresh,/document\.visibilityState === "visible"/);
+  assert.match(refresh,/router\.refresh\(\)/);
 });
