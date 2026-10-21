@@ -22,6 +22,11 @@ export function blueDeskPublicHref(path: string, host: string | null | undefined
 /** Exact Bluebelly routes only. API, auth, research, and legacy pages never rewrite. */
 export function blueDeskPresentationTarget(pathname: string, host: string | null | undefined) {
   if (!isBlueDeskPublicReaderHost(host)) return null;
+  // The old canonical Live overview URL is a public read-only alias only.
+  // The operational owner workspace stays protected on private hosts.
+  if (normalizedHost(host) === LIVE_DESK_PRESENTATION_HOST && pathname === "/owner/live") {
+    return "/blue-desk";
+  }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/markets") return "/blue-desk/markets";
@@ -45,6 +50,11 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // Explicitly approved, read-only full Markets terminal. This exception
   // applies to the exact Live hostname/path only; do not open other owner
   // routes, API handlers, aliases, or the dedicated Bluebelly hostname.
+  // Canonical Live bookmarks use the existing source-limited Blue Desk
+  // overview. No owner operations, Dossier write surfaces or APIs are exposed.
+  if (hostname === LIVE_DESK_PRESENTATION_HOST && pathname === "/owner/live") {
+    return "public";
+  }
   if (hostname === LIVE_DESK_PRESENTATION_HOST && pathname === "/owner/markets") {
     return "public";
   }
@@ -59,4 +69,19 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
   return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
+}
+
+/**
+ * Old Live Desk query bookmarks should land on a public read-only surface,
+ * never an owner-only operational route that demands sign-in. This function
+ * intentionally maps to a small allowlist; it cannot be an open redirect.
+ */
+export function publicLiveLegacyTabDestination(tab: string | null): string {
+  const key = (tab || "").trim().toLowerCase();
+  if (["markets", "market", "prices", "price observations"].includes(key)) return "/owner/markets";
+  if (["calendar", "economic calendar", "economic-calendar"].includes(key)) return "/calendar";
+  if (["rates", "yields", "bonds"].includes(key)) return "/#rates-title";
+  if (["stories", "key stories"].includes(key)) return "/#stories-title";
+  if (["motion", "what changed", "changes"].includes(key)) return "/#motion-title";
+  return "/";
 }

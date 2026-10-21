@@ -8,7 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
-import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget } from "@/lib/blue-desk-host";
+import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget, publicLiveLegacyTabDestination } from "@/lib/blue-desk-host";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -56,13 +56,19 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") || request.nextUrl.hostname;
   const accessScope = blueDeskHostAccess(pathname, host);
 
-  // Old root tab bookmarks must retain private operational context.
+  // Legacy Live Desk viewer bookmarks must not bounce public visitors to a
+  // protected owner dashboard. Keep the destination in a short read-only
+  // public allowlist; raw query data is never used to construct redirects.
   if (pathname === "/"
       && (host || "").trim().toLowerCase().replace(/:443$/, "") === LIVE_DESK_PRESENTATION_HOST
       && request.nextUrl.searchParams.has("tab")) {
-    const oldLive = request.nextUrl.clone();
-    oldLive.pathname = "/owner/live";
-    return NextResponse.redirect(oldLive);
+    const publicDestination = publicLiveLegacyTabDestination(request.nextUrl.searchParams.get("tab"));
+    const url = request.nextUrl.clone();
+    const [safePath, anchor] = publicDestination.split("#");
+    url.pathname = safePath;
+    url.search = "";
+    url.hash = anchor ? "#" + anchor : "";
+    return NextResponse.redirect(url);
   }
 
   // The public hostname must never expose legacy pages, internal APIs,
