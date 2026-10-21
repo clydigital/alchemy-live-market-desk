@@ -192,3 +192,41 @@ test("full-article gate requires three separately substantive, two-sentence sour
   assert.equal(permitted?.readiness,"FULL_ARTICLE");
   assert.ok(permitted?.reporting.every(p=>p.text.length>=160));
 });
+
+test("automatic issuer excerpts can enrich terse claims only after their captured-at time",()=>{
+  const short=candidate();
+  const texts=[
+    "Taiwan Semiconductor Manufacturing Company reported operating margin of 58.7 percent for the third quarter and disclosed the associated income statement scope in its quarterly release. The issuer noted additional consolidated reporting context in that source, which is separate from any observed share-price reaction.",
+    "Taiwan Semiconductor Manufacturing Company disclosed net revenue of 46.72 USD billion for the latest quarter in its issuer-owned quarterly announcement. The release also described the scope of its reported financial statements rather than making claims about the current market reaction.",
+    "CoreWeave's original release described cash purchases of equipment including software costs of 6.422 USD billion for the quarterly accounting period. The statement separated those purchases from non-cash additions, which is an accounting distinction rather than a verdict about AI returns.",
+    "CoreWeave's release stated operating cash flow of 0.679 USD billion for the relevant financial reporting quarter, separate from its expenditure on property and equipment. The issuer also explained the distinction between cash provided by operations and spending on fixed assets.",
+  ];
+  const enriched={...short,facts:short.facts.map((fact,i)=>({
+    ...fact,
+    sourcePassages:[{text:texts[i],sourceUrl:fact.sourceUrl,
+      matchedMetric:["58.7","46.72","6.422","0.679"][i],
+      capturedAt:"2026-10-20T00:00:00Z"}],
+  }))};
+  assert.equal(eligibleForArticleSectionsV2(short),false);
+  assert.equal(eligibleForArticleSectionsV2(enriched),true);
+  // Fingerprint is computed on the admitted as-of evidence; the model can
+  // select ONLY that exact immutable candidate's claim identifiers.
+  const outcome=validateArticleSectionsV2(model(enriched),enriched);
+  assert.equal(outcome?.readiness,"FULL_ARTICLE");
+  assert.deepEqual(outcome?.reporting.map(x=>x.text),texts);
+  assert.ok(outcome?.reporting.every(x=>x.sourceAvailableAt==="2026-10-20T00:00:00.000Z"));
+  assert.equal(outcome?.context,"CONTINUING_STORY");
+
+  const tooLate={...enriched,facts:enriched.facts.map(f=>({
+    ...f,sourcePassages:f.sourcePassages.map(p=>({...p,capturedAt:"2026-10-22T00:00:00Z"})),
+  }))};
+  assert.equal(eligibleForArticleSectionsV2(tooLate),false);
+  const wrongHost={...enriched,facts:enriched.facts.map(f=>({
+    ...f,sourcePassages:f.sourcePassages.map(p=>({...p,sourceUrl:"https://evil.example/report"})),
+  }))};
+  assert.equal(eligibleForArticleSectionsV2(wrongHost),false);
+  const repeated={...enriched,facts:enriched.facts.map((f,i)=>({
+    ...f,sourcePassages:i<3?[{...f.sourcePassages[0],text:texts[0],matchedMetric:"58.7"}]:f.sourcePassages,
+  }))};
+  assert.equal(eligibleForArticleSectionsV2(repeated),false);
+});

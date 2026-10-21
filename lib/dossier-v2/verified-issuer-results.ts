@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { verifyGitHubActionsManualLiveTrigger } from "../manual-live-trigger-auth.ts";
 import { createSupabaseAdminClient } from "../supabase/admin.ts";
+import { captureVerifiedIssuerPassages } from "./issuer-source-passages.ts";
 
 /** Operator-attested metrics from the actual issuer release, not market commentary. */
 const ISSUERS = {
@@ -163,13 +164,20 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
   const evidenceId = identity.evidenceId;
   const metricName = METRIC_LABELS[item.metric];
   const claim = `${sourceName} reported ${item.fiscalQuarter} ${metricName} of ${item.value} ${METRICS[item.metric]} in its issuer release dated ${item.reportDate}.`;
+  // Automatically capture original issuer paragraphs as *secondary source
+  // material* at first admission. This does not mint additional claim UUIDs,
+  // retrospectively change old Evidence or trust model-written source text.
+  const editorialSourcePassages = await captureVerifiedIssuerPassages({
+    issuer:item.issuer,sourceUrl:item.sourceUrl,
+    metricValue:item.value,capturedAt:availableAt,
+  });
   const { persistSensorMemory } = await import("../providers/sensor-memory-supabase.ts");
   const memory = await persistSensorMemory({
     provider: PROVIDER,
     sourceUrl: item.sourceUrl,
     sourceType: "issuer_release",
     contentType: "application/json",
-    rawPayload: item,
+    rawPayload: {...item,editorialSourcePassages},
     contentText: claim,
     // The issuer page establishes only a publication DAY. Do not invent
     // a market-open release hour or backdate the record's availability.
@@ -240,6 +248,9 @@ export async function persistVerifiedIssuerResult(item: VerifiedIssuerResult, av
         ),
         issuer: item.issuer,
         metric: item.metric,
+        // Optional source excerpts are observed on this intake, never before
+        // the first-seen timestamp. They are not independently canonical claims.
+        editorialSourcePassages,
         scopeCaveat: item.metric === "cash_ppe"
           ? "CASH_PP&E_ONLY; NOT_AI_ONLY; EXCLUDES_NONCASH_LEASE_ADDITIONS"
           : item.metric === "operating_cash_flow"

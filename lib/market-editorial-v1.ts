@@ -3,13 +3,18 @@ import type { MarketImpactPacketV1 } from "./market-impact-packet.ts";
 
 export const MARKET_EDITORIAL_V1 = "market-editorial/v1" as const;
 export type MarketEditorialRole = "development" | "mechanism" | "markets" | "outlook";
+export type EditorialSourcePassage = {
+  text:string;sourceUrl:string;capturedAt:string;matchedMetric:string;
+};
 export type EditorialEvidence = {
   id: string; claimText: string | null; evidenceClass: string | null;
   sourceTier: number | null; sourceName: string | null; sourceUrl: string | null;
   provenanceUrls: string[]; createdAt: string | null; availableAt: string | null;
+  sourcePassages?: EditorialSourcePassage[];
 };
 export type EditorialFact = {
   factId: string; text: string; sourceUrl: string; sourceName: string; availableAt: string;
+  sourcePassages?: EditorialSourcePassage[];
 };
 export type EditorialCandidate = { packet: MarketImpactPacketV1; facts: EditorialFact[]; fingerprint: string };
 export type EditorialParagraph = {
@@ -67,8 +72,20 @@ function factSet(packet: MarketImpactPacketV1, rows: readonly EditorialEvidence[
     const original = (row.provenanceUrls.length ? row.provenanceUrls : [row.sourceUrl || ""])
       .map(validUrl).find(Boolean);
     if (!original) continue;
+    // Supplementary original-source material must be captured by the intake
+    // before the exact immutable edition's as-of. It is not new canonical
+    // Evidence and cannot silently update an older published edition.
+    const sourcePassages=(row.sourcePassages||[]).filter(p=>
+      p && p.sourceUrl===original && iso(p.capturedAt,packet.asOf)
+      && Date.parse(p.capturedAt)>=Date.parse(availableAt)
+      && typeof p.matchedMetric==="string" && p.matchedMetric.length>0
+      && row.claimText!.includes(p.matchedMetric)
+      && typeof p.text==="string" && p.text.length>=160 && p.text.length<=720
+      && p.text.includes(p.matchedMetric) && !PROCESS.test(p.text) && !OPERATIONAL.test(p.text)
+    ).slice(0,3);
     facts.push({factId: row.id.toLowerCase(), text: row.claimText.slice(0,420),
-      sourceUrl: original, sourceName: (row.sourceName || new URL(original).hostname).slice(0,90), availableAt});
+      sourceUrl: original, sourceName: (row.sourceName || new URL(original).hostname).slice(0,90),
+      availableAt,...(sourcePassages.length?{sourcePassages}:{})});
     if (facts.length >= 10) break;
   }
   if (packet.kind === "MOTION" && packet.identity.motionId
@@ -98,7 +115,8 @@ export function selectMarketEditorialCandidates(input: {
       materialChangeAt: packet.materialChangeAt,
       mechanism: packet.mechanism, assets: packet.assetReadThroughs,
       countercase: packet.countercase, nextTest: packet.nextTest,
-      facts: facts.map(f=>[f.factId,f.text,f.sourceUrl,f.availableAt]),
+      facts: facts.map(f=>[f.factId,f.text,f.sourceUrl,f.availableAt,
+        (f.sourcePassages||[]).map(p=>[p.text,p.capturedAt,p.matchedMetric])]),
     })).digest("hex").slice(0,32);
     result.push({packet,facts,fingerprint});
     if (result.length >= max) break;
