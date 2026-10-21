@@ -556,7 +556,7 @@ export async function composeCanonicalDossierEditionForResearchRun({
   // Story reasoning path. The extra array is optional *content* inside that
   // same strict JSON response, and is validated separately against exact facts.
   const combinedRunner: NonNullable<Parameters<typeof composePersistedDossierStorylines>[0]["modelRunner"]> | undefined =
-    combinedCandidates.length ? async <T>(stage) => {
+    combinedCandidates.length ? async <T>(stage: Parameters<typeof runStructuredStage>[0]) => {
       const augmented = augmentDossierWithEditorial(stage, {
         editorialSchema: EDITORIAL_SCHEMA as unknown as Record<string, unknown>,
         editorialInstructions: EDITORIAL_INSTRUCTIONS,
