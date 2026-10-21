@@ -170,6 +170,30 @@ export function scoreResearchGapCandidate(candidate: ResearchGapWorkCandidate) {
   };
 }
 
+/**
+ * A canonical Oil Story that explicitly lacks original dated FINAL F1/F2
+ * settlement legs must not disappear solely because the three-slot work
+ * queue filled with less consequential, non-blocking work. This is an
+ * acquisition-priority guard, not a source assertion or Story promotion.
+ */
+function exactOilOriginalSourceDebt(candidate: ResearchGapWorkCandidate): boolean {
+  if (candidate.sourceKind !== "research_now"
+    || candidate.linkedStoryIds.length === 0) return false;
+  return candidate.evidenceNeeded.some(need =>
+    /\b(?:WTI|NYMEX|ICE Brent|Brent)\b/i.test(need)
+    && /\b(?:F1\s*[/–-]\s*F2|settlement pair)\b/i.test(need)
+    && /\b(?:original|exchange)\b/i.test(need)
+    && /\bFINAL\b/i.test(need),
+  );
+}
+
+function materialPriority(candidate: ResearchGapWorkCandidate): boolean {
+  return candidate.nativeSignals.severity === "MATERIAL"
+    || candidate.nativeSignals.gapClass === "BLOCKER"
+    || candidate.blockingRefs.includes("MAIN_THREAD")
+    || candidate.blockingRefs.includes("REGIME:CURRENT");
+}
+
 function overlapsInvestigation(
   candidate: ResearchGapWorkCandidate,
   selected: PrioritisedResearchGap[],
@@ -242,6 +266,45 @@ export function prioritiseResearchGapWork(
     });
   }
 
+
+  // Reserve ONLY the third slot (or final slot for a smaller caller cap)
+  // when all selected work is non-material. Never displace a current main
+  // thread/regime blocker, alter the cap, or add a second execution path.
+  // Most original-source work is ordinarily selected by its native rank.
+  // This catches the case where a persistent Oil Story's dated exchange
+  // measurement is silently suppressed behind unrelated nonblocking tasks.
+  let originalSourceGuard: "not_needed" | "already_selected" |
+    "reserved_last_slot" | "blocked_by_material_priority" = "not_needed";
+  const missing = scored.find(item => exactOilOriginalSourceDebt(item.candidate)
+    && suppressed.some(entry =>
+      entry.workId === item.candidate.workId
+      && entry.reason === "below_selection_cutoff"));
+  if (!missing && selected.some(item => exactOilOriginalSourceDebt(item))) {
+    originalSourceGuard = "already_selected";
+  } else if (missing && selected.length === limit) {
+    const last = selected[limit - 1];
+    if (last && !materialPriority(last)) {
+      suppressed.splice(suppressed.findIndex(entry => entry.workId === missing.candidate.workId), 1);
+      suppressed.push({
+        workId: last.workId,
+        sourceKind: last.sourceKind,
+        sourceRef: last.sourceRef,
+        priorityScore: last.priorityScore,
+        reason: "below_selection_cutoff",
+      });
+      selected[limit - 1] = {
+        ...missing.candidate,
+        priorityRank: limit,
+        priorityScore: missing.priorityScore,
+        scoreBreakdown: missing.scoreBreakdown,
+        selectionReason: [...missing.selectionReason, "reserve last slot for linked original oil settlement blocker"],
+      };
+      originalSourceGuard = "reserved_last_slot";
+    } else {
+      originalSourceGuard = "blocked_by_material_priority";
+    }
+  }
+
   return {
     contractVersion: RESEARCH_GAP_PRIORITY_QUEUE_VERSION,
     generatedAt: queue.generatedAt,
@@ -262,6 +325,7 @@ export function prioritiseResearchGapWork(
         "A lower-ranked candidate linked to an investigation already covered by a selected item is suppressed for this Dossier.",
         "Fresh promoted Market Motion may compete for funding when it carries a concrete unresolved next test; Motion attention adds urgency but cannot outrank a true material blocker by itself.",
         "At most three candidates are selected per Dossier.",
+        `Original oil settlement queue guard: ${originalSourceGuard}; never displaces a material blocker or expands the 3-case cap.`,
       ],
     },
   };
