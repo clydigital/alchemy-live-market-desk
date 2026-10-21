@@ -4,6 +4,11 @@ import {
   EDITORIAL_SCHEMA, EDITORIAL_INSTRUCTIONS, editorialCandidateModelInput,
 } from "@/lib/market-editorial-runtime";
 import { augmentDossierWithEditorial } from "@/lib/market-editorial-combined";
+import {
+  ARTICLE_SECTIONS_V2, MODEL_ARTICLE_SECTIONS_V2_SCHEMA,
+  eligibleForArticleSectionsV2,validateArticleSectionsV2,
+  type ArticleSectionsV2,type ModelArticleSectionsV2,
+} from "@/lib/market-editorial-sections-v2";
 import { runStructuredStage } from "@/lib/intelligence/openai";
 import {
   MARKET_EDITORIAL_V1, validateMarketEditorialOutput,
@@ -534,6 +539,10 @@ export async function composeCanonicalDossierEditionForResearchRun({
   const editorialWarnings: string[] = [];
   let combinedCandidates: EditorialCandidate[] = [];
   let combinedArticles: MarketEditorialArticleV1[] = [];
+  let combinedFullArticles: ArticleSectionsV2[] = [];
+  // Safe initial rollout: no extra schema load on the critical canonical
+  // Dossier stage until a dedicated preview has verified provider capacity.
+  const sectionsV2Enabled = process.env.MARKET_EDITORIAL_SECTIONS_V2_ENABLED === "true";
 
   // Source admission precedes the existing Dossier model invocation. It is
   // read-only and capped at ONE editorial article on the first combined rollout.
@@ -557,14 +566,40 @@ export async function composeCanonicalDossierEditionForResearchRun({
   // same strict JSON response, and is validated separately against exact facts.
   const combinedRunner: NonNullable<Parameters<typeof composePersistedDossierStorylines>[0]["modelRunner"]> | undefined =
     combinedCandidates.length ? async <T>(stage: Parameters<typeof runStructuredStage>[0]) => {
+      const fullCandidate = sectionsV2Enabled
+        ? combinedCandidates.find(eligibleForArticleSectionsV2) : undefined;
       const augmented = augmentDossierWithEditorial(stage, {
         editorialSchema: EDITORIAL_SCHEMA as unknown as Record<string, unknown>,
         editorialInstructions: EDITORIAL_INSTRUCTIONS,
         candidates: combinedCandidates,
         candidateInput: editorialCandidateModelInput,
+        fullArticle: fullCandidate ? {
+          fingerprint: fullCandidate.fingerprint,
+          schema: {type:"array",items:MODEL_ARTICLE_SECTIONS_V2_SCHEMA} as Record<string,unknown>,
+          instructions: [
+            "This is article-sections/2 for a frozen, source-qualified Story; never modify Dossier output.",
+            "reportingFactIds: select three to five DISTINCT exact IDs from verifiedFacts.",
+            "Do not write freeform reporting text. The renderer will use exact issuer/source claim text.",
+            "interpretation: write two to five substantive conditional paragraphs (45–720 chars),",
+            "each linked to one existing support: mechanism, asset, countercase or nextTest.",
+            "For asset support, provide an exact asset from marketEffects; otherwise asset must be null.",
+            "At least one mechanism and one linked asset interpretation must qualify.",
+            "Do not claim a realised price reaction, new measurement or fresh change without dated tape.",
+            "Historical CONTEXT_ONLY mechanism remains labelled historical, not a new Story verdict.",
+            "If the eligible facts or market reasoning cannot support this count, return [] instead.",
+          ].join("\n"),
+        } : null,
       });
       const response = await runStructuredStage<T & ModelEditorialOutput>(augmented);
       combinedArticles = validateMarketEditorialOutput(response.data, combinedCandidates);
+      if (fullCandidate) {
+        const output = response.data as ModelEditorialOutput & {articleSections?: ModelArticleSectionsV2[]};
+        const rawSection = Array.isArray(output.articleSections)
+          ? output.articleSections.find(x=>x?.fingerprint===fullCandidate.fingerprint) : null;
+        const admitted = validateArticleSectionsV2(rawSection,fullCandidate);
+        if (admitted?.readiness==="FULL_ARTICLE") combinedFullArticles=[admitted];
+        else editorialWarnings.push("V2 full article did not pass exact-source and conditional-impact admission.");
+      }
       return response;
     } : undefined;
 
@@ -609,7 +644,8 @@ export async function composeCanonicalDossierEditionForResearchRun({
     );
   }
   const hasEditorial = Boolean(marketEditorial?.articles.length);
-  if (!hasStoryline && !hasEditorial) {
+  const hasFullArticle = combinedFullArticles.length > 0;
+  if (!hasStoryline && !hasEditorial && !hasFullArticle) {
     return {
       editionId: base.id,
       status: "skipped" as const,
@@ -635,6 +671,14 @@ export async function composeCanonicalDossierEditionForResearchRun({
         ...marketEditorial,
         parentEditionId: base.id,
         composedAt: publishedAt,
+      },
+    } : {}),
+    ...(hasFullArticle ? {
+      marketEditorialSectionsV2: {
+        contractVersion: ARTICLE_SECTIONS_V2,
+        parentEditionId: base.id,
+        composedAt: publishedAt,
+        articles: combinedFullArticles,
       },
     } : {}),
   };

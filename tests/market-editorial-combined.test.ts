@@ -99,3 +99,59 @@ test("editorial source admission remains a read-only preliminary step",()=>{
   assert.match(runtime,/return candidates;/);
   assert.match(runtime,/const candidates = await prepareFrozenMarketEditorial\(input\);/);
 });
+
+test("optional v2 article output remains inside the one Dossier stage and does not mutate legacy schema",()=>{
+  const one=candidate();
+  const request=augmentDossierWithEditorial(dossierRequest,{
+    editorialSchema,editorialInstructions:"Retain sourced v1 briefs",
+    candidates:[one],candidateInput:c=>({fingerprint:c.fingerprint,verifiedFacts:c.facts}),
+    fullArticle:{
+      fingerprint:one.fingerprint,
+      schema:{type:"array",items:{
+        type:"object",additionalProperties:false,required:["fingerprint","reportingFactIds","interpretation"],
+        properties:{
+          fingerprint:{type:"string"},
+          reportingFactIds:{type:"array",items:{type:"string"}},
+          interpretation:{type:"array",items:{type:"string"}},
+        },
+      }},
+      instructions:"Report exact fact IDs, only conditional asset interpretations.",
+    },
+  });
+  assert.equal(request.stageKey,"dossier_storyline_composer");
+  assert.equal(request.maxAttempts,1);
+  assert.equal(request.modelKind,"complex");
+  assert.deepEqual(request.schema.required,["opening","storylines","lessonOrder","articles","articleSections"]);
+  assert.deepEqual(Object.keys(request.schema.properties),
+    ["opening","storylines","lessonOrder","articles","articleSections"]);
+  assert.match(request.instructions,/article-sections\/2|OPTIONAL FULL-ARTICLE V2 SECTIONS/);
+  assert.equal(Object.prototype.hasOwnProperty.call(dossierRequest.schema.properties,"articleSections"),false);
+});
+test("v2 schema rejects unqualified fingerprints and is optional when not selected",()=>{
+  assert.throws(()=>augmentDossierWithEditorial(dossierRequest,{
+    editorialSchema,editorialInstructions:"",
+    candidates:[candidate()],candidateInput:()=>({}),
+    fullArticle:{fingerprint:"unqualified",schema:{type:"array",items:{type:"string"}},instructions:""},
+  }),/requires exact eligible fingerprint/);
+  assert.throws(()=>augmentDossierWithEditorial(dossierRequest,{
+    editorialSchema,editorialInstructions:"",
+    candidates:[candidate()],candidateInput:()=>({}),
+    fullArticle:{fingerprint:candidate().fingerprint,schema:{type:"object"},instructions:""},
+  }),/requires exact eligible fingerprint/);
+  const legacy=augmentDossierWithEditorial(dossierRequest,{
+    editorialSchema,editorialInstructions:"",
+    candidates:[candidate()],candidateInput:()=>({}),
+  });
+  assert.ok(!("articleSections" in legacy.schema.properties));
+});
+test("frozen V2 article sidecar is feature-gated, independently validated and never assigned a new phase",()=>{
+  const edition=readFileSync(new URL("../lib/intelligence/canonical-journey-edition.ts",import.meta.url),"utf8");
+  assert.match(edition,/process\.env\.MARKET_EDITORIAL_SECTIONS_V2_ENABLED === "true"/);
+  assert.match(edition,/combinedCandidates\.find\(eligibleForArticleSectionsV2\)/);
+  assert.match(edition,/validateArticleSectionsV2\(rawSection,fullCandidate\)/);
+  assert.match(edition,/admitted\?\.readiness==="FULL_ARTICLE"/);
+  assert.match(edition,/marketEditorialSectionsV2: \{/);
+  assert.match(edition,/parentEditionId: base\.id/);
+  assert.match(edition,/edition_phase: "composed"/);
+  assert.doesNotMatch(edition,/edition_phase: "article"/);
+});
