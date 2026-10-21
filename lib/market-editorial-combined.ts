@@ -54,7 +54,7 @@ export function augmentDossierWithEditorial(input: {
     },
     // Keep the existing complex model; editorial consumes unused output
     // headroom, not another stage. Limit to 1-2 articles per invocation.
-    maxOutputTokens: Math.min(7_500, Math.max(6_500, input.maxOutputTokens || 5_000)),
+    maxOutputTokens: 8_000,
     maxAttempts: 1,
   };
 }
