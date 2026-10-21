@@ -14,6 +14,9 @@ const EVIDENCE = "6a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const OBSERVATION = "7a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const RAW = "8a9b8a89-089b-4bda-8c33-2fd272b4c65a";
 const SOURCE = "9a9b8a89-089b-4bda-8c33-2fd272b4c65a";
+const EXPIRY_RAW = "891fd481-0409-47bc-aa90-d61fb440c212";
+const EXPIRY_HASH = "b".repeat(64);
+const EXPIRY_URL = "https://www.cmegroup.com/rulebook/NYMEX/2/200.pdf";
 const SOURCE_URL = "https://www.cmegroup.com/daily_bulletin/archive/20261014/Section61_Energy_Futures_Products.pdf";
 const T = new Date("2026-10-21T03:00:00Z");
 const HASH = "a".repeat(64);
@@ -31,7 +34,7 @@ function proof(): CanonicalOilProofInput {
       id: OBSERVATION, raw_record_id: RAW,
       value: {
         benchmark: "WTI", exchange: "NYMEX", tradeDate: "2026-10-14",
-        frontContract: "CLX26", nextContract: "CLZ26",
+        frontContract: "CLX26", nextContract: "CLZ26", expiryRawRecordId: EXPIRY_RAW,
         frontSettle: 101.12, nextSettle: 99.12,
         final: true, unit: "USD_per_barrel", originalSourceSha256: HASH,
       },
@@ -48,6 +51,24 @@ function proof(): CanonicalOilProofInput {
       },
     },
     source: { id: SOURCE, source_tier: 1, source_url: SOURCE_URL },
+    expiryOriginal: {
+      id: EXPIRY_RAW, source_url: EXPIRY_URL, content_hash: EXPIRY_HASH,
+      content_type: "application/pdf", provider: "OIL_EXPIRY_ORIGINAL",
+      payload: {
+        contractVersion: "oil-expiry-original-archive/1", benchmark: "WTI", provider: "CME",
+        sourceUrl: EXPIRY_URL, originalSourceSha256: EXPIRY_HASH,
+        fullMonthlyListing: true, extractorProfileApproved: true,
+        archiveVerified: true, archiveBucket: "alchemy-oil-originals-private",
+        archivePath: "EXPIRY/CME/" + EXPIRY_HASH + ".pdf",
+        capturedAt: "2026-10-20T12:00:00Z",
+        expiries: [
+          { contract: "CLV26", lastTradeDate: "2026-09-22" },
+          { contract: "CLX26", lastTradeDate: "2026-10-20" },
+          { contract: "CLZ26", lastTradeDate: "2026-11-20" },
+          { contract: "CLF27", lastTradeDate: "2026-12-21" },
+        ],
+      },
+    },
   };
 }
 function plan(question = "Retrieve WTI original F1/F2 settlement pair"): ResearchGapPlan {
@@ -86,6 +107,10 @@ test("server-side source joins, archive hash, date, exchange and numeric F1/F2 a
   assert.equal(verifiedCanonicalOilPair(proof(), "BRENT", T), false);
   const broken: Array<[string, CanonicalOilProofInput]> = [
     ["no normalised observation", { ...proof(), evidence: { ...proof().evidence, normalised_observation_id: null } }],
+    ["no expiry archive", { ...proof(), expiryOriginal: null }],
+    ["fake expiry source", { ...proof(), expiryOriginal: { ...proof().expiryOriginal!, provider: "SEARCH_SCRAPE" } }],
+    ["missing expiry link", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, expiryRawRecordId: null } } }],
+    ["skipped true front", { ...proof(), observation: { ...proof().observation, value: { ...proof().observation.value, frontContract: "CLZ26", nextContract: "CLF27" } } }],
     ["missing original archive hash", { ...proof(), raw: { ...proof().raw, content_hash: null } }],
     ["no private archive receipt", { ...proof(), raw: { ...proof().raw, payload: null } }],
     ["unverified archived bytes", { ...proof(), raw: { ...proof().raw, payload: { ...proof().raw.payload, archiveVerified: false } } }],
