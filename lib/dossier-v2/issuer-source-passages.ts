@@ -12,6 +12,13 @@ const HOSTS: Record<Issuer, readonly string[]> = {
   TSM: ["tsmc.com"], CRWV: ["coreweave.com"],
 };
 const MAX_HTML_BYTES=240_000;
+const COREWEAVE_HTML_BYTES=512_000;
+// CoreWeave's official quarterly release exceeds the generic cap because
+// cash flow tables and CMS markup follow the narrative. A higher cap is
+// issuer-specific and only allowed after the original URL hostname check.
+function maxIssuerHtmlBytes(issuer:Issuer):number {
+  return issuer==="CRWV"?COREWEAVE_HTML_BYTES:MAX_HTML_BYTES;
+}
 const MAX_PASSAGES=3;
 const TIMEOUT_MS=5_000;
 const ENTITY:Record<string,string>={
@@ -62,7 +69,13 @@ function sourceParagraphs(html:string):string[]{
   const clean=html
     .replace(/<!--[\s\S]*?-->/g," ")
     .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1\s*>/gi," ");
-  return [...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)]
+  // Table-cell <p> elements are NOT prose. Treat the first table as a hard
+  // reporting boundary, rather than risk joining source prose to cells with
+  // different period, units or measurement signs. Tables remain available to
+  // diagnoseIssuerHtml for explicitly unverified unit-format diagnostics.
+  const firstTable=clean.search(/<table\b/i);
+  const prose=firstTable>=0?clean.slice(0,firstTable):clean;
+  return [...prose.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)]
     .map(m=>normalize(m[1]))
     .filter(text=>text.length>=20 && text.length<=650 && /[\p{L}]/u.test(text)
       && !/(?:privacy policy|terms of use|cookie preferences)/i.test(text))
@@ -82,7 +95,7 @@ export function extractIssuerPassagesFromHtml(input:{
 }):IssuerSourcePassage[] {
   const url=admissibleIssuerDocumentUrl(input.issuer,input.sourceUrl);
   if(!url||!Number.isFinite(input.metricValue)||!Number.isFinite(Date.parse(input.capturedAt))
-    ||input.html.length>MAX_HTML_BYTES)return[];
+    ||input.html.length>maxIssuerHtmlBytes(input.issuer))return[];
   const paragraphs=sourceParagraphs(input.html);
   const seen=new Set<string>();
   const seenAnchors=new Set<string>();
@@ -123,10 +136,10 @@ export function diagnoseIssuerHtml(input:{
   }
   return{passages:[],reason:"NO_ANCHORED_SOURCE_PROSE"};
 }
-async function boundedHtml(response:Response):Promise<string|null> {
+async function boundedHtml(response:Response,maxBytes:number):Promise<string|null> {
   const type=response.headers.get("content-type")||"";
   const claimed=Number(response.headers.get("content-length")||"0");
-  if(!/\btext\/html\b/i.test(type)||(claimed>MAX_HTML_BYTES))return null;
+  if(!/\btext\/html\b/i.test(type)||(claimed>maxBytes))return null;
   const reader=response.body?.getReader();
   if(!reader)return null;
   const chunks:Uint8Array[]=[];
@@ -136,7 +149,7 @@ async function boundedHtml(response:Response):Promise<string|null> {
       const part=await reader.read();
       if(part.done)break;
       bytes+=part.value.byteLength;
-      if(bytes>MAX_HTML_BYTES)return null;
+      if(bytes>maxBytes)return null;
       chunks.push(part.value);
     }
     const output=new Uint8Array(bytes);let offset=0;
@@ -162,7 +175,7 @@ export async function captureVerifiedIssuerPassagesDiagnosed(input:{
     if(!response.ok||response.url!==url)return{passages:[],reason:"SOURCE_UNAVAILABLE"};
     if(!/\btext\/html\b/i.test(response.headers.get("content-type")||""))
       return{passages:[],reason:"NOT_HTML"};
-    const html=await boundedHtml(response);
+    const html=await boundedHtml(response,maxIssuerHtmlBytes(input.issuer));
     if(!html)return{passages:[],reason:"BODY_UNREADABLE_OR_OVERSIZED"};
     return diagnoseIssuerHtml({...input,html,sourceUrl:url,
       capturedAt:(input.now?.()??new Date()).toISOString()});
