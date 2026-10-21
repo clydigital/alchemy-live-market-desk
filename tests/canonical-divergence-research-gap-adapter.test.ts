@@ -131,6 +131,10 @@ test("P2.2c loader reads divergence debt but still does not read raw Market Moti
       calls.push([`debt:like:${column}`, value]);
       return this;
     },
+    or(filter: string) {
+      calls.push(["debt:or", filter]);
+      return this;
+    },
     order(column: string, options: unknown) {
       calls.push([`debt:order:${column}`, options]);
       return this;
