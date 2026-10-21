@@ -11,6 +11,7 @@ import {
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import styles from "../blue-desk.module.css";
+import legibility from "./legibility.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -58,7 +59,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
-    <main className={styles.page} data-blue-desk-markets="public-observations">
+    <main className={`${styles.page} ${legibility.publicMarketsLegibility}`} data-blue-desk-markets="public-observations">
       <BlueDeskHeader activePath="/blue-desk/markets" />
       <div className={styles.content}>
         <header className={styles.calendarHero}>
