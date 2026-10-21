@@ -125,6 +125,23 @@ export function researchGapSearchBranches(plan: ResearchGapPlan) {
     "Capture source trade date, publication date, exchange, contract months, unit",
     "and both numeric settles only when the actual original is readable.",
   ].join(" ") : "";
+  // Secondary market-price reports can challenge a missing exchange original,
+  // but must never be promoted to official settlement evidence.
+  const secondaryCurveCrossCheck = exactOil.length ? [
+    "SECONDARY CURVE CROSS-CHECK (RESEARCH LEADS ONLY): if original dated FINAL",
+    "exchange settlement files are missing or inaccessible, search independently",
+    "for named, single-expiry historical contract quotes for the exact trade date.",
+    "For each benchmark identify both F1 and F2 contracts, recording the source",
+    "URL, trade date, contract month, unit, price and whether labelled exchange",
+    "settlement, end-of-day close or last trade. Seek two genuinely independent",
+    "publishers per leg when available; a rolled front-month index is not a pair.",
+    "Compare only matching trade dates and price definitions; flag conflicts or",
+    "missing legs instead of forcing a directional conclusion.",
+    "Even a consistent third-party spread is provisional context only, not",
+    "publisher-original FINAL proof, DIRECT evidence or canonical Story support.",
+    "Continue seeking the lawful original exchange file and leave the exact",
+    "settlement requirement UNRESOLVED until original proof passes.",
+  ].join(" ") : "";
   const candidates = [
     [
       plan.researchQuestion,
@@ -137,12 +154,14 @@ export function researchGapSearchBranches(plan: ResearchGapPlan) {
       plan.researchQuestion,
       "Find independent market-data or high-quality reporting corroboration for the required evidence.",
       settlementDiscovery,
+      secondaryCurveCrossCheck,
       requirementText,
       "Prefer evidence independent from the first-party source and quantify current conditions where possible.",
     ].join("\n"),
     [
       plan.researchQuestion,
       "Actively search for contradictory, neutral, or no-change evidence and alternative explanations.",
+      ...(exactOil.length ? ["For oil F1/F2 check disagreements in named-expiry prices, trade dates and settlement-versus-close labels; unresolved conflicts remain research gaps."] : []),
       requirementText,
       "Do not force the thesis; identify evidence that would weaken or invalidate a directional conclusion.",
     ].join("\n"),
@@ -352,6 +371,7 @@ async function assessResearch(input: {
       "Every row must map to at least one required requirement ID.",
       "Use DIRECT only when the cited source directly establishes the claim.",
       "For futures calendar-spread data, DIRECT means actual dated original final F1/F2 contract settles; an exchange explainer, a rotating/current file or an inferred quote is INDIRECT.",
+      "Third-party named-expiry futures prices are provisional INDIRECT research context, never original FINAL settlement proof or a verified F1-F2 measurement. Surface conflicts and missing legs without inventing quotes.",
       "Quality is source/evidence quality, not confidence in the preferred thesis.",
       "Include contradictory or neutral evidence when present.",
       "Never invent a URL, requirement ID, date, publisher, or claim.",
