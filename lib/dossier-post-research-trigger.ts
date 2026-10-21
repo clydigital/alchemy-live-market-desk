@@ -183,7 +183,9 @@ export async function handleScheduledPostResearchDossier(
         deltaMode: "auto",
         lookbackHours: 168,
         evidenceLimit: 180,
-        client,
+        // Never pass an injected client to the real authorised persistence path:
+        // manual-run intentionally skips its market, SEC and issuer-source
+        // acquisition bridges when options.client is present (test isolation).
       });
       if (!result.dossier || !["persisted", "no_change"].includes(result.mode))
         throw new Error("Canonical Dossier returned no persisted/no-change decision");
@@ -196,8 +198,10 @@ export async function handleScheduledPostResearchDossier(
     try {
       const synced = await (deps.sync ?? syncLatestPrioritisedResearchGapCasesWithD7)(client);
       syncState = synced ? "synced" : "empty";
-    } catch {
-      syncState = "failed";
+    } catch (error) {
+      // Do not terminalise a slot with unmaterialised Research Gap work.
+      // The next bounded retry can reuse the persisted Dossier.
+      throw new Error(`Canonical Dossier finished but Research Gap sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
     await finish({
       ...claimedCheckpoint, state: "DONE", finishedAt: new Date().toISOString(),
