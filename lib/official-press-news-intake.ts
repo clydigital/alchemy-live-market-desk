@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import type { ResearchRunInput, IntakeItemInput } from "./research-update.ts";
-import { parseFeed } from "./scheduled-research-input.ts";
+import { normaliseDirectFeedText } from "./direct-news-evidence-triage.ts";
 
 export const OFFICIAL_PRESS_FEEDS = [
   {
@@ -29,6 +29,38 @@ const WINDOW_MS = 36 * 60 * 60_000;
 const FETCH_TIMEOUT_MS = 6500;
 const MAX_PER_FEED = 3;
 type Feed = typeof OFFICIAL_PRESS_FEEDS[number];
+/** Pure RSS/Atom parser: no Next aliases or runtime network imports. */
+export function parseOfficialPressFeed(xml: string) {
+  if (!/<(?:rss|feed)\b/i.test(xml)) throw new Error("Official press source did not provide an RSS or Atom feed.");
+  const blocks = [
+    ...[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(match => ({ xml: match[1], atom: false })),
+    ...[...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(match => ({ xml: match[1], atom: true })),
+  ];
+  const tag = (body: string, names: string[]) => {
+    for (const name of names) {
+      const pattern = new RegExp("<" + name + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i");
+      const text = pattern.exec(body)?.[1];
+      if (text) return normaliseDirectFeedText(text);
+    }
+    return "";
+  };
+  return blocks.flatMap(({ xml: body, atom }) => {
+    const title = tag(body, ["title"]);
+    const rawUrl = atom
+      ? [...body.matchAll(/<link\b([^>]*)\/?>/gi)].map(link =>
+          link[1].match(/\bhref=["']([^"']+)["']/i)?.[1] || "").find(Boolean) || ""
+      : tag(body, ["link", "guid"]);
+    const time = tag(body, ["pubDate", "published", "updated", "dc:date", "date"]);
+    const parsed = Date.parse(time);
+    if (!title || !rawUrl || !Number.isFinite(parsed)) return [];
+    return [{
+      title: title.slice(0, 500),
+      url: normaliseDirectFeedText(rawUrl),
+      publishedAt: new Date(parsed).toISOString(),
+    }];
+  });
+}
+
 
 function fixedUrl(value: string, feed: Feed) {
   try {
@@ -77,7 +109,7 @@ async function loadOfficialFeed(feed: Feed, now: Date, fetchImpl: typeof fetch):
     });
     if (!resp.ok) return { state: "blocked", checked: 0, items: [] };
     const xml = (await resp.text()).slice(0, 250_000);
-    const candidates = parseFeed(xml).flatMap(item => {
+    const candidates = parseOfficialPressFeed(xml).flatMap(item => {
       const url = fixedUrl(item.url, feed);
       return url && recent(item.publishedAt, now) &&
         materiallyActionableOfficialHeadline(feed, item.title)
