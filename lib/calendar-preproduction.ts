@@ -62,10 +62,11 @@ function monthKey(text: string | null) {
   if (!text) return null;
   const m = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/i);
   if (m) return m[1].toLowerCase() + ":" + m[2];
-  const short = text.match(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[/\s-]*(20\d{2})\b/i);
+  const short = text.match(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[/\s-]*((?:20)?\d{2})\b/i);
   if (!short) return null;
   const ix = "JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split(" ").indexOf(short[1].toUpperCase());
-  return "january february march april may june july august september october november december".split(" ")[ix] + ":" + short[2];
+  const year = short[2].length === 2 ? "20" + short[2] : short[2];
+  return "january february march april may june july august september october november december".split(" ")[ix] + ":" + year;
 }
 function sameSourceDate(release: Release, provider: TradingEconomicsCalendarEvent): boolean {
   const due = Date.parse(release.release_date);
