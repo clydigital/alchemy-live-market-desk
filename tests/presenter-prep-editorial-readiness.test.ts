@@ -23,7 +23,7 @@ const rich=[
 ];
 function packet(){
   return {
-    kind:"STORY",asOf:ASOF,
+    kind:"STORY",asOf:ASOF,evidenceCandidateIds:CLAIMS,
     headline:"AI spending and cash conversion",
     identity:{storyId:STORY,storyThesisVersionId:THESIS,storySnapshotId:SNAPSHOT,
       lineage:"FROZEN_DOSSIER_CONTEXT"},
@@ -35,7 +35,7 @@ function identity(){
 }
 function brief(){
   return {contractVersion:"market-editorial/v1",fingerprint:"frozen-brief",...identity(),
-    headline:"AI earnings facts",readiness:"READY",gaps:[],
+    headline:"AI earnings facts",readiness:"READY",gaps:["MEASURED_MARKET_REACTION"],
     sourceLinks:[{url:SOURCE_URL,sourceName:"TSMC"}],
     paragraphs:[
       {role:"development",text:"TSMC released an issuer-reported quarterly figure.",
@@ -99,6 +99,7 @@ test("valid v1 source-backed brief is not promoted to full V2 article",()=>{
   assert.equal(result.items[0]?.kind,"FACTUAL_BRIEF");
   assert.equal(result.items[0]?.reporting.length,1);
   assert.equal(result.items[0]?.reporting[0].availableAt,null);
+  assert.deepEqual(result.items[0]?.gaps,["MEASURED_MARKET_REACTION"]);
 });
 test("developing brief never claims verified fact without citation and exact UUID",()=>{
   const x=fixture();delete x.selectedEdition.payload.marketEditorialSectionsV2;
@@ -150,4 +151,36 @@ test("private Presenter Prep shows evidence, holes and caveats without generatin
   assert.match(page,/sourceUrl/);
   assert.match(page,/<PresenterPrepSession/);
   assert.doesNotMatch(page,/marketEditorialSectionsV2Enabled|setMarketEditorialSectionsV2|runStructuredStage/);
+});
+
+test("valid UUID not admitted in this exact frozen Story packet must not become verified reporting",()=>{
+  const foreign="ecc75928-0902-44fa-8cd0-391253b6931f";
+  const v2=fixture();
+  ((v2.selectedEdition.payload.marketEditorialSectionsV2 as any).articles[0]).reporting[0].evidenceIds=[foreign];
+  assert.equal(buildPresenterPrepEditorialReadiness(v2).items[0]?.kind,"FACTUAL_BRIEF");
+
+  const v1=fixture();
+  delete v1.selectedEdition.payload.marketEditorialSectionsV2;
+  ((v1.selectedEdition.payload.marketEditorial as any).articles[0]).paragraphs[0].evidenceIds=[foreign];
+  const result=buildPresenterPrepEditorialReadiness(v1);
+  assert.equal(result.items[0]?.kind,"DEVELOPING");
+  assert.equal(result.items[0]?.reporting.length,0);
+  assert.ok(result.items[0]?.gaps.includes("MEASURED_MARKET_REACTION"));
+  assert.ok(result.items[0]?.gaps.some(g=>g.includes("source-verified factual opening")));
+});
+test("two full-reporting paragraphs cannot borrow one source UUID to inflate reporting admission",()=>{
+  const x=fixture();
+  const a=(x.selectedEdition.payload.marketEditorialSectionsV2 as any).articles[0];
+  a.reporting[1].evidenceIds=[CLAIMS[0]];
+  assert.equal(buildPresenterPrepEditorialReadiness(x).items[0]?.kind,"FACTUAL_BRIEF");
+});
+test("original edition editorial gap codes survive the Presenter Prep read-only projection",()=>{
+  const x=fixture();
+  delete x.selectedEdition.payload.marketEditorialSectionsV2;
+  const v1=(x.selectedEdition.payload.marketEditorial as any).articles[0];
+  v1.readiness="DEVELOPING";
+  v1.gaps=["ORIGINAL_SOURCE_LINK","CURRENT_VERIFIED_FACT","MEASURED_MARKET_REACTION","CANONICAL_STORY_LINEAGE"];
+  const result=buildPresenterPrepEditorialReadiness(x);
+  assert.equal(result.items[0]?.kind,"DEVELOPING");
+  for(const code of v1.gaps)assert.ok(result.items[0]?.gaps.includes(code));
 });
