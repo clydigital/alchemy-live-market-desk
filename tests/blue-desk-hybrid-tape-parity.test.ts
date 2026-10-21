@@ -92,3 +92,22 @@ test("The public DTO still strips HOT, research triggers and market-history poin
   assert.match(source, /changeUnit/);
   assert.doesNotMatch(source, /\.\.\.row,/);
 });
+
+test("Owner tape stays full-width, loads Hybrid fonts and stacks its strip values", () => {
+  const page = read("app/blue-desk/markets/page.tsx");
+  const frame = read("app/blue-desk/blue-desk.module.css");
+  const tapeStyle = read("components/live-desk/markets-monitor.module.css");
+  assert.match(page, /data-blue-desk-markets="hybrid-owner-tape"/);
+  assert.match(page, /Hanken\+Grotesk/);
+  assert.match(page, /JetBrains\+Mono/);
+  assert.match(page, /styles\.ownerMarketsFullBleed/);
+  assert.match(frame, /\.ownerMarketsFullBleed\s*\{[^}]*max-width:\s*none/);
+  assert.match(tapeStyle, /\.workspace\[data-hybrid-tape="true"\] \.statStrip > div\s*\{[^}]*display:\s*block/);
+  assert.match(tapeStyle, /\.workspace\[data-hybrid-tape="true"\] \.statStrip strong\s*\{[^}]*display:\s*block/);
+  assert.match(tapeStyle, /margin-bottom:\s*56px/);
+  assert.match(tapeStyle, /margin-bottom:\s*24px/);
+  assert.match(tapeStyle, /font-family:\s*"JetBrains Mono"/);
+  // Public tab must remain an independent, research-signal-free client DTO.
+  assert.match(page, /data-blue-desk-markets="public-observations"/);
+  assert.match(page, /<BlueDeskMarketReader observations=\{observations\} \/>/);
+});
