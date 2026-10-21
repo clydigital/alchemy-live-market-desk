@@ -287,8 +287,10 @@ function officialOilAcquisitionDebtCandidates(
     if (meta?.kind !== "official_oil_settlement_acquisition") return [];
     const tradeDate = clean(meta.tradeDate);
     const values = strings(meta.benchmarks, 2).sort();
+    const parsedDay = Date.parse(tradeDate + "T00:00:00Z");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)
-      || new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) !== tradeDate
+      || !Number.isFinite(parsedDay)
+      || new Date(parsedDay).toISOString().slice(0, 10) !== tradeDate
       || values.length === 0 || values.some(v => v !== "WTI" && v !== "BRENT")
       || row.debt_key !== "source:oil:" + tradeDate + ":" + values.join("-")) return [];
 
