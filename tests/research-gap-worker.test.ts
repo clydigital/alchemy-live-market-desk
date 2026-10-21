@@ -292,6 +292,10 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
       calls.push([`debt:like:${column}`, value]);
       return this;
     },
+    or(filter: string) {
+      calls.push(["debt:or", filter]);
+      return this;
+    },
     order(column: string, options: unknown) {
       calls.push([`debt:order:${column}`, options]);
       return this;
@@ -321,7 +325,7 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
     ["dossier:order:created_at", { ascending: false }],
   ]);
   assert.ok(calls.some(([name, value]) => name === "debt:eq:status" && value === "open"));
-  assert.ok(calls.some(([name, value]) => name === "debt:like:debt_key" && value === "divergence:%"));
+  assert.ok(calls.some(([name, value]) => name === "debt:or" && value === "debt_key.like.divergence:%,debt_key.like.source:oil:%"));
   assert.equal(
     calls.some(([name, value]) => name === "from" && value === "current_market_motion_items"),
     false,
@@ -355,4 +359,67 @@ test("B3 Dossier Investigation and Research Now remain Research Gap sources when
   assert.equal(researchNow?.nativeSignals.researchNowRank, 1);
   assert.ok(researchNow?.gapKey);
   assert.equal(queue.candidates.some((item) => item.sourceKind === "market_motion"), false);
+});
+
+
+test("explicit canonical source-acquisition debt enters existing Research Gap queue without inventing a Story", () => {
+  const debt = {
+    debt_key: "source:oil:2026-10-14:BRENT-WTI",
+    severity: "high", status: "open",
+    reason: "Original exchange F1/F2 settlements remain unverified.",
+    next_action: "Retrieve dated FINAL exchange settlements without inventing data.",
+    next_check_at: "2026-10-21T06:00:00Z",
+    metadata: {
+      kind: "official_oil_settlement_acquisition",
+      tradeDate: "2026-10-14", benchmarks: ["WTI", "BRENT"],
+    },
+  };
+  const q = buildResearchGapWorkQueue(dossier(), new Date("2026-10-21T12:00:00Z"), [], [debt]);
+  const match = q.candidates.filter(c => c.sourceRef === debt.debt_key);
+  assert.equal(match.length, 1);
+  const item = match[0]!;
+  assert.equal(item.sourceKind, "research_gap");
+  assert.equal(item.nativeSignals.severity, "MATERIAL");
+  assert.equal(item.nativeSignals.gapClass, "REFINEMENT",
+    "Missing settlements must not pretend to block an accepted Story without a real binding");
+  assert.equal(item.linkedStoryIds.length, 0);
+  assert.equal(item.blockingRefs.length, 0);
+  assert.ok(item.evidenceNeeded.some(x => /CME NYMEX WTI FINAL F1\/F2/.test(x)));
+  assert.ok(item.evidenceNeeded.some(x => /ICE Brent FINAL F1\/F2/.test(x)));
+  assert.match(item.question ?? "", /2026-10-14/);
+  assert.equal(q.sourceCounts.researchGaps, dossier().research_gaps.length + 1);
+  assert.equal(q.dossierId, dossier().id);
+  const repeat = buildResearchGapWorkQueue(dossier(), new Date("2026-10-21T13:00:00Z"), [], [debt]);
+  assert.equal(repeat.candidates.find(c => c.sourceRef === debt.debt_key)?.gapKey, item.gapKey,
+    "Persisted gap identity must be idempotent across scheduled research runs");
+});
+
+test("malformed, resolved or non-reviewed source debt never enters active research", () => {
+  const approved = {
+    debt_key: "source:oil:2026-10-14:BRENT-WTI",
+    severity: "high", status: "open", reason: "Unverified originals",
+    next_action: "Recover original dated final settles",
+    next_check_at: null,
+    metadata: { kind: "official_oil_settlement_acquisition", tradeDate: "2026-10-14", benchmarks: ["WTI", "BRENT"] },
+  };
+  const bad = [
+    { ...approved, status: "resolved" },
+    { ...approved, debt_key: "source:oil:2026-10-15:BRENT-WTI" },
+    { ...approved, debt_key: "source:oil:2026-13-14:BRENT-WTI", metadata: { ...approved.metadata, tradeDate: "2026-13-14" } },
+    { ...approved, debt_key: "source:oil:2026-10-14:BRENT", metadata: { ...approved.metadata, benchmarks: ["CME_BZ"] } },
+    { ...approved, metadata: { ...approved.metadata, kind: "creator_market_comment" } },
+    { ...approved, debt_key: "source:oil:2026-10-14:BRENT-WTI", metadata: { ...approved.metadata, benchmarks: [] } },
+  ];
+  for (const row of bad) {
+    const q = buildResearchGapWorkQueue(dossier(), new Date("2026-10-21T12:00:00Z"), [], [row]);
+    assert.equal(q.candidates.filter(c => c.sourceRef.startsWith("source:oil:")).length, 0, JSON.stringify(row));
+  }
+});
+
+test("scheduled queue loader admits both source debt and existing divergence debt without new tables", () => {
+  const source = readFileSync(new URL("../lib/research-gap-worker.ts", import.meta.url), "utf8");
+  assert.match(source, /\.or\("debt_key\.like\.divergence:%,debt_key\.like\.source:oil:%"\)/);
+  assert.match(source, /officialOilAcquisitionDebtCandidates\(dossier, divergenceDebtRows\)/);
+  assert.match(source, /source:oil:/);
+  assert.doesNotMatch(source, /from\("story_thesis_versions"\)/);
 });

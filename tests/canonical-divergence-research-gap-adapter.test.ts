@@ -131,6 +131,10 @@ test("P2.2c loader reads divergence debt but still does not read raw Market Moti
       calls.push([`debt:like:${column}`, value]);
       return this;
     },
+    or(filter: string) {
+      calls.push(["debt:or", filter]);
+      return this;
+    },
     order(column: string, options: unknown) {
       calls.push([`debt:order:${column}`, options]);
       return this;
@@ -157,7 +161,7 @@ test("P2.2c loader reads divergence debt but still does not read raw Market Moti
 
   assert.equal(queue?.sourceCounts.researchGaps, 1);
   assert.ok(calls.some(([name, value]) => name === "debt:eq:status" && value === "open"));
-  assert.ok(calls.some(([name, value]) => name === "debt:like:debt_key" && value === "divergence:%"));
+  assert.ok(calls.some(([name, value]) => name === "debt:or" && value === "debt_key.like.divergence:%,debt_key.like.source:oil:%"));
   assert.ok(calls.some(([name, value]) => name === "debt:limit" && value === 12));
   assert.equal(calls.some(([name, value]) => name === "from" && value === "current_market_motion_items"), false);
 });
