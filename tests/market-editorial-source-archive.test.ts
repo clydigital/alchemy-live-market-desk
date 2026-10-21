@@ -67,3 +67,16 @@ test("both engine-frozen and fallback-frozen bases attempt bounded source captur
   assert.doesNotMatch(base,/runStructuredStage/);
   assert.doesNotMatch(base,/edition_phase: "source_capture"/);
 });
+
+test("capture diagnostics expose eligibility, attempted URL count, saved count and reason without new persistence",()=>{
+  assert.match(canonical,/event:"editorial_source_capture_base"/);
+  assert.match(canonical,/editorial_source_capture_composed/);
+  assert.match(canonical,/candidateCount:candidates.length/);
+  assert.match(canonical,/candidateCount:sourceCandidates.length/);
+  assert.match(canonical,/attempted:capture.attempted,archived:capture.archived/);
+  assert.match(canonical,/attempted:archived.attempted,archived:archived.archived/);
+  assert.match(canonical,/NO_SOURCE_QUALIFIED_CANDIDATE/);
+  assert.match(canonical,/reasons:archived.warnings.slice\(0,2\)/);
+  assert.doesNotMatch(canonical,/console\.info\([^;]*editorialSourcePassages/);
+  assert.doesNotMatch(canonical,/edition_phase: "source_capture"/);
+});
