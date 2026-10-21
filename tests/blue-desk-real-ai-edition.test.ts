@@ -5,6 +5,7 @@ import { projectMarketBriefArticles } from "../lib/market-brief-articles.ts";
 import { buildEditorialBrief, type EditorialEvidenceRow } from "../lib/market-brief-editorial.ts";
 import { selectFrozenSourceFact } from "../lib/blue-desk-factual-feature.ts";
 import { buildBlueDeskPublicStoryEvidenceV1 } from "../lib/blue-desk-public-story-evidence.ts";
+import { buildV7NewsroomPreview } from "../lib/blue-desk-v7-newsroom-preview.ts";
 
 // Compact, independently inspected 19 Oct 2026 production edition fixture.
 // These values came from that frozen publication; no new thesis is generated.
@@ -227,4 +228,43 @@ test("an editorial READY flag and later inferred Dossier ID cannot upgrade a fro
   assert.ok(dto);
   assert.equal(dto.interpretation, "UNRESOLVED");
   assert.equal(dto.storyAdmission, "NOT_ADJUDICATED");
+});
+
+
+test("V7 frozen 19 October AI edition is a source-backed factual brief, not fabricated long-form analysis", () => {
+  const projected = projectMarketBriefArticles(snapshot);
+  const brief = buildEditorialBrief(projected, sourceRows);
+  const cards = buildV7NewsroomPreview(brief);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].editionId, "fcea17ef-f575-4283-a363-7d5fa9c918c7");
+  assert.equal(cards[0].format, "FACTUAL_BRIEF");
+  assert.equal(cards[0].interpretationStatus, "UNRESOLVED");
+  assert.equal(cards[0].isAcceptedStory, false);
+  assert.equal(cards[0].observations.length, 4, "Retain exactly four validated issuer facts");
+  assert.equal(cards[0].reporting.length, 0, "Legacy lesson-wide evidence does not create fact paragraphs");
+  assert.equal(cards[0].interpretation.length, 0, "There is no Dossier adjudication");
+  assert.ok(cards[0].observations.every(f => f.sourceUrl.startsWith("https://")));
+  assert.equal(brief.articles[0].editorial.sections.recommendedFormat, "FACTUAL_BRIEF");
+  assert.ok(cards[0].gaps.some(gap => gap.includes("three substantial")));
+});
+
+test("V7 Newsroom owner preview is not an anonymously reachable Bluebelly page or a new public API", async () => {
+  const { blueDeskHostAccess } = await import("../lib/blue-desk-host.ts");
+  for (const path of ["/blue-desk/newsroom", "/newsroom"]) {
+    assert.equal(blueDeskHostAccess(path, "bluebelly-desk.vercel.app"), "blocked", path);
+    assert.equal(blueDeskHostAccess(path, "alchemy-live-market-desk.vercel.app"), "private", path);
+    assert.equal(blueDeskHostAccess(path, "preview.example.vercel.app"), "private", path);
+  }
+  const page = readFileSync(new URL("../app/blue-desk/newsroom/page.tsx", import.meta.url), "utf8");
+  const helper = readFileSync(new URL("../lib/blue-desk-v7-newsroom-preview.ts", import.meta.url), "utf8");
+  assert.match(page, /getLiveDeskHomepageDailyBrief\(\{ fresh: true \}\)/);
+  assert.match(page, /projectMarketBriefArticles\(latest\)/);
+  assert.match(page, /loadEditorialMarketBrief\(projected\)/);
+  assert.match(page, /buildV7NewsroomPreview\(editorial\)/);
+  assert.match(page, /data-blue-desk-v7-newsroom="owner-preview"/);
+  assert.doesNotMatch(page, /createSupabaseAdminClient|service_role|NEXT_PUBLIC_SUPABASE|updateStory|marketMonitor|researchTriggers|use server/);
+  assert.doesNotMatch(helper, /fetch\(|createSupabaseAdminClient|service_role|researchTriggers|marketMotion/);
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  assert.ok(middleware.indexOf('if (accessScope === "public")')
+    < middleware.indexOf("getClaims()"), "Non-allowlisted Newsroom preview reaches owner authentication");
 });
