@@ -242,3 +242,79 @@ test("distinct Research Now actions sharing one investigation are not collapsed"
   assert.deepEqual(result.selected.map((item) => item.workId), ["rn-duration-1", "rn-duration-2"]);
   assert.equal(result.suppressed.length, 0);
 });
+
+
+test("an unresolved original WTI/ICE Brent settlement requirement gets one bounded slot, not silently dropped", () => {
+  const nonBlocking = [1, 2, 3].map(rank => candidate("rates-" + rank, "research_now", {
+    linkedStoryIds: ["story:rates"],
+    evidenceNeeded: ["Rates verification"],
+    nativeSignals: {
+      severity: null, gapClass: null, expectedInformationGain: "High",
+      researchNowRank: rank, investigationStatus: null, divergence: null,
+    },
+  }));
+  const oil = candidate("oil-original-f1-f2", "research_now", {
+    linkedStoryIds: ["story:energy-product-draw"],
+    evidenceNeeded: [
+      "WTI NYMEX original dated FINAL CL F1/F2 settlement pair, same trade date, retained source hash",
+      "ICE Brent original dated FINAL F1/F2 settlement pair, same trade date, retained source hash",
+    ],
+    nativeSignals: {
+      severity: null, gapClass: null, expectedInformationGain: "Medium",
+      researchNowRank: 3, investigationStatus: null, divergence: null,
+    },
+  });
+  const result = prioritiseResearchGapWork(queue([...nonBlocking, oil]));
+  assert.equal(result.selected.length, 3);
+  assert.deepEqual(result.selected.slice(0, 2).map(x => x.workId), ["rates-1", "rates-2"]);
+  assert.equal(result.selected[2]?.workId, "oil-original-f1-f2",
+    "Protect one slot for missing original settlement of a persistent energy Story");
+  assert.ok(result.selected[2]?.selectionReason.includes("reserve last slot for linked original oil settlement blocker"));
+  assert.deepEqual(result.suppressed.map(x=>x.workId), ["rates-3"]);
+  assert.ok(result.diagnostics.policy.some(x=>x.includes("reserved_last_slot")));
+  const repeated = prioritiseResearchGapWork(queue([...nonBlocking, oil]));
+  assert.deepEqual(result, repeated, "One Dossier produces deterministic source selection");
+});
+
+test("original oil source debt cannot displace a material main-thread or regime blocker", () => {
+  const important = [1, 2, 3].map(rank => candidate("material-" + rank, "research_gap", {
+    blockingRefs: [rank === 3 ? "REGIME:CURRENT" : "MAIN_THREAD"],
+    nativeSignals: {
+      severity: "MATERIAL", gapClass: "BLOCKER",
+      expectedInformationGain: "High", researchNowRank: null,
+      investigationStatus: null, divergence: null,
+    },
+  }));
+  const oil = candidate("oil-original", "research_now", {
+    linkedStoryIds: ["story:oil"],
+    evidenceNeeded: ["WTI NYMEX original dated FINAL CL F1/F2 settlement pair"],
+    nativeSignals: {
+      severity: null, gapClass: null, expectedInformationGain: "Low",
+      researchNowRank: 3, investigationStatus: null, divergence: null,
+    },
+  });
+  const result = prioritiseResearchGapWork(queue([...important, oil]));
+  assert.deepEqual(result.selected.map(x=>x.workId), important.map(x=>x.workId));
+  assert.equal(result.suppressed.find(x=>x.workId==="oil-original")?.reason, "below_selection_cutoff");
+  assert.ok(result.diagnostics.policy.some(x=>x.includes("blocked_by_material_priority")));
+});
+
+test("old or unlinked oil chatter does not steal a scheduled Research Gap slot", () => {
+  const top = [1,2,3].map(rank => candidate("priority-"+rank, "research_now", {
+    nativeSignals: {severity:null,gapClass:null,expectedInformationGain:"High",
+      researchNowRank:rank,investigationStatus:null,divergence:null},
+  }));
+  const excluded = candidate("unlinked-source", "research_now", {
+    evidenceNeeded: ["WTI NYMEX original dated FINAL CL F1/F2 settlement pair"],
+    linkedStoryIds: [],
+  });
+  const generic = candidate("generic-energy", "research_now", {
+    evidenceNeeded: ["review WTI market commentary"],
+    linkedStoryIds: ["story:energy"],
+  });
+  const result = prioritiseResearchGapWork(queue([...top, excluded, generic]));
+  assert.deepEqual(result.selected.map(x=>x.workId), top.map(x=>x.workId));
+  assert.ok(result.diagnostics.policy.some(x=>x.includes("not_needed")));
+  const capped = prioritiseResearchGapWork(queue([...top, excluded, generic]), 2);
+  assert.equal(capped.selected.length, 2);
+});
