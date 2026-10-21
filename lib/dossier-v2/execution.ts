@@ -172,8 +172,13 @@ function researchNowLane(item: Pick<ResearchNowItem, "action" | "reason">): numb
   // A reason is only a fallback when the action gives no usable subject.
   for (const text of [item.action, item.reason]) {
     const matches = patterns.flatMap((pattern, lane) => pattern.test(text) ? [lane] : []);
-    if (matches.length === 1) return matches[0];
-    if (matches.length > 1) return null;
+    // Rates are often the input to a credit or energy investigation.
+    // Keep the more specific destination; mixed credit+energy is genuinely
+    // ambiguous and must not inherit references from either lane.
+    if (matches.includes(1) && matches.includes(2)) return null;
+    if (matches.includes(2)) return 2;
+    if (matches.includes(1)) return 1;
+    if (matches.includes(0)) return 0;
   }
   return null;
 }
