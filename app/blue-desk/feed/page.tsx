@@ -20,9 +20,24 @@ export default async function BlueDeskHybridFeedPage() {
     getCanonicalPublicationPayload(),
     getHybridFeedData(),
   ]);
+  // Do not serialize the entire upstream research publication into a client
+  // component. Preserve only the already established Hybrid /feed fields.
+  const published = publication.body;
+  const canonical = published.canonical && typeof published.canonical === "object"
+    ? published.canonical as Record<string, unknown> : {};
+  const research = published.research && typeof published.research === "object"
+    ? published.research as Record<string, unknown> : {};
   const feed = {
-    ...publication.body,
-    connected: publication.body.source === "alchemy-live-market-desk",
+    connected: published.source === "alchemy-live-market-desk",
+    generatedAt: published.generatedAt,
+    marketUpdatedAt: published.marketUpdatedAt,
+    marketState: Array.isArray(published.marketState) ? published.marketState : [],
+    calendar: Array.isArray(published.calendar) ? published.calendar : [],
+    earnings: Array.isArray(published.earnings) ? published.earnings : [],
+    accuracy: published.accuracy,
+    materialDeltas: Array.isArray(published.materialDeltas) ? published.materialDeltas : [],
+    canonical: { storyStates: Array.isArray(canonical.storyStates) ? canonical.storyStates : [] },
+    research: { divergences: Array.isArray(research.divergences) ? research.divergences : [] },
   };
   const data = {
     stories: upstream.stories || [],
