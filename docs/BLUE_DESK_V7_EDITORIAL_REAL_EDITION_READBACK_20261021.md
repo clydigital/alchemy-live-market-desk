@@ -42,3 +42,25 @@ The original-source candidate counts below are a deliberately bounded SQL screen
 4. Independently verify verified News Brief coverage and editorial source admission for a public Newsroom; no Motion-to-Evidence promotion. Keep public launch blocked in the meantime.
 
 **No SQL writes, API changes, auth toggles, publication re-editioning, cron jobs, backend reasoning paths or production deployments were made during this verification.**
+
+
+## Follow-up — publication semantics verified against a material-change run
+
+**Correction to the release investigation:** an empty `canonicalStoryManifest` is **intentional** in the established zero-change edition path. `lib/intelligence/canonical-journey-edition.ts` skips writing Story snapshots for `storiesPublished === 0`, and reuses prior *immutable* Story material as labelled Dossier context only. Dossier lessons are allowed to remain populated; that does not imply a Story was freshly changed. Do **not** solve the editorial problem by filling zero-change manifests with prior mutable or historical Story state.
+
+A separate production read-only join of each daily brief with its research run confirms that the 21 Oct 04:07 UTC base publication and 19 Oct 16:19 UTC base publication both have `updates_published = 0` and a legitimately empty manifest. Meanwhile the **19 October 2026 04:06:33.773 UTC** material-change edition `b7c62bae-5203-48bd-8d0c-b8bc5271b98d` has `updates_published = 1` and **15** immutable manifest entries. Of those, **11** entries carry matching `canonical-story-reasoning/v1` and an itemised claims array, totalling **59** claims:
+
+| Immutable claim type | Count | With evidence ID references |
+| --- | ---: | ---: |
+| fact | 36 | 36 |
+| interpretation | 11 | 11 |
+| thesis | 11 | 11 |
+| speculation | 1 | 1 |
+
+The claim-type count is **not** the number of primary-admitted source claims or full editorial paragraphs. The inspected manifest has **zero explicit Story `state.interpretationStatus` values of SUPPORTED/MIXED** for those claims. Thus, even an edition with 15 immutable Story snapshots cannot automatically qualify for V7 3–5 + 2–5 full-article treatment. Exact evidence UUID → direct original-source URL → `available_at` and `created_at` → edition-time checks still apply.
+
+### Next safe integration choice
+
+The owner-only Newsroom preview adds `?edition=<UUID>` exact-archive selection via existing `getHybridExactDailyBriefEdition`. An explicit unknown or malformed edition must produce 404 rather than silently fall back to the newest issue. `/blue-desk/newsroom` and `/newsroom` are **not** added to the public Bluebelly allowlist. The owner may examine the 19 Oct 04:06 material-change edition to assess the existing claim corpus; this does **not** publish or rewrite that issue.
+
+**Revised engineering priority:** preserve zero-change semantics; separately improve adjudicated, claim-attributed *future* publication material only if the canonical reasoning authority supplies it. No duplicate reasoning engine or new thesis path.
