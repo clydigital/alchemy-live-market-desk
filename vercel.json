@@ -4,7 +4,8 @@
     "deploymentEnabled": {
       "*": false,
       "main": true,
-      "preview/v7-integrated-r1-20261021": true
+      "preview/v7-integrated-r1-20261021": true,
+      "feat/v7-hybrid-feed-fidelity-20261021": true
     }
   },
   "crons": [
@@ -181,5 +182,5 @@
       "schedule": "25 5 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-integrated-r1-20261021\" ]; then exit 1; else exit 0; fi"
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-integrated-r1-20261021\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"feat/v7-hybrid-feed-fidelity-20261021\" ]; then exit 1; else exit 0; fi"
 }
