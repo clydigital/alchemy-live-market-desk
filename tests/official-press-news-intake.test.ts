@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { applyOfficialPressNewsIntake, OFFICIAL_PRESS_FEEDS, materiallyActionableOfficialHeadline } from "../lib/official-press-news-intake.ts";
 import type { ResearchRunInput } from "../lib/research-update.ts";
+import { buildMarketMotionCandidates } from "../lib/market-motion-ingestion.ts";
 
 const now = new Date("2026-10-22T00:00:00.000Z");
 function input(items: ResearchRunInput["items"] = []): ResearchRunInput {
@@ -36,6 +37,13 @@ test("Fed monetary policy and SEC trading rules enter canonical intake after ori
   const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
   assert.deepEqual(result.items.map(x=>x.url),[fedUrl,secUrl]);
   assert.equal(seen.length,4);
+  const motions = buildMarketMotionCandidates(result.items.map(i => ({
+    ...i, candidateScore: 84, evidence: i.evidence || [],
+  })), [], { now });
+  assert.deepEqual(motions.map(m => [m.sourceKind, m.verificationState, m.marketReaction]), [
+    ["official", "VERIFIED", null],
+    ["filing", "VERIFIED", null],
+  ]);
   assert.equal(result.sourceChecks.length,0,"Existing nine-source contract unchanged");
   assert.match(result.summary||"",/Original-source press coverage/);
   for (const row of result.items) {
