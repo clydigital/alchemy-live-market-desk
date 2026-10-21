@@ -197,7 +197,7 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
 });
 
 test("disposable V7 preview hostname has exact public reading and denies every owner/API path", () => {
-  const qa = "alchemy-live-market-desk-ackcuhtwj-rogue-magazine.vercel.app";
+  const qa = "alchemy-live-market-desk-git-preview-v7-m-f776af-rogue-magazine.vercel.app";
   for (const route of ["/", "/blue-desk", "/markets", "/blue-desk/markets", "/calendar"]) {
     assert.equal(blueDeskHostAccess(route, qa), "public", route);
   }
