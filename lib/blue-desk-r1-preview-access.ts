@@ -30,3 +30,18 @@ export function allowR1MarketsReadOnlyPreview(input: PreviewRequest): boolean {
     && input.pathname === "/blue-desk/markets"
     && (input.method === "GET" || input.method === "HEAD");
 }
+
+/**
+ * The real (not public Blue Desk proxy) Live Desk overview is permitted on
+ * this one Vercel-authenticated V7 review deployment, behind an expiring
+ * review link. Any mutations still hit independently protected endpoints.
+ * Other owner routes, APIs, production and unrelated preview builds remain
+ * behind application authentication.
+ */
+export function allowR1LiveDeskReadOnlyPreview(input: PreviewRequest): boolean {
+  return input.pathname === "/owner/live"
+    && allowR1MarketsReadOnlyPreview({
+      ...input,
+      pathname: "/blue-desk/markets",
+    });
+}
