@@ -1,0 +1,27 @@
+.panel{border:1px solid var(--line,#d7d9dc);background:var(--panel,#fff);min-width:0;overflow:hidden;margin:18px 0}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:19px 21px;border-bottom:1px solid var(--line,#d7d9dc)}
+.head h2{font-size:22px;margin:6px 0}
+.head p{font-size:12px;line-height:1.55;color:var(--muted,#6b7280);max-width:620px;margin:0}
+.kicker{color:var(--muted,#6b7280);font-size:10px;letter-spacing:.13em;font-weight:800}
+.controls{display:flex;gap:9px;align-items:end;flex-wrap:wrap}
+.controls label{display:grid;gap:4px}
+.controls label span{font-size:9px;letter-spacing:.07em;color:var(--muted,#6b7280)}
+.controls select{background:var(--panel,#fff);color:inherit;border:1px solid var(--line,#d7d9dc);height:37px;font:inherit;font-size:11px;padding:6px;max-width:270px}
+.range{display:flex;gap:3px}
+.range button{border:1px solid var(--line,#d7d9dc);background:transparent;color:inherit;padding:9px 11px;font:inherit;font-size:10px;cursor:pointer}
+.range button[aria-pressed=true]{background:var(--ink,#111827);color:var(--panel,#fff)}
+.range button:focus-visible,.controls select:focus-visible{outline:2px solid #64748b;outline-offset:2px}
+.summary{padding:14px 21px;display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--line,#d7d9dc);font-variant-numeric:tabular-nums}
+.summary strong{font-size:24px}
+.summary span{font-size:11px;color:var(--muted,#6b7280)}
+.chartWrap{padding:14px 21px 2px;overflow-x:auto}
+.plot{display:block;width:100%;min-width:450px;height:auto;max-height:350px}
+.plot text{fill:var(--muted,#6b7280);font-size:10px}
+.gridLine{stroke:var(--line,#d7d9dc);stroke-dasharray:3 6}
+.line{stroke:#5965bd;fill:none;stroke-width:2.3;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.dot{fill:#5965bd;stroke:var(--panel,#fff);stroke-width:1.3}
+.stale{font-size:11px;line-height:1.5;margin:12px 21px;padding:10px;background:color-mix(in srgb,var(--panel,#fff) 90%,#eab308 10%);border-left:3px solid #a16207}
+.empty{padding:24px 21px;font-size:12px;line-height:1.55;color:var(--muted,#6b7280)}
+.footer{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;padding:12px 21px 17px;color:var(--muted,#6b7280);font-size:10px}
+.footer a{color:inherit;text-decoration:underline}
+@media(max-width:700px){.head{display:grid}.controls{justify-content:flex-start}.summary strong{font-size:20px}}

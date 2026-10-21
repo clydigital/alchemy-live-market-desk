@@ -96,3 +96,55 @@ export function publicMarketObservations(
   return rows.filter(row => includedType(row.type, group))
     .slice(0, MAX_PUBLIC_ROWS).map(publicRow);
 }
+
+/**
+ * Narrow public-history admission: only US Treasury nominal daily yields.
+ * The broader public market projection still withholds Nasdaq/provider price
+ * histories, raw monitor metrics and privately sourced time series.
+ */
+export type PublicGovernmentRateTrend = {
+  id: string;
+  label: string;
+  symbol: string;
+  sourceName: string;
+  sourceUrl: string;
+  asOf: string;
+  frequency: "daily";
+  points: Array<{ time: number; close: number }>;
+};
+
+const PUBLIC_NOMINAL_US_TREASURY = new Set(["us2y","us5y","us5y-fred","us10y","us10y-fred","us20y","us20y-fred","us30y","us30y-fred"]);
+const FRED_NOMINAL_SERIES = new Set(["DGS2","DGS5","DGS10","DGS20","DGS30"]);
+
+function publicNominalTreasurySource(row: MarketMonitorRow): boolean {
+  if (row.frequency !== "daily" || row.type !== "Rates" || !PUBLIC_NOMINAL_US_TREASURY.has(row.id)) return false;
+  if (row.sourceName === "U.S. Department of the Treasury") {
+    return row.sourceUrl.startsWith("https://home.treasury.gov/");
+  }
+  if (row.sourceName === "Federal Reserve Economic Data"
+    && FRED_NOMINAL_SERIES.has(row.symbol)) {
+    return row.sourceUrl === "https://fred.stlouisfed.org/series/" + row.symbol;
+  }
+  return false;
+}
+
+export function publicGovernmentRateTrends(
+  rows: readonly MarketMonitorRow[],
+): PublicGovernmentRateTrend[] {
+  return rows.filter(publicNominalTreasurySource)
+    .map(row => {
+      const cleanPoints = row.points.filter(point =>
+        Number.isFinite(point.time) && Number.isFinite(point.close)
+        && point.time > 0 && point.close >= 0,
+      ).sort((a,b)=>a.time-b.time).slice(-64);
+      if(cleanPoints.length<2)return null;
+      return {
+        id:row.id, label:row.label, symbol:row.symbol,
+        sourceName:row.sourceName, sourceUrl:row.sourceUrl,
+        asOf:new Date(cleanPoints[cleanPoints.length-1].time*1000).toISOString().slice(0,10),
+        frequency:"daily" as const,points:cleanPoints.map(point=>({time:point.time,close:point.close})),
+      };
+    })
+    .filter((row): row is PublicGovernmentRateTrend=>row!==null)
+    .slice(0,7);
+}
