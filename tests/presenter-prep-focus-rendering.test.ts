@@ -33,7 +33,7 @@ test("explicit blank or whitespace source deep-link values cannot be interpreted
 test("frozen legacy titles are labelled separately from canonical reasoning", () => {
   assert.match(page, /story\.sourceKind === "FROZEN_STORY_STATE"/);
   assert.match(page, /FROZEN STORY STATE · REASONING UNAVAILABLE/);
-  assert.match(page, /Legacy Story-state titles do not imply an accepted Dossier interpretation/);
+  assert.match(page, /CANONICAL STORY REASONING/);
 });
 
 test("historical and blocked navigation links use readable dark-panel styling", () => {
