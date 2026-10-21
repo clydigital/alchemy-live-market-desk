@@ -1294,3 +1294,101 @@
   .historyNavList { grid-template-columns: 1fr; }
   .historyNavHead { align-items: start; flex-direction: column; }
 }
+
+
+/* Thesis-led readout: external-facing market language, not workflow prompts. */
+.thesisSection {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 2.6vw, 30px);
+  border: 1px solid rgba(169, 151, 217, .25);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(35, 29, 68, .65), rgba(20, 24, 43, .75));
+}
+.thesisGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.thesisCard {
+  min-width: 0;
+  padding: clamp(16px, 2vw, 25px);
+  border: 1px solid rgba(191, 179, 225, .17);
+  border-radius: 15px;
+  background: rgba(18, 20, 39, .82);
+}
+.thesisTopline {
+  color: #b1a0d5;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.thesisCard h4 {
+  margin: 11px 0 10px;
+  font-size: clamp(19px, 1.65vw, 25px);
+  line-height: 1.22;
+  letter-spacing: -.025em;
+}
+.thesisStatement {
+  color: #e0ddea;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.thesisPoints,
+.thesisCharts ul,
+.thesisDevelopments ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.thesisPoints {
+  display: grid;
+  gap: 12px;
+}
+.thesisPoints li {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid rgba(200, 187, 235, .12);
+  padding-top: 10px;
+}
+.thesisPoints strong, .thesisCharts h5, .thesisDevelopments summary {
+  color: #b9abd9;
+  font-size: 11px;
+  font-weight: 800;
+}
+.thesisPoints span,
+.thesisCharts li,
+.thesisDevelopments li,
+.thesisEmpty {
+  color: #c7c4d4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.thesisCharts {
+  margin-top: 20px;
+  border-top: 1px solid rgba(200, 187, 235, .12);
+  padding-top: 12px;
+}
+.thesisCharts h5 { margin: 0 0 11px; }
+.thesisCharts ul { display: grid; gap: 11px; }
+.thesisCharts li { display: grid; gap: 4px; }
+.thesisCharts li strong { color: #f0ebfb; }
+.thesisCharts li small, .thesisDevelopments li small {
+  color: #a69eb8;
+  font-size: 11px;
+}
+.thesisDevelopments {
+  margin-top: 17px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(200, 187, 235, .12);
+}
+.thesisDevelopments summary { cursor: pointer; }
+.thesisDevelopments ul { display: grid; gap: 10px; margin-top: 12px; }
+.thesisDevelopments li { display: grid; gap: 2px; }
+.thesisDevelopments a { color: #c3b2f9; text-decoration: underline; text-underline-offset: 3px; }
+.thesisEmpty { margin: 0; }
+@media (max-width: 820px) {
+  .thesisGrid { grid-template-columns: 1fr; }
+}
