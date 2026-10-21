@@ -1,5 +1,6 @@
 import { getIsmSchedule } from "./ism-forward-schedule.ts";
 import { getOfficialBlsReleaseTables } from "./calendar-official-bls-schedule.ts";
+import { verifiedNovember2026BlsSchedules } from "./calendar-verified-november-bls.ts";
 
 export type CalendarCountry = "United States" | "Canada" | "United Kingdom" | "Euro Area" | "Japan" | "Australia" | "New Zealand";
 export type G7Country = CalendarCountry;
@@ -898,10 +899,17 @@ export function keepUncoveredBlsBackstops(
   };
   const liveAndDesk = [...live, ...desk];
   return backstops.filter((fallback) => {
-    if (!/^us-bls-2026-10-(?:14-cpi|15-ppi)/.test(fallback.id)) return true;
+    // Suppress an exact dated BLS fallback once a live official/desk record for
+    // the same release family, date AND reference month exists. Never suppress
+    // merely because some unrelated release occurs on that calendar day.
+    if (!fallback.id.startsWith("us-bls-")) return true;
     const family = releaseFamily(fallback);
+    if (!family) return true;
     return !liveAndDesk.some((candidate) => candidate.country === "United States"
-      && candidate.date === fallback.date && family === releaseFamily(candidate));
+      && candidate.date === fallback.date
+      && family === releaseFamily(candidate)
+      && (!fallback.referencePeriod || !candidate.referencePeriod
+        || fallback.referencePeriod.toLowerCase() === candidate.referencePeriod.toLowerCase()));
   });
 }
 
@@ -920,7 +928,7 @@ export async function getEconomicCalendar() {
       row.date === ics.date && blsFamily(row.event) === blsFamily(ics.event))),
     ...officialBlsTables,
   ];
-  const backstops = keepUncoveredBlsBackstops(officialScheduleFallbacks, blsEvents, deskEvents);
+  const backstops = keepUncoveredBlsBackstops([...officialScheduleFallbacks, ...verifiedNovember2026BlsSchedules], blsEvents, deskEvents);
   // No provider forecast, surprise or System 2 inference is manufactured by these dates.
   const allEvents = [...scheduledEvents, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
