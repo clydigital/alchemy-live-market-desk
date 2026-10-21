@@ -49,6 +49,7 @@ export const EDITORIAL_INSTRUCTIONS = [
 type SourceRow = {
   id:string; claim_text:string|null; evidence_class:string|null; source_tier?:number|null;
   support_direction?:string|null; created_at:string|null; available_at:string|null;
+  structured_payload:Record<string,unknown>|null;
   provenance_urls:string[]|null; source: Array<{source_name:string|null;source_url:string|null;source_tier:number|null}>
     | {source_name:string|null;source_url:string|null;source_tier:number|null} | null;
 };
@@ -87,7 +88,7 @@ export async function prepareFrozenMarketEditorial(input: {
   if (ids.length) {
     const db=createSupabaseAdminClient();
     const {data,error}=await db.from("intelligence_evidence")
-      .select("id,claim_text,evidence_class,created_at,available_at,provenance_urls,source:intelligence_evidence_sources(source_name,source_url,source_tier)")
+      .select("id,claim_text,evidence_class,created_at,available_at,provenance_urls,structured_payload,source:intelligence_evidence_sources(source_name,source_url,source_tier)")
       .in("id",ids).limit(100).abortSignal(AbortSignal.timeout(4_000));
     if (error) throw new Error("Read-only editorial primary-source lookup failed.");
     evidence=((data || []) as SourceRow[]).map(row=>{
@@ -96,7 +97,11 @@ export async function prepareFrozenMarketEditorial(input: {
         sourceTier:source?.source_tier ?? null,sourceName:source?.source_name ?? null,
         sourceUrl:source?.source_url ?? null,
         provenanceUrls:Array.isArray(row.provenance_urls)?row.provenance_urls:[],
-        createdAt:row.created_at,availableAt:row.available_at};
+        createdAt:row.created_at,availableAt:row.available_at,
+        sourcePassages:row.structured_payload?.evidenceNature==="verified_issuer_result"
+          && Array.isArray(row.structured_payload?.editorialSourcePassages)
+          ? row.structured_payload.editorialSourcePassages as EditorialEvidence["sourcePassages"] : [],
+      };
     });
   }
   const candidates=selectMarketEditorialCandidates({
