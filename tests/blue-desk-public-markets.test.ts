@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations } from "../lib/blue-desk-public-markets.ts";
 import type { MarketMonitorRow } from "../lib/market-monitor.ts";
+import { displayedMarketChange, marketMovementDirection } from "../app/blue-desk/markets/market-direction.ts";
 
 function marketRow(partial: Partial<MarketMonitorRow> & Pick<MarketMonitorRow, "id" | "type">): MarketMonitorRow {
   const { id, type, ...remaining } = partial;
@@ -92,9 +93,8 @@ test("source-dated public Markets keeps its server projection and private owner 
     assert.ok(reader.includes(field), field);
   }
   assert.match(reader, /frequency !== "all" && row\.frequency !== frequency/);
-  assert.match(reader, /row\.change !== null && row\.change > 0/);
-  assert.match(reader, /row\.change !== null && row\.change < 0/);
-  assert.match(reader, /row\.change === null \|\| row\.change === 0/);
+  assert.match(reader, /marketMovementDirection\(row\.change\)/);
+  assert.match(reader, /displayedMarketChange\(row\.change\)/);
   assert.match(reader, /dateValue\(b\.asOf\) - dateValue\(a\.asOf\)/);
   assert.match(reader, /row\.changeUnit === "bp"/);
   assert.match(reader, /aria-live="polite"/);
@@ -109,4 +109,28 @@ test("source-dated public Markets keeps its server projection and private owner 
   assert.doesNotMatch(presenter, /LiveDeskShell/);
   assert.match(host, /pathname === "\/markets"/);
   assert.match(host, /pathname === "\/blue-desk\/markets"/);
+});
+
+test("Markets movement classification follows the same rounded visible number", () => {
+  for (const tiny of [-0.004, 0, 0.004]) {
+    assert.equal(displayedMarketChange(tiny), 0);
+    assert.equal(marketMovementDirection(tiny), "quiet");
+    assert.equal(displayedMarketChange(tiny)?.toFixed(2), "0.00");
+  }
+  assert.equal(displayedMarketChange(-0.005), -0.01);
+  assert.equal(marketMovementDirection(-0.005), "down");
+  assert.equal(displayedMarketChange(0.006), 0.01);
+  assert.equal(marketMovementDirection(0.006), "up");
+  assert.equal(displayedMarketChange(null), null);
+  assert.equal(marketMovementDirection(null), "quiet");
+  assert.equal(displayedMarketChange(Infinity), null);
+  assert.equal(marketMovementDirection(NaN), "quiet");
+
+  // A monthly-rate observation has no daily delta and stays neutral.
+  const [monthly] = publicMarketObservations([marketRow({
+    id: "jpy-10y", type: "Rates", frequency: "monthly",
+    previousClose: 4.37, dayChange: -0.004,
+  })], "rates");
+  assert.equal(monthly.change, null);
+  assert.equal(marketMovementDirection(monthly.change), "quiet");
 });
