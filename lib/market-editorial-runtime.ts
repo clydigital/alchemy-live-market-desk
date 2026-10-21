@@ -98,7 +98,8 @@ export async function prepareFrozenMarketEditorial(input: {
         sourceUrl:source?.source_url ?? null,
         provenanceUrls:Array.isArray(row.provenance_urls)?row.provenance_urls:[],
         createdAt:row.created_at,availableAt:row.available_at,
-        sourcePassages:Array.isArray(row.structured_payload?.editorialSourcePassages)
+        sourcePassages:row.structured_payload?.evidenceNature==="verified_issuer_result"
+          && Array.isArray(row.structured_payload?.editorialSourcePassages)
           ? row.structured_payload.editorialSourcePassages as EditorialEvidence["sourcePassages"] : [],
       };
     });
