@@ -272,6 +272,62 @@ function canonicalDivergenceDebtCandidates(
   });
 }
 
+/**
+ * Durable original-source acquisition debt uses the EXISTING research_debt
+ * table, not a Story inference, new research table or scheduler.
+ * Only explicitly dated, operator-reviewed source requirements are eligible.
+ */
+function officialOilAcquisitionDebtCandidates(
+  dossier: MarketDossierV2,
+  rows: CanonicalDivergenceResearchDebtRow[],
+): ResearchGapWorkCandidate[] {
+  return rows.flatMap(row => {
+    if (row.status !== "open" || !row.debt_key.startsWith("source:oil:")) return [];
+    const meta = object(row.metadata);
+    if (meta?.kind !== "official_oil_settlement_acquisition") return [];
+    const tradeDate = clean(meta.tradeDate);
+    const values = strings(meta.benchmarks, 2).sort();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDate)
+      || new Date(tradeDate + "T00:00:00Z").toISOString().slice(0, 10) !== tradeDate
+      || values.length === 0 || values.some(v => v !== "WTI" && v !== "BRENT")
+      || row.debt_key !== "source:oil:" + tradeDate + ":" + values.join("-")) return [];
+
+    const evidenceNeeded = values.map(value => value === "WTI"
+      ? "Original CME NYMEX WTI FINAL F1/F2 settlement pair for " + tradeDate +
+        "; CL front/next contract month, same-day USD/bbl settle, archive bytes and SHA-256"
+      : "Original ICE Brent FINAL F1/F2 settlement pair for " + tradeDate +
+        "; ICE Brent front/next contract month, same-day USD/bbl settle, archive bytes and SHA-256");
+    const question = "Verify original " + values.join(" and ") +
+      " FINAL F1/F2 settlements dated " + tradeDate +
+      " from their respective exchange publisher records.";
+    const ref = row.debt_key;
+    const action = clean(row.next_action) ||
+      "Acquire and verify publisher-original files, then hand off to existing canonical evidence admission.";
+    const reason = clean(row.reason) || "PUBLISHER_ORIGINAL_MISSING";
+    return [{
+      workId: workId(dossier.id, "research_gap", ref),
+      gapKey: persistentResearchGapKey({
+        sourceKind: "research_gap", sourceRef: ref, nativeId: ref,
+        question, action, reason, evidenceNeeded,
+        linkedInvestigationIds: [], linkedStoryIds: [], blockingRefs: [],
+      }),
+      sourceKind: "research_gap" as const, sourceRef: ref,
+      dossierId: dossier.id, dossierAsOf: dossier.as_of,
+      question, action, reason, evidenceNeeded,
+      linkedInvestigationIds: [], linkedStoryIds: [], blockingRefs: [],
+      nativeSignals: {
+        severity: row.severity === "critical" || row.severity === "high" ? "MATERIAL" : "INFORMATIONAL",
+        gapClass: "REFINEMENT" as const,
+        expectedInformationGain: "HIGH",
+        researchNowRank: null,
+        investigationStatus: "open",
+        divergence: "UNRESOLVED",
+        motionAttentionTier: null, motionAttentionScore: null, motionWritingPotential: null,
+      },
+    }];
+  });
+}
+
 function analyticalOutput(dossier: MarketDossierV2) {
   const payload = object(dossier.payload);
   return object(payload?.analytical_output);
@@ -470,6 +526,7 @@ export function buildResearchGapWorkQueue(
   const researchGaps = [
     ...researchGapCandidates(dossier),
     ...canonicalDivergenceDebtCandidates(dossier, divergenceDebtRows),
+    ...officialOilAcquisitionDebtCandidates(dossier, divergenceDebtRows),
   ];
   const researchNow = researchNowCandidates(dossier);
   const investigations = investigationCandidates(dossier);
@@ -505,6 +562,7 @@ export function buildResearchGapWorkQueue(
         "Dossier-derived Research Gap work remains Dossier-authoritative; raw Motion cannot enter directly.",
         "Divergent Investigation candidate mechanisms carry a bounded causal-discriminator plan, but only the first discriminator is exposed as active Research Gap work at ingestion.",
         "Material canonical divergence debt reuses the same bounded causal-discriminator lifecycle; only its first discriminator is active at ingestion.",
+        "Open, explicitly dated original-oil acquisition debt may be queued from existing research_debt without claiming a source was measured.",
       ],
     },
   };
@@ -532,12 +590,12 @@ export async function loadLatestResearchGapWorkQueue(
     .from("research_debt")
     .select("debt_key,severity,status,reason,next_action,next_check_at,metadata")
     .eq("status", "open")
-    .like("debt_key", "divergence:%")
+    .or("debt_key.like.divergence:%,debt_key.like.source:oil:%")
     .order("next_check_at", { ascending: true, nullsFirst: false })
     .limit(12);
 
   if (divergenceDebtError) {
-    throw new Error(`Failed to load canonical divergence Research Gap debt: ${divergenceDebtError.message}`);
+    throw new Error(`Failed to load canonical Research Gap source/divergence debt: ${divergenceDebtError.message}`);
   }
 
   return buildResearchGapWorkQueue(
