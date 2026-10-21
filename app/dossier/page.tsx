@@ -14,6 +14,7 @@ import {
   selectExactDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
+import { buildDossierMarketTheses } from "@/lib/dossier-v2/market-thesis-projection";
 import { withinTimeout } from "@/lib/async-timeout";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getCurrentMarketMotion, marketMotionAttention } from "@/lib/market-motion";
@@ -124,6 +125,10 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
         ).catch(() => []),
       ]);
   const dossier = selection.presentation;
+  const marketTheses = dossier ? buildDossierMarketTheses({
+    dossier,
+    motions: requestedId ? [] : selectPromotedMarketMotionForDossier(motionRecords),
+  }) : null;
   const dailyAssetState = monitor
     ? buildDailyAssetState({ monitor, presentation: dossier })
     : null;
@@ -253,6 +258,72 @@ export default async function DossierPage({ searchParams }: DossierPageProps) {
               <p>{dossier.header.whatWouldChangeMind}</p>
             </div>
           </div>
+        </section>
+
+        <section className={styles.thesisSection} aria-label="Market theses">
+          <div className={styles.sectionHead}>
+            <div>
+              <span>MARKET THESES</span>
+              <h3>The tensions shaping the market</h3>
+            </div>
+            <small>{marketTheses?.items.length ?? 0} evidence-linked arguments</small>
+          </div>
+          {marketTheses?.items.length ? (
+            <div className={styles.thesisGrid}>
+              {marketTheses.items.map((item) => (
+                <article className={styles.thesisCard} key={item.key}>
+                  <div className={styles.thesisTopline}>
+                    <span>{item.status === "SUPPORTED" ? "Supported thesis" : "Conditional interpretation"}</span>
+                  </div>
+                  <h4>{item.headline}</h4>
+                  <p className={styles.thesisStatement}>{item.thesis}</p>
+                  <ul className={styles.thesisPoints}>
+                    <li><strong>The tension</strong><span>{item.tension}</span></li>
+                    <li><strong>How it transmits</strong><span>{item.mechanism}</span></li>
+                    <li><strong>Market implications</strong><span>{item.implication}</span></li>
+                    {item.countercase ? <li><strong>The opposing case</strong><span>{item.countercase}</span></li> : null}
+                    <li><strong>What changes the view</strong><span>{item.invalidation}</span></li>
+                  </ul>
+                  {item.charts.length ? (
+                    <div className={styles.thesisCharts}>
+                      <h5>Charts to examine</h5>
+                      <ul>
+                        {item.charts.map((chart) => (
+                          <li key={chart.id}>
+                            <strong>{chart.instrument} · {chart.timeframe}</strong>
+                            {chart.comparison ? <span>{chart.comparison}</span> : null}
+                            <span>{chart.question}</span>
+                            <small>Confirms: {chart.confirmation}</small>
+                            <small>Challenges: {chart.contradiction}</small>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {item.relatedDevelopments.length ? (
+                    <details className={styles.thesisDevelopments}>
+                      <summary>Related market developments</summary>
+                      <ul>
+                        {item.relatedDevelopments.map((motion) => (
+                          <li key={motion.motionId}>
+                            <a href={motion.sourceUrl} target="_blank" rel="noopener noreferrer">
+                              {motion.headline} · {motion.sourceName}
+                            </a>
+                            <small>{motion.verificationState === "VERIFIED" ? "Source verified" : "Context only; verification incomplete"}</small>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className={styles.thesisEmpty}>
+              No complete, evidence-linked market thesis is available for this Dossier vintage.
+              Current developments remain visible in the research sections below.
+            </p>
+          )}
         </section>
 
         <section className={styles.primarySection}>
