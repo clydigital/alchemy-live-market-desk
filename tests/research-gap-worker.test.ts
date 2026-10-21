@@ -292,6 +292,10 @@ test("B3 latest-Dossier loader does not query current Market Motion", async () =
       calls.push([`debt:like:${column}`, value]);
       return this;
     },
+    or(filter: string) {
+      calls.push(["debt:or", filter]);
+      return this;
+    },
     order(column: string, options: unknown) {
       calls.push([`debt:order:${column}`, options]);
       return this;
