@@ -30,13 +30,14 @@ test("Fed monetary policy and SEC trading rules enter canonical intake after ori
     const uri=String(target);seen.push(uri);
     if(uri===OFFICIAL_PRESS_FEEDS[0].feed) return response(rss([item(fedTitle,fedUrl)]),"text/xml");
     if(uri===OFFICIAL_PRESS_FEEDS[1].feed) return response(rss([item(secTitle,secUrl)]),"application/rss+xml");
+    if(uri===OFFICIAL_PRESS_FEEDS[2].feed) return response(rss([]),"text/xml");
     if(uri===fedUrl) return response(html(fedTitle),"text/html");
     if(uri===secUrl) return response(html(secTitle),"text/html");
     return response("Not Found","text/plain",404);
   }) as typeof fetch;
   const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
   assert.deepEqual(result.items.map(x=>x.url),[fedUrl,secUrl]);
-  assert.equal(seen.length,4);
+  assert.equal(seen.length,5);
   const motions = buildMarketMotionCandidates(result.items.map(i => ({
     ...i, candidateScore: 84, evidence: i.evidence || [],
   })), [], { now });
@@ -120,4 +121,43 @@ test("source-specific materiality and execution order preserve canonical verific
     scheduled.indexOf("await applyResearchDiscoveryProviders("));
   assert.match(motion,/item\.sourceQuality >= 90/);
   assert.match(motion,/item\.materiality < MARKET_MOTION_MIN_MATERIALITY/);
+});
+
+
+test("NVIDIA official newsroom release is VERIFIED primary issuer news, not a verified stock-price explanation", async () => {
+  const title="NVIDIA Announces Expanded AI Infrastructure Investment and Capacity";
+  const url="https://nvidianews.nvidia.com/news/nvidia-expands-ai-infrastructure-capacity";
+  const fetchImpl=(async (target:RequestInfo | URL) => {
+    const uri=String(target);
+    if(uri===OFFICIAL_PRESS_FEEDS[2].feed)return response(rss([item(title,url)]),"application/rss+xml");
+    if(uri===url)return response(html(title),"text/html");
+    return response(rss([]),"text/xml");
+  }) as typeof fetch;
+  const result=await applyOfficialPressNewsIntake(input(),{now,fetchImpl});
+  assert.equal(result.items.length,1);
+  assert.equal(result.items[0].publisher,"NVIDIA Newsroom");
+  assert.equal(result.items[0].url,url);
+  assert.equal(result.items[0].evidence?.[0].claim,title);
+  const motion=buildMarketMotionCandidates(result.items.map(x=>({...x,candidateScore:83,evidence:x.evidence||[]})),[],{now});
+  assert.equal(motion.length,1);
+  assert.equal(motion[0].sourceKind,"primary");
+  assert.equal(motion[0].verificationState,"VERIFIED");
+  assert.equal(motion[0].marketReaction,null);
+  assert.deepEqual(motion[0].tickers,["NVDA"]);
+});
+
+test("NVIDIA blogs, forged domains, stale timestamps and generic consumer content fail the original-issuer gate",async()=>{
+  const title="NVIDIA Announces Expanded AI Infrastructure Investment and Capacity";
+  const untrusted=[
+    item(title,"https://nvidianews.nvidia.com.evil.net/news/bad"),
+    item(title,"https://nvidianews.nvidia.com/blog/fake"),
+    item(title,"https://nvidianews.nvidia.com/news/stale","Thu, 15 Oct 2026 18:00:00 GMT"),
+    item("NVIDIA celebrates gaming community event","https://nvidianews.nvidia.com/news/consumer"),
+  ];
+  const fetchImpl=(async (target:RequestInfo | URL) =>{
+    if(String(target)===OFFICIAL_PRESS_FEEDS[2].feed)return response(rss(untrusted),"text/xml");
+    if(String(target)===OFFICIAL_PRESS_FEEDS[0].feed||String(target)===OFFICIAL_PRESS_FEEDS[1].feed) return response(rss([]),"text/xml");
+    throw new Error("No original page should be fetched");
+  }) as typeof fetch;
+  assert.deepEqual((await applyOfficialPressNewsIntake(input(),{now,fetchImpl})).items,[]);
 });

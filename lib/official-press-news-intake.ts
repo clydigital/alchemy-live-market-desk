@@ -23,6 +23,15 @@ export const OFFICIAL_PRESS_FEEDS = [
     path: /^\/(?:newsroom\/press-releases|news\/press-release)\/[a-z0-9/-]+$/i,
     publisher: "U.S. Securities and Exchange Commission",
   },
+  {
+    // Official NVIDIA Investor Relations RSS points to the NVIDIA newsroom.
+    // Company events are not market-reaction evidence by themselves.
+    name: "NVIDIA company press releases",
+    feed: "https://nvidianews.nvidia.com/cats/press_release.xml",
+    host: "nvidianews.nvidia.com",
+    path: /^\/news\/[a-z0-9-]+$/i,
+    publisher: "NVIDIA Newsroom",
+  },
 ] as const;
 
 const WINDOW_MS = 36 * 60 * 60_000;
@@ -85,6 +94,8 @@ function recent(iso: string, now: Date) {
 export function materiallyActionableOfficialHeadline(feed: Feed, headline: string) {
   if (feed.host === "www.federalreserve.gov") return /\b(?:federal reserve|fomc|federal open market|monetary policy|federal funds|discount rate|balance sheet|policy rate)\b/i.test(headline)
     && /\b(?:announces?|issues?|releases?|statement|decision|raises?|cuts?|maintains?|approves?|updates?|votes?)\b/i.test(headline);
+  if (feed.host === "nvidianews.nvidia.com") return /\b(?:announces?|reports?|expands?|signs?|secures?|raises?|lowers?|revises?|commits?|introduces?|acquires?|partners?|launches?)\b/i.test(headline)
+    && /\b(?:earnings|revenue|profits?|margin|guidance|capital expenditure|capex|investment|contract|partnership|data.center|ai factor(?:y|ies)|infrastructure|capacity|supply|semiconductor|gpu|hbm)\b/i.test(headline);
   return /\b(?:approves?|adopts?|proposes?|finaliz(?:e|es)|rescind(?:s)?|amends?|authoriz(?:e|es)|issues?)\b/i.test(headline)
     && /\b(?:trading|market structure|treasury|securities|exchange|settlement|clearing|exchange.traded|etfs?|derivatives?|disclosure|registered funds?|broker.dealers?)\b/i.test(headline);
 }

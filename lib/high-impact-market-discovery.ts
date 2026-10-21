@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { firecrawlConfigured, scrapePublicUrlWithFirecrawl } from "./firecrawl.ts";
 import type { CanonicalResearchSlot } from "./research-schedule-health.ts";
 import type { IntakeItemInput, ResearchRunInput } from "./research-update.ts";
+import { stockMoveSearchResultMatches, type StockMoveResearchTarget } from "./stock-move-research-targets.ts";
 
 const GDELT_URL = "https://api.gdeltproject.org/api/v2/doc/doc";
 const LOOKBACK_MS = 36 * 60 * 60 * 1_000;
@@ -72,9 +73,10 @@ const TARGETS = [
 
 export const REQUIRED_ASIAN_MARKET_TARGETS = TARGETS.filter((target) => target.key !== "us-macro").map((target) => target.key);
 
-type Target = (typeof TARGETS)[number];
+type StaticTarget = (typeof TARGETS)[number];
+type Target = StaticTarget | StockMoveResearchTarget;
 
-const TARGET_MATCHERS: Record<Target["key"], RegExp> = {
+const TARGET_MATCHERS: Record<StaticTarget["key"], RegExp> = {
   "us-macro": /\b(CPI|PPI|ISM|PMI|payrolls?|JOLTS|Federal Reserve|FOMC)\b/i,
   "japan-yen": /\b(yen|USDJPY|USD\/JPY|BOJ|Bank of Japan|Japan Ministry of Finance|FX intervention)\b/i,
   "japan-equities": /\b(Nikkei|TOPIX|Japan(?:ese)? stocks?|Tokyo stocks?)\b/i,
@@ -168,7 +170,7 @@ function withinWindow(value: string, now: Date) {
 }
 
 function existingCanonicalTargetMatches(
-  target: Target,
+  target: StaticTarget,
   items: IntakeItemInput[],
   now: Date,
 ) {
@@ -323,7 +325,7 @@ function asIntake(lead: SearchLead, read: PageRead): IntakeItemInput {
 export async function applyHighImpactMarketDiscovery(
   input: ResearchRunInput,
   slot: CanonicalResearchSlot,
-  options: { now?: Date; fetchImpl?: typeof fetch } = {},
+  options: { now?: Date; fetchImpl?: typeof fetch; stockMoveTargets?: readonly StockMoveResearchTarget[] } = {},
 ): Promise<ResearchRunInput> {
   const now = options.now ?? new Date();
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -334,10 +336,14 @@ export async function applyHighImpactMarketDiscovery(
   let discoveryProviderUnavailable = false;
   const coverage: string[] = [];
 
-  for (const target of TARGETS) {
+  // Investigate up to three existing source-dated stock dislocations before
+  // general regional discovery. This does not assert what caused the move.
+  const targets: Target[] = [...(options.stockMoveTargets || []).slice(0, 3), ...TARGETS];
+  for (const target of targets) {
+    const movement = target.key.startsWith("stock-move-");
     // First credit canonical publisher evidence already acquired by the direct
     // feed/discovery layers. GDELT is gap-filling, not the sole coverage oracle.
-    const existingMatches = existingCanonicalTargetMatches(target, input.items, now);
+    const existingMatches = movement ? [] : existingCanonicalTargetMatches(target as StaticTarget, input.items, now);
     if (existingMatches.length) {
       coverage.push(`${target.key}=existing_canonical_input (${existingMatches.length} readable publisher item(s); 0 external discovery calls)`);
       continue;
@@ -349,13 +355,13 @@ export async function applyHighImpactMarketDiscovery(
     }
 
     // Preserve existing US macro / yen depth; bound each added regional check.
-    const retainedLimit = ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
+    const retainedLimit = movement ? 2 : ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
     const search = await searchTarget(target, now, fetchImpl);
     const leads = search.leads;
-    if (["blocked", "rate_limited", "unavailable", "invalid_response"].includes(search.state)) {
-      // GDELT is the shared transport for every remaining high-impact target.
-      // A provider-level failure is therefore a run-level health signal, not a
-      // reason to repeat the same failing request for every geography.
+    if (["blocked", "rate_limited", "unavailable", "invalid_response"].includes(search.state) && !movement) {
+      // A stock-specific query may fail independently (e.g. unsupported term).
+      // Do not let that suppress the established macro/Asia discovery gates.
+      // Existing static targets still share provider outage short-circuiting.
       discoveryProviderUnavailable = true;
     }
     let pagesRead = 0;
@@ -363,6 +369,7 @@ export async function applyHighImpactMarketDiscovery(
     let targetCount = 0;
     for (const lead of leads) {
       if (targetCount >= retainedLimit) break;
+      if (movement && !stockMoveSearchResultMatches(target as StockMoveResearchTarget, lead.title)) continue;
       if (existingUrls.has(lead.url) || seen.has(lead.url)) continue;
       seen.add(lead.url);
       const read = await readPage(lead, fetchImpl, firecrawlBudget > 0);
@@ -371,8 +378,25 @@ export async function applyHighImpactMarketDiscovery(
         firecrawlRecovered += 1;
       }
       const item = asIntake(lead, read);
-      if (item.evidence?.length) pagesRead += 1;
-      retained.push(item);
+      const move = movement ? target as StockMoveResearchTarget : null;
+      const outcome: IntakeItemInput = move ? {
+        ...item,
+        // Search reporting is an investigation candidate, never a source-
+        // verified causal attribution or automatically promotable Motion.
+        materiality: 65,
+        recommendedAction: "monitor",
+        newsSignal: move.signal,
+        statsSignal: "Observed " + move.symbol + " " + move.asOf
+          + ": day=" + (move.observedDayChange ?? "unavailable")
+          + "%; gap=" + (move.observedGapChange ?? "unavailable")
+          + "%; five-day=" + (move.observedChange5d ?? "unavailable")
+          + "%; price-source=" + move.sourceUrl + ".",
+        divergenceNote: "Price observation and the searched report are separate evidence streams. Cause NOT VERIFIED.",
+        reviewReason: "Investigate why " + move.symbol
+          + " moved: independently verify the news clock, issuer documents and asset reaction.",
+      } : item;
+      if (outcome.evidence?.length) pagesRead += 1;
+      retained.push(outcome);
       existingUrls.add(lead.url);
       targetCount += 1;
     }

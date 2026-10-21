@@ -574,6 +574,9 @@ function sourceKind(item: ScoredIntakeItem): NonNullable<MarketMotionInput["sour
   if (item.itemType === "video") return "creator";
   const host = sourceHost(item.url);
   if (/^(?:www\.)?sec\.gov$/.test(host)) return "filing";
+  // NVIDIA's first-party press domain is linked directly from NVIDIA IR.
+  // Only source-read entries with sourceQuality >=90 may become VERIFIED.
+  if (host === "nvidianews.nvidia.com") return "primary";
   if (
     /(?:^|\.)(?:bls\.gov|bea\.gov|treasury\.gov|energy\.gov|federalreserve\.gov|newyorkfed\.org|ecb\.europa\.eu|boj\.or\.jp|mof\.go\.jp|statcan\.gc\.ca|ons\.gov\.uk|eurostat\.ec\.europa\.eu|abs\.gov\.au|stats\.govt\.nz|rba\.gov\.au|bankofengland\.co\.uk|bankofcanada\.ca|snb\.ch|imf\.org|bis\.org)$/.test(host)
   ) return "official";
