@@ -102,8 +102,8 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
       ) : null}
       {!records.length ? (
         <section className={styles.secondaryPanel}>
-          <h2>No verified events in this view</h2>
-          <p className={styles.muted}>No events for this period. Coverage may be incomplete.</p>
+          <h2>{statusLabel === "released" ? "No released items recorded this week" : "No scheduled events in this window"}</h2>
+          <p className={styles.muted}>The selected time window is empty. This does not establish that the broader calendar is empty or that provider coverage is complete.</p>
         </section>
       ) : null}
     </>
@@ -118,7 +118,9 @@ export default async function BlueDeskCalendarPage({
   const params = await searchParams;
   const host = (await headers()).get("host");
   const raw = params.window;
-  const windowName: WindowName = raw === "24h" || raw === "30d" || raw === "released" ? raw : "7d";
+  // The default broad window keeps the next confirmed catalysts visible during
+  // quiet 7-day windows; 24h/7d remain explicit, narrower reader choices.
+  const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
   const now = new Date();
 
   const [macroResult, earningsResult] = await Promise.allSettled([
@@ -136,6 +138,13 @@ export default async function BlueDeskCalendarPage({
     : windowName === "released"
       ? selectBlueDeskReleasedWeek(calendar, now)
       : selectBlueDeskUpcoming(calendar, now, windowName === "30d" ? 30 : 7);
+
+  // Empty narrow windows must never imply there are no future verified
+  // schedules. These remain real source events from presenter-calendar/1,
+  // not predicted releases, forecasts or synthetic event clocks.
+  const nextKnown = (events.length === 0 && (windowName === "24h" || windowName === "7d"))
+    ? selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3)
+    : [];
 
   const nowDisplay = formatDualDeskTime(now);
   return (
@@ -177,6 +186,16 @@ export default async function BlueDeskCalendarPage({
 
         <div className={styles.calendarStack}>
           <Events records={events} statusLabel={windowName} />
+          {nextKnown.length ? (
+            <>
+              <p className={styles.coverage}>
+                Next source-listed scheduled events outside this selection or without an
+                exact time in the selected window. These are not released results.
+                {" "}<Link href={blueDeskPublicHref("/blue-desk/calendar?window=30d", host)} className={styles.textLink}>Browse the 30-day calendar →</Link>
+              </p>
+              <Events records={nextKnown} statusLabel="30d" />
+            </>
+          ) : null}
         </div>
 
         <footer className={styles.footer}><span>Blue Desk</span></footer>
