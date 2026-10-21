@@ -9,6 +9,7 @@ import {
   type MarketDossierV2Input,
 } from "./contracts.ts";
 import { buildDossierEvidenceGovernance } from "./evidence-governance.ts";
+import { buildEnergyClaimCoverage } from "./energy-claim-provenance.ts";
 import {
   DOSSIER_MOTION_CONTEXT_CONTRACT_VERSION,
   type DossierV2InputPacket,
@@ -154,7 +155,7 @@ function appendResearchDetail(current: string, detail: string): string {
     : `${current.trim().replace(/[.\s]+$/, "")}. ${detail}`;
 }
 
-function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1): void {
+function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1, packet: DossierV2InputPacket): void {
   if (
     analyticalOutput.main_thread.regime_family !== "RATES_LED_TIGHTENING"
     && analyticalOutput.main_thread.regime_family !== "MIXED_TRANSITION"
@@ -174,6 +175,36 @@ function applyRatesLedResearchAgenda(analyticalOutput: ResearchBrainOutputV1): v
       blocking_evidence: cloneJson(existing?.blocking_evidence ?? []),
     };
   });
+
+  // Existing rank-3 energy investigation needs an EXACT original-source request.
+  // Without this, the three-branch Research Gap search never receives the WTI /
+  // ICE Brent contract identity required by its proof and retrieval adapters.
+  // No new agenda item, Story mutation, reasoning path or scheduler is added.
+  const energyAction = analyticalOutput.research_now[2];
+  const energyRelevant = energyAction?.linked_stories.some(id =>
+    /(?:oil|energy|crude|diesel|distillate|refin)/i.test(id))
+    || analyticalOutput.major_stories.some(story =>
+      /(?:\\boil\\b|\\benergy\\b|\\bcrude\\b|\\bbrent\\b|\\bwti\\b|distillate|refin)/i.test(
+        story.title + " " + story.causal_mechanism));
+  if (energyAction && energyRelevant) {
+    const coverage = buildEnergyClaimCoverage(packet);
+    const required = [
+      !coverage.wti
+        ? "WTI NYMEX original dated FINAL CL F1/F2 settlement pair; same trade date, adjacent contract months, USD/barrel, immutable original-file SHA-256"
+        : null,
+      !coverage.brent
+        ? "ICE Brent original dated FINAL F1/F2 settlement pair; same trade date, adjacent ICE contract months, USD/barrel, immutable original-file SHA-256 (NOT CME BZ)"
+        : null,
+    ].filter((value): value is string => value !== null);
+    if (required.length) {
+      energyAction.blocking_evidence = [...new Set([...energyAction.blocking_evidence, ...required])];
+      energyAction.action = appendResearchDetail(energyAction.action,
+        "Recover original dated FINAL " +
+        (required.length === 2 ? "WTI NYMEX CL and ICE Brent F1/F2 settles" :
+          !coverage.wti ? "WTI NYMEX CL F1/F2 settles" : "ICE Brent F1/F2 settles") +
+        " from exchange records; verify contracts, dates, units and retained source hash");
+    }
+  }
 
   const durationInvestigation = analyticalOutput.investigations.find((item) =>
     /duration|yield|credit|breadth|volatility|transmission/i.test(
@@ -265,9 +296,10 @@ function routeDemotedGap(
 
 function applyAnalyticalGapPolicy(
   analyticalOutput: ResearchBrainOutputV1,
+  packet: DossierV2InputPacket,
 ): { analyticalOutput: ResearchBrainOutputV1; topLevelGaps: ResearchGap[] } {
   const normalized = cloneJson(analyticalOutput);
-  applyRatesLedResearchAgenda(normalized);
+  applyRatesLedResearchAgenda(normalized, packet);
   const validRefs = validCanonicalBlockerRefs(normalized);
   const topLevelGaps: ResearchGap[] = [];
 
@@ -444,7 +476,7 @@ export function buildMarketDossierV2InputFromResearchBrain(
   const reactionAssessments = buildSystem1ReactionAssessments(packet);
   const divergenceCandidates = buildSystem1DivergenceCandidates(packet);
   const evidenceGovernance = buildDossierEvidenceGovernance(packet);
-  const normalized = applyAnalyticalGapPolicy(analyticalOutput);
+  const normalized = applyAnalyticalGapPolicy(analyticalOutput, packet);
   const refinementGaps = deriveResearchRefinementGaps(normalized.analyticalOutput);
 
   return {
