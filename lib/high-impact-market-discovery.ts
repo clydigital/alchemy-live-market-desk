@@ -358,10 +358,10 @@ export async function applyHighImpactMarketDiscovery(
     const retainedLimit = movement ? 2 : ["us-macro", "japan-yen"].includes(target.key) ? MAX_RETAINED_PER_QUERY : 1;
     const search = await searchTarget(target, now, fetchImpl);
     const leads = search.leads;
-    if (["blocked", "rate_limited", "unavailable", "invalid_response"].includes(search.state)) {
-      // GDELT is the shared transport for every remaining high-impact target.
-      // A provider-level failure is therefore a run-level health signal, not a
-      // reason to repeat the same failing request for every geography.
+    if (["blocked", "rate_limited", "unavailable", "invalid_response"].includes(search.state) && !movement) {
+      // A stock-specific query may fail independently (e.g. unsupported term).
+      // Do not let that suppress the established macro/Asia discovery gates.
+      // Existing static targets still share provider outage short-circuiting.
       discoveryProviderUnavailable = true;
     }
     let pagesRead = 0;
