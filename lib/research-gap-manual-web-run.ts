@@ -12,6 +12,7 @@ import {
   type ResearchGapCaseRow,
 } from "./research-gap-lifecycle.ts";
 import { loadResearchGapPlanContext } from "./research-gap-context.ts";
+import { syncLatestPrioritisedResearchGapCasesWithD7 } from "./d7-research-gap-runtime.ts";
 import {
   buildResearchGapPlan,
   evaluateResearchGapEvidence,
@@ -26,6 +27,7 @@ import {
 type Dependencies = {
   authorize?: (request: Request) => Promise<ManualLiveTriggerAuthorization>;
   closeLegacyDossierStoryWork?: typeof closeLegacyQueuedDossierStoryD7ResearchGapCases;
+  syncPriority?: () => Promise<Awaited<ReturnType<typeof syncLatestPrioritisedResearchGapCasesWithD7>>>;
   claim?: (input: { workerId: string; batchSize: number; leaseSeconds: number }) => Promise<ClaimedResearchGapCase[]>;
   loadContext?: typeof loadResearchGapPlanContext;
   buildPlan?: typeof buildResearchGapPlan;
@@ -58,6 +60,7 @@ export async function handleManualResearchGapWebRun(
     return json({ status: "unauthorized", error: "Manual Research Gap authorization failed." }, 401);
   }
 
+  const syncPriority = dependencies.syncPriority ?? (() => syncLatestPrioritisedResearchGapCasesWithD7());
   const closeLegacyDossierStoryWork =
     dependencies.closeLegacyDossierStoryWork
     ?? (() => closeLegacyQueuedDossierStoryD7ResearchGapCases());
@@ -91,6 +94,20 @@ export async function handleManualResearchGapWebRun(
         })),
       });
     }
+
+    // Both scheduled Vercel Cron and audited GitHub fallback reach this same
+    // handler. Synchronise the latest persisted Dossier/source-debt priority
+    // queue before claiming, otherwise new operational source obligations can
+    // remain invisible until another Dossier is persisted.
+    const synced = await syncPriority();
+    logger({
+      event: "research_gap_queue_synced_before_claim",
+      actor: authorization.actor,
+      githubRunId: authorization.githubRunId,
+      dossierId: synced?.dossierId ?? null,
+      selectedCount: synced?.selectedCount ?? 0,
+      // Only operational sync state: no source values or Story conclusions.
+    });
 
     const cases = await claim({
       workerId,
