@@ -136,6 +136,22 @@
       "schedule": "43 13 * * *"
     },
     {
+      "path": "/api/cron/research/morning-dossier",
+      "schedule": "20 2 * * *"
+    },
+    {
+      "path": "/api/cron/research/morning-dossier",
+      "schedule": "40 2 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-dossier",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/research/evening-dossier",
+      "schedule": "20 15 * * *"
+    },
+    {
       "path": "/api/cron/research-gap/cycle",
       "schedule": "15 3 * * *"
     },
