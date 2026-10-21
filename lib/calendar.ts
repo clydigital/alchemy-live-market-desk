@@ -1,4 +1,5 @@
 import { getIsmSchedule } from "./ism-forward-schedule.ts";
+import { getOfficialBlsReleaseTables } from "./calendar-official-bls-schedule.ts";
 
 export type CalendarCountry = "United States" | "Canada" | "United Kingdom" | "Euro Area" | "Japan" | "Australia" | "New Zealand";
 export type G7Country = CalendarCountry;
@@ -866,10 +867,22 @@ export function keepUncoveredBlsBackstops(
 }
 
 export async function getEconomicCalendar() {
-  const [blsEvents, deskEvents, ism] = await Promise.all([fetchBlsCalendar(), fetchDeskCalendar(), getIsmSchedule()]);
+  const [blsIcsEvents, officialBlsTables, deskEvents, ism] = await Promise.all([
+    fetchBlsCalendar(), getOfficialBlsReleaseTables(), fetchDeskCalendar(), getIsmSchedule(),
+  ]);
+  const blsFamily = (title: string) => /consumer price index/i.test(title) ? "cpi"
+    : /producer price index/i.test(title) ? "ppi"
+    : /employment situation/i.test(title) ? "employment"
+    : /job openings|jolts/i.test(title) ? "jolts" : null;
+  // Official release tables contain explicit reference periods. When available,
+  // prefer them to iCal date-only entries for the exact same family/day.
+  const blsEvents = [
+    ...blsIcsEvents.filter(ics => !officialBlsTables.some(row =>
+      row.date === ics.date && blsFamily(row.event) === blsFamily(ics.event))),
+    ...officialBlsTables,
+  ];
   const backstops = keepUncoveredBlsBackstops(officialScheduleFallbacks, blsEvents, deskEvents);
-  // The official ISM release calendar belongs to the existing economic-event pipeline;
-  // no forecast, surprise, or System 2 inference is manufactured by these scheduled dates.
+  // No provider forecast, surprise or System 2 inference is manufactured by these dates.
   const allEvents = [...scheduledEvents, ...backstops, ...ism.events, ...blsEvents, ...deskEvents];
   return [...new Map(allEvents.map((event) => [event.id, event])).values()]
     .sort((a, b) => a.date.localeCompare(b.date));
