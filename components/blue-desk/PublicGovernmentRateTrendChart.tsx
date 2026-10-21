@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { marketTrend, type TrendWindow } from "@/lib/market-trend-series";
 import type { PublicGovernmentRateTrend } from "@/lib/blue-desk-public-markets";
 import styles from "./public-government-rate-trend.module.css";
@@ -10,6 +11,13 @@ type Props = { series: PublicGovernmentRateTrend[]; nowIso: string };
 export default function PublicGovernmentRateTrendChart({ series, nowIso }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [window, setWindow] = useState<TrendWindow>("MAX");
+  const router = useRouter();
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
+    const id = globalThis.setInterval(refresh, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { globalThis.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
+  }, [router]);
   const selected = series.find(row=>row.id===selectedId) ?? series[0] ?? null;
   const trend = selected ? marketTrend({points:selected.points,frequency:"daily",type:"Rates"},window,new Date(nowIso)) : null;
   const points = trend?.points ?? [];

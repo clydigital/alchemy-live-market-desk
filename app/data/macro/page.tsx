@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AutoRefreshMacroData from "@/components/live-desk/AutoRefreshMacroData";
 
 import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
@@ -23,6 +24,7 @@ export default async function MacroDataPage() {
       description="Current releases and observations remain separate so mixed evidence is not flattened into one bullish or bearish label."
       meta={`Latest observation: ${formatDeskDate(latestObservation?.observation_date)}`}
     >
+      <AutoRefreshMacroData />
       <div className={styles.grid}>
         <MetricGrid
           items={[
