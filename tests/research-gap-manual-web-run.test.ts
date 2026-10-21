@@ -77,6 +77,7 @@ test("manual web executor closes legacy Dossier-to-Story D7 work before claiming
 
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    syncPriority: async () => null,
     closeLegacyDossierStoryWork: async () => {
       events.push("cleanup");
       return [{
@@ -96,6 +97,42 @@ test("manual web executor closes legacy Dossier-to-Story D7 work before claiming
   assert.equal(response.status, 200);
   assert.equal((await response.json()).status, "empty");
   assert.deepEqual(events, ["cleanup", "claim"]);
+
+test("authenticated Research Gap cycle syncs durable source debt BEFORE claiming; unauthorised cannot sync", async () => {
+  const events: string[] = [];
+  const mockedResult = {
+    contractVersion: "research-gap-lifecycle-sync/1" as const,
+    dossierId: "33333333-3333-4333-8333-333333333333",
+    dossierAsOf: "2026-10-21T07:50:58.851Z",
+    syncedAt: "2026-10-21T10:19:00Z",
+    selectedCount: 1,
+    cases: [],
+  };
+  const response = await handleManualResearchGapWebRun(request(), {
+    authorize,
+    closeLegacyDossierStoryWork: async () => { events.push("cleanup"); return []; },
+    syncPriority: async () => { events.push("sync"); return mockedResult; },
+    claim: async () => { events.push("claim"); return []; },
+    logger: (event) => {
+      if (event.event === "research_gap_queue_synced_before_claim") {
+        events.push("log:" + event.selectedCount);
+      }
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, "empty");
+  assert.deepEqual(events, ["cleanup", "sync", "log:1", "claim"]);
+
+  let called = false;
+  const blocked = await handleManualResearchGapWebRun(request(), {
+    authorize: async () => ({ authorized: false, reason: "unauthorised" } as never),
+    syncPriority: async () => { called = true; return mockedResult; },
+  });
+  assert.equal(blocked.status, 401);
+  assert.equal(called, false, "No queue changes may be made before authentication");
+});
+
+
 });
 
 test("manual one-case executor claims, researches and completes without canonical handoff", async () => {
@@ -105,6 +142,7 @@ test("manual one-case executor claims, researches and completes without canonica
 
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    syncPriority: async () => null,
     closeLegacyDossierStoryWork: async () => [],
     claim: async (input) => {
       assert.deepEqual(input, {
@@ -180,6 +218,7 @@ test("manual executor releases the owned case when web research fails", async ()
 
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    syncPriority: async () => null,
     closeLegacyDossierStoryWork: async () => [],
     claim: async () => [claimed],
     loadContext: async () => ({} as never),
@@ -209,6 +248,7 @@ test("manual executor releases the owned case when web research fails", async ()
 test("manual executor exits cleanly when no Research Gap case is queued", async () => {
   const response = await handleManualResearchGapWebRun(request(), {
     authorize,
+    syncPriority: async () => null,
     closeLegacyDossierStoryWork: async () => [],
     claim: async () => [],
     logger: () => undefined,
