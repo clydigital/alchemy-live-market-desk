@@ -68,7 +68,9 @@ export default async function BlueDeskPage() {
 
   // The established presenter-calendar/1 adapter owns time admission and coverage.
   const calendar = buildPresenterCalendar(macro, earnings, now);
-  const upcoming = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
+  const upcoming7d = selectBlueDeskUpcoming(calendar, now).slice(0, 6);
+  const upcomingFallback = upcoming7d.length ? [] : selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3);
+  const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
 
   return (
     <main className={styles.page} data-blue-desk-convergence="phase-1">
@@ -173,6 +175,13 @@ export default async function BlueDeskPage() {
               </div>
               <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/calendar", host)}>Full calendar →</Link>
             </div>
+            {upcomingFallback.length ? (
+              <p className={styles.coverage}>
+                No scheduled events in the seven-day ET calendar window. Showing
+                the next source-listed events from the 30-day calendar, not
+                confirmed publication times.
+              </p>
+            ) : null}
             {upcoming.length ? upcoming.map(event => (
               <article key={event.id} className={styles.eventRow}>
                 <div className={styles.eventHeading}>
@@ -187,7 +196,7 @@ export default async function BlueDeskPage() {
                 </p>
                 <a className={styles.textLink} href={event.sourceUrl} target="_blank" rel="noreferrer">{event.sourceName} ↗</a>
               </article>
-            )) : <p className={styles.empty}>No upcoming events in this feed.</p>}
+            )) : <p className={styles.empty}>No scheduled events in the next 30 days of the current source coverage.</p>}
             {calendar.sourceHealth.warnings.length ? (
               <p className={styles.coverage}>Source coverage: {calendar.sourceHealth.warnings.join(" ")}</p>
             ) : null}
