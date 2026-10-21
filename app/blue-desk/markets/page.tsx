@@ -63,8 +63,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <p className={styles.kicker}>CROSS-ASSET OBSERVATIONS</p>
             <h1><MarketIcon name="market" size={33} /> Markets</h1>
             <p className={styles.heroDeck}>
-              Source-dated levels and reported session changes. These are market
-              observations, not a causal explanation, trading signal or new Dossier verdict.
+              Observed levels and session changes, with source dates.
             </p>
           </div>
           <div className={styles.calendarClock}>
@@ -72,7 +71,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             <strong className={styles.publicMarketTotal}>
               {monitor ? `${monitor.rows.length} instruments` : "Temporarily unavailable"}
             </strong>
-            <small>Reader projection · source dates are shown on each row</small>
+            <small>Source dates appear alongside prices</small>
           </div>
         </header>
 
@@ -94,7 +93,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="market-group-heading"><MarketIcon name={GROUP_ICONS[group]} size={24} /> {selected.label}</h2>
-              <p>{observations.length} source record{observations.length === 1 ? "" : "s"} displayed</p>
+              <p>{observations.length} instrument{observations.length === 1 ? "" : "s"}</p>
             </div>
           </div>
 
@@ -136,20 +135,14 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
               <h3>Observations unavailable</h3>
               <p className={styles.muted}>
                 {monitor
-                  ? "No source-qualified observations currently appear in this market group."
-                  : "The market monitor could not be retrieved. No prices have been estimated or carried forward as live readings."}
+                  ? "No source-qualified prices for this group."
+                  : "Market data unavailable."}
               </p>
             </div>
           )}
 
           <p className={styles.publicMarketNote}>
-            Session changes require daily-frequency observations. Government-rate
-            changes are in basis points; other reported price changes are percentages.
-            Monthly fallback yields show their last level only. Data may lag live prices.
-          </p>
-          <p className={styles.publicMarketNote}>
-            The source date is the observation vintage, not the time this page loaded.
-            Other public Stories and the calendar retain their own independent publication dates.
+            Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.
           </p>
         </section>
 

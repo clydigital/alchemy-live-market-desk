@@ -80,10 +80,10 @@ export default async function BlueDeskPage() {
             <p className={styles.kicker}><MarketIcon name="market" size={16} /> {feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
             <h1>{feature?.title || newsFeature?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
-              {feature?.deck || newsFeature?.summary || (sourceFact ? "A reported measurement from the frozen publication. Its wider market implications remain unresolved." : "No source-supported public market report is available.")}
+              {feature?.deck || newsFeature?.summary || (sourceFact ? "Source-reported observation; interpretation pending." : "No verified market brief available.")}
             </p>
             <div className={styles.tags}>
-              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : sourceFact ? "FACT ONLY · NOT A STORY VERDICT" : "REVIEW"}</span>
+              <span className={styles.tag}>{feature ? feature.interpretationStatus : newsFeature ? "SOURCE-VERIFIED REPORT" : sourceFact ? "SOURCE FACT · NO INTERPRETATION" : "REVIEW"}</span>
               {(feature || sourceFact) && latest ? <span className={styles.tag}>Edition {latest.id}</span> : null}
             </div>
             <div className={styles.heroFooter}>
@@ -112,7 +112,7 @@ export default async function BlueDeskPage() {
                 </div>
                 <strong>{row.last === null ? "—" : row.last.toFixed(2) + "%"}</strong>
               </div>
-            )) : <p className={styles.empty}>Yield observations currently unavailable.</p>}
+            )) : <p className={styles.empty}>Yield data unavailable.</p>}
             <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
           </aside>
         </section>
@@ -137,8 +137,8 @@ export default async function BlueDeskPage() {
               </article>
             )) : (
               <article className={styles.emptyCard}>
-                <h3>Publication coverage is incomplete</h3>
-                <p>{brief.blockedReason || "No source-grounded Market Brief articles are available in this edition."}</p>
+                <h3>No published stories</h3>
+                <p>{brief.blockedReason || "No published analyses in this edition."}</p>
               </article>
             )}
           </div>
@@ -155,7 +155,7 @@ export default async function BlueDeskPage() {
             </div>
             {verifiedNews.length ? verifiedNews.map(news => (
               <article key={news.id} className={styles.motionRow}>
-                <p className={styles.kicker}>NEWS BRIEF · SOURCE VERIFIED · NO STORY ADJUDICATION</p>
+                <p className={styles.kicker}>VERIFIED NEWS</p>
                 <h3>{news.headline}</h3>
                 <p>{ellipsis(news.summary)}</p>
                 <div className={styles.motionMeta}>
@@ -163,7 +163,7 @@ export default async function BlueDeskPage() {
                   <a href={news.sourceUrl} rel="noreferrer" target="_blank">{news.sourceName} ↗</a>
                 </div>
               </article>
-            )) : <p className={styles.empty}>No source-verified factual News Briefs are available. A quiet feed is not a Regime conclusion.</p>}
+            )) : <p className={styles.empty}>No verified news briefs in this feed.</p>}
           </section>
 
           <section className={styles.secondaryPanel} aria-labelledby="calendar-title">
@@ -187,7 +187,7 @@ export default async function BlueDeskPage() {
                 </p>
                 <a className={styles.textLink} href={event.sourceUrl} target="_blank" rel="noreferrer">{event.sourceName} ↗</a>
               </article>
-            )) : <p className={styles.empty}>No confirmed upcoming events in the seven-day feed. Check source coverage.</p>}
+            )) : <p className={styles.empty}>No upcoming events in this feed.</p>}
             {calendar.sourceHealth.warnings.length ? (
               <p className={styles.coverage}>Source coverage: {calendar.sourceHealth.warnings.join(" ")}</p>
             ) : null}

@@ -144,7 +144,7 @@ test("private Presenter Prep shows evidence, holes and caveats without generatin
   const page=readFileSync(new URL("../app/hybrid-output/prepare/page.tsx",import.meta.url),"utf8");
   assert.match(page,/buildPresenterPrepEditorialReadiness/);
   assert.match(page,/Editorial readiness — PRE-PRODUCTION/);
-  assert.match(page,/NOT ESTABLISHED BY THIS EDITORIAL RECORD/);
+  assert.match(page,/Price reaction unverified/);
   assert.match(page,/No admitted editorial for this exact edition/);
   assert.match(page,/item\.materialChangeAt/);
   assert.match(page,/item\.reporting/);
