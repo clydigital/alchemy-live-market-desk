@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { allowR1MarketsReadOnlyPreview, R1_MARKETS_PREVIEW_BRANCH } from "../lib/blue-desk-r1-preview-access.ts";
+import { allowR1MarketsReadOnlyPreview, allowR1LiveDeskReadOnlyPreview, R1_MARKETS_PREVIEW_BRANCH } from "../lib/blue-desk-r1-preview-access.ts";
 
 const permitted = {
   environment: "preview",
@@ -76,4 +76,36 @@ test("read-only tape still uses the existing canonical market monitor and source
   assert.match(market, /row\.sourceUrl/);
   assert.match(market, /row\.points\.slice\(-42\)/);
   assert.doesNotMatch(page, /"use server"|server action|updateStory|insert\(/);
+});
+
+test("real Live Desk preview is login-free only for the exact read-only owner overview", () => {
+  const overview = { ...permitted, pathname: "/owner/live" };
+  assert.equal(allowR1LiveDeskReadOnlyPreview(overview), true);
+  assert.equal(allowR1LiveDeskReadOnlyPreview({ ...overview, method: "HEAD" }), true);
+  for (const change of [
+    { pathname: "/owner/markets" },
+    { pathname: "/owner/live/private" },
+    { pathname: "/owner/live/" },
+    { pathname: "/hybrid-output/prepare" },
+    { pathname: "/api/research-update" },
+    { pathname: "/api/cron/research/morning" },
+    { pathname: "/blue-desk/newsroom" },
+    { pathname: "/" },
+    { environment: "production" },
+    { environment: undefined },
+    { branch: "main" },
+    { branch: "other/preview" },
+    { requestedHostname: "bluebelly-desk.vercel.app" },
+    { requestedHostname: "alchemy-live-market-desk.vercel.app" },
+    { method: "POST" },
+    { method: "PUT" },
+    { method: "DELETE" },
+  ]) {
+    assert.equal(allowR1LiveDeskReadOnlyPreview({ ...overview, ...change }), false, JSON.stringify(change));
+  }
+  const middleware = readFileSync(new URL("../middleware.ts", import.meta.url), "utf8");
+  assert.match(middleware, /if \(allowR1LiveDeskReadOnlyPreview\(\{/);
+  assert.ok(middleware.indexOf("allowR1LiveDeskReadOnlyPreview({") < middleware.indexOf("getClaims()"));
+  assert.match(middleware, /app_access_allowlist/);
+  assert.match(middleware, /"X-Robots-Tag", "noindex, nofollow, noarchive"/);
 });
