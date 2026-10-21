@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true
+      "main": true,
+      "preview/v7-integrated-r1-20261021": true
     }
   },
   "crons": [
@@ -180,5 +181,5 @@
       "schedule": "25 5 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 1; else exit 0; fi"
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-integrated-r1-20261021\" ]; then exit 1; else exit 0; fi"
 }
