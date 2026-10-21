@@ -125,3 +125,7 @@ test("bounded candidate selection returns no model work when no original proof i
   assert.deepEqual(selectMarketEditorialCandidates({packets:[story()],evidence:[]}),[]);
   assert.equal(selectMarketEditorialCandidates({packets:Array(9).fill(story()),evidence:[proof]}).length,3);
 });
+
+test("explicit zero article budget forbids all editorial candidates",()=>{
+  assert.deepEqual(selectMarketEditorialCandidates({packets:[story()],evidence:[proof],maxArticles:0}),[]);
+});
