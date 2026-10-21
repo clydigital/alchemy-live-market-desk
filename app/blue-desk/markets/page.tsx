@@ -6,7 +6,6 @@ import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernm
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
-  type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -27,26 +26,6 @@ const GROUP_ICONS: Record<string, MarketIconName> = {
   all: "global", ai: "chip", rates: "rates", energy: "oil",
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
-
-function displayLevel(row: PublicMarketObservation) {
-  if (row.last === null) return "Unavailable";
-  const value = row.last.toLocaleString("en-GB", {
-    maximumFractionDigits: Math.abs(row.last) >= 1000 ? 1 : 3,
-  });
-  // Treasury-rate feed values are percentage yields. Other instrument types
-  // keep the source's native numerical scale rather than an inferred unit.
-  return row.type === "Rates" ? `${value}%` : value;
-}
-
-function displayChange(row: PublicMarketObservation) {
-  if (row.change === null) return "Not available";
-  const positive = row.change > 0 ? "+" : "";
-  return `${positive}${row.change.toFixed(2)}${row.changeUnit === "bp" ? " bp" : "%"}`;
-}
-
-function sourceLabel(row: PublicMarketObservation) {
-  return row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable";
-}
 
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
