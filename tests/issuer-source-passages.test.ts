@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   admissibleIssuerDocumentUrl,captureVerifiedIssuerPassages,extractIssuerPassagesFromHtml,
+  diagnoseIssuerHtml,captureVerifiedIssuerPassagesDiagnosed,
 } from "../lib/dossier-v2/issuer-source-passages.ts";
 
 const url="https://pr.tsmc.com/english/news/3346";
@@ -66,4 +67,47 @@ test("incorrect content type, oversized originals and short excerpts fail closed
     const adapter=(async()=>response) as typeof fetch;
     assert.deepEqual(await captureVerifiedIssuerPassages({...capture,fetchImpl:adapter}),[]);
   }
+});
+
+test("adjacent ORIGINAL issuer paragraphs permit genuine two-sentence reporting without invented prose",()=>{
+  const first="The fictional test issuer recorded third-quarter revenue of 46.72 billion in its published consolidated statement.";
+  const second="The release separately specified the prior period and the measurement basis of the revenue figure, without asserting a realised change in its share price.";
+  const html="<html><article><p>"+first+"</p><p>"+second+"</p></article></html>";
+  const result=diagnoseIssuerHtml({...capture,metricValue:46.72,html});
+  assert.equal(result.reason,"CAPTURED");
+  assert.equal(result.passages.length,1);
+  assert.equal(result.passages[0].text,first+" "+second);
+  assert.equal(result.passages[0].sourceUrl,url);
+  assert.equal(result.passages[0].matchedMetric,"46.72");
+  assert.equal(result.passages[0].text.split(". ").length,2);
+});
+test("a short one-sentence original issuer metric is not padded by unrelated webpage furniture",()=>{
+  const html="<html><header><p>The issuer has produced a new company logo, an alert banner, and a navigation bar.</p></header>"+
+    "<p>Operating margin was 58.7 percent.</p>"+
+    "<footer><p>Corporate media enquiries can be made through our public investor relations website.</p></footer></html>";
+  assert.deepEqual(extractIssuerPassagesFromHtml({...capture,html}),[]);
+  assert.equal(diagnoseIssuerHtml({...capture,html}).reason,"NO_ANCHORED_SOURCE_PROSE");
+});
+test("cash-flow tables in millions are diagnosed, not silently converted to model-made prose",()=>{
+  const coreweave={
+    issuer:"CRWV" as const,
+    sourceUrl:"https://investors.coreweave.com/news/news-details/2026/sample/default.aspx",
+    metricValue:6.422,capturedAt:"2026-10-21T06:00:00Z",
+  };
+  const html='<div>(In millions, except per-share data)</div>'+
+    '<table><tr><th>Cash flows from investing</th><th>2026</th></tr>'+
+    '<tr><td>Purchase of property and equipment including software</td><td>(6,422)</td></tr></table>'+
+    '<p>The company reported a separate development across its infrastructure business.</p>';
+  const result=diagnoseIssuerHtml({...coreweave,html});
+  assert.equal(result.reason,"METRIC_IN_TABLE_NOT_VERIFIED");
+  assert.deepEqual(result.passages,[]);
+  assert.deepEqual(extractIssuerPassagesFromHtml({...coreweave,html}),[]);
+});
+test("the diagnosed HTTP collector returns safe reason codes without new sources",async()=>{
+  const failure=await captureVerifiedIssuerPassagesDiagnosed({...capture,
+    fetchImpl:(async()=>{throw new Error("network connection secret error")}) as typeof fetch});
+  assert.equal(failure.reason,"FETCH_FAILED");
+  assert.deepEqual(failure.passages,[]);
+  const badUrl=await captureVerifiedIssuerPassagesDiagnosed({...capture,sourceUrl:"https://evil.example/report"});
+  assert.equal(badUrl.reason,"REJECTED_URL");
 });

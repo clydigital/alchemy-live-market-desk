@@ -349,7 +349,12 @@ async function tryArchiveOriginalIssuerSourcesForBase(
       asOf:base.published_at,
       maxArticles:1,
     });
-    if(candidates.length) await archiveMissingIssuerPassages(candidates);
+    if(candidates.length) {
+      const capture=await archiveMissingIssuerPassages(candidates);
+      if(capture.warnings.length) console.warn(
+        "Optional issuer source capture diagnostics", capture.warnings.slice(0,2).join(", "),
+      );
+    }
   } catch (error) {
     console.warn("Optional base-edition issuer source capture unavailable",
       error instanceof Error?error.name:"unknown");

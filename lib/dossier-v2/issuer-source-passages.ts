@@ -41,32 +41,87 @@ export function admissibleIssuerDocumentUrl(issuer:Issuer,raw:string):string|nul
     return u.href;
   }catch{return null;}
 }
-/** Exact source paragraphs, never authored claims or artificial prose. */
+export type IssuerCaptureReason=
+  |"CAPTURED"|"REJECTED_URL"|"SOURCE_UNAVAILABLE"|"NOT_HTML"
+  |"BODY_UNREADABLE_OR_OVERSIZED"|"NO_ANCHORED_SOURCE_PROSE"
+  |"METRIC_IN_TABLE_NOT_VERIFIED"|"FETCH_FAILED";
+export type IssuerCaptureResult={passages:IssuerSourcePassage[];reason:IssuerCaptureReason};
+
+/** 
+ * Match exact issuer values as printed. A normalised billions value (e.g.
+ * 6.422) is NOT the same source text as a table reported "in millions"
+ * (6,422). Those require separate unit/period adjudication, not a casual
+ * substitution that turns a table row into a verified paragraph.
+ */
+function containsMetric(text:string,metricValue:number):boolean{
+  const variants=[String(metricValue),
+    metricValue.toLocaleString("en-US",{useGrouping:true,maximumFractionDigits:6})];
+  return variants.some(v=>new RegExp("(^|[^\\d])"+v.replace(/[.()*+?^$|[\]\\]/g,"\\$&")+"(?!\\d)").test(text));
+}
+function sourceParagraphs(html:string):string[]{
+  const clean=html
+    .replace(/<!--[\s\S]*?-->/g," ")
+    .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1\s*>/gi," ");
+  return [...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)]
+    .map(m=>normalize(m[1]))
+    .filter(text=>text.length>=20 && text.length<=650 && /[\p{L}]/u.test(text)
+      && !/(?:privacy policy|terms of use|cookie preferences)/i.test(text))
+    .slice(0,120);
+}
+/**
+ * Source prose often uses SHORT, adjacent <p> blocks, including TSMC's
+ * revenue and margin statements. Stitch at most two adjoining ORIGINAL
+ * blocks verbatim. Do not author a connecting sentence or infer a price
+ * reaction; source span and retrieval time remain attached to the same URL.
+ *
+ * Financial tables are intentionally excluded: metric magnitude, currency,
+ * reporting period and sign need reconciliation with the header and row.
+ */
 export function extractIssuerPassagesFromHtml(input:{
   html:string;issuer:Issuer;sourceUrl:string;metricValue:number;capturedAt:string;
 }):IssuerSourcePassage[] {
   const url=admissibleIssuerDocumentUrl(input.issuer,input.sourceUrl);
   if(!url||!Number.isFinite(input.metricValue)||!Number.isFinite(Date.parse(input.capturedAt))
     ||input.html.length>MAX_HTML_BYTES)return[];
-  const clean=input.html
-    .replace(/<!--[\s\S]*?-->/g," ")
-    .replace(/<(script|style|noscript|svg|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1\s*>/gi," ");
-  const variants=[
-    String(input.metricValue),
-    input.metricValue.toLocaleString("en-US",{useGrouping:true,maximumFractionDigits:6}),
-  ];
+  const paragraphs=sourceParagraphs(input.html);
   const seen=new Set<string>();
-  return [...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p\s*>/gi)]
-    .flatMap(hit=>{
-      const text=normalize(hit[1]);
-      if(text.length<160||text.length>720||sentences(text)<2
-        ||!/[\p{L}]/u.test(text)||/(?:privacy policy|terms of use|cookie preferences)/i.test(text)
-        ||!variants.some(v=>new RegExp("(^|[^\\d])"+v.replace(/[.()*+?^$|[\]\\]/g,"\\$&")+"(?!\\d)").test(text))
-        ||seen.has(text))return[];
-      seen.add(text);
-      return [{text,sourceUrl:url,capturedAt:new Date(input.capturedAt).toISOString(),
-        matchedMetric:String(input.metricValue)}];
-    }).slice(0,MAX_PASSAGES);
+  const seenAnchors=new Set<string>();
+  const out:IssuerSourcePassage[]=[];
+  for(let i=0;i<paragraphs.length;i++){
+    const anchored=paragraphs[i];
+    if(!containsMetric(anchored,input.metricValue)||seenAnchors.has(anchored))continue;
+    const alternatives=[
+      anchored,
+      ...(i>0?[paragraphs[i-1]+" "+anchored]:[]),
+      ...(i+1<paragraphs.length?[anchored+" "+paragraphs[i+1]]:[]),
+    ];
+    const passage=alternatives.find(x=>x.length>=160&&x.length<=720
+      &&sentences(x)>=2&&!seen.has(x));
+    if(!passage)continue;
+    seenAnchors.add(anchored);
+    seen.add(passage);
+    out.push({text:passage,sourceUrl:url,
+      capturedAt:new Date(input.capturedAt).toISOString(),
+      matchedMetric:String(input.metricValue)});
+    if(out.length>=MAX_PASSAGES)break;
+  }
+  return out;
+}
+export function diagnoseIssuerHtml(input:{
+  html:string;issuer:Issuer;sourceUrl:string;metricValue:number;capturedAt:string;
+}):IssuerCaptureResult {
+  const passages=extractIssuerPassagesFromHtml(input);
+  if(passages.length)return{passages,reason:"CAPTURED"};
+  // A financial table with a different magnitude is a positive discovery of
+  // an extraction limitation, NOT valid factual paragraphs. Keep it a HOLD.
+  const scaled=Number((input.metricValue*1000).toFixed(4));
+  if(Number.isFinite(scaled) && scaled!==input.metricValue
+    && /\b(?:in millions|in thousands)\b/i.test(normalize(input.html))
+    && /<t(?:able|r|d|h)\b/i.test(input.html)
+    && containsMetric(normalize(input.html),scaled)){
+    return{passages:[],reason:"METRIC_IN_TABLE_NOT_VERIFIED"};
+  }
+  return{passages:[],reason:"NO_ANCHORED_SOURCE_PROSE"};
 }
 async function boundedHtml(response:Response):Promise<string|null> {
   const type=response.headers.get("content-type")||"";
@@ -93,26 +148,31 @@ async function boundedHtml(response:Response):Promise<string|null> {
  * No redirects, credentials, proxy or arbitrary-URL scraper.
  * Failure returns no extra passages and cannot block issuer metric Evidence.
  */
-export async function captureVerifiedIssuerPassages(input:{
+export async function captureVerifiedIssuerPassagesDiagnosed(input:{
   issuer:Issuer;sourceUrl:string;metricValue:number;capturedAt:string;
-  fetchImpl?:typeof fetch;
-  now?:()=>Date;
-}):Promise<IssuerSourcePassage[]> {
+  fetchImpl?:typeof fetch;now?:()=>Date;
+}):Promise<IssuerCaptureResult> {
   const url=admissibleIssuerDocumentUrl(input.issuer,input.sourceUrl);
-  if(!url)return[];
+  if(!url)return{passages:[],reason:"REJECTED_URL"};
   try{
     const response=await (input.fetchImpl??fetch)(url,{
       headers:{accept:"text/html", "user-agent":"AlchemyMarketsResearch/1.0 source-provenance-capture"},
       cache:"no-store",redirect:"error",signal:AbortSignal.timeout(TIMEOUT_MS),
     });
-    if(!response.ok||response.url!==url)return[];
+    if(!response.ok||response.url!==url)return{passages:[],reason:"SOURCE_UNAVAILABLE"};
+    if(!/\btext\/html\b/i.test(response.headers.get("content-type")||""))
+      return{passages:[],reason:"NOT_HTML"};
     const html=await boundedHtml(response);
-    if(!html)return[];
-    // Stamp receipt AFTER successful network acquisition. The issuer
-    // release date alone is not an as-of receipt for a newly fetched passage.
-    return extractIssuerPassagesFromHtml({
-      ...input,html,sourceUrl:url,
-      capturedAt:(input.now?.()??new Date()).toISOString(),
-    });
-  }catch{return[];}
+    if(!html)return{passages:[],reason:"BODY_UNREADABLE_OR_OVERSIZED"};
+    return diagnoseIssuerHtml({...input,html,sourceUrl:url,
+      capturedAt:(input.now?.()??new Date()).toISOString()});
+  }catch{return{passages:[],reason:"FETCH_FAILED"};}
+}
+/** Backwards-compatible bounded result for the existing verified issuer intake. */
+export async function captureVerifiedIssuerPassages(input:{
+  issuer:Issuer;sourceUrl:string;metricValue:number;capturedAt:string;
+  fetchImpl?:typeof fetch;now?:()=>Date;
+}):Promise<IssuerSourcePassage[]> {
+  const result=await captureVerifiedIssuerPassagesDiagnosed(input);
+  return result.passages;
 }
