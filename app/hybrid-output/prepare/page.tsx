@@ -12,6 +12,7 @@ import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import { presenterDossierEditionContextFromPayload } from "@/lib/presenter-dossier-edition-context";
 import { buildPresenterPrepSourceProjection } from "@/lib/presenter-prep-source-projection";
+import { buildPresenterPrepEditorialReadiness } from "@/lib/presenter-prep-editorial-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,20 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
   const focusedMotionId = explicitFocusedMotion?.motionId ?? (focusedStoryId
     ? projection.motions.find((motion) => motion.storyId === focusedStoryId)?.motionId ?? null
     : null);
+  // Only edition-pinned, independently admitted editorial records may enter
+  // the private PRE-PRODUCTION view; no models or live Evidence lookups.
+  const editorialReadiness = buildPresenterPrepEditorialReadiness({
+    presenterStatus: projection.status,
+    pinned: projection.pinned
+      ? { editionId: projection.pinned.editionId, publishedAt: projection.pinned.publishedAt }
+      : null,
+    selectedEdition: selectedSnapshot
+      ? { id: selectedSnapshot.id, publishedAt: selectedSnapshot.published_at,
+          supersedesSnapshotId: selectedSnapshot.supersedes_snapshot_id,
+          payload: selectedSnapshot.payload }
+      : null,
+    focusedStoryId,
+  });
 
   return (
     <LiveDeskShell activePath="/hybrid-output/prepare"
@@ -136,6 +151,68 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
               </p>
             ) : null}
             <p><Link className={styles.link} href={projection.journeyHref!}>Open this edition in Hybrid Journey →</Link></p>
+          </Panel>
+
+          <Panel title="Editorial readiness — PRE-PRODUCTION"
+            description="Only original-source editorial already frozen into this exact Journey edition. No new Story verdict, measured reaction or publication approval is inferred."
+            action={<Badge tone={editorialReadiness.status === "HAS_EDITORIAL" ? "ready" : "warn"}>
+              {editorialReadiness.status === "HAS_EDITORIAL" ? editorialReadiness.items.length + " ARTICLE RECORDS" : "NO ADMITTED ARTICLE"}
+            </Badge>}>
+            {editorialReadiness.status === "HAS_EDITORIAL" ? (
+              <div className={styles.recordList}>
+                {editorialReadiness.items.map((item) => (
+                  <article key={item.storyId} className={styles.record}>
+                    <div className={styles.recordHeader}>
+                      <div>
+                        <span className={styles.kicker}>
+                          {focusedStoryId === item.storyId ? "FOCUSED STORY · " : ""}
+                          {item.kind === "FULL_ARTICLE" ? "V2 FULL ARTICLE" :
+                            item.kind === "FACTUAL_BRIEF" ? "SOURCE-BACKED SHORT BRIEF" : "DEVELOPING · NOT READY"}
+                        </span>
+                        <h3>{item.headline}</h3>
+                      </div>
+                      <Badge tone={item.kind === "DEVELOPING" ? "warn" : "ready"}>{item.kind}</Badge>
+                    </div>
+                    <p className={styles.meta}>
+                      Source edition as-of: {formatDeskDate(item.asOf)}
+                      {" · "}{item.materialChangeAt
+                        ? "Last material Story change: " + formatDeskDate(item.materialChangeAt)
+                        : "Continuing Story context; no new material change claimed"}
+                    </p>
+                    <p className={styles.meta}>
+                      {item.reporting.length} source-backed reporting passage(s) · {item.implications.length} frozen interpretation passage(s)
+                    </p>
+                    {item.reporting.slice(0, 5).map((claim, index) => (
+                      <div key={item.storyId + "-fact-" + index}>
+                        <p>{claim.text}</p>
+                        <p className={styles.meta}>
+                          Original: <a href={claim.sourceUrl} target="_blank" rel="noopener noreferrer">{claim.sourceName}</a>
+                          {" · "}{claim.availableAt ? "Source available " + formatDeskDate(claim.availableAt)
+                            : "Claim timing beyond edition as-of is not independently asserted"}
+                        </p>
+                      </div>
+                    ))}
+                    {item.implications.slice(0, 5).map((passage, index) => (
+                      <p key={item.storyId + "-impact-" + index}>
+                        <strong>{passage.basis === "HISTORICAL_CONTEXT" || passage.basis === "CONTEXT_ONLY"
+                          ? "Historical interpretation" : passage.basis === "CONDITIONAL"
+                            ? "Conditional market implication" : "Frozen canonical interpretation"}:</strong>{" "}
+                        {passage.text}
+                      </p>
+                    ))}
+                    <p className={styles.meta}>
+                      Observed market reaction: NOT ESTABLISHED BY THIS EDITORIAL RECORD.
+                      Check separately timestamped market data before presenting realised price moves.
+                    </p>
+                    {item.gaps.map((gap) => <p key={gap} className={styles.meta}>Needs checking: {gap}</p>)}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <DataState title="No admitted editorial for this exact edition"
+                detail="This is not evidence that original-source research is absent. Article composition may not have run or may have failed the admission gate. Use the frozen Story, Dossier and Research Gap sections below; do not borrow an article from a newer edition."
+                state="warn" />
+            )}
           </Panel>
 
           <Panel title="What to cover"
