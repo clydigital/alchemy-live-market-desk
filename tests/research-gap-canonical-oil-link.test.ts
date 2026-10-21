@@ -132,6 +132,6 @@ test("live route queries ONLY trade-date-stamped canonical receipts and reuses f
   assert.match(s, /contains\("structured_payload", \{ signalKind: "official_futures_settlement_pair" \}\)/);
   assert.match(s, /verifiedCanonicalOilPair\(proof, benchmark, new Date\(\)\)/);
   assert.match(s, /canonicalOilPairAssessments\(\s*gap\.research_plan, sourceVerifiedOilReceipts\)/);
-  assert.match(s, /const evaluatedEvidence = \[\.\.\.modelEvidence, \.\.\.automaticallyLinkedOil\]/);
+  assert.match(s, /const evaluatedEvidence = \[\.\.\.automaticallyLinkedOil, \.\.\.modelEvidence\]/);
   assert.doesNotMatch(s, /from\("story_thesis_versions"\)/);
 });
