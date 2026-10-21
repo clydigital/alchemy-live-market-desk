@@ -111,3 +111,32 @@ test("the diagnosed HTTP collector returns safe reason codes without new sources
   const badUrl=await captureVerifiedIssuerPassagesDiagnosed({...capture,sourceUrl:"https://evil.example/report"});
   assert.equal(badUrl.reason,"REJECTED_URL");
 });
+
+test("CoreWeave original quarterly HTML may exceed generic 240KB yet is capped at 512KB",async()=>{
+  const original="https://investors.coreweave.com/news/news-details/2026/sample/default.aspx";
+  const issuer={issuer:"CRWV" as const,sourceUrl:original,metricValue:6.422,capturedAt:"2026-10-21T06:00:00Z"};
+  const prose="<p>Operating cash flow was tracked as a separate financial reporting measurement rather than a change in share price.</p>";
+  const table="<table><tr><th>In millions</th></tr><tr><td><p>Purchases of property and equipment including internal software were 6,422 in 2026 for this accounting statement. The following report describes capital expenditure in units used by the table.</p></td></tr></table>";
+  const html="<html>"+prose+table+"<div>"+" ".repeat(300_000)+"</div></html>";
+  assert.ok(html.length>240_000&&html.length<512_000);
+  const raw=extractIssuerPassagesFromHtml({...issuer,html});
+  assert.deepEqual(raw,[],"table-origin text is not a legitimate issuer narrative paragraph");
+  const response=new Response(html,{headers:{"content-type":"text/html","content-length":String(html.length)}});
+  Object.defineProperty(response,"url",{value:original});
+  const fetchImpl=(async()=>response) as typeof fetch;
+  const result=await captureVerifiedIssuerPassagesDiagnosed({...issuer,fetchImpl});
+  assert.equal(result.reason,"METRIC_IN_TABLE_NOT_VERIFIED");
+  assert.deepEqual(result.passages,[]);
+});
+test("512KB is a strict hard cap only for approved CoreWeave issuer URLs",async()=>{
+  const issuer={issuer:"CRWV" as const,
+    sourceUrl:"https://investors.coreweave.com/news/news-details/2026/sample/default.aspx",
+    metricValue:6.422,capturedAt:"2026-10-21T06:00:00Z"};
+  const huge=new Response("<html><p>6.422 cash purchases. This second sentence covers the fiscal period.</p></html>",
+    {headers:{"content-type":"text/html","content-length":"512001"}});
+  Object.defineProperty(huge,"url",{value:issuer.sourceUrl});
+  const result=await captureVerifiedIssuerPassagesDiagnosed({...issuer,
+    fetchImpl:(async()=>huge) as typeof fetch});
+  assert.equal(result.reason,"BODY_UNREADABLE_OR_OVERSIZED");
+  assert.deepEqual(result.passages,[]);
+});
