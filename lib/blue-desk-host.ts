@@ -7,7 +7,7 @@ export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app"
  * It inherits the Bluebelly public read-only allowlist and 404 for every
  * other path, including all API, cron and owner routes.
  */
-const V7_QA_PREVIEW_READER_HOST = "alchemy-live-market-desk-ackcuhtwj-rogue-magazine.vercel.app";
+const V7_QA_PREVIEW_READER_HOST = "alchemy-live-market-desk-git-preview-v7-m-f776af-rogue-magazine.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
