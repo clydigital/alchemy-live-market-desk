@@ -111,7 +111,7 @@ function normaliseUrl(value: string) {
   return parsed.toString();
 }
 
-export function parseFeed(xml: string): FeedEntry[] {
+function parseFeed(xml: string): FeedEntry[] {
   if (!/<(rss|feed)\b/i.test(xml)) throw new Error("The response was not an RSS or Atom feed.");
   const blocks = [
     ...[...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map((match) => ({ body: match[1], atom: false })),
