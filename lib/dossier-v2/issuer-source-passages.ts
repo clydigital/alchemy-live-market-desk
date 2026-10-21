@@ -85,10 +85,11 @@ export function extractIssuerPassagesFromHtml(input:{
     ||input.html.length>MAX_HTML_BYTES)return[];
   const paragraphs=sourceParagraphs(input.html);
   const seen=new Set<string>();
+  const seenAnchors=new Set<string>();
   const out:IssuerSourcePassage[]=[];
   for(let i=0;i<paragraphs.length;i++){
     const anchored=paragraphs[i];
-    if(!containsMetric(anchored,input.metricValue))continue;
+    if(!containsMetric(anchored,input.metricValue)||seenAnchors.has(anchored))continue;
     const alternatives=[
       anchored,
       ...(i>0?[paragraphs[i-1]+" "+anchored]:[]),
@@ -97,6 +98,7 @@ export function extractIssuerPassagesFromHtml(input:{
     const passage=alternatives.find(x=>x.length>=160&&x.length<=720
       &&sentences(x)>=2&&!seen.has(x));
     if(!passage)continue;
+    seenAnchors.add(anchored);
     seen.add(passage);
     out.push({text:passage,sourceUrl:url,
       capturedAt:new Date(input.capturedAt).toISOString(),
