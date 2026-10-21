@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { MarketMonitorRow } from "@/lib/market-monitor";
 import { marketTrend, type TrendWindow } from "@/lib/market-trend-series";
 import styles from "./market-trend-chart.module.css";
@@ -27,13 +28,22 @@ function displayValue(value: number, rate: boolean) {
   }) + (rate ? "%" : "");
 }
 function displayChange(value: number | null, unit: string) {
-  return value === null ? "Insufficient history" : (value > 0 ? "+" : "") + value.toFixed(2) + unit;
+  return value === null ? "Insufficient history" : (value > 0 ? "+" : "") + value.toFixed(2) + " " + unit;
 }
 
 /** Display chart only for actual dated source points already admitted to
  * MarketMonitor. A disabled/no-history state is intentional, not zero data. */
 export default function MarketTrendChart({ rows, selectedId, onSelect, nowIso }: Props) {
   const [window, setWindow] = useState<TrendWindow>("MAX");
+  const router = useRouter();
+  // Re-fetch current source observations automatically for an open market
+  // terminal. The server remains the only data collector/cache owner.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
+    const id = window.setInterval(refresh, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
+  }, [router]);
   const selected = rows.find(row => row.id === selectedId)
     ?? rows.find(row => row.id === "spx" && row.points.length >= 2)
     ?? rows.find(row => row.points.length >= 2)
@@ -77,9 +87,7 @@ export default function MarketTrendChart({ rows, selectedId, onSelect, nowIso }:
     </header>
     {selected && trend ? <>
       <div className={styles.summary}>
-        <div><span>LAST OBSERVATION</span><strong>{selected.last === null
-          ? latest ? displayValue(latest.close, rate) : "—"
-          : displayValue(selected.last, rate)}</strong>
+        <div><span>LATEST PLOTTED</span><strong>{latest ? displayValue(latest.close, rate) : "—"}</strong>
           <small>{trend.sourceDate ?? "Source date unavailable"}</small></div>
         <div><span>PERIOD CHANGE</span><strong data-tone={delta === null ? "flat" : delta > 0 ? "up" : delta < 0 ? "down" : "flat"}>
           {displayChange(delta, trend.netChangeUnit)}</strong><small>From the first plotted observation</small></div>
