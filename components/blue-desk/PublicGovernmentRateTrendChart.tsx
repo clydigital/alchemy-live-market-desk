@@ -14,9 +14,9 @@ export default function PublicGovernmentRateTrendChart({ series, nowIso }: Props
   const router = useRouter();
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
-    const id = window.setInterval(refresh, 5 * 60 * 1000);
+    const id = globalThis.setInterval(refresh, 5 * 60 * 1000);
     document.addEventListener("visibilitychange", refresh);
-    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
+    return () => { globalThis.clearInterval(id); document.removeEventListener("visibilitychange", refresh); };
   }, [router]);
   const selected = series.find(row=>row.id===selectedId) ?? series[0] ?? null;
   const trend = selected ? marketTrend({points:selected.points,frequency:"daily",type:"Rates"},window,new Date(nowIso)) : null;
