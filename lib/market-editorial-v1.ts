@@ -147,6 +147,33 @@ function safeParagraphs(value: unknown, candidate: EditorialCandidate): Editoria
   }
   return ROLES.flatMap(role=>result.filter(p=>p.role===role));
 }
+/**
+ * If the model omitted or lost its factual opening during validation, retain
+ * one exact, already-admitted primary-source claim. Never paraphrase it,
+ * invent an event time, infer market reaction, or use the lesson-wide pool.
+ * A quiet edition remains continuing context (materialChangeAt stays null).
+ *
+ * This source-verified opening does NOT satisfy V7's separate 3-5 factual /
+ * 2-5 interpretation full-article standard. It is a short-form v1 brief only.
+ */
+function exactSourceOpening(candidate: EditorialCandidate): EditorialParagraph | null {
+  const fact = candidate.facts.find((f) => {
+    const text = f.text.trim();
+    if (text.length < 30 || text.length > 720 || PROCESS.test(text) || OPERATIONAL.test(text)) return false;
+    // Reject a statement made available after the frozen editorial as-of,
+    // including a malformed or future-dated synthetic candidate.
+    return Number.isFinite(Date.parse(f.availableAt))
+      && Date.parse(f.availableAt) <= Date.parse(candidate.packet.asOf)
+      && Boolean(validUrl(f.sourceUrl));
+  });
+  if (!fact) return null;
+  return {
+    role:"development", text:fact.text.trim(),
+    evidenceIds:UUID.test(fact.factId) ? [fact.factId] : [],
+    sourceUrls:[fact.sourceUrl],evidenceState:"SOURCE_VERIFIED",
+  };
+}
+
 export function validateMarketEditorialOutput(raw: unknown, candidates: readonly EditorialCandidate[]): MarketEditorialArticleV1[] {
   if (!raw || typeof raw!=="object" || Array.isArray(raw)) return [];
   const entries=(raw as Record<string,unknown>).articles;
@@ -160,7 +187,9 @@ export function validateMarketEditorialOutput(raw: unknown, candidates: readonly
     const candidate=lookup.get(fingerprint);
     if (!candidate||seen.has(fingerprint)) return [];
     seen.add(fingerprint);
-    const paragraphs=safeParagraphs(r.paragraphs,candidate);
+    const admitted=safeParagraphs(r.paragraphs,candidate);
+    const opening=admitted.some(p=>p.role==="development") ? null : exactSourceOpening(candidate);
+    const paragraphs=opening ? [opening,...admitted] : admitted;
     if (!paragraphs.length) return [];
     const first=paragraphs.some(p=>p.role==="development");
     const market=paragraphs.some(p=>p.role==="markets");
