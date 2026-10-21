@@ -1037,7 +1037,7 @@ test("rates-led energy placeholder never inherits an AI link or semiconductor me
   assert.deepEqual(rows[2].linked_investigations, []);
   assert.deepEqual(rows[2].blocking_evidence, []);
   assert.ok(!rows[2].action.includes("Recover original dated FINAL"));
-  assert.ok(rows[1].linked_stories.includes("story:ai-narrow-lead"));
+  assert.ok(rows[1].linked_stories.includes("story:selective-hy-widening"), "First matching credit task retains its source identity");
   assert.ok(!rows[2].blocking_evidence.includes("market-monitor:smh"));
 });
 
