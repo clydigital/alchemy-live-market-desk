@@ -11,7 +11,7 @@ export const BLS_TREND_SERIES = [
   { key:"_cpi_core_nsa",id:"CUUR0000SA0L1E",label:"",unit:"",kind:"comparison" },
   { key:"_ppi_nsa",id:"WPUFD4",label:"",unit:"",kind:"comparison" },
 ] as const;
-type BlsPoint={year:string;period:string;value:string};
+type BlsPoint={year:string;period:string;value:string;footnotes?:Array<{code?:string;text?:string|null}>};
 type BlsPayload={status?:string;Results?:{series?:Array<{seriesID:string;data?:BlsPoint[]}>}};
 export type MacroTrendRecord={
   id:string;series_key:string;series_id:string;series_name:string;
@@ -78,7 +78,12 @@ export function officialBlsTrendRecords(payload:BlsPayload,now:Date):MacroTrendR
         observation_date:period+"-01",value:level,mom_change:change,
         yoy_change:yOy,unit:spec.unit,frequency:"Monthly",
         source_url:"https://data.bls.gov/timeseries/"+spec.id,
-        is_preliminary:spec.key==="ppi_final_demand",
+        // Preserve the actual BLS period footnote; an old PPI month is
+        // not "preliminary" merely because the series can be revised.
+        is_preliminary:Boolean(payload.Results.series
+          .find(x=>x.seriesID===spec.id)?.data?.find(x=>
+            x.year===period.slice(0,4)&&x.period==="M"+period.slice(5))
+          ?.footnotes?.some(x=>x.code==="P"||/preliminary/i.test(x.text??""))),
         notes:"Official BLS Public Data API v2, checked "+now.toISOString().slice(0,10)+
           ". Historic vintages and subsequent revisions are not reconstructed.",
       });
@@ -117,6 +122,11 @@ export async function collectOfficialMacroTrendHistory(
       latestBySeries[row.series_key]=row.observation_date;
     const coveredSeries=Object.keys(latestBySeries).sort();
     if(coveredSeries.length<4)warnings.push("BLS_TREND_REQUIRED_SERIES_MISSING");
+    for(const [seriesKey,latestDate] of Object.entries(latestBySeries)){
+      const lastMonth=Date.parse(latestDate+"T00:00:00Z");
+      if(!Number.isFinite(lastMonth)||now.getTime()-lastMonth>75*86400000)
+        warnings.push("BLS_TREND_STALE:"+seriesKey);
+    }
     return {status:warnings.length?"DEGRADED":"READY",checkedAt:now.toISOString(),
       source:"BLS_PUBLIC_DATA_API",receivedSeries,eligibleRecords:records.length,
       insertedRecords,coveredSeries,latestBySeries,warnings};
