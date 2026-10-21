@@ -85,6 +85,7 @@ export function selectMarketEditorialCandidates(input: {
   packets: readonly MarketImpactPacketV1[]; evidence: readonly EditorialEvidence[]; maxArticles?: number;
 }): EditorialCandidate[] {
   const max = Math.min(3,Math.max(0,input.maxArticles ?? 3));
+  if (max === 0) return [];
   const result: EditorialCandidate[] = [];
   for (const packet of input.packets) {
     if (packet.contractVersion !== "market-impact-packet/1"
