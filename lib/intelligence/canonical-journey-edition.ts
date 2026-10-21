@@ -349,12 +349,11 @@ async function tryArchiveOriginalIssuerSourcesForBase(
       asOf:base.published_at,
       maxArticles:1,
     });
-    if(candidates.length) {
-      const capture=await archiveMissingIssuerPassages(candidates);
-      if(capture.warnings.length) console.warn(
-        "Optional issuer source capture diagnostics", capture.warnings.slice(0,2).join(", "),
-      );
-    }
+    const capture=candidates.length
+      ? await archiveMissingIssuerPassages(candidates)
+      : {attempted:0,archived:0,warnings:["NO_SOURCE_QUALIFIED_CANDIDATE"]};
+    console.info(JSON.stringify({event:"editorial_source_capture_base",candidateCount:candidates.length,
+      attempted:capture.attempted,archived:capture.archived,reasons:capture.warnings.slice(0,2)}));
   } catch (error) {
     console.warn("Optional base-edition issuer source capture unavailable",
       error instanceof Error?error.name:"unknown");
