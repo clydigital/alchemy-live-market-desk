@@ -3,11 +3,11 @@ import { runStructuredStage } from "@/lib/intelligence/openai";
 import { buildMarketImpactPacketsV1, type MarketImpactPacketV1 } from "@/lib/market-impact-packet";
 import {
   MARKET_EDITORIAL_V1, selectMarketEditorialCandidates, validateMarketEditorialOutput,
-  type EditorialEvidence, type MarketEditorialArticleV1, type ModelEditorialOutput,
+  type EditorialEvidence, type EditorialCandidate, type MarketEditorialArticleV1, type ModelEditorialOutput,
 } from "@/lib/market-editorial-v1";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-const EDITORIAL_SCHEMA = {
+export const EDITORIAL_SCHEMA = {
   type:"object", additionalProperties:false, required:["articles"],
   properties:{ articles:{ type:"array", items:{
     type:"object",additionalProperties:false,required:["fingerprint","paragraphs"],
@@ -25,7 +25,7 @@ const EDITORIAL_SCHEMA = {
     },
   }}},
 };
-const INSTRUCTIONS = [
+export const EDITORIAL_INSTRUCTIONS = [
   "You are an Alchemy Markets client-facing editorial formatter, not a second reasoning engine.",
   "Write in the LY voice: British English, plain words, concise causal explanations, no hype or artificial suspense.",
   "Use only the supplied frozen editorial packets and first-tier sourced facts. No internet, price estimates, invented events, source IDs or assumed observed market moves.",
@@ -59,9 +59,22 @@ function asSource(row: SourceRow) { return Array.isArray(row.source) ? row.sourc
  * It cannot modify canonical Story/Regime rows and never runs at page render.
  * Failure leaves the existing frozen base edition intact.
  */
-export async function composeFrozenMarketEditorial(input: {
+export function editorialCandidateModelInput(c: EditorialCandidate): Record<string, unknown> {
+  return {
+    fingerprint:c.fingerprint,kind:c.packet.kind,
+    headline:c.packet.headline,storyLineage:c.packet.identity.lineage,
+    lastMaterialChangeAt:c.packet.materialChangeAt,
+    development:c.packet.development.basis==="CANONICAL_CLAIM" ? c.packet.development.text : null,
+    verifiedFacts:c.facts,acceptedMechanism:c.packet.mechanism,
+    marketEffects:c.packet.assetReadThroughs,countercase:c.packet.countercase,
+    nextTest:c.packet.nextTest,noObservedMarketTape:true,
+  };
+}
+
+/** Read-only source admission. Never calls a model or changes canonical state. */
+export async function prepareFrozenMarketEditorial(input: {
   editionPayload:Record<string,unknown>; asOf:string; maxArticles?:number;
-}): Promise<{ contractVersion:typeof MARKET_EDITORIAL_V1; articles:MarketEditorialArticleV1[]; warnings:string[] }> {
+}): Promise<EditorialCandidate[]> {
   const packets=Array.isArray(input.editionPayload.marketImpactPackets)
     ? input.editionPayload.marketImpactPackets as MarketImpactPacketV1[]
     : buildMarketImpactPacketsV1({payload:input.editionPayload,asOf:input.asOf});
@@ -89,24 +102,22 @@ export async function composeFrozenMarketEditorial(input: {
   const candidates=selectMarketEditorialCandidates({
     packets:limited,evidence,maxArticles:input.maxArticles ?? 3,
   });
+  return candidates;
+}
+
+/** Quiet editions may spend their unused one-model-stage slot on sourced copy. */
+export async function composeFrozenMarketEditorial(input: {
+  editionPayload:Record<string,unknown>; asOf:string; maxArticles?:number;
+}): Promise<{ contractVersion:typeof MARKET_EDITORIAL_V1; articles:MarketEditorialArticleV1[]; warnings:string[] }> {
+  const candidates = await prepareFrozenMarketEditorial(input);
   if (!candidates.length) return {
     contractVersion: MARKET_EDITORIAL_V1,articles:[],
     warnings:["No article qualified with a dated original-source factual claim at this edition."],
   };
   const response=await runStructuredStage<ModelEditorialOutput>({
     stageKey:"market_editorial_composer",
-    instructions:INSTRUCTIONS,
-    input:{asOf:input.asOf,candidates:candidates.map(c=>({
-      fingerprint:c.fingerprint,kind:c.packet.kind,
-      headline:c.packet.headline,storyLineage:c.packet.identity.lineage,
-      lastMaterialChangeAt:c.packet.materialChangeAt,
-      development:c.packet.development.basis==="CANONICAL_CLAIM" ? c.packet.development.text : null,
-      verifiedFacts:c.facts,
-      acceptedMechanism:c.packet.mechanism,
-      marketEffects:c.packet.assetReadThroughs,
-      countercase:c.packet.countercase,nextTest:c.packet.nextTest,
-      noObservedMarketTape:true,
-    }))},
+    instructions:EDITORIAL_INSTRUCTIONS,
+    input:{asOf:input.asOf,candidates:candidates.map(editorialCandidateModelInput)},
     schema:EDITORIAL_SCHEMA,modelKind:"fast",maxOutputTokens:2500,
     requestTimeoutMs:16_000,maxAttempts:1,
   });
