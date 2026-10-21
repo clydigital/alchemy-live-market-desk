@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { MarketIcon, type MarketIconName } from "./MarketIcon";
 import { headers } from "next/headers";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 
@@ -27,6 +28,20 @@ const PUBLIC_NAV = [
   ["Calendar", "/calendar"],
 ] as const;
 
+const NAV_ICONS: Record<string, MarketIconName> = {
+  "Live Market": "market",
+  "Markets": "chart",
+  "Deep Dive": "deep-dive",
+  "Research": "research",
+  "Data Library": "library",
+  "Presenter Prep": "studio",
+  "Calendar": "calendar",
+  "Learn": "learn",
+  "Key Stories": "layers",
+  "Rates": "rates",
+  "What Changed": "divergence",
+};
+
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
@@ -45,7 +60,8 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
             aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? "page" : undefined}
             className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? styles.navActive : styles.navItem}
           >
-            {title}
+            <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />
+            <span>{title}</span>
           </Link>
         ))}
       </nav>
