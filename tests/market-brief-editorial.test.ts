@@ -272,6 +272,13 @@ test("V7 admits long-form sections only from three primary facts and two adjudic
   assert.ok(ready.editorial.sections.reporting.every(p => p.originalUrls[0]?.startsWith("https://issuer.example.com/results/")));
   assert.equal(ready.editionId, "edition-1");
   assert.equal(ready.contractVersion, "market-brief-article/1", "Legacy article identity and contract are unchanged");
+  const reused = buildEditorialBrief(packageOf([{ ...accepted,
+    paragraphs: accepted.paragraphs.map((paragraph, i) => i === 2
+      ? { ...paragraph, canonicalEvidenceIds: [ids[1]] } : paragraph),
+  }]), sources).articles[0];
+  assert.equal(reused.editorial.sections.recommendedFormat, "FACTUAL_BRIEF");
+  assert.equal(reused.editorial.sections.reporting.length, 2,
+    "One original-source evidence claim may not inflate several reporting paragraphs");
 
   const unresolved = buildEditorialBrief(packageOf([{ ...accepted,
     interpretationStatus: "UNRESOLVED",
