@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
 import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget } from "@/lib/blue-desk-host";
+import { allowR1MarketsReadOnlyPreview } from "@/lib/blue-desk-r1-preview-access";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
   return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -74,6 +75,23 @@ export async function middleware(request: NextRequest) {
     });
   }
   if (accessScope === "public") return presentationResponse(request);
+
+  // R1 design review is a single read-only HTML presentation page, available
+  // without application login only behind Vercel's temporary protected-preview
+  // share link. No production, other preview, API, owner, Newsroom or write path.
+  if (allowR1MarketsReadOnlyPreview({
+    environment: process.env.VERCEL_ENV,
+    branch: process.env.VERCEL_GIT_COMMIT_REF,
+    deploymentHostname: process.env.VERCEL_URL,
+    requestedHostname: request.nextUrl.hostname,
+    pathname,
+    method: request.method,
+  })) {
+    const response = NextResponse.next();
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    return response;
+  }
 
   if (PRODUCTION_RESEARCH_AUTOMATION_PAUSED && pathname.startsWith("/api/cron/research/")) {
     return NextResponse.json(
