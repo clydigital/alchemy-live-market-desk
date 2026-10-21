@@ -195,3 +195,21 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
   assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
 });
+
+test("disposable V7 preview hostname has exact public reading and denies every owner/API path", () => {
+  const qa = "alchemy-live-market-desk-ackcuhtwj-rogue-magazine.vercel.app";
+  for (const route of ["/", "/blue-desk", "/markets", "/blue-desk/markets", "/calendar"]) {
+    assert.equal(blueDeskHostAccess(route, qa), "public", route);
+  }
+  assert.equal(blueDeskPresentationTarget("/markets", qa), "/blue-desk/markets");
+  assert.equal(blueDeskPublicHref("/blue-desk/markets?group=rates", qa), "/markets?group=rates");
+  for (const route of [
+    "/owner/live", "/owner/markets", "/dossier", "/hybrid-output/prepare",
+    "/api/dossier-v2", "/api/market-intelligence-snapshot",
+    "/api/cron/research/morning", "/api/research-update",
+    "/login", "/auth/callback", "/presenter/technical-checks", "/stories/article%2F..%2Fdossier",
+  ]) {
+    assert.equal(blueDeskHostAccess(route, qa), "blocked", route);
+  }
+  assert.equal(blueDeskHostAccess("/markets", "preview-unrelated.vercel.app"), "private");
+});
