@@ -67,6 +67,12 @@ export async function persistCapturedOilOriginal(input: {
   }
   const tradeDate = datedPath(sourceUrl);
   if (!tradeDate) throw new Error("Publisher original lacks a valid historical date.");
+  // A source date is an observation *day*, not the time the archived bytes
+  // were downloaded. It is invalid to retrieve a future-dated observation.
+  const observedDayAnchor = tradeDate + "T00:00:00.000Z";
+  if (capturedAt.getTime() < Date.parse(observedDayAnchor)) {
+    throw new Error("Collection cannot precede the source observation day.");
+  }
   const pdf = sourceUrl.toLowerCase().endsWith(".pdf");
   const contentType = pdf ? "application/pdf" : "text/csv";
   if (pdf && new TextDecoder().decode(input.bytes.slice(0, 5)) !== "%PDF-") {
@@ -92,6 +98,9 @@ export async function persistCapturedOilOriginal(input: {
     benchmark: input.benchmark,
     provider,
     tradeDate,
+    observationPrecision: "DATE_ONLY",
+    observedDayAnchor,
+    capturedAt: capturedAt.toISOString(),
     originalSourceSha256: input.fetchedSha256.toLowerCase(),
     archiveBucket: OIL_ORIGINAL_BUCKET,
     archivePath: objectPath,
@@ -104,7 +113,7 @@ export async function persistCapturedOilOriginal(input: {
   let rawRecordId = await input.store.findRaw(sourceUrl, input.fetchedSha256.toLowerCase());
   if (!rawRecordId) rawRecordId = await input.store.appendRaw({
     sourceUrl, sha256: input.fetchedSha256.toLowerCase(), payload,
-    observedAt: capturedAt.toISOString(), contentType,
+    observedAt: observedDayAnchor, contentType,
   });
   return {
     bucket: OIL_ORIGINAL_BUCKET, objectPath, rawRecordId,

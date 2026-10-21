@@ -44,7 +44,11 @@ function fixture() {
       assert.equal(input.payload.canonicalAdmitted, false);
       assert.equal(input.payload.finalSettlementVerified, false);
       assert.equal(input.sha256, input.payload.originalSourceSha256);
-      assert.equal(input.observedAt, collectedAt);
+      assert.equal(input.observedAt, "2026-10-14T00:00:00.000Z",
+        "The original trading day must not be replaced by archive collection time");
+      assert.equal(input.payload.observationPrecision, "DATE_ONLY");
+      assert.equal(input.payload.observedDayAnchor, input.observedAt);
+      assert.equal(input.payload.capturedAt, collectedAt);
       const id = "4e25cf98-b21a-4e18-91c3-5a1947ab0c14";
       rows.set(input.sourceUrl + "\n" + input.sha256, id);
       return id;
@@ -141,4 +145,30 @@ test("approved publisher environment flag is off unless explicitly enabled", asy
     if (brent === undefined) delete process.env.OIL_ICE_ARCHIVE_RETENTION_APPROVED;
     else process.env.OIL_ICE_ARCHIVE_RETENTION_APPROVED = brent;
   }
+});
+
+test("archive rejects collection before the actual dated observation", async () => {
+  const f = fixture();
+  await assert.rejects(
+    persistCapturedOilOriginal(args(f.store, { collectedAt: "2026-10-13T23:59:59.000Z" })),
+    /Collection cannot precede the source observation day/,
+  );
+  assert.equal(f.getWrites(), 0);
+});
+
+test("historical download retains trade-date observation while capture time advances", async () => {
+  const f = fixture();
+  const when = "2026-10-31T16:00:00.000Z";
+  const store = {
+    ...f.store,
+    appendRaw: async (input: Parameters<OilOriginalArchiveStore["appendRaw"]>[0]) => {
+      assert.equal(input.observedAt, "2026-10-14T00:00:00.000Z");
+      assert.equal(input.payload.capturedAt, when);
+      assert.equal(input.payload.observationPrecision, "DATE_ONLY");
+      return "4e25cf98-b21a-4e18-91c3-5a1947ab0c14";
+    },
+  };
+  const result = await persistCapturedOilOriginal(args(store, { collectedAt: when }));
+  assert.equal(result.originalArchived, true);
+  assert.equal(result.canonicalAdmitted, false);
 });
