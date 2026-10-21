@@ -159,7 +159,7 @@ test("latest unresolved AI edition can headline one exact issuer-reported fact, 
 
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.match(home, /PRIMARY-SOURCE OBSERVATION/);
-  assert.match(home, /FACT ONLY · NOT A STORY VERDICT/);
+  assert.match(home, /SOURCE FACT · NO INTERPRETATION/);
   assert.match(home, /sourceFact\.sourceUrl/);
   assert.match(home, /selectFrozenSourceFact\(brief, now\)/);
   assert.match(home, /article\.editorial\.storyEligible/);
