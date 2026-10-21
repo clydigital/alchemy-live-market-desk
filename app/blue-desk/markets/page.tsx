@@ -2,9 +2,10 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
   type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -52,6 +53,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const host = (await headers()).get("host");
   const monitor = await getMarketMonitor().catch(() => null);
   const observations = publicMarketObservations(monitor?.rows || [], group);
+  const officialRateTrends = group === "all" || group === "rates"
+    ? publicGovernmentRateTrends(monitor?.rows || []) : [];
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
@@ -89,6 +92,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             </Link>
           ))}
         </nav>
+
+        {(group === "all" || group === "rates") && monitor ? (
+          <PublicGovernmentRateTrendChart series={officialRateTrends} nowIso={monitor.updatedAt} />
+        ) : null}
 
         <section aria-labelledby="market-group-heading" className={styles.section}>
           <div className={styles.sectionHead}>
