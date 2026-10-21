@@ -100,7 +100,8 @@ export function preReleaseConsensusCandidates(input: {
         && metricForProvider(fam, row.event) === metric.metric_key
         // Vendor must not be showing a post-release actual or revision.
         && row.actual === null
-        && (!row.lastUpdate || Date.parse(row.lastUpdate) < due)
+        && (!row.lastUpdate || (Number.isFinite(Date.parse(row.lastUpdate))
+          && Date.parse(row.lastUpdate) <= at && Date.parse(row.lastUpdate) < due))
       ));
       // Ambiguous overlapping vendor series are NOT "resolved" by choosing
       // the first one; fail closed until a publisher mapping is reviewed.
@@ -169,6 +170,9 @@ export async function runCalendarPreproductionCheck({
     row.date <= new Date(now.getTime()+7*86_400_000).toISOString().slice(0,10));
   const warnings: string[] = [];
   if (!official.length) warnings.push("NO_UPCOMING_OFFICIAL_RELEASE_DATES");
+  if (!official.some(row => row.sourceKind === "official-live")) {
+    warnings.push("LIVE_OFFICIAL_CALENDAR_SOURCE_UNAVAILABLE");
+  }
   const client = createSupabaseAdminClient();
   const { data: releases, error: releaseError } = await client.from("macro_releases")
     .select("id,release_name,release_date,reference_period,consensus,consensus_captured_at,actual,status")
