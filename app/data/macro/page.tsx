@@ -4,6 +4,7 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, MetricGrid, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getMacroSourceSnapshotHealth } from "@/lib/macro/macro-capture-supabase";
+import MacroTrendMonitor from "@/components/live-desk/MacroTrendMonitor";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function MacroDataPage() {
   const ingestionGaps = data.macroReleases.filter((release) => ["ingestion_pending", "released_pending_ingestion", "stale_error"].includes(release.status));
   const latestObservation = [...data.macroObservations]
     .sort((a, b) => Date.parse(b.observation_date) - Date.parse(a.observation_date))[0];
+  const latestMacroDate = latestObservation ? Date.parse(latestObservation.observation_date) : NaN;
+  const macroHistoryStale = !Number.isFinite(latestMacroDate) || Date.now() - latestMacroDate > 45 * 86_400_000;
 
   return (
     <LiveDeskShell
@@ -51,6 +54,20 @@ export default async function MacroDataPage() {
           title="Historical vintages are limited"
           detail="Current records show actual, consensus, prior and revised-prior values where available. Earlier publication vintages are not yet fully reconstructable."
         />
+
+        <section aria-label="Historical macro data trends">
+          <h2 className={styles.metaLabel}>Historical trends · actual observations</h2>
+          {macroHistoryStale ? (
+            <DataState state="risk" title="Trend history is not current"
+              detail={`Latest stored macro series observation: ${formatDeskDate(latestObservation?.observation_date)}. The chart displays historical values only; it is not a substitute for the latest official release or a live market trend.`} />
+          ) : null}
+          {data.macroObservations.length >= 2 ? (
+            <MacroTrendMonitor observations={data.macroObservations} release={null} limit={9} />
+          ) : (
+            <DataState state="risk" title="Historical trend not available"
+              detail="At least two original dated observations per series are required. No trend is drawn from a lone release or forecast." />
+          )}
+        </section>
 
         <Panel
           title="Current release monitor"
