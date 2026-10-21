@@ -57,3 +57,59 @@ test("responsive jump navigation is keyboard focusable, scrollable, and does not
   assert.match(css, /\.storyJumpLink:hover,\.storyJumpLink:focus-visible/);
   assert.match(css, /scroll-margin-top:/);
 });
+
+
+test("V7 opening reads like an article while edition diagnostics remain one keyboard-accessible disclosure", () => {
+  const view = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  const sheet = readFileSync(new URL("../app/blue-desk/stories/[articleId]/editorial-read.module.css", import.meta.url), "utf8");
+  const openingStart = view.indexOf('<section id="story-overview"');
+  const openingEnd = view.indexOf('</section>', openingStart);
+  assert.ok(openingStart >= 0 && openingEnd > openingStart);
+  const opening = view.slice(openingStart, openingEnd);
+  assert.match(opening, /What this report establishes/);
+  assert.match(opening, /article\.interpretationStatus === "UNRESOLVED"/);
+  assert.match(opening, /no independently[\s\S]*?source-linked price, yield or futures response/);
+  assert.match(opening, /article\.editorial\.evidenceClaims\.length/);
+  assert.match(opening, /href="#story-observations"/);
+  assert.match(opening, /href="#story-evidence"/);
+  assert.doesNotMatch(opening, /storyMetricGrid|<dl\b|<dt\b|<dd\b|\.length\}<\/strong>|article\.editionId|dossierId/);
+  assert.doesNotMatch(view.slice(view.indexOf("<header"), openingStart), /Edition \{article\.editionId\}/);
+
+  const evidenceStart = view.indexOf('<section id="story-evidence"');
+  const evidenceEnd = view.indexOf('</section>', evidenceStart);
+  assert.ok(evidenceStart >= 0 && evidenceEnd > evidenceStart);
+  const evidence = view.slice(evidenceStart, evidenceEnd);
+  const detailsStart = evidence.indexOf('<details className={reader.transparencyDetails}>');
+  const detailsEnd = evidence.indexOf('</details>');
+  assert.ok(detailsStart > 0 && detailsEnd > detailsStart);
+  const details = evidence.slice(detailsStart, detailsEnd);
+  assert.match(details, /<summary>Evidence checks and publication record<\/summary>/);
+  assert.match(details, /Original-source observations[\s\S]*?article\.editorial\.evidenceClaims\.length/);
+  assert.match(details, /Evidence-linked mechanism steps[\s\S]*?article\.editorial\.causalLinks\.length/);
+  assert.match(details, /verifiedReaction \? "Source-linked" : "Not verified"/);
+  assert.match(details, /article\.interpretationStatus/);
+  assert.match(details, /article\.editionId/);
+  assert.match(details, /DualTimestamp value=\{frozen\.published_at\}/);
+  assert.match(details, /article\.dossierId \?/);
+  assert.doesNotMatch(view, /<h2>Publication<\/h2>/);
+  assert.match(evidence.slice(0, detailsStart), /claim\.evidenceId/);
+  assert.match(evidence.slice(0, detailsStart), /claim\.availableAt/);
+  assert.match(evidence.slice(0, detailsStart), /href=\{claim\.sourceUrl\}/);
+  assert.match(sheet, /\.transparencyDetails summary:focus-visible/);
+  assert.match(sheet, /@media \(max-width: 560px\)/);
+  assert.match(sheet, /prefers-reduced-motion:\s*reduce/);
+  // Citation and verdict boundaries remain visible without expanding details.
+  assert.ok(view.indexOf('id="story-reaction-gap"') < evidenceStart);
+  assert.match(view, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
+});
+
+test("V7 reader cannot silently switch from pinned Story to today's mutable publication", () => {
+  const view = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
+  assert.match(view, /typeof edition !== "string" \|\| !uuidPattern\.test\(edition\)/);
+  assert.match(view, /articlePrefix = \`article:\$\{edition\}:\`/);
+  assert.match(view, /getHybridExactDailyBriefEdition\(edition\)/);
+  assert.match(view, /if \(!frozen\) notFound\(\)/);
+  assert.match(view, /item\.articleId === normalizedArticleId && item\.editionId === edition/);
+  assert.match(view, /if \(!article\) notFound\(\)/);
+  assert.doesNotMatch(view, /getCurrentStory|createStory|updateStory|getLiveDeskHomepageDailyBrief|getMarketMonitor/);
+});
