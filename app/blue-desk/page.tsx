@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -76,7 +77,7 @@ export default async function BlueDeskPage() {
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
-            <p className={styles.kicker}>{feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
+            <p className={styles.kicker}><MarketIcon name="market" size={16} /> {feature ? "TOP STORY" : newsFeature ? "VERIFIED NEWS BRIEF" : sourceFact ? "PRIMARY-SOURCE OBSERVATION" : "MARKET BRIEF"}</p>
             <h1>{feature?.title || newsFeature?.headline || sourceFact?.claimText || "Market Brief in review"}</h1>
             <p className={styles.heroDeck}>
               {feature?.deck || newsFeature?.summary || (sourceFact ? "A reported measurement from the frozen publication. Its wider market implications remain unresolved." : "No source-supported public market report is available.")}
@@ -101,7 +102,7 @@ export default async function BlueDeskPage() {
             </div>
           </div>
           <aside className={styles.rates} aria-label="Observed US Treasury yield context">
-            <h2 id="rates-title">Rates &amp; yields</h2>
+            <h2 id="rates-title"><MarketIcon name="rates" size={25} /> Rates &amp; yields</h2>
             {yields.length ? yields.map(row => (
               <div className={styles.rateRow} key={row.id}>
                 <div>
@@ -119,7 +120,7 @@ export default async function BlueDeskPage() {
         <section className={styles.section} aria-labelledby="stories-title">
           <div className={styles.sectionHead}>
             <div>
-              <h2 id="stories-title">Key market stories</h2>
+              <h2 id="stories-title"><MarketIcon name="layers" size={24} /> Key market stories</h2>
             </div>
             {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
           </div>
@@ -148,7 +149,7 @@ export default async function BlueDeskPage() {
             <div className={styles.sectionHead}>
               <div>
                 <p className={styles.kicker}>MARKET MOTION</p>
-                <h2 id="motion-title">What changed</h2>
+                <h2 id="motion-title"><MarketIcon name="divergence" size={24} /> What changed</h2>
               </div>
               {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
             </div>
@@ -168,7 +169,7 @@ export default async function BlueDeskPage() {
           <section className={styles.secondaryPanel} aria-labelledby="calendar-title">
             <div className={styles.sectionHead}>
               <div>
-                <h2 id="calendar-title">Coming up</h2>
+                <h2 id="calendar-title"><MarketIcon name="calendar" size={24} /> Coming up</h2>
               </div>
               <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/calendar", host)}>Full calendar →</Link>
             </div>
