@@ -66,7 +66,7 @@ function full(){
 function fixture(){
   return {presenterStatus:"READY" as const,
     pinned:{editionId:EDITION,publishedAt:PUBLISHED},
-    selectedEdition:{id:EDITION,publishedAt:PUBLISHED,supersedesSnapshotId:BASE,
+    selectedEdition:{id:EDITION,publishedAt:PUBLISHED,supersedesSnapshotId:BASE as string|null,
       payload:{
         marketImpactPackets:[packet()],
         marketEditorial:{
