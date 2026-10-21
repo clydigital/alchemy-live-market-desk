@@ -97,6 +97,7 @@ test("manual web executor closes legacy Dossier-to-Story D7 work before claiming
   assert.equal(response.status, 200);
   assert.equal((await response.json()).status, "empty");
   assert.deepEqual(events, ["cleanup", "claim"]);
+});
 
 test("authenticated Research Gap cycle syncs durable source debt BEFORE claiming; unauthorised cannot sync", async () => {
   const events: string[] = [];
@@ -130,9 +131,6 @@ test("authenticated Research Gap cycle syncs durable source debt BEFORE claiming
   });
   assert.equal(blocked.status, 401);
   assert.equal(called, false, "No queue changes may be made before authentication");
-});
-
-
 });
 
 test("manual one-case executor claims, researches and completes without canonical handoff", async () => {
