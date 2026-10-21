@@ -64,7 +64,7 @@ export const MODEL_ARTICLE_SECTIONS_V2_SCHEMA = {
 
 const UUID=/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PROCESS=/^(?:observed by research gap|detected:|detected\b|story:\s*detected|verification pending|awaiting provider|source retrieval failed|research gap)/i;
-const OPERATIONAL=/\b(?:pipeline|system 2|canonical evidence|dossier status|thesis version|source coverage|provider authentication|ingestion)\b/i;
+const OPERATIONAL=/\b(?:(?:research|data|publication|intelligence) pipeline|system 2|canonical evidence|dossier status|thesis version|source coverage|provider authentication|ingestion)\b/i;
 const REACTION=/\b(?:rallied|surged|sold off|slumped|tumbled|rebounded|rose|fell|jumped|plunged|gained|lost|declined|retreated|closed higher|closed lower|traded higher|traded lower)\b/i;
 const CONDITIONAL=/\b(?:may|might|could|would|if|unless|provided|conditional|potential)\b/i;
 const UNSUPPORTED_RECENCY=/\b(?:today|this morning|just announced|overnight|breaking news|right now)\b/i;
