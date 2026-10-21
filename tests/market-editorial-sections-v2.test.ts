@@ -58,6 +58,27 @@ function candidate():EditorialCandidate {
   assert.ok(result);
   return result;
 }
+/**
+ * Invented, visibly fictional long-form receipts test the positive schema path.
+ * The actual TSMC/CoreWeave claims above remain a separate production-shaped
+ * NEGATIVE fixture: no invented source expansion is allowed to promote them.
+ */
+function substantiveFixture():EditorialCandidate {
+  const existing=candidate();
+  const claims=[
+    "FICTIONAL FIXTURE A: The test issuer reports a multi-period operating review that describes its order pipeline, contract delivery requirements and the measurement window of its accounts. This second sentence expands the factual source passage with additional issuer-reported operational context.",
+    "FICTIONAL FIXTURE A: The test issuer reports a separate cost-and-margin statement, setting out the accounting scope, measurement period and items excluded from the headline margin measure. Its second sentence gives independent reporting details, not a conclusion about the equity price or a forecast for next quarter.",
+    "FICTIONAL FIXTURE B: The sample infrastructure buyer reports capital purchases in its cash flow statement and identifies the period covered by the source disclosure. A separate sentence from the same fictional source describes the accounting distinction between purchases and operating receipts.",
+    "FICTIONAL FIXTURE B: The sample infrastructure buyer reports operating cash receipts, a separately measured disclosure distinct from its purchases and software capitalisation. The release's following sentence describes the reporting perimeter rather than a stock market response.",
+  ];
+  return {...existing,facts:existing.facts.map((f,i)=>({
+    ...f,
+    text:claims[i],
+    sourceUrl:i<2?"https://example.org/fixture-issuer-a/report":"https://example.org/fixture-issuer-b/report",
+    sourceName:i<2?"Fictional fixture issuer A":"Fictional fixture issuer B",
+  }))};
+}
+
 function model(c:EditorialCandidate):ModelArticleSectionsV2 {
   return {fingerprint:c.fingerprint,reportingFactIds:[id1,id2,id3,id4],
     interpretation:[
@@ -66,8 +87,13 @@ function model(c:EditorialCandidate):ModelArticleSectionsV2 {
       {support:"nextTest",asset:null,text:"The next results could test whether customer orders and operating cash flow catch up to spending."},
     ]};
 }
-test("real-shaped first-tier TSMC and CoreWeave facts can form a historically labelled full article",()=>{
+test("four real-shaped single-sentence issuer receipts cannot be called a full article",()=>{
   const c=candidate();
+  assert.equal(eligibleForArticleSectionsV2(c),false);
+  assert.equal(validateArticleSectionsV2(model(c),c),null);
+});
+test("synthetic substantive source receipts support the separate positive V2 contract",()=>{
+  const c=substantiveFixture();
   assert.equal(eligibleForArticleSectionsV2(c),true);
   const result=validateArticleSectionsV2(model(c),c);
   assert.ok(result);
@@ -81,28 +107,28 @@ test("real-shaped first-tier TSMC and CoreWeave facts can form a historically la
   assert.equal(result.asOf,asOf);
   assert.equal(result.materialChangeAt,null);
   assert.equal(result.context,"CONTINUING_STORY");
-  assert.deepEqual(result.reporting.map(x=>x.text),rows.map(x=>x.claimText));
+  assert.deepEqual(result.reporting.map(x=>x.text),c.facts.map(x=>x.text));
   assert.deepEqual(result.reporting.map(x=>x.evidenceIds[0]),[id1,id2,id3,id4]);
   assert.deepEqual(result.sourceLinks,[
-    {url:tsm,sourceName:"Taiwan Semiconductor Manufacturing Company"},
-    {url:cw,sourceName:"CoreWeave"},
+    {url:"https://example.org/fixture-issuer-a/report",sourceName:"Fictional fixture issuer A"},
+    {url:"https://example.org/fixture-issuer-b/report",sourceName:"Fictional fixture issuer B"},
   ]);
   assert.equal(result.interpretation[0].basis,"HISTORICAL_CONTEXT");
   assert.equal(result.interpretation[1].basis,"HISTORICAL_CONTEXT");
   assert.deepEqual(result.gaps,[]);
 });
 test("model cannot author factual prose or fabricate factual dates and numbers",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   const x=model(c) as unknown as Record<string,unknown>;
   x.fakeReporting="TSMC just announced a 99% return today";
   const result=validateArticleSectionsV2(x,c);
   assert.ok(result);
   assert.ok(result.reporting.every(p=>!p.text.includes("99%")));
-  assert.deepEqual(result.reporting[0].sourceUrls,[tsm]);
+  assert.deepEqual(result.reporting[0].sourceUrls,["https://example.org/fixture-issuer-a/report"]);
   assert.deepEqual(result.reporting[0].evidenceIds,[id1]);
 });
 test("one or two facts produce a labelled brief, never a full article",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   for (const ids of [[id1],[id1,id2]]) {
     const x=model(c);
     x.reportingFactIds=ids;
@@ -112,7 +138,7 @@ test("one or two facts produce a labelled brief, never a full article",()=>{
   }
 });
 test("unknown/duplicate IDs cannot inflate three paragraph threshold",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   const x=model(c);
   x.reportingFactIds=[id1,id1,"33333333-3333-4333-8333-333333333333"];
   const result=validateArticleSectionsV2(x,c);
@@ -120,7 +146,7 @@ test("unknown/duplicate IDs cannot inflate three paragraph threshold",()=>{
   assert.equal(result?.readiness,"BRIEF_ONLY");
 });
 test("invented realised reactions, missing conditional wording, unrelated assets fail impact admission",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   const x=model(c);
   x.interpretation=[
     {support:"asset",asset:"TSM",text:"TSM shares rallied 25% and drove Nasdaq higher after today's results."},
@@ -133,7 +159,7 @@ test("invented realised reactions, missing conditional wording, unrelated assets
   assert.ok(result?.gaps.some(g=>g.includes("market-interpretation")));
 });
 test("fact preflight fails closed with future dated, unlinked or motion-only fact pools",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   assert.equal(eligibleForArticleSectionsV2({...c,facts:[c.facts[0],c.facts[1]]}),false);
   assert.equal(eligibleForArticleSectionsV2({...c,facts:c.facts.map(f=>({...f,availableAt:"2026-10-22T00:00:00Z"}))}),false);
   assert.equal(eligibleForArticleSectionsV2({...c,facts:c.facts.map(f=>({...f,sourceUrl:"http://fake.example/"}))}),false);
@@ -141,7 +167,7 @@ test("fact preflight fails closed with future dated, unlinked or motion-only fac
   assert.equal(eligibleForArticleSectionsV2({...c,packet:{...c.packet,mechanism:{...c.packet.mechanism,evidenceState:"UNAVAILABLE"}}}),false);
 });
 test("bad fingerprints and absent model arrays never become an edition article",()=>{
-  const c=candidate();
+  const c=substantiveFixture();
   assert.equal(validateArticleSectionsV2({...model(c),fingerprint:"bogus"},c),null);
   assert.equal(validateArticleSectionsV2({fingerprint:c.fingerprint},c),null);
   assert.equal(validateArticleSectionsV2(null,c),null);
@@ -152,4 +178,17 @@ test("strict model schema requires a fact selector and conditional interpretatio
     ["fingerprint","reportingFactIds","interpretation"]);
   assert.deepEqual(MODEL_ARTICLE_SECTIONS_V2_SCHEMA.properties.interpretation.items.required,
     ["text","support","asset"]);
+});
+
+test("full-article gate requires three separately substantive, two-sentence source passages",()=>{
+  const rich=substantiveFixture();
+  const oneSentence=rich.facts.map(f=>({...f,text:f.text.split(/(?<=\.)\s+/)[0]}));
+  assert.equal(eligibleForArticleSectionsV2({...rich,facts:oneSentence}),false);
+  const shortened=rich.facts.map((f,i)=>({
+    ...f,text:i<2?f.text:"Short issuer metric dated on a prior day.",
+  }));
+  assert.equal(eligibleForArticleSectionsV2({...rich,facts:shortened}),false);
+  const permitted=validateArticleSectionsV2(model(rich),rich);
+  assert.equal(permitted?.readiness,"FULL_ARTICLE");
+  assert.ok(permitted?.reporting.every(p=>p.text.length>=160));
 });
