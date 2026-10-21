@@ -124,6 +124,10 @@ function articleSections(
   researchOnly: boolean,
 ): EditorialArticleSectionsV2 {
   const seen = new Set<string>();
+  // Distinct prose paragraphs may not re-use one original evidence claim
+  // repeatedly to meet a numeric article quota; maintain independent sets for
+  // observed facts versus adjudicated interpretations.
+  const usedClaims = new Set<string>();
   const selected: Array<{
     type: "fact" | "interpretation";
     text: string; role: MarketBriefParagraphV1["role"];
@@ -140,9 +144,11 @@ function articleSections(
     const key = text.toLocaleLowerCase("en-GB").replace(/\s+/gu, " ");
     if (seen.has(key)) continue;
     const ids = new Set(paragraph.canonicalEvidenceIds.map(id => id.toLowerCase()));
-    const sources = approved.filter(source => ids.has(source.evidenceId.toLowerCase()));
+    const sources = approved.filter(source => ids.has(source.evidenceId.toLowerCase())
+      && !usedClaims.has(paragraph.claimType + ":" + source.evidenceId.toLowerCase()));
     if (!sources.length) continue;
     seen.add(key);
+    sources.forEach(source => usedClaims.add(paragraph.claimType + ":" + source.evidenceId.toLowerCase()));
     selected.push({
       type: paragraph.claimType,
       text, role: paragraph.role,
