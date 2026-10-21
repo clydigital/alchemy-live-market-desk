@@ -15,8 +15,9 @@ export type OilExpiryOriginal = {
 };
 
 function day(value: unknown): value is string {
-  return typeof value === "string" && DAY.test(value)
-    && new Date(value + "T00:00:00.000Z").toISOString().slice(0, 10) === value;
+  if (typeof value !== "string" || !DAY.test(value)) return false;
+  const date = new Date(value + "T00:00:00.000Z");
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 function publisher(url: string, benchmark: OilBenchmark): boolean {
   try {
