@@ -15,7 +15,7 @@ test("bounded scheduled retry covers multiple issuers instead of starving a seco
 test("private run diagnostics carry only publisher and enumerated reason, no source text",()=>{
   assert.match(archive,/captureVerifiedIssuerPassagesDiagnosed/);
   assert.match(archive,/warnings:outcomes\.filter\(x=>!x\.saved\)\.map\(x=>x\.issuer\+":"\+x\.reason\)/);
-  assert.match(publisher,/Optional issuer source capture diagnostics/);
+  assert.match(publisher,/editorial_source_capture_base/);
   assert.doesNotMatch(archive,/console\.log\(.+sourceUrl/);
   assert.match(source,/METRIC_IN_TABLE_NOT_VERIFIED/);
   assert.match(source,/redirect:"error"/);
