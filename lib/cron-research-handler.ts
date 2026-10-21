@@ -7,6 +7,7 @@ import {
   captureMacroContextSnapshot,
 } from "@/lib/macro/macro-context-capture-supabase";
 import { ingestOfficialMacroActuals, type OfficialActualIngestionResult } from "@/lib/macro/official-actuals";
+import { runCalendarPreproductionCheck, type CalendarPreproductionResult } from "@/lib/calendar-preproduction";
 import { checkScheduledCpiCoverage, type ScheduledCpiCoverage } from "@/lib/macro/cpi-coverage-health";
 import { collectScheduledMarketMeasurements } from "@/lib/scheduled-market-measurement-intake";
 import { collectScheduledAiCompanyCloses } from "@/lib/scheduled-ai-company-closes";
@@ -34,6 +35,7 @@ type ScheduledResearchHandlerDependencies = {
   buildScheduledResearchInput?: typeof buildScheduledResearchInputWithFirecrawl;
   captureMacroContext?: typeof captureMacroContextSnapshot;
   ingestOfficialActuals?: typeof ingestOfficialMacroActuals;
+  checkCalendarPreproduction?: typeof runCalendarPreproductionCheck;
   checkCpiCoverage?: typeof checkScheduledCpiCoverage;
   collectMarketMeasurements?: typeof collectScheduledMarketMeasurements;
   collectAiCompanyCloses?: typeof collectScheduledAiCompanyCloses;
@@ -285,6 +287,20 @@ function logScheduledResearchEvent(event: ScheduledResearchLogEvent) {
   console.info(JSON.stringify(event));
 }
 
+async function safeCalendarPreproduction(
+  check: typeof runCalendarPreproductionCheck,
+  now: Date,
+): Promise<CalendarPreproductionResult> {
+  try { return await check({ now }); }
+  catch {
+    return {
+      status: "DEGRADED", checkedAt: now.toISOString(), officialUpcoming: 0,
+      futureDueWithinSevenDays: 0, consensusCaptured: 0, noConsensus: 0,
+      provider: "unavailable", warnings: ["CALENDAR_PREPRODUCTION_CHECK_FAILED"],
+    };
+  }
+}
+
 async function safeOfficialActualIngestion(
   ingest: typeof ingestOfficialMacroActuals,
   now: Date,
@@ -448,6 +464,30 @@ export async function handleScheduledResearchWithDependencies(
       dependencies.ingestOfficialActuals ?? ingestOfficialMacroActuals,
       now,
     );
+    // PRE-PRODUCTION CHECK: the same existing scheduled Live slot refreshes
+    // official future events, then captures any available *pre-release* survey
+    // forecasts before publication. Finnhub earnings is not a source here.
+    // When testing with an injected official-actuals stub, skip real provider
+    // work unless explicitly injected by the test itself.
+    const calendarPreproduction = await (
+      dependencies.ingestOfficialActuals && !dependencies.checkCalendarPreproduction
+        ? Promise.resolve({
+            status: "DEGRADED" as const, checkedAt: now.toISOString(),
+            officialUpcoming: 0, futureDueWithinSevenDays: 0,
+            consensusCaptured: 0, noConsensus: 0,
+            provider: "unconfigured" as const,
+            warnings: ["CALENDAR_TEST_PREPRODUCTION_NOT_INJECTED"],
+          })
+        : safeCalendarPreproduction(
+            dependencies.checkCalendarPreproduction ?? runCalendarPreproductionCheck, now,
+          )
+    );
+    const calendarPreproductionLog = {
+      event: "scheduled_calendar_preproduction", slot, runKey,
+      ...calendarPreproduction,
+    };
+    if (calendarPreproduction.status === "DEGRADED") console.warn(JSON.stringify(calendarPreproductionLog));
+    else console.info(JSON.stringify(calendarPreproductionLog));
     // Existing scheduled acquisition owns this coverage audit: failures are
     // visible before research publication but never fabricate a forecast or
     // block unrelated market stories.
@@ -579,6 +619,7 @@ export async function handleScheduledResearchWithDependencies(
         sourceChecks: input.sourceChecks,
         retainedItems: input.items.length,
         officialActuals,
+        calendarPreproduction,
         cpiCoverage,
         quantifiedMarket: numericIntake,
         aiIssuerPrices,
