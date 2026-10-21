@@ -8,13 +8,13 @@ import type { OilBenchmark } from "../research-gap-exact-oil-proof.ts";
 export type VerifiedOilEvidence = ReadonlyMap<string, ReadonlySet<OilBenchmark>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
-const DIRECTION = /\b(?:backwardat(?:ion|ed)|contango|front[- /]?(?:next|month)\s+(?:premium|discount|spread)|front\s*\/\s*next\s+premium|F1\s*[-–/]\s*F2|positive\s+roll\s+(?:yield|return)|forward[- ]curve\s+print)\b/i;
+const DIRECTION = /\b(?:backwardat(?:ion|ed)|contango|front[-‑–— /]?(?:next|month)\s+(?:premium|discount|spread|backwardation)|front\s*\/\s*next\s+premium|F1\s*[-‑–—/]\s*F2|positive\s+roll\s+(?:yield|return)|forward[-‑–— ]curve\s+print)\b/i;
 const OBSERVED = /\b(?:observed|measured|printed|prints|show(?:s|ing)?|demonstrat(?:es|ing)|indicat(?:es|ing)|trades?|traded|is|are|was|were|has|had|reflects?|proved|confirmed)\b/i;
 const UNCERTAIN = /\b(?:if|could|might|may|would|potential|hypothes(?:is|ised)|scenario|unverified|unconfirmed|unresolved|not\s+(?:yet\s+)?verified|cannot\s+confirm|not\s+established|awaiting|reported|reportedly|claims?|alleged|possible)\b/i;
 const NEGATED = /\b(?:no|not|without|lacks?|missing)\b.{0,45}\b(?:verified|measured|confirmed|original|settlement|F1|premium|backwardation)\b/i;
 
 export function oilPriceAssertionSentences(parts: readonly (string | null | undefined)[]): string[] {
-  return parts.flatMap(part => (part ?? "").split(/(?<=[.!?])\s+/))
+  return parts.flatMap(part => (part ?? "").split(/(?<=[.!?])\s+|;\s+|,?\s+but\s+|,?\s+however\s+/i))
     .map(part => part.trim()).filter(sentence =>
       DIRECTION.test(sentence)
       && OBSERVED.test(sentence)
