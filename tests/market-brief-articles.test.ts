@@ -231,3 +231,49 @@ test("Rates and oil Deep Dive visibly disclose no primary sources and omit proce
   assert.doesNotMatch(page, /issuer figures alone cannot establish/i);
   assert.match(page, /getHybridExactDailyBriefEdition\(edition\)/);
 });
+
+
+test("new editions retain distinct itemised factual and interpretive claims without creating prose", () => {
+  const fact = [
+    "The issuer's quarterly filing reports higher capital expenditure, with the comparison using the same fiscal period and accounting basis as last year's statement.",
+    "The same published filing identifies a rise in operating cash inflow during the quarter, although the disclosure does not isolate cash receipts from AI customers.",
+    "The balance-sheet disclosure separates committed borrowing from cash already spent, allowing the reported financing requirement to be distinguished from confirmed customer demand.",
+  ];
+  const interpretation = [
+    "The observed expenditure and operating cash flow can point in opposite directions because customer contracts may begin producing receipts after the installation phase.",
+    "A more durable expansion would require actual customer usage and cash conversion to rise alongside spending, while cancellation rights limit the reliability of the order headline.",
+  ];
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333",
+    "44444444-4444-4444-8444-444444444444",
+    "55555555-5555-4555-8555-555555555555",
+  ];
+  const claims = [...fact.map((text, i) => ({ type: "fact", text, evidenceIds: [ids[i]] })),
+    ...interpretation.map((text, i) => ({ type: "interpretation", text, evidenceIds: [ids[i + 3]] })),
+    { type: "speculation", text: "The market is certain to surge next week.", evidenceIds: [ids[0]] }];
+  const input = {
+    id: "11111111-aaaa-4111-8111-111111111111",
+    published_at: "2026-10-21T00:00:00Z",
+    payload: {
+      dossier: { id: "99999999-9999-4999-8999-999999999999" },
+      canonicalStoryManifest: [{
+        storyId: "88888888-8888-4888-8888-888888888888",
+        state: { interpretationStatus: "SUPPORTED", status: "confirmed" },
+        reasoning: { title: "Issuer cash conversion and infrastructure spending",
+          thesis: "Infrastructure investment has been rising.", claims },
+      }],
+    },
+  };
+  const result = projectMarketBriefArticles(input);
+  assert.equal(result.articles.length, 1);
+  const article = result.articles[0];
+  assert.equal(article.interpretationStatus, "SUPPORTED");
+  assert.equal(article.paragraphs.filter(p => p.evidenceScope === "claim" && p.claimType === "fact").length, 3);
+  assert.equal(article.paragraphs.filter(p => p.evidenceScope === "claim" && p.claimType === "interpretation").length, 2);
+  assert.ok(!article.paragraphs.some(p => p.text.includes("certain to surge")),
+    "Speculation is not converted to a sourced reporting or analytical paragraph");
+  assert.deepEqual(article.paragraphs.filter(p => p.claimType === "fact").map(p => p.canonicalEvidenceIds[0]), ids.slice(0, 3));
+  assert.deepEqual(article.paragraphs.filter(p => p.claimType === "interpretation").map(p => p.canonicalEvidenceIds[0]), ids.slice(3));
+});
