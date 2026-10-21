@@ -4,6 +4,7 @@ import {
   EDITORIAL_SCHEMA, EDITORIAL_INSTRUCTIONS, editorialCandidateModelInput,
 } from "@/lib/market-editorial-runtime";
 import { augmentDossierWithEditorial } from "@/lib/market-editorial-combined";
+import { archiveMissingIssuerPassages } from "@/lib/market-editorial-source-archive";
 import {
   ARTICLE_SECTIONS_V2, MODEL_ARTICLE_SECTIONS_V2_SCHEMA,
   eligibleForArticleSectionsV2,validateArticleSectionsV2,
@@ -558,6 +559,24 @@ export async function composeCanonicalDossierEditionForResearchRun({
       editorialWarnings.push("Combined editorial source admission failed; Dossier composition remains independent.");
       console.error("Combined editorial source admission unavailable", error instanceof Error ? error.name : "unknown");
     }
+  }
+
+  // Forward-only automatic original-source repair. It runs on the EXISTING
+  // completed research / Dossier publication cadence and archives at most two
+  // fresh, issuer-owned metric passages for NEXT editions. An archive captured
+  // after base.published_at is never eligible for this frozen base's as-of.
+  // Missing/blocked sources cannot block Dossier or short-form v1 publication.
+  try {
+    const sourceCandidates=combinedCandidates.length ? combinedCandidates
+      : await prepareFrozenMarketEditorial({
+        editionPayload:base.payload,asOf:base.published_at,maxArticles:1,
+      });
+    if(sourceCandidates.length) {
+      const archived=await archiveMissingIssuerPassages(sourceCandidates);
+      editorialWarnings.push(...archived.warnings);
+    }
+  } catch {
+    editorialWarnings.push("Automatic original-source capture unavailable; canonical publication continues.");
   }
 
   // Reuse exactly the existing dossier_storyline_composer provider invocation
