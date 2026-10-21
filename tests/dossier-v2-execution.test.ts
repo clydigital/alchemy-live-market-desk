@@ -974,6 +974,92 @@ test("Energy-linked rates desk action creates exact original F1/F2 Research Gap 
   assert.deepEqual(oil, repeatedOil, "Regenerating the same Dossier must not change work identity");
 });
 
+test("rates-led agenda routes source references by topic rather than original Research Now rank", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.major_stories = [];
+  output.research_now = [
+    {
+      rank: 1, action: "Check AI semiconductor leadership and breadth.", reason: "Equity resilience.",
+      expected_information_gain: "Medium", linked_investigations: ["inv:ai"],
+      linked_stories: ["story:ai-narrow-lead"], blocking_evidence: ["market-monitor:smh"],
+    },
+    {
+      rank: 2, action: "Inspect ICE Brent and WTI crude curve.", reason: "Physical energy pricing.",
+      expected_information_gain: "High", linked_investigations: ["inv:energy"],
+      linked_stories: ["story:energy-product-draw"], blocking_evidence: ["EIA physical observations"],
+    },
+    {
+      rank: 3, action: "Decompose 2Y 10Y yields and term premium.", reason: "Rates drivers.",
+      expected_information_gain: "High", linked_investigations: ["inv:rates"],
+      linked_stories: ["story:real-vs-term-premium"], blocking_evidence: ["Treasury curve observation"],
+    },
+  ];
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const rows = (input.payload.analytical_output as ResearchBrainOutputV1).research_now;
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows[0].linked_stories, ["story:real-vs-term-premium"]);
+  assert.deepEqual(rows[1].linked_stories, ["story:ai-narrow-lead"]);
+  assert.deepEqual(rows[2].linked_stories, ["story:energy-product-draw"]);
+  assert.ok(rows[1].blocking_evidence.includes("market-monitor:smh"));
+  assert.ok(rows[2].blocking_evidence.includes("EIA physical observations"));
+  assert.ok(rows[2].blocking_evidence.some((value) => /WTI NYMEX original dated FINAL/.test(value)));
+  assert.ok(!rows[2].blocking_evidence.includes("market-monitor:smh"));
+  assert.deepEqual(output.research_now[0].linked_stories, ["story:ai-narrow-lead"], "Model output stays untouched");
+});
+
+test("rates-led energy placeholder never inherits an AI link or semiconductor measurement", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.major_stories = [];
+  output.research_now = [
+    {
+      rank: 1, action: "Trace policy rates and Treasury yields.", reason: "Rate path.",
+      expected_information_gain: "High", linked_investigations: [],
+      linked_stories: ["story:inflation-real-yield-decomposition"], blocking_evidence: [],
+    },
+    {
+      rank: 2, action: "Test HY credit spreads and breadth.", reason: "Risk transmission.",
+      expected_information_gain: "High", linked_investigations: [],
+      linked_stories: ["story:selective-hy-widening"], blocking_evidence: [],
+    },
+    {
+      rank: 3, action: "Review AI semiconductor leadership.", reason: "AI equity resilience.",
+      expected_information_gain: "Medium", linked_investigations: ["inv:ai"],
+      linked_stories: ["story:ai-narrow-lead"], blocking_evidence: ["market-monitor:smh"],
+    },
+  ];
+  const input = buildMarketDossierV2InputFromResearchBrain(packet, output);
+  const rows = (input.payload.analytical_output as ResearchBrainOutputV1).research_now;
+  assert.deepEqual(rows[2].linked_stories, []);
+  assert.deepEqual(rows[2].linked_investigations, []);
+  assert.deepEqual(rows[2].blocking_evidence, []);
+  assert.ok(!rows[2].action.includes("Recover original dated FINAL"));
+  assert.ok(rows[1].linked_stories.includes("story:ai-narrow-lead"));
+  assert.ok(!rows[2].blocking_evidence.includes("market-monitor:smh"));
+});
+
+test("rates-led research rejects a mismatched Story even if the source action says energy", () => {
+  const packet = createPacket();
+  const output = createValidBrainOutput(packet);
+  output.main_thread.regime_family = "RATES_LED_TIGHTENING";
+  output.major_stories = [];
+  output.research_now = [
+    {
+      rank: 1, action: "Test WTI oil crude curve.", reason: "Physical energy.",
+      expected_information_gain: "High", linked_investigations: ["inv:ai"],
+      linked_stories: ["story:ai-narrow-lead"], blocking_evidence: ["market-monitor:smh"],
+    },
+  ];
+  const rows = (buildMarketDossierV2InputFromResearchBrain(packet, output).payload.analytical_output as ResearchBrainOutputV1).research_now;
+  assert.deepEqual(rows[2].linked_stories, []);
+  assert.deepEqual(rows[2].linked_investigations, []);
+  assert.deepEqual(rows[2].blocking_evidence, []);
+  assert.ok(!rows[2].action.includes("Recover original dated FINAL"));
+});
+
 test("Rates-only material without an active Oil Story does not consume Research Now or create oil gaps", () => {
   const packet = createPacket();
   const output = createValidBrainOutput(packet);
