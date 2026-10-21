@@ -20,12 +20,12 @@ export type VerifiedStoryOilPair = {
 };
 
 const DATE = /\b20\d{2}-\d{2}-\d{2}\b/;
-const CURVE = /\b(?:backwardat(?:ion|ed)|contango|front[\\s/–-]*(?:month|next)\\s+(?:premium|discount|spread)|F1[\s/–-]*F2|calendar[- ]spread|roll[- ]yield|positive\s+(?:roll|spread)|negative\s+(?:roll|spread))\b/i;
+const CURVE = /\b(?:backwardat(?:ion|ed)|contango|front[\s/–-]*(?:month|next)\s+(?:premium|discount|spread)|F1[\s/–-]*F2|calendar[- ]spread|roll[- ]yield|positive\s+(?:roll|spread)|negative\s+(?:roll|spread))\b/i;
 const UNCERTAIN = /\b(?:if|would|could|might|may|potential(?:ly)?|hypothetical|scenario|unverified|unconfirmed|unresolved|awaiting|not (?:established|verified|confirmed|observed|proven)|no confirmed|cannot (?:confirm|conclude)|need(?:s)? to verify|reportedly|reported|allegedly|according to|third[- ]party(?: report)?|research (?:lead|question)|check whether|test whether|monitor(?:ing)?|watch(?:ing)?)\b/i;
 
 function curveDirection(sentence: string): -1 | 0 | 1 {
-  if (/\b(?:backwardat(?:ion|ed)|front[\\s/–-]*(?:month|next)\\s+premium|positive\s+(?:roll|spread))\b/i.test(sentence)) return 1;
-  if (/\b(?:contango|front[\\s/–-]*(?:month|next)\\s+discount|negative\s+(?:roll|spread))\b/i.test(sentence)) return -1;
+  if (/\b(?:backwardat(?:ion|ed)|front[\s/–-]*(?:month|next)\s+premium|positive\s+(?:roll|spread))\b/i.test(sentence)) return 1;
+  if (/\b(?:contango|front[\s/–-]*(?:month|next)\s+discount|negative\s+(?:roll|spread))\b/i.test(sentence)) return -1;
   return 0;
 }
 
