@@ -39,6 +39,8 @@ export default async function BlueDeskNewsroomReview({
     ? await getHybridExactDailyBriefEdition(edition as string).catch(() => null)
     : await getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null);
   if (selected && !latest) notFound();
+  const manifestCount = latest && Array.isArray(latest.payload.canonicalStoryManifest)
+    ? latest.payload.canonicalStoryManifest.length : null;
   const projected = projectMarketBriefArticles(latest);
   const editorial = await loadEditorialMarketBrief(projected);
   const cards = buildV7NewsroomPreview(editorial);
@@ -80,6 +82,13 @@ export default async function BlueDeskNewsroomReview({
             </div>
             <p>No nearest-date or latest fallback is permitted for an explicit edition ID.</p>
           </form>
+          <p className={ui.manifestNote} role="status">
+            {manifestCount === 0
+              ? "This edition contains no newly persisted Story snapshots. Its Dossier lessons may provide prior immutable context, not a fresh Story verdict."
+              : manifestCount === null
+                ? "Canonical Story snapshot coverage is unavailable."
+                : `${manifestCount} immutable Story snapshots are attached to this edition. This does not itself establish an accepted System 2 interpretation.`}
+          </p>
           <dl className={ui.edition}>
             <div><dt>Edition</dt><dd>{latest?.id || "Unavailable"}</dd></div>
             <div><dt>Published</dt><dd>{latest?.published_at || "Unavailable"}</dd></div>
