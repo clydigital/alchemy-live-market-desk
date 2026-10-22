@@ -48,7 +48,7 @@ export default async function BlueDeskPage() {
     })),
     getMarketMonitor().catch(() => null),
     getCurrentMarketMotion({ limit: 24 }).catch(() => []),
-    getCurrentVerifiedMarketMotion({ limit: 12 }).catch(() => []),
+    getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
   ]);
 
   // Existing publication snapshots remain the only article authority.
@@ -63,11 +63,19 @@ export default async function BlueDeskPage() {
     && now.getTime() - featureTime <= 48 * 60 * 60 * 1000
     ? featureCandidate : null;
   // Source-verified factual reports do NOT change canonical Story/Regime state.
-  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 6);
+  const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
   const newsFeature = verifiedNews.find(news =>
     !freshFeature || Date.parse(news.occurredAt) > featureTime
   ) || null;
   const feature = newsFeature ? null : freshFeature;
+  // An owner-only list of unfinished leads is not public verified news,
+  // canonical evidence or authority for a Story mutation.
+  const ownerResearchMotions = publicHost ? [] : motions
+    .filter(item => item.verification_state !== "VERIFIED"
+      && item.lifecycle_state !== "EXPIRED" && item.effective_state !== "EXPIRED"
+      && Date.parse(item.occurred_at) <= now.getTime()
+      && Date.parse(item.expires_at) > now.getTime())
+    .slice(0, 6);
   // Primary-source facts are a separate fallback, NEVER a promoted Story.
   const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
@@ -96,6 +104,49 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
+        <section className={styles.newsFirst} aria-labelledby="blue-desk-news-title">
+          <div className={styles.sectionHead}>
+            <div>
+              <p className={styles.kicker}>LATEST MOTIONS &amp; NEWS · VERIFIED SOURCES</p>
+              <h1 id="blue-desk-news-title">What happened in markets?</h1>
+              <p>Events first, market observations next, interpretation afterwards. Each verified headline has an original report and event time.</p>
+            </div>
+            {!publicHost ? <Link href="/whats-new" className={styles.textLink}>Investigate all Motions →</Link> : null}
+          </div>
+          <div className={styles.newsFirstGrid}>
+            {verifiedNews.length ? verifiedNews.map((news, index) => (
+              <article className={styles.newsFirstCard} key={news.id}>
+                <span className={styles.kicker}>{index === 0 ? "LEAD VERIFIED REPORT" : "SOURCE-VERIFIED"} · {news.sourceKind}</span>
+                <h2>{news.headline}</h2>
+                <p>{ellipsis(news.summary, index < 3 ? 230 : 150)}</p>
+                <div className={styles.newsFirstMeta}>
+                  <DualTimestamp value={news.occurredAt} sourceDate={news.occurredAt} />
+                  <a href={news.sourceUrl} target="_blank" rel="noreferrer">{news.sourceName} ↗</a>
+                </div>
+              </article>
+            )) : <article className={styles.newsFirstCard}>
+              <h2>No fresh source-verified news in the feed.</h2>
+              <p>That does not establish a quiet market. Source-dated market observations remain available below.</p>
+            </article>}
+          </div>
+          {ownerResearchMotions.length ? (
+            <details className={styles.ownerMotions}>
+              <summary>{ownerResearchMotions.length} extra research Motions · not verified</summary>
+              <div className={styles.ownerMotionGrid}>
+                {ownerResearchMotions.map(item => (
+                  <article key={item.id}>
+                    <span className={styles.kicker}>{item.verification_state} · {item.category}</span>
+                    <h3>{item.headline}</h3>
+                    <p>{ellipsis(item.what_happened, 175)}</p>
+                    <DualTimestamp value={item.occurred_at} sourceDate={item.occurred_at} />
+                    <small>Owner context only. This is not evidence or a published market conclusion.</small>
+                  </article>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </section>
+
         <section className={styles.dailyMap} aria-labelledby="daily-map-title" data-market-map-contract={dailyMap.contractVersion}>
           <div className={styles.dailyMapHeading}>
             <div>
@@ -219,28 +270,7 @@ export default async function BlueDeskPage() {
           </div>
         </section>
 
-        <div className={styles.lowerGrid}>
-          <section className={styles.secondaryPanel} aria-labelledby="motion-title">
-            <div className={styles.sectionHead}>
-              <div>
-                <p className={styles.kicker}>MARKET MOTION</p>
-                <h2 id="motion-title"><MarketIcon name="divergence" size={24} /> What changed</h2>
-              </div>
-              {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate →</Link> : null}
-            </div>
-            {verifiedNews.length ? verifiedNews.map(news => (
-              <article key={news.id} className={styles.motionRow}>
-                <p className={styles.kicker}>VERIFIED NEWS</p>
-                <h3>{news.headline}</h3>
-                <p>{ellipsis(news.summary)}</p>
-                <div className={styles.motionMeta}>
-                  <DualTimestamp value={news.occurredAt} className={styles.cardTime} />
-                  <a href={news.sourceUrl} rel="noreferrer" target="_blank">{news.sourceName} ↗</a>
-                </div>
-              </article>
-            )) : <p className={styles.empty}>No verified news briefs in this feed.</p>}
-          </section>
-
+        <div className={styles.calendarOnlyGrid}>
           <section className={styles.secondaryPanel} aria-labelledby="calendar-title">
             <div className={styles.sectionHead}>
               <div>
@@ -290,7 +320,7 @@ export default async function BlueDeskPage() {
               </>
             ) : (
               <>
-                <Link href="/dossier">Current Dossier →</Link>
+                <Link href="/blue-desk/dossier">Dossier archive →</Link>
                 <Link href="/regimes">Market Regimes →</Link>
                 <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
                 <Link href="/presenter/technical-checks">Technical Checks →</Link>
