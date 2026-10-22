@@ -60,7 +60,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
 
   return (
     <main className={`${styles.page} ${legibility.publicMarketsLegibility}`} data-blue-desk-markets="public-observations">
-      <BlueDeskHeader activePath="/blue-desk/markets" />
+      <BlueDeskHeader activePath={group === "rates" ? "/markets?group=rates" : "/blue-desk/markets"} />
       <div className={styles.content}>
         <header className={styles.calendarHero}>
           <div>
