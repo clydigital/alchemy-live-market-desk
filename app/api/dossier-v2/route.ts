@@ -9,6 +9,7 @@ import {
   selectExactDossierV2Presentation,
 } from "@/lib/dossier-v2/presentation-reader";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
+import { recordLegacyReadCaller } from "@/lib/intelligence/publication-caller-telemetry";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
@@ -19,6 +20,7 @@ const DOSSIER_CORE_READ_TIMEOUT_MS = 5_000;
 const DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800;
 
 export async function GET(request: Request) {
+  recordLegacyReadCaller(request, "/api/dossier-v2");
   const startedAt = Date.now();
   try {
     const requestedId = new URL(request.url).searchParams.get("id")?.trim() || null;
@@ -92,7 +94,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     const reason = error instanceof OperationTimeoutError ? "core_timeout" : "read_error";
     // This path previously swallowed every exception into HTTP 503, leaving
     // production error dashboards blank. Log only class/timing, never SQL,
@@ -116,7 +117,7 @@ export async function GET(request: Request) {
         notice: {
           tone: "error",
           label: "Dossier unavailable",
-          detail: `Dossier V2 presentation read failed: ${detail}`,
+          detail: "Dossier V2 presentation is temporarily unavailable.",
         },
       },
       {

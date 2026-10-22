@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildDailyAssetState } from "@/lib/daily-asset-state";
+import { recordLegacyReadCaller } from "@/lib/intelligence/publication-caller-telemetry";
 import { getDossierV2PresentationSelection } from "@/lib/dossier-v2/presentation-reader";
 import { buildCanonicalEditionIndex } from "@/lib/edition-replay";
 import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
@@ -17,9 +18,10 @@ import { fetchTreasuryBills } from "@/lib/providers/treasury-bills";
 import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
+export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
+  recordLegacyReadCaller(request, "/api/market-intelligence-snapshot");
   try {
     const selection = await getDossierV2PresentationSelection();
     if (!selection.presentation) {

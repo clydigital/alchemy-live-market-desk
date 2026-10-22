@@ -376,7 +376,7 @@ test("marketIntelligenceSuccessResponse produces executable HTTP 200 response pr
   // Status & Headers assertions
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
-  assert.equal(response.headers.get("Cache-Control"), "public, s-maxage=30, stale-while-revalidate=120");
+  assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   assert.equal(response.headers.get("X-Alchemy-Market-Intelligence"), MARKET_INTELLIGENCE_SNAPSHOT_V1);
 
   const body = await response.json();
@@ -411,7 +411,7 @@ test("marketIntelligenceSuccessResponse produces executable HTTP 200 response pr
   assert.ok(body.researchGaps.includes("POLICY: FED_SPEECHES: Upcoming FOMC blackout"));
 });
 
-test("meaningful contrast: success is public-cacheable 200 with snapshot data vs failure is no-store 503 without internal details", async () => {
+test("meaningful contrast: success remains full-shape 200 with private no-store and failure is safe 503", async () => {
   const snapshot = buildMarketIntelligenceSnapshot({
     status: "current",
     presentation: {
@@ -450,7 +450,7 @@ test("meaningful contrast: success is public-cacheable 200 with snapshot data vs
   assert.equal(successResponse.status, 200);
   assert.equal(failureResponse.status, 503);
 
-  assert.equal(successResponse.headers.get("Cache-Control"), "public, s-maxage=30, stale-while-revalidate=120");
+  assert.equal(successResponse.headers.get("Cache-Control"), "private, no-store");
   assert.equal(failureResponse.headers.get("Cache-Control"), "no-store");
 
   assert.equal(successResponse.headers.get("X-Alchemy-Market-Intelligence"), MARKET_INTELLIGENCE_SNAPSHOT_V1);

@@ -39,7 +39,7 @@ export function marketIntelligenceSuccessResponse(snapshot: MarketIntelligenceSn
     status: 200,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+      "Cache-Control": "private, no-store",
       "X-Alchemy-Market-Intelligence": snapshot.contractVersion,
     },
   });
