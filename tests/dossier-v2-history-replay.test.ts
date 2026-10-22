@@ -51,7 +51,7 @@ test("all Dossier V2 selection outcomes have private no-store responses", () => 
   assert.match(dossierRoute, /status: 400/);
   assert.match(dossierRoute, /status: requestedId && !selection\.presentation \? 404 : 200/);
   assert.match(dossierRoute, /status: 503/);
-  assert.equal((dossierRoute.match(/"Access-Control-Allow-Origin": "\\*"/g) || []).length, 3);
+  assert.equal((dossierRoute.match(/"Access-Control-Allow-Origin": "\*"/g) || []).length, 3);
   assert.doesNotMatch(dossierRoute, /s-maxage|stale-while-revalidate/);
 });
 
@@ -64,6 +64,6 @@ test("Dossier V2 history index returns private no-store for success and errors",
   );
   assert.match(historyRoute, /status: 200/);
   assert.match(historyRoute, /status: 503/);
-  assert.equal((historyRoute.match(/"Access-Control-Allow-Origin": "\\*"/g) || []).length, 2);
+  assert.equal((historyRoute.match(/"Access-Control-Allow-Origin": "\*"/g) || []).length, 2);
   assert.doesNotMatch(historyRoute, /s-maxage|stale-while-revalidate/);
 });
