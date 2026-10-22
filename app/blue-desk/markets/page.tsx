@@ -7,7 +7,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicOfficialMacroTrends,
   type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
@@ -37,7 +37,7 @@ function displayLevel(row: PublicMarketObservation) {
   });
   // Treasury-rate feed values are percentage yields. Other instrument types
   // keep the source's native numerical scale rather than an inferred unit.
-  return row.type === "Rates" ? `${value}%` : value;
+  return row.levelUnit === "%" ? `${value}%` : value;
 }
 
 function displayChange(row: PublicMarketObservation) {
@@ -59,8 +59,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
     group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
   ]);
   const observations = publicMarketObservations(monitor?.rows || [], group);
-  const officialRateTrends = group === "all" || group === "rates"
-    ? publicGovernmentRateTrends(monitor?.rows || []) : [];
+  const officialRateTrends = publicOfficialMacroTrends(monitor?.rows || [], group);
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
@@ -98,7 +97,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        {(group === "all" || group === "rates") && monitor ? (
+        {(group === "all" || group === "rates" || group === "credit") && monitor ? (
           <PublicGovernmentRateTrendChart series={officialRateTrends} nowIso={monitor.updatedAt} />
         ) : null}
 

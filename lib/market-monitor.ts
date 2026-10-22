@@ -14,6 +14,7 @@ export type MarketMonitorType =
   | "Energy"
   | "FX"
   | "Rates"
+  | "Bond ETF"
   | "Credit / Risk"
   | "IPO / New Issue"
   | "Crypto";
@@ -226,6 +227,12 @@ const EXTRA_SPECS: ExtraSpec[] = [
   { id: "xlre", providerSymbol: "XLRE", assetClass: "etf", label: "XLRE Real Estate", type: "Sector", benchmark: "spx" },
   { id: "xlc", providerSymbol: "XLC", assetClass: "etf", label: "XLC Communication", type: "Sector", benchmark: "spx" },
 
+  // Duration proxies show traded ETF *prices*, never bond yields.
+  { id: "tlt", providerSymbol: "TLT", assetClass: "etf", label: "TLT · 20+Y Treasury bond ETF (price proxy)", type: "Bond ETF" },
+  { id: "ief", providerSymbol: "IEF", assetClass: "etf", label: "IEF · 7–10Y Treasury bond ETF (price proxy)", type: "Bond ETF" },
+  { id: "tip", providerSymbol: "TIP", assetClass: "etf", label: "TIP · inflation-protected bond ETF (price proxy)", type: "Bond ETF" },
+  { id: "sgov", providerSymbol: "SGOV", assetClass: "etf", label: "SGOV · 0–3M Treasury bill ETF (price proxy)", type: "Bond ETF" },
+  { id: "xhb", providerSymbol: "XHB", assetClass: "etf", label: "XHB · homebuilders ETF", type: "Sector", benchmark: "spx" },
   { id: "hyg", providerSymbol: "HYG", assetClass: "etf", label: "High Yield Credit · HYG", type: "Credit / Risk", benchmark: "spx" },
   { id: "lqd", providerSymbol: "LQD", assetClass: "etf", label: "Investment Grade Credit · LQD", type: "Credit / Risk", benchmark: "spx" },
   { id: "jnk", providerSymbol: "JNK", assetClass: "etf", label: "High Yield Credit · JNK", type: "Credit / Risk", benchmark: "spx" },
