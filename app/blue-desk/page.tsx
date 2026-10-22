@@ -150,6 +150,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
               <h2 id="stories-title"><MarketIcon name="layers" size={24} /> Key market stories</h2>
               <p className={styles.muted}>Latest published catalyst for each ongoing Story. Select a ball to filter; older editions remain available inside the Story.</p>
             </div>
+            {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
             {subject?<Link className={styles.textLink} href={storyGridHref(1,"")}>Clear {subject} filter ×</Link>
               :<span className={styles.storyPageMeta}>{pagination.total} ongoing stories · newest first</span>}
           </div>
