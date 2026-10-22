@@ -8,7 +8,7 @@ import type { MarketMonitorRow, MarketMonitorType } from "./market-monitor.ts";
 export const PUBLIC_MARKET_GROUPS = [
   { id: "all", label: "All markets" },
   { id: "ai", label: "AI & semiconductors" },
-  { id: "rates", label: "Government rates" },
+  { id: "rates", label: "Rates & bond ETFs" },
   { id: "energy", label: "Oil & energy" },
   { id: "fx", label: "Currencies" },
   { id: "credit", label: "Credit & risk" },
@@ -42,7 +42,7 @@ export function publicMarketGroup(value: string | string[] | undefined): PublicM
 function includedType(type: MarketMonitorType, group: PublicMarketGroup): boolean {
   switch (group) {
     case "ai": return type === "AI / Semis";
-    case "rates": return type === "Rates";
+    case "rates": return type === "Rates" || type === "Bond ETF";
     case "energy": return type === "Energy";
     case "fx": return type === "FX";
     case "credit": return type === "Credit / Risk";
