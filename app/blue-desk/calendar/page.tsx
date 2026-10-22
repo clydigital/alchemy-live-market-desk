@@ -81,6 +81,9 @@ function Events({ records, statusLabel, storyBase }: { records: PresenterCalenda
         </p>
         {event.affectedAssets.length ? <p className={styles.muted}>Affected assets in source record: {event.affectedAssets.join(" · ")}</p> : null}
         <Link className={styles.calendarSubjectLink} href={storyBase+"#stories-title"}>Explore ongoing market stories →</Link>
+        <Link className={styles.calendarSubjectLink}
+          href={blueDeskPublicHref("/blue-desk/presenter?event="+encodeURIComponent(event.id),host)}>
+          Check event in Presenter · owner →</Link>
         {sourceUrl(event.sourceUrl) ? (
           <a href={event.sourceUrl} rel="noreferrer" target="_blank" className={styles.textLink}>
             {event.sourceName} · View source ↗
