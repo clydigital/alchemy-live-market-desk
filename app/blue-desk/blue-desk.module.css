@@ -433,3 +433,9 @@
 .storyHistorySidebar li small { display: block; margin-top: 5px; font-size: 11px; color: #abc5d6; }
 .calendarStoryIdentities { margin-top: 10px; }
 .calendarSubjectLink { display: inline-block; font-size: 12px; margin-top: 5px; }
+
+/* Small-screen reading order and facet navigation follow source-based headlines. */
+.storyCard .storyBottom { margin-top: auto; }
+.calendarSubjectFilters { margin: 15px 0; padding: 12px 16px; border: 1px solid #215b76; border-radius: 8px; background: #042439; }
+.calendarSubjectFilters .storyIdentities { margin-top: 2px; }
+.calendarSubjectFilters .muted { margin-bottom: 0; }
