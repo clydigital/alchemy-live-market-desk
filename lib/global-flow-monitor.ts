@@ -1,3 +1,4 @@
+import { getHormuzMonitor } from "./hormuz-monitor";
 import { unstable_cache } from "next/cache";
 
 import { buildGlobalFlowMonitorFromInputs, type GlobalFlowMonitor } from "@/lib/global-flow-monitor-core";
@@ -31,4 +32,9 @@ async function loadGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
   return buildGlobalFlowMonitorFromInputs(statusRoot, market, eia);
 }
 
-export const getGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v2"], { revalidate: 300 });
+const getCachedGlobalFlowMonitor = unstable_cache(loadGlobalFlowMonitor, ["alchemy-global-flow-monitor-v2"], { revalidate: 300 });
+
+export async function getGlobalFlowMonitor(): Promise<GlobalFlowMonitor> {
+  const [flows, hormuz] = await Promise.all([getCachedGlobalFlowMonitor(), getHormuzMonitor()]);
+  return { ...flows, hormuz };
+}

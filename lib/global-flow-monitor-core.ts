@@ -1,3 +1,4 @@
+import type { HormuzMonitor } from "./hormuz-monitor-core.ts";
 import {
   EIA_WEEKLY_PETROLEUM_ROUTE,
   type EiaWeeklyMetric,
@@ -32,6 +33,7 @@ export type FlowMetric = {
 };
 
 export type GlobalFlowMonitor = {
+  hormuz?: HormuzMonitor;
   updatedAt: string;
   gold: FlowMetric[];
   oil: FlowMetric[];
