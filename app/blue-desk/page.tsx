@@ -5,6 +5,10 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
+import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
+import { getRecentPublishedStoryReadings } from "@/lib/blue-desk/story-archive-server";
+import { newestStoryReadings, paginateStoryReadings, exactPublishedStoryId, type PublishedStoryReading } from "@/lib/blue-desk/story-archive";
+import { storyMatchesSubject } from "@/lib/blue-desk/story-identity";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -36,11 +40,14 @@ function ellipsis(value: string, max = 175) {
   return value.slice(0, max).replace(/\s+\S*$/, "") + "…";
 }
 
-export default async function BlueDeskPage() {
+export default async function BlueDeskPage({searchParams}:{searchParams:Promise<{page?:string|string[];subject?:string|string[]}>}) {
+  const query=await searchParams;
+  const page=typeof query.page==="string" && /^\d{1,3}$/.test(query.page)?Number(query.page):1;
+  const subject=typeof query.subject==="string" && /^[A-Z0-9]{2,12}$/.test(query.subject)?query.subject:"";
   const now = new Date();
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const [latest, macro, earnings, monitor, motions, verifiedMotions] = await Promise.all([
+  const [latest, macro, earnings, monitor, motions, verifiedMotions, storyArchive] = await Promise.all([
     getLiveDeskHomepageDailyBrief({ fresh: true }).catch(() => null),
     getEconomicCalendar().catch(() => []),
     getForwardEarningsEvents({ now }).catch(() => ({
@@ -49,6 +56,7 @@ export default async function BlueDeskPage() {
     getMarketMonitor().catch(() => null),
     getCurrentMarketMotion({ limit: 24 }).catch(() => []),
     getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
+    getRecentPublishedStoryReadings().catch(() => []),
   ]);
 
   // Existing publication snapshots remain the only article authority.
@@ -81,7 +89,23 @@ export default async function BlueDeskPage() {
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
-  const articles = brief.articles.filter(article => article.editorial.readiness !== "RESEARCH_ONLY").slice(0, 6);
+  const fallback:PublishedStoryReading[]=brief.articles.flatMap(article=>{
+    const storyId=exactPublishedStoryId(article);
+    return storyId && article.editorial.readiness!=="RESEARCH_ONLY" && latest
+      ?[{article,storyId,editionId:article.editionId,publishedAt:latest.published_at}]:[];
+  });
+  const historicalReadings=storyArchive.length?storyArchive:fallback;
+  const latestByStory=newestStoryReadings(historicalReadings);
+  const filtered=subject?latestByStory.filter(item=>
+    storyMatchesSubject(item.article.title,item.article.deck,item.article.subjectAssets||[],subject)):latestByStory;
+  const pagination=paginateStoryReadings(filtered,page);
+  const articles=pagination.items;
+  const storyGridHref=(nextPage:number,filter=subject)=>
+    blueDeskPublicHref("/blue-desk",host)
+      +"?page="+nextPage+(filter?"&subject="+encodeURIComponent(filter):"")+"#stories-title";
+  const previousByStory=new Map(latestByStory.map(item=>[
+    item.storyId,historicalReadings.filter(history=>history.storyId===item.storyId).length-1,
+  ]));
   // Every desk angle is sourced directly from the already-reviewed public market
   // observation projection. A Dossier does not determine visibility here.
   const publicObservations = PUBLIC_MARKET_GROUPS.filter(group => group.id !== "all")
@@ -247,17 +271,25 @@ export default async function BlueDeskPage() {
           <div className={styles.sectionHead}>
             <div>
               <h2 id="stories-title"><MarketIcon name="layers" size={24} /> Key market stories</h2>
+              <p className={styles.muted}>Newest source-admitted catalyst for each ongoing Story. Select a ball to filter; earlier reports stay attached to the Story.</p>
             </div>
             {!publicHost ? <Link href="/articles" className={styles.textLink}>All articles →</Link> : null}
+            {subject?<Link className={styles.textLink} href={storyGridHref(1,"")}>Clear {subject} filter ×</Link>:<span className={styles.storyPageMeta}>{pagination.total} Story threads · newest first</span>}
           </div>
           <div className={styles.storyGrid}>
-            {articles.length ? articles.map(article => (
+            {articles.length ? articles.map(({article,storyId}) => (
               <article key={article.articleId} className={styles.storyCard}>
                 <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
+                <StoryIdentityBalls title={article.title} deck={article.deck} assets={article.subjectAssets}
+                  hrefBase={blueDeskPublicHref("/blue-desk",host)}/>
+                <span className={styles.storyCatalystLabel}>Latest source-admitted update · Ongoing Story</span>
                 <h3>{article.title}</h3>
                 <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
                 <div className={styles.storyBottom}>
-                  <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
+                  <div className={styles.storyCardDates}>
+                    <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
+                    {(previousByStory.get(storyId)||0)>0?<small>{previousByStory.get(storyId)} earlier reports</small>:null}
+                  </div>
                   <Link href={storyHref(article)}>Read analysis →</Link>
                 </div>
               </article>
@@ -268,6 +300,12 @@ export default async function BlueDeskPage() {
               </article>
             )}
           </div>
+          <nav className={styles.storyPager} aria-label="Key market stories pages">
+            {pagination.page>1?<Link href={storyGridHref(pagination.page-1)}>← Newer stories</Link>:<span>Newest stories</span>}
+            <span>Page {pagination.page} of {pagination.pages} · {pagination.total} Story threads</span>
+            {pagination.page<pagination.pages?<Link href={storyGridHref(pagination.page+1)}>Older stories →</Link>:<span>End of available archive</span>}
+          </nav>
+          <p className={styles.coverage}>Recent 24 source-published editions are indexed; older exact permalinks remain accessible.</p>
         </section>
 
         <div className={styles.calendarOnlyGrid}>
@@ -290,6 +328,8 @@ export default async function BlueDeskPage() {
                 <div className={styles.eventHeading}>
                   <span className={styles.kicker}>{event.kind.toUpperCase()} · {event.status}</span>
                   <h3>{event.title}</h3>
+                  <StoryIdentityBalls title={event.title} deck={event.decidingQuestion} assets={event.affectedAssets}
+                    hrefBase={blueDeskPublicHref("/blue-desk",host)} limit={3}/>
                 </div>
                 <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
                 <p>{event.decidingQuestion}</p>
