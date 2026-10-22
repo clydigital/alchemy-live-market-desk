@@ -37,7 +37,7 @@ function displayLevel(row: PublicMarketObservation) {
   });
   // Treasury-rate feed values are percentage yields. Other instrument types
   // keep the source's native numerical scale rather than an inferred unit.
-  return row.type === "Rates" ? `${value}%` : value;
+  return row.levelUnit === "%" ? `${value}%` : value;
 }
 
 function displayChange(row: PublicMarketObservation) {
