@@ -196,3 +196,42 @@ test("no usable curve evidence fails closed", () => {
   assert.equal(result.coverage.present, 0);
   assert.equal(result.evidenceRefs.length, 0);
 });
+
+
+test("10Y retains observed spot level but recovers five-session movement from independently observed FRED DGS10", () => {
+  const fast = monitor("us10y", 5.13, 5.13);
+  delete (fast.metrics as Record<string, unknown>).change_5d_pct;
+  const fred = monitor("us10y-fred", 5.12, 5.20);
+  const result = buildRateCurveDiagnostic([
+    monitor("us2y", 4.81, 4.82), fast, fred,
+    monitor("us5y-fred", 4.95, 5.00),
+    monitor("us20y-fred", 5.47, 5.57),
+    monitor("us30y-fred", 5.42, 5.52),
+  ], AS_OF);
+  const y10 = result.points.find((p) => p.maturity === "10Y");
+  assert.equal(y10?.yieldPct, 5.13, "price/yield level stays with current spot monitor");
+  assert.equal(y10?.change5dBp, -8, "FRED's official observed daily history supplies the delta");
+  assert.equal(y10?.levelEvidenceRef, fast.evidence_id);
+  assert.equal(y10?.changeEvidenceRef, fred.evidence_id);
+  assert.ok(result.evidenceRefs.includes(fred.evidence_id), "provenance is persisted, not dropped");
+});
+
+test("10Y never fabricates a five-session move when both observed sources lack a valid change", () => {
+  const fast = monitor("us10y", 5.13, 5.13);
+  const fred = monitor("us10y-fred", 5.12, 5.12);
+  for (const row of [fast, fred]) delete (row.metrics as Record<string, unknown>).change_5d_pct;
+  const result = buildRateCurveDiagnostic([fast, fred], AS_OF);
+  const y10 = result.points.find((p) => p.maturity === "10Y");
+  assert.equal(y10?.change5dBp, null);
+  assert.equal(y10?.direction5d, "UNRESOLVED");
+  assert.equal(y10?.changeEvidenceRef, fast.evidence_id);
+});
+
+test("10Y continues to prefer its own valid five-session change over a separate FRED change", () => {
+  const fast = monitor("us10y", 5.13, 5.16);
+  const fred = monitor("us10y-fred", 5.12, 5.20);
+  const result = buildRateCurveDiagnostic([fast, fred], AS_OF);
+  const y10 = result.points.find((p) => p.maturity === "10Y");
+  assert.equal(y10?.change5dBp, -3);
+  assert.equal(y10?.changeEvidenceRef, fast.evidence_id);
+});
