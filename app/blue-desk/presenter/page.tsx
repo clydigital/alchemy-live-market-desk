@@ -47,6 +47,7 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
           <p>Reconcile your charts with the market story before going live.
             Technical readings are presenter-owned notes, not canonical market evidence.</p>
           <div className={ui.links}>
+            <Link className={ui.action} href={"/blue-desk/presenter/editorial" + (query.edition && typeof query.edition === "string" ? "?edition=" + encodeURIComponent(query.edition) : "")}>COTD / OB editorial checks →</Link>
             <Link className={ui.action} href={fullPrepHref}>Open full edition-pinned prep →</Link>
             <Link href="/blue-desk/changes">Open Change Ledger →</Link>
           </div>
@@ -70,6 +71,13 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
           <Link className={ui.action} href={fullPrepHref}>
             {query.edition ? "Continue with selected edition →" : "Open current edition prep →"}
           </Link>
+        </section>
+
+        <section className={ui.panel} aria-labelledby="editorial-heading">
+          <p className={desk.kicker}>03 / COTD + OPENING BELL</p>
+          <h2 id="editorial-heading">Read the article evidence before writing</h2>
+          <p>Review source-admitted excerpts, frozen causal interpretation, chart and length gaps, and separate COTD / OB publication checks. Full articles still require fresh price confirmation and your approval.</p>
+          <Link className={ui.action} href={"/blue-desk/presenter/editorial" + (query.edition && typeof query.edition === "string" ? "?edition=" + encodeURIComponent(query.edition) : "")}>Open COTD / OB editorial preview →</Link>
         </section>
 
         <footer className={ui.footer}>
