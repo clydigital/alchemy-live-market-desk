@@ -2,15 +2,18 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
+import MarketsMonitor from "@/components/live-desk/MarketsMonitor";
+import { isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
   PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
-  type PublicMarketObservation,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import styles from "../blue-desk.module.css";
+import BlueDeskMarketReader from "./BlueDeskMarketReader";
 import legibility from "./legibility.module.css";
 
 export const dynamic = "force-dynamic";
@@ -28,30 +31,34 @@ const GROUP_ICONS: Record<string, MarketIconName> = {
   fx: "currency", credit: "credit", equities: "equities", metals: "gold",
 };
 
-function displayLevel(row: PublicMarketObservation) {
-  if (row.last === null) return "Unavailable";
-  const value = row.last.toLocaleString("en-GB", {
-    maximumFractionDigits: Math.abs(row.last) >= 1000 ? 1 : 3,
-  });
-  // Treasury-rate feed values are percentage yields. Other instrument types
-  // keep the source's native numerical scale rather than an inferred unit.
-  return row.type === "Rates" ? `${value}%` : value;
-}
-
-function displayChange(row: PublicMarketObservation) {
-  if (row.change === null) return "Not available";
-  const positive = row.change > 0 ? "+" : "";
-  return `${positive}${row.change.toFixed(2)}${row.changeUnit === "bp" ? " bp" : "%"}`;
-}
-
-function sourceLabel(row: PublicMarketObservation) {
-  return row.asOf ? `Observation: ${row.asOf}` : "Observation date unavailable";
-}
-
 export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
+
+  // Exact Hybrid tape, inside the Blue Desk shell for signed-in owner hosts.
+  // Public Bluebelly and canonical Live retain the existing bounded,
+  // source-only DTO; neither receives HOT/RSI, signals, or price histories.
+  if (!isBlueDeskPublicReaderHost(host)) {
+    const [fullMonitor, flows] = await Promise.all([
+      getMarketMonitor(),
+      getGlobalFlowMonitor(),
+    ]);
+    return (
+      <main className={styles.page} data-blue-desk-markets="hybrid-owner-tape">
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap"
+        />
+        <BlueDeskHeader activePath="/blue-desk/markets" />
+        <div className={`${styles.content} ${styles.ownerMarketsFullBleed}`}>
+          <MarketsMonitor monitor={fullMonitor} flows={flows} hybridTape />
+        </div>
+      </main>
+    );
+  }
   const monitor = await getMarketMonitor().catch(() => null);
   const observations = publicMarketObservations(monitor?.rows || [], group);
   const officialRateTrends = group === "all" || group === "rates"
@@ -106,38 +113,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           </div>
 
           {observations.length ? (
-            <div className={styles.publicMarketTableScroll}>
-              <table className={styles.publicMarketTable}>
-                <thead>
-                  <tr>
-                    <th scope="col">Instrument</th>
-                    <th scope="col">Last observed</th>
-                    <th scope="col">Session change</th>
-                    <th scope="col">Source and vintage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {observations.map(row => (
-                    <tr key={row.id}>
-                      <th scope="row">
-                        <strong>{row.label}</strong>
-                        <span>{row.symbol} · {row.type}</span>
-                      </th>
-                      <td className={styles.publicMarketNumber}>{displayLevel(row)}</td>
-                      <td className={styles.publicMarketNumber}>{displayChange(row)}</td>
-                      <td className={styles.publicMarketSource}>
-                        <span>{sourceLabel(row)} · {row.frequency} observation</span>
-                        {row.sourceUrl ? (
-                          <a href={row.sourceUrl} target="_blank" rel="noreferrer">
-                            {row.sourceName} · original data ↗
-                          </a>
-                        ) : <span>Original-source link unavailable</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <BlueDeskMarketReader observations={observations} />
           ) : (
             <div className={styles.secondaryPanel} role="status">
               <h3>Observations unavailable</h3>

@@ -389,3 +389,11 @@
 @media (prefers-reduced-motion: reduce) {
   .navItem,.navActive,.calendarTab,.calendarTabActive { transition: none; }
 }
+
+/* Owner-only Hybrid tape: do not constrain the 12-column terminal to the
+   1500px article-reader container. Public Markets retains .content unchanged. */
+.ownerMarketsFullBleed {
+  width: 100%;
+  max-width: none;
+  padding: 0 0 64px;
+}

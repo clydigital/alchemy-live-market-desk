@@ -1,0 +1,48 @@
+.breadcrumb {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;color:#a9ccdb;font-size:12px;flex-wrap:wrap}
+.hero {padding:clamp(26px,4vw,50px);border:1px solid #2a6580;border-radius:12px;background:radial-gradient(ellipse at 80% 0%,rgba(51,151,198,.24),transparent 56%),linear-gradient(128deg,#002038,#07415c 75%,#032639);margin:14px 0 33px}
+.hero h1 {font-size:clamp(30px,3.5vw,48px);line-height:1.15;letter-spacing:-.045em;margin:10px 0;color:#f4fbff}
+.hero > p:not(:first-child) {max-width:76ch;color:#cbdfeb;font-size:16px;line-height:1.65}
+.edition {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:25px 0 0}
+.edition > div {min-width:0;border:1px solid #376982;background:#041e30;border-radius:7px;padding:15px}
+.edition dt {color:#91c0d1;font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+.edition dd {margin:8px 0 0;color:#fff;font-size:14px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.sectionTitle {font-size:24px;color:#e9f8ff;margin:0 0 18px;letter-spacing:-.03em}
+.cards {display:grid;gap:19px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.card {background:linear-gradient(145deg,#092f49,#041b2d);border:1px solid #2b617a;border-radius:10px;padding:clamp(20px,2.4vw,30px);min-width:0}
+.meta {display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.category {font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#7ccee8}
+.format {border:1px solid #346d82;color:#e4eff6;background:#07354b;border-radius:5px;padding:5px 8px;font-size:11px}
+.card h3 {font-size:clamp(20px,2vw,27px);line-height:1.26;color:#fff;letter-spacing:-.03em;margin:12px 0}
+.deck {color:#d0e2eb;font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.trace {font-size:11px;color:#93bacc;line-height:1.55;overflow-wrap:anywhere;margin:18px 0}
+.sections {display:grid;gap:17px}
+.sections h4,.facts h4 {font-size:15px;color:#e4f5fc;margin:12px 0}
+.paragraph,.facts li {border-top:1px solid #28576c;padding:13px 0}
+.paragraph p,.facts li p {font-size:14px;line-height:1.68;color:#d5e6ef;margin:0 0 8px}
+.paragraph a,.facts a {font-size:12px;line-height:1.5;text-decoration:underline;text-underline-offset:4px}
+.facts ul,.details ul {margin:9px 0 16px;padding-left:18px}
+.facts > p {font-size:12px;color:#accbd8;line-height:1.5}
+.details {margin:15px 0;border-top:1px solid #28576c;padding-top:13px;color:#9fc4d7;font-size:12px}
+.details summary {cursor:pointer;color:#b5ddec}
+.details li {padding:4px 0;line-height:1.45}
+.review,.empty {border:1px dashed #4a6d7c;padding:20px;color:#b2d0df;border-radius:8px;font-size:13px;line-height:1.6}
+.readMore {display:inline-block;margin-top:15px;padding:11px 14px;border:1px solid #2c7996;border-radius:6px;color:#d9f4ff!important;background:#084666;font-weight:700;font-size:12px}
+.readMore:hover {background:#126389}
+.footer {margin:30px 0;color:#9bbccd;font-size:12px;border-top:1px solid #28506a;padding:22px 0}
+.card a:focus-visible,.breadcrumb a:focus-visible,.details summary:focus-visible {outline:2px solid #70d8f4;outline-offset:3px}
+@media(max-width:950px){.cards{grid-template-columns:1fr}.edition{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.edition{grid-template-columns:1fr}.hero{padding:22px}.breadcrumb{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.card *{transition:none;scroll-behavior:auto}}
+
+
+.editionPicker { margin-top:22px;border:1px solid #386780;border-radius:9px;background:rgba(1,23,39,.70);padding:16px; }
+.editionPicker label {display:block;color:#c6e1ee;font-size:12px;font-weight:700;margin-bottom:10px}
+.editionPicker > div {display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.editionPicker input {min-width:220px;max-width:440px;flex:1;height:43px;color:#f4fbff;border:1px solid #47728a;border-radius:6px;background:#001a2b;padding:9px 11px;font:inherit;font-size:13px}
+.editionPicker input::placeholder {color:#a6c0ce}
+.editionPicker button,.editionPicker a {cursor:pointer;color:#e5f7ff!important;background:#0a4c70;border:1px solid #3a7896;border-radius:6px;padding:10px 13px;min-height:43px;font-weight:700;font-size:12px}
+.editionPicker button:hover,.editionPicker a:hover {background:#145f82}
+.editionPicker p {color:#a9cad9;font-size:11px;margin:10px 0 0;line-height:1.55}
+.editionPicker button:focus-visible,.editionPicker input:focus-visible,.editionPicker a:focus-visible {outline:2px solid #6cdefb;outline-offset:3px}
+
+.manifestNote {margin:16px 0 0!important;padding:12px 14px;border:1px solid #376a81;border-radius:7px;color:#c7e2ef!important;background:rgba(1,24,40,.76);font-size:12px!important;line-height:1.55!important}

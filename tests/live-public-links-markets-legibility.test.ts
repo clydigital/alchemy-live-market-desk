@@ -53,5 +53,14 @@ test("Bluebelly market instrument boxes use legible text sizes without changing 
   assert.match(css, /table td a\s*\{\s*font-size:\s*14px/);
   assert.match(css, /nav\[aria-label="Market group"\] a\s*\{[\s\S]*?font-size:\s*15px/);
   assert.match(css, /@media \(max-width: 760px\)/);
-  assert.doesNotMatch(page, /getGlobalFlowMonitor|attentionScore|hot:\s*true/);
+  // V7 deliberately adds a separate authenticated owner tape on non-public
+  // hosts. The public page still receives only the source-bounded DTO.
+  const ownerGuard = page.indexOf("if (!isBlueDeskPublicReaderHost(host))");
+  const publicReader = page.indexOf("const monitor = await getMarketMonitor().catch(() => null)");
+  assert.ok(ownerGuard >= 0 && publicReader > ownerGuard,
+    "Owner-only market research must return before the public reader branch");
+  assert.match(page.slice(ownerGuard, publicReader), /getGlobalFlowMonitor/);
+  assert.match(page.slice(ownerGuard, publicReader), /return \(/);
+  assert.doesNotMatch(page.slice(publicReader), /getGlobalFlowMonitor|attentionScore|hot:\s*true/);
+  assert.match(page.slice(publicReader), /publicMarketObservations\(monitor\?\.rows \|\| \[\], group\)/);
 });
