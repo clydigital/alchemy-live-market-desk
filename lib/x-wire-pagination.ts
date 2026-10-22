@@ -30,9 +30,9 @@ export function parseFxTimeline(json: unknown, handle: string, startAt: string, 
   for (const raw of data.results) {
     const row=rec(raw), author=rec(row.author);
     const screen=text(author.screen_name,20), id=text(row.id,25), date=published(row), body=text(row.text);
-    if (row.type !== "status" || row.reposted_by || screen.toLowerCase() !== handle.toLowerCase() ||
-      !date || Date.parse(date) < Date.parse(startAt) ||
-      Date.parse(date) > Date.parse(nowIso) + 300_000 || !body) {malformed++;continue;}
+    if (row.reposted_by || (date && Date.parse(date) < Date.parse(startAt))) continue;
+    if (row.type !== "status" || screen.toLowerCase() !== handle.toLowerCase() ||
+      !date || Date.parse(date) > Date.parse(nowIso) + 300_000 || !body) {malformed++;continue;}
     try {
       const normalized = normaliseXPostUrl("https://x.com/"+screen+"/status/"+id);
       const quote=rec(row.quote), qs=text(rec(quote.author).screen_name,20), qid=text(quote.id,25);
@@ -53,9 +53,15 @@ export function xWireRequestWindow(nowIso:string, lastCompleteAt:string|null,
   cursor:string|null, startAt:string|null, lookbackHours=2.5, overlapMinutes=30, recoveryHours=72) {
   const now=Date.parse(nowIso);
   if(!Number.isFinite(now))throw new Error("Invalid now");
-  if(cursor && startAt && Number.isFinite(Date.parse(startAt)))return {
-    startAt:new Date(startAt).toISOString(),cursor, resumed:true, gap:false,
-  };
+  if(cursor && startAt && Number.isFinite(Date.parse(startAt))) {
+    const age=(now-Date.parse(startAt))/3_600_000;
+    if(age>=0 && age<=recoveryHours)return {
+      startAt:new Date(startAt).toISOString(),cursor,resumed:true,gap:false,
+    };
+    // An expired provider cursor cannot silently defeat the 72h recovery cap.
+    return {startAt:new Date(now-recoveryHours*3_600_000).toISOString(),
+      cursor:null,resumed:false,gap:true};
+  }
   const elapsed = lastCompleteAt ? (now-Date.parse(lastCompleteAt))/3_600_000 : lookbackHours;
   if(!Number.isFinite(elapsed)||elapsed < 0)throw new Error("Invalid last complete");
   const wanted=Math.max(lookbackHours,elapsed+(lastCompleteAt?overlapMinutes/60:0));
