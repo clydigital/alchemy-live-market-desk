@@ -58,7 +58,7 @@ test("full owner legacy Evidence fields preserve UUIDs and EvidenceGame reviews,
   assert.equal(output.rows[0]?.id, row.id);
   assert.equal(output.rows[0]?.story_id, row.story_id);
   assert.equal(output.rows[0]?.ai_price_reason, row.ai_price_reason);
-  assert.equal(output.rows[0]?.chart_series?.[0], "spy");
+  assert.deepEqual(output.rows[0]?.chart_series, ["spy"]);
   assert.ok(!JSON.stringify(output).includes("never serialize"));
   for (const invalid of [
     { ...row, id: "missing" }, { ...row, story_id: null },
