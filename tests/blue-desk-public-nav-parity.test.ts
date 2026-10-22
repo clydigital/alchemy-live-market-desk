@@ -13,7 +13,7 @@ test("public header links target genuine approved reading routes, not homepage a
   assert.deepEqual(hrefs, ["/", "/key-stories", "/rates", "/what-changed", "/markets", "/calendar", "/presenter"]);
   assert.ok(hrefs.every(href => !href.includes("#")));
   const ratesReader = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
-  assert.match(ratesReader, /publicGovernmentRateTrends/);
+  assert.match(ratesReader, /publicOfficialMacroTrends/);
   assert.match(ratesReader, /group === "rates" \? "\/markets\?group=rates"/);
   assert.match(ratesReader, /<PublicGovernmentRateTrendChart/);
   for (const href of hrefs) {
