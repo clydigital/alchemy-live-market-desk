@@ -75,15 +75,15 @@ test("Story detail fetches exact immutable edition independent of recent picker"
 test("Bluebelly exposes only explicitly approved public reading routes", () => {
   const host = "bluebelly-desk.vercel.app";
   for (const path of [
-    "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets",
+    "/", "/calendar", "/blue-desk", "/blue-desk/calendar", "/markets", "/blue-desk/markets", "/key-stories", "/rates", "/what-changed",
     "/stories/article%3Afcea17ef-f575-4283-a363-7d5fa9c918c7%3A6e2c8a8c-fdc7-45eb-bec6-b685b0311f3e",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "public", path);
   }
   for (const path of [
     "/hybrid-output/prepare", "/dossier", "/articles",
-    "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
-    "/auth/callback", "/login", "/stories",
+    "/api/dossier-v2", "/api/cron/research/morning",
+    "/stories",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "blocked", path);
@@ -201,4 +201,35 @@ test("full Markets public exception never leaks to owner siblings, APIs or previ
   assert.match(terminal, /getGlobalFlowMonitor\(\)/);
   assert.match(terminal, /<BlueDeskHeader activePath="\/blue-desk\/markets" \/>/);
   assert.doesNotMatch(terminal, /LiveDeskShell|<form|signout|use server|fetch\("\/api\//);
+});
+
+test("Bluebelly presenter sign-in is exact-path private; OAuth entry and callback remain controlled",()=>{
+ const host="bluebelly-desk.vercel.app";
+ for(const path of ["/presenter","/presenter/editorial","/presenter/dossier","/presenter/changes","/presenter/full-prep","/api/presenter/technical-checks"]){
+   assert.equal(blueDeskHostAccess(path,host),"private",path);
+ }
+ for(const path of ["/login","/auth/google","/auth/callback","/auth/signout"])
+   assert.equal(blueDeskHostAccess(path,host),"public",path);
+ for(const path of ["/presenter/other","/presenter/editorial/delete","/hybrid-output/prepare",
+   "/api/presenter/technical-checks/delete","/api/cron/research/morning","/blue-desk/presenter","/blue-desk/dossier"]){
+   assert.equal(blueDeskHostAccess(path,host),"blocked",path);
+ }
+ assert.equal(blueDeskPresentationTarget("/presenter",host),"/blue-desk/presenter");
+ assert.equal(blueDeskPresentationTarget("/presenter/editorial",host),"/blue-desk/presenter/editorial");
+ assert.equal(blueDeskPresentationTarget("/presenter/dossier",host),"/blue-desk/dossier");
+ assert.equal(blueDeskPresentationTarget("/presenter/full-prep",host),"/hybrid-output/prepare");
+ const middleware=readFileSync(new URL("../middleware.ts",import.meta.url),"utf8");
+ assert.match(middleware,/bluebellyPresenterApi/);
+ assert.ok(middleware.indexOf('if (accessScope === "public")')<middleware.indexOf("getClaims()"));
+ assert.match(middleware,/app_access_allowlist/);
+});
+test("new public navigation opens substantive independent readers",()=>{
+ const host="bluebelly-desk.vercel.app";
+ for(const [url,file] of [["/key-stories","key-stories"],["/rates","rates"],["/what-changed","what-changed"]]){
+   assert.equal(blueDeskHostAccess(url,host),"public");
+   assert.equal(blueDeskPresentationTarget(url,host),"/blue-desk/"+file);
+   const page=readFileSync(new URL("../app/blue-desk/"+file+"/page.tsx",import.meta.url),"utf8");
+   assert.match(page,/getLiveDeskHomepageDailyBrief|getMarketMonitor|getCurrentVerifiedMarketMotion/);
+   assert.doesNotMatch(page,/createSupabaseAdminClient|\\.upsert\\(|\\.insert\\(/);
+ }
 });
