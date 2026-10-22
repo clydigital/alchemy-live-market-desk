@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 function clock(value: string | null) {
-  return value ? new Date(value).toLocaleString("en-GB", {
+  return value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString("en-GB", {
     timeZone: "Asia/Kuala_Lumpur", day: "2-digit", month: "short",
     hour: "2-digit", minute: "2-digit", hour12: false,
   }) + " MYT" : "Not observed";
@@ -24,7 +24,7 @@ export default async function OwnerXWirePage() {
         <p className={styles.eyebrow}>PRIVATE BLUE DESK / RESEARCH INPUTS</p>
         <h1>X Intelligence Wire</h1>
         <p>Recent attributed X posts from registered accounts. Discovery only, not verified market evidence.</p>
-        <p className={styles.secondary}>FxEmbed public API · Last checked {clock(data.retrievedAt)} · 2.5h normal lookback / 72h recovery cap · Storage {data.storageHealthy ? "connected" : "unavailable"}</p>
+        <p className={styles.secondary}>FxEmbed public API · View generated {clock(data.retrievedAt)} · 2.5h normal lookback / 72h recovery cap · Storage {data.storageHealthy ? "connected" : "unavailable"}</p>
       </header>
       <div className={styles.stats}>
         <div><strong>{data.pendingCount}</strong><span>Stored discovery candidates</span></div>
@@ -61,7 +61,8 @@ export default async function OwnerXWirePage() {
             {data.accounts.map(account => (
               <article className={styles.account} key={account.handle}>
                 <div className={styles.accountTop}><strong>@{account.handle}</strong><span data-health={account.status}>{account.status.toUpperCase()}</span></div>
-                <div className={styles.accountMeta}>Last fetch returned {account.fetched} · Last completed scan: {clock(account.lastSuccessAt)}</div>
+                <div className={styles.accountMeta}>Last fetch returned {account.fetched} · Last attempted: {clock(account.attemptedAt)}</div>
+                <div className={styles.accountMeta}>Last completed scan: {clock(account.lastSuccessAt)}</div>
                 <div className={styles.accountMeta}>Last observed: {clock(account.lastObservedPostAt)}</div>
                 {account.error ? <p className={styles.error}>{account.error}</p> : null}
               </article>
