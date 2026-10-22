@@ -17,6 +17,7 @@ export function dashboardAuthRequired() {
 }
 
 export const MACHINE_AUTH_PATHS = [
+  "/api/internal/dossier-v2", // handler requires dedicated server-to-server bearer
   "/api/research-update",
   "/api/research-gap/handoff",
   "/api/research-gap/queue",
