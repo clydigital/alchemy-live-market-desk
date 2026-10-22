@@ -9,10 +9,10 @@ test("lightweight Dossier V2 endpoint uses only the shared presentation selector
   assert.doesNotMatch(source, /getCanonicalPublicationPayload|getHybridFeedData|getDeskData|runIntelligenceEngine|executeResearchBrain/);
 });
 
-test("lightweight Dossier V2 endpoint is cacheable, CORS-readable and fails closed", () => {
+test("lightweight Dossier V2 endpoint is private no-store, CORS-readable and fails closed", () => {
   assert.match(source, /Access-Control-Allow-Origin/);
-  assert.match(source, /s-maxage=30/);
-  assert.match(source, /stale-while-revalidate=120/);
+  assert.match(source, /"Cache-Control": "private, no-store"/);
+  assert.doesNotMatch(source, /s-maxage|stale-while-revalidate/);
   assert.match(source, /status:\s*"unavailable"/);
   assert.match(source, /presentation:\s*null/);
   assert.match(source, /status:\s*503/);
@@ -34,7 +34,6 @@ test("current core and optional reads overlap without changing selection authori
   assert.match(source, /const selectionRead = withinTimeout\(/);
   assert.match(source, /const optionalReads = requestedId\s*\? Promise\.resolve\(\[null, null\] as const\)/);
   assert.match(source, /const \[selection, \[monitor, stockedUpEvidenceBrief\]\] = await Promise\.all\(\[\s*selectionRead,\s*optionalReads,\s*\]\)/);
-  assert.match(source, /const historical = selection\.status === "historical_exact"/);
   assert.match(source, /buildDailyAssetState\(\{ monitor, presentation: selection\.presentation \}\)/);
   assert.doesNotMatch(source, /getLiveDeskFeed|getHybridFeedData|fallback_previous_healthy\s*\?/);
 });
@@ -47,7 +46,7 @@ test("reader exposes bounded server timing and classifies 503 errors without log
   assert.match(source, /error instanceof OperationTimeoutError \? "core_timeout" : "read_error"/);
   assert.match(source, /console\.error\("\[dossier-v2\] presentation unavailable"/);
   assert.match(source, /errorType: error instanceof Error \? error\.name : typeof error/);
-  assert.match(source, /"Cache-Control": "no-store"/);
+  assert.match(source, /"Cache-Control": "private, no-store"/);
   assert.match(source, /status: 503/);
 });
 
