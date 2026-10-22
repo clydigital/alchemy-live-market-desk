@@ -8,7 +8,7 @@ import { getGlobalFlowMonitor } from "@/lib/global-flow-monitor";
 import PublicGovernmentRateTrendChart from "@/components/blue-desk/PublicGovernmentRateTrendChart";
 import { MarketIcon, type MarketIconName } from "@/components/blue-desk/MarketIcon";
 import {
-  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicGovernmentRateTrends,
+  PUBLIC_MARKET_GROUPS, publicMarketGroup, publicMarketObservations, publicOfficialMacroTrends,
 } from "@/lib/blue-desk-public-markets";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -61,8 +61,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   }
   const monitor = await getMarketMonitor().catch(() => null);
   const observations = publicMarketObservations(monitor?.rows || [], group);
-  const officialRateTrends = group === "all" || group === "rates"
-    ? publicGovernmentRateTrends(monitor?.rows || []) : [];
+  const officialRateTrends = publicOfficialMacroTrends(monitor?.rows || [], group);
   const selected = PUBLIC_MARKET_GROUPS.find(item => item.id === group)!;
 
   return (
@@ -100,7 +99,7 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        {(group === "all" || group === "rates") && monitor ? (
+        {(group === "all" || group === "rates" || group === "credit") && monitor ? (
           <PublicGovernmentRateTrendChart series={officialRateTrends} nowIso={monitor.updatedAt} />
         ) : null}
 

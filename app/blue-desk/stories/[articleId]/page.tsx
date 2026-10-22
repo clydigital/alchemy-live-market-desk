@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import StoryVisual from "@/components/blue-desk/StoryVisual";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
+import { getRecentPublishedStoryReadings } from "@/lib/blue-desk/story-archive-server";
+import { exactPublishedStoryId, readingsForStory } from "@/lib/blue-desk/story-archive";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
@@ -78,6 +81,15 @@ export default async function BlueDeskStoryPage({
 
   const host = (await headers()).get("host");
   const back = blueDeskPublicHref("/blue-desk", host);
+  const canonicalStoryId=exactPublishedStoryId(article);
+  const recentArchive=await getRecentPublishedStoryReadings().catch(()=>[]);
+  const previousReadings=canonicalStoryId?readingsForStory([
+    ...recentArchive,
+    {article,storyId:canonicalStoryId,editionId:article.editionId,publishedAt:frozen.published_at},
+  ],canonicalStoryId,article.editionId).slice(0,10):[];
+  const earlierStoryHref=(prior:(typeof previousReadings)[number])=>blueDeskPublicHref(
+    "/blue-desk/stories/"+encodeURIComponent(prior.article.articleId)+"?edition="+encodeURIComponent(prior.editionId),host);
+
   const references = article.sourceLinks.filter(source => httpsSource(source.url));
   const confirmations = article.confirmationTests || [];
   const invalidations = article.invalidationTests || [];
@@ -119,11 +131,19 @@ export default async function BlueDeskStoryPage({
           <p className={styles.kicker}>{article.category} · {article.interpretationStatus}</p>
           <h1>{article.title}</h1>
           <p className={styles.heroDeck}>{article.deck}</p>
+          <StoryIdentityBalls title={article.title} deck={article.deck} assets={article.subjectAssets} hrefBase={blueDeskPublicHref("/blue-desk",host)}/>
           <div className={styles.deepMeta}>
             <DualTimestamp value={article.generatedAt} />
             <span>Immutable historical edition</span>
           </div>
         </header>
+        {canonicalStoryId?<div className={styles.storyPresenterAction}>
+          <Link className={styles.primaryAction} href={blueDeskPublicHref(
+            "/blue-desk/presenter?edition="+encodeURIComponent(article.editionId)
+            +"&story="+encodeURIComponent(canonicalStoryId),host)}>
+            Research this Story in Presenter · COTD / OB →</Link>
+          <p>Owner authentication required. This does not approve an article or change the canonical thesis.</p>
+        </div>:null}
         <StoryVisual
           storyId={normalizedArticleId.slice(articlePrefix.length)}
           editionId={article.editionId}
@@ -286,6 +306,16 @@ export default async function BlueDeskStoryPage({
             ) : null}
           </article>
           <aside className={styles.deepAside}>
+            <section className={styles.storyHistorySidebar} aria-label="Previous published reports on this Story">
+              <h2>Earlier reports on this Story</h2>
+              <p>Only exact canonical Story-ID matches, each with an immutable edition. New catalysts do not rewrite prior evidence.</p>
+              {previousReadings.length?<ol>
+                {previousReadings.map(prior=><li key={prior.article.articleId}>
+                  <Link href={earlierStoryHref(prior)}>{prior.article.title}</Link>
+                  <small>{prior.publishedAt.slice(0,10)} · {prior.article.interpretationStatus}</small>
+                </li>)}
+              </ol>:<p>No earlier report for this Story in the latest 24 editions. Older archive entries may exist.</p>}
+            </section>
             <section>
               <h2>Sources</h2>
               {references.length ? references.map((source, i) => (

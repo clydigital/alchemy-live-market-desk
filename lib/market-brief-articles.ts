@@ -42,7 +42,8 @@ export type MarketBriefArticleV1 = {
   generatedAt: string;                // valid ISO timestamp
   title: string;                      // declarative headline, maximum 80 characters
   deck: string;                       // concise one-sentence introduction
-  category: string;                   // descriptive, not a quota/bucket gate
+  category: string;
+  subjectAssets?: string[]; // Upstream canonical Story assets; read-only presentation tags.                   // descriptive, not a quota/bucket gate
   paragraphs: MarketBriefParagraphV1[];
   sourceLinks: MarketBriefSourceLinkV1[];
   /** Read-only projection of admitted Dossier/Story causal edges; never a new thesis. */
@@ -809,6 +810,7 @@ export function projectMarketBriefArticles(
         title: displayTitle,
         deck,
         category,
+        subjectAssets: [...candidate.assets],
         paragraphs,
         sourceLinks,
         causalLinks: candidate.causalLinks,
