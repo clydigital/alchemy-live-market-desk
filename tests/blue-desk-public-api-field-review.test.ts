@@ -42,3 +42,18 @@ test("legacy Hybrid Dossier reader remains unchanged until consumer-safe DTO mig
   assert.match(snapshotRoute, /marketIntelligenceSuccessResponse/);
   assert.match(header, /Preserve existing API consumers until every contract is scoped and audited/);
 });
+
+
+test("P−1a keeps Hybrid's legacy Dossier selection shape while disabling public caches", () => {
+  const route = readFileSync(new URL("../app/api/dossier-v2/route.ts", import.meta.url), "utf8");
+  const history = readFileSync(new URL("../app/api/dossier-v2/history/route.ts", import.meta.url), "utf8");
+  assert.match(route, /getDossierV2PresentationSelectionById\(requestedId\)/);
+  assert.match(route, /selectExactDossierV2Presentation\(null, null, requestedId\)/);
+  assert.match(route, /NextResponse\.json\(\{ \.\.\.selection, dailyAssetState, stockedUpEvidenceBrief \}/);
+  assert.match(route, /"X-Alchemy-Dossier-Selection": selection\.status/);
+  assert.match(history, /getDossierV2HistoryIndex\(limit\)/);
+  assert.equal(isPublicFieldApproved("dossier-presentation/1", "diagnostics"), false);
+  assert.equal(isPublicFieldApproved("dossier-presentation/1", "evidenceGovernance"), false);
+  assert.doesNotMatch(route, /"Cache-Control":\s*"public/);
+  assert.doesNotMatch(history, /"Cache-Control":\s*"public/);
+});

@@ -13,7 +13,7 @@ import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { getStockedUpEvidenceBrief } from "@/lib/stockedup-evidence-brief";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
+export const revalidate = 0;
 
 const DOSSIER_CORE_READ_TIMEOUT_MS = 5_000;
 const DOSSIER_OPTIONAL_READ_TIMEOUT_MS = 1_800;
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
           status: 400,
           headers: {
             "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no-store",
+            "Cache-Control": "private, no-store",
             "X-Alchemy-Dossier-Selection": "unavailable",
           },
         },
@@ -76,7 +76,6 @@ export async function GET(request: Request) {
       selectionRead,
       optionalReads,
     ]);
-    const historical = selection.status === "historical_exact";
     const dailyAssetState = monitor
       ? buildDailyAssetState({ monitor, presentation: selection.presentation })
       : null;
@@ -85,9 +84,8 @@ export async function GET(request: Request) {
       status: requestedId && !selection.presentation ? 404 : 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": historical
-          ? "public, s-maxage=3600, stale-while-revalidate=86400"
-          : "public, s-maxage=30, stale-while-revalidate=120",
+        // P−1a containment: do not cache unreviewed legacy Dossier fields.
+        "Cache-Control": "private, no-store",
         "X-Alchemy-Dossier-Selection": selection.status,
         "X-Alchemy-Dossier-Read": "success",
         "Server-Timing": `dossier;dur=${Date.now() - startedAt}`,
@@ -125,7 +123,7 @@ export async function GET(request: Request) {
         status: 503,
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "no-store",
+          "Cache-Control": "private, no-store",
           "X-Alchemy-Dossier-Selection": "unavailable",
           "X-Alchemy-Dossier-Read": reason,
           "Server-Timing": `dossier;dur=${Date.now() - startedAt}`,

@@ -11,9 +11,8 @@ test("Dossier V2 endpoint supports exact immutable replay by UUID", () => {
   assert.match(dossierRoute, /searchParams\.get\("id"\)/);
   assert.match(dossierRoute, /isValidUuid\(requestedId\)/);
   assert.match(dossierRoute, /getDossierV2PresentationSelectionById\(requestedId\)/);
-  assert.match(dossierRoute, /historical = selection\.status === "historical_exact"/);
-  // Any explicit exact ID must suppress mutable optional monitor/StockedUp reads.\n  assert.match(dossierRoute, /const optionalReads = requestedId\s*\? Promise\.resolve\(\[null, null\] as const\)/);
-  assert.match(dossierRoute, /s-maxage=3600/);
+  // Any explicit exact ID must suppress mutable optional monitor/StockedUp reads.
+  assert.match(dossierRoute, /const optionalReads = requestedId\s*\? Promise\.resolve\(\[null, null\] as const\)/);
 });
 
 test("exact replay reader never invokes the current healthy selector", () => {
@@ -38,4 +37,33 @@ test("Dossier page makes historical replay explicit and provides return-to-curre
   assert.match(dossierPage, /HISTORICAL MARKET DOSSIER/);
   assert.match(dossierPage, /Return to current/);
   assert.match(dossierPage, /\/dossier\?id=\$\{item\.id\}/);
+});
+
+
+test("all Dossier V2 selection outcomes have private no-store responses", () => {
+  assert.match(dossierRoute, /export const dynamic = "force-dynamic";/);
+  assert.match(dossierRoute, /export const revalidate = 0;/);
+  assert.deepEqual(
+    [...dossierRoute.matchAll(/"Cache-Control":\s*"([^"]+)"/g)].map((match) => match[1]),
+    ["private, no-store", "private, no-store", "private, no-store"],
+    "malformed 400, current/historical/missing 200/404, and failure 503 must not be cacheable",
+  );
+  assert.match(dossierRoute, /status: 400/);
+  assert.match(dossierRoute, /status: requestedId && !selection\.presentation \? 404 : 200/);
+  assert.match(dossierRoute, /status: 503/);
+  assert.equal((dossierRoute.match(/"Access-Control-Allow-Origin": "\*"/g) || []).length, 3);
+  assert.doesNotMatch(dossierRoute, /s-maxage|stale-while-revalidate/);
+});
+
+test("Dossier V2 history index returns private no-store for success and errors", () => {
+  assert.match(historyRoute, /export const dynamic = "force-dynamic";/);
+  assert.match(historyRoute, /export const revalidate = 0;/);
+  assert.deepEqual(
+    [...historyRoute.matchAll(/"Cache-Control":\s*"([^"]+)"/g)].map((match) => match[1]),
+    ["private, no-store", "private, no-store"],
+  );
+  assert.match(historyRoute, /status: 200/);
+  assert.match(historyRoute, /status: 503/);
+  assert.equal((historyRoute.match(/"Access-Control-Allow-Origin": "\*"/g) || []).length, 2);
+  assert.doesNotMatch(historyRoute, /s-maxage|stale-while-revalidate/);
 });

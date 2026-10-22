@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getDossierV2HistoryIndex } from "@/lib/dossier-v2/presentation-reader";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
+export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         status: 503,
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "no-store",
+          "Cache-Control": "private, no-store",
         },
       },
     );
