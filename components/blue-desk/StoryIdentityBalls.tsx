@@ -8,8 +8,7 @@ export default function StoryIdentityBalls({title,deck}:{title:string;deck:strin
     {balls.map(ball=><span key={ball.kind+ball.code}
       className={`${styles.identityBall} ${ball.kind==="country"?styles.identityCountry:styles.identityCompany}`}
       role="img" aria-label={ball.label} title={ball.label}>
-      {ball.kind==="company"?<span className={styles.identityFallback} aria-hidden="true">{ball.code}</span>
-        :<span className={styles.identityFallback} aria-hidden="true">{ball.code}</span>}
+      <span className={styles.identityFallback} aria-hidden="true">{ball.code}</span>
       {/* Visual identity only; unavailable third-party favicons leave a legible code. */}
       <img src={ball.imageUrl} loading="lazy" alt="" aria-hidden="true" referrerPolicy="no-referrer" />
     </span>)}
