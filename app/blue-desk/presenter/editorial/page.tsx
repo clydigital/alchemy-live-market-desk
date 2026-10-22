@@ -132,7 +132,7 @@ export default async function BlueberryPresenterEditorial({
           <summary>Remaining work before an editor can approve {lane.kind}</summary>
           <ul>{lane.unresolved.map((item,i)=><li key={i}>{item}</li>)}</ul>
         </details>
-        <PresenterEditorialDraftEditor kind={lane.kind}/>
+        <PresenterEditorialDraftEditor kind={lane.kind} sourcePack={{headline:lane.headline,editionId:lane.editionId,dossierId:lane.dossierId,snippets:lane.snippets}}/>
         <p className={ui.noPublish}>NOT CLEARED FOR PUBLICATION · No article has been sent, saved or marked approved.</p>
       </section>)}
       </div>
