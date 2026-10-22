@@ -15,6 +15,7 @@ import { getDossierV2PresentationSelectionById } from "@/lib/dossier-v2/presenta
 import { buildPresenterPrepSourceProjection } from "@/lib/presenter-prep-source-projection";
 import { buildPresenterPrepEditorialReadiness } from "@/lib/presenter-prep-editorial-readiness";
 import { buildPresenterEditorialLanes } from "@/lib/presenter-cotd-ob-lanes";
+import PresenterEditorialDraftEditor from "@/components/blue-desk/PresenterEditorialDraftEditor";
 import desk from "../../blue-desk.module.css";
 import ui from "../presenter.module.css";
 export const dynamic="force-dynamic";
@@ -130,6 +131,7 @@ export default async function BlueberryPresenterEditorial({
           <summary>Remaining work before an editor can approve {lane.kind}</summary>
           <ul>{lane.unresolved.map((item,i)=><li key={i}>{item}</li>)}</ul>
         </details>
+        <PresenterEditorialDraftEditor kind={lane.kind}/>
         <p className={ui.noPublish}>NOT CLEARED FOR PUBLICATION · No article has been sent, saved or marked approved.</p>
       </section>)}
       </div>
