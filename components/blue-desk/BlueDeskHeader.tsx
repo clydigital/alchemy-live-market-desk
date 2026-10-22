@@ -13,7 +13,7 @@ const PRIVATE_NAV = [
   ["Deep Dive", "/articles"],
   ["Research", "/whats-new"],
   ["Data Library", "/data/macro"],
-  ["Presenter Prep", "/hybrid-output/prepare"],
+  ["Presenter Prep", "/blue-desk/presenter"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
 ] as const;

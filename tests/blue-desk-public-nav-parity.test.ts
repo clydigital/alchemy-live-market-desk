@@ -22,7 +22,7 @@ test("all visible public header links target approved host paths and real anchor
 test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /publicHost \? PUBLIC_NAV : PRIVATE_NAV/);
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
-  for (const privatePath of ["/articles", "/hybrid-output/prepare", "/data/macro", "/concepts"]) {
+  for (const privatePath of ["/articles", "/blue-desk/presenter", "/data/macro", "/concepts"]) {
     assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
     assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
   }
