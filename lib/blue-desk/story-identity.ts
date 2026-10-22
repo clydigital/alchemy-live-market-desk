@@ -4,7 +4,7 @@
  * exposure or promoted new canonical Story evidence.
  */
 export type StoryIdentity = {
-  kind: "country" | "company";
+  kind: "country" | "company" | "asset";
   label: string;
   code: string;
   imageUrl: string;
@@ -53,14 +53,38 @@ const COMPANY: readonly IdentitySpec[] = COMPANY_ROWS.map(([code,label,domain,pa
   expressions:[pattern],
 }));
 
+const MARKET_ASSETS: readonly IdentitySpec[]=[
+ {kind:"asset",code:"OIL",label:"Oil",imageUrl:"",expressions:[/\\b(?:Brent|WTI|crude|petroleum|oil)\\b/i]},
+ {kind:"asset",code:"GOLD",label:"Gold",imageUrl:"",expressions:[/\\b(?:gold|XAUUSD|XAU\\/USD)\\b/i]},
+ {kind:"asset",code:"BONDS",label:"Bonds",imageUrl:"",expressions:[/\\b(?:Treasur(?:y|ies)|bonds?|gilts?)\\b/i]},
+ {kind:"asset",code:"DXY",label:"US Dollar Index",imageUrl:"",expressions:[/\\bDXY\\b/i]},
+];
+/** Source-owned asset tags outrank surface wording; neither establishes new evidence. */
+function keyedAsset(value:string):string[] {
+ const x=value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+ const map:Record<string,string[]>={
+  XAUUSD:["GOLD"],GOLD:["GOLD"],BRENT:["OIL"],WTI:["OIL"],CL:["OIL"],
+  USDJPY:["US","JP"],JPY:["JP"],JXY:["JP"],USDCNH:["US","CN"],
+  EURGBP:["EU","GB"],DXY:["DXY"],US2Y:["US","BONDS"],US10Y:["US","BONDS"],
+  US30Y:["US","BONDS"],NVDA:["NVDA"],TSM:["TSM"],SMH:["NVDA"],
+ };
+ return map[x]??[x];
+}
 /** Titles outrank decks. Same entity never appears twice. Show up to three balls. */
-export function storyIdentityBalls(title:string,deck:string,max=3):StoryIdentity[] {
-  const text = [title,deck].filter(Boolean).join(" ");
-  if (!text.trim()) return [];
-  return [...COMPANY,...COUNTRY].flatMap(spec=>{
-    const positions=spec.expressions.map(pattern=>text.search(pattern)).filter(x=>x>=0);
-    return positions.length ? [{spec,index:Math.min(...positions)}] : [];
-  }).sort((a,b)=>a.index-b.index || (a.spec.kind==="company"?-1:1))
-    .slice(0,Math.max(0,Math.min(max,5)))
-    .map(({spec})=>({kind:spec.kind,code:spec.code,label:spec.label,imageUrl:spec.imageUrl}));
+export function storyIdentityBalls(title:string,deck:string,max=3,assetKeys:readonly string[]=[]):StoryIdentity[] {
+ const text=[title,deck].filter(Boolean).join(" ");
+ const all=[...COMPANY,...COUNTRY,...MARKET_ASSETS];
+ const associated=new Set(assetKeys.flatMap(keyedAsset));
+ const matched=all.flatMap(spec=>{
+  const positions=spec.expressions.map(pattern=>text.search(pattern)).filter(x=>x>=0);
+  if(associated.has(spec.code))return [{spec,index:-1}];
+  return positions.length ? [{spec,index:Math.min(...positions)}] : [];
+ }).sort((a,b)=>a.index-b.index || (a.spec.kind==="company"?-1:1));
+ const used=new Set<string>();
+ return matched.filter(({spec})=>{if(used.has(spec.code))return false;used.add(spec.code);return true;})
+   .slice(0,Math.max(0,Math.min(max,5)))
+   .map(({spec})=>({kind:spec.kind,code:spec.code,label:spec.label,imageUrl:spec.imageUrl}));
+}
+export function storyMatchesSubject(title:string,deck:string,assetKeys:readonly string[],subject:string):boolean {
+ return subject.length>0 && storyIdentityBalls(title,deck,5,assetKeys).some(x=>x.code===subject);
 }
