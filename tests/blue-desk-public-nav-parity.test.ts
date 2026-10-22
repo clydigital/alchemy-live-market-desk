@@ -6,16 +6,21 @@ import { blueDeskHostAccess } from "../lib/blue-desk-host.ts";
 const header = readFileSync(new URL("../components/blue-desk/BlueDeskHeader.tsx", import.meta.url), "utf8");
 const homepage = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
 
-test("all visible public header links target approved host paths and real anchors", () => {
+test("public header links target genuine approved reading routes, not homepage anchor loops", () => {
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/markets", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/markets", "/markets?group=rates", "/calendar"]);
+  assert.ok(hrefs.every(href => !href.includes("#")));
+  const ratesReader = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
+  assert.match(ratesReader, /publicGovernmentRateTrends/);
+  assert.match(ratesReader, /group === "rates" \? "\/markets\?group=rates"/);
+  assert.match(ratesReader, /<PublicGovernmentRateTrendChart/);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
     assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), "public", href);
-    if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
+    assert.equal(url.hash, "", "Primary navigation must not loop to homepage sections");
   }
 });
 
