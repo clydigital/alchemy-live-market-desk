@@ -8,7 +8,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
-  ["Hybrid Feed", "/blue-desk/feed"],
+  ["Change Ledger", "/blue-desk/changes"],
   ["Dossier", "/blue-desk/dossier"],
   ["Markets", "/blue-desk/markets"],
   ["Deep Dive", "/articles"],
@@ -30,7 +30,7 @@ const PUBLIC_NAV = [
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
-  "Hybrid Feed": "research",
+  "Change Ledger": "research",
   "Dossier": "library",
   "Markets": "chart",
   "Deep Dive": "deep-dive",

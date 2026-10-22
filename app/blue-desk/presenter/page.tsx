@@ -48,7 +48,7 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
             Technical readings are presenter-owned notes, not canonical market evidence.</p>
           <div className={ui.links}>
             <Link className={ui.action} href={fullPrepHref}>Open full edition-pinned prep →</Link>
-            <Link href="/blue-desk/feed">Open Hybrid Feed →</Link>
+            <Link href="/blue-desk/changes">Open Change Ledger →</Link>
           </div>
         </header>
 
