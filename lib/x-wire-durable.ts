@@ -29,7 +29,7 @@ function emptyAccount(handle:string, now:string, reason:string):XAccountAttempt 
 }
 async function loadAccounts(db:Db) {
   const { data,error }=await db.from("x_wire_accounts")
-    .select("handle,health,last_attempt_at,last_completed_at,last_observed_post_at,last_error,last_fetched,page_cursor,window_start_at");
+    .select("handle,health,last_attempt_at,last_completed_at,last_observed_post_at,last_error,last_fetched,page_cursor,window_start_at,uncovered_before");
   if(error)throw error;
   return (data || []) as StoredAccount[];
 }
@@ -53,7 +53,7 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   let latest=ms(existing?.last_observed_post_at);
   const missingBefore = existing?.uncovered_before ?? (window.gap ? claim.checkpoint_at ?? window.startAt : null);
   const gapMarker = missingBefore ? {uncovered_before:missingBefore} : {};
-  let cursor:string|null=window.cursor, fetched=0, kept=0, status:XAccountAttempt["status"]="partial";
+  let cursor:string|null=window.cursor, fetched=0, kept=0;
   const seenCursors=new Set<string>();
   try {
     for(let page=0;page<PAGE_LIMIT;page++) {
