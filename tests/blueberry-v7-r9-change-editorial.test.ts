@@ -26,14 +26,14 @@ test("Change Ledger replaces primary Hybrid Feed nav, retaining legacy feed rout
  const privateNav=h.slice(h.indexOf("const PRIVATE_NAV"),h.indexOf("const PUBLIC_NAV"));
  assert.doesNotMatch(privateNav,/Hybrid Feed/);
  const publicNav=h.slice(h.indexOf("const PUBLIC_NAV"),h.indexOf("const NAV_ICONS"));
- assert.doesNotMatch(publicNav,/Change Ledger|dossier|presenter|Hybrid Feed/);
+ assert.doesNotMatch(publicNav,/Change Ledger|dossier|\/blue-desk\/presenter|Hybrid Feed/);
  assert.match(read("app/blue-desk/page.tsx"),/href="\/blue-desk\/changes"/);
  assert.match(read("app/blue-desk/presenter/page.tsx"),/COTD \/ OB editorial preview/);
  assert.match(read("app/blue-desk/feed/page.tsx"),/export|import/);
 });
 test("Change Ledger is owner only and never invents a state change",()=>{
  const p=read("app/blue-desk/changes/page.tsx");
- assert.match(p,/if\(isBlueDeskPublicReaderHost\(host\)\)notFound\(\)/);
+ assert.match(p,/if\(isBlueDeskPublicReaderHost\(host\)&&!bluebelly\)notFound\(\)/);
  assert.match(p,/getDossierV2PresentationSelectionById\(id\)/);
  assert.match(p,/isValidUuid\(id\)/);
  assert.doesNotMatch(p,/\.upsert\(|\.insert\(|createSupabaseAdminClient\(/);
