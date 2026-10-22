@@ -53,11 +53,21 @@ export default async function BlueDeskPage() {
 
   // Existing publication snapshots remain the only article authority.
   const brief = await loadEditorialMarketBrief(projectMarketBriefArticles(latest));
-  const feature = brief.articles.find(article => article.editorial.storyEligible) || null;
-  // A source-verified factual report is independently eligible to be read:
-  // it is NOT a new canonical Story or Regime interpretation.
+  // A historical Dossier feature is still readable below, but it cannot
+  // monopolise a fresh day's lead. Admission is based on the immutable
+  // article date and observed event time, never on the page refresh clock.
+  const featureCandidate = brief.articles.find(article => article.editorial.storyEligible) || null;
+  const featureTime = featureCandidate ? Date.parse(featureCandidate.generatedAt) : NaN;
+  const freshFeature = featureCandidate && Number.isFinite(featureTime)
+    && featureTime <= now.getTime()
+    && now.getTime() - featureTime <= 48 * 60 * 60 * 1000
+    ? featureCandidate : null;
+  // Source-verified factual reports do NOT change canonical Story/Regime state.
   const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 6);
-  const newsFeature = feature ? null : (verifiedNews[0] || null);
+  const newsFeature = verifiedNews.find(news =>
+    !freshFeature || Date.parse(news.occurredAt) > featureTime
+  ) || null;
+  const feature = newsFeature ? null : freshFeature;
   // Primary-source facts are a separate fallback, NEVER a promoted Story.
   const sourceFact = feature || newsFeature ? null : selectFrozenSourceFact(brief, now);
   const storyHref = (article: (typeof brief.articles)[number]) => blueDeskPublicHref(
