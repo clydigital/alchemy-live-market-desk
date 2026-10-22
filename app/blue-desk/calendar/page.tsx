@@ -51,7 +51,7 @@ function prettyDay(day: string) {
   }).format(date);
 }
 
-function Events({ records, statusLabel, storyBase }: { records: PresenterCalendarEvent[]; statusLabel: WindowName; storyBase:string }) {
+function Events({ records, statusLabel, storyBase, presenterBase }: { records: PresenterCalendarEvent[]; statusLabel: WindowName; storyBase:string; presenterBase:string }) {
   const exact = records.filter(event => !!eventGroupDate(event));
   const datedOnly = records.filter(event => !eventGroupDate(event));
   const groups = new Map<string, PresenterCalendarEvent[]>();
@@ -82,7 +82,7 @@ function Events({ records, statusLabel, storyBase }: { records: PresenterCalenda
         {event.affectedAssets.length ? <p className={styles.muted}>Affected assets in source record: {event.affectedAssets.join(" · ")}</p> : null}
         <Link className={styles.calendarSubjectLink} href={storyBase+"#stories-title"}>Explore ongoing market stories →</Link>
         <Link className={styles.calendarSubjectLink}
-          href={blueDeskPublicHref("/blue-desk/presenter?event="+encodeURIComponent(event.id),host)}>
+          href={presenterBase+"?event="+encodeURIComponent(event.id)}>
           Check event in Presenter · owner →</Link>
         {sourceUrl(event.sourceUrl) ? (
           <a href={event.sourceUrl} rel="noreferrer" target="_blank" className={styles.textLink}>
@@ -129,6 +129,7 @@ export default async function BlueDeskCalendarPage({
   const raw = params.window;
   const subject=typeof params.subject==="string" && /^[A-Z0-9]{2,12}$/.test(params.subject)?params.subject:"";
   const storyBase=blueDeskPublicHref("/blue-desk",host);
+  const presenterBase=blueDeskPublicHref("/blue-desk/presenter",host);
   // The default broad window keeps the next confirmed catalysts visible during
   // quiet 7-day windows; 24h/7d remain explicit, narrower reader choices.
   const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
@@ -208,7 +209,7 @@ export default async function BlueDeskCalendarPage({
         ) : null}
 
         <div className={styles.calendarStack}>
-          <Events records={filteredEvents} statusLabel={windowName} storyBase={storyBase} />
+          <Events records={filteredEvents} statusLabel={windowName} storyBase={storyBase} presenterBase={presenterBase} />
           {filteredNextKnown.length ? (
             <>
               <p className={styles.coverage}>
@@ -216,7 +217,7 @@ export default async function BlueDeskCalendarPage({
                 exact time in the selected window. These are not released results.
                 {" "}<Link href={blueDeskPublicHref("/blue-desk/calendar?window=30d", host)} className={styles.textLink}>Browse the 30-day calendar →</Link>
               </p>
-              <Events records={filteredNextKnown} statusLabel="30d" storyBase={storyBase} />
+              <Events records={filteredNextKnown} statusLabel="30d" storyBase={storyBase} presenterBase={presenterBase} />
             </>
           ) : null}
         </div>
