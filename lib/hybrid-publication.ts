@@ -79,6 +79,44 @@ export async function getHybridExactDailyBriefEdition(editionId: string) {
   return rows[0]?.id === editionId ? rows[0] : null;
 }
 
+
+/**
+ * Fail-closed, bounded successor probe for an explicitly requested Presenter
+ * edition. A valid archived row is not necessarily a selectable terminal
+ * edition: a same-slot retry may have superseded it outside the recent-24
+ * picker. Do not infer "no successor" from a failed network query.
+ */
+export async function getHybridDirectDailyBriefSuperseders(editionId: string): Promise<PublicationSnapshot[] | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editionId)
+    || !url || !serverKey) return null;
+  try {
+    const query = [
+      "select=id,research_run_id,supersedes_snapshot_id,snapshot_type,payload,source_record_refs,published_at",
+      "snapshot_type=eq.daily_brief",
+      "supersedes_snapshot_id=eq." + editionId,
+      "order=published_at.desc,id.desc",
+      "limit=25",
+    ].join("&");
+    const response = await fetch(url + "/rest/v1/hybrid_publication_snapshots?" + query, {
+      headers: { apikey: serverKey, Authorization: "Bearer " + serverKey },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    const rows: unknown = await response.json();
+    // Saturated page is ambiguous. Never mistake truncated successors for a
+    // complete source lineage.
+    if (!Array.isArray(rows) || rows.length >= 25
+      || rows.some((row) => !row || typeof row !== "object"
+        || row.snapshot_type !== "daily_brief"
+        || row.supersedes_snapshot_id !== editionId
+        || typeof row.id !== "string")) return null;
+    return rows as PublicationSnapshot[];
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Live Overview renders articles from only the newest published daily brief.
  * Keep the 24-edition candidate reader untouched for Presenter and exact replay.

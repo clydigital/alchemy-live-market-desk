@@ -7,9 +7,8 @@ import LiveDeskShell, { styles } from "@/components/live-desk/LiveDeskShell";
 import { Badge, DataState, formatDeskDate, Panel } from "@/components/live-desk/LiveDeskUi";
 import { getDeskData } from "@/lib/data";
 import { getDossierV2PresentationSelectionById } from "@/lib/dossier-v2/presentation-reader";
-import { selectCanonicalEdition } from "@/lib/edition-replay";
-import { buildPresenterPrepEditionIndex } from "@/lib/presenter-prep-edition-index";
-import { getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
+import { resolvePresenterPrepExactSelection } from "@/lib/presenter-prep-exact-edition";
+import { getHybridDirectDailyBriefSuperseders, getHybridExactDailyBriefEdition, getHybridPresenterEditionCandidates } from "@/lib/hybrid-publication";
 import { loadHybridResearchGapStatus } from "@/lib/hybrid-research-gap-status";
 import { presenterDossierEditionContextFromPayload } from "@/lib/presenter-dossier-edition-context";
 import { buildPresenterPrepSourceProjection } from "@/lib/presenter-prep-source-projection";
@@ -50,10 +49,25 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
     searchParams, getHybridPresenterEditionCandidates(), getDeskData(),
   ]);
   const requestedEditionId = param(query, "edition");
-  const index = buildPresenterPrepEditionIndex(editions, desk.researchRuns);
-  const selection = selectCanonicalEdition(index, requestedEditionId);
+  const validExactId = requestedEditionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedEditionId)
+    ? requestedEditionId : null;
+  // A UUID outside the latest-24 picker must resolve through the immutable
+  // archive. A failed successor probe is NOT proof the row was not superseded.
+  const [exactEdition, directSuperseders] = validExactId
+    ? await Promise.all([
+      getHybridExactDailyBriefEdition(validExactId),
+      getHybridDirectDailyBriefSuperseders(validExactId),
+    ])
+    : [null, null];
+  const selection = resolvePresenterPrepExactSelection({
+    recent: editions,
+    requestedEditionId,
+    exactEdition,
+    directSuperseders,
+    researchRuns: desk.researchRuns,
+  });
   const selectedEditionId = selection.selected?.snapshotId ?? null;
-  const selectedSnapshot = editions.find((item) => item.id === selectedEditionId) ?? null;
+  const selectedSnapshot = selection.selectedSnapshot;
 
   const frozen = presenterDossierEditionContextFromPayload(selectedSnapshot?.payload);
   const frozenDossierId = frozen?.dossierId ?? null;
