@@ -22,3 +22,42 @@
   .links > a { width: 100%; }
   .panel { min-width: 0; overflow-wrap: anywhere; }
 }
+
+/* COTD / OB edition-locked editorial readout. */
+.editorialGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:19px;align-items:start;}
+.editorialLane{border:1px solid #245d7a;background:linear-gradient(145deg,#06344b,#031c2c);border-radius:9px;padding:22px;min-width:0;}
+.laneTop{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.laneTop h2{font-size:24px;line-height:1.22;margin:5px 0 10px;}
+.laneState{font-size:10px;letter-spacing:.025em;color:#c4e4f1;border:1px solid #376e88;border-radius:4px;padding:7px;white-space:nowrap;}
+.editorialLane>h3{font-size:20px;line-height:1.25;margin:14px 0 8px;color:#fff;}
+.editorialLane>p{font-size:12px;color:#aacddd;overflow-wrap:anywhere;}
+.sampleRead{background:#041f30;border:1px solid #1c5971;border-radius:7px;padding:14px;margin:15px 0;max-height:490px;overflow:auto;}
+.sampleRead article{border-top:1px solid #23566c;padding:11px 0;}
+.sampleRead h4{font-size:12px;color:#93dfff;margin:0 0 6px;}
+.sampleRead p{font-size:13px;line-height:1.65;color:#d3e5ef;margin:0 0 6px;}
+.sampleRead small{font-size:11px;color:#96bdcf;overflow-wrap:anywhere;}
+.checkList{padding:0;list-style:none;display:flex;flex-direction:column;gap:9px;margin:13px 0;}
+.checkList li{display:grid;grid-template-columns:80px minmax(0,1fr);gap:11px;padding:9px 0;border-bottom:1px solid #22465a;}
+.checkList strong{display:block;font-size:12px;color:#e1f6ff;}
+.checkList small{display:block;font-size:11px;color:#abc8d7;line-height:1.4;margin-top:3px;}
+.passed,.missing{font-size:10px;font-weight:800;}
+.passed{color:#79e1bb;}.missing{color:#ffd69b;}
+.editorialGaps{font-size:12px;color:#cfe5ef;}
+.editorialGaps summary{cursor:pointer;font-weight:700;}
+.editorialGaps li{margin:7px 0;line-height:1.5;}
+.noPublish{font-weight:750;font-size:11px!important;border-top:1px solid #35596d;padding-top:12px;color:#f0c8a5!important;}
+@media(max-width:920px){.editorialGrid{grid-template-columns:minmax(0,1fr);}}
+
+/* Local writing QC: separate from verified source and approval gates. */
+.draftEditor{border:1px solid #285f75;background:#052336;border-radius:7px;margin-top:18px;padding:15px;display:flex;flex-direction:column;gap:9px;}
+.draftEditor h4{font-size:18px;color:#f1faff;margin:0;}
+.draftEditor p{font-size:12px;color:#b3cfdf;line-height:1.55;}
+.draftEditor label{font-size:12px;font-weight:700;color:#dceffa;}
+.draftEditor input,.draftEditor textarea{font:inherit;color:#e6f6ff;background:#041928;border:1px solid #46758c;padding:11px;border-radius:5px;width:100%;min-width:0;}
+.draftEditor textarea{resize:vertical;line-height:1.55;font-size:13px;}
+.draftEditor input:focus-visible,.draftEditor textarea:focus-visible{outline:2px solid #62cefa;}
+.draftStats{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:#b9daea;}
+.draftCheckList{padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+.draftCheckList li{display:grid;grid-template-columns:45px minmax(0,1fr);gap:8px;font-size:11px;line-height:1.5;color:#c3d8e7;}
+.draftEditor button{cursor:pointer;align-self:flex-start;}
+.draftEditor button:disabled{opacity:.5;cursor:default;}

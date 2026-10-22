@@ -320,6 +320,7 @@ export default async function BlueDeskPage() {
               </>
             ) : (
               <>
+                <Link href="/blue-desk/changes">What changed in our view →</Link>
                 <Link href="/blue-desk/dossier">Dossier archive →</Link>
                 <Link href="/regimes">Market Regimes →</Link>
                 <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
