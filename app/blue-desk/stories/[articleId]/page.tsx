@@ -8,6 +8,7 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { formatBlueDeskSourceObservation } from "@/lib/blue-desk-source-copy";
+import { describePublicEvidenceClaim } from "@/lib/blue-desk-evidence-preview";
 import { blueDeskStorySections } from "@/lib/blue-desk-story-sections";
 import { readerParagraphSources, readerVerifiedReaction } from "@/lib/blue-desk-reader-evidence";
 import {
@@ -170,13 +171,51 @@ export default async function BlueDeskStoryPage({
               <section id="story-observations" className={styles.deepSection}>
                 <h2>What the original sources report</h2>
                 <p className={styles.deepSourceContext}>These are individual source-linked observations, not proof of the full market interpretation.</p>
-                <ul className={styles.deepFactList}>
-                  {article.editorial.evidenceClaims.slice(0, 8).map(claim => (
-                    <li key={claim.evidenceId}>
-                      <span title={claim.claimText}>{formatBlueDeskSourceObservation(claim.claimText)}</span>
-                      <a href={claim.sourceUrl} target="_blank" rel="noreferrer">{claim.sourceName} · original report ↗</a>
-                    </li>
-                  ))}
+                <ul className={styles.structuredEvidenceList}>
+                  {article.editorial.evidenceClaims.map(claim => {
+                    const evidence = describePublicEvidenceClaim(claim.claimText);
+                    return (
+                      <li key={claim.evidenceId} id={"evidence-" + claim.evidenceId} className={styles.structuredEvidenceCard}>
+                        <div className={styles.structuredEvidenceHeading}>
+                          <h3>{evidence.title}</h3>
+                          <span>{evidence.kind === "SEC_XBRL" ? "SEC FILING · SOURCE FACTS" : "ORIGINAL REPORT"}</span>
+                        </div>
+                        <p className={styles.structuredEvidenceSummary}>{evidence.kind === "SEC_XBRL"
+                          ? evidence.summary : formatBlueDeskSourceObservation(evidence.summary)}</p>
+                        {evidence.facts.length ? (
+                          <div className={styles.filingMetricList}>
+                            {evidence.facts.map((metric, index) => (
+                              <div key={metric.concept + ":" + metric.period + ":" + index} className={styles.filingMetric}>
+                                <div>
+                                  <strong>{metric.label}</strong>
+                                  <small>{metric.period}</small>
+                                </div>
+                                <div>
+                                  <strong>{metric.valueLabel}</strong>
+                                  <small>{metric.form} · filed {metric.filed}</small>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        {evidence.needsReview ? <p className={styles.filingPeriodWarning}>
+                          Filing periods differ or some fields need review. Do not add these figures or infer missing values.
+                        </p> : null}
+                        <div className={styles.evidenceCardFooter}>
+                          <a href={claim.sourceUrl} target="_blank" rel="noreferrer">{claim.sourceName} · original report ↗</a>
+                          <details className={styles.rawEvidenceDetails}>
+                            <summary>Inspect full original observation and audit identifiers</summary>
+                            <dl>
+                              <dt>Evidence ID</dt><dd>{claim.evidenceId}</dd>
+                              <dt>Evidence class</dt><dd>{claim.evidenceClass}</dd>
+                              <dt>Available at</dt><dd>{claim.availableAt || "Unavailable"}</dd>
+                            </dl>
+                            <pre>{claim.claimText}</pre>
+                          </details>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ) : null}
@@ -279,18 +318,21 @@ export default async function BlueDeskStoryPage({
             </section>
             <section id="story-evidence" className={styles.storyEvidencePanel}>
               <h2>Evidence explorer</h2>
-              {article.editorial.evidenceClaims.length ? article.editorial.evidenceClaims.map(claim => (
-                <div key={claim.evidenceId} className={styles.deepSection}>
-                  <p>{claim.claimText}</p>
-                  <small className={styles.deepEvidence}>
-                    {claim.evidenceClass} · {claim.evidenceId}
-                  </small>
-                  <a className={styles.sourceLink} href={claim.sourceUrl} target="_blank" rel="noreferrer">
-                    {claim.sourceName} · original source ↗
-                  </a>
-                  {claim.availableAt ? <DualTimestamp value={claim.availableAt} className={styles.cardTime} /> : null}
-                </div>
-              )) : <p className={styles.muted}>
+              {article.editorial.evidenceClaims.length ? (
+                <>
+                  <p className={styles.evidenceIndexNote}>Jump to each source's compact facts and optional full audit record. Raw filing text is not repeated here.</p>
+                  <ol className={styles.evidenceIndexList}>
+                    {article.editorial.evidenceClaims.map(claim => (
+                      <li key={claim.evidenceId}>
+                        <a href={"#evidence-" + claim.evidenceId}>
+                          {describePublicEvidenceClaim(claim.claimText).title} ↗
+                        </a>
+                        <small>{claim.sourceName} · {claim.evidenceClass}</small>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : <p className={styles.muted}>
                 No edition-pinned primary-source claims are available for this article.
                 Interpretations above are not independently verified by this panel.
               </p>}

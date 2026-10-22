@@ -30,8 +30,10 @@ test("unknown units, invalid dates, unqualified prices and ambiguous fiscal text
 
 test("reader formats public facts while keeping exact original provenance and frozen edition identity", () => {
   const page = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /formatBlueDeskSourceObservation\(claim\.claimText\)/);
-  assert.match(page, /title=\{claim\.claimText\}/);
+  assert.match(page, /formatBlueDeskSourceObservation\(evidence\.summary\)/);
+  assert.match(page, /<pre>\{claim\.claimText\}<\/pre>/);
+  assert.match(page, /<details className=\{styles\.rawEvidenceDetails\}>/);
+  assert.doesNotMatch(page, /title=\{claim\.claimText\}/);
   assert.match(page, /article\.editorial\.causalLinks\.length/);
   assert.match(page, /getHybridExactDailyBriefEdition\(edition\)/);
   assert.match(page, /claim\.sourceUrl/);

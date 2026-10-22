@@ -389,3 +389,33 @@
 @media (prefers-reduced-motion: reduce) {
   .navItem,.navActive,.calendarTab,.calendarTabActive { transition: none; }
 }
+
+
+/* Compact, auditable original-source observations. Machine XBRL content
+   remains available ONLY when deliberately expanded, never as wall text. */
+.structuredEvidenceList{padding:0;margin:0;list-style:none;display:flex;flex-direction:column;gap:14px}
+.structuredEvidenceCard{border:1px solid #27617c;background:linear-gradient(140deg,#0b364b,#062b40);border-radius:8px;padding:clamp(14px,2vw,20px);min-width:0;scroll-margin-top:24px}
+.structuredEvidenceHeading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.structuredEvidenceHeading h3{color:#f1fbff;font-size:17px;letter-spacing:-.012em;margin:0}
+.structuredEvidenceHeading span{font-size:10px;font-weight:700;color:#92ccdf;letter-spacing:.035em}
+.structuredEvidenceSummary{font-size:13px!important;line-height:1.55!important;color:#bcd6e3!important;margin:10px 0!important;max-width:70ch}
+.filingMetricList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.filingMetric{display:flex;flex-direction:column;gap:4px;background:#052334;border:1px solid #2b566d;border-radius:5px;padding:11px;min-width:0}
+.filingMetric>div{display:flex;justify-content:space-between;gap:7px;align-items:baseline;flex-wrap:wrap}
+.filingMetric strong{font-size:13px;color:#eafaff;overflow-wrap:anywhere}
+.filingMetric>div+div strong{font-size:17px;color:#8fddf4;font-variant-numeric:tabular-nums}
+.filingMetric small{font-size:10px;color:#b2cedc;line-height:1.45}
+.filingPeriodWarning{padding:10px 12px;border-left:2px solid #d3a660;background:#3a3227;color:#f2dcbc!important;font-size:12px!important;line-height:1.5!important;margin:10px 0!important}
+.evidenceCardFooter{display:flex;flex-direction:column;align-items:start;gap:10px;font-size:12px}
+.evidenceCardFooter>a{font-weight:700}
+.rawEvidenceDetails{max-width:100%;width:100%;color:#bcd5e3;font-size:12px}
+.rawEvidenceDetails summary{cursor:pointer;font-weight:650}
+.rawEvidenceDetails dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;margin-top:12px}
+.rawEvidenceDetails dt{color:#8cb9d1}.rawEvidenceDetails dd{margin:0;overflow-wrap:anywhere}
+.rawEvidenceDetails pre{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;max-height:340px;overflow:auto;background:#031a29;border:1px solid #22445a;padding:12px;color:#bbd7e7;font-size:11px;line-height:1.55}
+.evidenceIndexNote{font-size:12px!important;line-height:1.5!important}
+.evidenceIndexList{list-style:decimal;padding-left:19px;margin:4px 0}
+.evidenceIndexList li{padding:11px 0;border-top:1px solid #255269;overflow-wrap:anywhere}
+.evidenceIndexList li a{display:block;color:#aceaff;font-weight:700;font-size:13px;line-height:1.4}
+.evidenceIndexList li small{display:block;color:#a8c7d7;font-size:11px;margin-top:5px}
+@media(max-width:640px){.filingMetricList{grid-template-columns:minmax(0,1fr)}}
