@@ -108,10 +108,10 @@ export default async function BlueDeskPage() {
           <div className={styles.sectionHead}>
             <div>
               <p className={styles.kicker}>LATEST MOTIONS &amp; NEWS · VERIFIED SOURCES</p>
-              <h1 id="blue-desk-news-title">What happened in markets?</h1>
+              <h1 id="blue-desk-news-title"><MarketIcon name="divergence" size={31} /> What happened in markets?</h1>
               <p>Events first, market observations next, interpretation afterwards. Each verified headline has an original report and event time.</p>
             </div>
-            {!publicHost ? <Link href="/whats-new" className={styles.textLink}>Investigate all Motions →</Link> : null}
+            {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate all Motions →</Link> : null}
           </div>
           <div className={styles.newsFirstGrid}>
             {verifiedNews.length ? verifiedNews.map((news, index) => (

@@ -91,14 +91,14 @@ test("multiple Motion versions of the same original report yield one News Brief"
   assert.equal(result[0].id, base.id);
 });
 
-test("News Brief reader independently searches verified items beyond top-24 Motion attention results", () => {
+test("News Brief reader independently admits up to 12 verified reports from 24 current verified source records", () => {
   const fs = readFileSync(new URL("../lib/market-motion.ts", import.meta.url), "utf8");
   const home = readFileSync(new URL("../app/blue-desk/page.tsx", import.meta.url), "utf8");
   assert.match(fs, /export async function getCurrentVerifiedMarketMotion/);
   assert.match(fs, /\.eq\("verification_state", "VERIFIED"\)/);
   assert.match(fs, /\.neq\("effective_state", "EXPIRED"\)/);
   assert.match(fs, /Math\.min\(24, options\.limit \?\? 12\)/);
-  assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 12 \}\)/);
-  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 6\)/);
+  assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 24 \}\)/);
+  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 12\)/);
   assert.match(home, /getCurrentMarketMotion\(\{ limit: 24 \}\)/);
 });
