@@ -156,7 +156,7 @@ export default async function BlueDeskCalendarPage({
     ? selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3)
     : [];
 
-  const calendarSubjects=[...new Set(calendar.events.flatMap(event=>
+  const calendarSubjects=[...new Set([...events,...nextKnown].flatMap(event=>
     storyIdentityBalls(event.title,event.decidingQuestion,5,event.affectedAssets).map(ball=>ball.code)))].slice(0,10);
   const calendarBase=blueDeskPublicHref("/blue-desk/calendar",host);
   const filteredNextKnown=subject?nextKnown.filter(event=>storyMatchesSubject(event.title,event.decidingQuestion,event.affectedAssets,subject)):nextKnown;
@@ -191,7 +191,7 @@ export default async function BlueDeskCalendarPage({
 
         {calendarSubjects.length?<section aria-label="Filter calendar catalysts by subject" className={styles.calendarSubjectFilters}>
           <span className={styles.kicker}>FILTER CATALYSTS BY COUNTRY, COMPANY OR ASSET</span>
-          <StoryIdentityBalls title="" deck="" assets={calendarSubjects} hrefBase={calendarBase} limit={5}/>
+          <StoryIdentityBalls title="" deck="" assets={calendarSubjects} hrefBase={calendarBase+"?window="+windowName} limit={5}/>
           <p className={styles.muted}>Filters show scheduled or released items with matching explicit subjects, not a verified market reaction.</p>
         </section>:null}
         <div className={styles.calendarSummary}>
