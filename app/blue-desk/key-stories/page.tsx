@@ -67,7 +67,9 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
           </dl>
           <div className={detail.articleFoot}><DualTimestamp value={article.generatedAt} sourceDate={article.generatedAt}/>
             {history.filter(previous=>previous.storyId===storyId).length>1?<span>{history.filter(previous=>previous.storyId===storyId).length-1} earlier reports</span>:null}
-            <Link href={href}>Open full evidence &amp; countercase →</Link></div>
+            <Link href={href}>Open full evidence &amp; countercase →</Link>
+            <Link href={blueDeskPublicHref("/blue-desk/presenter?edition="+encodeURIComponent(article.editionId)
+              +"&story="+encodeURIComponent(storyId),host)}>Prepare Story · owner →</Link></div>
         </article>;
       })}</div>:<section className={styles.secondaryPanel} role="status">
         <h2>No source-admitted article in this edition</h2>
