@@ -3,6 +3,7 @@ import styles from "./x-wire.module.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const maxDuration = 60;
 export const metadata = {
   title: "X Wire | Private Blue Desk",
   description: "Owner-only X source-attempt diagnostics and recent attributed leads.",
