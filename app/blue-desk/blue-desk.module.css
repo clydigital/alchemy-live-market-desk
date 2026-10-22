@@ -536,3 +536,6 @@
 .calendarSubjectFilters { margin: 15px 0; padding: 12px 16px; border: 1px solid #215b76; border-radius: 8px; background: #042439; }
 .calendarSubjectFilters .storyIdentities { margin-top: 2px; }
 .calendarSubjectFilters .muted { margin-bottom: 0; }
+
+.storyPresenterAction { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; padding:13px 0 8px; }
+.storyPresenterAction p { font-size:12px; color:#accad9; margin:0; }
