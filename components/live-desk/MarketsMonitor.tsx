@@ -16,7 +16,7 @@ type Props = {
 type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
 type SortKey = "attention" | "day" | "3d" | "5d" | "rsi" | "vol" | "type";
 
-const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "Sector", "Metal", "Energy", "FX", "Rates", "Credit / Risk", "IPO / New Issue", "Crypto"];
+const TYPE_ORDER: MarketMonitorType[] = ["Major Index", "AI / Semis", "MAG7", "Sector", "Metal", "Energy", "FX", "Rates", "Bond ETF", "Credit / Risk", "IPO / New Issue", "Crypto"];
 
 function formatPrice(value: number | null, type: MarketMonitorType) {
   if (value == null) return "—";
