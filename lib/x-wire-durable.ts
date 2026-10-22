@@ -13,7 +13,7 @@ type StoredAccount = {
   handle: string; health: XAccountAttempt["status"]; last_attempt_at: string | null;
   last_completed_at: string | null; last_observed_post_at: string | null;
   last_error: string | null; last_fetched: number; page_cursor: string | null;
-  window_start_at: string | null;
+  window_start_at: string | null; uncovered_before: string | null;
 };
 type StoredPost = {
   post_id:string; handle:string; original_url:string; published_at:string;
@@ -49,8 +49,10 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
   const window=xWireRequestWindow(now,claim.checkpoint_at,claim.resume_cursor,claim.resume_start_at,
     X_SWEEP_DEFAULTS.lookbackHours,X_SWEEP_DEFAULTS.overlapMinutes,X_SWEEP_DEFAULTS.recoveryLookbackHours);
   const {data:existing}=await db.from("x_wire_accounts")
-    .select("last_observed_post_at").eq("handle",handle).maybeSingle();
+    .select("last_observed_post_at,uncovered_before").eq("handle",handle).maybeSingle();
   let latest=ms(existing?.last_observed_post_at);
+  const missingBefore = existing?.uncovered_before ?? (window.gap ? claim.checkpoint_at ?? window.startAt : null);
+  const gapMarker = missingBefore ? {uncovered_before:missingBefore} : {};
   let cursor:string|null=window.cursor, fetched=0, kept=0, status:XAccountAttempt["status"]="partial";
   const seenCursors=new Set<string>();
   try {
@@ -64,7 +66,8 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
         signal:AbortSignal.timeout(7000),
       });
       if(response.status===204 && !cursor) {
-        await finish(db,handle,token,{health:"healthy",last_error:null,last_fetched:fetched,
+        await finish(db,handle,token,{...gapMarker,health:missingBefore?"partial":"healthy",
+          last_error:missingBefore?"Unrecovered history older than 72 hours":null,last_fetched:fetched,
           last_completed_at:now,window_start_at:null,page_cursor:null,next_attempt_at:plus(now,30),
           last_observed_post_at:latest?new Date(latest).toISOString():null});
         return;
@@ -104,8 +107,9 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       // A missing cursor on a full page is ambiguous, never a completed checkpoint.
       if(!next && parsed.total===PAGE_SIZE)throw new Error("Full page without continuation cursor");
       if(complete){
-        await finish(db,handle,token,{health:parsed.malformed?"partial":"healthy",
-          last_error:parsed.malformed?parsed.malformed+" untrusted row(s) withheld":null,
+        await finish(db,handle,token,{...gapMarker,
+          health:parsed.malformed||missingBefore?"partial":"healthy",
+          last_error:missingBefore?"Unrecovered history older than 72 hours":parsed.malformed?parsed.malformed+" untrusted row(s) withheld":null,
           last_fetched:fetched,last_completed_at:now,window_start_at:null,page_cursor:null,
           next_attempt_at:plus(now,30),last_observed_post_at:latest?new Date(latest).toISOString():null});
         return;
@@ -117,14 +121,14 @@ async function scanOne(db:Db,handle:string, now:string,fetchImpl:typeof fetch,
       }).eq("handle",handle).eq("lease_token",token).select("handle").maybeSingle();
       if(saveErr||!saved)throw new Error("Cursor persistence failed or lease lost");
     }
-    await finish(db,handle,token,{health:"partial",page_cursor:cursor,window_start_at:window.startAt,
+    await finish(db,handle,token,{...gapMarker,health:"partial",page_cursor:cursor,window_start_at:window.startAt,
       last_error:"Bounded pagination incomplete; cursor saved for next pass",
       next_attempt_at:plus(now,5),last_fetched:fetched,
       last_observed_post_at:latest?new Date(latest).toISOString():null});
   } catch(e) {
     const message=safeError(e);
     try {
-      await finish(db,handle,token,{health:message.startsWith("HTTP 429")||message.startsWith("HTTP 403")?"blocked":"unavailable",
+      await finish(db,handle,token,{...gapMarker,health:message.startsWith("HTTP 429")||message.startsWith("HTTP 403")?"blocked":"unavailable",
         last_error:message,next_attempt_at:plus(now,30),last_fetched:fetched});
     } catch{ /* Preserve the original lease and unfinished cursor; never pretend success */ }
   }
@@ -167,10 +171,11 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
     const accounts:XAccountAttempt[]=X_CORE_ROSTER.map(x=>{
       const found=byHandle.get(x.handle.toLowerCase());
       if(!found)return emptyAccount(x.handle,now,"Checkpoint missing");
-      return {handle:x.handle,status:found.health,
+      return {handle:x.handle,status:found.uncovered_before?"partial":found.health,
         attemptedAt:found.last_attempt_at||now,lastSuccessAt:found.last_completed_at,
         lastObservedPostAt:found.last_observed_post_at,
-        fetched:found.last_fetched,newPosts:0,error:found.last_error};
+        fetched:found.last_fetched,newPosts:0,
+        error:found.uncovered_before ? "Historical coverage gap older than 72 hours. "+(found.last_error||"") : found.last_error};
     });
     const posts: (XWirePost & {intakeStatus:string})[] =
       ((postsRead.data||[]) as StoredPost[]).map(x=>({
