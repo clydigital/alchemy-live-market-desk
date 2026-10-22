@@ -13,6 +13,7 @@ const PRIVATE_NAV = [
   ["Research", "/whats-new"],
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/hybrid-output/prepare"],
+  ["X Wire", "/owner/x-wire"],
   ["Calendar", "/blue-desk/calendar"],
   ["Learn", "/concepts"],
 ] as const;
@@ -35,6 +36,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Research": "research",
   "Data Library": "library",
   "Presenter Prep": "studio",
+  "X Wire": "research",
   "Calendar": "calendar",
   "Learn": "learn",
   "Key Stories": "layers",
