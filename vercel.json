@@ -4,7 +4,7 @@
     "deploymentEnabled": {
       "*": false,
       "main": true,
-      "preview/v7-r6-p1-owner-evidence-20261023": true
+      "preview/v7-r7-market-map-20261023": true
     }
   },
   "crons": [
@@ -181,5 +181,5 @@
       "schedule": "25 5 * * *"
     }
   ],
-  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-r6-p1-owner-evidence-20261023\" ]; then exit 1; else exit 0; fi"
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview/v7-r7-market-map-20261023\" ]; then exit 1; else exit 0; fi"
 }
