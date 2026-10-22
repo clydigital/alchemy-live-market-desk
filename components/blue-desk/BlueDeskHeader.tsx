@@ -23,13 +23,19 @@ const PRIVATE_NAV = [
 // advertise owner-only legacy links that its middleware correctly returns 404.
 const PUBLIC_NAV = [
   ["Live Market", "/"],
+  ["Key Stories", "/key-stories"],
+  ["Rates", "/rates"],
+  ["What Changed", "/what-changed"],
   ["Markets", "/markets"],
-  ["Rates", "/markets?group=rates"],
   ["Calendar", "/calendar"],
+  ["Presenter Deck", "/presenter"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
+  "Key Stories": "layers",
+  "What Changed": "divergence",
+  "Presenter Deck": "studio",
   "Change Ledger": "research",
   "Dossier": "library",
   "Markets": "chart",
