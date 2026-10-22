@@ -5,6 +5,8 @@ import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
+import { storyMatchesSubject, storyIdentityBalls } from "@/lib/blue-desk/story-identity";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents, type ForwardEarningsResult } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar, type PresenterCalendarEvent } from "@/lib/presenter-calendar";
@@ -49,7 +51,7 @@ function prettyDay(day: string) {
   }).format(date);
 }
 
-function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; statusLabel: WindowName }) {
+function Events({ records, statusLabel, storyBase }: { records: PresenterCalendarEvent[]; statusLabel: WindowName; storyBase:string }) {
   const exact = records.filter(event => !!eventGroupDate(event));
   const datedOnly = records.filter(event => !eventGroupDate(event));
   const groups = new Map<string, PresenterCalendarEvent[]>();
@@ -64,6 +66,9 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
         <div className={styles.eventHeading}>
           <span className={styles.kicker}>{event.kind.toUpperCase()} · {event.status.toUpperCase()} · {event.verificationState.toUpperCase()}</span>
           <h3>{event.title}</h3>
+          <div className={styles.calendarStoryIdentities}>
+            <StoryIdentityBalls title={event.title} deck={event.decidingQuestion} assets={event.affectedAssets} hrefBase={storyBase} limit={5} />
+          </div>
         </div>
         <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
         {statusLabel === "released" ? (
@@ -74,7 +79,8 @@ function Events({ records, statusLabel }: { records: PresenterCalendarEvent[]; s
           Actual: {event.actual || "not available"} · Consensus: {event.consensus || "not available"} ·
           Previous: {event.revisedPrevious || event.previous || "not available"}
         </p>
-        {event.affectedAssets.length ? <p className={styles.muted}>Assets: {event.affectedAssets.join(" · ")}</p> : null}
+        {event.affectedAssets.length ? <p className={styles.muted}>Affected assets in source record: {event.affectedAssets.join(" · ")}</p> : null}
+        <Link className={styles.calendarSubjectLink} href={storyBase+"#stories-title"}>Explore ongoing market stories →</Link>
         {sourceUrl(event.sourceUrl) ? (
           <a href={event.sourceUrl} rel="noreferrer" target="_blank" className={styles.textLink}>
             {event.sourceName} · View source ↗
@@ -118,6 +124,8 @@ export default async function BlueDeskCalendarPage({
   const params = await searchParams;
   const host = (await headers()).get("host");
   const raw = params.window;
+  const subject=typeof params.subject==="string" && /^[A-Z0-9]{2,12}$/.test(params.subject)?params.subject:"";
+  const storyBase=blueDeskPublicHref("/blue-desk",host);
   // The default broad window keeps the next confirmed catalysts visible during
   // quiet 7-day windows; 24h/7d remain explicit, narrower reader choices.
   const windowName: WindowName = raw === "24h" || raw === "7d" || raw === "released" ? raw : "30d";
@@ -139,6 +147,8 @@ export default async function BlueDeskCalendarPage({
       ? selectBlueDeskReleasedWeek(calendar, now)
       : selectBlueDeskUpcoming(calendar, now, windowName === "30d" ? 30 : 7);
 
+  const filteredEvents=subject?events.filter(event=>storyMatchesSubject(event.title,event.decidingQuestion,event.affectedAssets,subject)):events;
+
   // Empty narrow windows must never imply there are no future verified
   // schedules. These remain real source events from presenter-calendar/1,
   // not predicted releases, forecasts or synthetic event clocks.
@@ -146,6 +156,10 @@ export default async function BlueDeskCalendarPage({
     ? selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3)
     : [];
 
+  const calendarSubjects=[...new Set([...events,...nextKnown].flatMap(event=>
+    storyIdentityBalls(event.title,event.decidingQuestion,5,event.affectedAssets).map(ball=>ball.code)))].slice(0,10);
+  const calendarBase=blueDeskPublicHref("/blue-desk/calendar",host);
+  const filteredNextKnown=subject?nextKnown.filter(event=>storyMatchesSubject(event.title,event.decidingQuestion,event.affectedAssets,subject)):nextKnown;
   const nowDisplay = formatDualDeskTime(now);
   return (
     <main className={styles.page} data-blue-desk-calendar="ET-primary">
@@ -165,7 +179,7 @@ export default async function BlueDeskCalendarPage({
         <nav className={styles.calendarTabs} aria-label="Calendar window">
           {WINDOWS.map(view => (
             <Link
-              key={view.id} href={blueDeskPublicHref("/blue-desk/calendar?window=" + view.id, host)}
+              key={view.id} href={blueDeskPublicHref("/blue-desk/calendar?window=" + view.id + (subject?"&subject="+encodeURIComponent(subject):""), host)}
               aria-current={windowName === view.id ? "page" : undefined}
               className={windowName === view.id ? styles.calendarTabActive : styles.calendarTab}
             >
@@ -175,25 +189,31 @@ export default async function BlueDeskCalendarPage({
           ))}
         </nav>
 
+        {calendarSubjects.length?<section aria-label="Filter calendar catalysts by subject" className={styles.calendarSubjectFilters}>
+          <span className={styles.kicker}>FILTER CATALYSTS BY COUNTRY, COMPANY OR ASSET</span>
+          <StoryIdentityBalls title="" deck="" assets={calendarSubjects} hrefBase={calendarBase+"?window="+windowName} limit={5}/>
+          <p className={styles.muted}>Filters show scheduled or released items with matching explicit subjects, not a verified market reaction.</p>
+        </section>:null}
         <div className={styles.calendarSummary}>
-          <span>{events.length} record{events.length === 1 ? "" : "s"}</span>
+          <span>{filteredEvents.length} record{filteredEvents.length === 1 ? "" : "s"}{subject?" matching "+subject:""}</span>
           <span>Economic: {calendar.sourceHealth.macro} · Earnings: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
         </div>
 
+        {subject?<p className={styles.coverage}>Filtering calendar by {subject}. <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/calendar?window="+windowName,host)}>Clear filter ×</Link></p>:null}
         {calendar.sourceHealth.warnings.length ? (
           <p className={styles.coverage} role="status">Source coverage: {calendar.sourceHealth.warnings.join(" ")}</p>
         ) : null}
 
         <div className={styles.calendarStack}>
-          <Events records={events} statusLabel={windowName} />
-          {nextKnown.length ? (
+          <Events records={filteredEvents} statusLabel={windowName} storyBase={storyBase} />
+          {filteredNextKnown.length ? (
             <>
               <p className={styles.coverage}>
                 Next source-listed scheduled events outside this selection or without an
                 exact time in the selected window. These are not released results.
                 {" "}<Link href={blueDeskPublicHref("/blue-desk/calendar?window=30d", host)} className={styles.textLink}>Browse the 30-day calendar →</Link>
               </p>
-              <Events records={nextKnown} statusLabel="30d" />
+              <Events records={filteredNextKnown} statusLabel="30d" storyBase={storyBase} />
             </>
           ) : null}
         </div>

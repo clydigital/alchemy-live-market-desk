@@ -24,16 +24,16 @@ test("all displayed Story headlines are at most 80 characters", () => {
   assert.doesNotMatch(result, /[?？]/);
 });
 
-test("Blue Desk and Live Desk present declarative content in content-sized Story cards", () => {
+test("Blue Desk displays two rows of story cards while Live Desk retains its old strip", () => {
   const blue = readFileSync(new URL("../app/blue-desk/blue-desk.module.css", import.meta.url), "utf8");
   const live = readFileSync(new URL("../components/live-desk/market-regime-strip.module.css", import.meta.url), "utf8");
   const projection = readFileSync(new URL("../lib/market-brief-articles.ts", import.meta.url), "utf8");
   const homepage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(projection, /marketStoryHeadline\(\[/);
   assert.match(homepage, /marketStoryHeadline\(\[/);
-  assert.match(blue, /\.storyCard\s*\{[\s\S]*?width: max-content/);
+  assert.match(blue, /\.storyGrid\s*\{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(live, /\.storyCard\s*\{[\s\S]*?width: max-content/);
-  assert.match(blue, /scroll-snap-type: x proximity/);
+  assert.doesNotMatch(blue, /scroll-snap-type: x proximity/);
 });
 
 test("does not turn a research question into a fabricated observed move", () => {
