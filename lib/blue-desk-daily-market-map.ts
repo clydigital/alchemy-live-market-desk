@@ -46,6 +46,13 @@ function admitted(row: PublicMarketObservation, nowMs: number): MarketLensObserv
   if (row.last === null || !Number.isFinite(row.last)
     || !row.sourceName.trim() || !row.sourceUrl
     || typeof row.asOf !== "string") return null;
+  try {
+    const source = new URL(row.sourceUrl);
+    if (source.protocol !== "https:" || source.username || source.password
+      || row.sourceUrl.length > 2048) return null;
+  } catch {
+    return null;
+  }
   const observed = Date.parse(row.asOf);
   if (!Number.isFinite(observed) || observed > nowMs + 60_000 || observed < 0) return null;
   const ageHours = Math.max(0, (nowMs - observed) / 3_600_000);
