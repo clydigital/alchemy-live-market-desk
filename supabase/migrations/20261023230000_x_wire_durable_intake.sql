@@ -5,6 +5,7 @@ create table if not exists public.x_wire_accounts (
   last_attempt_at timestamptz,
   last_completed_at timestamptz,
   last_observed_post_at timestamptz,
+  uncovered_before timestamptz,
   window_start_at timestamptz,
   page_cursor text,
   next_attempt_at timestamptz not null default '-infinity'::timestamptz,
