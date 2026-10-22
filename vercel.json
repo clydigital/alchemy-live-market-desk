@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true
+      "main": true,
+      "preview/blueberry-story-history-visual-20261023": true
     }
   },
   "crons": [
