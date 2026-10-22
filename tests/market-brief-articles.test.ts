@@ -171,7 +171,9 @@ test("reader edits only explicit workflow-tail jargon and leaves numeric evidenc
 test("Deep Dive renders direct issuer facts before unresolved commentary, not pooled IDs as claim proof", () => {
   const route = readFileSync(new URL("../app/blue-desk/stories/[articleId]/page.tsx", import.meta.url), "utf8");
   assert.match(route, /What the original sources report/);
-  assert.match(route, /article\.editorial\.evidenceClaims\.slice\(0, 8\)/);
+  assert.match(route, /article\.editorial\.evidenceClaims\.map\(claim => \{/);
+  assert.match(route, /describePublicEvidenceClaim\(claim\.claimText\)/);
+  assert.match(route, /filingMetricList/);
   assert.match(route, /readerFacingMarketText\(paragraph\.text\)/);
   assert.match(route, /readerParagraphSources\(paragraph, article\.editorial\.evidenceClaims\)/);
   assert.match(route, /Lesson-level evidence only; this particular statement is not independently verified/);
