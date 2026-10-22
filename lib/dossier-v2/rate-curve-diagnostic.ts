@@ -168,7 +168,13 @@ export function buildRateCurveDiagnostic(
 ): RateCurveDiagnostic {
   const us2y = monitorEvidence(evidence, "us2y");
   const us5y = monitorEvidence(evidence, "us5y-fred") ?? monitorEvidence(evidence, "us5y");
-  const us10y = monitorEvidence(evidence, "us10y") ?? monitorEvidence(evidence, "us10y-fred");
+  const us10yFred = monitorEvidence(evidence, "us10y-fred");
+  const us10y = monitorEvidence(evidence, "us10y") ?? us10yFred;
+  // The fast ^TNX monitor may have a valid level but no five-session history.
+  // Use the already-observed, date-stamped FRED DGS10 5D change in that case,
+  // preserving the selected level and recording a distinct change evidence ID.
+  const us10yMove = bpChange(us10y) !== null ? us10y
+    : (bpChange(us10yFred) !== null ? us10yFred : us10y);
   const us20y = monitorEvidence(evidence, "us20y-fred");
   const us30yDirect = signalContextEvidence(evidence, "us30y");
   const us30yFred = monitorEvidence(evidence, "us30y-fred");
@@ -196,7 +202,7 @@ export function buildRateCurveDiagnostic(
   const points: RateCurvePoint[] = [
     point("2Y", us2y),
     point("5Y", us5y),
-    point("10Y", us10y),
+    point("10Y", us10y, us10yMove),
     point("20Y", us20y),
     point("30Y", us30yDirect ?? us30yFred, us30yDirect && bpChange(us30yDirect) !== null ? us30yDirect : us30yFred, Boolean(us30yDirect)),
   ];
