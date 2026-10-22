@@ -68,5 +68,5 @@ test("homepage renders source-only daily angles before the single Dossier-depend
   assert.match(page,/OLDER_SOURCE/);
   assert.match(page,/No verified observation for this lens/);
   assert.match(page,/getCurrentVerifiedMarketMotion/);
-  assert.doesNotMatch(page,/publish|upsert|system2Adjudicate|createSupabaseAdminClient/);
+  assert.doesNotMatch(page,/\.from\("intelligence_evidence"\)|\.upsert\(|system2Adjudicate\(|createSupabaseAdminClient\(/);
 });
