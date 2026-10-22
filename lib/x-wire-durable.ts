@@ -150,12 +150,13 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
   try{ db=opts.db||createSupabaseAdminClient();await loadAccounts(db); }
   catch(e){return unavailable(safeError(e));}
   const quota={total:0};
+  const failures=new Map<string,string>();
   let next=0;
   await Promise.all(Array.from({length:CONCURRENT_ACCOUNTS},async()=>{
     while(next<X_CORE_ROSTER.length){
       const i=next++;
       try{await scanOne(db,X_CORE_ROSTER[i].handle,now,fetchImpl,quota);}
-      catch{ /* Account source health read back below; do not suppress other accounts */ }
+      catch(e){failures.set(X_CORE_ROSTER[i].handle,safeError(e)); /* Failure is shown in source health */ }
     }
   }));
   try{
@@ -171,11 +172,12 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
     const accounts:XAccountAttempt[]=X_CORE_ROSTER.map(x=>{
       const found=byHandle.get(x.handle.toLowerCase());
       if(!found)return emptyAccount(x.handle,now,"Checkpoint missing");
-      return {handle:x.handle,status:found.uncovered_before?"partial":found.health,
+      const failure=failures.get(x.handle);
+      return {handle:x.handle,status:failure?"unavailable":found.uncovered_before?"partial":found.health,
         attemptedAt:found.last_attempt_at||now,lastSuccessAt:found.last_completed_at,
         lastObservedPostAt:found.last_observed_post_at,
         fetched:found.last_fetched,newPosts:0,
-        error:found.uncovered_before ? "Historical coverage gap older than 72 hours. "+(found.last_error||"") : found.last_error};
+        error:failure || (found.uncovered_before ? "Historical coverage gap older than 72 hours. "+(found.last_error||"") : found.last_error)};
     });
     const posts: (XWirePost & {intakeStatus:string})[] =
       ((postsRead.data||[]) as StoredPost[]).map(x=>({
