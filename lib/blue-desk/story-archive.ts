@@ -1,6 +1,6 @@
 import type { EditorialArticle } from "../market-brief-editorial.ts";
 
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PAGE=6;
 
 export type PublishedStoryReading={
