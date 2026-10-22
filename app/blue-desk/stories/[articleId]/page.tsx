@@ -137,6 +137,13 @@ export default async function BlueDeskStoryPage({
             <span>Immutable historical edition</span>
           </div>
         </header>
+        {canonicalStoryId?<div className={styles.storyPresenterAction}>
+          <Link className={styles.primaryAction} href={blueDeskPublicHref(
+            "/blue-desk/presenter?edition="+encodeURIComponent(article.editionId)
+            +"&story="+encodeURIComponent(canonicalStoryId),host)}>
+            Research this Story in Presenter · COTD / OB →</Link>
+          <p>Owner authentication required. This does not approve an article or change the canonical thesis.</p>
+        </div>:null}
         <StoryVisual
           storyId={normalizedArticleId.slice(articlePrefix.length)}
           editionId={article.editionId}
