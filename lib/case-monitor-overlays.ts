@@ -1,4 +1,5 @@
 import type { CaseMonitorBoard, CaseMonitorMetric, CaseMonitorSignal } from "@/lib/case-monitors";
+import { X_CORE_ROSTER, X_SWEEP_DEFAULTS } from "@/lib/x-sweep-core";
 
 const STATUS_URL = "https://straits.live/status";
 
@@ -33,10 +34,10 @@ function xPlaceholder(storySlug: string): CaseMonitorSignal {
     id: `x-watch-${storySlug}`,
     kind: "x",
     label: "X / Twitter monitor",
-    headline: "No verified relevant X post in the current canonical window",
-    detail: "Official-account posts can be attached through the statement/research intake. Until one is verified, X remains a watch channel rather than evidence.",
+    headline: "X source coverage has not been confirmed for this Story",
+    detail: `MacroPulse monitors ${X_CORE_ROSTER.length} registered X accounts over a ${X_SWEEP_DEFAULTS.lookbackHours}-hour normal window. This Story monitor does not prove those accounts were fetched or that no new posts exist. See the latest MacroPulse source-health manifest; X claims require separate verification before canonical admission.`,
     asOf: null,
-    sourceName: "Alchemy verified social watch",
+    sourceName: "MacroPulse X watch (coverage unverified)",
     sourceUrl: null,
     verification: "no_verified_item",
   };
