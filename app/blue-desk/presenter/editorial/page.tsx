@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
-import { isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { BLUEBELLY_PRESENTATION_HOST, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getDeskData } from "@/lib/data";
 import {
   getHybridPresenterEditionCandidates,
@@ -29,7 +29,8 @@ export default async function BlueberryPresenterEditorial({
  searchParams,
 }:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
   const host=(await headers()).get("host");
-  if(isBlueDeskPublicReaderHost(host))notFound();
+  const bluebelly=host?.trim().toLowerCase().replace(/:443$/,"")===BLUEBELLY_PRESENTATION_HOST;
+  if(isBlueDeskPublicReaderHost(host)&&!bluebelly)notFound();
   const query=await searchParams;
   const raw=query.edition;
   const requested=raw===undefined?null:(typeof raw==="string"&&UUID.test(raw)?raw:"__invalid_edition__");
@@ -79,7 +80,7 @@ export default async function BlueberryPresenterEditorial({
     exactDossierId:projection.pinned?.dossierId??null,
     pinnedEditionId:projection.pinned?.editionId??null,
   });
-  const back="/blue-desk/presenter"+(requested&&UUID.test(requested)?"?edition="+requested:"");
+  const back=(bluebelly?"/presenter":"/blue-desk/presenter")+(requested&&UUID.test(requested)?"?edition="+requested:"");
   return <main className={desk.page} data-presenter-editorial="private-readonly">
     <BlueDeskHeader activePath="/blue-desk/presenter"/>
     <div className={desk.content}>
@@ -89,8 +90,8 @@ export default async function BlueberryPresenterEditorial({
         <p>Evaluate whether the saved research is good enough for an LY-style article. These source packs are visible and inspectable, but are never auto-approved articles.</p>
         <div className={ui.links}>
           <Link className={ui.action} href={back}>Presenter technical checks →</Link>
-          {projection.pinned?<Link href={"/blue-desk/dossier?id="+projection.pinned.dossierId}>Exact frozen Dossier →</Link>:null}
-          {projection.pinned?<Link href={"/hybrid-output/prepare?edition="+projection.pinned.editionId}>Source-locked full prep →</Link>:null}
+          {projection.pinned?<Link href={(bluebelly?"/presenter/dossier":"/blue-desk/dossier")+"?id="+projection.pinned.dossierId}>Exact frozen Dossier →</Link>:null}
+          {projection.pinned?<Link href={(bluebelly?"/presenter/full-prep":"/hybrid-output/prepare")+"?edition="+projection.pinned.editionId}>Source-locked full prep →</Link>:null}
         </div>
       </header>
       <section className={ui.panel} aria-label="Edition proof">

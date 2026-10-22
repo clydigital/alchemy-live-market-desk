@@ -313,9 +313,11 @@ export default async function BlueDeskPage() {
           <div className={styles.quickLinks}>
             {publicHost ? (
               <>
-                <Link href="/#stories-title">Key market stories →</Link>
-                <Link href="/#rates-title">Observed Treasury yields →</Link>
+                <Link href="/key-stories">Key market stories →</Link>
+                <Link href="/rates">Observed Treasury yields →</Link>
+                <Link href="/what-changed">Verified developments →</Link>
                 <Link href="/markets">Public markets →</Link>
+                <Link href="/presenter">Presenter Deck (sign-in) →</Link>
                 <Link href="/calendar">Public calendar →</Link>
               </>
             ) : (

@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { BLUEBELLY_PRESENTATION_HOST, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
 import {
   getDossierV2HistoryIndex,
@@ -32,8 +32,10 @@ export default async function BlueDeskDossierPage({
 }) {
   const host = (await headers()).get("host");
   // Defence in depth alongside private host middleware.
-  if (isBlueDeskPublicReaderHost(host)) notFound();
+  const bluebelly = host?.trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
+  if (isBlueDeskPublicReaderHost(host) && !bluebelly) notFound();
 
+  const dossierHref=bluebelly?"/presenter/dossier":"/blue-desk/dossier";
   const query = await searchParams;
   const id = typeof query.id === "string" ? query.id.trim() : null;
   const valid = id === null || isValidUuid(id);
@@ -61,7 +63,7 @@ export default async function BlueDeskDossierPage({
             <h1>Dossier and saved editions</h1>
             <p>The Dossier is an evidence-backed market interpretation. Blueberry reads the existing immutable archive, never a separate copy.</p>
           </div>
-          <Link className={styles.primaryAction} href="/blue-desk">Market summary →</Link>
+          <Link className={styles.primaryAction} href={bluebelly?"/":"/blue-desk"}>Market summary →</Link>
         </header>
         <div className={styles.dossierLayout}>
           <div className={styles.dossierMain}>
@@ -70,7 +72,7 @@ export default async function BlueDeskDossierPage({
                 <h2>{id ? "Exact Dossier unavailable" : "Current Dossier unavailable"}</h2>
                 <p>{!valid ? "Invalid canonical Dossier UUID." : selection?.notice.detail || "The read failed or no valid persisted edition was returned."}</p>
                 <p>No other Dossier has been substituted. Check the ID or owner source connection.</p>
-                <Link href="/blue-desk/dossier" className={styles.textLink}>Current Dossier →</Link>
+                <Link href={dossierHref} className={styles.textLink}>Current Dossier →</Link>
               </section>
             ) : (
               <>
@@ -147,15 +149,15 @@ export default async function BlueDeskDossierPage({
           <aside className={styles.dossierArchive} aria-labelledby="blueberry-dossier-archive-title">
             <h2 id="blueberry-dossier-archive-title">Dossier archive</h2>
             <p>Recent editions appear below. Any older edition can be opened by exact UUID.</p>
-            <Link href="/blue-desk/dossier">Latest Dossier →</Link>
-            <form action="/blue-desk/dossier" method="get" className={styles.dossierLookup}>
+            <Link href={dossierHref}>Latest Dossier →</Link>
+            <form action={dossierHref} method="get" className={styles.dossierLookup}>
               <label htmlFor="blueberry-dossier-id">Exact canonical Dossier UUID</label>
               <input name="id" id="blueberry-dossier-id" defaultValue={id || ""} placeholder="Original Dossier UUID" />
               <button type="submit">Open edition</button>
             </form>
             {history?.items.length ? history.items.map(item => (
               <Link key={item.id} className={styles.dossierArchiveRow}
-                href={"/blue-desk/dossier?id=" + encodeURIComponent(item.id)}
+                href={dossierHref+"?id=" + encodeURIComponent(item.id)}
                 aria-current={item.id === dossier?.dossierId ? "page" : undefined}>
                 <strong>{item.headline}</strong>
                 <DualTimestamp value={item.asOf} sourceDate={item.asOf} />
