@@ -16,6 +16,8 @@ import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
+import { publicMarketObservations, PUBLIC_MARKET_GROUPS } from "@/lib/blue-desk-public-markets";
+import { buildBlueDeskDailyMarketMap } from "@/lib/blue-desk-daily-market-map";
 import styles from "./blue-desk.module.css";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +64,14 @@ export default async function BlueDeskPage() {
     "/blue-desk/stories/" + encodeURIComponent(article.articleId) + "?edition=" + encodeURIComponent(article.editionId), host,
   );
   const articles = brief.articles.filter(article => article.editorial.readiness !== "RESEARCH_ONLY").slice(0, 6);
+  // Every desk angle is sourced directly from the already-reviewed public market
+  // observation projection. A Dossier does not determine visibility here.
+  const publicObservations = PUBLIC_MARKET_GROUPS.filter(group => group.id !== "all")
+    .flatMap(group => publicMarketObservations(monitor?.rows || [], group.id))
+    .filter((row, index, all) => all.findIndex(item => item.id === row.id) === index);
+  const dailyMap = buildBlueDeskDailyMarketMap(publicObservations, now);
+  const marketNumber = (value: number, isRate: boolean) =>
+    new Intl.NumberFormat("en-GB", { maximumFractionDigits: isRate ? 3 : 2, minimumFractionDigits: isRate ? 2 : 0 }).format(value);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
     (row): row is NonNullable<typeof row> => Boolean(row),
   );
@@ -76,6 +86,59 @@ export default async function BlueDeskPage() {
     <main className={styles.page} data-blue-desk-convergence="phase-1">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
+        <section className={styles.dailyMap} aria-labelledby="daily-map-title" data-market-map-contract={dailyMap.contractVersion}>
+          <div className={styles.dailyMapHeading}>
+            <div>
+              <p className={styles.kicker}>SOURCE-DATED MARKET SUMMARY</p>
+              <h1 id="daily-map-title">The market, from eight angles</h1>
+              <p>Rates, stocks, breadth, energy, currencies, credit, metals and AI.
+                Each reading retains its original observation date. No single Dossier verdict decides this coverage.</p>
+            </div>
+            <div className={styles.dailyMapStatus} role="status">
+              <strong>{dailyMap.observedCount} / {dailyMap.lenses.length} lenses observed</strong>
+              <span>{dailyMap.olderCount ? dailyMap.olderCount + " with older-only observations" : "Source dates shown below"}</span>
+            </div>
+          </div>
+          <div className={styles.dailyMapGrid}>
+            {dailyMap.lenses.map(lens => (
+              <article className={styles.dailyMapCard} key={lens.key} data-lens={lens.key} data-source-state={lens.state}>
+                <div className={styles.dailyMapCardHeader}>
+                  <h2>{lens.heading}</h2>
+                  <span className={styles.lensState}>
+                    {lens.state === "UNAVAILABLE" ? "NO VERIFIED LEVEL"
+                      : lens.state === "OLDER_SOURCE" ? "OLDER SOURCE" : "SOURCE-DATED"}
+                  </span>
+                </div>
+                {lens.observations.length ? lens.observations.map(row => (
+                  <div className={styles.lensMetric} key={row.id}>
+                    <div className={styles.lensMetricHead}>
+                      <strong>{row.label}</strong>
+                      <span>{row.last === null ? "—" : marketNumber(row.last, row.type === "Rates") + (row.type === "Rates" ? "%" : "")}</span>
+                    </div>
+                    <p className={styles.lensChange}>
+                      {row.change !== null && row.frequency === "daily"
+                        ? "Previous session: " + (row.change > 0 ? "+" : "") + row.change.toFixed(2) + " " + row.changeUnit
+                        : "Previous-session change unavailable"}
+                      {row.freshness === "OLDER_OBSERVATION" ? " · older observation" : ""}
+                    </p>
+                    <div className={styles.lensProvenance}>
+                      <DualTimestamp value={row.asOf} sourceDate={row.asOf} className={styles.lensTime} />
+                      {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} ↗</a> : null}
+                    </div>
+                  </div>
+                )) : <p className={styles.lensEmpty}>No verified observation for this lens. Not a neutral market signal.</p>}
+                <p className={styles.lensQuestion}>{lens.question}</p>
+                <Link className={styles.dailyMapLink} href={blueDeskPublicHref("/blue-desk/markets?group=" + lens.group, host)}>
+                  Explore {lens.heading.toLowerCase()} →
+                </Link>
+              </article>
+            ))}
+          </div>
+          <p className={styles.dailyMapFootnote}>
+            Source times are not page refresh times. A previous-session move does not establish an intraday reaction,
+            cause or trade recommendation. Unverified providers are not filled with estimates.
+          </p>
+        </section>
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>

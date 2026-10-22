@@ -397,3 +397,36 @@
   max-width: none;
   padding: 0 0 64px;
 }
+
+
+/* V7 R7 — the independent daily market summary sits above featured Dossier content. */
+.dailyMap { margin: 0 0 28px; }
+.dailyMapHeading {
+  display: flex; justify-content: space-between; align-items: end;
+  gap: 24px; margin: 0 0 16px;
+}
+.dailyMapHeading h1 { color:#f3fbff; font-size:clamp(30px,3.5vw,48px); line-height:1.1; letter-spacing:-.045em; margin:5px 0 10px; }
+.dailyMapHeading p:not(.kicker) { color:#b9d5e5; font-size:15px; max-width:780px; line-height:1.58; margin:0; }
+.dailyMapStatus { display:flex; flex-direction:column; flex:0 0 auto; font-size:13px; gap:4px; padding:13px 16px; border:1px solid #25617a; border-radius:8px; background:#062a40; color:#b0d2e5; }
+.dailyMapStatus strong { color:#e4f7ff; font-size:16px; }
+.dailyMapGrid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.dailyMapCard { min-width:0; display:flex; flex-direction:column; gap:8px; padding:16px; background:linear-gradient(150deg,#0b344d,#041e30); border:1px solid #1a5371; border-radius:9px; }
+.dailyMapCardHeader { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; min-height:28px; }
+.dailyMapCard h2 { color:#f2faff; font-size:17px; margin:0; line-height:1.3; letter-spacing:-.015em; }
+.lensState { font-size:9px; letter-spacing:.055em; color:#80cce5; background:#0d4057; padding:5px 6px; border-radius:4px; white-space:nowrap; font-weight:700; }
+.dailyMapCard[data-source-state="OLDER_SOURCE"] .lensState { color:#f0cd9b; background:#413421; }
+.dailyMapCard[data-source-state="UNAVAILABLE"] .lensState { color:#b1bcc7; background:#303d48; }
+.lensMetric { border-top:1px solid #235068; padding-top:10px; min-width:0; }
+.lensMetricHead { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:13px; }
+.lensMetricHead strong { color:#e2f4fe; font-weight:650; overflow-wrap:anywhere; }
+.lensMetricHead span { color:#8de0f9; font-weight:800; font-size:18px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.lensChange { color:#bad2de; font-size:11px; line-height:1.4; margin:5px 0 0; }
+.lensProvenance { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:7px; margin-top:5px; color:#a1c3d4; font-size:10px; }
+.lensTime { font-size:10px; }
+.lensProvenance a { font-size:10px; overflow-wrap:anywhere; }
+.lensEmpty { margin:10px 0; color:#a9c2d0; font-size:12px; }
+.lensQuestion { margin:auto 0 0; border-top:1px solid #235068; padding-top:10px; color:#b7d2e2; font-size:12px; line-height:1.55; }
+.dailyMapLink { display:inline-block; margin-top:6px; font-size:12px; font-weight:750; }
+.dailyMapFootnote { margin:12px 0 0; color:#99baca; font-size:11px; }
+@media (max-width:1120px){ .dailyMapGrid {grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:650px){ .dailyMapGrid {grid-template-columns:minmax(0,1fr);} .dailyMapHeading {flex-direction:column; align-items:stretch;} .dailyMapStatus {flex-basis:auto;} }
