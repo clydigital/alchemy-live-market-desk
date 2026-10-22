@@ -4,9 +4,9 @@
 .heading>a{font-size:13px;font-weight:700}
 .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
 .stats span{border:1px solid #316780;background:#062d43;color:#b6dfed;border-radius:5px;padding:8px 11px;font-size:12px}
-.featureGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.featureGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .article,.newsItem,.rateCard,.contextPanel,.callout{background:linear-gradient(140deg,#0b3951,#032336);border:1px solid #2a6079;border-radius:9px;padding:clamp(16px,2vw,25px);min-width:0}
-.article:first-child{background:linear-gradient(135deg,#125a79,#072a40);grid-column:span 2}
+.article:first-child{background:linear-gradient(135deg,#125a79,#072a40)}
 .article h2,.newsItem h2{font-size:clamp(19px,2.1vw,29px);line-height:1.25;letter-spacing:-.028em;color:#f3fcff;margin:11px 0}
 .article p,.newsItem p,.contextPanel p,.callout p{color:#c1dbe8;font-size:14px;line-height:1.65}
 .articleFoot,.storyTop{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -35,3 +35,6 @@
 .rateCard a{font-size:11px;overflow-wrap:anywhere}
 @media(max-width:1000px){.rateGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.newsColumns{grid-template-columns:minmax(0,1fr)}.contextPanel{position:static}}
 @media(max-width:650px){.featureGrid,.rateGrid,.rateSummary{grid-template-columns:minmax(0,1fr)}.article:first-child{grid-column:auto}}
+
+@media(max-width:1050px){.featureGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.featureGrid{grid-template-columns:minmax(0,1fr)}}
