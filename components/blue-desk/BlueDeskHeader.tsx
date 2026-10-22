@@ -8,7 +8,7 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
-  ["Markets", "/markets"],
+  ["Markets", "/blue-desk/markets"],
   ["Deep Dive", "/articles"],
   ["Research", "/whats-new"],
   ["Data Library", "/data/macro"],

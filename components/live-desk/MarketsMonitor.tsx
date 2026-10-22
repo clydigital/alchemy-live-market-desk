@@ -10,6 +10,8 @@ import styles from "./markets-monitor.module.css";
 type Props = {
   monitor: MarketMonitor;
   flows: GlobalFlowMonitor;
+  /** Preserve Hybrid tape presentation within owner-authenticated Blue Desk. */
+  hybridTape?: boolean;
 };
 
 type Screen = "all" | "hot" | "gainers" | "losers" | "overbought" | "oversold" | "gap" | "highvol" | "relative" | "contradiction";
@@ -97,7 +99,7 @@ function FlowTable({ title, rows }: { title: string; rows: GlobalFlowMonitor["oi
   </section>;
 }
 
-export default function MarketsMonitor({ monitor, flows }: Props) {
+export default function MarketsMonitor({ monitor, flows, hybridTape = false }: Props) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"All" | MarketMonitorType>("All");
   const [screen, setScreen] = useState<Screen>("all");
@@ -122,12 +124,12 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
   const hotCount = monitor.rows.filter((row) => row.hot).length;
   const gapCount = monitor.rows.filter((row) => row.rsi == null || row.dayChange == null).length;
 
-  return <div className={styles.workspace}>
+  return <div className={styles.workspace} data-hybrid-tape={hybridTape ? "true" : undefined}>
     <section className={styles.statStrip}>
       <div><span>ASSETS</span><strong>{monitor.rows.length}</strong></div>
-      <div><span>HOT NOW</span><strong>{hotCount}</strong></div>
+      <div><span>{hybridTape ? "HOT" : "HOT NOW"}</span><strong>{hotCount}</strong></div>
       <div><span>CONTRADICTIONS</span><strong>{monitor.contradictions.length}</strong></div>
-      <div><span>PARTIAL DATA</span><strong>{gapCount}</strong></div>
+      <div><span>{hybridTape ? "FLOW GAPS" : "PARTIAL DATA"}</span><strong>{hybridTape ? flows.coverageGaps.length : gapCount}</strong></div>
     </section>
 
     {monitor.breadth.length ? <section className={styles.breadthPanel} aria-label="Measured breadth participation">
@@ -161,12 +163,14 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
       <p className={styles.breadthFootnote}>Percentages are of eligible measured stocks, not every index constituent. Missing or sparse Nasdaq histories are not treated as zero breadth. The US large-cap series is a fixed proxy basket, not an official S&amp;P index calculation.</p>
     </section> : null}
 
-    <MarketTrendChart rows={monitor.rows} selectedId={trendSelectedId} onSelect={setTrendSelectedId} nowIso={monitor.updatedAt} />
+    <div className={styles.trendChartShell}>
+      <MarketTrendChart rows={monitor.rows} selectedId={trendSelectedId} onSelect={setTrendSelectedId} nowIso={monitor.updatedAt} />
+    </div>
 
     <section className={styles.terminal}>
       <header className={styles.terminalHead}>
-        <div><span>CROSS-ASSET TERMINAL</span><h2>Prices, momentum and anomalies</h2><p>Attention Score ranks what deserves a research look first. It is not a trading signal.</p></div>
-        <small>LAST REFRESH · {new Date(monitor.updatedAt).toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false })} MYT</small>
+        <div><span>{hybridTape ? "PRICE OBSERVATIONS" : "CROSS-ASSET TERMINAL"}</span><h2>{hybridTape ? "All markets tape" : "Prices, momentum and anomalies"}</h2><p>{hybridTape ? "HOT is research priority only, not a trading signal. Rows retain their individual observed dates." : "Attention Score ranks what deserves a research look first. It is not a trading signal."}</p></div>
+        <small>{hybridTape ? "FEED UPDATE" : "LAST REFRESH"} · {new Date(monitor.updatedAt).toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false })} MYT</small>
       </header>
 
       <div className={styles.controls}>
@@ -183,7 +187,7 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
 
       <div className={styles.tableWrap}>
         <table>
-          <thead><tr><th>Asset</th><th>Chart</th><th>Type</th><th>Last</th><th>Day</th><th>Gap</th><th>3D</th><th>5D</th><th>RSI</th><th>Stoch RSI</th><th>Vol</th><th>HOT</th></tr></thead>
+          <thead><tr><th>Asset</th><th>Chart</th><th>Type</th><th>Last</th><th>Day</th><th>Gap</th><th>3D</th><th>5D</th><th>RSI</th><th>{hybridTape ? "Stoch" : "Stoch RSI"}</th><th>Vol</th><th>HOT</th></tr></thead>
           <tbody>{rows.map((row) => <>
             <tr key={row.id} data-hot={row.hot} data-contradiction={row.contradiction} onClick={() => { setExpanded(expanded === row.id ? null : row.id); setTrendSelectedId(row.id); }}>
               <td><button className={styles.assetButton} type="button"><strong>{row.label}</strong><span>{row.symbol} · {row.asOf || "N/A"}</span>{row.tags.length ? <small>{row.tags.slice(0, 3).join(" · ")}</small> : null}</button></td>
