@@ -23,9 +23,7 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Live Market", "/"],
   ["Markets", "/markets"],
-  ["Key Stories", "/#stories-title"],
-  ["Rates", "/#rates-title"],
-  ["What Changed", "/#motion-title"],
+  ["Rates", "/markets?group=rates"],
   ["Calendar", "/calendar"],
 ] as const;
 
@@ -39,9 +37,7 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Presenter Prep": "studio",
   "Calendar": "calendar",
   "Learn": "learn",
-  "Key Stories": "layers",
   "Rates": "rates",
-  "What Changed": "divergence",
 };
 
 /** Shared presentation chrome. These links reuse canonical Live Desk pages. */
