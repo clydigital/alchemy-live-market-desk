@@ -246,6 +246,13 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
               ) : (
                 publicHost ? <span className={styles.empty}>Awaiting a source-supported publication.</span> : <Link className={styles.primaryAction} href="/articles">All articles →</Link>
               )}
+              {feature && exactPublishedStoryId(feature)?<Link className={styles.textLink}
+                href={blueDeskPublicHref("/blue-desk/presenter?edition="+encodeURIComponent(feature.editionId)
+                  +"&story="+encodeURIComponent(exactPublishedStoryId(feature)!),host)}>
+                Prepare this Story · owner →</Link>:null}
+              {newsFeature?<Link className={styles.textLink} href={blueDeskPublicHref(
+                "/blue-desk/presenter?motion="+encodeURIComponent(newsFeature.id),host)}>
+                Prepare verified catalyst · owner →</Link>:null}
               {feature && latest ? <DualTimestamp value={latest.published_at} className={styles.heroTime} /> :
                 newsFeature ? <DualTimestamp value={newsFeature.occurredAt} className={styles.heroTime} /> :
                 sourceFact ? <DualTimestamp value={sourceFact.publishedAt} className={styles.heroTime} /> : null}
@@ -333,6 +340,8 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
                 </div>
                 <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
                 <p>{event.decidingQuestion}</p>
+                <Link className={styles.textLink} href={blueDeskPublicHref(
+                  "/blue-desk/presenter?event="+encodeURIComponent(event.id),host)}>Research this calendar event · owner →</Link>
                 <p className={styles.eventFacts}>
                   Actual {event.actual || "pending"} · Consensus {event.consensus || "unavailable"}
                   · Previous {event.revisedPrevious || event.previous || "unavailable"}
