@@ -5,6 +5,7 @@ import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import { blueDeskPublicHref, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
+import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
 import { buildPresenterCalendar } from "@/lib/presenter-calendar";
 import { selectBlueDeskUpcoming } from "@/lib/blue-desk-calendar";
 import { getEconomicCalendar } from "@/lib/calendar";
@@ -130,8 +131,9 @@ export default async function BlueDeskPage() {
             {articles.length ? articles.map(article => (
               <article key={article.articleId} className={styles.storyCard}>
                 <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
+                <StoryIdentityBalls title={article.title} deck={article.deck || ""} />
                 <h3>{article.title}</h3>
-                <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "")}</p>
+                <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "", 145)}</p>
                 <div className={styles.storyBottom}>
                   <DualTimestamp value={article.generatedAt} className={styles.cardTime} />
                   <Link href={storyHref(article)}>Read analysis →</Link>
