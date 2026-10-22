@@ -6,7 +6,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import { MarketIcon } from "@/components/blue-desk/MarketIcon";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
 import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
-import { storyMatchesSubject } from "@/lib/blue-desk/story-identity";
+import { storyMatchesSubject, storyIdentityBalls } from "@/lib/blue-desk/story-identity";
 import { getEconomicCalendar } from "@/lib/calendar";
 import { getForwardEarningsEvents, type ForwardEarningsResult } from "@/lib/forward-earnings-sources";
 import { buildPresenterCalendar, type PresenterCalendarEvent } from "@/lib/presenter-calendar";
@@ -156,6 +156,9 @@ export default async function BlueDeskCalendarPage({
     ? selectBlueDeskUpcoming(calendar, now, 30).slice(0, 3)
     : [];
 
+  const calendarSubjects=[...new Set(calendar.events.flatMap(event=>
+    storyIdentityBalls(event.title,event.decidingQuestion,5,event.affectedAssets).map(ball=>ball.code)))].slice(0,10);
+  const calendarBase=blueDeskPublicHref("/blue-desk/calendar",host);
   const filteredNextKnown=subject?nextKnown.filter(event=>storyMatchesSubject(event.title,event.decidingQuestion,event.affectedAssets,subject)):nextKnown;
   const nowDisplay = formatDualDeskTime(now);
   return (
@@ -186,6 +189,11 @@ export default async function BlueDeskCalendarPage({
           ))}
         </nav>
 
+        {calendarSubjects.length?<section aria-label="Filter calendar catalysts by subject" className={styles.calendarSubjectFilters}>
+          <span className={styles.kicker}>FILTER CATALYSTS BY COUNTRY, COMPANY OR ASSET</span>
+          <StoryIdentityBalls title="" deck="" assets={calendarSubjects} hrefBase={calendarBase} limit={5}/>
+          <p className={styles.muted}>Filters show scheduled or released items with matching explicit subjects, not a verified market reaction.</p>
+        </section>:null}
         <div className={styles.calendarSummary}>
           <span>{filteredEvents.length} record{filteredEvents.length === 1 ? "" : "s"}{subject?" matching "+subject:""}</span>
           <span>Economic: {calendar.sourceHealth.macro} · Earnings: {calendar.sourceHealth.earnings.replaceAll("_", " ")}</span>
