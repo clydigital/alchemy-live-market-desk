@@ -39,6 +39,7 @@ test("public Markets projection excludes internal signals, history, and private 
   assert.equal(publicRow.last, 4.42);
   assert.ok(Math.abs((publicRow.change || 0) - 5) < 1e-6);
   assert.equal(publicRow.changeUnit, "bp");
+  assert.equal(publicRow.levelUnit, "%");
   assert.equal(publicRow.asOf, "2026-10-19");
   assert.equal(publicRow.sourceUrl, "https://fred.stlouisfed.org/series/DGS10");
   for (const forbidden of ["points", "hot", "attentionScore", "contradiction",
