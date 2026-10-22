@@ -15,7 +15,7 @@ export default function StoryIdentityBalls({title,deck,assets=[],hrefBase,limit=
    </span>;
    return hrefBase?<Link className={styles.identityLink} key={ball.kind+ball.code}
      title={"Filter related stories: "+ball.label} aria-label={"Filter stories by "+ball.label}
-     href={hrefBase+"?subject="+encodeURIComponent(ball.code)}>{badge}</Link>:
+     href={hrefBase+(hrefBase.includes("?")?"&":"?")+"subject="+encodeURIComponent(ball.code)}>{badge}</Link>:
      <span className={styles.identityLink} key={ball.kind+ball.code}>{badge}</span>;
   })}
  </div>;
