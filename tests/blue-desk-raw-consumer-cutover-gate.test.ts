@@ -48,11 +48,12 @@ test("legacy Evidence rows yield counts only, never unintended content or public
   }
 });
 
-test("current Live and Hybrid consumers remain migration dependencies, not phantom removed readers", () => {
+test("Live reader migration does not imply Hybrid or DB grant cutover has finished", () => {
   const live = read("lib/data.ts");
   const migration = read("supabase/migrations/20261019222435_blue_desk_legacy_public_tables_read_only_20261020.sql");
-  assert.match(live, /query<StoryEvidence>\("evidence",/);
-  assert.match(live, /query<ResearchRegistryItem>\("research_source_registry",/);
+  assert.match(live, /privateQuery<StoryEvidence>\("evidence",/);
+  assert.doesNotMatch(live, /(?<!private)query<StoryEvidence>\("evidence",/);
+  assert.match(live, /privateQuery<ResearchRegistryItem>\("research_source_registry",/);
   // This existing migration removes writes only; SELECT must stay until both
   // independently deployed consumers are proven to use an authorised projection.
   assert.match(migration, /REVOKE INSERT, UPDATE, DELETE/);
