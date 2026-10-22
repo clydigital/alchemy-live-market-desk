@@ -54,10 +54,10 @@ const COMPANY: readonly IdentitySpec[] = COMPANY_ROWS.map(([code,label,domain,pa
 }));
 
 const MARKET_ASSETS: readonly IdentitySpec[]=[
- {kind:"asset",code:"OIL",label:"Oil",imageUrl:"",expressions:[/\\b(?:Brent|WTI|crude|petroleum|oil)\\b/i]},
- {kind:"asset",code:"GOLD",label:"Gold",imageUrl:"",expressions:[/\\b(?:gold|XAUUSD|XAU\\/USD)\\b/i]},
- {kind:"asset",code:"BONDS",label:"Bonds",imageUrl:"",expressions:[/\\b(?:Treasur(?:y|ies)|bonds?|gilts?)\\b/i]},
- {kind:"asset",code:"DXY",label:"US Dollar Index",imageUrl:"",expressions:[/\\bDXY\\b/i]},
+ {kind:"asset",code:"OIL",label:"Oil",imageUrl:"",expressions:[/\b(?:Brent|WTI|crude|petroleum|oil)\b/i]},
+ {kind:"asset",code:"GOLD",label:"Gold",imageUrl:"",expressions:[/\b(?:gold|XAUUSD|XAU\/USD)\b/i]},
+ {kind:"asset",code:"BONDS",label:"Bonds",imageUrl:"",expressions:[/\b(?:Treasur(?:y|ies)|bonds?|gilts?)\b/i]},
+ {kind:"asset",code:"DXY",label:"US Dollar Index",imageUrl:"",expressions:[/\bDXY\b/i]},
 ];
 /** Source-owned asset tags outrank surface wording; neither establishes new evidence. */
 function keyedAsset(value:string):string[] {
