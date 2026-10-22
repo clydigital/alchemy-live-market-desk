@@ -230,6 +230,6 @@ test("new public navigation opens substantive independent readers",()=>{
    assert.equal(blueDeskPresentationTarget(url,host),"/blue-desk/"+file);
    const page=readFileSync(new URL("../app/blue-desk/"+file+"/page.tsx",import.meta.url),"utf8");
    assert.match(page,/getLiveDeskHomepageDailyBrief|getMarketMonitor|getCurrentVerifiedMarketMotion/);
-   assert.doesNotMatch(page,/createSupabaseAdminClient|\\.upsert\\(|\\.insert\\(/);
+   assert.doesNotMatch(page,/createSupabaseAdminClient|\.upsert\(|\.insert\(/);
  }
 });
