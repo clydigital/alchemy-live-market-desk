@@ -50,9 +50,12 @@ test("owner feed never becomes part of public Bluebelly routes or public navigat
   const nav = source("components/blue-desk/BlueDeskHeader.tsx");
   const middleware = source("middleware.ts");
   const page = source("app/blue-desk/feed/page.tsx");
-  assert.match(nav, /\["Hybrid Feed", "\/blue-desk\/feed"\]/);
+  // Old feed remains a private compatibility route but no longer consumes a primary nav slot.
+  assert.match(nav, /\["Change Ledger", "\/blue-desk\/changes"\]/);
+  assert.doesNotMatch(nav.slice(nav.indexOf("const PRIVATE_NAV"), nav.indexOf("const PUBLIC_NAV")),
+    /\["Hybrid Feed", "\/blue-desk\/feed"\]/);
   const publicNav = nav.slice(nav.indexOf("const PUBLIC_NAV"), nav.indexOf("const NAV_ICONS"));
-  assert.doesNotMatch(publicNav, /Hybrid Feed|\/blue-desk\/feed/);
+  assert.doesNotMatch(publicNav, /Hybrid Feed|\/blue-desk\/feed|Change Ledger|\/blue-desk\/changes/);
   assert.match(host, /hostname === BLUEBELLY_PRESENTATION_HOST \? "blocked" : "private"/);
   assert.doesNotMatch(host, /pathname === "\/blue-desk\/feed"/);
   assert.match(middleware, /if \(accessScope === "blocked"\)/);
