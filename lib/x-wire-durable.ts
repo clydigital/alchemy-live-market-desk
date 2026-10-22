@@ -24,7 +24,7 @@ function ms(value: string | null | undefined) { const n=value?Date.parse(value):
 function plus(now:string, minutes:number) {return new Date(ms(now)+minutes*60_000).toISOString();}
 function safeError(e:unknown) {return e instanceof Error ? e.message.slice(0,180) : "X source or storage unavailable";}
 function emptyAccount(handle:string, now:string, reason:string):XAccountAttempt {
-  return {handle,status:"unavailable",attemptedAt:now,lastSuccessAt:null,lastObservedPostAt:null,
+  return {handle,status:"unavailable",attemptedAt:"",lastSuccessAt:null,lastObservedPostAt:null,
     fetched:0,newPosts:0,error:reason};
 }
 async function loadAccounts(db:Db) {
@@ -174,7 +174,7 @@ export async function getXWireDurable(opts:{now?:Date;fetchImpl?:typeof fetch;db
       if(!found)return emptyAccount(x.handle,now,"Checkpoint missing");
       const failure=failures.get(x.handle);
       return {handle:x.handle,status:failure?"unavailable":found.uncovered_before?"partial":found.health,
-        attemptedAt:found.last_attempt_at||now,lastSuccessAt:found.last_completed_at,
+        attemptedAt:found.last_attempt_at||"",lastSuccessAt:found.last_completed_at,
         lastObservedPostAt:found.last_observed_post_at,
         fetched:found.last_fetched,newPosts:0,
         error:failure || (found.uncovered_before ? "Historical coverage gap older than 72 hours. "+(found.last_error||"") : found.last_error)};
