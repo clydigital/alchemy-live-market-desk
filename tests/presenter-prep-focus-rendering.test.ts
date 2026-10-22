@@ -42,6 +42,9 @@ test("historical and blocked navigation links use readable dark-panel styling", 
 });
 
 test("Prep selects editions using a presenter-only index, not Journey's shared index", () => {
-  assert.match(page, /buildPresenterPrepEditionIndex\(editions, desk\.researchRuns\)/);
+  const exact = readFileSync(new URL("../lib/presenter-prep-exact-edition.ts", import.meta.url), "utf8");
+  assert.match(page, /resolvePresenterPrepExactSelection\(/);
+  assert.match(exact, /buildPresenterPrepEditionIndex\(input\.recent, input\.researchRuns\)/);
+  assert.match(exact, /buildPresenterPrepEditionIndex\(candidates, input\.researchRuns\)/);
   assert.doesNotMatch(page, /buildCanonicalEditionIndex\(editions, desk\.researchRuns\)/);
 });

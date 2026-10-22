@@ -38,7 +38,9 @@ test("native presenter forwards exact edition references, never silently substit
   assert.match(page, /typeof value !== "string"/);
   assert.match(page, /params\.set\(key, value\)/);
   assert.match(page, /"\/hybrid-output\/prepare"/);
-  assert.match(full, /selectCanonicalEdition\(index, requestedEditionId\)/);
+  assert.match(full, /resolvePresenterPrepExactSelection\(/);
+  assert.match(full, /getHybridExactDailyBriefEdition\(validExactId\)/);
+  assert.match(full, /getHybridDirectDailyBriefSuperseders\(validExactId\)/);
   assert.match(full, /<PresenterTechnicalChecks compact \/>/);
   assert.match(full, /<PresenterPrepSession/);
 });
