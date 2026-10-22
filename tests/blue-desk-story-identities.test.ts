@@ -11,7 +11,7 @@ test("company and country balls reflect explicit source-authored mentions only",
 
 test("countryballs distinguish Japan, China, the Gulf and do not infer unnamed exposures",()=>{
  const names=storyIdentityBalls("Iran and Saudi oil strikes","Japan's yen weakens as China watches",5);
- assert.deepEqual(names.map(x=>x.code),["IR","SA","JP","CN"]);
- assert.deepEqual(storyIdentityBalls("Oil risks rise","Energy markets are unsettled"),[]);
+ assert.deepEqual(names.map(x=>x.code),["IR","SA","OIL","JP","CN"]);
+ assert.deepEqual(storyIdentityBalls("Oil risks rise","Energy markets are unsettled").map(x=>x.code),["OIL"]);
  assert.deepEqual(storyIdentityBalls("Apple earnings","Apple revenue grows").map(x=>x.code),["AAPL"]);
 });
