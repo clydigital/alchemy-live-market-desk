@@ -12,7 +12,7 @@ export type StoryIdentity = {
 
 type IdentitySpec = StoryIdentity & { expressions: readonly RegExp[] };
 const COUNTRY: readonly IdentitySpec[] = [
-  {kind:"country",code:"US",label:"United States",imageUrl:"https://flagcdn.com/w80/us.png",expressions:[/\bUnited States\b/i,/\bU\.S\.\b/i,/\bUS(?:500|100|30|10|2|[ -]stocks|[ -]equities|[ -]Treasur(?:y|ies))\b/i,/\b(?:Federal Reserve|FOMC|Treasury yields|Wall Street)\b/i]},
+  {kind:"country",code:"US",label:"United States",imageUrl:"https://flagcdn.com/w80/us.png",expressions:[/\bUnited States\b/i,/\bU\.S\./i,/\bUS\b/,/\bUS(?:500|100|30|10|2|[ -]stocks|[ -]equities|[ -]Treasur(?:y|ies))\b/i,/\b(?:Federal Reserve|FOMC|Treasury yields|Wall Street)\b/i]},
   {kind:"country",code:"CN",label:"China",imageUrl:"https://flagcdn.com/w80/cn.png",expressions:[/\bChina\b/i,/\bChinese\b/i,/\bBeijing\b/i,/\bXi Jinping\b/i,/\bPBOC\b/i]},
   {kind:"country",code:"JP",label:"Japan",imageUrl:"https://flagcdn.com/w80/jp.png",expressions:[/\bJapan(?:ese)?\b/i,/\bBOJ\b/i,/\bJPY\b/i,/\byen\b/i]},
   {kind:"country",code:"SA",label:"Saudi Arabia",imageUrl:"https://flagcdn.com/w80/sa.png",expressions:[/\bSaudi(?: Arabia)?\b/i,/\bRiyadh\b/i]},
@@ -27,7 +27,7 @@ const COUNTRY: readonly IdentitySpec[] = [
   {kind:"country",code:"RU",label:"Russia",imageUrl:"https://flagcdn.com/w80/ru.png",expressions:[/\bRussia(?:n)?\b/i,/\bMoscow\b/i]},
   {kind:"country",code:"EU",label:"European Union",imageUrl:"https://flagcdn.com/w80/eu.png",expressions:[/\b(?:Eurozone|Euro area|ECB|European Central Bank)\b/i]},
 ];
-const COMPANY: readonly IdentitySpec[] = [
+const COMPANY_ROWS: ReadonlyArray<readonly [string,string,string,RegExp]> = [
   ["DELL","Dell","dell.com",/\bDell\b/i],
   ["NVDA","Nvidia","nvidia.com",/\b(?:Nvidia|NVDA)\b/i],
   ["MSFT","Microsoft","microsoft.com",/\b(?:Microsoft|MSFT)\b/i],
@@ -46,10 +46,11 @@ const COMPANY: readonly IdentitySpec[] = [
   ["CRWV","CoreWeave","coreweave.com",/\bCoreWeave\b/i],
   ["SAMSUNG","Samsung","samsung.com",/\bSamsung\b/i],
   ["OPENAI","OpenAI","openai.com",/\bOpenAI\b/i],
-].map(([code,label,domain,pattern])=>({
-  kind:"company" as const,code:code as string,label:label as string,
+];
+const COMPANY: readonly IdentitySpec[] = COMPANY_ROWS.map(([code,label,domain,pattern])=>({
+  kind:"company" as const,code,label,
   imageUrl:"https://icons.duckduckgo.com/ip3/"+domain+".ico",
-  expressions:[pattern as RegExp],
+  expressions:[pattern],
 }));
 
 /** Titles outrank decks. Same entity never appears twice. Show up to three balls. */
