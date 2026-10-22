@@ -1,3 +1,5 @@
+import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
+import { getHormuzMonitor } from "@/lib/hormuz-monitor";
 import Link from "next/link";
 import { headers } from "next/headers";
 
@@ -52,7 +54,10 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
   const query = await searchParams;
   const group = publicMarketGroup(query.group);
   const host = (await headers()).get("host");
-  const monitor = await getMarketMonitor().catch(() => null);
+  const [monitor, hormuz] = await Promise.all([
+    getMarketMonitor().catch(() => null),
+    group === "all" || group === "energy" ? getHormuzMonitor() : Promise.resolve(null),
+  ]);
   const observations = publicMarketObservations(monitor?.rows || [], group);
   const officialRateTrends = group === "all" || group === "rates"
     ? publicGovernmentRateTrends(monitor?.rows || []) : [];
@@ -153,6 +158,8 @@ export default async function BlueDeskMarketsPage({ searchParams }: Props) {
             Changes: rates in bp; others in %. Monthly yields show levels only. Dates are from sources; data may lag.
           </p>
         </section>
+
+        {hormuz ? <HormuzCrossings monitor={hormuz} /> : null}
 
         <div className={styles.lastLinks}>
           <h2>Continue reading</h2>

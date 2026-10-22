@@ -1,5 +1,6 @@
 "use client";
 
+import HormuzCrossings from "@/components/blue-desk/HormuzCrossings";
 import { useMemo, useState } from "react";
 
 import type { GlobalFlowMonitor } from "@/lib/global-flow-monitor";
@@ -219,7 +220,8 @@ export default function MarketsMonitor({ monitor, flows }: Props) {
 
     <div className={styles.flowGrid}>
       <FlowTable title="Central-bank gold watch" rows={flows.gold} />
-      <FlowTable title="Global oil flow & demand" rows={flows.oil} />
+      <div><FlowTable title="Global oil flow & demand" rows={flows.oil} />
+      {flows.hormuz ? <HormuzCrossings monitor={flows.hormuz} /> : null}</div>
     </div>
 
     {monitor.limitations.length ? <section className={styles.limitations}><strong>DATA NOTES</strong>{monitor.limitations.map((item) => <p key={item}>{item}</p>)}</section> : null}

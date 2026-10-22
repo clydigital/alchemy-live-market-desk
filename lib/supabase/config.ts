@@ -17,6 +17,7 @@ export function dashboardAuthRequired() {
 }
 
 export const MACHINE_AUTH_PATHS = [
+  "/api/oil/hormuz", // authenticated source-cache read; no canonical mutation
   "/api/internal/canonical-feed", // distinct server-to-server canonical publication bearer
   "/api/internal/dossier-v2", // handler requires dedicated server-to-server bearer
   "/api/research-update",
