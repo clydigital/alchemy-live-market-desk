@@ -226,7 +226,9 @@ export function publicOfficialMacroTrends(
 ):PublicGovernmentRateTrend[] {
   if(!["all","rates","credit"].includes(group))return [];
   const nominal=publicGovernmentRateTrends(rows).map(row=>({
-    ...row,kind:"Nominal Treasury yield" as const,displayUnit:"%" as const,
+    id:row.id,label:row.label,symbol:row.symbol,sourceName:row.sourceName,
+    sourceUrl:row.sourceUrl,asOf:row.asOf,frequency:row.frequency,points:row.points,
+    kind:"Nominal Treasury yield" as const,displayUnit:"%" as const,
   }));
   const additional=additionalOfficialSeries(rows);
   const curve=[
