@@ -430,3 +430,60 @@
 .dailyMapFootnote { margin:12px 0 0; color:#99baca; font-size:11px; }
 @media (max-width:1120px){ .dailyMapGrid {grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width:650px){ .dailyMapGrid {grid-template-columns:minmax(0,1fr);} .dailyMapHeading {flex-direction:column; align-items:stretch;} .dailyMapStatus {flex-basis:auto;} }
+
+/* V7 R8: news first; saved Dossier in the Blueberry owner shell. */
+.newsFirst{margin:4px 0 30px;}
+.newsFirst h1{font-size:clamp(29px,3.4vw,46px);letter-spacing:-.04em;color:#f7fbff;margin:4px 0 8px;}
+.newsFirst .sectionHead p:not(.kicker){font-size:14px;line-height:1.55;color:#bdd8e7;max-width:840px;margin:0;}
+.newsFirstGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.newsFirstCard{display:flex;flex-direction:column;gap:9px;background:linear-gradient(142deg,#0d435f,#052337);border:1px solid #265e78;border-radius:9px;min-width:0;padding:17px;}
+.newsFirstCard:first-child{grid-column:span 2;background:linear-gradient(135deg,#105777,#072941);}
+.newsFirstCard h2{font-size:18px;line-height:1.28;color:#f4faff;letter-spacing:-.02em;margin:0;}
+.newsFirstCard:first-child h2{font-size:clamp(21px,2.3vw,28px);}
+.newsFirstCard p{font-size:13px;line-height:1.53;color:#c4dbe7;margin:0;}
+.newsFirstMeta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:11px;margin-top:auto;}
+.newsFirstMeta a{overflow-wrap:anywhere;}
+.ownerMotions{border:1px solid #55728a;border-radius:8px;padding:14px;margin-top:15px;color:#e6d5aa;}
+.ownerMotions summary{cursor:pointer;font-weight:650;font-size:13px;}
+.ownerMotionGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px;}
+.ownerMotionGrid article{padding:14px;background:#132f42;border-radius:8px;}
+.ownerMotionGrid h3{font-size:15px;margin:7px 0;color:#eef9ff;}
+.ownerMotionGrid p,.ownerMotionGrid small{display:block;font-size:12px;color:#bbd3df;line-height:1.5;margin:7px 0;}
+.calendarOnlyGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:15px;margin-top:34px;}
+.dossierHeader{display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:20px;margin-bottom:22px;}
+.dossierHeader h1{font-size:clamp(29px,3.2vw,44px);letter-spacing:-.04em;color:#fff;margin:5px 0 9px;}
+.dossierHeader p:not(.kicker){color:#b4d2e3;max-width:750px;margin:0;}
+.dossierLayout{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,.85fr);gap:18px;align-items:start;}
+.dossierMain{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.dossierMain .secondaryPanel h2{font-size:22px;color:#f2faff;}
+.dossierMain .secondaryPanel h3{font-size:18px;color:#f2faff;}
+.dossierMain .secondaryPanel p,.dossierMain .secondaryPanel li{font-size:13px;color:#bbd6e3;line-height:1.65;}
+.dossierMain details{color:#c7deed;font-size:13px;line-height:1.6;}
+.dossierReadHero{background:linear-gradient(140deg,#0c4d6c,#062036);border:1px solid #2b6884;border-radius:9px;padding:clamp(19px,2.5vw,32px);}
+.dossierReadHero h2{color:#fff;font-size:clamp(24px,2.8vw,39px);line-height:1.16;letter-spacing:-.035em;}
+.dossierReadHero p{font-size:14px;color:#c8e2ef;line-height:1.65;}
+.dossierTags{display:flex;flex-wrap:wrap;gap:8px;color:#acdfef;font-size:11px;font-weight:750;}
+.dossierTags span{padding:6px 9px;border:1px solid #4184a1;border-radius:4px;}
+.dossierIdentity{display:flex;flex-wrap:wrap;gap:9px;color:#a9c8d8;font-size:11px;}
+.dossierIdentity code{overflow-wrap:anywhere;white-space:normal;}
+.dossierGap{border-top:1px solid #245a74;padding:13px 0;}
+.dossierGap strong{color:#e7f8ff;}
+.dossierLensGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.dossierLens{padding:13px;border:1px solid #2a596c;border-radius:7px;background:#0a2d43;display:flex;flex-direction:column;gap:7px;}
+.dossierLens strong{color:#eefaff;}
+.dossierLens small{color:#9fccdf;font-size:11px;}
+.dossierLens p{font-size:13px;line-height:1.5;margin:0;color:#bcd4e0;}
+.dossierArchive{background:#07263a;border:1px solid #235b72;border-radius:9px;padding:18px;position:sticky;top:14px;max-height:85vh;overflow:auto;}
+.dossierArchive h2{font-size:22px;color:#fff;margin:0 0 10px;}
+.dossierArchive p{font-size:12px;color:#acc9db;}
+.dossierArchiveRow{display:flex;flex-direction:column;gap:6px;border-top:1px solid #20506a;padding:13px 4px;}
+.dossierArchiveRow strong{font-size:13px;line-height:1.34;color:#e6f5fd;}
+.dossierArchiveRow small{font-size:11px;color:#afcbd8;}
+.dossierArchiveRow[aria-current="page"]{background:#114462;padding:13px;}
+.dossierLookup{display:flex;flex-direction:column;gap:8px;margin:15px 0;}
+.dossierLookup label{font-size:12px;}
+.dossierLookup input{background:#08334b;color:#fff;border:1px solid #4a829a;border-radius:5px;padding:10px;width:100%;min-width:0;}
+.dossierLookup button{border:1px solid #3d869d;background:#135371;color:#fff;border-radius:5px;padding:10px;cursor:pointer;}
+.dossierNote{color:#99becf;font-size:12px;}
+@media(max-width:1110px){.dossierLayout{grid-template-columns:minmax(0,1fr)}.dossierArchive{max-height:none;position:static}.newsFirstGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.ownerMotionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.newsFirstGrid,.ownerMotionGrid,.dossierLensGrid{grid-template-columns:minmax(0,1fr)}.newsFirstCard:first-child{grid-column:auto}.newsFirst .sectionHead{align-items:start;flex-direction:column}}
