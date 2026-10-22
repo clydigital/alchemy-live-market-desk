@@ -1,5 +1,5 @@
 import { marketStoryHeadline } from "./market-story-headline.ts";
-import type { MarketBriefArticleV1, MarketBriefArticlesProjectionResult, MarketBriefSourceLinkV1 } from "./market-brief-articles.ts";
+import type { MarketBriefArticleV1, MarketBriefArticlesProjectionResult, MarketBriefSourceLinkV1, MarketBriefParagraphV1 } from "./market-brief-articles.ts";
 
 export type EditorialEvidenceRow = {
   id: string;
@@ -16,11 +16,25 @@ export type EditorialEvidenceRow = {
 
 export type EditorialReadiness = "READY" | "DEVELOPING" | "RESEARCH_ONLY";
 
+/**
+ * An additive, edition-pinned editorial recommendation, not a new published
+ * schema or an authorisation to extend an immutable article's body.
+ */
+export type EditorialArticleSectionsV2 = {
+  contractVersion: "article-sections/2";
+  recommendedFormat: "FULL_ARTICLE" | "FACTUAL_BRIEF" | "RESEARCH_ONLY";
+  reporting: Array<{ text: string; role: MarketBriefParagraphV1["role"]; evidenceIds: string[]; originalUrls: string[] }>;
+  interpretation: Array<{ text: string; role: MarketBriefParagraphV1["role"]; evidenceIds: string[]; originalUrls: string[] }>;
+  gaps: string[];
+};
+
 export type EditorialArticle = MarketBriefArticleV1 & {
   editorial: {
     readiness: EditorialReadiness;
     /** Publication admission only; NOT a replacement for canonical System 2. */
     storyEligible: boolean;
+    /** Qualified article sections are sourced from distinct itemised claims only. */
+    sections: EditorialArticleSectionsV2;
     qualifiedEvidenceCount: number;
     directSourceCount: number;
     evidenceClaims: Array<{
@@ -94,6 +108,75 @@ function relevantIds(article: MarketBriefArticleV1) {
 
 export function editorialEvidenceIds(brief: MarketBriefArticlesProjectionResult): string[] {
   return [...new Set(brief.articles.flatMap(relevantIds))].slice(0, 120);
+}
+
+const SUPPORTED_INTERPRETATION = new Set(["SUPPORTED", "MIXED"]);
+const UNSUPPORTED_PARAGRAPH_STYLE = /(?:^|\s)(?:verification pending|research gap|ingestion pipeline|canonical evidence|source audit|dossier status)(?:\s|$)/i;
+
+/**
+ * Full editorial coverage requires separate, substantive, claim-owned original
+ * observations and adjudicated interpretations. Never stretch a lesson-wide
+ * source pool or append speculative copy to reach paragraph quotas.
+ */
+function articleSections(
+  article: MarketBriefArticleV1,
+  approved: EditorialArticle["editorial"]["evidenceClaims"],
+  researchOnly: boolean,
+): EditorialArticleSectionsV2 {
+  const seen = new Set<string>();
+  // Distinct prose paragraphs may not re-use one original evidence claim
+  // repeatedly to meet a numeric article quota; maintain independent sets for
+  // observed facts versus adjudicated interpretations.
+  const usedClaims = new Set<string>();
+  const selected: Array<{
+    type: "fact" | "interpretation";
+    text: string; role: MarketBriefParagraphV1["role"];
+    evidenceIds: string[]; originalUrls: string[];
+  }> = [];
+  for (const paragraph of article.paragraphs) {
+    if (paragraph.evidenceScope !== "claim"
+      || (paragraph.claimType !== "fact" && paragraph.claimType !== "interpretation")) continue;
+    // Neither a generic Story source pool nor a price reaction without
+    // aligned market clocks can count towards reported observations.
+    if (paragraph.role === "reaction") continue;
+    const text = paragraph.text.trim();
+    if (text.split(/\s+/u).length < 20 || UNSUPPORTED_PARAGRAPH_STYLE.test(text)) continue;
+    const key = text.toLocaleLowerCase("en-GB").replace(/\s+/gu, " ");
+    if (seen.has(key)) continue;
+    const ids = new Set(paragraph.canonicalEvidenceIds.map(id => id.toLowerCase()));
+    const sources = approved.filter(source => ids.has(source.evidenceId.toLowerCase())
+      && !usedClaims.has(paragraph.claimType + ":" + source.evidenceId.toLowerCase()));
+    if (!sources.length) continue;
+    seen.add(key);
+    sources.forEach(source => usedClaims.add(paragraph.claimType + ":" + source.evidenceId.toLowerCase()));
+    selected.push({
+      type: paragraph.claimType,
+      text, role: paragraph.role,
+      evidenceIds: [...new Set(sources.map(source => source.evidenceId))],
+      originalUrls: [...new Set(sources.map(source => source.sourceUrl))],
+    });
+  }
+  const reporting = selected.filter(item => item.type === "fact").slice(0, 5)
+    .map(({ type: _type, ...section }) => section);
+  const interpreted = Boolean(article.dossierId)
+    && SUPPORTED_INTERPRETATION.has(article.interpretationStatus);
+  const interpretation = interpreted
+    ? selected.filter(item => item.type === "interpretation").slice(0, 5)
+      .map(({ type: _type, ...section }) => section)
+    : [];
+  const gaps: string[] = [];
+  if (reporting.length < 3) gaps.push("Fewer than three substantial original-source factual claim paragraphs");
+  if (interpretation.length < 2) gaps.push("Fewer than two source-linked, canonical-adjudicated interpretation paragraphs");
+  if (article.paragraphs.some(p => p.role === "reaction"))
+    gaps.push("Event-aligned market-price reaction not independently established by this section contract");
+  const recommendedFormat = researchOnly || !approved.length
+    ? "RESEARCH_ONLY"
+    : reporting.length >= 3 && interpretation.length >= 2
+      ? "FULL_ARTICLE" : "FACTUAL_BRIEF";
+  return {
+    contractVersion: "article-sections/2",
+    recommendedFormat, reporting, interpretation, gaps,
+  };
 }
 
 /** Content presentation only. Does not adjudicate Regimes, mutate Stories, or create canonical evidence. */
@@ -187,6 +270,10 @@ export function buildEditorialBrief(
     const storyEligible = readiness === "READY" && Boolean(article.dossierId)
       && (article.interpretationStatus === "SUPPORTED" || article.interpretationStatus === "MIXED");
     if (readiness === "READY" && !storyEligible) gaps.push("No canonical Story adjudication");
+    const sections = articleSections(article, evidenceClaims, processOnly);
+    if (sections.recommendedFormat !== "FULL_ARTICLE") {
+      gaps.push(...sections.gaps);
+    }
 
     return {
       ...article,
@@ -195,6 +282,7 @@ export function buildEditorialBrief(
       editorial: {
         readiness,
         storyEligible,
+        sections,
         qualifiedEvidenceCount: evidenceClaims.length,
         directSourceCount: links.length,
         evidenceClaims,
