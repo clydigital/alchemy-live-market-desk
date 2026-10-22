@@ -10,12 +10,18 @@ test("all visible public header links target approved host paths and real anchor
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/markets", "/#stories-title", "/#rates-title", "/#motion-title", "/calendar"]);
+  assert.deepEqual(hrefs, ["/", "/markets", "/markets?group=rates", "/calendar"]);
+  assert.ok(hrefs.every(href => !href.includes("#")),
+    "Public primary nav must lead to real reading views, not homepage-anchor loops");
+  const marketsPage = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
+  assert.match(marketsPage, /const group = publicMarketGroup\(query\.group\)/);
+  assert.match(marketsPage, /group === "rates" \? "\/markets\?group=rates"/);
+  assert.match(marketsPage, /<PublicGovernmentRateTrendChart series=\{officialRateTrends\}/);
   for (const href of hrefs) {
     const url = new URL(href, "https://bluebelly-desk.vercel.app");
     assert.equal(blueDeskHostAccess(url.pathname, url.hostname), "public", href);
     assert.equal(blueDeskHostAccess(url.pathname, "alchemy-live-market-desk.vercel.app"), "public", href);
-    if (url.hash) assert.match(homepage, new RegExp('id="' + url.hash.slice(1) + '"'));
+    assert.equal(url.hash, "", "Navigation must not bounce into an existing homepage section");
   }
 });
 
