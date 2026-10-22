@@ -19,12 +19,12 @@ test("Bluebelly public reader never receives the raw canonical Dossier",()=>{
    assert.notEqual(blueDeskHostAccess("/blue-desk/dossier",host),"public");
  }
  const d=source("app/blue-desk/dossier/page.tsx");
- assert.match(d,/if \(isBlueDeskPublicReaderHost\(host\)\) notFound\(\)/);
+ assert.match(d,/if \(isBlueDeskPublicReaderHost\(host\) && !bluebelly\) notFound\(\)/);
  assert.equal(blueDeskHostAccess("/blue-desk/dossier","alchemy-live-market-desk-review-rogue-magazine.vercel.app"),"private");
  const nav=source("components/blue-desk/BlueDeskHeader.tsx");
  assert.match(nav,/\["Dossier", "\/blue-desk\/dossier"\]/);
  const publicNav=nav.slice(nav.indexOf("const PUBLIC_NAV"),nav.indexOf("const NAV_ICONS"));
- assert.doesNotMatch(publicNav,/dossier|hybrid|feed|presenter/i);
+ assert.doesNotMatch(publicNav,/dossier|hybrid|feed|\/blue-desk\/presenter/i);
 });
 test("latest verified reporting opens before market observations and Dossier interpretation",()=>{
  const home=source("app/blue-desk/page.tsx");

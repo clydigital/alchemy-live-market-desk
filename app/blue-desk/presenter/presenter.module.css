@@ -61,3 +61,18 @@
 .draftCheckList li{display:grid;grid-template-columns:45px minmax(0,1fr);gap:8px;font-size:11px;line-height:1.5;color:#c3d8e7;}
 .draftEditor button{cursor:pointer;align-self:flex-start;}
 .draftEditor button:disabled{opacity:.5;cursor:default;}
+
+/* Bluebelly: fast Presenter Deck / research-to-writing running order */
+.quickDeckGrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,.7fr);gap:14px;margin-top:14px}
+.quickDeckGrid>div{background:#052439;border:1px solid #2f6078;padding:16px;border-radius:8px;min-width:0}
+.quickDeckGrid h3{color:#eefaff;font-size:20px;margin:0 0 10px}
+.quickDeckItem{padding:12px 0;border-top:1px solid #275066}
+.quickDeckItem strong{font-size:14px;line-height:1.32;color:#f2fbff;display:block}
+.quickDeckItem p{font-size:12px;line-height:1.5;color:#bfd9e6;margin:6px 0}
+.quickDeckItem div{display:flex;justify-content:space-between;gap:9px;flex-wrap:wrap;color:#91c1d7;font-size:11px}
+.quickDeckItem a{overflow-wrap:anywhere;font-weight:700}
+.quickDeckMarket{border-top:1px solid #275066;padding:10px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+.quickDeckMarket strong{font-size:12px;color:#e3f6ff}
+.quickDeckMarket span{font-weight:700;font-size:13px;color:#8bdcff}
+.quickDeckMarket time,.quickDeckMarket small{font-size:10px;color:#b6d5e5}
+@media(max-width:780px){.quickDeckGrid{grid-template-columns:minmax(0,1fr)}}

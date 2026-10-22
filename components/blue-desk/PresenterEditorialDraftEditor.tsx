@@ -5,7 +5,29 @@ import { checkLyPresenterDraft, type LyArticleKind } from "@/lib/presenter-ly-wr
 import ui from "@/app/blue-desk/presenter/presenter.module.css";
 
 /** Local, non-persisted, non-publishing editing surface. */
-export default function PresenterEditorialDraftEditor({kind}:{kind:LyArticleKind}) {
+type SourcePack={headline:string|null;editionId:string|null;dossierId:string|null;
+ snippets:Array<{label:string;text:string;sourceUrl:string|null;sourceName:string|null;basis:string}>};
+function sourcePackOutline(kind:LyArticleKind,pack:SourcePack):string{
+ const sources=pack.snippets.slice(0,9).map(item=>
+  [item.label.toUpperCase()+" ["+item.basis+"]",item.text,
+  item.sourceUrl?"Original: "+item.sourceName+" — "+item.sourceUrl:
+   "Frozen source context only; independently verify before publication"].join("\n")
+ );
+ return [
+  "RESEARCH OUTLINE ONLY — NOT APPROVED FOR PUBLICATION",
+  "Exact edition: "+(pack.editionId||"unavailable"),
+  "Frozen Dossier: "+(pack.dossierId||"unavailable"),
+  ...sources,
+  kind==="COTD"?"COTD angle: one verified timely catalyst":
+   "OB angle: rates, credit, energy, equities and competing scenarios",
+  "OPENING: [Write a specific plain-English lead using current verified facts]",
+  "MARKET REACTION: [Verify exact session and chart against a licensed original source]",
+  "COUNTERCASE: [State the strongest alternative explanation]",
+  "CONFIRMATION / INVALIDATION: [Specify measurable levels or releases]",
+  "LY QC: [Check source times, title, charts, permissions and editorial approval]",
+ ].join("\n\n");
+}
+export default function PresenterEditorialDraftEditor({kind,sourcePack}:{kind:LyArticleKind;sourcePack?:SourcePack}) {
   const [title,setTitle]=useState("");
   const [meta,setMeta]=useState("");
   const [body,setBody]=useState("");
@@ -19,6 +41,14 @@ export default function PresenterEditorialDraftEditor({kind}:{kind:LyArticleKind
   };
   return <section className={ui.draftEditor} aria-label={kind+" local copy editor"}>
     <h4>Local LY copy checker</h4>
+    {sourcePack?.snippets.length?<button type="button" className={ui.action}
+      disabled={Boolean(body.trim())}
+      onClick={()=>{
+        if(body.trim())return;
+        setTitle(sourcePack.headline||"");
+        setBody(sourcePackOutline(kind,sourcePack));
+      }}>Start from admitted source pack →</button>:null}
+    <p>The starter contains only frozen source passages and explicit research gaps. It is not a finished article.</p>
     <p>Paste or write your own draft to check structure. Nothing is saved, generated or published. The checks cannot prove market facts or source rights.</p>
     <label htmlFor={"headline-"+kind}>Headline</label>
     <input id={"headline-"+kind} value={title} maxLength={130}

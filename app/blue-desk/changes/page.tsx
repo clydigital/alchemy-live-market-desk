@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { BLUEBELLY_PRESENTATION_HOST,isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getDossierV2PresentationSelection,getDossierV2PresentationSelectionById } from "@/lib/dossier-v2/presentation-reader";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
 import { buildBlueberryChangeLedger } from "@/lib/blue-desk-change-ledger";
@@ -16,7 +16,8 @@ export default async function BlueberryChangesPage({searchParams}:{
   searchParams:Promise<Record<string,string|string[]|undefined>>;
 }) {
   const host=(await headers()).get("host");
-  if(isBlueDeskPublicReaderHost(host))notFound();
+  const bluebelly=host?.trim().toLowerCase().replace(/:443$/,"")===BLUEBELLY_PRESENTATION_HOST;
+  if(isBlueDeskPublicReaderHost(host)&&!bluebelly)notFound();
   const query=await searchParams;
   const raw=query.id;
   const id=typeof raw==="string"?raw:null;
@@ -37,7 +38,7 @@ export default async function BlueberryChangesPage({searchParams}:{
           <h1>What changed in our view?</h1>
           <p>Canonical thesis revisions, expected versus observed reactions and material gaps. No new probability engine or invented causal story.</p>
         </div>
-        <Link className={styles.primaryAction} href="/blue-desk/dossier">Dossier archive →</Link>
+        <Link className={styles.primaryAction} href={bluebelly?"/presenter/dossier":"/blue-desk/dossier"}>Dossier archive →</Link>
       </section>
       {result.status==="UNAVAILABLE" ? <section className={styles.secondaryPanel} role="status">
         <h2>{exact?"Requested historical ledger unavailable":"Canonical ledger unavailable"}</h2>
@@ -53,7 +54,7 @@ export default async function BlueberryChangesPage({searchParams}:{
           <p className={styles.dossierNote}>Frozen Dossier <code>{result.dossierId}</code>
             {" · "}<DualTimestamp value={result.asOf!} sourceDate={result.asOf!}/>
           </p>
-          {result.previousId?<Link href={"/blue-desk/changes?id="+result.previousId}>Read previous Dossier's own ledger →</Link>:null}
+          {result.previousId?<Link href={(bluebelly?"/presenter/changes":"/blue-desk/changes")+"?id="+result.previousId}>Read previous Dossier's own ledger →</Link>:null}
         </section>
         <div className={styles.dailyMapGrid}>
           <section className={styles.secondaryPanel}>

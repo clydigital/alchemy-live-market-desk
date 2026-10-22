@@ -30,6 +30,14 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
   if (pathname === "/markets") return "/blue-desk/markets";
+  if (pathname === "/key-stories") return "/blue-desk/key-stories";
+  if (pathname === "/rates") return "/blue-desk/rates";
+  if (pathname === "/what-changed") return "/blue-desk/what-changed";
+  if (pathname === "/presenter") return "/blue-desk/presenter";
+  if (pathname === "/presenter/editorial") return "/blue-desk/presenter/editorial";
+  if (pathname === "/presenter/dossier") return "/blue-desk/dossier";
+  if (pathname === "/presenter/changes") return "/blue-desk/changes";
+  if (pathname === "/presenter/full-prep") return "/hybrid-output/prepare";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
@@ -59,12 +67,26 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     return "public";
   }
 
+  // Auth routes for the precise Bluebelly domain only. The private Presenter
+  // is still enforced by the existing Supabase claims + active allowlist gate.
+  // No other Bluebelly owner routes, research APIs or machine jobs are opened.
+  if (hostname === BLUEBELLY_PRESENTATION_HOST) {
+    if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
+    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/api/presenter/technical-checks"].includes(pathname)) return "private";
+  }
+
   const publicPage =
     pathname === "/" ||
     pathname === "/calendar" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
     pathname === "/markets" ||
+    pathname === "/key-stories" ||
+    pathname === "/blue-desk/key-stories" ||
+    pathname === "/rates" ||
+    pathname === "/blue-desk/rates" ||
+    pathname === "/what-changed" ||
+    pathname === "/blue-desk/what-changed" ||
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
@@ -80,8 +102,8 @@ export function publicLiveLegacyTabDestination(tab: string | null): string {
   const key = (tab || "").trim().toLowerCase();
   if (["markets", "market", "prices", "price observations"].includes(key)) return "/owner/markets";
   if (["calendar", "economic calendar", "economic-calendar"].includes(key)) return "/calendar";
-  if (["rates", "yields", "bonds"].includes(key)) return "/#rates-title";
-  if (["stories", "key stories"].includes(key)) return "/#stories-title";
-  if (["motion", "what changed", "changes"].includes(key)) return "/#motion-title";
+  if (["rates", "yields", "bonds"].includes(key)) return "/rates";
+  if (["stories", "key stories"].includes(key)) return "/key-stories";
+  if (["motion", "what changed", "changes"].includes(key)) return "/what-changed";
   return "/";
 }
