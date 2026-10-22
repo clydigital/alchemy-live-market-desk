@@ -53,6 +53,7 @@ test("blank original source, future dates, missing values, and invalid clocks fa
     observation("gold-proxy",{type:"Metal",asOf:"not a date"}),
     observation("us2y",{type:"Rates",last:NaN}),
     observation("spx",{sourceUrl:""}),
+    observation("rsp",{sourceUrl:"javascript:alert(1)"}),
   ];
   const map=buildBlueDeskDailyMarketMap(rows,now);
   assert.equal(map.observedCount,0);
