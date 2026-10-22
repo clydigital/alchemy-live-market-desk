@@ -26,6 +26,7 @@ export type PublicMarketObservation = {
   last: number | null;
   change: number | null;
   changeUnit: "%" | "bp";
+  levelUnit: "%" | "native";
   asOf: string | null;
   frequency: "daily" | "monthly";
   sourceName: string;
@@ -71,7 +72,10 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
   const last = finite(row.last);
   const daily = row.frequency === "daily";
   const prev = finite(row.previousClose);
-  const diff = row.type === "Rates"
+  // MOVE is an index, not a yield; HYG/LQD are ETF prices, not credit OAS.
+  const percentLevel = (row.type === "Rates" && row.id !== "move")
+    || row.id === "hy-oas" || row.id === "ig-oas";
+  const diff = percentLevel
     ? daily && last !== null && prev !== null ? (last - prev) * 100 : null
     : daily ? finite(row.dayChange) : null;
   return {
@@ -81,7 +85,8 @@ function publicRow(row: MarketMonitorRow): PublicMarketObservation {
     type: row.type,
     last,
     change: diff !== null && Number.isFinite(diff) ? diff : null,
-    changeUnit: row.type === "Rates" ? "bp" : "%",
+    changeUnit: percentLevel ? "bp" : "%",
+    levelUnit: percentLevel ? "%" : "native",
     asOf: row.asOf,
     frequency: row.frequency,
     sourceName: row.sourceName,
@@ -171,7 +176,7 @@ type OfficialKind = NonNullable<PublicGovernmentRateTrend["kind"]>;
 function officialObservations(row:MarketMonitorRow) {
   const seen=new Set<number>();
   return row.points.filter(point=>Number.isFinite(point.time) && point.time>0
-    && Number.isFinite(point.close) && point.close>=0)
+    && Number.isFinite(point.close))
     .sort((a,b)=>b.time-a.time).filter(point=>{
       if(seen.has(point.time))return false;
       seen.add(point.time);return true;
@@ -184,7 +189,7 @@ function additionalOfficialSeries(rows:readonly MarketMonitorRow[]):PublicGovern
     if(!match || row.type!==match.type || row.symbol!==match.symbol
       || row.frequency!=="daily" || row.sourceName!=="Federal Reserve Economic Data"
       || row.sourceUrl!=="https://fred.stlouisfed.org/series/"+match.symbol)return [];
-    const points=officialObservations(row);
+    const points=officialObservations(row).filter(point=>match.kind!=="Credit OAS" || point.close>=0);
     if(points.length<2)return [];
     return [{
       id:row.id,label:row.label,symbol:row.symbol,sourceName:row.sourceName,
