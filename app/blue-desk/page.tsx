@@ -159,7 +159,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
               <article key={article.articleId} className={styles.storyCard}>
                 <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
                 <StoryIdentityBalls title={article.title} deck={article.deck || ""} assets={article.subjectAssets} hrefBase={blueDeskPublicHref("/blue-desk",host)}/>
-                <span className={styles.storyCatalystLabel}>Latest reported catalyst · Ongoing Story</span>
+                <span className={styles.storyCatalystLabel}>Latest source-admitted update · Ongoing Story</span>
                 <h3>{article.title}</h3>
                 <p>{ellipsis(article.deck || article.paragraphs[0]?.text || "", 145)}</p>
                 <div className={styles.storyBottom}>
@@ -224,6 +224,8 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
                 <div className={styles.eventHeading}>
                   <span className={styles.kicker}>{event.kind.toUpperCase()} · {event.status}</span>
                   <h3>{event.title}</h3>
+                  <StoryIdentityBalls title={event.title} deck={event.decidingQuestion} assets={event.affectedAssets}
+                    hrefBase={blueDeskPublicHref("/blue-desk",host)} limit={3}/>
                 </div>
                 <DualTimestamp value={event.scheduledAt} sourceDate={event.localDate} className={styles.eventTime} />
                 <p>{event.decidingQuestion}</p>
