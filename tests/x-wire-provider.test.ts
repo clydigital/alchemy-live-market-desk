@@ -32,7 +32,7 @@ test("retrieves all ten registered accounts from a fixed provider host and prese
   let n = 0;
   const fetchImpl = mockFetch(handle => {
     n += 1;
-    return ok([row(handle, String(2113177723749420000n + BigInt(n)))]);
+    return ok([row(handle, "211317772374942" + String(n).padStart(4, "0"))]);
   });
   const result = await fetchXWirePreview({ nowIso: NOW, fetchImpl });
   assert.equal(result.accounts.length, 10);
