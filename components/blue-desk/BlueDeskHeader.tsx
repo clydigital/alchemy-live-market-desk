@@ -9,6 +9,8 @@ import styles from "@/app/blue-desk/blue-desk.module.css";
 const PRIVATE_NAV = [
   ["Live Market", "/blue-desk"],
   ["Markets", "/markets"],
+  ["Editorial Studio", "/owner/editorial"],
+  ["Presenter Studio", "/owner/presenter"],
   ["Deep Dive", "/articles"],
   ["Research", "/whats-new"],
   ["Data Library", "/data/macro"],
@@ -36,6 +38,8 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Research": "research",
   "Data Library": "library",
   "Presenter Prep": "studio",
+  "Presenter Studio": "studio",
+  "Editorial Studio": "deep-dive",
   "X Wire": "research",
   "Calendar": "calendar",
   "Learn": "learn",
@@ -48,7 +52,10 @@ const NAV_ICONS: Record<string, MarketIconName> = {
 export default async function BlueDeskHeader({ activePath }: { activePath: string }) {
   const host = (await headers()).get("host");
   const publicHost = isBlueDeskPublicReaderHost(host);
-  const nav = publicHost ? PUBLIC_NAV : PRIVATE_NAV;
+  // Authenticated owner routes must retain their private workspace navigation,
+  // even when opened on the canonical hostname that also serves public readers.
+  const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter";
+  const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
       <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
