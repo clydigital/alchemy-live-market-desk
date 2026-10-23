@@ -32,9 +32,10 @@ test("private legacy navigation remains available only on owner host", () => {
     assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
   }
   assert.match(homepage, /publicHost \? \(/);
-  assert.match(homepage, /<Link href="\/hybrid-output\/prepare">Presenter Studio →<\/Link>/);
+  assert.match(homepage, /<Link href="\/blue-desk\/presenter">Presenter Prep →<\/Link>/);
+  assert.doesNotMatch(homepage, /href="\/hybrid-output\/prepare"/);
   assert.match(homepage, /<Link href="\/calendar">Public calendar →<\/Link>/);
-  assert.match(homepage, /<Link href="\/presenter">Presenter Deck \(sign-in\) →<\/Link>/);
+  assert.match(homepage, /<Link href="\/presenter">Presenter Prep \(owner sign-in\) →<\/Link>/);
   assert.match(homepage, /<Link href="\/markets">Public markets →<\/Link>/);
 });
 
