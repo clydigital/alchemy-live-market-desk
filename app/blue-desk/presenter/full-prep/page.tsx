@@ -58,11 +58,14 @@ export default async function BluebellyFullPresenterPrep({searchParams}:{searchP
   const dossierSelection=frozen?.dossierId
     ?await getDossierV2PresentationSelectionById(frozen.dossierId).catch(()=>null)
     :null;
+  const verifiedDossierId=dossierSelection?.selectedDossierId;
+  const verifiedDossierAsOf=dossierSelection?.selectedAsOf;
   const exactDossier=dossierSelection?.status==="historical_exact"
     && dossierSelection.presentation
-    && dossierSelection.selectedDossierId===frozen?.dossierId
-    && dossierSelection.selectedAsOf===frozen?.dossierAsOf
-    ?{id:dossierSelection.selectedDossierId,asOf:dossierSelection.selectedAsOf}:null;
+    && verifiedDossierId && verifiedDossierAsOf
+    && verifiedDossierId===frozen?.dossierId
+    && verifiedDossierAsOf===frozen?.dossierAsOf
+    ?{id:verifiedDossierId,asOf:verifiedDossierAsOf}:null;
   const selectedId=selection.selected?.snapshotId??null;
   const currentId=selection.current?.snapshotId??null;
   const projection=buildPresenterPrepSourceProjection({
