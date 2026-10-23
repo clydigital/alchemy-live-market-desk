@@ -75,9 +75,10 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
   const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
   const impactFeed = rankBlueDeskImpactFeed(verifiedMotions, now, 8);
   const priorityMovers = impactFeed.filter(item => item.attention !== "ROUTINE").slice(0, 4);
-  const newsFeature = (impactFeed.find(item => item.attention === "MAJOR"
+  // A newer but routine headline must not displace a sourced Story lead.
+  const newsFeature = impactFeed.find(item => item.attention === "MAJOR"
     && (!freshFeature || Date.parse(item.fact.occurredAt) > featureTime))?.fact
-    || verifiedNews.find(news => !freshFeature || Date.parse(news.occurredAt) > featureTime)) || null;
+    || (!freshFeature ? impactFeed[0]?.fact || verifiedNews[0] || null : null);
   const feature = newsFeature ? null : freshFeature;
   // An owner-only list of unfinished leads is not public verified news,
   // canonical evidence or authority for a Story mutation.
