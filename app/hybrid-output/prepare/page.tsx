@@ -119,6 +119,10 @@ export default async function PresenterPrepPage({ searchParams }: Props) {
       eyebrow="Optional presenter companion" title="Presenter Prep"
       description="From the selected Journey edition."
       meta={<Badge tone={projection.status === "READY" ? "ready" : "risk"}>{projection.status}</Badge>}>
+      <p className={styles.meta}>Bluebelly private workspaces:{" "}
+        <Link className={styles.link} href="/owner/presenter">Presenter Studio →</Link>{" · "}
+        <Link className={styles.link} href="/owner/editorial">OB/COTD Writing Studio →</Link>
+      </p>
       <PresenterTechnicalChecks compact />
       {projection.status !== "READY" || !projection.pinned ? (
         <Panel title="Exact source unavailable"
