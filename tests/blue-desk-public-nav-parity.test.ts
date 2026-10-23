@@ -21,7 +21,7 @@ test("all visible public header links target approved host paths and real anchor
 });
 
 test("private legacy navigation remains available only on owner host", () => {
-  assert.match(header, /publicHost && !ownerWorkspace \? PUBLIC_NAV : PRIVATE_NAV/);
+  assert.match(header, /publicHost && \(!ownerWorkspace \|\| bluebellyPrep\) \? PUBLIC_NAV : PRIVATE_NAV/);
   assert.match(header, /activePath === "\/owner\/editorial"/);
   assert.match(header, /activePath === "\/owner\/presenter"/);
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
