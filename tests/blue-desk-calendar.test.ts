@@ -107,7 +107,7 @@ test("public Blue Desk displays broader real calendar instead of blank default w
   assert.match(calendar, /No scheduled events in this window/);
   assert.match(calendar, /These are not released results/);
   assert.match(calendar, /Browse the 30-day calendar/);
-  assert.match(calendar, /<Events records=\{filteredNextKnown\} statusLabel="30d" \/>/);
+  assert.match(calendar, /<Events records=\{filteredNextKnown\} statusLabel="30d" storyBase=\{storyBase\} presenterBase=\{presenterBase\} \/>/);
   assert.match(calendar, /getEconomicCalendar\(\)/);
   assert.match(calendar, /buildPresenterCalendar\(macro, earnings, now, macroResult\.status === "rejected"\)/);
   assert.match(calendar, /sourceUrl\(event\.sourceUrl\)/);
