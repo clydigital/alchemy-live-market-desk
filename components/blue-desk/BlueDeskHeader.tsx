@@ -35,7 +35,6 @@ const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Key Stories": "layers",
   "What Changed": "divergence",
-  "Presenter Prep": "studio",
   "Change Ledger": "research",
   "Dossier": "library",
   "Markets": "chart",
