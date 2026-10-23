@@ -54,7 +54,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
       events: [], coverage: "unavailable" as const, warning: "Earnings source unavailable",
     })),
     getMarketMonitor().catch(() => null),
-    getCurrentMarketMotion({ limit: 24 }).catch(() => []),
+    publicHost ? Promise.resolve([]) : getCurrentMarketMotion({ limit: 24 }).catch(() => []),
     getCurrentVerifiedMarketMotion({ limit: 24 }).catch(() => []),
     getRecentPublishedStoryReadings().catch(() => []),
   ]);
