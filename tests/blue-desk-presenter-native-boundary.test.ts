@@ -53,7 +53,7 @@ test("native presenter forwards exact edition references, never silently substit
   assert.match(page, /"\/presenter\/full-prep"/);
   assert.doesNotMatch(page, /\/hybrid-output/);
   assert.match(host, /if \(pathname === "\/presenter\/full-prep"\) return "\/blue-desk\/presenter\/full-prep"/);
-  assert.match(host, /if \(pathname === "\/presenter\/technical-checks"\) return "\/blue-desk\/presenter\/technical-checks"/);
+  assert.match(host, /if \(pathname === "\/presenter\/technical-checks" && isBluebellyReaderHost\(host\)\) return "\/blue-desk\/presenter\/technical-checks"/);
   assert.match(full, /resolvePresenterPrepExactSelection\(/);
   assert.match(full, /getHybridExactDailyBriefEdition\(requested\)/);
   assert.match(full, /getHybridDirectDailyBriefSuperseders\(requested\)/);
