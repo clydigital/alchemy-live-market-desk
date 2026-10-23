@@ -14,7 +14,7 @@ const SECTORS: Array<{key: Exclude<Category,"all">;title:string;desc:string;regi
   {key:"rates",title:"Rates & bonds",desc:"The Fed, yields and credit",regime:"global-cost-of-capital"},
   {key:"oil",title:"Oil & energy",desc:"Production, shipping and inflation",regime:"energy-security-inflation"},
 ];
-export default function BlueDeskLearnExplorer({concepts}:{concepts:Concept[]}) {
+export default function BlueDeskLearnExplorer({concepts,storiesHref}:{concepts:Concept[];storiesHref:string}) {
   const [category,setCategory]=useState<Category>("all");
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState<string[]>([]);
@@ -76,7 +76,7 @@ export default function BlueDeskLearnExplorer({concepts}:{concepts:Concept[]}) {
     </section>
     <div className={ui.end}>
       <p>Learn is educational context, not a current market signal. Dated observations, causal claims and Regime judgements must be checked in the published research.</p>
-      <Link href="/key-stories">Explore current market Stories →</Link>
+      <Link href={storiesHref}>Explore current market Stories →</Link>
     </div>
   </div>;
 }
