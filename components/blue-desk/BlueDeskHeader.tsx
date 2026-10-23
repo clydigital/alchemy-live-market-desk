@@ -29,6 +29,7 @@ const PUBLIC_NAV = [
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
   ["Presenter Prep", "/presenter"],
+  ["Learn", "/learn"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
