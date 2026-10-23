@@ -6,6 +6,8 @@ import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
 import { getRecentPublishedStoryReadings } from "@/lib/blue-desk/story-archive-server";
 import { exactPublishedStoryId,newestStoryReadings,paginateStoryReadings,type PublishedStoryReading } from "@/lib/blue-desk/story-archive";
 import { storyMatchesSubject } from "@/lib/blue-desk/story-identity";
+import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
+import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getLiveDeskHomepageDailyBrief } from "@/lib/hybrid-publication";
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
@@ -21,7 +23,12 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
   const host=(await headers()).get("host");
   const edition=await getLiveDeskHomepageDailyBrief({fresh:true}).catch(()=>null);
   const brief=await loadEditorialMarketBrief(projectMarketBriefArticles(edition));
-  const archive=await getRecentPublishedStoryReadings().catch(()=>[]);
+  const [archive,rawMotions]=await Promise.all([
+    getRecentPublishedStoryReadings().catch(()=>[]),
+    getCurrentVerifiedMarketMotion({limit:24}).catch(()=>[]),
+  ]);
+  // New source-verified reporting is not automatic canonical Story mutation.
+  const verifiedNews=selectVerifiedNewsBriefs(rawMotions,new Date(),8);
   const fallback:PublishedStoryReading[]=brief.articles.flatMap(article=>{
     const storyId=exactPublishedStoryId(article);
     return storyId && article.editorial.readiness!=="RESEARCH_ONLY" && edition
@@ -40,15 +47,33 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
     <BlueDeskHeader activePath="/key-stories"/>
     <div className={styles.content}>
       <header className={detail.heading}>
-        <div><p className={styles.kicker}>SOURCE-LINKED EDITORIAL ARCHIVE</p>
-          <h1>Key market stories</h1>
+        <div><p className={styles.kicker}>MARKET VIEW · ONGOING STORY ARCHIVE</p>
+          <h1>Market View · Stories &amp; catalysts</h1>
           <p>Follow the underlying question and evidence, not just a one-paragraph homepage headline.
             These are published-edition interpretations, not automatically verified explanations of today's price movement.</p>
         </div>
         <Link href={blueDeskPublicHref("/blue-desk",host)}>← Market summary</Link>
       </header>
-      <div className={detail.stats}><span>{pages.total} ongoing Story threads · page {pages.page}/{pages.pages}</span>
-        <span>Last publication: {edition?.published_at?new Date(edition.published_at).toLocaleDateString("en-GB",{timeZone:"UTC"}):"not available"}</span>
+      <section className={styles.section} aria-labelledby="latest-catalysts-heading">
+        <div className={styles.sectionHead}><div>
+          <p className={styles.kicker}>LATEST VERIFIED DEVELOPMENTS</p>
+          <h2 id="latest-catalysts-heading">New catalysts · separate from recurring Stories</h2>
+          <p>Source-linked developments can be newer than a canonical Story update.
+            A verified Motion does not automatically create a Story or thesis.</p>
+        </div></div>
+        {verifiedNews.length?<div className={styles.newsFirstGrid}>
+          {verifiedNews.slice(0,6).map(item=><article key={item.id} className={styles.newsFirstCard}>
+            <h2>{item.headline}</h2><p>{item.summary}</p>
+            <div className={styles.newsFirstMeta}>
+              <DualTimestamp value={item.occurredAt} sourceDate={item.occurredAt} />
+              <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceName} · original report ↗</a>
+            </div>
+          </article>)}
+        </div>:<p className={styles.coverage}>No eligible source-verified new developments in the
+          current freshness window. That does not imply no market events.</p>}
+      </section>
+            <div className={detail.stats}><span>{pages.total} ongoing Story threads · page {pages.page}/{pages.pages}</span>
+        <span>Last canonical edition: {edition?.published_at?new Date(edition.published_at).toLocaleDateString("en-GB",{timeZone:"UTC"}):"not available"}</span>
         <span>{brief.blockedReason?"Some editorial material was withheld":"Original-source reader"}</span>
       </div>
       {articles.length?<div className={detail.featureGrid}>{articles.map(({article,storyId},index)=>{
@@ -85,8 +110,8 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
       <p className={styles.coverage}>The latest 24 published editions are indexed. Earlier individual editions keep their immutable permalinks.</p>
             <section className={detail.callout}>
         <h2>Research faster</h2>
-        <p>Read a selected Story's original sources and invalidation tests, then open the owner Presenter Deck to turn the strongest verified catalyst into a COTD or OB research pack.</p>
-        <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/presenter",host)}>Presenter research →</Link>
+        <p>Read a selected Story's original sources and invalidation tests, then open the owner Presenter Prep to turn the strongest verified catalyst into a COTD or OB research pack.</p>
+        <Link className={styles.primaryAction} href={blueDeskPublicHref("/blue-desk/presenter",host)}>Presenter Prep →</Link>
       </section>
     </div>
   </main>;
