@@ -37,7 +37,7 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
   const history=archive.length?archive:fallback;
   const latestReadings=newestStoryReadings(history);
   const filtered=subject?latestReadings.filter(entry=>
-    storyMatchesSubject(entry.article.title,entry.article.deck,entry.[],subject)):latestReadings;
+    storyMatchesSubject(entry.article.title,entry.article.deck,[],subject)):latestReadings;
   const pages=paginateStoryReadings(filtered,requestedPage);
   const articles=pages.items;
   const pageHref=(page:number,tag=subject)=>blueDeskPublicHref("/blue-desk/key-stories",host)+
