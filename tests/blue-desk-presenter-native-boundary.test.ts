@@ -10,7 +10,9 @@ test("Blue Desk Presenter is private on all public hosts and uses the existing o
   const middleware = read("middleware.ts");
   assert.match(nav, /\["Presenter Prep", "\/blue-desk\/presenter"\]/);
   const publicNav = nav.slice(nav.indexOf("const PUBLIC_NAV"), nav.indexOf("const NAV_ICONS"));
-  assert.doesNotMatch(publicNav, /Presenter Prep|\/blue-desk\/presenter/);
+  assert.match(publicNav, /\["Presenter Prep", "\/presenter"\]/);
+  assert.doesNotMatch(publicNav, /\["Presenter Prep", "\/blue-desk\/presenter"\]/);
+  assert.equal(blueDeskHostAccess("/presenter", "bluebelly-desk.vercel.app"), "private");
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "bluebelly-desk.vercel.app"), "blocked");
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "alchemy-live-market-desk.vercel.app"), "private");
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "private-preview.vercel.app"), "private");

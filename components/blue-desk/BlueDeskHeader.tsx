@@ -28,14 +28,13 @@ const PUBLIC_NAV = [
   ["What Changed", "/what-changed"],
   ["Markets", "/markets"],
   ["Calendar", "/calendar"],
-  ["Presenter Deck", "/presenter"],
+  ["Presenter Prep", "/presenter"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
   "Live Market": "market",
   "Key Stories": "layers",
   "What Changed": "divergence",
-  "Presenter Deck": "studio",
   "Change Ledger": "research",
   "Dossier": "library",
   "Markets": "chart",
