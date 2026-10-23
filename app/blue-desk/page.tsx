@@ -97,7 +97,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
   const historicalReadings=storyArchive.length?storyArchive:fallback;
   const latestByStory=newestStoryReadings(historicalReadings);
   const filtered=subject?latestByStory.filter(item=>
-    storyMatchesSubject(item.article.title,item.article.deck,item.article.subjectAssets||[],subject)):latestByStory;
+    storyMatchesSubject(item.article.title,item.article.deck,item.[],subject)):latestByStory;
   const pagination=paginateStoryReadings(filtered,page);
   const articles=pagination.items;
   const storyGridHref=(nextPage:number,filter=subject)=>
@@ -287,7 +287,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
             {articles.length ? articles.map(({article,storyId}) => (
               <article key={article.articleId} className={styles.storyCard}>
                 <span className={styles.kicker}>{article.category} · {article.editorial.storyEligible ? article.interpretationStatus : article.editorial.readiness === "READY" ? "SOURCED ANALYSIS" : "DEVELOPING"}</span>
-                <StoryIdentityBalls title={article.title} deck={article.deck} assets={article.subjectAssets}
+                <StoryIdentityBalls title={article.title} deck={article.deck} assets={[]}
                   hrefBase={blueDeskPublicHref("/blue-desk",host)}/>
                 <span className={styles.storyCatalystLabel}>Latest source-admitted update · Ongoing Story</span>
                 <h3>{article.title}</h3>
