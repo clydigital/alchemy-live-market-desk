@@ -99,6 +99,6 @@ test("News Brief reader independently searches verified items beyond top-24 Moti
   assert.match(fs, /\.neq\("effective_state", "EXPIRED"\)/);
   assert.match(fs, /Math\.min\(24, options\.limit \?\? 12\)/);
   assert.match(home, /getCurrentVerifiedMarketMotion\(\{ limit: 24 \}\)/);
-  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 6\)/);
+  assert.match(home, /selectVerifiedNewsBriefs\(verifiedMotions, now, 8\)/);
   assert.match(home, /getCurrentMarketMotion\(\{ limit: 24 \}\)/);
 });
