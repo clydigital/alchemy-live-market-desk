@@ -106,8 +106,9 @@ export default function EditorialWorkbench({priceCards,mode,readError}:{
     try{const raw=localStorage.getItem(STORAGE);
       if(raw){const parsed=JSON.parse(raw) as {draft?:unknown,runNotes?:unknown};
         setDraft(normalizeDraft(parsed.draft));
-        if(Array.isArray(parsed.runNotes))setRunNotes(RUN.map((_,i)=>
-          typeof parsed.runNotes![i]==="string" ? (parsed.runNotes![i] as string).slice(0,2500):""));
+        const restoredNotes=parsed.runNotes;
+        if(Array.isArray(restoredNotes))setRunNotes(RUN.map((_,i)=>
+          typeof restoredNotes[i]==="string" ? (restoredNotes[i] as string).slice(0,2500):""));
       }
     }catch{/* Browser-only private notes never overwrite canonical data. */}
     setLoaded(true);
