@@ -36,7 +36,8 @@ test("fails closed when slate record incomplete, corrupt or old",()=>{
   assert.match(old!.ageLabel,/PREVIOUS SLATE/);
 });
 test("private article model endpoint cannot be invoked from the public host",()=>{
-  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","bluebelly-desk.vercel.app"),"blocked");
+  assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","bluebelly-desk.vercel.app"),"private");
+  assert.equal(blueDeskHostAccess("/api/owner/unrelated","bluebelly-desk.vercel.app"),"blocked");
   assert.equal(blueDeskHostAccess("/api/owner/editorial-generate","alchemy-live-market-desk.vercel.app"),"private");
   const route=readFileSync(new URL("../app/api/owner/editorial-generate/route.ts",import.meta.url),"utf8");
   assert.match(route,/session\.auth\.getUser\(\)/);
