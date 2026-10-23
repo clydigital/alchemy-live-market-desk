@@ -3,7 +3,7 @@ import BlueDeskLearnExplorer from "@/components/blue-desk/BlueDeskLearnExplorer"
 import { listConcepts } from "@/lib/concepts";
 import desk from "../blue-desk.module.css";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Learn | Bluebelly Market Intelligence",
   description: "Plain-language AI, rates, bond and energy market explainers backed by Bluebelly's governed concept registry.",
