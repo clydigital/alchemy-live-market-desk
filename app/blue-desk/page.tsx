@@ -116,6 +116,15 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
     .flatMap(group => publicMarketObservations(monitor?.rows || [], group.id))
     .filter((row, index, all) => all.findIndex(item => item.id === row.id) === index);
   const dailyMap = buildBlueDeskDailyMarketMap(publicObservations, now);
+  const observedMoves = publicObservations.filter(row => row.frequency==="daily"
+    && row.changeUnit==="%" && row.change!==null && Number.isFinite(row.change)
+    && row.last!==null && row.asOf && Number.isFinite(Date.parse(row.asOf))
+    && Date.parse(row.asOf) <= now.getTime()
+    && now.getTime()-Date.parse(row.asOf) <= 4*24*60*60*1000
+    && Math.abs(row.change)>=0.25 && Boolean(row.sourceUrl))
+    .sort((a,b)=>Math.abs(b.change!)-Math.abs(a.change!))
+    .slice(0,4);
+
   const marketNumber = (value: number, isRate: boolean) =>
     new Intl.NumberFormat("en-GB", { maximumFractionDigits: isRate ? 3 : 2, minimumFractionDigits: isRate ? 2 : 0 }).format(value);
   const yields = YIELD_IDS.map(id => monitor?.rows.find(row => row.id === id)).filter(
@@ -215,6 +224,18 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
                 <a href={item.fact.sourceUrl} target="_blank" rel="noopener noreferrer">{item.fact.sourceName} ↗</a>
               </div>
             </article>)}
+          </div> : observedMoves.length ? <div className={styles.observedFallback}>
+            <p className={styles.impactCoverage}>No fresh catalyst has completed source verification. These are the largest <strong>measured daily percentage moves</strong> in current publisher-dated coverage—not proof of their causes.</p>
+            <div className={styles.observedMoveGrid}>{observedMoves.map(row=><article key={row.id} className={styles.observedMoveCard}>
+              <span className={styles.kicker}>{row.type} · OBSERVED MOVE</span>
+              <h3>{row.label}</h3>
+              <strong className={styles.observedValue}>{row.change!>0?"+":""}{row.change!.toFixed(2)}%</strong>
+              <p>Latest reported level: {marketNumber(row.last!,false)}</p>
+              <div><DualTimestamp value={row.asOf} sourceDate={row.asOf}/></div>
+              <a href={row.sourceUrl!} target="_blank" rel="noopener noreferrer">{row.sourceName} ↗</a>
+              <small>Catalyst not verified · do not infer causality from price alone</small>
+            </article>)}</div>
+            <Link href={blueDeskPublicHref("/blue-desk/markets",host)}>Investigate the full market tape →</Link>
           </div> : <div className={styles.impactQuiet}>
             <strong>No current development cleared the higher-impact threshold.</strong>
             <p>That reflects available, dated, source-qualified reports—not evidence that the market is quiet. Check the full source tape and next calendar releases.</p>
