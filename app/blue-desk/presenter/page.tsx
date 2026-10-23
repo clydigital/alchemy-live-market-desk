@@ -93,7 +93,7 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
           <p>A technical observation is one part of the argument. Compare it with the fundamental picture and explain the disagreement when the two point in different directions.</p>
         </div>
         <div className={ui.headerActions}>
-          <Link className={ui.press} href={editorialHref}>COTD / OB editorial →</Link>
+          <Link className={ui.press} href={editorialHref}>COTD / OB editorial preview →</Link>
           <Link className={ui.pressStrong} href={fullPrepHref}>Exact-edition evidence ↗</Link>
         </div>
       </header>
