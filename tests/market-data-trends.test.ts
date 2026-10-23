@@ -89,7 +89,7 @@ test("private Markets, public source-gated Markets and Macro Data all render tre
   assert.match(markets,/<MarketTrendChart rows=\{monitor\.rows\}/);
   assert.match(markets,/setTrendSelectedId\(row\.id\)/);
   assert.match(blue,/<PublicGovernmentRateTrendChart series=\{officialRateTrends\}/);
-  assert.match(blue,/publicGovernmentRateTrends\(monitor\?\.rows \|\| \[\]\)/);
+  assert.match(blue,/publicOfficialMacroTrends\(monitor\?\.rows \|\| \[\],group\)/);
   assert.match(macro,/<MacroTrendMonitor observations=\{data\.macroObservations\}/);
   assert.match(macro,/macroHistoryStale/);
 });
