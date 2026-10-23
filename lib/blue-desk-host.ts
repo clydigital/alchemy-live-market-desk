@@ -2,6 +2,7 @@
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
 /** Branch-bound V6 review hostname; never a production hostname. */
 export const BLUEBELLY_V6_REVIEW_HOST = "bluebelly-v6-review.vercel.app";
+export const BLUEBELLY_V7_REVIEW_HOST = "bluebelly-v7-review.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
@@ -9,7 +10,7 @@ function normalizedHost(host: string | null | undefined) {
 }
 
 export function isBluebellyReaderHost(host: string | null | undefined) {
-  return [BLUEBELLY_PRESENTATION_HOST, BLUEBELLY_V6_REVIEW_HOST].includes(normalizedHost(host));
+  return [BLUEBELLY_PRESENTATION_HOST, BLUEBELLY_V6_REVIEW_HOST, BLUEBELLY_V7_REVIEW_HOST].includes(normalizedHost(host));
 }
 
 /** Only the approved public reading hosts use public-clean Blue Desk links. */
