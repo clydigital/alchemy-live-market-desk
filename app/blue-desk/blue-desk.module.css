@@ -573,3 +573,30 @@
 @media(max-width:1120px){.homeDisclosure .dailyMapGrid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:900px){.page[data-bluebelly-home="editorial"] .hero{grid-template-columns:minmax(0,1fr);min-height:0;background-position:center,58% center;}.page[data-bluebelly-home="editorial"] .rates{width:100%;}.page[data-bluebelly-home="editorial"] .hero h1{max-width:800px;}}
 @media(max-width:610px){.homeContextBar{align-items:flex-start;flex-direction:column;}.homeContextBar nav{width:100%;overflow-x:auto;flex-wrap:nowrap;}.homeDisclosure .dailyMapGrid{grid-template-columns:minmax(0,1fr);}.homeDisclosureSummary{padding:15px;}.homeDisclosure .newsFirst,.homeDisclosure .dailyMap{padding:13px;}.page[data-bluebelly-home="editorial"] .hero{padding:20px;}.page[data-bluebelly-home="editorial"] .hero h1{font-size:32px;}.page[data-bluebelly-home="editorial"] .storyCard{min-height:220px;}}
+
+
+/* Impact-reading hierarchy: source facts / conditional market relevance / next observable test. */
+.impactSection{margin:20px 0 27px;padding:22px clamp(16px,2vw,27px);border:1px solid #29647e;border-radius:10px;background:linear-gradient(135deg,#06293f,#011d31);font-family:Figtree,Inter,sans-serif}
+.impactHeading{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:19px}
+.impactHeading h2{font:750 clamp(24px,2.6vw,36px)/1.16 Figtree,Inter,sans-serif;margin:7px 0;color:#f2fbff}
+.impactHeading p{color:#b3cbda;font-size:13px;margin:0;max-width:630px;line-height:1.55}
+.impactGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.impactCard{display:flex;flex-direction:column;gap:12px;min-width:0;padding:20px 22px;border:1px solid #2c6881;border-radius:9px;background:#082f46}
+.impactCard:first-child{background:linear-gradient(140deg,#0b425c,#05263a);border-color:#488eaa}
+.impactTop{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.impactTop>span{font-size:10px;font-weight:850;letter-spacing:.11em;color:#7bdcff}
+.impactTop time,.impactTop small{font-size:10px;color:#9abacd}
+.impactCard h3{font:780 clamp(20px,1.8vw,27px)/1.24 Figtree,Inter,sans-serif;letter-spacing:-.025em;color:#f4fcff;margin:0}
+.impactFact{color:#d2e6f0;font-size:13px;line-height:1.67;margin:0}
+.impactLens{border-left:3px solid #75d7f9;padding:1px 0 2px 12px;background:linear-gradient(90deg,rgba(47,151,187,.1),transparent)}
+.impactNext{border-top:1px solid #24566e;padding-top:11px}
+.impactLens strong,.impactNext strong{display:block;color:#91dfff;text-transform:uppercase;letter-spacing:.09em;font-size:10px;margin-bottom:5px}
+.impactLens p,.impactNext p{font-size:13px;line-height:1.6;color:#dcebf4;margin:0}
+.impactLens small{display:block;margin-top:6px;font-size:10px;color:#9abbd0}
+.impactBottom{margin-top:auto;padding-top:11px;border-top:1px solid #22536c;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.impactBottom>a,.impactQuiet a{font-size:12px;font-weight:800;color:#7fe0ff;text-decoration:none}
+.impactAssets{display:flex;gap:6px;flex-wrap:wrap}.impactAssets span{font-size:11px;color:#d7f2ff;background:#11475e;border:1px solid #3c7992;padding:5px 7px;border-radius:5px}
+.impactSourceType{font-size:11px;color:#a6c9d8}
+.impactQuiet{border:1px dashed #316982;border-radius:6px;padding:16px;color:#ddf1fc}
+.impactQuiet strong{font-size:15px}.impactQuiet p{font-size:13px;color:#a8cadb}
+@media(max-width:780px){.impactGrid{grid-template-columns:1fr}.impactSection{padding:17px 13px}.impactCard{padding:18px}}
