@@ -18,6 +18,7 @@ test("Bluebelly has no Hybrid UI handoff from public homepage or private Present
  assert.match(editor,/<PresenterTechnicalChecks\/>/);
  assert.equal(blueDeskPresentationTarget("/presenter/full-prep",host),"/blue-desk/presenter/full-prep");
  assert.equal(blueDeskPresentationTarget("/presenter/technical-checks",host),"/blue-desk/presenter/technical-checks");
+ assert.equal(blueDeskPresentationTarget("/presenter/technical-checks","alchemy-live-market-desk.vercel.app"),null);
  assert.equal(blueDeskHostAccess("/presenter/full-prep",host),"private");
  assert.equal(blueDeskHostAccess("/presenter/technical-checks",host),"private");
  assert.equal(blueDeskHostAccess("/api/presenter/technical-checks",host),"private");
