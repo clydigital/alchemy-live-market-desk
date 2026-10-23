@@ -23,7 +23,7 @@ test("Blue Desk Markets mounts the full Hybrid tape only on the owner-authentica
 
   assert.match(host, /pathname === "\/markets"/);
   assert.match(host, /pathname === "\/blue-desk\/markets"/);
-  assert.match(host, /hostname === BLUEBELLY_PRESENTATION_HOST \? "blocked" : "private"/);
+  assert.match(host, /isBluebellyReaderHost\(hostname\) \? "blocked" : "private"/);
   assert.match(middleware, /if \(accessScope === "public"\) return presentationResponse\(request\)/);
   assert.match(middleware, /getClaims\(\)/);
   assert.match(middleware, /app_access_allowlist/);
