@@ -28,7 +28,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const bluebelly = isBluebellyReaderHost((await headers()).get("host"));
 
   const ownerCard = (
-      <section className={styles.card}>
+      <section className={bluebelly ? `${styles.card} ${styles.bluebellyCard}` : styles.card}>
         {bluebelly ? <p className={styles.kicker}>BLUE DESK · PRIVATE SECTION</p> : null}
         {!bluebelly ? <p className={styles.kicker}>Alchemy Markets</p> : null}
         <h1 className={styles.title}>{bluebelly ? "Presenter Prep" : "Live Desk Access"}</h1>
@@ -54,7 +54,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return bluebelly
     ? <main className={desk.page} data-bluebelly-presenter-login="within-blue-desk">
         <BlueDeskHeader activePath="/blue-desk/presenter" />
-        <div className={styles.shell} style={{fontFamily:"Figtree, Inter, sans-serif"}}>{ownerCard}</div>
+        <div className={styles.bluebellyShell}>{ownerCard}</div>
       </main>
     : <main className={styles.shell}>{ownerCard}</main>;
 }
