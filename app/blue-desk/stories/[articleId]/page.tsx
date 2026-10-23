@@ -127,7 +127,7 @@ export default async function BlueDeskStoryPage({
           <h1>{article.title}</h1>
           <p className={styles.heroDeck}>{article.deck}</p>
           <StoryIdentityBalls title={article.title} deck={article.deck}
-            assets={article.subjectAssets} limit={5} />
+            assets={[]} limit={5} />
           <p className={styles.muted}>Market View · Latest available source-backed interpretation for this exact edition.
             Historic reports remain unchanged; a later publication date does not prove a new catalyst.</p>
           <div className={styles.deepMeta}>
