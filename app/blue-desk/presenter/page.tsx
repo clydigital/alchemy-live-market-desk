@@ -21,7 +21,7 @@ export const metadata = {
 type Search = Record<string,string|string[]|undefined>;
 type Props = {searchParams:Promise<Search>};
 const FOCUS_KEYS = ["edition","story","motion","regime","event"] as const;
-const EXACT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9a-f]{12}$/i;
+const EXACT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Forward only bounded, explicit source identities to the existing exact reader. */
 function editionPinnedPrepHref(query:Search):string{
   const params = new URLSearchParams();
