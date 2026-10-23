@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { BLUEBELLY_PRESENTATION_HOST } from "@/lib/blue-desk-host";
+import { isBluebellyReaderHost } from "@/lib/blue-desk-host";
 import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
@@ -59,7 +59,7 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
   const query=await searchParams;
   const pinHref=editionPinnedPrepHref(query);
   const host=(await headers()).get("host")?.trim().toLowerCase().replace(/:443$/,"");
-  const bluebelly=host===BLUEBELLY_PRESENTATION_HOST;
+  const bluebelly=isBluebellyReaderHost(host);
   const prepRoot=bluebelly?"/presenter":"/blue-desk/presenter";
   const pinSuffix=pinHref.includes("?")?pinHref.slice(pinHref.indexOf("?")+1):"";
   const tabHref=(view:"talk"|"checks"|"source")=>prepRoot+"?view="+view+(pinSuffix?"&"+pinSuffix:"");
