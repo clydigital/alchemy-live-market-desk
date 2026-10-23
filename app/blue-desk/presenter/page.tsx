@@ -30,7 +30,7 @@ function editionPinnedPrepHref(query:Search):string{
     if(value===undefined)continue;
     if(typeof value !== "string" || !value.trim() || value.length>180 || /[\x00-\x1f\x7f]/.test(value))notFound();
     if(key==="edition" && !EXACT_UUID.test(value)) notFound();
-    params.set(key,value);
+    params.set(key, value);
   }
   const suffix=params.toString();
   return "/hybrid-output/prepare"+(suffix?"?"+suffix:"");
