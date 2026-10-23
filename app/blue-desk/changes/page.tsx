@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { BLUEBELLY_PRESENTATION_HOST,isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { isBluebellyReaderHost,isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { getDossierV2PresentationSelection,getDossierV2PresentationSelectionById } from "@/lib/dossier-v2/presentation-reader";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
 import { buildBlueberryChangeLedger } from "@/lib/blue-desk-change-ledger";
@@ -16,7 +16,7 @@ export default async function BlueberryChangesPage({searchParams}:{
   searchParams:Promise<Record<string,string|string[]|undefined>>;
 }) {
   const host=(await headers()).get("host");
-  const bluebelly=host?.trim().toLowerCase().replace(/:443$/,"")===BLUEBELLY_PRESENTATION_HOST;
+  const bluebelly=isBluebellyReaderHost(host);
   if(isBlueDeskPublicReaderHost(host)&&!bluebelly)notFound();
   const query=await searchParams;
   const raw=query.id;
