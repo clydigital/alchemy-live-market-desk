@@ -44,15 +44,19 @@ test("native Presenter shell reuses the existing technical-checks/3 authority", 
 
 test("native presenter forwards exact edition references, never silently substitutes latest", () => {
   const page = read("app/blue-desk/presenter/page.tsx");
-  const full = read("app/hybrid-output/prepare/page.tsx");
+  const full = read("app/blue-desk/presenter/full-prep/page.tsx");
+  const host = read("lib/blue-desk-host.ts");
   assert.match(page, /editionPinnedPrepHref\(query\)/);
   assert.match(page, /EXACT_UUID\.test\(value\)\) notFound\(\)/);
   assert.match(page, /typeof value !== "string"/);
   assert.match(page, /params\.set\(key, value\)/);
-  assert.match(page, /"\/hybrid-output\/prepare"/);
+  assert.match(page, /"\/presenter\/full-prep"/);
+  assert.doesNotMatch(page, /\/hybrid-output/);
+  assert.match(host, /if \(pathname === "\/presenter\/full-prep"\) return "\/blue-desk\/presenter\/full-prep"/);
+  assert.match(host, /if \(pathname === "\/presenter\/technical-checks"\) return "\/blue-desk\/presenter\/technical-checks"/);
   assert.match(full, /resolvePresenterPrepExactSelection\(/);
-  assert.match(full, /getHybridExactDailyBriefEdition\(validExactId\)/);
-  assert.match(full, /getHybridDirectDailyBriefSuperseders\(validExactId\)/);
-  assert.match(full, /<PresenterTechnicalChecks compact \/>/);
+  assert.match(full, /getHybridExactDailyBriefEdition\(requested\)/);
+  assert.match(full, /getHybridDirectDailyBriefSuperseders\(requested\)/);
+  assert.match(read("app/blue-desk/presenter/technical-checks/page.tsx"), /<PresenterTechnicalChecks\/>/);
   assert.match(full, /<PresenterPrepSession/);
 });
