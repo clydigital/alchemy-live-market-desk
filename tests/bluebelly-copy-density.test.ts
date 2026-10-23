@@ -8,8 +8,10 @@ test("Bluebelly keeps sources, date information and status without repetitive pr
   const markets = source("app/blue-desk/markets/page.tsx");
   const calendar = source("app/blue-desk/calendar/page.tsx");
   const home = source("app/blue-desk/page.tsx");
-  assert.match(markets, /row\.sourceUrl/);
-  assert.match(markets, /sourceLabel\(row\)/);
+  const marketReader=source("app/blue-desk/markets/BlueDeskMarketReader.tsx");
+  assert.match(markets, /<BlueDeskMarketReader/);
+  assert.match(marketReader, /row\.sourceUrl/);
+  assert.match(marketReader, /row\.asOf/);
   assert.match(markets, /Changes: rates in bp/);
   assert.doesNotMatch(markets, /not a causal explanation, trading signal/);
   assert.match(calendar, /Scheduled time, not verified publication time/);
