@@ -56,7 +56,7 @@ test("owner feed never becomes part of public Bluebelly routes or public navigat
     /\["Hybrid Feed", "\/blue-desk\/feed"\]/);
   const publicNav = nav.slice(nav.indexOf("const PUBLIC_NAV"), nav.indexOf("const NAV_ICONS"));
   assert.doesNotMatch(publicNav, /Hybrid Feed|\/blue-desk\/feed|Change Ledger|\/blue-desk\/changes/);
-  assert.match(host, /hostname === BLUEBELLY_PRESENTATION_HOST \? "blocked" : "private"/);
+  assert.match(host, /isBluebellyReaderHost\(hostname\) \? "blocked" : "private"/);
   assert.doesNotMatch(host, /pathname === "\/blue-desk\/feed"/);
   assert.match(middleware, /if \(accessScope === "blocked"\)/);
   assert.match(middleware, /if \(accessScope === "public"\)/);
