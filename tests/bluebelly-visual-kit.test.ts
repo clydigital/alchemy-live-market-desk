@@ -32,7 +32,9 @@ test("public Bluebelly navigation keeps its owner-only link boundary", () => {
   const page = read("app/blue-desk/page.tsx");
   const markets = read("app/blue-desk/markets/page.tsx");
   const calendar = read("app/blue-desk/calendar/page.tsx");
-  assert.match(header, /publicHost \? PUBLIC_NAV : PRIVATE_NAV/);
+  assert.match(header, /publicHost && !ownerWorkspace \? PUBLIC_NAV : PRIVATE_NAV/);
+  assert.match(header, /activePath === "\/owner\/editorial"/);
+  assert.match(header, /activePath === "\/owner\/presenter"/);
   assert.match(header, /NAV_ICONS/);
   assert.match(host, /hostname === BLUEBELLY_PRESENTATION_HOST \? "blocked"/);
   assert.match(page, /MarketIcon name="divergence"/);
