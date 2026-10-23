@@ -3,7 +3,7 @@
 .privateStrip{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#072b42;border:1px solid #205776;border-radius:8px;padding:12px 18px;color:#b5d0df;font-size:12px;margin-bottom:15px}
 .privateStrip strong{color:#effaff}.privateStrip a,.inlineLink{color:#81daff!important;font-size:12px;font-weight:700}
 .studioHeader{border:1px solid #1e5876;border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:25px;padding:clamp(24px,3vw,44px);background:linear-gradient(115deg,#022235,#08405b 75%,#032237)}
-.headerCopy{max-width:780px}.studioHeader h1{font:600 clamp(33px,3.5vw,51px)/1.13 Georgia,"Times New Roman",serif;color:white;margin:11px 0 12px;letter-spacing:-.03em}
+.headerCopy{max-width:780px}.studioHeader h1{font:600 clamp(33px,3.5vw,51px)/1.13 Figtree,Inter,"Segoe UI",sans-serif;color:white;margin:11px 0 12px;letter-spacing:-.03em}
 .studioHeader p{max-width:700px;color:#c6dbe8;font-size:14px;line-height:1.7;margin:0}
 .headerActions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
 .studioHeader .headerActions{flex-direction:column;align-items:stretch;min-width:235px}
@@ -13,7 +13,7 @@
 .tab,.tabActive{white-space:nowrap;text-decoration:none!important;font-size:13px;color:#bdd7e7!important;padding:12px 18px;border-radius:5px}
 .tabActive{color:#fff!important;background:#105071;box-shadow:inset 0 -2px #57cfff}
 .briefIntro{border:1px solid #2b6484;border-radius:9px;background:linear-gradient(145deg,#082c45,#031d30);padding:clamp(22px,2.5vw,30px)}
-.briefIntro h2,.blockHeading h2{font:600 clamp(27px,2.7vw,37px)/1.2 Georgia,serif;margin:10px 0 13px;color:#f5fbff}
+.briefIntro h2,.blockHeading h2{font:600 clamp(27px,2.7vw,37px)/1.2 Figtree,Inter,"Segoe UI",sans-serif;margin:10px 0 13px;color:#f5fbff}
 .briefIntro p,.blockHeading p{font-size:14px;color:#c8deeb;line-height:1.65;max-width:920px}
 .factStrip{display:flex;gap:7px;flex-wrap:wrap;margin-top:17px}
 .factStrip span{border:1px solid #2f6783;border-radius:5px;color:#b8dfef;font-size:11px;padding:8px 10px;background:#062237}
@@ -21,18 +21,18 @@
 .blockHeading{padding:7px 0 13px}.blockHeading h2{margin-bottom:10px}
 .talkStack,.sideBox{min-width:0}.talkStack{display:grid;gap:13px}.sideBox{display:grid;gap:14px}
 .talk,.box{border:1px solid #275c79;background:linear-gradient(145deg,#072b43,#031c30);border-radius:8px;padding:20px;min-width:0}
-.talk{padding:21px 23px}.talkTop{display:flex;align-items:baseline;gap:14px}.talkNum{font:600 29px Georgia,serif;color:#66d3fa}.talk h3,.box h3{font:600 23px/1.25 Georgia,serif;color:#f6fbff;margin:9px 0 14px}
+.talk{padding:21px 23px}.talkTop{display:flex;align-items:baseline;gap:14px}.talkNum{font:600 29px Figtree,Inter,"Segoe UI",sans-serif;color:#66d3fa}.talk h3,.box h3{font:600 23px/1.25 Figtree,Inter,"Segoe UI",sans-serif;color:#f6fbff;margin:9px 0 14px}
 .talk p,.box p{font-size:13px;color:#c5dbe9;line-height:1.7;margin:0 0 12px}
 .talkNote{border:1px solid #286487;border-left:3px solid #62cbf7;background:#07324b;border-radius:5px;padding:12px 14px;color:#c9e5f2;font-size:12px;line-height:1.6}
 .talkNote strong,.challenge strong{color:#8edbff}.challenge{margin-top:12px!important;font-size:12px!important}
-.box h2{font:600 37px Georgia,serif;margin:8px 0 12px}.box h2 small{font:12px Arial,sans-serif;color:#a2c5d7}
+.box h2{font:600 37px Figtree,Inter,"Segoe UI",sans-serif;margin:8px 0 12px}.box h2 small{font:12px Figtree,Inter,"Segoe UI",sans-serif;color:#a2c5d7}
 .muted{font-size:12px!important;color:#a9c9da!important;line-height:1.55!important}
 .marketRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 9px;align-items:start;border-top:1px solid #2b5269;padding:9px 0;font-size:12px}
 .marketRow strong{color:#edf9ff}.marketRow span{color:#8cd9ff;font-weight:700}.marketRow small{grid-column:1/-1;color:#93b9cb;font-size:10px}
 .newsRow{border-top:1px solid #285268;padding:12px 0;display:grid;gap:7px}.newsRow strong{font-size:13px}.newsRow small{font-size:10px;color:#9cbcd1}.newsRow a{color:#84dcfa!important;font-size:11px}
 .explorer{margin-top:12px}.lens{padding:14px 18px;border-left:3px solid #62c8f8;color:#c8dfed;background:#092d45;font-size:12px;line-height:1.7;margin-bottom:15px}
 .lens strong{color:#e6f8ff}.checkSplit{display:grid;grid-template-columns:minmax(295px,.87fr) minmax(0,1.13fr);gap:15px;align-items:start}
-.checkSplit .box h2{font:600 27px Georgia,serif;margin:12px 0}
+.checkSplit .box h2{font:600 27px Figtree,Inter,"Segoe UI",sans-serif;margin:12px 0}
 .filters{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
 .filters button{cursor:pointer;padding:9px 11px;border-radius:6px;border:1px solid #286788;color:#c5e8fa;background:#08324c;font-size:11px}
 .filters button.active,.filters button[aria-pressed="true"]{background:#14618b;color:#fff;border-color:#73d9fe}
@@ -44,14 +44,17 @@
 .selectedTop{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .chip{border:1px solid #356b86;border-radius:5px;padding:6px 8px;font-size:10px;color:#b9e2f5;align-self:start}
 .reasons{display:grid;gap:11px;margin:18px 0}.reasons>div{border:1px solid #2c5e75;border-radius:7px;background:#062338;padding:14px}
-.reasons h3{font:700 13px Arial,sans-serif;margin:0 0 7px;color:#a6e3fd}.reasons p{font-size:13px;color:#c5d9e6;margin:0;line-height:1.65}
+.reasons h3{font:700 13px Figtree,Inter,"Segoe UI",sans-serif;margin:0 0 7px;color:#a6e3fd}.reasons p{font-size:13px;color:#c5d9e6;margin:0;line-height:1.65}
 .sourceLine{font-size:12px;color:#95bcd2;overflow-wrap:anywhere}.sourceLine a{color:#83ddff!important}
 .editDrawer{border:1px solid #2c6889;border-radius:7px;background:#062a43;margin-top:16px;padding:16px}
 .editDrawer summary{cursor:pointer;font-weight:700;color:#c8f2ff;font-size:14px}
 .editDrawer[open] summary{margin-bottom:16px}
 .ledger{display:grid}.ledger div{display:grid;grid-template-columns:minmax(145px,.65fr) minmax(0,1.35fr);gap:10px;border-top:1px solid #285268;padding:12px 0;font-size:12px;overflow-wrap:anywhere}
 .ledger dt{font-weight:700;color:#e5f8ff}.ledger dd{margin:0;color:#b7d3e5}
-.boundary{padding:13px 0;border-top:1px solid #2c556c}.boundary h3{font:700 13px Arial,sans-serif;margin:0 0 6px}.boundary p{margin:0}
+.boundary{padding:13px 0;border-top:1px solid #2c556c}.boundary h3{font:700 13px Figtree,Inter,"Segoe UI",sans-serif;margin:0 0 6px}.boundary p{margin:0}
 .footer{font-size:11px;color:#8eafc4;border-top:1px solid #20526e;padding-top:19px;margin-top:22px}
 @media(max-width:900px){.studioHeader{flex-direction:column;align-items:flex-start}.studioHeader .headerActions{flex-direction:row}.briefLayout,.checkSplit{grid-template-columns:minmax(0,1fr)}.tabs{top:0}}
 @media(max-width:540px){.studioHeader{padding:21px}.content{padding:14px 14px 50px}.tab,.tabActive{padding:11px 12px}.factStrip span{font-size:10px}.talk,.box{padding:17px}.ledger div{grid-template-columns:1fr}.studioHeader .headerActions{width:100%}.studioHeader .headerActions a{width:100%}}
+
+/* Bluebelly typography contract: same Figtree family on headlines, content and controls. */
+.content,.content :is(h1,h2,h3,h4,p,button,input,textarea,select,summary,a,strong,small),.explorer,.explorer *{font-family:Figtree,Inter,"Segoe UI",sans-serif;}
