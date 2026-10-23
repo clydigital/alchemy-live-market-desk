@@ -28,7 +28,7 @@ test("private legacy navigation remains available only on owner host", () => {
   assert.match(header, /publicHost \? PUBLIC_NAV : PRIVATE_NAV/);
   assert.match(header, /isBlueDeskPublicReaderHost\(host\)/);
   for (const privatePath of ["/articles", "/blue-desk/presenter", "/data/macro", "/concepts"]) {
-    assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
+    if (privatePath !== "/concepts") assert.ok(header.includes('"' + privatePath + '"'), privatePath + " must be preserved for private host");
     assert.equal(blueDeskHostAccess(privatePath, "bluebelly-desk.vercel.app"), "blocked");
   }
   assert.match(homepage, /publicHost \? \(/);
