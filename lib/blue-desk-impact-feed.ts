@@ -4,7 +4,7 @@
  * Never changes canonical Stories, Regimes, thesis versions or source state.
  */
 import { selectVerifiedNewsBriefs, type NewsBriefV1 } from "./market-brief-news.ts";
-import { marketMotionAttention, type MarketMotionRecord } from "./market-motion.ts";
+import type { MarketMotionRecord } from "./market-motion.ts";
 
 export type BlueDeskImpactItem = {
   fact: NewsBriefV1;
@@ -45,10 +45,7 @@ export function rankBlueDeskImpactFeed(
   return admitted.flatMap(fact=>{
     const source=byId.get(fact.id);
     if(!source)return [];
-    // Reuse the existing model-independent materiality/relevance/novelty gate.
-    const attention=marketMotionAttention(source);
-    const ageHours=Math.max(0,(timestamp-Date.parse(fact.occurredAt))/3_600_000);
-    const importance=Math.round(Math.max(0,Math.min(100,attention.score-Math.min(10,ageHours*.24))));
+    // Same materiality/relevance/novelty weights as the existing Motion attention\n    // contract, but pure and independent of the Supabase/LLM implementation.\n    // This score sorts the reading UI; it does not update a Story or evidence.\n    const rawScore=Math.round(source.materiality*.45+source.relevance*.35\n      +source.novelty*.10+7+(source.lifecycle_state==="PROMOTED"?3:0)\n      +(source.tickers?.length?2:0));\n    const ageHours=Math.max(0,(timestamp-Date.parse(fact.occurredAt))/3_600_000);\n    const importance=Math.round(Math.max(0,Math.min(100,rawScore-Math.min(10,ageHours*.24))));
     const assets=(source.tickers||[])
       .filter(t=>/^[A-Z0-9.^-]{1,12}$/.test(t)).slice(0,5);
     const researchAngle=compact(source.why_interesting,190);
