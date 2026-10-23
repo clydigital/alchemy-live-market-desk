@@ -37,7 +37,7 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
   const history=archive.length?archive:fallback;
   const latestReadings=newestStoryReadings(history);
   const filtered=subject?latestReadings.filter(entry=>
-    storyMatchesSubject(entry.article.title,entry.article.deck,entry.article.subjectAssets||[],subject)):latestReadings;
+    storyMatchesSubject(entry.article.title,entry.article.deck,entry.[],subject)):latestReadings;
   const pages=paginateStoryReadings(filtered,requestedPage);
   const articles=pages.items;
   const pageHref=(page:number,tag=subject)=>blueDeskPublicHref("/blue-desk/key-stories",host)+
@@ -81,7 +81,7 @@ export default async function BlueberryKeyStories({searchParams}:{searchParams:P
         return <article key={article.articleId} className={detail.article} data-story-readiness={article.editorial.readiness}>
           <div className={detail.storyTop}><span className={styles.kicker}>{article.category}</span>
             <span>{article.editorial.storyEligible?"CANONICAL STORY":"SOURCED ANALYSIS"}</span></div>
-          <StoryIdentityBalls title={article.title} deck={article.deck} assets={article.subjectAssets}
+          <StoryIdentityBalls title={article.title} deck={article.deck} assets={[]}
               hrefBase={blueDeskPublicHref("/blue-desk/key-stories",host)}/>
           <small>Latest source-admitted report · ongoing Story</small>
           <h2>{index===0?"Lead — ":""}{article.title}</h2>
