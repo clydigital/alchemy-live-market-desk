@@ -46,7 +46,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/presenter/dossier") return "/blue-desk/dossier";
   if (pathname === "/presenter/changes") return "/blue-desk/changes";
   if (pathname === "/presenter/full-prep") return "/blue-desk/presenter/full-prep";
-  if (pathname === "/presenter/technical-checks") return "/blue-desk/presenter/technical-checks";
+  if (pathname === "/presenter/technical-checks" && isBluebellyReaderHost(host)) return "/blue-desk/presenter/technical-checks";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
