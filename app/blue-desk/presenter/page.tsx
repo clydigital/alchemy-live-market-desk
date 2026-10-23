@@ -175,7 +175,11 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
             <span className={ui.kicker}>DATA BOUNDARY · EXISTING RUNTIME</span>
             <h3>Where each piece of information comes from</h3>
             <dl className={ui.ledger}>
-              <div><dt>Technical source</dt><dd>Existing owner API · /api/presenter/technical-checks · technical-checks/3</dd></div>
+              <div><dt>Verified news feed</dt><dd>{news.length} source-verified developments admitted from existing Market Motion records. These are factual reports, not canonical Story changes.</dd></div>
+              <div><dt>Market-data adapter</dt><dd>{readings.length} publisher-dated observations from the existing public-market monitor. Stale or missing levels must retain their source dates.</dd></div>
+              <div><dt>Technical source</dt><dd>Authenticated owner API · /api/presenter/technical-checks · technical-checks/3. Your saved chart readings are not public market evidence.</dd></div>
+              <div><dt>Plugin and creator intelligence</dt><dd>External research/creator inputs belong in discovery and source verification first. No direct plugin-to-public Story publication or checklist overwrite is authorised.</dd></div>
+              <div><dt>Learn</dt><dd>Governed concept registry for stable explanations; no current trade signals or private research intake.</dd></div>
               <div><dt>Authentication</dt><dd>Approved Google account + active Supabase allowlist</dd></div>
               <div><dt>Research identity</dt><dd>{query.edition&&typeof query.edition==="string"?query.edition:"No edition pinned · current available context only"}</dd></div>
               <div><dt>Reconciliation</dt><dd>Presenter explanation · non-evidentiary; no Story or Regime mutation</dd></div>
