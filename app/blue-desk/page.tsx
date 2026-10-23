@@ -19,6 +19,7 @@ import { getCurrentMarketMotion, getCurrentVerifiedMarketMotion } from "@/lib/ma
 import { projectMarketBriefArticles } from "@/lib/market-brief-articles";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
+import { rankBlueDeskImpactFeed } from "@/lib/blue-desk-impact-feed";
 import { selectFrozenSourceFact } from "@/lib/blue-desk-factual-feature";
 import { publicMarketObservations, PUBLIC_MARKET_GROUPS } from "@/lib/blue-desk-public-markets";
 import { buildBlueDeskDailyMarketMap } from "@/lib/blue-desk-daily-market-map";
@@ -72,9 +73,11 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
     ? featureCandidate : null;
   // Source-verified factual reports do NOT change canonical Story/Regime state.
   const verifiedNews = selectVerifiedNewsBriefs(verifiedMotions, now, 12);
-  const newsFeature = verifiedNews.find(news =>
-    !freshFeature || Date.parse(news.occurredAt) > featureTime
-  ) || null;
+  const impactFeed = rankBlueDeskImpactFeed(verifiedMotions, now, 8);
+  const priorityMovers = impactFeed.filter(item => item.attention !== "ROUTINE").slice(0, 4);
+  const newsFeature = (impactFeed.find(item => item.attention === "MAJOR"
+    && (!freshFeature || Date.parse(item.fact.occurredAt) > featureTime))?.fact
+    || verifiedNews.find(news => !freshFeature || Date.parse(news.occurredAt) > featureTime)) || null;
   const feature = newsFeature ? null : freshFeature;
   // An owner-only list of unfinished leads is not public verified news,
   // canonical evidence or authority for a Story mutation.
@@ -130,7 +133,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
       <div className={styles.content}>
         <div className={styles.homeContextBar} aria-label="Bluebelly homepage sections">
           <div><span className={styles.kicker}>BLUEBELLY / MARKET INTELLIGENCE</span><p>The essential story first. Explore the evidence whenever you need it.</p></div>
-          <nav aria-label="Jump to homepage sections"><a href="#stories-title">Market Stories</a><a href="#calendar-title">Coming up</a><a href="#blue-desk-news-title">Verified news</a></nav>
+          <nav aria-label="Jump to homepage sections"><a href="#impact-title">Market moves</a><a href="#stories-title">Market Stories</a><a href="#calendar-title">Coming up</a></nav>
         </div>
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
@@ -180,6 +183,42 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
             )) : <p className={styles.empty}>Yield data unavailable.</p>}
             <Link href={publicHost ? blueDeskPublicHref("/blue-desk/markets", host) : "/markets"} className={styles.textLink}>Cross-asset monitor →</Link>
           </aside>
+        </section>
+
+        <section className={styles.impactSection} aria-labelledby="impact-title" data-bluebelly-impact="consequence-ranked">
+          <div className={styles.impactHeading}>
+            <div>
+              <span className={styles.kicker}>WHAT IS CHANGING THE MARKET?</span>
+              <h2 id="impact-title">The developments that matter.</h2>
+              <p>Consequence before chronology. Original reporting is separated from the market questions it raises.</p>
+            </div>
+            <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/what-changed",host)}>All verified developments →</Link>
+          </div>
+          {priorityMovers.length ? <div className={styles.impactGrid}>
+            {priorityMovers.map((item,index) => <article className={styles.impactCard} key={item.fact.id}
+              data-priority={item.attention} data-rank={index+1}>
+              <div className={styles.impactTop}>
+                <span>{item.attention==="MAJOR"?"MARKET-WIDE FOCUS":"SIGNIFICANT DEVELOPMENT"} · {item.category.replaceAll("_"," ")}</span>
+                <DualTimestamp value={item.fact.occurredAt} sourceDate={item.fact.occurredAt}/>
+              </div>
+              <h3>{item.fact.headline}</h3>
+              <p className={styles.impactFact}>{ellipsis(item.fact.summary,210)}</p>
+              {item.researchAngle ? <div className={styles.impactLens}><strong>Why it could matter</strong>
+                <p>{item.researchAngle}</p><small>Research interpretation · market impact not independently established</small>
+              </div>:null}
+              <div className={styles.impactNext}><strong>Watch next</strong><p>{item.nextCheck}</p></div>
+              <div className={styles.impactBottom}>
+                {item.assets.length ? <div className={styles.impactAssets} aria-label="Referenced assets">
+                  {item.assets.map(t=><span key={t}>{t}</span>)}
+                </div> : <span className={styles.impactSourceType}>{item.fact.sourceKind.replaceAll("_"," ")} report</span>}
+                <a href={item.fact.sourceUrl} target="_blank" rel="noopener noreferrer">{item.fact.sourceName} ↗</a>
+              </div>
+            </article>)}
+          </div> : <div className={styles.impactQuiet}>
+            <strong>No current development cleared the higher-impact threshold.</strong>
+            <p>That reflects available, dated, source-qualified reports—not evidence that the market is quiet. Check the full source tape and next calendar releases.</p>
+            <Link href={blueDeskPublicHref("/blue-desk/what-changed",host)}>Review verified reports →</Link>
+          </div>}
         </section>
 
         <section className={styles.section} aria-labelledby="stories-title">
