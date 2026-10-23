@@ -8,7 +8,7 @@ import {
   getSupabasePublicConfig,
 } from "@/lib/supabase/config";
 import { PRODUCTION_RESEARCH_AUTOMATION_PAUSED } from "@/lib/research-automation-routing";
-import { LIVE_DESK_PRESENTATION_HOST, blueDeskHostAccess, blueDeskPresentationTarget, publicLiveLegacyTabDestination } from "@/lib/blue-desk-host";
+import { LIVE_DESK_PRESENTATION_HOST, isBluebellyReaderHost, blueDeskHostAccess, blueDeskPresentationTarget, publicLiveLegacyTabDestination } from "@/lib/blue-desk-host";
 import { allowR1MarketsReadOnlyPreview, allowR1LiveDeskReadOnlyPreview } from "@/lib/blue-desk-r1-preview-access";
 
 function startsWithAny(pathname: string, paths: readonly string[]) {
@@ -140,8 +140,8 @@ export async function middleware(request: NextRequest) {
   // Owner-facing pages are ALWAYS authenticated on non-public hosts.
   // Even if optional dashboard auth is disabled, the specific Bluebelly
   // Presenter endpoint must remain authenticated (source notes are private).
-  const bluebellyPresenterApi = (host || "").trim().toLowerCase().replace(/:443$/, "")
-    === "bluebelly-desk.vercel.app" && pathname === "/api/presenter/technical-checks";
+  const bluebellyPresenterApi = isBluebellyReaderHost(host)
+    && pathname === "/api/presenter/technical-checks";
   if (pathname.startsWith("/api/") && !dashboardAuthRequired() && !bluebellyPresenterApi) return NextResponse.next();
 
   let config: ReturnType<typeof getSupabasePublicConfig>;
