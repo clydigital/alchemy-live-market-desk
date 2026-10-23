@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { isBluebellyReaderHost } from "@/lib/blue-desk-host";
-import { getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
+import { getCurrentMarketMotion, getCurrentVerifiedMarketMotion } from "@/lib/market-motion";
 import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { publicMarketObservations } from "@/lib/blue-desk-public-markets";
@@ -69,11 +69,17 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
     +(query.edition&&typeof query.edition==="string"?"?edition="+encodeURIComponent(query.edition):"");
   const dossierHref=bluebelly?"/presenter/dossier":"/blue-desk/dossier";
   const changesHref=bluebelly?"/presenter/changes":"/blue-desk/changes";
-  const [rawMotions,monitor]=await Promise.all([
+  const [rawMotions,monitor,researchMotions]=await Promise.all([
     getCurrentVerifiedMarketMotion({limit:18}).catch(()=>[]),
     getMarketMonitor().catch(()=>null),
+    getCurrentMarketMotion({limit:75}).catch(()=>[]),
   ]);
   const news=selectVerifiedNewsBriefs(rawMotions,new Date(),8);
+  const leads=researchMotions.filter(item=>item.verification_state!=="VERIFIED"
+    && item.effective_state!=="EXPIRED" && item.lifecycle_state!=="EXPIRED")
+    .sort((a,b)=>(b.materiality*.45+b.relevance*.35+b.novelty*.1)
+      -(a.materiality*.45+a.relevance*.35+a.novelty*.1))
+    .slice(0,5);
   const readings=publicMarketObservations(monitor?.rows||[],"all")
     .filter(row=>["us2y","us10y-fred","us30y-fred","brent","wti","spx","dxy","gold-proxy","smh"].includes(row.id))
     .slice(0,9);
@@ -142,6 +148,18 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
                 <small><DualTimestamp value={row.asOf} sourceDate={row.asOf}/></small>
               </div>):<p className={ui.muted}>No dated publisher-qualified levels are currently available.</p>}
               <p className={ui.muted}>These levels do not establish causality or live chart conditions.</p>
+            </section>
+            <section className={ui.box} data-presenter-motion-queue="owner-investigation-only">
+              <span className={ui.kicker}>PRIVATE RESEARCH QUEUE · NOT YET VERIFIED</span>
+              <h3>What deserves investigating?</h3>
+              <p className={ui.muted}>Prioritised by materiality, relevance and novelty. These are leads, not broadcast-ready facts or canonical evidence.</p>
+              {leads.length?leads.map(lead=><article className={ui.newsRow} key={lead.id}>
+                <strong>{lead.headline}</strong>
+                <small>{lead.category.replaceAll("_"," ")} · {lead.verification_state} · <DualTimestamp value={lead.occurred_at} sourceDate={lead.occurred_at}/></small>
+                {lead.why_interesting?<p>{lead.why_interesting}</p>:null}
+                <p><strong>Verify next:</strong> {lead.next_test||"Check primary publisher evidence and matched market observations."}</p>
+                {lead.source_url?.startsWith("https://")?<a href={lead.source_url} target="_blank" rel="noopener noreferrer">{lead.source_name} ↗</a>:null}
+              </article>):<p className={ui.muted}>No current unverified leads in the owner research queue.</p>}
             </section>
             <section className={ui.box}>
               <span className={ui.kicker}>LATEST VERIFIED REPORTING</span>
