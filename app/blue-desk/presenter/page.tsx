@@ -15,7 +15,7 @@ import ui from "./presenter.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Presenter Studio | Blue Desk",
+  title: "Presenter Prep | Bluebelly",
   description: "Owner-only technical checklist and exact-edition presenter preparation.",
 };
 
@@ -64,8 +64,8 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
       <div className={desk.content}>
         <header className={ui.hero}>
           <p className={desk.kicker}>PRIVATE PRESENTER WORKSPACE</p>
-          <h1>Presenter Studio</h1>
-          <p>Reconcile your charts with the market story before going live.
+          <h1>Presenter Prep</h1>
+          <p>Today’s Talk and Technical × Fundamentals, in the Bluebelly workspace. Reconcile your charts with the market story before going live.
             Technical readings are presenter-owned notes, not canonical market evidence.</p>
           <div className={ui.links}>
             <Link className={ui.action} href={editorialHref}>COTD / OB editorial checks →</Link>
@@ -75,8 +75,8 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
         </header>
 
         <section className={ui.panel} aria-labelledby="presenter-running-order-title" data-presenter-fast-path="source-first">
-          <p className={desk.kicker}>START HERE · SOURCE → VIEW → ARTICLE</p>
-          <h2 id="presenter-running-order-title">Today's research running order</h2>
+          <p className={desk.kicker}>TODAY’S TALK · VERIFIED CATALYSTS AND YOUR CHARTS</p>
+          <h2 id="presenter-running-order-title">Today’s Talk</h2>
           <p>Scan fresh verified events, cross-check observed markets, then write a source-backed COTD or multi-angle OB.
             Data dates are source dates, not automatically updated trading-session reactions.</p>
           <div className={ui.quickDeckGrid}>
@@ -107,7 +107,7 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
         </section>
 
         <section className={ui.panel} aria-labelledby="technical-checklist-heading">
-          <p className={desk.kicker}>01 / TECHNICAL × FUNDAMENTALS</p>
+          <p className={desk.kicker}>02 / TECHNICAL × FUNDAMENTALS</p>
           <h2 id="technical-checklist-heading">Technical checklist</h2>
           <p>Fourteen existing monitors, including DXY 4H/1D EMA bands, JXY,
             the 2Y–30Y spread, SPX rollover and oil. Check observation dates and sources
@@ -116,7 +116,7 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
         </section>
 
         <section className={ui.panel} aria-labelledby="edition-heading">
-          <p className={desk.kicker}>02 / FROZEN SOURCE BRIEFING</p>
+          <p className={desk.kicker}>03 / SOURCE & ACCESS</p>
           <h2 id="edition-heading">Prepare the running order</h2>
           <p>The existing full prep keeps the exact immutable edition, frozen Dossier,
             source checks, editorial readiness and on-air notes together.
@@ -127,10 +127,10 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
         </section>
 
         <section className={ui.panel} aria-labelledby="editorial-heading">
-          <p className={desk.kicker}>03 / COTD + OPENING BELL</p>
+          <p className={desk.kicker}>04 / COTD + OPENING BELL</p>
           <h2 id="editorial-heading">Read the article evidence before writing</h2>
           <p>Review source-admitted excerpts, frozen causal interpretation, chart and length gaps, and separate COTD / OB publication checks. Full articles still require fresh price confirmation and your approval.</p>
-          <Link className={ui.action} href={"/blue-desk/presenter/editorial" + (query.edition && typeof query.edition === "string" ? "?edition=" + encodeURIComponent(query.edition) : "")}>Open COTD / OB editorial preview →</Link>
+          <Link className={ui.action} href={editorialHref}>Open COTD / OB editorial preview →</Link>
         </section>
 
         <footer className={ui.footer}>
