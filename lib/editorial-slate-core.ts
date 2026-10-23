@@ -59,7 +59,7 @@ export function parseEditorialSlate(row:Row|null,nowIso:string):EditorialSlate|n
   });
   // Incomplete placeholders may be retained as PARTIAL, not called actionable drafts.
   if(ideas.some(x=>!x.title||!x.hook))return null;
-  const latestDay=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kuala_Lumpur",
+  const latestDay=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Kuala_Lumpur",
     year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(nowIso));
   return {
     dayMyt:day,producedAt:produced,
