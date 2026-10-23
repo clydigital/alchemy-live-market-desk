@@ -1,14 +1,20 @@
 /** User-facing URLs only. Internal Next routes are preserved for compatibility. */
 export const BLUEBELLY_PRESENTATION_HOST = "bluebelly-desk.vercel.app";
+/** Branch-bound V6 review hostname; never a production hostname. */
+export const BLUEBELLY_V6_REVIEW_HOST = "bluebelly-v6-review.vercel.app";
 export const LIVE_DESK_PRESENTATION_HOST = "alchemy-live-market-desk.vercel.app";
 
 function normalizedHost(host: string | null | undefined) {
   return (host || "").trim().toLowerCase().replace(/:443$/, "");
 }
 
+export function isBluebellyReaderHost(host: string | null | undefined) {
+  return [BLUEBELLY_PRESENTATION_HOST, BLUEBELLY_V6_REVIEW_HOST].includes(normalizedHost(host));
+}
+
 /** Only the approved public reading hosts use public-clean Blue Desk links. */
 export function isBlueDeskPublicReaderHost(host: string | null | undefined) {
-  return [BLUEBELLY_PRESENTATION_HOST, LIVE_DESK_PRESENTATION_HOST].includes(normalizedHost(host));
+  return isBluebellyReaderHost(host) || normalizedHost(host) === LIVE_DESK_PRESENTATION_HOST;
 }
 
 export function blueDeskPublicHref(path: string, host: string | null | undefined) {
@@ -29,6 +35,7 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   }
   if (pathname === "/") return "/blue-desk";
   if (pathname === "/calendar") return "/blue-desk/calendar";
+  if (pathname === "/learn") return "/blue-desk/learn";
   if (pathname === "/markets") return "/blue-desk/markets";
   if (pathname === "/key-stories") return "/blue-desk/key-stories";
   if (pathname === "/rates") return "/blue-desk/rates";
@@ -53,7 +60,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   "public" | "blocked" | "private" {
   const hostname = normalizedHost(host);
   if (hostname === "alchemy-blue-desk.vercel.app") return "blocked";
-  if (hostname !== BLUEBELLY_PRESENTATION_HOST && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
+  if (!isBluebellyReaderHost(hostname) && hostname !== LIVE_DESK_PRESENTATION_HOST) return "private";
 
   // Explicitly approved, read-only full Markets terminal. This exception
   // applies to the exact Live hostname/path only; do not open other owner
@@ -70,7 +77,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // Auth routes for the precise Bluebelly domain only. The private Presenter
   // is still enforced by the existing Supabase claims + active allowlist gate.
   // No other Bluebelly owner routes, research APIs or machine jobs are opened.
-  if (hostname === BLUEBELLY_PRESENTATION_HOST) {
+  if (isBluebellyReaderHost(hostname)) {
     if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
     if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/api/presenter/technical-checks"].includes(pathname)) return "private";
   }
@@ -78,6 +85,8 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   const publicPage =
     pathname === "/" ||
     pathname === "/calendar" ||
+    pathname === "/learn" ||
+    pathname === "/blue-desk/learn" ||
     pathname === "/blue-desk" ||
     pathname === "/blue-desk/calendar" ||
     pathname === "/markets" ||
@@ -90,7 +99,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
     pathname === "/blue-desk/markets" ||
     /^\/(?:blue-desk\/)?stories\/article(?::|%3a)[0-9a-f-]{36}(?::|%3a)[0-9a-f-]{36}$/i.test(pathname);
 
-  return publicPage ? "public" : hostname === BLUEBELLY_PRESENTATION_HOST ? "blocked" : "private";
+  return publicPage ? "public" : isBluebellyReaderHost(hostname) ? "blocked" : "private";
 }
 
 /**

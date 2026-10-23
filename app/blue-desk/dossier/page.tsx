@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
-import { BLUEBELLY_PRESENTATION_HOST, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
+import { isBluebellyReaderHost, isBlueDeskPublicReaderHost } from "@/lib/blue-desk-host";
 import { isValidUuid } from "@/lib/dossier-v2/validation";
 import {
   getDossierV2HistoryIndex,
@@ -32,7 +32,7 @@ export default async function BlueDeskDossierPage({
 }) {
   const host = (await headers()).get("host");
   // Defence in depth alongside private host middleware.
-  const bluebelly = host?.trim().toLowerCase().replace(/:443$/, "") === BLUEBELLY_PRESENTATION_HOST;
+  const bluebelly = isBluebellyReaderHost(host);
   if (isBlueDeskPublicReaderHost(host) && !bluebelly) notFound();
 
   const dossierHref=bluebelly?"/presenter/dossier":"/blue-desk/dossier";
