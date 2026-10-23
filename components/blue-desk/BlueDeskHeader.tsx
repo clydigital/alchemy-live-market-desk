@@ -16,7 +16,7 @@ const PRIVATE_NAV = [
   ["Data Library", "/data/macro"],
   ["Presenter Prep", "/blue-desk/presenter"],
   ["Calendar", "/blue-desk/calendar"],
-  ["Learn", "/concepts"],
+  ["Learn", "/blue-desk/learn"],
 ] as const;
 
 // Public Bluebelly is deliberately limited to the route allowlist; never
