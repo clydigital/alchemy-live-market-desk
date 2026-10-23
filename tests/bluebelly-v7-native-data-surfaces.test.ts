@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { blueDeskHostAccess,blueDeskPresentationTarget } from "../lib/blue-desk-host.ts";
 const read=(p:string)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
-const host="bluebelly-v6-review.vercel.app";
+const host="bluebelly-v7-review.vercel.app";
 
 test("Bluebelly has no Hybrid UI handoff from public homepage or private Presenter",()=>{
  const home=read("app/blue-desk/page.tsx");
