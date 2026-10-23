@@ -51,6 +51,13 @@ test("Presenter Prep remains within Blue Desk through branded login and protecte
  assert.match(login,/Continue with Google/);
  assert.match(home,/rankBlueDeskImpactFeed\(verifiedMotions, now, 8\)/);
  assert.match(home,/data-bluebelly-impact="consequence-ranked"/);
+ assert.match(home,/observedMoves = publicObservations/);
+ assert.match(home,/Catalyst not verified/);
+ assert.match(home,/source-dated energy and rates|source-dated market/i);
  assert.ok(home.indexOf('data-bluebelly-impact="consequence-ranked"')<home.indexOf('aria-labelledby="stories-title"'));
  assert.match(changed,/rankBlueDeskImpactFeed\(raw,now,8\)/);
+ const presenter=readFileSync(new URL("../app/blue-desk/presenter/page.tsx",import.meta.url),"utf8");
+ assert.match(presenter,/data-presenter-motion-queue="owner-investigation-only"/);
+ assert.match(presenter,/getCurrentMarketMotion\(\{limit:75\}\)/);
+ assert.match(presenter,/Prioritised by materiality, relevance and novelty/);
 });
