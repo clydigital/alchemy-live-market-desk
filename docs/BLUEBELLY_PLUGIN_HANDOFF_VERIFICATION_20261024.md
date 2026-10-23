@@ -30,3 +30,18 @@ GET /api/owner/bluebelly/v1/overview has version bluebelly-private-overview/1. I
 
 ## Source/change ownership
 Existing Bluebelly V7 surface data contract belongs to PR #999. That branch does not implement direct third-party plugin-to-Next ingestion, and neither does this overview-only branch. Follow the consolidated issue #936 and security issue #834 rather than creating competing migration trackers. Never merge preview-only vercel.json exceptions from the V6/V7 branches.
+
+## Second code slice — exact archived published editorial article
+
+Draft stacked on the overview reader (#1001), without merging either branch:
+
+- GET /api/owner/bluebelly/v1/published-story?edition=UUID&article=article:UUID:UUID
+- Version: bluebelly-private-published-story/1.
+- Existing exact archive lookup only: getHybridExactDailyBriefEdition -> projectMarketBriefArticles -> loadEditorialMarketBrief -> buildBlueDeskPublicStoryEvidenceV1.
+- Owner auth matches the active Supabase allowlist on the private host. Public Bluebelly host blocks this API. No wildcard CORS or externally scoped bearer credential.
+- Reject malformed/mismatched IDs and duplicate query params; never search Story titles or fall back to the latest 24 editions.
+- Only source-linked original evidence facts admitted as of the frozen edition are returned. Retain explicit NOT_ADJUDICATED Story state, NOT_VERIFIED market reaction and causal attribution. These records are published editorial articles, **not** immutable canonical Story thesis versions.
+- HTTP 404 on unknown edition or no eligible source-linked article; HTTP 503 on query failure, HTTP 401/403 for unauthorized sessions.
+- This is not a remote ChatGPT plugin. Add canonical persistent Story-version lookup only after exact-id/version lineage review.
+
+Acceptance: run full suite, database contracts, TypeScript and production build; test positive user readback against the 19 October frozen AI edition and denied owner/public cases. Production remains untouched until audited deployment approval.
