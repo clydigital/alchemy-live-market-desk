@@ -25,10 +25,11 @@ const PRIVATE_NAV = [
 const PUBLIC_NAV = [
   ["Live Market", "/"],
   ["Markets", "/markets"],
-  ["Key Stories", "/#stories-title"],
-  ["Rates", "/#rates-title"],
-  ["What Changed", "/#motion-title"],
+  ["Key Stories", "/key-stories"],
+  ["Rates", "/rates"],
+  ["What Changed", "/what-changed"],
   ["Calendar", "/calendar"],
+  ["Presenter Prep", "/presenter"],
 ] as const;
 
 const NAV_ICONS: Record<string, MarketIconName> = {
@@ -55,7 +56,10 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
   // Authenticated owner routes must retain their private workspace navigation,
   // even when opened on the canonical hostname that also serves public readers.
   const ownerWorkspace = activePath === "/owner/editorial" || activePath === "/owner/presenter";
-  const nav = publicHost && !ownerWorkspace ? PUBLIC_NAV : PRIVATE_NAV;
+  // Bluebelly's authenticated Presenter Prep lives on the same reader shell.
+  // Never switch its navigation into Hybrid-only owner links.
+  const bluebellyPrep = publicHost && activePath === "/blue-desk/presenter";
+  const nav = publicHost && (!ownerWorkspace || bluebellyPrep) ? PUBLIC_NAV : PRIVATE_NAV;
   return (
     <header className={styles.topbar}>
       <Link href={blueDeskPublicHref("/blue-desk", host)} className={styles.brand} aria-label="Blue Desk — Live Market">
@@ -66,7 +70,7 @@ export default async function BlueDeskHeader({ activePath }: { activePath: strin
           <Link
             key={href}
             href={blueDeskPublicHref(href, host)}
-            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? "page" : undefined}
+            aria-current={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets") || (href === "/presenter" && activePath === "/blue-desk/presenter") || (href === "/key-stories" && activePath === "/blue-desk/key-stories")))) ? "page" : undefined}
             className={(href === activePath || (publicHost && ((href === "/" && activePath === "/blue-desk") || (href === "/markets" && activePath === "/blue-desk/markets")))) ? styles.navActive : styles.navItem}
           >
             <MarketIcon name={NAV_ICONS[title] || "market"} size={17} />

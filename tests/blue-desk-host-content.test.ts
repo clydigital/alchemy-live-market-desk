@@ -82,11 +82,18 @@ test("Bluebelly exposes only explicitly approved public reading routes", () => {
   }
   for (const path of [
     "/hybrid-output/prepare", "/dossier", "/articles",
-    "/api/dossier-v2", "/api/presenter/technical-checks", "/api/cron/research/morning",
-    "/auth/callback", "/login", "/stories",
+    "/api/dossier-v2", "/api/cron/research/morning",
+    "/stories",
     "/stories/article%3Agarbage", "/stories/article%2F../../dossier",
   ]) {
     assert.equal(blueDeskHostAccess(path, host), "blocked", path);
+  }
+  for(const path of ["/presenter","/presenter/editorial","/presenter/full-prep",
+    "/api/presenter/technical-checks","/api/owner/editorial-generate"]) {
+    assert.equal(blueDeskHostAccess(path,host),"private","owner-auth required: "+path);
+  }
+  for(const path of ["/login","/auth/google","/auth/callback","/auth/signout"]){
+    assert.equal(blueDeskHostAccess(path,host),"public","exact SSO entry: "+path);
   }
 });
 

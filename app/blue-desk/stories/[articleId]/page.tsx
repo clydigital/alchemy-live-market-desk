@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import StoryIdentityBalls from "@/components/blue-desk/StoryIdentityBalls";
+import { getRecentPublishedStoryReadings } from "@/lib/blue-desk/story-archive-server";
+import { exactPublishedStoryId, readingsForStory } from "@/lib/blue-desk/story-archive";
 import { blueDeskPublicHref } from "@/lib/blue-desk-host";
 import { getHybridExactDailyBriefEdition } from "@/lib/hybrid-publication";
 import { loadEditorialMarketBrief } from "@/lib/market-brief-editorial-data";
@@ -74,6 +77,11 @@ export default async function BlueDeskStoryPage({
     item.articleId === normalizedArticleId && item.editionId === edition
   );
   if (!article) notFound();
+  const storyId=exactPublishedStoryId(article);
+  // Older published editions are a read-only archive, not a new Story decision.
+  const earlier=storyId
+    ? readingsForStory(await getRecentPublishedStoryReadings().catch(()=>[]),storyId,edition).slice(0,10)
+    : [];
 
   const host = (await headers()).get("host");
   const back = blueDeskPublicHref("/blue-desk", host);
@@ -118,6 +126,10 @@ export default async function BlueDeskStoryPage({
           <p className={styles.kicker}>{article.category} · {article.interpretationStatus}</p>
           <h1>{article.title}</h1>
           <p className={styles.heroDeck}>{article.deck}</p>
+          <StoryIdentityBalls title={article.title} deck={article.deck}
+            assets={[]} limit={5} />
+          <p className={styles.muted}>Market View · Latest available source-backed interpretation for this exact edition.
+            Historic reports remain unchanged; a later publication date does not prove a new catalyst.</p>
           <div className={styles.deepMeta}>
             <DualTimestamp value={article.generatedAt} />
             <span>Edition {article.editionId}</span>
@@ -241,6 +253,17 @@ export default async function BlueDeskStoryPage({
               </section>
             ) : null}
             {blocks.length ? <div id="story-analysis" className={styles.storyAnalysis}>
+              <header className={styles.storyPresenterAction}>
+                <div>
+                  <p className={styles.kicker}>MARKET VIEW · WHAT ACTUALLY CHANGED?</p>
+                  <h2>From catalyst to price and the countercase</h2>
+                  <p>Start with the observed event and its date. Ask what the market should ordinarily
+                    have done, then check whether the sourced reaction supports that explanation.
+                    Unverified price changes are not conclusions.</p>
+                </div>
+                <Link className={styles.textLink} href={blueDeskPublicHref("/blue-desk/markets",host)}>
+                  Compare source-dated markets →</Link>
+              </header>
               {blocks.map(block => (
               <section key={block.name} className={styles.deepSection}>
                 <h2>{article.interpretationStatus === "UNRESOLVED" && block.name === "How it works"
@@ -308,6 +331,18 @@ export default async function BlueDeskStoryPage({
             ) : null}
           </article>
           <aside className={styles.deepAside}>
+            <section className={styles.storyHistorySidebar} aria-label="Earlier published Story reports">
+              <h2>Earlier reports · same Story</h2>
+              {earlier.length?<ol>{earlier.map(item=><li key={item.editionId}>
+                <Link href={blueDeskPublicHref("/blue-desk/stories/"+
+                  encodeURIComponent(item.article.articleId)+"?edition="+encodeURIComponent(item.editionId),host)}>
+                  {item.article.title}
+                </Link>
+                <small>Published {new Date(item.publishedAt).toLocaleString("en-GB",{timeZone:"UTC",
+                  day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})} UTC</small>
+              </li>)}</ol>:<p>No earlier source-admitted report found in the bounded recent archive.
+                This does not mean there were no earlier market events.</p>}
+            </section>
             <section>
               <h2>Sources</h2>
               {references.length ? references.map((source, i) => (
