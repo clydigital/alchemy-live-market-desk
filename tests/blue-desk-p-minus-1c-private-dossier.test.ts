@@ -62,5 +62,5 @@ test("middleware bypasses owner session only for existing machine-auth routes", 
     middleware.indexOf("startsWithAny(pathname, MACHINE_AUTH_PATHS)"));
   assert.match(middleware, /startsWithAny\(pathname, MACHINE_AUTH_PATHS\)/);
   const host = readFileSync(new URL("../lib/blue-desk-host.ts", import.meta.url), "utf8");
-  assert.match(host, /hostname === BLUEBELLY_PRESENTATION_HOST \? "blocked" : "private"/);
+  assert.match(host, /isBluebellyReaderHost\(hostname\) \? "blocked" : "private"/);
 });
