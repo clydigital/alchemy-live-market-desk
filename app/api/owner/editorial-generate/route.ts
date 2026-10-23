@@ -6,6 +6,7 @@ import { blueDeskHostAccess } from "@/lib/blue-desk-host";
 
 export const dynamic="force-dynamic";
 export const runtime="nodejs";
+export const maxDuration=60;
 const MAX_REQUEST=60_000;
 const noStore={"Cache-Control":"private, no-store"};
 function fail(status:number,reason:string){
@@ -83,14 +84,18 @@ export async function POST(req:NextRequest){
       "\nEXISTING ARTICLE DRAFT:\n"+existing+"\nSOURCE PACKET:\n"+packet
     : "INITIAL DRAFT\nTitle: "+title+"\nMode: "+kind+
       "\nSOURCE PACKET:\n"+packet;
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),60_000);
+  let timer:ReturnType<typeof setTimeout>|undefined;
   try {
     const ai=new GoogleGenAI({apiKey:key});
-    const response=await ai.models.generateContent({
-      model,contents:input,
-      config:{systemInstruction:rules,temperature:0.35,maxOutputTokens:4400},
-    },{signal:controller.signal});
+    const response=await Promise.race([
+      ai.models.generateContent({
+        model,contents:input,
+        config:{systemInstruction:rules,temperature:0.35,maxOutputTokens:4400},
+      }),
+      new Promise<never>((_resolve,reject)=>{
+        timer=setTimeout(()=>reject(new Error("Editorial model timeout")),55_000);
+      }),
+    ]);
     const draft=txt(response.text,22000);
     if(draft.length<120) return fail(502,"Model did not produce a useful article draft");
     return NextResponse.json({body:draft,model,status:"PRIVATE_UNVERIFIED_DRAFT",
@@ -102,5 +107,5 @@ export async function POST(req:NextRequest){
     return fail(status===429?429:502,status===429?
       "Editorial model rate-limited; try again later":
       "Editorial model unavailable; your current draft is unchanged");
-  }finally{clearTimeout(timer);}
+  }finally{if(timer)clearTimeout(timer);}
 }
