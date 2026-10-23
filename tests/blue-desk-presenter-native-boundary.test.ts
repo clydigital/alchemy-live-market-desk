@@ -16,6 +16,16 @@ test("Blue Desk Presenter is private on all public hosts and uses the existing o
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "bluebelly-desk.vercel.app"), "blocked");
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "alchemy-live-market-desk.vercel.app"), "private");
   assert.equal(blueDeskHostAccess("/blue-desk/presenter", "private-preview.vercel.app"), "private");
+  const v6Host = "bluebelly-v6-review.vercel.app";
+  assert.equal(blueDeskHostAccess("/", v6Host), "public");
+  assert.equal(blueDeskHostAccess("/learn", v6Host), "public");
+  assert.equal(blueDeskHostAccess("/key-stories", v6Host), "public");
+  assert.equal(blueDeskHostAccess("/presenter", v6Host), "private");
+  assert.equal(blueDeskHostAccess("/blue-desk/presenter", v6Host), "blocked");
+  assert.equal(blueDeskHostAccess("/api/presenter/technical-checks", v6Host), "private");
+  assert.equal(blueDeskHostAccess("/api/internal-research", v6Host), "blocked");
+  assert.equal(blueDeskHostAccess("/auth/google", v6Host), "public");
+  assert.match(middleware, /isBluebellyReaderHost\(host\)/);
   assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
   assert.match(middleware, /app_access_allowlist/);
 });
