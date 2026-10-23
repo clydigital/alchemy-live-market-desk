@@ -44,7 +44,8 @@ export function blueDeskPresentationTarget(pathname: string, host: string | null
   if (pathname === "/presenter/editorial") return "/blue-desk/presenter/editorial";
   if (pathname === "/presenter/dossier") return "/blue-desk/dossier";
   if (pathname === "/presenter/changes") return "/blue-desk/changes";
-  if (pathname === "/presenter/full-prep") return "/hybrid-output/prepare";
+  if (pathname === "/presenter/full-prep") return "/blue-desk/presenter/full-prep";
+  if (pathname === "/presenter/technical-checks") return "/blue-desk/presenter/technical-checks";
   if (/^\/stories\/[^/]+$/.test(pathname)) return "/blue-desk" + pathname;
   return null;
 }
@@ -79,7 +80,7 @@ export function blueDeskHostAccess(pathname: string, host: string | null | undef
   // No other Bluebelly owner routes, research APIs or machine jobs are opened.
   if (isBluebellyReaderHost(hostname)) {
     if (["/login", "/auth/google", "/auth/callback", "/auth/signout"].includes(pathname)) return "public";
-    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/api/presenter/technical-checks"].includes(pathname)) return "private";
+    if (["/presenter", "/presenter/editorial", "/presenter/dossier", "/presenter/changes", "/presenter/full-prep", "/presenter/technical-checks", "/api/presenter/technical-checks"].includes(pathname)) return "private";
   }
 
   const publicPage =
