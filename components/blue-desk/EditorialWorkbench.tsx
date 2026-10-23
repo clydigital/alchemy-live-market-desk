@@ -12,14 +12,14 @@ type Draft = {
   kind:Kind; title:string; meta:string; assetId:string;
   hook:string; catalysts:string; sources:string;
   expectation:string; observed:string; explanation:string; alternative:string;
-  confirmation:string; invalidation:string; chart1:string;chart2:string;chart3:string;
+  confirmation:string; invalidation:string; missingProof:string; chart1:string;chart2:string;chart3:string;
   body:string;
 };
 const STORAGE="bluebelly-editorial-workbench-v1";
 const EMPTY:Draft={
   kind:"COTD",title:"",meta:"",assetId:"",hook:"",catalysts:"",sources:"",
   expectation:"",observed:"",explanation:"",alternative:"",
-  confirmation:"",invalidation:"",chart1:"",chart2:"",chart3:"",body:"",
+  confirmation:"",invalidation:"",missingProof:"",chart1:"",chart2:"",chart3:"",body:"",
 };
 const RUN=["Market in 60 seconds","What changed overnight","Three-session / five-session check",
   "Charts and the countercase","Next catalysts and viewer questions"];
@@ -58,6 +58,8 @@ function articlePacket(d:Draft,card:EditorialPriceCard|null) {
     short(d.explanation),
     "## Strongest counter-explanation",
     short(d.alternative),
+    "## Unresolved source and price evidence",
+    short(d.missingProof,"No verification-gap notes entered; this does not imply full verification."),
     "## Chart checks (not confirmed setups)",
     [d.chart1,d.chart2,d.chart3].filter(Boolean).map((x,i)=>(i+1)+". "+x).join("\n")||"No inspected charts.",
     "## Article text (author-owned)",
@@ -131,12 +133,12 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
     if((draft.title||draft.body)&&!window.confirm("Replace the working article notes with this saved idea? Your existing browser draft will be overwritten."))return;
     const format:Kind=idea.format==="BOTH"?"OB":idea.format;
     setDraft({
-      ...EMPTY,kind:format,assetId:draft.assetId,title:idea.title.slice(0,63),
+      ...EMPTY,kind:format,assetId:"",title:idea.title.slice(0,63),
       hook:idea.hook,catalysts:idea.catalystTimeline,
       expectation:idea.expectation,observed:idea.priceReaction,
       explanation:idea.mechanism,alternative:idea.countercase,
       confirmation:idea.nextTrigger,
-      invalidation:idea.missingProof,
+      invalidation:"",missingProof:idea.missingProof,
       sources:[...new Set([...idea.sourceUrls,...(slate?.sources||[])])].join("\n"),
       chart1:idea.chartGuidance[0]||"",chart2:idea.chartGuidance[1]||"",
       chart3:idea.chartGuidance[2]||"",
@@ -289,6 +291,8 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
               onChange={v=>update("confirmation",v)}/>
             <Field label="What invalidates it?" value={draft.invalidation}
               onChange={v=>update("invalidation",v)}/>
+            <Field label="Missing evidence · UNKNOWN comparisons and unverified claims" rows={3} value={draft.missingProof}
+              onChange={v=>update("missingProof",v)}/>
             <Field label="Original source URLs · one per line" rows={3} value={draft.sources}
               onChange={v=>update("sources",v)}/>
             <h3>Chart storyboard · maximum three</h3>
