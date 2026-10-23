@@ -3,8 +3,8 @@
  * facts only; Motion commentary is shown as a *question*, never factual evidence.
  * Never changes canonical Stories, Regimes, thesis versions or source state.
  */
-import { selectVerifiedNewsBriefs, type NewsBriefV1 } from "./market-brief-news";
-import { marketMotionAttention, type MarketMotionRecord } from "./market-motion";
+import { selectVerifiedNewsBriefs, type NewsBriefV1 } from "./market-brief-news.ts";
+import { marketMotionAttention, type MarketMotionRecord } from "./market-motion.ts";
 
 export type BlueDeskImpactItem = {
   fact: NewsBriefV1;
