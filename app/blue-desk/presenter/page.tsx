@@ -7,6 +7,9 @@ import { selectVerifiedNewsBriefs } from "@/lib/market-brief-news";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import { publicMarketObservations } from "@/lib/blue-desk-public-markets";
 import DualTimestamp from "@/components/blue-desk/DualTimestamp";
+import EditorialWorkbench from "@/components/blue-desk/EditorialWorkbench";
+import { projectEditorialPriceCards } from "@/lib/editorial-price-context";
+import { getLatestEditorialSlate } from "@/lib/editorial-slate-server";
 
 import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
@@ -49,10 +52,12 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
     : editionPinnedPrepHref(query);
   const editorialHref = (bluebelly?"/presenter/editorial":"/blue-desk/presenter/editorial")
     + (query.edition && typeof query.edition === "string" ? "?edition=" + encodeURIComponent(query.edition) : "");
-  const [rawMotions, monitor] = await Promise.all([
+  const [rawMotions, monitor, editorialSlate] = await Promise.all([
     getCurrentVerifiedMarketMotion({limit:18}).catch(()=>[]),
     getMarketMonitor().catch(()=>null),
+    getLatestEditorialSlate(),
   ]);
+  const priceCards = projectEditorialPriceCards(monitor?.rows || [], new Date().toISOString());
   const news = selectVerifiedNewsBriefs(rawMotions,new Date(),8);
   const readings = publicMarketObservations(monitor?.rows||[],"all")
     .filter(row=>["us2y","us10y-fred","brent","wti","spx","dxy","gold-proxy","smh"].includes(row.id))
@@ -68,7 +73,7 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
           <p>Today’s Talk and Technical × Fundamentals, in the Bluebelly workspace. Reconcile your charts with the market story before going live.
             Technical readings are presenter-owned notes, not canonical market evidence.</p>
           <div className={ui.links}>
-            <Link className={ui.action} href={editorialHref}>COTD / OB editorial checks →</Link>
+            <Link className={ui.action} href="#cotd-ob-writing-brain">OB / COTD Writing Brain ↓</Link>
             <Link className={ui.action} href={fullPrepHref}>Open full edition-pinned prep →</Link>
             <Link href={bluebelly?"/presenter/changes":"/blue-desk/changes"}>Open Change Ledger →</Link>
           </div>
@@ -100,10 +105,24 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
             </div>
           </div>
           <div className={ui.links}>
-            <Link className={ui.action} href={editorialHref}>Turn research into COTD / OB →</Link>
+            <Link className={ui.action} href="#cotd-ob-writing-brain">Turn research into COTD / OB ↓</Link>
             <Link href={bluebelly?"/presenter/dossier":"/blue-desk/dossier"}>Canonical Dossier history →</Link>
             <Link href={bluebelly?"/presenter/changes":"/blue-desk/changes"}>What changed in our view →</Link>
           </div>
+        </section>
+
+        <section id="cotd-ob-writing-brain" className={ui.panel} aria-label="OB and COTD research and drafting">
+          <p className={desk.kicker}>01 / RESEARCH → PRICE → INTERPRETATION → ARTICLE</p>
+          <h2>OB / COTD Writing Brain</h2>
+          <p>Choose a ranked morning idea, compare the last completed 1, 3 and 5 trading sessions,
+            walk through catalysts and competing explanations, then draft or revise in British English.
+            No missing figure or uninspected chart becomes an asserted market fact.</p>
+          <p>Use the same source pack on air and in the article. Review
+            original evidence and any UNKNOWN reaction before publication.</p>
+          <EditorialWorkbench priceCards={priceCards} mode="presenter" readError={!monitor}
+            slate={editorialSlate.slate} slateStatus={editorialSlate.status}/>
+          <div className={ui.links}><Link href={editorialHref}>
+            View source-locked Dossier / edition excerpts →</Link></div>
         </section>
 
         <section className={ui.panel} aria-labelledby="technical-checklist-heading">
@@ -130,7 +149,8 @@ export default async function BlueDeskPresenterStudio({ searchParams }: Props) {
           <p className={desk.kicker}>04 / COTD + OPENING BELL</p>
           <h2 id="editorial-heading">Read the article evidence before writing</h2>
           <p>Review source-admitted excerpts, frozen causal interpretation, chart and length gaps, and separate COTD / OB publication checks. Full articles still require fresh price confirmation and your approval.</p>
-          <Link className={ui.action} href={editorialHref}>Open COTD / OB editorial preview →</Link>
+          <Link className={ui.action} href="#cotd-ob-writing-brain">Return to Writing Brain ↑</Link>
+          <Link href={editorialHref}>Open frozen source excerpts →</Link>
         </section>
 
         <footer className={ui.footer}>
