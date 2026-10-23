@@ -10,7 +10,7 @@ test("public header links target genuine approved reading routes, not homepage a
   const match = header.match(/const PUBLIC_NAV = \[([\s\S]*?)\] as const;/);
   assert.ok(match, "public navigation must be explicitly enumerated");
   const hrefs = [...match[1].matchAll(/\["[^"]+",\s*"([^"]+)"\]/g)].map(m => m[1]);
-  assert.deepEqual(hrefs, ["/", "/key-stories", "/rates", "/what-changed", "/markets", "/calendar", "/presenter"]);
+  assert.deepEqual(hrefs, ["/", "/key-stories", "/rates", "/what-changed", "/markets", "/calendar", "/presenter", "/learn"]);
   assert.ok(hrefs.every(href => !href.includes("#")));
   const ratesReader = readFileSync(new URL("../app/blue-desk/markets/page.tsx", import.meta.url), "utf8");
   assert.match(ratesReader, /publicOfficialMacroTrends/);
