@@ -125,105 +125,13 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
   const upcoming = upcoming7d.length ? upcoming7d : upcomingFallback;
 
   return (
-    <main className={styles.page} data-blue-desk-convergence="phase-1">
+    <main className={styles.page} data-blue-desk-convergence="phase-1" data-bluebelly-home="editorial">
       <BlueDeskHeader activePath="/blue-desk" />
       <div className={styles.content}>
-        <section className={styles.newsFirst} aria-labelledby="blue-desk-news-title">
-          <div className={styles.sectionHead}>
-            <div>
-              <p className={styles.kicker}>LATEST MOTIONS &amp; NEWS · VERIFIED SOURCES</p>
-              <h1 id="blue-desk-news-title"><MarketIcon name="divergence" size={31} /> What happened in markets?</h1>
-              <p>Events first, market observations next, interpretation afterwards. Each verified headline has an original report and event time.</p>
-            </div>
-            {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate all Motions →</Link> : null}
-          </div>
-          <div className={styles.newsFirstGrid}>
-            {verifiedNews.length ? verifiedNews.map((news, index) => (
-              <article className={styles.newsFirstCard} key={news.id}>
-                <span className={styles.kicker}>{index === 0 ? "LEAD VERIFIED REPORT" : "SOURCE-VERIFIED"} · {news.sourceKind}</span>
-                <h2>{news.headline}</h2>
-                <p>{ellipsis(news.summary, index < 3 ? 230 : 150)}</p>
-                <div className={styles.newsFirstMeta}>
-                  <DualTimestamp value={news.occurredAt} sourceDate={news.occurredAt} />
-                  <a href={news.sourceUrl} target="_blank" rel="noreferrer">{news.sourceName} ↗</a>
-                </div>
-              </article>
-            )) : <article className={styles.newsFirstCard}>
-              <h2>No fresh source-verified news in the feed.</h2>
-              <p>That does not establish a quiet market. Source-dated market observations remain available below.</p>
-            </article>}
-          </div>
-          {ownerResearchMotions.length ? (
-            <details className={styles.ownerMotions}>
-              <summary>{ownerResearchMotions.length} extra research Motions · not verified</summary>
-              <div className={styles.ownerMotionGrid}>
-                {ownerResearchMotions.map(item => (
-                  <article key={item.id}>
-                    <span className={styles.kicker}>{item.verification_state} · {item.category}</span>
-                    <h3>{item.headline}</h3>
-                    <p>{ellipsis(item.what_happened, 175)}</p>
-                    <DualTimestamp value={item.occurred_at} sourceDate={item.occurred_at} />
-                    <small>Owner context only. This is not evidence or a published market conclusion.</small>
-                  </article>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </section>
-
-        <section className={styles.dailyMap} aria-labelledby="daily-map-title" data-market-map-contract={dailyMap.contractVersion}>
-          <div className={styles.dailyMapHeading}>
-            <div>
-              <p className={styles.kicker}>SOURCE-DATED MARKET SUMMARY</p>
-              <h1 id="daily-map-title">The market, from eight angles</h1>
-              <p>Rates, stocks, breadth, energy, currencies, credit, metals and AI.
-                Each reading retains its original observation date. No single Dossier verdict decides this coverage.</p>
-            </div>
-            <div className={styles.dailyMapStatus} role="status">
-              <strong>{dailyMap.observedCount} / {dailyMap.lenses.length} lenses observed</strong>
-              <span>{dailyMap.olderCount ? dailyMap.olderCount + " with older-only observations" : "Source dates shown below"}</span>
-            </div>
-          </div>
-          <div className={styles.dailyMapGrid}>
-            {dailyMap.lenses.map(lens => (
-              <article className={styles.dailyMapCard} key={lens.key} data-lens={lens.key} data-source-state={lens.state}>
-                <div className={styles.dailyMapCardHeader}>
-                  <h2>{lens.heading}</h2>
-                  <span className={styles.lensState}>
-                    {lens.state === "UNAVAILABLE" ? "NO VERIFIED LEVEL"
-                      : lens.state === "OLDER_SOURCE" ? "OLDER SOURCE" : "SOURCE-DATED"}
-                  </span>
-                </div>
-                {lens.observations.length ? lens.observations.map(row => (
-                  <div className={styles.lensMetric} key={row.id}>
-                    <div className={styles.lensMetricHead}>
-                      <strong>{row.label}</strong>
-                      <span>{row.last === null ? "—" : marketNumber(row.last, row.type === "Rates") + (row.type === "Rates" ? "%" : "")}</span>
-                    </div>
-                    <p className={styles.lensChange}>
-                      {row.change !== null && row.frequency === "daily"
-                        ? "Previous session: " + (row.change > 0 ? "+" : "") + row.change.toFixed(2) + " " + row.changeUnit
-                        : "Previous-session change unavailable"}
-                      {row.freshness === "OLDER_OBSERVATION" ? " · older observation" : ""}
-                    </p>
-                    <div className={styles.lensProvenance}>
-                      <DualTimestamp value={row.asOf} sourceDate={row.asOf} className={styles.lensTime} />
-                      {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} ↗</a> : null}
-                    </div>
-                  </div>
-                )) : <p className={styles.lensEmpty}>No verified observation for this lens. Not a neutral market signal.</p>}
-                <p className={styles.lensQuestion}>{lens.question}</p>
-                <Link className={styles.dailyMapLink} href={blueDeskPublicHref("/blue-desk/markets?group=" + lens.group, host)}>
-                  Explore {lens.heading.toLowerCase()} →
-                </Link>
-              </article>
-            ))}
-          </div>
-          <p className={styles.dailyMapFootnote}>
-            Source times are not page refresh times. A previous-session move does not establish an intraday reaction,
-            cause or trade recommendation. Unverified providers are not filled with estimates.
-          </p>
-        </section>
+        <div className={styles.homeContextBar} aria-label="Bluebelly homepage sections">
+          <div><span className={styles.kicker}>BLUEBELLY / MARKET INTELLIGENCE</span><p>The essential story first. Explore the evidence whenever you need it.</p></div>
+          <nav aria-label="Jump to homepage sections"><a href="#stories-title">Market Stories</a><a href="#calendar-title">Coming up</a><a href="#blue-desk-news-title">Verified news</a></nav>
+        </div>
 
         <section className={styles.hero} aria-label="Latest canonical Market Brief">
           <div className={styles.heroStory}>
@@ -355,6 +263,111 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
           </section>
         </div>
 
+        <details className={styles.homeDisclosure} data-home-panel="news">
+          <summary className={styles.homeDisclosureSummary}><span><strong>Verified developments</strong><small>{verifiedNews.length} source-qualified reports · original timestamps and links</small></span><span aria-hidden="true">Expand ↓</span></summary>
+        <section className={styles.newsFirst} aria-labelledby="blue-desk-news-title">
+          <div className={styles.sectionHead}>
+            <div>
+              <p className={styles.kicker}>LATEST MOTIONS &amp; NEWS · VERIFIED SOURCES</p>
+              <h2 id="blue-desk-news-title"><MarketIcon name="divergence" size={31} /> What happened in markets?</h2>
+              <p>Events first, market observations next, interpretation afterwards. Each verified headline has an original report and event time.</p>
+            </div>
+            {!publicHost ? <Link className={styles.textLink} href="/whats-new">Investigate all Motions →</Link> : null}
+          </div>
+          <div className={styles.newsFirstGrid}>
+            {verifiedNews.length ? verifiedNews.slice(0, 4).map((news, index) => (
+              <article className={styles.newsFirstCard} key={news.id}>
+                <span className={styles.kicker}>{index === 0 ? "LEAD VERIFIED REPORT" : "SOURCE-VERIFIED"} · {news.sourceKind}</span>
+                <h2>{news.headline}</h2>
+                <p>{ellipsis(news.summary, index < 3 ? 230 : 150)}</p>
+                <div className={styles.newsFirstMeta}>
+                  <DualTimestamp value={news.occurredAt} sourceDate={news.occurredAt} />
+                  <a href={news.sourceUrl} target="_blank" rel="noreferrer">{news.sourceName} ↗</a>
+                </div>
+              </article>
+            )) : <article className={styles.newsFirstCard}>
+              <h2>No fresh source-verified news in the feed.</h2>
+              <p>That does not establish a quiet market. Source-dated market observations remain available below.</p>
+            </article>}
+          </div>
+          {ownerResearchMotions.length ? (
+            <details className={styles.ownerMotions}>
+              <summary>{ownerResearchMotions.length} extra research Motions · not verified</summary>
+              <div className={styles.ownerMotionGrid}>
+                {ownerResearchMotions.map(item => (
+                  <article key={item.id}>
+                    <span className={styles.kicker}>{item.verification_state} · {item.category}</span>
+                    <h3>{item.headline}</h3>
+                    <p>{ellipsis(item.what_happened, 175)}</p>
+                    <DualTimestamp value={item.occurred_at} sourceDate={item.occurred_at} />
+                    <small>Owner context only. This is not evidence or a published market conclusion.</small>
+                  </article>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </section>
+
+        </details>
+
+        <details className={styles.homeDisclosure} data-home-panel="market-map">
+          <summary className={styles.homeDisclosureSummary}><span><strong>Cross-asset market map</strong><small>{dailyMap.observedCount} of {dailyMap.lenses.length} source-dated lenses · full measurement provenance</small></span><span aria-hidden="true">Expand ↓</span></summary>
+        <section className={styles.dailyMap} aria-labelledby="daily-map-title" data-market-map-contract={dailyMap.contractVersion}>
+          <div className={styles.dailyMapHeading}>
+            <div>
+              <p className={styles.kicker}>SOURCE-DATED MARKET SUMMARY</p>
+              <h2 id="daily-map-title">The market, from eight angles</h2>
+              <p>Rates, stocks, breadth, energy, currencies, credit, metals and AI.
+                Each reading retains its original observation date. No single Dossier verdict decides this coverage.</p>
+            </div>
+            <div className={styles.dailyMapStatus} role="status">
+              <strong>{dailyMap.observedCount} / {dailyMap.lenses.length} lenses observed</strong>
+              <span>{dailyMap.olderCount ? dailyMap.olderCount + " with older-only observations" : "Source dates shown below"}</span>
+            </div>
+          </div>
+          <div className={styles.dailyMapGrid}>
+            {dailyMap.lenses.map(lens => (
+              <article className={styles.dailyMapCard} key={lens.key} data-lens={lens.key} data-source-state={lens.state}>
+                <div className={styles.dailyMapCardHeader}>
+                  <h2>{lens.heading}</h2>
+                  <span className={styles.lensState}>
+                    {lens.state === "UNAVAILABLE" ? "NO VERIFIED LEVEL"
+                      : lens.state === "OLDER_SOURCE" ? "OLDER SOURCE" : "SOURCE-DATED"}
+                  </span>
+                </div>
+                {lens.observations.length ? lens.observations.map(row => (
+                  <div className={styles.lensMetric} key={row.id}>
+                    <div className={styles.lensMetricHead}>
+                      <strong>{row.label}</strong>
+                      <span>{row.last === null ? "—" : marketNumber(row.last, row.type === "Rates") + (row.type === "Rates" ? "%" : "")}</span>
+                    </div>
+                    <p className={styles.lensChange}>
+                      {row.change !== null && row.frequency === "daily"
+                        ? "Previous session: " + (row.change > 0 ? "+" : "") + row.change.toFixed(2) + " " + row.changeUnit
+                        : "Previous-session change unavailable"}
+                      {row.freshness === "OLDER_OBSERVATION" ? " · older observation" : ""}
+                    </p>
+                    <div className={styles.lensProvenance}>
+                      <DualTimestamp value={row.asOf} sourceDate={row.asOf} className={styles.lensTime} />
+                      {row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.sourceName} ↗</a> : null}
+                    </div>
+                  </div>
+                )) : <p className={styles.lensEmpty}>No verified observation for this lens. Not a neutral market signal.</p>}
+                <p className={styles.lensQuestion}>{lens.question}</p>
+                <Link className={styles.dailyMapLink} href={blueDeskPublicHref("/blue-desk/markets?group=" + lens.group, host)}>
+                  Explore {lens.heading.toLowerCase()} →
+                </Link>
+              </article>
+            ))}
+          </div>
+          <p className={styles.dailyMapFootnote}>
+            Source times are not page refresh times. A previous-session move does not establish an intraday reaction,
+            cause or trade recommendation. Unverified providers are not filled with estimates.
+          </p>
+        </section>
+
+        </details>
+
         <section className={styles.lastLinks} aria-label="Desk research and presenter">
           <div>
             <h2>{publicHost ? "Explore public research" : "Dossier, Journey and presenter preparation"}</h2>
@@ -366,7 +379,8 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
                 <Link href="/rates">Observed Treasury yields →</Link>
                 <Link href="/what-changed">Verified developments →</Link>
                 <Link href="/markets">Public markets →</Link>
-                <Link href="/presenter">Presenter Deck (sign-in) →</Link>
+                <Link href="/presenter">Presenter Prep (owner sign-in) →</Link>
+                <Link href="/learn">Learn the markets →</Link>
                 <Link href="/calendar">Public calendar →</Link>
               </>
             ) : (
@@ -374,7 +388,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
                 <Link href="/blue-desk/changes">What changed in our view →</Link>
                 <Link href="/blue-desk/dossier">Dossier archive →</Link>
                 <Link href="/regimes">Market Regimes →</Link>
-                <Link href="/hybrid-output/prepare">Presenter Studio →</Link>
+                <Link href="/blue-desk/presenter">Presenter Prep →</Link>
                 <Link href="/presenter/technical-checks">Technical Checks →</Link>
               </>
             )}
