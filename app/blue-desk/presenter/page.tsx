@@ -33,7 +33,7 @@ function editionPinnedPrepHref(query:Search):string{
     params.set(key, value);
   }
   const suffix=params.toString();
-  return "/hybrid-output/prepare"+(suffix?"?"+suffix:"");
+  return "/presenter/full-prep"+(suffix?"?"+suffix:"");
 }
 const LENSES=[
   {
@@ -64,8 +64,7 @@ export default async function BlueDeskPresenterStudio({searchParams}:Props){
   const pinSuffix=pinHref.includes("?")?pinHref.slice(pinHref.indexOf("?")+1):"";
   const tabHref=(view:"talk"|"checks"|"source")=>prepRoot+"?view="+view+(pinSuffix?"&"+pinSuffix:"");
   const view=query.view==="checks"||query.view==="source"?query.view:"talk";
-  const fullPrepHref=bluebelly
-    ?pinHref.replace("/hybrid-output/prepare","/presenter/full-prep"):pinHref;
+  const fullPrepHref=bluebelly ? pinHref : pinHref.replace("/presenter/full-prep","/blue-desk/presenter/full-prep");
   const editorialHref=(bluebelly?"/presenter/editorial":"/blue-desk/presenter/editorial")
     +(query.edition&&typeof query.edition==="string"?"?edition="+encodeURIComponent(query.edition):"");
   const dossierHref=bluebelly?"/presenter/dossier":"/blue-desk/dossier";
