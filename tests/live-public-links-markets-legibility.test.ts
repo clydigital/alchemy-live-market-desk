@@ -11,8 +11,8 @@ test("no-login legacy Live links resolve only to an exact public reading allowli
   const host = LIVE_DESK_PRESENTATION_HOST;
   for (const [tab, destination] of [
     ["markets", "/owner/markets"], ["MARKET", "/owner/markets"],
-    ["calendar", "/calendar"], ["bonds", "/#rates-title"],
-    ["stories", "/#stories-title"], ["what changed", "/#motion-title"],
+    ["calendar", "/calendar"], ["bonds", "/rates"],
+    ["stories", "/key-stories"], ["what changed", "/what-changed"],
     ["research", "/"], ["unknown", "/"], ["//evil.example", "/"],
   ]) {
     assert.equal(publicLiveLegacyTabDestination(tab), destination, tab);
