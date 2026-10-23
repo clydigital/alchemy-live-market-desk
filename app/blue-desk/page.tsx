@@ -97,7 +97,7 @@ export default async function BlueDeskPage({searchParams}:{searchParams:Promise<
   const historicalReadings=storyArchive.length?storyArchive:fallback;
   const latestByStory=newestStoryReadings(historicalReadings);
   const filtered=subject?latestByStory.filter(item=>
-    storyMatchesSubject(item.article.title,item.article.deck,item.[],subject)):latestByStory;
+    storyMatchesSubject(item.article.title,item.article.deck,[],subject)):latestByStory;
   const pagination=paginateStoryReadings(filtered,page);
   const articles=pagination.items;
   const storyGridHref=(nextPage:number,filter=subject)=>
