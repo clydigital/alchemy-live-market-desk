@@ -66,7 +66,7 @@ function keyedAsset(value:string):string[] {
   XAUUSD:["GOLD"],GOLD:["GOLD"],BRENT:["OIL"],WTI:["OIL"],CL:["OIL"],
   USDJPY:["US","JP"],JPY:["JP"],JXY:["JP"],USDCNH:["US","CN"],
   EURGBP:["EU","GB"],DXY:["DXY"],US2Y:["US","BONDS"],US10Y:["US","BONDS"],
-  US30Y:["US","BONDS"],NVDA:["NVDA"],TSM:["TSM"],
+  US30Y:["US","BONDS"],NVDA:["NVDA"],TSM:["TSM"],MSFT:["MSFT"],GOOGL:["GOOGL"],GOOG:["GOOGL"],AMZN:["AMZN"],AAPL:["AAPL"],META:["META"],AMD:["AMD"],MU:["MU"],ORCL:["ORCL"],ASML:["ASML"],QCOM:["QCOM"],AVGO:["AVGO"],TSLA:["TSLA"],CRWV:["CRWV"],
  };
  return map[x]??[x];
 }
