@@ -33,3 +33,10 @@
 .air{background:#09251e;padding:30px 18px;border:1px solid #508368;border-radius:12px}
 .air h2{font-size:35px}.air pre{font:normal 17px/1.7 Inter,Arial,sans-serif;white-space:pre-wrap;min-height:170px;overflow-wrap:anywhere}
 @media(max-width:900px){.columns{grid-template-columns:1fr}.panel{padding:18px}.layout{padding:0 14px 60px}.status{display:block}.status span{display:block}}
+
+.slateGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.slateCard{border:1px solid #3b6051;background:#0c211b;border-radius:10px;padding:16px;min-width:0;overflow-wrap:anywhere}
+.slateCard h3{font:500 20px Georgia,serif;margin:10px 0;color:#ecf5ef}
+.slateCard p{font-size:13px;line-height:1.55}
+.slateCard .actions{margin-bottom:0}
+@media(max-width:900px){.slateGrid{grid-template-columns:1fr}}

@@ -3,6 +3,7 @@ import BlueDeskHeader from "@/components/blue-desk/BlueDeskHeader";
 import EditorialWorkbench from "@/components/blue-desk/EditorialWorkbench";
 import PresenterTechnicalChecks from "@/components/live-desk/PresenterTechnicalChecks";
 import { projectEditorialPriceCards } from "@/lib/editorial-price-context";
+import { getLatestEditorialSlate } from "@/lib/editorial-slate-server";
 import { getMarketMonitor } from "@/lib/market-monitor-public";
 import styles from "@/app/blue-desk/blue-desk.module.css";
 
@@ -12,7 +13,7 @@ export const metadata={title:"Presenter Studio | Private Blue Desk",
   description:"Owner-only presenter run of show, market checks and technical overlays."};
 
 export default async function PresenterStudioPage(){
-  const monitor=await getMarketMonitor().catch(()=>null);
+  const [monitor,editorialSlate]=await Promise.all([getMarketMonitor().catch(()=>null),getLatestEditorialSlate()]);
   const cards=projectEditorialPriceCards(monitor?.rows||[],new Date().toISOString());
   return <main className={styles.page} data-presenter-studio="owner-only">
     <BlueDeskHeader activePath="/owner/presenter"/>
@@ -29,7 +30,7 @@ export default async function PresenterStudioPage(){
         </div>
       </header>
     </div>
-    <EditorialWorkbench mode="presenter" priceCards={cards} readError={!monitor}/>
+    <EditorialWorkbench mode="presenter" priceCards={cards} readError={!monitor} slate={editorialSlate.slate} slateStatus={editorialSlate.status}/>
     <div className={styles.content}>
       <section className={styles.section}>
         <div className={styles.sectionHead}>

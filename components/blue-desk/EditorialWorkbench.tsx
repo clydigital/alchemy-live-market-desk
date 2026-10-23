@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { EditorialPriceCard } from "@/lib/editorial-price-context";
+import type { EditorialSlate, SlateIdea } from "@/lib/editorial-slate-core";
 import { editorialPriceLines } from "@/lib/editorial-price-context";
 import styles from "./editorial-studio.module.css";
 
@@ -93,12 +94,16 @@ function Field({label,value,onChange,rows=2,placeholder}:{
     <textarea value={value} rows={rows} placeholder={placeholder} onChange={e=>onChange(e.target.value)}/>
   </label>;
 }
-export default function EditorialWorkbench({priceCards,mode,readError}:{
+export default function EditorialWorkbench({priceCards,mode,readError,slate,slateStatus}:{
   priceCards:EditorialPriceCard[];mode:"editorial"|"presenter";readError:boolean;
+  slate:EditorialSlate|null;slateStatus:"available"|"empty"|"storage_unavailable";
 }){
   const [draft,setDraft]=useState<Draft>({...EMPTY});
   const [loaded,setLoaded]=useState(false);
   const [copied,setCopied]=useState("");
+  const [generationState,setGenerationState]=useState<"idle"|"draft"|"revise">("idle");
+  const [generationError,setGenerationError]=useState("");
+  const [revisionInstruction,setRevisionInstruction]=useState("");
   const [runNotes,setRunNotes]=useState<string[]>(RUN.map(()=>""));
   const [onAir,setOnAir]=useState(false);
   const [onAirIndex,setOnAirIndex]=useState(0);
@@ -122,6 +127,57 @@ export default function EditorialWorkbench({priceCards,mode,readError}:{
     try{await navigator.clipboard.writeText(value);setCopied(label+" copied");}
     catch{setCopied("Clipboard unavailable — select and copy the preview text below.");}
   }
+  function selectSlateIdea(idea:SlateIdea){
+    if((draft.title||draft.body)&&!window.confirm("Replace the working article notes with this saved idea? Your existing browser draft will be overwritten."))return;
+    const format:Kind=idea.format==="BOTH"?"OB":idea.format;
+    setDraft({
+      ...EMPTY,kind:format,assetId:draft.assetId,title:idea.title.slice(0,63),
+      hook:idea.hook,catalysts:idea.catalystTimeline,
+      expectation:idea.expectation,observed:idea.priceReaction,
+      explanation:idea.mechanism,alternative:idea.countercase,
+      confirmation:idea.nextTrigger,
+      invalidation:idea.missingProof,
+      sources:[...new Set([...idea.sourceUrls,...(slate?.sources||[])])].join("\n"),
+      chart1:idea.chartGuidance[0]||"",chart2:idea.chartGuidance[1]||"",
+      chart3:idea.chartGuidance[2]||"",
+      body:"",
+    });
+    setGenerationError("");
+    setCopied("Scheduled idea loaded as PRIVATE working notes. Check original sources before generating.");
+  }
+  async function runGeneration(action:"draft"|"revise"){
+    if(generationState!=="idle")return;
+    if(!draft.title.trim()||!draft.catalysts.trim()||!draft.sources.trim()){
+      setGenerationError("Enter a headline, dated catalysts and original source URLs first.");
+      return;
+    }
+    if(action==="revise"&&!draft.body.trim()){
+      setGenerationError("There is no article body to revise yet.");
+      return;
+    }
+    if(action==="draft"&&draft.body.trim()&&
+       !window.confirm("Replace your current article body with a new model-generated draft?"))return;
+    setGenerationError("");
+    setGenerationState(action);
+    try{
+      const response=await fetch("/api/owner/editorial-generate",{
+        method:"POST",credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          action,kind:draft.kind,title:draft.title,
+          packet:writingRequest(draft,selected),existingBody:draft.body,
+          instructions:revisionInstruction,
+        }),
+      });
+      const result=await response.json() as {body?:string;error?:string;status?:string};
+      if(!response.ok||!result.body)throw new Error(result.error||"Generation unavailable");
+      update("body",result.body);
+      setCopied(action==="draft"?"AI draft added — NOT fact-checked or published.":
+        "AI revision added — verify every figure and source before publication.");
+    }catch(e){
+      setGenerationError(e instanceof Error?e.message:"Generation unavailable");
+    }finally{setGenerationState("idle");}
+  }
   const sourceLinks=draft.sources.split(/\s+/).map(s=>safeHttps(s.trim())).filter((s):s is string=>!!s).slice(0,10);
   const articleReady=draft.title.trim().length>0&&draft.title.length<=63&&draft.meta.length<=150
     &&Boolean(draft.catalysts.trim()&&draft.sources.trim()&&draft.explanation.trim()
@@ -140,6 +196,29 @@ export default function EditorialWorkbench({priceCards,mode,readError}:{
       </nav>
       <div className={styles.status}><strong>Owner-only research workspace</strong>
         <span>Notes save locally in this browser; scheduled research and canonical source evidence remain separate.</span></div>
+      <section className={styles.panel} aria-label="Scheduled editorial slate">
+        <header className={styles.panelHead}>
+          <h2>09:00 Editorial Slate</h2>
+          <small>{slate?slate.dayMyt+" MYT · "+slate.ageLabel:
+            slateStatus==="storage_unavailable"?"Storage unavailable":"No stored scheduled slate yet"}</small>
+        </header>
+        {!slate?<p className={styles.help}>The weekday writing task must successfully hand off its three sourced ideas to the private slate ledger. No placeholder headlines are invented. You can still write manually.</p>:<>
+          <p className={styles.help}>{slate.verificationStatus==="partial"?
+            "PARTIAL SOURCE COVERAGE — verify unresolved catalysts and price windows.":
+            "Source-checked research suggestions; article wording and technical setups still require manual review."} {slate.notes}</p>
+          <div className={styles.slateGrid}>
+            {slate.ideas.map(idea=><article key={idea.rank} className={styles.slateCard}>
+              <p className={styles.kicker}>#{idea.rank} · {idea.format}</p>
+              <h3>{idea.title}</h3>
+              <p>{idea.hook}</p>
+              <p className={styles.small}>Price: {idea.priceReaction||"UNKNOWN"}</p>
+              <p className={styles.small}>Next test: {idea.nextTrigger||"Not recorded"}</p>
+              <p className={styles.small}>Charts: {idea.chartGuidance.length?idea.chartGuidance.join(" · "):"None verified"}</p>
+              <div className={styles.actions}><button type="button" onClick={()=>selectSlateIdea(idea)}>Use this angle</button></div>
+            </article>)}
+          </div>
+        </>}
+      </section>
       {mode==="presenter"?(
         <div className={styles.columns}>
           <section className={styles.panel}>
@@ -224,10 +303,23 @@ export default function EditorialWorkbench({priceCards,mode,readError}:{
               onChange={v=>update("body",v)}
               placeholder="The scheduled writing brain supplies the daily idea slate. Write and refine client-facing copy here, or copy the source-grounded brief for an assisted draft."/>
             <div className={styles.actions}>
+              <button type="button" disabled={generationState!=="idle"} onClick={()=>runGeneration("draft")}>
+                {generationState==="draft"?"Generating…":"Generate article draft"}
+              </button>
               <button onClick={()=>copy("Writing request",prompt)}>Copy AI writing brief</button>
               <button onClick={()=>copy("Markdown draft",packet)}>Copy draft Markdown</button>
             </div>
-            <p className={styles.small} role="status">{copied||"Not published. No automatic AI call or external export."}</p>
+            <label className={styles.lineField}>
+              <span>Revision instruction · optional</span>
+              <input value={revisionInstruction} onChange={e=>setRevisionInstruction(e.target.value.slice(0,900))}
+                placeholder="Tighten the opening, shorten paragraphs, strengthen the countercase…"/>
+            </label>
+            <div className={styles.actions}>
+              <button type="button" disabled={generationState!=="idle"||!draft.body.trim()}
+                onClick={()=>runGeneration("revise")}>{generationState==="revise"?"Revising…":"Revise article with AI"}</button>
+            </div>
+            <p className={styles.small} role="status">{generationError||copied||
+              "Generation is optional and owner-initiated. Outputs remain PRIVATE and UNVERIFIED until sourced review."}</p>
           </section>
           <aside className={styles.side}>
             <section className={styles.panel}>
