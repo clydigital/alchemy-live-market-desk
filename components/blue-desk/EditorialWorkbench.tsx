@@ -228,6 +228,7 @@ export default function EditorialWorkbench({priceCards,mode,readError,slate,slat
       {mode==="editorial"?(
         <InvestigationWorkbench
           initialQuestion={draft.title}
+          selectedAssetId={selected?.id||null}
           packet={writingRequest(draft,selected).slice(0,12_800)}
           onUse={setInvestigation}
         />
