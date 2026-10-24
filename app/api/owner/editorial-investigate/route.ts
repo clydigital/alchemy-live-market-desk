@@ -3,6 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import { NextRequest,NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { blueDeskHostAccess } from "@/lib/blue-desk-host";
+import { getMarketMonitor } from "@/lib/market-monitor-public";
+import { projectEditorialPriceCards } from "@/lib/editorial-price-context";
+import { buildReactionLedger,ledgerAsResearchPacket } from "@/lib/editorial-reaction-ledger";
 import { investigationSystemInstruction,projectGroundedInvestigation,
  validInvestigationInput } from "@/lib/editorial-investigation";
 
@@ -41,6 +44,11 @@ export async function POST(req:NextRequest){
   value=JSON.parse(raw);
  }catch{return fail(400,"Invalid research packet");}
  const input=validInvestigationInput(value);
+ const client=value&&typeof value==="object"&&!Array.isArray(value)?
+  value as Record<string,unknown>:{};
+ const requestedAssetId=client.selectedAssetId;
+ const eventAt=client.eventAt;
+
  if(!input)return fail(422,"Choose Impact, COTD or OB; enter a research question and sourced context.");
  // Each request is a single explicit owner click. Never scheduled or called
  // from the public site. Deployments can disable metered search independently.
@@ -50,8 +58,24 @@ export async function POST(req:NextRequest){
  if(!key)return fail(503,"Research model API key not configured");
  const model=process.env.EDITORIAL_RESEARCH_MODEL?.trim()||
    process.env.EDITORIAL_WRITING_MODEL?.trim()||"gemini-3.8-flash";
+ // This observer is reconstructed on the authenticated server from existing
+ // original-provider monitor points. Browser notes cannot supply price levels,
+ // quote times or provider provenance.
+ let marketTimer:ReturnType<typeof setTimeout>|undefined;
+ const now=new Date().toISOString();
+ const monitor=await Promise.race([
+   getMarketMonitor().catch(()=>null),
+   new Promise<null>(resolve=>{
+     marketTimer=setTimeout(()=>resolve(null),7_000);
+   }),
+ ]).finally(()=>{if(marketTimer)clearTimeout(marketTimer)});
+ const cards=projectEditorialPriceCards(monitor?.rows||[],now);
+ const reactionLedger=buildReactionLedger(cards,requestedAssetId,now,eventAt);
+ const observationPacket=ledgerAsResearchPacket(reactionLedger);
  const prompt="RESEARCH QUESTION:\n"+input.question+
    "\n\nUNTRUSTED CONTEXT (do not treat as verification):\n"+input.packet+
+   "\n\nSERVER-READ ORIGINAL PROVIDER OBSERVATIONS (source dated, may be unavailable):\n"+
+   observationPacket+
    "\n\nResearch independently using the enabled Google Search tool. If the event did not occur, correct the premise and state UNKNOWN; do not infer market reaction from daily observations.";
  let timer:ReturnType<typeof setTimeout>|undefined;
  try{
@@ -74,7 +98,7 @@ export async function POST(req:NextRequest){
    groundingMetadata:response.candidates?.[0]?.groundingMetadata,
   },input.mode);
   if(!result)return fail(502,"No usable research assessment returned; notes unchanged");
-  return NextResponse.json({ ...result,model },{headers:noStore});
+  return NextResponse.json({ ...result,reactionLedger,model },{headers:noStore});
  }catch(e){
   const status=e&&typeof e==="object"&&"status" in e?(e as {status?:unknown}).status:null;
   return fail(status===429?429:502,status===429?
