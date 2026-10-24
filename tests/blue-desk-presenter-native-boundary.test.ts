@@ -61,10 +61,10 @@ test("native presenter forwards exact edition references, never silently substit
   assert.match(full, /<PresenterPrepSession/);
 });
 
-test("V7 Writing Brain POST is same-origin owner-only on every approved Bluebelly review host", () => {
+test("V7 host and middleware preserve the existing owner Writer API contract for integration", () => {
   const middleware = read("middleware.ts");
-  const generate = read("app/api/owner/editorial-generate/route.ts");
-  const editor = read("components/blue-desk/PresenterEditorialDraftEditor.tsx");
+  // This V7 reference branch retains a local-only editor. The existing Gemini
+  // writer endpoint is owned by main/#998 and must be reused at convergence.
   for (const host of ["bluebelly-desk.vercel.app", "bluebelly-v6-review.vercel.app", "bluebelly-v7-review.vercel.app"]) {
     assert.equal(blueDeskHostAccess("/api/owner/editorial-generate", host), "private", host);
     assert.equal(blueDeskHostAccess("/api/presenter/technical-checks", host), "private", host);
@@ -76,9 +76,4 @@ test("V7 Writing Brain POST is same-origin owner-only on every approved Bluebell
   assert.match(middleware, /\["\/api\/presenter\/technical-checks", "\/api\/owner\/editorial-generate"\]\.includes\(pathname\)/);
   assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
   assert.match(middleware, /app_access_allowlist/);
-  assert.match(generate, /blueDeskHostAccess\("\/api\/owner\/editorial-generate",host\)/);
-  assert.match(generate, /Same-origin browser request required/);
-  assert.match(generate, /session\.auth\.getUser\(\)/);
-  assert.match(generate, /app_access_allowlist/);
-  assert.match(editor, /\/api\/owner\/editorial-generate/);
 });
