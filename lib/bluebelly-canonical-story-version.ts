@@ -26,7 +26,7 @@ const bounded = (v: unknown, limit: number): string | null => {
 };
 const time = (v: unknown): string | null => {
   const s = string(v);
-  return s && Number.isFinite(Date.parse(s)) ? new Date(s).toISOString() : null;
+  return s && Number.isFinite(Date.parse(s)) ? s : null;
 };
 const uuid = (v: unknown): string | null => {
   const s = string(v);
