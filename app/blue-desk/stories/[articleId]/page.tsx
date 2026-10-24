@@ -173,14 +173,18 @@ export default async function BlueDeskStoryPage({
                 <p className={styles.deepSourceContext}>These are individual source-linked observations, not proof of the full market interpretation.</p>
                 <ul className={styles.structuredEvidenceList}>
                   {article.editorial.evidenceClaims.map(claim => {
-                    const evidence = describePublicEvidenceClaim(claim.claimText);
+                    const evidence = describePublicEvidenceClaim(claim.claimText,{
+                      sourceName:claim.sourceName,sourceUrl:claim.sourceUrl,
+                      availableAt:claim.availableAt,
+                      editionAsOf:article.dossierAsOf || article.generatedAt,
+                    });
                     return (
                       <li key={claim.evidenceId} id={"evidence-" + claim.evidenceId} className={styles.structuredEvidenceCard}>
                         <div className={styles.structuredEvidenceHeading}>
                           <h3>{evidence.title}</h3>
-                          <span>{evidence.kind === "SEC_XBRL" ? "SEC FILING · SOURCE FACTS" : "ORIGINAL REPORT"}</span>
+                          <span>{evidence.kind === "TEXT" ? "ORIGINAL REPORT" : "SEC FILING · SOURCE FACTS"}</span>
                         </div>
-                        <p className={styles.structuredEvidenceSummary}>{evidence.kind === "SEC_XBRL"
+                        <p className={styles.structuredEvidenceSummary}>{evidence.kind !== "TEXT"
                           ? evidence.summary : formatBlueDeskSourceObservation(evidence.summary)}</p>
                         {evidence.facts.length ? (
                           <div className={styles.filingMetricList}>
@@ -196,6 +200,14 @@ export default async function BlueDeskStoryPage({
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        ) : null}
+                        {evidence.issuerComparison ? (
+                          <div className={styles.filingPeriodWarning} data-separate-issuer-source="true">
+                            <strong>{evidence.issuerComparison.title} — separate source, not the SEC evidence</strong>
+                            <p>{evidence.issuerComparison.detail}</p>
+                            <a href={evidence.issuerComparison.sourceUrl} target="_blank"
+                              rel="noopener noreferrer">{evidence.issuerComparison.sourceName} · read original release ↗</a>
                           </div>
                         ) : null}
                         {evidence.needsReview ? <p className={styles.filingPeriodWarning}>
