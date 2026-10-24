@@ -9,6 +9,8 @@ import {
   getHybridDirectDailyBriefSuperseders,
 } from "@/lib/hybrid-publication";
 import { resolvePresenterPrepExactSelection } from "@/lib/presenter-prep-exact-edition";
+import { buildPresenterPrepEditionIndex } from "@/lib/presenter-prep-edition-index";
+import { parseBluebellyExactPrepQuery, type BluebellyExactPrepQuery } from "@/lib/bluebelly-exact-prep-query";
 import { presenterDossierEditionContextFromPayload } from "@/lib/presenter-dossier-edition-context";
 import { getDossierV2PresentationSelectionById } from "@/lib/dossier-v2/presentation-reader";
 import { buildPresenterPrepSourceProjection } from "@/lib/presenter-prep-source-projection";
@@ -24,15 +26,6 @@ export const metadata = {
   description: "Private frozen research, proof and running order for one published edition.",
 };
 
-type Query = Record<string, string | string[] | undefined>;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FOCUS = ["story", "motion", "regime", "event"] as const;
-function readQuery(query: Query, name: string): string | null {
-  const v = query[name];
-  if (v === undefined) return null;
-  if (typeof v !== "string" || !v.trim() || v.length > 180 || /[\x00-\x1f\x7f]/.test(v)) notFound();
-  return v.trim();
-}
 
 /**
  * The exact historical edition is selected before frozen Dossier or editorial.
@@ -41,14 +34,52 @@ function readQuery(query: Query, name: string): string | null {
  */
 export default async function BluebellyExactEdition({
   searchParams,
-}: { searchParams: Promise<Query> }) {
-  const query = await searchParams;
-  const requested = readQuery(query, "edition");
-  if (requested && !UUID.test(requested)) notFound();
-  const focus = Object.fromEntries(
-    FOCUS.map(k => [k, readQuery(query, k)]).filter(([, v]) => v !== null),
-  ) as { story?: string; motion?: string; regime?: string; event?: string };
+}: { searchParams: Promise<BluebellyExactPrepQuery> }) {
+  const parsed = parseBluebellyExactPrepQuery(await searchParams);
+  if (parsed.state === "invalid") notFound();
 
+  if (parsed.state === "picker") {
+    // A bare URL is an explicit choice list, NOT a current-edition fallback.
+    const [available, pickerDesk] = await Promise.all([
+      getHybridPresenterEditionCandidates({ fresh: true }).catch(() => []),
+      getDeskData().catch(() => null),
+    ]);
+    const editions = buildPresenterPrepEditionIndex(
+      available, pickerDesk?.researchRuns ?? [],
+    ).slice(0, 24);
+    return <main className={desk.page} data-bluebelly-exact-edition="owner-picker">
+      <BlueDeskHeader activePath="/blue-desk/presenter" />
+      <div className={desk.content}>
+        <header className={ui.hero}>
+          <p className={desk.kicker}>PRIVATE PRESENTER / HISTORICAL RESEARCH</p>
+          <h1>Choose an edition.</h1>
+          <p>Select an immutable publication before opening its Story, Motion,
+            Regime or Event context. The newest edition is not selected automatically.</p>
+          <div className={ui.links}>
+            <Link className={ui.action} href="/presenter">Return to today's talk →</Link>
+          </div>
+        </header>
+        <section className={ui.panel} aria-label="Available immutable editions">
+          <h2>Recent published editions</h2>
+          {editions.length ? <ol>
+            {editions.map(row => <li key={row.snapshotId}>
+              <Link href={"/presenter/full-prep?edition=" + encodeURIComponent(row.snapshotId)}>
+                Published <time dateTime={row.publishedAt}>{row.publishedAt}</time>
+                {" · "} Edition {row.snapshotId}
+              </Link>
+            </li>)}
+          </ol> : <p role="status">No source-verified edition index is available.
+            An exact historical UUID link may still be used when the archive is accessible.</p>}
+          <p>Showing up to 24 recent terminal editions. A valid older edition is
+            accessible through its exact UUID, subject to the existing superseder
+            and frozen Dossier checks.</p>
+        </section>
+      </div>
+    </main>;
+  }
+
+  const requested = parsed.editionId;
+  const focus = parsed.focus;
   const [recent, deskData] = await Promise.all([
     getHybridPresenterEditionCandidates({ fresh: true }).catch(() => []),
     getDeskData().catch(() => null),
